@@ -8,7 +8,7 @@ What is written here is acted on, not just read: specs and tickets take their wo
 
 ## Contexts
 
-- [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — skills, the mode and its playbooks and principles, subtrees, install locations, prompts, hosts, notes and ADRs
+- [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — skills, subtrees, install locations, prompts, hosts, notes and ADRs
 - [Tickets](./docs/contexts/tickets/CONTEXT.md): what a spec and a ticket are, how they are written, published and linted, and the labels and queues they carry
 - [Ticket run](./docs/contexts/ticket-run/CONTEXT.md): one ticket being worked from claim to close — events on the ticket, criteria runs, code review, the worker's final run, the advisor, the closing steps and the closeout
 - [Night](./docs/contexts/night/CONTEXT.md): dispatching sessions onto tickets, runners and adapters, workspaces and worktrees, base and project branches, the relay, the watchdog and the turn guard, and the orchestrator's commands

@@ -8,13 +8,11 @@
 #   dispatch.sh board
 #   dispatch.sh adopt <n>
 #   dispatch.sh self
-#   dispatch.sh where [<spec>|<n>]
 #   dispatch.sh advance <spec>
 #   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer
 #   dispatch.sh advise <brief file>
-#   dispatch.sh research <n>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer
 #   dispatch.sh ack <n> <event> | relay.recovered
@@ -375,14 +373,12 @@ usage: dispatch.sh check <spec>
        dispatch.sh board
        dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
-       dispatch.sh where [<spec>|<n>]
        dispatch.sh advance <spec>
        dispatch.sh integrate <n>
        dispatch.sh integrated <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer
        dispatch.sh advise <brief file>
-       dispatch.sh research <n>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer
        dispatch.sh ack <n> <event> | relay.recovered
@@ -578,43 +574,6 @@ own_session() {
   return 2
 }
 
-# Read this session's event-derived position. No watch, ticket or model selection is
-# changed; an unreadable identity or source is one UNKNOWN line, never an empty answer.
-where_one() {
-  local number="${1:-}" line repo name session out err rc
-  local -a target=()
-  if [ -n "$number" ]; then
-    case "$number" in
-      *[!0-9]*) printf 'UNKNOWN the spec or ticket number must be digits only\n'; return 2 ;;
-    esac
-    target+=("$number")
-  fi
-  if ! line="$(own_session 2>&1)"; then
-    printf 'UNKNOWN %s\n' "$(printf '%s' "$line" | tr '\n' ' ')"
-    return 2
-  fi
-  name="${line%%$'\t'*}"
-  session="${line#*$'\t'}"
-  if ! repo="$(repo_slug 2>&1)"; then
-    printf 'UNKNOWN %s\n' "$(printf '%s' "$repo" | tr '\n' ' ')"
-    return 2
-  fi
-  err="$(mktemp)"
-  out="$(python3 "$STATUS" --where --runner "$name" --session "$session" --repo "$repo" \
-        "${target[@]+"${target[@]}"}" 2>"$err")"
-  rc=$?
-  case "$out" in
-    AT\ * | BETWEEN\ * | FRESH\ * | UNKNOWN\ *)
-      printf '%s\n' "$out"
-      rm -f "$err"
-      return "$rc" ;;
-    *)
-      printf 'UNKNOWN status.py could not establish a position: %s\n' "$(tr '\n' ' ' < "$err")"
-      rm -f "$err"
-      return 2 ;;
-  esac
-}
-
 # Exit 0 when a running relay sees ticket <n>'s events — a watch of the ticket's spec, or of
 # the ticket — or, with no ticket, when it watches <spec>. Otherwise the reason on stderr.
 relay_watches() {
@@ -637,7 +596,7 @@ revive_night_watch() {
   runner="$(newest_field "$spec" runner spec.opened spec.suspended spec.closed 2>/dev/null)" || return 1
   session="$(newest_field "$spec" session spec.opened spec.suspended spec.closed 2>/dev/null)" || return 1
   repo="$(repo_slug)" || return 1
-  out="$(python3 "$RELAY" start --repo "$repo" --spec "$spec" --kind night --runner "$runner" --session "$session" 2>&1)" \
+  out="$(python3 "$RELAY" start --repo "$repo" --spec "$spec" --runner "$runner" --session "$session" 2>&1)" \
     || { echo "dispatch: the night on #$spec is open and its watch could not be restored: ${out#relay: }" >&2; return 1; }
   echo "dispatch: the night on #$spec is open and nothing watched it; the watch is restored with $runner session $session as its orchestrator" >&2
 }
@@ -733,7 +692,7 @@ project_for_night() {
   local candidate name merge_base distance best="" best_distance="" ties=""
   while IFS= read -r candidate; do
     name="${candidate#refs/remotes/origin/}"
-    case "$name" in HEAD|"$into"|"$default"|issue-*|research/*) continue ;; esac
+    case "$name" in HEAD|"$into"|"$default"|issue-*) continue ;; esac
     merge_base="$(git -C "$root" merge-base "refs/heads/$into" "$candidate" 2>/dev/null)" || continue
     distance="$(git -C "$root" rev-list --count "$merge_base..refs/heads/$into" 2>/dev/null)" || continue
     if [ -z "$best_distance" ] || [ "$distance" -lt "$best_distance" ]; then
@@ -905,7 +864,7 @@ open_night() {
   sync_base_with_project "$root" "$into" "$project" || exit 2
   repository="$(repo_slug)" || exit 2
   ensure_repository_memory "$repository" || exit 2
-  opened="$(open_relay --spec "$spec" --kind night)" || exit 2
+  opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
        --line "NIGHT OPENED #$spec: wake-ups go to the orchestrator, $runner session $session" \
@@ -937,7 +896,7 @@ open_night() {
 # not start is said on stderr and leaves the watch open.
 open_ticket() {
   local number="$1" opened runner session how board
-  opened="$(open_relay --tickets "$number" --kind ticket)" || exit 2
+  opened="$(open_relay --tickets "$number")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if board="$(ensure_board)"; then
     echo "opened #$number: wake-ups go to $runner session $session; task board $board"
@@ -1039,7 +998,7 @@ for r in state.get("sessions") or []:
   local started=""
   if ! relay_watches "$number" "$spec" 2>/dev/null; then
     local opened
-    opened="$(open_relay --tickets "$number" --kind adopted-ticket)" \
+    opened="$(open_relay --tickets "$number")" \
       || refuse "no relay watches #$number and no watch could be opened for it (the reason is above), so nothing was adopted"
     case "$opened" in *$'\t'started) started=1 ;; esac
   fi
@@ -1211,32 +1170,6 @@ clear_stray_workspace() {
   return 1
 }
 
-# Check an existing worktree without changing its branch or files. An absent
-# directory needs no check; the caller decides whether and when to create it.
-require_worktree_branch() {
-  local dest="$1" branch="$2" retry="$3" on
-  [ -d "$dest" ] || return 0
-  on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  [ "$on" = "$branch" ] && return 0
-  echo "dispatch: $dest is on ${on:-no branch}, not $branch; it is not this ticket's worktree; move it or rename it, then $retry" >&2
-  return 1
-}
-
-# Attach the existing branch, or cut a new branch at the caller's chosen ref.
-# git creates leading directories; a failure leaves its own error visible.
-add_branch_worktree() {
-  local root="$1" dest="$2" branch="$3" from="$4" retry="$5"
-  local args=(worktree add --quiet)
-  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    args+=("$dest" "$branch")
-  else
-    args+=(-b "$branch" "$dest" "$from")
-  fi
-  git -C "$root" "${args[@]}" && return 0
-  echo "dispatch: could not create $dest on $branch (new branches start at $from), so no session was started; resolve the git error above, then $retry" >&2
-  return 1
-}
-
 # Read-only checks that must pass before a replacement stops the worker holding the
 # ticket. `ensure_workspace` repeats them after the stop because origin may move between
 # the check and the worktree update.
@@ -1247,7 +1180,14 @@ workspace_origin_ready() {
   fetch_origin "$root" || return 1
   require_origin_branch "$root" "$into" || return 1
   clear_stray_workspace "$root" "$dest" || return 1
-  require_worktree_branch "$dest" "$branch" "start again" || return 1
+  if [ -d "$dest" ]; then
+    local on
+    on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [ "$on" = "$branch" ] || {
+      echo "dispatch: $dest is on ${on:-no branch}, not $branch; it is not this ticket's worktree — move it or rename it, then start again" >&2
+      return 1
+    }
+  fi
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch" \
       && git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
     read -r local_left remote_left <<<"$(git -C "$root" rev-list --left-right --count "$branch...origin/$branch")"
@@ -1408,7 +1348,12 @@ ensure_workspace() {
   fetch_origin "$root" || return 1
   require_origin_branch "$root" "$into" || return 1
   clear_stray_workspace "$root" "$dest" || return 1
-  require_worktree_branch "$dest" "$branch" "start again" || return 1
+  if [ -d "$dest" ]; then
+    local on
+    on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [ "$on" = "$branch" ] \
+      || { echo "dispatch: $dest is on ${on:-no branch}, not $branch; it is not this ticket's worktree — move it or rename it, then start again" >&2; return 1; }
+  fi
   remote=0
   git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch" && remote=1
 
@@ -1436,10 +1381,20 @@ ensure_workspace() {
     printf '%s\t%s\t0\n' "$dest" "$dest"
     return 0
   fi
-  local from="origin/$into"
-  [ "$remote" = 0 ] || from="origin/$branch"
-  add_branch_worktree "$root" "$dest" "$branch" "$from" "start again" || return 1
-  created=1
+  mkdir -p "$root/.worktrees"
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$root" worktree add --quiet "$dest" "$branch" \
+      || { echo "dispatch: could not create a worktree for $branch" >&2; return 1; }
+    created=1
+  elif [ "$remote" = 1 ]; then
+    git -C "$root" worktree add --quiet -b "$branch" "$dest" "origin/$branch" \
+      || { echo "dispatch: could not create a worktree for $branch from origin/$branch" >&2; return 1; }
+    created=1
+  else
+    git -C "$root" worktree add --quiet -b "$branch" "$dest" "origin/$into" \
+      || { echo "dispatch: could not create a worktree for $branch from origin/$into" >&2; return 1; }
+    created=1
+  fi
   if [ "$remote" = 0 ]; then
     push_ticket_branch "$number" "$dest" || return 1
   fi
@@ -2124,37 +2079,6 @@ advise_one() {
   printf '%s\n' "$session"
 }
 
-# Start a research session in its own worktree without opening a watch or writing
-# ticket events. Its branch starts at the caller's HEAD and is left for the session
-# to commit and push; later calls reuse it without resetting any research work.
-research_one() {
-  local number="$1"
-  use_runner "$(tonight_runner)"
-  use_catalog_of "$RUNNER_NAME"
-
-  local row host model effort
-  row="$(row_for_role researcher)" || exit 2
-  local models_path=${MODELS_PY//\'/\'\\\'\'}
-  [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 '$models_path' config set researcher codex \"gpt 6 sol\" high, then research $number again"
-  IFS=$'\t' read -r host model effort <<<"$row"
-
-  local root cwd branch prompt session
-  root="$(git rev-parse --show-toplevel 2>/dev/null)"
-  [ -n "$root" ] || refuse "not inside a git repository, so there is no HEAD to start research/$number from; run research $number from a worktree"
-  cwd="$(worktrees_root)/research-$number"
-  branch="research/$number"
-  clear_stray_workspace "$root" "$cwd" || exit 2
-  require_worktree_branch "$cwd" "$branch" "research $number again" || exit 2
-  if [ ! -d "$cwd" ]; then
-    add_branch_worktree "$root" "$cwd" "$branch" HEAD "research $number again" || exit 2
-  fi
-  prompt="Use the research skill to resolve research ticket #$number in this session and start no other agent. Commit the report to the current branch research/$number and push it, post a resolution comment on #$number that links the report file on that branch and gives the answer in three sentences, then close #$number. $AUTONOMOUS"
-  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number researcher $$")"; then
-    refuse "$RUNNER_NAME did not start $host as researcher for #$number (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then research $number again"
-  fi
-  printf '%s\n' "$session"
-}
-
 # ------------------------------------------------------------------ retract
 
 # Undo what start left behind when its session is gone: archive the workspace,
@@ -2418,17 +2342,22 @@ check_machine() {
   fi
 
   # What install.sh checks is this machine's whole toolbox, most of it nothing the night
-  # uses, and what the night does use is checked below by what reads it. An incomplete
-  # install does not stop the night, and check does not install: it reports what is still
-  # missing. The orchestrator shows that report and asks the user; open runs only after
-  # they answer, with the install or without it.
-  local install_out
+  # uses, and what the night does use is checked below by what reads it. So an incomplete
+  # install does not stop the night: when this checkout is the installed one, install.sh
+  # runs to repair it; whatever is still missing after that is said and left.
   if [ ! -f "$INSTALLER" ]; then
     echo "dispatch: warning: no install.sh at $INSTALLER, so the install was not checked" >&2
-  elif ! install_out="$(bash "$INSTALLER" --check 2>&1)"; then
-    echo "dispatch: warning: install.sh --check still finds this, which the night does not wait on:" >&2
-    printf '%s\n' "$install_out" | grep -E '缺|残留|不齐|不一致|没查|不是|没在跑' | sed 's/^/  /' >&2
-    echo "dispatch: install.sh runs only after the user authorises it; do not run open before the user answers" >&2
+  elif ! bash "$INSTALLER" --check >/dev/null 2>&1; then
+    local installed_root_file="${MMW_HOME:-$HOME/.mmw}/installed-root" install_out
+    if [ -f "$installed_root_file" ] \
+       && [ "$(cd "$(cat "$installed_root_file")" 2>/dev/null && pwd -P)" = "$(cd "$(dirname "$INSTALLER")" && pwd -P)" ]; then
+      install_out="$(bash "$INSTALLER" 2>&1)" \
+        || echo "dispatch: warning: install.sh did not finish: $(printf '%s' "$install_out" | tail -2 | tr '\n' ' ')" >&2
+    fi
+    if ! install_out="$(bash "$INSTALLER" --check 2>&1)"; then
+      echo "dispatch: warning: install.sh --check still finds this, which the night does not wait on:" >&2
+      printf '%s\n' "$install_out" | grep -E '缺|残留|不齐|不一致|没查|不是|没在跑' | sed 's/^/  /' >&2
+    fi
   fi
 
   # The selected runner has to be one this skill has an adapter for, and every row `start`
@@ -4645,6 +4574,8 @@ if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
   exit $?
 fi
 
+[ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
+
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
 # positional. A script of another skill is looked up by basename in those directories,
 # in the order given.
@@ -4670,8 +4601,6 @@ while [ "$#" -gt 0 ]; do
 done
 set -- ${positional[@]+"${positional[@]}"}
 
-[ "${1:-}" = where ] || [ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
-
 tool() {
   local dir
   for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
@@ -4686,13 +4615,8 @@ SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
 LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/ui-acceptance/scripts/lease.py")"
 VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
 EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
-if [ ! -f "$EVENTS" ]; then
-  if [ "${1:-}" = where ]; then
-    printf 'UNKNOWN no events.py at %s; run bash mmw-v2/install.sh --check\n' "$EVENTS"
-    exit 2
-  fi
-  refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
-fi
+[ -f "$EVENTS" ] \
+  || refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
 # `status.py` folds the same events, and reads them through the same file.
 export MMW_EVENTS_PY="$EVENTS"
 # `advance` runs `start` through this same script; the directories travel with it.
@@ -4702,10 +4626,6 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
-  where)
-    [ "$#" -le 2 ] || { printf 'UNKNOWN where takes at most one spec or ticket number\n'; exit 2; }
-    where_one "${2:-}"
-    exit $? ;;
   board)
     [ "$#" -eq 1 ] || usage
     open_board
@@ -4776,11 +4696,6 @@ case "${1:-}" in
   advise)
     [ "$#" -eq 2 ] || usage
     advise_one "$2"
-    ;;
-  research)
-    [ "$#" -eq 2 ] || usage
-    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
-    research_one "$2"
     ;;
   retract)
     [ "$#" -eq 2 ] || usage

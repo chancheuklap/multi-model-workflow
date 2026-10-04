@@ -5,7 +5,7 @@ Two ways in, and they meet at the same place — a release manifest, written onc
 - The product has never been packaged. Work through everything below.
 - The product ships today through its own packaging scripts. Read "Coming from existing packaging scripts" at the end; most of what follows already exists in that repository.
 
-Then write the release manifest: [release-manifest.md](release-manifest.md).
+Then write the release manifest: [key.md](key.md).
 
 ## The product shape this skill packages
 
@@ -20,13 +20,14 @@ Each item is work in the product repository, and the agent adding the product wr
 | A backend entry module per compiled executable | nothing to compile |
 | Runtime dependencies resolvable by one command | the compile packages the dev environment, not the shipped one |
 | A smoke module the **compiled exe** can run | a green build that crashes on the customer's machine |
+| A list of the modules a source run loads (`required_modules_file`) | a module loaded only at call time is missing, and only that feature crashes |
 | An `electron-builder.yml` that carries the backend | a package that installs and then does nothing |
 | A committed frontend lockfile | this package's dependencies are not the ones the repository records |
 | An `.ico` per window the product shows | a default icon on a paid product |
 
 ### The smoke module
 
-The only thing standing between a missing dynamic dependency and a customer finding it. It is a module that imports everything the app needs before it can serve its first request, and returns:
+The only thing standing between a missing dynamic dependency and a customer finding it. Importing a list of modules is not enough: a library that loads a submodule while one of its functions runs passes every import and still fails on the customer's machine. So the smoke also runs the paths a customer machine runs -- start the server and wait for its first answer, pack a diagnostic bundle, render one frame -- in a throwaway directory, with no network and no charges. At minimum it imports everything the app needs before it can serve its first request, and returns:
 
 ```python
 SMOKE_IMPORTS = (
@@ -86,7 +87,7 @@ Missing in both places is a `PAUSED:needs-context` you can often close yourself:
 
 ## Coming from existing packaging scripts
 
-A product that ships today through its own Python is the same job read backwards. Open each script and sort it with the one question from [release-manifest.md](release-manifest.md):
+A product that ships today through its own Python is the same job read backwards. Open each script and sort it with the one question from [key.md](key.md):
 
 - **Constants — lists of packages, paths, flags, versions, names.** These are the release manifest. Copy the values across verbatim. Do not re-decide any of them: a value in there is usually a fix for something that once broke, and the commit that explains it is long gone.
 - **Functions that build a command or copy a tree.** These are the skill. If the skill already does it, delete the copy. If it does not, add the capability there — not a second copy here.

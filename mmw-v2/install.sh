@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 # 把九样东西装到本机，让每个 host 都读得到：
 #
-#   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills；
-#                     +model-invoked 的目标是 ~/.mmw/skill-copies/<名>/ 安装副本
-#   hook              经复制的 .mmw/bin/hook-launcher 登记（普通文件，不是软链）。源文件是
-#                     mmw-v2/hook-launcher.py；各 host 的命令都调这个启动器，由它按
-#                     installed-root 找到 tool-guard.py、turn-guard.py 与 mode-hook.py。
-#                     mode-hook 依据 U-2，只登记 Claude Code、Codex 的 SessionStart、
-#                     SubagentStart、UserPromptSubmit 三个事件。
+#   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
+#   hook              dispatch 的 tool-guard.py 与 turn-guard.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
@@ -24,46 +19,28 @@
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
 # install 摘掉，--check 报残留。
 #
-# 技能有四个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
-# 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/），
-# pstack 的在 upstream-pstack/skills/（前缀 pstack/）。来源不决定装法，行尾标记决定。
+# 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
+# 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
+# 装法完全一样。
 #
-# skills.txt 一行的路径后面可以跟行尾标记 +model-invoked，表示这个上游技能被 mode 或
-# playbook 点名、要让模型自己能调用；带标记的一行从路径部分生成安装副本。
-#
-# 不带标记的技能软链不是拷贝：host 读的就是 source directory 的文件，改动下一次调用生效。
-# 带标记的技能有安装副本：SKILL.md 去掉 frontmatter 的 disable-model-invocation 行，
-# agents/openai.yaml 去掉顶层 policy 块；两份是普通文件，改源后要重跑 install.sh 才生效。
-# agents/ 是真目录，其余每项软链回源，仍即改即生效。description 由 host 启动时扫描，
-# 改它另要重开会话。
+# 软链不是拷贝：host 读的就是仓库里那个文件。在用技能的当中直接改 source directory 下的
+# SKILL.md，下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是 host 启动时扫的，
+# 改它要重开会话。）
 #
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
 #                         另读 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
-#                         核对复制的 .mmw/bin/hook-launcher 与 mmw-v2/hook-launcher.py 逐字节相同
-#                         且不是软链，并核对各 host 的 hook 都经 hook-launcher；不同报「不一致」，
-#                         这一项改退出码。
-#                         比对带标记技能的安装副本，缺失、内容或软链不符报「副本过期」，
-#                         取消标记或删除技能后留下的副本报「残留」；两项都回 1。
-#                         用本 checkout 的 check_wiring.py 核对连线，只打印第 2、7 类，
-#                         report 行不改退出码，其他选中类别的行回 1。跑不起来报「没查」并回 1。
-#                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
-#                         watch（行首 OPEN-WATCH），以及锁文件记录的进程仍在运行的 relay.lock、
-#                         watchdog.lock（行首 LIVE-LOCK）。
-#                         watches.json 在但读不成时点名该文件，不当成没有夜。
-#                         末行是 SAFE-TO-MOVE-INSTALLED，或 NOT-SAFE-TO-MOVE-INSTALLED。
-#                         这份列表不改退出码。
 #
 # 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
 # 技能装两处，不按 host 分。~/.agents/skills 不属于任何一个 host，Codex、Cursor、Grok、Pi
 # 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。两处装的是
-# 同一批软链，不带标记的指向 source directory，带标记的指向安装副本，彼此不串。
+# 同一批软链，都直接指向 source directory，彼此不串。
 #
 # 每个 host 都读 SKILL.md 的 disable-model-invocation，Codex 另读技能目录里的
-# agents/openai.yaml。带标记的安装副本统一去掉这两处开关，不带标记的保持源文件；
-# 技能内容没有任何按 host 分支的逻辑。
+# agents/openai.yaml。两者都在技能目录内，软链一并带过去，所以技能安装没有任何按 host
+# 分支的逻辑。
 #
 
 set -euo pipefail
@@ -72,16 +49,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$ROOT/upstream/skills"
 SELF_SRC="$ROOT/skills"
 DD_SRC="$ROOT/upstream-diagram-design/skills"
-PSTACK_SRC="$ROOT/upstream-pstack/skills"
 LIST="$ROOT/skills.txt"
 
 # 一条软链是不是本仓库装的：目标落在本仓库任一 checkout（主 checkout 或某个 worktree）
-# 的对应 source directory 里，或安装目标家目录的 skill-copies 下，按路径段认。
-# ADR 0006 说的「指回本仓库」是仓库，不是某一个
+# 的对应 source directory 里，按路径段认。ADR 0006 说的「指回本仓库」是仓库，不是某一个
 # checkout：从哪个 checkout 运行本脚本，哪个 checkout 的 source directory 就接管这批软链。
 ours_skill_target() {
   case "$1" in
-    "$SKILL_COPIES/"* | */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/* | */mmw-v2/upstream-pstack/skills/*) return 0 ;;
+    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/*) return 0 ;;
   esac
   return 1
 }
@@ -124,7 +99,6 @@ stale_links() {
 
 # MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
 HOME_DIR="${MMW_V2_HOME:-$HOME}"
-SKILL_COPIES="$HOME_DIR/.mmw/skill-copies"
 
 # 不属于任何一个 host，所以无条件建。
 NEUTRAL_DIR="$HOME_DIR/.agents/skills"
@@ -166,40 +140,21 @@ fi
 [ -f "$LIST" ] || die "缺 skills.txt：$LIST"
 [ -d "$SKILLS_SRC" ] || die "缺 upstream 技能目录：$SKILLS_SRC"
 
-# 读 skills.txt。一行是 <前缀>/<名>，后面可以跟一个 +model-invoked。
-# 别的记号，或标记写在 self/ 行上，在这里停下：这时还没有建任何 host 目录。
-# 每个技能都要真的存在——写错要在动 host 之前就停。
+# 读 skills.txt。顺便当场验证每个都真的存在——写错要在动 host 之前就停。
 wanted_dirs=()
 wanted_names=()
-copy_sources=()
 while IFS= read -r line; do
   line="${line%%#*}"
-  tokens=()
-  read -r -a tokens <<< "$line"
-  [ "${#tokens[@]}" -gt 0 ] || continue
-  path="${tokens[0]}"
-  if [ "${#tokens[@]}" -ne 1 ]; then
-    if [ "${#tokens[@]}" -ne 2 ] || [ "${tokens[1]}" != "+model-invoked" ]; then
-      die "skills.txt 的这一行有不认识的记号：${tokens[*]}。只认 +model-invoked；删掉或改正这个记号"
-    fi
-    case "$path" in
-      self/*) die "skills.txt 的 self/ 行不能带 +model-invoked：${tokens[*]}。self/ 技能的 frontmatter 没有调用开关可去；删掉标记" ;;
-    esac
-  fi
-  case "$path" in
-    self/*) dir="$SELF_SRC/${path#self/}" ;;
-    dd/*) dir="$DD_SRC/${path#dd/}" ;;
-    pstack/*) dir="$PSTACK_SRC/${path#pstack/}" ;;
-    *) dir="$SKILLS_SRC/$path" ;;
+  line="$(echo "$line" | tr -d '[:space:]')"
+  [ -n "$line" ] || continue
+  case "$line" in
+    self/*) dir="$SELF_SRC/${line#self/}" ;;
+    dd/*) dir="$DD_SRC/${line#dd/}" ;;
+    *) dir="$SKILLS_SRC/$line" ;;
   esac
-  [ -f "$dir/SKILL.md" ] || die "skills.txt 里的技能不存在：$path"
-  if [ "${#tokens[@]}" -eq 2 ]; then
-    copy_sources+=("$dir")
-    wanted_dirs+=("$SKILL_COPIES/$(basename "$path")")
-  else
-    wanted_dirs+=("$dir")
-  fi
-  wanted_names+=("$(basename "$path")")
+  [ -f "$dir/SKILL.md" ] || die "skills.txt 里的技能不存在：$line"
+  wanted_dirs+=("$dir")
+  wanted_names+=("$(basename "$line")")
 done < "$LIST"
 
 [ "${#wanted_names[@]}" -gt 0 ] || die "skills.txt 是空的：$LIST"
@@ -213,141 +168,6 @@ installed_dests=0
 # hook 一段的成败。跑过且齐了才打印 HOOKS-INSTALLED。
 hooks_ran=0
 hooks_rc=0
-
-# 安装副本的两个普通文件由源字节生成，其他项仍指回源目录。
-# check 与 install 共用这一份预期，check 不建目录、不修复。
-copy_args=("$mode" "$SKILL_COPIES")
-if [ "${#copy_sources[@]}" -gt 0 ]; then
-  copy_args+=("${copy_sources[@]}")
-fi
-python3 - "${copy_args[@]}" <<'PY' || rc=1
-import re
-import shutil
-import sys
-from pathlib import Path
-
-mode, copies = sys.argv[1], Path(sys.argv[2])
-sources = [Path(value) for value in sys.argv[3:]]
-
-
-def skill_bytes(path):
-    lines = path.read_bytes().splitlines(keepends=True)
-    if not lines or lines[0].strip() != b'---':
-        raise ValueError('frontmatter 缺少开头的 ---')
-    end = next((i for i in range(1, len(lines)) if lines[i].strip() == b'---'), None)
-    if end is None:
-        raise ValueError('frontmatter 缺少结束的 ---')
-    return b''.join(line for i, line in enumerate(lines)
-                    if not (0 < i < end and re.match(rb'disable-model-invocation\s*:', line)))
-
-
-def openai_bytes(path):
-    lines = path.read_bytes().splitlines(keepends=True)
-    kept = []
-    policy = False
-    for line in lines:
-        if re.match(rb'policy\s*:', line):
-            policy = True
-            continue
-        if policy and (not line.strip() or line[:1] in (b' ', b'\t')):
-            continue
-        policy = False
-        kept.append(line)
-    return b''.join(kept)
-
-
-def copy_matches(copy, directories, files, links):
-    if not copy.is_dir() or copy.is_symlink():
-        return False
-    actual = {item.name for item in copy.iterdir()}
-    for name in directories:
-        target = copy / name
-        if not target.is_dir() or target.is_symlink():
-            return False
-        actual.update(name + '/' + item.name for item in target.iterdir())
-    for name, data in files.items():
-        target = copy / name
-        if not target.is_file() or target.is_symlink() or target.read_bytes() != data:
-            return False
-    for name, source in links.items():
-        target = copy / name
-        if not target.is_symlink() or target.readlink() != source:
-            return False
-    return actual == directories | files.keys() | links.keys()
-
-
-def remove_copy(path):
-    if path.is_symlink() or path.is_file():
-        path.unlink()
-    else:
-        shutil.rmtree(path)
-
-
-failed = False
-action = '没查' if mode == 'check' else '未生成'
-retry = '--check' if mode == 'check' else 'install.sh'
-for source in sources:
-    copy = copies / source.name
-    try:
-        directories, files, links = set(), {'SKILL.md': skill_bytes(source / 'SKILL.md')}, {}
-        for item in source.iterdir():
-            if item.name == 'SKILL.md':
-                continue
-            if item.name == 'agents' and item.is_dir():
-                directories.add('agents')
-                for agent in item.iterdir():
-                    name = 'agents/' + agent.name
-                    if agent.name == 'openai.yaml':
-                        files[name] = openai_bytes(agent)
-                    else:
-                        links[name] = agent
-            else:
-                links[item.name] = item
-    except (OSError, ValueError) as exc:
-        path = getattr(exc, 'filename', None) or source / 'SKILL.md'
-        print(f'{action}  安装副本 {copy}：源文件 {path} 无法生成副本（{exc}）；'
-              f'修正源文件格式或读取权限后再跑 {retry}', file=sys.stderr)
-        failed = True
-        continue
-    try:
-        if mode == 'check':
-            if not copy_matches(copy, directories, files, links):
-                print(f'副本过期  {copy}：跑一次 install.sh 重新生成', file=sys.stderr)
-                failed = True
-        else:
-            if copy.is_symlink() or copy.exists():
-                remove_copy(copy)
-            copy.mkdir(parents=True)
-            for name in directories:
-                (copy / name).mkdir(parents=True, exist_ok=True)
-            for name, data in files.items():
-                target = copy / name
-                target.write_bytes(data)
-            for name, source_item in links.items():
-                (copy / name).symlink_to(source_item)
-    except OSError as exc:
-        print(f'{action}  安装副本 {copy}：{exc}；'
-              f'检查报错路径的类型与访问权限后再跑 {retry}', file=sys.stderr)
-        failed = True
-try:
-    keep = {source.name for source in sources}
-    if copies.is_dir():
-        for stale in sorted(copies.iterdir()):
-            if not stale.is_dir() or stale.name in keep:
-                continue
-            if mode == 'check':
-                print(f'残留  {stale} 不在带标记的名单里，跑一次 install.sh 摘掉', file=sys.stderr)
-                failed = True
-            else:
-                remove_copy(stale)
-                print(f'摘掉  {stale}')
-except OSError as exc:
-    action = '没查' if mode == 'check' else '未清理'
-    print(f'{action}  残留副本 {copies}：{exc}；'
-          f'检查报错路径的类型与访问权限后再跑 {retry}', file=sys.stderr)
-    failed = True
-raise SystemExit(1 if failed else 0)
-PY
 
 for dest in "${HOST_DIRS[@]}"; do
   host_home="$(dirname "$dest")"
@@ -492,10 +312,7 @@ done
 # 三样东西：dispatch 的 tool-guard.py 的 pretool gate（五个 host）与 question gate（起 session
 # 的三个 host），同一技能的 turn-guard.py 挂在五个 host 的回合结束事件上（claude、codex、grok
 # 的 Stop，cursor 的 stop，pi 的 agent_settled）。四家写 JSON，pi 写扩展文件；每一处都指向
-# 安装目标家目录下复制的 ~/.mmw/bin/hook-launcher。启动器按 installed-root 找到脚本，
-# 脚本搬动不改变登记命令；启动器源文件改动则需重新安装，--check 逐字节核对副本。
-# mode-hook.py 是辅助提示，按 U-2 只挂在 claude、codex 的 SessionStart、SubagentStart、
-# UserPromptSubmit，任何失败都不拦截；其他 host 不登记。
+# ~/.agents/skills 下的脚本——那已经是指回仓库的软链，所以改脚本不用重装。
 #
 # Cursor 与 Grok 都读 ~/.claude/settings.json，Grok 还读 ~/.cursor/hooks.json，所以写给 claude
 # 的每一条命令前面都带同一个环境变量守卫：GROK_AGENT 或 GROK_HOOK_EVENT 有值就退出——两个都判，
@@ -511,8 +328,8 @@ HOOK_SRC="$SELF_SRC/dispatch/scripts/tool-guard.py"
 if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
   MMW_MODE="$mode" \
-  MMW_LAUNCHER="$HOME_DIR/.mmw/bin/hook-launcher" \
-  MMW_LAUNCHER_SRC="$ROOT/hook-launcher.py" \
+  MMW_HOOK="$NEUTRAL_DIR/dispatch/scripts/tool-guard.py" \
+  MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
@@ -526,43 +343,24 @@ from datetime import datetime
 from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
-launcher = Path(os.environ["MMW_LAUNCHER"])
-launcher_source = Path(os.environ["MMW_LAUNCHER_SRC"])
+hook = os.environ["MMW_HOOK"]
 neutral = os.environ["MMW_NEUTRAL"]
 home = Path(os.environ["MMW_HOOK_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
-failed = False
-
-if mode == "check":
-    try:
-        same = (launcher.is_file() and not launcher.is_symlink()
-                and launcher.read_bytes() == launcher_source.read_bytes())
-    except OSError:
-        same = False
-    if not same:
-        sys.stderr.write(f"不一致  {launcher} 与 {launcher_source} 不同或不是普通副本："
-                         "run bash mmw-v2/install.sh\n")
-        failed = True
-else:
-    launcher.parent.mkdir(parents=True, exist_ok=True)
-    scratch = launcher.with_name(launcher.name + ".mmw-tmp")
-    scratch.write_bytes(launcher_source.read_bytes())
-    scratch.chmod(0o755)
-    scratch.replace(launcher)
 
 # tool-guard.py 只比对命令文本，不跑任何东西，所以给它 host 默认之下的一个短超时就够。
 TIMEOUT = 10
 
 PI_EXTENSION = """// installed by mmw-v2/install.sh
 // tool-guard.py 在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 tool_call 上调
-// hook-launcher 的 tool-guard，再把它的答案翻回 pi 的说法。
+// 同一个 tool-guard.py，再把它的答案翻回 pi 的说法。
 // @ts-nocheck
 
 import { spawnSync } from "node:child_process";
 import { basename } from "node:path";
 
-const LAUNCHER = "%(launcher)s";
+const HOOK = "%(hook)s";
 
 export default function (pi) {
   // cwd 的 basename 是 issue-<n> 才调 tool-guard.py；orchestrator 不在这样的目录里。
@@ -570,12 +368,11 @@ export default function (pi) {
 
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
-    const run = spawnSync("python3", [LAUNCHER, "tool-guard", "pretool", "pi"], {
+    const run = spawnSync("python3", [HOOK, "pretool", "pi"], {
       input: JSON.stringify({ tool_name: "bash", tool_input: event.input }),
       encoding: "utf8",
       timeout: %(timeout)d000,
     });
-    if (run.status === 2) return { block: true, reason: (run.stderr || "").trim() };
     const answer = (run.stdout || "").trim();
     if (!answer) return;
     try {
@@ -584,17 +381,18 @@ export default function (pi) {
     } catch {}
   });
 }
-""" % {"launcher": launcher, "timeout": TIMEOUT}
+""" % {"hook": hook, "timeout": TIMEOUT}
 
-COMMAND = f"exec python3 '{launcher}' tool-guard pretool "
-QUESTION = f"exec python3 '{launcher}' tool-guard question "
+COMMAND = f"python3 '{hook}' pretool "
+QUESTION = f"python3 '{hook}' question "
 
+guard = os.environ["MMW_GUARD"]
 # turn-guard.py 在回合结束时可能要拉起 watchdog 并等它最多 5 秒，再问 runner 一次 self，
 # 所以给它比 tool-guard.py 长的超时。
 GUARD_TIMEOUT = 30
-STOP = f"exec python3 '{launcher}' turn-guard stop "
+STOP = f"python3 '{guard}' stop "
 # 写给 claude 的每一条命令前面都带它（见本段开头）。
-GROK_GUARD = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
+GROK_GUARD = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec '
 # Cursor 自己的回合上限：turn-guard.py 只在 loop_count 为 0 时要一次 follow-up，这个数是
 # 脚本失灵时 Cursor 那一侧仍然成立的外层边界。
 CURSOR_LOOP_LIMIT = 3
@@ -606,20 +404,20 @@ def for_host(host, command):
 
 GUARD_EXTENSION = """// installed by mmw-v2/install.sh
 // turn-guard.py 在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 agent_settled 上调
-// hook-launcher 的 turn-guard。那一刻 pi 已经不能把这一轮留住；它答 2 时，把它 stderr 上的理由作为
+// 同一个 turn-guard.py。那一刻 pi 已经不能把这一轮留住；它答 2 时，把它 stderr 上的理由作为
 // 一条 follow-up 送回去，由它开下一轮。那一轮自己的 agent_settled 跳过一次，所以只要一次。
 // @ts-nocheck
 
 import { spawn } from "node:child_process";
 
-const LAUNCHER = "%(launcher)s";
+const GUARD = "%(guard)s";
 let followupPending = false;
 
 function runGuard() {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn("python3", [LAUNCHER, "turn-guard", "stop", "pi"], { stdio: ["pipe", "ignore", "pipe"] });
+      child = spawn("python3", [GUARD, "stop", "pi"], { stdio: ["pipe", "ignore", "pipe"] });
     } catch {
       resolve({ code: 0, stderr: "" });
       return;
@@ -650,7 +448,7 @@ export default function (pi) {
     }
   });
 }
-""" % {"launcher": launcher, "timeout": GUARD_TIMEOUT}
+""" % {"guard": guard, "timeout": GUARD_TIMEOUT}
 
 # The tool each host calls to put a question on the screen: the matcher of its
 # question gate. Only hosts that expose a supported question tool carry one.
@@ -690,8 +488,7 @@ def save(path, data):
 def marker_of(command):
     """What identifies one of ours across paths: the script's basename and its gate."""
     head, _, tail = command.rpartition("' ")
-    name = os.path.basename(head.split("'")[-1])
-    return name + "' " + tail
+    return os.path.basename(head.split("'")[-1]) + "' " + tail
 
 
 def ours(handler, command):
@@ -766,8 +563,8 @@ def cursor(path, event, command, timeout=TIMEOUT, extra=None):
     return install, installed
 
 
-def extension(path, text=PI_EXTENSION):
-    """pi 的一个扩展文件，整份写入并回读比对，包括启动器路径、选择器与参数。"""
+def extension(path, text=PI_EXTENSION, needle=None):
+    """pi 的一个扩展文件，整份写入。装没装：带 `needle` 时认它在不在文件里，否则整份对得上。"""
 
     def install():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -778,7 +575,7 @@ def extension(path, text=PI_EXTENSION):
             found = path.read_text(encoding="utf-8")
         except Exception:
             return False
-        return found == text
+        return needle in found if needle is not None else found == text
 
     return install, installed
 
@@ -789,12 +586,12 @@ def extension(path, text=PI_EXTENSION):
 # 一条登记指着一个不再存在的脚本，host 每次触发那个事件都会调用失败，有的 host 因此
 # 挡住每一次输入；所以本仓库写进 host 配置的处理器，这次不装的就摘掉，--check 报残留。
 #
-# 认领判据：命令里的脚本落在 ~/.agents/skills 下，或指向本仓库复制的 hook-launcher。别人
+# 认领判据与软链那边同构：命令里的脚本落在 ~/.agents/skills 下，就是本仓库装的。别人
 # （Herdr、Paseo、Nowledge Mem）的处理器指向自己的目录，一条都不碰。
 #
 # 扫哪几个文件是下面这份显式清单，跟 RETIRED_DIRS 一个道理：「这次装什么」认不出本仓库
 # 曾写在哪个文件里，只有人手记着。不再往某个文件写的时候，把它留在清单里。
-MARKS = (f"'{neutral}/", f"'{launcher}' ")
+MARK = f"'{neutral}/"
 
 # 一行一处：文件、它的格式、整个文件是不是只有本仓库写。
 # 只有本仓库写的那种，条目清空之后连文件一起删——grok 把 hooks/*.json 全部合并读入，
@@ -825,7 +622,7 @@ def sweep(path, fmt, keep):
         left = []
         for handler in handlers:
             command = str(handler.get("command", "")) if isinstance(handler, dict) else ""
-            if any(mark in command for mark in MARKS) and command not in keep:
+            if MARK in command and command not in keep:
                 dropped.append((event, command))
             else:
                 left.append(handler)
@@ -885,7 +682,7 @@ point(home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
       cursor(home / ".cursor/hooks.json", "beforeShellExecution", COMMAND + "cursor"),
       COMMAND + "cursor")
 point(pi_home, pi_home / "extensions/mmw-verify-ticket.ts", "tool_call",
-      extension(pi_home / "extensions/mmw-verify-ticket.ts"))
+      extension(pi_home / "extensions/mmw-verify-ticket.ts", needle=hook))
 
 # turn-guard.py 挂在主 agent 的回合结束事件上。grok 那一条独占一个文件，理由同上。
 stop_hosts = [
@@ -903,19 +700,7 @@ point(home / ".cursor", home / ".cursor/hooks.json", "stop",
 point(pi_home, pi_home / "extensions/mmw-turn-guard.ts", "agent_settled",
       extension(pi_home / "extensions/mmw-turn-guard.ts", GUARD_EXTENSION))
 
-# U-2: Claude Code 2.1.285、Codex 0.159.2（2026-09-30；results.md 与 #613）
-# 三个事件都能注入一行。where 的 20 秒时限短于宿主的 GUARD_TIMEOUT。
-for host, host_home, path in grouped_hosts:
-    if host not in ("claude", "codex"):
-        continue
-    for event, argument, timeout in (
-        ("SessionStart", "session-start", GUARD_TIMEOUT),
-        ("SubagentStart", "subagent-start", TIMEOUT),
-        ("UserPromptSubmit", "prompt-submit", TIMEOUT),
-    ):
-        command = for_host(host, f"exec python3 '{launcher}' mode-hook {argument} ")
-        point(host_home, path, event, grouped(path, event, None, command, timeout), command)
-
+failed = False
 count = 0
 for host_home, path, event, (install, installed) in points:
     if not host_home.is_dir():
@@ -926,8 +711,7 @@ for host_home, path, event, (install, installed) in points:
             print(f"hook  {path}  {event}")
             count += 1
         else:
-            sys.stderr.write(f"不一致  {path}  {event} 没有经 {launcher} 登记："
-                             "run bash mmw-v2/install.sh\n")
+            sys.stderr.write(f"缺    {path}  {event}\n")
             failed = True
         continue
     install()
@@ -938,7 +722,8 @@ for host_home, path, event, (install, installed) in points:
         continue
     count += 1
 
-# 装完再扫：当前命令在 keep 里；能认领、却不在 keep 里的登记全部摘掉。
+# 装完再扫：一条只是换了路径的注册，上面已经原地更新过，它的新命令就在 keep 里；
+# 剩下认领得出、却没人再装的，才是上一代的残留。
 for path, fmt, mmw_owned in SWEPT:
     if not path.exists():
         continue
@@ -948,7 +733,7 @@ for path, fmt, mmw_owned in SWEPT:
     if mode == "check":
         for event, command in dropped:
             sys.stderr.write(f"残留  {path}  {event}  {command}"
-                             " 指向本仓库的 hook，这次却不装它，跑一次 install.sh 摘掉\n")
+                             f" 指向 ~/.agents/skills，这次却不装它，跑一次 install.sh 摘掉\n")
         failed = True
         continue
     if mmw_owned and not (data.get("hooks") or {}):
@@ -1836,56 +1621,6 @@ sys.exit(1 if failed else 0)
 PY
 fi
 
-# ---------------- 连线检查第 2、7 类 ----------------
-# CLASS_POLICY 由检查器自己管：report 行只报告，其他选中类别的行让 --check 失败。
-if [ "$mode" = check ]; then
-  MMW_WIRING="$ROOT/tests/lib/check_wiring.py" \
-  MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" python3 - <<'PY' || rc=1
-import os
-import re
-import shutil
-import subprocess
-import sys
-from pathlib import Path
-
-checker = Path(os.environ['MMW_WIRING'])
-
-
-def unchecked(reason):
-    detail = ' '.join(str(reason).splitlines())
-    print(f'没查  连线检查 {checker}：{detail}；修正原因后再跑 install.sh --check', file=sys.stderr)
-    raise SystemExit(1)
-
-
-if not checker.is_file():
-    unchecked('check_wiring.py 不在')
-if shutil.which('uv') is None:
-    unchecked('PATH 里没有 uv')
-try:
-    result = subprocess.run(['uv', 'run', '--quiet', str(checker)],
-                            capture_output=True, text=True, check=False)
-except OSError as exc:
-    unchecked(exc)
-if result.returncode not in (0, 1):
-    unchecked(f'退出 {result.returncode}：{result.stdout.strip()} {result.stderr.strip()}')
-
-finding = re.compile(r'^(?:report: )?.+:\d+: class (\d+)\b')
-empty = re.compile(r'^report: class (2|7):')
-failed = False
-has_findings = False
-for line in result.stdout.splitlines():
-    match = finding.match(line)
-    if match:
-        has_findings = True
-    if (match and match[1] in ('2', '7')) or empty.match(line):
-        print(line, file=sys.stderr)
-        failed |= not line.startswith('report: ')
-if result.returncode == 1 and not has_findings:
-    unchecked(f'检查器未能检查输入：{result.stdout.strip()} {result.stderr.strip()}')
-raise SystemExit(1 if failed else 0)
-PY
-fi
-
 # Nowledge Mem 的共享对象。Identity 只写来源角色，default Space 固定为 mmw-toolbox，
 # 避免一次漏传 repository Space 时退回个人 Default。repository Space 由 dispatch.sh open 建立。
 MMW_MODE="$mode" python3 - <<'PY' || rc=1
@@ -2100,68 +1835,16 @@ else
   echo "跳过  ${CURSOR_MCP}（本机没有可用的 nmem）"
 fi
 
-# 开着的 watch 与仍在跑的 relay、watchdog。列表是状况，不是缺项：写在 stdout，跟
-# HOOKS-INSTALLED 一侧，退出码仍只表示安装齐不齐。开着的 watch 与 relay.read_watches
-# 相同：没有 orchestrator 的项不是 watch。watches.json 在但读不成，与
-# watchdog.night_open 相同，不是没有夜。锁算不算活着，问 statedir.holder。
-report_move_safety() {
-  PYTHONPATH="$SELF_SRC/dispatch/scripts${PYTHONPATH:+:$PYTHONPATH}" \
-  MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
-  python3 - <<'PY'
-import relay
-import statedir
-
-opens = []
-locks = []
-unreadable = []
-try:
-    repo_dirs = statedir.repo_state_dirs()
-except NotADirectoryError:
-    repo_dirs = []
-for repo_dir in repo_dirs:
-    owner, name = repo_dir.name.split("__", 1)
-    repo = f"{owner}/{name}"
-    try:
-        watches = relay.read_watches(repo_dir)
-    except (OSError, ValueError):
-        unreadable.append(f"UNREADABLE {repo} watches.json")
-        continue
-    for key in sorted(watches):
-        opens.append(f"OPEN-WATCH {repo} {key}")
-    for kind in ("relay", "watchdog"):
-        holder = statedir.holder(repo_dir / f"{kind}.lock")
-        if holder is None:
-            continue
-        locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
-for line in opens:
-    print(line)
-for line in locks:
-    print(line)
-for line in unreadable:
-    print(line)
-watched, held, bad = len(opens), len(locks), len(unreadable)
-if bad:
-    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks, "
-          f"{bad} unreadable watches.json")
-elif watched == 0 and held == 0:
-    print("SAFE-TO-MOVE-INSTALLED")
-else:
-    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks")
-PY
-}
-
 if [ "$mode" = check ]; then
   if [ "$rc" -eq 0 ]; then
     echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，hook 见上"
   fi
-  report_move_safety || true
 else
   mkdir -p "$(dirname "$INSTALLED_ROOT_FILE")"
   printf '%s\n' "$ROOT" > "$INSTALLED_ROOT_FILE"
   echo
-  echo "source directory：${SKILLS_SRC}（mattpocock/skills）、${SELF_SRC}（自研）、${DD_SRC}（cathrynlavery/diagram-design）、${PSTACK_SRC}（pstack）"
-  echo "不带标记的技能及副本里的软链项：改 source directory，host 下次调用生效。"
-  echo "带 +model-invoked 的 SKILL.md 与 agents/openai.yaml：改源后跑一次 install.sh；description 另要重开会话。"
+  echo "source directory：${SKILLS_SRC}（mattpocock/skills）、${SELF_SRC}（自研）、${DD_SRC}（cathrynlavery/diagram-design）"
+  echo "改技能直接改 source directory 里的文件，host 下次调用就是新的。"
   echo "装自  ${ROOT}（记在 ${INSTALLED_ROOT_FILE}；别的 checkout 跑 --check 时按它核对）"
 fi
 

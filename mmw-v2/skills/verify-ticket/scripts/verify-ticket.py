@@ -27,17 +27,13 @@ from collections import Counter, defaultdict, deque
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
-from typing import NamedTuple
 
 HERE = Path(__file__).resolve().parent
 
 
-def _load(name: str, filename: str | Path):
-    """Load the module at `filename`. A name with no directory is a file beside this one."""
-    path = Path(filename)
-    if not path.is_absolute():
-        path = HERE / path
-    spec = importlib.util.spec_from_file_location(name, path)
+def _load(name: str, filename: str):
+    """A module beside this file."""
+    spec = importlib.util.spec_from_file_location(name, HERE / filename)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -251,75 +247,20 @@ def gh_login() -> str:
     return out.stdout.strip()
 
 
-class SelfRead(NamedTuple):
-    """One answer from `dispatch.sh self` of the dispatch skill beside this one.
-
-    `returncode` is None when `path` is not a file. `error` is set when the script could
-    not be run. `stdout` and `stderr` are whatever it printed.
-    """
-
-    path: str
-    returncode: int | None
-    stdout: str
-    stderr: str
-    error: str | None
-
-
-def read_self() -> SelfRead:
-    """Ask `dispatch.sh self` who this process is. Patched out in tests."""
+def own_session() -> tuple[str, str] | None:
+    """(runner, session) of the session this run is part of, as `dispatch.sh self` of the
+    dispatch skill beside this one reads it, or None when it cannot say: outside any
+    runner, or with that skill not there. Patched out in tests."""
     script = HERE.parents[1] / "dispatch" / "scripts" / "dispatch.sh"
-    path = str(script)
     if not script.is_file():
-        return SelfRead(path, None, "", "", None)
-    try:
-        out = subprocess.run(["bash", path, "self"], capture_output=True, text=True,
-                             timeout=60, env=GH_ENV)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return SelfRead(path, None, "", "", str(exc))
-    return SelfRead(path, out.returncode, out.stdout, out.stderr, None)
-
-
-def own_session(read: SelfRead) -> tuple[str, str] | None:
-    """(runner, session) as `read` reports it, or None when it names neither.
-
-    Patched out in tests. `run_preflight` passes the `read_self` answer it just took.
-    """
-    if read.error is not None or read.returncode != 0:
         return None
-    runner, _, session = read.stdout.strip().partition("\t")
-    if runner and session:
-        return (runner, session)
-    return None
-
-
-# `refusal.py` of the ui-acceptance skill. One line is capped here, above a hook's
-# 256-character deny reason: `refusal` trims the cause and keeps the next step whole.
-_REFUSAL_PY = HERE.parents[1] / "ui-acceptance" / "scripts" / "refusal.py"
-_LINE_LIMIT = 2000
-
-
-def _format_refusal(what: str, why: str, next_step: str) -> str:
-    """The three parts on one line. With no `refusal.py`, the parts joined as they stand."""
-    if not _REFUSAL_PY.is_file():
-        return f"{what} {why} {next_step}"
-    return _load("mmw_refusal", _REFUSAL_PY).refusal(what, why, next_step, limit=_LINE_LIMIT)
-
-
-def unnamed_session_line(number: int, read: SelfRead) -> str:
-    """Why this refusal could not name its session, and what to do next.
-
-    The event is already posted without `runner` and `session`, so the hold does not end.
-    """
-    quoted = " ".join(f"{read.stdout} {read.stderr}".split()) or "no output"
-    if read.error:
-        what = f"dispatch.sh self at {read.path} could not be run ({read.error})."
-    elif read.returncode is None:
-        what = f"no dispatch.sh at {read.path}."
-    else:
-        what = f"dispatch.sh self exit {read.returncode}: {quoted}."
-    why = f"This refusal does not end this session's hold on #{number}."
-    next_step = f"dispatch.sh retract {number}, or during a night tell the orchestrator."
-    return _format_refusal(what, why, next_step)
+    try:
+        out = subprocess.run(["bash", str(script), "self"], capture_output=True, text=True,
+                             timeout=60, env=GH_ENV)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    runner, _, session = out.stdout.strip().partition("\t")
+    return (runner, session) if out.returncode == 0 and runner and session else None
 
 
 def assign_self(number: int) -> None:
@@ -1290,21 +1231,42 @@ def glob_covers(pattern: str, path: str) -> bool:
     return fnmatch.fnmatch(path, pattern) or path == pattern
 
 
+JUDGEMENT_WORDS = {"reasonable": re.compile(r"(?<![\w-])reasonable\b", re.I),
+                   "should not": re.compile(r"\bshould not\b", re.I)}
+NEGATED_JUDGEMENT_RE = re.compile(
+    r"\b(?:no|not)\s+[`'\"*_]*(?:should not|reasonable)\b[`'\"*_]*", re.I)
+
+
+def line_judgement(line: str) -> str | None:
+    """The one judgement word `line` carries, or `None` when it carries neither or both.
+
+    A negated word (`No should not.`, `not reasonable`) is no judgement: a reviewer
+    who closes a line of `reasonable` decisions with `No should not.` has judged
+    none of them `should not`.
+    """
+    text = NEGATED_JUDGEMENT_RE.sub(" ", line)
+    found = {word for word, pattern in JUDGEMENT_WORDS.items() if pattern.search(text)}
+    return found.pop() if len(found) == 1 else None
+
+
 def spec_judgement(review: str, path: str) -> str | None:
     """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment.
 
-    `None` when that axis names no line for the file — the run does not invent a
-    judgement the reviewer did not write.
+    The code-review Spec axis gives each `Outside Owns` file one line that starts with
+    its path and carries exactly one judgement word; that line decides. Without one,
+    the lines that name the path anywhere decide only when they all carry the same
+    single word. `None` when that axis names no line for the file, or its lines carry
+    both words or neither — the run does not invent a judgement the reviewer did not
+    write.
     """
     spec_axis = re.split(r"^## Tests", review, maxsplit=1, flags=re.M)[0]
     spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
-    for line in spec_axis.splitlines():
-        if path in line:
-            if "should not" in line:
-                return "should not"
-            if "reasonable" in line:
-                return "reasonable"
-    return None
+    naming = [line for line in spec_axis.splitlines() if path in line]
+    leads = re.compile(r"^\s*(?:[-*+]|\d+[.)])?\s*[`*_\"']*" + re.escape(path)
+                       + r"(?![\w./-])")
+    leading = [line for line in naming if leads.match(line)]
+    judgements = {line_judgement(line) for line in (leading or naming)}
+    return judgements.pop() if len(judgements) == 1 else None
 
 
 def decisions_line_for(decisions: str | None, path: str, number: int) -> str:
@@ -2259,16 +2221,11 @@ def run_preflight(number: int) -> int:
     if problems:
         reason, sentence = problems[0]
         # The refusing session is named so its own hold ends with this event and the
-        # ticket is free for the next start. A session that cannot name itself ends
-        # none, and stderr says why and what to do next.
-        read = read_self()
-        named = own_session(read)
-        runner, session = named or (None, None)
+        # ticket is free for the next start; a session that cannot name itself ends none.
+        runner, session = own_session() or (None, None)
         post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
                    reason=reason, branch=branch or None, runner=runner, session=session)
         sys.stderr.write(sentence + "\n")
-        if named is None:
-            sys.stderr.write(unnamed_session_line(number, read) + "\n")
         return 2
     assign_self(number)
     try:

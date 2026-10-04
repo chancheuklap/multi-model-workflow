@@ -115,6 +115,13 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
     ),
     # ── 编译与打包：可派代码修 ──
     (
+        r"Compiled backend lacks modules the source run loads: ([\w., ]+)",
+        "compiled_modules_missing",
+        "missing_compiled_modules:{product}",
+        "Nuitka left out modules the product loads at call time: {group}. Add each to the release "
+        "manifest's python_backend include_modules, then rebuild",
+    ),
+    (
         r"No module named ['\"]([\w.]+)['\"]",
         "frozen_import_missing",
         "missing_module:{group}",

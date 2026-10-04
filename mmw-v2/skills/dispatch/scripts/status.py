@@ -8,22 +8,17 @@
     status.py --summary <spec>          print the night summary; do not post it
     status.py --findings <spec>         `<ticket> <child> <title>` for every open finding
     status.py --land-plan <n>...        what landing each of these tickets calls for
-    status.py --where [<spec>|<n>]      this runner/session's playbook position
 
-Ticket state has one source, the tracker (`gh`): the spec's tree of tickets and their
+One program, six forms, reading one source, so there is never a second truth to
+reconcile. The source is the tracker (`gh`): the spec's tree of tickets and their
 children, read in one query by `issue_tree.py`, and each ticket's state, labels, assignees,
 blocking edges and comments. Where a ticket stands — which agent sessions were started
 on it and on which runner, whether its worker is still live or waiting for a product
 slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
 its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
 (`MMW_EVENTS_PY` names `events.py` when `dispatch.sh` resolved it somewhere else, and
-`issue_tree.py` is read from beside it). `--where` also reads relay `watches.json` to
-identify this session's orchestrator role and default issue, `roles.json` and
-`locations.py` to resolve its playbook pointer, and `git rev-parse HEAD` to compare the
-final reverify's commit. Its runner/session pair is supplied by `dispatch.sh self`.
-These inputs do not replace ticket state with a runner's view. Nothing here probes a
-runner's other sessions: a runner answers for one machine, and the ticket answers for
-all of them. Nothing this
+`issue_tree.py` is read from beside it). Nothing here asks a runner what it is running: a
+runner answers for one machine, and the ticket answers for all of them. Nothing this
 program does needs a model, and nothing it does writes to the tracker. Each invocation is
 a full re-read.
 """
@@ -34,7 +29,6 @@ import argparse
 import importlib.util
 import json
 import os
-import re
 import subprocess
 import sys
 from collections import Counter
@@ -147,8 +141,6 @@ def normalise_ticket(number: int, raw: dict) -> dict:
         "blocked_by": blocked_by,
         "blockers": [b["number"] for b in blocked_by if b["state"] != "CLOSED"],
         "fold": events.fold(comments, issue=number),
-        "comments": comments,
-        "comments_unreadable": not isinstance(raw.get("comments"), list),
         "bounced_reason": ((bounced or {}).get("payload") or {}).get("reason"),
         # `gh_json` answers `{}` when the call fails. That ticket still exists as a
         # number; reading it as an empty ticket would drop it from every decision.
@@ -878,288 +870,6 @@ def closeout_ready(spec: int) -> int:
         print(f"dispatch: summary refused: {problem}", file=sys.stderr)
     return 2 if problems else 0
 
-# --------------------------------------------------------------------- where
-
-def load_neighbor(name: str):
-    path = Path(__file__).resolve().parent / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(f"mmw_where_{name}", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def where_registry():
-    """Read the role and position registries only for --where."""
-    try:
-        locations = load_neighbor("locations")
-        roles = json.loads((Path(__file__).resolve().parents[1] / "roles.json").read_text())
-        if not isinstance(roles, dict) or not isinstance(locations.WHERE_ROWS, dict):
-            raise ValueError("the registries must be objects")
-        for role, rows in locations.WHERE_ROWS.items():
-            playbook = roles[role]["playbook"]
-            if not isinstance(rows, dict) or not rows:
-                raise ValueError(f"no where rows for {role}")
-            for row in rows.values():
-                if row["kind"] not in ("FRESH", "BETWEEN", "AT"):
-                    raise ValueError(f"invalid where kind for {role}")
-                steps = locations.PLAYBOOK_ANCHORS[row.get("playbook", playbook)]
-                if row["step"] not in steps or ("until" in row and row["until"] not in steps):
-                    raise ValueError(f"unregistered where step for {role}")
-                if (row["kind"] == "BETWEEN") != ("until" in row):
-                    raise ValueError(f"invalid where interval for {role}")
-        return roles, locations
-    except (OSError, ValueError, SyntaxError, AttributeError, KeyError, TypeError) as exc:
-        raise RuntimeError(f"roles.json or locations.py is missing or invalid ({exc}); "
-                           "run bash mmw-v2/install.sh --check") from None
-
-
-def where_line(role: str, number: int, key: str, roles: dict, locations) -> str:
-    try:
-        row = locations.WHERE_ROWS[role][key]
-        playbook = row.get("playbook", roles[role]["playbook"])
-        pointer = f"mmw {playbook}#{row['step']}"
-        if "until" in row:
-            pointer += f" .. #{row['until']}"
-        if "note" in row:
-            pointer += f" · {row['note']}"
-        return f"{row['kind']} {role} #{number} · {pointer}"
-    except (KeyError, TypeError) as exc:
-        raise RuntimeError(f"roles.json or locations.py has no valid where row ({exc}); "
-                           "run bash mmw-v2/install.sh --check") from None
-
-
-def where_position(args) -> str:
-    roles, locations = where_registry()
-    if not args.runner or not args.session:
-        raise RuntimeError("the runner and session could not be read from dispatch.sh self")
-    if len(args.spec) > 1:
-        raise RuntimeError("where takes at most one spec or ticket number")
-    repo = args.repo or gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).strip()
-    if not repo:
-        raise RuntimeError("gh repo view did not identify this repository")
-    relay = load_neighbor("relay")
-    state = relay.statedir.state_dir(repo, create=False)
-    path = state / "watches.json"
-    data = relay.statedir.read_json(path, None)
-    if data is None and not path.exists():
-        data = {}
-    if not isinstance(data, dict):
-        raise RuntimeError(f"{path} is not a watch object")
-    watches = relay.read_watches(state)
-    if len(watches) != len(data):
-        raise RuntimeError(f"{path} contains an unreadable watch")
-    mine_watches = [w for w in watches.values()
-                   if where_address(w) == (args.runner, args.session)]
-    number = args.spec[0] if args.spec else None
-    if number is None:
-        for directory in (Path.cwd(), *Path.cwd().parents):
-            found = re.fullmatch(locations.GOVERNED_TICKET_DIR_PATTERN, directory.name)
-            if found:
-                number = int(found.group(1))
-                break
-    if number is None:
-        candidates = {int(n) for w in mine_watches
-                      for n in ([w["spec"]] if w.get("spec") else w.get("tickets", []))}
-        if len(candidates) != 1:
-            raise RuntimeError("this session's watch does not identify one spec or ticket; pass its number")
-        number = candidates.pop()
-    if number < 1:
-        raise RuntimeError("the spec or ticket number must be positive")
-    covering = [w for w in watches.values()
-                if w.get("spec") == number or number in (w.get("tickets") or [])]
-    mine_watches = [w for w in covering if where_address(w) == (args.runner, args.session)]
-    if any(w.get("kind") not in relay.WATCH_KINDS for w in mine_watches):
-        raise RuntimeError("this session's watch has no valid kind; run bash mmw-v2/install.sh --check")
-    if len(mine_watches) > 1:
-        raise RuntimeError("more than one watch names this session on this issue")
-    kind = mine_watches[0]["kind"] if mine_watches else None
-    ticket = read_ticket(number)
-    where_readable(ticket)
-    records = where_records(ticket)
-    if kind == "night":
-        key = where_night(ticket, records)
-        return where_line("night-orchestrator", number, key, roles, locations)
-    if kind == "ticket":
-        key = where_one_ticket(ticket, records)
-        return where_line("one-ticket-orchestrator", number, key, roles, locations)
-    if "mmw:spec" in ticket["labels"]:
-        opened = next((r for r in reversed(records) if r["event"] == "spec.opened"), None)
-        if opened is None and not covering:
-            return where_line("night-orchestrator", number, "fresh", roles, locations)
-        if (opened and not covering
-                and where_address(opened["payload"]) == (args.runner, args.session)):
-            after_open = [r for r in records if r["order"] > opened["order"]]
-            if (any(r["event"] == "spec.closed" for r in after_open)
-                    and not any(r["event"] in ("spec.suspended", "spec.merged")
-                                for r in after_open)):
-                return where_line("night-orchestrator", number,
-                                  where_night(ticket, records), roles, locations)
-        raise RuntimeError("this session is not the orchestrator of this spec's watch")
-    mine = [record for record in records
-            if record["event"].endswith(".started")
-            and where_address(record["payload"]) == (args.runner, args.session)]
-    if not records and kind == "adopted-ticket":
-        return where_line("adopting-worker", number, "fresh", roles, locations)
-    if not mine or len({r["event"] for r in mine}) != 1:
-        raise RuntimeError("this session cannot be identified on the ticket")
-    start = mine[-1]
-    role = start["event"].split(".")[0]
-    if role == "reviewer":
-        later_report = [r for r in records if r["order"] > start["order"]
-                        and r["event"] == "reviewer.reported"]
-        if later_report:
-            raise RuntimeError("this reviewer has reported; no where row applies")
-        return where_line(role, ticket["number"], "fresh", roles, locations)
-    if role != "worker":
-        raise RuntimeError(f"{role} has no recorded position")
-    if "adopted" in start["payload"] or kind == "adopted-ticket":
-        role = "adopting-worker"
-    latest_worker = next(r for r in reversed(records) if r["event"] == "worker.started")
-    if latest_worker != start:
-        raise RuntimeError("another worker.started follows this session; its position is unknown")
-    records = [r for r in records if r["order"] > start["order"]]
-    key = where_worker(ticket, records, role, args)
-    return where_line(role, ticket["number"], key, roles, locations)
-
-
-def where_one_ticket(ticket: dict, records: list[dict]) -> str:
-    newest = next((r for r in reversed(records)
-                   if r["event"] in ("worker.started", "ticket.passed", "ticket.returned")), None)
-    if newest is None:
-        return "fresh"
-    if newest["event"] in ("ticket.passed", "ticket.returned"):
-        return "finished"
-    if ticket["fold"]["live_workers"]:
-        return "working"
-    raise RuntimeError("the worker is not live and has no closeout; no where row applies")
-
-
-def where_night(ticket: dict, records: list[dict]) -> str:
-    opened = next((r for r in reversed(records) if r["event"] == "spec.opened"), None)
-    if opened is None:
-        raise RuntimeError("a night watch without spec.opened is outside the where table")
-    records = [r for r in records if r["order"] > opened["order"]]
-    if any(r["event"] in ("spec.suspended", "spec.merged") for r in records):
-        raise RuntimeError("the night is suspended or merged; no where row applies")
-    closed = next((r for r in reversed(records) if r["event"] == "spec.closed"), None)
-    retro = next((r for r in reversed(records) if r["event"] == "spec.retroed"), None)
-    if closed:
-        if retro and retro["order"] > closed["order"] and retro["payload"].get("result") == "recorded":
-            return "retroed"
-        return "closed"
-    if retro:
-        raise RuntimeError("spec.retroed without spec.closed is outside the where table")
-    batch = spec_tree(ticket["number"])
-    tickets = {node["number"]: read_ticket(node["number"]) for node in tree.children(batch)}
-    for child in tickets.values():
-        where_readable(child)
-    if not any(t["fold"]["worker"] for t in tickets.values()):
-        return "opened"
-    rows = build_rows(list(tickets), tickets)
-    if held(rows) or frontier(rows):
-        return "working"
-    children = batch_children(ticket["number"], batch)
-    for child in children:
-        where_readable(child)
-    if any(is_finding(child) and route_of(child) == "open" for child in children):
-        return "findings"
-    return "closing"
-
-
-def where_address(payload: dict) -> tuple:
-    return payload.get("runner"), payload.get("session")
-
-
-def where_readable(ticket: dict) -> None:
-    """Reject unreadable tracker answers or comments before choosing a position."""
-    why = unreadable_reason(ticket)
-    if why or ticket["comments_unreadable"]:
-        raise RuntimeError(f"#{ticket['number']}'s events cannot be read: "
-                           f"{why or 'comments is not a list'}")
-
-
-def where_records(ticket: dict) -> list[dict]:
-    """Validated events in the same comment-id order as the ticket's fold."""
-    records = []
-    for order, comment in enumerate(events.normalise(ticket["comments"])):
-        what, payload = events.parse(comment["body"])
-        if what == "event":
-            records.append({"order": order, "event": payload["event"], "payload": payload})
-    return records
-
-
-def where_worker(ticket: dict, records: list[dict], role: str, args) -> str:
-    def newest(name, predicate=lambda r: True):
-        return next((r for r in reversed(records) if r["event"] == name and predicate(r)), None)
-
-    def own(record):
-        payload = record["payload"]
-        # Criteria and closeout events normally carry no session. Their writer is the
-        # worker in this start's epoch; explicit addresses, when present, must match.
-        return (payload.get("actor") == "worker"
-                and (not payload.get("session")
-                     or where_address(payload) == (args.runner, args.session)))
-
-    claim = newest("ticket.claimed")
-    outcome = next((r for r in reversed(records)
-                    if r["event"] in ("ticket.returned", "ticket.bounced", "ticket.passed")), None)
-    final = newest("ticket.checked", lambda r: own(r) and r["payload"].get("run") == "reverify")
-    if outcome and (claim is None or outcome["order"] > claim["order"]):
-        if (role == "adopting-worker" and outcome["event"] in ("ticket.passed", "ticket.returned")
-                and own(outcome) and final and final["order"] < outcome["order"]):
-            return "closed"
-        if outcome["event"] in ("ticket.returned", "ticket.bounced"):
-            return "returned"
-        raise RuntimeError("worker closeout has no row in the where table")
-    if outcome:
-        records[:] = [r for r in records if r["order"] > outcome["order"]]
-    checked = newest("ticket.checked", lambda r: own(r) and r["payload"].get("run") == "self")
-    decided = newest("worker.decided", own)
-    review_start = newest("reviewer.started")
-    report = newest("reviewer.reported")
-    final = newest("ticket.checked", lambda r: own(r) and r["payload"].get("run") == "reverify")
-    if claim is None:
-        if checked or decided or review_start or report or final:
-            raise RuntimeError("worker progress without ticket.claimed is outside the where table")
-        return "fresh"
-    if checked is None:
-        if decided or review_start or report or final:
-            raise RuntimeError("review or decisions without an own self run is outside the where table")
-        return "claimed"
-    if decided is None:
-        if review_start or report or final:
-            raise RuntimeError("review without worker.decided is outside the where table")
-        return "checked"
-    if review_start is None:
-        if report or final:
-            raise RuntimeError("review result without reviewer.started is outside the where table")
-        return "decided"
-    if report is None or report["order"] < review_start["order"]:
-        reviewers = ticket["fold"]["holders"]
-        if any(r["kind"] == "reviewer" and where_address(r) == where_address(review_start["payload"])
-               for r in reviewers):
-            return "waiting"
-        raise RuntimeError("the reviewer is not live and has not reported; no where row applies")
-    if final and final["order"] > max(checked["order"], report["order"]):
-        head = args.head or subprocess.run(["git", "rev-parse", "HEAD"],
-                                           capture_output=True, text=True).stdout.strip()
-        if final["payload"]["commit"] == head and records[-1] == final:
-            return "final"
-        raise RuntimeError("the worker reverify is not the latest event at HEAD; no where row applies")
-    if checked["order"] < report["order"]:
-        return "reported"
-    return "reviewed"
-
-
-def where(args) -> int:
-    try:
-        print(where_position(args))
-        return 0
-    except (RuntimeError, OSError, ValueError, TypeError, KeyError) as exc:
-        print("UNKNOWN " + " ".join(str(exc).split()))
-        return 2
-
-
 # --------------------------------------------------------------------- entry
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -1183,19 +893,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                        help="print `<ticket> <child> <title>` for every open finding")
     forms.add_argument("--land-plan", action="store_true",
                        help="print what landing each of these tickets calls for")
-    forms.add_argument("--where", action="store_true",
-                       help="print this session's event-derived playbook position")
-    parser.add_argument("--runner")
-    parser.add_argument("--session")
-    parser.add_argument("--repo")
-    parser.add_argument("--head")
-    parser.add_argument("spec", type=int, nargs="*",
+    parser.add_argument("spec", type=int, nargs="+",
                         help="the spec issue whose sub-issues are tonight's tickets, or "
                              "with --land-plan the ticket numbers to land")
     args = parser.parse_args(argv)
-    if not args.where and not args.spec:
-        parser.error("a spec or ticket number is required")
-    if not args.where and not args.land_plan and len(args.spec) != 1:
+    if not args.land_plan and len(args.spec) != 1:
         parser.error("only --land-plan takes more than one number")
     return args
 
@@ -1203,8 +905,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     try:
         args = parse_args(list(sys.argv[1:] if argv is None else argv))
-        if args.where:
-            return where(args)
         if args.land_plan:
             return land_plan(args.spec)
         if args.advance_plan:

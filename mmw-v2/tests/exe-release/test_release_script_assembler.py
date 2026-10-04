@@ -468,3 +468,31 @@ def test_a_runtime_asset_whose_repo_source_is_missing_is_caught_before_the_build
         capture_output=True, text=True,
     )
     assert "asset_source_missing" in out.stdout, out.stdout + out.stderr
+
+
+def test_a_required_modules_list_reports_each_compile_and_checks_it_before_anything_ships(tmp_path):
+    """Nuitka 看不见调用时才 import 的子模块（sqlite3 在 iterdump() 里加载 sqlite3.dump）。
+
+    给了清单，每个 target 带 --report，报告写在 output_dir 外（那个目录整个进安装包），
+    编完当场对照，排在 payload 校验和清理之前。
+    """
+    doc = _key()
+    doc["python_backend"]["required_modules_file"] = "scripts/release/required-modules.txt"
+    result, script, _ = _assemble(tmp_path, doc)
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    assert "--report=" in text
+    assert "runtime/.mmw-nuitka-reports/" in text
+    assert "scripts/release/required-modules.txt" in text
+    compiled = text.index("Invoke-Checked -Command ([string]$argv[0])")
+    check = text.index("Assert-CompiledModules -Reports")
+    payload = text.index("Assert-OnefilePayloads -OutputDir")
+    assert compiled < check < payload
+
+
+def test_without_a_required_modules_list_nothing_is_reported(tmp_path):
+    result, script, _ = _assemble(tmp_path, _key())
+    assert result.returncode == 0, result.stderr
+    text = script.read_text(encoding="utf-8-sig")
+    assert "--report=" not in text
+    assert "Assert-CompiledModules -Reports" not in text

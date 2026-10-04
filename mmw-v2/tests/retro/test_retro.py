@@ -28,8 +28,7 @@ NAMES = {"complete-none": "RETRO-COMPLETE-NONE-OK",
          "prompt-and-record-contract": "RETRO-PROMPT-AND-RECORD-CONTRACT-OK",
          "retry-finalize": "RETRO-RETRY-FINALIZE-OK",
          "large-evidence": "RETRO-LARGE-EVIDENCE-OK",
-         "parent-without-map": "RETRO-PARENT-WITHOUT-MAP-OK",
-         "layer-destinations": "RETRO-LAYER-DESTINATIONS-OK"}
+         "parent-without-map": "RETRO-PARENT-WITHOUT-MAP-OK"}
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -526,28 +525,6 @@ def large_evidence(f: Fixture):
     assert content.count(f"{ticket} [present]") == 2, content[:2000]
 
 
-def layer_destinations(f: Fixture):
-    base = current_problem(f, earlier=False)
-    base["proposal"] = None
-    rejected = {**base, "prevention": {"destination": "workshop",
-                                       "text": "Outside the table"}}
-    accepted = [{**base, "prevention": {"destination": destination,
-                                        "text": f"Land the lesson as {destination}"}}
-                for destination in ("principle", "playbook", "mode")]
-    gathered = f.run("gather", "70")
-    error = f.run("finalize", "70",
-                  f.write_analysis(f.analysis([rejected]), "unknown-layer.json"),
-                  f.write_gather(gathered, "gather-unknown.json"), ok=False)
-    assert "destination" in error, error
-    assert f.receipts() == 0
-    outcome = f.finish(gathered, f.analysis(accepted))
-    receipt = f.assert_receipt("recorded")
-    assert outcome["result"] == receipt["result"] == "recorded"
-    content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
-    for destination in ("principle", "playbook", "mode"):
-        assert f"[{destination}]" in content, content
-
-
 def parent_without_map(f: Fixture):
     # A spec under a parent issue that carries no mmw:map label narrows the task
     # root instead of refusing the whole retro.
@@ -569,8 +546,7 @@ FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_call
              "proposal-threshold": proposal_threshold,
              "prompt-and-record-contract": prompt_and_record_contract,
              "retry-finalize": retry_finalize, "large-evidence": large_evidence,
-             "parent-without-map": parent_without_map,
-             "layer-destinations": layer_destinations}
+             "parent-without-map": parent_without_map}
 
 
 def main():

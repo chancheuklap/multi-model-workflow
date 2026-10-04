@@ -150,6 +150,41 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
         if rel is None or not (repo_root / rel).is_file():
             missing("compile", "icon_missing", backend.icon, "icon")
 
+    if backend.required_modules_file:
+        rel = _expand(manifest, backend.required_modules_file)
+        if rel is None or not (repo_root / rel).is_file():
+            missing(
+                "compile",
+                "required_modules_file_missing",
+                backend.required_modules_file,
+                "required modules list",
+            )
+        else:
+            # 清单要的模块被 nofollow 挡掉，编完对照一定报缺；编译前就停。
+            names = [
+                line.strip()
+                for line in (repo_root / rel).read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ]
+            blocked = [
+                f"{name} (--nofollow-import-to={pattern})"
+                for name in names
+                for pattern in backend.nofollow_imports
+                if nuitka._nofollow_hits(pattern, name)
+            ]
+            if blocked:
+                findings.append(
+                    _finding(
+                        product,
+                        "compile",
+                        "required_modules_blocked",
+                        backend.required_modules_file,
+                        "the required modules list names modules nofollow_imports keeps out "
+                        "of the compile: " + ", ".join(blocked),
+                        "drop those names from the list, or stop blocking them",
+                    )
+                )
+
     for entry in backend.include_data_dirs:
         rel = _expand(manifest, entry.source)
         if rel is None or not (repo_root / rel).is_dir():

@@ -17,8 +17,7 @@ A problem exists only when a tracker event comment, commit, current repository
 file, or observed check proves it. Attach that source to every reported problem
 and drop unsupported claims. Use Memory, Thread, Working Memory, agent reports,
 and issue status to discover what to verify; use primary tracker, git,
-repository, and check evidence to establish what happened or landed
-(**principle-clues-are-not-evidence**).
+repository, and check evidence to establish what happened or landed.
 
 Three readers act on this record: the user, who reads `NIGHT RETRO` before
 accepting the night; whoever triages each proposal, which becomes a
@@ -30,8 +29,7 @@ incident look like a pattern.
 
 Look for what in the environment let the mistake through, the discipline of a
 blameless postmortem: a check that did not exist, an instruction that arrived
-too late, a fact the agent could not reach (**principle-fix-root-causes**,
-**principle-attack-the-premise**, **principle-redesign-from-first-principles**).
+too late, a fact the agent could not reach.
 A cause addressed to "the agent" changes nothing on the next run. A night whose
 evidence supports no problem is a valid retro; record `none` rather than
 stretching a weak source into a finding.
@@ -122,26 +120,6 @@ The script writes outputs; the agent judges causes and dispositions.
    - Handled here: how this instance was fixed, deferred, or accepted as-is.
    - Prevention: the `destination` from `## Prevention destinations` below
      that would prevent the next instance, or `none`.
-
-   Apply each of these four rules to every Prevention:
-
-   - Existing-skill-first: propose a new skill, under the `mmw-skill` or
-     `repository-skill` destination, only when no existing skill is a real home,
-     the pattern recurs, and the topic deserves its own skill.
-   - Decision-changing: a future agent does something different because of the
-     change, not just reads more text. A Prevention that fails this is rewritten
-     until it passes, or gets the destination `none`.
-   - Structural-mechanism check: route to the `check` or `script` destination
-     when a lint rule, script, metadata flag, or runtime check already enforces
-     the rule or could enforce it cheaply. Skill prose is for things mechanisms
-     cannot enforce (**principle-encode-lessons-in-structure**,
-     **principle-build-the-lever**).
-   - Already-covered: read the file a Prevention would change before you record
-     it. If the Prevention duplicates clear, well-placed existing guidance, give
-     it the destination `none` and name that guidance in its `text`: what failed
-     is following that guidance, not the guidance. If the existing guidance is buried, weak, or
-     easy to skip past, write the Prevention as a wording / placement
-     improvement to make it fire (not a duplicate addition).
 10. Every prevention has a standing cost: a check runs on every commit, and an
     `AGENTS.md` line or skill sentence is read by every later agent. One
     occurrence is dealt with in `Handled here`; a pattern, shown by two
@@ -192,7 +170,7 @@ The script writes outputs; the agent judges causes and dispositions.
           "cause": "...",
           "evidence": ["event URL|commit URL|repository-relative file|check:read-only command"],
           "handled_here": "...",
-          "prevention": {"destination": "check|script|repository-agents|repository-skill|reviewer-rule|mmw-skill|principle|playbook|mode|toolbox-memory|none", "text": "..."},
+          "prevention": {"destination": "check|script|repository-agents|repository-skill|reviewer-rule|mmw-skill|toolbox-memory|none", "text": "..."},
           "earlier_occurrences": [{"memory_id": "...", "evidence": "original event|commit URL"}],
           "proposal": null
         }
@@ -219,9 +197,6 @@ A problem's Prevention names one of them by its `destination` value:
 | `repository-skill` | a repeated multi-step workflow specific to one repository, as a repository-local skill with a discovery test |
 | `reviewer-rule` | stable cross-repository review behaviour, as an active reviewer Rule |
 | `mmw-skill` | a cross-repository MMW workflow, in an MMW skill; also a change to a user-level `AGENTS.md`, whose sources are MMW's `mmw-v2/prompt/` |
-| `principle` | a judgement that holds across tasks and changes a concrete decision, as a principle file of the `mmw` skill |
-| `playbook` | the steps of one kind of task from start to finish, who owns what and what is handed over, in a playbook of the `mmw` skill or of that repository |
-| `mode` | what to use in which situation, which playbook a task goes to, or what an unattended session may decide, in the `mmw` skill's `SKILL.md` |
 | `toolbox-memory` | approved, broadly useful knowledge, copied into toolbox Memory while the source Memory remains in the repository |
 | `none` | nothing would prevent the next instance |
 

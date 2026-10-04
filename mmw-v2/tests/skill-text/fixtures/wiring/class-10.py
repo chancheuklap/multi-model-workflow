@@ -1,1 +1,0 @@
-target = ROOT / 'skills' / 'absent'

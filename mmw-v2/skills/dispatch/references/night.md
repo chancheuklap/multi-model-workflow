@@ -19,7 +19,6 @@ Find where you are by the first row whose fact holds:
 | A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` alerts, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
 | `bash scripts/dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
 | The spec carries `spec.closed` and no later `spec.retroed` whose result is `recorded` | [5. The night is over](#5-the-night-is-over), from the paragraph that invokes the `retro` skill |
-| The spec carries `spec.closed` and a later `spec.retroed` whose result is `recorded`, and the user has not accepted the result yet | Tell the user the night's result waits for their acceptance, pointing at `NIGHT SUMMARY` and `NIGHT RETRO`, then end your turn |
 | The spec carries `spec.closed` and a later `spec.retroed` whose result is `recorded`, and the user has accepted the result | [6. Merge the accepted night](#6-merge-the-accepted-night) |
 
 ## 1. The user says the night starts
@@ -31,8 +30,6 @@ bash scripts/dispatch.sh check <spec>
 ```
 
 **Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; an invalid agent row is reported to the user.
-
-When `check` exits 0 and stderr carries a `dispatch: warning: install.sh --check still finds this` paragraph, show the user the lines under it and ask whether they authorise the install; run `open` only after they answer, with the install or without it.
 
 Then, from this session — the one the night's wakes must reach:
 
@@ -93,8 +90,6 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
 | A worker whose session is gone while its worktree, slot or claim still stand (`advance` says "if the worker … is gone, retract it") | `bash scripts/dispatch.sh retract <n>`; a `0` on its summary line is something it could not release, and the line above says why. Step 4 starts the replacement |
 | `watchdog: #<n> silent since …` | When `events.py fold <n>` lists an open `contract` child, the worker is waiting on you; settle that child first |
-| Any other `watchdog:` alert | Do what the alert itself says to do, and act on the exit of a `resume` it names as [Exit codes of `resume`](#exit-codes-of-resume) below says; the line is not acked |
-| An `MMW turn guard:` line | Do what the line says: run the `watchdog.py arm` command it names, act on what that prints, and when it exits non-zero open a `fault` child on a held ticket with that command and its output; the line is not acked |
 | Any other live worker | Nothing; its result wakes you or its worker |
 | The ticket needs the other worker grade | Give it exactly one of the `junior-worker` / `senior-worker` labels; the next `start` reads it |
 
@@ -105,11 +100,6 @@ For a `contract` child, use this authority order exactly: **decision tickets and
 When no authority settles the correction, or the proposed correction would overturn the user's decision or expand the spec, leave the choice to the user. Find every not-yet-started ticket derived from the same Parent decision, move each from `ready-for-agent` to `needs-triage`, and comment on the child with the unresolved options, your recommendation, and the ticket numbers moved. Leave the child open for the user. A ticket already being worked stays held at the contract question; do not rewrite its delivery while the authority is unresolved.
 
 ### Exit codes of `resume`
-
-- Exit 0: the worker took the message and a turn started on it; its result wakes you, and `worker.resumed` is on the ticket unless stderr says it was not written.
-- Exit 4: the runner was handed the message but cannot show a turn starting on it; the text is in the session, so do not send it again.
-- Exit 3: the worker did not take the message and is most likely in a turn; end your turn and run `resume` again on the next wake or `watchdog:` alert about the ticket. When `resume` exits 3 again with no ticket event in between, `bash scripts/dispatch.sh start <n> worker` replaces the worker, stopping it through its runner first.
-- Exit 2: nothing was sent, and stderr names why and what to run. When stderr says the worker is not on its runner any more, run `bash scripts/dispatch.sh retract <n>`, then `bash scripts/dispatch.sh advance <spec>` inside a night or `bash scripts/dispatch.sh start <n> worker` outside one; when `retract` cannot tell whether the session stopped, tell the user.
 
 When you run `resume` again after exit 3, word it so a worker that receives both messages reads them as one instruction. A worker that `start <n> worker` puts in place of the old one has none of the instructions given only inside the old session; send them again with `resume`.
 

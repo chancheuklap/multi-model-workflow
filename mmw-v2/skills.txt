@@ -1,15 +1,12 @@
 # 装进各 host 的技能。一行一个。加减技能只改这里；install.sh 按它安装，并摘掉安装目录里指回
 # 本仓库、这份名单上却没有的 symlink。
-# `#` 开头和空行忽略。路径后面可以跟一个行尾标记 +model-invoked，表示这个上游技能被
-# mode 或 playbook 点名，要让模型自己能调用。标记不能写在 self/ 行上；路径后面别的记号
-# 是写错的一行。
+# `#` 开头和空行忽略。
 #
-# 四个来源：
+# 三种来源：
 #   engineering/<名>  mattpocock upstream 的，路径相对 mmw-v2/upstream/skills/
 #   productivity/<名> 同上
 #   self/<名>         我们自己写的，路径相对 mmw-v2/skills/
 #   dd/<名>           diagram-design upstream 的，路径相对 mmw-v2/upstream-diagram-design/skills/
-#   pstack/<名>       pstack 的，路径相对 mmw-v2/upstream-pstack/skills/
 
 engineering/code-review
 engineering/codebase-design
@@ -21,19 +18,19 @@ engineering/improve-codebase-architecture
 engineering/prototype
 engineering/research
 engineering/resolving-merge-conflicts
-engineering/setup-matt-pocock-skills +model-invoked
+engineering/setup-matt-pocock-skills
 engineering/tdd
 engineering/to-spec
 engineering/to-tickets
-engineering/triage +model-invoked
-engineering/wayfinder +model-invoked
+engineering/triage
+engineering/wayfinder
 engineering/wizard
-productivity/grill-me +model-invoked
+productivity/grill-me
 productivity/grilling
-productivity/handoff +model-invoked
-productivity/teach +model-invoked
-productivity/to-questionnaire +model-invoked
-productivity/wait-what +model-invoked
+productivity/handoff
+productivity/teach
+productivity/to-questionnaire
+productivity/wait-what
 productivity/writing-for-agents
 
 self/design-pages
@@ -50,4 +47,3 @@ self/write-screen-contract
 
 self/advisor
 self/retro
-self/mmw

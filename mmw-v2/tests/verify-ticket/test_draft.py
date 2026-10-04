@@ -337,6 +337,63 @@ None
         self.assertNotIn("(reasonable)", text)
         self.assertNotIn("(should not)", text)
 
+    def test_a_negated_should_not_on_a_summary_line_is_no_veto(self):
+        """A reviewer who folds every decision into one line and closes it with
+        `No should not.` judged the file reasonable (agentflow #1052)."""
+        folded = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## Spec
+
+Decisions: every decision the worker made on its own was judged reasonable (picking the existing helper; editing src/helper.py outside Owns). No should not.
+
+## Tests
+
+None
+""", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((FILES_RUN, folded, DECISIONS))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Outside Owns: src/helper.py (reasonable)", text)
+        self.assertNotIn("(should not)", text)
+
+    def test_a_line_carrying_both_words_invents_no_judgement(self):
+        both = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## Spec
+
+Decisions: src/helper.py is reasonable for AC1, but src/helper.py's new flag should not ship.
+
+## Tests
+
+None
+""", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((FILES_RUN, both, DECISIONS))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Outside Owns: src/helper.py", text)
+        self.assertNotIn("(reasonable)", text)
+        self.assertNotIn("(should not)", text)
+
+    def test_the_line_that_starts_with_the_path_decides(self):
+        """A prose line elsewhere that names the file does not override its own line."""
+        review = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## Spec
+
+### Built wrong
+
+- the ticket says the importer should not grow a helper; see src/helper.py
+
+### Decisions
+
+- `src/helper.py`: reasonable — the ticket left the helper unnamed
+
+## Tests
+
+None
+""", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((FILES_RUN, review, DECISIONS))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Outside Owns: src/helper.py (reasonable)", text)
+
     def test_sub_issues_from_the_ticket(self):
         """The line lists every child of this ticket, queried on this ticket's number."""
         code, err, text, fake = run_draft(

@@ -15,12 +15,11 @@ from pathlib import Path
 
 
 SERVER = Path(__file__).resolve().with_name("server.py")
-import codeversion  # noqa: E402
-
-_scripts = codeversion.require_scripts()
-if str(_scripts["dispatch_scripts"]) not in sys.path:
-    sys.path.insert(0, str(_scripts["dispatch_scripts"]))
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "dispatch" / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 import statedir  # noqa: E402
+import codeversion  # noqa: E402
 
 FIRST_PORT = 47100
 

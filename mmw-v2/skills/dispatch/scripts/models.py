@@ -28,9 +28,8 @@ import statedir  # noqa: E402
 SKILL_DIR = SCRIPTS_DIR.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
-REQUIRED_AGENTS = (
+ALLOWED_AGENTS = (
     "junior-worker", "senior-worker", "reviewer", "advisor")
-ALLOWED_AGENTS = (*REQUIRED_AGENTS, "researcher")
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
@@ -138,7 +137,7 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
     rows = config.get("rows")
     if not isinstance(rows, dict):
         return errors + [{"cell": "rows", "reason": "four role rows are required"}]
-    missing = [role for role in REQUIRED_AGENTS if role not in rows]
+    missing = [role for role in ALLOWED_AGENTS if role not in rows]
     extra = [role for role in rows if role not in ALLOWED_AGENTS]
     if missing or extra:
         reason = "four role rows are required"
@@ -148,11 +147,10 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
             reason += "; unknown " + ", ".join(extra)
         errors.append({"cell": "rows", "reason": reason})
     for role in ALLOWED_AGENTS:
-        if role not in rows:
-            continue
         row = rows.get(role)
         if not isinstance(row, dict):
-            errors.append({"cell": role, "reason": "host, model, and effort are required"})
+            if role not in missing:
+                errors.append({"cell": role, "reason": "host, model, and effort are required"})
             continue
         for key in ("host", "model", "effort"):
             if not isinstance(row.get(key), str) or not row[key].strip():
@@ -243,8 +241,7 @@ def session_rows() -> list[SessionRow]:
     errors = _validate_config_shape(config)
     if errors:
         raise InvalidConfig(errors)
-    return [SessionRow(role, **config["rows"][role]) for role in ALLOWED_AGENTS
-            if role in config["rows"]]
+    return [SessionRow(role, **config["rows"][role]) for role in ALLOWED_AGENTS]
 
 
 def _spoken_runner(value: str | None) -> str | None:
@@ -1012,7 +1009,6 @@ def write_local_config(config: dict, expected_version: int, scan: dict,
                     role: {key: config["rows"][role][key]
                            for key in ("host", "model", "effort")}
                     for role in ALLOWED_AGENTS
-                    if role in config["rows"]
                 },
             }
             statedir.write_atomic(path, json.dumps(written, ensure_ascii=False, indent=2) + "\n")

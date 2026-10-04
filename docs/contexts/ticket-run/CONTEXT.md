@@ -19,7 +19,7 @@ The second-opinion session on a stronger model, started with `dispatch.sh advise
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
 **brief**:
-What a caller hands the advisor, and the only thing the advisor sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude. Distinct from a **subagent brief** (`docs/contexts/toolbox/CONTEXT.md`), the prompt a session gives a subagent it starts.
+What a caller hands the advisor, and the only thing the advisor sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude.
 _Avoid_: question packet, the packet
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
@@ -281,7 +281,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/tests-reviewe
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.
-_Home_: `mmw-v2/skills/mmw/references/skill-set-rules.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 ### Claiming and handing back
 
@@ -290,7 +290,7 @@ _Home_: `mmw-v2/skills/mmw/references/skill-set-rules.md`
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`NOT_READY:`, `READY:`, `RESUME:`, `CARRIED:`**:
-The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY:` on stderr when it cannot, with a sentence saying why and what to do next (the refusal's code, `wrong-branch`, `dirty-tree`, `not-open`, `not-ready`, `blocked` or `claimed-by-other`, goes into the `ticket.refused` event's `reason`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim. Until B2 night's **where line** stands beside `RESUME:`: for each role it gives one answer of the same kind, read from that role's events.
+The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY:` on stderr when it cannot, with a sentence saying why and what to do next (the refusal's code, `wrong-branch`, `dirty-tree`, `not-open`, `not-ready`, `blocked` or `claimed-by-other`, goes into the `ticket.refused` event's `reason`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:

@@ -67,18 +67,6 @@ def home() -> Path:
     return Path(os.environ.get("MMW_HOME") or (Path.home() / ".mmw"))
 
 
-def repo_state_dirs() -> list[Path]:
-    """Repository state directories in path order; absent state root gives an empty list.
-
-    Other errors listing the root propagate to the caller.
-    """
-    try:
-        entries = list((home() / "state").iterdir())
-    except FileNotFoundError:
-        return []
-    return sorted(path for path in entries if "__" in path.name and path.is_dir())
-
-
 def slug(repo: str) -> str:
     """`owner/name` as one directory name: `owner__name`, lowercased.
 

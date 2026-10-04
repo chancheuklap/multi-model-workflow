@@ -22,8 +22,8 @@
 | 「Once done」之后的 closing steps | 我们改的：八步，顺序是 worker 自跑（`ticket.checked`，run `self`）→ DECISIONS → reviewer → worker 的 final run（`--reverify --actor worker`）→ Audit → `--touched` → `--draft` → `--closeout`。final run 排在最后一个写 commit 的步骤之后，并重跑全部标准；closeout 只接受 actor 为 worker、commit 为 `HEAD`、shape 与票面一致且结果满足关票条件的最新 reverify。DECISIONS 排在 reviewer 之前：Spec axis 要对 DECISIONS 的每一行给 `reasonable` 或 `should not`，`--touched` 也从 review 里取这个判断，评论晚于 review 就永远没有东西可判；review 修一轮里新做的决定不补进 DECISIONS，由收尾评论带最终版。第 3 步 `start <n> reviewer` 不带开关，启动后结束回合，由 relay 在 `reviewer.reported` 落票时叫醒；读事件后 `ack`。`start` 退出 2 是 pipeline fault：用 `verify-ticket.py <n> --sub-issue fault <file>` 记录后停止。票内发现不修的，写成 `refuted:`，判据照抄 BMAD `step-04-review.md`：查过、坏结果不在所引位置发生，写出反驳这条具体说法的依据。四个子命令 `--decisions`、`--touched`、`--draft`、`--closeout` 的每条拒绝自己说下一步，exit code 在 `verify-ticket.py --help`，正文不复述；worker 写草稿时要满足的规则（各个 `<fill>` 怎么填、`ABANDON:` 放在它的 criterion 下）写在第 7 步；首行是 `ALL MET` 还是 `HANDOFF REQUIRED` 与 `Counts:` 不再要 worker 手算再核对，`--closeout`（含 `--check-only`）照草稿里的 `ABANDON:` 行自己写，`draft_problems` 本来就用 `tally()` 重算并拒绝不一致，第 7 步与 Done when 都不再提这两行。第 8 步的拒绝首行本身已经说了失败的是什么、去哪看其余问题，正文不复述；仓库 `checks` 失败时的机械下一步（改代码、跑那套 suite、commit、重跑第 4 步最终运行、再关票一次）也挪进那条拒绝的 stderr，正文只留一句判断：检查失败且失败的检查覆盖了本次合并带进来的某张票改过的代码，这个失败就是合并的，归 `resolving-merge-conflicts` 技能。`ABANDON` 三种 kind 那一段放在续跑表之后、第 1 步之前：第 1 步就用到它。第 4 步不启动 session。第 8 步不 archive agent；单票 `land <n>` 或批次 `advance` 才收 workspace 与 session，也没有单独关闭 pane 的步骤。`failed` 与 `stuck` 不设轮数门槛。以下几条只写在这里，正文不写：「tracker 由 closeout 关、不手动关」只在第 8 步写一次（`Never close the ticket or swap its labels yourself — a hook blocks the command`），「Once done」那一段不重复；重新提示后先再 claim 的理由是 `advance` 重派时收回 claim、第 8 步拒绝不归你的票；第 4 步没有修一轮，理由是第 1 步的自跑与第 3 步的 review fix 就是修的轮次；第 6 步只有命令，步骤顺序已经把它排在第 3 步之后；第 1 步 clean merge 变红那一句只点名 `resolving-merge-conflicts` 技能，它读什么写在那份技能里；第 1 步在"note each trade-off"之后加了一句，说清楚对面那一边在 MMW 里是什么：已经关票、`reverify` 会在 base branch 上重跑它判据的票，丢了它的行为不会当场失败，会在几小时后落到另一张没人在做的票上，而且 bounce 之后的重试不再有 reviewer；两边真的水火不容，是切票时漏了一条边，保留已落地的一边、对两张票一起开 `contract` 子票，跟写码规则里"一个文件一个时刻只有一个作者"的判断是同一条逻辑，来自 `resolving-merge-conflicts` 的定稿；第 1 步 `integrate` 的 exit 3 只写「照 stderr 做，每个取舍记进 `Decisions I made on my own`」，见 `## Integrate before the worker criteria`；第 1 步 `verify-ticket.py <n>` 的 exit 3 写成结束回合、`worker.queued` 叫醒后 ack 再跑，exit 4 不写，它的 stderr 自己说再跑；第 3、5、8 步各以一行 `Done when` 收尾（第 3 步：review report 在票上，session 的状态不算，票内发现各有 fixed 或 `refuted:`，仍成立的票外发现各有 `finding` child；第 5 步：说得出对每个 **What to build** 的点和每条 baseline，分支在哪里跟着做，或收尾评论哪一行说它没做到；第 8 步：`--closeout` 退出 0）；第 5 步 Audit 本身也改了目的：不是重读全票、追每条 `EVIDENCE:`（`EVIDENCE:` 由脚本写进事件，这条完成标准不会失败，是一道走不完的手续），而是照用户早上读收尾评论那样，对着分支再读一遍票，查 **What to build** 每一点在产品里成立、每条 baseline 在适用之处被照做，查不到的写进收尾评论；`stuck` 不收产品运行中的人工步骤与连不上产品，那两种照 `ui-acceptance` 技能五条规则的第 3、4 条开 `fault` 并停下，一种情况只有一条路；第 3 步只说一次「One reviewer per round; after `reviewer.lost`, start another.」，正面写，续跑表各行不再重复这条；第 8 步的 landing 与不开 pull request 合成一句：orchestrator 落地，本会话跑 `land` 会停掉自己，不写 `dispatch.sh` 这个脚本名，「Nothing in this pipeline reads a pull request」的理由见 `## Closeout pushes the ticket branch, no pull request`。理由：worker 必须在 review fix 的最后一次 commit 后留下唯一的 final proof，closeout 只负责核验证据与改变 tracker 状态；session 生命周期属于 landing。上游改收尾时，保留这些规则、八步顺序、final run 和 closeout 条件。 |
 | 第 7 步的 `--draft` 那一句 | 我们改的：不给路径。见 `## 草稿落在仓库之外`。首行是 `ALL MET` 还是 `HANDOFF REQUIRED`、`Counts:` 这两行不再要 worker 自己填或重数：`--closeout`（含 `--check-only`）照草稿里的 `ABANDON:` 行自己算，`draft_problems` 本来就用 `tally()` 核对、算错就拒绝，worker 只管把每个 `ABANDON:` 行放到它的 criterion 下面。 |
 | frontmatter 的 `disable-model-invocation` 与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation` | 我们删的：上游两处都设了只许人触发，我们要模型自己就能调用 implement，所以两处一起删。上游若再带回来 → 仍然删 |
-| frontmatter 的 `description` | 我们加的：上游那一句之后加 `Use when you were dispatched onto a ticket, or picked one up yourself.`，只写触发条件。模型自己调用它，描述就是它被选中的依据；认领、写码、收尾这些过程写在正文里，不进描述（`mmw` 技能的 `references/skill-set-rules.md` `### Descriptions`）。上游改那一句 → 收上游措辞，触发句保留 |
-| `Use /tdd where possible, at pre-agreed seams.` | host 中立：改成 `` Read the `tdd` skill's `SKILL.md` and follow it where possible, at pre-agreed seams. ``，即 `mmw` 技能的 `references/skill-set-rules.md` `### Hand-offs` 里的第一种写法（要词汇、就地照办）。句末加一段：`CHECK:` 点名了测试用例时，那个用例就是第一条红测试，写代码前先跑、看它为什么红；缺文件、import 错、用例名打错这几种红证明不了什么，只有因为行为还没写才红才算数。理由：流水线里没有别的环节能证明"这条测试能失败"——认领时的 baseline 跑在测试存在之前，review 的 Tests axis 只读不跑，来自 `tdd` 的定稿（该定稿把这句放在这里而不是 `tdd` 自己的正文，因为上游 `tdd` 有意不加强这一点）。上游改这一句 → 收上游措辞，斜杠调用照这种写法换掉，`CHECK:` 那段跟着这一句留在这里 |
+| frontmatter 的 `description` | 我们加的：上游那一句之后加 `Use when you were dispatched onto a ticket, or picked one up yourself.`，只写触发条件。模型自己调用它，描述就是它被选中的依据；认领、写码、收尾这些过程写在正文里，不进描述（`writing-for-agents` 技能的 `SKILL-SET-RULES.md` `### Descriptions`）。上游改那一句 → 收上游措辞，触发句保留 |
+| `Use /tdd where possible, at pre-agreed seams.` | host 中立：改成 `` Read the `tdd` skill's `SKILL.md` and follow it where possible, at pre-agreed seams. ``，即 `writing-for-agents` 技能的 `SKILL-SET-RULES.md` `### Hand-offs` 里的第一种写法（要词汇、就地照办）。句末加一段：`CHECK:` 点名了测试用例时，那个用例就是第一条红测试，写代码前先跑、看它为什么红；缺文件、import 错、用例名打错这几种红证明不了什么，只有因为行为还没写才红才算数。理由：流水线里没有别的环节能证明"这条测试能失败"——认领时的 baseline 跑在测试存在之前，review 的 Tests axis 只读不跑，来自 `tdd` 的定稿（该定稿把这句放在这里而不是 `tdd` 自己的正文，因为上游 `tdd` 有意不加强这一点）。上游改这一句 → 收上游措辞，斜杠调用照这种写法换掉，`CHECK:` 那段跟着这一句留在这里 |
 | `## Claim, read in, write the code`、`## Closing steps` 两个标题 | 我们加的：两个标题让读者按标题找到开工段与收尾八步；没有它们，收尾八步落在 `## Shared experience while implementing` 底下。上游加标题 → 收上游的，这两个保留 |
 
 ## writing-interface-code.md
@@ -122,29 +122,13 @@ the ordinary-failure steps to the refusal.
 ## Put no question on the screen
 
 One bullet in the code-writing rules. A worker that puts a question up gets no answer:
-The `dispatch` skill's `scripts/tool-guard.py` `question` gate refuses the host's question
-tool in an `issue-<n>` worktree, which the worker and reviewer share. The refusal gives
-the worker both ways out and gives the reviewer `unverified: <what would settle it>`
-at the end of the finding's line. So the bullet says
+`tool-guard.py`'s `question` gate refuses the host's question tool in every dispatched session
+(`MMW_AUTONOMOUS=1`), and the refusal points at the same two ways out. So the bullet says
 what to do instead: take the option the ticket, its baselines and the spec make most likely, record it
 under **Decisions I made on my own**, and carry on; a question whose answer would change
 what the ticket delivers gets a sub-issue. The recording place and the sub-issue route are
 here too — this bullet is the third part, the one that says not to ask. Upstream rewrites
 the code-writing rules → keep the bullet.
-
-## Closing steps: re-entry on a wake
-
-Closing step 1 after the `worker.queued` sentence and closing step 3 after the
-`reviewer.reported` sentence each carry a connecting sentence added by this repository.
-Both point at the `dispatch` skill's `SKILL.md` `## On waking`, whose first action is
-to rerun a command a wake cut short. The route in `dispatch/SKILL.md` `## Find your
-moment` sends the worker straight to `implement` `## Closing steps`, so without these
-connections that first action never reaches it (`docs/research/workflow-compare/reports/N10-mmw-routing-and-invocation.md`
-`## 4. 断点与弱点`, B9). The step 3 connection says its following ack is the ack that
-`## On waking` asks for; the worker does not ack twice.
-
-Upstream rewrites either closing step → keep both connecting sentences and the
-single ack, with the command rerun before other work.
 
 ## Closing steps: resume after a re-prompt
 

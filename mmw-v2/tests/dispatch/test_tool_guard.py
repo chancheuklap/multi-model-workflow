@@ -439,12 +439,14 @@ class TestTheQuestionGate(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIsNotNone(answer)
 
-    def test_the_reason_gives_the_worker_and_the_reviewer_a_way_out(self):
+    def test_the_reason_says_where_the_question_goes(self):
         _, answer = self.ask("grok")
         reason = reason_of(answer)
         self.assertIn("Decisions I made on my own", reason)
         self.assertIn("ABANDON: AC<n> decision", reason)
-        self.assertIn("unverified:", reason)
+        self.assertIn("needs-triage", reason)
+
+    def test_it_arrives_whole_on_the_host_that_clips_it(self):
         self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), rf.REASON_LIMIT)
 
 

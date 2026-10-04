@@ -108,12 +108,6 @@ The alerts exactly:
               <runner> is alive, and no reviewer or product slot is pending
     watchdog: cannot read the tracker since <time>: <what failed>
 
-The two `liveness unknown` alerts and the `silent since ... with nothing to wait on`
-alert append `dispatch.sh resume <n> ...` for a `night` or `ticket` watch, or a watch
-with no `kind`. A watch whose `kind` is `adopted-ticket` sends those three alerts to
-the worker itself, so their next step is to tell the user, not to resume that session.
-The other five alerts do not branch on the watch's `kind`.
-
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
 repository has one watchdog, serving every watch; the lock's record names its pid and
 process identity, the same convention as the relay's. It writes `watchdog.json`, the
@@ -594,14 +588,13 @@ class Watchdog:
 
     def watched(self, watches: dict[str, dict], failures: list[str]) -> dict[int, dict]:
         """Every ticket to read this round, each with its watch: `spec` (None for a
-        tickets watch), `kind` and `main`, the (runner, session) its alerts go to. Tickets
+        tickets watch) and `main`, the (runner, session) its alerts go to. Tickets
         watches are taken first, as the relay takes them. A closed sub-issue of a spec is
         left out; a spec whose sub-issues cannot be listed is a failure."""
         tickets: dict[int, dict] = {}
         ordered = sorted(watches.items(), key=lambda kv: (0 if kv[1].get("tickets") else 1, kv[0]))
         for key, entry in ordered:
-            home = {"key": key, "spec": None, "kind": entry.get("kind"),
-                    "main": relay_mod.main_of(entry)}
+            home = {"key": key, "spec": None, "main": relay_mod.main_of(entry)}
             if entry.get("tickets"):
                 for number in entry["tickets"]:
                     tickets.setdefault(int(number), home)
@@ -673,12 +666,12 @@ class Watchdog:
             elif state == "waiting":
                 held.append(number)
                 waiting.append(number)
-                self._silent(number, home, verdict, unknown, findings)
+                self._silent(number, home["spec"], verdict, unknown, findings, to)
             elif state == "recent":
                 held.append(number)
             else:
                 held.append(number)
-                self._silent(number, home, verdict, unknown, findings)
+                self._silent(number, home["spec"], verdict, unknown, findings, to)
             self.beat["unknown"] = unknown
             self.write_beat()
 
@@ -710,20 +703,10 @@ class Watchdog:
             return {}
         return value if isinstance(value, dict) else {}
 
-    def _silent(self, number: int, home: dict, verdict: dict, unknown: dict,
-                findings: list[dict]) -> None:
+    def _silent(self, number: int, spec: int | None, verdict: dict, unknown: dict,
+                findings: list[dict], to: list[tuple[str, str]]) -> None:
         """The third layer, for one held and silent ticket."""
-        spec, to = home["spec"], [home["main"]]
         since = verdict.get("since")
-        tell_user = (
-            "tell the user what this alert says; this adopted ticket has no orchestrator "
-            "and this session cannot resume itself"
-            if home["kind"] == "adopted-ticket" else None
-        )
-        unknown_next = tell_user or (
-            f"dispatch.sh resume {number} \"Say in one line where you are, then continue\", "
-            "and act on its exit as night.md's Exit codes of resume says"
-        )
         if not verdict["sessions"]:
             unknown[str(number)] = {"why": "held by no session to ask", "since": since}
             findings.append({
@@ -747,7 +730,9 @@ class Watchdog:
                     "text": f"watchdog: #{number} liveness unknown: the {kind} session "
                             f"{session} was started on {machine or 'an unrecorded machine'}, "
                             f"not on {self.machine}, and only that machine can ask {runner}; "
-                            f"silent since {since or 'an unknown time'}; {unknown_next}",
+                            f"silent since {since or 'an unknown time'}; dispatch.sh resume "
+                            f"{number} \"Say in one line where you are, then continue\", and "
+                            f"act on its exit as night.md's Exit codes of resume says",
                     "to": to,
                 })
                 continue
@@ -756,19 +741,17 @@ class Watchdog:
             if answer == "alive":
                 if kind == "worker" and verdict.get("idle"):
                     # Alive, and nothing it waits on will ever land: nobody is coming to wake it.
-                    idle_next = tell_user or (
-                        f"dispatch.sh resume {number} \"You ended your turn with no result on the "
-                        "ticket. Carry on from where its events say you are. If "
-                        "something outside your code stops you, open a fault "
-                        "sub-issue saying what you ran and what you saw, then "
-                        "stop; if only a person can settle it, open a decision "
-                        "sub-issue, take the default and carry on.\""
-                    )
                     findings.append({
                         "key": f"idle:{number}:{verdict.get('comment')}",
                         "text": f"watchdog: #{number} silent since {since} with nothing to wait "
                                 f"on: its worker {session} on {runner} is alive, and no "
-                                f"reviewer or product slot is pending; {idle_next}",
+                                f"reviewer or product slot is pending; dispatch.sh resume "
+                                f"{number} \"You ended your turn with no result on the "
+                                f"ticket. Carry on from where its events say you are. If "
+                                f"something outside your code stops you, open a fault "
+                                f"sub-issue saying what you ran and what you saw, then "
+                                f"stop; if only a person can settle it, open a decision "
+                                f"sub-issue, take the default and carry on.\"",
                         "to": to,
                     })
                 continue
@@ -792,7 +775,9 @@ class Watchdog:
                 "key": f"unknown:{number}:{kind}:{runner}:{session}:{verdict.get('comment')}",
                 "text": f"watchdog: #{number} liveness unknown: {runner} could not say whether "
                         f"the {kind} session {session} is alive; silent since "
-                        f"{since or 'an unknown time'}; {unknown_next}",
+                        f"{since or 'an unknown time'}; dispatch.sh resume {number} \"Say "
+                        f"in one line where you are, then continue\", and act on its exit "
+                        f"as night.md's Exit codes of resume says",
                 "to": to,
             })
 

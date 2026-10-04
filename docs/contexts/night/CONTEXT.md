@@ -7,12 +7,8 @@ The orchestrator's commands that run a spec's published tickets, the runners tha
 ### Roles
 
 **agent**:
-Any session or subagent the pipeline starts or runs: the orchestrator, a worker, a reviewer, the advisor, a researcher, a code-review axis. `models.json` rows are `junior-worker`, `senior-worker`, `reviewer` and `advisor`, plus an optional `researcher` row: a file without that row stays valid.
+Any session or subagent the pipeline starts or runs: the orchestrator, a worker, a reviewer, the advisor, a code-review axis. Four have a `models.json` row: `junior-worker`, `senior-worker`, `reviewer` and `advisor`.
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
-
-**role**:
-A key of `roles.json`, naming which command starts it. Distinct from an **agent** and from a `models.json` row, which selects the host, model and reasoning effort.
-_Home_: `mmw-v2/skills/dispatch/roles.json`
 
 **session**:
 A host process a runner started, or the orchestrator the user started; a session `dispatch.sh start` started is named on its ticket by its started event. A code-review axis runs inside the reviewer and is not one.
@@ -51,7 +47,7 @@ What the relay sends a session when an event it waits on lands on a ticket: `#<n
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work, `research-<n>` for `dispatch.sh research <n>` on branch `research/<n>`, or a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time.
+A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work, or a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
@@ -108,18 +104,6 @@ _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **advise**:
 `dispatch.sh advise <brief file>`: the one way the advisor is started, as a session of the selected runner in the current worktree. It writes no event.
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
-**`dispatch.sh research`**:
-`dispatch.sh research <n>`: the one way a researcher session is started, in `.worktrees/research-<n>` on branch `research/<n>`. It writes no event. Distinct from **advise**, which starts the advisor in the current worktree.
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
-**step pointer**:
-A playbook step named `mmw <playbook>#<step>`, using a step title registered for that playbook.
-_Home_: `mmw-v2/skills/dispatch/scripts/status.py`, `mmw-v2/skills/dispatch/scripts/locations.py`
-
-**where line**:
-The one line `dispatch.sh where` prints for the calling session: its role and **step pointer**, or why no position was established.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh board`**:
@@ -290,10 +274,6 @@ _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 What the relay reads and whom it wakes about it: a night's spec, or tickets outside a night, with the session that opened it as its orchestrator. Two watches never share a ticket.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
-**watch kind**:
-The `kind` a **watch** records: which command opened it.
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`, `mmw-v2/skills/dispatch/scripts/relay.py`
-
 **wake queue**:
 The relay's `queue.jsonl` in the state directory, one row per wake to send. Only an **ack** removes a row.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
@@ -385,10 +365,6 @@ _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 How old the watchdog's own heartbeat, and its last whole read of the tracker, may be and still count as fresh: `max(300, poll + margin)` seconds, so a slow poll interval does not read a healthy watchdog as dead.
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
-**hook launcher**:
-The program `install.sh` copies to `~/.mmw/bin/hook-launcher` and names that copy in every toolbox's **host hook** it writes. The copy is a file, not a symlink, of `mmw-v2/hook-launcher.py`, and it starts `tool-guard.py`, `turn-guard.py` or `mode-hook.py` from the checkout `installed-root` names.
-_Home_: `mmw-v2/install.sh`, `mmw-v2/hook-launcher.py`
-
 **turn guard**:
 The dispatch skill's `turn-guard.py`, a hook on each host's turn-end event that, in the orchestrator of an open watch, arms the watchdog and keeps the turn from ending while tickets are held and the watchdog is not healthy.
 _Home_: `mmw-v2/skills/dispatch/scripts/turn-guard.py`
@@ -437,7 +413,7 @@ The retro's comparison of the spec's expected surface (Problem Statement and Use
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **Prevention destinations**:
-The eleven values a retro problem's Prevention names by its `destination`: `check`, `script`, `repository-agents`, `repository-skill`, `reviewer-rule`, `mmw-skill`, `principle`, `playbook`, `mode`, `toolbox-memory` and `none`. `principle`, `playbook` and `mode` name the **principle**, **playbook** (a repository's own is a **private playbook**) and **mode** the fix is written into.
+The eight values a retro problem's Prevention names by its `destination`, each with one fixed reader: a check, a script, that repository's `AGENTS.md`, a repository-local skill, an active reviewer Rule, an MMW skill, toolbox Memory, or none.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **proposal**:

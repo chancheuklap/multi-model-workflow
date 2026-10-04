@@ -80,6 +80,10 @@ TEMPLATE_ERRORS = [
     ),
     ("Compiled backend import smoke failed (1)", "frozen_smoke:duck"),
     (
+        "Compiled backend lacks modules the source run loads: sqlite3.dump, email.mime.text",
+        "missing_compiled_modules:duck",
+    ),
+    (
         "Compiled backend import smoke ran but its exit code could not be read; "
         "treat this as a build harness fault, not a missing dependency",
         "env:smoke_harness:duck",

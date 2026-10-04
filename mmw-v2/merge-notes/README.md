@@ -1,6 +1,6 @@
 # merge-notes
 
-四个上游 subtree 里被我们改过的技能和脚本，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
+三个上游 subtree 里被我们改过的技能和脚本，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
 给的是**意图**，不是 diff——diff 用 `git diff <上一个 Squashed 提交>:skills/<类别>/<技能> HEAD:mmw-v2/upstream/skills/<类别>/<技能>` 看（squash 提交的树根是上游仓库根，没有 `mmw-v2/upstream/` 前缀；上一个 Squashed 提交用 `git log --oneline --grep "Squashed 'mmw-v2/upstream/'"` 找）。
 反方向——本仓库改了、consuming repository 里哪些产物作废——是 downstream-note，见 [`../downstream-notes/README.md`](../downstream-notes/README.md)。
 
@@ -8,7 +8,7 @@
 
 1. 拉对应的 subtree。mattpocock 的：
    `git subtree pull --prefix mmw-v2/upstream https://github.com/mattpocock/skills main --squash`
-   `diagram-design`、`unlazy` 和 `pstack` 各自一个，命令写在各自的说明里。
+   `diagram-design` 和 `unlazy` 各自一个，命令写在各自的说明里。
 2. 每个冲突文件，打开它所属技能的说明，对着冲突段落找到对应条目，按条目里的取舍规则决定留谁。
    说明里没覆盖的段落：我们没改过，取上游。
 3. 解完：通读该技能的 `SKILL.md` 及其 reference 一遍，确认没有互相矛盾的句子；跑 `bash mmw-v2/install.sh --check`。
@@ -19,15 +19,13 @@
 
 `SKILL.md` frontmatter 的 `disable-model-invocation: true`（Claude Code 读）与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation: false`（Codex 读）说的是同一件事：这个 skill 只有 user 点名才触发。两处同增同删——只动一处，同一个 skill 在一半 host 上是 user 触发、在另一半是模型可触发。
 
-被 mode 或 playbook 点名、要模型调用的上游技能不改子树，只在 `skills.txt` 那一行加 `+model-invoked`，由 `install.sh` 在安装副本里去掉这两处。
-
-本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`mmw` 技能的 `references/skill-set-rules.md` `### Descriptions`）。两行都留着的七个是 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`。其中 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`teach`、`wait-what` 在 `skills.txt` 带 `+model-invoked`；`grill-with-docs`、`improve-codebase-architecture` 不带标记，只由用户点名。`triage`、`wayfinder`、`to-questionnaire` 也带 `+model-invoked`。上游改这两行 → 子树里两处一起跟；带标记的，由安装副本去掉。
+mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型可触发：user 漏说技能名时，agent 自己认得出该用它。本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`writing-for-agents` 技能的 `SKILL-SET-RULES.md` `### Descriptions`）。两行都留着的只有 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`。上游改这两行 → 本仓的取舍不变，两处一起跟。
 
 下面每份说明只写它那个 skill 站在哪一边，不复述这条规则。
 
 ## host 中立
 
-上游技能的正文按一家 host 说话：`the Skill tool` 这个工具名只在一家 host 上存在，别的 host 的 agent 只能猜。技能名本身（`/名字` 或 `the X skill`）在每个 host 上都够用：技能已经加载在 agent 的运行时里。本仓的改法（点名另一个技能的写法、会话管理命令的写法）是技能文本的规则，写在 `mmw` 技能的 `references/skill-set-rules.md` `### Hand-offs` 与 `### Paths and host neutrality`。
+上游技能的正文按一家 host 说话：`the Skill tool` 这个工具名只在一家 host 上存在，别的 host 的 agent 只能猜。技能名本身（`/名字` 或 `the X skill`）在每个 host 上都够用：技能已经加载在 agent 的运行时里。本仓的改法（点名另一个技能的写法、会话管理命令的写法）是技能文本的规则，写在 `writing-for-agents` 技能的 `SKILL-SET-RULES.md` `### Hand-offs` 与 `### Paths and host neutrality`。
 
 **上游把某一段改回工具名或斜杠命令 → 收上游对那一段其余部分的措辞，按能力说话这一层不收回去。** 下面每份说明只写它那个技能改了哪几段，不复述这些写法。
 
@@ -37,7 +35,7 @@
 
 `code-review`、`implement`、`to-tickets` 放在 `mmw-v2/upstream/skills/engineering/` 下，正文却几乎全是本仓写的。拉 upstream 时不合并上游对这三个技能的改动：冲突取本仓的，自动合进来的上游段落也改回本仓的。它们的说明记的是本仓各段的意图，不是与上游的差异。
 
-`mmw-v2/skills/retro/` 是本仓自己的技能，不在任何 subtree 里。它 `## Decide` 第 9 步从 pstack 的 synthesizer 抄来的四条分拣规则，说明在 [pstack](pstack.md) 的 `## retro 的四条分拣规则`。上游的 `in-progress/retro` 是另一个技能，不合进来。
+`mmw-v2/skills/retro/` 是本仓自己的技能，不在任何 subtree 里，没有说明；上游的 `in-progress/retro` 是另一个技能，不合进来。
 
 ## 目前有说明的技能
 
@@ -65,4 +63,3 @@
 - [writing-for-agents](writing-for-agents.md) — `productivity/writing-for-agents`
 - [diagram-design](diagram-design.md) — `mmw-v2/upstream-diagram-design/`，另一个上游、另一个 subtree
 - [unlazy](unlazy.md) — `mmw-v2/upstream-unlazy/`，verify-ticket 的判定引擎 gate-check，不是装进 host 的技能
-- [pstack](pstack.md) — `mmw-v2/upstream-pstack/`，另一个上游、另一个 subtree；里面的文字不改

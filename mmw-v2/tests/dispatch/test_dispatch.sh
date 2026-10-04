@@ -15,15 +15,11 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove|installorca
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh installboardagent|installcheckboardagent|installtoolguard
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckmodehook
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckstalecopy
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcopyretired
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckwiringfails|installcheckwiringunchecked
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh usesagree|usesmismatch|usesunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh open|openrefused|openticket|watchkind|ack|unopened|runnerself|orcaunobserved|adopt
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved|adopt
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh startunlandedblocker
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
@@ -654,22 +650,6 @@ Options:
 """
 
 HERDR_HELP = {
-    ("server",): """Run or control the headless server
-
-Usage: herdr server [COMMAND]
-""",
-    ("server", "stop"): """Stop the running server
-
-Usage: herdr server stop
-""",
-    ("workspace", "create"): """Create a workspace
-
-Usage: herdr workspace create [OPTIONS]
-
-Options:
-      --cwd <PATH>
-      --no-focus
-""",
     ("pane", "close"): """Close a pane
 
 Usage: herdr pane close <pane_id>
@@ -1687,33 +1667,18 @@ if holder:
 PY
 }
 
-# Read one field of the watch at <key>; `exists` distinguishes an absent key from a
-# watch whose requested field is absent. `main` prints its "runner session" pair.
-watch_field() {
-  python3 - "$STATE_DIR/watches.json" "$1" "$2" <<'PY'
-import json, sys
-unreadable = False
-try:
-    watches = json.load(open(sys.argv[1]))
-except (OSError, ValueError):
-    watches = {}
-    unreadable = True
-key, field = sys.argv[2:4]
-watch = watches.get(key)
-if field == "exists":
-    if unreadable:
-        print("unreadable")
-    else:
-        print("present" if key in watches else "absent")
-elif watch and field == "main":
-    print(watch["runner"], watch["session"])
-elif watch:
-    print(watch.get(field, ""))
-PY
-}
-
+# The orchestrator of the open watch <key> (`spec:N` or `tickets:N`), "runner session";
+# nothing when that watch is not open.
 watch_main() {
-  watch_field "$1" main
+  python3 - "$STATE_DIR/watches.json" "$1" <<'PY'
+import json, sys
+try:
+    watch = json.load(open(sys.argv[1])).get(sys.argv[2])
+except (OSError, ValueError):
+    watch = None
+if watch:
+    print(watch["runner"], watch["session"])
+PY
 }
 
 # A Paseo agent `paseo ls` lists as idle, standing in for the orchestrator's own session.
@@ -1904,13 +1869,12 @@ store.write_text(json.dumps(posted))
 }
 
 # The events posted on ticket <n> during this run, one `name key=value...` per line, for
-# the keys asked for: `posted_events 61 session runner`. A reader that stops at the first
-# match closes this pipe; the writer then exits 0, so the reader's status is the answer.
+# the keys asked for: `posted_events 61 session runner`.
 posted_events() {
   local n="$1"
   shift
   MMW_N="$n" MMW_KEYS="$*" python3 -c '
-import importlib.util, json, os, sys
+import importlib.util, json, os
 from pathlib import Path
 spec = importlib.util.spec_from_file_location("ev", os.environ["MMW_EVENTS_PY_FOR_TESTS"])
 ev = importlib.util.module_from_spec(spec)
@@ -1918,18 +1882,13 @@ spec.loader.exec_module(ev)
 store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
 posted = json.loads(store.read_text()).get(os.environ["MMW_N"], []) if store.is_file() else []
 keys = os.environ["MMW_KEYS"].split()
-try:
-    for body in posted:
-        what, payload = ev.parse(body)
-        if what != "event":
-            print("UNREADABLE " + str(payload))
-            continue
-        values = [body.splitlines()[0] if k == "line" else payload.get(k) for k in keys]
-        print(" ".join([payload["event"]] + [f"{k}={v}" for k, v in zip(keys, values)]))
-    sys.stdout.flush()
-except BrokenPipeError:
-    devnull = os.open(os.devnull, os.O_WRONLY)
-    os.dup2(devnull, sys.stdout.fileno())
+for body in posted:
+    what, payload = ev.parse(body)
+    if what != "event":
+        print("UNREADABLE " + str(payload))
+        continue
+    values = [body.splitlines()[0] if k == "line" else payload.get(k) for k in keys]
+    print(" ".join([payload["event"]] + [f"{k}={v}" for k, v in zip(keys, values)]))
 '
 }
 export MMW_EVENTS_PY_FOR_TESTS="$(dirname "$SKILL")/verify-ticket/scripts/events.py"
@@ -2345,11 +2304,21 @@ JSON
   [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
   grep -q 'install.sh --check still finds this' "$TMP/err" && grep -q '缺 something' "$TMP/err" \
     || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
-  [ -s "$TMP/install-calls" ] \
-    || fail "install.sh was not asked to --check"
-  if grep -v -x -- '--check' "$TMP/install-calls" >/dev/null; then
-    fail "a checkout that is not the installed one should only be asked to --check: $(cat "$TMP/install-calls")"
-  fi
+  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check --check " ] \
+    || fail "a checkout that is not the installed one should only check: $(cat "$TMP/install-calls")"
+
+  echo "--- the installed checkout repairs itself with install.sh before it warns"
+  printf '#!/usr/bin/env bash\necho "run ${1:-install}" >> "%s/install-calls"\n[ "${1:-}" = --check ] && [ ! -f "%s/installed" ] && exit 1\ntouch "%s/installed"\nexit 0\n' "$TMP" "$TMP" "$TMP" > "$TMP/fake/install.sh"
+  rm -f "$TMP/install-calls" "$TMP/installed"
+  mkdir -p "$MMW_HOME"
+  printf '%s\n' "$TMP/fake" > "$MMW_HOME/installed-root"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  rm -f "$MMW_HOME/installed-root"
+  [ "$code" = 0 ] || fail "expected exit 0 after the repair, got $code: $(cat "$TMP/err")"
+  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "run --check run install run --check " ] \
+    || fail "expected check, install, check: $(cat "$TMP/install-calls")"
+  grep -q 'still finds' "$TMP/err" && fail "a repaired install should not warn: $(cat "$TMP/err")"
 
   echo "--- a row that does not resolve on tonight's runner is refused in the resolver's words, whatever the tickets carry"
   copy="$(skill_copy_for check)"
@@ -2381,44 +2350,6 @@ json.dump(catalog, open(sys.argv[2], "w"))
   [ "$code" = 2 ] || fail "a runner with no adapter is exit 2, got $code: $(cat "$TMP/err")"
   grep -q "the selected runner is tmux, and this skill has no adapter for it" "$TMP/err" \
     || fail "the refusal should name the runner: $(cat "$TMP/err")"
-}
-
-scenario_checkreportsonly() {
-  local copy code next
-  copy="$(skill_copy_for checkreportsonly)"
-  fresh_project_night
-
-  echo "--- the installed checkout only reports a failing install.sh --check and does not install"
-  cat > "$TMP/tickets.json" <<'JSON'
-[
-  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker"]}
-]
-JSON
-  reset_log
-  printf '#!/usr/bin/env bash\necho "${1:-FULL}" >> "%s/install-calls"\n[ "${1:-}" = --check ] && { echo "缺 something"; exit 1; }\nexit 0\n' "$TMP" > "$TMP/fake/install.sh"
-  rm -f "$TMP/install-calls"
-  mkdir -p "$MMW_HOME"
-  printf '%s\n' "$TMP/fake" > "$MMW_HOME/installed-root"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  rm -f "$MMW_HOME/installed-root"
-  [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
-  [ -s "$TMP/install-calls" ] \
-    || fail "install.sh was not asked to --check"
-  if grep -v -x -- '--check' "$TMP/install-calls" >/dev/null; then
-    fail "the installed checkout must only be asked to --check: $(cat "$TMP/install-calls")"
-  fi
-  grep -q '^dispatch: warning: install.sh --check still finds this' "$TMP/err" \
-    || fail "the warning's first line changed: $(cat "$TMP/err")"
-  grep -q '缺 something' "$TMP/err" \
-    || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
-  next="$(grep '^dispatch: ' "$TMP/err" | grep -v 'install.sh --check still finds this' || true)"
-  [ "$(printf '%s\n' "$next" | sed '/^$/d' | wc -l | tr -d ' ')" = 1 ] \
-    || fail "the next step should be one line: $(cat "$TMP/err")"
-  printf '%s\n' "$next" | grep -q 'install.sh' \
-    || fail "the next step should name install.sh: $(cat "$TMP/err")"
-  printf '%s\n' "$next" | grep -q 'open' \
-    || fail "the next step should name open: $(cat "$TMP/err")"
 }
 
 # A row resolves against the catalog of the runner that starts the session: Orca runs the
@@ -3227,173 +3158,6 @@ scenario_nobaseconfig() {
   [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
   assert_no_retired_base_config "$TMP/repo" 61 adopt
   no_relay
-}
-
-add_researcher_row() {
-  cp "$MMW_HOME/models.json" "$1"
-  python3 - "$MMW_HOME/models.json" "${2:-high}" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["rows"]["researcher"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": sys.argv[2]}
-json.dump(data, open(path, "w"))
-PY
-}
-
-scenario_research() {
-  local code saved="$TMP/models.saved"
-  reset_log
-  fresh_repo
-  no_relay
-  add_researcher_row "$saved" low
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-  [ "$code" = 0 ] || fail "research expected 0, got $code: $(cat "$TMP/err")"
-  if [ "$code" = 0 ]; then
-    started_once
-    [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
-    [ "$(out_json provider)" = codex/gpt-5.6-sol ] || fail "research did not use its row: $(out_json provider)"
-    [ "$(out_json settings.thinkingOptionId)" = low ] || fail "research effort: $(out_json settings.thinkingOptionId)"
-    hasnt "gh :: issue :: comment"
-    hasnt_runner_worktree
-  fi
-
-  reset_log
-  no_relay
-  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail \
-          bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-  [ "$code" = 2 ] || fail "refused research expected 2, got $code: $(cat "$TMP/err")"
-  started_once
-  nothing_printed
-  hasnt "orca :: terminal :: create"
-  hasnt "herdr :: agent :: start"
-  hasnt "gh :: issue :: comment"
-  mv "$saved" "$MMW_HOME/models.json"
-}
-
-scenario_researchworktree() {
-  local code tree caller_head saved="$TMP/models.saved"
-  reset_log
-  fresh_repo
-  add_researcher_row "$saved"
-  git -C "$TMP/repo" worktree add --quiet -b mapper "$TMP/mapper"
-  commit_file "$TMP/mapper" context.txt context context
-  caller_head="$(git -C "$TMP/mapper" rev-parse HEAD)"
-  code="$( (cd "$TMP/mapper" && bash "$DISPATCH" "${TOOLS[@]}" research 61) > "$TMP/out" 2> "$TMP/err"; echo $?)"
-  mv "$saved" "$MMW_HOME/models.json"
-  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/research-61"
-  [ "$code" = 0 ] || fail "research from a linked checkout expected 0, got $code: $(cat "$TMP/err")"
-  if [ "$code" = 0 ]; then
-    [ "$(out_json cwd)" = "$tree" ] || fail "cwd: $(out_json cwd), want $tree"
-    [ "$(git -C "$tree" branch --show-current)" = research/61 ] || fail "wrong research branch"
-    [ "$(git -C "$tree" rev-parse HEAD)" = "$caller_head" ] || fail "research did not start at the caller's HEAD"
-    [ ! -e "$TMP/mapper/.worktrees/research-61" ] || fail "worktree was placed under the calling checkout"
-    if git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/research/61; then
-      fail "dispatch pushed the research branch"
-    fi
-  fi
-}
-
-scenario_researchreuse() {
-  local code tree head saved="$TMP/models.saved"
-  reset_log
-  fresh_repo
-  add_researcher_row "$saved"
-  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/research-61"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-  [ "$code" = 0 ] || fail "first research expected 0, got $code: $(cat "$TMP/err")"
-  if [ "$code" = 0 ]; then
-    commit_file "$tree" report.txt report report
-    head="$(git -C "$tree" rev-parse HEAD)"
-    commit_file "$TMP/repo" later.txt later later
-    printf '%s\n' unfinished > "$tree/unfinished.txt"
-    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-    [ "$code" = 0 ] || fail "second research expected 0, got $code: $(cat "$TMP/err")"
-    [ "$(count_of "paseo :: run")" = 2 ] || fail "second research did not start another session"
-    [ "$(out_json cwd)" = "$tree" ] || fail "research did not reuse the worktree"
-    [ "$(git -C "$TMP/repo" worktree list --porcelain | grep -cF "worktree $tree")" = 1 ] \
-      || fail "research created another worktree"
-    [ "$(git -C "$tree" rev-parse HEAD)" = "$head" ] || fail "research reset the branch"
-    [ "$(cat "$tree/unfinished.txt")" = unfinished ] || fail "research lost unfinished work"
-    rm "$tree/unfinished.txt"
-    git -C "$TMP/repo" worktree remove "$tree"
-    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-    [ "$code" = 0 ] || fail "branch-only reuse expected 0, got $code: $(cat "$TMP/err")"
-    [ "$(git -C "$tree" rev-parse HEAD)" = "$head" ] || fail "research replaced the standing branch"
-    git -C "$tree" checkout -q -b other-research
-    reset_log
-    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-    [ "$code" = 2 ] || fail "a worktree on another branch expected 2, got $code"
-    grep -qF "$tree" "$TMP/err" || fail "the refusal did not name the worktree"
-    [ "$(git -C "$tree" branch --show-current)" = other-research ] || fail "research changed another branch"
-    never_ran
-  fi
-  mv "$saved" "$MMW_HOME/models.json"
-}
-
-scenario_researchprompt() {
-  local code saved="$TMP/models.saved"
-  reset_log
-  fresh_repo
-  add_researcher_row "$saved"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-  mv "$saved" "$MMW_HOME/models.json"
-  [ "$code" = 0 ] || fail "research prompt expected 0, got $code: $(cat "$TMP/err")"
-  if [ "$code" = 0 ]; then
-    python3 - "$DISPATCH" "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY'
-import json, re, shlex, sys
-from pathlib import Path
-prompt = json.loads(Path(sys.argv[2]).read_text().splitlines()[-1])["initialPrompt"]
-autonomous = shlex.split(re.search(r'^AUTONOMOUS=(.*)$', Path(sys.argv[1]).read_text(), re.M)[1])[0]
-assert "\n" not in prompt and "\r" not in prompt, repr(prompt)
-assert prompt.startswith("Use the research skill"), prompt
-assert "#61" in prompt and "research/61" in prompt, prompt
-assert prompt.endswith(" " + autonomous), prompt
-PY
-    [ "$?" = 0 ] || fail "research prompt shape or ticket data is wrong"
-  fi
-}
-
-scenario_researchnorow() {
-  local code script copied="$TMP/toolbox's dispatch"
-  reset_log
-  fresh_repo
-  cp -R "$SKILL" "$copied"
-  for script in "$DISPATCH" "$copied/scripts/dispatch.sh"; do
-    reset_log
-    code="$(run_dispatch bash "$script" "${TOOLS[@]}" research 61)"
-    [ "$code" = 2 ] || fail "missing researcher row expected 2, got $code: $(cat "$TMP/err")"
-    python3 - "$TMP/err" "$(dirname "$script")/models.py" <<'PY'
-from pathlib import Path
-import re, shlex, sys
-message = Path(sys.argv[1]).read_text()
-match = re.search(r'python3 .+ config set researcher codex "gpt 6 sol" high', message)
-assert match, message
-command = match[0]
-assert command[len('python3 ')] in (chr(39), chr(34)), command
-args = shlex.split(command)
-assert args[0] == 'python3' and args[2:] == [
-    'config', 'set', 'researcher', 'codex', 'gpt 6 sol', 'high'], args
-path = Path(args[1])
-assert path.is_absolute() and path.is_file(), path
-assert path.resolve() == Path(sys.argv[2]).resolve(), args
-PY
-    [ "$?" = 0 ] || fail "missing researcher row did not give a usable models.py command"
-    [ ! -e "$TMP/repo/.worktrees/research-61" ] || fail "missing row left a research worktree"
-    git -C "$TMP/repo" show-ref --verify --quiet refs/heads/research/61 \
-      && fail "missing row left a research branch"
-    never_ran
-    nothing_printed
-  done
-}
-
-scenario_researchusage() {
-  local code
-  reset_log
-  fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research)"
-  [ "$code" = 2 ] || fail "research without a ticket expected 2, got $code"
-  grep -qF 'dispatch.sh research <n>' "$TMP/err" || fail "usage omitted research"
-  never_ran
 }
 
 scenario_advise() {
@@ -5629,141 +5393,6 @@ scenario_orcaunobserved() {
   RUNNER="$PASEO_RUNNER"
 }
 
-seed_where_start() {
-  local kind="$1" runner="$2"
-  shift 2
-  post_ev 61 "$kind.started" --ticket 61 --line "$kind started" \
-    --field runner="$runner" --field session=me --field machine=fake \
-    --field host=codex --field model=gpt-6.1-sol --field effort=high \
-    --field grade=senior-worker --field worktree="$TMP/repo/.worktrees/issue-61" \
-    --field branch=issue-61 --field base=0000000000000000000000000000000000000000 "$@"
-}
-
-seed_where_watch() {
-  local kind="$1" number="$2" runner="$3"
-  mkdir -p "$STATE_DIR"
-  python3 - "$STATE_DIR/watches.json" "$kind" "$number" "$runner" <<'PY'
-import json, sys
-path, kind, number, runner = sys.argv[1:]
-row = {"runner": runner, "session": "me"}
-if kind != "missing":
-    row["kind"] = kind
-row.update({"spec": int(number)} if kind == "night" else {"tickets": [int(number)]})
-with open(path, "w") as handle:
-    json.dump({"fixture": row}, handle)
-PY
-}
-
-assert_where_line() {
-  local code="$1" expected="$2"
-  [ "$code" = 0 ] || fail "where expected exit 0, got $code: $(cat "$TMP/out") $(cat "$TMP/err")"
-  [ "$(cat "$TMP/out")" = "$expected" ] || fail "where output: $(cat "$TMP/out"), expected: $expected"
-  [ "$(wc -l < "$TMP/out" | tr -d ' ')" = 1 ] || fail "where did not print one line"
-}
-
-scenario_where() {
-  local code runner role tree
-  local -a identity=()
-  for runner in paseo orca herdr; do
-    case "$runner" in
-      paseo) identity=(PASEO_AGENT_ID=me) ;;
-      orca) identity=(ORCA_TERMINAL_HANDLE=me) ;;
-      herdr) identity=(HERDR_ENV=1 HERDR_PANE_ID=pane_me) ;;
-    esac
-    for role in worker adopting-worker reviewer night-orchestrator one-ticket-orchestrator; do
-      echo "--- $runner identifies $role from self, events and watch kind"
-      reset_log; fresh_repo; no_relay
-      echo '[{"number":61,"state":"OPEN","labels":["ready-for-agent"]},{"number":76,"state":"OPEN","labels":["mmw:spec"],"children":[]}]' > "$TMP/tickets.json"
-      echo '[{"name":"me","agent_status":"idle","pane_id":"pane_me"}]' > "$MMW_FAKE_HERDR_STATE/agents.json"
-      case "$role" in
-        worker) seed_where_start worker "$runner" ;;
-        adopting-worker) seed_where_start worker "$runner" --json-field adopted=true ;;
-        reviewer) seed_where_start reviewer "$runner" ;;
-        night-orchestrator)
-          seed_where_watch night 76 "$runner"
-          post_ev 76 spec.opened --spec 76 --line opened --field runner="$runner" --field session=me ;;
-        one-ticket-orchestrator) seed_where_watch ticket 61 "$runner" ;;
-      esac
-      case "$role" in
-        worker|adopting-worker|reviewer)
-          tree="$TMP/repo/.worktrees/issue-61"
-          mkdir -p "$tree/subdirectory"
-          code="$( (cd "$tree/subdirectory" && env -u HERDR_ENV -u TERM_PROGRAM "${identity[@]}" \
-              FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-          case "$role" in
-            reviewer) assert_where_line "$code" "FRESH reviewer #61 · mmw review-a-ticket#Pin the diff" ;;
-            *) assert_where_line "$code" "FRESH $role #61 · mmw work-a-ticket#Claim" ;;
-          esac ;;
-        night-orchestrator)
-          code="$(run_dispatch env -u HERDR_ENV -u TERM_PROGRAM "${identity[@]}" \
-              FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where)"
-          assert_where_line "$code" "BETWEEN night-orchestrator #76 · mmw run-a-night#Lint the batch .. #Advance, then end your turn" ;;
-        one-ticket-orchestrator)
-          code="$(run_dispatch env -u HERDR_ENV -u TERM_PROGRAM "${identity[@]}" \
-              FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where)"
-          assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker" ;;
-      esac
-      hasnt "gh :: issue :: comment"
-    done
-  done
-}
-
-scenario_wherespec() {
-  local code
-  reset_log; fresh_repo; no_relay
-  echo '[{"number":76,"state":"OPEN","labels":["mmw:spec"],"children":[]}]' > "$TMP/tickets.json"
-  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 76)"
-  assert_where_line "$code" "FRESH night-orchestrator #76 · mmw run-a-night#Check and open"
-  seed_where_watch night 76 paseo
-  post_ev 76 spec.opened --spec 76 --line opened --field runner=paseo --field session=me
-  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 76)"
-  assert_where_line "$code" "BETWEEN night-orchestrator #76 · mmw run-a-night#Lint the batch .. #Advance, then end your turn"
-  post_ev 76 spec.closed --spec 76 --line closed
-  rm "$STATE_DIR/watches.json"
-  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 76)"
-  assert_where_line "$code" "AT night-orchestrator #76 · mmw run-a-night#Retro"
-  hasnt "gh :: issue :: comment"
-}
-
-assert_where_unknown() {
-  [ "$1" = 2 ] || fail "where expected exit 2, got $1: $(cat "$TMP/out") $(cat "$TMP/err")"
-  grep -q '^UNKNOWN ' "$TMP/out" || fail "where printed no UNKNOWN: $(cat "$TMP/out")"
-  [ "$(wc -l < "$TMP/out" | tr -d ' ')" = 1 ] || fail "UNKNOWN did not occupy one line"
-}
-
-scenario_whereunknown() {
-  local code copy
-  reset_log; fresh_repo; no_relay
-  echo '[{"number":61,"state":"OPEN","labels":["ready-for-agent"]}]' > "$TMP/tickets.json"
-  code="$(run_dispatch env -u HERDR_ENV -u TERM_PROGRAM FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
-  assert_where_unknown "$code"
-  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
-  assert_where_unknown "$code"
-  seed_where_watch ticket 61 paseo
-  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
-  assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker"
-  seed_where_watch missing 61 paseo
-  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
-  assert_where_unknown "$code"
-  grep -qF 'watch has no valid kind' "$TMP/out" || fail "missing watch kind reached a different UNKNOWN: $(cat "$TMP/out")"
-  copy="$TMP/where-copy/skills/dispatch"
-  mkdir -p "$(dirname "$copy")"
-  cp -R "$SKILL" "$copy"
-  ln -s "$(dirname "$SKILL")/verify-ticket" "$(dirname "$copy")/verify-ticket"
-  rm "$copy/roles.json"
-  code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
-  assert_where_unknown "$code"
-  grep -qF 'roles.json or locations.py' "$TMP/out" || fail "missing roles.json reached a different UNKNOWN: $(cat "$TMP/out")"
-  grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing roles.json did not name install --check"
-  cp "$SKILL/roles.json" "$copy/roles.json"
-  rm "$copy/scripts/locations.py"
-  code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
-  assert_where_unknown "$code"
-  grep -qF 'roles.json or locations.py' "$TMP/out" || fail "missing locations.py reached a different UNKNOWN: $(cat "$TMP/out")"
-  grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing locations.py did not name install --check"
-  hasnt "gh :: issue :: comment"
-}
-
 scenario_runnerself() {
   local code
   echo "--- paseo: PASEO_AGENT_ID is the session; without it this is not a Paseo agent"
@@ -6219,74 +5848,6 @@ scenario_advancerestoreswatch() {
   grep -q "is not open" "$TMP/err" && fail "advance still read the night as not open: $(cat "$TMP/err")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76 should be watched for agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
-  no_relay
-}
-
-scenario_watchkind() {
-  local code tree
-  fresh_project_night
-  git -C "$TMP/repo" push -q -u origin night
-  reset_log
-  no_relay
-  write_open_batch
-  seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0: $(cat "$TMP/err")"
-  [ "$(watch_field spec:76 kind)" = night ] || fail "open should record night: $(cat "$STATE_DIR/watches.json")"
-
-  seed_main_agent agt_self
-  self_picked_worktree
-  tree="$(cd "$(wt 61)" && pwd -P)"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into night) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt in a watched night expected 0: $(cat "$TMP/err")"
-  [ "$(watch_field spec:76 kind)" = night ] \
-    || fail "adopt must keep the existing night watch: $(cat "$STATE_DIR/watches.json")"
-  [ "$(watch_field tickets:61 exists)" = absent ] \
-    || fail "adopt must not open another watch for the night's ticket: $(cat "$STATE_DIR/watches.json")"
-
-  no_relay
-  fresh_repo
-  reset_log
-  no_relay
-  seed_main_agent agt_main
-  cat > "$TMP/tickets.json" <<'JSON'
-[{"number": 90, "state": "OPEN", "labels": []}]
-JSON
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
-  [ "$code" = 0 ] || fail "open-ticket expected 0: $(cat "$TMP/err")"
-  [ "$(watch_field tickets:90 kind)" = ticket ] || fail "open-ticket should record ticket: $(cat "$STATE_DIR/watches.json")"
-
-  no_relay
-  fresh_repo
-  reset_log
-  no_relay
-  write_open_batch
-  seed_main_agent agt_main
-  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
-    --field runner=paseo --field session=agt_main --field into=main --field project=proj
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "advance expected 0: $(cat "$TMP/err")"
-  [ "$(watch_field spec:76 kind)" = night ] || fail "restored night should record night: $(cat "$STATE_DIR/watches.json")"
-
-  no_relay
-  fresh_repo
-  reset_log
-  no_relay
-  seed_main_agent agt_self
-  cat > "$TMP/tickets.json" <<'JSON'
-[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "senior-worker"], "parent": null}]
-JSON
-  self_picked_worktree
-  tree="$(cd "$(wt 61)" && pwd -P)"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt expected 0: $(cat "$TMP/err")"
-  [ "$(watch_field tickets:61 kind)" = adopted-ticket ] \
-    || fail "adopt should record adopted-ticket: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }
 
@@ -6749,7 +6310,7 @@ scenario_installcheckboardagent() {
 
 scenario_installtoolguard() {
   local home="$TMP/install-home" retired_skill retired_script retired_path config
-  echo "--- install copies the launcher, registers both hooks for every host, and sweeps retired registrations"
+  echo "--- install moves every host to dispatch's tool guard and sweeps the retired registration"
   rm -rf "$home"
   mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" \
     "$home/.grok/hooks" "$home/.pi/agent"
@@ -6758,44 +6319,8 @@ scenario_installtoolguard() {
   retired_path="$home/.agents/skills/$retired_skill/scripts/$retired_script"
   printf '[compat.claude]\nagents = false\n' > "$home/.grok/config.toml"
   cat > "$home/.claude/settings.json" <<JSON
-{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 '$retired_path' pretool claude","timeout":10},{"type":"command","command":"echo external","timeout":10}]}]}}
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 '$retired_path' pretool claude","timeout":10}]}]}}
 JSON
-
-  python3 - "$home" <<'UPGRADE' || { fail "could not seed the direct hook registrations"; return; }
-import json, sys
-from pathlib import Path
-home = Path(sys.argv[1])
-scripts = home / '.agents/skills/dispatch/scripts'
-prefix = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
-for host, path in [('claude', home / '.claude/settings.json'),
-                   ('codex', home / '.codex/hooks.json')]:
-    data = json.loads(path.read_text()) if path.exists() else {'hooks': {}}
-    hooks = data['hooks']
-    for gate, matcher in [('pretool', 'Bash'), ('question',
-                          'AskUserQuestion' if host == 'claude' else 'request_user_input')]:
-        hooks.setdefault('PreToolUse', []).append({'matcher': matcher, 'hooks': [{
-            'type': 'command', 'command': (prefix if host == 'claude' else '') +
-            f"python3 '{scripts / 'tool-guard.py'}' {gate} {host}", 'timeout': 10}]})
-    hooks['Stop'] = [{'hooks': [{'type': 'command', 'command':
-        (prefix if host == 'claude' else '') +
-        f"python3 '{scripts / 'turn-guard.py'}' stop {host}", 'timeout': 30}]}]
-    path.write_text(json.dumps(data))
-cursor = {'hooks': {
-    'beforeShellExecution': [{'command': f"python3 '{scripts / 'tool-guard.py'}' pretool cursor",
-                              'timeout': 10}],
-    'stop': [{'command': f"python3 '{scripts / 'turn-guard.py'}' stop cursor",
-              'timeout': 30, 'loop_limit': 3}]}}
-(home / '.cursor/hooks.json').write_text(json.dumps(cursor))
-hooks_path = home / '.codex/hooks.json'
-data = json.loads(hooks_path.read_text())['hooks']
-tables = []
-for event, label in [('PreToolUse', 'pre_tool_use'), ('Stop', 'stop')]:
-    for gi, group in enumerate(data[event]):
-        for hi, handler in enumerate(group['hooks']):
-            key = json.dumps(f'{hooks_path}:{label}:{gi}:{hi}')
-            tables.append(f'[hooks.state.{key}]\ntrusted_hash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"\n')
-(home / '.codex/config.toml').write_text('\n'.join(tables))
-UPGRADE
 
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
   [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
@@ -6804,366 +6329,20 @@ UPGRADE
     "$home/.codex/hooks.json" \
     "$home/.cursor/hooks.json" \
     "$home/.grok/hooks/mmw-verify-ticket.json" \
-    "$home/.grok/hooks/mmw-turn-guard.json" \
-    "$home/.pi/agent/extensions/mmw-verify-ticket.ts" \
-    "$home/.pi/agent/extensions/mmw-turn-guard.ts"
+    "$home/.pi/agent/extensions/mmw-verify-ticket.ts"
   do
     [ -f "$config" ] || { fail "install did not write $config"; continue; }
-    grep -qF "$home/.mmw/bin/hook-launcher" "$config" \
-      || fail "$config does not point at the copied launcher"
+    grep -qF "/dispatch/scripts/tool-guard.py" "$config" \
+      || fail "$config does not point at dispatch's tool guard"
     grep -qF "$retired_script" "$config" \
       && fail "$config kept the retired script registration"
   done
-  [ -f "$home/.mmw/bin/hook-launcher" ] && [ ! -L "$home/.mmw/bin/hook-launcher" ] \
-    || fail "the launcher is not a regular copied file"
-  cmp -s "$home/.mmw/bin/hook-launcher" "$(dirname "$INSTALLER")/hook-launcher.py" \
-    || fail "the installed launcher differs from its source"
-  python3 - "$home" <<'HOOKS' || fail "hook registrations are incomplete or bypass the launcher"
-import json, re, sys, tomllib
-from pathlib import Path
-home = Path(sys.argv[1])
-launcher = home / '.mmw/bin/hook-launcher'
-prefix = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
-for host, path in (
-    ('claude', home / '.claude/settings.json'),
-    ('codex', home / '.codex/hooks.json'),
-    ('grok', home / '.grok/hooks/mmw-verify-ticket.json'),
-):
-    data = json.loads(path.read_text())['hooks']
-    commands = [handler['command'] for group in data['PreToolUse'] for handler in group['hooks']
-                if handler['command'] != 'echo external']
-    expected = [(prefix if host == 'claude' else '') +
-                f"exec python3 '{launcher}' tool-guard {gate} {host}"
-                for gate in ('pretool', 'question')]
-    assert sorted(commands) == sorted(expected), (host, commands)
-    stop_path = home / '.grok/hooks/mmw-turn-guard.json' if host == 'grok' else path
-    stop = json.loads(stop_path.read_text())['hooks']['Stop']
-    commands = [h['command'] for g in stop for h in g['hooks']]
-    assert commands == [(prefix if host == 'claude' else '') +
-                        f"exec python3 '{launcher}' turn-guard stop {host}"], (host, commands)
-assert any(h['command'] == 'echo external'
-           for g in json.loads((home / '.claude/settings.json').read_text())['hooks']['PreToolUse']
-           for h in g['hooks'])
-cursor = json.loads((home / '.cursor/hooks.json').read_text())['hooks']
-assert [h['command'] for h in cursor['beforeShellExecution']] == [
-    f"exec python3 '{launcher}' tool-guard pretool cursor"]
-assert [h['command'] for h in cursor['stop']] == [
-    f"exec python3 '{launcher}' turn-guard stop cursor"]
-for extension, selector, gate in (
-    ('mmw-verify-ticket.ts', 'tool-guard', 'pretool'),
-    ('mmw-turn-guard.ts', 'turn-guard', 'stop'),
-):
-    text = (home / '.pi/agent/extensions' / extension).read_text()
-    assert str(launcher) in text
-    assert f'"{selector}", "{gate}", "pi"' in text
-hooks_path = home / '.codex/hooks.json'
-trust = tomllib.loads((home / '.codex/config.toml').read_text())['hooks']['state']
-for event, label in [('PreToolUse', 'pre_tool_use'), ('Stop', 'stop')]:
-    for gi, group in enumerate(json.loads(hooks_path.read_text())['hooks'][event]):
-        for hi, handler in enumerate(group['hooks']):
-            recorded = trust[f'{hooks_path}:{label}:{gi}:{hi}']['trusted_hash']
-            assert recorded != 'sha256:0000000000000000000000000000000000000000000000000000000000000000', (event, gi, hi)
-            assert re.fullmatch(r'sha256:[0-9a-f]{64}', recorded), recorded
-HOOKS
   # --check recomputes and checks the trusted_hash for every Codex hook handler,
   # including this tool guard; a generic trusted_hash line could belong to another hook.
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 0 ] || fail "install --check failed: $(cat "$TMP/err")"
   grep -qx 'HOOKS-INSTALLED' "$TMP/out" \
     || fail "install --check did not report HOOKS-INSTALLED: $(cat "$TMP/out")"
-}
-
-scenario_installchecklauncher() {
-  echo "--- --check detects a changed launcher byte without repairing it"
-  run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
-  local launcher="$TMP/install-home/.mmw/bin/hook-launcher"
-  python3 - "$launcher" <<'CORRUPT' || { fail "could not change the installed launcher"; return; }
-from pathlib import Path
-import sys
-path = Path(sys.argv[1])
-data = bytearray(path.read_bytes())
-data[0] ^= 1
-path.write_bytes(data)
-CORRUPT
-  cp "$launcher" "$TMP/changed-launcher"
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "a changed launcher must make --check exit 1"
-  grep -qE '^不一致 .*hook-launcher' "$TMP/err" \
-    || fail "--check did not name the inconsistent launcher: $(cat "$TMP/err")"
-  grep -qx 'HOOKS-INSTALLED' "$TMP/out" && fail "a changed launcher was reported installed"
-  cmp -s "$launcher" "$TMP/changed-launcher" || fail "--check repaired the launcher"
-}
-
-scenario_installcheckstalecopy() {
-  echo "--- a clean copy passes; changed bytes are named without being repaired"
-  run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "install failed: $(cat "$TMP/err")"; return; }
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean --check failed: $(cat "$TMP/err")"; return; }
-  local copy="$TMP/install-home/.mmw/skill-copies/handoff"
-  printf 'changed\n' >> "$copy/SKILL.md"
-  cp "$copy/SKILL.md" "$TMP/changed-copy"
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "changed copy must exit 1"
-  grep -F "$copy" "$TMP/err" | grep -q '跑一次 install.sh' \
-    || fail "stale copy must name its directory and reinstall: $(cat "$TMP/err")"
-  cmp -s "$copy/SKILL.md" "$TMP/changed-copy" || fail "--check repaired the copy"
-  # Other mismatches must fail for the same reason, with no repair or source write.
-  local bad
-  for bad in missing-copy yaml-bytes skill-link yaml-link missing-link wrong-link agents-link extra-file; do
-    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
-    [ "$(cat "$TMP/code")" = 0 ] || { fail "restoring install failed"; return; }
-    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-    [ "$(cat "$TMP/code")" = 0 ] || { fail "restored --check failed before $bad: $(cat "$TMP/err")"; return; }
-    copy="$TMP/install-home/.mmw/skill-copies/triage"
-    python3 - "$copy" "$bad" <<'CORRUPT' || { fail "could not plant $bad"; return; }
-from pathlib import Path
-import shutil, sys
-copy, bad = Path(sys.argv[1]), sys.argv[2]
-source = (copy / 'AGENT-BRIEF.md').resolve().parent
-if bad == 'missing-copy':
-    shutil.rmtree(copy)
-elif bad == 'yaml-bytes':
-    (copy / 'agents/openai.yaml').write_bytes(b'changed\n')
-elif bad in ('skill-link', 'yaml-link'):
-    rel = 'SKILL.md' if bad == 'skill-link' else 'agents/openai.yaml'
-    (copy / rel).unlink()
-    (copy / rel).symlink_to(source / rel)
-elif bad in ('missing-link', 'wrong-link'):
-    (copy / 'AGENT-BRIEF.md').unlink()
-    if bad == 'wrong-link':
-        (copy / 'AGENT-BRIEF.md').symlink_to(source / 'SKILL.md')
-elif bad == 'agents-link':
-    shutil.rmtree(copy / 'agents')
-    (copy / 'agents').symlink_to(source / 'agents')
-else:
-    (copy / 'extra.txt').write_bytes(b'extra\n')
-CORRUPT
-    cp -R "$copy" "$TMP/bad-copy" 2>/dev/null || true
-    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-    [ "$(cat "$TMP/code")" = 1 ] || fail "$bad must exit 1"
-    grep -F "$copy" "$TMP/err" | grep -q '跑一次 install.sh' \
-      || fail "$bad must name its copy and reinstall: $(cat "$TMP/err")"
-    if [ "$bad" = missing-copy ]; then
-      [ ! -e "$copy" ] || fail "--check restored the copy"
-    else
-      diff -r "$copy" "$TMP/bad-copy" >/dev/null || fail "--check changed $bad"
-      case "$bad" in
-        skill-link) [ -L "$copy/SKILL.md" ] || fail "--check replaced the SKILL.md symlink" ;;
-        yaml-link) [ -L "$copy/agents/openai.yaml" ] || fail "--check replaced the openai.yaml symlink" ;;
-      esac
-    fi
-    rm -rf "$TMP/bad-copy"
-  done
-}
-
-# A checkout-shaped fixture lets the real wiring check find root/.mmw too.
-install_checkout_copy() {
-  local copy="$TMP/install-checkout/mmw-v2"
-  rm -rf "$TMP/install-checkout"
-  mkdir -p "$TMP/install-checkout"
-  cp -R "$(dirname "$INSTALLER")" "$copy"
-  printf '%s\n' "$copy"
-}
-
-set_wiring_class_policy() {
-  python3 - "$@" <<'POLICY'
-from pathlib import Path
-import re, sys
-path, value = Path(sys.argv[1]), sys.argv[2]
-classes = '|'.join(sys.argv[3:])
-path.write_text(re.sub(r'(    (?:' + classes + r'): Policy\()(True|False)',
-                       r'\g<1>' + value, path.read_text()))
-POLICY
-}
-
-scenario_installcopyretired() {
-  echo "--- removing a marker or a skill retires only its copy and host links"
-  local copy home="$TMP/install-home" name
-  copy="$(install_checkout_copy)"
-  mkdir -p "$home/.claude"
-  MMW_TEST_INSTALLER="$copy/install.sh" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "copy install failed: $(cat "$TMP/err")"; return; }
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean copy check failed: $(cat "$TMP/err")"; return; }
-  python3 - "$copy/skills.txt" <<'RETIRE'
-from pathlib import Path
-import sys
-path = Path(sys.argv[1])
-rows = path.read_text().splitlines(keepends=True)
-path.write_text(''.join(row.replace(' +model-invoked', '') if row.startswith('productivity/handoff ') else row
-                        for row in rows if not row.startswith('productivity/teach ')))
-RETIRE
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "retired copies must exit 1"
-  for name in handoff teach; do
-    grep -F "$home/.mmw/skill-copies/$name" "$TMP/err" | grep -q '^残留' \
-      || fail "--check did not name retired copy $name: $(cat "$TMP/err")"
-    [ -d "$home/.mmw/skill-copies/$name" ] || fail "--check removed retired copy $name"
-  done
-  printf 'not a directory\n' > "$home/.mmw/skill-copies/unrelated-file"
-  mkdir -p "$home/.mmw/unrelated-dir"
-  MMW_TEST_INSTALLER="$copy/install.sh" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "reinstall failed: $(cat "$TMP/err")"
-  python3 - "$home" "$copy" <<'LINKS' || fail "retirement did not restore the required installation"
-from pathlib import Path
-import sys
-home, root = map(Path, sys.argv[1:])
-for name in ('handoff', 'teach'):
-    assert not (home / '.mmw/skill-copies' / name).exists(), name
-for host in ('.agents', '.claude'):
-    assert (home / host / 'skills/handoff').resolve() == (root / 'upstream/skills/productivity/handoff').resolve()
-    assert not (home / host / 'skills/teach').is_symlink()
-assert (home / '.mmw/skill-copies/triage').is_dir()
-assert (home / '.mmw/skill-copies/unrelated-file').read_text() == 'not a directory\n'
-assert (home / '.mmw/unrelated-dir').is_dir()
-LINKS
-}
-
-scenario_installcheckwiringfails() {
-  echo "--- --check prints class 2/7 reports and follows the checker's class policy"
-  local copy books="$TMP/install-checkout/.mmw/playbooks"
-  copy="$(install_checkout_copy)"
-  MMW_TEST_INSTALLER="$copy/install.sh" run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "copy install failed: $(cat "$TMP/err")"; return; }
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean check failed: $(cat "$TMP/err")"; return; }
-  mkdir -p "$books"
-  printf '### Unrouted\n\n1. **Read.** `references/absent.md`.\n\n**Reply:** result.\n' > "$books/unrouted.md"
-  # A failing class 10 must not affect this installer-only class 2/7 check.
-  printf '\n# skills/absent-component/scripts/missing.py\n' >> "$copy/install.sh"
-  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" False 2 7
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 0 ] || fail "report-only class 2/7 must not fail: $(cat "$TMP/err")"
-  grep -q '^report: .*class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \
-    || fail "routing report was not forwarded unchanged: $(cat "$TMP/err")"
-  grep -q '^report: .*class 2 references/absent.md does not exist' "$TMP/err" \
-    || fail "class 2 report was not forwarded unchanged: $(cat "$TMP/err")"
-  grep -q 'class 10\|class 3' "$TMP/err" && fail "unselected classes leaked"
-  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" True 7
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "failing class 7 must exit 1"
-  grep -q '^.mmw/playbooks/INDEX.md:1: class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \
-    || fail "failing routing line was not forwarded unchanged: $(cat "$TMP/err")"
-}
-
-scenario_installcheckwiringunchecked() {
-  echo "--- a missing wiring checker is explicitly unchecked, exit 1"
-  local copy
-  copy="$(install_checkout_copy)"
-  MMW_TEST_INSTALLER="$copy/install.sh" run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "copy install failed: $(cat "$TMP/err")"; return; }
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean check failed: $(cat "$TMP/err")"; return; }
-  rm "$copy/tests/lib/check_wiring.py"
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "missing wiring check must exit 1"
-  grep -q '^没查.*连线检查.*check_wiring.py' "$TMP/err" \
-    || fail "missing checker must name the unchecked wiring check: $(cat "$TMP/err")"
-  [ ! -e "$copy/tests/lib/check_wiring.py" ] || fail "--check restored the checker"
-  cp "$(dirname "$INSTALLER")/tests/lib/check_wiring.py" "$copy/tests/lib/check_wiring.py"
-  echo "--- no uv on PATH is explicitly unchecked too"
-  PATH="$TMP/bin:/usr/bin:/bin:/usr/sbin:/sbin" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "missing uv must exit 1"
-  grep -q '^没查.*连线检查.*uv' "$TMP/err" \
-    || fail "missing uv must be named: $(cat "$TMP/err")"
-  echo "--- an unreadable registry (checker exit 2) is explicitly unchecked"
-  printf 'invalid registry\n' > "$copy/skills/dispatch/scripts/locations.py"
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "unreadable wiring registry must exit 1"
-  grep -q '^没查.*连线检查.*退出 2' "$TMP/err" \
-    || fail "unreadable registry must be named: $(cat "$TMP/err")"
-}
-
-scenario_installcheckmodehook() {
-  echo "--- a clean mode-hook install passes; a missing registration is named and not repaired"
-  local home="$TMP/install-home" config
-  mkdir -p "$home/.claude" "$home/.codex"
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "install failed: $(cat "$TMP/err")"; return; }
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean --check failed: $(cat "$TMP/err")"; return; }
-  grep -qx 'HOOKS-INSTALLED' "$TMP/out" || fail "clean --check did not report hooks installed"
-  config="$home/.claude/settings.json"
-  python3 - "$config" <<'REMOVE' || { fail "could not remove the mode-hook registration"; return; }
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-groups = data['hooks'].get('SessionStart', [])
-before = sum(' mode-hook session-start claude' in h.get('command', '')
-             for g in groups for h in g.get('hooks', []))
-assert before == 1, groups
-for group in groups:
-    group['hooks'] = [h for h in group['hooks']
-                      if ' mode-hook session-start claude' not in h.get('command', '')]
-path.write_text(json.dumps(data))
-REMOVE
-  cp "$config" "$TMP/missing-mode-hook"
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "missing mode-hook must make --check exit 1"
-  grep -F "$config" "$TMP/err" | grep -qE '^不一致 .*SessionStart' \
-    || fail "--check did not name the inconsistent file and event: $(cat "$TMP/err")"
-  grep -qx 'HOOKS-INSTALLED' "$TMP/out" && fail "missing mode-hook was reported installed"
-  cmp -s "$config" "$TMP/missing-mode-hook" || fail "--check repaired the missing hook"
-}
-
-scenario_installcheckhookbypass() {
-  echo "--- --check rejects direct hook calls in each host, including both Pi extensions"
-  local home="$TMP/install-home" config
-  mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" \
-    "$home/.grok/hooks" "$home/.pi/agent"
-  printf '[compat.claude]\nagents = false\n' > "$home/.grok/config.toml"
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
-  for config in \
-    "$home/.claude/settings.json" \
-    "$home/.codex/hooks.json" \
-    "$home/.cursor/hooks.json" \
-    "$home/.grok/hooks/mmw-verify-ticket.json" \
-    "$home/.grok/hooks/mmw-turn-guard.json" \
-    "$home/.pi/agent/extensions/mmw-verify-ticket.ts" \
-    "$home/.pi/agent/extensions/mmw-turn-guard.ts"
-  do
-    cp "$config" "$TMP/pristine-hook"
-    python3 - "$config" "$home" <<'BYPASS' || { fail "could not bypass $config"; continue; }
-from pathlib import Path
-import json, sys
-path, home = Path(sys.argv[1]), Path(sys.argv[2])
-launcher = str(home / '.mmw/bin/hook-launcher')
-if path.suffix == '.ts':
-    selector = 'tool-guard' if path.name == 'mmw-verify-ticket.ts' else 'turn-guard'
-    direct = str(home / '.agents/skills/dispatch/scripts' / (selector + '.py'))
-    text = path.read_text().replace(launcher, direct)
-    text = text.replace(f', "{selector}",', ',')
-    path.write_text(text)
-else:
-    data = json.loads(path.read_text())
-    changed = False
-    for entries in data['hooks'].values():
-        for group in entries:
-            for handler in group.get('hooks', [group]):
-                command = handler.get('command', '')
-                if launcher not in command or changed:
-                    continue
-                selector = 'tool-guard' if 'tool-guard' in command else 'turn-guard'
-                direct = str(home / '.agents/skills/dispatch/scripts' / (selector + '.py'))
-                handler['command'] = command.replace(f"'{launcher}' {selector}", f"'{direct}'")
-                changed = True
-    assert changed, path
-    path.write_text(json.dumps(data))
-BYPASS
-    cp "$config" "$TMP/bypassed-hook"
-    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-    [ "$(cat "$TMP/code")" = 1 ] || fail "$config bypass must make --check exit 1"
-    grep -qE '^不一致 ' "$TMP/err" \
-      || fail "$config bypass was not reported inconsistent: $(cat "$TMP/err")"
-    grep -qF "$config" "$TMP/err" || fail "--check did not name $config"
-    grep -qx 'HOOKS-INSTALLED' "$TMP/out" && fail "$config bypass was reported installed"
-    cmp -s "$config" "$TMP/bypassed-hook" || fail "--check repaired $config"
-    cp "$TMP/pristine-hook" "$config"
-  done
 }
 
 run_uses_check() {
@@ -7254,7 +6433,7 @@ for i in range(1, n + 1):
 
 run_installer() {
   local installer home
-  installer="${MMW_TEST_INSTALLER:-$(dirname "$(dirname "$HERE")")/install.sh}"
+  installer="$(dirname "$(dirname "$HERE")")/install.sh"
   home="$TMP/install-home"
   [ "${MMW_TEST_REUSE_INSTALL_HOME:-0}" = 1 ] || rm -rf "$home"
   mkdir -p "$home"
@@ -7505,96 +6684,6 @@ PY
   [ "$code" = 1 ] || fail "invalid models.json expected check exit 1, got $code"
   grep -q "models.json rows:.*missing reviewer" "$TMP/err" \
     || fail "check did not name the bad row: $(cat "$TMP/err")"
-}
-
-scenario_installcheckwatches() {
-  local home="$TMP/watch-mmw" state pid code
-  echo "--- a complete install with one open watch and one live relay lock stays exit 0 and names both"
-  run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
-  rm -rf "$home"
-  mkdir -p "$home"
-  cp "$MMW_HOME/models.json" "$home/models.json"
-  state="$home/state/acme__widgets"
-  STATE_DIR="$state" fake_relay
-  pid="$(STATE_DIR="$state" relay_now | awk 'NR==1 { print $1 }')"
-  [ -n "$pid" ] || fail "the stand-in relay has no pid"
-  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  code="$(cat "$TMP/code")"
-  STATE_DIR="$state" no_relay
-  [ "$code" = 0 ] || fail "an open watch must not change --check's exit, got $code: $(cat "$TMP/err")"
-  grep -qx 'OPEN-WATCH acme/widgets spec:76' "$TMP/out" \
-    || fail "missing the open watch: $(cat "$TMP/out")"
-  grep -qx "LIVE-LOCK acme/widgets relay pid $pid" "$TMP/out" \
-    || fail "missing the live relay lock: $(cat "$TMP/out")"
-  [ "$(tail -n 1 "$TMP/out")" = "NOT-SAFE-TO-MOVE-INSTALLED 1 open watches, 1 live locks" ] \
-    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
-}
-
-scenario_installchecksafe() {
-  local home="$TMP/safe-mmw" state pid code
-  echo "--- a complete install with no watch and a dead lock is safe to move, exit 0"
-  run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
-  rm -rf "$home"
-  mkdir -p "$home"
-  cp "$MMW_HOME/models.json" "$home/models.json"
-  state="$home/state/acme__widgets"
-  STATE_DIR="$state" fake_relay
-  pid="$(STATE_DIR="$state" relay_now | awk 'NR==1 { print $1 }')"
-  [ -n "$pid" ] || fail "the stand-in relay has no pid"
-  kill "$pid" 2>/dev/null || true
-  local _
-  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-    kill -0 "$pid" 2>/dev/null || break
-    sleep 0.05
-  done
-  printf '%s\n' '{}' > "$state/watches.json"
-  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  code="$(cat "$TMP/code")"
-  [ "$code" = 0 ] || fail "a dead lock must not change --check's exit, got $code: $(cat "$TMP/err")"
-  if grep -q '^OPEN-WATCH ' "$TMP/out"; then
-    fail "an empty watches.json was listed: $(cat "$TMP/out")"
-  fi
-  if grep -q '^LIVE-LOCK ' "$TMP/out"; then
-    fail "a dead lock was listed: $(cat "$TMP/out")"
-  fi
-  [ "$(tail -n 1 "$TMP/out")" = "SAFE-TO-MOVE-INSTALLED" ] \
-    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
-}
-
-scenario_installcheckunreadable() {
-  local home="$TMP/unreadable-mmw" state code
-  echo "--- a watches.json that is there but cannot be parsed is not a closed night"
-  run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
-  rm -rf "$home"
-  mkdir -p "$home"
-  cp "$MMW_HOME/models.json" "$home/models.json"
-  state="$home/state/acme__widgets"
-  mkdir -p "$state"
-  printf '%s' '{' > "$state/watches.json"
-  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  code="$(cat "$TMP/code")"
-  [ "$code" = 0 ] || fail "an unreadable watches.json must not change --check's exit, got $code: $(cat "$TMP/err")"
-  grep -qx 'UNREADABLE acme/widgets watches.json' "$TMP/out" \
-    || fail "the unreadable file was not named: $(cat "$TMP/out")"
-  if grep -q '^OPEN-WATCH ' "$TMP/out"; then
-    fail "an unreadable watches.json was listed as a watch: $(cat "$TMP/out")"
-  fi
-  [ "$(tail -n 1 "$TMP/out")" = "NOT-SAFE-TO-MOVE-INSTALLED 0 open watches, 0 live locks, 1 unreadable watches.json" ] \
-    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
-
-  echo "--- an entry without an orchestrator is not an open watch"
-  printf '%s\n' '{"spec:76":{"spec":76}}' > "$state/watches.json"
-  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  code="$(cat "$TMP/code")"
-  [ "$code" = 0 ] || fail "an entry that is not a watch must not change --check's exit, got $code: $(cat "$TMP/err")"
-  if grep -q '^OPEN-WATCH ' "$TMP/out"; then
-    fail "an entry without an orchestrator was listed: $(cat "$TMP/out")"
-  fi
-  [ "$(tail -n 1 "$TMP/out")" = "SAFE-TO-MOVE-INSTALLED" ] \
-    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
 }
 
 scenario_installmodelsjsonhome() {
@@ -9164,21 +8253,6 @@ scenario_openprojecthistory() {
   [ "$code" = 0 ] || fail "history open failed: $(cat "$TMP/err")"
   posted_events 76 project | grep -qx 'spec.opened project=proj' \
     || fail "spec.opened did not record history project: $(posted_events 76 project)"
-  no_relay
-}
-
-scenario_openprojectskipsresearch() {
-  local code
-  fresh_project_night
-  git -C "$TMP/repo" push -q -u origin night
-  git -C "$TMP/repo" branch research/61 night
-  git -C "$TMP/repo" push -q origin research/61
-  git -C "$TMP/repo" reflog expire --expire=now --all
-  open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "research branch exclusion expected 0, got $code: $(cat "$TMP/err")"
-  posted_events 76 project | grep -qx 'spec.opened project=proj' \
-    || fail "spec.opened did not skip research/61: $(posted_events 76 project)"
   no_relay
 }
 
@@ -11269,17 +10343,10 @@ ALL="memory-install memory-open-space memory-space-unavailable boardregisters bo
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
-ALL="$ALL findings integratedsincestart watchkind"
-ALL="$ALL installchecklauncher installcheckhookbypass installcheckmodehook"
-ALL="$ALL installcheckstalecopy"
-ALL="$ALL installcopyretired"
-ALL="$ALL installcheckwiringfails installcheckwiringunchecked"
-ALL="$ALL where wherespec whereunknown"
+ALL="$ALL findings integratedsincestart"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
-ALL="$ALL checkreportsonly installcheckwatches installchecksafe installcheckunreadable"
-ALL="$ALL research researchworktree researchreuse researchprompt researchnorow researchusage openprojectskipsresearch"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -11292,21 +10359,6 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
-    installcheckmodehook) echo INSTALL-CHECK-MODE-HOOK-OK ;;
-    installcheckstalecopy) echo INSTALL-CHECK-STALE-COPY-OK ;;
-    installcopyretired) echo INSTALL-COPY-RETIRED-OK ;;
-    installcheckwiringfails) echo INSTALL-CHECK-WIRING-FAILS-OK ;;
-    installcheckwiringunchecked) echo INSTALL-CHECK-WIRING-UNCHECKED-OK ;;
-    research) echo RESEARCH-OK ;;
-    researchworktree) echo RESEARCH-WORKTREE-OK ;;
-    researchreuse) echo RESEARCH-REUSE-OK ;;
-    researchprompt) echo RESEARCH-PROMPT-OK ;;
-    researchnorow) echo RESEARCH-NO-ROW-OK ;;
-    researchusage) echo RESEARCH-USAGE-OK ;;
-    openprojectskipsresearch) echo OPEN-PROJECT-SKIPS-RESEARCH-OK ;;
-    where) echo WHERE-OK ;;
-    wherespec) echo WHERE-SPEC-OK ;;
-    whereunknown) echo WHERE-UNKNOWN-OK ;;
     memory-install) echo MEMORY-INSTALL-OK ;;
     memory-open-space) echo MEMORY-OPEN-SPACE-OK ;;
     memory-space-unavailable) echo MEMORY-SPACE-UNAVAILABLE-OK ;;
@@ -11329,17 +10381,12 @@ banner_for() {
     installboardagent) echo INSTALL-BOARD-AGENT-OK ;;
     installcheckboardagent) echo INSTALL-CHECK-BOARD-AGENT-OK ;;
     installtoolguard) echo INSTALL-TOOL-GUARD-OK ;;
-    installchecklauncher) echo INSTALL-CHECK-LAUNCHER-OK ;;
-    installcheckhookbypass) echo INSTALL-CHECK-HOOK-BYPASS-OK ;;
     startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;
     startnomodelsjson) echo START-NO-MODELS-JSON-OK ;;
     installimportsmodelsmd) echo INSTALL-IMPORTS-MODELS-MD-OK ;;
     installinitialvalues) echo INSTALL-INITIAL-VALUES-OK ;;
     installkeepsmodelsjson) echo INSTALL-KEEPS-MODELS-JSON-OK ;;
     installcheckmodelsjson) echo INSTALL-CHECK-MODELS-JSON-OK ;;
-    installcheckwatches) echo INSTALL-CHECK-WATCHES-OK ;;
-    installchecksafe) echo INSTALL-CHECK-SAFE-OK ;;
-    installcheckunreadable) echo INSTALL-CHECK-UNREADABLE-OK ;;
     installmodelsjsonhome) echo INSTALL-MODELS-JSON-HOME-OK ;;
     installkeepsnewestbackup) echo INSTALL-KEEPS-NEWEST-BACKUP-OK ;;
     orcaworktreelink) echo ORCA-WORKTREE-LINK-OK ;;
@@ -11351,7 +10398,6 @@ banner_for() {
     orcamergeparent) echo ORCA-MERGE-PARENT-OK ;;
     worktreelinknoop) echo WORKTREE-LINK-NOOP-OK ;;
     check) echo DISPATCH-CHECK-OK ;;
-    checkreportsonly) echo CHECK-REPORTS-ONLY-OK ;;
     checknoorigin) echo CHECK-NO-ORIGIN-OK ;;
     checknopush) echo CHECK-NO-PUSH-OK ;;
     checkbasemissing) echo CHECK-BASE-MISSING-OK ;;
@@ -11492,7 +10538,6 @@ banner_for() {
     mergewithoutbranch) echo MERGE-WITHOUT-BRANCH-OK ;;
     retractunreadable) echo RETRACT-UNREADABLE-OK ;;
     open) echo OPEN-OK ;;
-    watchkind) echo WATCH-KIND-OK ;;
     advancerestoreswatch) echo ADVANCE-RESTORES-WATCH-OK ;;
     openinto) echo OPEN-INTO-OK ;;
     openpushesahead) echo OPEN-PUSHES-AHEAD-OK ;;

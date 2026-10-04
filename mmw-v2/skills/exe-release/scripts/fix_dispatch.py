@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """P1 失败时，把 findings 写成一份修复简报，交给正在驱动这次出包的 agent。
 
-驱动出包的本来就是一个会写代码的 agent（`release-loop.md` 的 `PAUSED:needs-context` 一节：
+驱动出包的本来就是一个会写代码的 agent（`driving.md` 的 `PAUSED:needs-context` 一节：
 能自己处理的就自己处理），所以 P1 没有自动修复这条路。这里把 findings 写成一份人和 agent
 都读得懂的简报，落到本轮的产物目录，打印 `FIX-BRIEF=<路径>`；引擎随即暂停，pause 的问题
 指向这份简报。驱动 agent 按简报改代码、提交到当前分支、`resume`。

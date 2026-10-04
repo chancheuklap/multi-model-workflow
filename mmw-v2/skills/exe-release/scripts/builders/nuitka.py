@@ -30,6 +30,9 @@
 - abi3 扩展按名字链 `python3.dll`；Windows 加载 `.pyd` 只在 `.pyd` 自己的目录找依赖，
   补的 DLL 落 dist 根找不到。见 `native_ext_dll` 的 `dest`。
 - GUI 程序要 `--windows-console-mode=disable`，否则客户双击弹黑框。
+- 标准库和第三方库在函数调用时才 import 的子模块（sqlite3 在 `iterdump()` 里加载
+  `sqlite3.dump`）Nuitka 一样看不见，standalone 产物里没有它。钥匙给了
+  `required_modules_file` 时，每个 target 带 `--report`，编完对照那份清单，见 `report_path`。
 """
 
 from __future__ import annotations
@@ -112,6 +115,17 @@ def jobs(spec, env: dict[str, str] | None = None) -> int:
 # ── 命令构造 ────────────────────────────────────────────────────────────────────
 
 
+REPORT_DIR = "runtime/.mmw-nuitka-reports"
+
+
+def report_path(target) -> str:
+    """一个 target 的 Nuitka 编译报告，仓库相对路径。
+
+    放在 output_dir 外面：output_dir 整个进安装包，报告留在那里会发给客户。
+    """
+    return f"{REPORT_DIR}/{PurePosixPath(target.exe).stem}.xml"
+
+
 def commands(
     spec,
     *,
@@ -147,6 +161,8 @@ def commands(
             segments.append(Segment.flag("--windows-icon-from-ico=", _path(spec.icon)))
         if not spec.console:
             segments.append(Segment.lit("--windows-console-mode=disable"))
+        if spec.required_modules_file:
+            segments.append(Segment.flag("--report=", report_path(target)))
         segments += [Segment.lit(flag) for flag in spec.extra_flags]
         segments += [
             Segment.lit(f"--nofollow-import-to={name}")

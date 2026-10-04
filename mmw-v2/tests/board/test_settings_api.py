@@ -61,62 +61,6 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["version"], 2)
         self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["reviewer"]["model"], "sonnet 5")
 
-    def test_put_keeps_the_researcher_row_the_page_does_not_show(self):
-        researcher = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
-        stored = config()
-        stored["rows"]["researcher"] = dict(researcher)
-        (self.home / "models.json").write_text(json.dumps(stored) + "\n")
-        proposed = config()
-        proposed["rows"]["reviewer"]["model"] = "sonnet 5"
-        with running_board(self.home) as board:
-            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
-        self.assertEqual(status, 200, raw)
-        written = json.loads((self.home / "models.json").read_text())
-        self.assertEqual(written["rows"].get("researcher"), researcher)
-        self.assertEqual(written["rows"]["reviewer"]["model"], "sonnet 5")
-
-    def test_a_saved_researcher_row_outside_the_catalog_does_not_block_a_save(self):
-        researcher = {"host": "codex", "model": "no longer offered", "effort": "high"}
-        stored = config()
-        stored["rows"]["researcher"] = dict(researcher)
-        (self.home / "models.json").write_text(json.dumps(stored) + "\n")
-        with running_board(self.home) as board:
-            # The page sends back every row it read, the one it does not draw included.
-            echoed = config()
-            echoed["rows"]["researcher"] = dict(researcher)
-            echoed["rows"]["reviewer"]["model"] = "sonnet 5"
-            status, raw = board.request("PUT", "/api/settings", echoed, board.write_headers)
-            self.assertEqual(status, 200, raw)
-            four_rows = config(2)
-            four_rows["rows"]["reviewer"]["model"] = "opus 5"
-            status, raw = board.request("PUT", "/api/settings", four_rows, board.write_headers)
-            self.assertEqual(status, 200, raw)
-            written = json.loads((self.home / "models.json").read_text())
-            self.assertEqual(written["rows"]["researcher"], researcher)
-            self.assertEqual(written["rows"]["reviewer"]["model"], "opus 5")
-            # A request that changes the row is judged against the catalog like any other.
-            changed = config(3)
-            changed["rows"]["researcher"] = {"host": "codex", "model": "missing", "effort": "high"}
-            status, raw = board.request("PUT", "/api/settings", changed, board.write_headers)
-        self.assertEqual(status, 422, raw)
-        self.assertEqual(json.loads(raw)["errors"][0]["cell"], "researcher.model")
-        self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["researcher"],
-                         researcher)
-
-    def test_a_four_row_models_json_reads_and_saves(self):
-        with running_board(self.home) as board:
-            status, raw = board.request("GET", "/api/settings")
-            data = json.loads(raw)
-            self.assertEqual(status, 200)
-            self.assertEqual(data["rows"], config()["rows"])
-            proposed = {key: data[key] for key in ("version", "runner", "rows")}
-            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
-        self.assertEqual(status, 200)
-        written = json.loads((self.home / "models.json").read_text())
-        self.assertEqual(written["version"], data["version"] + 1)
-        self.assertEqual(written["rows"], config()["rows"])
-        self.assertEqual(json.loads(raw)["version"], written["version"])
-
     def test_put_after_a_change_elsewhere_is_409(self):
         with running_board(self.home) as board:
             elsewhere = config(2); elsewhere["runner"] = "herdr"
