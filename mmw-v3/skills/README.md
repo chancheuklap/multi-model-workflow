@@ -1,6 +1,6 @@
 # mmw-v3/skills: the components and the method
 
-MMW v3 is MMW rebuilt on pstack's architecture and in pstack's manner: the same kinds of component, each written the way pstack writes it, filled with what MMW does. pstack is in `mmw-v3/upstream-pstack/` (cursor/plugins `e43c7ee`, pstack 0.15.9). MMW v2, the live version, is in `mmw-v2/` and is the main source of content. The course that explains all of this, with the evidence, is `mmw-v3/course/` (lessons 1 to 3, and `reference/pstack-anatomy.html`).
+MMW v3 is MMW rebuilt on pstack's architecture and in pstack's manner: the same kinds of component, each written the way pstack writes it, filled with what MMW does. pstack is in `mmw-v3/upstream-pstack/` (cursor/plugins `e43c7ee`, pstack 0.15.9); mattpocock's skills, which many v2 skills came from, are in `mmw-v3/upstream-mattpocock/` (mattpocock/skills `d81f3a1`). MMW v2, the live version, is in `mmw-v2/` and is the main source of content. The course that explains all of this, with the evidence, is `mmw-v3/course/` (lessons 1 to 3, and `reference/pstack-anatomy.html`).
 
 Read this file before writing or moving anything into v3, and again whenever a placement is in doubt. Each component directory has a README with the specifics of that component.
 
@@ -27,7 +27,7 @@ These hold for every component. They come from how pstack itself adds and change
 4. **The default is to edit an existing home or to delete, not to create.** A new component needs all three: "no existing skill is a real home, the pattern recurs, and the topic deserves its own skill" (pstack `reflect`). "When in doubt, delete. Keep only prose that changes a decision." (pstack `authoring-a-skill.md`).
 5. **What can be a check is not written as prose.** Order of preference: architecture, types, a lint or check whose error names the fix, a test, and prose last (pstack `correct`). "Skill prose is for things mechanisms cannot enforce" (pstack `reflect`).
 6. **One rule, one place.** When a rule moves, every place that named it is updated in the same change: the mode's lines, playbook steps, other skills, and the prompts `mmw-v2` scripts build for agents.
-7. **Register in the same change.** A new playbook gets its route line in `mmw-mode/SKILL.md` `## Playbooks`; a new principle gets its index line in `## Principles`; a reference or script gets named, with its path or command, by the step that uses it.
+7. **Register in the same change.** A new playbook gets its route line in `mmw-mode/SKILL.md` `## Playbooks`; a new principle gets its index line in `## Principles`; a reference or script gets named, with its path or command, by the step that uses it. Text brought in from anywhere else gets its row in `mmw-v3/imports.tsv`, traced to the repository that first wrote it, and `python3 mmw-v3/check_imports.py` passes.
 8. **What pstack does not say is labelled.** pstack has no written rule for some decisions (when a new playbook is warranted, for one). A placement that rests on an inference from pstack's examples says so, and goes to the owner.
 
 ## principle
@@ -49,9 +49,13 @@ These hold for every component. They come from how pstack itself adds and change
 
 - **For:** one thing that recurs and that nothing else handles. "A workflow you keep hitting but isn't captured → propose a new skill." It is either used by many steps, or worth invoking directly.
 - **Not for:** what an existing skill can hold. Edit that skill.
-- **Invocation:** only `mmw-mode` sets `disable-model-invocation: true`. Every other skill, principles included, can be invoked by the model. A skill that should not be invoked on its own gets a description with no specific trigger phrases, or one that says not to invoke it on its own.
+- **Invocation:** only `mmw-mode` sets `disable-model-invocation: true`. Every other skill, principles included, can be invoked by the model, so whether the agent starts a skill on its own is decided by its `description`:
+  - **The agent starts it on its own** when the situation it serves can arise in any task and nothing names it first (`grilling`, `to-questionnaire`, `writing-for-agents`). The description says what the skill does, then `Use when …` or `Use for …` with the words someone would use.
+  - **Only when named** when its upstream or v2 kept it user-invoked for a reason that still holds: the person decides when it starts (`grill-me`, `grill-with-docs`, `teach`, `wait-what`), or `mmw-mode` or another skill names it at the moment it applies (`handoff`, `unslop`, `technical-writing`, `show-me-your-work`). The description keeps the upstream wording of what the skill does, drops every trigger phrase, and ends with one of two sentences, verbatim: `Run only when the user asks for it by name; do not invoke it on your own.` or `Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.`
+  - The same rule, for whoever writes any skill, is in `writing-for-agents/SKILL-MECHANICS.md` `## Invocation`.
+- **Taken from upstream:** a skill is copied here, never linked, and changed only where the agent must act differently in MMW. Each copied file has a row in `mmw-v3/imports.tsv` naming the repository that first wrote it, the path and commit there, and every edit with where its reason is written; a skill that came by way of v2 is traced past v2 to its upstream. The columns and the update procedure are in `writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`. No host manifest (`agents/openai.yaml`) is kept beside it.
 - **Shape** (models: `swarm`, `how`, `figure-it-out` under `mmw-v3/upstream-pstack/skills/`):
-  - Frontmatter: `name`, `description` (what it does, then `Use for …` with the words someone would use).
+  - Frontmatter: `name`, `description` (what it does, then `Use for …` or `Use when …` with the words someone would use), and `argument-hint` when the skill takes an argument the person types.
   - `# <Title>` and one paragraph: what it does and what it hands back.
   - When it spawns subagents, one paragraph naming each subagent's role in `~/.mmw/models.json` and the default when the role is absent.
   - `## Start`: open a todolist with one item per phase.

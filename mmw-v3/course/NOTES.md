@@ -13,6 +13,8 @@
 - 2026-10-04：全局层（`~/.claude/CLAUDE.md`，由 `shared.md` 生成）保留，只放读者是谁、哪些决定只归主人。中文回复也不用长破折号，冒号不当句中连接。
 - 2026-10-04：合并沟通规则时，v2 和 pstack 的同类组件要逐对读原文比较再定去留，不能默认取 pstack 的。去留结果在第 4 课图 3。
 - 2026-10-04：子代理规则用 MMW 自己的一套，pstack 的 Subagents、brief 模板、guard-the-context-window 不照搬；第 5 课先列全 v2 的子代理规则，再逐条比较。
+- 2026-10-04：`teach` 这个名字归 v2 的课程技能；pstack 讲清一段代码的 `teach` 改名，新名字待定。
+- 2026-10-04：搬进 v3 的技能一律复制，不用软链接，再按 v3 的规定改（只有 mode 设 `disable-model-invocation`，不留 `agents/openai.yaml`，指向 v2 或 pstack 专有东西的地方改掉）。
 
 ## 工作笔记
 - 画图用 `assets/kit.py`（沿用前两次迁移课程的画图工具），图写在 `figures/*.py`，`python3 assets/build.py` 把样式、脚本和图填进每一页。

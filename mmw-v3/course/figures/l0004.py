@@ -110,7 +110,7 @@ CHOICES = [
     ("⑪", [("playbook", "Prototype")], [("skill", "grilling"), ("skill", "to-questionnaire")], "both",
      "都留：pstack 没有访谈技能；访谈中跑得出来的事实仍去 Prototype"),
     ("⑫", [("skill", "teach（讲清一段代码）")], [("skill", "teach（课程）")], "both",
-     "两个都留，做的事不同；同名，名字待定"),
+     "两个都留，做的事不同；teach 这个名字归 v2 的课程技能，pstack 那个改名"),
     ("④", [("skill", "show-me-your-work")], [("script", "dispatch.sh summary"), ("skill", "retro")], "both",
      "都留：一个是过程中的决定记录，一个是夜里结束时的总结和复盘"),
     ("⑤", [("playbook", "Orchestrate：The brief")], [("skill", "to-tickets 的票")], "open",
