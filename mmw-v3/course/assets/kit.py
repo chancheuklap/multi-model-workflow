@@ -133,3 +133,40 @@ def flow(fig_id, heading, steps, left_head, exit_head):
             ey = y + h - 10 if len(uses) < 2 else y + 27
             f.ar([(376, ey), (746, ey)])
     return f, rows, bottom
+
+
+def rule_table(fig_id, heading, rows, aria):
+    """One row per moment a rule is needed: the moment, the rules and components it uses (dashed: a
+    file of the consuming repository), the steps that use them, and a dashed gap when one is missing."""
+    f = Fig(fig_id, 1000)
+    txt(f, 10, 20, heading, "h")
+    y = 66
+    placed = []
+    for name, when, comps, users, gap in rows:
+        n = max(len(comps), len(users) + (1 if gap else 0))
+        h = max(30 + 2 * 17, n * 30 + 4)
+        placed.append((y, h, name, when, comps, users, gap))
+        y += h + 12
+    bottom = y + 2
+    f.zone(4, 34, 170, bottom - 34, "什么时候")
+    f.zone(180, 34, 400, bottom - 34, "规则和组件")
+    f.zone(586, 34, 410, bottom - 34, "哪一步用")
+    for y, h, name, when, comps, users, gap in placed:
+        txt(f, 16, y + 20, name, "h", room=150)
+        txt(f, 16, y + 38, when, "s", room=150)
+        cy = y
+        for kind, text in comps:
+            dash = ' style="stroke-dasharray:6 3"' if kind == "other" else ""
+            f.e(f'<g class="k-{kind}"><rect class="box" x="192" y="{cy}" width="376" height="24" rx="4"{dash}/></g>', False)
+            txt(f, 202, cy + 16, text, room=360)
+            cy += 30
+        uy = y
+        for u in users:
+            f.e(f'<g class="k-playbook"><rect class="box" x="598" y="{uy}" width="386" height="24" rx="4"/></g>', False)
+            txt(f, 608, uy + 16, u, room=370)
+            uy += 30
+        if gap:
+            f.e(f'<g class="k-other"><rect class="box" x="598" y="{uy}" width="386" height="24" rx="4" style="stroke-dasharray:4 3"/></g>', False)
+            txt(f, 608, uy + 16, "缺：" + gap, room=370)
+        f.ar([(568, y + 12), (596, y + 12)])
+    return f.svg(bottom + 8, aria)

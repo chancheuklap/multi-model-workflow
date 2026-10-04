@@ -1,6 +1,6 @@
 """Figures of lesson 0010: Work a ticket and Review a ticket as landed; which step uses each rule about tests;
 the runs from closing a ticket to finish, now and as proposed."""
-from kit import Fig, flow, txt as _t, tbox as _box
+from kit import Fig, flow, rule_table, txt as _t, tbox as _box
 
 
 def work():
@@ -83,7 +83,7 @@ RULES = [
     ("写判据", "切票时", [("reference", "ticket-format.md：判据怎样写"), ("other", "仓库的 TESTING.md")],
      ["Bug fix 第 3 步", "Cut tickets（还没写）"], None),
     ("证明判据能红", "认领时", [("script", "--preflight 的基线运行")],
-     ["Work a ticket 第 1 步", "第 10 步解释写前就绿的"], None),
+     ["Work a ticket 第 1 步", "第 10 步解释写前就绿的"], "pin 动工前就绿，第 10 步不收这种解释"),
     ("写测试", "写代码时", [("skill", "tdd：SKILL.md、tests.md、mocking.md"),
                         ("principle", "principle-a-check-must-be-able-to-fail"),
                         ("other", "仓库的 TESTING.md")],
@@ -104,43 +104,12 @@ RULES = [
 
 
 def rules():
-    f = Fig("m103", 1000)
-    _t(f, 10, 20, "写测试的规则：每一刻用哪几样，哪一步来用", "h")
-    y = 66
-    placed = []
-    for name, when, comps, users, gap in RULES:
-        n = max(len(comps), len(users) + (1 if gap else 0))
-        h = max(30 + 2 * 17, n * 30 + 4)
-        placed.append((y, h, name, when, comps, users, gap))
-        y += h + 12
-    bottom = y + 2
-    f.zone(4, 34, 170, bottom - 34, "什么时候")
-    f.zone(180, 34, 400, bottom - 34, "规则和组件")
-    f.zone(586, 34, 410, bottom - 34, "哪一步用")
-    for y, h, name, when, comps, users, gap in placed:
-        _t(f, 16, y + 20, name, "h", room=150)
-        _t(f, 16, y + 38, when, "s", room=150)
-        cy = y
-        for kind, text in comps:
-            dash = ' style="stroke-dasharray:6 3"' if kind == "other" else ""
-            f.e(f'<g class="k-{kind}"><rect class="box" x="192" y="{cy}" width="376" height="24" rx="4"{dash}/></g>', False)
-            _t(f, 202, cy + 16, text, room=360)
-            cy += 30
-        uy = y
-        for u in users:
-            f.e(f'<g class="k-playbook"><rect class="box" x="598" y="{uy}" width="386" height="24" rx="4"/></g>', False)
-            _t(f, 608, uy + 16, u, room=370)
-            uy += 30
-        if gap:
-            f.e(f'<g class="k-other"><rect class="box" x="598" y="{uy}" width="386" height="24" rx="4" style="stroke-dasharray:4 3"/></g>', False)
-            _t(f, 608, uy + 16, "缺：" + gap, room=370)
-        f.ar([(568, y + 12), (596, y + 12)])
-    return f.svg(bottom + 8, ARIA_RULES)
+    return rule_table("m103", "写测试的规则：每一刻用哪几样，哪一步来用", RULES, ARIA_RULES)
 
 
 ARIA_RULES = ("写测试的规则按需要它的那一刻排成九行，每行左边是时刻，中间是那一刻用的规则和组件，右边是用它的 playbook 步骤，虚线框是仓库自己的文件或缺口。"
               "写判据，切票时：ticket-format.md 写判据的规则和仓库的 TESTING.md；Bug fix 第 3 步，Cut tickets 还没写。"
-              "证明判据能红，认领时：--preflight 的基线运行；Work a ticket 第 1 步，第 10 步解释写前就绿的。"
+              "证明判据能红，认领时：--preflight 的基线运行；Work a ticket 第 1 步，第 10 步解释写前就绿的；缺口是 pin 在动工前就绿，第 10 步不收这种解释。"
               "写测试，写代码时：tdd 的 SKILL.md、tests.md、mocking.md，principle-a-check-must-be-able-to-fail，仓库的 TESTING.md；Work a ticket 第 2 步和 Make a small change 第 2 步；缺口是写测试的一方没被叫去读 TESTING.md。"
               "边写边跑：principle-run-the-smallest-test-set；Work a ticket 第 2 步，Make a small change 第 3 步。"
               "判定过没过，写完之后：verify-ticket.py 和 gate-check，principle-fix-the-product-not-the-check；Work a ticket 第 3、7 步。"
