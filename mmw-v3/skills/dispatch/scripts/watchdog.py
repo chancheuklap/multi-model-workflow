@@ -21,7 +21,7 @@ orchestrator runs in is found by a person.
 
 **What it watches.** Every watch the relay has open for the repository (`watches.json` in
 the state directory, relay.py): a night — a spec, whose sub-issues are listed again every
-round — or tickets outside a night. Each watch has its own orchestrator. A closed sub-issue
+round — or tickets outside a night, or a batch of briefs (briefs.py). Each watch has its own orchestrator. A closed sub-issue
 of a spec is not read: a closed ticket's worker has handed in its work. A ticket a tickets
 watch names is always read. A night is open while `watches.json` names a watch: `relay.py
 stop`, which `summary`, `suspend` and `land` run, closes one, and the relay closes the
@@ -68,7 +68,13 @@ watch is open this process writes a last heartbeat saying so and exits.
 
    A silent ticket held by no session to ask (a claim no start names, or only sessions
    whose results are in) is an alert too. So is a ticket whose events cannot be read.
-4. A silent ticket whose newest event is at least `--idle` seconds old (default 3600),
+4. Every brief of a watched batch that has neither reported nor been marked lost: its
+   runner is asked `liveness` of its session, every round. `stopped` marks the brief
+   lost (`lost.json` in its directory), which the relay counts as done, so the session
+   that briefed it is woken with the rest of the batch and reads who was lost. `alive` and
+   `unknown` leave it open; a brief whose session ends its turn without reporting is the
+   turn guard's to catch.
+5. A silent ticket whose newest event is at least `--idle` seconds old (default 3600),
    whose worker's runner answered `alive`, and whose fold shows it waiting for nothing —
    no live reviewer, no `waiting`, not `passed` — is an alert: its
    worker is there and nothing will ever wake it (a worker that ended its turn with no
@@ -139,13 +145,15 @@ Files in the state directory, beside the relay's:
     watchdog.lock   held for as long as a `run` runs: one watchdog per repository
     watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance, silence,
                     idle, watches (the open watches as last read, with their orchestrators),
-                    held, waiting, unknown, lost, relay, read_at, read_failure, pending
+                    held, briefs (each open brief, `<batch>/<n>`), waiting, unknown,
+                    lost, relay, read_at, read_failure, pending
                     (alerts not yet sent, each with the runner and session it is for),
                     reported ([runner, session, key] of each alert sent), main (per
                     orchestrator, why its alerts could not be sent), closed, reads (billed and
                     not-modified comment-list reads since this process started; null for a
                     `Board` that does not count them)
-    watchdog.log    what every started watchdog printed, appended
+    watchdog.log    what every started watchdog printed, appended; moved to watchdog.log.1
+                    at an arm once past statedir.LOG_LIMIT
 
 Exit codes:
 
@@ -179,6 +187,7 @@ if str(HERE) not in sys.path:
 import statedir  # noqa: E402
 from statedir import LockHeld  # noqa: E402
 import relay as relay_mod  # noqa: E402  (loads events.py beside it)
+import briefs  # noqa: E402
 
 events = relay_mod.events
 
@@ -345,8 +354,8 @@ NOT_READING = "not reading"
 # there has to be started again; one that is there and cannot read recovers by itself on
 # its next successful read, and a second `open` would put nothing new in its place.
 NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the "
-             "recorded orchestrator, or `dispatch.sh open-ticket <n>` for a ticket outside "
-             "a night; ",
+             "recorded orchestrator, `dispatch.sh open-ticket <n>` for a ticket outside "
+             "a night, or `dispatch.sh brief watch <batch>` for a batch of briefs; ",
         NOT_READING: "the process is there and cycling, and it recovers on its own with "
                      "the first read that works, so opening the night again replaces "
                      "nothing; when this repeats without clearing, the relay cannot read "
@@ -548,7 +557,7 @@ class Watchdog:
             "poll": poll, "tolerance": tolerance(poll), "silence": silence, "idle": idle,
             "round": 0,
             "watches": previous.get("watches") if isinstance(previous.get("watches"), dict) else {},
-            "held": None, "waiting": [], "unknown": {}, "lost": {}, "relay": None,
+            "held": None, "briefs": [], "waiting": [], "unknown": {}, "lost": {}, "relay": None,
             "pending": [p for p in previous.get("pending") or []
                         if isinstance(p, dict) and p.get("runner") and p.get("session")],
             "reported": [r for r in previous.get("reported") or []
@@ -594,6 +603,8 @@ class Watchdog:
         tickets: dict[int, dict] = {}
         ordered = sorted(watches.items(), key=lambda kv: (0 if kv[1].get("tickets") else 1, kv[0]))
         for key, entry in ordered:
+            if entry.get("briefs"):
+                continue
             home = {"key": key, "spec": None, "main": relay_mod.main_of(entry)}
             if entry.get("tickets"):
                 for number in entry["tickets"]:
@@ -675,6 +686,7 @@ class Watchdog:
             self.beat["unknown"] = unknown
             self.write_beat()
 
+        self.beat["briefs"] = self._briefs(watches)
         # A round that could not read every ticket does not know that nothing is held.
         self.beat.update(held=held if read_all else (held or None), waiting=waiting,
                          unknown=unknown)
@@ -781,6 +793,27 @@ class Watchdog:
                 "to": to,
             })
 
+    def _briefs(self, watches: dict[str, dict]) -> list[str]:
+        """Step 4, for the briefs of every watched batch: a session its runner answers
+        `stopped` is marked lost. Returns the briefs still open, as `<batch>/<n>`."""
+        batches = {entry["briefs"] for entry in watches.values() if entry.get("briefs")}
+        still: list[str] = []
+        for child in briefs.open_children(self.state):
+            if child["batch"] not in batches:
+                continue
+            name = f"{child['batch']}/{child['n']}"
+            runner, session = child.get("runner") or "", child.get("session") or ""
+            answer = self.ask(runner, session)
+            self.write_beat()
+            if answer == "stopped":
+                why = (f"{runner} answered that its session {session} is stopped, and it had "
+                       f"not reported")
+                if briefs.mark_lost(self.state, child["batch"], child["n"], why):
+                    self.err.write(f"watchdog: brief {name} marked lost: {why}\n")
+                continue
+            still.append(name)
+        return still
+
     def _report(self, findings: list[dict], everyone: list[tuple[str, str]]) -> bool:
         """Send each orchestrator what has not been sent to it. True when a turn started on
         one of them. An alert kept for a session that is the orchestrator of no open watch
@@ -875,6 +908,7 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
         if statedir.holder(state / "watchdog.lock") is not None:
             return False, f"{why}, and it did not end on SIGTERM"
     log = state / "watchdog.log"
+    statedir.rotate(log)
     argv = [sys.executable, str(watchdog_py()), "run", "--repo", repo]
     with open(log, "a", encoding="utf-8") as fh:
         fh.write(f"--- {iso(now_utc())} arming the watchdog for {repo} ({why})\n")

@@ -5,7 +5,8 @@ Run from anywhere inside the repository: python3 mmw-v3/check_imports.py
 
 1. Every file under mmw-v3/skills/ has one row, except the files v3 wrote
    itself (mmw-v3/skills/README.md, everything under mmw-mode/, and the dispatch
-   skill's scripts/check-interfaces.py) and the `__pycache__/` a test run leaves,
+   skill's roles.json, scripts/check-interfaces.py and scripts/briefs.py) and the
+   `__pycache__/` a test run leaves,
    and every row's `local` exists. A row whose `local` ends in `/` covers every file
    below it that has no row of its own; links are not followed.
 2. Every row's `source` can be read at its `commit`. MMW's own text is read
@@ -29,7 +30,9 @@ ROOT = pathlib.Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], capt
 SKILLS = ROOT / "mmw-v3" / "skills"
 OWN = "chancheuklap/multi-model-workflow"
 V3_WRITTEN = ("mmw-v3/skills/README.md", "mmw-v3/skills/mmw-mode/",
-              "mmw-v3/skills/dispatch/scripts/check-interfaces.py")
+              "mmw-v3/skills/dispatch/roles.json",
+              "mmw-v3/skills/dispatch/scripts/check-interfaces.py",
+              "mmw-v3/skills/dispatch/scripts/briefs.py")
 # mmw-v3/upstream-pstack/ is a split of cursor/plugins' pstack/ directory, so its
 # squash commit names the split, not the cursor/plugins commit. Each line maps a
 # cursor/plugins commit to its split and the directory the split was cut from.

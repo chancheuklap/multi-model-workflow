@@ -27,9 +27,17 @@ import statedir  # noqa: E402
 
 SKILL_DIR = SCRIPTS_DIR.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
+ROLES_JSON = SKILL_DIR / "roles.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
-ALLOWED_AGENTS = (
-    "junior-worker", "senior-worker", "reviewer", "advisor", "researcher")
+
+
+def session_roles() -> tuple[str, ...]:
+    """The roles dispatch.sh starts as sessions, in roles.json's order: one models.json row each."""
+    data = json.loads(ROLES_JSON.read_text(encoding="utf-8"))
+    return tuple(r["name"] for r in data["roles"] if r.get("kind") == "session")
+
+
+ALLOWED_AGENTS = session_roles()
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
@@ -136,11 +144,11 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
         errors.append({"cell": "runner", "reason": "is required"})
     rows = config.get("rows")
     if not isinstance(rows, dict):
-        return errors + [{"cell": "rows", "reason": "five role rows are required"}]
+        return errors + [{"cell": "rows", "reason": "one row per role is required: " + ", ".join(ALLOWED_AGENTS)}]
     missing = [role for role in ALLOWED_AGENTS if role not in rows]
     extra = [role for role in rows if role not in ALLOWED_AGENTS]
     if missing or extra:
-        reason = "five role rows are required"
+        reason = "one row per role is required"
         if missing:
             reason += "; missing " + ", ".join(missing)
         if extra:
@@ -210,11 +218,24 @@ class InstallResult(NamedTuple):
 
 
 def install_local_config(legacy_path: Path) -> InstallResult:
-    """Create models.json once, importing legacy_path when present."""
+    """Create models.json once, importing legacy_path when present. An existing file is
+    kept as it is, except that a role it has no row for gets its hosts.json default: a
+    role added to roles.json reaches a machine configured before it."""
     path = models_json_path()
     with config_lock(purpose="install models.json"):
         if path.is_file():
-            return InstallResult(read_local_config(), False, False)
+            config = read_local_config()
+            rows = config.get("rows")
+            missing = [role for role in ALLOWED_AGENTS
+                       if isinstance(rows, dict) and role not in rows]
+            if missing:
+                defaults = default_local_config()["rows"]
+                for role in missing:
+                    rows[role] = defaults[role]
+                config["version"] = int(config.get("version") or 0) + 1
+                statedir.write_atomic(
+                    path, json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+            return InstallResult(config, False, False)
         config = default_local_config()
         imported = legacy_path.is_file()
         if imported:
@@ -223,7 +244,8 @@ def install_local_config(legacy_path: Path) -> InstallResult:
                 if agent in rows:
                     raise ValueError(f"{legacy_path}: {agent} has two rows")
                 rows[agent] = {"host": host, "model": model, "effort": effort}
-            config["rows"] = rows
+            # The retired table predates some roles; those keep their defaults.
+            config["rows"] = {**config["rows"], **rows}
             config["runner"] = parse_legacy_runner(legacy_path) or "auto"
         errors = _validate_config_shape(config)
         if errors:

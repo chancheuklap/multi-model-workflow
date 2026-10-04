@@ -9,7 +9,7 @@ Investigate the motivation and intent behind code.
 
 Companion to the `how` skill. `how` answers what the code does and how it works. `why` answers what forces led to its shape.
 
-Each subagent below is your host's general-purpose subagent, sent out as mmw-mode's `## Subagents` says.
+Each agent below is a session of its own, on the model `~/.mmw/models.json` gives its role: each investigator is a researcher, and the synthesizer has a role of its own. Start them with the `dispatch` skill's `dispatch.sh brief <role> <file>...`, one brief file per session; the session sees the brief and nothing else. Every session one call starts is one batch, and the relay wakes you once, with `brief <batch> done`, when all of them have answered: end your turn after starting them, and on the wake follow the `dispatch` skill's `## On waking`.
 
 ## Operating Posture
 
@@ -23,7 +23,7 @@ If the target is vague ("why do we do it this way?" with no clear referent), mak
 
 ## Step 2. Establish the Code Anchor
 
-Before spawning investigators, anchor the investigation in concrete code. You need:
+Before starting investigators, anchor the investigation in concrete code. You need:
 
 - The relevant file path(s) and line range(s)
 - The key symbols (function names, class names, constants)
@@ -54,13 +54,13 @@ gh pr view <number> --json title,body,author,createdAt,mergedAt,labels,closingIs
 
 Capture this as seed context (file paths, symbols, commits, PR numbers, linked ticket IDs). Pass it to the investigators.
 
-## Step 3. Spawn Parallel Investigators (default posture)
+## Step 3. Start Parallel Investigators (default posture)
 
 **Default to the full parallel investigation.**
 
 ### Discovery
 
-Before spawning investigators, list the MCP servers and tools available to this session.
+Before starting investigators, list the MCP servers and tools available to this session. An investigator runs on the researcher's host, which may reach other MCP servers than this session: name in each brief the server it is to search, and have it say in its answer when it cannot reach that server.
 
 Map each available MCP to one evidence category:
 
@@ -76,11 +76,11 @@ Source control is always available through git and `gh`. For the other six, clas
 
 Aim for a complete **coverage map**, not a minimal one. Document the null, don't skip the search.
 
-Launch all matching investigators in a single message so they run concurrently. Don't ask one agent to cover multiple MCPs.
+Start all matching investigators in one `dispatch.sh brief researcher` call, one brief file each, so they run concurrently and you are woken once. Don't ask one agent to cover multiple MCPs.
 
 Leave each investigator able to call MCP tools. **Do not use a host's read-only mode.** It can strip MCP access, which disables MCP-backed investigators entirely. Investigators still shouldn't write anything; say so in each prompt.
 
-Each investigator gets:
+Each investigator's brief holds:
 1. The base prompt from `references/investigator-prompt.md`
 2. The category playbook `references/sources/<source>.md` for the selected MCP, adapted from the examples in `references/source-playbook.md`
 3. The cross-cutting `references/sources/incident-postmortem.md` **if the target code looks defensive** (null checks, retry logic, timeout handling, rate limiting, feature flags, egress guards, OOM handlers)
@@ -89,11 +89,11 @@ Each investigator gets:
 
 ### Investigator roster. One per available evidence category
 
-Spawn one investigator per category that has a matching MCP. Each owns exactly one tool or MCP.
+Start one investigator per category that has a matching MCP. Each owns exactly one tool or MCP.
 
 Each entry names the category and the kind of "why" it uniquely surfaces. Use it to know what to expect back, how to name a gap when a category returns empty, and (only in the rare provably-irrelevant case) to justify a skip.
 
-1. **Source control investigator**. Git history, `gh` for PRs, code comments, tests. Always spawn. The only guaranteed source. Best at surfacing *implementation-time rationale captured during review*.
+1. **Source control investigator**. Git history, `gh` for PRs, code comments, tests. Always start. The only guaranteed source. Best at surfacing *implementation-time rationale captured during review*.
 
 2. **Issue / ticket tracker investigator** (e.g. Linear, Jira, GitHub Issues, Plane, Shortcut MCP). Best at surfacing *the product or business forcing function*. Strongest when the why is external to engineering.
 
@@ -118,10 +118,10 @@ If your scope assessment suggests a single-commit trivial target where the PR de
 
 ## Step 4. Synthesize
 
-Spawn one synthesizer subagent, able to call MCP tools. The synthesizer's quality check spot-verifies citations, which can require MCP access. A read-only mode that strips MCPs defeats that.
+Once the investigators' batch has woken you, start one synthesizer with `dispatch.sh brief synthesizer`, able to call MCP tools. The synthesizer's quality check spot-verifies citations, which can require MCP access. A read-only mode that strips MCPs defeats that. Close the investigators' batch after the synthesizer has answered, not before: closing removes their answer files.
 
-The synthesizer gets:
-1. The investigator findings, including any null results and any categories skipped with justification
+The synthesizer's brief holds:
+1. The path of each investigator's answer file, and the categories skipped with justification
 2. The code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs)
 3. The user's original question
 4. The epistemics framework from `references/epistemics.md`
@@ -129,7 +129,7 @@ The synthesizer gets:
 
 ## Step 5. Present
 
-Take the synthesizer's output and present it to the user. You may lightly edit for clarity or add context from the conversation, but **do not rewrite the confidence language**.
+Check the synthesizer's output against the code before you use it, then write it to the user as mmw-mode's `## Writing the reply` says, but **do not rewrite the confidence language**: what it marks inferred stays inferred. Close every batch you started.
 
 ## Output Format
 
@@ -144,7 +144,7 @@ After the Sources Consulted block, if the user's `why` question is a precursor t
 ## Reference Files
 
 - `references/epistemics.md`. Confidence tiers and phrasing guide. The synthesizer must follow it.
-- `references/investigator-prompt.md`. Base prompt template for investigator subagents.
+- `references/investigator-prompt.md`. Base prompt template for an investigator's brief.
 - `references/source-playbook.md`. Index pointing at the category playbooks below.
 - `references/sources/*.md`. One self-contained example playbook per category, plus cross-cutting `incident-postmortem.md`. Give an investigator the single file that matches its category and adapt it to the available MCP.
-- `references/synthesizer-prompt.md`. Prompt template for the synthesizer subagent, including the output format.
+- `references/synthesizer-prompt.md`. Prompt template for the synthesizer's brief, including the output format.

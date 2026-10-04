@@ -11,11 +11,12 @@
 #   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer
-#   dispatch.sh advise <brief file>
-#   dispatch.sh research <brief file>
+#   dispatch.sh brief <role> <brief file>...
+#   dispatch.sh brief show|close|watch <batch>
+#   dispatch.sh report <batch>/<n> <file>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer
-#   dispatch.sh ack <n> <event> | relay.recovered
+#   dispatch.sh ack <n> <event> | relay.recovered | brief <batch>
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
@@ -90,6 +91,8 @@ MODELS_JSON="${MMW_HOME:-$HOME/.mmw}/models.json"
 STATUS="$SKILL_ROOT/scripts/status.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
+BRIEFS="$SKILL_ROOT/scripts/briefs.py"
+ROLES_JSON="$SKILL_ROOT/roles.json"
 RUNNER=""
 RUNNER_NAME=""
 REPO_URL=""
@@ -408,11 +411,12 @@ usage: dispatch.sh check <spec>
        dispatch.sh integrated <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer
-       dispatch.sh advise <brief file>
-       dispatch.sh research <brief file>
+       dispatch.sh brief <role> <brief file>...
+       dispatch.sh brief show|close|watch <batch>
+       dispatch.sh report <batch>/<n> <file>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer
-       dispatch.sh ack <n> <event> | relay.recovered
+       dispatch.sh ack <n> <event> | relay.recovered | brief <batch>
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh findings <spec>
@@ -937,15 +941,18 @@ open_ticket() {
   fi
 }
 
-# `ack <n> <event>` or `ack relay.recovered`: the wake this session read is handled, and
-# the relay sends it no more. The session is named the way its adapter's `self` reads it.
+# `ack <n> <event>`, `ack relay.recovered` or `ack brief <batch>`: the wake this session
+# read is handled, and the relay sends it no more. The session is named the way its
+# adapter's `self` reads it.
 ack_wake() {
   local repo line runner session
   repo="$(repo_slug)" || exit 2
   line="$(own_session)" || exit 2
   runner="${line%%$'\t'*}"
   session="${line#*$'\t'}"
-  if [ "$#" -eq 1 ]; then
+  if [ "$1" = brief ]; then
+    python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" --batch "$2" || exit 2
+  elif [ "$#" -eq 1 ]; then
     python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" --event "$1" || exit 2
   else
     python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" \
@@ -1978,58 +1985,169 @@ start_one() {
   printf '%s\n' "$session"
 }
 
-# `advise <brief file>` and `research <brief file>`: resolve the role's row against the
-# selected runner, start a session in the current worktree and print the session id. The
-# session's prompt is the brief, after a lead: the advisor's lead is the whole of the
-# advisor skill's `references/advising.md`, since the advisor skill's own text is for the
-# agent asking; the researcher's is `Use the research skill.`, whose text is how to
-# research. Neither is a ticket's agent, so this writes no event. A start the runner
-# refuses is refused once: no retry, no other runner.
-#
-#   brief_one <role> <skill> <command> <what the brief holds> <brief file> [<lead file>]
-brief_one() {
-  local role="$1" skill="$2" command="$3" holds="$4" packet="$5" leadfile="${6:-}"
-  [ -n "$packet" ] || usage
-  [ -f "$packet" ] || refuse "no brief file at $packet; write the brief to a file, then $command again"
-  [ -s "$packet" ] || refuse "the brief file $packet is empty, and the $role sees the brief and nothing else; write $holds, then $command again"
-  local lead="Use the $skill skill."
-  if [ -n "$leadfile" ]; then
-    [ -s "$leadfile" ] \
-      || refuse "no $role's text at $leadfile, so the $role would start without knowing its job; nothing was started. Restore that file from the $skill skill, then $command again"
-    lead="$(cat -- "$leadfile")" \
-      || refuse "could not read the $role's text at $leadfile; make it readable, then $command again"
+# ------------------------------------------------------------------ briefs
+
+# `brief <role> <file>...`: one session of <role> per brief file, all in the current
+# worktree, all answering this session; together they are one batch (briefs.py). The
+# roles are the `brief` rows of roles.json. Each session's prompt is the role's lead (the
+# whole of a file the row names, or `Use the <skill> skill.`), then the brief, then the
+# lines that say how to report. This session must run in a runner whose adapter can name
+# it: the relay opens a watch on the batch with it as the orchestrator, and wakes it once,
+# `brief <batch> done`, when every brief has reported or been found lost. Prints one line
+# per brief, `<batch>/<n><TAB><session>`. A start the runner refuses is refused once, and
+# every session already started for the batch is stopped and the batch removed.
+brief_lead() {
+  MMW_ROLES="$ROLES_JSON" MMW_ROLE="$1" python3 -c '
+import json, os, sys
+roles = json.load(open(os.environ["MMW_ROLES"], encoding="utf-8"))["roles"]
+mine = [r for r in roles if r.get("command") == "brief"]
+role = next((r for r in mine if r["name"] == os.environ["MMW_ROLE"]), None)
+if role is None:
+    print(", ".join(r["name"] for r in mine))
+    sys.exit(3)
+lead = role.get("lead") or {}
+if lead.get("file"):
+    print("file\t" + lead["file"])
+elif lead.get("skill"):
+    print("skill\t" + lead["skill"])
+else:
+    print("none\t")
+'
+}
+
+brief_footer() {
+  printf '%s\n' "---" \
+    "This brief is $1. The session that briefed you waits for your answer and sees nothing else of yours. When you are done, write your whole answer to one file and run:" \
+    "" \
+    "bash $SELF report $1 <file>" \
+    "" \
+    "Then end your turn. The file is copied out when you report, so where you write it does not matter."
+}
+
+# Stop every session `brief <batch>` started and close the batch's watch, which removes
+# the batch. Used by `brief close` and by a `brief` that could not start them all.
+close_batch() {
+  local batch="$1" repo line name state role runner session rest stopped=0 failed=""
+  repo="$(repo_slug)" || return 2
+  while IFS=$'\t' read -r name state role runner session rest; do
+    [ -n "$session" ] && [ "$session" != - ] || continue
+    if [ -f "$SKILL_ROOT/scripts/runners/$runner.sh" ] \
+       && runner_call "$runner" stop "$session" >/dev/null 2>&1; then
+      stopped=$((stopped + 1))
+    else
+      failed="$failed $runner:$session"
+    fi
+  done < <(python3 "$BRIEFS" show --repo "$repo" --batch "$batch" 2>/dev/null)
+  stop_relay --briefs "$batch"
+  case "$?" in 0 | 3) ;; *) return 2 ;; esac
+  python3 "$BRIEFS" forget --repo "$repo" --batch "$batch" || return 2
+  echo "dispatch: closed brief batch $batch: $stopped sessions stopped" >&2
+  if [ -n "$failed" ]; then
+    echo "dispatch: these sessions of batch $batch could not be stopped and still run; end them on their runner by hand:$failed" >&2
   fi
+}
+
+brief_many() {
+  local role="$1"
+  shift
+  [ "$#" -ge 1 ] || usage
+  local file
+  for file in "$@"; do
+    [ -f "$file" ] || refuse "no brief file at $file; write the brief to a file, then brief again"
+    [ -s "$file" ] || refuse "the brief file $file is empty, and the $role sees the brief and nothing else; write it, then brief again"
+  done
+
+  local answer kind where lead=""
+  answer="$(brief_lead "$role")"
+  case "$?" in
+    0) ;;
+    3) refuse "$role is not a role brief starts; the roles are: $answer (roles.json)" ;;
+    *) refuse "could not read the roles at $ROLES_JSON" ;;
+  esac
+  IFS=$'\t' read -r kind where <<<"$answer"
+  case "$kind" in
+    file)
+      where="$SKILLS_ROOT/$where"
+      [ -s "$where" ] \
+        || refuse "no $role's text at $where, so the $role would start without knowing its job; nothing was started. Restore that file, then brief again"
+      lead="$(cat -- "$where")" \
+        || refuse "could not read the $role's text at $where; make it readable, then brief again"
+      lead="$lead"$'\n\n'
+      ;;
+    skill) lead="Use the $where skill."$'\n\n' ;;
+  esac
 
   use_runner "$(tonight_runner)"
   use_catalog_of "$RUNNER_NAME"
 
   local row host model effort
   row="$(row_for_role "$role")" || exit 2
+  [ -n "$row" ] || refuse "missing $role row in $MODELS_JSON; add it with models.py config set $role <host> <model> <level>, then brief again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local cwd body prompt session
+  local cwd repo line parent_runner parent_session batch
   cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$cwd" ] \
-    || refuse "not inside a git repository, so there is no worktree to start the $role in; run $command from a worktree"
-  body="$(cat -- "$packet")" \
-    || refuse "could not read the brief file $packet; make it readable, then $command again"
-  prompt="$lead"$'\n\n'"$body"
+    || refuse "not inside a git repository, so there is no worktree to start the $role in; run brief from a worktree"
+  repo="$(repo_slug)" || exit 2
+  line="$(own_session)" \
+    || refuse "nothing could wake this session with the results, so no $role was started"
+  parent_runner="${line%%$'\t'*}"
+  parent_session="${line#*$'\t'}"
+  batch="$(python3 "$BRIEFS" new --repo "$repo" --role "$role" --count "$#" \
+           --runner "$parent_runner" --session "$parent_session")" || exit 2
+  open_relay --briefs "$batch" >/dev/null \
+    || { python3 "$BRIEFS" forget --repo "$repo" --batch "$batch"; exit 2; }
 
-  # Herdr's session id is basename(cwd) plus the title's last word; a constant
-  # last word would collide on a second session in the same worktree.
-  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role $$")"; then
-    refuse "$RUNNER_NAME did not start $host as $role (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then $command again"
-  fi
-  printf '%s\n' "$session"
+  local n=0 body prompt session started=()
+  for file in "$@"; do
+    n=$((n + 1))
+    body="$(cat -- "$file")" \
+      || { close_batch "$batch"; refuse "could not read the brief file $file; batch $batch was closed and the sessions it had started were stopped"; }
+    prompt="$lead$body"$'\n\n'"$(brief_footer "$batch/$n")"
+    # Herdr's session id is basename(cwd) plus the title's last word, so the last word
+    # carries the batch and the brief.
+    if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n")"; then
+      close_batch "$batch"
+      refuse "$RUNNER_NAME did not start $host as $role for brief $n of $# (its reason is above); nothing was retried, batch $batch was closed and the sessions it had started were stopped. Fix what it names, or change this agent's row in $MODELS_JSON, then brief again"
+    fi
+    if ! python3 "$BRIEFS" started --repo "$repo" --brief "$batch/$n" --runner "$RUNNER_NAME" \
+         --session "$session" --host "$host" --model "$model" --effort "${effort:-—}"; then
+      runner stop "$session" >/dev/null 2>&1
+      close_batch "$batch"
+      refuse "could not record session $session as brief $batch/$n, so it was stopped and batch $batch closed; brief again"
+    fi
+    started+=("$batch/$n"$'\t'"$session")
+  done
+  printf '%s\n' "${started[@]}"
+  echo "dispatch: brief batch $batch: $# $role sessions on $RUNNER_NAME; the relay wakes $parent_runner session $parent_session with \`brief $batch done\` once every one has reported or is lost" >&2
 }
 
-advise_one() {
-  brief_one advisor advisor advise "the five parts the advisor skill lists" "$1" \
-    "$(dirname "$SKILL_ROOT")/advisor/references/advising.md"
+# `report <batch>/<n> <file>`: the session of that brief hands its answer back.
+report_brief() {
+  local repo line
+  repo="$(repo_slug)" || exit 2
+  line="$(own_session)" \
+    || refuse "this session cannot be named, so whether it is the session of brief $1 cannot be told; nothing was reported"
+  python3 "$BRIEFS" report --repo "$repo" --brief "$1" --file "$2" \
+    --runner "${line%%$'\t'*}" --session "${line#*$'\t'}" || exit 2
 }
 
-research_one() {
-  brief_one researcher research research "the question and where its answer is to be written" "$1"
+brief_command() {
+  local repo
+  case "${1:-}" in
+    show | close | watch)
+      [ "$#" -eq 2 ] || usage
+      repo="$(repo_slug)" || exit 2
+      case "$1" in
+        show) python3 "$BRIEFS" show --repo "$repo" --batch "$2" || exit 2 ;;
+        close) close_batch "$2" || exit 2 ;;
+        watch) open_relay --briefs "$2" >/dev/null || exit 2 ;;
+      esac
+      ;;
+    "") usage ;;
+    *) brief_many "$@" ;;
+  esac
 }
 
 # ------------------------------------------------------------------ retract
@@ -4601,6 +4719,8 @@ case "${1:-}" in
   ack)
     if [ "$#" -eq 2 ] && [ "$2" = relay.recovered ]; then
       ack_wake relay.recovered
+    elif [ "$#" -eq 3 ] && [ "$2" = brief ]; then
+      ack_wake brief "$3"
     elif [ "$#" -eq 3 ]; then
       # The wake reads `#<n> <event>`; the number is taken with or without its `#`.
       number="${2#\#}"
@@ -4634,13 +4754,13 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     start_one "$2" "$3"
     ;;
-  research)
-    [ "$#" -eq 2 ] || usage
-    research_one "$2"
+  brief)
+    shift
+    brief_command "$@"
     ;;
-  advise)
-    [ "$#" -eq 2 ] || usage
-    advise_one "$2"
+  report)
+    [ "$#" -eq 3 ] || usage
+    report_brief "$2" "$3"
     ;;
   retract)
     [ "$#" -eq 2 ] || usage

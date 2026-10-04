@@ -45,6 +45,8 @@ a{color:var(--link);text-underline-offset:3px}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 code,.mono{font-family:var(--f-mono);font-size:.84em;font-variant-ligatures:none;overflow-wrap:anywhere}
 p code,li code,td code{background:var(--sunk);padding:1px 4px;border-radius:3px}
+/* A quoted block of text an agent receives: wrapped, so it never widens the page. */
+pre{max-width:68ch;margin:14px 0;padding:12px 14px;background:var(--sunk);border:1px solid var(--rule);border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 /* A component mention: tinted with its kind's colour, the same colour as in the figures. */
 code.c,span.c{background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);border-radius:3px;padding:1px 5px;color:var(--ink);-webkit-box-decoration-break:clone;box-decoration-break:clone}
 span.c{font-family:var(--f-head);font-size:.94em;white-space:nowrap}
@@ -227,7 +229,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <tr><th>No PR, no babysit；转 <span class="c k-playbook">Bug fix</span> 或 <span class="c k-playbook">Feature</span></th><td>不提交、不开票；要改代码时交回你，转 <span class="c k-playbook">Bug fix</span>、<span class="c k-playbook">Make a small change</span> 或 <span class="c k-playbook">Write a spec</span></td><td>MMW 没有 PR；改代码的三条路是第 6 课定的</td></tr>
 <tr><th>Reply：the investigation output</th><td>加一句：照 <code class="c k-mode">## Writing the reply</code> 写给你，讲它做什么、为什么、对产品意味着什么，不带你走读代码</td><td><code class="c k-skill">how</code> 的说明写给「senior engineer」，你不读代码</td></tr>
 </tbody></table></div>
-<p>表里前两行是现在落地的样子：<code class="c k-skill">how</code> 和 <code class="c k-skill">why</code> 派的是会话内的子代理。这一部分第 6 到 8 节重新设计了，改成独立会话，第 8 课照新设计改。</p>
+<p>表里前两行是这一课落地时的样子：<code class="c k-skill">how</code> 和 <code class="c k-skill">why</code> 派的是会话内的子代理。这一部分第 6 到 8 节重新设计了，改成独立会话，<a href="0008-landing-lesson-7.html">第 8 课</a>照新设计改了。</p>
 
 <h2>3　派出的 agent 怎样拿到自己那一份</h2>
 <p>第 6 课图 5 定的做法：派出的 agent 不在技能里按角色选路，派它的一方直接把它那一份放在开工的那段话里。现在三种都这样做了：</p>
@@ -382,7 +384,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <h2>下一课</h2>
 <p>我建议第 8 课先实现第 6 到 8 节：角色表、brief 回程、<code class="c k-skill">how</code> 和 <code class="c k-skill">why</code> 改用四个角色，以及日志上限，都在临时目录里测。然后照第 6 课第 11 节的顺序写 <span class="c k-playbook">Work a ticket</span>、<span class="c k-playbook">Review a ticket</span> 和 <span class="c k-playbook">Make a small change</span>。先做角色表，是因为 reviewer 派它的轴也要登记进去。</p>
 <p class="ask">第 7 节的默认模型、第 9 节夜里那处唤醒要不要顺手修，或者哪一节看不懂，直接说。</p>
-<footer class="next"><a href="0006-reshaping-v2-skills.html">← 第 6 课</a><a href="../index.html">课程首页</a></footer>
+<footer class="next"><a href="0006-reshaping-v2-skills.html">← 第 6 课</a><a href="../index.html">课程首页</a><a href="0008-landing-lesson-7.html">第 8 课 →</a></footer>
 </div>
 <!--JS--><script>
 /* Quiz widget: <div class="quiz" data-answer="2"> with buttons in .opts and a hidden .why.

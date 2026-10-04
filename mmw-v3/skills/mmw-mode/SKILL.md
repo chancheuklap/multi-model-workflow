@@ -157,8 +157,9 @@ each: which subagent to use and on which model; what its brief states; what to d
 host that cannot run one; who owns what it returns. Every subagent in MMW is sent out by a
 skill, which writes its prompt (an axis of code-review, the ambiguity scan of to-tickets);
 there is no subagent that loads this mode (mmw-v3/course lesson 5, decisions 6 and 7).
-Sessions a script starts (worker, reviewer, advisor, researcher) are not subagents; their
-start and their models are the dispatch skill's.
+Sessions a script starts (worker, reviewer, advisor, researcher, explainer, synthesizer)
+are not subagents; their start and their models are the dispatch skill's, and its
+roles.json lists every role of both kinds (mmw-v3/course lesson 7, section 6).
 
 Sources in MMW v2: manage-agents-md ("your host's general-purpose subagent, with no model
 named"), code-review references/session.md section 2, to-tickets ("Hold this turn until it
@@ -167,6 +168,8 @@ length"), ADR 0015. From poteto-mode ## Subagents, only "You own every subagent'
 -->
 
 **Use your host's general-purpose subagent, and name no model.** It runs on this session's model. MMW ships no subagent definitions, so a skill that sends one out writes its whole prompt, and the skill's own text decides what that prompt says; follow it, do not add to it.
+
+**Work that needs a model of its own is a session, not a subagent.** Not every host lets a subagent run on another model, and a session can run on any host. A skill that needs one starts a session role with the `dispatch` skill's `dispatch.sh brief`; the `dispatch` skill's `roles.json` lists every role, session and subagent alike.
 
 **The brief states what the subagent returns and how long it may be,** so its report fits your attention. It holds everything the subagent needs, since the subagent sees none of this session.
 

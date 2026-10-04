@@ -128,9 +128,8 @@ class SessionRowsTest(unittest.TestCase):
         config = models.default_local_config()
         shuffled = {role: config["rows"][role] for role in reversed(models.ALLOWED_AGENTS)}
         rows = rows_from(shuffled)
-        self.assertEqual(
-            [r.agent for r in rows],
-            ["junior-worker", "senior-worker", "reviewer", "advisor", "researcher"])
+        self.assertEqual([r.agent for r in rows], list(models.ALLOWED_AGENTS))
+        self.assertEqual(list(models.ALLOWED_AGENTS)[:3], ["junior-worker", "senior-worker", "reviewer"])
 
     def test_an_unknown_agent_is_refused(self):
         config = models.default_local_config()["rows"]
@@ -199,7 +198,7 @@ class PaseoSettingsTest(unittest.TestCase):
 
 
 class DefaultsTest(unittest.TestCase):
-    def test_defaults_include_the_five_roles(self):
+    def test_defaults_include_every_session_role(self):
         config = models.default_local_config()
         self.assertEqual(config["version"], 1)
         self.assertEqual(config["runner"], "orca")

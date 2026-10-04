@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """The relay: events on the tracker in, wake-ups for the session waiting on them out.
 
-    relay.py start --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S [--interval S] [--grace S]
-    relay.py add --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S
-    relay.py stop --repo O/R [--spec N | --tickets N[,N...]]
+    relay.py start --repo O/R (--spec N | --tickets N[,N...] | --briefs B) --runner R --session S [--interval S] [--grace S]
+    relay.py add --repo O/R (--spec N | --tickets N[,N...] | --briefs B) --runner R --session S
+    relay.py stop --repo O/R [--spec N | --tickets N[,N...] | --briefs B]
     relay.py watching --repo O/R [--ticket N] [--spec S]
     relay.py run --repo O/R [--once] [--interval S] [--grace S]
-    relay.py ack --repo O/R --runner R --session S (--through SEQ | --ticket N --event E | --event relay.recovered)
+    relay.py ack --repo O/R --runner R --session S (--through SEQ | --ticket N --event E | --event relay.recovered | --batch B)
     relay.py queue --repo O/R [--runner R --session S]
 
 **A translator, not a judge.** The relay does one thing: when a comment carrying one of
@@ -26,7 +26,8 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
 **Watches.** What the relay reads is the union of its watches. A watch is what one
 `dispatch.sh open` or `open-ticket` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
-night. Each watch has its own orchestrator, a (runner, session) pair: the session that
+night — or `{"briefs": B}`, the batch of sessions one `dispatch.sh brief` started (below).
+Each watch has its own orchestrator, a (runner, session) pair: the session that
 opened it. Nothing names an orchestrator but the watch it opened; there is no registration
 apart from a watch. A repository has one relay process and one state directory however many
 watches are open, so nights run from several branches or worktrees and one-ticket runs all go through the
@@ -44,7 +45,8 @@ tickets watch.
              the event. And worker.queued, when a product slot is given back (below)
     main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind contract,
              fault (the pipeline itself broken) or decision, worker.lost: the orchestrator of the
-             ticket's watch. The relay's own relay.recovered: every watch's orchestrator
+             ticket's watch. The relay's own relay.recovered: every orchestrator of a spec
+             or tickets watch. brief.done: the orchestrator of that batch's watch
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
 recipient's runner and session, and only that recipient — the pair, never the session
@@ -66,6 +68,17 @@ woken. A poll's events are taken in comment-id order across all its tickets, so 
 wait and a newer release meet in the order they happened. The flag is kept in `seen.json`
 and recomputed by the full read on start. The woken worker runs its criteria again and
 acks the wake like any other.
+
+**Briefs.** A session `dispatch.sh brief` starts has no ticket: it reports by writing
+its result into the batch's directory in this state directory (`briefs.py`, beside this
+file). Each cycle the relay looks at every batch it watches, and when every brief of one
+has reported or been marked lost, it queues one row, `brief <batch> done`, to the session
+that opened the batch's watch, and writes `woken.json` in the batch so that it is queued
+once. One row per batch, never one per brief: a parent woken once reads every result in
+one turn. A batch's row carries no ticket, is never coalesced, and is acked with `ack
+--batch <batch>`. The tracker is not read for it, so an unattended stretch loses nothing
+of a batch and its parent is not sent `relay.recovered`. Closing a batch's watch removes
+its directory.
 
 **Reading the tracker.** Every `--interval` seconds (default 30) the relay reads the
 comments of each watched ticket updated since the newest one it saw there, less two
@@ -177,14 +190,15 @@ Files in the state directory:
                     every worker.started as [comment id, runner, session], the pending
                     worker.queued (`waiting`: its comment id, or null) and the newest
                     comment id applied to that flag (`waiting_read`)
-    watches.json    every open watch, keyed `spec:<n>` or `tickets:<n>[,<n>...]`: the
-                    watch (`spec` or `tickets`), its orchestrator's `runner` and `session`,
+    watches.json    every open watch, keyed `spec:<n>`, `tickets:<n>[,<n>...]` or
+                    `briefs:<batch>`: the watch (`spec`, `tickets` or `briefs`), its orchestrator's `runner` and `session`,
                     when it was opened (`at`), and since when that runner has answered
                     `stopped` (`stopped_since`, null while it has not). It outlives the
                     process: a relay that died leaves its watches open
     relay.json      the running relay's pid, process identity, interval, grace, start
                     time, and `ending` once it has no watch left and is on its way out
-    relay.log       what every started relay printed, appended
+    relay.log       what every started relay printed, appended; moved to relay.log.1 at a
+                    start once past statedir.LOG_LIMIT
     beat.json       the last good poll (`at`), the end of the last cycle whether its reads
                     worked or not (`cycle_at`), seconds spent delivering since the last good
                     poll, the pass under way, the last failed poll and why, the run's
@@ -193,6 +207,7 @@ Files in the state directory:
                     — and `cycle_at` is running; the watchdog reads one of each, because a
                     single failed read stops the first and not the second
     gap.json        the latest unattended stretch announced
+    briefs/         one directory per batch of briefs (briefs.py)
     relay.lock      held for as long as a `run` runs: one relay per repository
 
 Exit codes:
@@ -248,6 +263,7 @@ if str(HERE) not in sys.path:
 
 import statedir  # noqa: E402
 from statedir import LockHeld  # noqa: E402
+import briefs  # noqa: E402
 import ghlist  # noqa: E402
 from ghlist import GH_TIMEOUT, quiet_env  # noqa: E402
 
@@ -307,6 +323,9 @@ QUEUED = "worker.queued"
 
 # The one row the relay writes about itself rather than about a ticket.
 RECOVERED = "relay.recovered"
+
+# The row that says every brief of a batch has reported or is lost.
+BRIEF_DONE = "brief.done"
 
 LIVENESS_ANSWERS = ("alive", "stopped", "unknown")
 
@@ -386,13 +405,18 @@ def wake_text(row: dict) -> str:
     """What is sent: the ticket number and the event name, nothing the tracker already says."""
     if row.get("event") == RECOVERED:
         return f"{RECOVERED} since {row.get('since')}"
+    if row.get("event") == BRIEF_DONE:
+        return f"brief {row.get('batch')} done"
     return f"#{row.get('ticket')} {row.get('event')}"
 
 
 # ----------------------------------------------------------------- watches
 
 def watch_key(watch: dict) -> str:
-    """The name a watch is kept under: `spec:<n>`, or `tickets:<n>[,<n>...]` in order."""
+    """The name a watch is kept under: `spec:<n>`, `tickets:<n>[,<n>...]` in order, or
+    `briefs:<batch>`."""
+    if watch.get("briefs"):
+        return f"briefs:{watch['briefs']}"
     if watch.get("spec"):
         return f"spec:{int(watch['spec'])}"
     return "tickets:" + ",".join(str(n) for n in sorted({int(n) for n in watch.get("tickets") or []}))
@@ -402,12 +426,16 @@ def watch_from_key(key: str) -> dict:
     kind, _, numbers = (key or "").partition(":")
     if kind == "spec":
         return {"spec": int(numbers)}
+    if kind == "briefs":
+        return {"briefs": numbers}
     return {"tickets": [int(n) for n in numbers.split(",") if n]}
 
 
 def describe_watch(watch: dict | None) -> str:
     if not watch:
         return "nothing"
+    if watch.get("briefs"):
+        return f"brief batch {watch['briefs']}"
     if watch.get("spec"):
         return f"spec #{watch['spec']}"
     tickets = watch.get("tickets") or []
@@ -423,6 +451,8 @@ def watch_of(args) -> dict | None:
         return {"spec": args.spec}
     if getattr(args, "tickets", None):
         return {"tickets": sorted(set(args.tickets))}
+    if getattr(args, "briefs", None):
+        return {"briefs": args.briefs}
     return None
 
 
@@ -435,7 +465,7 @@ def read_watches(state: Path) -> dict[str, dict]:
     for key, entry in (data.items() if isinstance(data, dict) else []):
         if not isinstance(entry, dict) or not entry.get("runner") or not entry.get("session"):
             continue
-        if not entry.get("spec") and not entry.get("tickets"):
+        if not entry.get("spec") and not entry.get("tickets") and not entry.get("briefs"):
             continue
         out[key] = entry
     return out
@@ -447,10 +477,12 @@ def main_of(entry: dict) -> tuple[str, str]:
 
 def overlap(want: dict, watches: dict[str, dict], children: dict[int, list[int]]) -> str | None:
     """Why `want` shares a ticket with another open watch, or None. `children` holds the
-    sub-issues of every spec the comparison needs."""
+    sub-issues of every spec the comparison needs. A batch of briefs has no ticket."""
+    if want.get("briefs"):
+        return None
     key = watch_key(want)
     for other_key, other in sorted(watches.items()):
-        if other_key == key:
+        if other_key == key or other.get("briefs"):
             continue
         whose = f"{other['runner']} session {other['session']}"
         if want.get("tickets"):
@@ -723,7 +755,9 @@ class Relay:
     def _children_for(self, want: dict, watches: dict[str, dict]) -> dict[int, list[int]]:
         """The sub-issues of every spec the overlap check of `want` needs, from the tracker."""
         key = watch_key(want)
-        if want.get("tickets"):
+        if want.get("briefs"):
+            specs = []
+        elif want.get("tickets"):
             specs = [int(w["spec"]) for k, w in watches.items() if k != key and w.get("spec")]
         elif any(w.get("tickets") for k, w in watches.items() if k != key):
             specs = [int(want["spec"])]
@@ -818,7 +852,17 @@ class Relay:
             if not left:
                 self._mark_ending()
                 self._forget_last_poll()
+        self._remove_batches(closed.values())
         return closed, left
+
+    def _remove_batches(self, entries) -> None:
+        """A closed batch watch takes its briefs' directory with it: nobody waits on it."""
+        for entry in entries:
+            if entry.get("briefs"):
+                try:
+                    briefs.remove(self.state, entry["briefs"])
+                except briefs.Refusal:
+                    pass
 
     def leave_if_unwatched(self) -> bool:
         """True, with the record marked ending, when no watch is left for this relay."""
@@ -867,6 +911,7 @@ class Relay:
             if gone and not watches:
                 self._mark_ending()
                 self._forget_last_poll()
+        self._remove_batches(entry for _, entry in gone)
         for _, entry in gone:
             self.out.write(f"closed the watch on {describe_watch(entry)}: {entry['runner']} has "
                            f"answered that its orchestrator, session {entry['session']}, is "
@@ -916,15 +961,18 @@ class Relay:
                 self._write_rows(keep)
             return len(rows) - len(keep), sum(1 for r in keep if mine(r))
 
-    def ack_wake(self, address: tuple[str, str], ticket: int | None, event: str) -> tuple[int, int, int] | None:
-        """Ack the wake `address` read, named as it was sent: ticket and event, or the
-        announcement `relay.recovered`. Acks through that recipient's oldest delivered row
+    def ack_wake(self, address: tuple[str, str], ticket: int | None, event: str,
+                 batch: str | None = None) -> tuple[int, int, int] | None:
+        """Ack the wake `address` read, named as it was sent: ticket and event, the
+        announcement `relay.recovered`, or a batch's `brief.done`. Acks through that recipient's oldest delivered row
         naming it, or its oldest queued one when none is marked delivered. Returns
         (through, removed, left for that recipient), or None when no such row is queued
         for it."""
         def names_it(row: dict) -> bool:
             if (row.get("runner"), row.get("session")) != address or row.get("event") != event:
                 return False
+            if event == BRIEF_DONE:
+                return row.get("batch") == batch
             return event == RECOVERED or row.get("ticket") == ticket
 
         with self.queue_lock():
@@ -943,6 +991,7 @@ class Relay:
         the orchestrators. True when every read was made."""
         self.cycles += 1
         good = self.poll(interval, grace)
+        self.poll_briefs()
         self.deliver()
         if self.cycles % MAIN_CHECK_EVERY == 0:
             self.check_mains()
@@ -954,6 +1003,8 @@ class Relay:
         tickets: dict[int, str] = {}
         ordered = sorted(watches.items(), key=lambda kv: (0 if kv[1].get("tickets") else 1, kv[0]))
         for key, entry in ordered:
+            if entry.get("briefs"):
+                continue
             if entry.get("tickets"):
                 numbers = entry["tickets"]
             else:
@@ -1052,7 +1103,8 @@ class Relay:
             new_gap = None
             if not failures and last_good and self._unattended(beat, now) > grace \
                     and gap.get("since") != last_good:
-                for address in sorted({main_of(e) for e in watches.values()}):
+                # A batch's parent is not told: its results are files here, not on the tracker.
+                for address in sorted({main_of(e) for e in watches.values() if not e.get("briefs")}):
                     key = f"gap:{last_good}:{address[0]}:{address[1]}"
                     if key in queued:
                         continue
@@ -1171,6 +1223,41 @@ class Relay:
                            f"this cycle is not recorded as a good poll (started {iso(started)}).\n")
         self.out.flush()
         return not failures
+
+    def poll_briefs(self) -> None:
+        """Queue one `brief <batch> done` for each watched batch whose briefs have all
+        reported or are lost, once per batch."""
+        added: list[dict] = []
+        with self.queue_lock():
+            watches = self.watches()
+            rows = self._rows()
+            queued = {r.get("key") for r in rows}
+            for key, entry in sorted(watches.items()):
+                batch = entry.get("briefs")
+                if not batch:
+                    continue
+                try:
+                    if f"brief:{batch}" in queued or briefs.woken(self.state, batch) \
+                            or not briefs.complete(self.state, batch):
+                        continue
+                except briefs.Refusal:
+                    continue
+                added.append({"key": f"brief:{batch}", "ticket": None, "event": BRIEF_DONE,
+                              "batch": batch, "to": MAIN, "watch": key,
+                              "runner": entry["runner"], "session": entry["session"]})
+            if added:
+                seq = self._last_seq(rows)
+                now = iso(self.clock())
+                for row in added:
+                    seq += 1
+                    row.update(seq=seq, at=now, delivered=None)
+                statedir.write_atomic(self.path("queue.seq"), f"{seq}\n")
+                self._write_rows(rows + added)
+                for row in added:
+                    briefs.mark_woken(self.state, row["batch"])
+        for row in added:
+            self.out.write(f"queued {row['seq']} {wake_text(row)} for {row['to']} {row['session']}\n")
+        self.out.flush()
 
     def _slot_event(self, item: dict, per_ticket: dict, tickets: dict[int, str],
                     queued: set, already: set, added: list[dict], unaddressed: list[dict]) -> None:
@@ -1457,6 +1544,12 @@ def ticket_list(text: str) -> list[int]:
     return numbers
 
 
+def batch_name(text: str) -> str:
+    if not briefs.BATCH_RE.match(text or ""):
+        raise argparse.ArgumentTypeError(f"{text!r} is not a batch name")
+    return text
+
+
 def state_for(repo: str) -> Path:
     try:
         return statedir.state_dir(repo)
@@ -1600,6 +1693,7 @@ def cmd_start(args) -> int:
 def spawn(args, state: Path) -> int:
     """Start `run` as a process of its own session; its pid once it holds the lock."""
     log = state / "relay.log"
+    statedir.rotate(log)
     argv = [sys.executable, str(Path(__file__).resolve()), "run", "--repo", args.repo,
             "--interval", str(args.interval)]
     if args.grace is not None:
@@ -1711,9 +1805,21 @@ def cmd_ack(args) -> int:
         print(f"acked {args.runner} {args.session} through {args.through}: removed {removed}, "
               f"{left} left for it")
         return 0
+    if args.batch:
+        if args.event or args.ticket is not None:
+            raise Refusal("an ack names a batch (--batch) or a ticket's wake, not both.")
+        done = relay.ack_wake(address, None, BRIEF_DONE, args.batch)
+        if done is None:
+            raise Refusal(f"no wake `brief {args.batch} done` is queued for {args.runner} "
+                          f"session {args.session}, so nothing was acked: it was acked already, "
+                          f"or that batch is not done yet.")
+        through, removed, left = done
+        print(f"acked {args.runner} {args.session} `brief {args.batch} done` through {through}: "
+              f"removed {removed}, {left} left for it")
+        return 0
     if not args.event:
         raise Refusal("an ack names a sequence number (--through) or the wake it read "
-                      "(--ticket N --event E, or --event relay.recovered).")
+                      "(--ticket N --event E, --event relay.recovered, or --batch B).")
     if args.event != RECOVERED and args.ticket is None:
         raise Refusal(f"the wake `{args.event}` is about a ticket; pass --ticket with its number.")
     ticket = None if args.event == RECOVERED else args.ticket
@@ -1757,6 +1863,7 @@ def main(argv: list[str] | None = None) -> int:
         which = command.add_mutually_exclusive_group(required=required)
         which.add_argument("--tickets", type=ticket_list)
         which.add_argument("--spec", type=positive_int)
+        which.add_argument("--briefs", type=batch_name)
 
     start = sub.add_parser("start", help="open a watch with its orchestrator, and run the relay unless it runs")
     start.add_argument("--repo", required=True)
@@ -1799,6 +1906,7 @@ def main(argv: list[str] | None = None) -> int:
     ack.add_argument("--through", type=positive_int)
     ack.add_argument("--ticket", type=positive_int)
     ack.add_argument("--event")
+    ack.add_argument("--batch", type=batch_name)
     ack.set_defaults(fn=cmd_ack)
 
     queue = sub.add_parser("queue", help="print the rows, or one recipient's rows")

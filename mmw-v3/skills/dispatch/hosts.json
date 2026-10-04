@@ -4,7 +4,9 @@
     {"agent": "senior-worker", "host": "codex", "model": "gpt 6 sol", "effort": "high"},
     {"agent": "reviewer", "host": "claude", "model": "opus[1m]", "effort": "high"},
     {"agent": "advisor", "host": "claude", "model": "fable[1m]", "effort": "medium"},
-    {"agent": "researcher", "host": "claude", "model": "opus[1m]", "effort": "high"}
+    {"agent": "researcher", "host": "grok", "model": "grok 4.7", "effort": "high"},
+    {"agent": "explainer", "host": "claude", "model": "opus[1m]", "effort": "xhigh"},
+    {"agent": "synthesizer", "host": "claude", "model": "opus[1m]", "effort": "xhigh"}
   ],
   "hosts": {
     "cursor": {

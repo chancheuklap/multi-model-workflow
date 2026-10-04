@@ -27,6 +27,14 @@ three places have to agree, and nothing else notices when one of them moves:
    `## Reached from here` or `## Next` section, or a table whose first header is `You are`,
    routes a second time, and the second statement drifts from the first (the mmw-mode
    skill's `references/skill-set-rules.md` rule 7).
+6. **Every agent has a row in the role table, and every row is used.** The dispatch
+   skill's `roles.json` lists each role once. A `session` role has a default row in
+   `hosts.json` (`defaults`), and nothing else does. A file a row names (a `lead` file,
+   a `brief` template, a subagent `prompt`) exists, and so does a `lead` skill. Each skill
+   in a row's `sent_by` exists and its `SKILL.md` uses the role: `dispatch.sh brief
+   <role>` for a session role, each prompt file's path for a subagent role. Every
+   `dispatch.sh brief <role>` a `SKILL.md` or playbook writes names a `brief` role, and
+   a `SKILL.md` that sends out a subagent is the `sent_by` of a subagent row.
 
 It reads the files and parses Python with `ast`; it imports nothing it checks and writes
 nothing. Exit 0 prints `INTERFACES OK`; exit 1 prints one finding per line, each naming
@@ -36,6 +44,7 @@ the file to change.
 from __future__ import annotations
 
 import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -43,6 +52,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SKILLS = HERE.parents[1]
 DISPATCH_SH = HERE / "dispatch.sh"
+ROLES_JSON = HERE.parent / "roles.json"
+HOSTS_JSON = HERE.parent / "hosts.json"
 RELAY_PY = HERE / "relay.py"
 EVENTS_PY = SKILLS / "verify-ticket" / "scripts" / "events.py"
 VERIFY_PY = SKILLS / "verify-ticket" / "scripts" / "verify-ticket.py"
@@ -55,6 +66,8 @@ ORCHESTRATOR_PLAYBOOKS = ("Run a night", "Run one ticket")
 PLAYBOOK_VAR = re.compile(r'^([A-Z]+)_PLAYBOOK="([^"]+)"$', re.M)
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`\.?\s*$", re.M)
 WAITED = re.compile(r"#<n> ([a-z]+\.[a-z]+)")
+BRIEFED = re.compile(r"dispatch\.sh brief ([a-z-]+)")
+SENDS_SUBAGENT = re.compile(r"\b(?:send|spawn|dispatch)\w*\s[^.\n]{0,40}\bsub-?agents?\b", re.I)
 ROUTING = re.compile(r"^(## (?:Find your moment|Reached from here|Next)|\|\s*You are\s*\|)", re.M)
 
 
@@ -90,6 +103,63 @@ def module_constants(path: Path) -> dict[str, object]:
             except (ValueError, TypeError, SyntaxError, KeyError):
                 continue
     return found
+
+
+def check_roles() -> list[str]:
+    """Rule 6: the role table against hosts.json, the files it names and the skills."""
+    out: list[str] = []
+    where = ROLES_JSON.relative_to(SKILLS)
+    try:
+        roles = json.loads(ROLES_JSON.read_text(encoding="utf-8"))["roles"]
+        defaults = {row["agent"] for row in json.loads(HOSTS_JSON.read_text(encoding="utf-8"))["defaults"]}
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return [f"{where}: the role table or hosts.json cannot be read: {exc}"]
+    sessions = {r["name"] for r in roles if r.get("kind") == "session"}
+    briefed = {r["name"] for r in roles if r.get("command") == "brief"}
+    for name in sorted(sessions - defaults):
+        out.append(f"{HOSTS_JSON.relative_to(SKILLS)}: the session role {name} has no row in "
+                   f"`defaults`, so a fresh machine has no model for it")
+    for name in sorted(defaults - sessions):
+        out.append(f"{HOSTS_JSON.relative_to(SKILLS)}: `defaults` has a row for {name}, which "
+                   f"is no session role in {where}")
+    senders: dict[str, set[str]] = {}
+    for role in roles:
+        name = role.get("name")
+        lead = role.get("lead") or {}
+        files = [lead["file"]] if lead.get("file") else []
+        files += list(role.get("brief") or []) + list(role.get("prompt") or [])
+        for rel in files:
+            if not (SKILLS / rel).is_file():
+                out.append(f"{where}: {name} names {rel}, which does not exist")
+        if lead.get("skill") and not (SKILLS / lead["skill"] / "SKILL.md").is_file():
+            out.append(f"{where}: {name} leads with the {lead['skill']} skill, which does not exist")
+        for skill in role.get("sent_by") or []:
+            path = SKILLS / skill / "SKILL.md"
+            if not path.is_file():
+                out.append(f"{where}: {name} is sent by the {skill} skill, which does not exist")
+                continue
+            text = path.read_text(encoding="utf-8")
+            if role.get("kind") == "subagent":
+                senders.setdefault(skill, set()).add(name)
+                for rel in role.get("prompt") or []:
+                    if rel.split("/", 1)[1] not in text:
+                        out.append(f"{path.relative_to(SKILLS)}: sends the {name} subagent, and "
+                                   f"never names its prompt {rel.split('/', 1)[1]}")
+            elif f"dispatch.sh brief {name}" not in text:
+                out.append(f"{path.relative_to(SKILLS)}: {where} says this skill starts the "
+                           f"{name}, and it never writes `dispatch.sh brief {name}`")
+    texts = sorted(SKILLS.glob("*/SKILL.md")) + sorted((MODE.parent / "playbooks").glob("*.md"))
+    for path in texts:
+        text = path.read_text(encoding="utf-8")
+        for name in sorted(set(BRIEFED.findall(text)) - briefed - {"show", "close", "watch"}):
+            out.append(f"{path.relative_to(SKILLS)}: `dispatch.sh brief {name}` names no `brief` "
+                       f"role in {where}")
+        if path.name == "SKILL.md" and path != MODE and SENDS_SUBAGENT.search(text) \
+                and path.parent.name not in senders:
+            out.append(f"{path.relative_to(SKILLS)}: sends out a subagent, and no subagent row of "
+                       f"{where} names this skill in `sent_by`; add the row, or start a session role "
+                       f"with `dispatch.sh brief`")
+    return out
 
 
 def main() -> int:
@@ -179,6 +249,8 @@ def main() -> int:
             findings.append(f"{path.relative_to(SKILLS)}: {what} routes its reader, and only the mmw-mode "
                             f"skill's route lines and playbooks route; move it into the playbook step that "
                             f"uses this skill")
+
+    findings += check_roles()
 
     if findings:
         print("\n".join(findings))

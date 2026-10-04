@@ -1190,6 +1190,20 @@ class StateDirTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             statedir.slug("not a repo")
 
+    def test_a_log_past_its_limit_is_moved_aside_once_and_a_small_one_stays(self):
+        log = Path(self.tmp.name) / "relay.log"
+        log.write_text("old line\n" * 20)
+        statedir.rotate(log, limit=1000)
+        self.assertEqual(log.read_text(), "old line\n" * 20, "a log under the limit stays")
+        statedir.rotate(log, limit=100)
+        self.assertFalse(log.exists())
+        self.assertEqual((Path(self.tmp.name) / "relay.log.1").read_text(), "old line\n" * 20)
+        log.write_text("new line\n" * 20)
+        statedir.rotate(log, limit=100)
+        self.assertEqual((Path(self.tmp.name) / "relay.log.1").read_text(), "new line\n" * 20,
+                         "the older copy is replaced, so a log holds at most twice its limit")
+        statedir.rotate(Path(self.tmp.name) / "absent.log")
+
     def test_a_record_whose_pid_is_dead_names_nobody_and_the_lock_is_taken(self):
         child = subprocess.Popen(["sleep", "30"])
         identity = statedir.process_identity(child.pid)

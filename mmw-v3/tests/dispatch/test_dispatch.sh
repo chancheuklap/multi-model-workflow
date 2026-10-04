@@ -5,7 +5,7 @@
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v3/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|advise|research|retract
+#   bash mmw-v3/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|brief|briefreport|retract
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh slotatclaim|route|specfield|stopproduct|suspend|suspendbusy|status
@@ -520,7 +520,7 @@ if args[:1] == ["ls"]:
 # `paseo run -d --json … -- <prompt>`: records the request in the shape the checks read
 # (runs.jsonl, newest last), lists the agent with its labels, answers with its id.
 if args[:1] == ["run"]:
-    if scenario == "run-fail":
+    if scenario == "run-fail" or (scenario == "run-fail-after-one" and (state / "runs.jsonl").exists()):
         print("Error: Failed to create agent: provider initialization failed", file=sys.stderr)
         sys.exit(1)
     rest = args[1:]
@@ -1571,8 +1571,18 @@ mkdir -p "$MMW_HOME"
 # the scenarios exercise (a Cursor junior row with its effort inside the model id, a Grok
 # senior row at xhigh).
 cat > "$MMW_HOME/models.json" <<'JSON'
-{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"},"researcher":{"host":"claude","model":"opus 5","effort":"high"}}}
+{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"},"researcher":{"host":"claude","model":"opus 5","effort":"high"},"explainer":{"host":"claude","model":"opus 5","effort":"xhigh"}}}
 JSON
+# Every other session role of roles.json gets one row the fixture catalog offers, so a role
+# added to the table needs no change here.
+python3 - "$SKILL/roles.json" "$MMW_HOME/models.json" <<'PY'
+import json, sys
+roles = [r["name"] for r in json.load(open(sys.argv[1]))["roles"] if r.get("kind") == "session"]
+config = json.load(open(sys.argv[2]))
+for role in roles:
+    config["rows"].setdefault(role, {"host": "claude", "model": "opus 5", "effort": "high"})
+json.dump(config, open(sys.argv[2], "w"))
+PY
 
 git init -q --bare -b main "$TMP/origin.git"
 git init -q -b main "$TMP/repo"
@@ -2211,7 +2221,7 @@ skill_copy_for() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
   mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/ui-acceptance/scripts"
-  cp -R "$SKILL/hosts.json" "$SKILL/scripts" "$SKILL/references" "$copy/"
+  cp -R "$SKILL/hosts.json" "$SKILL/roles.json" "$SKILL/scripts" "$SKILL/references" "$copy/"
   cp "$(dirname "$SKILL")/ui-acceptance/scripts/lease.py" \
      "$(dirname "$SKILL")/ui-acceptance/scripts/refusal.py" \
      "$TMP/fake/skills/ui-acceptance/scripts/"
@@ -3126,76 +3136,142 @@ scenario_nobaseconfig() {
   started_once
 }
 
-scenario_advise() {
-  local code packet dest
-  packet="$TMP/packet.txt"
-  printf '%s\n' 'the brief body' > "$packet"
+# The batch directory of the newest batch `brief` made, or nothing.
+newest_batch() {
+  ls -1 "$STATE_DIR/briefs" 2>/dev/null | tail -n 1
+}
 
-  echo "--- advise starts the advisor row in the current worktree and prints the session id"
+# What the relay keeps for the watch <key>: "runner session", or nothing.
+brief_watch() { watch_main "$1"; }
+
+scenario_brief() {
+  local code packet second batch dest
+  packet="$TMP/packet.txt"
+  second="$TMP/second.txt"
+  printf '%s\n' 'the brief body' > "$packet"
+  printf '%s\n' 'the second brief' > "$second"
+
+  echo "--- brief advisor starts the advisor row in the current worktree, as a batch this session is woken for"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief advisor "$packet")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   started_once
-  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
+  batch="$(newest_batch)"
+  [ -n "$batch" ] || fail "no batch directory was made under $STATE_DIR/briefs"
+  [ "$(cat "$TMP/out")" = "$batch/1"$'\t'"$(out_json id)" ] \
+    || fail "stdout should be <batch>/1<TAB><session>: $(cat "$TMP/out")"
   [ "$(out_json provider)" = "claude/claude-fable-5-1" ] \
-    || fail "advise did not start the advisor row: $(out_json provider)"
+    || fail "brief advisor did not start the advisor row: $(out_json provider)"
   [ "$(out_json settings.thinkingOptionId)" = medium ] \
     || fail "effort: $(out_json settings.thinkingOptionId)"
   case "$(out_json initialPrompt)" in
-    "# Advising"*"You are the advisor"*"the brief body"*) ;;
-    *) fail "the advisor's prompt should open with advising.md, then the brief: $(out_json initialPrompt)" ;;
-  esac
-  case "$(out_json initialPrompt)" in
-    *"the brief body"*) ;;
-    *) fail "the brief is missing from the prompt: $(out_json initialPrompt)" ;;
+    "# Advising"*"You are the advisor"*"the brief body"*"report $batch/1 <file>"*) ;;
+    *) fail "the advisor's prompt should be advising.md, then the brief, then how to report: $(out_json initialPrompt)" ;;
   esac
   dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)"
   [ "$(out_json cwd)" = "$dest" ] || fail "cwd: $(out_json cwd), want $dest"
+  [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] \
+    || fail "the batch's watch should wake paseo agt_main: $(brief_watch "briefs:$batch")"
+  grep -q "\"session\": \"$(out_json id)\"" "$STATE_DIR/briefs/$batch/1/started.json" \
+    || fail "the brief's session is not recorded: $(cat "$STATE_DIR/briefs/$batch/1/started.json")"
   hasnt "gh :: issue :: comment"
   hasnt_runner_worktree
 
-  echo "--- advise does not need a relay"
+  echo "--- brief researcher with two files starts two sessions of one batch, each told its own brief"
   reset_log
   fresh_repo
-  no_relay
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
-  [ "$code" = 0 ] || fail "advise without a relay expected 0, got $code: $(cat "$TMP/err")"
-  started_once
-  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
-  hasnt "gh :: issue :: comment"
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$second")"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(count_of "paseo :: run")" = 2 ] || fail "expected two paseo runs, got $(count_of "paseo :: run")"
+  batch="$(newest_batch)"
+  [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] \
+    || fail "stdout should name both briefs of one batch: $(cat "$TMP/out")"
+  case "$(out_json initialPrompt)" in
+    "Use the research skill."*"the second brief"*"report $batch/2 <file>"*) ;;
+    *) fail "the second researcher's prompt is wrong: $(out_json initialPrompt)" ;;
+  esac
+  [ "$(out_json provider)" = "claude/claude-opus-5" ] \
+    || fail "brief researcher did not start the researcher row: $(out_json provider)"
 
-  echo "--- a start the runner refuses is refused once: one paseo run, no second host"
+  echo "--- brief explainer has no lead: the brief is the whole prompt before how to report"
   reset_log
   fresh_repo
-  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail \
-          bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief explainer "$packet")"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  case "$(out_json initialPrompt)" in
+    "the brief body"*"report "*) ;;
+    *) fail "the explainer's prompt should open with the brief: $(out_json initialPrompt)" ;;
+  esac
+  [ "$(out_json settings.thinkingOptionId)" = xhigh ] \
+    || fail "the explainer row's effort: $(out_json settings.thinkingOptionId)"
+
+  echo "--- a role brief does not start is refused with the roles it does start, and nothing is started"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief reviewer "$packet")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  started_once
-  grep -q "nothing was retried" "$TMP/err" \
-    || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
-  grep -q "provider initialization failed" "$TMP/err" \
-    || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
-  nothing_printed
-
-  echo "--- a missing brief file is refused, and nothing is started"
-  reset_log
-  fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/nope.txt")"
-  [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "no brief file at" "$TMP/err" \
-    || fail "the refusal should name the missing file: $(cat "$TMP/err")"
+  grep -q "advisor, researcher, explainer, synthesizer" "$TMP/err" \
+    || fail "the refusal should list the brief roles: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
-  echo "--- an empty brief file is refused, and nothing is started"
+  echo "--- a session no runner can name is refused before anything starts: nothing could wake it"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "nothing could wake this session" "$TMP/err" \
+    || fail "the refusal should say why: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+  [ -z "$(newest_batch)" ] || fail "no batch should be left: $(newest_batch)"
+
+  echo "--- a start the runner refuses closes the batch: no batch, no watch, the reason kept"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail \
+          bash "$DISPATCH" "${TOOLS[@]}" brief advisor "$packet")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  started_once
+  grep -q "nothing was retried" "$TMP/err" || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
+  grep -q "provider initialization failed" "$TMP/err" \
+    || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
+  nothing_printed
+  [ -z "$(newest_batch)" ] || fail "the batch should be removed: $(newest_batch)"
+  grep -q '"briefs"' "$STATE_DIR/watches.json" && fail "the batch's watch should be closed: $(cat "$STATE_DIR/watches.json")"
+
+  echo "--- the second of two starts refused stops the first session and closes the batch"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail-after-one \
+          bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$second")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  has "paseo :: archive :: --force :: $(out_json id)"
+  [ -z "$(newest_batch)" ] || fail "the batch should be removed: $(newest_batch)"
+  nothing_printed
+
+  echo "--- a missing or empty brief file is refused, and nothing is started"
   reset_log
   fresh_repo
   : > "$TMP/empty-packet.txt"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/empty-packet.txt")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief advisor "$TMP/nope.txt")"
+  [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "no brief file at" "$TMP/err" || fail "the refusal should name the missing file: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$TMP/empty-packet.txt")"
   [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "is empty" "$TMP/err" \
-    || fail "the refusal should say the brief is empty: $(cat "$TMP/err")"
+  grep -q "the researcher sees the brief and nothing else" "$TMP/err" \
+    || fail "the refusal should name the researcher: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
@@ -3204,14 +3280,14 @@ scenario_advise() {
   copy="$(skill_copy_for dispatch)"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" advise "$packet")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" brief advisor "$packet")"
   [ "$code" = 2 ] || fail "no advising.md expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q "no advisor's text at" "$TMP/err" \
     || fail "the refusal should name the missing advising.md: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
-  echo "--- a missing advisor row is refused, and nothing is started"
+  echo "--- a missing row is refused, and nothing is started"
   reset_log
   fresh_repo
   local saved="$TMP/models.saved"
@@ -3220,77 +3296,85 @@ scenario_advise() {
 import json, sys
 path = sys.argv[1]
 data = json.load(open(path))
-del data["rows"]["advisor"]
+del data["rows"]["synthesizer"]
 json.dump(data, open(path, "w"))
 PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief synthesizer "$packet")"
   mv "$saved" "$MMW_HOME/models.json"
-  [ "$code" = 2 ] || fail "missing advisor row expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "missing advisor" "$TMP/err" \
+  [ "$code" = 2 ] || fail "missing synthesizer row expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "missing synthesizer" "$TMP/err" \
     || fail "the refusal should name the missing row: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 }
 
-scenario_research() {
-  local code packet dest
-  packet="$TMP/question.txt"
-  printf '%s\n' 'the research question' > "$packet"
-
-  echo "--- research starts the researcher row in the current worktree and prints the session id"
+scenario_briefreport() {
+  local code packet batch answer
+  packet="$TMP/packet.txt"
+  answer="$TMP/answer.md"
+  printf '%s\n' 'the question' > "$packet"
+  printf '%s\n' 'the cited findings' > "$answer"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research "$packet")"
-  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  started_once
-  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
-  [ "$(out_json provider)" = "claude/claude-opus-5" ] \
-    || fail "research did not start the researcher row: $(out_json provider)"
-  [ "$(out_json settings.thinkingOptionId)" = high ] \
-    || fail "effort: $(out_json settings.thinkingOptionId)"
-  case "$(out_json initialPrompt)" in
-    "Use the research skill."*) ;;
-    *) fail "the research dispatch line is missing: $(out_json initialPrompt)" ;;
-  esac
-  case "$(out_json initialPrompt)" in
-    *"the research question"*) ;;
-    *) fail "the brief is missing from the prompt: $(out_json initialPrompt)" ;;
-  esac
-  dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)"
-  [ "$(out_json cwd)" = "$dest" ] || fail "cwd: $(out_json cwd), want $dest"
-  hasnt "gh :: issue :: comment"
-  hasnt_runner_worktree
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "brief expected exit 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  local one two
+  one="$(sed -n 1p "$TMP/out" | cut -f2)"
+  two="$(sed -n 2p "$TMP/out" | cut -f2)"
 
-  echo "--- an empty brief file is refused with the researcher named, and nothing is started"
-  reset_log
-  fresh_repo
-  : > "$TMP/empty-question.txt"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research "$TMP/empty-question.txt")"
-  [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "the researcher sees the brief and nothing else" "$TMP/err" \
-    || fail "the refusal should name the researcher: $(cat "$TMP/err")"
-  never_ran
-  nothing_printed
+  echo "--- the brief's own session reports, and the answer is kept in the batch"
+  code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/1" "$answer")"
+  [ "$code" = 0 ] || fail "report expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$STATE_DIR/briefs/$batch/1/result.md")" = "the cited findings" ] \
+    || fail "the result should be kept as written"
 
-  echo "--- a missing researcher row is refused, and nothing is started"
-  reset_log
-  fresh_repo
-  local saved="$TMP/models.saved"
-  cp "$MMW_HOME/models.json" "$saved"
-  python3 - "$MMW_HOME/models.json" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-del data["rows"]["researcher"]
-json.dump(data, open(path, "w"))
+  echo "--- another session cannot report that brief"
+  code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/2" "$answer")"
+  [ "$code" = 2 ] || fail "a report from the wrong session expected 2, got $code"
+  grep -q "Only that session reports it" "$TMP/err" || fail "the refusal should say who reports it: $(cat "$TMP/err")"
+
+  echo "--- show lists each brief, its state and where its answer is"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief show "$batch")"
+  [ "$code" = 0 ] || fail "show expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "^$batch/1"$'\t'"reported"$'\t'"researcher"$'\t'"paseo"$'\t'"$one"$'\t'".*/1/result.md$" "$TMP/out" \
+    || fail "show should list brief 1 as reported with its result: $(cat "$TMP/out")"
+  grep -q "^$batch/2"$'\t'"open" "$TMP/out" || fail "show should list brief 2 as open: $(cat "$TMP/out")"
+
+  echo "--- no wake is queued while a brief is open, so an ack of the batch is refused"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack brief "$batch")"
+  [ "$code" = 2 ] || fail "an early ack expected 2, got $code"
+
+  echo "--- once both have reported, one relay cycle queues one wake, and the parent acks it by its batch"
+  code="$(run_dispatch env PASEO_AGENT_ID="$two" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/2" "$answer")"
+  [ "$code" = 0 ] || fail "the second report expected 0, got $code: $(cat "$TMP/err")"
+  python3 - "$SKILL/scripts" "$STATE_DIR" <<'PY' || fail "the relay did not queue the batch's wake"
+import sys
+sys.path.insert(0, sys.argv[1])
+import relay
+r = relay.Relay(__import__("pathlib").Path(sys.argv[2]))
+r.poll_briefs()
+r.poll_briefs()
+rows = [w for w in r.rows() if w["event"] == relay.BRIEF_DONE]
+assert len(rows) == 1 and rows[0]["session"] == "agt_main", rows
 PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research "$packet")"
-  mv "$saved" "$MMW_HOME/models.json"
-  [ "$code" = 2 ] || fail "missing researcher row expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "missing researcher" "$TMP/err" \
-    || fail "the refusal should name the missing row: $(cat "$TMP/err")"
-  never_ran
-  nothing_printed
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack brief "$batch")"
+  [ "$code" = 0 ] || fail "the ack expected 0, got $code: $(cat "$TMP/err")"
+
+  echo "--- close stops every session of the batch, closes its watch and removes it"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "close expected 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: archive :: --force :: $one"
+  has "paseo :: archive :: --force :: $two"
+  [ ! -d "$STATE_DIR/briefs/$batch" ] || fail "the batch directory should be gone"
+  [ -z "$(brief_watch "briefs:$batch")" ] || fail "the batch's watch should be closed"
+
+  echo "--- a report to a closed batch is refused: nobody waits for it"
+  code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/1" "$answer")"
+  [ "$code" = 2 ] || fail "a late report expected 2, got $code"
+  grep -q "is closed" "$TMP/err" || fail "the refusal should say the batch is closed: $(cat "$TMP/err")"
 }
 
 scenario_resume() {
@@ -9526,7 +9610,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise research startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
@@ -9632,8 +9716,8 @@ banner_for() {
     land) echo DISPATCH-LAND-OK ;;
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
-    advise) echo ADVISE-OK ;;
-    research) echo RESEARCH-OK ;;
+    brief) echo BRIEF-OK ;;
+    briefreport) echo BRIEF-REPORT-OK ;;
     startfromorigin) echo START-FROM-ORIGIN-OK ;;
     startresumesorigin) echo START-RESUMES-ORIGIN-OK ;;
     startdiverged) echo START-DIVERGED-OK ;;

@@ -20,17 +20,17 @@ _spec.loader.exec_module(models)
 
 
 def base_config(version=1, runner="orca"):
-    return {
-        "version": version,
-        "runner": runner,
-        "rows": {
-            "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
-            "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
-            "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
-            "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
-            "researcher": {"host": "claude", "model": "opus 5", "effort": "high"},
-        },
+    """The four rows the cases change by name; every other role of roles.json on one row the
+    test catalog offers, so a role added to the table needs no change here."""
+    rows = {
+        "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
+        "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
+        "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
+        "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
     }
+    for role in models.ALLOWED_AGENTS:
+        rows.setdefault(role, {"host": "claude", "model": "opus 5", "effort": "high"})
+    return {"version": version, "runner": runner, "rows": rows}
 
 
 class LocalConfigTest(unittest.TestCase):
@@ -64,8 +64,7 @@ class LocalConfigTest(unittest.TestCase):
         written = models.write_local_config(proposed, old["version"], scan)
         self.assertEqual(written["version"], 2)
         self.assertEqual(set(written), {"version", "runner", "rows"})
-        self.assertEqual(set(written["rows"]), {
-            "junior-worker", "senior-worker", "reviewer", "advisor", "researcher"})
+        self.assertEqual(set(written["rows"]), set(models.ALLOWED_AGENTS))
         on_disk = json.loads(models.models_json_path().read_text(encoding="utf-8"))
         self.assertEqual(on_disk, written)
         self.assertEqual(on_disk["rows"]["reviewer"]["model"], "sonnet 5")
@@ -224,6 +223,26 @@ class LocalConfigTest(unittest.TestCase):
         self.assertEqual(result.config["runner"], "auto")
         self.assertFalse(legacy.exists())
         self.assertEqual(models.read_local_config(), result.config)
+
+    def test_install_gives_a_role_the_saved_file_lacks_its_default_and_keeps_the_rest(self):
+        old = base_config()
+        del old["rows"]["synthesizer"]
+        old["rows"]["reviewer"]["model"] = "sonnet 5"
+        self.seed(old)
+        result = models.install_local_config(self.home / "models.md")
+        self.assertEqual((result.created, result.imported), (False, False))
+        saved = models.read_local_config()
+        self.assertEqual(saved["version"], 2)
+        self.assertEqual(saved["rows"]["reviewer"]["model"], "sonnet 5")
+        default = next(r for r in models.load_hosts()["defaults"] if r["agent"] == "synthesizer")
+        self.assertEqual(saved["rows"]["synthesizer"],
+                         {k: default[k] for k in ("host", "model", "effort")})
+
+    def test_install_leaves_a_complete_file_untouched(self):
+        self.seed()
+        before = models.models_json_path().read_bytes()
+        models.install_local_config(self.home / "models.md")
+        self.assertEqual(models.models_json_path().read_bytes(), before)
 
     def test_a_malformed_role_is_reported_once(self):
         config = base_config()

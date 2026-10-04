@@ -40,6 +40,8 @@ a{color:var(--link);text-underline-offset:3px}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 code,.mono{font-family:var(--f-mono);font-size:.84em;font-variant-ligatures:none;overflow-wrap:anywhere}
 p code,li code,td code{background:var(--sunk);padding:1px 4px;border-radius:3px}
+/* A quoted block of text an agent receives: wrapped, so it never widens the page. */
+pre{max-width:68ch;margin:14px 0;padding:12px 14px;background:var(--sunk);border:1px solid var(--rule);border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 /* A component mention: tinted with its kind's colour, the same colour as in the figures. */
 code.c,span.c{background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);border-radius:3px;padding:1px 5px;color:var(--ink);-webkit-box-decoration-break:clone;box-decoration-break:clone}
 span.c{font-family:var(--f-head);font-size:.94em;white-space:nowrap}
@@ -186,6 +188,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <a href="lessons/0005-how-each-role-gets-its-guidance.html"><span class="no">第 5 课</span><span class="tt">MMW 的 agent 由脚本开、被事件叫醒，它们怎样拿到指引</span><span class="ds">和 pstack 的五处不同；v2 每个角色的指引从哪来；v3 的设计，一张流程图；每个角色的两份东西，派发方那份和 agent 那份；十个决定各自的依据</span></a>
 <a href="lessons/0006-reshaping-v2-skills.html"><span class="no">第 6 课</span><span class="tt">把 v2 拆成 playbook 和技能</span><span class="ds">v2 量出来的路由和多出来的文字；拆的六条规矩，为什么叫醒和等你开口都不切开；MMW 拆成的 playbook，轻的路径 Make a small change，接入仓库的 setup-mmw 要配齐的每一项；每个 v2 技能的文字去哪，几份共用的格式交给哪个技能；九条判断规则的去处</span></a>
 <a href="lessons/0007-landing-lesson-6.html"><span class="no">第 7 课</span><span class="tt">第 6 课定下的改动，已经落进 v3</span><span class="ds">八项改动各改成了什么；Investigation、how、why 照抄时改的几处和接线；派出的 agent 怎样拿到自己那一份；拦住技能选路的新检查；跑了哪些测试，还差什么；v3 缺一张角色表，加角色的三个问题；explainer、synthesizer、researcher、advisor 四个独立会话；独立会话怎样把结果交回上级，用中继的真代码验证了什么</span></a>
+<a href="lessons/0008-landing-lesson-7.html"><span class="no">第 8 课</span><span class="tt">角色表和 brief 回程，已经落进 v3</span><span class="ds">改了哪些文件；加一个角色只动三处，检查管住两头，临时副本上加角色的实验；一批 brief 从开到关的每条命令和每个文件；子会话出事时谁发现；how 和 why 怎样用四个角色；日志上限，为什么不清 seen.json 和旧锁；测试和还没做的</span></a>
 </div>
 <h2>参考页</h2>
 <div class="toc">

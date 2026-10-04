@@ -98,6 +98,22 @@ def write_atomic(path: Path, text: str) -> None:
     os.replace(tmp, path)
 
 
+# A log in the state directory is kept below this size: past it, the next writer that opens
+# it moves it aside to `<name>.1`, replacing the one there, and starts a new one. So each log
+# holds at most twice this on disk, and the newest lines are always in `<name>`.
+LOG_LIMIT = 1_000_000
+
+
+def rotate(path: Path, limit: int = LOG_LIMIT) -> None:
+    """Move the log at `path` to `<path>.1` when it has grown past `limit` bytes. A process
+    still appending to the old file writes into `<path>.1`; no line is lost."""
+    try:
+        if path.stat().st_size > limit:
+            os.replace(path, path.with_name(path.name + ".1"))
+    except FileNotFoundError:
+        pass
+
+
 def read_json(path: Path, default):
     """The JSON in `path`, or `default` when the file is absent.
 

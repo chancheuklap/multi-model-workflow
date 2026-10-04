@@ -10,7 +10,7 @@ The `models.py config set` command changes one role. Run:
 python3 scripts/models.py config set <role> <host> <model> <level>
 ```
 
-Allowed roles are `junior-worker`, `senior-worker`, `reviewer`, `advisor`, and `researcher`. `<level>` is the reasoning effort, saved as the row's `effort`.
+The roles are the `session` rows of `roles.json`: `junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer` and `synthesizer`. `<level>` is the reasoning effort, saved as the row's `effort`.
 
 A host that carries the level inside the model instead of taking it as a setting of its own offers model-and-level pairs, each pair set per model in that host's own application; `config set` only selects among the pairs the scan returns, so a level that application has not been given for that model is unavailable until it is added there. `fast` belongs in the model name, not in `effort`. A runner that hands the host its level as a thinking option the host offers only as on or off uses the level for nothing else: `off`, or no level at all, turns thinking off, and every other level turns it on.
 

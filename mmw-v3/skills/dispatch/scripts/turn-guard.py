@@ -11,7 +11,14 @@ but the watchdog is one process, and when it dies, nothing notices that. This ho
 runs every time the orchestrator's turn ends, and:
 
 1. re-arms the watchdog (`watchdog.arm`) when it is not healthy, and
-2. keeps the turn from ending when tickets are held and the watchdog is still not healthy.
+2. keeps the turn from ending when tickets are held, or briefs it started are open, and the
+   watchdog is still not healthy.
+
+It does one more thing, for a session `dispatch.sh brief` started (briefs.py): when this
+process is such a session and its brief is still open, neither reported nor lost, the turn
+end is blocked once with the one command that reports it. A brief's session that ends its
+turn without reporting would otherwise leave the session that briefed it waiting until the
+session is closed and the watchdog finds it stopped.
 
 **Whose turn.** Only an orchestrator's. For every state directory under `$MMW_HOME/state`
 with an open night (`watchdog.night_open`: the relay's `watches.json` names a watch), each
@@ -27,7 +34,7 @@ whose `self` cannot be read. A worker's turn end, or any session on a machine wi
 night, is let through after reading a few files.
 
 **The predicate** (`verdict`): block when the watchdog is not healthy and the watchdog's
-last heartbeat does not say that nothing is held. No heartbeat at all, or one from a round
+last heartbeat does not say that nothing is held; an open brief counts as held. No heartbeat at all, or one from a round
 that could not read every ticket, is not "nothing held". Healthy is the watchdog's own
 test: its lock names a live process by pid and process identity, that process wrote the
 heartbeat, the heartbeat is within `max(300, poll + MARGIN)` seconds, and so is its last
@@ -80,7 +87,7 @@ inside those hosts as well.
 of its own end in exit 0 (Cursor) or exit 1 with the reason on stderr — a hook error the
 host shows, which never blocks. Exit 2 means only "held tickets and no healthy watchdog".
 Each decision it makes for an orchestrator is appended to `guard.log` in that night's state
-directory.
+directory, moved to `guard.log.1` once past `statedir.LOG_LIMIT`.
 
 **Checked against the real hosts** on 2026-09-10, one short session each with the prompt
 "reply OK; if a turn guard blocks you, run nothing and reply NOTED". The registrations were
@@ -137,6 +144,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import statedir  # noqa: E402
+import briefs  # noqa: E402
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 ARM_WAIT = 5.0
@@ -240,7 +248,25 @@ def open_states(dog) -> list[Path]:
     return [p for p in candidates if dog.night_open(p)]
 
 
-def is_main(state: Path, dog) -> bool:
+def own_session(runner: str, asked: dict | None = None) -> str | None:
+    """The session this process runs in, as `runners/<runner>.sh self` reads it, or None.
+    `asked` keeps the answers of one turn end, so each runner is asked once."""
+    asked = {} if asked is None else asked
+    if runner not in asked:
+        asked[runner] = None
+        adapter = runners_dir() / f"{runner}.sh"
+        if adapter.is_file():
+            try:
+                run = subprocess.run(["bash", str(adapter), "self"], capture_output=True,
+                                     text=True, timeout=SELF_TIMEOUT)
+            except (OSError, subprocess.SubprocessError):
+                run = None
+            if run is not None and run.returncode == 0 and (run.stdout or "").strip():
+                asked[runner] = run.stdout.strip()
+    return asked[runner]
+
+
+def is_main(state: Path, dog, asked: dict | None = None) -> bool:
     """True only when this process's own (runner, session), read by that runner's `self`,
     is the orchestrator of a watch open on `state`. Whatever cannot be established is False."""
     try:
@@ -248,18 +274,18 @@ def is_main(state: Path, dog) -> bool:
     except ValueError:
         return False
     mains = {dog.relay_mod.main_of(entry) for entry in watches.values()}
-    for runner in sorted({runner for runner, _ in mains}):
-        adapter = runners_dir() / f"{runner}.sh"
-        if not adapter.is_file():
-            continue
-        try:
-            run = subprocess.run(["bash", str(adapter), "self"], capture_output=True, text=True,
-                                 timeout=SELF_TIMEOUT)
-        except (OSError, subprocess.SubprocessError):
-            continue
-        if run.returncode == 0 and (runner, (run.stdout or "").strip()) in mains:
-            return True
-    return False
+    asked = {} if asked is None else asked
+    return any((runner, own_session(runner, asked)) in mains
+               for runner in sorted({r for r, _ in mains}))
+
+
+def own_brief(state: Path, asked: dict | None = None) -> dict | None:
+    """The open brief on `state` this process is the session of, or None."""
+    for child in briefs.open_children(state):
+        runner = child.get("runner")
+        if runner and own_session(runner, asked) == child.get("session"):
+            return child
+    return None
 
 
 def now_iso() -> str:
@@ -268,6 +294,7 @@ def now_iso() -> str:
 
 def log(state: Path, host: str, block: bool, held, why: str) -> None:
     try:
+        statedir.rotate(state / "guard.log")
         with open(state / "guard.log", "a", encoding="utf-8") as fh:
             fh.write(f"{now_iso()} {host} {'block' if block else 'allow'} held={held} {why}\n")
     except OSError:
@@ -281,10 +308,22 @@ def guard(host: str, forced: bool = False) -> list[str]:
     watchdog and records its decision, and it never blocks.
     """
     dog = load_watchdog()
+    asked: dict = {}
 
     blocks: list[str] = []
     for state in open_states(dog):
-        if not is_main(state, dog):
+        child = own_brief(state, asked)
+        if child is not None:
+            name = f"{child['batch']}/{child['n']}"
+            log(state, host, not forced, None, f"brief {name} ends its turn without reporting")
+            if not forced:
+                blocks.append(
+                    f"MMW turn guard: you are brief {name} and have not reported, so the "
+                    f"session that briefed you is still waiting. Write your whole answer to "
+                    f"one file and run `bash {HERE / 'dispatch.sh'} report {name} <file>`, "
+                    f"then end your turn.")
+            continue
+        if not is_main(state, dog, asked):
             continue
         repo = dog.repo_of(state)
         healthy, why, beat = dog.read_health(state)
@@ -295,15 +334,18 @@ def guard(host: str, forced: bool = False) -> list[str]:
             if not healthy:
                 why = f"{why}; this hook tried to start it and {armed}"
         held = beat.get("held") if isinstance(beat, dict) else None
+        if isinstance(held, list) and isinstance(beat.get("briefs"), list):
+            held = held + [f"brief {name}" for name in beat["briefs"]]
         block, reason = verdict(held, healthy, why)
         if forced and block:
             block, reason = False, f"the continuation an earlier block forced, still: {reason}"
         log(state, host, block, held, reason)
         if block:
-            which = ", ".join(f"#{n}" for n in held) if isinstance(held, list) else \
+            which = ", ".join(n if isinstance(n, str) else f"#{n}" for n in held) \
+                if isinstance(held, list) else \
                 "which ones is not known: no watchdog round has read them all"
             blocks.append(
-                f"MMW turn guard: the night on {repo} has held tickets ({which}) and its "
+                f"MMW turn guard: the night on {repo} has held tickets or open briefs ({which}) and its "
                 f"watchdog is not healthy: {reason}. Until it is, nothing notices a worker "
                 f"that dies or a relay that stops. Run `python3 {Path(dog.__file__).resolve()} "
                 f"arm --repo {repo}`, act on what it prints; if it exits non-zero, open a "

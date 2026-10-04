@@ -4,11 +4,12 @@
 
 The check reads the start prompt's playbook names in dispatch.sh, the relay's WAKES,
 events.py's EVENTS, verify-ticket.py's RESUME_STEPS, the mode's route lines and
-playbooks, and every other skill's SKILL.md. Each case copies those files
-into a temporary skills tree laid out as the real one, makes one change a later edit could
-make, and runs the copied script there.
+playbooks, the role table and hosts.json, and every skill's SKILL.md and the files the
+role table names. Each case copies the skills tree into a temporary directory, makes one
+change a later edit could make, and runs the copied script there.
 """
 
+import json
 import shutil
 import subprocess
 import sys
@@ -17,19 +18,15 @@ import unittest
 from pathlib import Path
 
 SKILLS = Path(__file__).resolve().parents[2] / "skills"
-FILES = ("dispatch/scripts/check-interfaces.py", "dispatch/scripts/dispatch.sh",
-         "dispatch/scripts/relay.py", "verify-ticket/scripts/events.py",
-         "verify-ticket/scripts/verify-ticket.py", "mmw-mode/SKILL.md")
+CHECK = "dispatch/scripts/check-interfaces.py"
 
 
 class CheckInterfaces(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.tmp)
-        for rel in FILES:
-            (self.tmp / rel).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(SKILLS / rel, self.tmp / rel)
-        shutil.copytree(SKILLS / "mmw-mode" / "playbooks", self.tmp / "mmw-mode" / "playbooks")
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        self.tmp = root / "skills"
+        shutil.copytree(SKILLS, self.tmp, ignore=shutil.ignore_patterns("__pycache__"))
 
     def edit(self, rel, old, new):
         path = self.tmp / rel
@@ -38,7 +35,7 @@ class CheckInterfaces(unittest.TestCase):
         path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
     def run_check(self):
-        proc = subprocess.run([sys.executable, str(self.tmp / FILES[0])],
+        proc = subprocess.run([sys.executable, str(self.tmp / CHECK)],
                               capture_output=True, text=True)
         return proc.returncode, proc.stdout
 
@@ -79,14 +76,50 @@ class CheckInterfaces(unittest.TestCase):
         self.assertIn("worker.vanished wakes a session", out)
 
     def test_a_skill_that_routes_its_caller_is_found(self):
-        skill = self.tmp / "advisor" / "SKILL.md"
-        skill.parent.mkdir()
+        skill = self.tmp / "grilling" / "SKILL.md"
         skill.write_text("# Advisor\n\n## Find your moment\n\n| You are | Read |\n| --- | --- |\n",
                          encoding="utf-8")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("advisor/SKILL.md: `## Find your moment` routes its reader", out)
-        self.assertIn("advisor/SKILL.md: a table headed `You are` routes its reader", out)
+        self.assertIn("grilling/SKILL.md: `## Find your moment` routes its reader", out)
+        self.assertIn("grilling/SKILL.md: a table headed `You are` routes its reader", out)
+
+    def test_a_session_role_with_no_default_model_is_found(self):
+        path = self.tmp / "dispatch" / "hosts.json"
+        hosts = json.loads(path.read_text(encoding="utf-8"))
+        hosts["defaults"] = [row for row in hosts["defaults"] if row["agent"] != "synthesizer"]
+        path.write_text(json.dumps(hosts), encoding="utf-8")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("the session role synthesizer has no row in `defaults`", out)
+
+    def test_a_file_the_role_table_names_that_is_gone_is_found(self):
+        (self.tmp / "how" / "references" / "explainer-prompt.md").unlink()
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("explainer names how/references/explainer-prompt.md, which does not exist", out)
+
+    def test_a_skill_the_table_says_starts_a_role_and_does_not_is_found(self):
+        self.edit("why/SKILL.md", "start one synthesizer with `dispatch.sh brief synthesizer`",
+                  "start one synthesizer")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("why/SKILL.md: dispatch/roles.json says this skill starts the synthesizer", out)
+
+    def test_a_brief_of_a_role_the_table_does_not_have_is_found(self):
+        self.edit("how/SKILL.md", "Start one explainer with `dispatch.sh brief explainer`",
+                  "Start one narrator with `dispatch.sh brief narrator`")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("how/SKILL.md: `dispatch.sh brief narrator` names no `brief` role", out)
+
+    def test_a_skill_that_sends_a_subagent_with_no_row_is_found(self):
+        skill = self.tmp / "to-questionnaire" / "SKILL.md"
+        skill.write_text(skill.read_text(encoding="utf-8") + "\nSend one subagent to scan the plan.\n",
+                         encoding="utf-8")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("to-questionnaire/SKILL.md: sends out a subagent, and no subagent row", out)
 
 
 if __name__ == "__main__":

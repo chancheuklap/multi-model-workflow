@@ -15,7 +15,7 @@ Do not ask again to get a different answer. A second consultation is for a new d
 
 ## Start it
 
-Write the brief to a file. Run the `dispatch` skill's `dispatch.sh advise <file>`. Read the answer where the selected runner shows the session. It prints the advisor's session id; a refusal says what to fix.
+Write the brief to a file. Run the `dispatch` skill's `dispatch.sh brief advisor <file>`; it prints the brief's name and the advisor's session id, and a refusal says what to fix. End your turn: the relay wakes you with `brief <batch> done` once the advisor has answered. Handle the wake as the `dispatch` skill's `## On waking` says, then close the batch.
 
 Done when you have the answer and have acted on it as **The answer** says, and the user has the session id.
 
