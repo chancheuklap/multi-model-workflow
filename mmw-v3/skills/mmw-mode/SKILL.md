@@ -48,6 +48,9 @@ Sources in MMW v2: rules of mmw-v2/prompt/shared.md that apply at a moment acros
 counterparts before either is kept: agent-facing prose → writing-for-agents (it takes the
 place poteto-mode gives Cursor's create-skill); prose for people → technical-writing; any
 prose → unslop. The comparison and its results are in mmw-v3/course lesson 4, figure 3.
+The PRODUCT_RULES sentence of mmw-v2/skills/dispatch/scripts/dispatch.sh, which every
+worker's start prompt carried → the ui-acceptance skill's five rules (mmw-v3/course
+lesson 5, decision 5).
 -->
 
 The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
@@ -56,6 +59,7 @@ Remaining triggers:
 
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows the **writing-for-agents** skill.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
+- Starting, reaching or stopping the product, while other runs share this machine → the **ui-acceptance** skill's **Five rules while the product is running**, before the first command.
 
 ## Principles
 
@@ -107,7 +111,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 <!--
 Used: whenever the agent is deciding whether to act or to ask the owner first.
 
-Content: four paragraphs, each opening in bold, as in poteto-mode:
+Content: five paragraphs, each opening in bold, the first four as in poteto-mode:
 - **Just do it.** What proceeds without asking: reversible work, engineering decisions,
   and any fact you could observe by running something (behaviour, timing, layout,
   output), which is found by running it, not asked.
@@ -117,11 +121,18 @@ Content: four paragraphs, each opening in bold, as in poteto-mode:
   or ticket is the go signal).
 - **No is an acceptable answer.** Disagreement is owed when there is a flaw, never
   manufactured.
+- **Unattended.** How a session a script started works with nobody to ask: which of the
+  four paragraphs above hold for it, and what replaces asking. It is the only text a
+  start prompt relies on for working unwatched; the start prompt itself carries no rule
+  (mmw-v3/course lesson 5, decision 5).
 
 Sources in MMW v2: mmw-v2/prompt/shared.md rules 1, 2 and 3. Rule 11 is
 principle-never-block-on-the-human's, whose index line is read at the same moment. From
 poteto-mode's "classify it before you ask" line, only the clause on facts found by running
-something; which calls are the owner's is the Always pause list.
+something; which calls are the owner's is the Always pause list. Unattended: the AUTONOMOUS
+sentence of mmw-v2/skills/dispatch/scripts/dispatch.sh, the scripted-session paragraph of
+mmw-v2/prompt/shared.md, and the first bullet of implement's code-writing rules ("Put no
+question on the screen").
 -->
 
 **Just do it.** Use any MCP tool. Reversible work and external actions (team chat, ticket updates, kicking off evals) proceed without asking, and so do engineering decisions. Make the engineering call, then report the reason and the alternative you set aside. A fact you could observe by running something (behaviour, timing, layout, output) is found by running it, not asked.
@@ -132,19 +143,34 @@ something; which calls are the owner's is the Always pause list.
 
 **No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Agreement is not the default, candor over sycophancy. Push back when a question's premise is wrong. When the owner's plan has a flaw, say so, with the reason and an alternative. On product, priority and taste, once the owner has decided, do it their way and note the residual risk once; do not reopen it. When the owner pushes back, recheck the evidence and report what you find, whichever way it goes. With no objection, do not invent one.
 
+**Unattended.** A session a script started, whose start prompt names its playbook, works with nobody watching: the owner cannot answer mid-task, and a question put on the screen ("Want me to…?", "Shall I…?") blocks the work. Just do it holds as written, and Session overrides hold from the first step. An Always pause call works differently here: take the option the ticket, the spec and the playbook make most likely, record the question, the options and the default where the playbook says, and keep going. A write that cannot be undone and that no step of the playbook names is not made.
+
 ## Subagents
 
 <!--
 Used: before spawning any subagent.
 
-Content: decided in mmw-v3/course lesson 5, from MMW v2's own subagent rules (for the
-workers, reviewers and other agents it spawns). pstack's ## Subagents is compared with
-them rule by rule; nothing in it is copied by default.
+Content: the rules for a subagent a skill sends out from inside a session, one paragraph
+each: which subagent to use and on which model; what its brief states; what to do on a
+host that cannot run one; who owns what it returns. Every subagent in MMW is sent out by a
+skill, which writes its prompt (an axis of code-review, the ambiguity scan of to-tickets);
+there is no subagent that loads this mode (mmw-v3/course lesson 5, decisions 6 and 7).
+Sessions a script starts (worker, reviewer, advisor, researcher) are not subagents; their
+start and their models are the dispatch skill's.
 
-Sources in MMW v2: MMW's own subagent rules, listed in full in lesson 5, among them
-mmw-v2/prompt/hosts/codex.md ("Never interrupt subagents…") and ~/.mmw/models.json,
-which holds the model for each role and is changed through models.py.
+Sources in MMW v2: manage-agents-md ("your host's general-purpose subagent, with no model
+named"), code-review references/session.md section 2, to-tickets ("Hold this turn until it
+returns"), SKILL-SET-RULES.md ("A subagent's brief states what it returns and its
+length"), ADR 0015. From poteto-mode ## Subagents, only "You own every subagent's work".
 -->
+
+**Use your host's general-purpose subagent, and name no model.** It runs on this session's model. MMW ships no subagent definitions, so a skill that sends one out writes its whole prompt, and the skill's own text decides what that prompt says; follow it, do not add to it.
+
+**The brief states what the subagent returns and how long it may be,** so its report fits your attention. It holds everything the subagent needs, since the subagent sees none of this session.
+
+**On a host that cannot run subagents, do the work yourself,** one piece after another, writing each result to a file before starting the next, so no result depends on memory of the one before. Rules the skill gives the subagent bind you while you do.
+
+**You own every subagent's work.** Hold your turn until every subagent you sent out has returned; where the host runs them in the background, ask for them to be waited on. Check what each returns against the code before you act on it, and write your own summary; don't pass through what it said.
 
 ## Writing the reply
 
@@ -209,6 +235,8 @@ Content, in this order:
    fits, route to figure-it-out, which designs a playbook for that one run.
 3. One route line per playbook: `**Name.** What task it is, and how it differs from the
    playbook most easily confused with it. `playbooks/<file>.md`.`
+4. One sentence for a session a script started: the playbook its start prompt names is its
+   route, chosen by whoever dispatched it (mmw-v3/course lesson 5, decision 3).
 
 Add a route line in the same change that adds the playbook file. How to judge whether a
 playbook is warranted is in playbooks/README.md.
@@ -218,6 +246,12 @@ design-pages, ui-acceptance and code-review skills, and the numbered procedures 
 to (implement's `## Closing steps`, dispatch's references/night.md).
 -->
 
+When your start prompt names a playbook, run that playbook from the step the ticket's events put you at; the session that dispatched you chose it, so do not route again.
+
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a restart of the host, or imminent context compaction. Full steps: `playbooks/pause-safely.md`.
 - **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode. `playbooks/authoring-or-modifying-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
+- **Run a night.** Running a spec's published tickets as their orchestrator, from `open` to `NIGHT SUMMARY` ("start the night", "run the batch"). Distinct from Bug fix, which runs one ticket outside any night. `playbooks/run-a-night.md`.
+- **Bug fix.** A reported defect fixed as one ticket outside a night, with this session as its orchestrator, from `open-ticket` to `land`. Distinct from Run a night, which runs a spec's batch. `playbooks/bug-fix.md`.
+- **Work a ticket.** Working one ticket as its worker, from its claim to its closing comment. Only a start prompt names it. `playbooks/work-a-ticket.md`.
+- **Review a ticket.** Writing one ticket's review report as its reviewer, from a base commit its worker gave. Only a start prompt names it. `playbooks/review-a-ticket.md`.

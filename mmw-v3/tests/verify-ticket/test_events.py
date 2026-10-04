@@ -1,0 +1,840 @@
+"""The event vocabulary and the fold: comments in, a ticket's state out.
+
+The fold is a pure function over a list of comments, so every state it can reach is
+reached here by writing the comments down. No tracker, no runner, no clock.
+
+    python3 -m unittest discover -s mmw-v3/tests/verify-ticket -p test_events.py
+"""
+
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+from _load import EVENTS, load_events
+
+events = load_events()
+RELAY = EVENTS.parents[2] / "dispatch" / "scripts" / "relay.py"
+
+
+def load_relay():
+    spec = importlib.util.spec_from_file_location("mmw_relay_for_event_tests", RELAY)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+SAME_SECOND = "2026-09-10T02:00:00Z"
+
+
+def ev(name, line, ticket=61, at=SAME_SECOND, **fields):
+    return events.build(name, ticket=ticket, line=line, at=at, **fields)
+
+
+def comment(ident, body):
+    """A comment the way `gh issue view --json comments` returns it."""
+    return {"body": body, "createdAt": SAME_SECOND,
+            "url": f"https://github.com/o/r/issues/61#issuecomment-{ident}"}
+
+
+def started(session="term_7", runner="orca", kind="worker"):
+    return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}",
+              session=session, runner=runner, machine="mac-1", host="grok", model="grok-4.6",
+              effort="high", grade="junior-worker", worktree="/repo/.worktrees/issue-61",
+              branch="issue-61", base="0" * 40)
+
+
+class TheVocabulary(unittest.TestCase):
+    """The 28 live events have one shape and closed sets."""
+
+    def test_there_are_twenty_eight_events(self):
+        self.assertEqual(len(events.EVENTS), 28)
+        for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
+                     "ticket.bounced", "ticket.recovered", "spec.retroed"):
+            with self.subTest(name=name):
+                self.assertIn(name, events.EVENTS)
+
+    def test_spec_merged_is_readable_and_spec_opened_keeps_project_optional(self):
+        opened = ev("spec.opened", "NIGHT OPENED", runner="paseo", session="main-1",
+                    into="night")
+        what, payload = events.parse(opened)
+        self.assertEqual(what, "event")
+        self.assertNotIn("project", payload)
+
+        merged = ev("spec.merged", "Merged night into proj", into="night", project="proj",
+                    merge="a" * 40, base="b" * 40)
+        what, payload = events.parse(merged)
+        self.assertEqual(what, "event")
+        self.assertEqual((payload["into"], payload["project"], payload["merge"], payload["base"]),
+                         ("night", "proj", "a" * 40, "b" * 40))
+
+    def test_bounced_needs_reason_and_commit(self):
+        readable = ev("ticket.bounced", "Could not land", reason="conflict",
+                      commit="a" * 40)
+        self.assertEqual(events.parse(readable)[0], "event")
+        missing = events.block({
+            "v": 1, "event": "ticket.bounced", "stage": "land", "actor": "main",
+            "spec": 76, "ticket": 61, "at": SAME_SECOND, "reason": "conflict",
+        })
+        what, reason = events.parse("Could not land\n\n" + missing)
+        self.assertEqual(what, "unreadable")
+        self.assertIn("commit", reason)
+
+    def test_bounced_reason_is_closed(self):
+        block = events.block({
+            "v": 1, "event": "ticket.bounced", "stage": "land", "actor": "main",
+            "spec": 76, "ticket": 61, "at": SAME_SECOND, "reason": "network",
+            "commit": "a" * 40,
+        })
+        what, reason = events.parse("Could not land\n\n" + block)
+        self.assertEqual(what, "unreadable")
+        self.assertIn("reason", reason)
+
+    def test_started_without_into_is_readable(self):
+        what, payload = events.parse(started())
+        self.assertEqual(what, "event")
+        self.assertNotIn("into", payload)
+
+    def test_the_five_child_kinds_are_named_for_who_can_answer_them(self):
+        self.assertEqual(events.CHILD_KINDS,
+                         ("finding", "contract", "deferred", "decision", "fault"))
+        for old in ("review", "baseline", "outside-owns", "pipeline"):
+            with self.subTest(old=old):
+                with self.assertRaises(events.EventError):
+                    events.build("child.opened", ticket=61, line="x", child=90, kind=old)
+
+    def test_a_check_names_its_run_and_its_result_from_closed_sets(self):
+        full = dict(run="self", commit="a" * 40, result="met")
+        events.build("ticket.checked", ticket=61, line="x", **full)
+        events.build("ticket.checked", ticket=61, line="x",
+                     run="baseline", commit="a" * 40, result="unmet")
+        for key, bad in (("run", "self-run"), ("result", "ALL MET"), ("commit", "a" * 8)):
+            with self.subTest(key=key):
+                with self.assertRaises(events.EventError):
+                    events.build("ticket.checked", ticket=61, line="x",
+                                 **{**full, key: bad})
+
+    def test_baseline_is_a_run_name_and_its_stage_is_claim(self):
+        self.assertIn("baseline", events.CHECK_RUNS)
+        self.assertEqual(events.checked_stage("baseline", "worker"), "claim")
+
+    def test_every_name_is_subject_dot_past_tense_verb_with_no_value_in_it(self):
+        for name in events.EVENTS:
+            with self.subTest(name=name):
+                self.assertRegex(name, r"^[a-z]+\.[a-z]+$")
+                subject, verb = name.split(".")
+                self.assertIn(subject, events.SUBJECTS)
+                self.assertTrue(verb.endswith("ed") or verb == "lost", verb)
+
+    def test_the_six_refusals_and_the_three_release_reasons(self):
+        self.assertEqual(len(events.REFUSALS), 6)
+        self.assertEqual(events.RELEASE_REASONS, ("landed", "suspended", "worker-lost"))
+
+    def test_an_unknown_event_is_refused_when_written(self):
+        with self.assertRaises(events.EventError):
+            events.build("worker.failover", ticket=61, line="x")
+
+    def test_a_missing_required_field_is_refused_when_written(self):
+        with self.assertRaises(events.EventError):
+            events.build("worker.started", ticket=61, line="started", runner="orca")
+
+    def test_a_value_outside_a_closed_set_is_refused_when_written(self):
+        with self.assertRaises(events.EventError):
+            events.build("ticket.released", ticket=61, line="x", reason="bored")
+
+    def test_a_worker_start_missing_any_of_its_facts_is_refused_when_written(self):
+        full = dict(session="t", runner="orca", machine="mac-1", host="grok", model="m",
+                    effort="high",
+                    grade="junior-worker", worktree="/repo/.worktrees/issue-61",
+                    branch="issue-61", base="0" * 40)
+        events.build("worker.started", ticket=61, line="started", **full)
+        for key in full:
+            with self.subTest(missing=key):
+                with self.assertRaises(events.EventError):
+                    events.build("worker.started", ticket=61, line="started",
+                                 **{k: v for k, v in full.items() if k != key})
+
+    def test_a_worker_start_on_a_relative_worktree_is_refused(self):
+        with self.assertRaises(events.EventError):
+            events.build("worker.started", ticket=61, line="started", session="t",
+                         runner="orca", machine="mac-1", host="grok", model="m",
+                         effort="high", grade="junior-worker", worktree=".worktrees/issue-61",
+                         branch="issue-61", base="0" * 40)
+
+    def test_no_effort_is_written_as_an_explicit_dash(self):
+        body = events.build("worker.started", ticket=61, line="started", session="t",
+                            runner="herdr", machine="mac-1", host="grok", model="m", effort="—",
+                            grade="junior-worker", worktree="/w", branch="issue-61",
+                            base="0" * 40)
+        self.assertEqual(events.parse(body)[1]["effort"], "—")
+
+    def test_a_session_is_named_by_its_runner_and_its_id_together(self):
+        with self.assertRaises(events.EventError):
+            events.build("worker.retracted", ticket=61, line="x", session="term_7")
+        with self.assertRaises(events.EventError):
+            events.build("worker.lost", ticket=61, line="x", session="term_7")
+
+    def test_a_short_commit_on_a_checked_run_is_refused_when_written(self):
+        with self.assertRaises(events.EventError):
+            events.build("ticket.checked", ticket=61, line="x", run="reverify",
+                         commit="3f9c2e1a", result="met")
+
+    def test_stale_child_closed_requires_its_reason_and_only_stale_accepts_one(self):
+        for reason in ("invalid", "fixed-elsewhere"):
+            body = events.build("child.closed", ticket=61, line="Closed #90", child=90,
+                                resolution="stale", reason=reason)
+            self.assertEqual(events.parse(body)[1]["reason"], reason)
+        for fields in (
+            {"child": 90, "resolution": "stale"},
+            {"child": 90, "resolution": "stale", "reason": "obsolete"},
+            {"child": 90, "resolution": "fixed", "reason": "invalid"},
+            {"child": 90, "resolution": "became-ticket", "became": 90,
+             "reason": "fixed-elsewhere"},
+        ):
+            with self.subTest(fields=fields):
+                with self.assertRaises(events.EventError):
+                    events.build("child.closed", ticket=61, line="Closed #90", **fields)
+
+    def test_recorded_retro_receipts_require_the_complete_typed_shape(self):
+        full = dict(result="recorded", retro_memory="retro-76", problem_count=2,
+                    proposals=[431, 432], evidence="complete", unreadable_sources=[])
+        body = events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO", **full)
+        what, payload = events.parse(body)
+        self.assertEqual((what, payload["stage"], payload["actor"], payload["ticket"]),
+                         ("event", "night", "main", None))
+        partial = {**full, "evidence": "partial", "unreadable_sources": ["ticket #61"]}
+        self.assertEqual(events.parse(events.build(
+            "spec.retroed", ticket=None, spec=76, line="NIGHT RETRO", **partial))[0], "event")
+        for key in full:
+            with self.subTest(missing=key):
+                with self.assertRaises(events.EventError):
+                    events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
+                                 **{name: value for name, value in full.items() if name != key})
+
+        invalid = [
+            {**full, "retro_memory": ""},
+            {**full, "problem_count": "2"},
+            {**full, "problem_count": True},
+            {**full, "proposals": [431, "432"]},
+            {**full, "proposals": [True]},
+            {**full, "proposals": "431"},
+            {**full, "evidence": "unknown"},
+            {**full, "evidence": "partial", "unreadable_sources": []},
+            {**full, "unreadable_sources": ["ticket #61"]},
+            {**full, "unreadable_sources": "none"},
+            {**full, "note": "not a receipt field"},
+        ]
+        for fields in invalid:
+            with self.subTest(fields=fields):
+                with self.assertRaises(events.EventError):
+                    events.build("spec.retroed", ticket=None, spec=76,
+                                 line="NIGHT RETRO", **fields)
+
+    def test_unrecorded_retro_receipts_carry_only_a_concrete_reason(self):
+        body = events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
+                            result="unrecorded", reason="Nowledge Mem write failed")
+        self.assertEqual(events.parse(body)[1]["reason"], "Nowledge Mem write failed")
+        self.assertEqual(events.describe(events.newest([comment(1, body)], "spec.retroed")),
+                         "spec.retroed result=unrecorded reason=Nowledge Mem write failed")
+        for fields in (
+            {"result": "unrecorded"},
+            {"result": "unrecorded", "reason": ""},
+            {"result": "unrecorded", "reason": "failed", "problem_count": 0},
+            {"result": "unrecorded", "reason": "failed", "note": "extra"},
+            {"result": "recorded", "reason": "failed", "retro_memory": "retro-76",
+             "problem_count": 0, "proposals": [], "evidence": "complete",
+             "unreadable_sources": []},
+        ):
+            with self.subTest(fields=fields):
+                with self.assertRaises(events.EventError):
+                    events.build("spec.retroed", ticket=None, spec=76,
+                                 line="NIGHT RETRO", **fields)
+        with self.assertRaises(events.EventError):
+            events.build("spec.retroed", ticket=61, spec=76, line="NIGHT RETRO",
+                         result="unrecorded", reason="failed")
+        with self.assertRaises(events.EventError):
+            events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
+                         actor="worker", result="unrecorded", reason="failed")
+
+
+class TheCommentFormat(unittest.TestCase):
+    """First line for a person, the block for a program."""
+
+    def test_the_first_line_is_the_prose_and_the_block_carries_the_common_fields(self):
+        body = ev("ticket.claimed", "Claimed #61 on issue-61", spec=76, login="bot")
+        self.assertEqual(body.splitlines()[0], "Claimed #61 on issue-61")
+        what, payload = events.parse(body)
+        self.assertEqual(what, "event")
+        self.assertEqual({k: payload[k] for k in events.COMMON}, {
+            "v": 1, "event": "ticket.claimed", "stage": "intake", "actor": "worker",
+            "spec": 76, "ticket": 61, "at": SAME_SECOND})
+        self.assertEqual(payload["login"], "bot")
+
+    def test_the_block_is_one_line_at_the_end(self):
+        body = ev("worker.decided", "DECISIONS", text="a\nb")
+        self.assertTrue(body.rstrip("\n").splitlines()[-1].startswith("<!-- mmw {"))
+        self.assertTrue(body.rstrip("\n").endswith("-->"))
+
+    def test_a_value_holding_the_comment_closer_cannot_end_the_block_early(self):
+        body = ev("ticket.refused", "NOT_READY", reason="blocked", note="a --> b")
+        what, payload = events.parse(body)
+        self.assertEqual((what, payload["note"]), ("event", "a --> b"))
+
+    def test_prose_quoting_an_event_carries_no_second_block(self):
+        """A review of this very code quotes blocks; its ticket must still read one event."""
+        quoted = started("term_9")
+        body = events.build("reviewer.reported", ticket=61, line="REVIEW a..b",
+                            text="the fixture was:\n" + quoted, base="a", head="b")
+        self.assertEqual(events.parse(body)[0], "event")
+        self.assertEqual(events.parse(body)[1]["event"], "reviewer.reported")
+        self.assertIn("&lt;!-- mmw", body)
+        state = events.fold([body])
+        self.assertEqual((state["unreadable"], state["sessions"]), ([], []))
+
+    def test_a_first_line_quoting_a_block_is_neutralised_too(self):
+        body = events.build("ticket.claimed", ticket=61, line="see <!-- mmw {} -->")
+        self.assertEqual(events.parse(body)[0], "event")
+
+    def test_a_comment_with_no_block_is_prose_whatever_its_first_line_says(self):
+        for body in ("ALL MET\nBranch: issue-61", "VERDICT " + "a" * 40 + " by x — all passed",
+                     "RUNNER orca term_7 worker", "NOT_READY: branch is main"):
+            with self.subTest(body=body):
+                self.assertEqual(events.parse(body), ("none", None))
+        state = events.fold(["ALL MET", "RUNNER orca term_7 worker"])
+        self.assertEqual((state["events"], state["passed"], state["sessions"]), ([], False, []))
+
+
+class Ordering(unittest.TestCase):
+    """Replay is in comment-id order: two comments of one second carry one timestamp."""
+
+    def test_comments_given_out_of_order_are_replayed_by_id(self):
+        # The worker claimed within the second the start was written; the tracker's
+        # listing here happens to put the claim first.
+        claim = ev("ticket.claimed", "Claimed #61", login="bot")
+        state = events.fold([comment(102, claim), comment(101, started())])
+        self.assertEqual([e["event"] for e in state["events"]],
+                         ["worker.started", "ticket.claimed"])
+        self.assertEqual([e["comment"] for e in state["events"]], [101, 102])
+
+    def test_the_order_decides_what_the_fold_reads_last(self):
+        start, landing = started(), ev("ticket.landed", "Landed issue-61")
+        after = events.fold([comment(5, start), comment(6, landing)])
+        before = events.fold([comment(6, start), comment(5, landing)])
+        self.assertFalse(after["held"])
+        self.assertTrue(before["held"])
+
+    def test_comments_with_no_ids_are_replayed_in_the_order_given(self):
+        state = events.fold([started(), ev("ticket.landed", "Landed")])
+        self.assertFalse(state["held"])
+
+    def test_an_edited_comment_is_read_as_its_newest_version(self):
+        """One id handed in twice — an incremental read after an edit — is one comment."""
+        claim = ev("ticket.claimed", "Claimed")
+        release = ev("ticket.released", "Released", reason="worker-lost")
+        edited = [
+            {"id": 5, "body": claim, "updated_at": "2026-09-10T02:00:00Z"},
+            {"id": 6, "body": "a note", "updated_at": "2026-09-10T02:01:00Z"},
+            {"id": 5, "body": release, "updated_at": "2026-09-10T02:05:00Z"},
+        ]
+        state = events.fold(edited)
+        self.assertEqual([e["event"] for e in state["events"]], ["ticket.released"])
+        self.assertEqual(events.fold(list(reversed(edited)))["events"], state["events"])
+
+
+class Replays(unittest.TestCase):
+    """State goes backwards, and a full replay needs no inverse for any of it."""
+
+    def test_a_start_is_live_until_something_closes_it(self):
+        state = events.fold([started()])
+        self.assertTrue(state["held"])
+        self.assertEqual(state["worker"]["session"], "term_7")
+        self.assertEqual(state["worker"]["runner"], "orca")
+        self.assertEqual(state["worker"]["worktree"], "/repo/.worktrees/issue-61")
+
+    def test_a_retracted_start_is_closed_and_a_new_start_is_live(self):
+        state = events.fold([
+            started("term_7"),
+            ev("worker.retracted", "Retracted", session="term_7", runner="orca"),
+            started("term_9")])
+        self.assertEqual([r["session"] for r in state["live_workers"]], ["term_9"])
+        self.assertEqual(state["sessions"][0]["ended_by"], "worker.retracted")
+
+    def test_a_release_closes_the_worker_and_the_claim(self):
+        state = events.fold([
+            started(), ev("ticket.claimed", "Claimed", login="bot"),
+            ev("ticket.released", "Released", reason="suspended")])
+        self.assertFalse(state["held"])
+        self.assertFalse(state["claimed"])
+        self.assertEqual(state["released"], "suspended")
+
+    def test_a_suspended_night_closes_the_worker_and_the_next_start_reopens(self):
+        state = events.fold([started("term_7"), ev("spec.suspended", "NIGHT SUSPENDED #76"),
+                             started("term_8")])
+        self.assertEqual([r["session"] for r in state["live_workers"]], ["term_8"])
+        self.assertFalse(state["suspended"])
+
+    def test_a_regression_takes_back_the_pass_and_the_landing(self):
+        state = events.fold([
+            started(), ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.regressed", "Reverify failed", commit="a" * 40, failed=["AC3"])])
+        self.assertEqual((state["passed"], state["landed"], state["regressed"]),
+                         (False, False, True))
+        self.assertIsNone(state["outcome"])
+
+    def test_a_recovery_puts_the_pass_and_the_landing_back(self):
+        state = events.fold([
+            started(), ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.regressed", "Reverify failed", commit="a" * 40, failed=["AC3"]),
+            ev("ticket.recovered", "ALL MET again", commit="b" * 40)])
+        self.assertEqual((state["passed"], state["landed"], state["regressed"]),
+                         (True, True, False))
+        self.assertEqual(state["outcome"]["payload"]["commit"], "b" * 40)
+
+    def test_a_recovered_blocker_has_let_go(self):
+        state = events.fold([
+            ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.regressed", "Reverify failed", commit="a" * 40),
+            ev("ticket.recovered", "ALL MET again", commit="b" * 40)])
+        self.assertEqual(events.blocker_hold("CLOSED", state), "")
+
+    def test_bounced_withdraws_the_pass(self):
+        state = events.fold([
+            started(), ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.bounced", "Could not land", reason="conflict", commit="a" * 40,
+               into="main", files=["src/app.py"]),
+        ])
+        self.assertEqual((state["passed"], state["landed"]), (False, False))
+        self.assertIsNone(state["outcome"])
+
+    def test_passing_again_after_a_regression_is_a_pass_that_has_not_landed(self):
+        state = events.fold([
+            ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.regressed", "failed", commit="a" * 40), ev("ticket.passed", "ALL MET")])
+        self.assertEqual((state["passed"], state["landed"]), (True, False))
+
+    def test_a_lost_worker_closes_only_the_session_it_names(self):
+        state = events.fold([started("term_7"), started("term_8"),
+                             ev("worker.lost", "lost", session="term_7", runner="orca")])
+        self.assertEqual([r["session"] for r in state["live_workers"]], ["term_8"])
+
+    def test_a_session_is_closed_by_its_pair_never_by_its_id_alone(self):
+        """Two runners hand out ids of their own; `term_7` on herdr is not `term_7` on orca."""
+        state = events.fold([started("term_7", runner="orca"),
+                             ev("worker.lost", "lost", session="term_7", runner="herdr")])
+        self.assertTrue(state["held"])
+        self.assertEqual([r["runner"] for r in state["live_workers"]], ["orca"])
+
+    def test_a_replacement_closes_the_old_pair_and_the_new_session_is_its_own_start(self):
+        replaced = ev("worker.replaced", "replaced", session="term_7", runner="orca")
+        state = events.fold([started("term_7"), replaced])
+        self.assertEqual(state["sessions"][0]["ended_by"], "worker.replaced")
+        self.assertFalse(state["held"])
+        state = events.fold([started("term_7"), replaced, started("term_8")])
+        self.assertEqual([r["session"] for r in state["live_workers"]], ["term_8"])
+        self.assertEqual(state["live_workers"][0]["comment"], 3)
+
+    def test_a_pass_after_a_landing_is_new_work_not_yet_landed(self):
+        state = events.fold([ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+                             ev("ticket.passed", "ALL MET again")])
+        self.assertEqual((state["passed"], state["landed"]), (True, False))
+
+    def test_a_claim_alone_holds_the_ticket(self):
+        """A worker that claimed before its start was recorded, or with none recorded."""
+        state = events.fold([ev("ticket.claimed", "Claimed", login="bot")])
+        self.assertTrue(state["held"])
+        self.assertFalse(state["hold_ended"])
+
+    def test_a_claim_before_its_start_is_that_session_s_and_a_retraction_ends_both(self):
+        state = events.fold([ev("ticket.claimed", "Claimed"), started("term_7"),
+                             ev("worker.retracted", "retracted", session="term_7",
+                                runner="orca")])
+        self.assertFalse(state["held"])
+        self.assertTrue(state["hold_ended"])
+
+    def test_a_pass_does_not_end_the_hold(self):
+        """The close after a pass can fail; the ticket stays open and its worker retries."""
+        state = events.fold([started(), ev("ticket.claimed", "Claimed"),
+                             ev("ticket.passed", "ALL MET")])
+        self.assertTrue(state["held"])
+        self.assertFalse(state["hold_ended"])
+
+    def test_a_ticket_never_held_has_no_ended_hold(self):
+        self.assertFalse(events.fold([ev("worker.decided", "DECISIONS")])["hold_ended"])
+
+    def test_the_workers_own_result_ends_its_hold_and_a_resume_brings_it_back(self):
+        state = events.fold([started(), ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned")])
+        self.assertFalse(state["held"])
+        state = events.fold([started(), ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned"),
+                             ev("worker.resumed", "Resumed", session="term_7", runner="orca")])
+        self.assertTrue(state["held"])
+
+    def test_a_landing_ends_every_session_of_every_kind(self):
+        state = events.fold([started(), started("rev_1", kind="reviewer"),
+                             ev("ticket.landed", "Landed")])
+        self.assertEqual([r["live"] for r in state["sessions"]], [False, False])
+
+    def test_each_kind_has_its_newest_result(self):
+        state = events.fold([
+            started(), ev("reviewer.reported", "REVIEW a..b", base="a", head="b")])
+        self.assertEqual(state["results"]["reviewer"]["line"], "REVIEW a..b")
+        self.assertIsNone(state["results"]["worker"])
+
+    def test_children_carry_their_kind_and_their_resolution(self):
+        state = events.fold([
+            ev("child.opened", "Opened #90 (finding)", child=90, kind="finding"),
+            ev("child.closed", "#90 became #80", child=90, resolution="became-ticket",
+               became=80)])
+        self.assertEqual(state["children"]["90"]["kind"], "finding")
+        self.assertEqual(state["children"]["90"]["resolution"], "became-ticket")
+        self.assertEqual(state["children"]["90"]["ticket"], 80)
+
+    def test_latest_retro_receipt_folds_by_comment_id_without_other_effects(self):
+        first = ev("spec.retroed", "NIGHT RETRO", ticket=None, spec=76,
+                   result="unrecorded", reason="Nowledge Mem write failed")
+        latest = ev("spec.retroed", "NIGHT RETRO", ticket=None, spec=76,
+                    result="recorded", retro_memory="retro-76", problem_count=1,
+                    proposals=[431], evidence="partial",
+                    unreadable_sources=["ticket #61"])
+        prior = [
+            comment(1, started()),
+            comment(2, checked_run(slot=2)),
+            comment(3, started("rev_1", kind="reviewer")),
+            comment(4, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
+            comment(5, ev("ticket.passed", "ALL MET", commit="d" * 40)),
+            comment(6, queued()),
+            comment(10, first),
+        ]
+        before = events.fold(prior, issue=76)
+        state = events.fold([comment(20, latest), *prior], issue=76)
+        self.assertEqual(state["spec_retroed"]["payload"]["result"], "recorded")
+        self.assertEqual(events.newest([comment(20, latest), comment(10, first)],
+                                       "spec.retroed")["comment"], 20)
+        self.assertEqual(events.describe(state["spec_retroed"]),
+                         "spec.retroed result=recorded retro_memory=retro-76 "
+                         "problem_count=1 proposals=431 evidence=partial "
+                         "unreadable_sources=ticket #61")
+        for key in ("held", "hold_ended", "waiting", "slot", "passed", "returned",
+                    "landed", "regressed", "bounced", "outcome", "review", "results",
+                    "sessions", "claim_hold"):
+            with self.subTest(preserved=key):
+                self.assertEqual(state[key], before[key])
+        self.assertTrue(state["held"])
+        self.assertIsNotNone(state["waiting"])
+        self.assertEqual(state["slot"], 2)
+        self.assertTrue(state["passed"])
+        self.assertIsNotNone(state["review"])
+        self.assertIsNone(load_relay().woken_by(state["spec_retroed"]["payload"]))
+
+    def test_a_late_comment_is_replayed_in_its_place_not_applied_last(self):
+        """Released, claimed again, then passed, landed and regressed — with the second
+        claim arriving on a later page. Applied as it arrived, that claim would hold a
+        ticket the landing had already let go of; replayed by id from empty, it does not."""
+        pages = [
+            comment(1, ev("ticket.claimed", "Claimed")),
+            comment(2, ev("ticket.released", "Released", reason="worker-lost")),
+            comment(4, ev("ticket.passed", "ALL MET")),
+            comment(5, ev("ticket.landed", "Landed")),
+            comment(6, ev("ticket.regressed", "Reverify failed", commit="a" * 40)),
+            comment(3, ev("ticket.claimed", "Claimed again")),
+        ]
+        state = events.fold(pages)
+        self.assertEqual((state["held"], state["passed"], state["landed"], state["regressed"]),
+                         (False, False, False, True))
+        self.assertEqual([e["comment"] for e in state["events"]], [1, 2, 3, 4, 5, 6])
+
+
+def queued(run="self", reason="product-full"):
+    return ev("worker.queued", "Waiting for a product slot", run=run, reason=reason,
+              limit=1, holders=["/repo/.worktrees/issue-60"])
+
+
+def checked_run(run="self", slot=None, result="met", failed=()):
+    return ev("ticket.checked", f"{run} run", run=run, commit="a" * 40, result=result,
+              counts={"met": 1, "unmet": len(failed), "abandoned": 0,
+                      "total": 1 + len(failed)},
+              failed=list(failed), slot=slot)
+
+
+class WaitingAndSlots(unittest.TestCase):
+    """A run queued for a product slot is the one state where a worker is neither dead
+    nor done; the fold says so until a run gets its slot or the worker's hold ends."""
+
+    def test_a_queued_run_is_waiting_until_a_checked_run_names_its_slot(self):
+        state = events.fold([started(), queued()])
+        self.assertEqual(state["waiting"]["payload"]["reason"], "product-full")
+        self.assertIsNone(state["slot"])
+        state = events.fold([started(), queued(), checked_run(slot=3)])
+        self.assertIsNone(state["waiting"])
+        self.assertEqual(state["slot"], 3)
+        self.assertEqual(state["checks"]["self"]["payload"]["slot"], 3)
+
+    def test_a_check_without_a_slot_keeps_the_slot_an_earlier_run_took(self):
+        state = events.fold([checked_run(slot=2), checked_run(run="reverify")])
+        self.assertEqual(state["slot"], 2)
+
+    def test_a_result_ends_the_hold_of_the_reviewer_that_produced_it(self):
+        state = events.fold([started(), started("rv_1", kind="reviewer"),
+                             ev("reviewer.reported", "REVIEW", base="0" * 40, head="1" * 40),
+                             started("rv_2", kind="reviewer")])
+        self.assertEqual([(r["kind"], r["session"]) for r in state["holders"]],
+                         [("worker", "term_7"), ("reviewer", "rv_2")])
+        self.assertEqual({r["session"]: r["ended_by"] for r in state["sessions"] if not r["live"]},
+                         {"rv_1": "reviewer.reported"})
+
+    def test_after_a_finished_reviewer_a_lost_worker_frees_the_ticket(self):
+        state = events.fold([started(), started("rv_1", kind="reviewer"),
+                             ev("reviewer.reported", "REVIEW", base="0" * 40, head="1" * 40),
+                             ev("worker.lost", "lost", session="term_7", runner="orca")])
+        self.assertEqual((state["held"], state["hold_ended"]), (False, True))
+
+    def test_whatever_ends_the_workers_hold_ends_its_wait(self):
+        for closing in (ev("worker.lost", "lost", session="term_7", runner="orca"),
+                        ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned"),
+                        ev("spec.suspended", "NIGHT SUSPENDED #76"),
+                        ev("worker.retracted", "Retracted", session="term_7",
+                           runner="orca")):
+            with self.subTest(event=events.parse(closing)[1]["event"]):
+                state = events.fold([started(), queued(), closing])
+                self.assertIsNone(state["waiting"])
+
+    def test_the_slot_is_given_back_when_the_tickets_work_ends(self):
+        """Landed, handed back, released, suspended, or its start retracted: a ticket
+        handed back keeps no slot all night."""
+        for closing in (ev("ticket.landed", "Landed"),
+                        ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned (stuck)"),
+                        ev("ticket.released", "Released", reason="worker-lost"),
+                        ev("worker.retracted", "Retracted", session="term_7",
+                           runner="orca"),
+                        ev("spec.suspended", "NIGHT SUSPENDED #76")):
+            with self.subTest(event=events.parse(closing)[1]["event"]):
+                state = events.fold([started(), checked_run(slot=1), closing])
+                self.assertIsNone(state["slot"])
+
+    def test_bounced_ends_every_hold(self):
+        closing = ev("ticket.bounced", "Could not land", reason="checks", commit="a" * 40,
+                     into="main", commands=[{"command": "false", "tail": "failed"}])
+        state = events.fold([started(), started("rev_1", kind="reviewer"),
+                             checked_run(slot=1), closing])
+        self.assertFalse(state["held"])
+        self.assertIsNone(state["slot"])
+        self.assertTrue(all(r["ended_by"] == "ticket.bounced" for r in state["sessions"]))
+
+    def test_a_pass_a_replacement_or_a_loss_does_not_give_the_slot_back(self):
+        """A pass is not the end of the work; a replaced or lost worker's worktree keeps
+        its slot for whoever carries on in it."""
+        for keeping in (ev("ticket.passed", "ALL MET"),
+                        ev("worker.replaced", "Replaced", session="term_7", runner="orca"),
+                        ev("worker.lost", "Lost", session="term_7", runner="orca")):
+            with self.subTest(event=events.parse(keeping)[1]["event"]):
+                state = events.fold([started(), checked_run(slot=1), keeping])
+                self.assertEqual(state["slot"], 1)
+
+    def test_the_newest_run_of_each_kind_is_kept_apart(self):
+        state = events.fold([checked_run(run="self", result="unmet", failed=["AC2"]),
+                             checked_run(run="reverify"),
+                             checked_run(run="self")])
+        self.assertEqual(state["checks"]["self"]["comment"], 3)
+        self.assertEqual(state["checks"]["reverify"]["comment"], 2)
+        self.assertIsNone(state["checks"]["repo-checks"])
+        self.assertIsNone(state["checks"]["baseline"])
+
+    def test_touched_files_land_in_touched(self):
+        state = events.fold([ev("worker.touched", "#62 changed 1 file(s) this ticket owns",
+                                by=62, files=["src/a.py"])])
+        self.assertEqual([(t["by"], t["files"]) for t in state["touched"]],
+                         [(62, ["src/a.py"])])
+
+
+class Unreadable(unittest.TestCase):
+    """A block that cannot be read is reported, never read as no event (ADR 0008)."""
+
+    def assertUnreadable(self, body, reason_part):
+        state = events.fold([comment(7, started()), comment(8, body)])
+        self.assertEqual(len(state["unreadable"]), 1, state["unreadable"])
+        item = state["unreadable"][0]
+        self.assertEqual(item["comment"], 8)
+        self.assertIn(reason_part, item["reason"])
+        # The readable events around it still fold.
+        self.assertTrue(state["held"])
+
+    def test_a_block_that_is_not_json(self):
+        self.assertUnreadable("x\n\n<!-- mmw {not json} -->", "not JSON")
+
+    def test_a_block_that_is_never_closed(self):
+        self.assertUnreadable("x\n\n<!-- mmw {\"v\":1", "never closed")
+
+    def test_a_block_of_another_version(self):
+        self.assertUnreadable('x\n\n<!-- mmw {"v":2,"event":"ticket.claimed"} -->', "version")
+
+    def test_a_block_naming_no_event_of_this_pipeline(self):
+        self.assertUnreadable('x\n\n<!-- mmw {"v":1,"event":"worker.failover"} -->',
+                              "not an event")
+
+    def test_a_block_missing_a_field_its_event_requires(self):
+        self.assertUnreadable('x\n\n<!-- mmw {"v":1,"event":"worker.started"} -->', "session")
+
+    def test_two_blocks_in_one_comment(self):
+        body = started() + "\n" + ev("ticket.claimed", "again")
+        self.assertUnreadable(body, "one comment is one event")
+
+
+class Blockers(unittest.TestCase):
+    """A blocker lets go of the ticket it blocks once its work has landed on the base
+    branch, or once it closed with nothing that will ever land. `blocker_hold` is the one
+    answer `--preflight` and the dispatch skill's frontier both give."""
+
+    PASSED = ev("ticket.passed", "ALL MET", commit="a" * 40)
+    LANDED = ev("ticket.landed", "Landed #61 on main")
+
+    def hold(self, state, *comments):
+        return events.blocker_hold(state, events.fold(list(comments)))
+
+    def test_an_open_blocker_holds_whatever_its_events_say(self):
+        self.assertEqual(self.hold("OPEN", self.PASSED, self.LANDED), "open")
+        self.assertEqual(events.blocker_hold("OPEN", None), "open")
+
+    def test_a_closed_blocker_that_passed_holds_until_it_lands(self):
+        self.assertEqual(self.hold("CLOSED", self.PASSED), "passed, not landed")
+        self.assertEqual(self.hold("CLOSED", self.PASSED, self.LANDED), "")
+
+    def test_a_pass_after_a_landing_is_new_work_that_has_not_landed(self):
+        self.assertEqual(self.hold("CLOSED", self.PASSED, self.LANDED, self.PASSED),
+                         "passed, not landed")
+
+    def test_a_blocker_closed_without_a_pass_lets_go(self):
+        self.assertEqual(self.hold("CLOSED"), "")
+        self.assertEqual(self.hold("CLOSED", ev("ticket.returned", "HANDOFF REQUIRED")), "")
+
+    def test_a_closed_blocker_nobody_can_read_holds(self):
+        self.assertEqual(self.hold("CLOSED", self.PASSED, self.LANDED,
+                                   "x\n\n<!-- mmw {not json} -->"),
+                         "its events cannot be read")
+        self.assertEqual(events.blocker_hold("CLOSED", None),
+                         "the tracker did not answer for it")
+
+
+class CommandLine(unittest.TestCase):
+    """`events.py` for the bash callers: emit a body, and read the fold back."""
+
+    def run_cli(self, *args, stdin=""):
+        out = subprocess.run([sys.executable, str(EVENTS), *args], input=stdin,
+                             capture_output=True, text=True)
+        return out.returncode, out.stdout, out.stderr
+
+    def test_emit_prints_a_body_that_parses_to_the_event_asked_for(self):
+        code, out, err = self.run_cli(
+            "emit", "worker.started", "--ticket", "61", "--spec", "76",
+            "--line", "worker started on orca: session term_7",
+            "--field", "session=term_7", "--field", "runner=orca", "--field", "machine=mac-1",
+            "--field", "host=grok",
+            "--field", "model=m", "--field", "effort=high", "--field", "grade=junior-worker",
+            "--field", "worktree=/repo/.worktrees/issue-61", "--field", "branch=issue-61",
+            "--field", "base=" + "0" * 40, "--field", "note=", "--json-field", "slot=2")
+        self.assertEqual(code, 0, err)
+        what, payload = events.parse(out)
+        self.assertEqual(what, "event")
+        self.assertEqual((payload["event"], payload["ticket"], payload["spec"],
+                          payload["session"], payload["slot"]),
+                         ("worker.started", 61, 76, "term_7", 2))
+        self.assertNotIn("note", payload)
+
+    def test_emit_refuses_an_event_the_table_refuses(self):
+        code, out, err = self.run_cli("emit", "worker.started", "--ticket", "61",
+                                      "--line", "x", "--field", "runner=orca")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("session", err)
+
+    def test_the_readers_answer_from_a_comments_file(self):
+        data = json.dumps({"comments": [
+            comment(1, started("term_7")),
+            comment(2, started("rev_1", kind="reviewer")),
+            comment(3, ev("reviewer.reported", "REVIEW a..b", base="a", head="b"))]})
+        code, out, err = self.run_cli("session", "61", "--kind", "worker",
+                                      "--comments-file", "-", stdin=data)
+        self.assertEqual((code, out, err), (0, "orca\tterm_7\n", ""))
+        code, out, _ = self.run_cli("sessions", "61", "--comments-file", "-", stdin=data)
+        self.assertEqual(out, "orca\tterm_7\norca\trev_1\n")
+        code, out, _ = self.run_cli("result", "61", "--kind", "worker",
+                                    "--comments-file", "-", stdin=data)
+        self.assertEqual(out, "")
+
+    def test_result_prints_the_event_and_its_key_fields_never_its_prose(self):
+        data = json.dumps({"comments": [
+            comment(1, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
+            comment(3, ev("ticket.passed", "ALL MET", commit="d" * 40))]})
+        for kind, want in (("reviewer", "reviewer.reported base=a head=b"),
+                           ("worker", f"ticket.passed commit={'d' * 40}")):
+            with self.subTest(kind=kind):
+                code, out, _ = self.run_cli("result", "61", "--kind", kind,
+                                            "--comments-file", "-", stdin=data)
+                self.assertEqual((code, out), (0, want + "\n"))
+
+    def test_an_unreadable_block_is_no_answer_from_any_reader(self):
+        """A caller about to archive, send or wait must not get half a ticket."""
+        data = json.dumps({"comments": [
+            comment(1, started("term_7")),
+            comment(2, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
+            comment(4, "x\n\n<!-- mmw {bad} -->")]})
+        for args in (("session", "--kind", "worker"), ("sessions",),
+                     ("result", "--kind", "reviewer")):
+            with self.subTest(args=args):
+                code, out, err = self.run_cli(args[0], "61", *args[1:],
+                                              "--comments-file", "-", stdin=data)
+                self.assertEqual((code, out), (3, ""))
+                self.assertIn("comment 4", err)
+        code, out, _ = self.run_cli("fold", "61", "--comments-file", "-", stdin=data)
+        self.assertEqual(len(json.loads(out)["unreadable"]), 1)
+
+    def comments_file(self, *bodies):
+        handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                             encoding="utf-8")
+        with handle:
+            json.dump({"comments": [comment(i, b) for i, b in enumerate(bodies, 1)]}, handle)
+        self.addCleanup(os.unlink, handle.name)
+        return handle.name
+
+    def test_checked_prints_the_newest_run_by_name_and_key_fields(self):
+        path = self.comments_file(
+            checked_run(run="self", result="unmet", failed=["AC2", "AC3"]),
+            checked_run(run="reverify", result="unmet", failed=["AC3"]))
+        code, out, err = self.run_cli("checked", "61", "--comments-file", path)
+        self.assertEqual((code, out, err),
+                         (0, f"ticket.checked run=reverify commit={'a' * 40} result=unmet "
+                             f"failed=AC3\n", ""))
+        code, out, _ = self.run_cli("checked", "61", "--run", "self", "--comments-file", path)
+        self.assertEqual(out, f"ticket.checked run=self commit={'a' * 40} result=unmet "
+                              f"failed=AC2,AC3\n")
+        code, out, _ = self.run_cli("checked", "61", "--run", "repo-checks",
+                                    "--comments-file", path)
+        self.assertEqual((code, out), (0, ""))
+
+    def test_live_prints_every_session_no_event_has_ended(self):
+        path = self.comments_file(
+            started("term_7"), started("term_8"),
+            ev("worker.replaced", "replaced", session="term_7", runner="orca"),
+            started("rev_1", kind="reviewer"))
+        code, out, err = self.run_cli("live", "61", "--kind", "worker", "--comments-file", path)
+        self.assertEqual((code, out, err), (0, "orca\tterm_8\n", ""))
+        code, out, _ = self.run_cli("live", "61", "--comments-file", path)
+        self.assertEqual(out, "orca\tterm_8\norca\trev_1\n")
+
+    def test_the_new_readers_give_no_answer_over_an_unreadable_block(self):
+        path = self.comments_file(checked_run(), started(), "x\n\n<!-- mmw {bad} -->")
+        for args in (("checked",), ("live", "--kind", "worker")):
+            with self.subTest(args=args):
+                code, out, err = self.run_cli(args[0], "61", *args[1:],
+                                              "--comments-file", path)
+                self.assertEqual((code, out), (3, ""))
+                self.assertIn("comment 3", err)
+
+    def test_comments_that_cannot_be_read_are_exit_2_not_an_empty_ticket(self):
+        code, out, err = self.run_cli("session", "61", "--comments-file", "-",
+                                      stdin="not json")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("not JSON", err)
+
+
+if __name__ == "__main__":
+    unittest.main()

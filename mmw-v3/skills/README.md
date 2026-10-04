@@ -14,7 +14,7 @@ Read this file before writing or moving anything into v3, and again whenever a p
 | skill | `<name>/SKILL.md` | How one thing is done, and what it hands back | this file, below |
 | reference | `<skill>/references/<file>.md` | Material one step needs | `mmw-mode/references/README.md` |
 | script | `<skill>/scripts/<file>` | The part a program can do or check | `mmw-mode/scripts/README.md` |
-| subagent | none yet | Who a spawned agent is and what it reads first | this file, below |
+| subagent | none shipped: a skill sends out its host's general-purpose subagent, with the prompt the skill writes | What a subagent a skill sends out is told, and what it returns | `mmw-mode/SKILL.md` `## Subagents`; this file, below |
 | configuration | outside the skills (`~/.mmw/models.json`) | Which model each role runs on | this file, below |
 | user-level prompt | `mmw-v3/prompt/shared.md` | Who reads every reply, and which decisions only the owner makes; every session carries it, with or without the mode | this file, below |
 
@@ -60,7 +60,7 @@ These hold for every component. They come from how pstack itself adds and change
 - **Shape** (models: `swarm`, `how`, `figure-it-out` under `mmw-v3/upstream-pstack/skills/`):
   - Frontmatter: `name`, `description` (what it does, then `Use for …` or `Use when …` with the words someone would use), and `argument-hint` when the skill takes an argument the person types.
   - `# <Title>` and one paragraph: what it does and what it hands back.
-  - When it spawns subagents, one paragraph naming each subagent's role in `~/.mmw/models.json` and the default when the role is absent.
+  - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names no model (`mmw-mode/SKILL.md` `## Subagents`).
   - `## Start`: open a todolist with one item per phase.
   - The phases or steps; a step that needs a template names `references/<file>`.
   - What it hands back, and in what form.
@@ -68,13 +68,13 @@ These hold for every component. They come from how pstack itself adds and change
 
 ## subagent
 
-- **For:** a role that must start with the same prompt every time it is spawned. pstack's `poteto-agent` exists because a general subagent skips reading the mode: "Substituting `generalPurpose` skips that read and drifts."
-- **Not for:** a single-purpose job done in one go; that is a skill.
-- No subagent directory exists yet. Whether MMW gets one (for agents it spawns to load `mmw-mode` first) is a decision for the owner.
+- **What there is:** MMW ships no subagent definitions (ADR 0015). A skill that needs one sends out its host's general-purpose subagent, on the session's own model, and writes its whole prompt: one sentence naming the skill and what to work on (the `code-review` axes), or a prompt template in the skill's `references/`. Such a subagent does not load `mmw-mode`; it reads only what the skill gives it. The rules every such dispatch follows are `mmw-mode/SKILL.md` `## Subagents`.
+- **Not a subagent:** a session a script starts. The worker, the reviewer, the advisor and the researcher are each started by the `dispatch` skill's `dispatch.sh` as a session of their own, on the row `~/.mmw/models.json` gives their role; the worker and the reviewer load `mmw-mode` through the first sentence of their start prompt and run the playbook its second sentence names (`mmw-v3/course` lesson 5).
+- pstack's `poteto-agent` exists because a general subagent skips reading the mode: "Substituting `generalPurpose` skips that read and drifts." In MMW the sessions that run a role playbook load the mode through their start prompt, so no definition file is needed for it.
 
 ## configuration
 
-- **For:** a choice that differs per person or machine and must hold in every session, such as the model for each role. Every skill keeps its own default, so nothing breaks without the configuration.
+- **For:** a choice that differs per person or machine and must hold in every session, such as the host, model and reasoning effort of each role a script starts (junior and senior worker, reviewer, advisor, researcher). The defaults are the `defaults` of the `dispatch` skill's `hosts.json`, which the installer writes when a machine has no `models.json`; a start whose role has no row is refused, naming the row.
 - **Not for:** text in the mode or a skill.
 - MMW's is `~/.mmw/models.json`, changed only through `models.py`.
 

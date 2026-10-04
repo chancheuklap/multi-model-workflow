@@ -1,0 +1,453 @@
+"""The ticket graph: cycles, blockers that are not tickets, and which tickets start first.
+
+`validate_dag` and `compute_levels` are grok-bundled's
+`execute-plan/scripts/validate-plan.py` L145-280 with one change of shape: an id is
+an issue number and dependencies come from the tracker's blocking edges. The cases
+below are the ones that file's `_detect_cycles` and `compute_levels` distinguish — the
+two-node cycle Kahn's algorithm cannot drain, the longer cycle `_trace_cycle` walks
+back to a path, and the diamond where a level is the longest path, not the shortest.
+
+An edge is the blocking edge the tracker records, and that is what the graph below is
+built from.
+"""
+
+import io
+import json
+import subprocess
+import unittest
+from contextlib import redirect_stdout
+from unittest import mock
+
+from _load import SCRIPT, load
+
+vt = load()
+
+
+def entries(**graph):
+    """`entries(a61=[], a62=[61])` reads as `{61: [], 62: [61]}` without quoting keys."""
+    return [{"id": int(name[1:]), "dependencies": deps} for name, deps in graph.items()]
+
+
+def body(parent=76):
+    return f"## Parent\n\n#{parent}, Implementation Decisions section 1\n"
+
+
+def lint_graph(ticket=77, spec=76, batch=(), links=None, outside=None):
+    """Run the graph half of --lint over a made-up batch; return (exit code, output).
+
+    `links` is `{ticket: [blockers]}`, the blocking edges the tracker records.
+
+    `outside` is `{blocker: (spec, state)}` for the blockers that are not in the batch:
+    a spec number and `OPEN` or `CLOSED` for a ticket under another spec, and left out
+    entirely for an issue that is no ticket at all.
+
+    `spec` is what the tracker links this ticket to, and the `## Parent` section of the
+    body is written from the same number unless a test writes it otherwise.
+    """
+    links = dict(links or {})
+    outside = {n: {"spec": sp, "state": st} for n, (sp, st) in (outside or {}).items()}
+
+    with mock.patch.object(vt, "fetch_sub_issues", return_value=list(batch)), \
+         mock.patch.object(vt, "fetch_parent", return_value=spec), \
+         mock.patch.object(vt, "fetch_blocked_by",
+                           side_effect=lambda n: list(links.get(n, []))), \
+         mock.patch.object(vt, "fetch_outsider",
+                           side_effect=lambda n: outside.get(
+                               n, {"spec": None, "state": "OPEN"})):
+        with redirect_stdout(io.StringIO()) as out:
+            code = vt.lint_ticket_graph(ticket, body(parent=spec))
+    return code, out.getvalue()
+
+
+class TestValidateDag(unittest.TestCase):
+    def test_a_clean_chain_reports_nothing(self):
+        self.assertEqual(vt.validate_dag(entries(a61=[], a62=[61], a63=[62])), [])
+
+    def test_two_tickets_blocking_each_other_are_a_cycle(self):
+        errors = vt.validate_dag(entries(a61=[62], a62=[61]))
+        self.assertEqual(len(errors), 1)
+        self.assertIn("cycle", errors[0])
+        self.assertIn("#61", errors[0])
+        self.assertIn("#62", errors[0])
+
+    def test_a_longer_cycle_is_reported_as_a_path(self):
+        errors = vt.validate_dag(entries(a61=[63], a62=[61], a63=[62]))
+        self.assertEqual(len(errors), 1)
+        self.assertRegex(errors[0], r"cycle detected: (#\d+ -> ){2,}#\d+")
+
+    def test_the_same_ticket_twice_is_a_duplicate(self):
+        errors = vt.validate_dag([{"id": 61, "dependencies": []},
+                                  {"id": 61, "dependencies": []}])
+        self.assertIn("duplicate", errors[0])
+        self.assertTrue(errors[0].endswith("  [duplicate-ticket]"), errors[0])
+
+
+class TestComputeLevels(unittest.TestCase):
+    def test_a_ticket_nothing_blocks_starts_at_level_zero(self):
+        levels = vt.compute_levels(entries(a61=[], a62=[61]))
+        self.assertEqual(levels, {61: 0, 62: 1})
+
+    def test_a_level_is_the_longest_path_not_the_shortest(self):
+        # 64 waits for 63, which waits for 61 — so 64 is level 3 even though 61
+        # would also let it start at level 1.
+        levels = vt.compute_levels(entries(a61=[], a62=[61], a63=[62], a64=[61, 63]))
+        self.assertEqual(levels[64], 3)
+
+    def test_independent_tickets_share_a_level(self):
+        levels = vt.compute_levels(entries(a61=[], a62=[], a63=[61, 62]))
+        self.assertEqual(levels, {61: 0, 62: 0, 63: 1})
+
+
+class TestLintTicketGraph(unittest.TestCase):
+    def test_a_cycle_is_printed_and_exits_one(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [62], 62: [61]})
+        self.assertEqual(code, 1)
+        self.assertIn("cycle", out)
+        self.assertTrue(out.startswith("  ERROR "), out)
+        self.assertIn("  [cycle]", out)
+
+    def test_a_blocker_that_is_not_a_ticket_is_printed_and_exits_one(self):
+        """An issue with no `## Parent` is a blocker nothing in this pipeline closes."""
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]})
+        self.assertEqual(code, 1)
+        self.assertIn("#62 is blocked by #999", out)
+        self.assertIn("  [blocker-not-a-ticket]", out)
+        self.assertNotIn("level ", out)
+
+    def test_a_duplicate_ticket_is_printed_and_exits_one(self):
+        code, out = lint_graph(batch=(61, 61), links={61: []})
+        self.assertEqual(code, 1)
+        self.assertEqual(out.strip(), "ERROR duplicate ticket: #61  [duplicate-ticket]")
+
+    def test_a_clean_batch_prints_its_start_levels(self):
+        code, out = lint_graph(batch=(61, 62, 63), links={61: [], 62: [61], 63: [61]})
+        self.assertEqual(code, 0)
+        self.assertIn("level 0: #61", out)
+        self.assertIn("level 1: #62, #63", out)
+
+    def test_a_ticket_the_tracker_gives_no_parent_falls_back_to_the_section(self):
+        """No parent link still has a batch when `## Parent` names a spec."""
+        with mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[77]) as fetch, \
+             mock.patch.object(vt, "fetch_blocked_by", return_value=[]), \
+             mock.patch.object(vt, "fetch_body", return_value=body(parent=76)):
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.lint_ticket_graph(77, body(parent=76))
+        self.assertEqual(code, 0)
+        fetch.assert_called_once_with(76)
+        self.assertIn("level 0: #77", out.getvalue())
+
+    def test_no_parent_link_and_no_parent_section_checks_nothing(self):
+        """Neither account of the spec is a shape a ticket is allowed to have."""
+        empty = "## Blocked by\n\n- None (can start immediately)\n"
+        with mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues") as fetch, \
+             mock.patch.object(vt, "fetch_body", return_value=empty):
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.lint_ticket_graph(77, empty)
+        self.assertEqual(code, 0)
+        self.assertIn("no parent link and no spec in `## Parent`", out.getvalue())
+        fetch.assert_not_called()
+
+    def test_the_batch_is_the_linked_spec_not_the_first_one_the_section_names(self):
+        """A ticket written against sections of two specs names both in `## Parent`, in
+        whatever order reads best. The batch it belongs to is the link, not the order."""
+        two = ("## Parent\n\n#536, Implementation Decisions section 13\n"
+               "#537, Implementation Decisions section 2\n\n"
+               "## Blocked by\n\n- None (can start immediately)\n")
+        with mock.patch.object(vt, "fetch_parent", return_value=537), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[77]) as fetch, \
+             mock.patch.object(vt, "fetch_blocked_by", return_value=[]), \
+             mock.patch.object(vt, "fetch_body", return_value=two):
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.lint_ticket_graph(77, two)
+        self.assertEqual(code, 0)
+        fetch.assert_called_once_with(537)
+        self.assertIn("level 0: #77", out.getvalue())
+
+    def test_a_parent_the_tracker_could_not_answer_for_is_an_error(self):
+        """Reading the batch failed, so nothing below it ran. Silence here would read
+        exactly like a batch that passed."""
+        with mock.patch.object(vt, "fetch_parent",
+                               side_effect=vt.ParentUnreadable("gh: connection refused")), \
+             mock.patch.object(vt, "fetch_sub_issues") as fetch:
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.lint_ticket_graph(77, body(parent=76))
+        printed = out.getvalue()
+        self.assertEqual(code, 1)
+        self.assertIn("could not say which spec #77 sits under", printed)
+        self.assertIn("gh: connection refused", printed)
+        self.assertIn("  [parent-unreadable]", printed)
+        fetch.assert_not_called()
+
+    def test_a_spec_with_no_sub_issues_is_an_error(self):
+        """The graph is read off GitHub's sub-issue links, so a spec with none is a batch
+        nothing can check — silence there would read as a batch that passed."""
+        code, out = lint_graph(batch=())
+        self.assertEqual(code, 1)
+        self.assertIn("#76 has no sub-issues", out)
+        self.assertTrue(out.startswith("  ERROR "), out)
+        self.assertIn("  [no-sub-issues]", out)
+
+
+class TestCrossBatch(unittest.TestCase):
+    """A ticket under another spec is a legitimate blocker of a layered delivery.
+
+    Every command that dispatches reads the tracker's links, so it is honoured there.
+    What the graph cannot do is order it: the other end has no entry in this batch. So
+    it is a WARN and not an ERROR, the batch's own start levels are still printed, and a
+    separate line says which tickets are waiting on a spec that is not in front of you.
+    """
+
+    def warnings(self, out):
+        return [line for line in out.splitlines() if "[cross-batch]" in line]
+
+    def test_a_blocker_under_another_spec_is_a_warning_not_an_error(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "OPEN")})
+        self.assertEqual(code, 0)
+        line = self.warnings(out)[0]
+        self.assertIn("#62 is blocked by #999, a ticket under spec #76 (OPEN)", line)
+        self.assertTrue(line.endswith("  [cross-batch]"), line)
+
+    def test_the_batch_still_prints_its_own_start_levels(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [61, 999]},
+                               outside={999: (76, "OPEN")})
+        self.assertEqual(code, 0)
+        self.assertIn("level 0: #61", out)
+        self.assertIn("level 1: #62", out)
+
+    def test_a_ticket_waiting_on_an_open_outsider_is_named(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "OPEN")})
+        self.assertIn("waiting on another spec: #62 ← #999 (OPEN, spec #76)", out)
+
+    def test_a_closed_outsider_is_waited_on_by_nobody(self):
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "CLOSED")})
+        self.assertEqual(code, 0)
+        self.assertNotIn("waiting on another spec", out)
+        self.assertEqual(len(self.warnings(out)), 1)
+
+    def test_a_ticket_only_an_outsider_blocks_still_starts_at_level_zero(self):
+        """Its place in this batch is level 0; the waiting line is what says otherwise."""
+        code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]},
+                               outside={999: (76, "OPEN")})
+        self.assertIn("level 0: #61, #62", out)
+        self.assertIn("waiting on another spec: #62", out)
+
+    def test_one_lookup_per_blocker_not_one_per_edge(self):
+        """Several tickets of a batch commonly wait on the same one."""
+        with mock.patch.object(vt, "fetch_blocked_by", side_effect=lambda n: [999]), \
+             mock.patch.object(vt, "fetch_body", side_effect=lambda n: body()), \
+             mock.patch.object(vt, "fetch_outsider",
+                               return_value={"spec": 76, "state": "CLOSED"}) as look:
+            found = vt.ticket_entries([61, 62])
+        look.assert_called_once_with(999)
+        self.assertEqual(found[0]["outside"], {999: {"spec": 76, "state": "CLOSED"}})
+
+
+class TestInBatch(unittest.TestCase):
+    def test_a_dependency_outside_the_batch_is_dropped(self):
+        kept = vt.in_batch(entries(a61=[], a62=[61, 999]))
+        self.assertEqual([e["dependencies"] for e in kept], [[], [61]])
+
+    def test_the_entries_it_was_given_are_left_alone(self):
+        original = entries(a61=[], a62=[61, 999])
+        vt.in_batch(original)
+        self.assertEqual(original[1]["dependencies"], [61, 999])
+
+
+class TestParentSpec(unittest.TestCase):
+    def test_the_parent_spec_is_read_off_the_parent_section(self):
+        self.assertEqual(vt.parent_spec(body(parent=60)), 60)
+
+    def test_a_cross_repo_issue_ref_is_not_this_repos_spec(self):
+        foreign = ("## Parent\n\n无 spec；本仓自建票。"
+                   "[agentflow#655](https://github.com/agentflow-hq/agentflow/issues/655)\n")
+        self.assertIsNone(vt.parent_spec(foreign))
+
+    def test_owner_slash_repo_hash_is_not_this_repos_spec(self):
+        foreign = "## Parent\n\nagentflow-hq/agentflow#655 is the source.\n"
+        self.assertIsNone(vt.parent_spec(foreign))
+
+
+class TestFetchParent(unittest.TestCase):
+    """`gh issue view <n> --json parent` is the tracker's own answer to which spec a
+    ticket sits under. A ticket with no parent and a tracker that did not answer are
+    different facts, and the second one is loud."""
+
+    def fetch(self, returncode=0, stdout="", stderr=""):
+        """`fetch_parent(77)` over one canned `gh` result; returns `(answer, the mock)`."""
+        result = subprocess.CompletedProcess([], returncode, stdout, stderr)
+        with mock.patch.object(vt.subprocess, "run", return_value=result) as run:
+            return vt.fetch_parent(77), run
+
+    def test_the_linked_spec_is_returned(self):
+        spec, run = self.fetch(stdout='{"parent":{"number":537,"state":"OPEN"}}')
+        self.assertEqual(spec, 537)
+        self.assertEqual(run.call_args.args[0],
+                         ["gh", "issue", "view", "77", "--json", "parent"])
+
+    def test_no_parent_link_reads_as_none(self):
+        self.assertIsNone(self.fetch(stdout='{"parent":null}')[0])
+
+    def test_a_failed_call_raises_with_what_gh_said(self):
+        with self.assertRaises(vt.ParentUnreadable) as caught:
+            self.fetch(returncode=1, stderr="gh: Could not resolve to a Repository\n")
+        self.assertIn("Could not resolve", str(caught.exception))
+
+    def test_output_that_is_not_json_raises(self):
+        with self.assertRaises(vt.ParentUnreadable):
+            self.fetch(stdout="not json at all")
+
+
+def tree_answer(children, total=None, root=655):
+    """The tracker's answer to the one tree query rooted at spec `root`."""
+    nodes = [{"number": n, "title": f"ticket {n}", "state": "OPEN",
+              "subIssuesSummary": {"total": 0, "completed": 0},
+              "subIssues": {"nodes": []}} for n in children]
+    return json.dumps({"data": {"repository": {"issue": {
+        "number": root, "title": "spec", "state": "OPEN",
+        "subIssuesSummary": {"total": len(children) if total is None else total,
+                             "completed": 0},
+        "subIssues": {"nodes": nodes}}}}})
+
+
+class TestFetchSubIssues(unittest.TestCase):
+    """One GraphQL query for the whole tree under the spec. A spec this repository does
+    not have, a tracker that answers with an error, and a list shorter than the count
+    the tracker gives for it are all refusals — never a smaller batch."""
+
+    def fetch(self, returncode=0, stdout="", stderr=""):
+        result = subprocess.CompletedProcess([], returncode, stdout, stderr)
+        with mock.patch.object(vt.subprocess, "run", return_value=result) as run:
+            return vt.fetch_sub_issues(655), run
+
+    def test_numbers_are_returned_from_one_graphql_query(self):
+        numbers, run = self.fetch(stdout=tree_answer([161, 166]))
+        self.assertEqual(numbers, [161, 166])
+        self.assertEqual(run.call_count, 1)
+        args = run.call_args.args[0]
+        self.assertEqual(args[:3], ["gh", "api", "graphql"])
+        self.assertIn("root=655", args)
+        self.assertNotIn("sub_issues", " ".join(args))
+
+    def test_a_failed_call_raises_a_typed_error_not_called_process_error(self):
+        with self.assertRaises(vt.SubIssuesUnreadable) as caught:
+            self.fetch(returncode=1, stderr="gh: Not Found\n")
+        self.assertIn("Not Found", str(caught.exception))
+
+    def test_a_list_shorter_than_its_count_is_unreadable_not_a_smaller_batch(self):
+        with self.assertRaises(vt.SubIssuesUnreadable) as caught:
+            self.fetch(stdout=tree_answer([161, 166], total=3))
+        self.assertIn("3 sub-issues and 2 came back", str(caught.exception))
+
+    def test_an_answer_carrying_errors_is_unreadable(self):
+        answer = json.dumps({"data": None, "errors": [
+            {"type": "MAX_NODE_LIMIT_EXCEEDED", "message": "exceeds the maximum limit"}]})
+        with self.assertRaises(vt.SubIssuesUnreadable) as caught:
+            self.fetch(stdout=answer)
+        self.assertIn("exceeds the maximum limit", str(caught.exception))
+
+    def test_a_spec_the_tracker_does_not_have_is_unreadable(self):
+        answer = json.dumps({"data": {"repository": {"issue": None}}})
+        with self.assertRaises(vt.SubIssuesUnreadable):
+            self.fetch(stdout=answer)
+
+    def test_a_tickets_own_children_are_read_one_layer_down(self):
+        result = subprocess.CompletedProcess([], 0, tree_answer([90], root=77), "")
+        with mock.patch.object(vt.subprocess, "run", return_value=result) as run:
+            self.assertEqual(vt.fetch_sub_issues(77, "ticket"), [90])
+        query = next(a for a in run.call_args.args[0] if a.startswith("query="))
+        self.assertEqual(query.count("subIssues("), 1)
+        self.assertIn("subIssues(first:50)", query)
+
+
+class TestBorrowedFromUpstream(unittest.TestCase):
+    """The four functions are grok-bundled's, function for function.
+
+    What may differ: the signature (type annotations), the docstring, and any line
+    carrying a message — those name issues rather than `pr-<n>` entries. What may not:
+    the control flow. Strip the docstrings and every line with a string literal in it,
+    and the two files have to read identically.
+    """
+
+    UPSTREAM = (SCRIPT.parents[4]
+                / "docs/research/code-landing-refs/grok-bundled/execute-plan/scripts/validate-plan.py")
+    # The three that carry no message at all: their lines have to match exactly.
+    PURE = ("_detect_cycles", "_trace_cycle", "compute_levels")
+    # `validate_dag` is where the shape of an entry shows: upstream spends four lines
+    # turning `pr-3` back into `PR 3` for its message, so it is checked by structure.
+    SHAPED = "validate_dag"
+
+    @staticmethod
+    def logic(path, name):
+        """A function's lines with the signature, docstring, comments and messages gone."""
+        lines = path.read_text(encoding="utf-8").splitlines()
+        start = next(i for i, l in enumerate(lines) if l.startswith(f"def {name}("))
+        body, in_doc = [], False
+        for line in lines[start + 1:]:
+            if line.startswith("def ") or line.startswith("# ---"):
+                break
+            stripped = line.strip()
+            if stripped.startswith('"""'):
+                in_doc = not (in_doc or stripped.count('"""') == 2)
+                continue
+            if in_doc or not stripped or stripped.startswith("#"):
+                continue
+            if '"' in stripped or "'" in stripped:
+                continue
+            body.append(stripped)
+        return body
+
+    def test_the_upstream_file_is_where_the_ticket_says(self):
+        self.assertTrue(self.UPSTREAM.is_file(), self.UPSTREAM)
+
+    def test_the_control_flow_is_identical_line_for_line(self):
+        for name in self.PURE:
+            with self.subTest(function=name):
+                theirs = self.logic(self.UPSTREAM, name)
+                ours = self.logic(SCRIPT, name)
+                self.assertTrue(theirs, f"{name} not found upstream")
+                self.assertEqual(theirs, ours)
+
+    def test_validate_dag_checks_duplicates_then_cycles(self):
+        """A blocker outside the batch is not this function's to name: `in_batch`
+        dropped it, and `blockers_not_tickets` / `cross_batch_findings` say what it is."""
+        ours = self.source(SCRIPT, self.SHAPED)
+        self.assertIn("seen = set()", ours)
+        self.assertIn('seen.add(entry["id"])', ours)
+        self.assertIn("if not errors:", ours)
+        self.assertIn("errors.extend(_detect_cycles(entries))", ours)
+        self.assertNotIn("if dep not in seen:", ours)
+        self.assertNotIn("[dangling]", ours)
+        self.assertLess(ours.index('seen.add(entry["id"])'),
+                        ours.index("errors.extend(_detect_cycles(entries))"))
+
+    @staticmethod
+    def source(path, name):
+        """A function's own lines, verbatim."""
+        lines = path.read_text(encoding="utf-8").splitlines()
+        start = next(i for i, l in enumerate(lines) if l.startswith(f"def {name}("))
+        out = []
+        for line in lines[start:]:
+            if out and (line.startswith("def ") or line.startswith("# ---")):
+                break
+            out.append(line)
+        return "\n".join(out)
+
+    def test_what_differs_is_only_the_shape_of_an_entry(self):
+        # Upstream translates `pr-3` back into `PR 3` for its messages; here `ref` writes
+        # an issue number as `#<n>` and a draft's name as itself, and that is the whole
+        # of the difference.
+        theirs = self.source(self.UPSTREAM, "validate_dag")
+        ours = self.source(SCRIPT, "validate_dag")
+        self.assertIn('replace("pr-", "PR ", 1)', theirs)
+        self.assertNotIn("pr-", ours)
+        self.assertIn("{ref(entry['id'])}", ours)
+        self.assertEqual(vt.ref(301), "#301")
+        self.assertEqual(vt.ref("T2-topbar"), "T2-topbar")
+
+if __name__ == "__main__":
+    unittest.main()

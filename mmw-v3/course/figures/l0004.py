@@ -171,7 +171,7 @@ SHARED = [
     ("开头五条事实：读者不读代码、只看产品和文字、工作记忆小……", [("config", "全局层"), ("mode", "## Writing the reply")],
      "压成两三句写进全局层；理由删掉，只写做什么（pstack 的写法）；「只看产品和文字」「工作记忆小」进 Writing the reply 开头"),
     ("一句话：像工程师向老板汇报，老板不是外行、不读代码", [("config", "全局层")], "原样留，作全局层第一句"),
-    ("脚本起的会话（worker、reviewer）按票办事", [("playbook", "夜里的 playbook")], "移出全局层：只对夜里的 agent 成立"),
+    ("脚本起的会话（worker、reviewer）按票办事", [("mode", "## Autonomy")], "移出全局层，成为 Unattended 一段：只对脚本起的会话成立，三份角色 playbook 共用（第 5 课决定 5）"),
     ("规则 1：工程归你，产品归我", [("config", "全局层"), ("mode", "## Autonomy")],
      "只归你的决定清单放全局层；「先做完不依赖它的部分再问」「范围外的先问」进 Always pause"),
     ("规则 2：讨论里的问题只回答；批准的计划做到底", [("mode", "## Autonomy")],
@@ -198,7 +198,7 @@ SHARED = [
     ("规则 15：不默认跑全量测试", [("principle", "run-the-smallest-test-set")], "pstack 没有，成为原则"),
     ("结尾：这份文件起作用时是什么样", [("mode", "## Writing the reply")],
      "改成回复的完成判据：你读完不用问「所以呢」，要么决定，要么放下"),
-    ("hosts/codex.md：别打断正在干活的子代理", [("other", "下一课")], "属于 MMW 自己的子代理规则，下一课一起搬"),
+    ("hosts/codex.md：别打断正在干活的子代理", [("mode", "## Subagents")], "并进「派发方对产出负责」一段：等派出的子代理都交回再结束回合（第 5 课）；脚本开的会话不轮询，结束回合等叫醒"),
 ]
 
 PSTACK_MERGED = [
@@ -258,7 +258,7 @@ def _mapping(rows, head):
 
 def shared_map():
     f, y = _mapping([("config", s, d, h) for s, d, h in SHARED], ("m11", "shared.md 的每一段"))
-    return f.svg(y + 4, "shared.md 的每一段和 hosts/codex.md 去哪、怎么采用：读者和只归主人的决定留在全局层；规则 1、2、3 进 Autonomy；规则 11 并进 never-block-on-the-human；规则 4、5、6、9 和结尾进 Writing the reply；规则 7 交给 unslop；规则 8、10、12、13、14、15 各成一条新原则；脚本起的会话那段移进夜里的 playbook；codex.md 那句属于子代理规则，下一课处理。")
+    return f.svg(y + 4, "shared.md 的每一段和 hosts/codex.md 去哪、怎么采用：读者和只归主人的决定留在全局层；规则 1、2、3 进 Autonomy；规则 11 并进 never-block-on-the-human；规则 4、5、6、9 和结尾进 Writing the reply；规则 7 交给 unslop；规则 8、10、12、13、14、15 各成一条新原则；脚本起的会话那段成为 Autonomy 的 Unattended 一段；codex.md 那句并进 Subagents。")
 
 
 def pstack_map():
@@ -311,7 +311,7 @@ def design():
     bx = r + 324
     f.ar([(bx, 31), (bx + 24, 31)])
     dcx = bx + 24 + 150
-    f.dia(dcx, 31, 150, 28, ["你输入 /mmw-mode，或这是", "dispatch.sh 起的 agent？"])
+    f.dia(dcx, 31, 150, 28, ["钩子、你输入 /mmw-mode，", "或 start prompt 第一句？"])
     f.ar([(dcx + 150, 31), (dcx + 178, 31)], "否", dcx + 154, 24)
     _text(f, dcx + 182, 35, "只照全局层工作", "s")
     f.ar([(dcx, 59), (dcx, 92)], "是：载入全文", dcx + 8, 80)
@@ -321,7 +321,7 @@ def design():
     # frontmatter
     _band_head(f, y, "frontmatter", ["决定什么时候载入"], 48)
     _text(f, X0, y + 22, "disable-model-invocation: true", "m")
-    _text(f, X0, y + 40, "模型不会自己载入它：只有你输入 /mmw-mode，或 dispatch.sh 的开工提示词要求先载入", "s")
+    _text(f, X0, y + 40, "模型不会自己载入它：有 .mmw/ 的仓库里钩子载入，没有钩子的宿主你输入 /mmw-mode，脚本开的会话由 start prompt 第一句载入", "s")
     y += 48
 
     # Non-negotiables
@@ -359,6 +359,7 @@ def design():
         ("只有你能定的（见下行）", "mode", "先做完不依赖它的部分，再带选项和建议问你", None),
         ("你说「去睡了」，或计划已批准", "mode", "一直做到底，不中途问「要继续吗」", None),
         ("你问它的意见", "mode", "给真实判断，有问题就说并给替代方案", None),
+        ("脚本起的会话，没人可问", "mode", "Unattended：取最可能的选项，记下来，接着做", None),
     ]
     h = _branch(f, y + 10, ["这件事", "归谁定？"], rows) + 40
     _band_head(f, y, "## Autonomy", ["要做一件事，", "或想问你的时候"], h)
@@ -368,7 +369,7 @@ def design():
     # Subagents
     h = 78
     _band_head(f, y, "## Subagents", ["开子代理之前"], h)
-    f.box("other", X0, y + 16, 560, 46, "下一课定 ⑤⑥", ["内容来自 MMW 自己的子代理规则，和 pstack 的 Subagents 逐条比较后再写"], mono=False)
+    f.box("mode", X0, y + 16, 600, 46, "技能派出子代理的通用规则（第 5 课）⑤⑥", ["宿主自带的通用子代理、不指定模型；brief 写明交回什么、多长；派发方对产出负责"], mono=False)
     y += h
 
     # Writing the reply
@@ -390,7 +391,8 @@ def design():
         ("要暂停，或上下文快满", "playbook", "Pause safely", "⑧　第 4 步照 handoff 写交接说明"),
         ("写或改技能、playbook、原则、mode", "playbook", "Authoring or modifying a skill", "⑨"),
         ("审一套技能", "playbook", "Review the skill set", "⑨"),
-        ("夜里做一张票", "playbook", "夜里的 playbook", "⑤⑥⑦　讲夜里的那一课再写"),
+        ("跑一夜的票，或修一个 bug", "playbook", "Run a night / Bug fix", "⑤⑦"),
+        ("start prompt 点名的", "playbook", "Work / Review a ticket", "⑥"),
         ("没有一份合适", "skill", "figure-it-out", "为这一次设计流程"),
     ]
     h = _branch(f, y + 10, ["匹配哪一行", "路由？"], rows) + 56
@@ -415,7 +417,7 @@ def design():
         ("要把一个计划问清楚", "other", "你输入 /grill-me", "skill", "grilling", "⑪　卡在别人知道的事：to-questionnaire"),
         ("要学一个主题", "other", "你输入 /teach", "skill", "teach", "⑫"),
         ("夜里 worker 想弹出提问", "script", "tool-guard.py 拦下", "skill", "verify-ticket 的子票", "⑦　decision 或 contract"),
-        ("worker 关票", "script", "verify-ticket.py --closeout", "skill", "implement 的收尾评论", "⑥　格式不对就拒绝"),
+        ("worker 关票", "script", "verify-ticket.py --closeout", "playbook", "Work a ticket 的收尾评论", "⑥　格式不对就拒绝"),
     ]
     zh = 40 + len(rows) * 36
     f.zone(10, y, 980, zh, "不经过 mode：你直接调用的技能，和脚本强制的规则")
@@ -427,7 +429,7 @@ def design():
         f.ar([(COMP_X - 22, yy), (COMP_X - 3, yy)])
         f.chip(kk, COMP_X, yy - 12, comp, note, mono=False)
     y += zh
-    return f.svg(y + 8, "合并后的设计，画在 mmw-mode/SKILL.md 的骨架里：会话开始时宿主载入全局层，你输入 /mmw-mode 或 dispatch.sh 起的 agent 才载入 mode；Non-negotiables 在写文字时按情况调用 unslop、technical-writing、writing-for-agents，其余的触发就是原则的索引行；Principles 载入时读索引，条件出现读原则全文；Autonomy 按归谁定分五种做法，跑得出来的事实自己跑；Subagents 的内容下一课从 MMW 自己的子代理规则来；Writing the reply 与 Comments 在写的时候用；Playbooks 在任务开始时按路由选 Pause safely、Authoring or modifying a skill、Review the skill set、夜里的 playbook 或 figure-it-out，两份写技能和审技能的 playbook 共用 references/skill-set-rules.md。mode 之外：你直接调用 wait-what（visual 交给 diagram-design 画）、grilling、teach；tool-guard.py 和 verify-ticket.py 在夜里强制两条规则。")
+    return f.svg(y + 8, "合并后的设计，画在 mmw-mode/SKILL.md 的骨架里：会话开始时宿主载入全局层，钩子、你输入 /mmw-mode 或 start prompt 第一句才载入 mode；Non-negotiables 在写文字时按情况调用 unslop、technical-writing、writing-for-agents，其余的触发就是原则的索引行；Principles 载入时读索引，条件出现读原则全文；Autonomy 按归谁定分六种做法，跑得出来的事实自己跑，脚本起的会话按 Unattended 一段做；Subagents 写技能派出子代理的通用规则；Writing the reply 与 Comments 在写的时候用；Playbooks 在任务开始时按路由选 Pause safely、Authoring or modifying a skill、Review the skill set、四份角色 playbook 或 figure-it-out，两份写技能和审技能的 playbook 共用 references/skill-set-rules.md。mode 之外：你直接调用 wait-what（visual 交给 diagram-design 画）、grilling、teach；tool-guard.py 和 verify-ticket.py 在夜里强制两条规则。")
 
 
 FIGS = {"l4-moments": moments, "l4-coverage": coverage, "l4-choices": choices,

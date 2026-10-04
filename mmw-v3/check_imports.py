@@ -4,8 +4,9 @@
 Run from anywhere inside the repository: python3 mmw-v3/check_imports.py
 
 1. Every file under mmw-v3/skills/ has one row, except the files v3 wrote
-   itself (mmw-v3/skills/README.md and everything under mmw-mode/), and every
-   row's `local` exists. A row whose `local` ends in `/` covers every file
+   itself (mmw-v3/skills/README.md, everything under mmw-mode/, and the dispatch
+   skill's scripts/check-interfaces.py) and the `__pycache__/` a test run leaves,
+   and every row's `local` exists. A row whose `local` ends in `/` covers every file
    below it that has no row of its own; links are not followed.
 2. Every row's `source` can be read at its `commit`. MMW's own text is read
    with `git show <commit>:<source>`; an upstream repository's text is read
@@ -27,7 +28,8 @@ ROOT = pathlib.Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], capt
                                    check=True, cwd=pathlib.Path(__file__).parent).stdout.strip())
 SKILLS = ROOT / "mmw-v3" / "skills"
 OWN = "chancheuklap/multi-model-workflow"
-V3_WRITTEN = ("mmw-v3/skills/README.md", "mmw-v3/skills/mmw-mode/")
+V3_WRITTEN = ("mmw-v3/skills/README.md", "mmw-v3/skills/mmw-mode/",
+              "mmw-v3/skills/dispatch/scripts/check-interfaces.py")
 # mmw-v3/upstream-pstack/ is a split of cursor/plugins' pstack/ directory, so its
 # squash commit names the split, not the cursor/plugins commit. Each line maps a
 # cursor/plugins commit to its split and the directory the split was cut from.
@@ -74,7 +76,9 @@ def main():
     locals_ = [r["local"] for r in rows]
     dirs = [r for r in rows if r["local"].endswith("/")]
     covered = {}
-    for top, _, names in os.walk(SKILLS):
+    for top, dirs_here, names in os.walk(SKILLS):
+        # Bytecode a test run leaves beside a script is not part of the set; git ignores it.
+        dirs_here[:] = [d for d in dirs_here if d != "__pycache__"]
         for name in sorted(names):
             rel = (pathlib.Path(top) / name).relative_to(ROOT).as_posix()
             if rel.startswith(V3_WRITTEN) or rel == V3_WRITTEN[0] or locals_.count(rel) == 1:
