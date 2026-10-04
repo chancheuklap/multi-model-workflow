@@ -390,7 +390,7 @@ def design():
         ("要暂停，或上下文快满", "playbook", "Pause safely", "⑧　第 4 步照 handoff 写交接说明"),
         ("写或改技能、playbook、原则、mode", "playbook", "Authoring or modifying a skill", "⑨"),
         ("审一套技能", "playbook", "Review the skill set", "⑨"),
-        ("夜里做一张票", "playbook", "夜里的 playbook", "⑤⑥⑦　票就是任务说明"),
+        ("夜里做一张票", "playbook", "夜里的 playbook", "⑤⑥⑦　讲夜里的那一课再写"),
         ("没有一份合适", "skill", "figure-it-out", "为这一次设计流程"),
     ]
     h = _branch(f, y + 10, ["匹配哪一行", "路由？"], rows) + 56

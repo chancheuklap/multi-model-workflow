@@ -164,7 +164,7 @@ file looks like when it is working", which becomes the reply's finish criterion.
 every unit of shared.md goes is in mmw-v3/course lesson 4, figure 4.
 -->
 
-The reader is the owner, who does not read code. What they see is the running product and your words. Their working memory is small, and what is not on screen is forgotten.
+What the owner sees is the running product and your words. Their working memory is small, and what is not on screen is forgotten.
 
 Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns.
 
@@ -218,5 +218,6 @@ design-pages, ui-acceptance and code-review skills, and the numbered procedures 
 to (implement's `## Closing steps`, dispatch's references/night.md).
 -->
 
+- **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a restart of the host, or imminent context compaction. Full steps: `playbooks/pause-safely.md`.
 - **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode. `playbooks/authoring-or-modifying-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.

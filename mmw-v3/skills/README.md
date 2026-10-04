@@ -16,6 +16,7 @@ Read this file before writing or moving anything into v3, and again whenever a p
 | script | `<skill>/scripts/<file>` | The part a program can do or check | `mmw-mode/scripts/README.md` |
 | subagent | none yet | Who a spawned agent is and what it reads first | this file, below |
 | configuration | outside the skills (`~/.mmw/models.json`) | Which model each role runs on | this file, below |
+| user-level prompt | `mmw-v3/prompt/shared.md` | Who reads every reply, and which decisions only the owner makes; every session carries it, with or without the mode | this file, below |
 
 ## The method
 
@@ -76,3 +77,9 @@ These hold for every component. They come from how pstack itself adds and change
 - **For:** a choice that differs per person or machine and must hold in every session, such as the model for each role. Every skill keeps its own default, so nothing breaks without the configuration.
 - **Not for:** text in the mode or a skill.
 - MMW's is `~/.mmw/models.json`, changed only through `models.py`.
+
+## user-level prompt
+
+- **For:** what holds in every session, the mode loaded or not: who reads the reply, and which decisions only the owner makes.
+- **Not for:** anything the mode, a principle or a skill holds. The mode's `## Autonomy` points to this file for the owner's decisions instead of listing them again.
+- **Main source in MMW v2:** `mmw-v2/prompt/shared.md`, which reaches the hosts as `~/.claude/CLAUDE.md` and the generated `AGENTS.md` files. Where each of its rules went is in `mmw-v3/course/` lesson 4, figure 4.

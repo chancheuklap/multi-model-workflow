@@ -106,7 +106,7 @@ An **upstream skill** is one whose text was first written outside `mmw-v3/skills
 
 | Column | Holds |
 | --- | --- |
-| `type` | the component kind: `skill`, `playbook`, `reference`, `script`, or for text merged into a part of a file, `mode-section` or `principle` |
+| `type` | the component kind: `skill`, `playbook`, `reference`, `script`, `prompt`, or for text merged into a part of a file, `mode-section` or `principle` |
 | `local` | the path of the copy, with `#<heading>` when only a part came in; a path ending in `/` covers every file below it that has no row of its own, each byte-identical to its source |
 | `upstream` | the repository that first wrote the text (`mattpocock/skills`, `cursor/plugins`; `chancheuklap/multi-model-workflow` for MMW's own text) |
 | `source` | the path in that repository, with `#<heading>` or `:<line>` when only a part came in |
