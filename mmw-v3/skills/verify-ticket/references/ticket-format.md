@@ -15,7 +15,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, the sections of `CODING_STANDARDS.md` and `TESTING.md` the spec relies on, copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, a design package pulled into the repository, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, the sections of `CODING_STANDARDS.md` the spec relies on, its `## Tests` section among them, copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, a design package pulled into the repository, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing.
 
 ## Seam
 
@@ -48,7 +48,7 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
 
 Avoid implementation file paths or code snippets: they go stale fast; paths to source material stay, and so do the two kinds of path a ticket cannot do without: the test directory or test file under **Seam**, and the paths under **Owns**, which say where this ticket may write, not where its code lives. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
 
-A ticket outside any spec has no Testing Decisions to copy from: its **Seam** and each `CHECK:` take their layer, directory and precedent from the repository's `TESTING.md` and the nearest test of the same kind.
+A ticket outside any spec has no Testing Decisions to copy from: its **Seam** and each `CHECK:` take their layer, directory and precedent from the `## Tests` section of the repository's `CODING_STANDARDS.md` and the nearest test of the same kind.
 
 ## Each acceptance criterion
 
@@ -58,7 +58,7 @@ Three rules bind how each one is worded:
 2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected".
 3. One behaviour per criterion, independently true or false. Split compounds.
 
-**A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the worker's final run, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code.
+**A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the worker's final run, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. The repository's own whole-tree checker (a `lint.sh`, a full type-check) is not a `CHECK:` either: it fails on files this ticket never touched and blocks it on somebody else's work. A behaviour the ticket must keep as it is, as a restructuring must, is decided by a pin (**principle-a-check-must-be-able-to-fail**), a criterion green before the work by design.
 
 Every criterion is four lines, and carries a number you assign as you write it and never renumber.
 

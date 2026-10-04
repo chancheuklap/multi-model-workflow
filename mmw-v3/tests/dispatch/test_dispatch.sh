@@ -7967,6 +7967,57 @@ scenario_finishred() {
   return 0
 }
 
+# The project branch is inside the base branch, and the base branch's tip is the merge
+# commit `land` recorded for #61: the tree finish would merge is the one land checked.
+setup_finish_over_landing() {
+  local passed tip
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  mkdir -p "$TMP/repo/.mmw"
+  printf '{"checks":["printf x >> %s; false"]}\n' "'$TMP/check-runs'" > "$TMP/repo/.mmw/target.json"
+  git -C "$TMP/repo" add .mmw/target.json; git -C "$TMP/repo" commit -q -m checks
+  git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night proj
+  git -C "$TMP/repo" checkout -q -b issue-61 night
+  commit_file "$TMP/repo" ticket.txt ticket ticket
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  git -C "$TMP/repo" checkout -q night
+  git -C "$TMP/repo" merge -q --no-ff -m "Merge branch 'issue-61'" issue-61
+  tip="$(git -C "$TMP/repo" rev-parse night)"
+  git -C "$TMP/repo" push -q -u origin night
+  git -C "$TMP/repo" checkout -q proj
+  echo '[{"number":61,"state":"CLOSED","labels":[]}]' > "$TMP/tickets.json"
+  reset_log
+  closed_night_spec
+  post_ev 61 ticket.landed --ticket 61 --spec 76 --line "Landed issue-61 into night" \
+    --field branch=issue-61 --field into=night --field "commit=$passed" --field "merge=$tip" \
+    --field "base=$(git -C "$TMP/repo" rev-parse proj)"
+}
+
+scenario_finishskipschecked() {
+  local code
+  setup_finish_over_landing
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish over a checked landing failed: $(cat "$TMP/err")"
+  [ ! -e "$TMP/check-runs" ] || fail "finish ran the checks on a tree land had checked"
+  grep -q 'checked when #61 landed' "$TMP/out" || fail "finish did not say why it ran no checks: $(cat "$TMP/out")"
+  [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] || fail "finish did not record the merge"
+}
+
+scenario_finishchecksbasepush() {
+  local code before
+  setup_finish_over_landing
+  git -C "$TMP/repo" checkout -q night
+  commit_file "$TMP/repo" fix.txt fix "closing-pass fix"
+  git -C "$TMP/repo" push -q origin night
+  git -C "$TMP/repo" checkout -q proj
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 1 ] || fail "a base pushed to after its last landing was not checked: $code $(cat "$TMP/err")"
+  [ "$(cat "$TMP/check-runs" 2>/dev/null)" = x ] || fail "finish did not run the checks once"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "red finish changed project"
+}
+
 scenario_finishkeepsdirty() {
   local code dirty
   setup_finish_closed
@@ -8589,32 +8640,19 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
 }
 
-scenario_advanceskipsecondcheck() {
-  setup_checked_ticket "echo ran > '$TMP/check-ran'; exit 1"
-  local passed checked code
+scenario_advancechecksonce() {
+  setup_checked_ticket "printf 'x\\n' >> '$TMP/check-runs'"
+  local passed code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
-  checked="$(ev ticket.checked 61 "Repository checks passed" --field run=repo-checks \
-    --field "commit=$passed" --field result=met)"
-  write_one_passed 61 "$passed" "$checked"
+  git -C "$TMP/repo" merge-base --is-ancestor origin/main "$passed" \
+    || fail "the fixture's ticket does not contain origin/main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "the proven tree should land without a second check: $(cat "$TMP/err")"
-  [ ! -e "$TMP/check-ran" ] || fail "the repository check ran a second time"
-
-  setup_checked_ticket "printf 'reran\\n' > '$TMP/check-ran'"
-  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
-  checked="$(ev ticket.checked 61 "Repository checks passed" --field run=repo-checks \
-    --field "commit=$passed" --field result=met)"
-  write_one_passed 61 "$passed" "$checked"
-  local other
-  other="$(other_clone)"
-  commit_file "$other" sibling.txt sibling sibling
-  git -C "$other" push -q origin main
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "a changed origin base should be rechecked: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/check-ran" 2>/dev/null)" = reran ] \
-    || fail "the repository check was reused after origin/main advanced"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main \
+    || fail "the ticket did not land"
+  [ "$(wc -l < "$TMP/check-runs" 2>/dev/null | tr -d ' ')" = 1 ] \
+    || fail "the merge result of a ticket on an unmoved base was not checked exactly once"
 }
 
 scenario_advancebaseref() {
@@ -9610,14 +9648,14 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -9669,7 +9707,7 @@ banner_for() {
     advancebouncedconflict) echo ADVANCE-BOUNCED-CONFLICT-OK ;;
     advancenohalfmerge) echo ADVANCE-NO-HALF-MERGE-OK ;;
     advancebouncedchecks) echo ADVANCE-BOUNCED-CHECKS-OK ;;
-    advanceskipsecondcheck) echo ADVANCE-SKIP-SECOND-CHECK-OK ;;
+    advancechecksonce) echo ADVANCE-CHECKS-ONCE-OK ;;
     advancebaseref) echo ADVANCE-BASE-REF-OK ;;
     advancenochecks) echo ADVANCE-NO-CHECKS-OK ;;
     advanceraced) echo ADVANCE-RACED-OK ;;
@@ -9816,6 +9854,8 @@ banner_for() {
     finishrefusesnoproject) echo FINISH-REFUSES-NO-PROJECT-OK ;;
     finishconflict) echo FINISH-CONFLICT-OK ;;
     finishred) echo FINISH-RED-OK ;;
+    finishskipschecked) echo FINISH-SKIPS-CHECKED-OK ;;
+    finishchecksbasepush) echo FINISH-CHECKS-BASE-PUSH-OK ;;
     finishkeepsdirty) echo FINISH-KEEPS-DIRTY-OK ;;
     finishrerun) echo FINISH-RERUN-OK ;;
     finishcontained) echo FINISH-CONTAINED-OK ;;

@@ -92,21 +92,25 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 - **Start from What Exists** (**principle-start-from-what-exists**). Before proposing an approach or writing non-trivial code. Search for what already exists and read it, then use it, extend it, or build only after the search came back empty.
 - **Laziness Protocol** (**principle-laziness-protocol**). Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
+
 **Architecture**
+
 - **Migrate Callers Then Delete Legacy APIs** (**principle-migrate-callers-then-delete-legacy-apis**). Introducing a new internal API while old callers exist. Migrate and delete in one wave.
+- **Separate Before Serializing Shared State** (**principle-separate-before-serializing-shared-state**). Concurrent actors might write the same file, branch, key, or object. Eliminate the sharing first.
 
 **Verification**
 
 - **Prove It Works** (**principle-prove-it-works**). After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
 - **Read Before You Conclude** (**principle-read-before-you-conclude**). Saying what a file says, or changing it. Read enough to be sure, and read a file whole before you edit it.
 - **Run the Smallest Test Set** (**principle-run-the-smallest-test-set**). Choosing which tests to run. Run the smallest set that proves the change; a full suite needs a named reason.
-- **A Check Must Be Able to Fail** (**principle-a-check-must-be-able-to-fail**). Writing, changing, keeping or trusting a test or a check. Show it can fail for the defect it guards: red first, for the right reason, and not still green when every imported function returns `undefined`.
+- **A Check Must Be Able to Fail** (**principle-a-check-must-be-able-to-fail**). Writing, changing, keeping or trusting a test or a check. Show it can fail for the defect it guards: red first, for the right reason, and not still green when every imported function returns `undefined`; for behaviour a change must keep, a pin you have seen go red by breaking that behaviour.
 - **Fix the Product, Not the Check** (**principle-fix-the-product-not-the-check**). A check fails. Fix the product or record the criterion as not met; never change the check, its harness, its test or its baseline to pass.
 - **The Baseline Is the Contract** (**principle-baseline-is-the-contract**). Building against a decision already made: the owner's answer, a prototype that won, a signed page, a spec section. Copy it, do not rewrite or improve it; where it does not hold, say so where its owner sees it.
 
 **Delegation**
 
 - **Never Block on the Human** (**principle-never-block-on-the-human**). Tempted to ask "should I do X?" on reversible work, or a step failed or was interrupted. Proceed, present the result, finish what failed yourself, and let the human course-correct.
+- **Progress Is What the Record Says** (**principle-progress-is-what-the-record-says**). Starting, waking on, or taking over work a record tracks. Act from the step the record puts you at, not from what this session remembers.
 
 **Writing**
 
@@ -262,6 +266,7 @@ When your start prompt names a playbook, run that playbook from the step the tic
 - **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode. `playbooks/authoring-or-modifying-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
 - **Run a night.** Running a spec's published tickets as their orchestrator, from `open` to `finish` once the owner has accepted the night ("start the night", "run the batch", "accept the night"). Distinct from Run one ticket, which runs one ticket outside any night. `playbooks/run-a-night.md`.
+- **Revise a spec.** Changing a decision in a spec already on the tracker: the section rewritten in place, the reason left on the spec, the tickets cut from it brought into line. Distinct from Make a small change, which changes the product's code. `playbooks/revise-a-spec.md`.
 - **Run one ticket.** Running one written ticket outside a night, with this session as its orchestrator, from `open-ticket` to `land`. Distinct from Run a night, which runs a spec's batch. `playbooks/run-one-ticket.md`.
 - **Work a ticket.** Working one ticket as its worker, from its claim to its closing comment. Only a start prompt names it. `playbooks/work-a-ticket.md`.
 - **Review a ticket.** Writing one ticket's review report as its reviewer, from a base commit its worker gave. Only a start prompt names it. `playbooks/review-a-ticket.md`.

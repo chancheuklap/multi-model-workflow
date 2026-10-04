@@ -1357,7 +1357,7 @@ remove_worktree() {
 # files are taken, the same set the preflight checks; the screenshots and caches a
 # criteria run writes are untracked and stay out. The repository's own commit hooks are
 # skipped: what is saved is half-written code, and a hook refusing it would stop the
-# hand-over; the next worker's commits and the closeout's checks run them as usual.
+# hand-over; the next worker's commits run them as usual.
 # Exit 0 committed, or nothing to commit; 1 not committed, the reason on stderr.
 keep_unfinished_work() {
   local number="$1" cwd="$2" left_by="$3" out
@@ -2851,15 +2851,21 @@ ticket_into() {
   return 2
 }
 
-repo_checks_met() {
-  local number="$1" commit="$2" field ran="" result=""
-  for field in $(ticket_events "$number" checked --run repo-checks 2>/dev/null); do
-    case "$field" in
-      commit=*) ran="${field#commit=}" ;;
-      result=*) result="${field#result=}" ;;
-    esac
-  done
-  [ "$ran" = "$commit" ] && [ "$result" = met ]
+# Prints the ticket whose landing put origin/<into>'s tip there, when that tip is the merge
+# commit `land` checked and recorded in the ticket's ticket.landed; non-zero otherwise,
+# and when the tip is anything else: a commit pushed to the base branch by hand is a tree
+# no repository check has seen.
+landed_tip_ticket() {
+  local root="$1" into="$2" tip subject number merge prefix="Merge branch 'issue-"
+  tip="$(git -C "$root" rev-parse "origin/$into" 2>/dev/null)" || return 1
+  subject="$(git -C "$root" show -s --format=%s "$tip" 2>/dev/null)" || return 1
+  case "$subject" in "$prefix"*"'") ;; *) return 1 ;; esac
+  number="${subject#"$prefix"}"
+  number="${number%"'"}"
+  case "$number" in *[!0-9]* | "") return 1 ;; esac
+  merge="$(newest_field "$number" merge ticket.landed 2>/dev/null)" || return 1
+  [ "$merge" = "$tip" ] || return 1
+  printf '%s\n' "$number"
 }
 
 MERGE_CHECKS_JSON=""
@@ -3121,15 +3127,13 @@ land_one_via_origin() {
     fi
     merge_commit="$(git -C "$merge_root" rev-parse HEAD)"
 
-    if git -C "$merge_root" merge-base --is-ancestor "origin/$into" "$passed" \
-       && repo_checks_met "$number" "$passed"; then
-      :
-    else
-      run_merge_checks "$merge_root" "$into"; rc=$?
-      if [ "$rc" -eq 3 ]; then
-        echo "dispatch: 没有检查：.mmw/target.json 没声明 checks" >&2
-      elif [ "$rc" -eq 1 ]; then
-        failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c '
+    # The merge result is the tree that lands, so the repository's checks run on it, once
+    # per ticket, whatever ran on the ticket's branch.
+    run_merge_checks "$merge_root" "$into"; rc=$?
+    if [ "$rc" -eq 3 ]; then
+      echo "dispatch: 没有检查：.mmw/target.json 没声明 checks" >&2
+    elif [ "$rc" -eq 1 ]; then
+      failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c '
 import json, os
 value = json.loads(os.environ["MMW_CHECKS_JSON"])
 rows = value.get("failed") or []
@@ -3137,18 +3141,17 @@ if value.get("problem"):
     rows.append({"command": ".mmw/target.json", "tail": value["problem"]})
 print(json.dumps(rows, separators=(",", ":")))
 ')"
-        git -C "$merge_root" reset --hard "origin/$into" >/dev/null
-        if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$failed"; then
-          release_merge_lock
-          return 2
-        fi
-        release_merge_lock
-        return 1
-      elif [ "$rc" -ne 0 ]; then
-        echo "dispatch: could not run repository checks for #$number" >&2
+      git -C "$merge_root" reset --hard "origin/$into" >/dev/null
+      if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$failed"; then
         release_merge_lock
         return 2
       fi
+      release_merge_lock
+      return 1
+    elif [ "$rc" -ne 0 ]; then
+      echo "dispatch: could not run repository checks for #$number" >&2
+      release_merge_lock
+      return 2
     fi
 
     if push_error="$(git -C "$merge_root" push origin "HEAD:$into" 2>&1)"; then
@@ -4388,7 +4391,7 @@ finish_cleanup() {
 }
 
 finish_spec() {
-  local spec="$1" root into project merged merge base attempt rc out files failed
+  local spec="$1" root into project merged merge base attempt rc out files failed checked_by
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository"
@@ -4443,7 +4446,15 @@ finish_spec() {
         exit 1
       fi
       merge="$(git -C "$MERGE_ROOT" rev-parse HEAD)"
-      run_merge_checks "$MERGE_ROOT" "$project"; rc=$?
+      # With origin/<project> inside origin/<into>, the merge's tree is origin/<into>'s. When
+      # that tip is a ticket's landing, `land` already ran the checks on exactly this tree.
+      rc=0
+      if git -C "$MERGE_ROOT" merge-base --is-ancestor "$base" "origin/$into" \
+         && checked_by="$(landed_tip_ticket "$MERGE_ROOT" "$into")"; then
+        echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into, checked when #$checked_by landed"
+      else
+        run_merge_checks "$MERGE_ROOT" "$project"; rc=$?
+      fi
       if [ "$rc" -eq 1 ]; then
         failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c 'import json,os; v=json.loads(os.environ["MMW_CHECKS_JSON"]); print(" | ".join((r.get("command") or ".mmw/target.json") + ": " + (r.get("tail") or v.get("problem") or "failed") for r in (v.get("failed") or [{}] if v.get("problem") else v.get("failed") or [])))')"
         git -C "$MERGE_ROOT" reset --hard "origin/$project" >/dev/null

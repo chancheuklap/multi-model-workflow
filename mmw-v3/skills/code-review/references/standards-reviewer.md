@@ -8,7 +8,7 @@ The request is a ticket (`#<n>`) or a file holding the owner's request word for 
 
 ## 1. Find the repository's documented standards
 
-The repository's `CODING_STANDARDS.md` says how code here should be written, and its domain glossary (`CONTEXT.md`, or the `CONTEXT.md` files `CONTEXT-MAP.md` points to) names the domain vocabulary. Read what you find before you read the diff a second time. When the repository has no `CODING_STANDARDS.md`, apply only the rules in this file and say so in one line of your report.
+The repository's `CODING_STANDARDS.md` says how code here should be written, and its domain glossary (`CONTEXT.md`, or the `CONTEXT.md` files `CONTEXT-MAP.md` points to) names the domain vocabulary. Read what you find before you read the diff a second time. Its `## Tests` section is the Tests axis's: leave the test cases to that axis. When the repository has no `CODING_STANDARDS.md`, apply only the rules in this file and say so in one line of your report.
 
 ## 2. Match the diff against the standards and the smell baseline
 

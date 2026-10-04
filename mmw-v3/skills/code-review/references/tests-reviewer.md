@@ -18,7 +18,7 @@ When the scope is empty, report one line, `no test-backed criteria in this chang
 
 ## 2. Find the repository's documented test rules
 
-The repository's `TESTING.md` says how tests here are written: its layers, which external boundaries may be stubbed, how to run them. Read it before you read the cases in scope. A case in scope that breaks one of its rules is a finding named `documented-standard`: cite the file and the rule. A documented rule always wins: where it endorses something a shape below would flag, that shape is silent. When the repository has no `TESTING.md`, apply the shapes below alone and say so in one line of your report.
+The `## Tests` section of the repository's `CODING_STANDARDS.md` says how tests here are written: its layers, which external boundaries may be stubbed, how to run them. Read it before you read the cases in scope. A case in scope that breaks one of its rules is a finding named `documented-standard`: cite the file and the rule. A documented rule always wins: where it endorses something a shape below would flag, that shape is silent. When the repository's `CODING_STANDARDS.md` has no `## Tests` section, apply the shapes below alone and say so in one line of your report.
 
 ## 3. The test smell baseline
 

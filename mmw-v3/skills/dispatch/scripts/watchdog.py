@@ -744,7 +744,7 @@ class Watchdog:
                             f"not on {self.machine}, and only that machine can ask {runner}; "
                             f"silent since {since or 'an unknown time'}; dispatch.sh resume "
                             f"{number} \"Say in one line where you are, then continue\", and "
-                            f"act on its exit as night.md's Exit codes of resume says",
+                            f"act on its exit as Run a night's step 4 says",
                     "to": to,
                 })
                 continue
@@ -789,7 +789,7 @@ class Watchdog:
                         f"the {kind} session {session} is alive; silent since "
                         f"{since or 'an unknown time'}; dispatch.sh resume {number} \"Say "
                         f"in one line where you are, then continue\", and act on its exit "
-                        f"as night.md's Exit codes of resume says",
+                        f"as Run a night's step 4 says",
                 "to": to,
             })
 

@@ -480,11 +480,8 @@ class TestCarriedLedger(unittest.TestCase):
         comments = [checked("reverify", self.SAME), checked("self", unmet)]
         self.assertEqual(vt.carried_ledger(self.BODY, comments)[0], unmet[0])
 
-    def test_no_run_and_the_repository_checks_carry_nothing(self):
+    def test_no_run_carries_nothing(self):
         self.assertEqual(vt.carried_ledger(self.BODY, []), [])
-        repo = vt.events.build("ticket.checked", ticket=77, line="checks", run="repo-checks",
-                               commit="0" * 40, result="met")
-        self.assertEqual(vt.carried_ledger(self.BODY, [repo]), [])
 
 
 class TestOwns(unittest.TestCase):

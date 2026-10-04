@@ -637,7 +637,6 @@ class WaitingAndSlots(unittest.TestCase):
                              checked_run(run="self")])
         self.assertEqual(state["checks"]["self"]["comment"], 3)
         self.assertEqual(state["checks"]["reverify"]["comment"], 2)
-        self.assertIsNone(state["checks"]["repo-checks"])
         self.assertIsNone(state["checks"]["baseline"])
 
     def test_touched_files_land_in_touched(self):
@@ -806,7 +805,7 @@ class CommandLine(unittest.TestCase):
         code, out, _ = self.run_cli("checked", "61", "--run", "self", "--comments-file", path)
         self.assertEqual(out, f"ticket.checked run=self commit={'a' * 40} result=unmet "
                               f"failed=AC2,AC3\n")
-        code, out, _ = self.run_cli("checked", "61", "--run", "repo-checks",
+        code, out, _ = self.run_cli("checked", "61", "--run", "baseline",
                                     "--comments-file", path)
         self.assertEqual((code, out), (0, ""))
 

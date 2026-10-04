@@ -27,4 +27,6 @@ The check: before you keep a test, ask whether it would still pass if every func
 
 **Red for the right reason.** Run a new check before the code it covers exists, and read why it fails. Red from a missing file, an import error or a typo in a case name proves nothing; the check counts as red only when it fails because the behavior is absent. A command that finds its own object by searching and taking the first hit checks whatever the search returns, and often cannot fail at all: name the object instead.
 
+**A pin for behaviour that must not change.** A change that keeps a behaviour as it is (a restructuring, a move, a dependency swapped for another) has no red to see. Its check is a pin: a characterization test, a snapshot, or a comparison of old and new output, written and run green before the structure moves, and green again after. It counts as able to fail once you have broken that behaviour by hand, watched the pin go red, and put the behaviour back. A type check or a lint is not a pin.
+
 Distinct from **principle-fix-the-product-not-the-check**, which says what to do once a check that can fail does fail.

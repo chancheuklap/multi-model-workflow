@@ -1502,9 +1502,9 @@ def default_draft_path(number: int) -> Path:
     """A file of this run's own making, in a fresh directory outside every repository.
 
     The closing-comment draft recounts the ticket, so it carries every path and file name the ticket
-    names — that is what a closing comment says. `--closeout` then runs the repository's
-    own `checks` over the working tree, and a draft written into that tree is one more
-    file those checks read. A prior ticket with every criterion met stayed open because a
+    names — that is what a closing comment says. A draft written into the working tree is
+    one more file the repository's own tools read: its guards, its hooks, a worker's run
+    of its checks. A prior ticket with every criterion met stayed open because a
     repository guard found two reference file names in the closeout draft written inside
     its working tree. Every consuming repository with a guard over its own Markdown could
     meet the same wall, so the default landing place is outside all of them.
@@ -1778,7 +1778,7 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
     Writing code takes no slot. The first run of the criteria that needs the product
     acquires one, and the worktree holds it until its ticket's work ends — landed, handed
     back, released, suspended or retracted — so every later run, including the final
-    reverify and closeout checks, finds it already there.
+    reverify, finds it already there.
 
     When no slot is free, a `worker.queued` event goes on the ticket, once for this wait,
     so a ticket quiet for twenty minutes reads as queued and not as dead. The worker's
@@ -2326,10 +2326,10 @@ class TargetJsonChecksError(Exception):
 def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     """The `checks` of `.mmw/target.json` as `(command, timeout)` pairs — an entry is a
     string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` naming its own
-    bound in seconds — or None when the key is absent —
-    the closeout then behaves as it did before the key existed. `--reverify` and
-    `--lint` never read this. A file that names `checks` but is not a JSON object
-    with a list raises `TargetJsonChecksError` rather than looking like absence."""
+    bound in seconds — or None when the key is absent. `dispatch.sh` reads them through
+    `run_target_json_checks`; no mode of this script runs them. A file that names
+    `checks` but is not a JSON object with a list raises `TargetJsonChecksError` rather
+    than looking like absence."""
     if root is None:
         return None
     path = Path(root) / ".mmw" / "target.json"
@@ -2403,29 +2403,6 @@ def run_target_json_checks(root: Path | None, into: str) -> dict | None:
             failed.append((command, tail))
     return {"total": len(commands),
             "failed": [{"command": c, "tail": t} for c, t in failed], "problem": None}
-
-
-def post_repo_checks(number: int, checks: dict, spec: int | None) -> bool:
-    """Post the repository checks' run as a `ticket.checked` event; True when all passed."""
-    ok = not checks["failed"] and not checks["problem"]
-    total = checks["total"]
-    lines = []
-    if checks["problem"]:
-        lines.append(checks["problem"])
-    for failure in checks["failed"]:
-        lines += ["", failure["command"]]
-        if failure["tail"]:
-            lines.append(failure["tail"])
-    head = git("rev-parse", "HEAD")
-    post_event(number, "ticket.checked",
-               (f"Repository checks on {head[:12]}: {total - len(checks['failed'])}/{total} "
-                f"passed" if not checks["problem"] else
-                f"Repository checks on {head[:12]}: .mmw/target.json `checks` unreadable"),
-               "\n".join(lines).strip("\n"), spec=spec, run="repo-checks", commit=head,
-               result="met" if ok else "unmet", stage="close",
-               counts={"passed": total - len(checks["failed"]), "total": total},
-               commands=checks["failed"] or None, problem=checks["problem"])
-    return ok
 
 
 def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
@@ -2576,15 +2553,6 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         return 0
 
     if passed and pending is None:
-        checks = run_target_json_checks(repo_root(), into)
-        if checks is not None and not post_repo_checks(number, checks, spec_field(ticket)):
-            named = ", ".join(f["command"] for f in checks["failed"]) or checks["problem"]
-            sys.stderr.write(f"closeout stopped: the repository's checks did not pass "
-                             f"({named}); the ticket.checked event on #{number} carries "
-                             f"each failed command and its last lines. Fix the code, run "
-                             f"that suite yourself, commit, run --reverify --actor worker "
-                             f"again, and run --closeout again\n")
-            return 1
         problem = push_ticket_branch(number, repo_root(), head)
         if problem:
             sys.stderr.write(f"closeout refused: {problem}\n")
@@ -4139,9 +4107,8 @@ exit codes:
     before anything was created, or gh failed partway (stderr names what published)
   --closeout
     0 the ticket is closed (or handed back) and its event posted, or with
-    --check-only the draft passes; 1 refused by a draft condition, the repository's
-    checks, the push, or the tracker, stderr saying what to resolve; 2 nothing was
-    run or written
+    --check-only the draft passes; 1 refused by a draft condition, the push, or the
+    tracker, stderr saying what to resolve; 2 nothing was run or written
 """
 
 
