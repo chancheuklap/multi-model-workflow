@@ -1,5 +1,5 @@
 type	local	source	commit	mechanical	judgement	batch
 reference	mmw-v3/skills/triage/AGENT-BRIEF.md	mmw-v2/upstream/skills/engineering/triage/AGENT-BRIEF.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
 reference	mmw-v3/skills/triage/OUT-OF-SCOPE.md	mmw-v2/upstream/skills/engineering/triage/OUT-OF-SCOPE.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
-skill	mmw-v3/skills/triage/SKILL.md	mmw-v2/upstream/skills/engineering/triage/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/triage.md	B4
-reference	mmw-v3/skills/triage/agents/openai.yaml	mmw-v2/upstream/skills/engineering/triage/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+skill	mmw-v3/skills/triage/SKILL.md	mmw-v2/upstream/skills/engineering/triage/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/triage.md; v3: frontmatter disable-model-invocation removed, so an mmw-mode playbook can hand a step to it	B4
+reference	mmw-v3/skills/triage/agents/openai.yaml	mmw-v2/upstream/skills/engineering/triage/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v3: policy block (allow_implicit_invocation: false) removed, for the same reason as its SKILL.md	B4

@@ -7,13 +7,7 @@ description: "How work runs in a repository that uses MMW: routes a task to its 
 
 ## Non-negotiables
 
-Each line is a situation that can come up in the middle of any task, whichever playbook is running, and names what to use there; then the task goes on where it was.
-
-- What you just said did not land, or it has to be said plainly → the `wait-what` skill.
-- About to ask the user a design question that only something built and run can settle (a state model, what a UI looks like, whether a library or an approach works) → the `prototype` skill, and let the result decide.
-- A step only a person can take (a credential, a third-party dashboard, a test on a real machine) → the `wizard` skill, or, in a batch of tickets being cut, a person ticket as the `to-tickets` skill's `references/person-ticket.md` says.
-- A merge conflicts, or a clean merge turns the repository checks red → the `resolving-merge-conflicts` skill.
-- Making a git worktree of your own → put it under the main worktree's `.worktrees/`, with a name other than `issue-<n>`, `merge-<branch>` or `research-<n>`: those names belong to the pipeline.
+<!-- Situations that always route to one named skill, script or principle, whichever playbook is running: one line each, "situation → what to use". -->
 
 ## Principles
 
@@ -47,10 +41,8 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 - **Silence is never a pass** (`principles/principle-silence-is-never-a-pass.md`). Apply when a check, gate, oracle or test is written, changed, run, or read as a result.
 - **A second reader judges** (`principles/principle-a-second-reader-judges.md`). Apply when a piece of work needs judging: a diff, a batch of tickets, a decision.
-- **Refusals name one next step** (`principles/principle-refusals-name-one-next-step.md`). Apply when a script, a hook or a gate refuses you.
 - **One home per meaning** (`principles/principle-one-home-per-meaning.md`). Apply when a rule, a term or a fact is about to be written where it already lives elsewhere.
 - **Human steps stay human** (`principles/principle-human-steps-stay-human.md`). Apply when a step can only be taken by a person.
-- **No secrets or personal data in artifacts** (`principles/principle-no-secrets-or-personal-data-in-artifacts.md`). Apply when writing a ticket, a spec, a research report, a Memory record, a handoff or a log.
 - **Resume from durable state** (`principles/principle-resume-from-durable-state.md`). Apply when a session wakes, is compacted, or picks up work already begun.
 - **Decide at phase boundaries** (`principles/principle-decide-at-phase-boundaries.md`). Apply when a phase of the session ends.
 - **Agents are woken, not polled** (`principles/principle-agents-are-woken-not-polled.md`). Apply when you have started another agent, or are waiting on one.
@@ -82,7 +74,7 @@ You own every subagent's work. Read its output and write your own summary, don't
 
 ## Writing the reply
 
-A reply to the user follows user rules 4 to 9. Every playbook ends with a reply written this way. Name each principle that shaped a decision and the choice it changed; cite only principles whose file you read this session. Each playbook's `**Reply:**` line names only the content unique to that playbook. An unattended session's reply is its playbook's deliverable.
+A reply to the user follows user rules 4 to 9. Every playbook ends with a reply written this way. Each playbook's `**Reply:**` line names only the content unique to that playbook. An unattended session's reply is its playbook's deliverable.
 
 ## Playbooks
 
