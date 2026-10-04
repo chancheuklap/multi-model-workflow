@@ -28,9 +28,9 @@ poteto-mode's `mode`, `reminder`, `icon` and `color` are Cursor fields and are l
 ### `## Non-negotiables`
 
 - **Used:** at any moment of any task, as soon as the situation a line names arises, whichever playbook is running.
-- **Content:** one opening paragraph saying that the Principles section grounds every trigger, and that the reply names each principle that shaped a decision and the choice it changed, citing only principles whose full `SKILL.md` was read this session. Then one line per trigger: `Situation → what to use`, where what to use is a skill, a playbook (with its path), a principle or a reference. A line names; it does not explain how. The exception is a judgement that must be made on the spot, written into the line (poteto-mode's "classify it before you ask" line).
-- **When to add a line:** the situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead.
-- **Sources in MMW v2:** rules of `mmw-v2/prompt/shared.md` that apply at a moment across tasks (rule 7 → a prose skill; rule 14 → before proposing a design or non-trivial code), and v2's own skills, compared one by one with their pstack counterparts before either is kept: agent-facing prose → `writing-for-agents` (it takes the place poteto-mode gives Cursor's `create-skill`); prose for people → `technical-writing`; any prose → `unslop`. The comparison and its results are in `mmw-v3/course/` lesson 4, figure 3.
+- **Content:** one opening paragraph saying that the Principles section grounds every trigger (a principle's index line is itself a trigger), and that the reply names each principle that shaped a decision and the choice it changed, citing only principles whose full `SKILL.md` was read this session. Then one line per trigger: `Situation → what to use`, where what to use is a skill, a playbook (with its path), or a reference. A line names; it does not explain how. The exception is a judgement that must be made on the spot, written into the line (poteto-mode's "classify it before you ask" line).
+- **When to add a line:** the situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead. A situation a principle's index line already names gets no line here, unless the line adds an action the principle does not hold (poteto-mode's "Any code → name the data shape first").
+- **Sources in MMW v2:** rules of `mmw-v2/prompt/shared.md` that apply at a moment across tasks (rule 7 → a prose skill), and v2's own skills, compared one by one with their pstack counterparts before either is kept: agent-facing prose → `writing-for-agents` (it takes the place poteto-mode gives Cursor's `create-skill`); prose for people → `technical-writing`; any prose → `unslop`. The comparison and its results are in `mmw-v3/course/` lesson 4, figure 3.
 
 ### `## Principles`
 
@@ -45,11 +45,11 @@ This index is how a rule loads at the moment it applies: one line is always in c
 
 - **Used:** whenever the agent is deciding whether to act or to ask the owner first.
 - **Content:** four paragraphs, each opening in bold, as in poteto-mode:
-  - **Just do it.** What proceeds without asking: reversible work, engineering decisions.
-  - **Always pause** for what only the owner decides: what the customer sees, money, scope and order, what goes public, what cannot easily be undone.
+  - **Just do it.** What proceeds without asking: reversible work, engineering decisions, and any fact you could observe by running something (behaviour, timing, layout, output), which is found by running it, not asked.
+  - **Always pause** for what only the owner decides (the list is in the user-level prompt, which every session loads) and for irreversible writes.
   - **Session overrides:** what the owner's words change ("going to bed"; an approved plan or ticket is the go signal).
   - **No is an acceptable answer.** Disagreement is owed when there is a flaw, never manufactured.
-- **Sources in MMW v2:** `mmw-v2/prompt/shared.md` rules 1, 2, 3 and 11.
+- **Sources in MMW v2:** `mmw-v2/prompt/shared.md` rules 1, 2 and 3. Rule 11 is `principle-never-block-on-the-human`'s, whose index line is read at the same moment. From poteto-mode's "classify it before you ask" line, only the clause on facts found by running something; which calls are the owner's is the Always pause list.
 
 ### `## Subagents`
 
@@ -60,14 +60,14 @@ This index is how a rule loads at the moment it applies: one line is always in c
 ### `## Writing the reply`
 
 - **Used:** while writing every reply.
-- **Content:** the rules every reply shares, one point per bullet, each stated as an action: who reads the reply and what they can and cannot see; evidence or its label in the same sentence; reasons and consequences rather than files and functions; plain standard vocabulary; anchored references with names copied verbatim; when lists and tables help.
+- **Content:** the rules every reply shares, one point per bullet, each stated as an action: who reads the reply and what they can and cannot see; evidence or its label in the same sentence; reasons and consequences rather than files and functions; plain standard vocabulary; when lists and tables help. Anchored references are `principle-anchor-every-reference`'s. Close with the division of labour: each playbook's `**Reply:**` line names only what is unique to that playbook.
 - **Sources in MMW v2:** the reader facts at the top of `mmw-v2/prompt/shared.md` (condensed to what changes a decision), its rules 4, 5, 6 and 9, and its closing section "What this file looks like when it is working", which becomes the reply's finish criterion. Where every unit of shared.md goes is in mmw-v3/course lesson 4, figure 4.
 
 ### `## Comments`
 
 - **Used:** while writing a code comment or any file's prose about the code.
-- **Content:** one paragraph. A comment is kept only for a non-obvious why the code cannot show; a file describes its subject now, never its own history.
-- **Source in MMW v2:** the code half of `mmw-v2/prompt/shared.md` rule 13. The section is deleted if nothing in MMW belongs here.
+- **Content:** one paragraph. A comment is kept only for a non-obvious why the code cannot show. That a file describes its subject now, never its own history, is `principle-files-describe-the-present`'s, and holds for comments too.
+- **Source:** poteto-mode's `## Comments`. The code half of `mmw-v2/prompt/shared.md` rule 13 is in `principle-files-describe-the-present`.
 
 ### `## Playbooks`
 

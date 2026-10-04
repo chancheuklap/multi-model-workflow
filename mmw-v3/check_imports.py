@@ -11,13 +11,15 @@ Run from anywhere inside the repository: python3 mmw-v3/check_imports.py
    with `git show <commit>:<source>`; an upstream repository's text is read
    from the squash commit whose `git-subtree-split:` line names that commit.
 3. A row with no mechanical edit and no judgement entry is byte-identical to
-   its source, and so is every file a directory row covers.
+   its source, and so is every file a directory row covers. A row for one
+   `## <heading>` section compares that section's text, HTML comments left out.
 
 Exit 0 prints `IMPORTS OK <n> rows`. Exit 1 prints one finding per line.
 """
 import csv
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -59,6 +61,12 @@ def read_source(row, below=""):
     return out.stdout if out.returncode == 0 else None
 
 
+def section(text, heading):
+    """The body of the `## <heading>` section, without HTML comments and surrounding blank lines."""
+    m = re.search(rf"^## {re.escape(heading)}\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    return re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S).strip() if m else None
+
+
 def main():
     with open(ROOT / "mmw-v3" / "imports.tsv", newline="") as fh:
         rows = list(csv.DictReader(fh, delimiter="\t"))
@@ -97,7 +105,13 @@ def main():
             findings.append(f"SOURCE-UNREADABLE {row['upstream']} {row['source']} @{row['commit'][:8]}")
             continue
         if not row["mechanical"] and not row["judgement"].startswith("J") and "; J" not in row["judgement"]:
-            if local.read_bytes() != body:
+            if "#" in row["local"]:
+                mine = section(local.read_text(), row["local"].split("#", 1)[1])
+                theirs = section(body.decode(), row["source"].split("#", 1)[1])
+                same = mine is not None and mine == theirs
+            else:
+                same = local.read_bytes() == body
+            if not same:
                 findings.append(f"UNREGISTERED-EDIT {row['local']}: differs from its source and lists no edit")
     if findings:
         print("\n".join(findings))

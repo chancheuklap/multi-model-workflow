@@ -116,7 +116,7 @@ An **upstream skill** is one whose text was first written outside `mmw-v3/skills
 
 - The source is the repository that first wrote the text, never an intermediate copy. A file that came by way of MMW v2 is registered against its upstream repository, and each edit v2 made is a judgement entry whose source is the v2 merge-note at a pinned commit (`mmw-v2/merge-notes/<skill>.md@<commit>`).
 - A difference between a copy and its registered source that the row does not list is a finding: register it, or restore the source text.
-- A new edit to a copy adds its entry in the same change.
+- A new edit to a copy adds its entry in the same change, written into `mmw-v3/imports.tsv` by hand; nothing generates the table, so it stays the one copy of the record.
 - After an upstream update, take the rows of that repository; for each, read upstream's diff of `source` from the row's `commit` to the new one (the subtree under `mmw-v3/upstream-*/` holds the new version), carry each change that alters behaviour into the copy unless a judgement entry already changed that passage, and move the row's `commit` forward.
 - Connect outside the upstream text first: in the set's own skills, in a reference file added beside the upstream ones, in the line a caller reads. An upstream sentence changes only when an agent reading it would act wrongly in this workflow even with the connecting text in place.
 - Checks on style (completion-criterion lines, the shape of a description, vocabulary preferences) apply to the set's own text. Upstream sentences are judged on whether they work in the workflow.
