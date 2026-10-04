@@ -22,7 +22,9 @@ The `## Tests` section of the repository's `CODING_STANDARDS.md` says how tests 
 
 ## 3. The test smell baseline
 
-Read the `tdd` skill's `tests.md` and `mocking.md`. Their bad tests and their rule for where mocks belong are five of the six shapes below; the sixth is this axis's own. For each case in scope, ask all six, and name each finding by its shape:
+First ask of each case in scope the question of **principle-a-check-must-be-able-to-fail**: would it still pass if every function it imports returned `undefined`? A case that would is a finding named `cannot-fail`, whatever else it is. When the change keeps a behaviour as it is, its criterion is a pin, and the same question asks whether the pin observes that behaviour.
+
+Then read the `tdd` skill's `tests.md` and `mocking.md`. Their bad tests and their rule for where mocks belong are five of the six shapes below; the sixth is this axis's own. For each case in scope, ask all six, and name each finding by its shape:
 
 - **Tautological**: `tests.md`, **Tautological tests**.
 - **Implementation-coupled**: `tests.md`, **Implementation-detail tests**: mocking internal collaborators, testing private methods, asserting on call counts or order.
@@ -35,7 +37,7 @@ Each is a judgement call, and each review finding quotes the assertion it is abo
 
 ## 4. Report
 
-One entry per review finding: the file, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+One entry per review finding: the file, the case name, `cannot-fail`, which of the six shapes, or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## Two things this axis never reports
 

@@ -438,6 +438,18 @@ class WorkerRecipientTest(RelayCase):
         self.assertEqual([(r["seq"], bool(r["delivered"])) for r in self.rows()],
                          [(1, False), (2, False), (3, True)])
 
+    def test_a_session_gets_one_wake_a_pass_even_when_each_send_is_taken(self):
+        # Paseo's send answers 0 as soon as it has handed the text over; a second wake typed
+        # into the same session in that pass lands inside the turn the first one started.
+        self.board[61] += [comment(102, "ticket.refused", 61), comment(103, "ticket.passed", 61)]
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.refused")])
+        self.assertEqual([(r["seq"], bool(r["delivered"])) for r in self.rows()], [(1, True), (2, False)])
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.refused"),
+                                          ("paseo", "main-a", "#61 ticket.passed")])
+
     def test_a_recipient_is_its_runner_and_session_together(self):
         self.relay.open_watch({"tickets": [61, 62]}, "paseo", "s-1")
         self.board[61] += [started(101, 61, "s-1", runner="orca"), comment(102, "ticket.passed", 61),
@@ -542,6 +554,7 @@ class DeliveryTest(RelayCase):
     def test_send_carries_the_ticket_and_the_event_name_only(self):
         self.queue_two()
         self.relay.deliver()
+        self.relay.deliver()
         self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.passed"),
                                           ("paseo", "main-a", "#62 ticket.returned")])
 
@@ -549,11 +562,13 @@ class DeliveryTest(RelayCase):
         self.queue_two()
         self.relay.deliver()
         self.relay.deliver()
+        self.relay.deliver()
         self.assertEqual(len(self.send.sent), 2)
         self.assertEqual([r["seq"] for r in self.rows()], [1, 2])
         self.assertTrue(all(r["delivered"] for r in self.rows()))
         self.relay = self.fresh()
         self.relay.forget_deliveries()
+        self.relay.deliver()
         self.relay.deliver()
         self.assertEqual([t for _, _, t in self.send.sent[2:]], ["#61 ticket.passed", "#62 ticket.returned"])
         self.relay.ack(MAIN_A, 2)
@@ -566,6 +581,7 @@ class DeliveryTest(RelayCase):
         self.assertEqual(len(self.send.sent), 1, "a pass stops at the first row that stays")
         self.assertEqual([(r["seq"], r["delivered"]) for r in self.rows()], [(1, None), (2, None)])
         self.send.code = 0
+        self.relay.deliver()
         self.relay.deliver()
         self.assertEqual([t for _, _, t in self.send.sent[1:]], ["#61 ticket.passed", "#62 ticket.returned"])
 

@@ -245,12 +245,16 @@ scenario_wake() {
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
   has "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
-  has "paseo :: send :: --no-wait :: main-a :: #62 ticket.returned"
-  hasnt "ticket.claimed"
+  hasnt "#62 ticket.returned"
   expect_rows "1 61 ticket.passed main-a delivered
-2 62 ticket.returned main-a delivered"
+2 62 ticket.returned main-a undelivered"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --through 1)"
   [ "$code" = 0 ] || fail "ack expected 0, got $code: $(cat "$TMP/err")"
+  echo "--- one wake a pass: the second goes on the next"
+  code="$(relay_ run --repo "$REPO" --once)"
+  [ "$code" = 0 ] || fail "the second run --once expected 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: send :: --no-wait :: main-a :: #62 ticket.returned"
+  hasnt "ticket.claimed"
   expect_rows "2 62 ticket.returned main-a delivered"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --through 9)"
   [ "$code" = 1 ] || fail "ack past the last seq expected 1, got $code"
@@ -354,9 +358,10 @@ scenario_reconcile() {
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
   hasnt "since="
+  # One wake a pass: the announcement goes first, the two tickets on later passes.
   expect_rows "2 None relay.recovered main-a delivered
-3 62 ticket.returned main-a delivered
-4 61 ticket.refused main-a delivered"
+3 62 ticket.returned main-a undelivered
+4 61 ticket.refused main-a undelivered"
   has "paseo :: send :: --no-wait :: main-a :: relay.recovered since 2020-01-01T00:00:00Z"
   : > "$MMW_TEST_LOG"
   code="$(relay_ run --repo "$REPO" --once)"
@@ -390,8 +395,9 @@ scenario_pollfail() {
     "$STATE/beat.json" || fail "beat.json should hold no good poll and name the failure: $(cat "$STATE/beat.json")"
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run once the read works expected 0, got $code: $(cat "$TMP/err")"
+  # Read now and queued; this restart's one wake for main-a is the unacked #61 again.
   expect_rows "1 61 ticket.passed main-a delivered
-2 62 ticket.passed main-a delivered"
+2 62 ticket.passed main-a undelivered"
 }
 
 scenario_singleton() {

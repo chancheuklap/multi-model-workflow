@@ -65,8 +65,7 @@
       "prompt": [
         "code-review/references/spec-reviewer.md",
         "code-review/references/standards-reviewer.md",
-        "code-review/references/tests-reviewer.md",
-        "code-review/references/ui-reviewer.md"
+        "code-review/references/tests-reviewer.md"
       ],
       "what": "reviews one diff along one axis, against a ticket or the owner's request",
       "returns": "that axis's report, to the session that ran code-review, in the same turn"

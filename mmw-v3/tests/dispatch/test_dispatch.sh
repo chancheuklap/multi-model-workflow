@@ -7972,6 +7972,7 @@ scenario_finishred() {
 setup_finish_over_landing() {
   local passed tip
   fresh_repo
+  rm -f "$TMP/check-runs"
   git -C "$TMP/repo" checkout -q -b proj main
   mkdir -p "$TMP/repo/.mmw"
   printf '{"checks":["printf x >> %s; false"]}\n' "'$TMP/check-runs'" > "$TMP/repo/.mmw/target.json"
@@ -8641,6 +8642,7 @@ scenario_advancebouncedchecks() {
 }
 
 scenario_advancechecksonce() {
+  rm -f "$TMP/check-runs"
   setup_checked_ticket "printf 'x\\n' >> '$TMP/check-runs'"
   local passed code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"

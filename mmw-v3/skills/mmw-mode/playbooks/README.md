@@ -14,7 +14,7 @@ How one kind of task is done from start to end: who owns what, the steps, what i
 - **Not for a task that happens once.** A playbook is saved here because the same kind of task comes back.
 - **Not for handing one thing to one skill.** Name the skill in a `## Non-negotiables` line or in a step.
 
-In the same change as the new file: add its route line to `../SKILL.md` `## Playbooks`, and add a model role to `~/.mmw/models.json` defaults if the playbook spawns code-writing subagents.
+In the same change as the new file: add its route line to `../SKILL.md` `## Playbooks`. A playbook that starts a session role of its own adds that role as `../../README.md` `## subagent` says.
 
 ## The shape of the file, top to bottom
 
@@ -25,7 +25,7 @@ In the same change as the new file: add its route line to `../SKILL.md` `## Play
 5. Optionally one paragraph of rules that hold across all the steps.
 6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in `../SKILL.md` `## Writing the reply` and are not repeated here.
 
-The two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections. A playbook may name a step of another playbook ("Run **Authoring or modifying a skill** on the findings").
+A judgement several steps point to may follow the steps as a section of its own, opened by its name in bold (Run a night's **Routing a finding**); the two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections instead. A playbook may name a step of another playbook ("Run **Authoring or modifying a skill** on the findings").
 
 ## Sources in MMW v2
 

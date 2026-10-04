@@ -54,8 +54,8 @@ This index is how a rule loads at the moment it applies: one line is always in c
 ### `## Subagents`
 
 - **Used:** before spawning any subagent.
-- **Content:** decided in `mmw-v3/course/` lesson 5, from MMW v2's own subagent rules (for the workers, reviewers and other agents it spawns). pstack's `## Subagents` is compared with them rule by rule; nothing in it is copied by default.
-- **Sources in MMW v2:** MMW's own subagent rules, listed in full in lesson 5, among them `mmw-v2/prompt/hosts/codex.md` ("Never interrupt subagents…") and `~/.mmw/models.json`, which holds the model for each role and is changed through `models.py`.
+- **Content:** the rules for a subagent a skill sends out from inside a session, one paragraph each: which subagent to use and on which model; that work needing a model of its own is a session role; what its brief states; what to do on a host that cannot run one; who owns what it returns. Every subagent in MMW is sent out by a skill, which writes its prompt (an axis of `code-review`, the fact-finder of `grilling`); no subagent loads this mode. Sessions a script starts (worker, reviewer, advisor, researcher, explainer, synthesizer) are not subagents; their start and their models are the `dispatch` skill's, and its `roles.json` lists every role of both kinds.
+- **Sources in MMW v2:** `manage-agents-md` ("your host's general-purpose subagent, with no model named"), `code-review` `references/session.md` section 2, `to-tickets` ("Hold this turn until it returns"), `SKILL-SET-RULES.md` ("A subagent's brief states what it returns and its length"), ADR 0015. From poteto-mode's `## Subagents`, only "You own every subagent's work".
 
 ### `## Writing the reply`
 

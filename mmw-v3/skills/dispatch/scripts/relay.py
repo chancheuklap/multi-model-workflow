@@ -1438,6 +1438,10 @@ class Relay:
                 continue
             code = self.send(address[0], address[1], wake_text(row))
             if code == 0:
+                # One wake a pass per session: a runner may answer 0 the moment it has handed
+                # the text over, and a second one typed in now lands inside the turn the first
+                # starts. The next row goes on a later pass.
+                held.add(address)
                 if self._settle(row["seq"], delivered=iso(self.clock())):
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}\n")
             elif code == 4:

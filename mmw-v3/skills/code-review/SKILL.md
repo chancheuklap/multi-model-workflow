@@ -14,6 +14,5 @@ You are given a request, a base commit and the axes to run. The request is a tic
 | Standards | [references/standards-reviewer.md](references/standards-reviewer.md) |
 | Spec | [references/spec-reviewer.md](references/spec-reviewer.md) |
 | Tests | [references/tests-reviewer.md](references/tests-reviewer.md) |
-| UI | [references/ui-reviewer.md](references/ui-reviewer.md) |
 
 Hold your turn until every axis has reported. Hand back each axis's report as it came, under the axis's name.

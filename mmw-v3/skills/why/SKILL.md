@@ -78,7 +78,7 @@ Aim for a complete **coverage map**, not a minimal one. Document the null, don't
 
 Start all matching investigators in one `dispatch.sh brief researcher` call, one brief file each, so they run concurrently and you are woken once. Don't ask one agent to cover multiple MCPs.
 
-Leave each investigator able to call MCP tools. **Do not use a host's read-only mode.** It can strip MCP access, which disables MCP-backed investigators entirely. Investigators still shouldn't write anything; say so in each prompt.
+Leave each investigator able to call MCP tools. **Do not use a host's read-only mode.** It can strip MCP access, which disables MCP-backed investigators entirely. Investigators still only read: end each brief with the line `Read only. Change no file of the repository, and run nothing that changes state but the report command below.`
 
 Each investigator's brief holds:
 1. The base prompt from `references/investigator-prompt.md`

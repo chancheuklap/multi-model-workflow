@@ -165,11 +165,11 @@ Used: before spawning any subagent.
 Content: the rules for a subagent a skill sends out from inside a session, one paragraph
 each: which subagent to use and on which model; what its brief states; what to do on a
 host that cannot run one; who owns what it returns. Every subagent in MMW is sent out by a
-skill, which writes its prompt (an axis of code-review, the ambiguity scan of to-tickets);
+skill, which writes its prompt (an axis of code-review, the fact-finder of grilling);
 there is no subagent that loads this mode (mmw-v3/course lesson 5, decisions 6 and 7).
 Sessions a script starts (worker, reviewer, advisor, researcher, explainer, synthesizer)
 are not subagents; their start and their models are the dispatch skill's, and its
-roles.json lists every role of both kinds (mmw-v3/course lesson 7, section 6).
+roles.json lists every role of both kinds (mmw-v3/course lesson 6, section 8).
 
 Sources in MMW v2: manage-agents-md ("your host's general-purpose subagent, with no model
 named"), code-review references/session.md section 2, to-tickets ("Hold this turn until it
@@ -183,7 +183,7 @@ length"), ADR 0015. From poteto-mode ## Subagents, only "You own every subagent'
 
 **The brief states what the subagent returns and how long it may be,** so its report fits your attention. It holds everything the subagent needs, since the subagent sees none of this session.
 
-**On a host that cannot run subagents, do the work yourself,** one piece after another, writing each result to a file before starting the next, so no result depends on memory of the one before. Rules the skill gives the subagent bind you while you do.
+**On a host that cannot run subagents, do the work yourself,** one piece after another, writing each result to a file before starting the next, so no result depends on memory of the one before. Rules the skill gives the subagent bind you while you do. The exception is a reading whose worth is that someone other than you does it, such as a review of your own change: that work is not done, and your reply says so.
 
 **You own every subagent's work.** Hold your turn until every subagent you sent out has returned; where the host runs them in the background, ask for them to be waited on. Check what each returns against the code before you act on it, and write your own summary; don't pass through what it said.
 
@@ -258,6 +258,8 @@ Sources in MMW v2: the `## Find your moment` tables of the dispatch, verify-tick
 design-pages, ui-acceptance and code-review skills, and the numbered procedures they point
 to (implement's `## Closing steps`, dispatch's references/night.md).
 -->
+
+Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim.
 
 When your start prompt names a playbook, run that playbook from the step the ticket's events put you at; the session that dispatched you chose it, so do not route again.
 
