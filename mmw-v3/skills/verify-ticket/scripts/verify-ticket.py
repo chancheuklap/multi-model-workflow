@@ -101,13 +101,6 @@ PRODUCT_JUDGES = ("journey.py", "lease.py")
 # Criteria whose CHECK names one of these are left off the claim-time baseline run:
 # they start the product or the story service. Recorded on the event as `skipped`.
 BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
-# How long a reverify waits for a product slot before it hands back exit 3, and how often
-# it asks again in between. The bound stays under the time a host lets a command run
-# before it moves it to the background; a reverify given back 3 is run again, and the wait
-# goes on. The worker's own run does not wait here: it is woken when a slot is given back.
-SLOT_WAIT_S = int(os.environ.get("MMW_SLOT_WAIT_S", "90"))
-SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
-
 # A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
 # ticket in the morning, and both hand the ticket back. `decision` needs a person to
@@ -1782,25 +1775,15 @@ def load_lease():
     return module
 
 
-def hold_slot(number: int, root: Path, run: str, comments: list,
-              actor: str | None = None) -> dict | int:
-    """This worktree's product slot, acquired now when it holds none; an exit code when
-    the run cannot go on.
+def hold_slot(root: Path) -> dict | int:
+    """This worktree's product slot, acquired now when it holds none; exit 2 when none
+    can be.
 
     Writing code takes no slot. The first run of the criteria that needs the product
     acquires one, and the worktree holds it until its ticket's work ends — landed, handed
     back, released, suspended or retracted — so every later run, including the final
-    reverify, finds it already there.
-
-    When no slot is free, a `worker.queued` event goes on the ticket, once for this wait,
-    so a ticket quiet for twenty minutes reads as queued and not as dead. The worker's
-    own run then exits 3 at once with nothing judged. A slot comes back only when another
-    ticket's work ends, and the event that ends it is what the relay of the dispatch skill
-    wakes every queued worker on, with `#<n> worker.queued`; the worker runs the same
-    command again then. Waiting here instead would cost the worker a turn every
-    `SLOT_WAIT_S` for as long as the slots stay held. A reverify by the worker or the
-    orchestrator normally finds its worktree's slot already held; when it does not, it
-    asks again every `SLOT_BEAT_S` seconds and exits 3 after `SLOT_WAIT_S`, to be run again.
+    reverify, finds it already there. With every slot of the machine held the run starts
+    nothing, and the ticket is reported blocked (the ui-acceptance skill's rule 4).
     """
     lease = load_lease()
     if lease is None:
@@ -1808,48 +1791,13 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
                       "lease.py, so no slot can be acquired for it. Nothing was run and "
                       "nothing was written. Pass --tools <the ui-acceptance skill's scripts "
                       "directory> and run again.")
-    worktree = lease.worktree_of(root)
-    announced = events.fold(comments)["waiting"] is not None
-    spent = 0
-    while True:
-        try:
-            return lease.try_claim(worktree)
-        except lease.CapUnreadable as exc:
-            return refuse(f"{exc}; the product's limit is unknown, so no slot was acquired "
-                          f"and nothing was run. Fix that file and run again.")
-        except lease.Full as full:
-            if not announced:
-                what = ("this product's instance.max" if full.reason == "product-full"
-                        else "every slot of this machine")
-                try:
-                    post_event(number, "worker.queued",
-                               f"Waiting for a product slot: {what} ({full.limit}) is held",
-                               "\n".join(f"- {h}" for h in full.holders),
-                               run=run, reason=full.reason, limit=full.limit,
-                               holders=full.holders, worktree=str(worktree), actor=actor)
-                except (OSError, subprocess.CalledProcessError) as exc:
-                    # A wait the ticket does not show reads as a dead worker.
-                    sys.stderr.write(f"#{number}: no product slot is free and the "
-                                     f"worker.queued event could not be written ({exc}); "
-                                     f"nothing was run. Run it again.\n")
-                    return NOT_RECORDED
-                announced = True
-            if run == "self":
-                sys.stderr.write(
-                    f"#{number}: no product slot is free — {full.reason}, "
-                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
-                    f"says it is waiting. End your turn: the relay wakes you with "
-                    f"`#{number} worker.queued` when a slot is given back. Run the same "
-                    f"command again then.\n")
-                return 3
-            if spent >= SLOT_WAIT_S:
-                sys.stderr.write(
-                    f"#{number}: no product slot came free in {spent}s — {full.reason}, "
-                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
-                    f"says it is waiting. Run the same command again to keep waiting.\n")
-                return 3
-            time.sleep(SLOT_BEAT_S)
-            spent += SLOT_BEAT_S
+    try:
+        return lease.try_claim(lease.worktree_of(root))
+    except lease.Full as full:
+        return refuse(f"every product slot of this machine is held ({len(full.holders)}: "
+                      f"{', '.join(full.holders)}), so nothing was run and nothing was "
+                      f"written. Report the ticket blocked, as the ui-acceptance skill's "
+                      f"rule 4 says.")
 
 
 def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
@@ -1876,9 +1824,8 @@ def _run_checks(number: int, reverify: bool,
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
     Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
-    nothing was written), 3 no product slot was free — at once for the worker's own run,
-    after `SLOT_WAIT_S` for a reverify — 4 the criteria ran and the ticket.checked
-    recording them could not be written.
+    nothing was written; no product slot free among the reasons), 4 the criteria ran and
+    the ticket.checked recording them could not be written.
     """
     run = "reverify" if reverify else "self"
     actor = actor or "worker"
@@ -1893,7 +1840,7 @@ def _run_checks(number: int, reverify: bool,
     into = started_payload.get("into")
     slot = None
     if needs_product(body):
-        slot = hold_slot(number, root, run, comments, actor)
+        slot = hold_slot(root)
         if isinstance(slot, int):
             return slot
     carried = carried_ledger(body, comments) if reverify else []
@@ -2598,11 +2545,10 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                              f"{'passed' if passed else 'returned'}. Read #{number} on the "
                              f"tracker for what the edit left done, then run --closeout again\n")
             return 1
-    # A handed-back ticket's work is over for the night, and `ticket.returned` says so —
-    # its product slot free included: the relay wakes the workers queued for a slot on
-    # that event. So the slot goes back before the event, on the run that hands back and
-    # on one posting the event a previous run could not; a slot that will not come back
-    # is said on stderr, and the ticket is still announced as returned.
+    # A handed-back ticket's work is over for the night, its product slot included. The
+    # slot goes back before the event, on the run that hands back and on one posting the
+    # event a previous run could not; a slot that will not come back is said on stderr,
+    # and the ticket is still announced as returned.
     if not passed:
         problem = give_slot_back(repo_root())
         if problem:
@@ -4084,10 +4030,9 @@ EXIT_CODES = """\
 exit codes:
   a criteria run (no flag, or --reverify --actor worker|main)
     0 every criterion met; 1 something unmet or abandoned; 2 the ticket could not be
-    read or the run could not start, reason on stderr, nothing posted; 3 no product
-    slot was free, nothing run (the worker's own run at once, a --reverify after
-    MMW_SLOT_WAIT_S seconds, asking every MMW_SLOT_BEAT_S); 4 the criteria ran and
-    the ticket.checked recording them could not be written: run it again
+    read or the run could not start (no product slot free among the reasons), reason on
+    stderr, nothing posted; 4 the criteria ran and the ticket.checked recording them
+    could not be written: run it again
   --preflight
     0 the ticket is now yours; 2 refused, reason on stderr: a NOT_READY refusal is
     on the ticket as ticket.refused, any other posted nothing

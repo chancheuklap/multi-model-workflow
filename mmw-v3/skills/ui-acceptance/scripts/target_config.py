@@ -80,12 +80,6 @@ FIELDS: tuple[Field, ...] = (
     Field("harness_markers", "list of strings",
           "the strings this product uses only to make itself drivable; [] when it has none",
           '["/api/dev/", "transport off", "__stub"]'),
-    Field("instance", "object {max, why}",
-          "only when the product cannot move its ports (ports in a container file, a "
-          "callback at a fixed port): how many runs one machine holds and what stops a "
-          "second; absent means the product is isolable and the machine's own limit applies",
-          '{"max": 1, "why": "the callback URL is registered at port 8000"}',
-          required=False),
     Field("checks", "list",
           "the repository's own checks, run by `verify-ticket.py --closeout` before an "
           "ALL MET ticket closes; the ui-acceptance skill's references/product-answers.md says the "
@@ -211,12 +205,6 @@ def target_problems(cfg: dict) -> list[tuple[str, str]]:
         elif f.key == "harness_markers":
             if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
                 problems.append((f.key, f"must be a list of strings — e.g. {f.example}"))
-        elif f.key == "instance":
-            ok = (isinstance(value, dict) and isinstance(value.get("max"), int)
-                  and value["max"] > 0 and isinstance(value.get("why"), str))
-            if not ok:
-                problems.append((f.key, f"must be {{\"max\": <n>, \"why\": \"<text>\"}} "
-                                        f"— e.g. {f.example}"))
     return problems
 
 

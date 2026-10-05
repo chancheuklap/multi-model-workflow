@@ -13,7 +13,6 @@ Commands of the `dispatch` skill's `dispatch.sh` are named bare below.
    - `#<n> worker.lost`: the worker's session stopped. `dispatch.sh start <n> worker` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.
    - `#<n> ticket.refused`: the worker refused to claim the ticket, and the event's `reason` says why. Fix that, then `dispatch.sh start <n> worker` again.
    - `#<n> child.opened`: a `fault` stopped the worker; fix what the child names, then `dispatch.sh resume <n> "<what you fixed>, then: continue"`. A `decision` is for the owner, and the worker carries on. A `contract` child is settled as Run a night's **Settling a contract child** says.
-   - `relay.recovered since <time>`: nothing; later wakes carry the recovered events.
    - A `watchdog:` line or an `MMW turn guard:` line: act as Run a night's step 5 table says for it, reading the `verify-ticket` skill's `events.py fold <n>` where it says `status`.
 
    Done when the wake is acked and acted on, and your turn has ended unless step 4 is next.

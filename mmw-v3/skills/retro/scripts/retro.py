@@ -571,7 +571,7 @@ def qualifies(problem: dict, gathered: dict, source_of=evidence_source) -> bool:
             continue
         if item.get("evidence") not in problem["evidence"]:
             continue
-        if any((value.get("event") in ("worker.queued", "ticket.returned") or
+        if any((value.get("event") == "ticket.returned" or
                 (value.get("event") == "child.opened" and value.get("kind") == "fault") or
                 (value.get("event") == "ticket.checked" and value.get("result") == "handoff"))
                for kind, text in sources if kind == "event"

@@ -121,12 +121,6 @@ class TestTargetCheck(unittest.TestCase):
         self.assertIn("start must be a non-empty command", out)
         self.assertIn("(+1 more)", out)
 
-    def test_a_wrong_instance_shape_is_named(self):
-        cfg = dict(self.COMPLETE)
-        cfg["instance"] = {"max": 0}
-        problems = tc.target_problems(cfg)
-        self.assertEqual([k for k, _ in problems], ["instance"])
-
     def test_a_file_that_is_not_json_is_a_fault_not_absence(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / ".mmw").mkdir()

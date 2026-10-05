@@ -403,35 +403,6 @@ class Sweeping(Base):
         self.assertIn(record["slot"], (0, 1))
 
 
-class Counting(Base):
-    """How many runs of one repository are up. The gate reads this number, so a wrong
-    answer here does not fail loudly — it opens the gate and says nothing."""
-
-    def test_only_the_claims_under_that_directory_are_counted(self):
-        base = self.trees / "repo"
-        (base / "issue-640").mkdir(parents=True)
-        (base / "issue-641").mkdir(parents=True)
-        (self.trees / "elsewhere").mkdir()
-        for path in (base / "issue-640", base / "issue-641", self.trees / "elsewhere"):
-            self.lease.claim(path)
-        self.assertEqual(self.lease.count_under(base), 2)
-
-    def test_a_symlinked_prefix_counts_the_same(self):
-        """A registry stores resolved paths and a caller usually holds the unresolved
-        one; on macOS `/var` is a symlink to `/private/var`. Compared as text the answer
-        was zero, and a gate reading zero lets everything through (found 2026-09-05 while
-        testing this gate, before it ever ran a night)."""
-        real = self.trees / "real"
-        (real / "issue-640").mkdir(parents=True)
-        self.lease.claim(real / "issue-640")
-        link = self.trees / "via-link"
-        link.symlink_to(real, target_is_directory=True)
-        self.assertEqual(self.lease.count_under(link), 1)
-
-    def test_a_directory_with_nothing_under_it_counts_zero(self):
-        self.assertEqual(self.lease.count_under(self.trees / "nothing-here"), 0)
-
-
 class WhichRootThePathsAreUnder(unittest.TestCase):
     """`MMW_HOME` names the root, and it is read at the moment a path is needed.
 
@@ -535,121 +506,43 @@ class RegistryIsolation(unittest.TestCase):
                                "found nothing to check")
 
 
-class TheProductsLimit(Base):
-    """`instance.max` in `.mmw/target.json` is how many copies of a product that cannot
-    move its ports may run at once. Acquiring itself enforces it, at the first run of a
-    worktree's criteria that needs the product, and counts the leases of that
-    repository's ticket worktrees — the ones under `<main worktree>/.worktrees`."""
+class AFullMachine(Base):
+    """With every slot of the machine taken, no lease is made, and whoever asked is told
+    who holds the slots."""
 
-    def setUp(self):
-        super().setUp()
-        self.repo = self.trees / "repo"
-        self.git("init", "-q", "-b", "main", str(self.repo))
-        self.git("-C", str(self.repo), "-c", "user.email=t@t", "-c", "user.name=t",
-                 "commit", "-q", "--allow-empty", "-m", "base")
+    def full(self) -> list[str]:
+        trees = [self.lease.worktree_of(self.tree(f"issue-{n}")) for n in range(1, 5)]
+        for tree in trees:
+            self.lease.try_claim(tree)
+        return [str(tree) for tree in trees]
 
-    def git(self, *args):
-        import subprocess
-        subprocess.run(["git", *args], check=True, capture_output=True)
-
-    def ticket_tree(self, n: int, limit: int | str | None = 1, repo: Path | None = None) -> Path:
-        repo = repo or self.repo
-        tree = repo / ".worktrees" / f"issue-{n}"
-        self.git("-C", str(repo), "worktree", "add", "-q", "-b", f"issue-{n}", str(tree))
-        if limit is not None:
-            (tree / ".mmw").mkdir(exist_ok=True)
-            text = (limit if isinstance(limit, str)
-                    else json.dumps({"instance": {"max": limit, "why": "fixed ports"}}))
-            (tree / ".mmw" / "target.json").write_text(text, encoding="utf-8")
-        return self.lease.worktree_of(tree)
-
-    def test_a_second_ticket_worktree_past_the_limit_is_told_the_product_is_full(self):
-        first = self.ticket_tree(1)
-        self.lease.try_claim(first)
+    def test_a_fifth_worktree_is_told_the_machine_is_full(self):
+        holders = self.full()
         with self.assertRaises(self.lease.Full) as caught:
-            self.lease.try_claim(self.ticket_tree(2))
-        self.assertEqual((caught.exception.reason, caught.exception.limit),
-                         ("product-full", 1))
-        self.assertEqual(caught.exception.holders, [str(first)])
-        self.assertEqual(len(self.lease.claimed()), 1, "a slot was taken past the limit")
+            self.lease.try_claim(self.lease.worktree_of(self.tree("issue-5")))
+        self.assertEqual(sorted(caught.exception.holders), sorted(holders))
+        self.assertEqual(len(self.lease.claimed()), 4, "a slot was taken past the limit")
 
     def test_a_worktree_that_holds_its_slot_is_never_refused_it(self):
-        first = self.ticket_tree(1)
-        record = self.lease.try_claim(first)
-        self.ticket_tree(2)
-        self.assertEqual(self.lease.try_claim(first), record)
+        self.full()
+        first = self.lease.worktree_of(self.tree("issue-1"))
+        self.assertEqual(self.lease.try_claim(first)["worktree"], str(first))
 
-    def test_a_slot_given_back_is_the_next_worktrees(self):
-        first = self.ticket_tree(1)
-        second = self.ticket_tree(2)
-        self.lease.try_claim(first)
-        self.lease.release(first)
-        self.assertEqual(self.lease.try_claim(second)["worktree"], str(second))
-
-    def test_the_main_checkout_counts_toward_the_limit_like_any_other(self):
-        """The night's reverify runs the product in the main worktree; a lease there that
-        the limit did not count would put a second copy on the ports the limit exists to
-        protect."""
-        (self.repo / ".mmw").mkdir()
-        (self.repo / ".mmw" / "target.json").write_text(
-            json.dumps({"instance": {"max": 1}}), encoding="utf-8")
-        main = self.lease.worktree_of(self.repo)
-        first = self.ticket_tree(1)
-        self.lease.try_claim(first)
-        with self.assertRaises(self.lease.Full) as caught:
-            self.lease.try_claim(main)
-        self.assertEqual(caught.exception.holders, [str(first)])
-        self.lease.release(first)
-        self.lease.try_claim(main)
-        with self.assertRaises(self.lease.Full) as caught:
-            self.lease.try_claim(self.ticket_tree(2))
-        self.assertEqual(caught.exception.holders, [str(main)])
-
-    def test_a_claim_records_its_repository_so_the_count_needs_no_directory(self):
-        first = self.ticket_tree(1)
-        record = self.lease.try_claim(first)
-        self.assertEqual(record["repo"], str((self.repo / ".git").resolve()))
-
-    def test_another_repositorys_worktrees_do_not_count(self):
-        other = self.trees / "other"
-        self.git("init", "-q", "-b", "main", str(other))
-        self.git("-C", str(other), "-c", "user.email=t@t", "-c", "user.name=t",
-                 "commit", "-q", "--allow-empty", "-m", "base")
-        self.lease.try_claim(self.ticket_tree(1, repo=other))
-        self.lease.try_claim(self.ticket_tree(1))
-
-    def test_no_limit_declared_is_the_machines_limit(self):
-        for n in range(1, 5):
-            self.lease.try_claim(self.ticket_tree(n, limit=None))
-        with self.assertRaises(self.lease.Full) as caught:
-            self.lease.try_claim(self.ticket_tree(5, limit=None))
-        self.assertEqual((caught.exception.reason, caught.exception.limit), ("machine-full", 4))
-
-    def test_a_limit_nobody_can_read_is_not_no_limit(self):
-        tree = self.ticket_tree(1, limit="{not json")
-        with self.assertRaises(self.lease.CapUnreadable):
-            self.lease.try_claim(tree)
-        with self.assertRaises(SystemExit):
-            self.lease.claim(tree)
-        self.assertEqual(self.lease.claimed(), [])
-
-    def test_a_judge_that_reaches_a_full_product_is_refused_with_a_way_out(self):
-        self.lease.try_claim(self.ticket_tree(1))
+    def test_a_judge_that_reaches_a_full_machine_is_refused_with_a_way_out(self):
+        self.full()
         with self.assertRaises(SystemExit) as caught:
-            self.lease.claim(self.ticket_tree(2))
-        self.assertIn("instance.max of 1", str(caught.exception))
+            self.lease.claim(self.tree("issue-5"))
         self.assertIn("blocked", str(caught.exception))
 
     def test_the_command_line_answers_4_and_says_who_holds_the_slots(self):
-        first = self.ticket_tree(1)
-        self.lease.try_claim(first)
+        holders = self.full()
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = self.lease.main(["claim", str(self.ticket_tree(2))])
-        self.assertEqual(code, 4, "a full product is a wait, told by its own exit code")
-        self.assertEqual(json.loads(out.getvalue()),
-                         {"claimed": False, "reason": "product-full", "limit": 1,
-                          "holders": [str(first)]})
+            code = self.lease.main(["claim", str(self.tree("issue-5"))])
+        self.assertEqual(code, 4, "a full machine is told by its own exit code")
+        answer = json.loads(out.getvalue())
+        self.assertEqual((answer["claimed"], answer["limit"]), (False, 4))
+        self.assertEqual(sorted(answer["holders"]), sorted(holders))
 
     def test_the_count_and_the_take_are_one_act_under_a_lock(self):
         """Two runs asking for the last slot at once must not both count one free slot.
@@ -658,7 +551,7 @@ class TheProductsLimit(Base):
         import fcntl
         import subprocess
         import time
-        tree = self.ticket_tree(1)
+        tree = self.lease.worktree_of(self.tree("issue-1"))
         self.lease.registry().mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, MMW_HOME=str(self.home), MMW_LEASE_SLOTS="4",
                    MMW_LEASE_PORT_BASE="21400", MMW_LEASE_PORT_STRIDE="5")

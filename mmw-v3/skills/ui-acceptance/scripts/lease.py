@@ -8,7 +8,6 @@
     lease.py remove-instance <worktree>   remove its data directory after its worktree is gone;
                                           0 removed or absent, 3 worktree exists/delete failed
     lease.py list                         every live lease
-    lease.py count <directory>            how many leases sit under a directory
 
 What a lease puts in the environment:
 
@@ -44,15 +43,9 @@ number is right to; a derived port leaking into it turns a correct suite red.
 # ends, and leaves a slot that was already held to whoever acquired it; `lease.py run`
 # starts a product for a person or agent and leaves its lease in place.
 #
-# Two limits bound a lease. The machine's is `SLOTS`. The product's is `instance.max` in
-# the repository's `.mmw/target.json` — a product that cannot move its ports declares how
-# many copies of it can run at once — and it counts every lease made from that repository,
-# wherever its directory is: a ticket worktree, the main worktree running the night's
-# reverify, or any other checkout sharing the repository's git directory. Each lease
-# records that git directory, so the count holds after a worktree is gone. A lease past
-# either limit is not taken: `claim` exits 4 and prints which limit and
-# who holds the slots, because the caller waits and asks again rather than giving up
-# (`verify-ticket.py` does, and says on the ticket that it is waiting).
+# A machine holds `SLOTS` leases. With every slot taken `claim` exits 4 and prints who
+# holds them, and the run that needed one reports its ticket blocked (the ui-acceptance
+# skill's rule 4): a machine that is full is not waited on.
 #
 # `claim` is atomic against other acquirers: the count and the take happen under one lock on
 # the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
@@ -61,8 +54,7 @@ number is right to; a derived port leaking into it turns a correct suite red.
 #
 # Every verb answers a program or an agent; none of them formats for a person, because on
 # this pipeline nobody reads a terminal. `claim`, `release`, `remove-instance` and `list`
-# print JSON, `count` prints a number, and what a caller has to *decide* on is the exit
-# code, never the wording. The one piece of prose here is the
+# print JSON, and what a caller has to *decide* on is the exit code, never the wording. The one piece of prose here is the
 # refusal a live listener earns, on stderr: its reader is an agent choosing what to do
 # next, and it is written so that agent needs nothing else.
 #
@@ -324,23 +316,14 @@ def sweep() -> list[int]:
 
 
 class Full(Exception):
-    """No slot can be taken now: `reason` is `product-full` (this repository's
-    `instance.max` is reached) or `machine-full` (every slot of this machine is taken).
-    `limit` is the limit reached and `holders` the worktrees holding its slots."""
+    """Every slot of this machine is taken; `holders` are the worktrees holding them."""
 
-    def __init__(self, reason: str, limit: int, holders: list[str]):
-        super().__init__(f"{reason}: {len(holders)} of {limit} slots held")
-        self.reason = reason
-        self.limit = limit
+    def __init__(self, holders: list[str]):
+        super().__init__(f"all {SLOTS} slots of this machine are held")
         self.holders = holders
 
     def as_json(self) -> dict:
-        return {"claimed": False, "reason": self.reason, "limit": self.limit,
-                "holders": self.holders}
-
-
-class CapUnreadable(RuntimeError):
-    """`.mmw/target.json` is there and cannot be read, so the product's limit is unknown."""
+        return {"claimed": False, "limit": SLOTS, "holders": self.holders}
 
 
 class StopUnreadable(RuntimeError):
@@ -361,7 +344,7 @@ def read_target_json(root: Path) -> dict | None:
     would cycle.
 
     The message names the file by its short, relative spelling, never the absolute
-    `path`: this run's own `product_cap` and `stop_command` feed it straight into
+    `path`: this run's own `stop_command` feeds it straight into
     `refusal()`, which trims from the front to stay under Grok Build's 256-character
     deny-reason limit, and a long temp-directory path can trim away the very words
     ("cannot be read as JSON") a caller or a test depends on.
@@ -390,43 +373,6 @@ def target_json(worktree: Path, unreadable: type[RuntimeError]):
         raise unreadable(str(exc)) from None
 
 
-def _git(worktree: Path, *args: str) -> str:
-    try:
-        out = subprocess.run(["git", "-C", str(worktree), *args], capture_output=True,
-                             text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return out.stdout.strip() if out.returncode == 0 else ""
-
-
-def repository_of(worktree: Path) -> str | None:
-    """The git directory every checkout of this worktree's repository shares, or None
-    outside a repository. It is what a lease is counted against a product's limit by."""
-    common = _git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if not common:
-        return None
-    try:
-        return str(Path(common).resolve())
-    except OSError:
-        return common
-
-
-def product_cap(worktree: Path) -> tuple[int, str] | None:
-    """`(instance.max, the repository's shared git directory)` for this worktree, or None
-    when it declares no limit or sits in no repository.
-
-    Raises `CapUnreadable` for a `.mmw/target.json` that is there and is not JSON: a limit
-    nobody can read is not "no limit", and taking a slot past it is how 2026-09-05 went.
-    """
-    data = target_json(worktree, CapUnreadable)
-    instance = data.get("instance") if isinstance(data, dict) else None
-    limit = instance.get("max") if isinstance(instance, dict) else None
-    if not isinstance(limit, int) or limit <= 0:
-        return None
-    repo = repository_of(worktree)
-    return (limit, repo) if repo else None
-
-
 class _Locked:
     """An exclusive lock on the registry, held while acquiring counts and takes."""
 
@@ -443,7 +389,7 @@ class _Locked:
 
 
 def try_claim(worktree: Path) -> dict:
-    """This worktree's slot, taken now if it does not have one; `Full` when no slot may be.
+    """This worktree's slot, taken now if it does not have one; `Full` when none is free.
 
     Re-acquiring is a lookup, so every command of a run agrees without a shared file to
     keep in step, and a worktree that already holds its slot is never refused one.
@@ -454,17 +400,8 @@ def try_claim(worktree: Path) -> dict:
         if held:
             return held
         sweep()
-
-        cap = product_cap(worktree)
-        if cap is not None:
-            limit, repo = cap
-            held = [r["worktree"] for r in claimed() if r.get("repo") == repo]
-            if len(held) >= limit:
-                raise Full("product-full", limit, held)
-
         record = {
             "worktree": target,
-            "repo": cap[1] if cap is not None else repository_of(worktree),
             "instance": instance_name(worktree),
             "slot": None,
             "port_base": None,
@@ -483,30 +420,19 @@ def try_claim(worktree: Path) -> dict:
             with os.fdopen(fd, "wb") as handle:
                 handle.write(payload)
             return record
-        raise Full("machine-full", SLOTS, [r.get("worktree", "") for r in claimed()])
+        raise Full([r.get("worktree", "") for r in claimed()])
 
 
 def claim(worktree: Path) -> dict:
     """This worktree's slot, or the refusal a caller that cannot wait gets.
 
     The oracles of the ui-acceptance skill come here through `leased_environment` in the
-    middle of a criterion, where there is nobody to wait: `verify-ticket.py` has already
-    acquired the slot before the run began, and waited for it when none was free, so an
-    oracle reaching this with no slot free is a run that skipped that step.
+    middle of a criterion: `verify-ticket.py` has already acquired the slot before the
+    run began, so an oracle reaching this with no slot free is a run that skipped that step.
     """
     try:
         return try_claim(worktree)
-    except CapUnreadable as exc:
-        raise SystemExit(refusal(str(exc), "The product's limit is unknown.",
-                                 REPORT_BLOCKED)) from None
-    except Full as full:
-        if full.reason == "product-full":
-            raise SystemExit(refusal(
-                f"This product's instance.max of {full.limit} is reached: "
-                f"{', '.join(full.holders)}.",
-                "A run needs one and none is free.",
-                REPORT_BLOCKED,
-            )) from None
+    except Full:
         raise SystemExit(refusal(
             f"All {SLOTS} instance slots on this machine are acquired.",
             "A run needs one and none is free.",
@@ -587,31 +513,6 @@ def release(worktree: Path, stop: bool = False) -> dict:
         ))
     slot_file(slot).unlink(missing_ok=True)
     return {"released": True, "worktree": target, "slot": slot, "reason": None}
-
-
-def count_under(prefix: Path) -> int:
-    """How many live leases sit under `prefix`.
-
-    Both sides are resolved before they are compared. A registry stores the resolved
-    path and a caller usually has the unresolved one, and on macOS `/var` is a symlink
-    to `/private/var` — comparing the two as text answers "none" every time, which in a
-    gate means the gate is open and nobody is told. A safety check that fails silently is
-    the shape of defect this whole file exists to remove, so the comparison lives here,
-    once, next to the writer of those paths.
-    """
-    try:
-        root = prefix.resolve()
-    except OSError:
-        root = prefix
-    total = 0
-    for record in claimed():
-        try:
-            tree = Path(record.get("worktree", "")).resolve()
-        except OSError:
-            continue
-        if tree == root or root in tree.parents:
-            total += 1
-    return total
 
 
 def environment(record: dict) -> dict[str, str]:
@@ -698,13 +599,6 @@ def main(argv: list[str] | None = None) -> int:
         env.update(leased_environment(tree))
         return subprocess.run(command, env=env).returncode
 
-    if verb == "count":
-        if not rest:
-            sys.stderr.write("usage: lease.py count <directory>\n")
-            return 2
-        print(count_under(Path(rest[0])))
-        return 0
-
     if verb == "remove-instance":
         if not rest:
             sys.stderr.write("usage: lease.py remove-instance <worktree>\n")
@@ -720,9 +614,6 @@ def main(argv: list[str] | None = None) -> int:
     if verb == "claim":
         try:
             record = try_claim(tree)
-        except CapUnreadable as exc:
-            sys.stderr.write(f"{exc}\n")
-            return 2
         except Full as full:
             print(json.dumps(full.as_json(), ensure_ascii=False))
             return 4

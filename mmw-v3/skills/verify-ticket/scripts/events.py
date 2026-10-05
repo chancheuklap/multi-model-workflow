@@ -96,9 +96,6 @@ CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
 CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
                 "baseline": "claim"}
-# Why a run waits for a product slot: this product's `instance.max` is reached, or every
-# slot of this machine is taken.
-QUEUE_REASONS = ("product-full", "machine-full")
 BOUNCE_REASONS = ("conflict", "checks")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
@@ -154,13 +151,6 @@ EVENTS: dict[str, dict] = {
     "worker.replaced":   {"stage": "dispatch", "actor": "main",
                           "required": ("session", "runner")},
     "worker.decided":    {"stage": "work",     "actor": "worker"},
-    # A run of the criteria needed the product and no slot was free, so it waits for one:
-    # the one state in which a worker is neither dead nor done. It ends at the next
-    # `ticket.checked`, which names the slot the run got, or at any event that ends the
-    # worker's hold.
-    "worker.queued":     {"stage": "work",     "actor": "worker",
-                          "required": ("reason", "run"),
-                          "closed": {"reason": QUEUE_REASONS, "run": CHECK_RUNS}},
     # Files ticket `by` changed that this ticket's `## Owns` covers, posted on this ticket
     # so the worker that owns them reads what another ticket did to them.
     "worker.touched":    {"stage": "work",     "actor": "worker",
@@ -514,8 +504,6 @@ def empty_state(issue: int | None = None) -> dict:
         "results": {kind: None for kind in AGENT_KINDS},
         # The newest `ticket.checked` of each run.
         "checks": {run: None for run in CHECK_RUNS},
-        # The `worker.queued` a run is still waiting under, or None.
-        "waiting": None,
         # The product slot the newest run held, until an event in `SLOT_ENDS` gives it back.
         "slot": None,
         "touched": [],
@@ -631,11 +619,8 @@ def apply(state: dict, event: dict) -> None:
         state["review"] = event
     elif name == "worker.decided":
         state["decided"] += 1
-    elif name == "worker.queued":
-        state["waiting"] = event
     elif name == "ticket.checked":
         state["checks"][payload.get("run")] = event
-        state["waiting"] = None
         if payload.get("slot") is not None:
             state["slot"] = payload.get("slot")
     elif name == "worker.touched":
@@ -668,12 +653,6 @@ def apply(state: dict, event: dict) -> None:
                     if r["kind"] == ENDS_OWN_HOLD[name] and r["live"]]
             if mine:
                 _end(state, name, (mine[-1]["runner"], mine[-1]["session"]))
-    # A run waits only while a worker is at work on the ticket: whatever ends a worker's
-    # hold, or the worker's own result, ends the wait with it. A lost reviewer ends only
-    # its own hold; the worker's run is still waiting.
-    if name in ENDS_EVERY_HOLD or name in RESULTS["worker"] \
-            or (name in ENDS_ONE_HOLD and name != "reviewer.lost"):
-        state["waiting"] = None
     if name in SLOT_ENDS:
         state["slot"] = None
     for agent_kind, names in RESULTS.items():

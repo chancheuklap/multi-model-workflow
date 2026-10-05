@@ -2715,7 +2715,7 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
   [ "$code" = 0 ] || fail "a full machine must not stop a worker from starting, got $code: $(cat "$TMP/err")"
   started_once
   assert_wt 61
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
     || fail "start took a slot: $(python3 "$LEASE_PY" list)"
   posted_events 61 slot port_base | grep -qx "worker.started slot=None port_base=None" \
     || fail "worker.started should carry no slot: $(posted_events 61 slot port_base)"
@@ -2782,8 +2782,8 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "start should hold no slot, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "start should hold no slot, it holds $(lease_count "$TMP/repo/.worktrees")"
   # The worker's first run of a criterion that needs the product acquires it.
   MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 61)" >/dev/null
   set_agent_status "$(cat "$TMP/out")" closed
@@ -2795,8 +2795,8 @@ JSON
   assert_no_wt 61
   assert_branch 61
   hasnt_runner_worktree
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the slot should be free after retract, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the slot should be free after retract, count is $(lease_count "$TMP/repo/.worktrees")"
   grep -q "retract #61: archived 1, slot given back 1, claim given back 1" "$TMP/err" \
     || fail "the counters should match what was undone: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
@@ -2819,8 +2819,8 @@ JSON
   assert_wt 62
   MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 62)" >/dev/null \
     || fail "the slot retract gave back should be free for the next claim: $(python3 "$LEASE_PY" list)"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "the next claim should take the freed slot, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "the next claim should take the freed slot, count is $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- a live agent on the ticket is refused, and the workspace stays"
   reset_log
@@ -2833,8 +2833,8 @@ JSON
   hasnt "workspace :: archive"
   grep -q "live agent" "$TMP/err" \
     || fail "the refusal should say a live agent is on the ticket: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "a refused retract must not give the slot back, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "a refused retract must not give the slot back, count is $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- a claim this pipeline does not hold is left alone"
   reset_log
@@ -2854,8 +2854,8 @@ JSON
   hasnt "gh :: issue :: edit"
   grep -q "claim given back 0" "$TMP/err" \
     || fail "someone else's claim must stay: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the slot should still be given back: $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the slot should still be given back: $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- with no lease.py to be found at all, retract refuses and the slot stays held"
   reset_log
@@ -2875,8 +2875,8 @@ JSON
   grep -q "lease.py" "$TMP/err" \
     || fail "the refusal should name lease.py: $(cat "$TMP/err")"
   hasnt "workspace :: archive"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "the slot must stay held when retract cannot see lease.py, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "the slot must stay held when retract cannot see lease.py, count is $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- and with the ui-acceptance skill next door, no --tools is needed to find it"
   : > "$MMW_TEST_LOG"
@@ -2884,8 +2884,8 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$copy/scripts/dispatch.sh" retract 61)"
   [ "$code" = 0 ] || fail "expected exit 0 with lease.py next door, got $code: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the slot should be given back, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees"); retract said: $(cat "$TMP/err")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the slot should be given back, count is $(lease_count "$TMP/repo/.worktrees"); retract said: $(cat "$TMP/err")"
 }
 
 scenario_start_reviewer() {
@@ -4044,7 +4044,7 @@ scenario_release() {
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 63 :: --remove-assignee :: @me"
   echo "--- the release ends the lost worker's work, so the slot its worktree held goes back with the claim"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "#63's slot outlived its released claim: $(python3 "$LEASE_PY" list)"
   grep -q "released 1" "$TMP/err" \
     || fail "the claim should have been given back: $(cat "$TMP/err")"
@@ -4171,28 +4171,33 @@ JSON
     || fail "a finished batch should not explain the frontier: $(cat "$TMP/err")"
 }
 
-# ------------------------------------------------------------------ instance gate / suspend
+# ------------------------------------------------------------------ product slots / suspend
 
 LEASE_PY="$(dirname "$SKILL")/ui-acceptance/scripts/lease.py"
 
+# How many leases are held under a directory.
+lease_count() {
+  python3 "$LEASE_PY" list | python3 -c '
+import json, os, sys
+under = os.path.realpath(sys.argv[1]) + "/"
+print(sum(r["worktree"].startswith(under) for r in json.load(sys.stdin)))
+' "$1"
+}
+
 scenario_slotatclaim() {
   rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
-  echo "--- a product capped at one run still has every frontier ticket started: code takes no slot"
+  echo "--- every frontier ticket is started while slots are held: code takes no slot"
   reset_log
   fresh_repo
   make_branch issue-61 one.txt "from 61"
   make_branch issue-62 two.txt "from 62"
   write_batch
-  mkdir -p "$TMP/repo/.mmw"
-  printf '%s\n' '{"start":"true","discover":"true","reach":"true","instance":{"max":1,"why":"fixed host ports"}}' \
-    > "$TMP/repo/.mmw/target.json"
   seed_workspace 61
   seed_workspace 62
   seed_workspace 99
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-99" >/dev/null
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-62" >/dev/null
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 2 ] \
-    || fail "setup should hold two slots, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 2 ] || fail "setup should hold two slots, it holds $(lease_count "$TMP/repo/.worktrees")"
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -4202,34 +4207,29 @@ scenario_slotatclaim() {
   git -C "$TMP/repo" show origin/main:two.txt >/dev/null 2>&1 || fail "issue-62 was not merged"
 
   echo "--- a merged ticket's slot is given back before its worktree is removed: held until landing"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "issue-62's lease should be gone after archive, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] || fail "issue-62's lease should be gone after archive, count is $(lease_count "$TMP/repo/.worktrees")"
   assert_no_wt 62
   assert_no_branch 62
   hasnt_runner_worktree
 
-  echo "--- the frontier ticket starts although the product's one slot is held, and takes none"
+  echo "--- the frontier ticket starts and takes no slot"
   assert_wt 63
   grep -q "started 1" "$TMP/err" || fail "the frontier ticket was not started: $(cat "$TMP/err")"
   ! grep -q "held" "$TMP/err" || fail "advance still holds tickets back: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "the start took a slot: $(python3 "$LEASE_PY" list)"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] || fail "the start took a slot: $(python3 "$LEASE_PY" list)"
 
-  echo "--- its first run that needs the product is the one told to wait: lease.py answers 4, full"
-  cp "$TMP/repo/.mmw/target.json" "$(wt 63)/.mmw/target.json" 2>/dev/null \
-    || { mkdir -p "$(wt 63)/.mmw" && cp "$TMP/repo/.mmw/target.json" "$(wt 63)/.mmw/target.json"; }
+  echo "--- a claim on a full machine answers 4 and names who holds the slots"
   local answer
-  answer="$(python3 "$LEASE_PY" claim "$(wt 63)")"
+  answer="$(MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 63)")"
   code=$?
-  [ "$code" = 4 ] || fail "the claim past instance.max should exit 4, got $code: $answer"
+  [ "$code" = 4 ] || fail "the claim on a full machine should exit 4, got $code: $answer"
   printf '%s' "$answer" | python3 -c '
 import json, sys
 got = json.load(sys.stdin)
-assert got["claimed"] is False and got["reason"] == "product-full" and got["limit"] == 1, got
+assert got["claimed"] is False and got["limit"] == 1, got
 assert [h.endswith("issue-99") for h in got["holders"]] == [True], got
 ' || fail "the full answer should name the limit and who holds it: $answer"
 
-  rm -f "$TMP/repo/.mmw/target.json"
   python3 "$LEASE_PY" release "$TMP/repo/.worktrees/issue-99" >/dev/null
 }
 
@@ -4493,14 +4493,14 @@ scenario_suspend() {
   [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the night did not open a worktree for #61"
   [ -d "$TMP/repo/.worktrees/issue-63" ] || fail "the night did not open a worktree for #63"
   # The starts took no slot; each worker's first run that needs the product acquires one.
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the starts should hold no slot, they hold $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the starts should hold no slot, they hold $(lease_count "$TMP/repo/.worktrees")"
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-61" >/dev/null
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-63" >/dev/null
   seed_workspace 65
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-65" >/dev/null
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 3 ] \
-    || fail "the night should hold three slots, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 3 ] \
+    || fail "the night should hold three slots, it holds $(lease_count "$TMP/repo/.worktrees")"
 
   seed_agent 61 worker
   seed_agent 99 worker 99
@@ -4557,9 +4557,9 @@ scenario_suspend() {
   hasnt "gh :: issue :: comment :: 65"
 
   echo "--- the slots the night held are back"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "slots are still held: $(python3 "$LEASE_PY" list)"
-  [ "$(python3 "$LEASE_PY" count "$TMP/other-repo")" = 1 ] \
+  [ "$(lease_count "$TMP/other-repo")" = 1 ] \
     || fail "a lease from another checkout was released: $(python3 "$LEASE_PY" list)"
   grep -q 'suspend #76: stopped 1, commented 2, slots given back 3, claims given back 2' "$TMP/out" \
     || fail "the summary line is wrong: $(cat "$TMP/out")"
@@ -4611,7 +4611,7 @@ JSON
   assert_no_wt 61
   assert_branch 61
   hasnt_runner_worktree
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "the slot should be free once the product is stopped"
 
   echo "--- a repository that declares no stop is not a failure"
@@ -4728,7 +4728,7 @@ sys.stdin.read()
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
   grep -q 'lease not released' "$TMP/err" || fail "the refusal is not on stderr: $(cat "$TMP/err")"
   grep -q "port $port" "$TMP/err" || fail "the reason does not name the port: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
     || fail "a slot with a live listener was taken anyway: $(python3 "$LEASE_PY" list)"
 
   echo "--- and the rest of the night is still suspended: workers archived, tickets told"
@@ -5698,8 +5698,6 @@ scenario_ack() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack 99 ticket.passed)"
   [ "$code" = 2 ] || fail "ack of a wake never queued expected 2, got $code"
   grep -q "no wake \`#99 ticket.passed\` is queued for paseo session agt_main" "$TMP/err" || fail "the refusal should name the wake: $(cat "$TMP/err")"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack relay.recovered)"
-  [ "$code" = 2 ] || fail "ack of a relay.recovered never announced expected 2, got $code"
 
   echo "--- the worker acks its own wake, named by its own session"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_wk bash "$DISPATCH" "${TOOLS[@]}" ack 61 reviewer.reported)"

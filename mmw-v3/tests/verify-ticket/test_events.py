@@ -47,11 +47,11 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """The 28 live events have one shape and closed sets."""
+    """The 27 live events have one shape and closed sets."""
 
-    def test_there_are_twenty_eight_events(self):
-        self.assertEqual(len(events.EVENTS), 28)
-        for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
+    def test_there_are_twenty_seven_events(self):
+        self.assertEqual(len(events.EVENTS), 27)
+        for name in ("ticket.checked", "worker.touched", "reviewer.lost",
                      "ticket.bounced", "ticket.recovered", "spec.retroed"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
@@ -503,7 +503,6 @@ class Replays(unittest.TestCase):
             comment(3, started("rev_1", kind="reviewer")),
             comment(4, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
             comment(5, ev("ticket.passed", "ALL MET", commit="d" * 40)),
-            comment(6, queued()),
             comment(10, first),
         ]
         before = events.fold(prior, issue=76)
@@ -515,13 +514,12 @@ class Replays(unittest.TestCase):
                          "spec.retroed result=recorded retro_memory=retro-76 "
                          "problem_count=1 proposals=431 evidence=partial "
                          "unreadable_sources=ticket #61")
-        for key in ("held", "hold_ended", "waiting", "slot", "passed", "returned",
+        for key in ("held", "hold_ended", "slot", "passed", "returned",
                     "landed", "regressed", "bounced", "outcome", "review", "results",
                     "sessions", "claim_hold"):
             with self.subTest(preserved=key):
                 self.assertEqual(state[key], before[key])
         self.assertTrue(state["held"])
-        self.assertIsNotNone(state["waiting"])
         self.assertEqual(state["slot"], 2)
         self.assertTrue(state["passed"])
         self.assertIsNotNone(state["review"])
@@ -545,11 +543,6 @@ class Replays(unittest.TestCase):
         self.assertEqual([e["comment"] for e in state["events"]], [1, 2, 3, 4, 5, 6])
 
 
-def queued(run="self", reason="product-full"):
-    return ev("worker.queued", "Waiting for a product slot", run=run, reason=reason,
-              limit=1, holders=["/repo/.worktrees/issue-60"])
-
-
 def checked_run(run="self", slot=None, result="met", failed=()):
     return ev("ticket.checked", f"{run} run", run=run, commit="a" * 40, result=result,
               counts={"met": 1, "unmet": len(failed), "abandoned": 0,
@@ -557,16 +550,13 @@ def checked_run(run="self", slot=None, result="met", failed=()):
               failed=list(failed), slot=slot)
 
 
-class WaitingAndSlots(unittest.TestCase):
-    """A run queued for a product slot is the one state where a worker is neither dead
-    nor done; the fold says so until a run gets its slot or the worker's hold ends."""
+class HoldsAndSlots(unittest.TestCase):
+    """Which sessions hold a ticket, and which product slot its worktree holds."""
 
-    def test_a_queued_run_is_waiting_until_a_checked_run_names_its_slot(self):
-        state = events.fold([started(), queued()])
-        self.assertEqual(state["waiting"]["payload"]["reason"], "product-full")
+    def test_a_checked_run_names_the_slot_its_worktree_holds(self):
+        state = events.fold([started()])
         self.assertIsNone(state["slot"])
-        state = events.fold([started(), queued(), checked_run(slot=3)])
-        self.assertIsNone(state["waiting"])
+        state = events.fold([started(), checked_run(slot=3)])
         self.assertEqual(state["slot"], 3)
         self.assertEqual(state["checks"]["self"]["payload"]["slot"], 3)
 
@@ -588,16 +578,6 @@ class WaitingAndSlots(unittest.TestCase):
                              ev("reviewer.reported", "REVIEW", base="0" * 40, head="1" * 40),
                              ev("worker.lost", "lost", session="term_7", runner="orca")])
         self.assertEqual((state["held"], state["hold_ended"]), (False, True))
-
-    def test_whatever_ends_the_workers_hold_ends_its_wait(self):
-        for closing in (ev("worker.lost", "lost", session="term_7", runner="orca"),
-                        ev("ticket.returned", "HANDOFF REQUIRED: 1 abandoned"),
-                        ev("spec.suspended", "NIGHT SUSPENDED #76"),
-                        ev("worker.retracted", "Retracted", session="term_7",
-                           runner="orca")):
-            with self.subTest(event=events.parse(closing)[1]["event"]):
-                state = events.fold([started(), queued(), closing])
-                self.assertIsNone(state["waiting"])
 
     def test_the_slot_is_given_back_when_the_tickets_work_ends(self):
         """Landed, handed back, released, suspended, or its start retracted: a ticket

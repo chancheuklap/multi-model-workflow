@@ -16,7 +16,7 @@
 #   dispatch.sh report <batch>/<n> <file>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer
-#   dispatch.sh ack <n> <event> | relay.recovered | brief <batch>
+#   dispatch.sh ack <n> <event> | brief <batch>
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh findings <spec>
@@ -424,7 +424,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh report <batch>/<n> <file>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer
-       dispatch.sh ack <n> <event> | relay.recovered | brief <batch>
+       dispatch.sh ack <n> <event> | brief <batch>
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh findings <spec>
@@ -901,7 +901,7 @@ open_ticket() {
   fi
 }
 
-# `ack <n> <event>`, `ack relay.recovered` or `ack brief <batch>`: the wake this session
+# `ack <n> <event>` or `ack brief <batch>`: the wake this session
 # read is handled, and the relay sends it no more. The session is named the way its
 # adapter's `self` reads it.
 ack_wake() {
@@ -912,8 +912,6 @@ ack_wake() {
   session="${line#*$'\t'}"
   if [ "$1" = brief ]; then
     python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" --batch "$2" || exit 2
-  elif [ "$#" -eq 1 ]; then
-    python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" --event "$1" || exit 2
   else
     python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" \
       --ticket "$1" --event "$2" || exit 2
@@ -1173,8 +1171,8 @@ for rec in mod.claimed():
 #
 # Several runs share one machine. `lease.py` hands each worktree a block of ports and a
 # directory nothing else uses. Nothing here takes a slot: a worker writes code without
-# one, and the first run of its criteria that needs the product acquires it, waiting while
-# the product's `instance.max` or the machine's slots are all held. What this script does
+# one, and the first run of its criteria that needs the product acquires it; with every
+# slot of the machine held, that run reports its ticket blocked. What this script does
 # is give slots back — at landing, at a retraction, at a suspension — after taking the
 # product down, since a slot is free only once nothing listens on its ports.
 
@@ -3140,9 +3138,9 @@ advance() {
     || refuse "could not read the batch under #$spec again after its merges, so nothing was started"
 
   # Every ticket on the frontier is started: how many work at once is the frontier's
-  # answer alone. How many run the product at once is `instance.max`'s, and it is asked
-  # at the first run of each worker's criteria that needs the product, not here —
-  # writing code takes no slot, so a worker is never kept from its code by a port.
+  # answer alone. A product slot is taken at the first run of each worker's criteria
+  # that needs the product, not here — writing code takes no slot, so a worker is never
+  # kept from its code by a port.
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     case " $bounced_this_advance " in *" $number "*) continue ;; esac
@@ -3573,8 +3571,8 @@ reverify_spec() {
     rc=$?
     printf '%s\n' "$printed"
     # Red is exit 1 and a reverify ticket.checked of this HEAD that is not met; every
-    # other answer — 2 the run could not start, 3 it waited for a product slot and none
-    # came free, 4 its result could not be written, a crash, or a 1 the ticket holds no
+    # other answer — 2 the run could not start, 4 its result could not be written, a
+    # crash, or a 1 the ticket holds no
     # red run of HEAD for — says nothing about the ticket. Reading one as a red ticket is
     # how one broken invocation reopens a batch of landed work.
     ids=""
@@ -4584,9 +4582,7 @@ case "${1:-}" in
     open_ticket "$2"
     ;;
   ack)
-    if [ "$#" -eq 2 ] && [ "$2" = relay.recovered ]; then
-      ack_wake relay.recovered
-    elif [ "$#" -eq 3 ] && [ "$2" = brief ]; then
+    if [ "$#" -eq 3 ] && [ "$2" = brief ]; then
       ack_wake brief "$3"
     elif [ "$#" -eq 3 ]; then
       # The wake reads `#<n> <event>`; the number is taken with or without its `#`.

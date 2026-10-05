@@ -10,13 +10,12 @@ three places have to agree, and nothing else notices when one of them moves:
    of each session it starts (`WORKER_PLAYBOOK`, `REVIEWER_PLAYBOOK`); each has a route
    line in the mmw-mode skill's `## Playbooks`, and the file that line names exists. So do
    the orchestrator's playbooks, which the owner's session routes to itself.
-2. **Every event that wakes someone is an event.** Each key of the relay's `WAKES`, and
-   the slot wake `worker.queued`, is in `EVENTS` of the verify-ticket skill's `events.py`,
-   the one table of what a ticket can carry.
-3. **The session an event wakes has a step for it.** Each event `WAKES` sends to `main`,
-   and `relay.recovered`, is named as `#<n> <event>` (or, for `relay.recovered`, by name)
-   in every orchestrator playbook; each it sends to `worker`, and `worker.queued`, in the
-   worker's playbook. And every `#<n> <event>` a playbook waits for is one the relay
+2. **Every event that wakes someone is an event.** Each key of the relay's `WAKES` is in
+   `EVENTS` of the verify-ticket skill's `events.py`, the one table of what a ticket can
+   carry.
+3. **The session an event wakes has a step for it.** Each event `WAKES` sends to `main` is
+   named as `#<n> <event>` in every orchestrator playbook; each it sends to `worker`, in
+   the worker's playbook. And every `#<n> <event>` a playbook waits for is one the relay
    sends: a step that waits for anything else waits for ever.
 4. **A worker put back on its ticket finds its step.** Each title in `RESUME_STEPS` of
    `verify-ticket.py`, which a `RESUME:` line names, is the bold title of a step in the
@@ -193,17 +192,16 @@ def main() -> int:
 
     relay = module_constants(RELAY_PY)
     wakes = relay.get("WAKES")
-    queued, recovered = relay.get("QUEUED"), relay.get("RECOVERED")
     main_role, worker_role = relay.get("MAIN"), relay.get("WORKER")
-    if not isinstance(wakes, dict) or not all(isinstance(x, str) for x in (queued, recovered, main_role, worker_role)):
-        findings.append(f"{RELAY_PY.relative_to(SKILLS)}: WAKES, QUEUED, RECOVERED, MAIN or WORKER is not a literal this check can read")
+    if not isinstance(wakes, dict) or not all(isinstance(x, str) for x in (main_role, worker_role)):
+        findings.append(f"{RELAY_PY.relative_to(SKILLS)}: WAKES, MAIN or WORKER is not a literal this check can read")
         print("\n".join(findings))
         return 1
     known = module_constants(EVENTS_PY).get("EVENTS")
     if not isinstance(known, dict):
         findings.append(f"{EVENTS_PY.relative_to(SKILLS)}: EVENTS is not a literal this check can read")
         known = {}
-    for event in [*wakes, queued]:
+    for event in wakes:
         if known and event not in known:
             findings.append(f"{RELAY_PY.relative_to(SKILLS)}: {event} wakes a session, and "
                             f"{EVENTS_PY.relative_to(SKILLS)} EVENTS has no such event")
@@ -213,13 +211,12 @@ def main() -> int:
             return
         text = path.read_text(encoding="utf-8")
         for event in events:
-            named = (event in text) if event == recovered else (f"#<n> {event}" in text)
-            if not named:
+            if f"#<n> {event}" not in text:
                 findings.append(f"{path.relative_to(SKILLS)}: the relay wakes this playbook's session "
-                                f"with {'' if event == recovered else '#<n> '}{event}, and no step names it")
+                                f"with #<n> {event}, and no step names it")
 
-    to_main = [e for e, rule in wakes.items() if rule.get("to") == main_role] + [recovered]
-    to_worker = [e for e, rule in wakes.items() if rule.get("to") == worker_role] + [queued]
+    to_main = [e for e, rule in wakes.items() if rule.get("to") == main_role]
+    to_worker = [e for e, rule in wakes.items() if rule.get("to") == worker_role]
     for path in orchestrators:
         must_name(path, to_main)
     must_name(files.get("worker"), to_worker)
@@ -235,7 +232,7 @@ def main() -> int:
                 findings.append(f"{worker_playbook.relative_to(SKILLS)}: a RESUME: line can name the step "
                                 f"**{title}.**, and no step has that title")
 
-    sent = set(wakes) | {queued}
+    sent = set(wakes)
     for path in sorted((MODE.parent / "playbooks").glob("*.md")):
         for event in sorted(set(WAITED.findall(path.read_text(encoding="utf-8")))):
             if event not in sent:

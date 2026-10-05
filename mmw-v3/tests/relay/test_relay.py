@@ -143,19 +143,6 @@ class Clock:
         return self.moment
 
 
-class FakeAsk:
-    """The runner's liveness verb: records (runner, session), answers from `answers`."""
-
-    def __init__(self, default: str = "alive"):
-        self.default = default
-        self.answers: dict[tuple[str, str], str] = {}
-        self.calls: list[tuple[str, str]] = []
-
-    def __call__(self, runner: str, session: str) -> str:
-        self.calls.append((runner, session))
-        return self.answers.get((runner, session), self.default)
-
-
 class RelayCase(unittest.TestCase):
     """One repository's state directory with tickets #61 and #62 watched, orchestrator main-a."""
 
@@ -169,7 +156,6 @@ class RelayCase(unittest.TestCase):
         self.board: dict[int, list[dict]] = {61: [], 62: []}
         self.gh = FakeGh(self.board)
         self.send = FakeSend()
-        self.ask = FakeAsk()
         self.clock = Clock()
         self.relay = self.fresh()
         self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-a")
@@ -185,7 +171,7 @@ class RelayCase(unittest.TestCase):
         self.out, self.err = io.StringIO(), io.StringIO()
         reader = relay.ghlist.ConditionalListReader(self.gh)
         return relay.Relay(self.state, relay.Board("o/r", self.gh, reader), send=self.send,
-                           clock=self.clock, ask=self.ask, out=self.out, err=self.err)
+                           clock=self.clock, out=self.out, err=self.err)
 
     def poll(self, grace=90):
         return self.relay.poll(30, grace)
@@ -511,12 +497,6 @@ class AckByWakeTest(RelayCase):
         self.assertIsNone(self.relay.ack_wake(MAIN_A, 61, "ticket.passed"))
         self.assertEqual(len(self.rows()), 2)
 
-    def test_the_recovered_announcement_is_acked_by_its_name(self):
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.assertEqual([r["event"] for r in self.rows()], ["relay.recovered"])
-        self.assertEqual(self.relay.ack_wake(MAIN_A, None, "relay.recovered"), (1, 1, 0))
 
 
 class ReadEventTest(unittest.TestCase):
@@ -766,61 +746,8 @@ class PollingTest(RelayCase):
         self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
 
 
-class RecoveryTest(RelayCase):
-    def recovered_rows(self):
-        return [r for r in self.rows() if r["event"] == relay.RECOVERED]
-
-    def test_an_unattended_stretch_is_announced_once_ahead_of_the_events_it_recovered(self):
-        self.poll()
-        self.board[61].append(comment(101, "ticket.passed", 61))
-        self.board[62].append(comment(102, "ticket.passed", 62))
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.relay = self.fresh()
-        self.poll()
-        self.assertEqual([r["event"] for r in self.rows()],
-                         [relay.RECOVERED, "ticket.passed", "ticket.passed"])
-        self.assertEqual(self.recovered_rows()[0]["since"], stamp(T0))
-        gap = json.loads((self.state / "gap.json").read_text())
-        self.assertEqual((gap["generation"], gap["since"], gap["seq"]), (1, stamp(T0), 1))
-        self.relay.deliver()
-        self.assertEqual(self.send.sent[0][2], f"relay.recovered since {stamp(T0)}")
-
-    def test_a_stretch_already_announced_is_not_announced_again(self):
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.relay.ack(MAIN_A, 1)
-        # The good poll's beat is lost (a crash before it was written): same stretch again.
-        (self.state / "beat.json").write_text(json.dumps({"at": stamp(T0), "grace": 90, "interval": 30}))
-        self.clock.moment = T0 + timedelta(hours=2)
-        self.relay = self.fresh()
-        self.poll()
-        self.assertEqual(self.recovered_rows(), [])
-
-    def test_a_preset_marker_for_the_stretch_means_no_announcement(self):
-        (self.state / "beat.json").write_text(json.dumps({"at": stamp(T0)}))
-        (self.state / "gap.json").write_text(json.dumps({"generation": 4, "since": stamp(T0), "seq": 9}))
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.assertEqual(self.recovered_rows(), [])
-
-    def test_a_new_stretch_after_a_good_poll_is_a_new_generation(self):
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1, seconds=30)
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=3)
-        self.poll()
-        self.assertEqual([r["since"] for r in self.recovered_rows()],
-                         [stamp(T0), stamp(T0 + timedelta(hours=1, seconds=30))])
-        self.assertEqual(json.loads((self.state / "gap.json").read_text())["generation"], 2)
-
-    def test_polls_within_grace_announce_nothing(self):
-        for step in range(4):
-            self.clock.moment = T0 + timedelta(seconds=30 * step)
-            self.poll()
-        self.assertEqual(self.recovered_rows(), [])
+class UnattendedTest(RelayCase):
+    """Time spent delivering is not time unattended: `health` counts only the rest."""
 
     def test_time_spent_delivering_is_not_an_unattended_stretch(self):
         def slow(runner, session, text):
@@ -835,8 +762,6 @@ class RecoveryTest(RelayCase):
         self.clock.moment += timedelta(seconds=30)
         with statedir.locked(self.state / "relay.lock", wait=0, purpose="test"):
             self.assertIsNone(self.relay.health(), "230s since the good poll, 200 of them delivering")
-        self.poll()
-        self.assertEqual(self.recovered_rows(), [])
 
     def test_a_delivery_pass_under_way_is_not_past_grace(self):
         self.poll()
@@ -854,16 +779,13 @@ class RecoveryTest(RelayCase):
             self.relay.deliver()
         self.assertEqual(seen, [None])
 
-    def test_a_failing_poll_does_not_end_the_stretch(self):
+    def test_a_restart_after_an_unattended_stretch_queues_only_the_events_it_finds(self):
         self.poll()
-        self.gh.failing.add(62)
+        self.board[61].append(comment(101, "ticket.passed", 61))
         self.clock.moment = T0 + timedelta(hours=1)
+        self.relay = self.fresh()
         self.poll()
-        self.assertEqual(self.recovered_rows(), [])
-        self.gh.failing.clear()
-        self.clock.moment = T0 + timedelta(hours=2)
-        self.poll()
-        self.assertEqual([r["since"] for r in self.recovered_rows()], [stamp(T0)])
+        self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
 
 
 class WatchesTest(RelayCase):
@@ -962,215 +884,6 @@ class WatchesTest(RelayCase):
                           "the last watch closed forgets the last good poll")
         self.assertTrue(json.loads((self.state / "relay.json").read_text())["ending"])
 
-    def test_the_recovered_stretch_goes_once_to_each_main_agent(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
-        self.relay.open_watch({"tickets": [7]}, "paseo", "main-b")
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.assertEqual(sorted(r["session"] for r in self.rows() if r["event"] == relay.RECOVERED),
-                         ["main-a", "main-b"])
-        self.clock.moment = T0 + timedelta(hours=1, seconds=30)
-        self.poll()
-        self.assertEqual(len([r for r in self.rows() if r["event"] == relay.RECOVERED]), 2)
-
-
-class SlotWakeTest(RelayCase):
-    """A run that found no free product slot waits under a `worker.queued`, and a slot
-    given back on any watched ticket wakes its worker."""
-
-    def setUp(self):
-        super().setUp()
-        self.board[61].append(started(100, 61, "wk-61"))
-        self.board[62].append(started(101, 62, "wk-62"))
-
-    @staticmethod
-    def queued(cid: int, ticket: int = 62, updated: datetime = T0) -> dict:
-        return comment(cid, "worker.queued", ticket, updated=updated, reason="machine-full", run="self")
-
-    def woken(self):
-        return [(r["ticket"], r["session"]) for r in self.rows() if r["event"] == "worker.queued"]
-
-    def test_a_slot_given_back_wakes_the_worker_waiting_for_one(self):
-        self.board[62].append(self.queued(110))
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
-        self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
-        # Read again, and read in full by a restarted relay: queued no second time.
-        self.poll()
-        self.relay = self.fresh()
-        self.poll()
-        self.assertEqual(len(self.rows()), 1)
-        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 0))
-
-    def test_bounced_wakes_the_worker_waiting_for_a_slot(self):
-        self.board[62].append(self.queued(110))
-        self.board[61].append(comment(120, "ticket.bounced", 61, into="main",
-                                      files=["src/app.py"]))
-        self.poll()
-        self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
-
-    def test_the_run_that_got_a_slot_ends_the_wait_and_the_next_release_wakes_nobody(self):
-        self.board[62] += [self.queued(110),
-                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.woken(), [])
-
-    def test_a_release_older_than_the_wait_wakes_nobody(self):
-        self.board[61].append(comment(105, "ticket.released", 61))
-        self.board[62].append(self.queued(110))
-        self.poll()
-        self.assertEqual(self.woken(), [])
-
-    def test_a_release_read_again_after_a_newer_wait_wakes_nobody(self):
-        self.board[61].append(comment(105, "ticket.released", 61))
-        self.board[62].append(self.queued(110))
-        self.poll()
-        # The next read takes the release again, in its two minutes of overlap, and the
-        # wait recorded since is newer than it.
-        self.clock.moment = T0 + timedelta(seconds=30)
-        self.poll()
-        self.assertEqual(self.woken(), [])
-
-    def test_a_wait_and_a_later_release_meet_across_polls(self):
-        self.board[62].append(self.queued(110))
-        self.poll()
-        self.assertEqual(self.woken(), [])
-        later = T0 + timedelta(seconds=30)
-        self.clock.moment = later
-        self.board[61].append(comment(120, "worker.retracted", 61, updated=later))
-        self.poll()
-        self.assertEqual(self.woken(), [(62, "wk-62")])
-
-    def test_an_ended_wait_read_again_in_the_overlap_stays_ended(self):
-        self.board[62] += [self.queued(110),
-                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
-        self.poll()
-        later = T0 + timedelta(seconds=30)
-        self.clock.moment = later
-        self.board[61].append(comment(120, "ticket.landed", 61, updated=later))
-        self.poll()
-        self.assertEqual(self.woken(), [])
-
-    def test_a_slot_wake_not_yet_sent_when_the_wait_ends_is_dropped(self):
-        """A slot given back queues the wake; the runner takes it and cannot show a turn
-        starting (4), so it is delivered and stays. A second slot given back queues a
-        second wake — the first has been sent, so nothing folds into it — and the run that
-        got a slot ends the wait before that second wake is sent."""
-        self.board[62].append(self.queued(110))
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.woken(), [(62, "wk-62")])
-        self.send.code = 4
-        self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
-        second = T0 + timedelta(seconds=30)
-        self.clock.moment = second
-        self.board[61].append(comment(121, "ticket.released", 61, updated=second))
-        self.poll()
-        self.assertEqual(self.woken(), [(62, "wk-62"), (62, "wk-62")])
-        later = T0 + timedelta(seconds=60)
-        self.clock.moment = later
-        self.board[62].append(comment(130, "ticket.checked", 62, updated=later, run="self",
-                                      commit="a" * 40, result="met"))
-        self.poll()
-        # Acked through the first row; the second is still queued for it.
-        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 1))
-        self.relay.deliver()
-        self.assertEqual(len(self.send.sent), 1, "the second wake was sent after the wait ended")
-        self.assertEqual(self.woken(), [])
-
-    def test_a_lost_reviewer_does_not_end_the_wait(self):
-        self.board[62] += [self.queued(110),
-                           comment(112, "reviewer.lost", 62, session="rv-1", runner="paseo")]
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.addressed(), [(1, "reviewer.lost", "worker", "wk-62"),
-                                            (2, "worker.queued", "worker", "wk-62")])
-
-    def test_a_waiting_ticket_of_another_watch_is_woken(self):
-        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
-        self.board[70] = [started(102, 70, "wk-70"), self.queued(110, 70)]
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.woken(), [(70, "wk-70")])
-        self.assertEqual(self.rows()[0]["watch"], "tickets:70")
-
-    def test_the_wait_is_kept_where_a_restart_reads_it(self):
-        self.board[62].append(self.queued(110))
-        self.poll()
-        seen = json.loads((self.state / "seen.json").read_text())
-        self.assertEqual((seen["tickets"]["62"]["waiting"], seen["tickets"]["61"]["waiting"]), (110, None))
-
-
-class MainGoneTest(RelayCase):
-    """A watch whose orchestrator's session is gone: tickets #61 and #62 opened by main-a,
-    whose runner answers `stopped`, and ticket #70 opened by main-b, alive."""
-
-    def setUp(self):
-        super().setUp()
-        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
-        self.ask.answers[MAIN_A] = "stopped"
-
-    def test_the_main_agents_are_asked_every_ten_cycles(self):
-        for _ in range(9):
-            self.relay.cycle(30, 90)
-        self.assertEqual(self.ask.calls, [])
-        self.relay.cycle(30, 90)
-        self.assertEqual(sorted(self.ask.calls), [MAIN_A, ("paseo", "main-b")])
-
-    def test_a_main_agent_answered_stopped_for_an_hour_has_its_watch_closed(self):
-        self.relay.check_mains()
-        self.clock.moment = T0 + timedelta(seconds=3599)
-        self.relay.check_mains()
-        self.assertIn("tickets:61,62", self.watches())
-        self.clock.moment = T0 + timedelta(seconds=3600)
-        self.relay.check_mains()
-        self.assertEqual(self.watches(), {"tickets:70": ("paseo", "main-b")})
-        self.assertIn("main-a", self.out.getvalue())
-        self.assertIn(stamp(T0), self.out.getvalue())
-
-    def test_an_answer_other_than_stopped_starts_the_count_again(self):
-        for answer in ("unknown", "alive"):
-            with self.subTest(answer=answer):
-                self.clock.moment = T0
-                self.ask.answers[MAIN_A] = "stopped"
-                self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-a")
-                self.relay.check_mains()
-                self.clock.moment = T0 + timedelta(seconds=1800)
-                self.ask.answers[MAIN_A] = answer
-                self.relay.check_mains()
-                self.ask.answers[MAIN_A] = "stopped"
-                self.clock.moment = T0 + timedelta(seconds=3600)
-                self.relay.check_mains()
-                self.clock.moment = T0 + timedelta(seconds=7199)
-                self.relay.check_mains()
-                self.assertIn("tickets:61,62", self.watches())
-                self.clock.moment = T0 + timedelta(seconds=7200)
-                self.relay.check_mains()
-                self.assertNotIn("tickets:61,62", self.watches())
-
-    def test_the_count_outlives_a_restart(self):
-        self.relay.check_mains()
-        self.relay = self.fresh()
-        self.clock.moment = T0 + timedelta(seconds=3600)
-        self.relay.check_mains()
-        self.assertNotIn("tickets:61,62", self.watches())
-
-    def test_the_last_watch_closed_ends_the_relay_and_forgets_the_last_good_poll(self):
-        self.ask.answers[("paseo", "main-b")] = "stopped"
-        self.poll()
-        (self.state / "relay.json").write_text(json.dumps({"pid": 1, "identity": "x"}))
-        self.relay.check_mains()
-        self.clock.moment = T0 + timedelta(seconds=3600)
-        self.relay.check_mains()
-        self.assertEqual(self.watches(), {})
-        self.assertIsNone(json.loads((self.state / "beat.json").read_text())["at"])
-        self.assertTrue(json.loads((self.state / "relay.json").read_text())["ending"])
-        self.assertTrue(self.relay.leave_if_unwatched())
 
 
 class HealthTest(RelayCase):

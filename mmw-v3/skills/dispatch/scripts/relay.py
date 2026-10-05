@@ -6,7 +6,7 @@
     relay.py stop --repo O/R [--spec N | --tickets N[,N...] | --briefs B]
     relay.py watching --repo O/R [--ticket N] [--spec S]
     relay.py run --repo O/R [--once] [--interval S] [--grace S]
-    relay.py ack --repo O/R --runner R --session S (--through SEQ | --ticket N --event E | --event relay.recovered | --batch B)
+    relay.py ack --repo O/R --runner R --session S (--through SEQ | --ticket N --event E | --batch B)
     relay.py queue --repo O/R [--runner R --session S]
 
 **A translator, not a judge.** The relay does one thing: when a comment carrying one of
@@ -42,32 +42,14 @@ tickets watch.
     worker   reviewer.reported and reviewer.lost (the reviewer died with no result): the
              session that started that reviewer. Its runner and session are the
              `runner` and `session` fields of the ticket's latest `worker.started` before
-             the event. And worker.queued, when a product slot is given back (below)
+             the event
     main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind contract,
              fault (the pipeline itself broken) or decision, worker.lost: the orchestrator of the
-             ticket's watch. The relay's own relay.recovered: every orchestrator of a spec
-             or tickets watch. brief.done: the orchestrator of that batch's watch
+             ticket's watch. brief.done: the orchestrator of that batch's watch
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
 recipient's runner and session, and only that recipient — the pair, never the session
 id alone — consumes it.
-
-**A slot given back.** A run of the criteria that finds no free product slot posts
-`worker.queued` and exits, and nothing on its own ticket will ever wake it. So the relay
-keeps, per watched ticket, whether a `worker.queued` is pending: set by one, cleared by
-exactly the events that clear the fold's `waiting` in events.py — a `ticket.checked`, any
-event of `ENDS_EVERY_HOLD`, the worker's result (`RESULTS["worker"]`), and an event of
-`ENDS_ONE_HOLD` other than `reviewer.lost`. When an event of
-`SLOT_ENDS` that gives a slot back lands on any watched ticket (all of them but
-`spec.suspended`, which stops the night), every watched ticket whose pending
-`worker.queued` is older — a lower comment id — gets one row `#<m> worker.queued` for its
-worker: the latest `worker.started` of that ticket before the releasing comment. The row
-is keyed by the releasing comment and the woken ticket, so a re-read never queues it
-twice. Slots are counted per machine, not per watch, so a waiting ticket of any watch is
-woken. A poll's events are taken in comment-id order across all its tickets, so an older
-wait and a newer release meet in the order they happened. The flag is kept in `seen.json`
-and recomputed by the full read on start. The woken worker runs its criteria again and
-acks the wake like any other.
 
 **Briefs.** A session `dispatch.sh brief` starts has no ticket: it reports by writing
 its result into the batch's directory in this state directory (`briefs.py`, beside this
@@ -77,8 +59,7 @@ that opened the batch's watch, and writes `woken.json` in the batch so that it i
 once. One row per batch, never one per brief: a parent woken once reads every result in
 one turn. A batch's row carries no ticket, is never coalesced, and is acked with `ack
 --batch <batch>`. The tracker is not read for it, so an unattended stretch loses nothing
-of a batch and its parent is not sent `relay.recovered`. Closing a batch's watch removes
-its directory.
+of a batch. Closing a batch's watch removes its directory.
 
 **Reading the tracker.** Every `--interval` seconds (default 30) the relay reads the
 comments of each watched ticket updated since the newest one it saw there, less two
@@ -93,7 +74,7 @@ and a cycle with a failed read is never recorded as a good poll
 
 **A row's life.** Queued: `seq` (monotonic across all recipients, never reused, even after
 the queue empties), `ticket`, `event`, `to` (worker or main), `watch` (the key of the
-watch its ticket belongs to; none on relay.recovered), the recipient's `runner` and
+watch its ticket belongs to), the recipient's `runner` and
 `session`, `at`. An event whose recipient, ticket and event name are those of a row in the
 queue that has not been sent yet queues no row of its own: the two wakes read `#<n>
 <event>` alike, and an unacked row is the only record that something has not been handled,
@@ -119,9 +100,8 @@ happened is read on the tracker. What `send` answered decides what happens to th
 
 A row that is no longer its recipient's is dropped without a send, for the same reason
 as a 2: its watch was closed; its watch's orchestrator is now another session (the watch
-was opened again from a new session); a later `worker.started` put another worker on the
-ticket; or, for relay.recovered, its recipient is the orchestrator of no watch any more.
-Every drop is reported on stderr. A recipient's rows reach it in sequence order: after
+was opened again from a new session); or a later `worker.started` put another worker on
+the ticket. Every drop is reported on stderr. A recipient's rows reach it in sequence order: after
 one of them stays, that recipient gets nothing more this pass, and the other recipients
 are not held up by it. Delivery never removes a row: only `ack --runner R --session S
 --through <seq>` does, and it removes that recipient's rows up to that sequence number
@@ -129,8 +109,7 @@ whatever their content, and nobody else's. So a row sent twice — every unacked
 sent once more each time the relay starts — is still handled once. A woken session knows
 the wake it read, not its sequence number, so `ack --ticket N --event E` names the wake
 instead: it acks through the recipient's oldest delivered row naming that ticket and event
-(the oldest queued one when none is marked delivered), and `--event relay.recovered` does
-the same for the announcement. Only that recipient's rows are looked at: an ack that
+(the oldest queued one when none is marked delivered). Only that recipient's rows are looked at: an ack that
 matches none of them — acked already, sent to another session, or never queued — is
 refused, naming what it looked for and what is queued for that recipient, and removes
 nothing.
@@ -160,41 +139,24 @@ changes nothing. `watching` says whether a running relay would see a ticket's ev
 tickets watch names the ticket, or a spec watch is the ticket's spec; with `--spec`
 alone, whether that spec is watched.
 
-**An orchestrator that is gone.** A night whose orchestrator's session was closed without
-`summary` or `suspend` would otherwise be polled for ever, a few thousand REST requests an
-hour. Every 10 cycles the relay asks each watch's orchestrator's runner `liveness`. An orchestrator
-answered `stopped` at every ask for 3600 seconds or more has its watch closed as
-`stop` would close it, with a line in `relay.log`; `alive` or `unknown` starts the count
-again. The hour lets reviewers still at work bring their results back
-to their workers first, and the next `open` reads everything in full. The relay exits
-when no watch is left.
-
 **An unattended stretch** is time with no good poll: the relay was down, or its reads kept
 failing. Time spent in delivery passes is not part of it: a slow send delays the next poll,
-and the relay was attending all the while. When the time since the last good poll, less
-the time spent delivering, exceeds `--grace` seconds (default three intervals), the next
-good poll queues one `relay.recovered` row to each watch's orchestrator (one per session,
-however many watches it opened) for the whole stretch, ahead of the events it recovered:
-one announcement per stretch, never one per missed event. A stretch is named by the time
-of the last good poll before it, `since`, and `gap.json` records the latest one announced
-with its `generation`, a count that rises by one per announced stretch; a stretch already
-announced is never announced again, whatever became of its rows. Consuming rows goes by
-sequence number and announcing a stretch goes by `since`; neither touches the other.
+and the relay was attending all the while. Past `--grace` seconds (default three
+intervals) `queue` exits 3 and the watchdog reports the relay (watchdog.py). Nothing is
+queued for it: the next good poll reads every ticket since its mark, and each event it
+finds wakes its recipient as any other does.
 
 Files in the state directory:
 
     queue.jsonl     the rows, one JSON object per line, in sequence order
     queue.seq       the last sequence number issued
     queue.lock      taken for every read-and-write of the files below it
-    seen.json       per ticket: (comment, event) pairs translated, newest updated_at,
-                    every worker.started as [comment id, runner, session], the pending
-                    worker.queued (`waiting`: its comment id, or null) and the newest
-                    comment id applied to that flag (`waiting_read`)
+    seen.json       per ticket: (comment, event) pairs translated, newest updated_at, and
+                    every worker.started as [comment id, runner, session]
     watches.json    every open watch, keyed `spec:<n>`, `tickets:<n>[,<n>...]` or
                     `briefs:<batch>`: the watch (`spec`, `tickets` or `briefs`), its orchestrator's `runner` and `session`,
-                    when it was opened (`at`), and since when that runner has answered
-                    `stopped` (`stopped_since`, null while it has not). It outlives the
-                    process: a relay that died leaves its watches open
+                    and when it was opened (`at`). It outlives the process: a relay that
+                    died leaves its watches open
     relay.json      the running relay's pid, process identity, interval, grace, start
                     time, and `ending` once it has no watch left and is on its way out
     relay.log       what every started relay printed, appended; moved to relay.log.1 at a
@@ -206,7 +168,6 @@ Files in the state directory:
                     reads since this process started. `at` is progress — the tracker was read
                     — and `cycle_at` is running; the watchdog reads one of each, because a
                     single failed read stops the first and not the second
-    gap.json        the latest unattended stretch announced
     briefs/         one directory per batch of briefs (briefs.py)
     relay.lock      held for as long as a `run` runs: one relay per repository
 
@@ -214,11 +175,9 @@ Exit codes:
 
     start     0 the watch is recorded and a relay runs (started now, or already); 1
               refused (no adapter, the runner says the session is stopped, the watch
-              overlaps another, the tracker could not be read to check that, the relay
-              running is one whose `relay.json` names a single `watch` and reads no
-              watches.json, a state file unreadable, the relay exited or did not take its
-              lock: its log's last lines are on stderr, and a watch this call opened was
-              closed again)
+              overlaps another, the tracker could not be read to check that, a state file
+              unreadable, the relay exited or did not take its lock: its log's last lines
+              are on stderr, and a watch this call opened was closed again)
     add       0 recorded; 1 refused, as for start
     stop      0 done: that watch is closed, and the process ended with the last watch (or
               nothing was watched); 1 the process did not end; 3 that watch is not open,
@@ -294,10 +253,6 @@ SEND_TIMEOUT = 180
 LIVENESS_TIMEOUT = 60
 START_WAIT = 15.0
 STOP_WAIT = 15.0
-# Every this many cycles the relay asks each watch's orchestrator's runner whether it lives,
-MAIN_CHECK_EVERY = 10
-# and closes the watch of one answered `stopped` at every ask for this many seconds.
-MAIN_GONE_AFTER = 3600
 
 MAIN = "main"
 WORKER = "worker"
@@ -316,13 +271,6 @@ WAKES: dict[str, dict] = {
 
 # The event that says which session is a ticket's worker.
 WORKER_STARTED = "worker.started"
-
-# The event a run posts when it waits for a product slot, and the wake its worker gets
-# when one is given back.
-QUEUED = "worker.queued"
-
-# The one row the relay writes about itself rather than about a ticket.
-RECOVERED = "relay.recovered"
 
 # The row that says every brief of a batch has reported or is lost.
 BRIEF_DONE = "brief.done"
@@ -386,25 +334,8 @@ def woken_by(event: dict) -> str | None:
     return rule["to"]
 
 
-def ends_waiting(name: str) -> bool:
-    """Whether this event ends a run's wait for a product slot: the events that clear the
-    fold's `waiting` in events.py. A lost reviewer ends only its own hold, and
-    the worker's run is still waiting."""
-    return (name == "ticket.checked" or name in events.ENDS_EVERY_HOLD
-            or name in events.RESULTS["worker"]
-            or (name in events.ENDS_ONE_HOLD and name != "reviewer.lost"))
-
-
-def gives_slot_back(name: str) -> bool:
-    """Whether this event gives a product slot back to the machine. `spec.suspended` gives
-    its slots back too, and stops the night with them: nobody waits on it."""
-    return name in events.SLOT_ENDS and name != "spec.suspended"
-
-
 def wake_text(row: dict) -> str:
     """What is sent: the ticket number and the event name, nothing the tracker already says."""
-    if row.get("event") == RECOVERED:
-        return f"{RECOVERED} since {row.get('since')}"
     if row.get("event") == BRIEF_DONE:
         return f"brief {row.get('batch')} done"
     return f"#{row.get('ticket')} {row.get('event')}"
@@ -633,8 +564,6 @@ def _slot(per_ticket: dict, ticket: int) -> dict:
     slot.setdefault("keys", [])
     slot.setdefault("mark", None)
     slot.setdefault("workers", [])
-    slot.setdefault("waiting", None)
-    slot.setdefault("waiting_read", 0)
     return slot
 
 
@@ -645,18 +574,15 @@ class Relay:
     def __init__(self, state: Path, board: Board | None = None,
                  send: Callable[[str, str, str], int] = send_via_adapter,
                  clock: Callable[[], datetime] = now_utc,
-                 ask: Callable[[str, str], str] = ask_liveness,
                  out=None, err=None):
         self.state = Path(state)
         self.board = board
         self.send = send
         self.clock = clock
-        self.ask = ask
         self.out = out or sys.stdout
         self.err = err or sys.stderr
         # Tickets read in full since this process started: the rest are read since their mark.
         self.reconciled: set[int] = set()
-        self.cycles = 0
 
     # ------------------------------------------------------------- files
 
@@ -743,9 +669,8 @@ class Relay:
             statedir.write_atomic(self.path("relay.json"), json.dumps(record, sort_keys=True) + "\n")
 
     def _forget_last_poll(self) -> None:
-        """No watch is left: the time until the next start is nobody's unattended stretch,
-        and no `relay.recovered` is announced for a closed night. The next relay reads
-        every ticket in full on start all the same."""
+        """No watch is left: the time until the next start is nobody's unattended stretch.
+        The next relay reads every ticket in full on start all the same."""
         beat = self._read_state("beat.json", {})
         if beat:
             beat.update(at=None, cycle_at=None, delivering=0, delivery_started=None,
@@ -822,7 +747,7 @@ class Relay:
                                   f"has it. Nothing was recorded.")
                 previous = watches.get(key)
                 watches[key] = {**want, "runner": runner, "session": session,
-                                "at": iso(self.clock()), "stopped_since": None}
+                                "at": iso(self.clock())}
                 self._write_watches(watches)
                 self.absorbed = list(absorbed.values())
                 return previous, self._relay_record()
@@ -872,55 +797,6 @@ class Relay:
             self._mark_ending()
             return True
 
-    def check_mains(self) -> None:
-        """Ask each watch's orchestrator's runner whether it lives, and close the watch of one
-        answered `stopped` at every ask for MAIN_GONE_AFTER seconds or more."""
-        answers: dict[tuple[str, str], str] = {}
-        for entry in self.watches().values():
-            address = main_of(entry)
-            if address not in answers:
-                answers[address] = self.ask(*address)
-        now = self.clock()
-        gone: list[tuple[str, dict]] = []
-        with self.queue_lock():
-            watches = self.watches()
-            changed = False
-            for key, entry in sorted(watches.items()):
-                answer = answers.get(main_of(entry))
-                if answer is None:
-                    continue  # opened, or given another orchestrator, while the runners were asked
-                if answer != "stopped":
-                    if entry.get("stopped_since"):
-                        entry["stopped_since"] = None
-                        changed = True
-                    continue
-                try:
-                    since = parse_iso(entry["stopped_since"]) if entry.get("stopped_since") else None
-                except ValueError:
-                    since = None
-                if since is None:
-                    entry["stopped_since"] = iso(now)
-                    changed = True
-                elif (now - since).total_seconds() >= MAIN_GONE_AFTER:
-                    gone.append((key, entry))
-            for key, _ in gone:
-                del watches[key]
-                changed = True
-            if changed:
-                self._write_watches(watches)
-            if gone and not watches:
-                self._mark_ending()
-                self._forget_last_poll()
-        self._remove_batches(entry for _, entry in gone)
-        for _, entry in gone:
-            self.out.write(f"closed the watch on {describe_watch(entry)}: {entry['runner']} has "
-                           f"answered that its orchestrator, session {entry['session']}, is "
-                           f"stopped at every ask since {entry['stopped_since']}, "
-                           f"{MAIN_GONE_AFTER}s or more, so its wake-ups have nobody to go to\n")
-        if gone and not watches:
-            self.out.write("no watch is left, and the relay ends\n")
-        self.out.flush()
-
     @staticmethod
     def _worker_before(per_ticket: dict, ticket, cid: int | None) -> tuple[str, str] | None:
         """The (runner, session) of the ticket's latest worker.started before comment `cid`;
@@ -963,8 +839,8 @@ class Relay:
 
     def ack_wake(self, address: tuple[str, str], ticket: int | None, event: str,
                  batch: str | None = None) -> tuple[int, int, int] | None:
-        """Ack the wake `address` read, named as it was sent: ticket and event, the
-        announcement `relay.recovered`, or a batch's `brief.done`. Acks through that recipient's oldest delivered row
+        """Ack the wake `address` read, named as it was sent: ticket and event, or a
+        batch's `brief.done`. Acks through that recipient's oldest delivered row
         naming it, or its oldest queued one when none is marked delivered. Returns
         (through, removed, left for that recipient), or None when no such row is queued
         for it."""
@@ -973,7 +849,7 @@ class Relay:
                 return False
             if event == BRIEF_DONE:
                 return row.get("batch") == batch
-            return event == RECOVERED or row.get("ticket") == ticket
+            return row.get("ticket") == ticket
 
         with self.queue_lock():
             hits = [r for r in self._rows() if names_it(r)]
@@ -987,14 +863,10 @@ class Relay:
     # ------------------------------------------------------------- polling
 
     def cycle(self, interval: int, grace: int) -> bool:
-        """One cycle of `run`: poll, deliver, and every MAIN_CHECK_EVERY cycles ask after
-        the orchestrators. True when every read was made."""
-        self.cycles += 1
+        """One cycle of `run`: poll, then deliver. True when every read was made."""
         good = self.poll(interval, grace)
         self.poll_briefs()
         self.deliver()
-        if self.cycles % MAIN_CHECK_EVERY == 0:
-            self.check_mains()
         return good
 
     def _watched_tickets(self, watches: dict[str, dict], failures: list[str]) -> dict[int, str]:
@@ -1028,8 +900,7 @@ class Relay:
         with self.queue_lock():
             marks = {k: v.get("mark") for k, v in self._read_state("seen.json", {}).get("tickets", {}).items()}
 
-        # Everything that happened, to be taken in the order it landed: the wakes, and what
-        # makes a ticket wait for a product slot, stop waiting, or give a slot back.
+        # Every wake, to be taken in the order it landed.
         timeline: list[dict] = []
         workers: list[tuple[int, int, str, str]] = []
         unreadable: list[tuple[int, object, str]] = []
@@ -1064,8 +935,6 @@ class Relay:
                     else:
                         unreadable.append((number, cid, "its worker.started names no runner and session"))
                     continue
-                if name == QUEUED or ends_waiting(name) or gives_slot_back(name):
-                    timeline.append({"slot": True, "cid": cid, "home": number, "event": name})
                 role = woken_by(event)
                 if role is None:
                     continue
@@ -1089,36 +958,13 @@ class Relay:
                 if all(entry[0] != cid for entry in slot["workers"]):
                     slot["workers"].append([cid, runner, session])
                     slot["workers"].sort()
-            # A ticket read in full has its wait for a slot recomputed from its whole history.
-            for number in read:
-                if number not in self.reconciled:
-                    _slot(per_ticket, number).update(waiting=None, waiting_read=0)
             rows = self._rows()
             queued = {r.get("key") for r in rows}
             already = {k for entry in per_ticket.values() for k in entry.get("keys", [])}
 
             beat = self._read_state("beat.json", {})
-            gap = self._read_state("gap.json", {})
-            last_good = beat.get("at")
-            new_gap = None
-            if not failures and last_good and self._unattended(beat, now) > grace \
-                    and gap.get("since") != last_good:
-                # A batch's parent is not told: its results are files here, not on the tracker.
-                for address in sorted({main_of(e) for e in watches.values() if not e.get("briefs")}):
-                    key = f"gap:{last_good}:{address[0]}:{address[1]}"
-                    if key in queued:
-                        continue
-                    added.append({"key": key, "home": None, "ticket": None, "event": RECOVERED,
-                                  "to": MAIN, "watch": None, "runner": address[0],
-                                  "session": address[1], "since": last_good})
-                if added:
-                    new_gap = {"generation": int(gap.get("generation") or 0) + 1,
-                               "since": last_good, "until": iso(now)}
             # Comment ids rise across the whole repository, so this is the order the events landed in.
-            for item in sorted(timeline, key=lambda f: (f["cid"], 0 if f.get("slot") else 1)):
-                if item.get("slot"):
-                    self._slot_event(item, per_ticket, tickets, queued, already, added, unaddressed)
-                    continue
+            for item in sorted(timeline, key=lambda f: f["cid"]):
                 if item["key"] in already or item["key"] in queued:
                     continue
                 if item["to"] == MAIN:
@@ -1160,9 +1006,6 @@ class Relay:
                 statedir.write_atomic(self.path("queue.seq"), f"{seq}\n")
                 self._write_rows(rows + [{k: v for k, v in r.items() if k not in ("home", "cid")}
                                          for r in added])
-            if new_gap:
-                new_gap["seq"] = added[0]["seq"]
-                statedir.write_atomic(self.path("gap.json"), json.dumps(new_gap, sort_keys=True) + "\n")
 
             for number, newest in read.items():
                 slot = _slot(per_ticket, number)
@@ -1175,13 +1018,7 @@ class Relay:
             # reported the first time it is seen and not again.
             problems = [(n, cid, f"{cid}:reported", why) for n, cid, why in unreadable]
             for item in unaddressed:
-                if item.get("slot"):
-                    woken = item["woken"]
-                    problems.append((woken, item["cid"], f"{item['cid']}:reported",
-                                     f"it gives a product slot back and #{woken} waits for one, "
-                                     f"and no worker.started on #{woken} comes before it, so "
-                                     f"there is no session to wake"))
-                elif item["to"] == MAIN:
+                if item["to"] == MAIN:
                     problems.append((item["home"], item["cid"], f"{item['cid']}:reported",
                                      f"it wakes the orchestrator of "
                                      f"{describe_watch(watch_from_key(item['watch']))}, and that "
@@ -1258,37 +1095,6 @@ class Relay:
         for row in added:
             self.out.write(f"queued {row['seq']} {wake_text(row)} for {row['to']} {row['session']}\n")
         self.out.flush()
-
-    def _slot_event(self, item: dict, per_ticket: dict, tickets: dict[int, str],
-                    queued: set, already: set, added: list[dict], unaddressed: list[dict]) -> None:
-        """One event that starts or ends its ticket's wait for a product slot, or gives a
-        slot back. A ticket's wait moves only on events newer than the last one applied to
-        it, so the overlap of an incremental read never brings back a wait that ended."""
-        cid, name = item["cid"], item["event"]
-        slot = _slot(per_ticket, item["home"])
-        if cid > (slot.get("waiting_read") or 0):
-            if name == QUEUED:
-                slot["waiting"] = cid
-            elif ends_waiting(name):
-                slot["waiting"] = None
-            slot["waiting_read"] = cid
-        if not gives_slot_back(name):
-            return
-        for number in sorted(tickets):
-            waiting = (per_ticket.get(str(number)) or {}).get("waiting")
-            if not waiting or waiting >= cid:
-                continue
-            key = f"slot:{cid}:{number}"
-            if key in already or key in queued:
-                continue
-            address = self._worker_before(per_ticket, number, cid)
-            if address is None:
-                unaddressed.append({"slot": True, "cid": cid, "woken": number})
-                continue
-            queued.add(key)
-            added.append({"key": key, "cid": cid, "home": number, "ticket": number,
-                          "event": QUEUED, "to": WORKER, "watch": tickets[number],
-                          "runner": address[0], "session": address[1]})
 
     # ------------------------------------------------------------- delivering
 
@@ -1392,28 +1198,17 @@ class Relay:
         ("keep", why) when there is nobody to compare it with."""
         address = (row.get("runner"), row.get("session"))
         watch = row.get("watch")
-        if watch is not None and watch not in watches:
-            return "drop", (f"it belongs to the watch on {describe_watch(watch_from_key(watch))}, "
-                            f"which was closed")
+        if watch not in watches:
+            where = f"the watch on {describe_watch(watch_from_key(watch))}" if watch else "no watch"
+            return "drop", f"it belongs to {where}, and no open watch has it"
         if row.get("to") == WORKER:
-            # A slot wake is for a wait. One that has ended since — the worker got a slot
-            # on an earlier wake, and its run is on the ticket — would only have it run its
-            # criteria again for nothing.
-            if row.get("event") == QUEUED \
-                    and not (per_ticket.get(str(row.get("ticket"))) or {}).get("waiting"):
-                return "drop", f"#{row.get('ticket')} no longer waits for a product slot"
             current = self._worker_before(per_ticket, row.get("ticket"), None)
             if current is None:
                 return "keep", f"there is no #{row.get('ticket')}'s worker to compare it with"
             whose = f"#{row.get('ticket')}'s worker"
-        elif watch is not None:
+        else:
             current = main_of(watches[watch])
             whose = f"the orchestrator of {describe_watch(watches[watch])}"
-        elif address in {main_of(e) for e in watches.values()}:
-            return "send", None
-        else:
-            return "drop", (f"it is addressed to {address[0]} session {address[1]}, the main "
-                            f"agent of no open watch: a late message for a retired session")
         if address != current:
             return "drop", (f"it is addressed to {address[0]} session {address[1]}, and {whose} "
                             f"is now {current[0]} session {current[1]}: a late message for a "
@@ -1621,15 +1416,6 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
     if answer != "alive":
         sys.stderr.write(f"relay: {args.runner} could not say whether session {args.session} is "
                          f"alive; the watch is opened all the same, and the first delivery will tell\n")
-    found = running(state)
-    if found is not None and "watch" in found[1]:
-        # A record that names a `watch` was written by a relay that serves that one watch,
-        # takes its orchestrator from recipient.json and never reads watches.json.
-        raise Refusal(f"the relay running for {args.repo} (pid {found[0].get('pid')}) serves one "
-                      f"watch, {describe_watch(found[1]['watch'])}, and would never read this one. "
-                      f"End it with `relay.py stop --repo {args.repo}`, open its night again "
-                      f"(dispatch.sh open or open-ticket), then open this watch. Nothing was "
-                      f"recorded.")
     relay = Relay(state, Board(args.repo))
     want = watch_of(args)
     previous, record = relay.open_watch(want, args.runner, args.session)
@@ -1821,16 +1607,13 @@ def cmd_ack(args) -> int:
         print(f"acked {args.runner} {args.session} `brief {args.batch} done` through {through}: "
               f"removed {removed}, {left} left for it")
         return 0
-    if not args.event:
+    if not args.event or args.ticket is None:
         raise Refusal("an ack names a sequence number (--through) or the wake it read "
-                      "(--ticket N --event E, --event relay.recovered, or --batch B).")
-    if args.event != RECOVERED and args.ticket is None:
-        raise Refusal(f"the wake `{args.event}` is about a ticket; pass --ticket with its number.")
-    ticket = None if args.event == RECOVERED else args.ticket
-    wake = RECOVERED if ticket is None else f"#{ticket} {args.event}"
-    done = relay.ack_wake(address, ticket, args.event)
+                      "(--ticket N --event E, or --batch B).")
+    wake = f"#{args.ticket} {args.event}"
+    done = relay.ack_wake(address, args.ticket, args.event)
     if done is None:
-        mine = [wake_text(r).split(" since ")[0] for r in relay.rows(address)]
+        mine = [wake_text(r) for r in relay.rows(address)]
         held = ", ".join(f"`{w}`" for w in mine) if mine else "nothing"
         raise Refusal(f"no wake `{wake}` is queued for {args.runner} session {args.session}, "
                       f"so nothing was acked: it was acked already, it went to another "

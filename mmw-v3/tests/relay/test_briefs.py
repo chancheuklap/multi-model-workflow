@@ -135,13 +135,6 @@ class BatchWakeTest(BriefCase):
             ("orca", "term_parent", f"brief {self.batch} done"),
             ("paseo", "main-a", "#61 ticket.passed")]))
 
-    def test_an_unattended_stretch_is_not_announced_to_a_batchs_parent(self):
-        self.poll()
-        self.clock.moment += timedelta(seconds=600)
-        self.poll()
-        recovered = [(r["runner"], r["session"]) for r in self.rows()
-                     if r["event"] == relay.RECOVERED]
-        self.assertEqual(recovered, [MAIN_A])
 
 
 class BatchWatchTest(BriefCase):
@@ -155,13 +148,6 @@ class BatchWatchTest(BriefCase):
         self.assertEqual(list(closed), [f"briefs:{self.batch}"])
         self.assertFalse((self.state / "briefs" / self.batch).exists())
 
-    def test_a_parent_gone_for_an_hour_has_its_batch_removed(self):
-        self.ask.answers[PARENT] = "stopped"
-        self.relay.check_mains()
-        self.clock.moment += timedelta(seconds=relay.MAIN_GONE_AFTER)
-        self.relay.check_mains()
-        self.assertNotIn(f"briefs:{self.batch}", self.watches())
-        self.assertFalse((self.state / "briefs" / self.batch).exists())
 
     def test_the_wake_of_a_closed_batch_is_dropped_unsent(self):
         self.report(1)

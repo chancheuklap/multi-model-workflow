@@ -16,7 +16,7 @@ The night's output is a batch the owner can accept in the morning, not a count o
    | The spec's newest night event is `spec.suspended`, and the owner has said the fault that suspended it is fixed | step 2 |
    | The spec's newest night event is `spec.suspended`, or the fault is in the pipeline and the night must stop | step 11 |
    | `status` ends with `orchestrator: … not this session`: the night's wakes go to a session that opened it before this one, and the spec carries no `spec.closed` | step 2, which makes this session the night's orchestrator |
-   | A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` alerts, or `MMW turn guard:` | step 5 |
+   | A wake arrived: `#<n> <event>`, a line of `watchdog:` alerts, or `MMW turn guard:` | step 5 |
    | `status` shows a ticket on the frontier and no live agent, and the spec carries no `spec.closed` | step 3 |
    | `status` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | step 6 |
    | The spec carries `spec.closed` and no later `spec.retroed` whose result is `recorded` | step 9 |
@@ -43,7 +43,6 @@ The night's output is a batch the owner can accept in the morning, not a count o
    | The `advance` summary has `bounced` | After the second bounce the ticket stays in `needs-triage` |
    | `#<n> ticket.refused` | Fix what the event's `reason` names; the `advance` starts it again when the frontier permits |
    | `#<n> worker.lost` | The `advance` gives back the claim and starts another worker in the standing workspace |
-   | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
    | A worker whose session is gone while its worktree, slot or claim still stand (`advance` says "if the worker … is gone, retract it") | `dispatch.sh retract <n>`; a `0` on its summary line is something it could not release, and the line above says why. The `advance` starts the replacement |
    | `watchdog: #<n> silent since …` | When `events.py fold <n>` lists an open `contract` child, the worker is waiting on you; settle that child first. When the alert says the worker is alive with nothing to wait on, send it the `resume` the alert gives, as step 4 says |
    | `MMW turn guard:` | Do what its text says; it names the command to run |

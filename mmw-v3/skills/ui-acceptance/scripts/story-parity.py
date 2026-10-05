@@ -183,10 +183,8 @@ class Stories:
     It takes no lease. A story page is the product components rendered
     from scene data, with no backend, no seed and no route behind it, so the one thing
     this service needs is a port, and a port it picks for itself is free of every other
-    run on the machine. A lease would instead cost the run one of the product's
-    `instance.max` slots — the count of how many copies of a product whose ports cannot
-    move may run at once — and hold it for the rest of the ticket, which is how
-    agentflow spent a night with two page tickets in acceptance and six free slots.
+    run on the machine. A lease would instead cost the run one of the machine's product
+    slots and hold it for the rest of the ticket.
     """
 
     def __init__(self, root: Path, cfg: dict):

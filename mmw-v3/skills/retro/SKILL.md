@@ -137,7 +137,7 @@ The script writes outputs; the agent judges causes and dispositions.
     `spec.closed` proposed a Memory record (an id in `proposed_memory_ids`)
     whose decision's `evidence` URL is among the problem's evidence and one of
     the problem's event sources is a stall event. A **stall event** is
-    one of `worker.queued`, `ticket.returned`, `child.opened` with
+    one of `ticket.returned`, `child.opened` with
     `kind=fault`, or `ticket.checked` with `result=handoff`. File and
     standalone-check sources support a problem, not this threshold. The
     proposal has `repository` (`owner/name` responsible for the change),

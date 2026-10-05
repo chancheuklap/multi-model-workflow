@@ -2,10 +2,10 @@
 #
 # End-to-end tests for relay.py. One scenario per run:
 #
-#   bash mmw-v2/tests/relay/test_relay.sh wake|worker|busy|retired|gone|reconcile|pollfail
-#   bash mmw-v2/tests/relay/test_relay.sh singleton|nothing|openstopped|readonly
-#   bash mmw-v2/tests/relay/test_relay.sh startstop|watches|onewatch|slotwake|ackwake
-#   bash mmw-v2/tests/relay/test_relay.sh all
+#   bash mmw-v3/tests/relay/test_relay.sh wake|worker|busy|retired|gone|reconcile|pollfail
+#   bash mmw-v3/tests/relay/test_relay.sh singleton|nothing|openstopped|readonly
+#   bash mmw-v3/tests/relay/test_relay.sh startstop|watches|ackwake
+#   bash mmw-v3/tests/relay/test_relay.sh all
 #
 # A fake `gh` and a fake `paseo` sit in front of the real ones on PATH and write every
 # call they receive to a log, one call per line, fields joined by ` :: `. The board is a
@@ -137,7 +137,6 @@ updated = rest.pop(0) if rest and "=" not in rest[0] else "2026-09-10T01:00:00Z"
 block = {"v": 1, "event": name, "ticket": ticket, **dict(r.split("=", 1) for r in rest)}
 # What an event must carry to be one (`events.py`'s table), when the scenario does not care.
 block = {**{"ticket.refused": {"reason": "blocked"},
-            "worker.queued": {"reason": "machine-full", "run": "self"},
             "worker.started": {"machine": "mac-1", "host": "grok", "model": "grok-4.6", "effort": "high",
                                "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61",
                                "branch": "issue-61", "base": "0" * 40}}.get(name, {}), **block}
@@ -343,7 +342,7 @@ scenario_gone() {
 
 scenario_reconcile() {
   local code
-  echo "--- a relay that was down reads everything on start and announces the stretch once"
+  echo "--- a relay that was down reads everything on start and queues each event it finds"
   reset
   watch --tickets 61,62
   event 61 101 ticket.passed
@@ -358,25 +357,9 @@ scenario_reconcile() {
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
   hasnt "since="
-  # One wake a pass: the announcement goes first, the two tickets on later passes.
-  expect_rows "2 None relay.recovered main-a delivered
-3 62 ticket.returned main-a undelivered
-4 61 ticket.refused main-a undelivered"
-  has "paseo :: send :: --no-wait :: main-a :: relay.recovered since 2020-01-01T00:00:00Z"
-  : > "$MMW_TEST_LOG"
-  code="$(relay_ run --repo "$REPO" --once)"
-  [ "$code" = 0 ] || fail "third run expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(count_of 'relay.recovered')" = 1 ] || fail "the unacked announcement is sent once more on start, not queued again"
-  [ "$(rows | grep -c relay.recovered)" = 1 ] || fail "the stretch should be announced once: $(rows)"
-  # The announcement is acked, and then the same stretch comes round again: the good poll
-  # that ended it never got its beat written (a crash in between). It is not announced twice.
-  relay_ ack --repo "$REPO" --runner paseo --session main-a --through 4 >/dev/null
-  set_beat 2020-01-01T00:00:00Z
-  : > "$MMW_TEST_LOG"
-  code="$(relay_ run --repo "$REPO" --once)"
-  [ "$code" = 0 ] || fail "fourth run expected 0, got $code: $(cat "$TMP/err")"
-  hasnt "relay.recovered"
-  expect_rows ""
+  # One wake a pass: the first goes now, the second on a later pass.
+  expect_rows "2 62 ticket.returned main-a delivered
+3 61 ticket.refused main-a undelivered"
 }
 
 scenario_pollfail() {
@@ -540,13 +523,12 @@ scenario_startstop() {
   code="$(relay_ watching --repo "$REPO" --ticket 61)"
   [ "$code" = 1 ] || fail "watching with no relay expected 1, got $code"
 
-  echo "--- a relay stopped on purpose leaves no unattended stretch for the next one to announce"
+  echo "--- the relay started after one stopped on purpose reads what landed meanwhile"
   watch --tickets 61
   event 61 102 ticket.refused 2026-09-10T01:05:00Z
   code="$(relay_ run --repo "$REPO" --once --grace 0)"
   [ "$code" = 0 ] || fail "the next relay expected 0, got $code: $(cat "$TMP/err")"
   got="$(rows)"
-  case "$got" in *relay.recovered*) fail "a stop is not an unattended stretch: $got" ;; esac
   case "$got" in *"61 ticket.refused"*) ;; *) fail "the next relay should still read what landed meanwhile: $got" ;; esac
 
   code="$(relay_ stop --repo "$REPO")"
@@ -562,12 +544,8 @@ scenario_startstop() {
   set_beat 2020-01-01T00:00:00Z
   code="$(relay_ stop --repo "$REPO" --tickets 61)"
   [ "$code" = 0 ] || fail "stop expected 0, got $code"
-  relay_ ack --repo "$REPO" --runner paseo --session main-a --through 2 >/dev/null
-  watch --tickets 61
-  code="$(relay_ run --repo "$REPO" --once --grace 0)"
-  [ "$code" = 0 ] || fail "the next relay expected 0, got $code: $(cat "$TMP/err")"
-  got="$(rows)"
-  case "$got" in *relay.recovered*) fail "a stop after a death is not an unattended stretch to announce: $got" ;; esac
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["at"] is None' "$STATE/beat.json" \
+    || fail "stop should forget the last good poll: $(cat "$STATE/beat.json")"
 
   echo "--- start refuses, and runs nothing, when the watches cannot be read"
   echo "not json" > "$STATE/watches.json"
@@ -650,62 +628,6 @@ spec:77 paseo main-c"
     || fail "the last watch closed forgets the last good poll: $(cat "$STATE/beat.json")"
 }
 
-scenario_onewatch() {
-  local code pid
-  echo "--- a relay whose record names one watch reads no watches.json: a new watch beside it is refused"
-  reset
-  python3 - "$(dirname "$RELAY")" "$STATE" > "$TMP/holder.out" 2>&1 <<'PY' &
-import json, sys, time
-sys.path.insert(0, sys.argv[1])
-from pathlib import Path
-import statedir
-state = Path(sys.argv[2])
-state.mkdir(parents=True, exist_ok=True)
-with statedir.locked(state / "relay.lock", wait=0, purpose="a relay that serves one watch"):
-    (state / "relay.json").write_text(json.dumps({"pid": statedir.os.getpid(),
-        "identity": statedir.own_identity(), "watch": {"spec": 76}}) + "\n")
-    print("held", flush=True)
-    time.sleep(60)
-PY
-  BG_PID=$!
-  for _ in $(seq 1 100); do
-    grep -q held "$TMP/holder.out" 2>/dev/null && break
-    sleep 0.1
-  done
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a)"
-  [ "$code" = 1 ] || fail "start beside a relay that serves one watch expected 1, got $code"
-  grep -q "serves one watch, spec #76, and would never read this one" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
-  [ ! -f "$STATE/watches.json" ] || fail "nothing should have been recorded: $(cat "$STATE/watches.json")"
-  code="$(relay_ stop --repo "$REPO")"
-  [ "$code" = 0 ] || fail "stop expected 0, got $code: $(cat "$TMP/err")"
-  pid="$BG_PID"
-  wait "$pid" 2>/dev/null
-  BG_PID=""
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 60)"
-  [ "$code" = 0 ] || fail "start once it has ended expected 0, got $code: $(cat "$TMP/err")"
-}
-
-scenario_slotwake() {
-  local code
-  echo "--- a slot given back wakes the worker whose run waits for one, and it acks that wake"
-  reset
-  agents main-a wk-61 wk-62
-  watch --tickets 61,62
-  event 61 100 worker.started runner=paseo session=wk-61
-  event 62 101 worker.started runner=paseo session=wk-62
-  event 62 110 worker.queued
-  event 61 120 ticket.landed
-  code="$(relay_ run --repo "$REPO" --once)"
-  [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: send :: --no-wait :: wk-62 :: #62 worker.queued"
-  expect_rows "1 62 worker.queued wk-62 delivered"
-  code="$(relay_ ack --repo "$REPO" --runner paseo --session wk-62 --ticket 62 --event worker.queued)"
-  [ "$code" = 0 ] || fail "the worker's ack expected 0, got $code: $(cat "$TMP/err")"
-  code="$(relay_ run --repo "$REPO" --once)"
-  [ "$code" = 0 ] || fail "a second run expected 0, got $code: $(cat "$TMP/err")"
-  expect_rows ""
-}
-
 scenario_ackwake() {
   local code
   echo "--- a recipient acks the wake it read by ticket and event; a second ack of it is refused"
@@ -740,7 +662,7 @@ scenario_ackwake() {
   expect_rows "2 61 reviewer.reported wk-61 delivered"
 }
 
-ALL="wake worker busy retired gone reconcile pollfail singleton nothing openstopped readonly startstop watches onewatch slotwake ackwake"
+ALL="wake worker busy retired gone reconcile pollfail singleton nothing openstopped readonly startstop watches ackwake"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
