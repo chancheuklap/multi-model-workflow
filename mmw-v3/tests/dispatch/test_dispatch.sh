@@ -2299,7 +2299,7 @@ JSON
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" -ge 2 ] \
     || fail "expected one line per failing check: $(cat "$TMP/err")"
 
-  echo "--- install.sh --check failing is a warning, not a refusal, and a checkout that is not the installed one is not installed from"
+  echo "--- install.sh --check failing is a warning, not a refusal, and nothing is installed"
   copy="$(skill_copy_for check 1)"
   reset_log
   cat > "$TMP/tickets.json" <<'JSON'
@@ -2312,23 +2312,18 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
-  grep -q 'install.sh --check still finds this' "$TMP/err" && grep -q '缺 something' "$TMP/err" \
-    || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
-  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check --check " ] \
-    || fail "a checkout that is not the installed one should only check: $(cat "$TMP/install-calls")"
+  grep -q '缺 something' "$TMP/err" || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
 
-  echo "--- the installed checkout repairs itself with install.sh before it warns"
-  printf '#!/usr/bin/env bash\necho "run ${1:-install}" >> "%s/install-calls"\n[ "${1:-}" = --check ] && [ ! -f "%s/installed" ] && exit 1\ntouch "%s/installed"\nexit 0\n' "$TMP" "$TMP" "$TMP" > "$TMP/fake/install.sh"
-  rm -f "$TMP/install-calls" "$TMP/installed"
+  echo "--- the installed checkout only checks too"
+  rm -f "$TMP/install-calls"
   mkdir -p "$MMW_HOME"
   printf '%s\n' "$TMP/fake" > "$MMW_HOME/installed-root"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   rm -f "$MMW_HOME/installed-root"
-  [ "$code" = 0 ] || fail "expected exit 0 after the repair, got $code: $(cat "$TMP/err")"
-  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "run --check run install run --check " ] \
-    || fail "expected check, install, check: $(cat "$TMP/install-calls")"
-  grep -q 'still finds' "$TMP/err" && fail "a repaired install should not warn: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check " ] \
+    || fail "check should run install.sh --check once and never install: $(cat "$TMP/install-calls")"
 
   echo "--- a row that does not resolve on tonight's runner is refused in the resolver's words, whatever the tickets carry"
   copy="$(skill_copy_for check)"

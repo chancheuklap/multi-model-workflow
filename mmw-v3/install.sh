@@ -23,7 +23,7 @@
 # 走 ~/.agents/skills 下的技能软链，看板和提示词的 launchd 任务写的是这个 checkout 的路径。所以
 # 别的 checkout 里的代码怎么改、并进哪个分支，都碰不到正在运行的 host；装着的 checkout 移到新
 # 的提交，host 下一次调用就是新的，看板自己重启。别的 checkout 跑 --check 只核对（见下面
-# installed-root 一段），dispatch.sh check 只在自己就是装着的那一份时才跑本脚本修补。
+# installed-root 一段），dispatch.sh check 也只跑 --check，把缺的报出来。
 #
 # 本仓库装过、这次不装的东西，install 摘掉，--check 报残留：指回 mmw-v2 的技能软链（skills.txt 里
 # 没有的那些）、~/.claude/rules/mmw-claude.md、subagent 定义文件的软链、本仓库在 host 配置里写过
