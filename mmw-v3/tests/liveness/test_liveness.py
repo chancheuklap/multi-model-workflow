@@ -141,7 +141,7 @@ class Tolerance(unittest.TestCase):
 
     def test_the_margin_outlasts_one_adapter_call_plus_one_gh_read(self):
         # A slow but alive watchdog, waiting on one of each, is never read as hung.
-        self.assertGreaterEqual(dog.MARGIN, dog.ADAPTER_TIMEOUT + dog.relay_mod.GH_TIMEOUT)
+        self.assertGreaterEqual(dog.MARGIN, dog.relay_mod.LIVENESS_TIMEOUT + dog.relay_mod.GH_TIMEOUT)
 
     def test_an_unreadable_poll_takes_the_default(self):
         self.assertEqual(dog.tolerance(None), 300)
@@ -575,14 +575,13 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1, "one report per stretch")
 
-    def test_a_stale_relay_with_no_cycle_stamp_is_judged_on_its_last_good_poll(self):
-        """A beat an older relay wrote carries no `cycle_at`, and then the last good poll
-        is all there is to judge running by, as it was before that field existed."""
+    def test_a_relay_with_no_cycle_stamp_is_judged_on_its_last_good_poll(self):
+        """A beat with no `cycle_at` (its last watch just closed) is judged by its last
+        good poll."""
         self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=91)), "delivering": 0,
                                  "grace": 90})
         self.watchdog().round()
         self.assertIn("relay down", self.send.calls[0][2])
-        self.assertIn("90s", self.send.calls[0][2])
 
     def test_a_relay_still_cycling_after_a_failed_read_is_not_reported_down(self):
         """2026-09-12 (#406): one round's `net/http: TLS handshake timeout` left the last

@@ -244,7 +244,6 @@ def _load_events():
 
 events = _load_events()
 
-RUNNERS = HERE / "runners"
 DEFAULT_INTERVAL = 30
 OVERLAP = timedelta(seconds=120)
 QUEUE_WAIT = 10.0
@@ -502,8 +501,13 @@ class Board:
 
 # ----------------------------------------------------------------- the runner
 
+def runners_dir() -> Path:
+    """Where the runner adapters are: `MMW_RUNNERS_DIR`, else `runners/` beside this file."""
+    return Path(os.environ.get("MMW_RUNNERS_DIR") or (HERE / "runners"))
+
+
 def adapter_path(runner: str) -> Path:
-    return RUNNERS / f"{runner}.sh"
+    return runners_dir() / f"{runner}.sh"
 
 
 # What `send_via_adapter` answers when the adapter itself gave no answer: it is not an
@@ -1406,7 +1410,7 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
     state = state_for(args.repo)
     adapter = adapter_path(args.runner)
     if not adapter.is_file():
-        known = ", ".join(sorted(p.stem for p in RUNNERS.glob("*.sh"))) or "none"
+        known = ", ".join(sorted(p.stem for p in runners_dir().glob("*.sh"))) or "none"
         raise Refusal(f"there is no runner adapter {adapter}; the adapters here are: {known}. "
                       f"Open the watch from a session of one of those runners.")
     answer = ask_liveness(args.runner, args.session)

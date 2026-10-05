@@ -120,9 +120,8 @@ a watchdog that cannot read the tracker watches nothing, and after the tolerance
 once (`cannot read the tracker`). A pid alone is never enough: a dead watchdog's pid can be
 handed to another process, and that process is not a watchdog.
 
-**Arming.** `arm` does nothing when the watchdog is healthy, and ends nothing that still
-beats: one that cannot read the tracker is left running to report it. Otherwise it ends a hung
-one (a live holder whose heartbeat is past its tolerance, identity checked, SIGTERM), starts
+**Arming.** `arm` does nothing when the watchdog is healthy, and ends no watchdog: one
+that runs and is unhealthy is reported, with why. When none runs, it starts
 `run` as a process of its own session with its output appended to `watchdog.log`, and waits
 up to `--wait` seconds (default 5) for it to be healthy. `MMW_WATCHDOG_PY` names the script
 that is started, for tests and for trying the hook against a watchdog that will not start.
@@ -162,7 +161,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
@@ -182,31 +181,28 @@ DEFAULT_SILENCE = 600
 DEFAULT_IDLE = 3600
 BASE_TOLERANCE = 300
 ARM_WAIT = 5.0
-ADAPTER_TIMEOUT = 60
 # The longest a healthy watchdog goes between two heartbeats beyond its sleep: it beats
 # after every ticket read and every runner asked, so one gh read and one adapter call.
-MARGIN = ADAPTER_TIMEOUT + relay_mod.GH_TIMEOUT
+MARGIN = relay_mod.LIVENESS_TIMEOUT + relay_mod.GH_TIMEOUT
 POST_TIMEOUT = 60
 REPORTED_KEEP = 200
 
-ANSWERS = ("alive", "stopped", "unknown")
+now_utc = relay_mod.now_utc
+iso = relay_mod.iso
+ask_liveness = relay_mod.ask_liveness
+send_to = relay_mod.send_via_adapter
+log_tail = relay_mod.log_tail
+positive_int = relay_mod.positive_int
 
 
 # ----------------------------------------------------------------- time
 
-def now_utc() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
-
-
-def iso(moment: datetime) -> str:
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def parse_iso(text) -> datetime | None:
+    """`relay.parse_iso`, with None for anything that is not a time."""
     if not isinstance(text, str) or not text:
         return None
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
+        return relay_mod.parse_iso(text)
     except ValueError:
         return None
 
@@ -262,12 +258,6 @@ def health(holder: dict | None, beat: dict | None, now: datetime) -> tuple[bool,
                        f"{iso(read)}, past its tolerance of {limit}s: "
                        f"{beat.get('read_failure') or 'no read has succeeded'}")
     return True, f"the watchdog (pid {pid}) beat {max(age, 0)}s ago"
-
-
-def stale(beat: dict | None, now: datetime) -> bool:
-    """A heartbeat older than its tolerance: the watchdog writing it is hung, not slow."""
-    at = parse_iso((beat or {}).get("at"))
-    return at is None or (now - at).total_seconds() > tolerance((beat or {}).get("poll"))
 
 
 def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> dict:
@@ -355,8 +345,8 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
     failed one included; reading is `at`, the last cycle that read the tracker. Both are
     measured less the time spent delivering, which delays a cycle without stopping it. A
     relay that has not read yet, or has not cycled yet, is given its grace from the moment
-    it started. A beat with no cycle stamp was written by a relay older than that field,
-    and its last good poll then answers both questions, as it did before.
+    it started; one whose last watch just closed has no cycle stamp either, and its last
+    good poll answers.
 
     Returns the alert's `kind` (one of the two above), `why` — one checkable fact each
     time — and the `key` that makes one report per stretch.
@@ -390,18 +380,10 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
     since_cycle = relay_mod.Relay._since_cycle(beat, now)
 
     if since_cycle is None:
-        # A beat an older relay wrote: its last good poll is all there is to judge by,
-        # and it answers both questions, as it did before the cycle stamp existed.
-        if not last:
-            if within_start_grace:
-                return None
-            return finding(DOWN, f"the relay (pid {pid}) has made no good poll since it "
-                                 f"started{failure}")
-        if unattended > grace:
-            return finding(DOWN, f"the relay (pid {pid}) last polled at {last}, "
-                                 f"{int(unattended)}s ago, past its grace of "
-                                 f"{int(grace)}s{failure}")
-        return None
+        if within_start_grace or (last and unattended <= grace):
+            return None
+        return finding(DOWN, f"the relay (pid {pid}) has stamped no cycle (last good poll: "
+                             f"{last or 'never'}){failure}")
 
     if since_cycle > grace:
         return finding(DOWN, f"the relay (pid {pid}) last finished a cycle at {cycled}, "
@@ -420,46 +402,6 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
 
 
 # ----------------------------------------------------------------- the outside
-
-def runners_dir() -> Path:
-    """Where the runner adapters are: `MMW_RUNNERS_DIR`, else `runners/` beside this file."""
-    return Path(os.environ.get("MMW_RUNNERS_DIR") or (HERE / "runners"))
-
-
-def ask_liveness(runner: str, session: str) -> str:
-    """`runners/<runner>.sh liveness <session>`: alive, stopped or unknown. Anything the
-    adapter did not answer in so many words — no adapter, a non-zero exit, a timeout, other
-    output — is unknown, never alive and never stopped."""
-    adapter = runners_dir() / f"{runner}.sh"
-    if not runner or not adapter.is_file():
-        return "unknown"
-    try:
-        run = subprocess.run(["bash", str(adapter), "liveness", session], capture_output=True,
-                             text=True, env=relay_mod.quiet_env(), timeout=ADAPTER_TIMEOUT)
-    except (OSError, subprocess.SubprocessError):
-        return "unknown"
-    answer = (run.stdout or "").strip()
-    return answer if run.returncode == 0 and answer in ANSWERS else "unknown"
-
-
-def send_to(runner: str, session: str, text: str) -> int:
-    """`runners/<runner>.sh send <session> <text>`; its exit code, or 5 when the adapter
-    gave none (missing, could not be run, did not answer)."""
-    adapter = runners_dir() / f"{runner}.sh"
-    if not adapter.is_file():
-        sys.stderr.write(f"watchdog: no runner adapter at {adapter}; nothing was sent\n")
-        return 5
-    try:
-        run = subprocess.run(["bash", str(adapter), "send", session, text], capture_output=True,
-                             text=True, env=relay_mod.quiet_env(), timeout=relay_mod.SEND_TIMEOUT)
-    except (OSError, subprocess.SubprocessError) as exc:
-        sys.stderr.write(f"watchdog: {runner}.sh send could not be run: {exc}\n")
-        return 5
-    for line in (run.stderr or "").splitlines():
-        if line.strip():
-            sys.stderr.write(f"watchdog: {runner}.sh: {line}\n")
-    return run.returncode
-
 
 def lost_body(kind: str, ticket: int, spec: int | None, runner: str, session: str,
               since: str | None) -> str:
@@ -831,32 +773,14 @@ def watchdog_py() -> Path:
     return Path(os.environ.get("MMW_WATCHDOG_PY") or Path(__file__).resolve())
 
 
-def log_tail(path: Path, lines: int = 5) -> str:
-    return relay_mod.log_tail(path, lines)
-
-
 def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
     """Make this repository's watchdog healthy. (healthy, what was done or what is wrong)."""
     ok, why, beat = read_health(state)
     if ok:
         return True, why
-    holder = statedir.holder(state / "watchdog.lock")
-    if holder is not None and not stale(beat, now_utc()):
-        # Beating, and unhealthy for another reason (it cannot read the tracker): starting
-        # another would change nothing, and this one reports what fails.
+    if statedir.holder(state / "watchdog.lock") is not None:
+        # Running and unhealthy: starting another would change nothing, so say what fails.
         return False, why
-    if holder is not None:
-        # A live holder with a stale heartbeat is hung. Its identity was just checked by
-        # `holder`, so this pid is that watchdog and nobody else.
-        try:
-            os.kill(int(holder["pid"]), signal.SIGTERM)
-        except (OSError, ValueError, TypeError):
-            pass
-        deadline = time.monotonic() + wait
-        while time.monotonic() < deadline and statedir.holder(state / "watchdog.lock") is not None:
-            time.sleep(0.1)
-        if statedir.holder(state / "watchdog.lock") is not None:
-            return False, f"{why}, and it did not end on SIGTERM"
     log = state / "watchdog.log"
     statedir.rotate(log)
     argv = [sys.executable, str(watchdog_py()), "run", "--repo", repo]
@@ -878,13 +802,6 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
 
 
 # ----------------------------------------------------------------- commands
-
-def positive_int(text: str) -> int:
-    value = int(text)
-    if value < 1:
-        raise argparse.ArgumentTypeError(f"{value} is not a positive number")
-    return value
-
 
 def state_for(repo: str) -> Path:
     try:
