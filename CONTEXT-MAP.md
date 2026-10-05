@@ -8,7 +8,7 @@ What is written here is acted on, not just read: specs and tickets take their wo
 
 ## Contexts
 
-- [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — skills, subtrees, install locations, prompts, hosts, notes and ADRs
+- [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — the mode, its playbooks and principles, skills, upstream snapshots and the import record, install locations, prompts, hosts and ADRs
 - [Tickets](./docs/contexts/tickets/CONTEXT.md): what a spec and a ticket are, how they are written, published and linted, and the labels and queues they carry
 - [Ticket run](./docs/contexts/ticket-run/CONTEXT.md): one ticket being worked from claim to close — events on the ticket, criteria runs, code review, the worker's final run, the advisor, the closing steps and the closeout
 - [Night](./docs/contexts/night/CONTEXT.md): dispatching sessions onto tickets, runners and adapters, workspaces and worktrees, base and project branches, the relay, the watchdog and the turn guard, and the orchestrator's commands
@@ -22,6 +22,6 @@ What is written here is acted on, not just read: specs and tickets take their wo
 - **Ticket run → Night**: the events a run posts (`ticket.passed`, `ticket.returned`, `reviewer.reported`, …) are what the relay turns into wakes and what `advance` lands
 - **Night → Tickets**: `advance` reads the frontier off ticket labels and blocking edges; `reverify` hands a red landed ticket back to the `needs-triage` queue
 - **Tickets ↔ UI acceptance**: a page ticket's story and boundary criteria and a critical-flow ticket's journey criteria name the oracles bare and cite the screen contract and design package as baselines; the screen-contract lint runs inside `--lint`
-- **UI acceptance → Night**: the lease's product slot is what `worker.queued` waits on and what landing gives back
-- **Task board → Ticket run, Night**: the task board reads ticket state through `events.py`, `issue_tree.py` and `ghlist.py`, and writes the same `models.json` as `models.py config`
-- **Toolbox → all**: `install.sh`, `skills.txt`, `models.json` and the notes decide what every other context runs on; `host`, `subagent` and `--tools` are shared vocabulary defined here
+- **UI acceptance → Night**: a ticket's worktree holds its lease's product slot from the first run that needs the product until landing gives it back; with every slot held, the run reports the ticket blocked
+- **Task board → Ticket run, Night**: the task board reads ticket state through `events.py`, `issue_tree.py` and `ghlist.py`, and writes the same `models.json` as `models.py config`, with the roles `roles.json` lists
+- **Toolbox → all**: `install.sh`, the `mmw-mode` skill and `models.json` decide what every other context runs on; `host`, `subagent`, playbook and principle are shared vocabulary defined here

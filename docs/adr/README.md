@@ -21,7 +21,7 @@
 | --- | --- | --- | --- | --- |
 | [0001](0001-tracker-repo-authority.md) | tracker 与仓库文件的权威归属 | 2026-08-11 | 无 | 无 |
 | [0002](0002-ui-qa-binds-format-not-tool.md) | 界面 QA 绑设计系统的格式规范，不绑生成它的工具 | 2026-08-13 | 无 | 0004（见表下注：pull report，sign-off） |
-| [0003](0003-no-plugin-packaging.md) | MMW 不打包成插件，五个宿主由 `install.sh` 统一散装 | 2026-08-18 | 无 | 0006、0015 |
+| [0003](0003-no-plugin-packaging.md) | MMW 不打包成插件，五个宿主由 `install.sh` 统一散装 | 2026-08-18 | 无 | 0006、0015、0032 |
 | [0004](0004-design-system-trust-comes-from-lint.md) | 设计系统文件可不可信，由校验结果定，不由来源定 | 2026-08-21 | 0002 | 无（见表下注：pull report，sign-off） |
 | [0005](0005-docs-layer-adopted-by-v2.md) | docs 文档层过继到 v2：tracker 配置落地，索引与编号脱离冻结 CLI | 2026-08-25 | 无 | 无 |
 | [0006](0006-skills-install-to-neutral-dir.md) | 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份 | 2026-08-26 | 0003 | 0015 |
@@ -37,11 +37,11 @@
 | [0016](0016-live-session-table.md) | 会话怎么起写在本机活表里 | 2026-09-09 | 0015 | 0018、0024（整份作废） |
 | [0017](0017-the-night-has-no-clock.md) | 这一夜没有任何时钟 | 2026-09-10 | 0010 | 0020、0021 |
 | [0018](0018-runner-behind-one-boundary.md) | runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置 | 2026-09-10 | 0009、0016 | 0019、0020、0024、0026 |
-| [0019](0019-ticket-state-is-a-fold-of-events.md) | 票的状态是它的事件折叠出来的：评论首行不再是协议，谁在跑这张票写在票上 | 2026-09-10 | 0009、0018 | 0026 |
+| [0019](0019-ticket-state-is-a-fold-of-events.md) | 票的状态是它的事件折叠出来的：评论首行不再是协议，谁在跑这张票写在票上 | 2026-09-10 | 0009、0018 | 0026、0034 |
 | [0020](0020-wakes-come-from-the-board.md) | 唤醒从 board 上发出：中继读票上的结果事件，经 runner 的送消息动词送到等它的那个会话，任何脚本都不再报信 | 2026-09-10 | 0010、0013、0017、0018 | 0021、0022、0026 |
 | [0021](0021-liveness-in-three-layers.md) | 判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写 | 2026-09-10 | 0017、0020 | 0022、0026 |
-| [0022](0022-one-relay-many-watches.md) | 唤醒按 watch 分：一个仓库一个中继，同时看多个 watch，每个 watch 叫醒开它的那个主 agent；等槽位的 worker 也由中继叫醒 | 2026-09-11 | 0020、0021 | 0026 |
-| [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 0025、0026、0027 |
+| [0022](0022-one-relay-many-watches.md) | 唤醒按 watch 分：一个仓库一个中继，同时看多个 watch，每个 watch 叫醒开它的那个主 agent；等槽位的 worker 也由中继叫醒 | 2026-09-11 | 0020、0021 | 0026、0033 |
+| [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 0025、0026、0027、0034 |
 | [0024](0024-models-json-and-runner-extension-boundary.md) | 会话配置只存进 `models.json`，runner 的附加操作也只经适配器 | 2026-09-11 | 0016、0018 | 0026 |
 | [0025](0025-project-branch-and-finish.md) | 开夜记住并推送 project branch；用户验收后 finish 把 base branch 合回并清理 | 2026-09-11 | 0023 | 无 |
 | [0026](0026-no-verifier.md) | 取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria | 2026-09-14 | 0018、0019、0020、0021、0022、0023、0024 | 无 |
@@ -50,6 +50,9 @@
 | [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 0030 |
 | [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 无 |
 | [0031](0031-worker-start-memory-is-a-searched-index.md) | worker 开工时拿到两份有上限的 Memory 索引：相关经验用本票 `## Owns` 路径和各级标题的短查询搜出，不用 spec 或 map 正文 | 2026-09-18 | 无 | 无 |
+| [0032](0032-v3-is-built-on-pstacks-shape.md) | MMW v3 按 pstack 的形状重建：一份 mode 按任务选 playbook，规则写成原则技能，上游拷进 `skills/` 由 `imports.tsv` 逐行记账 | 2026-10-06 | 0003 | 无 |
+| [0033](0033-a-full-machine-is-a-blocked-ticket.md) | 机器的产品槽位全被占时，worker 这次运行什么都不跑、退 2，票报受阻；不排队，也没有人为槽位叫醒它 | 2026-10-06 | 0022 | 无 |
+| [0034](0034-each-night-fact-has-one-record.md) | 夜里每个事实只从记下它的那一条事件读；事件在写时按表校验，读时只拒读不懂的 | 2026-10-06 | 0019、0023 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

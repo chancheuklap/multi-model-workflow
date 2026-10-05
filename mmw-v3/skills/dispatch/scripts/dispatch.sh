@@ -77,8 +77,8 @@
 # print: everything else a watch starts is read by the orchestrator, and the board is what a
 # person reads.
 #
-# A session `start` opens is told two things and handed its data: `Use the mmw-mode
-# skill.`, then the playbook it runs on its ticket (`start_prompt`). Its rules come from
+# A session `start` opens is told two things and handed its data: to read the mmw-mode
+# skill's SKILL.md in full first, then the playbook it runs on its ticket (`start_prompt`). Its rules come from
 # the mode and that playbook, never from the start prompt.
 #
 # Every refusal names its next step on stderr. What the agent must decide on an exit the
