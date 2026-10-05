@@ -230,17 +230,13 @@ def check_checks(report: Report, root: Path):
                    "no `checks`; a ticket closes and lands with no repository check run")
 
 
-def check_standards(report: Report, root: Path):
-    path = root / "CODING_STANDARDS.md"
-    if not path.is_file():
-        report.add("missing", "repository", "CODING_STANDARDS.md",
-                   "absent; the worker writes without it and the reviewer's Standards and Tests "
-                   "axes say there is none")
-    elif "## Tests" not in path.read_text(encoding="utf-8").splitlines():
-        report.add("missing", "repository", "CODING_STANDARDS.md",
-                   "has no ## Tests section; the reviewer's Tests axis reads it")
+def check_testing(report: Report, root: Path):
+    if (root / "TESTING.md").is_file():
+        report.add("ok", "repository", "TESTING.md", "present")
     else:
-        report.add("ok", "repository", "CODING_STANDARDS.md", "present with ## Tests")
+        report.add("missing", "repository", "TESTING.md",
+                   "absent; a spec's seam and Testing Decisions have no test facts to draw on, "
+                   "and the reviewer's Tests axis says there is none")
 
 
 def check_machine(report: Report):
@@ -282,7 +278,7 @@ def main() -> int:
     if slug:
         check_space(report, slug)
     check_checks(report, root)
-    check_standards(report, root)
+    check_testing(report, root)
     check_machine(report)
     report.print()
     return 0 if report.missing() == 0 else 1

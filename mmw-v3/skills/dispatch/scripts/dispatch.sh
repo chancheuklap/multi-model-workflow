@@ -377,26 +377,28 @@ post_event() {
 
 # The start prompt of a ticket's session: `start_prompt <kind> <n> <base> <data>`. Two
 # sentences route it — load the mode, run this playbook on this ticket — and the data its
-# role needs follows: the worker's Memory indexes, or the reviewer's base commit and its
-# Rules. A missing piece is refused, exit 2 with the reason on stderr, before any session
-# is started: a session started without it would have to guess. Run it as
-# `prompt="$(start_prompt …)" || exit 2`.
+# role needs follows: the worker's Memory indexes; the reviewer's route carries its base
+# commit and needs no data. A missing piece is refused, exit 2 with the reason on stderr,
+# before any session is started: a session started without it would have to guess. Run it
+# as `prompt="$(start_prompt …)" || exit 2`.
 start_prompt() {
   local kind="$1" number="$2" base="$3" data="$4" route
   case "$number" in
     "" | *[!0-9]*) refuse "the $kind's start prompt needs a ticket number, got '$number'; nothing was started" ;;
   esac
-  [ -n "$data" ] \
-    || refuse "the $kind's start prompt for #$number has no data to hand over; nothing was started"
   case "$kind" in
-    worker) route="Run the $WORKER_PLAYBOOK playbook on ticket #$number." ;;
+    worker)
+      [ -n "$data" ] \
+        || refuse "the worker's start prompt for #$number has no Memory indexes to hand over; nothing was started"
+      route="Run the $WORKER_PLAYBOOK playbook on ticket #$number."
+      printf 'Use the mmw-mode skill. %s\n\n%s\n' "$route" "$data" ;;
     reviewer)
       [ -n "$base" ] \
         || refuse "the reviewer's start prompt for #$number has no base commit; nothing was started"
-      route="Run the $REVIEWER_PLAYBOOK playbook on ticket #$number from base commit $base." ;;
+      route="Run the $REVIEWER_PLAYBOOK playbook on ticket #$number from base commit $base."
+      printf 'Use the mmw-mode skill. %s\n' "$route" ;;
     *) refuse "no start prompt for a $kind session" ;;
   esac
-  printf 'Use the mmw-mode skill. %s\n\n%s\n' "$route" "$data"
 }
 
 usage() {
@@ -1635,98 +1637,6 @@ print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_erro
 PY
 }
 
-# Build the reviewer Rules the reviewer's start prompt carries. Only
-# the compiled active rule_stack is read; ordinary Memory list/search is never attempted.
-# A failed or unreadable Context Bundle is named in the reviewer Rules and the reviewer still starts.
-# The reviewer Rules carry the Rule rows only; how the reviewer applies them is stated once, in the
-# Review a ticket playbook.
-reviewer_rules_packet() {
-  local repository_space="$1"
-  MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
-import json
-import os
-import subprocess
-import sys
-
-space = os.environ["MMW_MEMORY_SPACE"]
-
-
-def call(command):
-    env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
-    try:
-        return subprocess.run(command, text=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, env=env)
-    except OSError:
-        return subprocess.CompletedProcess(command, 127, "",
-                                           f"{command[0]} is unavailable")
-
-
-def reason(proc, fallback):
-    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ")
-    return text or fallback
-
-
-FIELDS = ("id", "title", "body", "scope", "source")
-SCOPES = ("global", "owner", "space", "agent")
-
-
-def render_rules(value):
-    if not isinstance(value, dict):
-        return "unavailable: nmem did not return a JSON object"
-    warnings = value.get("warnings", [])
-    if warnings is None:
-        warnings = []
-    if not isinstance(warnings, list):
-        return "unavailable: nmem returned a non-list warnings"
-    for item in warnings:
-        text = str(item)
-        if "Unknown space" in text:
-            return f"unavailable: {text}"
-    active = value.get("active_space")
-    if not isinstance(active, dict):
-        return "unavailable: nmem did not return an active_space JSON object"
-    got = active.get("primary_space_id")
-    if got != space:
-        return f"unavailable: active space is {got}, not {space}"
-    stack = value.get("rule_stack")
-    if not isinstance(stack, dict):
-        return "unavailable: nmem did not return a rule_stack JSON object"
-    rendered = []
-    for name in SCOPES:
-        if name not in stack:
-            return f"unavailable: nmem did not return rule_stack.{name}"
-        rows = stack[name]
-        if not isinstance(rows, list):
-            return f"unavailable: nmem returned a non-list rule_stack.{name}"
-        for row in rows:
-            if not isinstance(row, dict):
-                return f"unavailable: nmem returned a malformed rule_stack.{name} entry"
-            missing = next((field for field in FIELDS if field not in row), None)
-            if missing:
-                return f"unavailable: nmem returned a rule_stack.{name} entry without {missing}"
-            shown = {field: row[field] for field in FIELDS}
-            rendered.append(json.dumps(shown, ensure_ascii=False, separators=(",", ":")))
-    return "\n".join(rendered) if rendered else "none"
-
-
-proc = call(["nmem", "--json", "context", "read",
-             "--space", space, "--agent-id", "mmw-reviewer", "--no-working-memory"])
-if proc.returncode:
-    rules = f"unavailable: {reason(proc, 'nmem failed')}"
-else:
-    try:
-        value = json.loads(proc.stdout)
-    except Exception:
-        rules = "unavailable: nmem did not return readable JSON"
-    else:
-        rules = render_rules(value)
-
-prompt = f"""Active reviewer Rules approved for this review:
-{rules}"""
-print(json.dumps({"prompt": prompt}, ensure_ascii=False))
-PY
-}
-
 start_one() {
   local number="$1" kind="$2"
   use_runner "$(tonight_runner)"
@@ -1853,11 +1763,7 @@ start_one() {
       fi
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
-      memory_packet="$(reviewer_rules_packet "$repository_space")" || \
-        refuse "could not build the reviewer Rules for #$number"
-      prompt="$(start_prompt reviewer "$number" "$base" \
-        "$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')")" \
-        || exit 2
+      prompt="$(start_prompt reviewer "$number" "$base" "")" || exit 2
       session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer") ;;
   esac
 

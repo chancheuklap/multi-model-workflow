@@ -253,7 +253,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <tr><th><code class="c k-skill">setup-mmw</code> 的 <code>domain.md</code></th><td>第 11 课删掉了括号里「经哪些技能用到 <code class="c k-skill">domain-modeling</code>」</td><td>括号放回，写 v3 的名字：<code class="c k-skill">wayfinder</code>、<code class="c k-skill">triage</code> 两个技能，<span class="c k-playbook">Chart a map</span>、<span class="c k-playbook">Improve the architecture</span> 两份 playbook。v2 写的是 <span class="c k-skill">grill-with-docs</span> 和 <span class="c k-skill">improve-codebase-architecture</span></td></tr>
 <tr><th><code class="c k-skill">setup-mmw</code> 第 8 步</th><td>「<code>checks</code> 在关票时跑，落地前再跑一次」</td><td>在合并结果上、票落地前跑（夜里是 <code class="c k-script">advance</code>，夜外是 <code class="c k-script">land</code>），以及 orchestrator 推自己的修正前跑。<code class="c k-script">verify-ticket.py</code> 自己写着「no mode of this script runs them」，第 7 课第 9 节也是这样定的</td></tr>
 <tr><th><span class="c k-playbook">Set up code checkers</span> 第 6 步</th><td>v2 原文「the pipeline runs <code>checks</code> before a ticket closes and again at merge」</td><td>同上一行，写成 v3 的事实</td></tr>
-<tr><th><code class="c k-skill">manage-agents-md</code> 的 Code and test rules</th><td>v2 写 <code>CODING_STANDARDS.md</code> 和 <code>TESTING.md</code> 两份；「worker 从 spec 和票拿到要守的规则」</td><td>v3 只有 <code>CODING_STANDARDS.md</code>，测试的规矩在它的 <code>## Tests</code> 一节（第 7 课）；worker 写代码前读全它（<span class="c k-playbook">Work a ticket</span> 第 2 步）</td></tr>
+<tr><th><code class="c k-skill">manage-agents-md</code> 的 Code and test rules</th><td>v2 写 <code>CODING_STANDARDS.md</code> 和 <code>TESTING.md</code> 两份；「worker 从 spec 和票拿到要守的规则」</td><td>v3 只有 <code>CODING_STANDARDS.md</code>，测试的规矩在它的 <code>## Tests</code> 一节（第 7 课）；worker 写代码前读全它（<span class="c k-playbook">Work a ticket</span> 第 2 步）。第 15 课改回两份，worker 两份都不直接读</td></tr>
 </tbody></table></div>
 <p>搬完后用逐句对照脚本（第 13 课第 7 节那个）再对一次七个技能的 v2 原文，又找出三处我写 playbook 时压掉的：<span class="c k-playbook">Set up code checkers</span> 末尾那句总的 <code>Done when</code>；<span class="c k-playbook">Write AGENTS.md</span> 重写时「完成后旧文件不在了、每条讲不清的命令还在、只有你知道的事你确认过」一句；调查和提问两步开头各一句。都按 v2 原文放回。</p>
 
@@ -296,7 +296,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <li>两件等你定：第 4 课拆 <code class="c k-config">mmw-v2/prompt/shared.md</code> 时没落地的十句，我建议都放回 <code>mmw-v3/prompt/shared.md</code>；任务看板怎样搬，三个决定和先后已经报给你。</li>
 <li>v3 还没有安装入口，也还没有一份「装哪些技能」的清单（v2 是 <code class="c k-config">mmw-v2/skills.txt</code>）；这一课的文件现在不会被任何宿主读到。</li>
 <li>v2 的 <code>mmw-v2/tests/AGENTS.md</code> 和 <code>downstream-notes/</code> 在 v3 还没有对应的（第 13 课已列）。</li>
-<li>查第 4 节最后一行时看到，<span class="c k-playbook">Write a spec</span> 第 57 行写「the worker reads the spec, not that file」，指 <code>CODING_STANDARDS.md</code>；而 <span class="c k-playbook">Work a ticket</span> 第 2 步要 worker 读全这份文件。两处矛盾，不在这一课的范围里，没改。</li>
+<li>查第 4 节最后一行时看到，<span class="c k-playbook">Write a spec</span> 第 57 行写「the worker reads the spec, not that file」，指 <code>CODING_STANDARDS.md</code>；而 <span class="c k-playbook">Work a ticket</span> 第 2 步要 worker 读全这份文件。两处矛盾，不在这一课的范围里，没改。第 15 课解决了：worker 不读。</li>
 </ol>
 
 <h2>10　自测</h2>
@@ -323,7 +323,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 
 <h2>下一课</h2>
 <p class="ask">第 6 课图 4 的技能到这里全部搬完。下一步要你先定两件：<code class="c k-config">shared.md</code> 那十句放不放回，任务看板怎样搬。之后是安装入口：替换 v2 是一次切换，所有块都搬完再切，只切一次。有问题随时问我；哪一处和你看到的产品对不上，直接说。</p>
-<footer class="next"><a href="0013-acceptance-side.html">← 第 13 课</a><a href="../index.html">课程首页</a></footer>
+<footer class="next"><a href="0013-acceptance-side.html">← 第 13 课</a><a href="../index.html">课程首页</a><a href="0015-standards-and-retro.html">第 15 课 →</a></footer>
 </div>
 <!--JS--><script>
 /* Quiz widget: <div class="quiz" data-answer="2"> with buttons in .opts and a hidden .why.

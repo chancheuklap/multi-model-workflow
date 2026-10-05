@@ -16,12 +16,12 @@ The survey and the questions exist to find what the owner has not told you. When
    Done when every question has an appended answer or the owner's explicit "skip".
 6. **Write the files**, root first, one at a time, from `survey-list.md` alone, in the `manage-agents-md` skill's format: read its `SKILL.md` in full first. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the reply.
    1. List the nested directories: the directories that earned a pair in step 5.
-   2. Write each code or test rule into the repository's `CODING_STANDARDS.md`, as the skill's `## Code and test rules` says, not into an `AGENTS.md`.
+   2. Write each code or test rule into `TESTING.md` or the root `CODING_STANDARDS.md`, as the skill's `## Code and test rules` says, not into an `AGENTS.md`.
    3. Write the root `AGENTS.md` on the skill's root template, from the entries whose place is `root`.
    4. Write the root `CLAUDE.md`: the line `@AGENTS.md`, plus any other `@` line whose destination in `destinations.md` is `CLAUDE.md`. Nothing else.
    5. Write each nested pair on the skill's nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`, replacing whatever was there.
 
-   Done when every pair from step 6.1 exists, every code or test rule is in `CODING_STANDARDS.md`, every line in every file traces to one survey-list entry, and the root is within the limit `check.sh` sets.
+   Done when every pair from step 6.1 exists, every code or test rule is in `TESTING.md` or `CODING_STANDARDS.md`, every line in every file traces to one survey-list entry, and the root is within the limit `check.sh` sets.
 7. **Prune.** Read each file you wrote or edited as the agent who loads it at the start of every session, and cut every line that would not change what that agent does.
    Done when no line states an outdated version or count, and no template placeholder or `TODO` is left.
 8. **Check.** From the repository root, run the `manage-agents-md` skill's `bash scripts/check.sh .`. Fix every line it prints and run it again until it prints `ok`. A failure this repository cannot satisfy is a pass; write its cause down. Two reach that: a root file over the limit with nothing left to move into a directory's file, and a backticked path a clean checkout does not hold (a generated or ignored file). Verify exact paths and commands exist. The script covers paths. Commands you verify yourself: run a command only when running it changes nothing outside a temporary directory (`--help`, a test, a lint, a local build); a command that deploys, publishes, migrates, sends messages or writes to a shared service is verified by reading the script it invokes, never by running it. Fix the line when it fails (**principle-prove-it-works**).
@@ -47,10 +47,10 @@ Directory groups: one per top-level directory holding code, tests, scripts, or d
 1. **Identify the project identity** — extract what the old files say about what this is. It becomes the recommended answer in step 5, where the owner confirms or replaces it.
 2. **Extract commands and imports** — every command in the old file passes through the command rule in the `manage-agents-md` skill's `## Writing rules`: one whose meaning is discoverable gets `removed: discoverable` as its destination, every other one is kept. Every `@` line in an old `CLAUDE.md` other than `@AGENTS.md` gets `CLAUDE.md` as its destination when it came from the root `CLAUDE.md`, or is dropped when it came from a nested one (only `@AGENTS.md` survives there).
 3. **Assign `when` values** — a line that matters to one kind of work only gets a `when` value, chosen as the skill's `` ## `<important if>` blocks `` says.
-4. **Move code and test rules out** — a line that is a code or test rule gets `CODING_STANDARDS.md` as its destination (the skill's `## Code and test rules`); copy it into that file verbatim, a test rule under `## Tests`.
+4. **Move code and test rules out** — a line that is a code or test rule gets `TESTING.md` or `CODING_STANDARDS.md` as its destination, as the skill's `## Code and test rules` chooses; copy it into that file verbatim.
 5. **Send the rest to prune** — a line that matches the list in the skill's `## What NOT to Add` gets `removed: <reason>` as its destination now, so the "what was removed" list is complete before writing starts.
 
-Record the outcome as `destinations.md` in the scratch directory: one line per rule or command, as `<old file>:<line> → <destination>`, where the destination is a section name of the skill's templates, `CODING_STANDARDS.md`, `ask` (identity lines only), or `removed: <reason>`.
+Record the outcome as `destinations.md` in the scratch directory: one line per rule or command, as `<old file>:<line> → <destination>`, where the destination is a section name of the skill's templates, `TESTING.md`, `CODING_STANDARDS.md`, `ask` (identity lines only), or `removed: <reason>`.
 
 Then append every line whose destination is a section to `survey-list.md` as an entry: `fact` is the line, `evidence` is `<old file>:<line>`, `place` is root or the directory the old file sat in, `type` is command, convention, gotcha, or reference by the section, and `when` is the value chosen in step 3 for a line that goes into an `<important if>` block. The writer reads only the survey list; a kept line that is not in it is not written. Lines whose destination is `ask` stay in `destinations.md`; step 5 reads them there as recommended answers.
 
@@ -65,7 +65,7 @@ What happens to each old file on disk:
 Keep two lists at the end of `destinations.md` as you go; the reply prints them:
 
 - **What was removed and why** — one line per removed rule or section with its reason, in the words of the skill's `## What NOT to Add`; a linter-territory line carries the hook suggestion.
-- **What was NOT removed** — every kept command, every rule moved to `CODING_STANDARDS.md`, and every rule that will stay only if the owner confirms it.
+- **What was NOT removed** — every kept command, every rule moved to `TESTING.md` or `CODING_STANDARDS.md`, and every rule that will stay only if the owner confirms it.
 
 **The questions.** The survey list holds what the repository shows. Four things it cannot show: who the project serves and how serious it is, what this repository is not, the conventions nobody wrote down, and the reasons behind the odd choices. You get those from the owner now, with the fixed questions below. Each question carries a recommended answer drawn from the survey list, so the owner confirms or corrects instead of composing. The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". In the rewrite situation, the lines `destinations.md` sent to `ask` are the old file's identity lines; they are the recommended answers to the four identity questions, each marked "from the current file".
 

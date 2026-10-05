@@ -83,4 +83,4 @@ These hold for every component. They come from how pstack itself adds and change
 
 - **For:** what holds in every session, the mode loaded or not: who reads the reply, and which decisions only the owner makes.
 - **Not for:** anything the mode, a principle or a skill holds. The mode's `## Autonomy` points to this file for the owner's decisions instead of listing them again.
-- **Main source in MMW v2:** `mmw-v2/prompt/shared.md`, which reaches the hosts as `~/.claude/CLAUDE.md` and the generated `AGENTS.md` files. Where each of its rules went is in `mmw-v3/course/` lesson 4, figure 4.
+- **Main source in MMW v2:** `mmw-v2/prompt/shared.md`, which reaches the hosts as `~/.claude/CLAUDE.md` and the generated `AGENTS.md` files. Where each of its rules went is in `mmw-v3/course/` lesson 4, figure 4; where its reader facts and the reasons beside its rules went is in lesson 15, section 6.

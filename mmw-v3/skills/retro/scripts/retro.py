@@ -29,7 +29,7 @@ UI_ACCEPTANCE = MMW / "skills" / "ui-acceptance" / "scripts"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards",
               "Global AGENTS.md", "Tool economy", "No-ops", "Information access")
 DESTINATIONS = ("check", "script", "repository-agents", "repository-skill",
-                "reviewer-rule", "mmw-skill", "toolbox-memory", "none")
+                "coding-standard", "mmw-skill", "toolbox-memory", "none")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR", "CLICOLOR_FORCE")}
 
@@ -448,7 +448,7 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
         if row["url"] not in prior.get("content", ""):
             raise RetroError("previous proposal is not cited by the latest earlier Retro Memory")
         if row["status"] == "landed" and row.get("evidence") in (None, "none", ""):
-            raise RetroError("landed proposal needs commit, active Rule, Memory or current file evidence")
+            raise RetroError("landed proposal needs commit, Memory or current file evidence")
         if row["status"] == "landed":
             proof = row["evidence"]
             commit_url = re.fullmatch(r"https://github\.com/([^/]+)/([^/]+)/commit/([0-9a-f]{40})", proof)
@@ -456,11 +456,6 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
                 command(["git", "cat-file", "-e", proof])
             elif proof.startswith("nowledgemem://memory/"):
                 memory_show(proof.rsplit("/", 1)[-1])
-            elif proof.startswith("Rule: "):
-                rule_id = proof.split("Rule: ", 1)[1]
-                active = parsed(["nmem", "--json", "rules", "show", rule_id])
-                if active.get("id") != rule_id or active.get("status") != "active":
-                    raise RetroError("previous proposal Rule is not active")
             elif commit_url:
                 owner, name, sha = commit_url.groups()
                 parsed(["gh", "api", f"repos/{owner}/{name}/commits/{sha}"], env=GH_ENV)
@@ -515,14 +510,32 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
                 raise RetroError("an earlier event belongs to the same issue occurrence")
         proposal = problem.get("proposal")
         if proposal is not None:
-            if not isinstance(proposal, dict) or not all(proposal.get(key) for key in ("repository", "title", "body")):
-                raise RetroError("proposal needs responsible repository, title and body")
+            if isinstance(proposal, dict) and proposal.get("existing"):
+                check_existing(proposal, problem)
+            elif not isinstance(proposal, dict) or not all(proposal.get(key) for key in ("repository", "title", "body")):
+                raise RetroError("proposal needs responsible repository, title and body, or an existing open proposal")
             if not re.fullmatch(r"[^/\s]+/[^/\s]+", proposal["repository"]):
                 raise RetroError("proposal repository is not owner/name")
             if "prompt_change" in proposal:
                 validate_prompt(proposal["prompt_change"], problem)
             if not qualifies(problem, gathered, opened):
                 raise RetroError("proposal has neither two independent occurrences nor a Memory record spec.closed proposed with a stall event")
+
+
+def check_existing(proposal: dict, problem: dict) -> None:
+    """An `existing` proposal is an open issue an earlier occurrence's Retro Memory names."""
+    url = proposal["existing"]
+    if any(key in proposal for key in ("title", "body", "prompt_change")):
+        raise RetroError("an existing proposal takes no title, body or prompt_change")
+    found = re.fullmatch(r"https://github\.com/([^/]+/[^/]+)/issues/(\d+)", str(url))
+    if not found or found.group(1) != proposal.get("repository"):
+        raise RetroError("existing proposal is not an issue URL in the proposal's repository")
+    if not any(url in memory_show(row["memory_id"])["content"] for row in problem["earlier_occurrences"]):
+        raise RetroError("existing proposal is not named by an earlier occurrence's Retro Memory")
+    state = parsed(["gh", "issue", "view", found.group(2), "--repo", found.group(1), "--json", "state"],
+                   env=GH_ENV).get("state")
+    if state != "OPEN":
+        raise RetroError("existing proposal is not open; a closed one is proposed again as a new issue")
 
 
 def validate_prompt(change: dict, problem: dict) -> None:
@@ -590,6 +603,16 @@ def proposal_body(problem: dict, gathered: dict, memory_id: str) -> str:
 
 def create_or_reuse(problem: dict, gathered: dict, memory_id: str) -> str:
     proposal = problem["proposal"]
+    if proposal.get("existing"):
+        url = proposal["existing"]
+        number = url.rsplit("/", 1)[-1]
+        # A rerun of finalize after a failed Memory write finds its own comment and adds none.
+        comments = parsed(["gh", "issue", "view", number, "--repo", proposal["repository"],
+                           "--json", "comments"], env=GH_ENV).get("comments") or []
+        if not any(gathered["spec_url"] in str(row.get("body", "")) for row in comments if isinstance(row, dict)):
+            gh("issue", "comment", number, "--repo", proposal["repository"], "--body-file", "-",
+               stdin=occurrence_comment(problem, gathered, memory_id))
+        return url
     body = proposal_body(problem, gathered, memory_id)
     repo = proposal["repository"]
     # gh issue list emits a JSON array, unlike issue view. Do not infer that the
@@ -609,6 +632,13 @@ def create_or_reuse(problem: dict, gathered: dict, memory_id: str) -> str:
             return row["url"]
     return gh("issue", "create", "--repo", repo, "--label", "needs-triage",
               "--title", proposal["title"], "--body-file", "-", stdin=body).splitlines()[-1]
+
+
+def occurrence_comment(problem: dict, gathered: dict, memory_id: str) -> str:
+    return (f"Another occurrence: {problem['category']}: {problem['cause']}\n"
+            "Sources:\n" + "".join(f"- {url}\n" for url in sorted(set(problem["evidence"]))) +
+            f"Handled here: {problem['handled_here']}\n"
+            f"Source spec: {gathered['spec_url']}\nRetro Memory: nowledgemem://memory/{memory_id}\n")
 
 
 def evidence_line(items: list[dict]) -> str:

@@ -28,7 +28,8 @@ NAMES = {"complete-none": "RETRO-COMPLETE-NONE-OK",
          "prompt-and-record-contract": "RETRO-PROMPT-AND-RECORD-CONTRACT-OK",
          "retry-finalize": "RETRO-RETRY-FINALIZE-OK",
          "large-evidence": "RETRO-LARGE-EVIDENCE-OK",
-         "parent-without-map": "RETRO-PARENT-WITHOUT-MAP-OK"}
+         "parent-without-map": "RETRO-PARENT-WITHOUT-MAP-OK",
+         "existing-proposal": "RETRO-EXISTING-PROPOSAL-OK"}
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -541,12 +542,44 @@ def parent_without_map(f: Fixture):
     assert "parent #999" in content
 
 
+def existing_proposal(f: Fixture):
+    open_url = f"https://github.com/{REPOSITORY}/issues/683"
+    f.add_issue(683, "Retro #69: same cause", "Problem: Automated checks: same cause", parent=None)
+    f.issues["683"]["state"] = "OPEN"
+    problem = current_problem(f)
+    memories = f.state("nmem")["memories"]
+    memories["prior-retro"]["content"] += f"Proposal: {open_url}\n"
+    f.update("nmem", memories=memories)
+    problem["proposal"] = {"repository": REPOSITORY, "existing": open_url}
+    gathered = f.run("gather", "70")
+    outcome = f.finish(gathered, f.analysis([problem]))
+    assert f.state("gh")["proposals"] == [], "an open proposal was opened again"
+    added = f.state("gh")["issues"]["683"]["comments"]
+    assert len(added) == 1 and gathered["spec_url"] in added[0]["body"], added
+    assert problem["evidence"][0] in added[0]["body"]
+    assert outcome["proposals"] == [open_url] and f.assert_receipt("recorded")["proposals"] == [683]
+    # A proposal no earlier occurrence names is not this cause's proposal.
+    stranger = dict(problem, proposal={"repository": REPOSITORY,
+                                       "existing": f"https://github.com/{REPOSITORY}/issues/684"})
+    error = f.run("finalize", "70", f.write_analysis(f.analysis([stranger]), "stranger.json"),
+                  f.write_gather(f.run("gather", "70")), ok=False)
+    assert "not named by an earlier occurrence" in error, error
+    # A closed proposal is proposed again as a new issue, not commented on.
+    gh_state = f.state("gh")
+    gh_state["issues"]["683"]["state"] = "CLOSED"
+    f.update("gh", issues=gh_state["issues"])
+    error = f.run("finalize", "70", f.write_analysis(f.analysis([problem]), "closed.json"),
+                  f.write_gather(f.run("gather", "70")), ok=False)
+    assert "not open" in error, error
+    assert len(f.state("gh")["issues"]["683"]["comments"]) == 1
+
+
 FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_caller_repo,
              "partial-evidence": partial_evidence,
              "proposal-threshold": proposal_threshold,
              "prompt-and-record-contract": prompt_and_record_contract,
              "retry-finalize": retry_finalize, "large-evidence": large_evidence,
-             "parent-without-map": parent_without_map}
+             "parent-without-map": parent_without_map, "existing-proposal": existing_proposal}
 
 
 def main():

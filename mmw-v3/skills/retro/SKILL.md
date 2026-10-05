@@ -50,11 +50,11 @@ The script writes outputs; the agent judges causes and dispositions.
 ## Analyze
 
 3. Check every earlier proposal named by the most recent Retro Memory. Record it
-   as `landed` only when a commit, active Rule id, Memory id, or current file
-   proves the change, and give that proof as a commit SHA, a
+   as `landed` only when a commit, Memory id, or current file proves the
+   change, and give that proof as a commit SHA, a
    `https://github.com/<owner>/<name>/commit/<sha>` URL when the change landed
-   in another repository, `Rule: <active-id>`, `nowledgemem://memory/<id>` or a
-   repository-relative file path. When no such evidence is found, record
+   in another repository, `nowledgemem://memory/<id>` or a repository-relative
+   file path. When no such evidence is found, record
    `no-evidence-found`, not "not done". Issue closure alone is not landing
    evidence.
 4. Form current problems only from the gathered tracker events, commits, files,
@@ -84,12 +84,16 @@ The script writes outputs; the agent judges causes and dispositions.
    It catches a night that met every criterion yet delivered something other
    than what the spec asked for.
 7. Review the review results: distinguish a finding that was invalid from one
-   that was valid and fixed elsewhere. Record in `review_learning` each such
-   finding's claim, route reason, and source, or `none`. This is how the
-   reviewer improves: two `invalid` findings of one review category point to a
-   reviewer Rule to change, and two valid findings of one kind point to a
-   check. A finding another ticket fixed was right, and does not count against
-   the reviewer.
+   that was valid and fixed elsewhere. A finding was invalid when the closing
+   pass routed it `stale invalid`, or the worker answered it `refuted:` and
+   nothing since shows the bad outcome. Record in `review_learning` each such
+   finding's category, claim, route reason or refutation, and source, or `none`.
+   This is how the review improves: the category of a finding is the rule of a
+   `CODING_STANDARDS.md` it cites, its smell or its Spec or UI kind, so two
+   invalid findings citing one rule point to that rule, to clarify or remove,
+   and two valid findings of one kind with a fixed shape point to a check. A
+   finding another ticket fixed was right, and does not count against the
+   review.
 8. Inspect all seven categories below. Record every source-backed candidate and
    record none for each category whose checked evidence supports no candidate.
    A problem in a category requires a candidate result there.
@@ -99,12 +103,16 @@ The script writes outputs; the agent judges causes and dispositions.
    - Automated checks: could linting, typing, a test, an oracle, a boundary check,
      or a repository script have caught the mistake? Use when such a check can
      deterministically detect the observed problem.
-   - Coding standards: should the reviewer receive a stable rule, or should an
-     existing rule be removed or clarified? Use when review missed or repeatedly
-     misclassified an objective issue.
-   - Global AGENTS.md: should a standing instruction move to a check, reviewer
-     Rule, skill, or reference? Use when repository or user-level AGENTS.md is
-     carrying detail that needlessly consumes every implementation context.
+   - Coding standards: should the review apply a new rule, or should a rule of
+     a `CODING_STANDARDS.md` be clarified or removed? Classify the violation
+     first: one with a fixed shape (a banned call, an import form, a file
+     location) belongs to Automated checks, and only a judgement no check can
+     make is a coding standard. Use when the review missed a mistake the diff
+     showed, or findings citing one rule were invalid.
+   - Global AGENTS.md: should a standing instruction move to a check, a coding
+     standard, a skill, or a reference? Use when repository or user-level
+     AGENTS.md is carrying detail that needlessly consumes every implementation
+     context.
    - Tool economy: did a CLI or MCP produce repeated, expensive, or irrelevant
      calls that a tool, script, or skill could streamline? Use when the evidence
      shows the expensive call.
@@ -134,6 +142,14 @@ The script writes outputs; the agent judges causes and dispositions.
     standalone-check sources support a problem, not this threshold. The
     proposal has `repository` (`owner/name` responsible for the change),
     `title`, `body`, and optional `prompt_change`.
+
+    A proposal already open for the same cause is added to, not opened again:
+    a second issue for one decision costs the owner a second triage. When an
+    earlier occurrence's Retro Memory names a proposal that is still open, give
+    the proposal `repository` and `existing`, that issue's URL, in place of
+    `title`, `body` and `prompt_change`; `finalize` comments this night's
+    sources on it. A proposal closed without the change landing (step 3 found
+    no evidence) is opened again as a new proposal that names the closed one.
 11. For a prompt change, `prompt_change` has `target_file`, `heading`, `source`
     (one of the problem's primary evidence URLs), `current_passage`,
     `proposed_passage`, `changes_made` and `expected_behavior`. `target_file` is
@@ -153,7 +169,7 @@ The script writes outputs; the agent judges causes and dispositions.
     ```json
     {
       "previous_proposals": [
-        {"url": "...", "status": "landed|no-evidence-found", "evidence": "commit SHA|GitHub commit URL|Rule id|Memory id|file|none"}
+        {"url": "...", "status": "landed|no-evidence-found", "evidence": "commit SHA|GitHub commit URL|Memory id|file|none"}
       ],
       "categories": {
         "Navigation": "none|candidate summary",
@@ -170,7 +186,7 @@ The script writes outputs; the agent judges causes and dispositions.
           "cause": "...",
           "evidence": ["event URL|commit URL|repository-relative file|check:read-only command"],
           "handled_here": "...",
-          "prevention": {"destination": "check|script|repository-agents|repository-skill|reviewer-rule|mmw-skill|toolbox-memory|none", "text": "..."},
+          "prevention": {"destination": "check|script|repository-agents|repository-skill|coding-standard|mmw-skill|toolbox-memory|none", "text": "..."},
           "earlier_occurrences": [{"memory_id": "...", "evidence": "original event|commit URL"}],
           "proposal": null
         }
@@ -195,16 +211,26 @@ A problem's Prevention names one of them by its `destination` value:
 | `script` | a mechanical step a script can carry out |
 | `repository-agents` | a short repository-wide, non-inferable navigation pointer or universal instruction, in that repository's `AGENTS.md` |
 | `repository-skill` | a repeated multi-step workflow specific to one repository, as a repository-local skill with a discovery test |
-| `reviewer-rule` | stable cross-repository review behaviour, as an active reviewer Rule |
-| `mmw-skill` | a cross-repository MMW workflow, in an MMW skill; also a change to a user-level `AGENTS.md`, whose sources are MMW's `mmw-v3/prompt/` |
+| `coding-standard` | a judgement the review applies to every later diff, as a row of a `CODING_STANDARDS.md`: the `code-review` skill's when it holds in every repository, the repository's root file (created by this proposal when absent) when it holds only there |
+| `mmw-skill` | a cross-repository MMW workflow or rule, in the MMW skill set: a playbook or a section of the `mmw-mode` skill, a principle, or a skill, wherever the mode's Authoring or modifying a skill playbook places it; also a change to a user-level `AGENTS.md`, whose sources are MMW's `mmw-v3/prompt/` |
 | `toolbox-memory` | approved, broadly useful knowledge, copied into toolbox Memory while the source Memory remains in the repository |
 | `none` | nothing would prevent the next instance |
 
 Choose the destination whose reader acts on the lesson. Workers carry the
 heaviest context: they explore, implement and debug; the reviewer receives a
-diff and has room to spare. So a standard only judgement can apply goes to the
-reviewer's Rules; a violation with a fixed shape (a banned call, an import
-form, a file location) goes to a `check`, which no one has to remember; and
-`AGENTS.md` keeps only short pointers nearly every task needs. Before proposing
+diff and has room to spare. So a standard only judgement can apply goes to a
+`CODING_STANDARDS.md` the review applies; a violation with a fixed shape (a
+banned call, an import form, a file location) goes to a `check`, which no one
+has to remember; and `AGENTS.md` keeps only short pointers nearly every task
+needs. Before proposing
 a check, look at the repository's existing check commands: one that exists but
 is not wired in, or is silently broken, is the finding.
+
+A row of a `CODING_STANDARDS.md` is applied to every review from then on, so
+it is proposed only when all of these hold: a diff shows the mistake; no check
+could catch it; the rule would change what a later review reports; no rule,
+smell of the Standards axis, or check already covers it; and it stays true as
+the code changes. The proposal gives the row as it would stand (the rule's
+name, the finding it describes, its details) and the file it goes in. A row is
+reworded or removed on the same kind of evidence the other way: invalid
+findings that cite it.

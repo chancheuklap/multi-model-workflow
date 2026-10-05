@@ -6,9 +6,9 @@ You review that diff against two questions: **does this code follow the conventi
 
 The request is a ticket (`#<n>`) or a file holding the owner's request word for word. Read it (a ticket with `gh issue view <n>`, comments included) and the diff against the merge-base (`git diff <base-commit>...HEAD`).
 
-## 1. Find the repository's documented standards
+## 1. Find the documented standards
 
-The repository's `CODING_STANDARDS.md` says how code here should be written, and its domain glossary (`CONTEXT.md`, or the `CONTEXT.md` files `CONTEXT-MAP.md` points to) names the domain vocabulary. Read what you find before you read the diff a second time. Its `## Tests` section is the Tests axis's: leave the test cases to that axis. When the repository has no `CODING_STANDARDS.md`, apply only the rules in this file and say so in one line of your report.
+The general `CODING_STANDARDS.md` follows this file in your prompt: its `## Code` rules hold in every repository. The repository may keep its own `CODING_STANDARDS.md` at its root, with rules that hold only there; read it when it exists, and the domain glossary (`CONTEXT.md`, or the `CONTEXT.md` files `CONTEXT-MAP.md` points to), which names the domain vocabulary. Read them before you read the diff a second time. Their `## Tests` rules are the Tests axis's: leave the test cases to that axis.
 
 ## 2. Match the diff against the standards and the smell baseline
 
@@ -16,8 +16,8 @@ The documented standards are the first source. On top of them you always carry t
 
 Two rules bind it:
 
-- **The repository overrides.** A documented standard always wins. Where it endorses something the smell baseline would flag, the smell baseline is silent.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. A documented-standard breach can be a hard violation; a smell from the smell baseline never is.
+- **The repository overrides.** A documented standard always wins, and the repository's own rule wins over a general one. Where it endorses something the smell baseline would flag, the smell baseline is silent.
+- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. A breach of a rule the repository's own file states can be a hard violation; a smell from the smell baseline never is.
 
 An author rarely deletes what it just added, so extra code this axis does not name stays in the repository. Alongside the smells, ask of every hunk whether what the request asks for still holds with less: the hunk deleted, folded into a branch that already exists, or replaced by a helper the repository already has. Report it only when you can write the shorter form; a shorter form you cannot write is a preference, not a review finding.
 
@@ -42,9 +42,11 @@ Each smell reads *what it is* → *how to fix*:
 
 ## 3. Report
 
-Per file and hunk where it helps:
+Open the report with one line: `Standards applied: CODING_STANDARDS.md (general)`, then `, <path>` for the repository's own file or `, no repository file`.
 
-- Every place the diff breaks a documented standard: cite the standard by file and by the rule it states.
+Then, per file and hunk where it helps:
+
+- Every place the diff breaks a rule of a `CODING_STANDARDS.md`: name the rule as its row names it, and the file. A breach of the domain glossary is named `documented-standard`, citing the glossary file and its term.
 - Every smell from the smell baseline you spot: name it and quote the hunk.
 - Every hunk that passes with less: quote the hunk and the shorter form.
 - Every module the deletion test calls a pass-through: name it and the callers that would carry the complexity back.

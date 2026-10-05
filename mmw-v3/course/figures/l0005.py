@@ -146,7 +146,7 @@ def guidance():
     _lines_box(f, "script", A, 342, 230, "SessionStart 钩子", [
         "仓库有 .mmw/：载入 mmw-mode", "没有钩子的宿主：", "你输入 /mmw-mode"])
     _lines_box(f, "agent", B, 342, 230, "start prompt", [
-        "第 1 句：Use the mmw-mode skill.", "第 2 句：点名 playbook 和票号", "其余是数据：Memory 索引、Rules"])
+        "第 1 句：Use the mmw-mode skill.", "第 2 句：点名 playbook 和票号", "其余是数据：worker 的 Memory 索引"])
     for x in (A, B):
         f.ar([(x + 115, 420), (x + 115, 454)])
 
