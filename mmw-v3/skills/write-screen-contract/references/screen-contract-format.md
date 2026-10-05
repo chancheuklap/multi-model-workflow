@@ -1,6 +1,6 @@
 # The screen contract file
 
-`docs/specs/<effort>/screen-contract.yaml`. One file per effort, read by Write a spec, `lint_screen_contract.py` and the `verify-ticket` skill's `verify-ticket.py --lint`.
+`docs/specs/<effort>/screen-contract.yaml`. One file per effort, read by Write a spec, Cut tickets, Work a ticket, Review a ticket, the story oracle, the boundary check and the lint.
 
 `rows` is one row per user-visible behaviour, keyed by the control's `data-ui` id. `pages` names each design page's story id (`mount`) and the component that owns it; `scenes` names which design page each scene of `scenes.json` belongs to. `rows` and these declarations cannot be derived from each other — a page holds many rows, a row is visible on many scenes — so both are written, and the lint holds them to each other.
 
@@ -13,7 +13,7 @@ effort: notes-v1                          # the effort's directory name, as in d
 baselines:
   look: prototypes/<effort>/claude-design   # the design package directory, unchanged
   precedence: "look & verbatim copy -> design package; calls, shows, next, on_failure -> this file"
-locale: en-US                             # BCP 47 tag; required; the pages render under it; no fallback
+locale: en-US                             # BCP 47 tag; required; the story oracle sets both browser contexts; no fallback
 viewports: [1280x800]                     # the size pages without their own `viewports` are drawn at
 pages:                                    # one per .dc.html page of scenes.json
   "App · notes.dc.html":
@@ -48,7 +48,7 @@ rows: [...]
 | Key | Rule |
 | --- | --- |
 | `viewports` | `WIDTHxHEIGHT` entries: the sizes the pages that declare no `viewports` of their own are rendered and compared at. A viewport equal to a media-query breakpoint of the package's stylesheets — any `.css` in the package (including `_ds/`), or a page's `<style>` block — compares two reflows and verifies nothing. |
-| `locale` | BCP 47 tag (`zh-CN`, `en-US`) the design pages are rendered under. `extract_skeleton.py` reads it and does not fall back. |
+| `locale` | BCP 47 tag (`zh-CN`, `en-US`) the story oracle sets on both browser contexts. The story oracle reads it and does not fall back. |
 | `states` | The state names this product allows in `next` that are not a scene: domain states, and local view states no scene draws (a zoomed canvas, an expanded container, a closed dialog). Omit the key when `next` never names one. |
 | `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. |
 | `pages.<page>.viewports` | The sizes this page's scenes are rendered and compared at, when they are not the top-level `viewports`: a page drawn at its own `$preview` size (a 236-wide column, a 52-high bar) is compared there only, not at every size of the other pages. Omit it for a page drawn at a top-level size. |
@@ -107,7 +107,7 @@ Desktop product — a non-HTTP host call:
 | `calls` | `METHOD /path` exactly as in `openapi.json`; `none`; or a non-HTTP form written as the product issues it. Order is the order of effect. An operation the backend does not have yet is listed under `proposed_operations`; the spec's **API contract** subsection describes it. A server-rendered form post is `POST /path`. |
 | `shows` | Displayed name → the binding: `field@METHOD /path`, `field@<non-HTTP call>`, `key@RuntimePolicy`, or several of those; then optionally ` → ` and, in words, what is drawn from them (`notes[].pinned@GET /api/notes → count of pinned notes`). No literal numbers or strings in the binding, and no digits outside `{…}` — a status code is a number too. |
 | `next` | Where the end user is after the call succeeds; for `calls: [none]`, where the end user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). |
-| `on_failure` | Failure kind → the outcome, then optionally ` — ` and what the end user sees there in words. The outcome is where the end user is after that failure, in the words `next` uses (a row id, a scene, a name in `states`, `stay`), or `toast:<KEY>` for a message over an unchanged page: `version_conflict_409: note-changed — the banner names the time the note changed`. Every non-`none` call has at least one. |
+| `on_failure` | Failure kind → the outcome, then optionally ` — ` and what the end user sees there in words. The outcome is where the end user is after that failure, in the words `next` uses (a row id, a scene, a name in `states`, `stay`), or `toast:<KEY>` for a message over an unchanged page: `version_conflict_409: note-changed — the banner names the time the note changed`. Every non-`none` call has at least one. The four-column boundary test of the ui-acceptance skill reads this column. |
 | `source` | Where the behaviour was decided, in one of these shapes: `#<n>` (a decision ticket), `#<n> Implementation Decisions <k>` or `#<n> Testing Decisions` (a spec section), `ADR-<nnnn>`, `docs/<path> …` (a domain document), `README §…`, `conversation <YYYY-MM-DD>` plus one sentence of the conclusion, or `code:<path>` as a last resort. A user story (`#<n> story <k>`) is an audit trail no worker ever reads: Write a spec folds a story's conclusion into the Implementation Decisions subsection that implements it, and the row cites that. An earlier spec that a decision ticket cites as its basis is citable too, as `#<n> <section>`: cite the decision ticket first, and the earlier spec for what no decision ticket covers. At least one source that is neither README nor `code:`, or `gap` is not `aligned`. |
 | `gap` | `aligned` when design and backend agree; `design-only` when the control has no backend behaviour to call; `backend-only` when a decision has no control. |
 | `app` | Only on a cross-component row: the `App · ` page the row is written on. See **A cross-component row**. |

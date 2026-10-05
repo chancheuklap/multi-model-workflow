@@ -19,7 +19,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import SCRIPT, checked, event, load, oracle_stubs, started
+from _load import SCRIPT, checked, event, load, started
 
 vt = load()
 
@@ -778,8 +778,7 @@ class TestTheProductSlot(unittest.TestCase):
         sh("worktree", "add", "-q", "-b", "issue-1", str(main / ".worktrees" / "issue-1"))
         return main, (main / ".worktrees" / "issue-1").resolve()
 
-    def run_in(self, root: Path, body: str, comments=(), tools=(oracle_stubs(), UI_ACCEPTANCE),
-               lease="patched",
+    def run_in(self, root: Path, body: str, comments=(), tools=(UI_ACCEPTANCE,), lease="patched",
                reverify=False, actor=None, post=None, wait_s=0):
         posted: list[str] = []
         real_run = vt.subprocess.run

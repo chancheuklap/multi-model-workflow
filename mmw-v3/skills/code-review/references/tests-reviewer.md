@@ -14,7 +14,13 @@ For a request file: every test case the diff adds or changes, and the seams the 
 
 **That list is your scope.** Read the diff for the source under test and for the test files in your scope.
 
+For a ticket, also collect every `boundary-check.py` criterion's `--run` product test, and every `journey.py` criterion's journey script. Those files are in scope too: read their assertions.
+
 When the scope is empty, report one line, `no test-backed criteria in this change`, and stop. There is nothing here for this axis.
+
+A `boundary-check.py` oracle proves only that its product test goes red without the click. Confirm the `--run` command is the product test this ticket added, then read its assertions: whether they can go red, whether they only watch a success banner, whether they assert the row's four columns (`calls`, `shows`, `next`, `on_failure`).
+
+A criterion that runs `journey.py` is the same: read the journey script's assertions. A script that probes the fault-injection switch in order to stay green, or that asserts nothing which would fail when the named write is broken, is a finding on this axis.
 
 ## 2. Find the repository's documented test rules
 

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { margin: 0; }
+      .demo {
+        position: relative;
+        width: 320px;
+        height: 200px;
+        box-sizing: border-box;
+        padding: 16px;
+        background: #f4f1ec;
+        font: 16px/24px sans-serif;
+        color: #1a1a1a;
+      }
+      .swatch { width: 80px; height: 80px; background: #2f6fed; }
+      .pixel-only { position: absolute; left: 16px; top: 180px; width: 10px; height: 10px; background: #111; }
+      h1 { margin: 0 0 8px; font-size: 20px; line-height: 24px; font-weight: 700; }
+      p { margin: 0 0 12px; }
+      .demo > h1, .demo > p, .demo > [data-ui="group"], .demo > [data-ui="repeats"] {
+        width: 288px;
+        box-sizing: border-box;
+      }
+      button { margin: 0; padding: 4px 8px; font: 14px/20px sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div data-story-root class="demo" data-screen="demo" data-ui="root"></div>
+    <script>
+      const COPY = {
+        alpha: "Alpha scene copy",
+        beta: "Beta scene copy",
+        gamma: "Gamma scene copy",
+        app: "Alpha scene copy",
+        legacy: "Alpha scene copy"
+      };
+      const params = new URLSearchParams(location.search);
+      const page = params.get("page") || "";
+      const scene = params.get("scene") || "";
+      const mutate = "__STORY_MUTATE__";
+      const root = document.querySelector("[data-story-root]");
+      root.dataset.screen = page;
+      root.innerHTML =
+        '<h1 data-ui="title">Demo card</h1>' +
+        '<p data-ui="body">' + (COPY[scene] || "") +
+          '<span data-ui="inner" aria-hidden="true" style="position: absolute; opacity: 0">inner copy</span></p>' +
+        '<div data-ui="group" style="height: 30px"><strong data-ui="metric" style="display: inline-block; width: 30px; height: 30px; line-height: 30px; font-size: 13px">13</strong></div>' +
+        '<div class="swatch" aria-hidden="true" data-ui="swatch"></div>' +
+        '<button type="button" data-ui="continue">Continue</button>' +
+        '<div data-ui="repeats" style="display: flex"><span data-ui="repeat">R</span><span data-ui="repeat">R</span><span data-ui="repeat">R</span></div>' +
+        '<div class="pixel-only"></div>' +
+        '<span data-ui="hidden" aria-hidden="true" style="position: absolute; visibility: hidden">hidden copy</span>';
+      if (page === "legacy") {
+        root.removeAttribute("data-ui");
+        for (const el of root.querySelectorAll("[data-ui]")) el.removeAttribute("data-ui");
+      }
+      if (scene === "alpha") {
+        if (mutate === "copy") {
+          root.querySelector('[data-ui="body"]').firstChild.nodeValue = "Alpha scene COPY";
+        }
+        if (mutate === "font-size") {
+          root.querySelector('[data-ui="metric"]').style.fontSize = "26px";
+        }
+        if (mutate === "weight") {
+          root.querySelector('[data-ui="metric"]').style.fontWeight = "400";
+        }
+        if (mutate === "color") {
+          root.querySelector('[data-ui="body"]').style.color = "rgb(255, 45, 85)";
+        }
+        if (mutate === "background") {
+          root.style.backgroundColor = "rgb(255, 255, 255)";
+        }
+        if (mutate === "radius") {
+          root.querySelector('[data-ui="group"]').style.borderRadius = "8px";
+        }
+        if (mutate === "repeat-missing") {
+          root.querySelectorAll('[data-ui="repeat"]')[2].remove();
+        }
+        if (mutate === "repeat-one") {
+          const repeats = root.querySelectorAll('[data-ui="repeat"]');
+          repeats[2].remove();
+          repeats[1].remove();
+        }
+        if (mutate === "pixel-only") {
+          root.querySelector(".pixel-only").style.background = "#f00";
+        }
+        if (mutate === "move-alone") {
+          const body = root.querySelector('[data-ui="body"]');
+          body.style.position = "relative";
+          body.style.top = "30px";
+        }
+        if (mutate === "block-down") {
+          root.style.marginTop = "30px";
+        }
+        if (mutate === "move-parent") {
+          const group = root.querySelector('[data-ui="group"]');
+          group.style.position = "relative";
+          group.style.top = "30px";
+        }
+        if (mutate === "taller-previous") {
+          root.querySelector('[data-ui="title"]').style.height = "54px";
+        }
+        if (mutate === "size-10" || mutate === "size-2") {
+          root.querySelector('[data-ui="swatch"]').style.width =
+            mutate === "size-10" ? "90px" : "82px";
+        }
+        if (mutate === "missing") {
+          root.querySelector('[data-ui="metric"]').remove();
+        }
+        if (mutate === "extra") {
+          root.insertAdjacentHTML("beforeend", '<i data-ui="product-only">extra</i>');
+        }
+        if (mutate === "wrapper") {
+          const body = root.querySelector('[data-ui="body"]');
+          const wrapper = document.createElement("div");
+          wrapper.style.display = "contents";
+          body.replaceWith(wrapper);
+          wrapper.appendChild(body);
+        }
+        if (mutate === "hidden-parent") {
+          root.querySelector('[data-ui="group"]').style.visibility = "hidden";
+        }
+        if (mutate === "other-parent") {
+          const group = root.querySelector('[data-ui="group"]');
+          group.style.minHeight = "24px";
+          root.appendChild(root.querySelector('[data-ui="metric"]'));
+        }
+        if (mutate === "no-ids") {
+          root.removeAttribute("data-ui");
+          for (const el of root.querySelectorAll("[data-ui]")) el.removeAttribute("data-ui");
+        }
+        if (mutate === "narrow-frame") {
+          root.style.width = "300px";
+        }
+        if (mutate === "sc-interp") {
+          const body = root.querySelector('[data-ui="body"]');
+          const span = document.createElement("span");
+          span.className = "sc-interp";
+          while (body.firstChild) span.appendChild(body.firstChild);
+          body.appendChild(span);
+        }
+        if (mutate === "dc-tpl") {
+          root.setAttribute("data-dc-tpl", "");
+        }
+        if (mutate === "dc-script") {
+          root.setAttribute("data-dc-script", "");
+        }
+        if (mutate === "dc-root") {
+          root.id = "dc-root";
+        }
+      }
+    </script>
+  </body>
+</html>

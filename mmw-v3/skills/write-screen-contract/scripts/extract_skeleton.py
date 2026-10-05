@@ -8,7 +8,7 @@ Usage: uv run extract_skeleton.py <package dir> <out.json> --contract <yaml> [--
 
 Every scene in `scenes.json` is rendered at its page's own `pages.<page>.viewports`
 when the screen contract declares them, else at every top-level viewport,
-with the screen contract's locale, through the ui-acceptance skill's `design_render.py`.
+with the screen contract's locale, through the same `design_render.py` the story oracle uses.
 The output has one entry per (design page, `data-ui` id). Each entry says which
 declared scenes show that element, whether it is clickable or editable, the scenes it
 is disabled in (`disabled_in`: the `disabled` attribute or `aria-disabled="true"`), the displayed

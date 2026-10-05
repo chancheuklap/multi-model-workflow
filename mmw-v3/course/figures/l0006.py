@@ -93,17 +93,17 @@ ROUTES = [
      ["Writing a page ticket's code, before the first line",
       "Cutting something out of the ticket"],
      ["调用方此刻", "在做什么？"],
-     [("playbook", "Work a ticket 第 2 步", False), ("reference", "writing-interface-code.md", True, True)],
-     ["那一步直接点名文件，表删掉。几份 playbook 都读的，",
+     [("playbook", "Work a ticket 第 2 步", False), ("reference", "writing-interface-code.md", True, False)],
+     ["那一步直接点名文件，按时机的表删掉。几份 playbook 都读的，",
       "留在管那件东西的技能里，由各份点名"]),
     ("③", "按脚本刚打印的那行选路",
      [("skill", "ui-acceptance"), ("reference", "pull.md")],
      ["Reading the DIFF line the story oracle printed",
       "pull-report.md 的 改动分类 决定下一份"],
      ["这行输出", "该去哪读？"],
-     [("script", "story-parity.py", True, True), ("script", "refusal.py")],
-     ["输出行自己写明去读哪个文件、哪一节。lease.py 的",
-      "拒绝已经这样做：每条拒绝都写下一步"]),
+     [("script", "story-parity.py", True, False), ("script", "refusal.py")],
+     ["拒绝行自己写明下一步（lease.py 已这样做）；",
+      "DIFF 这类行由 mmw-mode 的一条触发送到 ui-acceptance"]),
     ("④", "做完以后交给谁",
      [("skill", "to-spec"), ("skill", "write-screen-contract")],
      ["## Next：The to-tickets skill.",
@@ -155,7 +155,7 @@ def routes():
         _chips(f, 600, y + 10, rchips)
         for j, line in enumerate(rtext):
             _t(f, 600, y + 56 + j * 15, line)
-    return f.svg(Y0 + 6 * BH + 48, "v2 技能里六种路由，各在问什么，在 v3 里去哪。① 按读它的角色选路，例如 code-review、advisor、dispatch 的表：会话的角色成为一份 playbook，派出的 agent 由派它的那一步把 reference 当提示词交给它。② 按调用方走到哪一步选路，例如 ui-acceptance、verify-ticket、design-pages 的表：那一步直接点名文件，几份 playbook 都读的留在管那件东西的技能里。③ 按脚本刚打印的那行选路，例如 story oracle 的 DIFF 行、pull 报告的改动分类：输出行自己写明去哪读。④ 做完以后交给谁，例如 to-spec 的 ## Next：调用方 playbook 的最后一步用名字调用下一份。⑤ 跨会话的事做到哪了，例如 wayfinder 的两种模式：触发不同就是两份 playbook。⑥ 按手上的输入分支，例如 manage-agents-md 的 create 和 rewrite、prototype 的三个分支：留在技能里。虚线是还没搬进 v3 的：writing-interface-code.md、story-parity.py、manage-agents-md。")
+    return f.svg(Y0 + 6 * BH + 48, "v2 技能里六种路由，各在问什么，在 v3 里去哪。① 按读它的角色选路，例如 code-review、advisor、dispatch 的表：会话的角色成为一份 playbook，派出的 agent 由派它的那一步把 reference 当提示词交给它。② 按调用方走到哪一步选路，例如 ui-acceptance、verify-ticket、design-pages 的表：那一步直接点名文件，几份 playbook 都读的留在管那件东西的技能里。③ 按脚本刚打印的那行选路，例如 story oracle 的 DIFF 行、pull 报告的改动分类：输出行自己写明去哪读。④ 做完以后交给谁，例如 to-spec 的 ## Next：调用方 playbook 的最后一步用名字调用下一份。⑤ 跨会话的事做到哪了，例如 wayfinder 的两种模式：触发不同就是两份 playbook。⑥ 按手上的输入分支，例如 manage-agents-md 的 create 和 rewrite、prototype 的三个分支：留在技能里。虚线是还没搬进 v3 的：manage-agents-md。")
 
 
 # ---- figure 2: MMW's work cut into playbooks ----
@@ -280,9 +280,9 @@ FATES_A = [
     ([("reference", "dispatch/references/night.md")], ["Run a night"],
      "dispatch 留下：脚本、换模型、## On waking"),
     ([("reference", "dispatch/references/one-ticket.md")], ["Run one ticket"], "同上"),
-    ([("skill", "implement")], ["Work a ticket"], "删掉；界面代码那份 reference 等界面验收"),
-    ([("reference", "code-review/references/session.md")], ["Review a ticket"], "code-review 留下三条轴"),
-    ([("skill", "to-tickets")], ["Cut tickets"], "票的格式进 verify-ticket；歧义扫描提示进 mmw-mode"),
+    ([("skill", "implement")], ["Work a ticket"], "删掉；界面代码那份 reference 进 ui-acceptance"),
+    ([("reference", "code-review/references/session.md")], ["Review a ticket"], "code-review 留下四条轴"),
+    ([("skill", "to-tickets")], ["Cut tickets"], "票的格式进 verify-ticket；扫描提示、界面票进 mmw-mode"),
     ([("skill", "to-spec")], ["Write a spec", "Revise a spec"], "spec 模板在 Write a spec 里"),
     ([("skill", "triage")], ["Triage"], "triage 留下：角色、逐张判断、模板"),
     ([("skill", "wayfinder")], ["Chart a map", "Resolve a map ticket"], "wayfinder 留下：地图和它的票是什么"),
@@ -297,7 +297,7 @@ VERBS = [
     ("grilling", "问到每个决定都定下", True), ("domain-modeling", "定词、写 ADR", True),
     ("research", "查一手来源，写研究文件", True), ("prototype", "写代码回答一个设计问题", True),
     ("tdd", "先红后绿", True), ("diagnosing-bugs", "复现、定因", True),
-    ("code-review", "沿三条轴审 diff", True), ("ui-acceptance", "判定界面和设计一致；判官没搬", True),
+    ("code-review", "沿四条轴审 diff", True), ("ui-acceptance", "四个判官判界面票做对没有", True),
     ("advisor", "请教一次", True), ("retro", "复盘一夜", True),
     ("triage", "逐张判 issue，含夜里交回的票", True),
 ]
@@ -368,7 +368,7 @@ def fates():
         y = dy + 32 + i * 34
         x = _chips(f, 16, y, src)
         _t(f, max(x + 8, 420), y + 16.5, why)
-    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 等界面验收那一课；code-review 的 session.md 成为 Review a ticket，code-review 留下三条轴；to-tickets 成为 Cut tickets，票的格式进 verify-ticket，歧义扫描的提示进 mmw-mode；to-spec 成为 Write a spec 和 Revise a spec；triage 里交给下一步的那几句成为 Triage，技能留下角色、逐张判断和模板；wayfinder 的两种做法成为 Chart a map 和 Resolve a map ticket，技能留下地图和它的票是什么；design-pages 的做法成为 Design in Claude Design、Pull a design 和 Build a design system，技能留下项目、状态清单、设计包和设计系统是什么；write-screen-contract 的做法成为 Write the screen contract，技能留下它是什么、规则和脚本；setup-matt-pocock-skills 成为 setup-mmw，配齐仓库这一层。B 一个动词，由 playbook 的步骤点名：已搬 grilling、domain-modeling、research、prototype、tdd、diagnosing-bugs、code-review、ui-acceptance（判官没搬）、advisor、retro、triage。C 其余技能：已搬 to-questionnaire、writing-for-agents、teach、handoff、wait-what、diagram-design；还没搬 grill-with-docs、codebase-design、improve-codebase-architecture、manage-agents-md、code-checkers、exe-release、wizard。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，以及上游已删的 resolving-merge-conflicts。")
+    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 进 ui-acceptance；code-review 的 session.md 成为 Review a ticket，code-review 留下四条轴；to-tickets 成为 Cut tickets，票的格式进 verify-ticket，歧义扫描的提示和界面票的切法进 mmw-mode；to-spec 成为 Write a spec 和 Revise a spec；triage 里交给下一步的那几句成为 Triage，技能留下角色、逐张判断和模板；wayfinder 的两种做法成为 Chart a map 和 Resolve a map ticket，技能留下地图和它的票是什么；design-pages 的做法成为 Design in Claude Design、Pull a design 和 Build a design system，技能留下项目、状态清单、设计包和设计系统是什么；write-screen-contract 的做法成为 Write the screen contract，技能留下它是什么、规则和脚本；setup-matt-pocock-skills 成为 setup-mmw，配齐仓库这一层。B 一个动词，由 playbook 的步骤点名：已搬 grilling、domain-modeling、research、prototype、tdd、diagnosing-bugs、code-review、ui-acceptance（四个判官）、advisor、retro、triage。C 其余技能：已搬 to-questionnaire、writing-for-agents、teach、handoff、wait-what、diagram-design；还没搬 grill-with-docs、codebase-design、improve-codebase-architecture、manage-agents-md、code-checkers、exe-release、wizard。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，以及上游已删的 resolving-merge-conflicts。")
 
 
 def _box_lines(f, kind, x, y, w, title, lines, mono_title=True):
@@ -510,7 +510,7 @@ def roles():
         _t(f, 150, y + 16.5, what)
     f.zone(504, y0, 492, 222, "子代理：技能或 playbook 在会话里派，当场交回")
     _chip(f, "agent", 516, y0 + 32, "code-review 的轴")
-    _t(f, 690, y0 + 48.5, "三条轴同时审一段 diff")
+    _t(f, 690, y0 + 48.5, "几条轴同时审一段 diff")
     _chip(f, "agent", 516, y0 + 64, "grilling 的 fact-finder")
     _t(f, 720, y0 + 80.5, "查一个问题要用的事实")
     _chip(f, "agent", 516, y0 + 96, "ambiguity scanner")

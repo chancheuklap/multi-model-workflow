@@ -32,7 +32,7 @@ DOCS = {
     "docs/agents/triage-labels.md": (),
     "docs/agents/domain.md": (),
 }
-IGNORED = (".worktrees/", ".scratch/")
+IGNORED = (".worktrees/", ".scratch/", "story-shots/")
 TOOLS = ("git", "python3", "uv", "node", "nmem")
 RUNNERS = ("paseo", "herdr", "orca")
 
@@ -146,8 +146,8 @@ def check_ignored(report: Report, root: Path):
                if run(["git", "check-ignore", "-q", f"{d}probe"], cwd=root).returncode != 0]
     if lacking:
         report.add("missing", "repository", ".gitignore",
-                   f"{', '.join(lacking)} not ignored; ticket worktrees and prototype evidence "
-                   "are written there")
+                   f"{', '.join(lacking)} not ignored; ticket worktrees, prototype evidence and story "
+                   "screenshots are written there")
     else:
         report.add("ok", "repository", ".gitignore", ", ".join(IGNORED) + " ignored")
 

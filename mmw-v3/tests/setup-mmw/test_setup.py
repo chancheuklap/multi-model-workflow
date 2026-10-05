@@ -38,7 +38,7 @@ class Fake:
     """Answers `gh`, `nmem`, `git` and `space.py --check` as a repository in a given state."""
 
     def __init__(self, root=None, labels_have=None, spaces=None, issues=True, protected="",
-                 ignored=(".worktrees/", ".scratch/")):
+                 ignored=(".worktrees/", ".scratch/", "story-shots/")):
         self.root = root
         self.labels_have = dict(labels_have if labels_have is not None else
                                 {n: (c, d) for n, (c, d) in TABLE.items()})

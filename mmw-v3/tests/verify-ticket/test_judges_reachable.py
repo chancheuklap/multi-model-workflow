@@ -16,11 +16,11 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import load, oracle_stubs
+from _load import load
 
 vt = load()
 
-SCRIPTS = oracle_stubs()
+SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
 
 
 def ticket(check: str) -> str:

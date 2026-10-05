@@ -62,7 +62,7 @@ Remaining triggers:
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows the **writing-for-agents** skill.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
-- Starting, reaching or stopping the product, while other runs share this machine → the **ui-acceptance** skill's **Five rules while the product is running**, before the first command.
+- A criterion that has to launch, reach or observe the running product; a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line to read; a repository with no `.mmw/target.json`, or one to fill; a page ticket's code about to be written; a process or a port about to be touched → the **ui-acceptance** skill. Its **Five rules while the product is running** bind every run, before the first command.
 - A repository not set up for the pipeline (a `docs/agents/` file, a label or the Memory Space missing), or the owner asks to set one up or check it → the **setup-mmw** skill.
 
 ## Principles

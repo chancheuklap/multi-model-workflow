@@ -10,10 +10,6 @@ It reads every `.py`, `.sh` and `.mjs` file under mmw-v3/skills/,
 collects each quoted `<name>.py` and each `load("<name>")`, and requires a file of
 that name somewhere under mmw-v3/ outside tests. Exit 0 prints nothing; exit 1
 prints one line per missing name with the file and line that names it.
-
-The four oracles of the `ui-acceptance` skill are named and not required: this set
-carries that skill's `lease.py` and `refusal.py` only, and `verify-ticket.py` refuses,
-before anything runs, a `CHECK:` that names an oracle it cannot reach.
 """
 
 from __future__ import annotations
@@ -26,7 +22,6 @@ MMW = Path(__file__).resolve().parents[2]
 SCANNED = (MMW / "skills",)
 QUOTED_PY = re.compile(r"""["']([A-Za-z0-9_.-]+\.py)["']""")
 LOAD_CALL = re.compile(r"""\bload\(\s*["']([A-Za-z0-9_]+)["']""")
-ORACLES = {"story-parity.py", "boundary-check.py", "journey.py", "harness-guard.py"}
 
 
 def existing_modules() -> set[str]:
@@ -48,7 +43,7 @@ def missing() -> list[str]:
             for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
                 names = QUOTED_PY.findall(line) + [f"{name}.py" for name in LOAD_CALL.findall(line)]
                 for name in names:
-                    if name not in known and name not in ORACLES:
+                    if name not in known:
                         rows.append(f"{path.relative_to(MMW.parent)}:{number}: names {name}, which no file under mmw-v3/ has")
     return rows
 

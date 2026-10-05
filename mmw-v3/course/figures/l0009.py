@@ -189,7 +189,7 @@ ARIA_FIVE = ("五个问题。想对一张票说的每一句话依次问，第一
 
 # (v2 source chips, v3 destination chips, note); a dashed chip is not in v3 yet.
 MOVES = [
-    ([("skill", "to-spec 第 1 到 4 步、spec 模板")], [("playbook", "Write a spec")], "界面部分：第 12、13 课"),
+    ([("skill", "to-spec 第 1 到 4 步、spec 模板")], [("playbook", "Write a spec")], "界面部分：第 12、13 课补回"),
     ([("reference", "to-spec 的 several-specs.md")], [("playbook", "Write a spec 第 1 步")], "地图那段见第 10 课"),
     ([("reference", "to-spec 的 revising-a-spec.md")], [("playbook", "Revise a spec")], "第 8 课"),
     ([("skill", "to-tickets 第 1 到 3、5、8 步")], [("playbook", "Cut tickets")], ""),
@@ -197,7 +197,7 @@ MOVES = [
     ([("skill", "to-tickets 第 6 步")], [("playbook", "Cut tickets 第 6 步"), ("reference", "ambiguity-scan.md")], "扫歧义的提示进 mmw-mode"),
     ([("skill", "to-tickets 第 7 步")], [("reference", "linting.md 草稿一段"), ("playbook", "Cut tickets 第 7 步")], ""),
     ([("reference", "to-tickets 的 person-ticket.md")], [("reference", "verify-ticket 的 person-ticket.md")], ""),
-    ([("reference", "cutting-interface-tickets.md")], [("other", "第 13 课", True)], "没搬"),
+    ([("reference", "cutting-interface-tickets.md")], [("reference", "mmw-mode/references/ 同名")], "Cut tickets 第 3 步读；第 13 课"),
     ([("skill", "triage 里交给下一步的几句")], [("playbook", "Triage 第 3 步")], ""),
     ([("skill", "triage 其余")], [("skill", "triage")], "删掉 PR 的部分"),
     ([("skill", "domain-modeling（mattpocock）")], [("skill", "domain-modeling")], "GLOSSARY 改名 CONTEXT"),
@@ -225,11 +225,11 @@ def moves():
     return f.svg(y + 6, ARIA_MOVES)
 
 
-ARIA_MOVES = ("v2 的文字在 v3 里去了哪。to-spec 第 1 到 4 步和 spec 模板成为 Write a spec，screen contract 的设计部分第 12 课补回，验收部分等第 13 课；"
+ARIA_MOVES = ("v2 的文字在 v3 里去了哪。to-spec 第 1 到 4 步和 spec 模板成为 Write a spec，screen contract 的设计部分第 12 课补回，验收部分第 13 课补回；"
               "to-spec 的 several-specs.md 进 Write a spec 第 1 步，地图那段见第 10 课；to-spec 的 revising-a-spec.md 成为 Revise a spec，见第 8 课。"
               "to-tickets 第 1 到 3、5、8 步成为 Cut tickets；第 4 步进 verify-ticket 的 ticket-format.md（五个问题、一批票互相影响）和 Cut tickets 第 4 步；"
               "第 6 步进 Cut tickets 第 6 步，扫歧义的提示进 mmw-mode 的 references/ambiguity-scan.md；第 7 步进 linting.md 的草稿一段和 Cut tickets 第 7 步；"
-              "person-ticket.md 搬到 verify-ticket 下；cutting-interface-tickets.md 没搬，留给第 13 课。"
+              "person-ticket.md 搬到 verify-ticket 下；cutting-interface-tickets.md 第 13 课搬进 mmw-mode/references/，Cut tickets 第 3 步读它。"
               "triage 里交给下一步的几句成为 Triage 第 3 步，其余留在 triage 技能，删掉 PR 的部分。mattpocock 的 domain-modeling 搬成 domain-modeling 技能，GLOSSARY 改名 CONTEXT。")
 
 

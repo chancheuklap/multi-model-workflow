@@ -369,13 +369,11 @@ class TestPipelineFlags(unittest.TestCase):
     retired, and nothing their `--help` does not list — the one check that catches
     a criterion naming a capability that does not exist at the moment it is written.
     The scripts belong to the ui-acceptance skill and reach the lint through
-    `--tools`, so the test hands over a directory of stand-ins the way the agent
-    hands over that skill's `scripts/`."""
+    `--tools`, so the test hands their directory over the way the agent does."""
 
     def setUp(self):
         from pathlib import Path
-        from _load import oracle_stubs
-        vt.TOOLS[:] = [oracle_stubs()]
+        vt.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"]
         vt._HELP_FLAGS.clear()
 
     def tearDown(self):

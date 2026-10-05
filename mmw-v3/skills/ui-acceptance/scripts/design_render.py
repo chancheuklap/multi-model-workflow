@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Offline rendering of a design package's design side.
 
-Nothing here judges. The design-pages skill's `pull_design.py` and the write-screen-contract
-skill's `extract_skeleton.py` import the baseline server, the wrapper page, capture, and the
-`[data-ui]` reader.
+Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
+server, the wrapper page, capture, and the `[data-ui]` reader.
 """
 
 from __future__ import annotations

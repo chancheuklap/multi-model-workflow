@@ -36,7 +36,7 @@ Five **state** roles:
 
 Every triaged issue should carry exactly one category role and one state role. Work this repo plans for itself carries no category role: a spec's tickets carry a state role; a map, a spec and a decision ticket carry none and are not triaged. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
-These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping is the repository's `docs/agents/triage-labels.md`. If it is missing, tell the user the repository is not set up for the pipeline, and stop.
+These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping is the repository's `docs/agents/triage-labels.md`. If it is missing, tell the user to run the `setup-mmw` skill.
 
 State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
 
@@ -74,7 +74,7 @@ An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro
 5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome.
 
    - `ready-for-agent`: when the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)). The work is done from a spec that cites this issue as a source, a new one or a published one extended; the label goes on the tickets cut from that spec, not on this issue, and this issue is closed with a comment linking that spec.
-   - `ready-for-human`: write **the five things** in the `verify-ticket` skill's `references/person-ticket.md`, nothing more.
+   - `ready-for-human`: written here rather than routed. Write **the five things** in the `verify-ticket` skill's `references/person-ticket.md`, nothing more.
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).

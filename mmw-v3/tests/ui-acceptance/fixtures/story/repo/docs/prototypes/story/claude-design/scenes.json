@@ -1,0 +1,27 @@
+[
+  {
+    "name": "alpha",
+    "page": "Component · Demo.dc.html",
+    "props": { "scenario": "alpha" }
+  },
+  {
+    "name": "beta",
+    "page": "Component · Demo.dc.html",
+    "props": { "scenario": "beta" }
+  },
+  {
+    "name": "gamma",
+    "page": "Component · Demo.dc.html",
+    "props": { "scenario": "gamma" }
+  },
+  {
+    "name": "app",
+    "page": "App · Demo.dc.html",
+    "props": { "scenario": "alpha" }
+  },
+  {
+    "name": "legacy",
+    "page": "Component · Legacy.dc.html",
+    "props": { "scenario": "alpha" }
+  }
+]

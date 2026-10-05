@@ -32,6 +32,14 @@ Review the current ticket together with those tickets for semantic conflicts, fr
 
 Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes from both tickets or their named baselines. State whether the repair target is inside the current ticket's `## Owns`.
 
+### The UI a page ticket owns
+
+**The screen contract you do open.** The ticket's `## Read first` names `screen-contract.yaml` and the row ids the ticket owns. Each row is a requirement in the shape this axis reads: `calls`, `shows`, `next`, `on_failure`. A control in the diff that calls nothing where its row names a call, shows a literal where its row names a field, or lands somewhere other than its `next`, is **Missing** or **Built wrong**, quoted from the row. A `Missing` against a row's `calls` is the finding that blocks closeout, so word it with the row id first.
+
+**The story page you open too.** For every mount the ticket's story criterion names under `--pages`, the diff renders a story whose `[data-story-root]` sits on the root of that design page's block, not on a wrapper around it and not on a child. A story root on the wrong element is **Built wrong**, quoted from the screen contract's `pages` entry.
+
+**The story adapter you open too.** The product's story adapter maps each scene's input onto the product component. Each entry of an owned row's `shows` column names a value the region displays and the backend field it comes from; the component must draw every one of those values. Whether the interface field that feeds the shown value is the right field is a question for the boundary test, not this axis. A `shows` value the component does not draw is **Built wrong**, quoted from the row.
+
 ## 2. What you are looking for
 
 Three kinds of review finding, each quoting the line of the request, the spec, or a baseline it comes from, and, for a ticket, one judgement per line of the `DECISIONS` comment:
@@ -48,5 +56,7 @@ Quote the requirement for each review finding. A review finding with no quoted l
 Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its quoted line; nothing that is not a finding. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## What is not yours
+
+**The design package is the one baseline you do not open.** A ticket with UI acceptance criteria names a design package under `## Read first`. Appearance is decided by element parity (the `story-parity.py` command a criterion runs), not by reading the package, and how closely the UI follows it is not yours to report.
 
 How the code is written, and whether its tests are worth trusting, belong to the other axes. Leave their questions alone.

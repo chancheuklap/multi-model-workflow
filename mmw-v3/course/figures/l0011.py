@@ -18,7 +18,7 @@ def layers():
             ("AGENTS.md 指向它们的三行，CLAUDE.md 的 @AGENTS.md", "写", "reference"),
             ("流水线的全部标签（16 个）", "labels.py 建，只有这里建", "script"),
             ("这个仓库的 Memory Space", "space.py 建，只有这里建", "script"),
-            (".gitignore 的 .worktrees/、.scratch/", "写", "reference"),
+            (".gitignore 的 .worktrees/、.scratch/、story-shots/", "写", "reference"),
             (".mmw/target.json 的 checks", "记下仓库已有、在基线上能过的检查命令", "reference"),
             ("CODING_STANDARDS.md 和它的 ## Tests", "照代码现在的写法写", "reference"),
         ]),
@@ -28,7 +28,7 @@ def layers():
             ("~/.mmw/models.json，mmw-toolbox Space", "只查", "other"),
         ]),
         ("不归 setup-mmw", [
-            ("产品层：target.json 的产品命令、harness、stories、journeys", "第 13 课", "other"),
+            ("产品层：target.json 的产品命令、harness、stories、journeys", "contract 票建；开夜时查", "other"),
             ("项目分支：一夜一个，dispatch.sh open 自己推断", "Run a night", "playbook"),
             ("每个功能自己的：原型、spec、票", "各自的 playbook", "playbook"),
         ]),
@@ -46,9 +46,9 @@ def layers():
 ARIA_LAYERS = ("setup-mmw 管什么。仓库这一层由 setup-mmw 建或写，check.py 查：GitHub 的 Issues、sub-issues 和 issue 依赖只查，缺了你在 GitHub 设置里开；"
                "保护分支和生效的 ruleset 只查，有就告诉你，夜里的推送可能被拒；docs/agents/ 的三份说明从种子写，已有的只补缺的、只改错的；"
                "AGENTS.md 指向它们的三行和 CLAUDE.md 的 @AGENTS.md 由它写；流水线的全部 16 个标签由 labels.py 建，只有这里建；"
-               "这个仓库的 Memory Space 由 space.py 建，只有这里建；.gitignore 加 .worktrees/ 和 .scratch/；.mmw/target.json 的 checks 记下仓库已有、在基线上能过的检查命令；"
+               "这个仓库的 Memory Space 由 space.py 建，只有这里建；.gitignore 加 .worktrees/、.scratch/ 和 story-shots/；.mmw/target.json 的 checks 记下仓库已有、在基线上能过的检查命令；"
                "CODING_STANDARDS.md 和它的 ## Tests 照代码现在的写法写。机器这一层只查，由安装入口装：gh 登录，git、python3、uv、node、nmem，"
-               "至少一个 runner（paseo、herdr、orca），~/.mmw/models.json 和 mmw-toolbox Space。不归 setup-mmw 的：产品层，即 target.json 的产品命令、harness、stories、journeys，归第 13 课；"
+               "至少一个 runner（paseo、herdr、orca），~/.mmw/models.json 和 mmw-toolbox Space。不归 setup-mmw 的：产品层，即 target.json 的产品命令、harness、stories、journeys，由一批票里的 contract 票建，开夜时 Run a night 第 2 步用 target_config.py --check 查；"
                "项目分支一夜一个，由 dispatch.sh open 推断，归 Run a night；每个功能自己的原型、spec、票，归各自的 playbook。")
 
 

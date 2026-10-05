@@ -7,43 +7,14 @@ for a ticket's history; `checked` writes one run of a ticket's criteria as the
 Every module `load` returns asks nobody which spec a ticket sits under: `ticket_spec` —
 the lookup `post_event` makes for an event's `spec` field — answers None, so no test
 reaches the tracker through it. A test about that field patches `ticket_spec` itself.
-
-`oracle_stubs` is a directory holding a stand-in for each of the four oracles of the
-`ui-acceptance` skill, which this set does not carry: each is found where a run looks
-for it, and `--help` lists the flags the real script accepts, so a test of what
-`verify-ticket.py` does with an oracle needs none of them installed.
 """
 
 import importlib.util
-import stat
-import tempfile
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "verify-ticket" / "scripts" / "verify-ticket.py"
 EVENTS = SCRIPT.parent / "events.py"
 AT = "2026-09-10T00:00:00Z"
-
-# The flags each oracle's `--help` lists, as the real scripts' argument parsers declare them.
-ORACLE_FLAGS = {
-    "story-parity.py": ("--help", "--contract", "--pages", "--scenes", "--out", "--cdn", "--render-only"),
-    "boundary-check.py": ("--help", "--run"),
-    "journey.py": ("--help",),
-    "harness-guard.py": ("--help",),
-}
-_stubs = None
-
-
-def oracle_stubs() -> Path:
-    global _stubs
-    if _stubs is None:
-        _stubs = Path(tempfile.mkdtemp(prefix="mmw-oracle-stubs-"))
-        for name, flags in ORACLE_FLAGS.items():
-            stub = _stubs / name
-            options = "".join(f"  {flag}\n" for flag in flags)
-            stub.write_text(f"#!/bin/sh\nprintf 'usage: {name}\\noptions:\\n{options}'\n",
-                            encoding="utf-8")
-            stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
-    return _stubs
 
 
 def load():

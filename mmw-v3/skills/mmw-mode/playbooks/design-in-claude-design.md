@@ -8,7 +8,7 @@
    Done when you hold the path of the `README.md` that holds the state list, or know this design has none.
 3. **Create or open the project.** When the owner already has one, take its id from the link they give, and check that its `CLAUDE.md` holds the block of the `design-pages` skill's `references/template-project-claude-md.md`. Otherwise `create_project`, bound to the product's design system when it has one (its UUID from the link the owner gives), unbound when it has none.
    Done when you hold the project's id.
-4. **Write the project's files.** The files the `design-pages` skill's `## The project` lists that this design needs, the `_ds/<folder>/` copy made as its `### After the design system changes` says, and a first `task.md`: one `Component · ` page per region, the reference to draw against named by its branch and repository path, and one region first for the owner to look at. Declare them all in one `finalize_plan`, so the owner approves once, and write them with its token and their etags.
+4. **Write the project's files.** The files the `design-pages` skill's `## The project` lists that this design needs, the `_ds/<folder>/` copy made as its `### After the design system changes` says, and a first `task.md`: one `Component · ` page per region, the reference to draw against named by its branch and repository path, and one region first for the owner to look at. Declare them all in one `finalize_plan`, so the owner approves once, and write them with its token and their etags; `CLAUDE.md` is a reserved path and needs that token.
    Done when every file is written and the project's `CLAUDE.md` holds the template block unchanged.
 5. **Hand it over.** Give the owner the project's link and tell them to say `开始` there.
    Done when the owner has the link and has been told to say `开始`.
@@ -16,7 +16,7 @@
    Done when each queued comment is acted on and acked or shown to the owner, and each page you changed renders with no console error, missing file or blank render.
 7. **Read `task.md` back** when the owner says the work is done. An unticked item is what to ask about.
    Done when every item is ticked or the owner has said why it stays open.
-8. **Take the sign-off, then pull.** From the owner's sign-off on, every design change is made in Claude Design and reaches the repository only by pulling it again. Run **Pull a design**.
+8. **Take the sign-off, then pull.** From the owner's sign-off on, every design change is made in Claude Design and reaches the repository only by pulling it again. Run **Pull a design**. A pull is two tool calls and one command, and its report is the convention check: when you doubt the pages hold the conventions, pull and read the report rather than reading pages by hand.
    Done when the owner has said the design is signed off and Pull a design has run.
 
 **Reply:** the project's link; the regions and states drawn; what `task.md` still holds unticked and what the owner said about it; then Pull a design's reply.

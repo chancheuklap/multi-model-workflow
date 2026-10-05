@@ -1,0 +1,1 @@
+const stub = __stub;

@@ -5,7 +5,7 @@ description: "Run only when the user, mmw-mode or another skill names it; do not
 
 # Write screen contract
 
-A design package says what the UI looks like and what it says. The backend decisions, a map's or a conversation's, say what the system does. Nothing in between says which control calls what, or which story page each design page is. The **screen contract**, `docs/specs/<effort>/screen-contract.yaml`, is that file. From then on the design package binds look and verbatim copy, the screen contract binds calls, shown values and transitions, and every reader takes the two by that split. The playbook Write the screen contract writes it; Write a spec and the `verify-ticket` skill's `verify-ticket.py --lint` read it.
+A design package says what the UI looks like and what it says. The backend decisions, a map's or a conversation's, say what the system does. Nothing in between says which control calls what, or which story page each design page is. The **screen contract**, `docs/specs/<effort>/screen-contract.yaml`, is that file. From then on the design package binds look and verbatim copy, the screen contract binds calls, shown values and transitions, and every reader takes the two by that split. The playbook Write the screen contract writes it; Write a spec, Cut tickets, the workers and reviewers of its tickets, the `ui-acceptance` skill's story oracle and boundary check, and the `verify-ticket` skill's `verify-ticket.py --lint` read it.
 
 The file's shape and the rule for each key and column are in [references/screen-contract-format.md](references/screen-contract-format.md).
 
