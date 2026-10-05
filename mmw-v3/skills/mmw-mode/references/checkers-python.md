@@ -1,0 +1,93 @@
+# Python
+
+`ruff` for lint and format, `pyrefly` for types, `djlint` for Jinja/Django templates. All three through the project's dev dependency group, installed by `uv sync`.
+
+```toml
+[dependency-groups]
+dev = [
+    "ruff==<current>",                     # also the formatter — exact pin
+    "pyrefly>=<current>,<<next major>",
+    "djlint>=<current>,<<next major>",     # only if the repository renders templates
+]
+```
+
+`<current>` is each package's current release, the first line of `uvx pip index versions <package>`; `<next major>` is the major version after it. For example, with ruff at 0.16.5 and pyrefly at 1.0: `"ruff==0.16.5"`, `"pyrefly>=1.0,<2.0"`.
+
+## ruff
+
+```toml
+[tool.ruff]
+target-version = "py311"
+extend-exclude = ["archive"]   # whatever the test runner already ignores
+```
+
+Recent `ruff` releases enable several hundred rules by default. Leave them on — most of the count is machine-fixable, and the families that remain tend to be the ones that matter. Two calibrations:
+
+**Line length.** Measure before choosing. Widening past the default usually *increases* the diff, because the formatter rejoins calls the old width had split. Compare before committing:
+
+```bash
+for w in 88 100 120; do
+  printf '%s: ' "$w"
+  uvx ruff@<version> format --check --line-length "$w" <paths> 2>&1 | tail -1
+done
+```
+
+**Framework idioms.** A framework that puts calls in parameter defaults trips `B008` on every route. Exempt the specific calls, never the rule — a genuine mutable default must still be caught:
+
+```toml
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body", "fastapi.Cookie", "fastapi.Depends", "fastapi.File",
+    "fastapi.Form", "fastapi.Header", "fastapi.Path", "fastapi.Query",
+    "fastapi.Security",
+]
+```
+
+**ruff has no checker baseline**, and third-party diff wrappers break on its releases: use the changed-lines filter in Set up code checkers step 4. `ruff check --output-format json` gives `filename` and `location.row`.
+
+Rules worth reading rather than fixing in bulk, because each one names a place the code can lose an error or a fact: `BLE001` blind `except Exception`, `S110`/`S112` `except: pass` and `except: continue`, `B023` a closure capturing a loop variable, `DTZ` a naive `datetime` in a system that spans machines or handles money.
+
+## pyrefly
+
+```toml
+[tool.pyrefly]
+project-includes = ["src", "tests", "scripts", "migrations"]
+project-excludes = ["**/archive/**", "**/.venv/**", "**/node_modules/**", "**/__pycache__/**"]
+python-version = "3.11"
+search-path = ["src", "."]
+baseline = "pyrefly-baseline.json"
+disable-project-excludes-heuristics = true
+use-ignore-files = false
+```
+
+`project-includes` lists every directory that holds Python; the four here are an example layout.
+
+**Worktrees under an ignored directory.** pyrefly matches ignore files and its default excludes against absolute paths, so a worktree whose path passes through a gitignored directory (`.worktrees/`, `.claude/worktrees/`) matches no file at all: the check fails with "No Python files matched", and every commit from that worktree needs `--no-verify`. List the excludes yourself and turn both of those off.
+
+**`search-path` is where most of a first run comes from.** pyrefly infers one import root from the project layout — typically `src`. Scripts that import each other by repository-relative path (`scripts.dev.common`) resolve against the repository root instead, and every one of those imports fails until the root is on the path. Fix this before reading a single error.
+
+**Dependencies absent by design.** A package behind an optional extra, or behind a `sys_platform` marker, is unresolvable on this machine and always will be. Say so, rather than leaving the errors:
+
+```toml
+replace-imports-with-any = ["cv2", "onnxruntime", "onnxruntime.*"]
+```
+
+**The checker baseline, not `pyrefly suppress`.** The baseline is one file the tool reads:
+
+```bash
+uv run pyrefly check --baseline=pyrefly-baseline.json --update-baseline   # record
+uv run pyrefly check                                                      # only new errors
+uv run pyrefly check --baseline=pyrefly-baseline.json --prune-baseline    # shrink after fixes
+```
+
+## djlint
+
+```toml
+[tool.djlint]
+profile = "jinja"
+ignore = "..."
+```
+
+Most of a first run is style opinion that buries the two things djlint is actually worth having: **syntax** (an unclosed tag, a mismatched block) and **accessibility** (an image with no alt text). Read the rule distribution and turn off what does not apply — rules naming another framework's helpers (`url_for` is Flask's; a FastAPI app has no such function), inline-style warnings in a project whose inline styles carry computed values, empty-tag warnings where empty tags are the icon-font convention, SEO hints on pages behind a login.
+
+The target is a clean run, so that the next non-zero count means something. Run it with `uv run djlint <template-dir> --lint`; djlint does not check without `--lint`.

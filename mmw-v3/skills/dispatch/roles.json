@@ -85,6 +85,30 @@
       "prompt": ["mmw-mode/references/ambiguity-scan.md"],
       "what": "reads a spec and its drafted tickets once and finds the decisions they leave missing or ambiguous",
       "returns": "at most five questions, each with its options and a recommendation, to the session cutting the tickets, in the same turn"
+    },
+    {
+      "name": "architecture explorer",
+      "kind": "subagent",
+      "sent_by": ["mmw-mode/playbooks/improve-the-architecture.md"],
+      "prompt": ["mmw-mode/references/architecture-explorer.md"],
+      "what": "walks the paths an architecture review scoped and notes where the code is hard to understand, change or test",
+      "returns": "at most ten friction points, each with its files, evidence and deletion-test result, to the session running the review, in the same turn"
+    },
+    {
+      "name": "interface designer",
+      "kind": "subagent",
+      "sent_by": ["codebase-design"],
+      "prompt": ["codebase-design/DESIGN-IT-TWICE.md"],
+      "what": "designs one radically different interface for a module under one constraint it is given",
+      "returns": "the interface, a usage example, what it hides behind the seam, its dependency strategy and its trade-offs, to the session comparing the designs, in the same turn"
+    },
+    {
+      "name": "AGENTS.md surveyor",
+      "kind": "subagent",
+      "sent_by": ["mmw-mode/playbooks/write-agents-md.md"],
+      "prompt": ["mmw-mode/references/agents-md-survey.md"],
+      "what": "reads one group's share of a repository and reports the facts an AGENTS.md needs, each with its evidence",
+      "returns": "one entry per fact in the survey prompt's format, or \"nothing found\", to the session writing the files, in the same turn"
     }
   ]
 }

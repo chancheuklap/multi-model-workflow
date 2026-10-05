@@ -290,6 +290,10 @@ FATES_A = [
      "留下：项目、状态清单、设计包、设计系统（第 12 课）"),
     ([("skill", "write-screen-contract")], ["Write the screen contract"], "留下：它是什么、规则、脚本（第 12 课）"),
     ([("skill", "setup-matt-pocock-skills")], [("skill", "setup-mmw")], "配齐仓库这一层（第 11 课）"),
+    ([("skill", "improve-codebase-architecture")], ["Improve the architecture"], "删掉；探查提示、报告格式进 mmw-mode（第 14 课）"),
+    ([("skill", "code-checkers")], ["Set up code checkers"], "删掉；三份语言参考进 mmw-mode（第 14 课）"),
+    ([("skill", "manage-agents-md")], ["Write AGENTS.md"], "留下：AGENTS.md 的格式、check.sh（第 14 课）"),
+    ([("skill", "exe-release")], ["Ship a release"], "留下：发布清单、出包引擎、脚本（第 14 课）"),
 ]
 
 # (name, what it does, in v3 yet)
@@ -329,7 +333,7 @@ def fates():
             if isinstance(pb, tuple) and pb[0] == "todo":
                 _chip(f, "playbook", x, ry, pb[1], mono=False, dashed=True)
             elif isinstance(pb, tuple):
-                _chip(f, pb[0], x, ry, pb[1], dashed=True)
+                _chip(f, pb[0], x, ry, pb[1])
             else:
                 _chip(f, "playbook", x, ry, pb, mono=False)
         _t(f, 656, y + 16.5, keep)
@@ -343,11 +347,9 @@ def fates():
         _t(f, x0 + 236, y + 16.5, what)
     cy = by + hb + 12
     hc = 82
-    f.zone(4, cy, 992, hc, "C　其余的技能：路由很少，多是自己内部的先后。虚线的还没搬，搬时写到用它的 playbook 里逐条判")
-    D = [("to-questionnaire", True), ("grill-with-docs", False), ("codebase-design", False),
-         ("improve-codebase-architecture", False), ("manage-agents-md", False), ("code-checkers", False),
-         ("exe-release", False), ("writing-for-agents", True), ("teach", True), ("handoff", True),
-         ("wait-what", True), ("wizard", False), ("diagram-design", True)]
+    f.zone(4, cy, 992, hc, "C　其余的技能：路由很少，留作技能")
+    D = [("to-questionnaire", True), ("codebase-design", True), ("writing-for-agents", True),
+         ("teach", True), ("handoff", True), ("wait-what", True), ("wizard", True), ("diagram-design", True)]
     x, y = 16, cy + 30
     for name, there in D:
         w = tw(name, 11.5, True) * 1.1 + 18
@@ -360,6 +362,7 @@ def fates():
         ([("script", "dispatch.sh adopt")], "命令、函数和两个测试场景都删了"),
         ([("skill", "verify-ticket 的 ## Find your moment、## Reached from here", False)], "路由；换成一句话，点名它的三份 reference"),
         ([("skill", "grill-me")], "只有一句「去读 grilling 照做」；你定了删掉"),
+        ([("skill", "grill-with-docs")], "只有一句「读 grilling 和 domain-modeling 照做」；你定了不搬"),
         ([("skill", "resolving-merge-conflicts")], "上游已删；解冲突的规矩在 Work a ticket 第 3 步"),
     ]
     hd = 36 + len(E) * 34 + 6
@@ -368,7 +371,7 @@ def fates():
         y = dy + 32 + i * 34
         x = _chips(f, 16, y, src)
         _t(f, max(x + 8, 420), y + 16.5, why)
-    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 进 ui-acceptance；code-review 的 session.md 成为 Review a ticket，code-review 留下四条轴；to-tickets 成为 Cut tickets，票的格式进 verify-ticket，歧义扫描的提示和界面票的切法进 mmw-mode；to-spec 成为 Write a spec 和 Revise a spec；triage 里交给下一步的那几句成为 Triage，技能留下角色、逐张判断和模板；wayfinder 的两种做法成为 Chart a map 和 Resolve a map ticket，技能留下地图和它的票是什么；design-pages 的做法成为 Design in Claude Design、Pull a design 和 Build a design system，技能留下项目、状态清单、设计包和设计系统是什么；write-screen-contract 的做法成为 Write the screen contract，技能留下它是什么、规则和脚本；setup-matt-pocock-skills 成为 setup-mmw，配齐仓库这一层。B 一个动词，由 playbook 的步骤点名：已搬 grilling、domain-modeling、research、prototype、tdd、diagnosing-bugs、code-review、ui-acceptance（四个判官）、advisor、retro、triage。C 其余技能：已搬 to-questionnaire、writing-for-agents、teach、handoff、wait-what、diagram-design；还没搬 grill-with-docs、codebase-design、improve-codebase-architecture、manage-agents-md、code-checkers、exe-release、wizard。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，以及上游已删的 resolving-merge-conflicts。")
+    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 进 ui-acceptance；code-review 的 session.md 成为 Review a ticket，code-review 留下四条轴；to-tickets 成为 Cut tickets，票的格式进 verify-ticket，歧义扫描的提示和界面票的切法进 mmw-mode；to-spec 成为 Write a spec 和 Revise a spec；triage 里交给下一步的那几句成为 Triage，技能留下角色、逐张判断和模板；wayfinder 的两种做法成为 Chart a map 和 Resolve a map ticket，技能留下地图和它的票是什么；design-pages 的做法成为 Design in Claude Design、Pull a design 和 Build a design system，技能留下项目、状态清单、设计包和设计系统是什么；write-screen-contract 的做法成为 Write the screen contract，技能留下它是什么、规则和脚本；setup-matt-pocock-skills 成为 setup-mmw，配齐仓库这一层；improve-codebase-architecture 成为 Improve the architecture，code-checkers 成为 Set up code checkers，两个技能删掉，提示和参考进 mmw-mode；manage-agents-md 的做法成为 Write AGENTS.md，技能留下格式和 check.sh；exe-release 的做法成为 Ship a release，技能留下发布清单、出包引擎和脚本。B 一个动词，由 playbook 的步骤点名：已搬 grilling、domain-modeling、research、prototype、tdd、diagnosing-bugs、code-review、ui-acceptance（四个判官）、advisor、retro、triage。C 其余技能，全部已搬：to-questionnaire、codebase-design、writing-for-agents、teach、handoff、wait-what、wizard、diagram-design。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，grill-with-docs，以及上游已删的 resolving-merge-conflicts。")
 
 
 def _box_lines(f, kind, x, y, w, title, lines, mono_title=True):
