@@ -21,7 +21,11 @@ HEAD = "9b1d40c7feedface0011223344556677889900aa"
 
 
 STARTED = started(into="spec-337")
-STARTED_BEFORE_SWITCH = started()
+# A worker.started with no `into`, which `build` no longer writes: read from a ticket
+# whose block lost the field.
+_payload = vt.events.parse(started())[1]
+del _payload["into"]
+STARTED_BEFORE_SWITCH = "Worker started\n\n" + vt.events.block(_payload) + "\n"
 
 BODY = """## Parent
 

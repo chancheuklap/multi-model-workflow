@@ -41,7 +41,7 @@ def comment(ident, body):
 
 def started(session="term_7", runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}",
-              session=session, runner=runner, machine="mac-1", host="grok", model="grok-4.6",
+              session=session, runner=runner, into="main", host="grok", model="grok-4.6",
               effort="high", grade="junior-worker", worktree="/repo/.worktrees/issue-61",
               branch="issue-61", base="0" * 40)
 
@@ -74,28 +74,14 @@ class TheVocabulary(unittest.TestCase):
         readable = ev("ticket.bounced", "Could not land", reason="conflict",
                       commit="a" * 40)
         self.assertEqual(events.parse(readable)[0], "event")
-        missing = events.block({
-            "v": 1, "event": "ticket.bounced", "stage": "land", "actor": "main",
-            "spec": 76, "ticket": 61, "at": SAME_SECOND, "reason": "conflict",
-        })
-        what, reason = events.parse("Could not land\n\n" + missing)
-        self.assertEqual(what, "unreadable")
-        self.assertIn("commit", reason)
+        with self.assertRaises(events.EventError) as caught:
+            ev("ticket.bounced", "Could not land", reason="conflict")
+        self.assertIn("commit", str(caught.exception))
 
     def test_bounced_reason_is_closed(self):
-        block = events.block({
-            "v": 1, "event": "ticket.bounced", "stage": "land", "actor": "main",
-            "spec": 76, "ticket": 61, "at": SAME_SECOND, "reason": "network",
-            "commit": "a" * 40,
-        })
-        what, reason = events.parse("Could not land\n\n" + block)
-        self.assertEqual(what, "unreadable")
-        self.assertIn("reason", reason)
-
-    def test_started_without_into_is_readable(self):
-        what, payload = events.parse(started())
-        self.assertEqual(what, "event")
-        self.assertNotIn("into", payload)
+        with self.assertRaises(events.EventError) as caught:
+            ev("ticket.bounced", "Could not land", reason="network", commit="a" * 40)
+        self.assertIn("reason", str(caught.exception))
 
     def test_the_five_child_kinds_are_named_for_who_can_answer_them(self):
         self.assertEqual(events.CHILD_KINDS,
@@ -145,7 +131,7 @@ class TheVocabulary(unittest.TestCase):
             events.build("ticket.released", ticket=61, line="x", reason="bored")
 
     def test_a_worker_start_missing_any_of_its_facts_is_refused_when_written(self):
-        full = dict(session="t", runner="orca", machine="mac-1", host="grok", model="m",
+        full = dict(session="t", runner="orca", into="main", host="grok", model="m",
                     effort="high",
                     grade="junior-worker", worktree="/repo/.worktrees/issue-61",
                     branch="issue-61", base="0" * 40)
@@ -159,13 +145,13 @@ class TheVocabulary(unittest.TestCase):
     def test_a_worker_start_on_a_relative_worktree_is_refused(self):
         with self.assertRaises(events.EventError):
             events.build("worker.started", ticket=61, line="started", session="t",
-                         runner="orca", machine="mac-1", host="grok", model="m",
+                         runner="orca", into="main", host="grok", model="m",
                          effort="high", grade="junior-worker", worktree=".worktrees/issue-61",
                          branch="issue-61", base="0" * 40)
 
     def test_no_effort_is_written_as_an_explicit_dash(self):
         body = events.build("worker.started", ticket=61, line="started", session="t",
-                            runner="herdr", machine="mac-1", host="grok", model="m", effort="—",
+                            runner="herdr", into="main", host="grok", model="m", effort="—",
                             grade="junior-worker", worktree="/w", branch="issue-61",
                             base="0" * 40)
         self.assertEqual(events.parse(body)[1]["effort"], "—")
@@ -617,7 +603,6 @@ class HoldsAndSlots(unittest.TestCase):
                              checked_run(run="self")])
         self.assertEqual(state["checks"]["self"]["comment"], 3)
         self.assertEqual(state["checks"]["reverify"]["comment"], 2)
-        self.assertIsNone(state["checks"]["repo-checks"])
         self.assertIsNone(state["checks"]["baseline"])
 
     def test_touched_files_land_in_touched(self):
@@ -652,8 +637,10 @@ class Unreadable(unittest.TestCase):
         self.assertUnreadable('x\n\n<!-- mmw {"v":1,"event":"worker.failover"} -->',
                               "not an event")
 
-    def test_a_block_missing_a_field_its_event_requires(self):
-        self.assertUnreadable('x\n\n<!-- mmw {"v":1,"event":"worker.started"} -->', "session")
+    def test_a_block_missing_a_field_its_event_requires_is_still_read(self):
+        """Fields are checked when an event is written; a reader takes what is there."""
+        what, payload = events.parse('x\n\n<!-- mmw {"v":1,"event":"worker.started"} -->')
+        self.assertEqual((what, payload["event"]), ("event", "worker.started"))
 
     def test_two_blocks_in_one_comment(self):
         body = started() + "\n" + ev("ticket.claimed", "again")
@@ -707,7 +694,7 @@ class CommandLine(unittest.TestCase):
         code, out, err = self.run_cli(
             "emit", "worker.started", "--ticket", "61", "--spec", "76",
             "--line", "worker started on orca: session term_7",
-            "--field", "session=term_7", "--field", "runner=orca", "--field", "machine=mac-1",
+            "--field", "session=term_7", "--field", "runner=orca", "--field", "into=main",
             "--field", "host=grok",
             "--field", "model=m", "--field", "effort=high", "--field", "grade=junior-worker",
             "--field", "worktree=/repo/.worktrees/issue-61", "--field", "branch=issue-61",
@@ -786,7 +773,7 @@ class CommandLine(unittest.TestCase):
         code, out, _ = self.run_cli("checked", "61", "--run", "self", "--comments-file", path)
         self.assertEqual(out, f"ticket.checked run=self commit={'a' * 40} result=unmet "
                               f"failed=AC2,AC3\n")
-        code, out, _ = self.run_cli("checked", "61", "--run", "repo-checks",
+        code, out, _ = self.run_cli("checked", "61", "--run", "baseline",
                                     "--comments-file", path)
         self.assertEqual((code, out), (0, ""))
 

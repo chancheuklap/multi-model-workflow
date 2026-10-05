@@ -61,8 +61,8 @@ REQUIRED = {
     "ticket.bounced": {"reason": "conflict", "commit": "a" * 40},
     "child.opened": {"child": 90, "kind": "review"},
     "worker.lost": {"session": "gone", "runner": "paseo"},
-    "worker.started": {"machine": "mac-1", "host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
-    "reviewer.started": {"session": "rv-1", "runner": "paseo", "machine": "mac-1"},
+    "worker.started": {"into": "main", "host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
+    "reviewer.started": {"session": "rv-1", "runner": "paseo"},
 }
 
 
@@ -514,10 +514,6 @@ class ReadEventTest(unittest.TestCase):
     def test_a_name_outside_subject_verb_is_unreadable(self):
         with self.assertRaises(relay.UnreadableEvent):
             relay.read_event('<!-- mmw {"v":1,"event":"ALL MET"} -->')
-
-    def test_an_event_missing_a_field_it_requires_is_unreadable(self):
-        with self.assertRaises(relay.UnreadableEvent):
-            relay.read_event('<!-- mmw {"v":1,"event":"worker.started","ticket":61} -->')
 
     def test_what_the_scripts_write_is_what_the_relay_reads(self):
         body = relay.events.build("worker.started", ticket=61, line="worker started",

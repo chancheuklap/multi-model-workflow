@@ -40,7 +40,7 @@ def ev(name, line, ticket=61, **fields):
 
 def started(ticket, session, runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}", ticket,
-              session=session, runner=runner, machine="mac-1", host="grok", model="grok-4.6",
+              session=session, runner=runner, into="main", host="grok", model="grok-4.6",
               effort="high",
               grade="junior-worker" if kind == "worker" else kind,
               worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",
@@ -365,10 +365,11 @@ class TicketReading(unittest.TestCase):
         comments = [SELF_RUN_ALL_MET, run_of("reverify", met=4, unmet=1)]
         self.assertEqual(status.counted_ac(ticket(62, comments=comments)), "4/5")
 
-    def test_the_repository_checks_are_not_criteria(self):
-        checks = ev("ticket.checked", "Repository checks: 0/3 passed", 62, run="repo-checks",
-                    commit="a" * 40, result="unmet", counts={"passed": 0, "total": 3})
-        self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_ALL_MET, checks])),
+    def test_the_claim_time_baseline_is_not_the_criteria_count(self):
+        baseline = ev("ticket.checked", "Baseline: 0/3 met", 62, run="baseline",
+                      commit="a" * 40, result="unmet",
+                      counts={"met": 0, "unmet": 3, "abandoned": 0, "total": 3})
+        self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_ALL_MET, baseline])),
                          "5/5")
 
     def test_a_typed_run_comment_gives_no_counts(self):

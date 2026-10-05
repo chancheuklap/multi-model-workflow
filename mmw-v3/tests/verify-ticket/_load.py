@@ -45,7 +45,7 @@ def event(name, text, ticket=77, **fields):
 
 def started(ticket=77, **fields):
     """One readable `worker.started`, with caller overrides for the field under test."""
-    payload = dict(session=f"wk-{ticket}", runner="paseo", machine="mac-1", host="codex",
+    payload = dict(session=f"wk-{ticket}", runner="paseo", into="main", host="codex",
                    model="gpt-5", effort="high", grade="senior-worker",
                    worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",
                    base="0" * 40)

@@ -8,7 +8,7 @@ comments into its state.
     events.py session [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py sessions [<issue>] [--comments-file F|-]
     events.py result [<issue>] --kind worker|reviewer [--comments-file F|-]
-    events.py checked [<issue>] [--run self|reverify|repo-checks|baseline] [--comments-file F|-]
+    events.py checked [<issue>] [--run self|reverify|baseline] [--comments-file F|-]
     events.py live [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py child [<issue>] --child N [--comments-file F|-]
 
@@ -31,9 +31,12 @@ reads. The first line is never read by a program: rewording it breaks nothing. E
 event is written by a script — `verify-ticket.py` or `dispatch.sh` through `emit` — and
 never typed by a model.
 
-A comment that carries a block this module cannot read is not treated as absent: the
-fold lists it under `unreadable`, and every caller that decides something from the fold
-refuses to decide while that list is not empty (`docs/adr/0008-silence-is-never-a-pass.md`).
+A payload is checked against the table when it is written (`build`). A block is read
+when it is one JSON object of this version naming an event of the table; its fields are
+not checked again, and the fold reads every field as possibly absent. A comment that
+carries a block this module cannot read is not treated as absent: the fold lists it under
+`unreadable`, and every caller that decides something from the fold refuses to decide
+while that list is not empty (`docs/adr/0008-silence-is-never-a-pass.md`).
 
 Ordering is by comment id, which GitHub hands out in increasing order; the timestamp is
 not used, because two comments written in the same second carry the same one. A caller
@@ -89,20 +92,17 @@ ABANDON_KINDS = ("decision", "failed", "stuck")
 # The runs of a ticket's criteria and checks: the worker's own run, a second run of
 # every criterion (the worker's final run, or the orchestrator's after landing), and the
 # claim-time run at `worker.started.base` of the criteria that need no product slot.
-# `repo-checks` is the repository's own `checks` of `.mmw/target.json` run at a closeout:
-# no script posts it now, and tickets closed out by MMW v2 carry it, so it stays readable.
-CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline")
+CHECK_RUNS = ("self", "reverify", "baseline")
 CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
-CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
-                "baseline": "claim"}
+CHECK_STAGES = {"self": "work", "reverify": "verify", "baseline": "claim"}
 BOUNCE_REASONS = ("conflict", "checks")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
 RETRO_EVIDENCE = ("complete", "partial")
 
 EVENTS: dict[str, dict] = {
-    "spec.opened":       {"stage": "night",    "actor": "main"},
+    "spec.opened":       {"stage": "night",    "actor": "main", "required": ("into",)},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
     "spec.closed":       {"stage": "night",    "actor": "main"},
     "spec.retroed":      {"stage": "night",    "actor": "main",
@@ -133,14 +133,13 @@ EVENTS: dict[str, dict] = {
                           "required": ("reason", "commit"),
                           "closed": {"reason": BOUNCE_REASONS}},
 
-    # Everything the ticket says about where its worker runs, so every later command and
-    # every machine finds it there. `effort` is written `—` when the host takes none; the
-    # worktree is an absolute path, since no runner is asked to find it. `machine` is the
-    # hostname of the machine the session was started on: a runner answers for its own
-    # machine only, so only that machine may ask it whether the session is alive.
+    # Everything the ticket says about where its worker runs, so every later command
+    # finds it there. `effort` is written `—` when the host takes none; the worktree is an
+    # absolute path, since no runner is asked to find it. `into` is the ticket's base
+    # branch, and the one place any command reads it.
     "worker.started":    {"stage": "dispatch", "actor": "main",
-                          "required": ("session", "runner", "machine", "host", "model",
-                                       "effort", "grade", "worktree", "branch", "base"),
+                          "required": ("session", "runner", "host", "model", "effort",
+                                       "grade", "worktree", "branch", "base", "into"),
                           "patterns": {"worktree": r"/.*"}},
     "worker.resumed":    {"stage": "work",     "actor": "main",
                           "together": (("session", "runner"),)},
@@ -162,7 +161,7 @@ EVENTS: dict[str, dict] = {
                           "required": ("session", "runner")},
 
     "reviewer.started":  {"stage": "review",   "actor": "worker",
-                          "required": ("session", "runner", "machine"),
+                          "required": ("session", "runner"),
                           "patterns": {"worktree": r"/.*"}},
     "reviewer.reported": {"stage": "review",   "actor": "reviewer"},
     # A reviewer whose session stopped with no `reviewer.reported` after its start.
@@ -171,9 +170,8 @@ EVENTS: dict[str, dict] = {
 
     # One run of the criteria or of the repository's checks, on one commit: its result,
     # its counts, each criterion's outcome, and — for the worker's own run on its own
-    # branch — the files it changed outside `## Owns`. `repo-checks`, on tickets MMW v2
-    # closed out, carries each failed command with its last lines. `baseline` is the
-    # claim-time run at `worker.started.base` and carries `skipped`. `slot` is the
+    # branch — the files it changed outside `## Owns`. `baseline` is the claim-time run
+    # at `worker.started.base` and carries `skipped`. `slot` is the
     # product slot the run held, when it needed the product.
     "ticket.checked":    {"stage": "work",     "actor": "worker",
                           "required": ("run", "commit", "result"),
@@ -433,9 +431,8 @@ def parse(body: str) -> tuple[str, dict | str | None]:
     event = payload.get("event")
     if not isinstance(event, str):
         return "unreadable", "the block names no event"
-    problem = _check(event, payload)
-    if problem:
-        return "unreadable", problem
+    if event not in EVENTS:
+        return "unreadable", f"`{event}` is not an event of this pipeline"
     return "event", payload
 
 

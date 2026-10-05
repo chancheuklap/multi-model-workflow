@@ -472,7 +472,7 @@ class TestResume(unittest.TestCase):
             checked("self", SELF_LEDGER, ticket=77),
             event("worker.decided", "DECISIONS", ticket=77),
             event("reviewer.started", "Reviewer started", ticket=77,
-                  session="rv-1", runner="paseo", machine="mac-1"),
+                  session="rv-1", runner="paseo"),
         ])
         self.assertIn("RESUME: Read the review (reviewer.started, no reviewer.reported yet)", out)
 

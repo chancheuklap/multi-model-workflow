@@ -102,9 +102,6 @@ The alerts exactly:
     watchdog: #<n> is held with no session to ask, silent since <time>
     watchdog: #<n> liveness unknown: <runner> could not say whether the <kind> session
               <session> is alive; silent since <time>
-    watchdog: #<n> liveness unknown: the <kind> session <session> was started on
-              <machine>, not on <this machine>, and only that machine can ask <runner>;
-              silent since <time>
     watchdog: #<n> silent since <time> with nothing to wait on: its worker <session> on
               <runner> is alive, and no reviewer is pending
     watchdog: cannot read the tracker since <time>: <what failed>
@@ -123,11 +120,6 @@ a watchdog that cannot read the tracker watches nothing, and after the tolerance
 once (`cannot read the tracker`). A pid alone is never enough: a dead watchdog's pid can be
 handed to another process, and that process is not a watchdog.
 
-**Only this machine's sessions are asked.** Every `*.started` records the machine it was
-started on (`machine`, the hostname). A runner answers for its own machine, and asked about
-a session started on another it would say `stopped` of a worker that is alive; so a session
-from another machine is recorded as unknown and reported, never asked and never lost.
-
 **Arming.** `arm` does nothing when the watchdog is healthy, and ends nothing that still
 beats: one that cannot read the tracker is left running to report it. Otherwise it ends a hung
 one (a live holder whose heartbeat is past its tolerance, identity checked, SIGTERM), starts
@@ -138,7 +130,7 @@ that is started, for tests and for trying the hook against a watchdog that will 
 Files in the state directory, beside the relay's:
 
     watchdog.lock   held for as long as a `run` runs: one watchdog per repository
-    watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance, silence,
+    watchdog.json   the heartbeat: pid, identity, at, poll, tolerance, silence,
                     idle, watches (the open watches as last read, with their orchestrators),
                     held, briefs (each open brief, `<batch>/<n>`), unknown,
                     lost, relay, read_at, read_failure, pending
@@ -168,7 +160,6 @@ import os
 import signal
 import subprocess
 import sys
-import socket
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -310,15 +301,15 @@ def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> 
             "idle": quiet and not helpers and not fold.get("passed")}
 
 
-def to_ask(fold: dict) -> list[tuple[str, str, str, str]]:
-    """(kind, runner, session, machine) of every session still holding the ticket. A
+def to_ask(fold: dict) -> list[tuple[str, str, str]]:
+    """(kind, runner, session) of every session still holding the ticket. A
     reviewer's result ends its own hold in the fold, so one whose result is
     in is not among them: its process ending is not a loss."""
     out = []
     for record in fold.get("holders") or []:
         kind, runner, session = record.get("kind"), record.get("runner"), record.get("session")
         if kind and runner and session:
-            out.append((kind, runner, session, record.get("machine") or ""))
+            out.append((kind, runner, session))
     return out
 
 
@@ -519,8 +510,7 @@ class Watchdog:
                  clock: Callable[[], datetime] = now_utc,
                  poll: int = DEFAULT_POLL, silence: int = DEFAULT_SILENCE,
                  idle: int = DEFAULT_IDLE,
-                 pid: int | None = None, identity: str | None = None,
-                 machine: str | None = None, err=None):
+                 pid: int | None = None, identity: str | None = None, err=None):
         self.state = Path(state)
         self.repo = repo
         self.board = board if board is not None else relay_mod.Board(repo)
@@ -533,7 +523,6 @@ class Watchdog:
         self.idle = idle
         self.pid = pid if pid is not None else os.getpid()
         self.identity = identity if identity is not None else statedir.own_identity()
-        self.machine = machine if machine is not None else socket.gethostname()
         self.err = err or sys.stderr
         previous = self._read("watchdog.json", {})
         previous = previous if isinstance(previous, dict) else {}
@@ -547,7 +536,7 @@ class Watchdog:
                         if isinstance(p, dict) and p.get("runner") and p.get("session")],
             "reported": [r for r in previous.get("reported") or []
                          if isinstance(r, list) and len(r) == 3],
-            "main": None, "closed": None, "machine": self.machine,
+            "main": None, "closed": None,
             # The last round that read every ticket. While reads are failing it is carried
             # across restarts, so a restart does not wipe out how long the tracker has gone
             # unread; a watchdog that was reading, or a night that closed, starts afresh.
@@ -708,25 +697,7 @@ class Watchdog:
                 "to": to,
             })
             return
-        for kind, runner, session, machine in verdict["sessions"]:
-            if machine != self.machine:
-                # A runner answers for its own machine: asked here about a session started
-                # elsewhere it would say `stopped` of a worker that is alive.
-                entry = unknown.setdefault(str(number), {"sessions": [], "since": since,
-                                                         "why": "the runner could not say"})
-                entry["sessions"].append({"kind": kind, "runner": runner, "session": session,
-                                          "machine": machine})
-                findings.append({
-                    "key": f"elsewhere:{number}:{kind}:{runner}:{session}:{verdict.get('comment')}",
-                    "text": f"watchdog: #{number} liveness unknown: the {kind} session "
-                            f"{session} was started on {machine or 'an unrecorded machine'}, "
-                            f"not on {self.machine}, and only that machine can ask {runner}; "
-                            f"silent since {since or 'an unknown time'}; dispatch.sh resume "
-                            f"{number} \"Say in one line where you are, then continue\", and "
-                            f"act on its exit as Run a night's step 4 says",
-                    "to": to,
-                })
-                continue
+        for kind, runner, session in verdict["sessions"]:
             answer = self.ask(runner, session)
             self.write_beat()
             if answer == "alive":

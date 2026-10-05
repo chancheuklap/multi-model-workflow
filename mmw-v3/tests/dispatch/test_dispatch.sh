@@ -1851,10 +1851,15 @@ closed_night_spec() {
     --field evidence=complete --json-field 'unreadable_sources=[]'
 }
 
+# The night on spec <spec> opened, into <into>: `open_night [<spec>] [<into>]`.
+open_night() {
+  post_ev "${1:-76}" spec.opened --ticket '' --spec "${1:-76}" --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field "into=${2:-main}" --field project=proj
+}
+
 summary_ready_fixture() {
   local spec="${1:-76}" into="${2:-main}" git_dir commit
-  post_ev "$spec" spec.opened --ticket '' --spec "$spec" --line "NIGHT OPENED" \
-    --field runner=paseo --field session=agt_main --field "into=$into" --field project=proj
+  open_night "$spec" "$into"
   git_dir="$(git -C "$TMP/repo" rev-parse --git-common-dir)"
   case "$git_dir" in /*) ;; *) git_dir="$TMP/repo/$git_dir" ;; esac
   commit="$(git -C "$TMP/repo" rev-parse "origin/$into")"
@@ -1964,8 +1969,7 @@ path.write_text(json.dumps(rows))
 start_facts() {
   local grade="$3"
   [ "$3" = worker ] && grade=junior-worker
-  printf '%s\n' --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-    --field host=grok --field model=grok-4.6 --field effort=high \
+  printf '%s\n' --field host=grok --field model=grok-4.6 --field effort=high \
     --field "grade=$grade" --field "worktree=$1" --field "branch=issue-$2" \
     --field "base=0000000000000000000000000000000000000000" --field into=main
 }
@@ -3425,8 +3429,7 @@ scenario_reverify() {
   copy="$(skill_copy_for reverify)"
   mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
   # The real run posts its own `ticket.checked` on the ticket; this one posts the same
-  # event straight into the fake tracker. FAKE_VERIFY_WAIT: it waited for a product slot
-  # and none came free (exit 3), and posted nothing.
+  # event straight into the fake tracker.
   cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
 #!/usr/bin/env python3
 import json, os, subprocess, sys
@@ -3435,8 +3438,6 @@ log = os.environ["MMW_TEST_LOG"]
 with open(log, "a", encoding="utf-8") as fh:
     fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
 number = sys.argv[1]
-if number in os.environ.get("FAKE_VERIFY_WAIT", "").split(","):
-    sys.exit(3)
 if number in os.environ.get("FAKE_VERIFY_UNRECORDED", "").split(","):
     sys.exit(4)
 failing = {n for n in os.environ.get("FAKE_VERIFY_FAIL", "").split(",") if n}
@@ -3464,6 +3465,7 @@ PY
   fresh_repo
   write_batch
   reset_log
+  open_night
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
   post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL=62 \
@@ -3488,6 +3490,7 @@ PY
   local how
   for how in FAKE_VERIFY_UNRECORDED FAKE_VERIFY_CRASH; do
     reset_log
+    open_night
     post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
     post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
     # An older red run is on #61: a reader of "the newest reverify" alone would reopen it.
@@ -3500,19 +3503,9 @@ PY
     ! posted_events 61 | grep -q ticket.regressed || fail "$how: #61 was regressed: $(posted_events 61)"
   done
 
-  echo "--- a run that waited for a slot and got none is not a red ticket"
-  reset_log
-  post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
-  post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_WAIT=61 \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
-  [ "$code" = 2 ] || fail "expected exit 2 when a run waited and could not start, got $code: $(cat "$TMP/err")"
-  hasnt "gh :: issue :: reopen"
-  grep -q "#61 could not be re-run on .*, so nothing was judged" "$TMP/err" \
-    || fail "the run that could not start should be named: $(cat "$TMP/err")"
-
   echo "--- a ticket that passed and has not landed is not run again on the base branch"
   reset_log
+  open_night
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
@@ -3524,6 +3517,7 @@ PY
 
   echo "--- all green exits 0"
   reset_log
+  open_night
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
   post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
@@ -3533,6 +3527,7 @@ PY
 
   echo "--- a ticket an earlier reverify reopened is run again, and a green run closes it"
   reset_log
+  open_night
   write_batch
   reopened_in_triage 62
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
@@ -3552,6 +3547,7 @@ PY
 
   echo "--- a reopened ticket that is still red is left where it is, and is not regressed twice"
   reset_log
+  open_night
   write_batch
   reopened_in_triage 62
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
@@ -3568,6 +3564,7 @@ PY
 
   echo "--- a reopened ticket triage has handed to a worker is left alone"
   reset_log
+  open_night
   write_batch
   reopened_in_triage 62 ready-for-agent
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
@@ -5587,7 +5584,9 @@ scenario_openticket() {
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 90, "state": "CLOSED", "labels": [], "parent": null,
-   "comments": [$(ev ticket.passed 90 "ALL MET" --field branch=issue-90 --field into=main),
+   "comments": [$(ev worker.started 90 "started" --field session=old --field runner=paseo \
+                    $(start_facts "$(wt 90)" 90 worker)),
+                $(ev ticket.passed 90 "ALL MET" --field branch=issue-90 --field into=main),
                 $(ev ticket.landed 90 "Landed issue-90 into main" --field into=main)]},
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}
 ]
@@ -7042,8 +7041,6 @@ scenario_runneronticket() {
     || fail "the worker.started event should carry no slot: $(posted_events 61 slot)"
   posted_events 61 base | grep -qE "^worker.started base=[0-9a-f]{40}$" \
     || fail "the worker.started event should carry the base commit: $(posted_events 61 base)"
-  posted_events 61 machine | grep -qx "worker.started machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-    || fail "the worker.started event should name this machine: $(posted_events 61 machine)"
 }
 
 # The double dispatch of 2026-09-10: a worker started on Orca is live, and its ticket is
@@ -9643,7 +9640,6 @@ scenario_regressedrestartbase() {
   {"number": 61, "state": "CLOSED", "labels": [],
    "closedAt": "2026-09-11T01:00:00Z", "assignees": ["mmw-bot"],
    "comments": [$(ev worker.started 61 "worker started" --field session=agt_first --field runner=paseo \
-     --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
      --field host=grok --field model=grok-4.6 --field effort=high --field grade=junior-worker \
      --field "worktree=$(wt 61)" --field branch=issue-61 --field "base=$first_base" --field into=main),
      $(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field "commit=$passed" --field into=main)]}
@@ -9822,6 +9818,7 @@ PY
 ]
 JSON
   reset_log
+  open_night
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "reverify expected 0: $(cat "$TMP/err")"

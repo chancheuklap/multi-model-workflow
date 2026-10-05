@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_liveness import HERE_MACHINE, MAIN, Clock, FakeBoard, Recorder, StateCase, dog, guard  # noqa: E402
+from test_liveness import MAIN, Clock, FakeBoard, Recorder, StateCase, dog, guard  # noqa: E402
 
 import briefs  # noqa: E402
 
@@ -50,7 +50,7 @@ class BriefRounds(BriefCase):
     def watchdog(self, ask):
         return dog.Watchdog(self.state, "o/r", board=FakeBoard({}), ask=ask, send=Recorder(default=0),
                             post=Recorder(default=(True, "")), clock=Clock(), pid=os.getpid(),
-                            identity="test", machine=HERE_MACHINE, err=io.StringIO())
+                            identity="test", err=io.StringIO())
 
     def test_a_stopped_child_is_marked_lost_and_a_live_one_stays_open(self):
         ask = Recorder({("fake", "child-1"): "stopped"}, default="alive")

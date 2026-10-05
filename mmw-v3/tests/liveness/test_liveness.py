@@ -50,15 +50,11 @@ def stamp(moment: datetime) -> str:
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-# The machine every fixture session was started on, and the one the watchdog under test
-# says it runs on.
-HERE_MACHINE = "mac-1"
-
 REQUIRED = {
-    "worker.started": {"machine": HERE_MACHINE, "host": "claude", "model": "m", "effort": "high",
+    "worker.started": {"host": "claude", "model": "m", "effort": "high",
                        "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61",
-                       "branch": "issue-61", "base": "0" * 40},
-    "reviewer.started": {"machine": HERE_MACHINE},
+                       "branch": "issue-61", "base": "0" * 40, "into": "main"},
+    "reviewer.started": {},
     "worker.lost": {},
     "worker.replaced": {},
     "ticket.released": {"reason": "landed"},
@@ -364,14 +360,14 @@ class Judge(unittest.TestCase):
         self.assertEqual(dog.judge(f, T0 + timedelta(seconds=599), 600)["state"], "recent")
         verdict = dog.judge(f, T0 + timedelta(seconds=600), 600)
         self.assertEqual(verdict["state"], "silent")
-        self.assertEqual(verdict["sessions"], [("worker", "orca", "t1", HERE_MACHINE)])
+        self.assertEqual(verdict["sessions"], [("worker", "orca", "t1")])
 
     def test_only_the_live_workers_pair_is_named(self):
         f = self.fold(comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
                       comment(2, "worker.replaced", 61, T0, runner="herdr", session="h1"),
                       comment(3, "worker.started", 61, T0, runner="orca", session="t2"))
         self.assertEqual(dog.judge(f, T0 + timedelta(hours=1), 600)["sessions"],
-                         [("worker", "orca", "t2", HERE_MACHINE)])
+                         [("worker", "orca", "t2")])
 
     def test_an_unreadable_event_is_its_own_answer(self):
         f = events.fold(["prose", "x\n\n<!-- mmw {not json} -->"], issue=61)
@@ -412,8 +408,7 @@ class Rounds(StateCase):
     def watchdog(self) -> "dog.Watchdog":
         return dog.Watchdog(self.state, "o/r", board=self.board, ask=self.ask, send=self.send,
                             post=self.post, clock=self.clock, pid=os.getpid(),
-                            identity=statedir.own_identity(), machine=HERE_MACHINE,
-                            err=io.StringIO())
+                            identity=statedir.own_identity(), err=io.StringIO())
 
     def silent_worker(self, runner="herdr", session="h1"):
         self.board.tickets[61] = [comment(1, "worker.started", 61, self.SILENT, runner=runner,
@@ -505,17 +500,6 @@ class Rounds(StateCase):
         self.assertEqual(self.heartbeat()["unknown"]["61"]["sessions"],
                          [{"kind": "reviewer", "runner": "orca", "session": "rv"}])
         self.assertIn("rv", self.send.calls[0][2].split())
-
-    def test_a_session_started_on_another_machine_is_unknown_never_asked_or_lost(self):
-        self.board.tickets[61] = [comment(1, "worker.started", 61, self.SILENT, runner="orca",
-                                          session="t9", machine="mac-2")]
-        self.ask.default = "stopped"  # what this machine's Orca would say of a stranger
-        self.watchdog().round()
-        self.assertEqual((self.ask.calls, self.post.calls), ([], []))
-        self.assertEqual(self.heartbeat()["unknown"]["61"]["sessions"],
-                         [{"kind": "worker", "runner": "orca", "session": "t9", "machine": "mac-2"}])
-        self.assertIn("mac-2", self.send.calls[0][2])
-        self.assertIn("mac-1", self.send.calls[0][2])
 
     def test_board_reads_failing_past_the_tolerance_are_reported_once_and_unhealthy(self):
         class Failing(FakeBoard):

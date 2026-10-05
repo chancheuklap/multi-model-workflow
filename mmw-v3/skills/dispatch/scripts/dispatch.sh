@@ -320,31 +320,49 @@ worker_base() {
   esac
 }
 
-# Resolve worker.started.into first, then an open night's spec.opened.into, then the
-# caller's fallback. `start` supplies its current branch as that fallback; `integrate`
-# supplies none. A worker.started with no into counts as none.
-resolve_into() {
-  local number="$1" spec="$2" fallback="$3" into rc
-  into="$(newest_worker_field "$number" into)"
+# A ticket's base branch: the `into` of its newest worker.started. Exit 3 when no worker
+# has started on it, 2 when its events could not be read.
+ticket_into() {
+  newest_worker_field "$1" into
+}
+
+# The base branch a passed ticket lands on: the `into` its newest ticket.passed recorded,
+# beside the commit that passed. Exit 2, the reason on stderr, when there is none.
+passed_into() {
+  local number="$1" into rc
+  into="$(newest_field "$number" into ticket.passed)"; rc=$?
+  case "$rc" in
+    0) printf '%s\n' "$into" ;;
+    2) echo "dispatch: could not read #$number's events, so its base branch is unknown" >&2; return 2 ;;
+    *) echo "dispatch: #$number carries no ticket.passed with a base branch" >&2; return 2 ;;
+  esac
+}
+
+# The base branch of the night on spec <spec> while it is open: its spec.opened's `into`.
+# Exit 3 when the night is not open, 2 when its events could not be read.
+night_into() {
+  local into rc
+  into="$(newest_field "$1" into spec.opened spec.suspended spec.closed)"
   rc=$?
   case "$rc" in
-    0) printf '%s\n' "$into"; return 0 ;;
-    2) return 2 ;;
-    3) ;;
+    0) printf '%s\n' "$into" ;;
+    3) return 3 ;;
+    *) echo "dispatch: could not read whether the night on #$1 is open, so its base branch is unknown" >&2; return 2 ;;
   esac
+}
+
+# The base branch a new session on ticket <n> records: the one its earlier worker
+# recorded, else the open night's, else the branch `start` was run from.
+start_into() {
+  local number="$1" spec="$2" fallback="$3" rc
+  ticket_into "$number"; rc=$?
+  [ "$rc" = 3 ] || return "$rc"
   if [ -n "$spec" ]; then
-    into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)"
-    rc=$?
-    case "$rc" in
-      0) printf '%s\n' "$into"; return 0 ;;
-      2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
-      4) echo "dispatch: the open night on #$spec carries no spec.opened.into; open it again so the base branch is recorded" >&2; return 2 ;;
-      3) ;;
-      *) echo "dispatch: could not resolve #$number's base branch from the night on #$spec" >&2; return 2 ;;
-    esac
+    night_into "$spec"; rc=$?
+    [ "$rc" = 3 ] || return "$rc"
   fi
   [ -n "$fallback" ] || {
-    echo "dispatch: #$number has no worker.started.into and is outside an open night; run start from a checkout of the branch it will merge into" >&2
+    echo "dispatch: #$number has no worker yet and is outside an open night; run start from a checkout of the branch it will merge into" >&2
     return 2
   }
   printf '%s\n' "$fallback"
@@ -368,12 +386,6 @@ ticket_spec() {
 # Post one event on issue <issue>. Everything after the issue number is `events.py
 # emit`'s own arguments. Exit 0 posted, 1 the tracker did not take it, 2 the event could
 # not be built (the reason is on stderr).
-# This machine's hostname, as `socket.gethostname()` reads it — the same call the watchdog
-# makes, so a session started here is asked about only from here.
-machine_name() {
-  python3 -c 'import socket; print(socket.gethostname())'
-}
-
 post_event() {
   local issue="$1" body
   shift
@@ -1694,7 +1706,7 @@ start_one() {
   local fallback into
   fallback="$(current_branch .)" || fallback=""
   case "$fallback" in issue-[0-9]* | "") fallback="" ;; esac
-  into="$(resolve_into "$number" "$spec" "$fallback")" || exit 2
+  into="$(start_into "$number" "$spec" "$fallback")" || exit 2
 
   # The checkout the night runs in, whichever worktree this runs from: a worker starts its
   # reviewer from its own worktree, and `.worktrees/` cut under that one
@@ -1834,7 +1846,6 @@ start_one() {
   if ! post_event "$number" "$kind.started" --ticket "$number" --spec "$spec" \
        --line "$kind started on $RUNNER_NAME: session $session, $host $model ($effort)" \
        --field "session=$session" --field "runner=$RUNNER_NAME" \
-       --field "machine=$(machine_name)" \
        --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
        --field "grade=$profile" --field "worktree=$cwd" --field "branch=issue-$number" \
        --field "base=$base" \
@@ -2418,7 +2429,7 @@ integrated_since_start() {
     3) refuse "#$number's events carry no worker.started.base, so there is no starting point to read history from" ;;
     *) exit 2 ;;
   esac
-  into="$(ticket_into "$number" "$(ticket_spec "$number")")" || exit 2
+  into="$(ticket_into "$number")" || refuse "#$number has no worker.started with a base branch"
   fetch_origin "$root" || exit 2
   require_origin_branch "$root" "$into" || exit 2
   integrated_ticket_numbers "$root" "$base..origin/$into"
@@ -2462,7 +2473,8 @@ integrate_ticket() {
   [ -z "$(git -C "$root" status --porcelain --untracked-files=no)" ] \
     || refuse "issue-$number has uncommitted tracked changes; commit them before integrating the base branch"
 
-  into="$(resolve_into "$number" "$(ticket_spec "$number")" "")" || exit 2
+  into="$(ticket_into "$number")" \
+    || refuse "#$number has no worker.started with a base branch; start it first"
 
   fetch_origin "$root" || exit 2
   require_origin_branch "$root" "$into" || exit 2
@@ -2674,36 +2686,6 @@ ticket_passed_commit() {
     4) echo "dispatch: #$number's ticket.passed event carries no commit" >&2; return 2 ;;
     *) echo "dispatch: could not resolve #$number's passed commit" >&2; return 2 ;;
   esac
-}
-
-ticket_into() {
-  local number="$1" spec="$2" into rc
-  into="$(newest_field "$number" into ticket.passed)"; rc=$?
-  case "$rc" in
-    0) printf '%s\n' "$into"; return 0 ;;
-    2) echo "dispatch: could not read #$number's events, so its base branch is unknown" >&2; return 2 ;;
-    3 | 4) ;;
-    *) return 2 ;;
-  esac
-  into="$(newest_worker_field "$number" into)"; rc=$?
-  case "$rc" in
-    0) printf '%s\n' "$into"; return 0 ;;
-    2) return 2 ;;
-    3) ;;
-    *) return 2 ;;
-  esac
-  if [ -n "$spec" ]; then
-    into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)"; rc=$?
-    case "$rc" in
-      0) printf '%s\n' "$into"; return 0 ;;
-      2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
-      3) ;;
-      4) echo "dispatch: the open night on #$spec carries no spec.opened.into" >&2; return 2 ;;
-      *) return 2 ;;
-    esac
-  fi
-  echo "dispatch: #$number carries no base branch in ticket.passed, worker.started, or its open night" >&2
-  return 2
 }
 
 # Prints the ticket whose landing put origin/<into>'s tip there, when that tip is the merge
@@ -3085,7 +3067,7 @@ advance() {
       echo "dispatch: #${number}'s ticket.passed event carries no usable commit, so it is not landed" >&2
       failed=$((failed + 1)); continue
     fi
-    if ! into="$(ticket_into "$number" "$spec")"; then
+    if ! into="$(passed_into "$number")"; then
       echo "dispatch: #${number}'s events carry no usable base branch, so it is not landed" >&2
       failed=$((failed + 1)); continue
     fi
@@ -3218,7 +3200,7 @@ land_tickets() {
     passed="$(ticket_passed_commit "$number")" \
       || { echo "land: #$number has no usable ticket.passed commit" >&2; failed=$((failed + 1)); continue; }
     spec="$(ticket_spec "$number")"
-    into="$(ticket_into "$number" "$spec")" \
+    into="$(passed_into "$number")" \
       || { echo "land: #$number has no base branch in its events" >&2; failed=$((failed + 1)); continue; }
     land_one_via_origin "$root" "$number" "$spec" "$into" "$passed" land
     rc=$?
@@ -3251,7 +3233,7 @@ land_tickets() {
   # work that origin/<into> does not contain.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "ARCHIVE" { print $2 }'); do
     case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
-    archive_into="$(ticket_into "$number" "$(ticket_spec "$number")")" \
+    archive_into="$(ticket_into "$number")" \
       || { echo "land: #$number has no base branch in its events; not archiving it" >&2; failed=$((failed + 1)); continue; }
     fetch_origin "$root" \
       || { echo "land: could not fetch origin before deciding whether to archive #$number" >&2; failed=$((failed + 1)); continue; }
@@ -3532,7 +3514,7 @@ reverify_spec() {
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
   [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
 
-  local caller_root root git_dir commit plan number rc printed ids login into first
+  local caller_root root git_dir commit plan number rc printed ids login into
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$caller_root" ] || refuse "not inside a git repository"
   git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
@@ -3540,14 +3522,8 @@ reverify_spec() {
 
   plan="$(python3 "$STATUS" --reverify-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
-  first="$(printf '%s\n' "$plan" | awk '$1 == "REVERIFY" || $1 == "RECOVER" { print $2; exit }')"
-  into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" || into=""
-  if [ -z "$into" ] && [ -n "$first" ]; then
-    into="$(ticket_into "$first" "$spec")" \
-      || refuse "#${first}'s events carry no base branch for reverify"
-  fi
-  [ -n "$into" ] \
-    || refuse "#${spec} carries no active spec.opened.into, so the base branch for reverify is unknown"
+  into="$(night_into "$spec")" \
+    || refuse "the night on #${spec} is not open, so the base branch for reverify is unknown"
   prepare_merge_worktree "$caller_root" "$into" || exit 2
   root="$MERGE_ROOT"
   commit="$(git -C "$root" rev-parse HEAD)"
