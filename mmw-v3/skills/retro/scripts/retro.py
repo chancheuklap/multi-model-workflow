@@ -168,13 +168,9 @@ def nodes(root: dict):
 
 
 def valid_closing(value: object) -> bool:
-    """A loose shape check; `summary` (dispatch.sh) fully validated a `complete` closing
-    before it ever reached the tracker, so retro only needs to read `propose` ids back out."""
+    """A loose shape check; `summary` (dispatch.sh) checked the decisions before they
+    reached the tracker, so retro only needs to read `propose` ids back out."""
     if not isinstance(value, dict) or not isinstance(value.get("decisions"), list):
-        return False
-    if value.get("status") == "unchecked":
-        return bool(value.get("reason"))
-    if value.get("status") != "complete":
         return False
     return all(isinstance(item, dict) and isinstance(item.get("memory_id"), str)
                and item.get("memory_id") and item.get("decision") for item in value["decisions"])
@@ -290,10 +286,10 @@ def gather(number: int) -> dict:
                     if isinstance(item, dict) and item.get("decision") == "propose"
                     and isinstance(item.get("memory_id"), str)]
         checked.append(inventory(f"{spec_url} spec.closed.payload.memory_closing", "present",
-                                 closing["status"]))
+                                 f"{len(closing['decisions'])} decisions"))
     else:
         checked.append(inventory(f"{spec_url} spec.closed.payload.memory_closing",
-                                 "unreadable", "not a complete or unchecked object"))
+                                 "unreadable", "not an object with a decisions list"))
     base = (opened or {}).get("payload", {}).get("base", "")
     into = (opened or {}).get("payload", {}).get("into", "")
     project = (opened or {}).get("payload", {}).get("project", "")

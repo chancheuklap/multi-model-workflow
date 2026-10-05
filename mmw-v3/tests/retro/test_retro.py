@@ -87,7 +87,7 @@ class Fixture:
         self.event(71, "ticket.checked", "same cause in check", ticket=71,
                    run="self", result="unmet", commit=self.landed)
         self.event(70, "spec.closed", "NIGHT SUMMARY", ticket=None,
-                   memory_closing={"status": "complete", "total": 0, "returned": 0, "decisions": []})
+                   memory_closing={"decisions": []})
         self.tree = {"number": 70, "title": "Spec", "state": "CLOSED",
                      "subIssuesSummary": {"total": 1, "completed": 1},
                      "subIssues": {"nodes": [{"number": 71, "title": "Ticket", "state": "CLOSED",
@@ -311,8 +311,7 @@ def proposal_threshold(f: Fixture):
     # A proposed Memory record with an actual stall event reaches the other
     # threshold without borrowing the older Memory as an occurrence.
     blocked = f.event(71, "ticket.returned", "same cause blocked the ticket", ticket=71)
-    manifest = {"status": "complete", "total": 1, "returned": 1,
-                "decisions": [{"memory_id": "worker-memory", "decision": "propose",
+    manifest = {"decisions": [{"memory_id": "worker-memory", "decision": "propose",
                                "reason": "prevent the blocker", "evidence": blocked}]}
     f.issues["70"]["comments"][1]["body"] = events.build(
         "spec.closed", ticket=None, spec=70, line="NIGHT SUMMARY", memory_closing=manifest)
