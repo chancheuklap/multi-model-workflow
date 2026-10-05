@@ -2588,7 +2588,7 @@ def lint_expectations(body: str) -> list[str]:
     """`$` in an EXPECT regex without the `m` flag is a criterion that can never pass.
 
     gate-check hands the CHECK's whole output — stdout, then stderr — to the regex
-    (`gate-check.mjs:586`), and a command's output ends in a newline. JavaScript's `$`
+    (`runCheck` in `gate-check.mjs`), and a command's output ends in a newline. JavaScript's `$`
     does not match the position before that newline, so `/OK$/` never matches the `OK`
     a passing test run prints.
     """

@@ -7,9 +7,7 @@
 //
 // Prints "N/N passed" on success, which is the string CI matches on.
 
-import {
-  linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -188,29 +186,6 @@ test("lint: a sound ledger is clean and exits 0", () => {
   assert.equal(code, 0);
 });
 
-test("lint: a symlink ledger is refused without changing its victim", () => {
-  if (process.platform === "win32") return;
-  const victim = write("symlink-victim.md", SOUND_BODY);
-  const before = readFileSync(victim, "utf8");
-  const alias = join(DIR, "symlink-ledger.md");
-  symlinkSync(victim, alias);
-  const { out, code } = lint(alias);
-  assert.equal(code, 2, out);
-  assert.match(out, /gate ledger must be one unchanged regular single-link file/);
-  assert.equal(readFileSync(victim, "utf8"), before);
-});
-
-test("lint: a hard-linked ledger is refused without changing its victim", () => {
-  const victim = write("hardlink-victim.md", SOUND_BODY);
-  const before = readFileSync(victim, "utf8");
-  const alias = join(DIR, "hardlink-ledger.md");
-  linkSync(victim, alias);
-  const { out, code } = lint(alias);
-  assert.equal(code, 2, out);
-  assert.match(out, /gate ledger must be one unchanged regular single-link file/);
-  assert.equal(readFileSync(victim, "utf8"), before);
-});
-
 test("lint: a FIFO ledger is refused promptly instead of blocking", () => {
   if (process.platform === "win32") return;
   const fifo = join(DIR, "ledger.fifo");
@@ -224,7 +199,7 @@ test("lint: a FIFO ledger is refused promptly instead of blocking", () => {
   const elapsed = Date.now() - started;
   assert.equal(result.error, undefined, String(result.error));
   assert.equal(result.status, 2, result.stdout + result.stderr);
-  assert.match(result.stdout + result.stderr, /gate ledger must be one unchanged regular single-link file/);
+  assert.match(result.stdout + result.stderr, /gate ledger is not a regular file/);
   assert.ok(elapsed < 1000, "FIFO refusal took " + elapsed + "ms");
 });
 

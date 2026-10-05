@@ -3,7 +3,7 @@
 // Zero dependencies, cross-platform (every CHECK command is a `node -e`).
 //
 //   node tests/run-tests.mjs            run all
-//   node tests/run-tests.mjs scope      run tests whose name contains "scope"
+//   node tests/run-tests.mjs evidence   run tests whose name contains "evidence"
 //
 // Prints "N/N passed" on success, which is the string CI and the repo's own
 // gates match on.
@@ -101,68 +101,9 @@ test("args: unknown option is rejected instead of treated as a file", async () =
   const s = sandbox();
   try {
     s.write("GATES.md", "# Gates\n\n" + gate("G1", "x", echoOk("OK"), "OK"));
-    const r = await run(GATE_CHECK, ["--nope"], { cwd: s.dir });
+    const r = await run(GATE_CHECK, ["--nope", "GATES.md"], { cwd: s.dir });
     assert(r.code === 2, "expected exit 2, got " + r.code);
     assertHas(r.out, "unknown option --nope");
-  } finally { s.cleanup(); }
-});
-
-test("scope: running one pipeline leaves the other pipeline alone", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates: api1\n\n" + gate("G1", "api", echoOk("API-OK"), "API-OK"));
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates: web1\n\n" + gate("G1", "web", echoOk("WEB-OK"), "WEB-OK"));
-    const r = await run(GATE_CHECK, ["--scope", "api"], { cwd: s.dir });
-    assertHas(r.out, "PASS leaf-1:G1");
-    assertHas(r.out, "[scope api]");
-    assertHas(s.read(".unlazy/api/gates/leaf-1.md"), "- [x] G1", "api gates");
-    assertHas(s.read(".unlazy/web/gates/leaf-1.md"), "- [ ] G1", "web gates must be untouched");
-  } finally { s.cleanup(); }
-});
-
-test("scope: two pipelines and no scope is refused, not guessed", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates: api\n\n" + gate("G1", "api", echoOk("API-OK"), "API-OK"));
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates: web\n\n" + gate("G1", "web", echoOk("WEB-OK"), "WEB-OK"));
-    const r = await run(GATE_CHECK, [], { cwd: s.dir });
-    assert(r.code === 2, "expected exit 2, got " + r.code);
-    assertHas(r.out, "2 pipelines present");
-    assertHas(r.out, "api");
-    assertHas(r.out, "web");
-    assertHas(s.read(".unlazy/api/gates/leaf-1.md"), "- [ ] G1", "api must be untouched");
-    assertHas(s.read(".unlazy/web/gates/leaf-1.md"), "- [ ] G1", "web must be untouched");
-  } finally { s.cleanup(); }
-});
-
-test("scope: UNLAZY_SCOPE selects the pipeline", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates: api\n\n" + gate("G1", "api", echoOk("API-OK"), "API-OK"));
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates: web\n\n" + gate("G1", "web", echoOk("WEB-OK"), "WEB-OK"));
-    const r = await run(GATE_CHECK, [], { cwd: s.dir, env: { UNLAZY_SCOPE: "web" } });
-    assertHas(r.out, "[scope web]");
-    assertHas(s.read(".unlazy/web/gates/leaf-1.md"), "- [x] G1", "web gates");
-    assertHas(s.read(".unlazy/api/gates/leaf-1.md"), "- [ ] G1", "api must be untouched");
-  } finally { s.cleanup(); }
-});
-
-test("scope: a single pipeline needs no flag", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/solo/GATES.md", "# Gates: solo\n\n" + gate("G1", "solo", echoOk("S-OK"), "S-OK"));
-    const r = await run(GATE_CHECK, [], { cwd: s.dir });
-    assertHas(r.out, "ALL MET (1 met) [scope solo]");
-  } finally { s.cleanup(); }
-});
-
-test("scope: legacy GATES.md layout still works", async () => {
-  const s = sandbox();
-  try {
-    s.write("GATES.md", "# Gates\n\n" + gate("G1", "legacy", echoOk("L-OK"), "L-OK"));
-    const r = await run(GATE_CHECK, [], { cwd: s.dir });
-    assertHas(r.out, "PASS GATES:G1");
-    assertHas(r.out, "ALL MET (1 met)");
   } finally { s.cleanup(); }
 });
 
@@ -170,9 +111,10 @@ test("state: checked box with pending evidence counts as unmet", async () => {
   const s = sandbox();
   try {
     s.write("GATES.md", "# Gates\n\n- [x] G1: claimed\n  EVIDENCE: pending\n");
-    const r = await run(GATE_CHECK, ["--status"], { cwd: s.dir });
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
     assert(r.code === 1, "expected exit 1, got " + r.code);
-    assertHas(r.out, "UNMET GATES:G1 (checked but EVIDENCE pending)");
+    assertHas(r.out, "UNMET: 1 (met: 0)");
+    assertHas(r.out, "GATES:G1");
   } finally { s.cleanup(); }
 });
 
@@ -180,7 +122,7 @@ test("state: ABANDON is a non-success handoff, not completion", async () => {
   const s = sandbox();
   try {
     s.write("GATES.md", "# Gates\n\n- [ ] G1: impossible\n  EVIDENCE: pending\n\nABANDON: G1 upstream API removed\n");
-    const r = await run(GATE_CHECK, ["--status"], { cwd: s.dir });
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
     assert(r.code === 1, "expected exit 1, got " + r.code);
     assertHas(r.out, "HANDOFF REQUIRED: 1 abandoned");
     assertLacks(r.out, "ALL MET");
@@ -188,7 +130,7 @@ test("state: ABANDON is a non-success handoff, not completion", async () => {
 });
 
 test("state: abandoned and mixed ledgers stay handoffs in every run mode", async () => {
-  for (const args of [["--status"], [], ["--reverify"]]) {
+  for (const args of [["GATES.md"], ["--reverify", "GATES.md"]]) {
     const s = sandbox();
     try {
       s.write("GATES.md", [
@@ -216,7 +158,7 @@ test("state: multi-file verification cannot hide one abandoned child", async () 
   try {
     s.write("met.md", "# Gates\n\n- [x] G1: complete\n  EVIDENCE: checked by test\n");
     s.write("abandoned.md", "# Gates\n\n- [ ] G1: impossible\n  EVIDENCE: pending\n\nABANDON: G1 upstream removed\n");
-    const r = await run(GATE_CHECK, ["--status", "met.md", "abandoned.md"], { cwd: s.dir });
+    const r = await run(GATE_CHECK, ["met.md", "abandoned.md"], { cwd: s.dir });
     assert(r.code === 1, "expected exit 1, got " + r.code + "\n" + r.out);
     assertHas(r.out, "HANDOFF REQUIRED: 1 abandoned");
     assertHas(r.out, "abandoned:G1");
@@ -248,34 +190,11 @@ test("hierarchy: an abandoned child cannot promote its N1 parent", async () => {
 test("state: unmet gates are reported with file-qualified ids", async () => {
   const s = sandbox();
   try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates: 1\n\n" + gate("G1", "a", null, null));
-    s.write(".unlazy/api/gates/leaf-2.md", "# Gates: 2\n\n" + gate("G1", "b", null, null));
-    const r = await run(GATE_CHECK, ["--scope", "api", "--status"], { cwd: s.dir });
+    s.write("leaf-1.md", "# Gates: 1\n\n" + gate("G1", "a", null, null));
+    s.write("leaf-2.md", "# Gates: 2\n\n" + gate("G1", "b", null, null));
+    const r = await run(GATE_CHECK, ["leaf-1.md", "leaf-2.md"], { cwd: s.dir });
     assertHas(r.out, "leaf-1:G1");
     assertHas(r.out, "leaf-2:G1");
-  } finally { s.cleanup(); }
-});
-
-test("run: a concurrent edit to another gate in the same file survives", async () => {
-  const s = sandbox();
-  try {
-    // G1 is slow and will be flipped by gate-check; G2 is manual and gets its
-    // evidence filled in by hand while that check is still running.
-    s.write("GATES.md",
-      "# Gates\n\n" +
-      "- [ ] G1: slow\n  CHECK: " + nodeEval("setTimeout(()=>console.log('SLOW-OK'),2500)") +
-      "\n  EXPECT: SLOW-OK\n  EVIDENCE: pending\n\n" +
-      "- [ ] G2: manual\n  EVIDENCE: pending\n");
-    const running = run(GATE_CHECK, [], { cwd: s.dir });
-    await new Promise(r => setTimeout(r, 800));
-    const text = s.read("GATES.md")
-      .replace("- [ ] G2: manual\n  EVIDENCE: pending", "- [x] G2: manual\n  EVIDENCE: measured 47 rows, threadAnalysis.ts:88");
-    s.write("GATES.md", text);
-    await running;
-    const after = s.read("GATES.md");
-    assertHas(after, "- [x] G1", "G1 should be flipped by the checker");
-    assertHas(after, "measured 47 rows", "the hand edit to G2 must not be clobbered");
-    assertLacks(after, "G2: manual\n  EVIDENCE: pending", "G2 must not be reverted");
   } finally { s.cleanup(); }
 });
 
@@ -286,50 +205,8 @@ test("checks: CWD runs a check in the directory it names", async () => {
     s.write("GATES.md", "# Gates\n\n" +
       "- [ ] G1: in sub\n  CHECK: " + nodeEval("console.log(require('fs').readFileSync('marker.txt','utf8'))") +
       "\n  EXPECT: here\n  CWD: sub\n  EVIDENCE: pending\n");
-    const r = await run(GATE_CHECK, [], { cwd: s.dir });
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
     assertHas(r.out, "ALL MET (1 met)");
-  } finally { s.cleanup(); }
-});
-
-test("leases: overlapping OWNS across pipelines is refused", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "OWNS: src/shared/**\n\n# Gates\n\n" + gate("G1", "a", null, null));
-    s.write(".unlazy/web/gates/leaf-1.md", "OWNS: src/shared/util.ts\n\n# Gates\n\n" + gate("G1", "b", null, null));
-    const a = await run(GATE_CHECK, ["--scope", "api", "--leaf", "leaf-1", "--claim"], { cwd: s.dir });
-    assertHas(a.out, "CLAIMED 1 path(s) for api/leaf-1");
-    const b = await run(GATE_CHECK, ["--scope", "web", "--leaf", "leaf-1", "--claim"], { cwd: s.dir });
-    assert(b.code === 3, "expected exit 3 on conflict, got " + b.code);
-    assertHas(b.out, "CONFLICT src/shared/util.ts overlaps src/shared/** held by api/leaf-1");
-    assertHas(b.out, "CLAIM REFUSED");
-  } finally { s.cleanup(); }
-});
-
-test("leases: disjoint OWNS both succeed, and release frees them", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "OWNS: src/api/**\n\n# Gates\n\n" + gate("G1", "a", null, null));
-    s.write(".unlazy/api/gates/leaf-2.md", "OWNS: src/web/**\n\n# Gates\n\n" + gate("G1", "b", null, null));
-    const a = await run(GATE_CHECK, ["--scope", "api", "--leaf", "leaf-1", "--claim"], { cwd: s.dir });
-    const b = await run(GATE_CHECK, ["--scope", "api", "--leaf", "leaf-2", "--claim"], { cwd: s.dir });
-    assert(a.code === 0 && b.code === 0, "disjoint claims should both succeed");
-    assertHas(b.out, "CLAIMED 1 path(s) for api/leaf-2");
-    const rel = await run(GATE_CHECK, ["--scope", "api", "--release"], { cwd: s.dir });
-    assertHas(rel.out, "released 2 lease(s)");
-  } finally { s.cleanup(); }
-});
-
-test("status log: appends, and appends survive concurrency", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "a", null, null));
-    await Promise.all([
-      run(GATE_CHECK, ["--scope", "api", "--log", "leaf-1 started"], { cwd: s.dir }),
-      run(GATE_CHECK, ["--scope", "api", "--log", "leaf-2 started"], { cwd: s.dir }),
-      run(GATE_CHECK, ["--scope", "api", "--log", "leaf-3 started"], { cwd: s.dir }),
-    ]);
-    const log = s.read(".unlazy/api/status.log");
-    for (const n of [1, 2, 3]) assertHas(log, "leaf-" + n + " started", "status log");
   } finally { s.cleanup(); }
 });
 
@@ -416,14 +293,7 @@ test("evidence: a changed CHECK makes old evidence stale and a rerun replaces it
     assert(first, "a pass carries no definition digest\n" + led);
     assertHas(led, "EVIDENCE: automatic-evidence=v1; definition-sha256=" + first + "; exit=0;");
 
-    r = await run(GATE_CHECK, ["--status", "GATES.md"], { cwd: s.dir, env: { PATH: "" } });
-    assert(r.code === 0, "status needed a shell or PATH\n" + r.out);
-    assertHas(r.out, "ALL MET (1 met)");
-
     s.write("GATES.md", led.replace(echoOk("TOKEN-A"), echoOk("TOKEN-B")));
-    r = await run(GATE_CHECK, ["--status", "GATES.md"], { cwd: s.dir });
-    assert(r.code === 1, r.out);
-    assertHas(r.out, "checked but automatic evidence is stale or unbound");
     r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
     assert(r.code === 1, r.out);
     led = s.read("GATES.md");

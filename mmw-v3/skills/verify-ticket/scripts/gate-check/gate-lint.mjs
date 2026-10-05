@@ -21,7 +21,7 @@
 //   CHECK: node scripts/gate-lint.mjs GATES.md
 //   EXPECT: LINT OK
 
-import { parseGates, readStableRegularFile } from "./lib/gates.mjs";
+import { parseGates, readLedger } from "./lib/gates.mjs";
 
 const HELP = `usage: gate-lint.mjs [--strict] [--json] <ledger.md ...>
 
@@ -32,7 +32,6 @@ activity instead of an outcome. Never executes a CHECK.
 exit codes: 0 no strict failures, 1 strict findings, 2 usage or parse error.`;
 
 const KNOWN_OPTIONS = new Set(["--strict", "--json", "--help", "-h"]);
-const MAX_GATE_LEDGER_BYTES = 8 * 1024 * 1024;
 const MAX_REPORTED_FINDINGS = 64;
 const MAX_REPORT_BYTES = 256 * 1024;
 const TRUNCATION_MARKER = "...[truncated]";
@@ -140,12 +139,7 @@ let parseFailed = false;
 for (const file of files) {
   let text;
   try {
-    // Explicit lint targets may intentionally live outside the current
-    // working directory, so constrain file kind and size without a root.
-    text = readStableRegularFile(file, {
-      maxBytes: MAX_GATE_LEDGER_BYTES,
-      label: "gate ledger",
-    });
+    text = readLedger(file);
   } catch (error) {
     console.error("gate-lint: cannot read " + terminalSafe(file, 512) + ": " + terminalSafe(error.message, 1024));
     process.exit(2);
