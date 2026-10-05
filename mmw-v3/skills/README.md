@@ -1,6 +1,6 @@
 # mmw-v3/skills: the components and the method
 
-MMW v3 is MMW rebuilt on pstack's architecture and in pstack's manner: the same kinds of component, each written the way pstack writes it, filled with what MMW does. pstack is in `mmw-v3/upstream-pstack/` (cursor/plugins `e43c7ee`, pstack 0.15.9); mattpocock's skills, which many v2 skills came from, are in `mmw-v3/upstream-mattpocock/` (mattpocock/skills `d81f3a1`). MMW v2, the live version, is in `mmw-v2/` and is the main source of content. The course that explains all of this, with the evidence, is `mmw-v3/course/` (lessons 1 to 3, and `reference/pstack-anatomy.html`).
+MMW v3 is MMW rebuilt on pstack's architecture and in pstack's manner: the same kinds of component, each written the way pstack writes it, filled with what MMW does. pstack is in `mmw-v3/upstream-pstack/` (cursor/plugins `e43c7ee`, pstack 0.15.9); mattpocock's skills, which many v2 skills came from, are in `mmw-v3/upstream-mattpocock/` (mattpocock/skills `d81f3a1`). MMW v2, the previous generation, is in `mmw-v2/` and is the main source of content. The course that explains all of this, with the evidence, is `mmw-v3/course/` (lessons 1 to 3, and `reference/pstack-anatomy.html`).
 
 Read this file before writing or moving anything into v3, and again whenever a placement is in doubt. Each component directory has a README with the specifics of that component.
 
