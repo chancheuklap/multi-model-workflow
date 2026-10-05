@@ -290,7 +290,7 @@ The fixed, minimal content of a `ready-for-human` ticket, the whole of it: **Par
 _Home_: `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 **retiring line**:
-The line a `reach` ticket adds naming what would retire it, that is, make the ticket no longer needed: a test account, a spare device, a CI runner, a mechanism under **How a test arrives at a state** nobody owns yet, or a `TESTING.md` rule that gives a test no exit. Distinct from toolbox's **retired** and the screen contract's `retired_ids`, where the same verb means withdrawn from use.
+The line a `reach` ticket adds naming what would retire it, that is, make the ticket no longer needed: a test account, a spare device, a CI runner, a mechanism under **How a test arrives at a state** nobody owns yet, or a `TESTING.md` rule that gives a test no exit. Distinct from the screen contract's `retired_ids`, where the same verb means withdrawn from use.
 _Home_: `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 **`wontfix`**:
