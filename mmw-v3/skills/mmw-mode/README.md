@@ -6,9 +6,9 @@ The model to imitate, in content as well as shape, is `mmw-v3/upstream-pstack/sk
 
 ## What the mode is for
 
-The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once, when `/mmw-mode` is invoked or when an agent MMW spawns is told to load it first, and stays in context for the rest of the session.
+The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Three routes load it: the person types `/mmw-mode`; `scripts/mode-hook.py`, which `install.sh` registers at SessionStart on Claude Code and Codex, tells a session in a repository with `.mmw/` to read `SKILL.md`; the start prompt `dispatch.sh` gives a worker or reviewer opens with the same instruction and the file's path.
 
-It is one of the three skills only the person starts (`teach` and `wait-what` are the others); every other skill can be invoked by the model.
+It is one of the three skills only the person starts (`teach` and `wait-what` are the others); every other skill can be invoked by the model. So the hook and the start prompt tell a session to read the file, never to use the skill: a model cannot call it by name.
 
 ## Frontmatter
 

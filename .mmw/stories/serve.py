@@ -22,10 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-# The MMW checkout whose board this harness runs, relative to the repository root:
-# mmw-v2 unless MMW_TOOLBOX_DIR names another.
-TOOLBOX = ROOT / os.environ.get("MMW_TOOLBOX_DIR", "mmw-v2")
-PAGE = TOOLBOX / "board" / "page"
+PAGE = ROOT / "mmw-v3" / "board" / "page"
 HANDOFF = Path(os.environ.get(
     "MMW_STORY_HANDOFF",
     ROOT / "prototypes" / "task-board" / "claude-design",

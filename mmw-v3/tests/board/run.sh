@@ -15,8 +15,6 @@ while IFS='=' read -r name _; do
 done < <(env)
 MMW_HOME="$(mktemp -d)"
 export MMW_HOME
-# The root .mmw/ harness and stories run the board of this checkout, not mmw-v2's.
-export MMW_TOOLBOX_DIR=mmw-v3
 trap 'rm -rf "$MMW_HOME"' EXIT
 # A cached Playwright is a complete test dependency. uv may otherwise refresh
 # PyPI for each test file even when the installed package is already usable.

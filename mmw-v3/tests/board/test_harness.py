@@ -210,38 +210,36 @@ class HarnessTest(unittest.TestCase):
                     text=True, capture_output=True,
                 )
 
-    def test_start_moves_to_the_board_of_another_checkout(self):
-        def session_roles(toolbox):
-            roles = json.loads((ROOT / toolbox / "skills" / "dispatch" / "roles.json")
-                               .read_text(encoding="utf-8"))["roles"]
-            return [role["name"] for role in roles if role["kind"] == "session"]
-
+    def test_start_seeds_again_a_private_config_left_with_other_rows(self):
+        roles = json.loads((ROOT / "mmw-v3" / "skills" / "dispatch" / "roles.json")
+                           .read_text(encoding="utf-8"))["roles"]
+        session_roles = [role["name"] for role in roles if role["kind"] == "session"]
+        old_rows = {name: {"host": "claude", "model": "opus", "effort": "high"}
+                    for name in ("junior-worker", "senior-worker", "reviewer", "advisor")}
         with tempfile.TemporaryDirectory() as directory:
             data_dir = Path(directory)
+            (data_dir / "mmw-home").mkdir()
+            (data_dir / "mmw-home" / "models.json").write_text(
+                json.dumps({"version": 1, "runner": "orca", "rows": old_rows}) + "\n",
+                encoding="utf-8",
+            )
             env = {
                 **os.environ,
                 "MMW_DATA_DIR": str(data_dir),
                 "MMW_PORT_BASE": str(free_port()),
-                "MMW_INSTANCE": "board-harness-checkout",
+                "MMW_INSTANCE": "board-harness-reseed",
             }
-            seen = []
             try:
-                for toolbox in ("mmw-v2", "mmw-v3"):
-                    started = subprocess.run(
-                        ["python3", str(TARGET), "start"], cwd=ROOT,
-                        env={**env, "MMW_TOOLBOX_DIR": toolbox}, text=True, capture_output=True,
-                    )
-                    self.assertEqual(started.returncode, 0, started.stderr)
-                    state = json.loads((data_dir / "board-process.json").read_text())
-                    status, settings = request_json(state["origin"], "GET", "/api/settings")
-                    self.assertEqual(status, 200)
-                    seen.append((state["pid"], list(settings["rows"])))
+                started = subprocess.run(["python3", str(TARGET), "start"], cwd=ROOT, env=env,
+                                         text=True, capture_output=True)
+                self.assertEqual(started.returncode, 0, started.stderr)
+                state = json.loads((data_dir / "board-process.json").read_text())
+                status, settings = request_json(state["origin"], "GET", "/api/settings")
             finally:
                 subprocess.run(["python3", str(TARGET), "stop"], cwd=ROOT, env=env,
                                text=True, capture_output=True)
-        self.assertNotEqual(seen[0][0], seen[1][0])
-        self.assertEqual(seen[0][1], ["junior-worker", "senior-worker", "reviewer", "advisor"])
-        self.assertEqual(seen[1][1], session_roles("mmw-v3"))
+        self.assertEqual(status, 200)
+        self.assertEqual(sorted(settings["rows"]), sorted(session_roles))
 
     def test_start_still_refuses_a_real_listener(self):
         with tempfile.TemporaryDirectory() as directory, socket.socket() as listener:

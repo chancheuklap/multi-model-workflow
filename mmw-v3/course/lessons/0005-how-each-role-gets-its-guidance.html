@@ -249,7 +249,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 </figure>
 <div class="takeaway"><b class="l">从图 2 能看出的</b><ol>
 <li><b>跑角色 playbook 的会话载入 <span class="c k-mode">mmw-mode</span>；由技能派出的 agent 不载入。</b>前者是 orchestrator、worker、reviewer，以及你白天开的会话；后者是 <code class="c k-skill">advisor</code>、researcher、<code class="c k-skill">code-review</code> 的轴，以及 <code class="c k-skill">to-tickets</code> 的歧义扫描、<code class="c k-skill">manage-agents-md</code> 的分组这类子代理。它们只读技能给自己的那一份。v2 派子代理的地方全是这一种，pstack 实际也这样分：<q class="k-mode" data-src="poteto-mode · ## Subagents">Routed workflow skills … set their own `subagent_type`</q></li>
-<li><b>mode 到手有两条路，都不靠宿主的特殊能力。</b>你开的会话由钩子载入；派发方用 <code class="c k-script">dispatch.sh</code> 开的会话，由 start prompt 第一句 <code>Use the mmw-mode skill.</code> 载入，这句话在五个宿主上都有效。</li>
+<li><b>mode 到手有两条路，都不靠宿主的特殊能力。</b>你开的会话由钩子载入；派发方用 <code class="c k-script">dispatch.sh</code> 开的会话，由 start prompt 第一句 <code>Use the mmw-mode skill.</code> 载入，这句话在五个宿主上都有效。（后来：这句在 Claude Code 上开不了 mode，因为 <code class="c k-skill">mmw-mode</code> 只有人能开；改成让会话读 SKILL.md 文件，钩子也是到那一课才写出来，见<a href="0017-the-install-entry.html">第 17 课</a>。）</li>
 <li><b>角色就是 playbook。</b>开它的那段话点名了 playbook 就照走，没点名才由 <code class="c k-mode">## Playbooks</code> 按任务选。orchestrator 不是脚本开的，它是你的会话选了 <span class="c k-playbook">Run a night</span>（一夜一批票）或 <span class="c k-playbook">Bug fix</span>（单张票）。worker 和 reviewer 只由派发方派出，你不会自己去接一张票。</li>
 <li><b>start prompt 只有路由和数据，没有规则。</b>无人值守的规则在 <code class="c k-mode">## Autonomy</code> 的 Unattended 一段，走到哪一步在票上。叫醒行照 v2 只有 <code>#n 事件</code>，醒来先做什么在 <code class="c k-skill">dispatch</code> 技能的 <code>## On waking</code>，由结束回合的那一步点名。</li>
 </ol></div>
@@ -308,7 +308,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 </dl></div>
 
 <div class="why-card k-agent"><h3>第一句点名 mode，钩子只管你开的会话<small>决定 2</small></h3><dl>
-<dt>决定</dt><dd>start prompt 的第一句是 <code>Use the mmw-mode skill.</code>。SessionStart 钩子在有 <code>.mmw/</code> 的仓库里替你开的会话载入 mode（已经由你定了）。</dd>
+<dt>决定</dt><dd>start prompt 的第一句是 <code>Use the mmw-mode skill.</code>。SessionStart 钩子在有 <code>.mmw/</code> 的仓库里替你开的会话载入 mode（已经由你定了）。（后来：第一句改成「先完整读 <span class="c k-mode">mmw-mode</span> 的 SKILL.md」加文件路径，见<a href="0017-the-install-entry.html">第 17 课</a>。）</dd>
 <dt>v2 意图</dt><dd>宿主和 runner 中立。v2 开每个会话都用「Use the X skill」，这句话在五个宿主上都有效；钩子不是每个宿主都有。</dd>
 <dt>pstack</dt><dd><code class="c k-agent">poteto-agent</code> 的正文只有一句：先读 mode。v3 把这一句写进 start prompt，不需要子代理定义文件。</dd>
 <dt>前几课</dt><dd>第 2 课：subagent 这种组件在「某个角色每次被开出来，都必须带着同一份提示词」时才有。v3 的这份提示词由脚本拼，不需要单独的文件。</dd>

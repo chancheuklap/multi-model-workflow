@@ -87,6 +87,10 @@ set -uo pipefail
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
+# The mode a started session reads first, in the checkout this script runs from. A session
+# is told to read the file: the skill is started only by the person, so a model cannot call
+# it by name.
+MODE_SKILL="$(dirname "$SKILL_ROOT")/mmw-mode/SKILL.md"
 MODELS_JSON="${MMW_HOME:-$HOME/.mmw}/models.json"
 STATUS="$SKILL_ROOT/scripts/status.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
@@ -391,12 +395,12 @@ start_prompt() {
       [ -n "$data" ] \
         || refuse "the worker's start prompt for #$number has no Memory indexes to hand over; nothing was started"
       route="Run the $WORKER_PLAYBOOK playbook on ticket #$number."
-      printf 'Use the mmw-mode skill. %s\n\n%s\n' "$route" "$data" ;;
+      printf 'Read the mmw-mode skill'"'"'s SKILL.md in full before any work: %s. %s\n\n%s\n' "$MODE_SKILL" "$route" "$data" ;;
     reviewer)
       [ -n "$base" ] \
         || refuse "the reviewer's start prompt for #$number has no base commit; nothing was started"
       route="Run the $REVIEWER_PLAYBOOK playbook on ticket #$number from base commit $base."
-      printf 'Use the mmw-mode skill. %s\n' "$route" ;;
+      printf 'Read the mmw-mode skill'"'"'s SKILL.md in full before any work: %s. %s\n' "$MODE_SKILL" "$route" ;;
     *) refuse "no start prompt for a $kind session" ;;
   esac
 }

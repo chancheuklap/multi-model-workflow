@@ -1,5 +1,5 @@
-"""Figures of lesson 0016: where the task board's settings rows come from; which copy of the board each
-thing on this machine runs until v3 replaces v2."""
+"""Figures of lesson 0016: where the task board's settings rows come from; which copy of the board this
+machine runs and which one the repository tests as its product."""
 from kit import Fig, txt as _t, tbox as _box
 
 
@@ -44,48 +44,35 @@ ARIA_ROWS = ("第 16 课图 1，任务看板设置页的行从哪来。加一个
              "看板的任务列表只读票，所以看不到它们在跑；设置页仍有它们的模型行。")
 
 
-def cutover():
+def where():
     f = Fig("m162", 1000)
 
-    f.zone(10, 10, 980, 100, "这台机器上正在用的：已安装的 v2，这次不动")
-    _box(f, "other", 24, 40, 280, "com.mmw.board", ["v2 的安装器装的常驻任务"])
-    f.ar([(306, 63), (348, 63)])
-    _box(f, "script", 350, 40, 300, "mmw-v2/board/supervisor.py", ["从 .worktrees/mmw-installed 跑"], mono_title=True)
-    f.ar([(652, 63), (684, 63)])
+    f.zone(10, 10, 980, 104, "这台机器上常驻的看板：由安装决定")
+    _box(f, "other", 24, 40, 250, "com.mmw.board", ["安装器装的常驻任务"])
+    f.ar([(276, 63), (318, 63)])
+    _box(f, "script", 320, 40, 340, "<installed-root>/board/supervisor.py", ["只有显式安装才换成另一份（第 17 课）"],
+         mono_title=True)
+    f.ar([(662, 63), (684, 63)])
     _box(f, "config", 686, 40, 290, "~/.mmw/boards.json", ["本仓库 47100，agentflow 47101"], mono_title=True)
 
-    f.zone(10, 124, 980, 150, ".mmw/ 的 harness 和 stories：本仓库给看板当产品的配置")
-    f.dia(170, 200, 130, 34, ["MMW_TOOLBOX_DIR", "是什么？"])
-    f.ar([(300, 200), (340, 200), (340, 177), (378, 177)], "没设", 306, 172)
-    f.ar([(340, 200), (340, 235), (378, 235)], "mmw-v3", 290, 252)
-    _box(f, "script", 380, 156, 280, "mmw-v2/board", ["v2 的看板测试，关于看板的票"], mono_title=True)
-    _box(f, "script", 380, 214, 280, "mmw-v3/board", ["mmw-v3/tests/board/run.sh 设的"], mono_title=True)
-    _box(f, "other", 686, 156, 290, "换一份时，start 会",
-         ["停掉为另一份记下的看板再开", "按那一份的角色重写 models.json"])
-
-    f.zone(10, 288, 980, 112, "v3 的 dispatch.sh：还没装")
-    _box(f, "script", 24, 318, 280, "dispatch.sh board、open", ["和 open-ticket，都会先开看板"])
-    f.ar([(306, 341), (348, 341)])
-    _box(f, "script", 350, 318, 300, "mmw-v3/board/supervisor.py", ["登记端口的办法和 v2 的相同"], mono_title=True)
-    f.ar([(652, 341), (684, 341)])
-    _box(f, "config", 686, 318, 290, "同一份 ~/.mmw/boards.json",
-         ["两个 supervisor 会争同一张表；", "切换前只在测试的 MMW_HOME 跑"])
-
-    _box(f, "other", 10, 418, 980, "v3 替换 v2 那一步一起改",
-         ["screen contract 里 77 处 mmw-v2/board 路径；.mmw/AGENTS.md；MMW_TOOLBOX_DIR 的默认值改成 mmw-v3",
-          "根 AGENTS.md；安装入口让 com.mmw.board 跑 mmw-v3/board/supervisor.py"])
-    return f.svg(494, ARIA_CUT)
+    f.zone(10, 128, 980, 200, "本仓库把看板当产品：.mmw/ 和 screen contract")
+    _box(f, "script", 24, 158, 330, "harness/target.py、board_server.py", ["在租来的端口上开看板"])
+    _box(f, "script", 24, 213, 330, "stories/serve.py", ["给组件故事页交出网页代码"])
+    _box(f, "config", 24, 268, 330, "screen-contract.yaml", ["77 处网页代码的路径"])
+    for y in (181, 236, 291):
+        f.ar([(356, y), (380, y), (380, 236), (406, 236)])
+    _box(f, "script", 408, 213, 250, "mmw-v3/board", ["看板的代码和网页"], mono_title=True)
+    _box(f, "other", 686, 158, 290, "start 多做的一件事",
+         ["私有 models.json 的行不是角色表时，", "按 hosts.json 的默认值重写"], dashed=True)
+    return f.svg(340, ARIA_WHERE)
 
 
-ARIA_CUT = ("第 16 课图 2，在 v3 替换 v2 之前，这台机器上每样东西用哪一份看板。"
-            "第一组，正在用的已安装 v2，这次不动：v2 安装器装的常驻任务 com.mmw.board，跑 .worktrees/mmw-installed 里的 mmw-v2/board/supervisor.py，"
-            "登记表是 ~/.mmw/boards.json，本仓库 47100，agentflow 47101。"
-            "第二组，.mmw/ 的 harness 和 stories，本仓库给看板当产品的配置：看 MMW_TOOLBOX_DIR，没设就用 mmw-v2/board，v2 的看板测试和关于看板的票都走这条；"
-            "设成 mmw-v3 就用 mmw-v3/board，mmw-v3/tests/board/run.sh 就是这样设的。换一份时，start 会停掉为另一份记下的看板再开，并按那一份的角色重写 models.json。"
-            "第三组，v3 的 dispatch.sh，还没装：board、open 和 open-ticket 都会先开看板，用 mmw-v3/board/supervisor.py，登记端口的办法和 v2 的相同，"
-            "也就是同一份 ~/.mmw/boards.json；两个 supervisor 会争同一张表，所以切换前只在测试的 MMW_HOME 里跑。"
-            "最下面：v3 替换 v2 那一步一起改的东西，screen contract 里 77 处 mmw-v2/board 路径、.mmw/AGENTS.md、MMW_TOOLBOX_DIR 的默认值改成 mmw-v3、根 AGENTS.md，"
-            "以及安装入口让 com.mmw.board 跑 mmw-v3/board/supervisor.py。")
+ARIA_WHERE = ("第 16 课图 2，这台机器上常驻的看板和本仓库当产品测的看板各是哪一份。"
+              "上面一组：安装器装的常驻任务 com.mmw.board，跑 installed-root 记下的那个 checkout 的 board/supervisor.py，只有显式安装才换成另一份，见第 17 课；"
+              "它用 ~/.mmw/boards.json 登记端口，本仓库 47100，agentflow 47101。"
+              "下面一组：本仓库把看板当产品的配置。harness/target.py 和 board_server.py 在租来的端口上开看板，stories/serve.py 给组件故事页交出网页代码，"
+              "screen-contract.yaml 有 77 处网页代码的路径，三者都直接指向 mmw-v3/board。"
+              "旁边一格：start 多做的一件事，私有 models.json 的行不是角色表时，按 hosts.json 的默认值重写。")
 
 
-FIGS = {"l16-rows": rows, "l16-cutover": cutover}
+FIGS = {"l16-rows": rows, "l16-where": where}

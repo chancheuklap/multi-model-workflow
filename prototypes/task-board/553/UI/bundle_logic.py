@@ -4,7 +4,7 @@
     python3 bundle_logic.py <out.js>
 
 The Claude Design pages cannot import ES modules, so the modules under
-`mmw-v2/board/page/` that compute what the board shows (`shared`, `board-logic`,
+`mmw-v3/board/page/` that compute what the board shows (`shared`, `board-logic`,
 `local-config`, and the view builders of `topbar`, `tasks`, `canvas`, `detail`,
 `settings`) are wrapped one function scope each. Each module's exports sit on
 `window.MMW[<module>]`; the first three, which the others import, also sit on `window.MMW`. The
@@ -18,7 +18,7 @@ import re
 import sys
 from pathlib import Path
 
-PAGE = Path(__file__).resolve().parents[4] / "mmw-v2" / "board" / "page"
+PAGE = Path(__file__).resolve().parents[4] / "mmw-v3" / "board" / "page"
 SHARED = {"shared", "board-logic", "local-config"}
 MODULES = ["shared", "board-logic", "local-config", "topbar", "tasks", "canvas", "detail", "settings"]
 IMPORT = re.compile(r'^import \{([^}]*)\} from "\./([\w-]+)\.mjs";\n', re.M)
