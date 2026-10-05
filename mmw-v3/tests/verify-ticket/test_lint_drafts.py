@@ -116,13 +116,6 @@ class TestDrafts(DraftsFixture, unittest.TestCase):
         self.assertIn("T1 is blocked by #42, a ticket under spec #318", printed)
         self.assertIn("waiting on another spec: T1 ← #42", printed)
 
-    def test_a_draft_whose_parent_names_another_spec_first_is_an_error(self):
-        self.write("T1", draft(parent="#318 Implementation Decisions section 4; "
-                                      "#555, Implementation Decisions section 1"))
-        code, printed = self.lint()
-        self.assertEqual(code, 1)
-        self.assertIn("[parent-order]", printed)
-
     def test_a_draft_without_the_ticket_layer_label_is_an_error(self):
         self.write("T1", draft(labels="ready-for-agent, junior-worker"))
         code, printed = self.lint()

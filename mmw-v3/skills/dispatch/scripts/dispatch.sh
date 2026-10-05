@@ -3830,13 +3830,6 @@ summary_spec() {
 
 # ------------------------------------------------------------------ finish
 
-spec_numbers() {
-  local slug
-  slug="$(repo_slug)" || return 2
-  gh_ api --paginate "repos/$slug/issues?state=all&labels=mmw%3Aspec&per_page=100" \
-    --jq '.[].number' 2>/dev/null
-}
-
 spec_children() {
   local spec="$1" slug
   slug="$(repo_slug)" || return 2
@@ -3844,7 +3837,7 @@ spec_children() {
 }
 
 finish_preflight() {
-  local spec="$1" into="$2" specs children other active seen child state open="" rc retro
+  local spec="$1" into="$2" children child state open="" rc retro
   newest_field "$spec" at spec.closed spec.opened >/dev/null 2>&1 \
     || { echo "dispatch: #$spec carries no spec.closed; run summary before finish" >&2; return 2; }
   retro="$(newest_field "$spec" result spec.retroed spec.closed)"; rc=$?
@@ -3858,48 +3851,19 @@ finish_preflight() {
   [ "$retro" = recorded ] \
     || { echo "dispatch: #$spec's latest spec.retroed result is $retro, not recorded; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2; }
 
-  specs="$(spec_numbers)" || {
-    echo "dispatch: could not list specs while checking whether $into is still in use" >&2
+  children="$(spec_children "$spec")" || {
+    echo "dispatch: could not list #$spec's tickets while checking that each is closed" >&2
     return 2
   }
-  for other in $specs; do
-    [ "$other" = "$spec" ] && continue
-    active="$(newest_field "$other" into spec.opened spec.suspended spec.closed 2>/dev/null)"; rc=$?
-    case "$rc" in
-      0) ;;
-      2) echo "dispatch: could not read #$other while checking open nights into $into" >&2; return 2 ;;
-      3 | 4) active="" ;;
-      *) echo "dispatch: could not decide whether #$other is an open night into $into" >&2; return 2 ;;
-    esac
-    if [ "$active" = "$into" ]; then
-      echo "dispatch: #$other is another open night into $into; finish or suspend it before finish $spec" >&2
-      return 2
-    fi
-  done
-
-  for other in $specs; do
-    seen="$(newest_field "$other" into spec.opened 2>/dev/null)"; rc=$?
-    case "$rc" in
-      0) ;;
-      2) echo "dispatch: could not read #$other while finding specs that used $into" >&2; return 2 ;;
-      3 | 4) seen="" ;;
-      *) echo "dispatch: could not decide whether #$other used $into" >&2; return 2 ;;
-    esac
-    [ "$seen" = "$into" ] || continue
-    children="$(spec_children "$other")" || {
-      echo "dispatch: could not list #$other's tickets while checking tickets into $into" >&2
+  for child in $children; do
+    state="$(gh_ issue view "$child" --json state --jq .state 2>/dev/null)" || {
+      echo "dispatch: could not read #$child while checking that #$spec's tickets are closed" >&2
       return 2
     }
-    for child in $children; do
-      state="$(gh_ issue view "$child" --json state --jq .state 2>/dev/null)" || {
-        echo "dispatch: could not read #$child while checking tickets into $into" >&2
-        return 2
-      }
-      [ "$state" = CLOSED ] || open="$open #$child"
-    done
+    [ "$state" = CLOSED ] || open="$open #$child"
   done
   if [ -n "$open" ]; then
-    echo "dispatch: tickets still open on $into:${open}; close them before finish $spec" >&2
+    echo "dispatch: #$spec's tickets still open:${open}; close them before finish $spec" >&2
     return 2
   fi
 }

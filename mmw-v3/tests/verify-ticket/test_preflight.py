@@ -105,99 +105,18 @@ class TestRefusals(unittest.TestCase):
         self.assertEqual(code, 0)
         assign.assert_called_once()
 
-    def test_a_ticket_without_the_agent_label_is_refused(self):
-        code, _, err, assign = preflight(labels=("needs-triage",))
-        self.assertEqual(code, 2)
-        self.assertIn("no ready-for-agent label", err)
-        assign.assert_not_called()
-
-    def test_an_open_blocker_is_refused_and_named(self):
-        code, _, err, assign = preflight(blockers=[(62, "CLOSED"), (64, "OPEN")])
-        self.assertEqual(code, 2)
-        self.assertIn("blocked by #64", err)
-        self.assertNotIn("#62", err)
-        assign.assert_not_called()
-
-    def test_a_ticket_someone_else_holds_is_refused(self):
-        code, _, err, assign = preflight(assignees=("someone-else",))
-        self.assertEqual(code, 2)
-        self.assertIn("assigned to someone-else", err)
-        assign.assert_not_called()
-
-    def test_a_closed_ticket_is_refused(self):
-        code, _, err, _ = preflight(state="CLOSED")
-        self.assertEqual(code, 2)
-        self.assertIn("is CLOSED, not OPEN", err)
-
-
-PASSED = event("ticket.passed", "ALL MET", ticket=62, commit="a" * 40)
-LANDED = event("ticket.landed", "Landed #62 on main", ticket=62)
-
-
-class TestABlockerLetsGoOnceItHasLanded(unittest.TestCase):
-    """The ticket is cut from the base branch and has to find its blocker's work there, so
-    a blocker lets go when it lands, not when it closes — the rule the dispatch skill's
-    frontier starts tickets by. A preflight that let go on the close would claim a ticket
-    whose base does not carry the work it builds on."""
-
-    def blocked(self, state, comments=()):
-        return preflight(blockers=[(62, state)], history={62: comments})
-
-    def test_a_blocker_that_passed_and_has_not_landed_holds(self):
-        code, posted, err, assign = self.blocked("CLOSED", [PASSED])
-        self.assertEqual(code, 2)
-        self.assertEqual(event_of(posted[0][1])[1]["reason"], "blocked")
-        self.assertIn("blocked by #62 (passed, not landed)", err)
-        assign.assert_not_called()
-
-    def test_the_same_blocker_lets_go_once_it_has_landed(self):
-        code, posted, err, assign = self.blocked("CLOSED", [PASSED, LANDED])
-        self.assertEqual(code, 0, err)
-        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
-        assign.assert_called_once_with(77)
-
-    def test_a_blocker_closed_without_a_pass_lets_go(self):
-        code, _, err, assign = self.blocked("CLOSED")
-        self.assertEqual(code, 0, err)
-        assign.assert_called_once_with(77)
-
-    def test_an_open_blocker_holds_and_is_named_plainly(self):
-        code, posted, err, _ = self.blocked("OPEN")
-        self.assertEqual(code, 2)
-        self.assertEqual(event_of(posted[0][1])[1]["reason"], "blocked")
-        self.assertIn("blocked by #62;", err)
-
-    def test_a_closed_blocker_whose_events_cannot_be_read_holds(self):
-        cases = (("its events cannot be read", ["x\n\n<!-- mmw {not json} -->"]),
-                 ("the tracker did not answer for it",
-                  subprocess.CalledProcessError(1, ["gh", "issue", "view", "62"])))
-        for why, comments in cases:
-            with self.subTest(why=why):
-                code, _, err, assign = self.blocked("CLOSED", comments)
-                self.assertEqual(code, 2)
-                self.assertIn(f"#62 ({why})", err)
-                assign.assert_not_called()
-
-
 class TestEveryRefusalSaysStop(unittest.TestCase):
-    """Each of the six conditions, once it refuses, is a fault upstream of the worker —
-    the host opens the worktree on `issue-<n>`, `dispatch.sh` checks state, labels and
-    blockers, and a tree the worker's own claim does not account for was dirty before it
-    arrived — so the only correct next move is to stop. A refusal that reads like a repair
-    invites the worker to switch branches, commit someone else's work, or take someone
-    else's ticket."""
+    """Each refusal is a fault upstream of the worker — the worktree was opened on
+    another branch, or a tree the worker's own claim does not account for was dirty
+    before it arrived — so the only correct next move is to stop."""
 
-    ALL_SIX = (
+    ALL = (
         {"branch": "main"},
         {"dirty": [" M src/app.py"]},
-        {"state": "CLOSED"},
-        {"labels": ("needs-triage",)},
-        {"blockers": [(64, "OPEN")]},
-        {"assignees": ("someone-else",)},
     )
 
     def test_every_refusal_is_posted_on_the_ticket_before_exiting(self):
-        for case in self.ALL_SIX:
+        for case in self.ALL:
             with self.subTest(**case):
                 code, posted, err, assign = preflight(**case)
                 self.assertEqual(code, 2)
@@ -207,7 +126,7 @@ class TestEveryRefusalSaysStop(unittest.TestCase):
                 assign.assert_not_called()
 
     def test_each_refusal_names_its_own_reason_on_the_event(self):
-        reasons = [event_of(preflight(**case)[1][0][1])[1]["reason"] for case in self.ALL_SIX]
+        reasons = [event_of(preflight(**case)[1][0][1])[1]["reason"] for case in self.ALL]
         self.assertEqual(reasons, list(vt.events.REFUSALS))
 
 

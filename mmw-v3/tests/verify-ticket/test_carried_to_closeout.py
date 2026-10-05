@@ -71,8 +71,7 @@ class Tracker:
              mock.patch.object(vt, "post_comment", side_effect=self.post), \
              mock.patch.object(vt, "close_ticket", side_effect=self.closed.append), \
              mock.patch.object(vt, "push_ticket_branch",
-                               side_effect=lambda *a: self.pushed.append(a)), \
-             mock.patch.object(vt, "blocker_fold", return_value=None):
+                               side_effect=lambda *a: self.pushed.append(a)):
             with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
                 code = call(*args)
         return code, out.getvalue(), err.getvalue()

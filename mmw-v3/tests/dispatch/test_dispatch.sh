@@ -1047,8 +1047,6 @@ for a in "$@"; do
   [ "$a" = "--body" ] && body_next=1
 done
 case "$*" in
-  *"issues?state=all&labels=mmw%3Aspec&per_page=100"*)
-    printf '%s\n' ${FAKE_GH_SPECS:-76} ;;
   "repo view --json url -q .url")
     [ "${FAKE_GH_URL_FAIL:-0}" = 1 ] && exit 1
     printf '%s\n' "${FAKE_GH_URL:-https://github.com/o/r}" ;;
@@ -8046,17 +8044,6 @@ scenario_finishrefusesopenticket() {
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "open-ticket finish changed project"
 }
 
-scenario_finishrefusesothernight() {
-  local code before
-  setup_finish_closed
-  post_ev 77 spec.opened --ticket '' --spec 77 --line opened --field into=night --field project=proj
-  before="$(git -C "$TMP/origin.git" rev-parse proj)"
-  code="$(run_dispatch env FAKE_GH_SPECS='76 77' FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 2 ] || fail "other-night finish expected 2, got $code"
-  grep -q '#77' "$TMP/err" || fail "other night missing: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "other-night finish changed project"
-}
-
 scenario_finishrefusesnoproject() {
   local code before
   fresh_project_night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
@@ -8206,17 +8193,6 @@ scenario_finishcontained() {
   git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "contained local night remains"
   git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "contained origin night remains"
   return 0
-}
-
-scenario_finishrefusesunreadablespec() {
-  local code before
-  setup_finish_closed
-  post_raw_comment 77 'broken event <!-- mmw {"v":1,"event":"spec.opened","into": -->'
-  before="$(git -C "$TMP/origin.git" show-ref | sort)"
-  code="$(run_dispatch env FAKE_GH_SPECS='76 77' FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 2 ] || fail "unreadable-spec finish expected 2, got $code"
-  grep -q '#77' "$TMP/err" || fail "unreadable spec was not named: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" show-ref | sort)" = "$before" ] || fail "unreadable-spec finish changed origin"
 }
 
 scenario_finishcleanupindependent() {
@@ -9799,7 +9775,7 @@ ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishcleanupindependent"
 
 # Two lists of scenario names, ALL and INSTALL; a name on the command line is accepted when it is in either.
 case " $ALL $INSTALL all install " in
@@ -10013,7 +9989,6 @@ banner_for() {
     finishrefusesunclosed) echo FINISH-REFUSES-UNCLOSED-OK ;;
     finishrefusesretro) echo FINISH-REFUSES-RETRO-OK ;;
     finishrefusesopenticket) echo FINISH-REFUSES-OPEN-TICKET-OK ;;
-    finishrefusesothernight) echo FINISH-REFUSES-OTHER-NIGHT-OK ;;
     finishrefusesnoproject) echo FINISH-REFUSES-NO-PROJECT-OK ;;
     finishconflict) echo FINISH-CONFLICT-OK ;;
     finishred) echo FINISH-RED-OK ;;
@@ -10022,7 +9997,6 @@ banner_for() {
     finishkeepsdirty) echo FINISH-KEEPS-DIRTY-OK ;;
     finishrerun) echo FINISH-RERUN-OK ;;
     finishcontained) echo FINISH-CONTAINED-OK ;;
-    finishrefusesunreadablespec) echo FINISH-REFUSES-UNREADABLE-SPEC-OK ;;
     finishcleanupindependent) echo FINISH-CLEANUP-INDEPENDENT-OK ;;
     openrefused) echo OPEN-REFUSED-OK ;;
     openticket) echo OPEN-TICKET-OK ;;

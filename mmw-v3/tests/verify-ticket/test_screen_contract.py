@@ -500,19 +500,10 @@ class TestSources(ContractFixture, unittest.TestCase):
         parent = ("#555, Implementation Decisions sections 4 and 11; "
                   "#318 Implementation Decisions section 4")
         self.assertEqual(vt.source_findings(["tasks.pick"], rows, "", parent), [])
-        self.assertEqual(vt.parent_spec("## Parent\n\n" + parent + "\n"), 555)
-        self.assertEqual(vt.parent_order_findings("## Parent\n\n" + parent + "\n", 555), [])
         missing = vt.source_findings(["tasks.pick"], rows, "",
                                      "#555, Implementation Decisions sections 4 and 11")
         self.assertEqual(len(missing), 1)
         self.assertIn("#318 Implementation Decisions section 4", missing[0])
-
-    def test_an_earlier_spec_named_first_is_a_parent_order_finding(self):
-        body = ("## Parent\n\n#318 Implementation Decisions section 4; "
-                "#555, Implementation Decisions section 11\n")
-        findings = vt.parent_order_findings(body, 555)
-        self.assertEqual(len(findings), 1)
-        self.assertIn("names #318 first", findings[0])
 
     def test_a_story_page_the_contract_does_not_declare_is_named(self):
         body = ticket(self.rows, gate("AC1", self.story_check.replace(

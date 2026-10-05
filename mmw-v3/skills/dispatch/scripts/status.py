@@ -238,7 +238,7 @@ def unreadable_reason(ticket: dict) -> str:
 
 def blocker_reason(number: int, state: str, tickets: dict[int, dict], lookup) -> str:
     """Why blocker `number` still holds its ticket back, or empty when it no longer does:
-    `events.blocker_hold`, the same answer the worker's `--preflight` gives. A blocker's
+    `events.blocker_hold`, the same answer `dispatch.sh start` gives. A blocker's
     events are read only once it is closed; an open one holds whatever they say.
     """
     blocker = (tickets.get(number) or lookup(number)) if state == "CLOSED" else None

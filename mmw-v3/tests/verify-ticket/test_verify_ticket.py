@@ -500,14 +500,15 @@ class TestLint(unittest.TestCase):
     def lint(self, body: str, labels=()):
         """`--lint` on a ticket whose text is `body` and whose labels are `labels`.
 
-        The tracker is reached for three things and all three are answered here: the
-        body, the parent link, and the labels the worker rule reads. Left unpatched,
+        The tracker is reached for four things and all four are answered here: the
+        body, the parent link, the children and the labels the worker rule reads. Left unpatched,
         `fetch_ticket` runs `gh issue view` against the real repository, which makes
         a unit test wait on the network and fail when it is not there."""
         ticket_json = {"state": "OPEN", "labels": [{"name": name} for name in labels],
                        "assignees": [], "blockedBy": []}
         with mock.patch.object(vt, "fetch_body", return_value=body), \
              mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[]), \
              mock.patch.object(vt, "fetch_ticket", return_value=ticket_json):
             with redirect_stdout(io.StringIO()) as out:
                 code = vt.run_lint(1)

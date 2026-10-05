@@ -114,7 +114,6 @@ HANDOFF_KINDS = ("failed", "stuck")
 DEFAULT_TIMEOUT = 600
 ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
 # `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
-ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
 ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|TIMEOUT):")
 # The one attribute gate-check does not know: it is read here and kept out of the ledger.
@@ -425,12 +424,12 @@ def fetch_outsider(number: int) -> dict:
     """Where a blocker outside this batch belongs, and whether it is closed.
 
     A blocking edge always points at an issue that exists, so the question is not
-    whether it is there but whether it is a ticket: an issue whose `## Parent` names a
-    spec. `spec` is that number, or `None` for an issue that is something else.
+    whether it is there but whether it is a ticket: an issue the tracker records under a
+    parent. `spec` is that parent, or `None` for an issue that is something else.
     Patched out in tests.
     """
     out = subprocess.run(
-        ["gh", "issue", "view", str(number), "--json", "state,body"],
+        ["gh", "issue", "view", str(number), "--json", "state,parent"],
         capture_output=True, text=True, env=GH_ENV,
     )
     if out.returncode != 0:
@@ -439,8 +438,8 @@ def fetch_outsider(number: int) -> dict:
         data = json.loads(out.stdout)
     except json.JSONDecodeError:
         return {"spec": None, "state": ""}
-    return {"spec": parent_spec(data.get("body") or ""),
-            "state": (data.get("state") or "").upper()}
+    parent = data.get("parent") if isinstance(data.get("parent"), dict) else {}
+    return {"spec": parent.get("number"), "state": (data.get("state") or "").upper()}
 
 
 def section(body: str, heading: str) -> list[str]:
@@ -465,32 +464,11 @@ def section(body: str, heading: str) -> list[str]:
     return out
 
 
-def parent_spec(body: str) -> int | None:
-    """The first spec number in `## Parent`, e.g. `#76, Implementation Decisions section 1`.
-
-    This section is the copy the user reads, and one ticket may be written against
-    sections of more than one spec, in whatever order suits the reader. Which batch the
-    ticket belongs to is `spec_of`: the tracker's parent link, falling back to this.
-    `repo#n` and `owner/repo#n` are another repository's issue and are not a spec here.
-    """
-    for line in section(body, "Parent"):
-        m = ISSUE_REF_RE.search(line)
-        if m:
-            return int(m.group(1))
-    return None
-
-
 def spec_of(number: int) -> int | None:
-    """The spec this ticket sits under: the tracker's parent link, else `## Parent`.
-
-    A ticket written against sections of more than one spec names them all in `## Parent`,
-    in reader order. The batch is the sub-issue link `fetch_parent` reads; only when the
-    tracker records none does this fall back to `parent_spec`.
-    """
-    parent = fetch_parent(number)
-    if parent is not None:
-        return parent
-    return parent_spec(fetch_body(number))
+    """The spec this ticket sits under: the tracker's parent link. `## Parent` is the
+    copy the user reads, and may name sections of more than one spec in reader order, so
+    it is never read for this."""
+    return fetch_parent(number)
 
 
 def owns_globs(body: str) -> list[str]:
@@ -1927,41 +1905,17 @@ def give_slot_back(root: Path) -> str | None:
     return None
 
 
-def blocker_fold(number: int) -> dict | None:
-    """The events of blocker `number` folded, or None when the tracker did not answer."""
-    try:
-        return events.fold(fetch_comments(number), issue=number)
-    except (OSError, ValueError, subprocess.CalledProcessError, TrackerReadError):
-        return None
-
-
 def refusals(number: int, ticket: dict, me: str, branch: str,
              dirty: list[str]) -> list[tuple[str, str]]:
-    """Why this ticket is not ready to be worked on, in the order a worker would hit it.
+    """Why this worktree is not ready to be worked in. Each refusal is `(reason,
+    sentence)`: the `ticket.refused` event's `reason` and its first line.
 
-    Each refusal is `(reason, sentence)`: the reason is the `ticket.refused` event's
-    `reason` field, one of `events.REFUSALS`, and the sentence is its first line.
-
-    A blocker holds until its work has landed, as `events.blocker_hold` reads it off the
-    blocker's own events — the same answer the dispatch skill's frontier gives, so a
-    ticket that skill starts is never refused here for a blocker it had let go.
-
-    Every one of these ends in `stop`. Five of the six conditions are set up before a
-    worker exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state,
-    the labels and the blockers before it starts anyone — so a worker that sees one of
-    them has found a fault upstream of itself, not a task. Working around it (switching
-    branches, taking someone else's ticket) does more damage than stopping.
-
-    The sixth, the tree, is the one whose answer depends on who holds the ticket, because
-    a worker comes through this run every time it enters the ticket — the turn it is
-    prompted back into after a review included (Work a ticket's claim and `RESUME:`). On that turn
-    the uncommitted tracked changes are its own work from an earlier turn, so the tree
-    refuses only while the claim is not this account's: read as an upstream fault they
-    end a live worker's hold, and the ticket then says `live: false` of a session that
-    goes on posting events. What keeps them from reaching the base branch uncommitted is
-    the closeout, which refuses a draft while a tracked file is uncommitted.
-
-    The comment this posts on the ticket is what the user reads in the morning.
+    The ticket's state, labels, blockers and claim are checked by `dispatch.sh start`
+    before anyone is started; these two are what only the worktree can show. A branch
+    other than `issue-<n>` means the worker was started somewhere else. Uncommitted
+    tracked changes refuse only while the claim is not this account's: a worker comes
+    through here every time it enters the ticket, and on a later turn they are its own
+    work. The closeout refuses a draft while a tracked file is uncommitted.
     """
     out = []
     if branch != f"issue-{number}":
@@ -1976,33 +1930,6 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
                     f"#{number} is claimed by {', '.join(holders) or 'nobody'}, not by you "
                     f"({me}); they were left here before your claim, and are not yours to "
                     f"commit or discard — stop and leave the tree as you found it"))
-    state = ticket.get("state", "")
-    if state != "OPEN":
-        out.append(("not-open",
-                    f"NOT_READY: #{number} is {state or 'unreadable'}, not OPEN; "
-                    f"nothing for you to do here — stop, this comment is the record"))
-    labels = [label.get("name", "") for label in ticket.get("labels", [])]
-    if "ready-for-agent" not in labels:
-        out.append(("not-ready",
-                    f"NOT_READY: #{number} has no ready-for-agent label, so it has not been "
-                    f"cleared for an agent yet; stop and leave it to whoever triages it"))
-    holding = []
-    for node in ticket.get("blockedBy", {}).get("nodes", []):
-        state = node.get("state") or ""
-        why = events.blocker_hold(state, blocker_fold(node["number"]) if state == "CLOSED"
-                                  else None)
-        if why:
-            holding.append(f"#{node['number']}" + ("" if why == "open" else f" ({why})"))
-    if holding:
-        out.append(("blocked",
-                    f"NOT_READY: #{number} is blocked by {', '.join(holding)}; stop — "
-                    f"`dispatch.sh` starts this ticket again once those land, so do not "
-                    f"wait or retry"))
-    others = [h for h in holders if h != me]
-    if others:
-        out.append(("claimed-by-other",
-                    f"NOT_READY: #{number} is assigned to {', '.join(others)}, not you ({me}); "
-                    f"stop rather than work on someone else's ticket"))
     return out
 
 
@@ -2582,8 +2509,7 @@ def lint_ticket_graph(number: int, body: str) -> int:
               f"({exc}), so the batch graph was not checked  [parent-unreadable]")
         return 1
     if spec is None:
-        print("ticket graph: no parent link and no spec in `## Parent`, so there is "
-              "no batch to check")
+        print("ticket graph: the tracker records no parent, so there is no batch to check")
         return 0
     try:
         numbers = fetch_sub_issues(spec)
@@ -3604,22 +3530,6 @@ GATE_LINT_VERDICT_RE = re.compile(
     r"^LINT (?:OK(?: \((\d+) warning\(s\)\))?|FINDINGS: (\d+) error\(s\), (\d+) warning\(s\))\s*$")
 
 
-def parent_order_findings(body: str, spec: int) -> list[str]:
-    """`## Parent` names the spec this ticket sits under first.
-
-    `parent_spec` reads the first issue number there as the ticket's spec, and it is
-    what `spec_of` falls back to, what `fetch_outsider` asks of a blocker in another
-    batch, and what `--drafts` has in place of a tracker link. An earlier spec whose
-    sections a screen-contract row cites as its source is named after it, in the same words."""
-    first = parent_spec(body)
-    if first is None or first == spec:
-        return []
-    return [f"`## Parent` names #{first} first, but this ticket sits under spec #{spec}; "
-            f"the first issue in `## Parent` is read as the ticket's spec; write "
-            f"`#{spec}, Implementation Decisions sections <n>, <n>` first and an earlier "
-            f"spec's sections after it (`; #{first} Implementation Decisions section <n>`)"]
-
-
 def lint_criteria(number: int, body: str, labels: list[str],
                   spec_bodies: dict[int, str] | None = None,
                   fetch_spec_body: Callable[[int], str] | None = None,
@@ -3628,8 +3538,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
     criteria are written, and their UI rules. The batch graph is not here;
     `run_lint` checks that once per batch.
 
-    `spec`, when known, is the spec this ticket sits under, and `## Parent` must name it
-    first. `name` is how the ticket is named in what is printed: `#<number>` unless a
+    `spec`, when known, is the spec this ticket sits under. `name` is how the ticket is named in what is printed: `#<number>` unless a
     draft's name stands in for it. The ticket's verdict is the last line printed for it
     and counts every finding above it: gate-lint's own `LINT OK` / `LINT FINDINGS` line
     covers only gate-lint's findings, so it is taken out and this one printed instead."""
@@ -3652,14 +3561,11 @@ def lint_criteria(number: int, body: str, labels: list[str],
         else:
             print(f"{who} LINT OK")
 
-    def report_worker_and_parent() -> None:
+    def report_worker() -> None:
         for finding in worker_errors:
             say("error", f"{who} " + finding, "worker-label")
         for finding in worker_warnings:
             say("warn", f"{who} " + finding, "worker-label")
-        if spec is not None:
-            for finding in parent_order_findings(body, spec):
-                say("error", f"{who} " + finding, "parent-order")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
@@ -3672,7 +3578,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
                 f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
                 f"without it a spec attached to a map leaves its batch unlinted here",
                 "layer-label")
-        report_worker_and_parent()
+        report_worker()
         verdict()
         return 1 if counts["error"] else 0
 
@@ -3713,7 +3619,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
         say("error", finding, "undecidable-check")
     for finding in lint_check_effects(body):
         say("warn", finding, "shared-state")
-    report_worker_and_parent()
+    report_worker()
     verdict()
     return result.returncode or (1 if counts["error"] else 0)
 

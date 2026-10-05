@@ -114,8 +114,8 @@ class TheVocabulary(unittest.TestCase):
                 self.assertIn(subject, events.SUBJECTS)
                 self.assertTrue(verb.endswith("ed") or verb == "lost", verb)
 
-    def test_the_six_refusals_and_the_three_release_reasons(self):
-        self.assertEqual(len(events.REFUSALS), 6)
+    def test_the_two_refusals_and_the_three_release_reasons(self):
+        self.assertEqual(events.REFUSALS, ("wrong-branch", "dirty-tree"))
         self.assertEqual(events.RELEASE_REASONS, ("landed", "suspended", "worker-lost"))
 
     def test_an_unknown_event_is_refused_when_written(self):
@@ -264,7 +264,7 @@ class TheCommentFormat(unittest.TestCase):
         self.assertTrue(body.rstrip("\n").endswith("-->"))
 
     def test_a_value_holding_the_comment_closer_cannot_end_the_block_early(self):
-        body = ev("ticket.refused", "NOT_READY", reason="blocked", note="a --> b")
+        body = ev("ticket.refused", "NOT_READY", reason="dirty-tree", note="a --> b")
         what, payload = events.parse(body)
         self.assertEqual((what, payload["note"]), ("event", "a --> b"))
 

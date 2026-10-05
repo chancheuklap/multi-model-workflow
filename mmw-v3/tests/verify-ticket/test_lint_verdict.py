@@ -65,12 +65,6 @@ class TestVerdictLine(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(lines[-1], "#301 LINT OK")
 
-    def test_a_parent_order_finding_is_counted(self):
-        body = CLEAN.replace("#216", "#318 Implementation Decisions section 4; #216")
-        code, lines = lint(body, spec=216)
-        self.assertEqual(code, 1)
-        self.assertTrue(any("[parent-order]" in line for line in lines), lines)
-        self.assertEqual(lines[-1], "#301 LINT FINDINGS: 1 error(s), 0 warning(s)")
 
 
 if __name__ == "__main__":
