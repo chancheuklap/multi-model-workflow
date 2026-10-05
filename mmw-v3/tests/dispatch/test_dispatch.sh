@@ -5635,6 +5635,49 @@ JSON
   no_relay
 }
 
+scenario_opentakeover() {
+  local code
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+
+  echo "--- status on an open night says whom its wakes go to, and that it is the session asking"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  [ "$code" = 0 ] || fail "status expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "orchestrator: wake-ups go to paseo session agt_main, this session" "$TMP/out" \
+    || fail "status should name agt_main as this session: $(tail -2 "$TMP/out")"
+
+  echo "--- asked from another session, status says the wakes are not its own and names open"
+  seed_main_agent agt_new
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_new FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  [ "$code" = 0 ] || fail "status expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "orchestrator: wake-ups go to paseo session agt_main, not this session (paseo session agt_new); run \`dispatch.sh open 76\` from this session to take the night over" "$TMP/out" \
+    || fail "status should say the wakes go elsewhere: $(tail -2 "$TMP/out")"
+
+  echo "--- open from the new session takes the night's wakes"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_new FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "a second open of #76 from agt_new expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "opened #76: wake-ups go to paseo session agt_new" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  [ "$(watch_main spec:76)" = "paseo agt_new" ] \
+    || fail "spec 76's orchestrator should now be agt_new: $(cat "$STATE_DIR/watches.json" 2>&1)"
+  [ "$(posted_events 76 runner session | tail -1)" = "spec.opened runner=paseo session=agt_new" ] \
+    || fail "#76's newest spec.opened should name agt_new: $(posted_events 76 runner session)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_new FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  grep -qx "orchestrator: wake-ups go to paseo session agt_new, this session" "$TMP/out" \
+    || fail "status from agt_new should now say this session: $(tail -2 "$TMP/out")"
+  no_relay
+}
+
 scenario_openrefused() {
   local code
   fresh_project_night
@@ -9650,7 +9693,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
@@ -9830,6 +9873,7 @@ banner_for() {
     retractunreadable) echo RETRACT-UNREADABLE-OK ;;
     open) echo OPEN-OK ;;
     advancerestoreswatch) echo ADVANCE-RESTORES-WATCH-OK ;;
+    opentakeover) echo OPEN-TAKEOVER-OK ;;
     openinto) echo OPEN-INTO-OK ;;
     openpushesahead) echo OPEN-PUSHES-AHEAD-OK ;;
     openprojectreflog) echo OPEN-PROJECT-REFLOG-OK ;;

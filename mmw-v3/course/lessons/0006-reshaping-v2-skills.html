@@ -466,7 +466,7 @@ Then end your turn. The file is copied out when you report, so where you write i
 <tr><th>回合结束后又到 2 条</th><td>一条 4、一条 0</td><td>每条各开一个新回合，一条不丢，顺序不乱</td></tr>
 <tr><th>会话关掉之后再送</th><td>2（没有这个会话）</td><td>中继照规矩丢掉这一行</td></tr>
 </tbody></table></div>
-<p>Herdr 的适配器在上级忙时答「正忙」，中继留到下一轮。Paseo 的适配器只查会话在不在，就用 <code>paseo send --no-wait</code> 送出、答 0；ADR 0010 在 v2 时实测过，这样送进去的消息会打断收信方正在跑的命令。所以两处防止连着打断：一批 brief 全交了才排一行 <code>brief &lt;批&gt; done</code>；中继给一个会话送出一条后，这一轮不再给它送，下一条至少隔一轮（30 秒）。在 Paseo 上，隔一轮送到的那条仍可能落在上级的回合中间；要彻底解决，得让 <code class="c k-script">runners/paseo.sh</code> 在会话忙时答「正忙」，你说过不管 Paseo，所以没改。<span class="inf">归纳</span> 打断这一条是 v2 时的实测，没在 Paseo 0.7.2 上复测。</p>
+<p>Herdr 的适配器在上级忙时答「正忙」，中继留到下一轮。Paseo 的适配器只查会话在不在，就用 <code>paseo send --no-wait</code> 送出、答 0；ADR 0010 在 v2 时实测过，这样送进去的消息会打断收信方正在跑的命令。所以两处防止连着打断：一批 brief 全交了才排一行 <code>brief &lt;批&gt; done</code>；中继给一个会话送出一条后，这一轮不再给它送，下一条至少隔一轮（30 秒）。这两处只对 Paseo 有用：Orca 上实测连到几条也各开一个回合，Herdr 忙时答正忙。连着打断是从两件实测过的事推出来的，没见过实际事故；v2 的应对是被打断的命令都可以重跑。在 Paseo 上，隔一轮送到的那条仍可能落在上级的回合中间；要彻底解决，得让 <code class="c k-script">runners/paseo.sh</code> 在会话忙时答「正忙」，你说过不管 Paseo，所以没改。<span class="inf">归纳</span> 打断这一条是 v2 时的实测，没在 Paseo 0.7.2 上复测。</p>
 <p>查过、不用的四条路：</p>
 <div class="tablewrap"><table class="roles" style="min-width:760px">
 <thead><tr><th>做法</th><th>为什么不用</th></tr></thead>

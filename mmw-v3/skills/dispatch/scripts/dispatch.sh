@@ -636,6 +636,28 @@ revive_night_watch() {
   echo "dispatch: the night on #$spec is open and nothing watched it; the watch is restored with $runner session $session as its orchestrator" >&2
 }
 
+# The line `status` ends with on an open night: whom its wakes go to, and whether that is
+# the session running `status`. A night outlives the session that opened it (closed, its
+# host crashed, a new one started to load a new install), and the wakes keep going to the
+# session `spec.opened` names until `open` runs again from another one; nothing else moves
+# them, and `advance` restores a lost watch for that same session. Prints nothing when the
+# spec's newest night event is not `spec.opened`, or its events cannot be read.
+night_orchestrator_line() {
+  local spec="$1" runner session line own
+  runner="$(newest_field "$spec" runner spec.opened spec.suspended spec.closed 2>/dev/null)" || return 0
+  session="$(newest_field "$spec" session spec.opened spec.suspended spec.closed 2>/dev/null)" || return 0
+  if ! line="$(own_session 2>/dev/null)"; then
+    echo "orchestrator: wake-ups go to $runner session $session; this session runs in no runner that can name it, so it cannot take the night over"
+    return 0
+  fi
+  own="${line%%$'\t'*} session ${line#*$'\t'}"
+  if [ "$own" = "$runner session $session" ]; then
+    echo "orchestrator: wake-ups go to $runner session $session, this session"
+  else
+    echo "orchestrator: wake-ups go to $runner session $session, not this session ($own); run \`dispatch.sh open $spec\` from this session to take the night over"
+  fi
+}
+
 # Close the watch the arguments name (`--spec N` or `--tickets N`); the relay process ends
 # with its last watch. Exit 0 closed, or nothing was watched; 3 that watch is not open, and
 # the relay's other watches were left alone; 1 the relay did not end, the reason on stderr.
@@ -4792,7 +4814,9 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     python3 "$STATUS" --table "$2"
-    exit $?
+    rc=$?
+    night_orchestrator_line "$2"
+    exit "$rc"
     ;;
   findings)
     [ "$#" -eq 2 ] || usage

@@ -208,13 +208,14 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <div class="legend" data-legend="playbook skill principle reference script other arrow zone"></div>
 <figcaption><b>图 1</b>　一个会话从上往下走。第 3 到 5 步是夜里的循环：advance 后结束回合，被叫醒后处理完再 advance。第 6 到 10 步是收尾和验收。第 11 步不在顺序里，流水线本身坏了才去。</figcaption>
 </figure>
-<p><span class="c k-playbook">Run a night</span> 3,323 词，十一个编号步骤，后面跟两节：<b>Settling a contract child</b> 和 <b>Routing a finding</b>。它比 pstack 最大的 <span class="c k-playbook">Orchestrate</span>（2,636 词）还大，原因是第 1 步：一个夜里的会话随时可能被压缩上下文、换掉、或者在第二天早上才被你叫回来，它得只凭票和 spec 上的记录找到自己在哪（<code class="c k-principle">principle-progress-is-what-the-record-says</code>）。第 1 步的表一行一种情形，每一行把会话送到一个编号步骤，每一步有自己的「Done when」。</p>
+<p><span class="c k-playbook">Run a night</span> 3,323 词，十一个编号步骤，后面跟两节：<b>Settling a contract child</b> 和 <b>Routing a finding</b>。它比 pstack 最大的 <span class="c k-playbook">Orchestrate</span>（2,636 词）还大，原因是第 1 步：一个夜里的会话可能被压缩上下文，或者在第二天早上才被你叫回来，甚至换成另一个会话，它得只凭票和 spec 上的记录找到自己在哪（<code class="c k-principle">principle-progress-is-what-the-record-says</code>）。第 1 步的表一行一种情形，每一行把会话送到一个编号步骤，每一步有自己的「Done when」。</p>
 <div class="tablewrap"><table class="roles wrap" style="min-width:760px">
 <thead><tr><th>第 1 步的表：成立的事</th><th>去</th></tr></thead>
 <tbody>
 <tr><td>你说今晚开始，spec 上没有 <code>spec.opened</code></td><td>第 2 步</td></tr>
 <tr><td>spec 最新的夜事件是 <code>spec.suspended</code>，你说造成暂停的故障修好了</td><td>第 2 步</td></tr>
 <tr><td>最新的是 <code>spec.suspended</code>，或故障在流水线本身、这一夜必须停</td><td>第 11 步</td></tr>
+<tr><td><code>status</code> 最后一行是 <code>orchestrator: … not this session</code>：这一夜的叫醒送到另一个会话，spec 没有 <code>spec.closed</code></td><td>第 2 步，<code>open</code> 把这一夜交给本会话</td></tr>
 <tr><td>一次叫醒：<code>#&lt;n&gt; &lt;事件&gt;</code>、<code>relay.recovered since …</code>、<code>watchdog:</code> 告警、<code>MMW turn guard:</code></td><td>第 5 步</td></tr>
 <tr><td><code>status</code> 显示前沿上有票、没有活着的 agent，spec 没有 <code>spec.closed</code></td><td>第 3 步</td></tr>
 <tr><td>前沿空、没有活着的 agent，没有 <code>spec.closed</code></td><td>第 6 步</td></tr>
@@ -223,6 +224,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <tr><td>没有一行成立</td><td>结束回合，等叫醒或等你开口</td></tr>
 </tbody></table></div>
 
+<p><b>换成另一个会话。</b>一夜比开它的会话活得长：会话可能被关掉，宿主可能崩溃，装了新版本以后也要开新会话才读得到新的技能说明。v2 的中继为此留了办法，<code class="c k-script">relay.py</code> 写明：从一个新会话再跑一次 <code>open</code>，这一夜的叫醒就改送到新会话。在那之前，叫醒照旧送到 <code>spec.opened</code> 记的那个会话；<code class="c k-script">advance</code> 发现没有中继在看这一夜时，恢复的也是那个旧会话的看守（runner 说旧会话已经停了时，advance 拒绝，叫你先 <code>open</code>）。所以新会话不能直接 advance。<code>status</code> 在一夜开着时最后打一行，说叫醒送到哪个会话、是不是本会话；不是，第 1 步就送它去第 2 步重跑 <code>open</code>。上下文被压缩不算换会话：会话号不变，叫醒照样送得到。</p>
 <h2>2　每一步写什么、从哪来</h2>
 <div class="tablewrap"><table class="roles wrap" style="min-width:860px">
 <thead><tr><th>步</th><th>写什么</th><th>v2 出处（<code class="c k-reference">night.md</code>）</th><th>和 v2 不同的</th></tr></thead>
@@ -261,6 +263,7 @@ The night's output is a batch the owner can accept in the morning, not a count o
    | The owner has said the night starts, and the spec carries no `spec.opened` | step 2 |
    | The spec's newest night event is `spec.suspended`, and the owner has said the fault that suspended it is fixed | step 2 |
    | The spec's newest night event is `spec.suspended`, or the fault is in the pipeline and the night must stop | step 11 |
+   | `status` ends with `orchestrator: … not this session`: the night's wakes go to a session that opened it before this one, and the spec carries no `spec.closed` | step 2, which makes this session the night's orchestrator |
    | A wake arrived: `#&lt;n&gt; &lt;event&gt;`, `relay.recovered since &lt;time&gt;`, a line of `watchdog:` alerts, or `MMW turn guard:` | step 5 |
    | `status` shows a ticket on the frontier and no live agent, and the spec carries no `spec.closed` | step 3 |
    | `status` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | step 6 |
@@ -413,7 +416,8 @@ Open as few tickets as possible. A finding that is a ticket on its own becomes o
 <div class="tablewrap"><table class="roles wrap" style="min-width:860px">
 <thead><tr><th>先前</th><th>错在哪</th><th>现在</th></tr></thead>
 <tbody>
-<tr><th>第 1 步：没有一行成立时，这一夜在等你验收，结束回合</th><td>开夜后会话被换掉、前沿上还有票而没有活着的 agent，这时也没有一行成立，会话会一直睡下去（核对时查出）</td><td>加一行「前沿上有票、没有活着的 agent → 第 3 步」；没有一行成立时写「等叫醒或等你开口」</td></tr>
+<tr><th>第 1 步：没有一行成立时，这一夜在等你验收，结束回合</th><td>第 3 步所有派发都被拒、没有一个 worker 活着时告诉你；你处理完开口，表里没有一行送会话回 advance（核对时查出）</td><td>加一行「前沿上有票、没有活着的 agent → 第 3 步」；没有一行成立时写「等叫醒或等你开口」</td></tr>
+<tr><th>新会话接手一夜：没有写</th><td>v2 的中继支持新会话重跑 <code>open</code> 接手，<code>night.md</code> 的表却没有一行送它去。我先写的修法是送去第 3 步 advance，你追问依据时我发现错了：叫醒仍送旧会话，新会话照样睡着</td><td><code>status</code> 最后一行说叫醒送到哪个会话、是不是本会话；第 1 步加一行，不是本会话就去第 2 步重跑 <code>open</code></td></tr>
 <tr><th>暂停过的一夜只有去第 11 步的一行</th><td>故障修好以后没有一行把会话送回去，这一夜回不来（核对时查出）</td><td>加一行「你说故障修好了 → 第 2 步」，<code>open</code> 和 <code class="c k-script">advance</code> 接着用留下的工作区和分支</td></tr>
 <tr><th>第 8 步：「从任何检出目录」跑 <code class="c k-script">reverify</code> 和 <code class="c k-script">summary</code></th><td><code class="c k-script">summary</code> 读 <code class="c k-script">reverify</code> 留在克隆里的回执，换一个克隆就读不到（核对时查出）</td><td>同一个克隆里先后跑</td></tr>
 <tr><th>第 8 步没写 <code class="c k-script">summary</code> 的几种拒绝</th><td>夜没收完、没有回执、base 在 <code class="c k-script">reverify</code> 之后又被推过，会话不知道回哪一步（核对时查出）</td><td>前者回第 5 步的 advance，后两者重跑 <code class="c k-script">reverify</code></td></tr>
@@ -421,7 +425,7 @@ Open as few tickets as possible. A finding that is a ticket on its own becomes o
 <tr><th>第 6 步没写 <code>findings</code> 的输出和退出 2</th><td>会话不知道 <code>route</code> 要的票号在哪一列；退出 2 时列表不是空的而是没读到（核对时查出）</td><td>写明三列、第一列是票号，退出 2 就重跑</td></tr>
 <tr><th><b>Routing a finding</b>：修好就 <code>route … fixed</code></th><td><code>route</code> 把当前检出目录的 <code>HEAD</code> 记作修复，在别的目录跑会记错提交（核对时查出）</td><td>在推出修复的那个检出目录里跑</td></tr>
 <tr><th>自己修的、<code class="c k-script">reverify</code> 红票的修复：跑受影响的测试，推到 base</th><td>和 <span class="c k-playbook">Make a small change</span> 一样是直接推进 base 的树，只给小改动加检查，规则就不一致</td><td>推之前也跑仓库检查</td></tr>
-<tr><th>第 10 步：<code class="c k-script">finish</code> 退出 2 就修 stderr 说的</th><td>退出 2 也可能是 base 上还有票开着，那些票是关是留由你定，会话不该自己关（核对时查出）</td><td>告诉你哪几张，一张也不关，你定了再 <code class="c k-script">finish</code></td></tr>
+<tr><th>第 10 步：<code class="c k-script">finish</code> 退出 2 就修 stderr 说的</th><td>退出 2 也可能是 base 上还有票开着，那些票是关是留由你定，会话不该自己关（核对时查出）。这一条是我的判断：v2 的拒绝信息只说「close them before finish」，没说谁来关；关一张票是范围的决定</td><td>告诉你哪几张，一张也不关，你定了再 <code class="c k-script">finish</code></td></tr>
 <tr><th>第 5 步的表没有 <code>MMW turn guard:</code> 一行</th><td>第 1 步把它算作叫醒、送到第 5 步，第 5 步却没说怎么办（核对时查出）</td><td>加一行：照它的文字做，它点名要跑的命令</td></tr>
 <tr><th><code class="c k-reference">linting.md</code>：退出 2 是判据点名了这次够不着的判官</th><td>tracker 没答时也退出 2（核对时查出）</td><td>补上：这时重跑同一条命令</td></tr>
 <tr><th><code class="c k-script">dispatch.sh summary</code> 的一句提示指向 v2 的 <code>night.md</code></th><td>v3 没有这个文件（核对时查出）</td><td>指向 <span class="c k-playbook">Run a night</span> 第 6 步</td></tr>
@@ -438,7 +442,8 @@ Open as few tickets as possible. A finding that is a ticket on its own becomes o
 <tbody>
 <tr><th><code class="c k-script">check_imports.py</code></th><td><code>IMPORTS OK 132 rows</code></td><td>每个搬来的文件和来源逐字节对得上，改了的都有记录</td></tr>
 <tr><th><code class="c k-script">check-interfaces.py</code></th><td><code>INTERFACES OK</code></td><td>中继叫醒 orchestrator 的每个事件，<span class="c k-playbook">Run a night</span> 都有一步处理（第 3 条）；路由行对得上</td></tr>
-<tr><th><code class="c k-script">tests/dispatch/run.sh</code> 全套</th><td>单元测试 231 个、场景 201 个通过</td><td><code>findings</code>、<code>route</code>、<code class="c k-script">reverify</code>、<code class="c k-script">summary</code>、<code class="c k-script">finish</code>、<code class="c k-script">suspend</code> 的行为和第 2 节写的退出对得上，包括 summaryholdsfindings（还有没分流的 finding 时 <code class="c k-script">summary</code> 拒绝）</td></tr>
+<tr><th><code class="c k-script">tests/dispatch/run.sh</code> 全套</th><td>单元测试 231 个、场景 201 个通过；改 <code>status</code> 之后重跑了相关的 9 个场景</td><td><code>findings</code>、<code>route</code>、<code class="c k-script">reverify</code>、<code class="c k-script">summary</code>、<code class="c k-script">finish</code>、<code class="c k-script">suspend</code> 的行为和第 2 节写的退出对得上，包括 summaryholdsfindings（还有没分流的 finding 时 <code class="c k-script">summary</code> 拒绝）</td></tr>
+<tr><th>场景 opentakeover（新）</th><td>改动前的 <code class="c k-script">dispatch.sh</code> 上失败，改动后通过</td><td>开着的一夜，<code>status</code> 对开它的会话说「this session」，对另一个会话说「not this session」并点名 <code>open</code>；另一个会话重跑 <code>open</code> 后，看守的 orchestrator 和最新的 <code>spec.opened</code> 都换成它。重跑 <code>open</code> 接手这一半在旧代码上本来就通过，缺的是 <code>status</code> 那一行和第 1 步的路</td></tr>
 <tr><th><code class="c k-script">tests/relay/run.sh</code> 全套</th><td>单元测试 120 个、端到端 16 个场景通过</td><td>一轮只给同一个会话送一条（新测试在改代码前红过）；中继重启后先补送没 ack 的</td></tr>
 <tr><th><code class="c k-script">tests/liveness/run.sh</code> 全套</th><td>单元测试 85 个、端到端 36 个通过</td><td>看门进程和回合守卫的行为；它的提示改指 <span class="c k-playbook">Run a night</span> 第 4 步后行为不变</td></tr>
 <tr><th><code class="c k-script">tests/retro/run.sh</code></th><td>8 个场景通过</td><td>搬来的 <code class="c k-skill">retro</code> 在假的 tracker 和假的 Memory 上跑通，读得懂 v3 的事件</td></tr>

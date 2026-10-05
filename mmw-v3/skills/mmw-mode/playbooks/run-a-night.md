@@ -15,6 +15,7 @@ The night's output is a batch the owner can accept in the morning, not a count o
    | The owner has said the night starts, and the spec carries no `spec.opened` | step 2 |
    | The spec's newest night event is `spec.suspended`, and the owner has said the fault that suspended it is fixed | step 2 |
    | The spec's newest night event is `spec.suspended`, or the fault is in the pipeline and the night must stop | step 11 |
+   | `status` ends with `orchestrator: … not this session`: the night's wakes go to a session that opened it before this one, and the spec carries no `spec.closed` | step 2, which makes this session the night's orchestrator |
    | A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` alerts, or `MMW turn guard:` | step 5 |
    | `status` shows a ticket on the frontier and no live agent, and the spec carries no `spec.closed` | step 3 |
    | `status` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | step 6 |
