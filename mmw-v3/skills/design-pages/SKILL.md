@@ -65,4 +65,4 @@ It gives every page one look: the agent inside Claude Design composes named part
 | `scripts/pull_design.py <package dir> --pages <page.dc.html>... [--state-list <README.md>] [--contract <screen-contract.yaml>]` | Downloads the named pages and every file they load from the address in `MMW_DESIGN_PREVIEW_URL`, renders each scene offline in Chromium, writes the design package and `pull-report.md`. Exits 0 whatever the report finds; exit 2 leaves the package as it was, and stderr says why. File bytes do not pass through the model. |
 | `scripts/check_editable_selectors.py` | Run by the pull: finds the stylesheet selectors the Claude Design editor cannot reach, for the `编辑器点不中的选择器` line. |
 
-Both render with the `ui-acceptance` skill's `scripts/design_render.py`, found beside this skill; `--tools <dir>` points the pull elsewhere. A machine without Chromium installs it once with `uv run --with playwright python -m playwright install chromium`.
+Both render with the `ui-acceptance` skill's `scripts/design_render.py`, found beside this skill. A machine without Chromium installs it once with `uv run --with playwright python -m playwright install chromium`.

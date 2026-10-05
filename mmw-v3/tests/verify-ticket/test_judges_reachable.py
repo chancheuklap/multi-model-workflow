@@ -47,7 +47,6 @@ class RequireJudges(unittest.TestCase):
         with self.assertRaises(vt.JudgeUnreachable) as caught:
             vt.require_judges(ticket(STORY))
         self.assertIn("story-parity.py", str(caught.exception))
-        self.assertIn("--tools", str(caught.exception))
 
     def test_the_tools_directory_answers(self):
         vt.TOOLS[:] = [SCRIPTS]

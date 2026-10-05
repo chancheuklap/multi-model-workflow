@@ -1765,10 +1765,9 @@ def hold_slot(root: Path) -> dict | int:
     """
     lease = load_lease()
     if lease is None:
-        return refuse("a criterion runs the product and no directory in force holds "
-                      "lease.py, so no slot can be acquired for it. Nothing was run and "
-                      "nothing was written. Pass --tools <the ui-acceptance skill's scripts "
-                      "directory> and run again.")
+        return refuse("a criterion runs the product and lease.py is not beside this "
+                      "skill, so no slot can be acquired for it. Nothing was run and "
+                      "nothing was written; " + "this toolbox checkout is missing part of the ui-acceptance skill; report that to the owner" + ".")
     try:
         return lease.try_claim(lease.worktree_of(root))
     except lease.Full as full:
@@ -2788,8 +2787,8 @@ def require_judges(body: str) -> None:
     if missing:
         raise JudgeUnreachable(
             ", ".join(missing) + ": named by a `CHECK:` and in none of the directories "
-            "this run searched and not on PATH. Nothing was run and nothing was written. Pass "
-            "--tools <a directory holding it> and run again.")
+            "this run searched and not on PATH. Nothing was run and nothing was written; "
+            "this toolbox checkout is missing part of a skill; report that to the owner.")
 
 
 RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")

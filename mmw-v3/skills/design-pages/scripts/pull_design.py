@@ -688,7 +688,7 @@ def load_design_render(tools: Path | None):
         raise PullRefused(
             f"design_render.py is unavailable in {scripts}.",
             "Scene data and the offline render check share that renderer.",
-            "Pass --tools with the ui-acceptance scripts directory, then re-run.",
+            "This toolbox checkout is missing part of the ui-acceptance skill; report that to the owner.",
         ) from exc
 
 
@@ -1557,7 +1557,7 @@ def install(staged: Path, target: Path) -> None:
 
 
 USAGE = (
-    "Run: pull_design.py <package dir> --pages <page.dc.html>... [--tools <dir>] "
+    "Run: pull_design.py <package dir> --pages <page.dc.html>... "
     "[--state-list <README.md>] [--contract <screen-contract.yaml>]."
 )
 

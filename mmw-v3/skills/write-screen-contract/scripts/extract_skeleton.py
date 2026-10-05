@@ -47,15 +47,8 @@ def load_driver():
             break
     if path is None:
         paths = ", ".join(str(d) for d in looked)
-        if TOOLS:
-            raise SystemExit(
-                f"no design_render.py in any --tools directory ({paths}). "
-                "That file belongs to the ui-acceptance skill. "
-                "Pass --tools <the ui-acceptance skill's scripts directory>."
-            )
         raise SystemExit(
-            f"no design_render.py in the sibling ui-acceptance skill ({paths}). "
-            "Pass --tools <the ui-acceptance skill's scripts directory>."
+            f"no design_render.py in {paths}; this toolbox checkout is missing part of the ui-acceptance skill; report that to the owner."
         )
     spec = importlib.util.spec_from_file_location("design_render", path)
     mod = importlib.util.module_from_spec(spec)
