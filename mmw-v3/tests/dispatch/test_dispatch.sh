@@ -13,7 +13,7 @@
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh orcasend|orcaclosed
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove
-#   bash mmw-v3/tests/dispatch/test_dispatch.sh openwithoutboard|openticketwithoutboard
+#   bash mmw-v3/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
@@ -1817,6 +1817,25 @@ for _ in range(50):
     if not alive: break
     time.sleep(0.02)
 ' >/dev/null 2>&1 || true
+}
+
+board_registry_port() {
+  python3 - "$MMW_HOME/boards.json" <<'PY'
+import json, sys
+values = list(json.load(open(sys.argv[1])).values())
+assert len(values) == 1, values
+print(values[0])
+PY
+}
+
+fresh_board_registry() {
+  stop_test_listeners
+  stop_test_boards
+  BOARD_TEST_PORTS=""
+  rm -f "$MMW_HOME/boards.json" "$MMW_HOME/boards.json.lock" \
+    "$MMW_HOME/board.log" "$MMW_HOME"/board-*.log
+  reset_log
+  fresh_repo
 }
 
 # One comment the way the pipeline's scripts write it, JSON-quoted for a tickets.json
@@ -5585,7 +5604,7 @@ scenario_open() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #76: wake-ups go to paseo session agt_main" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -qx "opened #76: wake-ups go to paseo session agt_main; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's orchestrator should be agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
   posted_events 76 runner session | grep -qx "spec.opened runner=paseo session=agt_main" \
@@ -5610,7 +5629,7 @@ scenario_open() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 77)"
   [ "$code" = 0 ] || fail "open 77 expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #77: wake-ups go to paseo session agt_other" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -qx "opened #77: wake-ups go to paseo session agt_other; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the second night should join relay $pid: $(relay_now)"
   [ "$(watch_main spec:77)" = "paseo agt_other" ] || fail "spec 77's orchestrator should be agt_other: $(cat "$STATE_DIR/watches.json")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's orchestrator should still be agt_main: $(cat "$STATE_DIR/watches.json")"
@@ -5678,7 +5697,7 @@ scenario_opentakeover() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_new FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "a second open of #76 from agt_new expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #76: wake-ups go to paseo session agt_new" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -qx "opened #76: wake-ups go to paseo session agt_new; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(watch_main spec:76)" = "paseo agt_new" ] \
     || fail "spec 76's orchestrator should now be agt_new: $(cat "$STATE_DIR/watches.json" 2>&1)"
   [ "$(posted_events 76 runner session | tail -1)" = "spec.opened runner=paseo session=agt_new" ] \
@@ -5796,7 +5815,7 @@ JSON
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-ticket 95)"
   [ "$code" = 0 ] || fail "open-ticket 95 beside the night expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #95: wake-ups go to paseo session agt_other" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -q "^opened #95: wake-ups go to paseo session agt_other; task board http://127.0.0.1:[0-9]*$" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now)" = "$pid "'{"spec": 76} {"tickets": [95]}' ] || fail "relay $pid should watch the night and #95: $(relay_now)"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "the night's orchestrator should still be agt_main: $(cat "$STATE_DIR/watches.json")"
   [ "$(watch_main tickets:95)" = "paseo agt_other" ] || fail "#95's orchestrator should be agt_other: $(cat "$STATE_DIR/watches.json")"
@@ -6034,12 +6053,154 @@ scenario_worktreeremove() {
   hasnt_runner_worktree
 }
 
-scenario_openwithoutboard() {
-  local code copy
+scenario_boardregisters() {
+  local code port listening registered expected repository candidates
+  echo "--- board skips a listening port and a registered port, then starts on the first free one"
+  fresh_board_registry
+  candidates="$(python3 - <<'PY'
+import socket
+found = []
+for port in range(47100, 65536):
+    sock = socket.socket()
+    try:
+        sock.bind(("0.0.0.0", port))
+    except OSError:
+        sock.close()
+        continue
+    sock.close()
+    found.append(port)
+    if len(found) == 3:
+        break
+print(*found)
+PY
+)"
+  set -- $candidates
+  listening="$1"; registered="$2"; expected="$3"
+  start_test_listener "$listening" || fail "could not start the all-address listener"
+  python3 - "$MMW_HOME/boards.json" "$registered" <<'PY'
+import json, sys
+with open(sys.argv[1], "w") as fh:
+    json.dump({"/already/registered": int(sys.argv[2])}, fh)
+PY
+  MMW_PORT="$listening" python3 - <<'PY' || fail "the occupied candidate does not answer"
+import os, socket
+with socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=1):
+    pass
+PY
+  code="$(run_dispatch env MMW_RUNNER=paseo bash "$DISPATCH" board)"
+  [ "$code" = 0 ] || fail "board expected 0: $(cat "$TMP/err")"
+  repository="$(cd "$TMP/repo" && pwd -P)"
+  port="$(MMW_REPOSITORY="$repository" python3 - "$MMW_HOME/boards.json" <<'PY'
+import json, os, sys
+print(json.load(open(sys.argv[1]))[os.environ["MMW_REPOSITORY"]])
+PY
+)"
+  BOARD_TEST_PORTS="$port"
+  MMW_REPOSITORY="$repository" MMW_PORT="$port" MMW_EXPECTED="$expected" \
+    python3 - "$MMW_HOME/boards.json" <<'PY' || fail "boards.json has the wrong registration"
+import json, os, sys
+data = json.load(open(sys.argv[1]))
+assert data[os.environ["MMW_REPOSITORY"]] == int(os.environ["MMW_PORT"]), data
+assert len(data) == 2, data
+assert int(os.environ["MMW_PORT"]) == int(os.environ["MMW_EXPECTED"]), data
+PY
+  [ "$(cat "$TMP/out")" = "http://127.0.0.1:$port" ] \
+    || fail "unsupported runner should print the URL: $(cat "$TMP/out")"
+  MMW_PORT="$port" python3 - <<'PY' || fail "the registered board does not answer"
+import os, socket
+with socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=1):
+    pass
+PY
+}
+
+scenario_boardsameport() {
+  local code port second repository
+  echo "--- board reuses one main-checkout registration from another worktree"
+  fresh_board_registry
+  code="$(run_dispatch env MMW_RUNNER=paseo bash "$DISPATCH" board)"
+  [ "$code" = 0 ] || fail "first board expected 0: $(cat "$TMP/err")"
+  port="$(board_registry_port)"
+  BOARD_TEST_PORTS="$port"
+  git -C "$TMP/repo" worktree add -q -b board-other "$TMP/board-other"
+  (cd "$TMP/board-other" && env MMW_RUNNER=paseo bash "$DISPATCH" board) \
+    > "$TMP/out" 2> "$TMP/err"
+  code=$?
+  [ "$code" = 0 ] || fail "board from worktree expected 0: $(cat "$TMP/err")"
+  second="$(board_registry_port)"
+  [ "$second" = "$port" ] || fail "worktree got port $second instead of $port"
+  repository="$(cd "$TMP/repo" && pwd -P)"
+  MMW_REPOSITORY="$repository" python3 - "$MMW_HOME/boards.json" <<'PY' \
+    || fail "worktree created a second registry key"
+import json, os, sys
+data = json.load(open(sys.argv[1]))
+assert list(data) == [os.environ["MMW_REPOSITORY"]], data
+PY
+}
+
+scenario_boardopenstab() {
+  local code port workspace calls
+  echo "--- board asks the Orca adapter for a tab tied to the current worktree"
+  fresh_board_registry
+  git -C "$TMP/repo" worktree add -q -b board-open "$TMP/board-open"
+  (cd "$TMP/board-open" && env MMW_RUNNER=orca bash "$DISPATCH" board) \
+    > "$TMP/out" 2> "$TMP/err"
+  code=$?
+  [ "$code" = 0 ] || fail "Orca board expected 0: $(cat "$TMP/err")"
+  port="$(board_registry_port)"
+  BOARD_TEST_PORTS="$port"
+  workspace="$(cd "$TMP/board-open" && pwd -P)"
+  calls="$(count_of 'orca :: tab :: create')"
+  [ "$calls" = 1 ] || fail "expected one tab create, got $calls"
+  has "orca :: tab :: create :: --url :: http://127.0.0.1:$port :: --worktree :: path:$workspace :: --json"
+  [ ! -s "$TMP/out" ] || fail "successful tab creation should print nothing: $(cat "$TMP/out")"
+  bash "$SKILL/scripts/runners/orca.sh" open-url --cwd "$TMP/no-such-workspace" \
+    --url "http://127.0.0.1:$port" > "$TMP/out" 2> "$TMP/err"
+  code=$?
+  [ "$code" = 1 ] || fail "a bad Orca workspace must fail, got $code"
+}
+
+scenario_boardprintsurl() {
+  local code port
+  echo "--- board prints its URL when the selected adapter has no open-url action"
+  fresh_board_registry
+  code="$(run_dispatch env MMW_RUNNER=paseo bash "$DISPATCH" board)"
+  [ "$code" = 0 ] || fail "Paseo board expected 0: $(cat "$TMP/err")"
+  port="$(board_registry_port)"
+  BOARD_TEST_PORTS="$port"
+  [ "$(cat "$TMP/out")" = "http://127.0.0.1:$port" ] \
+    || fail "stdout is not the exact board URL: $(cat "$TMP/out")"
+  hasnt "paseo :: tab :: create"
+  hasnt "orca :: tab :: create"
+}
+
+scenario_openstartsboard() {
+  local code port copy
+  echo "--- open registers this repository's board, starts it, and names its URL on the line that opens the night"
+  fresh_board_registry
   fresh_project_night
   git -C "$TMP/repo" push -q -u origin night
   reset_log
+  no_relay
   write_open_batch
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+  port="$(board_registry_port)"
+  BOARD_TEST_PORTS="$port"
+  [ "$(cat "$TMP/out")" = "opened #76: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port" ] \
+    || fail "open should name the board it started: $(cat "$TMP/out")"
+  MMW_PORT="$port" python3 - <<'PY' || fail "the board open started does not answer"
+import os, socket
+socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=2).close()
+PY
+  python3 - "$MMW_HOME/boards.json" "$(cd "$TMP/repo" && pwd -P)" <<'PY' \
+    || fail "open should register the main worktree: $(cat "$MMW_HOME/boards.json")"
+import json, sys
+registry = json.load(open(sys.argv[1]))
+assert list(registry) == [sys.argv[2]], registry
+PY
+
   echo "--- a board that cannot be started is said so and does not stop the night"
   no_relay
   copy="$(skill_copy_for open-no-board)"
@@ -6057,12 +6218,33 @@ scenario_openwithoutboard() {
   no_relay
 }
 
-scenario_openticketwithoutboard() {
-  local code copy
-  reset_log
+scenario_openticketstartsboard() {
+  local code port copy
+  echo "--- open-ticket registers this repository's board, starts it, and names its URL on the line that opens the watch"
+  fresh_board_registry
+  no_relay
+  seed_main_agent agt_main
   cat > "$TMP/tickets.json" <<'JSON'
 [{"number": 90, "state": "OPEN", "labels": ["ready-for-agent"], "parent": null}]
 JSON
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
+  [ "$code" = 0 ] || fail "open-ticket expected 0, got $code: $(cat "$TMP/err")"
+  port="$(board_registry_port)"
+  BOARD_TEST_PORTS="$port"
+  [ "$(cat "$TMP/out")" = "opened #90: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port" ] \
+    || fail "open-ticket should name the board it started: $(cat "$TMP/out")"
+  MMW_PORT="$port" python3 - <<'PY' || fail "the board open-ticket started does not answer"
+import os, socket
+socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=2).close()
+PY
+  python3 - "$MMW_HOME/boards.json" "$(cd "$TMP/repo" && pwd -P)" <<'PY' \
+    || fail "open-ticket should register the main worktree: $(cat "$MMW_HOME/boards.json")"
+import json, sys
+registry = json.load(open(sys.argv[1]))
+assert list(registry) == [sys.argv[2]], registry
+PY
+
   echo "--- a board that cannot be started is said so and the watch is open all the same"
   no_relay
   copy="$(skill_copy_for open-ticket-no-board)"
@@ -9494,7 +9676,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-start"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
@@ -9524,8 +9706,12 @@ banner_for() {
     memory-closing-refuses) echo MEMORY-CLOSING-REFUSES-OK ;;
     memory-closing-retry) echo MEMORY-CLOSING-RETRY-OK ;;
     retro-review-evidence) echo RETRO-REVIEW-EVIDENCE-OK ;;
-    openwithoutboard) echo OPEN-WITHOUT-BOARD-OK ;;
-    openticketwithoutboard) echo OPEN-TICKET-WITHOUT-BOARD-OK ;;
+    boardregisters) echo BOARD-REGISTERS-OK ;;
+    boardsameport) echo BOARD-SAME-PORT-OK ;;
+    boardopenstab) echo BOARD-OPENS-TAB-OK ;;
+    boardprintsurl) echo BOARD-PRINTS-URL-OK ;;
+    openstartsboard) echo OPEN-STARTS-BOARD-OK ;;
+    openticketstartsboard) echo OPEN-TICKET-STARTS-BOARD-OK ;;
     startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;
     startnomodelsjson) echo START-NO-MODELS-JSON-OK ;;
     orcaworktreelink) echo ORCA-WORKTREE-LINK-OK ;;

@@ -17,6 +17,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS = ROOT / ".mmw" / "harness"
+# The MMW checkout whose board this harness runs, relative to the repository root:
+# mmw-v2 unless MMW_TOOLBOX_DIR names another.
+TOOLBOX = ROOT / os.environ.get("MMW_TOOLBOX_DIR", "mmw-v2")
 BOARD_SERVER = HARNESS / "board_server.py"
 
 
@@ -155,24 +158,27 @@ def port_holder(port: int) -> str:
 
 
 def seed_mmw_home() -> Path:
-    """Give this lease a private copy of the machine configuration."""
+    """Give this lease a private copy of the machine configuration, with one row per role
+    of the toolbox's defaults; a copy seeded for another role set is seeded again."""
     home = state_path().parent / "mmw-home"
     home.mkdir(parents=True, exist_ok=True, mode=0o700)
     config_path = home / "models.json"
-    if not config_path.exists():
-        hosts = json.loads(
-            (ROOT / "mmw-v2" / "skills" / "dispatch" / "hosts.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        rows = {
-            row["agent"]: {
-                "host": row["host"],
-                "model": row["model"],
-                "effort": row["effort"],
-            }
-            for row in hosts["defaults"]
+    hosts = json.loads(
+        (TOOLBOX / "skills" / "dispatch" / "hosts.json").read_text(encoding="utf-8")
+    )
+    rows = {
+        row["agent"]: {
+            "host": row["host"],
+            "model": row["model"],
+            "effort": row["effort"],
         }
+        for row in hosts["defaults"]
+    }
+    try:
+        seeded = set(json.loads(config_path.read_text(encoding="utf-8"))["rows"])
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+        seeded = None
+    if seeded != set(rows):
         config = {"version": 1, "runner": "orca", "rows": rows}
         config_path.write_text(
             json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -207,7 +213,8 @@ def start() -> int:
     old = read_state()
     if (old and old.get("origin") == origin and owns(old)
             and old.get("token") == page_token(origin)
-            and old.get("break", "") == armed_break):
+            and old.get("break", "") == armed_break
+            and old.get("toolbox") == str(TOOLBOX)):
         usable, reason = require_usable_board(origin)
         if not usable:
             return refuse_unusable_board(reason)
@@ -253,6 +260,7 @@ def start() -> int:
         "mmw_home": str(mmw_home),
         "host_catalog": str(host_catalog),
         "break": armed_break,
+        "toolbox": str(TOOLBOX),
     }) + "\n", encoding="utf-8")
     for _ in range(50):
         token = page_token(origin)

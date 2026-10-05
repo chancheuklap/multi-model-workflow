@@ -11,7 +11,10 @@ import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-BOARD = ROOT / "mmw-v2" / "board"
+# The MMW checkout whose board this harness runs, relative to the repository root:
+# mmw-v2 unless MMW_TOOLBOX_DIR names another.
+TOOLBOX = ROOT / os.environ.get("MMW_TOOLBOX_DIR", "mmw-v2")
+BOARD = TOOLBOX / "board"
 if str(BOARD) not in sys.path:
     sys.path.insert(0, str(BOARD))
 

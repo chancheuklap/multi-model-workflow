@@ -5,7 +5,7 @@
       {"id": "grok-4.7", "name": "Grok 4.7", "thinkingOptionIds": ["high", "xhigh"]}
     ]},
     "claude": {"offerings": [
-      {"id": "opus[1m]", "name": "opus[1m]", "thinkingOptionIds": ["high"], "note": "Opus 5.5 with 1M context"},
+      {"id": "opus[1m]", "name": "opus[1m]", "thinkingOptionIds": ["high", "xhigh"], "note": "Opus 5.5 with 1M context"},
       {"id": "fable[1m]", "name": "fable[1m]", "thinkingOptionIds": ["medium"], "note": "Fable 5.1"},
       {"id": "sonnet", "name": "sonnet", "thinkingOptionIds": ["high"], "note": "Sonnet 5"}
     ]},

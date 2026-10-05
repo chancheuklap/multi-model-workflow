@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Change which host, model or reasoning effort an agent role runs on, or which runner this machine uses. Use when the user asks to change a role's host, model or effort, or the runner.
+description: Change which host, model or reasoning effort an agent role runs on, or which runner this machine uses, or open the local task board. Use when the user asks to change a role's host, model or effort, or the runner, or to open the task board.
 ---
 
 # Dispatch
@@ -10,6 +10,10 @@ The scripts that start sessions, wake them and watch them: `scripts/dispatch.sh`
 ## Changing a role's model, or the runner
 
 Read [references/editing-models.md](references/editing-models.md).
+
+## Opening the task board
+
+Run `bash scripts/dispatch.sh board` from any checkout of the repository. Exit 0 opened the board or printed its URL for you to hand the user; exit 2 says why on stderr.
 
 ## On waking
 
