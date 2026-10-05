@@ -1,0 +1,6042 @@
+{
+"nodes": [
+{
+"id": "entry.owner-session",
+"kind": "entry",
+"name": "/mmw-mode typed by the person",
+"label_zh": "人启动的会话",
+"purpose_zh": "owner 在终端输入 /mmw-mode 或请求按此模式工作，会话加载 mode。",
+"trigger_zh": "owner 开会话提需求",
+"source": "mmw-v3/skills/mmw-mode/README.md#What the mode is for"
+},
+{
+"id": "hook.mode-hook",
+"kind": "hook",
+"name": "mode-hook.py session-start",
+"label_zh": "SessionStart 钩子",
+"purpose_zh": "仓库有 .mmw/ 时给会话加一行上下文：先完整读 mmw-mode 的 SKILL.md。",
+"trigger_zh": "Claude Code / Codex 会话启动",
+"source": "mmw-v3/skills/mmw-mode/scripts/mode-hook.py (header docstring)",
+"origin": "v3"
+},
+{
+"id": "entry.start-prompt",
+"kind": "entry",
+"name": "start prompt (dispatch.sh start_prompt)",
+"label_zh": "脚本起会话的起始提示词",
+"purpose_zh": "只说两件事：Use the mmw-mode skill，以及在本 ticket 上跑哪个 playbook。",
+"trigger_zh": "dispatch.sh start 起 worker/reviewer",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header: 'A session `start` opens is told two things')"
+},
+{
+"id": "human.owner",
+"kind": "human",
+"name": "the owner",
+"label_zh": "owner（产品所有者）",
+"purpose_zh": "只做产品决定：顾客看到什么、钱、范围与顺序、对外发布、不可逆之事。",
+"trigger_zh": "任何只属于 owner 的决定",
+"source": "mmw-v3/prompt/shared.md (paragraph 'Engineering decisions are yours; product decisions are mine')"
+},
+{
+"id": "human.gate-always-pause",
+"kind": "human",
+"name": "Always pause",
+"label_zh": "始终暂停的决定",
+"purpose_zh": "只由 owner 决定的事与不可逆写入：先做完不依赖它的部分再问。",
+"trigger_zh": "遇到 owner 的决定或不可逆写入",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Autonomy"
+},
+{
+"id": "human.gate-map-destination",
+"kind": "human",
+"name": "Name the destination",
+"label_zh": "确认地图终点",
+"purpose_zh": "owner 同意一两行话描述地图走到底是什么样。",
+"trigger_zh": "Chart a map 第 1 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 1"
+},
+{
+"id": "human.gate-design-signoff",
+"kind": "human",
+"name": "Design sign-off",
+"label_zh": "设计签收",
+"purpose_zh": "owner 签收 Claude Design 页面，此后改动只能在 Claude Design 改再 pull。",
+"trigger_zh": "Design in Claude Design 第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md step 8"
+},
+{
+"id": "human.gate-gap-list",
+"kind": "human",
+"name": "Gap list settled",
+"label_zh": "缺口清单拍板",
+"purpose_zh": "owner 逐条决定 design-only / backend-only 的行，屏幕契约才进 docs/specs。",
+"trigger_zh": "Write the screen contract 第 7 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md step 7"
+},
+{
+"id": "human.gate-spec-calls",
+"kind": "human",
+"name": "Owner's calls in a spec",
+"label_zh": "spec 中的产品决定",
+"purpose_zh": "顾客可见、钱、范围上来源未定的决定交 owner 定，另有分拆为多份 spec。",
+"trigger_zh": "Write a spec 第 1、4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md steps 1, 4"
+},
+{
+"id": "human.gate-approve-breakdown",
+"kind": "human",
+"name": "Approve the breakdown",
+"label_zh": "批准拆票",
+"purpose_zh": "owner 审拆分粒度、阻塞边、worker 等级与每个选择。",
+"trigger_zh": "Cut tickets 第 6 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 6"
+},
+{
+"id": "human.gate-start-night",
+"kind": "human",
+"name": "Night starts",
+"label_zh": "开夜",
+"purpose_zh": "owner 说开始，orchestrator 才 check/open。",
+"trigger_zh": "Run a night 第 1 步表第一行",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 1"
+},
+{
+"id": "human.gate-contract-to-owner",
+"kind": "human",
+"name": "Contract child left to owner",
+"label_zh": "无权威可裁的 contract 子问题",
+"purpose_zh": "无书面权威能裁定或会推翻 owner 决定时，相关票移回 needs-triage 等 owner。",
+"trigger_zh": "Run a night: Settling a contract child",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md#Settling a contract child"
+},
+{
+"id": "human.gate-accept-night",
+"kind": "human",
+"name": "Owner accepts the night",
+"label_zh": "验收夜间结果",
+"purpose_zh": "owner 早上读 NIGHT SUMMARY / NIGHT RETRO 后接受，才跑 finish。",
+"trigger_zh": "Run a night 第 10 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 10"
+},
+{
+"id": "human.gate-release-merge",
+"kind": "human",
+"name": "Merge project branch to default",
+"label_zh": "合入默认分支",
+"purpose_zh": "项目分支合入默认分支是 owner 的发布决定，不属任何 playbook。",
+"trigger_zh": "finish 之后",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 10"
+},
+{
+"id": "human.gate-triage-outcome",
+"kind": "human",
+"name": "Triage outcome",
+"label_zh": "分诊结论",
+"purpose_zh": "每个 issue 的四种结局由 owner 决定。",
+"trigger_zh": "Triage 第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md"
+},
+{
+"id": "human.gate-arch-pick",
+"kind": "human",
+"name": "Pick a candidate",
+"label_zh": "选架构候选",
+"purpose_zh": "owner 从 HTML 报告选一个深化候选并在拷问中确认决定。",
+"trigger_zh": "Improve the architecture 第 3–4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md steps 3-4"
+},
+{
+"id": "human.gate-seams",
+"kind": "human",
+"name": "Confirm seams",
+"label_zh": "确认测试接缝",
+"purpose_zh": "无 ticket 时把被测接缝写进请求文件并请 owner 确认。",
+"trigger_zh": "Make a small change 第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md step 2"
+},
+{
+"id": "human.gate-install-test",
+"kind": "human",
+"name": "Install test",
+"label_zh": "安装试用",
+"purpose_zh": "机器判断不了安装与使用，owner 装好试过才算交付。",
+"trigger_zh": "Ship a release 第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md step 5"
+},
+{
+"id": "human.gate-review-go",
+"kind": "human",
+"name": "Go on review fixes",
+"label_zh": "评审后放行修改",
+"purpose_zh": "skill 集评审报告写完后，owner 说 go 才修。",
+"trigger_zh": "Review the skill set 第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md step 5"
+},
+{
+"id": "human.gate-design-system-done",
+"kind": "human",
+"name": "Design system built",
+"label_zh": "设计系统完成",
+"purpose_zh": "owner 在 Claude Design 说「开始」并回答统一问题，告知完成。",
+"trigger_zh": "Build a design system 第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md step 5"
+},
+{
+"id": "entry.model-invoked",
+"kind": "entry",
+"name": "model-invoked by description",
+"label_zh": "模型按 description 自启",
+"purpose_zh": "description 写着 Use when… 的 skill，情形出现且无人点名时 agent 自行启动。",
+"trigger_zh": "情形与 description 匹配",
+"source": "mmw-v3/skills/README.md#skill (Invocation)"
+},
+{
+"id": "skill.mmw-mode",
+"kind": "skill",
+"name": "mmw-mode",
+"label_zh": "MMW 模式",
+"purpose_zh": "owner 的工作方式：何时用什么、任务走哪个 playbook；整个会话常驻。",
+"trigger_zh": "/mmw-mode、mode-hook、起始提示词",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md (frontmatter: disable-model-invocation: true)",
+"origin": "pstack"
+},
+{
+"id": "mode.non-negotiables",
+"kind": "mode-section",
+"name": "Non-negotiables",
+"label_zh": "必守触发器",
+"purpose_zh": "任务中任一时刻出现某情形就用指定 skill（how、unslop、ui-acceptance、setup-mmw…）。",
+"trigger_zh": "情形出现时",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Non-negotiables",
+"origin": "pstack"
+},
+{
+"id": "mode.principles",
+"kind": "mode-section",
+"name": "Principles",
+"label_zh": "原则索引",
+"purpose_zh": "15 条原则各一行索引，条件出现时读全文。",
+"trigger_zh": "加载 mode 时读索引",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles",
+"origin": "pstack"
+},
+{
+"id": "mode.autonomy",
+"kind": "mode-section",
+"name": "Autonomy",
+"label_zh": "自主性",
+"purpose_zh": "Just do it / Always pause / Session overrides / No is acceptable / Unattended 五段。",
+"trigger_zh": "决定做还是先问时",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Autonomy",
+"origin": "pstack"
+},
+{
+"id": "mode.subagents",
+"kind": "mode-section",
+"name": "Subagents",
+"label_zh": "子代理规则",
+"purpose_zh": "用宿主通用子代理不指定模型；要别的模型就是会话角色，用 dispatch.sh brief。",
+"trigger_zh": "派子代理前",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Subagents",
+"origin": "pstack"
+},
+{
+"id": "mode.writing-the-reply",
+"kind": "mode-section",
+"name": "Writing the reply",
+"label_zh": "写回复",
+"purpose_zh": "每条回复共享的规则：证据或标签同句、讲原因与后果、标准词汇。",
+"trigger_zh": "写每条回复时",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Writing the reply",
+"origin": "pstack"
+},
+{
+"id": "mode.comments",
+"kind": "mode-section",
+"name": "Comments",
+"label_zh": "代码注释",
+"purpose_zh": "只为代码看不出的「为什么」留注释。",
+"trigger_zh": "写注释时",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Comments",
+"origin": "pstack"
+},
+{
+"id": "mode.playbooks",
+"kind": "mode-section",
+"name": "Playbooks",
+"label_zh": "路由表",
+"purpose_zh": "每个 playbook 一条路由行；把 playbook 步骤原样抄进 todolist。",
+"trigger_zh": "任务开始选路时",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks",
+"origin": "pstack"
+},
+{
+"id": "pb.investigation",
+"kind": "playbook",
+"name": "Investigation",
+"label_zh": "调查",
+"purpose_zh": "只读问题：X 怎么工作、为何这样建、该选 X 还是 Y；产出有引用的解释或建议。",
+"trigger_zh": "「X 怎么工作」「我们确定吗」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/investigation.md",
+"origin": "pstack"
+},
+{
+"id": "pb.pause-safely",
+"kind": "playbook",
+"name": "Pause safely",
+"label_zh": "安全暂停",
+"purpose_zh": "干净地挂起进行中的工作，留下冷启动可续的检查点。",
+"trigger_zh": "明确要求暂停、下线、宿主重启、上下文将压缩",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pause-safely.md",
+"origin": "pstack"
+},
+{
+"id": "pb.authoring-or-modifying-a-skill",
+"kind": "playbook",
+"name": "Authoring or modifying a skill",
+"label_zh": "写或改 skill",
+"purpose_zh": "把 agent 读的文字放进对的组件、写好、验证并在真实任务上走一遍。",
+"trigger_zh": "写或改 skill/playbook/原则/参考/mode",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md",
+"origin": "v3"
+},
+{
+"id": "pb.review-the-skill-set",
+"kind": "playbook",
+"name": "Review the skill set",
+"label_zh": "评审 skill 集",
+"purpose_zh": "按 agent 实际任务走查 skill 文本，写评审报告，放行后再修。",
+"trigger_zh": "「review the skills」「audit the skill set」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md",
+"origin": "v3"
+},
+{
+"id": "pb.chart-a-map",
+"kind": "playbook",
+"name": "Chart a map",
+"label_zh": "绘制地图",
+"purpose_zh": "把一个超出单会话的模糊想法画成 tracker 上的决策票地图。",
+"trigger_zh": "「chart a map」、绿地产品、过大功能",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md",
+"origin": "v2"
+},
+{
+"id": "pb.resolve-a-map-ticket",
+"kind": "playbook",
+"name": "Resolve a map ticket",
+"label_zh": "解决一张地图票",
+"purpose_zh": "一个会话解决地图上一张决策票并记到地图上，推进前沿。",
+"trigger_zh": "「work the map」「next map ticket」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md",
+"origin": "v2"
+},
+{
+"id": "pb.design-in-claude-design",
+"kind": "playbook",
+"name": "Design in Claude Design",
+"label_zh": "在 Claude Design 里设计",
+"purpose_zh": "建好一个 effort 的 Claude Design 项目、交给其内 agent、处理评论直到签收。",
+"trigger_zh": "「design the pages」、Claude Design 链接、地图设计票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md",
+"origin": "v2"
+},
+{
+"id": "pb.pull-a-design",
+"kind": "playbook",
+"name": "Pull a design",
+"label_zh": "拉取设计",
+"purpose_zh": "把已签收的 Claude Design 项目写进仓库成为设计包，读报告并决定下一步。",
+"trigger_zh": "签收后、设计改过、contract 子问题指向设计页",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md",
+"origin": "v2"
+},
+{
+"id": "pb.build-a-design-system",
+"kind": "playbook",
+"name": "Build a design system",
+"label_zh": "建设计系统",
+"purpose_zh": "判断是否值得建设计系统，交 Claude Design 内 agent 从代码或签收页构建并检查。",
+"trigger_zh": "现有产品首次入 Claude Design、原型胜出后",
+"source": "mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md",
+"origin": "v2"
+},
+{
+"id": "pb.write-the-screen-contract",
+"kind": "playbook",
+"name": "Write the screen contract",
+"label_zh": "写屏幕契约",
+"purpose_zh": "把设计包每个控件绑定到其背后的后端决定，写成 screen-contract.yaml。",
+"trigger_zh": "首次 pull 后、控件变化后、spec 决定变动后",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md",
+"origin": "v2"
+},
+{
+"id": "pb.write-a-spec",
+"kind": "playbook",
+"name": "Write a spec",
+"label_zh": "写 spec",
+"purpose_zh": "把已定下的决定综合成 tracker 上的 spec 并接着拆票。",
+"trigger_zh": "「write a spec」「turn this into a spec」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md",
+"origin": "v2"
+},
+{
+"id": "pb.cut-tickets",
+"kind": "playbook",
+"name": "Cut tickets",
+"label_zh": "拆票",
+"purpose_zh": "把已发布的 spec 拆成一夜要跑的、owner 批准的票批次。",
+"trigger_zh": "「cut tickets」、Write a spec 末步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md",
+"origin": "v2"
+},
+{
+"id": "pb.triage",
+"kind": "playbook",
+"name": "Triage",
+"label_zh": "分诊",
+"purpose_zh": "和 owner 过分诊队列，把可派工的 issue 带进 spec。",
+"trigger_zh": "「triage」「what needs my attention」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md",
+"origin": "v2"
+},
+{
+"id": "pb.run-a-night",
+"kind": "playbook",
+"name": "Run a night",
+"label_zh": "跑一夜",
+"purpose_zh": "作为 orchestrator 从 open 到 finish 跑一个 spec 的已发布票。",
+"trigger_zh": "「start the night」「run the batch」「accept the night」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md",
+"origin": "v2"
+},
+{
+"id": "pb.revise-a-spec",
+"kind": "playbook",
+"name": "Revise a spec",
+"label_zh": "修订 spec",
+"purpose_zh": "原地改已发布 spec 的一节，留原因，并让已拆的票对齐。",
+"trigger_zh": "已发布 spec 的决定要变",
+"source": "mmw-v3/skills/mmw-mode/playbooks/revise-a-spec.md",
+"origin": "v2"
+},
+{
+"id": "pb.run-one-ticket",
+"kind": "playbook",
+"name": "Run one ticket",
+"label_zh": "跑单张票",
+"purpose_zh": "夜外由本会话当 orchestrator 跑一张写好的票，从 open-ticket 到 land。",
+"trigger_zh": "Bug fix 第 4 步或单票任务",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-one-ticket.md",
+"origin": "v2"
+},
+{
+"id": "pb.work-a-ticket",
+"kind": "playbook",
+"name": "Work a ticket",
+"label_zh": "做一张票（worker）",
+"purpose_zh": "worker 从认领到收尾评论做完一张票，并派出 reviewer。",
+"trigger_zh": "只由起始提示词指名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md",
+"origin": "v2"
+},
+{
+"id": "pb.review-a-ticket",
+"kind": "playbook",
+"name": "Review a ticket",
+"label_zh": "评审一张票（reviewer）",
+"purpose_zh": "reviewer 按轴评审 diff、核实每条发现并贴评审报告。",
+"trigger_zh": "只由起始提示词指名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md",
+"origin": "v2"
+},
+{
+"id": "pb.make-a-small-change",
+"kind": "playbook",
+"name": "Make a small change",
+"label_zh": "做小改动",
+"purpose_zh": "owner 在场时完成一个无需产品决定的小改动，并请第二读者评审。",
+"trigger_zh": "无 spec 无票、一个会话能完成",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md",
+"origin": "v3"
+},
+{
+"id": "pb.bug-fix",
+"kind": "playbook",
+"name": "Bug fix",
+"label_zh": "修 bug",
+"purpose_zh": "复现并诊断 owner 报的缺陷，写一张票，经 Run one ticket 落地并在同一表面证明。",
+"trigger_zh": "坏了、报错、失败、变慢",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md",
+"origin": "pstack"
+},
+{
+"id": "pb.improve-the-architecture",
+"kind": "playbook",
+"name": "Improve the architecture",
+"label_zh": "改进架构",
+"purpose_zh": "找出深化机会做成 HTML 报告，把 owner 选的一个拷问成决定交给 Write a spec。",
+"trigger_zh": "「improve the architecture」「make this more testable」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md",
+"origin": "v2"
+},
+{
+"id": "pb.set-up-code-checkers",
+"kind": "playbook",
+"name": "Set up code checkers",
+"label_zh": "装代码检查器",
+"purpose_zh": "给仓库装 linter/formatter/type checker、一个检查命令和提交钩子。",
+"trigger_zh": "仓库没有检查器、加了语言、检查器被取代",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md",
+"origin": "v2"
+},
+{
+"id": "pb.write-agents-md",
+"kind": "playbook",
+"name": "Write AGENTS.md",
+"label_zh": "写 AGENTS.md",
+"purpose_zh": "按 manage-agents-md 的格式从调查清单写根与嵌套的 AGENTS.md/CLAUDE.md。",
+"trigger_zh": "「create AGENTS.md」「rewrite CLAUDE.md」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md",
+"origin": "v2"
+},
+{
+"id": "pb.ship-a-release",
+"kind": "playbook",
+"name": "Ship a release",
+"label_zh": "发布安装包",
+"purpose_zh": "为本次改动触及的每个产品从当前分支同一提交构建安装包交给 owner 试装。",
+"trigger_zh": "「ship」「package it」「build an installer」",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md",
+"origin": "v2"
+},
+{
+"id": "skill.dispatch",
+"kind": "skill",
+"name": "dispatch",
+"label_zh": "调度",
+"purpose_zh": "启动、唤醒、看守会话的脚本集与角色表；改角色模型或 runner、开看板、On waking。",
+"trigger_zh": "改 host/模型/effort/runner、开看板、被唤醒时",
+"source": "mmw-v3/skills/dispatch/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.verify-ticket",
+"kind": "skill",
+"name": "verify-ticket",
+"label_zh": "验票",
+"purpose_zh": "跑票的验收标准并在通过时收尾；切子问题；发布前 lint 批次。",
+"trigger_zh": "验收、切子问题、发布批次",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.ui-acceptance",
+"kind": "skill",
+"name": "ui-acceptance",
+"label_zh": "UI 验收",
+"purpose_zh": "被测产品的四个 oracle、端口租约与 .mmw/target.json 的回答。",
+"trigger_zh": "要启动/观察运行中的产品、读 DIFF/MISS/JOURNEY/HARNESS 行",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.code-review",
+"kind": "skill",
+"name": "code-review",
+"label_zh": "代码评审",
+"purpose_zh": "按 Standards/Spec/Tests/UI 轴各派一个子代理评审 diff。",
+"trigger_zh": "Review a ticket、Make a small change 第 5 步",
+"source": "mmw-v3/skills/code-review/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.retro",
+"kind": "skill",
+"name": "retro",
+"label_zh": "夜间复盘",
+"purpose_zh": "以证据为先复盘一夜，写 Retro Memory 与改进提议。",
+"trigger_zh": "summary 记下 spec.closed 之后",
+"source": "mmw-v3/skills/retro/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.setup-mmw",
+"kind": "skill",
+"name": "setup-mmw",
+"label_zh": "接入流水线",
+"purpose_zh": "检查并补齐仓库接入流水线所需的文件、标签、Memory Space 与 checks。",
+"trigger_zh": "仓库未接入或要体检",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.design-pages",
+"kind": "skill",
+"name": "design-pages",
+"label_zh": "设计页往返",
+"purpose_zh": "规定 Claude Design 项目与设计包的约定，pull_design.py 拉取。",
+"trigger_zh": "设计相关三个 playbook",
+"source": "mmw-v3/skills/design-pages/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.write-screen-contract",
+"kind": "skill",
+"name": "write-screen-contract",
+"label_zh": "屏幕契约",
+"purpose_zh": "屏幕契约文件的规则、格式与脚本。",
+"trigger_zh": "Write the screen contract",
+"source": "mmw-v3/skills/write-screen-contract/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.prototype",
+"kind": "skill",
+"name": "prototype",
+"label_zh": "原型",
+"purpose_zh": "用代码回答一个设计问题：逻辑、UI 或实现实验。",
+"trigger_zh": "prototype 类地图票、pull 后拆脚手架",
+"source": "mmw-v3/skills/prototype/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.diagram-design",
+"kind": "skill",
+"name": "diagram-design",
+"label_zh": "画图",
+"purpose_zh": "生成自带样式的 HTML/SVG 图。",
+"trigger_zh": "架构报告里的前后对比图",
+"source": "mmw-v3/skills/diagram-design/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.wayfinder",
+"kind": "skill",
+"name": "wayfinder",
+"label_zh": "寻路地图",
+"purpose_zh": "定义地图、决策票、迷雾与范围外。",
+"trigger_zh": "Chart a map / Resolve a map ticket",
+"source": "mmw-v3/skills/wayfinder/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.grilling",
+"kind": "skill",
+"name": "grilling",
+"label_zh": "拷问",
+"purpose_zh": "按设计树一轮轮追问用户直到共识。",
+"trigger_zh": "定终点、grilling 票、缺口清单、架构候选",
+"source": "mmw-v3/skills/grilling/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.domain-modeling",
+"kind": "skill",
+"name": "domain-modeling",
+"label_zh": "领域建模",
+"purpose_zh": "边设计边维护 CONTEXT.md 与 ADR。",
+"trigger_zh": "术语与决定成形时",
+"source": "mmw-v3/skills/domain-modeling/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.codebase-design",
+"kind": "skill",
+"name": "codebase-design",
+"label_zh": "深模块设计",
+"purpose_zh": "深模块的共享词汇（module/interface/depth/seam…）。",
+"trigger_zh": "设计或改进模块接口",
+"source": "mmw-v3/skills/codebase-design/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.to-questionnaire",
+"kind": "skill",
+"name": "to-questionnaire",
+"label_zh": "问卷",
+"purpose_zh": "把卡在第三人知识上的决定写成问卷。",
+"trigger_zh": "决定卡在别人脑中的知识",
+"source": "mmw-v3/skills/to-questionnaire/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.advisor",
+"kind": "skill",
+"name": "advisor",
+"label_zh": "顾问",
+"purpose_zh": "在更强模型上另起会话给一个决定第二意见。",
+"trigger_zh": "架构选择、数据迁移、两次失败、有争议的理解",
+"source": "mmw-v3/skills/advisor/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.how",
+"kind": "skill",
+"name": "how",
+"label_zh": "讲清怎么工作",
+"purpose_zh": "派 researcher/explainer 会话解释 X 怎么工作。",
+"trigger_zh": "Investigation、Bug fix、非平凡改动",
+"source": "mmw-v3/skills/how/SKILL.md (frontmatter and opening)",
+"origin": "pstack"
+},
+{
+"id": "skill.why",
+"kind": "skill",
+"name": "why",
+"label_zh": "讲清为何如此",
+"purpose_zh": "派 researcher/synthesizer 会话追溯代码的动机。",
+"trigger_zh": "动机类问题、Bug fix 找引入的改动",
+"source": "mmw-v3/skills/why/SKILL.md (frontmatter and opening)",
+"origin": "pstack"
+},
+{
+"id": "skill.research",
+"kind": "skill",
+"name": "research",
+"label_zh": "调研",
+"purpose_zh": "对照一手来源调查问题并写成 Markdown 笔记。",
+"trigger_zh": "researcher 会话的主导 skill",
+"source": "mmw-v3/skills/research/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.tdd",
+"kind": "skill",
+"name": "tdd",
+"label_zh": "测试驱动",
+"purpose_zh": "红→绿循环的参考：好测试、接缝、反模式。",
+"trigger_zh": "Work a ticket、Make a small change 写代码",
+"source": "mmw-v3/skills/tdd/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.diagnosing-bugs",
+"kind": "skill",
+"name": "diagnosing-bugs",
+"label_zh": "诊断 bug",
+"purpose_zh": "难 bug 的诊断流程：先建反馈回路。",
+"trigger_zh": "Bug fix 第 1–2 步",
+"source": "mmw-v3/skills/diagnosing-bugs/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.exe-release",
+"kind": "skill",
+"name": "exe-release",
+"label_zh": "打安装包",
+"purpose_zh": "Electron+Python 产品的发布清单与发布引擎 release-flow.sh。",
+"trigger_zh": "Ship a release",
+"source": "mmw-v3/skills/exe-release/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.manage-agents-md",
+"kind": "skill",
+"name": "manage-agents-md",
+"label_zh": "AGENTS.md 格式",
+"purpose_zh": "AGENTS.md/CLAUDE.md 的固定格式与 check.sh。",
+"trigger_zh": "Write AGENTS.md、记录检查器",
+"source": "mmw-v3/skills/manage-agents-md/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.wizard",
+"kind": "skill",
+"name": "wizard",
+"label_zh": "人工步骤向导",
+"purpose_zh": "生成交互式 bash 向导带人走只有人能做的步骤。",
+"trigger_zh": "配置凭据、第三方后台、一次性迁移",
+"source": "mmw-v3/skills/wizard/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.handoff",
+"kind": "skill",
+"name": "handoff",
+"label_zh": "交接文档",
+"purpose_zh": "写交接文档到系统临时目录供新会话接续。",
+"trigger_zh": "Pause safely 第 4 步",
+"source": "mmw-v3/skills/handoff/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.unslop",
+"kind": "skill",
+"name": "unslop",
+"label_zh": "去 AI 腔",
+"purpose_zh": "删掉文字里的 AI 写作模式。",
+"trigger_zh": "任何文字面，含回复",
+"source": "mmw-v3/skills/unslop/SKILL.md (frontmatter and opening)",
+"origin": "pstack"
+},
+{
+"id": "skill.technical-writing",
+"kind": "skill",
+"name": "technical-writing",
+"label_zh": "技术写作",
+"purpose_zh": "给人读的文档写作规则。",
+"trigger_zh": "文档、RFC、README、提交信息",
+"source": "mmw-v3/skills/technical-writing/SKILL.md (frontmatter and opening)",
+"origin": "pstack"
+},
+{
+"id": "skill.writing-for-agents",
+"kind": "skill",
+"name": "writing-for-agents",
+"label_zh": "给 agent 写作",
+"purpose_zh": "写 agent 读的文档（skill、AGENTS.md、提示）的规则。",
+"trigger_zh": "写或改 skill",
+"source": "mmw-v3/skills/writing-for-agents/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.triage",
+"kind": "skill",
+"name": "triage",
+"label_zh": "分诊状态机",
+"purpose_zh": "把 issue 在分诊角色状态机中移动。",
+"trigger_zh": "Triage playbook",
+"source": "mmw-v3/skills/triage/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.teach",
+"kind": "skill",
+"name": "teach",
+"label_zh": "教学",
+"purpose_zh": "在教学工作区里多次会话教用户一个主题。",
+"trigger_zh": "只由人启动",
+"source": "mmw-v3/skills/teach/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "skill.wait-what",
+"kind": "skill",
+"name": "wait-what",
+"label_zh": "重讲一遍",
+"purpose_zh": "上一条没听懂，用简化英语重讲。",
+"trigger_zh": "只由人启动",
+"source": "mmw-v3/skills/wait-what/SKILL.md (frontmatter and opening)",
+"origin": "v2"
+},
+{
+"id": "ref.agents-md-survey",
+"kind": "reference",
+"name": "agents-md-survey.md",
+"label_zh": "AGENTS.md 调查员提示词",
+"purpose_zh": "每个调查组子代理的提示词。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/agents-md-survey.md"
+},
+{
+"id": "ref.ambiguity-scan",
+"kind": "reference",
+"name": "ambiguity-scan.md",
+"label_zh": "歧义扫描提示词",
+"purpose_zh": "拆票时扫描 spec 与草稿票中缺失或含糊的决定。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/ambiguity-scan.md"
+},
+{
+"id": "ref.architecture-explorer",
+"kind": "reference",
+"name": "architecture-explorer.md",
+"label_zh": "架构探索者提示词",
+"purpose_zh": "按范围走查代码记录摩擦点。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/architecture-explorer.md"
+},
+{
+"id": "ref.architecture-report",
+"kind": "reference",
+"name": "architecture-report.md",
+"label_zh": "架构报告格式",
+"purpose_zh": "HTML 报告的卡片与配图规则。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/architecture-report.md"
+},
+{
+"id": "ref.checkers-git-hooks",
+"kind": "reference",
+"name": "checkers-git-hooks.md",
+"label_zh": "提交钩子",
+"purpose_zh": "用 prek 在提交时跑检查器。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/checkers-git-hooks.md"
+},
+{
+"id": "ref.checkers-python",
+"kind": "reference",
+"name": "checkers-python.md",
+"label_zh": "Python 检查器",
+"purpose_zh": "ruff、pyrefly、djlint 的配置。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/checkers-python.md"
+},
+{
+"id": "ref.checkers-typescript",
+"kind": "reference",
+"name": "checkers-typescript.md",
+"label_zh": "TS 检查器",
+"purpose_zh": "oxlint + oxlint-tsgolint 的配置。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/checkers-typescript.md"
+},
+{
+"id": "ref.cutting-interface-tickets",
+"kind": "reference",
+"name": "cutting-interface-tickets.md",
+"label_zh": "界面票的拆法",
+"purpose_zh": "屏幕契约产生的五类票与验收标准形状。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md"
+},
+{
+"id": "ref.interface-and-remake",
+"kind": "reference",
+"name": "interface-and-remake.md",
+"label_zh": "界面与重做的附加票",
+"purpose_zh": "有 UI 或重做旧产品的地图要加的对齐票、设计票、选择清单票。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/interface-and-remake.md"
+},
+{
+"id": "ref.map-research-brief",
+"kind": "reference",
+"name": "map-research-brief.md",
+"label_zh": "地图调研简报",
+"purpose_zh": "researcher 会话解决一张调研票的简报模板。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/map-research-brief.md"
+},
+{
+"id": "ref.memory",
+"kind": "reference",
+"name": "memory.md",
+"label_zh": "工作中的 Memory",
+"purpose_zh": "worker 如何读与存共享经验记录。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/memory.md"
+},
+{
+"id": "ref.skill-set-rules",
+"kind": "reference",
+"name": "skill-set-rules.md",
+"label_zh": "skill 集规则",
+"purpose_zh": "skill 集文本的七条事实与各项检查。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/references/skill-set-rules.md"
+},
+{
+"id": "ref.skills-readme",
+"kind": "reference",
+"name": "mmw-v3/skills/README.md",
+"label_zh": "组件方法",
+"purpose_zh": "决定一段文字属于哪种组件（mode/playbook/原则/skill/参考/脚本）。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md step 1"
+},
+{
+"id": "ref.ticket-format",
+"kind": "reference",
+"name": "verify-ticket references/ticket-format.md",
+"label_zh": "票格式",
+"purpose_zh": "票的各节与每条验收标准的四行形状。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"id": "ref.linting",
+"kind": "reference",
+"name": "verify-ticket references/linting.md",
+"label_zh": "lint 解读",
+"purpose_zh": "如何读 --lint 的 ERROR/WARN 与草稿。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"id": "ref.sub-issues",
+"kind": "reference",
+"name": "verify-ticket references/sub-issues.md",
+"label_zh": "子问题",
+"purpose_zh": "把一块工作从票里切成子 issue 的各类 --sub-issue。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"id": "ref.person-ticket",
+"kind": "reference",
+"name": "verify-ticket references/person-ticket.md",
+"label_zh": "人做的票",
+"purpose_zh": "ready-for-human 票必须具备的五件事。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 8"
+},
+{
+"id": "ref.writing-interface-code",
+"kind": "reference",
+"name": "ui-acceptance references/writing-interface-code.md",
+"label_zh": "写页面票代码",
+"purpose_zh": "页面票动笔前与写作中的规则。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md#What each file covers"
+},
+{
+"id": "ref.screen-contract-format",
+"kind": "reference",
+"name": "write-screen-contract references/screen-contract-format.md",
+"label_zh": "屏幕契约格式",
+"purpose_zh": "契约文件的键与列规则。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/write-screen-contract/SKILL.md"
+},
+{
+"id": "ref.pipeline-issues",
+"kind": "reference",
+"name": "triage references/pipeline-issues.md",
+"label_zh": "流水线产生的 issue",
+"purpose_zh": "如何读本流水线自己开出的 issue。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md step 2"
+},
+{
+"id": "ref.design-templates",
+"kind": "reference",
+"name": "design-pages references/template-*-claude-md.md",
+"label_zh": "Claude Design 的 CLAUDE.md 模板",
+"purpose_zh": "项目与设计系统的 CLAUDE.md 固定块。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/design-pages/SKILL.md#The project"
+},
+{
+"id": "ref.editing-models",
+"kind": "reference",
+"name": "dispatch references/editing-models.md",
+"label_zh": "改模型配置",
+"purpose_zh": "如何改角色的 host、模型、effort 或 runner。",
+"trigger_zh": "引用它的步骤运行时",
+"source": "mmw-v3/skills/dispatch/SKILL.md#Changing a role's model, or the runner"
+},
+{
+"id": "role.orchestrator",
+"kind": "role",
+"name": "orchestrator",
+"label_zh": "编排者",
+"purpose_zh": "跑 Run a night / Run one ticket 的会话，被 relay 唤醒，做每个决定。",
+"trigger_zh": "owner 让本会话开夜或跑单票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md (You own line)",
+"origin": "v2"
+},
+{
+"id": "role.junior-worker",
+"kind": "role",
+"name": "junior-worker",
+"label_zh": "初级 worker",
+"purpose_zh": "把一张票做到关闭：写代码、跑标准、派 reviewer。",
+"trigger_zh": "dispatch.sh start <n> worker（票无标签或 junior 标签）",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.senior-worker",
+"kind": "role",
+"name": "senior-worker",
+"label_zh": "高级 worker",
+"purpose_zh": "被评为 senior 的票的 worker。",
+"trigger_zh": "票带 senior-worker 标签",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.reviewer",
+"kind": "role",
+"name": "reviewer",
+"label_zh": "评审者",
+"purpose_zh": "评审一张票的 diff，派 code-review 各轴。",
+"trigger_zh": "worker 跑 dispatch.sh start <n> reviewer",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.advisor",
+"kind": "role",
+"name": "advisor",
+"label_zh": "顾问会话",
+"purpose_zh": "在更强模型上对一个决定给第二意见。",
+"trigger_zh": "dispatch.sh brief advisor",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.researcher",
+"kind": "role",
+"name": "researcher",
+"label_zh": "研究员会话",
+"purpose_zh": "读一个来源或代码一角，或回答一张地图调研票，交回带引用的发现。",
+"trigger_zh": "dispatch.sh brief researcher",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "pstack"
+},
+{
+"id": "role.explainer",
+"kind": "role",
+"name": "explainer",
+"label_zh": "讲解员会话",
+"purpose_zh": "把发现写成一篇五节的「怎么工作」解释。",
+"trigger_zh": "how 的 dispatch.sh brief explainer",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "pstack"
+},
+{
+"id": "role.synthesizer",
+"kind": "role",
+"name": "synthesizer",
+"label_zh": "综合者会话",
+"purpose_zh": "把发现分成已证、推断、未知并抽查引用。",
+"trigger_zh": "why 的 dispatch.sh brief synthesizer",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "pstack"
+},
+{
+"id": "role.code-review-axis",
+"kind": "role",
+"name": "code-review axis",
+"label_zh": "评审轴子代理",
+"purpose_zh": "沿一个轴评审一个 diff。",
+"trigger_zh": "code-review 同轮派出",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.grilling-fact-finder",
+"kind": "role",
+"name": "grilling fact-finder",
+"label_zh": "拷问查证子代理",
+"purpose_zh": "在拷问时查一个问题需要的事实。",
+"trigger_zh": "grilling 派出",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.ambiguity-scanner",
+"kind": "role",
+"name": "ambiguity scanner",
+"label_zh": "歧义扫描子代理",
+"purpose_zh": "读一次 spec 与草稿票，最多返回五个问题。",
+"trigger_zh": "Cut tickets 第 6 步",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.architecture-explorer",
+"kind": "role",
+"name": "architecture explorer",
+"label_zh": "架构探索子代理",
+"purpose_zh": "走查范围内代码，返回至多十个摩擦点。",
+"trigger_zh": "Improve the architecture 第 2 步",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.interface-designer",
+"kind": "role",
+"name": "interface designer",
+"label_zh": "接口设计子代理",
+"purpose_zh": "在给定约束下设计一个截然不同的模块接口。",
+"trigger_zh": "codebase-design 的 design-it-twice",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "role.agents-md-surveyor",
+"kind": "role",
+"name": "AGENTS.md surveyor",
+"label_zh": "AGENTS.md 调查子代理",
+"purpose_zh": "读一组仓库内容，按格式报告 AGENTS.md 需要的事实。",
+"trigger_zh": "Write AGENTS.md 第 3 步",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v2"
+},
+{
+"id": "script.dispatch-sh",
+"kind": "script",
+"name": "dispatch.sh",
+"label_zh": "调度主脚本",
+"purpose_zh": "开/推进/收尾一夜，起 worker/reviewer/brief 会话，land、route、reverify、summary、finish、suspend。",
+"trigger_zh": "playbook 步骤调用",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)",
+"origin": "v2"
+},
+{
+"id": "script.relay",
+"kind": "script",
+"name": "relay.py",
+"label_zh": "relay（中继）",
+"purpose_zh": "把 tracker 上的事件翻译成对等待会话的唤醒；不判断、不写 GitHub。",
+"trigger_zh": "open / open-ticket / brief 开监视后常驻",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.watchdog",
+"kind": "script",
+"name": "watchdog.py",
+"label_zh": "看门狗",
+"purpose_zh": "活性第二、三层：查 relay 是否在跑在读，问沉默票的 runner worker 是否还在。",
+"trigger_zh": "turn-guard 武装后每 60 秒一轮",
+"source": "mmw-v3/skills/dispatch/scripts/watchdog.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.briefs",
+"kind": "script",
+"name": "briefs.py",
+"label_zh": "brief 记录",
+"purpose_zh": "记录无票会话（advisor/researcher/…）的批次与结果。",
+"trigger_zh": "dispatch.sh brief",
+"source": "mmw-v3/skills/dispatch/scripts/briefs.py (docstring)",
+"origin": "v3"
+},
+{
+"id": "script.status",
+"kind": "script",
+"name": "status.py",
+"label_zh": "批次状态视图",
+"purpose_zh": "从票事件算出 spec 下每张票的只读视图、advance 计划、findings、summary。",
+"trigger_zh": "dispatch.sh status/advance/findings/summary",
+"source": "mmw-v3/skills/dispatch/scripts/status.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.statedir",
+"kind": "script",
+"name": "statedir.py",
+"label_zh": "状态目录与锁",
+"purpose_zh": "每仓库一个本机状态目录 ~/.mmw/state/<owner>__<name>/ 与写锁。",
+"trigger_zh": "长驻进程写状态时",
+"source": "mmw-v3/skills/dispatch/scripts/statedir.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.ghlist",
+"kind": "script",
+"name": "ghlist.py",
+"label_zh": "GitHub 分页读取",
+"purpose_zh": "带条件请求读完一个 GitHub REST 列表的每一页。",
+"trigger_zh": "状态读取时",
+"source": "mmw-v3/skills/dispatch/scripts/ghlist.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.models",
+"kind": "script",
+"name": "models.py",
+"label_zh": "模型配置",
+"purpose_zh": "读写本机 models.json，按 hosts.json 展开启动参数。",
+"trigger_zh": "start、看板设置、models.py config",
+"source": "mmw-v3/skills/dispatch/scripts/models.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.check-interfaces",
+"kind": "script",
+"name": "check-interfaces.py",
+"label_zh": "接口一致性检查",
+"purpose_zh": "核对起始提示词、relay 唤醒、RESUME 步骤、roles.json 与 playbook 彼此对得上。",
+"trigger_zh": "改角色 playbook、起始提示词、唤醒或 RESUME 时",
+"source": "mmw-v3/skills/dispatch/scripts/check-interfaces.py (docstring)",
+"origin": "v3"
+},
+{
+"id": "script.runner-orca",
+"kind": "script",
+"name": "runners/orca.sh",
+"label_zh": "Orca 适配器",
+"purpose_zh": "在 Orca 终端里启动、发送、探活、停止会话。",
+"trigger_zh": "runner 为 orca",
+"source": "mmw-v3/skills/dispatch/scripts/runners/orca.sh (header)",
+"origin": "v2"
+},
+{
+"id": "script.runner-paseo",
+"kind": "script",
+"name": "runners/paseo.sh",
+"label_zh": "Paseo 适配器",
+"purpose_zh": "用 paseo run 启动并管理会话。",
+"trigger_zh": "runner 为 paseo",
+"source": "mmw-v3/skills/dispatch/scripts/runners/paseo.sh (header)",
+"origin": "v2"
+},
+{
+"id": "script.runner-herdr",
+"kind": "script",
+"name": "runners/herdr.sh",
+"label_zh": "Herdr 适配器",
+"purpose_zh": "在 herdr pane 里启动并管理会话。",
+"trigger_zh": "runner 为 herdr",
+"source": "mmw-v3/skills/dispatch/scripts/runners/herdr.sh (header)",
+"origin": "v2"
+},
+{
+"id": "script.verify-ticket-py",
+"kind": "script",
+"name": "verify-ticket.py",
+"label_zh": "验票脚本",
+"purpose_zh": "读票的验收标准交给 gate-check 跑，发 ticket.checked 等事件；preflight、closeout、lint、publish、sub-issue、review。",
+"trigger_zh": "worker/reviewer/orchestrator 的步骤",
+"source": "mmw-v3/skills/verify-ticket/scripts/verify-ticket.py (docstring, argparse flags)",
+"origin": "v2"
+},
+{
+"id": "script.events",
+"kind": "script",
+"name": "events.py",
+"label_zh": "事件表与折叠",
+"purpose_zh": "流水线事件词汇；把票的评论按序重放成票的状态。",
+"trigger_zh": "所有读写票状态处",
+"source": "mmw-v3/skills/verify-ticket/scripts/events.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.issue-tree",
+"kind": "script",
+"name": "issue_tree.py",
+"label_zh": "issue 树读取",
+"purpose_zh": "用 GraphQL 一次读出 map/spec/ticket/child 四层树，缺页即拒答。",
+"trigger_zh": "status.py、verify-ticket.py",
+"source": "mmw-v3/skills/verify-ticket/scripts/issue_tree.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "script.gate-check",
+"kind": "script",
+"name": "gate-check/gate-check.mjs",
+"label_zh": "gate 执行器",
+"purpose_zh": "执行台账里的 CHECK oracle 并更新证据（unlazy 的 vendored 层）。",
+"trigger_zh": "verify-ticket.py 跑标准时",
+"source": "mmw-v3/skills/verify-ticket/scripts/gate-check/gate-check.mjs (header)",
+"origin": "v2"
+},
+{
+"id": "script.gate-lint",
+"kind": "script",
+"name": "gate-check/gate-lint.mjs",
+"label_zh": "gate lint",
+"purpose_zh": "审查台账里的 gate 是否值得通过，从不执行 CHECK。",
+"trigger_zh": "verify-ticket.py --lint",
+"source": "mmw-v3/skills/verify-ticket/scripts/gate-check/gate-lint.mjs (header)",
+"origin": "v2"
+},
+{
+"id": "script.check-imports",
+"kind": "script",
+"name": "check_imports.py",
+"label_zh": "拷贝文件检查",
+"purpose_zh": "拷贝文件变更后应打印 IMPORTS OK。",
+"trigger_zh": "Authoring 第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md step 3",
+"origin": "v3"
+},
+{
+"id": "script.pull-design",
+"kind": "script",
+"name": "design-pages scripts/pull_design.py",
+"label_zh": "拉设计脚本",
+"purpose_zh": "把 Claude Design 页面复制成设计包并写 pull-report.md。",
+"trigger_zh": "Pull a design 第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md step 3",
+"origin": "v2"
+},
+{
+"id": "script.extract-skeleton",
+"kind": "script",
+"name": "write-screen-contract scripts/extract_skeleton.py",
+"label_zh": "提取骨架",
+"purpose_zh": "渲染设计包每个场景，写出控件骨架 skeleton.json。",
+"trigger_zh": "Write the screen contract 第 2 步",
+"source": "mmw-v3/skills/write-screen-contract/SKILL.md#Scripts",
+"origin": "v2"
+},
+{
+"id": "script.lint-screen-contract",
+"kind": "script",
+"name": "write-screen-contract scripts/lint_screen_contract.py",
+"label_zh": "契约 lint",
+"purpose_zh": "检查屏幕契约到零错误。",
+"trigger_zh": "Write the screen contract 第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md step 8",
+"origin": "v2"
+},
+{
+"id": "script.dump-openapi",
+"kind": "script",
+"name": "write-screen-contract scripts/dump_openapi.py",
+"label_zh": "导出 openapi",
+"purpose_zh": "从 FastAPI 应用工厂导出 openapi.json。",
+"trigger_zh": "Write the screen contract 第 1 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md step 1",
+"origin": "v2"
+},
+{
+"id": "script.agents-check",
+"kind": "script",
+"name": "manage-agents-md scripts/check.sh",
+"label_zh": "AGENTS.md 检查",
+"purpose_zh": "检查根文件行数、CLAUDE.md、路径引用等。",
+"trigger_zh": "Write AGENTS.md 第 1、8 步",
+"source": "mmw-v3/skills/manage-agents-md/SKILL.md",
+"origin": "v2"
+},
+{
+"id": "script.release-flow",
+"kind": "script",
+"name": "exe-release scripts/release-flow.sh",
+"label_zh": "发布引擎",
+"purpose_zh": "持有每个产品的发布循环：状态、下一阶段、修复计数、成功与否。",
+"trigger_zh": "Ship a release 第 3–4 步",
+"source": "mmw-v3/skills/exe-release/SKILL.md",
+"origin": "v2"
+},
+{
+"id": "script.story-parity",
+"kind": "script",
+"name": "ui-acceptance scripts/story-parity.py",
+"label_zh": "story oracle",
+"purpose_zh": "按 data-ui id 逐元素比对产品 story 与设计页。",
+"trigger_zh": "story 标准的 CHECK",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md",
+"origin": "v2"
+},
+{
+"id": "script.boundary-check",
+"kind": "script",
+"name": "ui-acceptance scripts/boundary-check.py",
+"label_zh": "边界 oracle",
+"purpose_zh": "跑某屏幕契约行的四列边界测试。",
+"trigger_zh": "boundary 标准的 CHECK",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md",
+"origin": "v2"
+},
+{
+"id": "script.journey",
+"kind": "script",
+"name": "ui-acceptance scripts/journey.py",
+"label_zh": "旅程 oracle",
+"purpose_zh": "端到端驱动真实产品并可注入故障。",
+"trigger_zh": "关键流程标准的 CHECK",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md",
+"origin": "v2"
+},
+{
+"id": "script.harness-guard",
+"kind": "script",
+"name": "ui-acceptance scripts/harness-guard.py",
+"label_zh": "harness 守卫",
+"purpose_zh": "检查验收名字没有散进被测仓库。",
+"trigger_zh": "harness 标准的 CHECK",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md",
+"origin": "v2"
+},
+{
+"id": "script.target-config",
+"kind": "script",
+"name": "ui-acceptance scripts/target_config.py",
+"label_zh": "target.json 检查",
+"purpose_zh": "--check 打印 .mmw/target.json 还缺哪些字段。",
+"trigger_zh": "Run a night 第 2 步（批次驱动屏幕契约时）",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 2",
+"origin": "v2"
+},
+{
+"id": "script.lease",
+"kind": "script",
+"name": "ui-acceptance scripts/lease.py",
+"label_zh": "端口租约",
+"purpose_zh": "给每个 ticket 工作树独立端口与目录；release 释放。",
+"trigger_zh": "跑产品时、suspend 留下槽位时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 11",
+"origin": "v2"
+},
+{
+"id": "script.retro-py",
+"kind": "script",
+"name": "retro scripts/retro.py",
+"label_zh": "复盘脚本",
+"purpose_zh": "gather 收集证据清单、search 找前例、finalize 写 Retro Memory。",
+"trigger_zh": "retro skill",
+"source": "mmw-v3/skills/retro/SKILL.md#Gather",
+"origin": "v2"
+},
+{
+"id": "script.setup-check",
+"kind": "script",
+"name": "setup-mmw scripts/check.py",
+"label_zh": "接入检查",
+"purpose_zh": "只读地打印仓库与本机各项 ok/missing/note/unchecked。",
+"trigger_zh": "setup-mmw 第 1、11 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps",
+"origin": "v3"
+},
+{
+"id": "script.setup-labels",
+"kind": "script",
+"name": "setup-mmw scripts/labels.py",
+"label_zh": "建标签",
+"purpose_zh": "创建仓库缺的流水线标签。",
+"trigger_zh": "setup-mmw 第 5 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps",
+"origin": "v3"
+},
+{
+"id": "script.setup-space",
+"kind": "script",
+"name": "setup-mmw scripts/space.py",
+"label_zh": "建 Memory Space",
+"purpose_zh": "创建或修复仓库的 Memory Space。",
+"trigger_zh": "setup-mmw 第 6 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps",
+"origin": "v3"
+},
+{
+"id": "script.install",
+"kind": "script",
+"name": "mmw-v3/install.sh",
+"label_zh": "安装脚本",
+"purpose_zh": "把技能软链、hook、提示词、看板、Paseo/Orca/Nowledge 配置装到本机，记 installed-root。",
+"trigger_zh": "owner 明确授权安装；--check 只读",
+"source": "mmw-v3/install.sh (header)",
+"origin": "v2"
+},
+{
+"id": "script.render",
+"kind": "script",
+"name": "mmw-v3/prompt/render.py",
+"label_zh": "提示词渲染",
+"purpose_zh": "把 shared.md 渲染成 Codex、Pi、Grok 的 AGENTS.md。",
+"trigger_zh": "launchd 任务在 shared.md 变化时",
+"source": "mmw-v3/install.sh (header: 提示词)",
+"origin": "v2"
+},
+{
+"id": "script.board",
+"kind": "script",
+"name": "mmw-v3/board (supervisor.py + server.py)",
+"label_zh": "任务看板服务",
+"purpose_zh": "每仓库一个本机看板，从 GitHub 读票状态、读写 models.json。",
+"trigger_zh": "com.mmw.board LaunchAgent；open 时注册",
+"source": "mmw-v3/board/AGENTS.md",
+"origin": "v2"
+},
+{
+"id": "hook.turn-guard",
+"kind": "hook",
+"name": "turn-guard.py",
+"label_zh": "回合守卫",
+"purpose_zh": "活性第一层：orchestrator 回合结束时重新武装看门狗，持票且看门狗不健康时不让回合结束。",
+"trigger_zh": "orchestrator 每次回合结束",
+"source": "mmw-v3/skills/dispatch/scripts/turn-guard.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "hook.tool-guard",
+"kind": "hook",
+"name": "tool-guard.py",
+"label_zh": "工具守卫",
+"purpose_zh": "在 issue-<n> 工作树里拒绝 gh issue close、屏幕提问和结束进程。",
+"trigger_zh": "受管会话执行 shell 或提问前",
+"source": "mmw-v3/skills/dispatch/scripts/tool-guard.py (docstring)",
+"origin": "v2"
+},
+{
+"id": "cfg.models-json",
+"kind": "config",
+"name": "~/.mmw/models.json",
+"label_zh": "模型配置",
+"purpose_zh": "每个角色跑在哪个 host、模型、effort，及选定 runner；本机唯一可写配置。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/dispatch/scripts/models.py (docstring)"
+},
+{
+"id": "cfg.roles-json",
+"kind": "config",
+"name": "dispatch/roles.json",
+"label_zh": "角色表",
+"purpose_zh": "MMW 运行的每个 agent：会话角色与子代理角色。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/dispatch/roles.json",
+"origin": "v3"
+},
+{
+"id": "cfg.hosts-json",
+"kind": "config",
+"name": "dispatch/hosts.json",
+"label_zh": "宿主表",
+"purpose_zh": "每个 host 怎么起与首装默认值（各角色默认 host/模型/effort）。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/dispatch/hosts.json"
+},
+{
+"id": "cfg.target-json",
+"kind": "config",
+"name": ".mmw/target.json",
+"label_zh": "产品回答",
+"purpose_zh": "被测仓库对 ui-acceptance 的回答，及 checks（合并前跑的仓库检查）。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md step 8"
+},
+{
+"id": "cfg.skills-txt",
+"kind": "config",
+"name": "mmw-v3/skills.txt",
+"label_zh": "安装清单",
+"purpose_zh": "唯一决定装哪些 skill。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills.txt"
+},
+{
+"id": "cfg.installed-root",
+"kind": "config",
+"name": "~/.mmw/installed-root",
+"label_zh": "已安装检出",
+"purpose_zh": "记录本机装的是哪一份 checkout。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"id": "cfg.boards-json",
+"kind": "config",
+"name": "~/.mmw/boards.json",
+"label_zh": "看板注册表",
+"purpose_zh": "每仓库看板的端口登记。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"id": "cfg.statedir",
+"kind": "config",
+"name": "~/.mmw/state/<owner>__<name>/",
+"label_zh": "状态目录",
+"purpose_zh": "relay 的 watches、唤醒队列、brief 结果、心跳都在此。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/dispatch/scripts/statedir.py (docstring)"
+},
+{
+"id": "cfg.shared-md",
+"kind": "config",
+"name": "mmw-v3/prompt/shared.md",
+"label_zh": "用户级提示词",
+"purpose_zh": "关于 owner 的事实与决定分工，每个会话都带。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/prompt/shared.md"
+},
+{
+"id": "cfg.docs-agents",
+"kind": "config",
+"name": "docs/agents/{issue-tracker,triage-labels,domain}.md",
+"label_zh": "仓库的 tracker 说明",
+"purpose_zh": "仓库怎么用 gh、三组标签、Wayfinding 操作、领域文档布局。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md step 3"
+},
+{
+"id": "cfg.coding-standards",
+"kind": "config",
+"name": "CODING_STANDARDS.md",
+"label_zh": "编码标准",
+"purpose_zh": "评审 Standards/Tests 轴的规则，随提示词全文给轴。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/code-review/SKILL.md"
+},
+{
+"id": "cfg.testing-md",
+"kind": "config",
+"name": "TESTING.md",
+"label_zh": "测试事实",
+"purpose_zh": "测试在哪、怎么跑、哪些层、桩哪些边界、怎么造状态。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md step 9"
+},
+{
+"id": "cfg.agents-md",
+"kind": "config",
+"name": "AGENTS.md / CLAUDE.md",
+"label_zh": "仓库 agent 指令",
+"purpose_zh": "每个会话都加载的仓库事实。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md"
+},
+{
+"id": "cfg.context-md",
+"kind": "config",
+"name": "CONTEXT.md / CONTEXT-MAP.md / docs/adr/",
+"label_zh": "领域词汇与 ADR",
+"purpose_zh": "领域术语与已记录的决定。",
+"trigger_zh": "被读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 2"
+},
+{
+"id": "art.map",
+"kind": "artifact",
+"name": "map issue (wayfinder:map, mmw:map)",
+"label_zh": "地图 issue",
+"purpose_zh": "一张 issue 作索引，子 issue 是决策票。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 3"
+},
+{
+"id": "art.decision-ticket",
+"kind": "artifact",
+"name": "decision ticket (wayfinder:<type>)",
+"label_zh": "决策票",
+"purpose_zh": "结论是一个决定的问题票（grilling/prototype/research/task）。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 4"
+},
+{
+"id": "art.research-note",
+"kind": "artifact",
+"name": "research note",
+"label_zh": "调研笔记",
+"purpose_zh": "researcher 的答案，存到仓库并推送。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 5"
+},
+{
+"id": "art.prototype-dir",
+"kind": "artifact",
+"name": "prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/",
+"label_zh": "原型目录",
+"purpose_zh": "回答一个问题的代码及其 README 结论。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/prototype/SKILL.md"
+},
+{
+"id": "art.claude-design-project",
+"kind": "artifact",
+"name": "Claude Design project (CLAUDE.md, task.md, pages)",
+"label_zh": "Claude Design 项目",
+"purpose_zh": "一个 effort 的设计页与给其内 agent 的文件。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md"
+},
+{
+"id": "art.design-package",
+"kind": "artifact",
+"name": "design package (prototypes/<effort>/)",
+"label_zh": "设计包",
+"purpose_zh": "签收页写进仓库的外观与原文基线。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/design-pages/SKILL.md"
+},
+{
+"id": "art.pull-report",
+"kind": "artifact",
+"name": "pull-report.md",
+"label_zh": "拉取报告",
+"purpose_zh": "设计检查、覆盖、改动分类。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md step 4"
+},
+{
+"id": "art.screen-contract",
+"kind": "artifact",
+"name": "docs/specs/<effort>/screen-contract.yaml",
+"label_zh": "屏幕契约",
+"purpose_zh": "每个控件调用什么、显示哪个字段、之后是什么状态。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"id": "art.spec",
+"kind": "artifact",
+"name": "spec issue (mmw:spec)",
+"label_zh": "spec",
+"purpose_zh": "一批票的容器：问题、方案、实现决定、测试决定、范围外。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 4"
+},
+{
+"id": "art.ticket",
+"kind": "artifact",
+"name": "ticket (mmw:ticket)",
+"label_zh": "票",
+"purpose_zh": "一个工作单元：What to build、Read first、Owns、Seam、验收标准。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"id": "art.child-issue",
+"kind": "artifact",
+"name": "child issue (mmw:child: fault/contract/decision/finding/deferred)",
+"label_zh": "子问题",
+"purpose_zh": "worker 从票里切出的问题，各类唤醒或路由不同。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"id": "art.events",
+"kind": "artifact",
+"name": "ticket events (<!-- mmw {...} --> comments)",
+"label_zh": "票事件",
+"purpose_zh": "票的唯一状态：评论尾部的事件块，由脚本写、被折叠读取。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/verify-ticket/scripts/events.py (docstring)"
+},
+{
+"id": "art.ticket-worktree",
+"kind": "artifact",
+"name": ".worktrees/issue-<n> + ticket branch",
+"label_zh": "票工作树与分支",
+"purpose_zh": "每票一个工作树与分支，worker 与 reviewer 共用。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/dispatch/scripts/tool-guard.py (docstring)"
+},
+{
+"id": "art.base-branch",
+"kind": "artifact",
+"name": "base branch / origin/<base branch>",
+"label_zh": "基线分支",
+"purpose_zh": "一夜的票合并进的分支，checks 在其合并结果上跑。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"id": "art.project-branch",
+"kind": "artifact",
+"name": "project branch",
+"label_zh": "项目分支",
+"purpose_zh": "finish 把一夜合并进去的分支。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 10"
+},
+{
+"id": "art.decisions-comment",
+"kind": "artifact",
+"name": "decisions comment",
+"label_zh": "决定评论",
+"purpose_zh": "worker 自行做的决定与 Owns 外文件，评审前贴一次。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 4"
+},
+{
+"id": "art.review-report",
+"kind": "artifact",
+"name": "review report (REVIEW <base>..<head>)",
+"label_zh": "评审报告",
+"purpose_zh": "各轴报告、撤回项、票内/票外发现。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md step 5"
+},
+{
+"id": "art.closing-comment",
+"kind": "artifact",
+"name": "closing comment (--closeout)",
+"label_zh": "收尾评论",
+"purpose_zh": "worker 的最终回复，并产生 ticket.passed 或 ticket.returned。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 11"
+},
+{
+"id": "art.night-summary",
+"kind": "artifact",
+"name": "NIGHT SUMMARY",
+"label_zh": "夜间总结",
+"purpose_zh": "summary 贴在 spec 上，并关闭这一夜的监视。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 8"
+},
+{
+"id": "art.night-retro",
+"kind": "artifact",
+"name": "NIGHT RETRO / Retro Memory",
+"label_zh": "夜间复盘记录",
+"purpose_zh": "retro 写的带证据问题与提议，提议成为 needs-triage issue。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/retro/SKILL.md"
+},
+{
+"id": "art.memory-records",
+"kind": "artifact",
+"name": "Memory records (mmw-experience, mmw-spec-<spec>)",
+"label_zh": "共享经验记录",
+"purpose_zh": "worker 留给后来 worker 的经验，起始提示词带索引。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 7"
+},
+{
+"id": "art.triage-queue",
+"kind": "artifact",
+"name": "needs-triage queue",
+"label_zh": "分诊队列",
+"purpose_zh": "待评估的 issue，多数由流水线放入。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md"
+},
+{
+"id": "art.arch-report",
+"kind": "artifact",
+"name": "architecture-review-<timestamp>.html",
+"label_zh": "架构报告",
+"purpose_zh": "临时目录里的候选卡片与前后对比图。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md step 3"
+},
+{
+"id": "art.skill-review",
+"kind": "artifact",
+"name": "docs/reviews/<date>-<slug>/README.md",
+"label_zh": "skill 集评审报告",
+"purpose_zh": "负载表、发现与修法。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md step 4"
+},
+{
+"id": "art.handoff-doc",
+"kind": "artifact",
+"name": "handoff document (OS temp dir)",
+"label_zh": "交接文档",
+"purpose_zh": "冷启动 agent 接续用。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/handoff/SKILL.md"
+},
+{
+"id": "art.wip-commit",
+"kind": "artifact",
+"name": "wip: commit",
+"label_zh": "wip 提交",
+"purpose_zh": "暂停时把未提交改动作为一次提交保存。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pause-safely.md step 3"
+},
+{
+"id": "art.release-package",
+"kind": "artifact",
+"name": "install package + delivery record",
+"label_zh": "安装包与交付记录",
+"purpose_zh": "每产品的安装包路径与同提交记录。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md#Close"
+},
+{
+"id": "art.wake-queue",
+"kind": "artifact",
+"name": "wake queue (relay)",
+"label_zh": "唤醒队列",
+"purpose_zh": "relay 写的一行行「唤醒会话 S：票 N 事件 E」。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (docstring)"
+},
+{
+"id": "art.brief-results",
+"kind": "artifact",
+"name": "briefs/<batch>/<n>/result.md",
+"label_zh": "brief 结果",
+"purpose_zh": "无票会话的答案，存在本机状态目录。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/skills/dispatch/scripts/briefs.py (docstring)"
+},
+{
+"id": "art.board-state",
+"kind": "artifact",
+"name": "task board page",
+"label_zh": "任务看板",
+"purpose_zh": "人读的批次视图，从 GitHub 计算。",
+"trigger_zh": "流程产生或读取时",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"id": "principle.start-from-what-exists",
+"kind": "principle",
+"name": "principle-start-from-what-exists",
+"label_zh": "从已有出发",
+"purpose_zh": "先搜已有实现并读，再决定用、扩展或自建。",
+"trigger_zh": "提方案或写非平凡代码前",
+"source": "mmw-v3/skills/principle-start-from-what-exists/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Core)",
+"origin": "v2"
+},
+{
+"id": "principle.laziness-protocol",
+"kind": "principle",
+"name": "principle-laziness-protocol",
+"label_zh": "懒惰协议",
+"purpose_zh": "偏向删除与最小改动。",
+"trigger_zh": "重构、定 diff 大小、想加抽象时",
+"source": "mmw-v3/skills/principle-laziness-protocol/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Core)",
+"origin": "pstack"
+},
+{
+"id": "principle.migrate-callers-then-delete-legacy-apis",
+"kind": "principle",
+"name": "principle-migrate-callers-then-delete-legacy-apis",
+"label_zh": "迁移调用者再删旧 API",
+"purpose_zh": "同一波迁移并删除旧接口。",
+"trigger_zh": "引入新内部 API 而旧调用者存在",
+"source": "mmw-v3/skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Architecture)",
+"origin": "pstack"
+},
+{
+"id": "principle.separate-before-serializing-shared-state",
+"kind": "principle",
+"name": "principle-separate-before-serializing-shared-state",
+"label_zh": "先拆共享再串行",
+"purpose_zh": "先消除并发写同一文件/分支/键的共享。",
+"trigger_zh": "多个并发者可能写同一物",
+"source": "mmw-v3/skills/principle-separate-before-serializing-shared-state/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Architecture)",
+"origin": "pstack"
+},
+{
+"id": "principle.prove-it-works",
+"kind": "principle",
+"name": "principle-prove-it-works",
+"label_zh": "证明它能用",
+"purpose_zh": "对真实产物验证，不靠代理或「能编译」。",
+"trigger_zh": "任务后、宣称完成前",
+"source": "mmw-v3/skills/principle-prove-it-works/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Verification)",
+"origin": "pstack"
+},
+{
+"id": "principle.read-before-you-conclude",
+"kind": "principle",
+"name": "principle-read-before-you-conclude",
+"label_zh": "先读再下结论",
+"purpose_zh": "读够再说，改前读全文件。",
+"trigger_zh": "说文件内容或改它时",
+"source": "mmw-v3/skills/principle-read-before-you-conclude/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Verification)",
+"origin": "v2"
+},
+{
+"id": "principle.run-the-smallest-test-set",
+"kind": "principle",
+"name": "principle-run-the-smallest-test-set",
+"label_zh": "跑最小测试集",
+"purpose_zh": "跑能证明改动的最小集合；全量要有名目。",
+"trigger_zh": "选择跑哪些测试",
+"source": "mmw-v3/skills/principle-run-the-smallest-test-set/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Verification)",
+"origin": "v2"
+},
+{
+"id": "principle.a-check-must-be-able-to-fail",
+"kind": "principle",
+"name": "principle-a-check-must-be-able-to-fail",
+"label_zh": "检查必须能失败",
+"purpose_zh": "先红、红得对；保持行为的钉子要亲眼见它变红。",
+"trigger_zh": "写、改、保留或信任一个检查",
+"source": "mmw-v3/skills/principle-a-check-must-be-able-to-fail/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Verification)",
+"origin": "pstack"
+},
+{
+"id": "principle.fix-the-product-not-the-check",
+"kind": "principle",
+"name": "principle-fix-the-product-not-the-check",
+"label_zh": "修产品不改检查",
+"purpose_zh": "检查失败就修产品或记为未达成，绝不改检查去通过。",
+"trigger_zh": "检查失败",
+"source": "mmw-v3/skills/principle-fix-the-product-not-the-check/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Verification)",
+"origin": "v2"
+},
+{
+"id": "principle.baseline-is-the-contract",
+"kind": "principle",
+"name": "principle-baseline-is-the-contract",
+"label_zh": "基线即契约",
+"purpose_zh": "照抄已定的决定，不重写不改进；不成立就让其主人看到。",
+"trigger_zh": "按已做的决定构建",
+"source": "mmw-v3/skills/principle-baseline-is-the-contract/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Verification)",
+"origin": "v2"
+},
+{
+"id": "principle.never-block-on-the-human",
+"kind": "principle",
+"name": "principle-never-block-on-the-human",
+"label_zh": "不阻塞在人身上",
+"purpose_zh": "可逆工作直接做、呈现结果、自己补完失败。",
+"trigger_zh": "想问「要不要做 X」或步骤失败",
+"source": "mmw-v3/skills/principle-never-block-on-the-human/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Delegation)",
+"origin": "pstack"
+},
+{
+"id": "principle.progress-is-what-the-record-says",
+"kind": "principle",
+"name": "principle-progress-is-what-the-record-says",
+"label_zh": "进度以记录为准",
+"purpose_zh": "从记录所在步骤行动，不按会话记忆。",
+"trigger_zh": "开始、被唤醒或接手有记录的工作",
+"source": "mmw-v3/skills/principle-progress-is-what-the-record-says/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Delegation)",
+"origin": "v2"
+},
+{
+"id": "principle.write-for-where-it-is-read",
+"kind": "principle",
+"name": "principle-write-for-where-it-is-read",
+"label_zh": "为读处而写",
+"purpose_zh": "写前说清谁读、在做什么、能看到什么。",
+"trigger_zh": "写别人读或跑的东西前",
+"source": "mmw-v3/skills/principle-write-for-where-it-is-read/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Writing)",
+"origin": "v2"
+},
+{
+"id": "principle.anchor-every-reference",
+"kind": "principle",
+"name": "principle-anchor-every-reference",
+"label_zh": "锚定每个引用",
+"purpose_zh": "用路径加标题/标识/规则号原文命名。",
+"trigger_zh": "回复或文档里提到文件、节、规则、事件",
+"source": "mmw-v3/skills/principle-anchor-every-reference/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Writing)",
+"origin": "v2"
+},
+{
+"id": "principle.files-describe-the-present",
+"kind": "principle",
+"name": "principle-files-describe-the-present",
+"label_zh": "文件只写现在",
+"purpose_zh": "文件只写主题当下为真之事，变更写进提交与回复。",
+"trigger_zh": "写或改任何文件",
+"source": "mmw-v3/skills/principle-files-describe-the-present/SKILL.md; mmw-v3/skills/mmw-mode/SKILL.md#Principles (Writing)",
+"origin": "v2"
+},
+{
+"id": "ext.github",
+"kind": "external",
+"name": "GitHub Issues (gh)",
+"label_zh": "GitHub 议题跟踪",
+"purpose_zh": "流水线唯一的存储：issue、子 issue、依赖、标签、评论事件。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md step 2"
+},
+{
+"id": "ext.orca",
+"kind": "external",
+"name": "Orca",
+"label_zh": "Orca",
+"purpose_zh": "runner：在终端里起会话；也管工作树。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/dispatch/scripts/runners/orca.sh"
+},
+{
+"id": "ext.paseo",
+"kind": "external",
+"name": "Paseo",
+"label_zh": "Paseo",
+"purpose_zh": "runner：paseo run 起 agent。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/dispatch/scripts/runners/paseo.sh"
+},
+{
+"id": "ext.herdr",
+"kind": "external",
+"name": "Herdr",
+"label_zh": "Herdr",
+"purpose_zh": "runner：在 pane 里起 agent。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/dispatch/scripts/runners/herdr.sh"
+},
+{
+"id": "ext.hosts",
+"kind": "external",
+"name": "hosts: claude, codex, grok, cursor-agent, pi",
+"label_zh": "agent 宿主",
+"purpose_zh": "实际跑模型的 CLI。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/dispatch/hosts.json"
+},
+{
+"id": "ext.nowledge-mem",
+"kind": "external",
+"name": "Nowledge Mem (nmem)",
+"label_zh": "Nowledge Mem",
+"purpose_zh": "共享记忆：Space、记录、Retro Memory。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/mmw-mode/references/memory.md; mmw-v3/install.sh (header)"
+},
+{
+"id": "ext.claude-design",
+"kind": "external",
+"name": "Claude Design (MCP tools)",
+"label_zh": "Claude Design",
+"purpose_zh": "owner 与其内 agent 画页面的地方，经 MCP 工具读写。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/design-pages/SKILL.md#Who can do this work"
+},
+{
+"id": "ext.build-machine",
+"kind": "external",
+"name": "Windows build machine (SSH)",
+"label_zh": "Windows 构建机",
+"purpose_zh": "接收 git archive HEAD 构建安装包。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/skills/exe-release/SKILL.md"
+},
+{
+"id": "ext.launchd",
+"kind": "external",
+"name": "launchd",
+"label_zh": "launchd",
+"purpose_zh": "守住看板与提示词渲染任务。",
+"trigger_zh": "被调用时",
+"source": "mmw-v3/install.sh (header)"
+}
+],
+"edges": [
+{
+"from": "mode.playbooks",
+"to": "pb.investigation",
+"type": "routes",
+"note_zh": "路由行：Investigation",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.pause-safely",
+"type": "routes",
+"note_zh": "路由行：Pause safely",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.authoring-or-modifying-a-skill",
+"type": "routes",
+"note_zh": "路由行：Authoring or modifying a skill",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.review-the-skill-set",
+"type": "routes",
+"note_zh": "路由行：Review the skill set",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.chart-a-map",
+"type": "routes",
+"note_zh": "路由行：Chart a map",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.resolve-a-map-ticket",
+"type": "routes",
+"note_zh": "路由行：Resolve a map ticket",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.design-in-claude-design",
+"type": "routes",
+"note_zh": "路由行：Design in Claude Design",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.pull-a-design",
+"type": "routes",
+"note_zh": "路由行：Pull a design",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.build-a-design-system",
+"type": "routes",
+"note_zh": "路由行：Build a design system",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.write-the-screen-contract",
+"type": "routes",
+"note_zh": "路由行：Write the screen contract",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.write-a-spec",
+"type": "routes",
+"note_zh": "路由行：Write a spec",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.cut-tickets",
+"type": "routes",
+"note_zh": "路由行：Cut tickets",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.triage",
+"type": "routes",
+"note_zh": "路由行：Triage",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.run-a-night",
+"type": "routes",
+"note_zh": "路由行：Run a night",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.revise-a-spec",
+"type": "routes",
+"note_zh": "路由行：Revise a spec",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.run-one-ticket",
+"type": "routes",
+"note_zh": "路由行：Run one ticket",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.work-a-ticket",
+"type": "routes",
+"note_zh": "路由行：Work a ticket",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.review-a-ticket",
+"type": "routes",
+"note_zh": "路由行：Review a ticket",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.make-a-small-change",
+"type": "routes",
+"note_zh": "路由行：Make a small change",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.bug-fix",
+"type": "routes",
+"note_zh": "路由行：Bug fix",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.improve-the-architecture",
+"type": "routes",
+"note_zh": "路由行：Improve the architecture",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.set-up-code-checkers",
+"type": "routes",
+"note_zh": "路由行：Set up code checkers",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.write-agents-md",
+"type": "routes",
+"note_zh": "路由行：Write AGENTS.md",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.playbooks",
+"to": "pb.ship-a-release",
+"type": "routes",
+"note_zh": "路由行：Ship a release",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Playbooks"
+},
+{
+"from": "mode.principles",
+"to": "principle.start-from-what-exists",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.laziness-protocol",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.migrate-callers-then-delete-legacy-apis",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.separate-before-serializing-shared-state",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.prove-it-works",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.read-before-you-conclude",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.run-the-smallest-test-set",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.a-check-must-be-able-to-fail",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.fix-the-product-not-the-check",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.baseline-is-the-contract",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.never-block-on-the-human",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.progress-is-what-the-record-says",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.write-for-where-it-is-read",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.anchor-every-reference",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "mode.principles",
+"to": "principle.files-describe-the-present",
+"type": "reads",
+"note_zh": "索引行常驻，条件出现时读全文",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Principles"
+},
+{
+"from": "entry.owner-session",
+"to": "skill.mmw-mode",
+"type": "reads",
+"note_zh": "人输入 /mmw-mode 加载 mode",
+"source": "mmw-v3/skills/mmw-mode/README.md#What the mode is for"
+},
+{
+"from": "hook.mode-hook",
+"to": "skill.mmw-mode",
+"type": "reads",
+"note_zh": "让会话完整读 SKILL.md（模型不能按名调用）",
+"source": "mmw-v3/skills/mmw-mode/scripts/mode-hook.py"
+},
+{
+"from": "hook.mode-hook",
+"to": "cfg.target-json",
+"type": "reads",
+"note_zh": "仓库有 .mmw/ 目录才触发",
+"source": "mmw-v3/skills/mmw-mode/scripts/mode-hook.py"
+},
+{
+"from": "entry.start-prompt",
+"to": "skill.mmw-mode",
+"type": "reads",
+"note_zh": "Use the mmw-mode skill + SKILL.md 路径",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (MODE_SKILL)"
+},
+{
+"from": "entry.start-prompt",
+"to": "pb.work-a-ticket",
+"type": "routes",
+"note_zh": "WORKER_PLAYBOOK=\"Work a ticket\"",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (WORKER_PLAYBOOK)"
+},
+{
+"from": "entry.start-prompt",
+"to": "pb.review-a-ticket",
+"type": "routes",
+"note_zh": "REVIEWER_PLAYBOOK=\"Review a ticket\"",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (REVIEWER_PLAYBOOK)"
+},
+{
+"from": "entry.start-prompt",
+"to": "art.memory-records",
+"type": "reads",
+"note_zh": "worker 起始提示词带两个 Memory 索引",
+"source": "mmw-v3/skills/mmw-mode/references/memory.md#Read"
+},
+{
+"from": "skill.mmw-mode",
+"to": "mode.non-negotiables",
+"type": "reads",
+"note_zh": "mode 的一节",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md"
+},
+{
+"from": "skill.mmw-mode",
+"to": "mode.principles",
+"type": "reads",
+"note_zh": "mode 的一节",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md"
+},
+{
+"from": "skill.mmw-mode",
+"to": "mode.autonomy",
+"type": "reads",
+"note_zh": "mode 的一节",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md"
+},
+{
+"from": "skill.mmw-mode",
+"to": "mode.subagents",
+"type": "reads",
+"note_zh": "mode 的一节",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md"
+},
+{
+"from": "skill.mmw-mode",
+"to": "mode.writing-the-reply",
+"type": "reads",
+"note_zh": "mode 的一节",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md"
+},
+{
+"from": "skill.mmw-mode",
+"to": "mode.comments",
+"type": "reads",
+"note_zh": "mode 的一节",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md"
+},
+{
+"from": "skill.mmw-mode",
+"to": "mode.playbooks",
+"type": "reads",
+"note_zh": "mode 的一节",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md"
+},
+{
+"from": "human.owner",
+"to": "entry.owner-session",
+"type": "wakes",
+"note_zh": "owner 开会话提需求",
+"source": "mmw-v3/skills/mmw-mode/README.md"
+},
+{
+"from": "human.owner",
+"to": "skill.teach",
+"type": "calls",
+"note_zh": "只由人启动（disable-model-invocation）",
+"source": "mmw-v3/skills/teach/SKILL.md (frontmatter)"
+},
+{
+"from": "human.owner",
+"to": "skill.wait-what",
+"type": "calls",
+"note_zh": "只由人启动（disable-model-invocation）",
+"source": "mmw-v3/skills/wait-what/SKILL.md (frontmatter)"
+},
+{
+"from": "human.owner",
+"to": "skill.mmw-mode",
+"type": "calls",
+"note_zh": "只由人启动（disable-model-invocation）",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md (frontmatter)"
+},
+{
+"from": "mode.non-negotiables",
+"to": "skill.how",
+"type": "calls",
+"note_zh": "非平凡改动、架构决定、「我们确定吗」",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Non-negotiables"
+},
+{
+"from": "mode.non-negotiables",
+"to": "skill.unslop",
+"type": "calls",
+"note_zh": "任何文字面（含回复）",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Non-negotiables"
+},
+{
+"from": "mode.non-negotiables",
+"to": "skill.writing-for-agents",
+"type": "calls",
+"note_zh": "给 agent 读的文字",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Non-negotiables"
+},
+{
+"from": "mode.non-negotiables",
+"to": "skill.technical-writing",
+"type": "calls",
+"note_zh": "文档、RFC、README、提交信息",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Non-negotiables"
+},
+{
+"from": "mode.non-negotiables",
+"to": "skill.ui-acceptance",
+"type": "calls",
+"note_zh": "要启动/观察产品、读 DIFF/MISS 行、无 target.json、写页面票代码、碰进程或端口",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Non-negotiables"
+},
+{
+"from": "mode.non-negotiables",
+"to": "skill.setup-mmw",
+"type": "calls",
+"note_zh": "仓库未接入流水线或要求检查",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Non-negotiables"
+},
+{
+"from": "mode.subagents",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "需要别的模型的工作是会话：dispatch.sh brief",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Subagents"
+},
+{
+"from": "mode.subagents",
+"to": "cfg.roles-json",
+"type": "reads",
+"note_zh": "roles.json 列出会话与子代理全部角色",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Subagents"
+},
+{
+"from": "human.gate-always-pause",
+"to": "mode.autonomy",
+"type": "gates",
+"note_zh": "Always pause 列表在用户级提示词",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Autonomy"
+},
+{
+"from": "mode.autonomy",
+"to": "cfg.shared-md",
+"type": "reads",
+"note_zh": "owner 才能做的决定列在用户级提示词",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Autonomy"
+},
+{
+"from": "mode.writing-the-reply",
+"to": "skill.unslop",
+"type": "calls",
+"note_zh": "冒号连接句禁用（unslop rule 14）",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Writing the reply"
+},
+{
+"from": "principle.anchor-every-reference",
+"to": "mode.writing-the-reply",
+"type": "applies",
+"note_zh": "节注释：锚定引用归此原则",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Writing the reply (authoring comment)"
+},
+{
+"from": "principle.files-describe-the-present",
+"to": "mode.comments",
+"type": "applies",
+"note_zh": "节注释：注释也只写现在",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Comments (authoring comment)"
+},
+{
+"from": "mode.autonomy",
+"to": "principle.never-block-on-the-human",
+"type": "reads",
+"note_zh": "节注释：v2 规则 11 归此原则",
+"source": "mmw-v3/skills/mmw-mode/SKILL.md#Autonomy (authoring comment)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.advisor",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/advisor/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.codebase-design",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/codebase-design/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.diagram-design",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/diagram-design/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.dispatch",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/dispatch/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.grilling",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/grilling/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.to-questionnaire",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/to-questionnaire/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.verify-ticket",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.wizard",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/wizard/SKILL.md (frontmatter description)"
+},
+{
+"from": "entry.model-invoked",
+"to": "skill.writing-for-agents",
+"type": "calls",
+"note_zh": "description 以 Use when/Use before 起，模型可自启",
+"source": "mmw-v3/skills/writing-for-agents/SKILL.md (frontmatter description)"
+},
+{
+"from": "pb.investigation",
+"to": "skill.how",
+"type": "calls",
+"note_zh": "第 1 步：经 how 路由",
+"source": "mmw-v3/skills/mmw-mode/playbooks/investigation.md"
+},
+{
+"from": "pb.investigation",
+"to": "skill.why",
+"type": "calls",
+"note_zh": "第 1 步：动机类问题",
+"source": "mmw-v3/skills/mmw-mode/playbooks/investigation.md"
+},
+{
+"from": "pb.investigation",
+"to": "skill.unslop",
+"type": "calls",
+"note_zh": "第 3 步：回复去 AI 腔",
+"source": "mmw-v3/skills/mmw-mode/playbooks/investigation.md"
+},
+{
+"from": "pb.investigation",
+"to": "skill.dispatch",
+"type": "calls",
+"note_zh": "brief 完成唤醒时按 ## On waking",
+"source": "mmw-v3/skills/mmw-mode/playbooks/investigation.md"
+},
+{
+"from": "pb.investigation",
+"to": "pb.bug-fix",
+"type": "calls",
+"note_zh": "要改代码时改走 Bug fix / Make a small change / Write a spec",
+"source": "mmw-v3/skills/mmw-mode/playbooks/investigation.md"
+},
+{
+"from": "pb.pause-safely",
+"to": "skill.handoff",
+"type": "calls",
+"note_zh": "第 4 步：写接续说明",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pause-safely.md"
+},
+{
+"from": "pb.pause-safely",
+"to": "art.wip-commit",
+"type": "writes",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pause-safely.md step 3"
+},
+{
+"from": "pb.authoring-or-modifying-a-skill",
+"to": "ref.skills-readme",
+"type": "reads",
+"note_zh": "第 1 步定组件",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md step 1"
+},
+{
+"from": "pb.authoring-or-modifying-a-skill",
+"to": "skill.writing-for-agents",
+"type": "calls",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md"
+},
+{
+"from": "pb.authoring-or-modifying-a-skill",
+"to": "ref.skill-set-rules",
+"type": "reads",
+"note_zh": "第 2–4 步 ## Checks、## Editing、走查",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md steps 2-4"
+},
+{
+"from": "pb.authoring-or-modifying-a-skill",
+"to": "script.check-imports",
+"type": "runs",
+"note_zh": "第 3 步：IMPORTS OK",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md"
+},
+{
+"from": "pb.authoring-or-modifying-a-skill",
+"to": "script.check-interfaces",
+"type": "runs",
+"note_zh": "第 3 步：INTERFACES OK",
+"source": "mmw-v3/skills/mmw-mode/playbooks/authoring-or-modifying-a-skill.md"
+},
+{
+"from": "pb.review-the-skill-set",
+"to": "ref.skill-set-rules",
+"type": "reads",
+"note_zh": "第 1–3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md"
+},
+{
+"from": "pb.review-the-skill-set",
+"to": "skill.writing-for-agents",
+"type": "calls",
+"note_zh": "失败模式名称",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md"
+},
+{
+"from": "pb.review-the-skill-set",
+"to": "art.skill-review",
+"type": "writes",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md step 4"
+},
+{
+"from": "pb.review-the-skill-set",
+"to": "pb.authoring-or-modifying-a-skill",
+"type": "calls",
+"note_zh": "第 5 步：修每条发现",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md"
+},
+{
+"from": "human.gate-review-go",
+"to": "pb.review-the-skill-set",
+"type": "gates",
+"note_zh": "第 5 步只在 owner 说 go 后跑",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md step 5"
+},
+{
+"from": "pb.chart-a-map",
+"to": "skill.grilling",
+"type": "calls",
+"note_zh": "第 1–2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md"
+},
+{
+"from": "pb.chart-a-map",
+"to": "skill.domain-modeling",
+"type": "calls",
+"note_zh": "第 1 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md"
+},
+{
+"from": "pb.chart-a-map",
+"to": "skill.wayfinder",
+"type": "calls",
+"note_zh": "第 3–4 步：地图体与票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md"
+},
+{
+"from": "pb.chart-a-map",
+"to": "cfg.docs-agents",
+"type": "reads",
+"note_zh": "第 3 步 ## Wayfinding operations",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 3"
+},
+{
+"from": "pb.chart-a-map",
+"to": "ref.interface-and-remake",
+"type": "reads",
+"note_zh": "第 4 步：有 UI 或重做",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 4"
+},
+{
+"from": "pb.chart-a-map",
+"to": "ref.map-research-brief",
+"type": "reads",
+"note_zh": "第 5 步：写简报",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 5"
+},
+{
+"from": "pb.chart-a-map",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "第 5 步 dispatch.sh brief researcher / brief close",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md"
+},
+{
+"from": "pb.chart-a-map",
+"to": "skill.dispatch",
+"type": "calls",
+"note_zh": "第 5 步 ## On waking",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md"
+},
+{
+"from": "pb.chart-a-map",
+"to": "art.map",
+"type": "writes",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 3"
+},
+{
+"from": "pb.chart-a-map",
+"to": "art.decision-ticket",
+"type": "writes",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 4"
+},
+{
+"from": "pb.chart-a-map",
+"to": "art.research-note",
+"type": "writes",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 5"
+},
+{
+"from": "human.gate-map-destination",
+"to": "pb.chart-a-map",
+"type": "gates",
+"note_zh": "第 1 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md step 1"
+},
+{
+"from": "pb.chart-a-map",
+"to": "pb.resolve-a-map-ticket",
+"type": "calls",
+"note_zh": "下一步：新会话跑 Resolve a map ticket",
+"source": "mmw-v3/skills/mmw-mode/playbooks/chart-a-map.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "skill.wayfinder",
+"type": "calls",
+"note_zh": "## Ticket Types、## A clear map",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "skill.grilling",
+"type": "calls",
+"note_zh": "grilling 票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "skill.domain-modeling",
+"type": "calls",
+"note_zh": "grilling 票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "skill.prototype",
+"type": "calls",
+"note_zh": "prototype 票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "research 票：dispatch.sh brief researcher",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "ref.map-research-brief",
+"type": "reads",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md step 3"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "ref.interface-and-remake",
+"type": "reads",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md step 5"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "art.map",
+"type": "reads",
+"note_zh": "第 1 步读地图体",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md step 1"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "art.decision-ticket",
+"type": "writes",
+"note_zh": "第 4–5 步：关票、开新票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md steps 4-5"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "pb.design-in-claude-design",
+"type": "calls",
+"note_zh": "第 3 步：票体首行指名 playbook（设计票）",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "pb.write-the-screen-contract",
+"type": "calls",
+"note_zh": "第 3 步：票体首行指名 playbook（对齐票）",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.resolve-a-map-ticket",
+"to": "pb.write-a-spec",
+"type": "calls",
+"note_zh": "第 6 步：地图清晰后新会话跑 Write a spec",
+"source": "mmw-v3/skills/mmw-mode/playbooks/resolve-a-map-ticket.md"
+},
+{
+"from": "pb.design-in-claude-design",
+"to": "skill.design-pages",
+"type": "calls",
+"note_zh": "第 1–6 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md"
+},
+{
+"from": "pb.design-in-claude-design",
+"to": "ref.design-templates",
+"type": "reads",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md step 3"
+},
+{
+"from": "pb.design-in-claude-design",
+"to": "art.claude-design-project",
+"type": "writes",
+"note_zh": "第 3–6 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md"
+},
+{
+"from": "pb.design-in-claude-design",
+"to": "ext.claude-design",
+"type": "calls",
+"note_zh": "MCP 工具：create_project、finalize_plan、write_files、list_comments",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md"
+},
+{
+"from": "human.gate-design-signoff",
+"to": "pb.design-in-claude-design",
+"type": "gates",
+"note_zh": "第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md step 8"
+},
+{
+"from": "pb.design-in-claude-design",
+"to": "pb.pull-a-design",
+"type": "calls",
+"note_zh": "第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "skill.design-pages",
+"type": "calls",
+"note_zh": "第 1、3–4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "script.pull-design",
+"type": "runs",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "art.design-package",
+"type": "writes",
+"note_zh": "第 3、5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "art.pull-report",
+"type": "writes",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md step 4"
+},
+{
+"from": "pb.pull-a-design",
+"to": "art.claude-design-project",
+"type": "reads",
+"note_zh": "第 2 步 list_files、render_preview",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md step 2"
+},
+{
+"from": "pb.pull-a-design",
+"to": "skill.prototype",
+"type": "calls",
+"note_zh": "第 6 步：拆原型脚手架",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "skill.verify-ticket",
+"type": "calls",
+"note_zh": "实现期设计问题：--sub-issue contract",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "第 8 步 route、resume；reverify",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "pb.write-the-screen-contract",
+"type": "calls",
+"note_zh": "Reached from here：无契约或 增删控件或改流转",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "pb.resolve-a-map-ticket",
+"type": "calls",
+"note_zh": "Reached from here：设计票回到第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.pull-a-design",
+"to": "pb.design-in-claude-design",
+"type": "calls",
+"note_zh": "Design problems in the report：未签收时回去改",
+"source": "mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md"
+},
+{
+"from": "pb.build-a-design-system",
+"to": "skill.design-pages",
+"type": "calls",
+"note_zh": "## A design system、## Who can do this work",
+"source": "mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md"
+},
+{
+"from": "pb.build-a-design-system",
+"to": "ref.design-templates",
+"type": "reads",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md step 4"
+},
+{
+"from": "pb.build-a-design-system",
+"to": "ext.claude-design",
+"type": "calls",
+"note_zh": "finalize_plan、write_files、render_preview",
+"source": "mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md"
+},
+{
+"from": "human.gate-design-system-done",
+"to": "pb.build-a-design-system",
+"type": "gates",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md step 5"
+},
+{
+"from": "pb.build-a-design-system",
+"to": "pb.design-in-claude-design",
+"type": "calls",
+"note_zh": "现有产品：接着跑 Design in Claude Design",
+"source": "mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "skill.write-screen-contract",
+"type": "calls",
+"note_zh": "SKILL.md 与格式参考",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "ref.screen-contract-format",
+"type": "reads",
+"note_zh": "第 3 步前",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "script.dump-openapi",
+"type": "runs",
+"note_zh": "第 1 步（FastAPI 时）",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "script.extract-skeleton",
+"type": "runs",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "script.lint-screen-contract",
+"type": "runs",
+"note_zh": "第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "skill.grilling",
+"type": "calls",
+"note_zh": "第 7 步：缺口清单是拷问",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "art.design-package",
+"type": "reads",
+"note_zh": "第 1 步只读",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md step 1"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "art.screen-contract",
+"type": "writes",
+"note_zh": "第 8 步复制并提交",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md step 8"
+},
+{
+"from": "human.gate-gap-list",
+"to": "pb.write-the-screen-contract",
+"type": "gates",
+"note_zh": "第 7 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md step 7"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "pb.write-a-spec",
+"type": "calls",
+"note_zh": "Reply：首份契约之后",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-the-screen-contract",
+"to": "pb.revise-a-spec",
+"type": "calls",
+"note_zh": "Reply：重跑之后",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "cfg.docs-agents",
+"type": "reads",
+"note_zh": "缺失则让 owner 跑 setup-mmw",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "skill.setup-mmw",
+"type": "calls",
+"note_zh": "docs/agents 文件缺失时告诉 owner 跑它并停",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "art.screen-contract",
+"type": "reads",
+"note_zh": "第 2 步全读；gap 非 aligned 则停",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 2"
+},
+{
+"from": "pb.write-a-spec",
+"to": "cfg.context-md",
+"type": "reads",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 2"
+},
+{
+"from": "pb.write-a-spec",
+"to": "cfg.testing-md",
+"type": "reads",
+"note_zh": "第 3 步定接缝",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 3"
+},
+{
+"from": "pb.write-a-spec",
+"to": "art.map",
+"type": "reads",
+"note_zh": "第 1 步：参考是地图时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 1"
+},
+{
+"from": "pb.write-a-spec",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "第 4 步 --publish --spec-body",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "art.spec",
+"type": "writes",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 4"
+},
+{
+"from": "human.gate-spec-calls",
+"to": "pb.write-a-spec",
+"type": "gates",
+"note_zh": "第 1、4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "pb.cut-tickets",
+"type": "calls",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "pb.revise-a-spec",
+"type": "calls",
+"note_zh": "参考是已发布 spec 时改走",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "pb.write-the-screen-contract",
+"type": "calls",
+"note_zh": "无地图时从其第 6 步跑到第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "skill.ui-acceptance",
+"type": "calls",
+"note_zh": "模板：target_config.py --check、story oracle",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "principle.start-from-what-exists",
+"to": "pb.write-a-spec",
+"type": "applies",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"
+},
+{
+"from": "pb.cut-tickets",
+"to": "art.spec",
+"type": "reads",
+"note_zh": "第 1 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 1"
+},
+{
+"from": "pb.cut-tickets",
+"to": "ref.cutting-interface-tickets",
+"type": "reads",
+"note_zh": "第 3 步：有屏幕契约时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 3"
+},
+{
+"from": "pb.cut-tickets",
+"to": "ref.ticket-format",
+"type": "reads",
+"note_zh": "每张票的格式",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md"
+},
+{
+"from": "pb.cut-tickets",
+"to": "role.ambiguity-scanner",
+"type": "starts",
+"note_zh": "第 6 步派子代理",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 6"
+},
+{
+"from": "role.ambiguity-scanner",
+"to": "ref.ambiguity-scan",
+"type": "reads",
+"note_zh": "子代理提示词",
+"source": "mmw-v3/skills/mmw-mode/references/ambiguity-scan.md"
+},
+{
+"from": "human.gate-approve-breakdown",
+"to": "pb.cut-tickets",
+"type": "gates",
+"note_zh": "第 6 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 6"
+},
+{
+"from": "pb.cut-tickets",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "第 7 步 --lint --drafts、--publish --drafts；第 8 步 --lint",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md"
+},
+{
+"from": "pb.cut-tickets",
+"to": "ref.linting",
+"type": "reads",
+"note_zh": "第 7–8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md steps 7-8"
+},
+{
+"from": "pb.cut-tickets",
+"to": "ref.person-ticket",
+"type": "reads",
+"note_zh": "第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 8"
+},
+{
+"from": "pb.cut-tickets",
+"to": "skill.verify-ticket",
+"type": "calls",
+"note_zh": "票格式、lint、person-ticket",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md"
+},
+{
+"from": "pb.cut-tickets",
+"to": "art.ticket",
+"type": "writes",
+"note_zh": "第 7 步发布为 spec 的子 issue",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 7"
+},
+{
+"from": "pb.cut-tickets",
+"to": "pb.revise-a-spec",
+"type": "calls",
+"note_zh": "第 4、6 步改 spec 节",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md"
+},
+{
+"from": "principle.migrate-callers-then-delete-legacy-apis",
+"to": "pb.cut-tickets",
+"type": "applies",
+"note_zh": "第 3 步 expand–contract",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md"
+},
+{
+"from": "principle.separate-before-serializing-shared-state",
+"to": "pb.cut-tickets",
+"type": "applies",
+"note_zh": "第 5 步：可并行的票不写同一文件",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md"
+},
+{
+"from": "pb.triage",
+"to": "skill.triage",
+"type": "calls",
+"note_zh": "第 1–2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md"
+},
+{
+"from": "pb.triage",
+"to": "ref.pipeline-issues",
+"type": "reads",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md step 2"
+},
+{
+"from": "pb.triage",
+"to": "art.triage-queue",
+"type": "reads",
+"note_zh": "第 1 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md step 1"
+},
+{
+"from": "human.gate-triage-outcome",
+"to": "pb.triage",
+"type": "gates",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md"
+},
+{
+"from": "pb.triage",
+"to": "pb.revise-a-spec",
+"type": "calls",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md"
+},
+{
+"from": "pb.triage",
+"to": "pb.cut-tickets",
+"type": "calls",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md"
+},
+{
+"from": "pb.triage",
+"to": "pb.write-a-spec",
+"type": "calls",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/triage.md"
+},
+{
+"from": "pb.revise-a-spec",
+"to": "art.spec",
+"type": "writes",
+"note_zh": "第 2–3 步 gh issue edit + 评论",
+"source": "mmw-v3/skills/mmw-mode/playbooks/revise-a-spec.md"
+},
+{
+"from": "pb.revise-a-spec",
+"to": "art.ticket",
+"type": "writes",
+"note_zh": "第 4 步对齐未落地的票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/revise-a-spec.md step 4"
+},
+{
+"from": "pb.revise-a-spec",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "第 4 步 --lint",
+"source": "mmw-v3/skills/mmw-mode/playbooks/revise-a-spec.md"
+},
+{
+"from": "pb.revise-a-spec",
+"to": "skill.verify-ticket",
+"type": "calls",
+"note_zh": "linting.md、ticket-format.md",
+"source": "mmw-v3/skills/mmw-mode/playbooks/revise-a-spec.md"
+},
+{
+"from": "principle.files-describe-the-present",
+"to": "pb.revise-a-spec",
+"type": "applies",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/revise-a-spec.md"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "skill.codebase-design",
+"type": "calls",
+"note_zh": "词汇与 design-it-twice",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "skill.diagram-design",
+"type": "calls",
+"note_zh": "第 3 步报告与配图",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "skill.grilling",
+"type": "calls",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "skill.domain-modeling",
+"type": "calls",
+"note_zh": "第 4 步更新 CONTEXT.md、ADR",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "role.architecture-explorer",
+"type": "starts",
+"note_zh": "第 2 步派子代理",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md step 2"
+},
+{
+"from": "role.architecture-explorer",
+"to": "ref.architecture-explorer",
+"type": "reads",
+"note_zh": "子代理提示词",
+"source": "mmw-v3/skills/mmw-mode/references/architecture-explorer.md"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "ref.architecture-report",
+"type": "reads",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md step 3"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "art.arch-report",
+"type": "writes",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md step 3"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "cfg.context-md",
+"type": "writes",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md step 4"
+},
+{
+"from": "human.gate-arch-pick",
+"to": "pb.improve-the-architecture",
+"type": "gates",
+"note_zh": "第 3–4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md"
+},
+{
+"from": "pb.improve-the-architecture",
+"to": "pb.write-a-spec",
+"type": "calls",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/improve-the-architecture.md"
+},
+{
+"from": "pb.set-up-code-checkers",
+"to": "ref.checkers-python",
+"type": "reads",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md step 3"
+},
+{
+"from": "pb.set-up-code-checkers",
+"to": "ref.checkers-typescript",
+"type": "reads",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md step 3"
+},
+{
+"from": "pb.set-up-code-checkers",
+"to": "ref.checkers-git-hooks",
+"type": "reads",
+"note_zh": "第 7 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md step 7"
+},
+{
+"from": "pb.set-up-code-checkers",
+"to": "cfg.agents-md",
+"type": "writes",
+"note_zh": "第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md step 8"
+},
+{
+"from": "pb.set-up-code-checkers",
+"to": "cfg.target-json",
+"type": "writes",
+"note_zh": "第 6 步：检查命令就是 checks 应跑的",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md step 6"
+},
+{
+"from": "pb.set-up-code-checkers",
+"to": "skill.manage-agents-md",
+"type": "calls",
+"note_zh": "第 8 步：AGENTS.md 的格式",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md"
+},
+{
+"from": "principle.a-check-must-be-able-to-fail",
+"to": "pb.set-up-code-checkers",
+"type": "applies",
+"note_zh": "第 5 步探针",
+"source": "mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md"
+},
+{
+"from": "pb.write-agents-md",
+"to": "skill.manage-agents-md",
+"type": "calls",
+"note_zh": "格式与 check.sh",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md"
+},
+{
+"from": "pb.write-agents-md",
+"to": "script.agents-check",
+"type": "runs",
+"note_zh": "第 1 步 --list；第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md"
+},
+{
+"from": "pb.write-agents-md",
+"to": "role.agents-md-surveyor",
+"type": "starts",
+"note_zh": "第 3 步每组一个子代理",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md step 3"
+},
+{
+"from": "role.agents-md-surveyor",
+"to": "ref.agents-md-survey",
+"type": "reads",
+"note_zh": "子代理提示词",
+"source": "mmw-v3/skills/mmw-mode/references/agents-md-survey.md"
+},
+{
+"from": "pb.write-agents-md",
+"to": "cfg.agents-md",
+"type": "writes",
+"note_zh": "第 6 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md step 6"
+},
+{
+"from": "pb.write-agents-md",
+"to": "cfg.testing-md",
+"type": "writes",
+"note_zh": "第 6.2 步代码与测试规则",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md step 6"
+},
+{
+"from": "pb.write-agents-md",
+"to": "cfg.coding-standards",
+"type": "writes",
+"note_zh": "第 6.2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md step 6"
+},
+{
+"from": "principle.prove-it-works",
+"to": "pb.write-agents-md",
+"type": "applies",
+"note_zh": "第 8 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md"
+},
+{
+"from": "pb.ship-a-release",
+"to": "skill.exe-release",
+"type": "calls",
+"note_zh": "发布清单与引擎",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md"
+},
+{
+"from": "pb.ship-a-release",
+"to": "script.release-flow",
+"type": "runs",
+"note_zh": "第 3–4 步 init/where/stage run/close/same-commit",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md"
+},
+{
+"from": "script.release-flow",
+"to": "ext.build-machine",
+"type": "calls",
+"note_zh": "构建机只收 git archive HEAD",
+"source": "mmw-v3/skills/exe-release/SKILL.md"
+},
+{
+"from": "script.release-flow",
+"to": "art.release-package",
+"type": "writes",
+"note_zh": "close 留交付记录",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md#Close"
+},
+{
+"from": "human.gate-install-test",
+"to": "pb.ship-a-release",
+"type": "gates",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md step 5"
+},
+{
+"from": "principle.never-block-on-the-human",
+"to": "pb.ship-a-release",
+"type": "applies",
+"note_zh": "第 2 步不等回复",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md"
+},
+{
+"from": "principle.progress-is-what-the-record-says",
+"to": "pb.ship-a-release",
+"type": "applies",
+"note_zh": "Drive one product",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md"
+},
+{
+"from": "principle.prove-it-works",
+"to": "pb.ship-a-release",
+"type": "applies",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/ship-a-release.md"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "skill.tdd",
+"type": "calls",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "skill.ui-acceptance",
+"type": "calls",
+"note_zh": "第 3 步 Five rules",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "skill.code-review",
+"type": "calls",
+"note_zh": "第 5 步 Standards/Spec/Tests",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "cfg.testing-md",
+"type": "reads",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md step 2"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "cfg.target-json",
+"type": "reads",
+"note_zh": "第 6 步 checks",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md step 6"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "art.base-branch",
+"type": "writes",
+"note_zh": "第 4、6 步提交并推送",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "human.gate-seams",
+"to": "pb.make-a-small-change",
+"type": "gates",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md step 2"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "pb.write-a-spec",
+"type": "calls",
+"note_zh": "第 1 步：不算小就转 Write a spec",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "pb.make-a-small-change",
+"to": "pb.review-a-ticket",
+"type": "calls",
+"note_zh": "第 5 步按其 Verify every finding 核实",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.a-check-must-be-able-to-fail",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.start-from-what-exists",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.migrate-callers-then-delete-legacy-apis",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.laziness-protocol",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.baseline-is-the-contract",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.prove-it-works",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.run-the-smallest-test-set",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "principle.fix-the-product-not-the-check",
+"to": "pb.make-a-small-change",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/make-a-small-change.md"
+},
+{
+"from": "pb.bug-fix",
+"to": "skill.diagnosing-bugs",
+"type": "calls",
+"note_zh": "第 1–2 步 Phase 1–4；第 3 步 Phase 5",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "pb.bug-fix",
+"to": "skill.ui-acceptance",
+"type": "calls",
+"note_zh": "第 1 步 Five rules",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "pb.bug-fix",
+"to": "skill.how",
+"type": "calls",
+"note_zh": "第 2 步播种假设",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "pb.bug-fix",
+"to": "skill.why",
+"type": "calls",
+"note_zh": "第 2 步引入 bug 的改动",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "pb.bug-fix",
+"to": "skill.verify-ticket",
+"type": "calls",
+"note_zh": "第 3 步 ticket-format.md",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "pb.bug-fix",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "第 3 步 --lint",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "pb.bug-fix",
+"to": "art.ticket",
+"type": "writes",
+"note_zh": "第 3 步 Parent: None",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md step 3"
+},
+{
+"from": "pb.bug-fix",
+"to": "pb.run-one-ticket",
+"type": "calls",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "principle.prove-it-works",
+"to": "pb.bug-fix",
+"type": "applies",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/bug-fix.md"
+},
+{
+"from": "pb.run-one-ticket",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "open-ticket、start、resume、land",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-one-ticket.md"
+},
+{
+"from": "pb.run-one-ticket",
+"to": "skill.dispatch",
+"type": "calls",
+"note_zh": "## On waking",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-one-ticket.md"
+},
+{
+"from": "pb.run-one-ticket",
+"to": "script.events",
+"type": "runs",
+"note_zh": "events.py fold <n>",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-one-ticket.md"
+},
+{
+"from": "pb.run-one-ticket",
+"to": "pb.run-a-night",
+"type": "calls",
+"note_zh": "借用 Settling a contract child 与第 5 步表",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-one-ticket.md"
+},
+{
+"from": "role.orchestrator",
+"to": "pb.run-one-ticket",
+"type": "reads",
+"note_zh": "本会话当单票 orchestrator",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-one-ticket.md"
+},
+{
+"from": "role.orchestrator",
+"to": "pb.run-a-night",
+"type": "reads",
+"note_zh": "本会话当夜间 orchestrator",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "human.gate-start-night",
+"to": "pb.run-a-night",
+"type": "gates",
+"note_zh": "第 1 步表第一行",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 1"
+},
+{
+"from": "human.gate-accept-night",
+"to": "pb.run-a-night",
+"type": "gates",
+"note_zh": "第 10 步 finish 前",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 10"
+},
+{
+"from": "human.gate-contract-to-owner",
+"to": "pb.run-a-night",
+"type": "gates",
+"note_zh": "Settling a contract child",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md#Settling a contract child"
+},
+{
+"from": "human.gate-release-merge",
+"to": "art.project-branch",
+"type": "gates",
+"note_zh": "合入默认分支是 owner 的发布决定",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 10"
+},
+{
+"from": "pb.run-a-night",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "status/check/open/advance/resume/start/retract/findings/route/memory-list/reverify/summary/finish/suspend",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "第 2 步 --lint；新票 --lint",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "script.events",
+"type": "runs",
+"note_zh": "第 5–6 步 events.py fold",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "script.target-config",
+"type": "runs",
+"note_zh": "第 2 步 --check",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "script.lease",
+"type": "runs",
+"note_zh": "第 11 步 lease.py release",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "skill.dispatch",
+"type": "calls",
+"note_zh": "第 5 步 ## On waking",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "skill.verify-ticket",
+"type": "calls",
+"note_zh": "linting.md、ticket-format.md",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "skill.ui-acceptance",
+"type": "calls",
+"note_zh": "target_config.py、lease.py",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "skill.retro",
+"type": "calls",
+"note_zh": "第 9 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "pb.revise-a-spec",
+"type": "calls",
+"note_zh": "Settling a contract child：改 spec 节",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "pb.run-a-night",
+"to": "art.events",
+"type": "reads",
+"note_zh": "第 1 步：位置以 spec 事件为准",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 1"
+},
+{
+"from": "pb.run-a-night",
+"to": "art.memory-records",
+"type": "reads",
+"note_zh": "第 7 步逐条判 retain/deprecate/supersede/propose",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 7"
+},
+{
+"from": "pb.run-a-night",
+"to": "art.base-branch",
+"type": "writes",
+"note_zh": "Routing a finding：自修提交推 origin/<base branch>",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md#Routing a finding"
+},
+{
+"from": "pb.run-a-night",
+"to": "art.child-issue",
+"type": "writes",
+"note_zh": "第 6 步 route 写 child.closed",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 6"
+},
+{
+"from": "principle.progress-is-what-the-record-says",
+"to": "pb.run-a-night",
+"type": "applies",
+"note_zh": "第 1 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "principle.fix-the-product-not-the-check",
+"to": "pb.run-a-night",
+"type": "applies",
+"note_zh": "开头段",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "principle.separate-before-serializing-shared-state",
+"to": "pb.run-a-night",
+"type": "applies",
+"note_zh": "Routing a finding 1",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "principle.a-check-must-be-able-to-fail",
+"to": "pb.run-a-night",
+"type": "applies",
+"note_zh": "Routing a finding 2",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "role.junior-worker",
+"to": "pb.work-a-ticket",
+"type": "reads",
+"note_zh": "起始提示词指名的 playbook",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "role.senior-worker",
+"to": "pb.work-a-ticket",
+"type": "reads",
+"note_zh": "起始提示词指名的 playbook",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "--preflight/--sub-issue/--decisions/--reverify/--touched/--draft/--closeout",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "integrate、start <n> reviewer、wait",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "skill.tdd",
+"type": "calls",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "skill.verify-ticket",
+"type": "calls",
+"note_zh": "sub-issues.md、ABANDON lines",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "skill.dispatch",
+"type": "calls",
+"note_zh": "第 3、6 步 ## On waking",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "skill.ui-acceptance",
+"type": "calls",
+"note_zh": "第 2 步 writing-interface-code.md",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "ref.writing-interface-code",
+"type": "reads",
+"note_zh": "Read first 列了屏幕契约时",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 2"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "ref.memory",
+"type": "reads",
+"note_zh": "第 2 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 2"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "ref.sub-issues",
+"type": "reads",
+"note_zh": "所有 --sub-issue",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "art.ticket",
+"type": "reads",
+"note_zh": "第 2 步全读",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 2"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "art.spec",
+"type": "reads",
+"note_zh": "第 2 步只读指名的节",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 2"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "cfg.context-md",
+"type": "reads",
+"note_zh": "第 2 步领域词汇",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 2"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "art.review-report",
+"type": "reads",
+"note_zh": "第 6 步 dispatch.sh wait <n> reviewer",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 6"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "art.ticket-worktree",
+"type": "writes",
+"note_zh": "提交到票分支",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 2"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "art.child-issue",
+"type": "writes",
+"note_zh": "contract/decision/fault/finding/deferred",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "art.decisions-comment",
+"type": "writes",
+"note_zh": "第 4 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 4"
+},
+{
+"from": "pb.work-a-ticket",
+"to": "art.closing-comment",
+"type": "writes",
+"note_zh": "第 11 步 --closeout",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 11"
+},
+{
+"from": "principle.progress-is-what-the-record-says",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.a-check-must-be-able-to-fail",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.baseline-is-the-contract",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.never-block-on-the-human",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.migrate-callers-then-delete-legacy-apis",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.start-from-what-exists",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.laziness-protocol",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.separate-before-serializing-shared-state",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.run-the-smallest-test-set",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.fix-the-product-not-the-check",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "principle.prove-it-works",
+"to": "pb.work-a-ticket",
+"type": "applies",
+"note_zh": "步骤中点名",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "role.reviewer",
+"to": "pb.review-a-ticket",
+"type": "reads",
+"note_zh": "起始提示词指名的 playbook",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md"
+},
+{
+"from": "pb.review-a-ticket",
+"to": "skill.code-review",
+"type": "calls",
+"note_zh": "第 2 步：有 story 标准时加 UI 轴",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md"
+},
+{
+"from": "pb.review-a-ticket",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "第 5 步 --review",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md"
+},
+{
+"from": "pb.review-a-ticket",
+"to": "art.ticket-worktree",
+"type": "reads",
+"note_zh": "第 1 步 git diff <base>...HEAD",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md step 1"
+},
+{
+"from": "pb.review-a-ticket",
+"to": "script.story-parity",
+"type": "reads",
+"note_zh": "story 标准 = 点名 story-parity.py 的 CHECK",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md step 2"
+},
+{
+"from": "pb.review-a-ticket",
+"to": "art.review-report",
+"type": "writes",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md step 5"
+},
+{
+"from": "skill.code-review",
+"to": "role.code-review-axis",
+"type": "starts",
+"note_zh": "每轴一个子代理，同时派出",
+"source": "mmw-v3/skills/code-review/SKILL.md"
+},
+{
+"from": "skill.code-review",
+"to": "cfg.coding-standards",
+"type": "reads",
+"note_zh": "全文随 Standards/Tests 轴提示词",
+"source": "mmw-v3/skills/code-review/SKILL.md"
+},
+{
+"from": "skill.grilling",
+"to": "role.grilling-fact-finder",
+"type": "starts",
+"note_zh": "子代理",
+"source": "mmw-v3/skills/dispatch/roles.json (sent_by grilling)"
+},
+{
+"from": "skill.codebase-design",
+"to": "role.interface-designer",
+"type": "starts",
+"note_zh": "design-it-twice 子代理",
+"source": "mmw-v3/skills/dispatch/roles.json (sent_by codebase-design)"
+},
+{
+"from": "skill.advisor",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "dispatch.sh brief advisor",
+"source": "mmw-v3/skills/advisor/SKILL.md#Start it"
+},
+{
+"from": "skill.how",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "dispatch.sh brief researcher/explainer",
+"source": "mmw-v3/skills/how/SKILL.md"
+},
+{
+"from": "skill.why",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "dispatch.sh brief researcher/synthesizer",
+"source": "mmw-v3/skills/why/SKILL.md"
+},
+{
+"from": "role.researcher",
+"to": "skill.research",
+"type": "reads",
+"note_zh": "lead skill",
+"source": "mmw-v3/skills/dispatch/roles.json"
+},
+{
+"from": "role.researcher",
+"to": "ref.map-research-brief",
+"type": "reads",
+"note_zh": "地图调研 brief 模板之一",
+"source": "mmw-v3/skills/dispatch/roles.json"
+},
+{
+"from": "role.advisor",
+"to": "skill.advisor",
+"type": "reads",
+"note_zh": "lead advisor/references/advising.md",
+"source": "mmw-v3/skills/dispatch/roles.json"
+},
+{
+"from": "skill.research",
+"to": "art.research-note",
+"type": "writes",
+"note_zh": "单个 Markdown 文件，逐条引来源",
+"source": "mmw-v3/skills/research/SKILL.md"
+},
+{
+"from": "skill.dispatch",
+"to": "script.dispatch-sh",
+"type": "runs",
+"note_zh": "board、ack、brief show/close",
+"source": "mmw-v3/skills/dispatch/SKILL.md"
+},
+{
+"from": "skill.dispatch",
+"to": "ref.editing-models",
+"type": "reads",
+"note_zh": "改角色模型或 runner",
+"source": "mmw-v3/skills/dispatch/SKILL.md"
+},
+{
+"from": "skill.dispatch",
+"to": "script.models",
+"type": "runs",
+"note_zh": "models.py config show|set|runner",
+"source": "mmw-v3/skills/dispatch/SKILL.md"
+},
+{
+"from": "skill.verify-ticket",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "技能主脚本",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"from": "skill.verify-ticket",
+"to": "ref.ticket-format",
+"type": "reads",
+"note_zh": "技能的参考文件",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"from": "skill.verify-ticket",
+"to": "ref.linting",
+"type": "reads",
+"note_zh": "技能的参考文件",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"from": "skill.verify-ticket",
+"to": "ref.sub-issues",
+"type": "reads",
+"note_zh": "技能的参考文件",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"from": "skill.verify-ticket",
+"to": "ref.person-ticket",
+"type": "reads",
+"note_zh": "技能的参考文件",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "script.story-parity",
+"type": "runs",
+"note_zh": "四个 oracle、租约、target 检查",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "script.boundary-check",
+"type": "runs",
+"note_zh": "四个 oracle、租约、target 检查",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "script.journey",
+"type": "runs",
+"note_zh": "四个 oracle、租约、target 检查",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "script.harness-guard",
+"type": "runs",
+"note_zh": "四个 oracle、租约、target 检查",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "script.lease",
+"type": "runs",
+"note_zh": "四个 oracle、租约、target 检查",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "script.target-config",
+"type": "runs",
+"note_zh": "四个 oracle、租约、target 检查",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "cfg.target-json",
+"type": "reads",
+"note_zh": "产品回答",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "ref.writing-interface-code",
+"type": "reads",
+"note_zh": "技能的参考文件",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md"
+},
+{
+"from": "skill.ui-acceptance",
+"to": "ref.cutting-interface-tickets",
+"type": "reads",
+"note_zh": "Criterion shapes",
+"source": "mmw-v3/skills/ui-acceptance/SKILL.md#What each file covers"
+},
+{
+"from": "skill.design-pages",
+"to": "script.pull-design",
+"type": "runs",
+"note_zh": "拉设计",
+"source": "mmw-v3/skills/design-pages/SKILL.md"
+},
+{
+"from": "skill.design-pages",
+"to": "ref.design-templates",
+"type": "reads",
+"note_zh": "CLAUDE.md 模板",
+"source": "mmw-v3/skills/design-pages/SKILL.md#The project"
+},
+{
+"from": "skill.design-pages",
+"to": "ext.claude-design",
+"type": "calls",
+"note_zh": "只有带 Claude Design MCP 工具的会话能做",
+"source": "mmw-v3/skills/design-pages/SKILL.md#Who can do this work"
+},
+{
+"from": "skill.write-screen-contract",
+"to": "script.extract-skeleton",
+"type": "runs",
+"note_zh": "## Scripts",
+"source": "mmw-v3/skills/write-screen-contract/SKILL.md#Scripts"
+},
+{
+"from": "skill.write-screen-contract",
+"to": "script.lint-screen-contract",
+"type": "runs",
+"note_zh": "## Scripts",
+"source": "mmw-v3/skills/write-screen-contract/SKILL.md#Scripts"
+},
+{
+"from": "skill.write-screen-contract",
+"to": "script.dump-openapi",
+"type": "runs",
+"note_zh": "## Scripts",
+"source": "mmw-v3/skills/write-screen-contract/SKILL.md#Scripts"
+},
+{
+"from": "skill.write-screen-contract",
+"to": "ref.screen-contract-format",
+"type": "reads",
+"note_zh": "文件形状",
+"source": "mmw-v3/skills/write-screen-contract/SKILL.md"
+},
+{
+"from": "skill.manage-agents-md",
+"to": "script.agents-check",
+"type": "runs",
+"note_zh": "check.sh",
+"source": "mmw-v3/skills/manage-agents-md/SKILL.md"
+},
+{
+"from": "skill.exe-release",
+"to": "script.release-flow",
+"type": "runs",
+"note_zh": "发布引擎",
+"source": "mmw-v3/skills/exe-release/SKILL.md"
+},
+{
+"from": "skill.retro",
+"to": "script.retro-py",
+"type": "runs",
+"note_zh": "gather/search/finalize",
+"source": "mmw-v3/skills/retro/SKILL.md"
+},
+{
+"from": "skill.retro",
+"to": "art.events",
+"type": "reads",
+"note_zh": "从 tickets[].events 与 spec_events 找偏航点",
+"source": "mmw-v3/skills/retro/SKILL.md#Gather"
+},
+{
+"from": "skill.retro",
+"to": "art.night-retro",
+"type": "writes",
+"note_zh": "finalize 写 mmw-retro Memory",
+"source": "mmw-v3/skills/retro/SKILL.md"
+},
+{
+"from": "skill.retro",
+"to": "art.triage-queue",
+"type": "writes",
+"note_zh": "每条提议成为 needs-triage issue",
+"source": "mmw-v3/skills/retro/SKILL.md"
+},
+{
+"from": "script.retro-py",
+"to": "ext.nowledge-mem",
+"type": "writes",
+"note_zh": "Retro Memory",
+"source": "mmw-v3/skills/retro/SKILL.md"
+},
+{
+"from": "skill.setup-mmw",
+"to": "script.setup-check",
+"type": "runs",
+"note_zh": "第 1、11 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "skill.setup-mmw",
+"to": "script.setup-labels",
+"type": "runs",
+"note_zh": "第 5 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "skill.setup-mmw",
+"to": "script.setup-space",
+"type": "runs",
+"note_zh": "第 6 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "skill.setup-mmw",
+"to": "cfg.docs-agents",
+"type": "writes",
+"note_zh": "第 3 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "skill.setup-mmw",
+"to": "cfg.agents-md",
+"type": "writes",
+"note_zh": "第 4 步加 External References 行",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "skill.setup-mmw",
+"to": "cfg.target-json",
+"type": "writes",
+"note_zh": "第 8 步 checks",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "skill.setup-mmw",
+"to": "cfg.testing-md",
+"type": "writes",
+"note_zh": "第 9 步",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "script.setup-labels",
+"to": "ext.github",
+"type": "writes",
+"note_zh": "建流水线标签",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "script.setup-space",
+"to": "ext.nowledge-mem",
+"type": "writes",
+"note_zh": "建或修 Memory Space",
+"source": "mmw-v3/skills/setup-mmw/SKILL.md#Steps"
+},
+{
+"from": "skill.wayfinder",
+"to": "art.map",
+"type": "writes",
+"note_zh": "地图与票的定义；缺标签则停",
+"source": "mmw-v3/skills/wayfinder/SKILL.md#The Map"
+},
+{
+"from": "skill.wayfinder",
+"to": "cfg.docs-agents",
+"type": "reads",
+"note_zh": "## Wayfinding operations",
+"source": "mmw-v3/skills/wayfinder/SKILL.md#The Map"
+},
+{
+"from": "skill.triage",
+"to": "ref.pipeline-issues",
+"type": "reads",
+"note_zh": "Reference docs",
+"source": "mmw-v3/skills/triage/SKILL.md"
+},
+{
+"from": "skill.prototype",
+"to": "art.prototype-dir",
+"type": "writes",
+"note_zh": "规则 1",
+"source": "mmw-v3/skills/prototype/SKILL.md"
+},
+{
+"from": "skill.handoff",
+"to": "art.handoff-doc",
+"type": "writes",
+"note_zh": "存到系统临时目录",
+"source": "mmw-v3/skills/handoff/SKILL.md"
+},
+{
+"from": "skill.domain-modeling",
+"to": "cfg.context-md",
+"type": "writes",
+"note_zh": "写术语表与 ADR",
+"source": "mmw-v3/skills/domain-modeling/SKILL.md"
+},
+{
+"from": "skill.technical-writing",
+"to": "skill.writing-for-agents",
+"type": "calls",
+"note_zh": "给 agent 读的文字归 writing-for-agents",
+"source": "mmw-v3/skills/technical-writing/SKILL.md"
+},
+{
+"from": "skill.technical-writing",
+"to": "skill.unslop",
+"type": "calls",
+"note_zh": "新的抽象比喻提议加到 unslop",
+"source": "mmw-v3/skills/technical-writing/SKILL.md"
+},
+{
+"from": "script.dispatch-sh",
+"to": "role.junior-worker",
+"type": "starts",
+"note_zh": "start <n> worker（默认行）",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (DEFAULT_WORKER)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "role.senior-worker",
+"type": "starts",
+"note_zh": "start <n> worker，票带 senior-worker 标签",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "role.reviewer",
+"type": "starts",
+"note_zh": "start <n> reviewer",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "role.advisor",
+"type": "starts",
+"note_zh": "brief <role> <file>...",
+"source": "mmw-v3/skills/dispatch/roles.json (command: brief)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "role.researcher",
+"type": "starts",
+"note_zh": "brief <role> <file>...",
+"source": "mmw-v3/skills/dispatch/roles.json (command: brief)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "role.explainer",
+"type": "starts",
+"note_zh": "brief <role> <file>...",
+"source": "mmw-v3/skills/dispatch/roles.json (command: brief)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "role.synthesizer",
+"type": "starts",
+"note_zh": "brief <role> <file>...",
+"source": "mmw-v3/skills/dispatch/roles.json (command: brief)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "entry.start-prompt",
+"type": "writes",
+"note_zh": "start_prompt：读 mode + 跑哪个 playbook",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "art.events",
+"type": "writes",
+"note_zh": "worker.started、reviewer.started、route、land 等经 events.py emit",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "art.ticket-worktree",
+"type": "writes",
+"note_zh": "start 在主工作树 .worktrees/ 下切 issue-<n>",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "art.base-branch",
+"type": "writes",
+"note_zh": "advance/land 合并通过的票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 3"
+},
+{
+"from": "script.dispatch-sh",
+"to": "art.project-branch",
+"type": "writes",
+"note_zh": "finish 合并",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 10"
+},
+{
+"from": "script.dispatch-sh",
+"to": "art.night-summary",
+"type": "writes",
+"note_zh": "summary 贴 NIGHT SUMMARY",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 8"
+},
+{
+"from": "script.dispatch-sh",
+"to": "art.memory-records",
+"type": "reads",
+"note_zh": "memory-list 拉 mmw-spec-<spec> 记录",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 7"
+},
+{
+"from": "script.dispatch-sh",
+"to": "ext.nowledge-mem",
+"type": "reads",
+"note_zh": "memory-list 与起始提示词的 Memory 索引",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (memory search)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "cfg.models-json",
+"type": "reads",
+"note_zh": "角色行的 host/模型/effort",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "cfg.roles-json",
+"type": "reads",
+"note_zh": "ROLES_JSON",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.relay",
+"type": "runs",
+"note_zh": "open/open-ticket/brief 开监视，没跑就启动",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.status",
+"type": "runs",
+"note_zh": "status/advance-plan/findings/summary",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (STATUS)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.briefs",
+"type": "runs",
+"note_zh": "brief 记录",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (BRIEFS)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.models",
+"type": "runs",
+"note_zh": "解析启动参数与 runner",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (MODELS_PY)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.verify-ticket-py",
+"type": "runs",
+"note_zh": "按路径解析；reverify",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.events",
+"type": "runs",
+"note_zh": "emit 与 fold",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.lease",
+"type": "runs",
+"note_zh": "按路径解析",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.install",
+"type": "runs",
+"note_zh": "check 时 install.sh --check 并从已装检出修补",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (INSTALLER)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.board",
+"type": "runs",
+"note_zh": "open/open-ticket 确认看板已注册并在答",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header, BOARD_SUPERVISOR)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.runner-orca",
+"type": "runs",
+"note_zh": "runner 适配器 start/send/stop/self",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.runner-paseo",
+"type": "runs",
+"note_zh": "runner 适配器 start/send/stop/self",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.dispatch-sh",
+"to": "script.runner-herdr",
+"type": "runs",
+"note_zh": "runner 适配器 start/send/stop/self",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header)"
+},
+{
+"from": "script.runner-orca",
+"to": "ext.orca",
+"type": "calls",
+"note_zh": "orca terminal create",
+"source": "mmw-v3/skills/dispatch/scripts/runners/orca.sh"
+},
+{
+"from": "script.runner-paseo",
+"to": "ext.paseo",
+"type": "calls",
+"note_zh": "paseo run -d",
+"source": "mmw-v3/skills/dispatch/scripts/runners/paseo.sh"
+},
+{
+"from": "script.runner-herdr",
+"to": "ext.herdr",
+"type": "calls",
+"note_zh": "agent start in pane",
+"source": "mmw-v3/skills/dispatch/scripts/runners/herdr.sh"
+},
+{
+"from": "script.runner-orca",
+"to": "ext.hosts",
+"type": "starts",
+"note_zh": "以 hosts.json 的参数起宿主 CLI",
+"source": "mmw-v3/skills/dispatch/hosts.json"
+},
+{
+"from": "script.runner-paseo",
+"to": "ext.hosts",
+"type": "starts",
+"note_zh": "以 hosts.json 的参数起宿主 CLI",
+"source": "mmw-v3/skills/dispatch/hosts.json"
+},
+{
+"from": "script.runner-herdr",
+"to": "ext.hosts",
+"type": "starts",
+"note_zh": "以 hosts.json 的参数起宿主 CLI",
+"source": "mmw-v3/skills/dispatch/hosts.json"
+},
+{
+"from": "script.models",
+"to": "cfg.models-json",
+"type": "reads",
+"note_zh": "读写",
+"source": "mmw-v3/skills/dispatch/scripts/models.py"
+},
+{
+"from": "script.models",
+"to": "cfg.models-json",
+"type": "writes",
+"note_zh": "唯一修改途径",
+"source": "mmw-v3/skills/dispatch/scripts/models.py"
+},
+{
+"from": "script.models",
+"to": "cfg.hosts-json",
+"type": "reads",
+"note_zh": "展开启动参数",
+"source": "mmw-v3/skills/dispatch/scripts/models.py"
+},
+{
+"from": "script.relay",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "只读 gh api 评论与子 issue",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (docstring)"
+},
+{
+"from": "script.relay",
+"to": "art.wake-queue",
+"type": "writes",
+"note_zh": "每个事件一行唤醒",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (docstring)"
+},
+{
+"from": "script.relay",
+"to": "cfg.statedir",
+"type": "writes",
+"note_zh": "watches.json、beat.json",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (docstring)"
+},
+{
+"from": "script.relay",
+"to": "art.events",
+"type": "reads",
+"note_zh": "WAKES 表里的事件",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (WAKES)"
+},
+{
+"from": "script.relay",
+"to": "role.orchestrator",
+"type": "wakes",
+"note_zh": "ticket.passed/returned/refused、child.opened(contract/fault/decision)、worker.lost、relay.recovered",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (WAKES)"
+},
+{
+"from": "script.relay",
+"to": "role.junior-worker",
+"type": "wakes",
+"note_zh": "reviewer.reported、reviewer.lost、worker.queued",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (WAKES)"
+},
+{
+"from": "script.relay",
+"to": "role.senior-worker",
+"type": "wakes",
+"note_zh": "reviewer.reported、reviewer.lost、worker.queued",
+"source": "mmw-v3/skills/dispatch/scripts/relay.py (WAKES)"
+},
+{
+"from": "script.relay",
+"to": "role.orchestrator",
+"type": "wakes",
+"note_zh": "brief <batch> done（briefs watch 的父会话）",
+"source": "mmw-v3/skills/dispatch/scripts/briefs.py (docstring)"
+},
+{
+"from": "hook.turn-guard",
+"to": "script.watchdog",
+"type": "runs",
+"note_zh": "回合结束时 watchdog.arm",
+"source": "mmw-v3/skills/dispatch/scripts/turn-guard.py (docstring)"
+},
+{
+"from": "hook.turn-guard",
+"to": "role.orchestrator",
+"type": "gates",
+"note_zh": "看门狗不健康且有持票时阻止回合结束（hook，非人）",
+"source": "mmw-v3/skills/dispatch/scripts/turn-guard.py (docstring)"
+},
+{
+"from": "script.watchdog",
+"to": "role.orchestrator",
+"type": "wakes",
+"note_zh": "watchdog: 警报（relay down、#<n> silent since…）",
+"source": "mmw-v3/skills/dispatch/scripts/watchdog.py (docstring); mmw-v3/skills/mmw-mode/playbooks/run-a-night.md step 5"
+},
+{
+"from": "script.watchdog",
+"to": "cfg.statedir",
+"type": "reads",
+"note_zh": "watches.json、relay 锁与心跳",
+"source": "mmw-v3/skills/dispatch/scripts/watchdog.py (docstring)"
+},
+{
+"from": "script.watchdog",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "沉默票",
+"source": "mmw-v3/skills/dispatch/scripts/watchdog.py (docstring)"
+},
+{
+"from": "script.watchdog",
+"to": "art.brief-results",
+"type": "writes",
+"note_zh": "lost.json",
+"source": "mmw-v3/skills/dispatch/scripts/briefs.py (docstring)"
+},
+{
+"from": "hook.tool-guard",
+"to": "role.junior-worker",
+"type": "gates",
+"note_zh": "在 issue-<n> 工作树里拒绝 gh issue close、提问、杀进程（hook，非人）",
+"source": "mmw-v3/skills/dispatch/scripts/tool-guard.py (docstring)"
+},
+{
+"from": "hook.tool-guard",
+"to": "role.senior-worker",
+"type": "gates",
+"note_zh": "在 issue-<n> 工作树里拒绝 gh issue close、提问、杀进程（hook，非人）",
+"source": "mmw-v3/skills/dispatch/scripts/tool-guard.py (docstring)"
+},
+{
+"from": "hook.tool-guard",
+"to": "role.reviewer",
+"type": "gates",
+"note_zh": "在 issue-<n> 工作树里拒绝 gh issue close、提问、杀进程（hook，非人）",
+"source": "mmw-v3/skills/dispatch/scripts/tool-guard.py (docstring)"
+},
+{
+"from": "script.briefs",
+"to": "art.brief-results",
+"type": "writes",
+"note_zh": "<state>/briefs/<batch>/",
+"source": "mmw-v3/skills/dispatch/scripts/briefs.py (docstring)"
+},
+{
+"from": "script.statedir",
+"to": "cfg.statedir",
+"type": "writes",
+"note_zh": "每仓库一个目录与 flock 锁",
+"source": "mmw-v3/skills/dispatch/scripts/statedir.py (docstring)"
+},
+{
+"from": "script.status",
+"to": "art.events",
+"type": "reads",
+"note_zh": "经 events.py 折叠",
+"source": "mmw-v3/skills/dispatch/scripts/status.py (docstring)"
+},
+{
+"from": "script.status",
+"to": "script.issue-tree",
+"type": "runs",
+"note_zh": "一次读出 spec 树",
+"source": "mmw-v3/skills/dispatch/scripts/status.py (docstring)"
+},
+{
+"from": "script.status",
+"to": "script.events",
+"type": "runs",
+"note_zh": "fold",
+"source": "mmw-v3/skills/dispatch/scripts/status.py (docstring)"
+},
+{
+"from": "script.ghlist",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "REST 分页",
+"source": "mmw-v3/skills/dispatch/scripts/ghlist.py"
+},
+{
+"from": "script.check-interfaces",
+"to": "cfg.roles-json",
+"type": "reads",
+"note_zh": "规则 6",
+"source": "mmw-v3/skills/dispatch/scripts/check-interfaces.py (docstring)"
+},
+{
+"from": "script.check-interfaces",
+"to": "cfg.hosts-json",
+"type": "reads",
+"note_zh": "规则 6",
+"source": "mmw-v3/skills/dispatch/scripts/check-interfaces.py (docstring)"
+},
+{
+"from": "script.check-interfaces",
+"to": "script.relay",
+"type": "reads",
+"note_zh": "规则 2–3：WAKES",
+"source": "mmw-v3/skills/dispatch/scripts/check-interfaces.py (docstring)"
+},
+{
+"from": "script.check-interfaces",
+"to": "script.events",
+"type": "reads",
+"note_zh": "规则 2：EVENTS",
+"source": "mmw-v3/skills/dispatch/scripts/check-interfaces.py (docstring)"
+},
+{
+"from": "script.check-interfaces",
+"to": "script.verify-ticket-py",
+"type": "reads",
+"note_zh": "规则 4：RESUME_STEPS",
+"source": "mmw-v3/skills/dispatch/scripts/check-interfaces.py (docstring)"
+},
+{
+"from": "script.check-interfaces",
+"to": "mode.playbooks",
+"type": "reads",
+"note_zh": "规则 1、5",
+"source": "mmw-v3/skills/dispatch/scripts/check-interfaces.py (docstring)"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "script.gate-check",
+"type": "runs",
+"note_zh": "把台账交给 gate-check",
+"source": "mmw-v3/skills/verify-ticket/scripts/verify-ticket.py"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "script.gate-lint",
+"type": "runs",
+"note_zh": "--lint",
+"source": "mmw-v3/skills/verify-ticket/scripts/verify-ticket.py (GATE_LINT)"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "script.events",
+"type": "runs",
+"note_zh": "emit/fold",
+"source": "mmw-v3/skills/verify-ticket/scripts/verify-ticket.py"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "script.issue-tree",
+"type": "runs",
+"note_zh": "读树",
+"source": "mmw-v3/skills/verify-ticket/scripts/verify-ticket.py"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "art.ticket",
+"type": "reads",
+"note_zh": "每次重新读 ## Acceptance criteria 与 ## Owns",
+"source": "mmw-v3/skills/verify-ticket/scripts/verify-ticket.py (docstring)"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "art.events",
+"type": "writes",
+"note_zh": "ticket.checked、ticket.passed/returned/refused、reviewer.reported",
+"source": "mmw-v3/skills/verify-ticket/scripts/verify-ticket.py; mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "art.child-issue",
+"type": "writes",
+"note_zh": "--sub-issue",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "art.closing-comment",
+"type": "writes",
+"note_zh": "--closeout 贴出并关票",
+"source": "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 11"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "art.spec",
+"type": "writes",
+"note_zh": "--publish --spec-body",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 4"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "art.ticket",
+"type": "writes",
+"note_zh": "--publish --drafts",
+"source": "mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md step 7"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "art.review-report",
+"type": "writes",
+"note_zh": "--review",
+"source": "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md step 5"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "script.story-parity",
+"type": "runs",
+"note_zh": "把 ui-acceptance 的 scripts/ 放进 CHECK 的 PATH",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"from": "script.verify-ticket-py",
+"to": "script.lease",
+"type": "runs",
+"note_zh": "首次需要产品的运行取产品槽位（exit 3 无空槽）",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header); mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md step 3"
+},
+{
+"from": "script.events",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "gh issue view --json comments",
+"source": "mmw-v3/skills/verify-ticket/scripts/events.py (docstring)"
+},
+{
+"from": "script.events",
+"to": "ext.github",
+"type": "writes",
+"note_zh": "emit 写事件评论",
+"source": "mmw-v3/skills/verify-ticket/scripts/events.py (docstring)"
+},
+{
+"from": "script.issue-tree",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "GraphQL",
+"source": "mmw-v3/skills/verify-ticket/scripts/issue_tree.py (docstring)"
+},
+{
+"from": "art.events",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "事件就是 GitHub issue 评论",
+"source": "mmw-v3/skills/verify-ticket/scripts/events.py (docstring)"
+},
+{
+"from": "script.install",
+"to": "cfg.skills-txt",
+"type": "reads",
+"note_zh": "决定软链哪些技能",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "cfg.installed-root",
+"type": "writes",
+"note_zh": "记本 checkout",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "cfg.models-json",
+"type": "writes",
+"note_zh": "缺席时写默认值",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "hook.mode-hook",
+"type": "writes",
+"note_zh": "挂到 Claude Code、Codex 的 SessionStart",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "hook.turn-guard",
+"type": "writes",
+"note_zh": "写进各 host 配置",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "hook.tool-guard",
+"type": "writes",
+"note_zh": "写进各 host 配置",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "script.render",
+"type": "runs",
+"note_zh": "Codex、Pi、Grok 的 AGENTS.md",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "ext.launchd",
+"type": "writes",
+"note_zh": "看板与提示词渲染任务",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "ext.nowledge-mem",
+"type": "writes",
+"note_zh": "mmw-toolbox Space、mmw-worker/mmw-reviewer Identity",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "ext.paseo",
+"type": "writes",
+"note_zh": "~/.paseo/config.json provider 与 worktrees.root",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "ext.orca",
+"type": "writes",
+"note_zh": "worktree-base-path=.worktrees",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.install",
+"to": "ext.hosts",
+"type": "writes",
+"note_zh": "技能软链进 ~/.agents/skills 与 ~/.claude/skills",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.render",
+"to": "cfg.shared-md",
+"type": "reads",
+"note_zh": "渲染源",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "script.board",
+"to": "cfg.boards-json",
+"type": "reads",
+"note_zh": "注册表",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"from": "script.board",
+"to": "script.events",
+"type": "reads",
+"note_zh": "board_data 按路径加载",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"from": "script.board",
+"to": "script.issue-tree",
+"type": "reads",
+"note_zh": "board_data 按路径加载",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"from": "script.board",
+"to": "script.ghlist",
+"type": "reads",
+"note_zh": "board_data 按路径加载",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"from": "script.board",
+"to": "cfg.models-json",
+"type": "writes",
+"note_zh": "settings_api 导入 models",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"from": "script.board",
+"to": "art.board-state",
+"type": "writes",
+"note_zh": "本机 127.0.0.1 页面",
+"source": "mmw-v3/board/AGENTS.md"
+},
+{
+"from": "ext.launchd",
+"to": "script.board",
+"type": "runs",
+"note_zh": "com.mmw.board LaunchAgent",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "ext.launchd",
+"to": "script.render",
+"type": "runs",
+"note_zh": "shared.md 变化时重写 AGENTS.md",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "art.board-state",
+"to": "human.owner",
+"type": "reads",
+"note_zh": "看板是人读的",
+"source": "mmw-v3/skills/dispatch/scripts/dispatch.sh (header: 'the board is what a person reads')"
+},
+{
+"from": "art.night-summary",
+"to": "human.gate-accept-night",
+"type": "reads",
+"note_zh": "owner 早上冷读",
+"source": "mmw-v3/skills/mmw-mode/playbooks/run-a-night.md"
+},
+{
+"from": "art.night-retro",
+"to": "human.gate-accept-night",
+"type": "reads",
+"note_zh": "接受前读 NIGHT RETRO",
+"source": "mmw-v3/skills/retro/SKILL.md"
+},
+{
+"from": "cfg.shared-md",
+"to": "ext.hosts",
+"type": "reads",
+"note_zh": "每个会话都带的用户级提示词",
+"source": "mmw-v3/install.sh (header)"
+},
+{
+"from": "art.memory-records",
+"to": "ext.nowledge-mem",
+"type": "reads",
+"note_zh": "存于 Nowledge Mem",
+"source": "mmw-v3/skills/mmw-mode/references/memory.md"
+},
+{
+"from": "art.map",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "地图是 GitHub issue",
+"source": "mmw-v3/skills/wayfinder/SKILL.md#The Map"
+},
+{
+"from": "art.spec",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "spec 是 GitHub issue",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 4"
+},
+{
+"from": "art.ticket",
+"to": "ext.github",
+"type": "reads",
+"note_zh": "票是 GitHub issue",
+"source": "mmw-v3/skills/verify-ticket/SKILL.md"
+},
+{
+"from": "art.claude-design-project",
+"to": "ext.claude-design",
+"type": "reads",
+"note_zh": "项目在 Claude Design 里",
+"source": "mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md"
+},
+{
+"from": "pb.write-a-spec",
+"to": "art.design-package",
+"type": "reads",
+"note_zh": "外观与原文基线",
+"source": "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md step 2"
+}
+],
+"groups": [
+{
+"layer": 0,
+"title_zh": "入口",
+"members": [
+"entry.owner-session",
+"hook.mode-hook",
+"entry.start-prompt",
+"entry.model-invoked"
+]
+},
+{
+"layer": 0,
+"title_zh": "owner 的决定点",
+"members": [
+"human.owner",
+"human.gate-always-pause",
+"human.gate-map-destination",
+"human.gate-design-signoff",
+"human.gate-gap-list",
+"human.gate-spec-calls",
+"human.gate-approve-breakdown",
+"human.gate-start-night",
+"human.gate-contract-to-owner",
+"human.gate-accept-night",
+"human.gate-release-merge",
+"human.gate-triage-outcome",
+"human.gate-arch-pick",
+"human.gate-seams",
+"human.gate-install-test",
+"human.gate-review-go",
+"human.gate-design-system-done"
+]
+},
+{
+"layer": 1,
+"title_zh": "mmw-mode 各节",
+"members": [
+"skill.mmw-mode",
+"mode.non-negotiables",
+"mode.principles",
+"mode.autonomy",
+"mode.subagents",
+"mode.writing-the-reply",
+"mode.comments",
+"mode.playbooks"
+]
+},
+{
+"layer": 2,
+"title_zh": "白天：地图 / 设计 / spec / 分诊",
+"members": [
+"pb.chart-a-map",
+"pb.resolve-a-map-ticket",
+"pb.design-in-claude-design",
+"pb.pull-a-design",
+"pb.build-a-design-system",
+"pb.write-the-screen-contract",
+"pb.write-a-spec",
+"pb.revise-a-spec",
+"pb.cut-tickets",
+"pb.triage",
+"pb.improve-the-architecture"
+]
+},
+{
+"layer": 2,
+"title_zh": "夜间：跑批与单票",
+"members": [
+"pb.run-a-night",
+"pb.run-one-ticket",
+"pb.work-a-ticket",
+"pb.review-a-ticket"
+]
+},
+{
+"layer": 2,
+"title_zh": "单项任务",
+"members": [
+"pb.bug-fix",
+"pb.make-a-small-change",
+"pb.investigation",
+"pb.ship-a-release",
+"pb.pause-safely"
+]
+},
+{
+"layer": 2,
+"title_zh": "维护：skill 集与仓库",
+"members": [
+"pb.authoring-or-modifying-a-skill",
+"pb.review-the-skill-set",
+"pb.set-up-code-checkers",
+"pb.write-agents-md"
+]
+},
+{
+"layer": 3,
+"title_zh": "流水线核心 skill",
+"members": [
+"skill.dispatch",
+"skill.verify-ticket",
+"skill.ui-acceptance",
+"skill.code-review",
+"skill.retro",
+"skill.setup-mmw"
+]
+},
+{
+"layer": 3,
+"title_zh": "设计与界面 skill",
+"members": [
+"skill.design-pages",
+"skill.write-screen-contract",
+"skill.prototype",
+"skill.diagram-design"
+]
+},
+{
+"layer": 3,
+"title_zh": "规划与理解 skill",
+"members": [
+"skill.wayfinder",
+"skill.grilling",
+"skill.domain-modeling",
+"skill.codebase-design",
+"skill.to-questionnaire",
+"skill.advisor",
+"skill.how",
+"skill.why",
+"skill.research"
+]
+},
+{
+"layer": 3,
+"title_zh": "工程 skill",
+"members": [
+"skill.tdd",
+"skill.diagnosing-bugs",
+"skill.exe-release",
+"skill.manage-agents-md",
+"skill.wizard",
+"skill.handoff",
+"skill.triage"
+]
+},
+{
+"layer": 3,
+"title_zh": "写作 skill",
+"members": [
+"skill.unslop",
+"skill.technical-writing",
+"skill.writing-for-agents"
+]
+},
+{
+"layer": 3,
+"title_zh": "只由人启动",
+"members": [
+"skill.teach",
+"skill.wait-what"
+]
+},
+{
+"layer": 3,
+"title_zh": "参考文件（reference）",
+"members": [
+"ref.agents-md-survey",
+"ref.ambiguity-scan",
+"ref.architecture-explorer",
+"ref.architecture-report",
+"ref.checkers-git-hooks",
+"ref.checkers-python",
+"ref.checkers-typescript",
+"ref.cutting-interface-tickets",
+"ref.interface-and-remake",
+"ref.map-research-brief",
+"ref.memory",
+"ref.skill-set-rules",
+"ref.skills-readme",
+"ref.ticket-format",
+"ref.linting",
+"ref.sub-issues",
+"ref.person-ticket",
+"ref.writing-interface-code",
+"ref.screen-contract-format",
+"ref.pipeline-issues",
+"ref.design-templates",
+"ref.editing-models"
+]
+},
+{
+"layer": 4,
+"title_zh": "会话角色（脚本启动）",
+"members": [
+"role.orchestrator",
+"role.junior-worker",
+"role.senior-worker",
+"role.reviewer",
+"role.advisor",
+"role.researcher",
+"role.explainer",
+"role.synthesizer"
+]
+},
+{
+"layer": 4,
+"title_zh": "子代理角色（skill/playbook 派出）",
+"members": [
+"role.code-review-axis",
+"role.grilling-fact-finder",
+"role.ambiguity-scanner",
+"role.architecture-explorer",
+"role.interface-designer",
+"role.agents-md-surveyor"
+]
+},
+{
+"layer": 4,
+"title_zh": "dispatch 脚本与 hook",
+"members": [
+"script.dispatch-sh",
+"script.relay",
+"script.watchdog",
+"script.briefs",
+"script.status",
+"script.statedir",
+"script.ghlist",
+"script.models",
+"script.check-interfaces",
+"script.runner-orca",
+"script.runner-paseo",
+"script.runner-herdr",
+"hook.turn-guard",
+"hook.tool-guard"
+]
+},
+{
+"layer": 4,
+"title_zh": "verify-ticket 脚本",
+"members": [
+"script.verify-ticket-py",
+"script.events",
+"script.issue-tree",
+"script.gate-check",
+"script.gate-lint"
+]
+},
+{
+"layer": 4,
+"title_zh": "其他 skill 的脚本",
+"members": [
+"script.pull-design",
+"script.extract-skeleton",
+"script.lint-screen-contract",
+"script.dump-openapi",
+"script.agents-check",
+"script.release-flow",
+"script.story-parity",
+"script.boundary-check",
+"script.journey",
+"script.harness-guard",
+"script.target-config",
+"script.lease",
+"script.retro-py",
+"script.setup-check",
+"script.setup-labels",
+"script.setup-space"
+]
+},
+{
+"layer": 4,
+"title_zh": "工具箱级脚本",
+"members": [
+"script.install",
+"script.render",
+"script.board",
+"script.check-imports"
+]
+},
+{
+"layer": 5,
+"title_zh": "配置",
+"members": [
+"cfg.models-json",
+"cfg.roles-json",
+"cfg.hosts-json",
+"cfg.target-json",
+"cfg.skills-txt",
+"cfg.installed-root",
+"cfg.boards-json",
+"cfg.statedir",
+"cfg.shared-md",
+"cfg.docs-agents",
+"cfg.coding-standards",
+"cfg.testing-md",
+"cfg.agents-md",
+"cfg.context-md"
+]
+},
+{
+"layer": 5,
+"title_zh": "地图 / 设计 / spec 产物",
+"members": [
+"art.map",
+"art.decision-ticket",
+"art.research-note",
+"art.prototype-dir",
+"art.claude-design-project",
+"art.design-package",
+"art.pull-report",
+"art.screen-contract",
+"art.spec",
+"art.triage-queue",
+"art.arch-report"
+]
+},
+{
+"layer": 5,
+"title_zh": "票与夜间产物",
+"members": [
+"art.ticket",
+"art.child-issue",
+"art.events",
+"art.ticket-worktree",
+"art.base-branch",
+"art.project-branch",
+"art.decisions-comment",
+"art.review-report",
+"art.closing-comment",
+"art.night-summary",
+"art.night-retro",
+"art.memory-records",
+"art.wake-queue",
+"art.brief-results",
+"art.board-state"
+]
+},
+{
+"layer": 5,
+"title_zh": "其他产物",
+"members": [
+"art.skill-review",
+"art.handoff-doc",
+"art.wip-commit",
+"art.release-package"
+]
+},
+{
+"layer": 6,
+"title_zh": "原则：Core",
+"members": [
+"principle.start-from-what-exists",
+"principle.laziness-protocol"
+]
+},
+{
+"layer": 6,
+"title_zh": "原则：Architecture",
+"members": [
+"principle.migrate-callers-then-delete-legacy-apis",
+"principle.separate-before-serializing-shared-state"
+]
+},
+{
+"layer": 6,
+"title_zh": "原则：Verification",
+"members": [
+"principle.prove-it-works",
+"principle.read-before-you-conclude",
+"principle.run-the-smallest-test-set",
+"principle.a-check-must-be-able-to-fail",
+"principle.fix-the-product-not-the-check",
+"principle.baseline-is-the-contract"
+]
+},
+{
+"layer": 6,
+"title_zh": "原则：Delegation",
+"members": [
+"principle.never-block-on-the-human",
+"principle.progress-is-what-the-record-says"
+]
+},
+{
+"layer": 6,
+"title_zh": "原则：Writing",
+"members": [
+"principle.write-for-where-it-is-read",
+"principle.anchor-every-reference",
+"principle.files-describe-the-present"
+]
+},
+{
+"layer": 7,
+"title_zh": "外部系统",
+"members": [
+"ext.github",
+"ext.orca",
+"ext.paseo",
+"ext.herdr",
+"ext.hosts",
+"ext.nowledge-mem",
+"ext.claude-design",
+"ext.build-machine",
+"ext.launchd"
+]
+}
+]
+}
