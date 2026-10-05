@@ -52,13 +52,6 @@
         "settings": {"modeId": "full-access"},
         "thinking": "option_id"
       }
-    },
-    "pi": {
-      "binary": "pi",
-      "paseo": {
-        "settings": {"features": {"auto_accept": true}},
-        "thinking": "option_id"
-      }
     }
   }
 }

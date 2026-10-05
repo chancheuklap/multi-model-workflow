@@ -25,8 +25,7 @@
 # The prompt is not typed into the terminal: for some programs Orca cannot report
 # whether typed input started a turn (Grok, Orca 1.4.199: `input_accepted` with
 # `observation` `unsupported`), so a typed first prompt could not be confirmed. A host
-# with no launch block (today `pi`) is a refusal, not a start with no model, no effort
-# and no bypass.
+# with no launch block is a refusal, not a start with no model, no effort and no bypass.
 # Orca runs `--command` in a shell that stays at its prompt when the command ends, and a
 # terminal whose shell is at its prompt is a running terminal to Orca. `exec` makes the
 # host the terminal's own process, so the terminal ends when the host does: that is how
@@ -71,15 +70,6 @@
 # Orca refused or could not be asked, the reason on stderr; 2 malformed arguments.
 # open-url: exit 0 the tab was opened; 1 the runner operation failed; 2 the arguments
 # are malformed. Adapters that do not implement this optional verb answer exit 3.
-#
-# MMW_USES: terminal create --worktree --command --title --json
-# MMW_USES: terminal send --terminal --text --enter --wait-submit --json
-# MMW_USES: terminal wait --terminal --for --timeout-ms --json
-# MMW_USES: terminal read --terminal --json
-# MMW_USES: terminal list --json
-# MMW_USES: terminal close --terminal --json
-# MMW_USES: worktree set --worktree --issue --parent-worktree --json
-# MMW_USES: tab create --url --worktree --json
 
 set -uo pipefail
 

@@ -4,7 +4,7 @@
 
 | 文件 | 谁读 | 怎么到 host |
 | --- | --- | --- |
-| `shared.md` | Claude Code、Codex、Pi、Grok | Claude Code：`~/.claude/CLAUDE.md` 是指向它的软链。其余三家：`render.py` 把它写进各自的 `AGENTS.md` |
+| `shared.md` | Claude Code、Codex、Grok | Claude Code：`~/.claude/CLAUDE.md` 是指向它的软链。其余两家：`render.py` 把它写进各自的 `AGENTS.md` |
 
 生成文件 = 一行 HTML 注释（来源与正文哈希）+ `shared.md`。改源不改生成物：`render.py` 靠那行哈希认出生成物有没有被人手改，改过就拒绝覆盖，退出 2。
 
@@ -13,7 +13,7 @@ Grok 的 `~/.grok/config.toml` 里 `[compat.claude]` 的 `agents` 必须是 `fal
 Cursor 不在此列：它的用户级提示词只能在 app 里手动粘贴。
 
 ```
-python3 mmw-v3/prompt/render.py            # 写三份生成文件
+python3 mmw-v3/prompt/render.py            # 写两份生成文件
 python3 mmw-v3/prompt/render.py --check    # 只比对，不一致回 1
 python3 mmw-v3/prompt/render.py --adopt    # 目标文件还不是生成物时也覆盖（每台机器首次装）
 bash   mmw-v3/prompt/tests/run.sh          # 测试

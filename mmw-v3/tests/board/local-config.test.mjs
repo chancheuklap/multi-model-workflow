@@ -28,7 +28,6 @@ const scan = {
     {model: "gpt 5.6 sol", efforts: ["low", "medium", "high", "xhigh"]},
     {model: "gpt 6 astra", efforts: ["high"]},
   ]),
-  pi: offered([{model: "pi-model", efforts: ["high"]}]),
 };
 
 const saved = {
@@ -120,18 +119,17 @@ test("a saved value this machine no longer offers is flagged with its reason", (
   assert.match(effortOpts[0].text, /本机已经没有/);
 });
 
-test("pi under orca or herdr is flagged as a host the runner cannot start", () => {
+test("a host with no cli block under orca or herdr is flagged as one the runner cannot start", () => {
+  const catalog = copy(CATALOG);
+  catalog.launch.claude = {cli: false, paseo: true};
   for (const runner of ["orca", "herdr"]) {
     const draft = copy(saved);
     draft.runner = runner;
-    draft.rows.reviewer.host = "pi";
-    draft.rows.reviewer.model = "pi-model";
-    draft.rows.reviewer.effort = "high";
-    const flags = LocalConfig.problems(scan, draft);
+    const flags = LocalConfig.problems(scan, draft, catalog);
     const host = flags.find(item => item.key === "reviewer" && item.cell === "host");
     assert.ok(host, runner);
-    assert.match(host.text, /orca 和 herdr 起不了 pi/);
-    assert.equal(LocalConfig.hostState(scan, draft, "pi"), "unlaunchable");
+    assert.match(host.text, /orca 和 herdr 起不了 claude/);
+    assert.equal(LocalConfig.hostState(scan, draft, "claude", catalog), "unlaunchable");
   }
 });
 
@@ -170,7 +168,7 @@ test("save is enabled only with changes, no flag and no scan running", () => {
   assert.equal(LocalConfig.saveOff(scan, draft, saved, {}), false);
   assert.equal(LocalConfig.saveOff(scan, draft, saved, {scanning: true}), true);
   const flagged = copy(draft);
-  flagged.rows["junior-worker"].host = "pi";
+  flagged.rows["junior-worker"].host = "nohost";
   assert.equal(LocalConfig.saveOff(scan, flagged, saved, {}), true);
   assert.equal(LocalConfig.saveOff(scan, draft, saved, {refused: 1}), true);
 });

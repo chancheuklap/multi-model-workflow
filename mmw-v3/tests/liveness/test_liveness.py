@@ -282,7 +282,6 @@ class HostSide(unittest.TestCase):
         self.assertTrue(guard.continuation("grok", {"stop_hook_active": True}))
         self.assertFalse(guard.continuation("cursor", {"loop_count": 0}))
         self.assertTrue(guard.continuation("cursor", {"loop_count": 1}))
-        self.assertFalse(guard.continuation("pi", {"stop_hook_active": True}))
 
     def test_groks_session_end_fire_is_not_a_turn(self):
         self.assertTrue(guard.session_end("grok", {"reason": "shutdown"}))
@@ -292,7 +291,6 @@ class HostSide(unittest.TestCase):
 
     def test_each_host_is_answered_in_its_own_terms(self):
         self.assertEqual(guard.answer("claude", True, "why"), (2, "", "why\n"))
-        self.assertEqual(guard.answer("pi", True, "why"), (2, "", "why\n"))
         code, out, err = guard.answer("cursor", True, "why")
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(json.loads(out), {"followup_message": "why"})

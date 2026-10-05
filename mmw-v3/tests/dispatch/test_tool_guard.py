@@ -49,8 +49,6 @@ EVENTS = {
              "toolName": "run_terminal_command", "toolInput": {"command": CLOSE}},
     "cursor": {"hook_event_name": "beforeShellExecution", "cwd": "", "sandbox": False,
                "command": CLOSE, "workspace_roots": ["/w"]},
-    "pi": {"hook_event_name": "PreToolUse", "tool_name": "bash",
-           "tool_input": {"command": CLOSE}},
 }
 
 
@@ -297,12 +295,8 @@ class TestRefusalShape(unittest.TestCase):
         self.assertEqual(answer["permission"], "deny")
         self.assertEqual(answer["user_message"], answer["agent_message"])
 
-    def test_pi(self):
-        _, answer = call("pi", EVENTS["pi"])
-        self.assertIs(answer["block"], True)
-
     def test_the_answer_is_on_stdout_and_the_exit_code_stays_zero(self):
-        """Every one of the five honours a deny on stdout whatever the exit code is;
+        """Every one of the four honours a deny on stdout whatever the exit code is;
         exiting non-zero as well would only make a failure look like a refusal."""
         for host in hk.HOSTS:
             with self.subTest(host=host):
@@ -326,11 +320,11 @@ class TestInputShapes(unittest.TestCase):
             with self.subTest(event=event):
                 self.assertIsNone(hk.command_of(event))
 
-    def test_the_same_command_is_refused_on_all_five_with_the_same_words(self):
+    def test_the_same_command_is_refused_on_all_four_with_the_same_words(self):
         reasons = {host: reason_of(call(host, EVENTS[host])[1]) for host in hk.HOSTS}
         self.assertEqual(len(set(reasons.values())), 1, reasons)
 
-    def test_the_same_harmless_command_goes_through_on_all_five(self):
+    def test_the_same_harmless_command_goes_through_on_all_four(self):
         for host in hk.HOSTS:
             with self.subTest(host=host):
                 event = with_command(host, f"gh issue comment {TICKET} --body ok")

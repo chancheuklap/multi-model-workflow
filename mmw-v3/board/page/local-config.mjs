@@ -2,14 +2,13 @@ import {hhmm} from "./shared.mjs";
 
 export const CATALOG = {
   store: "~/.mmw/models.json",
-  hosts: ["cursor", "grok", "claude", "codex", "pi"],
-  binaries: {cursor: "cursor-agent", grok: "grok", claude: "claude", codex: "codex", pi: "pi"},
+  hosts: ["cursor", "grok", "claude", "codex"],
+  binaries: {cursor: "cursor-agent", grok: "grok", claude: "claude", codex: "codex"},
   launch: {
     cursor: {cli: true, paseo: true},
     grok: {cli: true, paseo: true},
     claude: {cli: true, paseo: true},
     codex: {cli: true, paseo: true},
-    pi: {cli: false, paseo: true},
   },
   runners: ["herdr", "orca", "paseo"],
 };

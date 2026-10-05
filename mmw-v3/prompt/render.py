@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把 shared.md 写成 Codex、Pi、Grok 各自的用户级 AGENTS.md。
+"""把 shared.md 写成 Codex、Grok 各自的用户级 AGENTS.md。
 
     render.py            写
     render.py --check    只比对；有不一致回 1，不写
@@ -30,12 +30,9 @@ HEADER_RE = re.compile(r"^<!-- " + re.escape(MARK) + r": .* body-sha256=([0-9a-f
 
 def targets(home: Path):
     codex = Path(os.environ.get("CODEX_HOME", home / ".codex"))
-    pi = Path(os.environ.get("PI_CODING_AGENT_DIR",
-                             Path(os.environ.get("PI_HOME", home / ".pi")) / "agent"))
     grok = home / ".grok"
     return {
         "codex": (codex, codex / "AGENTS.md"),
-        "pi": (pi, pi / "AGENTS.md"),
         "grok": (grok, grok / "AGENTS.md"),
     }
 

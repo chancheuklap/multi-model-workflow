@@ -281,76 +281,6 @@ args = sys.argv[1:]
 state = Path(os.environ["MMW_FAKE_PASEO_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_PASEO_SCENARIO", "")
-uses = os.environ.get("MMW_FAKE_USES", "agree")
-
-PASEO_HELP_TOP = """Usage: paseo [options] [command]
-
-Paseo CLI - control your AI coding agents from the command line
-
-Options:
-  --json                        output in JSON format
-  -h, --help                    display help for command
-"""
-
-PASEO_HELP = {
-    ("provider", "ls"): """Usage: paseo provider ls [options]
-
-Options:
-  --json                Output in JSON format
-""",
-    ("provider", "models"): """Usage: paseo provider models [options] <provider>
-
-Options:
-  --json                Output in JSON format
-""",
-    ("provider", "diagnostic"): """Usage: paseo provider diagnostic [options] <provider>
-
-Options:
-  --json                Output in JSON format
-""",
-    ("run",): """Usage: paseo run [options] <prompt>
-
-Create and start an agent with a task
-
-Options:
-  -d, --background                  Run in background
-  --title <title>                   Assign a title to the agent
-  --provider <provider>             Agent provider, or provider/model
-  --mode <mode>                     Provider-specific mode
-  --thinking <id>                   Thinking option ID to use for this run
-  --cwd <path>                      Working directory (default: current)
-  --env <key=value>                 Set environment variable(s) for the agent
-  --label <key=value>               Add label(s) to the agent (default: [])
-  --json                            Output in JSON format
-  -h, --help                        display help for command
-""",
-    ("archive",): """Usage: paseo archive [options] <id>
-
-Archive an agent (soft-delete)
-
-Options:
-  --force               Interrupt the agent if it is running, then archive
-  -h, --help            display help for command
-""",
-    ("send",): """Usage: paseo send [options] <id> [prompt]
-
-Send a message/task to an existing agent
-
-Options:
-  --no-wait             Return immediately without waiting for completion
-  --json                Output in JSON format
-  -h, --help            display help for command
-""",
-    ("ls",): """Usage: paseo ls [options]
-
-List agents. By default excludes archived agents.
-
-Options:
-  -g, --global         List agents across all directories
-  --json               Output in JSON format
-  -h, --help            display help for command
-""",
-}
 
 
 def load(name):
@@ -387,18 +317,6 @@ def labels_from_args():
         i += 1
     return wanted
 
-
-if "-h" in args or "--help" in args:
-    cmd = tuple(a for a in args if a not in ("-h", "--help"))
-    if not cmd:
-        print(PASEO_HELP_TOP)
-        sys.exit(0)
-    page = PASEO_HELP.get(cmd)
-    if page is None:
-        print(PASEO_HELP_TOP)
-        sys.exit(0)
-    print(page)
-    sys.exit(0)
 
 if args[:2] == ["provider", "ls"]:
     grok = "unavailable" if scenario == "provider-down" else "available"
@@ -629,62 +547,6 @@ args = sys.argv[1:]
 state = Path(os.environ["MMW_FAKE_HERDR_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_HERDR_SCENARIO", "")
-uses = os.environ.get("MMW_FAKE_USES", "agree")
-
-HERDR_HELP_TOP = """herdr — terminal workspace manager for AI coding agents
-
-Usage: herdr [options]
-       herdr --session <name> [options]
-       herdr agent start
-       herdr tab create
-
-Options:
-  -h, --help
-      --timeout <MS>
-      --kind <KIND>
-      --pane <ID>
-      --wait
-      --until <STATUS>
-      --cwd <PATH>
-"""
-
-HERDR_HELP = {
-    ("pane", "close"): """Close a pane
-
-Usage: herdr pane close <pane_id>
-""",
-    ("tab", "create"): """Create a tab
-
-Usage: herdr tab create [OPTIONS]
-
-Options:
-      --cwd <PATH>
-      --no-focus
-      --env <KEY=VALUE>
-""",
-    ("agent", "start"): """Start a supported interactive agent in an existing pane
-
-Usage: herdr agent start <NAME> --kind <KIND> --pane <ID> [OPTIONS]
-
-Options:
-      --kind <KIND>
-      --pane <ID>
-      --timeout <MS>
-""",
-    ("agent", "prompt"): """Submit a prompt to an agent
-
-Usage: herdr agent prompt <TARGET> <TEXT> [OPTIONS]
-
-Options:
-      --wait
-      --until <STATUS>
-      --timeout <MS>
-""",
-    ("agent", "list"): """List agents
-
-Usage: herdr agent list
-""",
-}
 
 
 def load_agents():
@@ -709,23 +571,6 @@ def opt(flag):
             return args[i + 1]
     return ""
 
-
-if "-h" in args or "--help" in args:
-    cmd = tuple(a for a in args if a not in ("-h", "--help"))
-    if uses == "unreadable" and cmd:
-        print(HERDR_HELP_TOP)
-        sys.exit(0)
-    if not cmd:
-        print(HERDR_HELP_TOP)
-        sys.exit(0)
-    page = HERDR_HELP.get(cmd)
-    if page is None:
-        print(HERDR_HELP_TOP)
-        sys.exit(0)
-    if uses == "mismatch" and cmd == ("tab", "create"):
-        page = page.replace("      --no-focus\n", "")
-    print(page)
-    sys.exit(0)
 
 if args[:2] == ["pane", "close"]:
     pane = args[2] if len(args) > 2 else ""
@@ -827,7 +672,6 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_ORCA_SCENARIO", "")
 send_mode = os.environ.get("MMW_FAKE_ORCA_SEND", "") or scenario
-uses = os.environ.get("MMW_FAKE_USES", "agree")
 
 
 def load_terminals():
@@ -852,37 +696,6 @@ def opt(flag):
             return args[i + 1]
     return ""
 
-
-if args[:1] == ["agent-context"]:
-    wait_flags = ["help", "json", "pairing-code", "environment",
-                  "terminal", "for", "timeout-ms"]
-    if uses == "mismatch":
-        wait_flags = [f for f in wait_flags if f != "for"]
-    if uses == "orca-unreadable":
-        wait_flags = "terminal for timeout-ms"
-    print(json.dumps({
-        "schemaVersion": 1,
-        "commandCount": 8,
-        "commands": [
-            {"command": "tab create",
-             "flags": ["help", "json", "url", "worktree"]},
-            {"command": "terminal create",
-             "flags": ["help", "json", "worktree", "command", "title"]},
-            {"command": "terminal send",
-             "flags": ["help", "json", "terminal", "text", "enter",
-                       "wait-submit"]},
-            {"command": "terminal wait", "flags": wait_flags},
-            {"command": "terminal read",
-             "flags": ["help", "json", "terminal", "cursor", "limit", "screen"]},
-            {"command": "terminal list",
-             "flags": ["help", "json", "worktree"]},
-            {"command": "terminal close",
-             "flags": ["help", "json", "terminal"]},
-            {"command": "worktree set",
-             "flags": ["help", "json", "worktree", "issue", "parent-worktree"]},
-        ],
-    }))
-    sys.exit(0)
 
 if args[:2] == ["project", "setups"]:
     path = state / "setups.json"
@@ -1714,7 +1527,7 @@ reset_log() {
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/repos.json"
   unset MMW_FAKE_HERDR_SCENARIO MMW_FAKE_HERDR_PROMPT MMW_FAKE_SEND_FAILS
-  unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND MMW_FAKE_USES
+  unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND
   unset MMW_FAKE_NMEM_SCENARIO
   # The fixture repository o/r has been set up: its Space exists in the shape setup-mmw gives it.
   printf '%s\n' '{"spaces":{"o__r":{"id":"o__r","name":"o/r","defaultRetrievalMode":"shared","sharedSpaceIds":["mmw-toolbox"]}},"agents":{}}' > "$MMW_FAKE_NMEM_STATE"
@@ -6259,16 +6072,6 @@ PY
   no_relay
 }
 
-run_uses_check() {
-  local installer home
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
-  home="$TMP/install-home"
-  rm -rf "$home"
-  mkdir -p "$home"
-  : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
-}
-
 # Writes setups.json and repos.json for the fake orca: $1 setups with ids setup_1..,
 # path /repo<i>; $2 is the base path to give each ("" leaves the field out); $3 the
 # visibility of every repo ("" leaves it out).
@@ -6309,116 +6112,19 @@ run_installer() {
     MMW_INSTALL_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
 }
 
-# A copy of this mmw-v3 that --check reads through installed-root, so a test can take
-# the runners apart without touching the checkout.
-root_copy() {
-  local copy="$TMP/mmw-copy"
-  rm -rf "$copy"
-  cp -R "$(dirname "$(dirname "$HERE")")" "$copy"
-  printf '%s\n' "$copy"
-}
-
 scenario_installorca() {
-  local code home installer
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
-  home="$TMP/install-home"
-  rm -rf "$home"
-  mkdir -p "$home"
-
-  echo "--- --check with a wrong worktree-base-path is a miss, and does not write"
+  echo "--- install sets every setup's worktree-base-path to .worktrees, and never removes a worktree"
   reset_log
-  python3 -c '
-import json, os
-from pathlib import Path
-state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
-(state / "setups.json").write_text(json.dumps([{
-    "id": "setup_1",
-    "path": "/repo",
-    "worktreeBasePath": "~/orca/workspaces",
-}]))
-(state / "repos.json").write_text(json.dumps([{
-    "id": "repo_1",
-    "path": "/repo",
-    "externalWorktreeVisibility": "show",
-}]))
-'
-  : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
-  grep -q "缺    orca worktree-base-path" "$TMP/err" \
-    || fail "wrong base path should be 缺: $(cat "$TMP/err")"
-  has "orca :: project :: setups"
-  has "orca :: repo :: list"
-  hasnt "orca :: project :: setup-update"
-
-  echo "--- --check with .worktrees and show does not 缺 those two, and still does not write"
-  python3 -c '
-import json, os
-from pathlib import Path
-state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
-(state / "setups.json").write_text(json.dumps([{
-    "id": "setup_1",
-    "path": "/repo",
-    "worktreeBasePath": ".worktrees",
-}]))
-(state / "repos.json").write_text(json.dumps([{
-    "id": "repo_1",
-    "path": "/repo",
-    "externalWorktreeVisibility": "show",
-}]))
-'
-  : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
-  if grep -q "orca worktree-base-path" "$TMP/err"; then
-    fail "correct base path should not 缺: $(cat "$TMP/err")"
-  fi
-  if grep -q "orca externalWorktreeVisibility\|orca 没给" "$TMP/err"; then
-    fail "show should not be reported: $(cat "$TMP/err")"
-  fi
-  hasnt "orca :: project :: setup-update"
-
-  echo "--- --check with hidden visibility is a miss"
-  python3 -c '
-import json, os
-from pathlib import Path
-state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
-(state / "setups.json").write_text(json.dumps([{
-    "id": "setup_1",
-    "path": "/repo",
-    "worktreeBasePath": ".worktrees",
-}]))
-(state / "repos.json").write_text(json.dumps([{
-    "id": "repo_1",
-    "path": "/repo",
-    "externalWorktreeVisibility": "hide",
-}]))
-'
-  : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
-  grep -q "缺    orca externalWorktreeVisibility" "$TMP/err" \
-    || fail "hidden visibility should be 缺: $(cat "$TMP/err")"
-  hasnt "orca :: project :: setup-update"
-
-  echo "--- install writes worktree-base-path .worktrees via setup-update, never worktree rm"
-  python3 -c '
-import json, os
-from pathlib import Path
-state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
-(state / "setups.json").write_text(json.dumps([{
-    "id": "setup_1",
-    "path": "/repo",
-}]))
-(state / "repos.json").write_text(json.dumps([{
-    "id": "repo_1",
-    "path": "/repo",
-    "externalWorktreeVisibility": "show",
-}]))
-'
-  : > "$MMW_TEST_LOG"
-  (MMW_INSTALL_HOME="$home" bash "$installer" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
-  has "orca :: project :: setup-update"
-  has ":: --setup :: setup_1"
+  seed_orca_projects 3 "" show
+  run_installer
+  [ "$(count_of "orca :: project :: setup-update")" = 3 ] \
+    || fail "3 setups in, expected 3 setup-update calls, got $(count_of "orca :: project :: setup-update")"
+  has ":: --setup :: setup_2"
   has ":: --worktree-base-path :: .worktrees"
   hasnt "orca :: worktree :: rm"
+  echo "--- --check does not ask Orca anything"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  hasnt "orca ::"
 }
 
 scenario_installboardagent() {
@@ -6489,9 +6195,24 @@ scenario_installtakesover() {
   {"type":"command","command":"someone-elses-hook","timeout":5}]}]}}
 JSON
   printf '%s\n' "$v2" > "$home/.mmw/installed-root"
+  mkdir -p "$home/.pi/agent/extensions"
+  printf '// installed by mmw-v2/install.sh\n' > "$home/.pi/agent/extensions/mmw-verify-ticket.ts"
+  printf '// installed by mmw-v2/install.sh\n' > "$home/.pi/agent/extensions/mmw-turn-guard.ts"
+  printf '<!-- mmw prompt-sync: generated from mmw-v2/prompt/shared.md -->\nbody\n' > "$home/.pi/agent/AGENTS.md"
+  printf 'someone else\n' > "$home/.pi/agent/extensions/other.ts"
   seed_orca_projects 1 .worktrees show
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  grep -q "^残留  $home/.pi/agent/extensions/mmw-turn-guard.ts" "$TMP/err" \
+    || fail "--check should report mmw-v2's Pi extension: $(cat "$TMP/err")"
+  grep -q "^残留  $home/.pi/agent/AGENTS.md" "$TMP/err" \
+    || fail "--check should report mmw-v2's Pi AGENTS.md: $(cat "$TMP/err")"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
   [ "$(cat "$TMP/code")" = 0 ] || fail "install over mmw-v2 failed: $(cat "$TMP/err")"
+  for link in "$home/.pi/agent/extensions/mmw-verify-ticket.ts" "$home/.pi/agent/extensions/mmw-turn-guard.ts" \
+      "$home/.pi/agent/AGENTS.md"; do
+    [ -e "$link" ] && fail "$link is mmw-v2's Pi file and should be removed"
+  done
+  [ -f "$home/.pi/agent/extensions/other.ts" ] || fail "another tool's Pi extension must not be touched"
   for link in "$home/.agents/skills/dispatch" "$home/.claude/skills/dispatch" "$home/.agents/skills/tdd"; do
     [ "$(readlink "$link")" = "$v3/skills/$(basename "$link")" ] \
       || fail "$link should point into this checkout's mmw-v3: $(readlink "$link")"
@@ -6556,8 +6277,7 @@ scenario_installtoolguard() {
   local home="$TMP/install-home" retired_skill retired_script retired_path config
   echo "--- install moves every host to dispatch's tool guard and sweeps the retired registration"
   rm -rf "$home"
-  mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" \
-    "$home/.grok/hooks" "$home/.pi/agent"
+  mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" "$home/.grok/hooks"
   retired_skill="drive""-target"
   retired_script="hook"".py"
   retired_path="$home/.agents/skills/$retired_skill/scripts/$retired_script"
@@ -6572,8 +6292,7 @@ JSON
     "$home/.claude/settings.json" \
     "$home/.codex/hooks.json" \
     "$home/.cursor/hooks.json" \
-    "$home/.grok/hooks/mmw-verify-ticket.json" \
-    "$home/.pi/agent/extensions/mmw-verify-ticket.ts"
+    "$home/.grok/hooks/mmw-verify-ticket.json"
   do
     [ -f "$config" ] || { fail "install did not write $config"; continue; }
     grep -qF "/dispatch/scripts/tool-guard.py" "$config" \
@@ -6587,98 +6306,6 @@ JSON
   [ "$(cat "$TMP/code")" = 0 ] || fail "install --check failed: $(cat "$TMP/err")"
   grep -qx 'HOOKS-INSTALLED' "$TMP/out" \
     || fail "install --check did not report HOOKS-INSTALLED: $(cat "$TMP/out")"
-}
-
-scenario_usesagree() {
-  echo "--- declared flags the binary has: --check is silent about MMW_USES"
-  reset_log
-  MMW_FAKE_USES=agree run_uses_check
-  if grep -E '^没查    (orca|herdr|paseo)|^不一致  适配器' "$TMP/err" "$TMP/out"; then
-    fail "agree should print neither 没查 nor 不一致: $(cat "$TMP/err") $(cat "$TMP/out")"
-  fi
-  if grep -q Traceback "$TMP/err"; then
-    fail "the check crashed: $(cat "$TMP/err")"
-  fi
-  has "orca :: agent-context"
-  has "herdr :: agent :: start :: --help"
-  has "paseo :: send :: --help"
-  has "paseo :: provider :: ls :: --help"
-  has "paseo :: provider :: models :: --help"
-  has "paseo :: provider :: diagnostic :: --help"
-}
-
-scenario_usesmismatch() {
-  echo "--- a declared flag the binary lacks: --check names that command and flag"
-  reset_log
-  MMW_FAKE_USES=mismatch run_uses_check
-  grep -q '不一致' "$TMP/err" \
-    || fail "mismatch should print 不一致: $(cat "$TMP/err")"
-  grep -q '没查' "$TMP/err" \
-    && fail "mismatch on a readable page is 不一致, not 没查: $(cat "$TMP/err")"
-  grep -qE 'tab create --no-focus' "$TMP/err" \
-    || fail "should name tab create --no-focus: $(cat "$TMP/err")"
-  grep -qE '没有 no-focus' "$TMP/err" \
-    || fail "should say the binary lacks no-focus: $(cat "$TMP/err")"
-  grep -qE '^不一致  适配器说它要用 terminal wait --for，二进制的 flags 里没有 for：' "$TMP/err" \
-    || fail "should name Orca's terminal wait --for: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/code")" = 1 ] || fail "a mismatch must exit 1, got $(cat "$TMP/code")"
-}
-
-scenario_usesunreadable() {
-  echo "--- herdr subcommand help falls back to the top page: 没查, not 不一致"
-  reset_log
-  MMW_FAKE_USES=unreadable run_uses_check
-  grep -q '没查' "$TMP/err" \
-    || fail "fallback help must print 没查: $(cat "$TMP/err")"
-  grep -q '^不一致  适配器' "$TMP/err" \
-    && fail "fallback help must not print 不一致: $(cat "$TMP/err")"
-  local row
-  for row in "tab create" "agent start" "agent prompt" "agent list"; do
-    grep -q "^没查    读不到 herdr $row 的帮助页（掉回了顶层用法页" "$TMP/err" \
-      || fail "herdr $row should have its own 没查 line: $(cat "$TMP/err")"
-  done
-  has "herdr :: tab :: create :: --help"
-}
-
-scenario_installorcashape() {
-  echo "--- install reads every setup out of result.setups and updates each one"
-  reset_log
-  seed_orca_projects 3 "" show
-  run_installer
-  [ "$(count_of "orca :: project :: setup-update")" = 3 ] \
-    || fail "3 setups in, expected 3 setup-update calls, got $(count_of "orca :: project :: setup-update")"
-  echo "--- --check reports every setup with no base path, and writes nothing"
-  seed_orca_projects 3 "" show
-  run_installer --check
-  [ "$(grep -c '^缺    orca worktree-base-path 没设' "$TMP/err")" = 3 ] \
-    || fail "3 unset setups should give 3 缺 lines: $(cat "$TMP/err")"
-  grep -q "orca project setup-update --setup setup_2 --worktree-base-path .worktrees" "$TMP/err" \
-    || fail "the 缺 line should give the command that fixes it: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/code")" = 1 ] || fail "--check with a miss must exit 1"
-  hasnt "orca :: project :: setup-update"
-  echo "--- a base path that resolves to <repo>/.worktrees passes; one elsewhere does not"
-  seed_orca_projects 1 /repo1/.worktrees show
-  run_installer --check
-  if grep -q "orca worktree-base-path" "$TMP/err"; then fail "/repo1/.worktrees is the repo's own .worktrees: $(cat "$TMP/err")"; fi
-  seed_orca_projects 1 /elsewhere/.worktrees show
-  run_installer --check
-  grep -q "^缺    orca worktree-base-path 应为 .worktrees 实为 /elsewhere/.worktrees" "$TMP/err" \
-    || fail "/elsewhere/.worktrees is not this repo's .worktrees: $(cat "$TMP/err")"
-  echo "--- a setups answer in any other shape is 没查, not a pass"
-  seed_orca_projects 2 .worktrees show
-  MMW_FAKE_ORCA_SCENARIO=setups-shape run_installer --check
-  grep -q "^没查  读不出 orca project setups --json" "$TMP/err" \
-    || fail "an unreadable setups list must say 没查: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/code")" = 1 ] || fail "没查 must exit 1"
-  echo "--- a repo with no visibility of its own is 没查; hide is 缺"
-  seed_orca_projects 1 .worktrees ""
-  run_installer --check
-  grep -q "^没查  orca 没给 /repo1 的 externalWorktreeVisibility" "$TMP/err" \
-    || fail "no repo-level visibility must be 没查: $(cat "$TMP/err")"
-  seed_orca_projects 1 .worktrees hide
-  run_installer --check
-  grep -q "^缺    orca externalWorktreeVisibility 应为 show 实为 hide（/repo1）：" "$TMP/err" \
-    || fail "hide must be 缺: $(cat "$TMP/err")"
 }
 
 scenario_installkeepsnewestbackup() {
@@ -6696,72 +6323,6 @@ scenario_installkeepsnewestbackup() {
     || fail "the surviving backup is not the configuration the install replaced"
   [ "$(find "$TMP/install-home/.paseo" -maxdepth 1 -name 'config.json.bak-*' | wc -l | tr -d ' ')" = 1 ] \
     || fail "install kept more than its newest backup: $(find "$TMP/install-home/.paseo" -maxdepth 1 -name 'config.json.bak-*' -print)"
-}
-
-scenario_usesnorunners() {
-  local copy
-  echo "--- no runners directory: 没查, exit 1"
-  reset_log
-  seed_orca_projects 1 .worktrees show
-  copy="$(root_copy)"
-  rm -rf "$copy/skills/dispatch/scripts/runners"
-  MMW_TEST_ROOT_COPY="$copy" run_installer --check
-  grep -q "^没查    .*runners 下没有适配器，MMW_USES 一条都没核" "$TMP/err" \
-    || fail "a missing runners/ must say 没查: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/code")" = 1 ] || fail "没查 must exit 1"
-  echo "--- a runner with no MMW_USES: 没查 naming that file"
-  copy="$(root_copy)"
-  sed -i.bak '/^# MMW_USES:/d' "$copy/skills/dispatch/scripts/runners/paseo.sh"
-  rm -f "$copy/skills/dispatch/scripts/runners/paseo.sh.bak"
-  MMW_TEST_ROOT_COPY="$copy" run_installer --check
-  grep -q "^没查    paseo.sh 一条 MMW_USES 声明都没有" "$TMP/err" \
-    || fail "an undeclared runner must say 没查: $(cat "$TMP/err")"
-  echo "--- a declaration line with no command: 没查"
-  copy="$(root_copy)"
-  printf '# MMW_USES: --json\n' >> "$copy/skills/dispatch/scripts/runners/paseo.sh"
-  MMW_TEST_ROOT_COPY="$copy" run_installer --check
-  grep -q "^没查    paseo.sh 有一行 MMW_USES 没有命令名（--json）" "$TMP/err" \
-    || fail "a row without a command must say 没查: $(cat "$TMP/err")"
-}
-
-scenario_usesorcaunreadable() {
-  echo "--- an Orca catalog row whose flags cannot be read: 没查, never 不一致"
-  reset_log
-  MMW_FAKE_USES=orca-unreadable run_uses_check
-  grep -q "^没查    orca agent-context 里 terminal wait 那一行读不出 flags 列表" "$TMP/err" \
-    || fail "an unreadable catalog row must say 没查: $(cat "$TMP/err")"
-  if grep -q "不一致.*terminal wait" "$TMP/err"; then
-    fail "an unreadable row is not a mismatch: $(cat "$TMP/err")"
-  fi
-}
-
-scenario_installimportsmodelsmd() {
-  local home="$TMP/import-home"
-  rm -rf "$home"; mkdir -p "$home/.mmw"
-  cat > "$home/.mmw/models.md" <<'TABLE'
-| runner | herdr |
-| agent | host | model | effort |
-| junior-worker | cursor | grok 4.6 | high |
-| senior-worker | grok | grok 4.6 | xhigh |
-| reviewer | claude | opus 5 | high |
-| advisor | claude | fable 5.1 | medium |
-TABLE
-  MMW_INSTALL_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
-  [ -f "$home/.mmw/models.json" ] || fail "models.json was not imported"
-  [ ! -e "$home/.mmw/models.md" ] || fail "the imported Markdown file was not deleted"
-  python3 - "$home/.mmw/models.json" "$SKILL/hosts.json" <<'PY' || fail "the import did not preserve values"
-import json, sys
-data = json.load(open(sys.argv[1]))
-expected = {
-    "junior-worker": {"host": "cursor", "model": "grok 4.6", "effort": "high"},
-    "senior-worker": {"host": "grok", "model": "grok 4.6", "effort": "xhigh"},
-    "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
-    "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
-}
-defaults = {row["agent"]: {k: row[k] for k in ("host", "model", "effort")}
-            for row in json.load(open(sys.argv[2]))["defaults"]}
-assert data == {"version": 1, "runner": "herdr", "rows": {**defaults, **expected}}, data
-PY
 }
 
 scenario_installinitialvalues() {
@@ -6789,12 +6350,10 @@ scenario_installkeepsmodelsjson() {
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["version"]=41; json.dump(d, open(p,"w"), separators=(",",":"))
 PY
-  printf '%s\n' '| junior-worker | claude | opus 5 | max |' > "$home/.mmw/models.md"
   before="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
   MMW_INSTALL_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
   after="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
   [ "$before" = "$after" ] || fail "install rewrote an existing models.json"
-  [ -f "$home/.mmw/models.md" ] || fail "install imported models.md beside existing JSON"
 }
 
 scenario_installcheckmodelsjson() {
@@ -6851,7 +6410,6 @@ PY
   [ "$(cat "$TMP/code")" = 0 ] || fail "second install expected 0: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: agents :: enroll"
-  hasnt "nmem :: --json :: agents :: set"
 
   echo "--- --check reads all three objects and writes none"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
@@ -6862,42 +6420,20 @@ PY
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: agents :: enroll"
 
-  echo "--- --check fails explicitly on a wrong object and performs no repair"
+  echo "--- --check names a missing object and creates nothing; install creates only that one"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
-p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["mmw-toolbox"]["defaultRetrievalMode"]="shared"; json.dump(d,open(p,"w"))
-PY
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "wrong-object check expected 1, got $(cat "$TMP/code")"
-  grep -q '^缺    Nowledge Mem Space mmw-toolbox' "$TMP/err" || fail "wrong object was not named: $(cat "$TMP/err")"
-  hasnt "nmem :: --json :: spaces :: update"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["mmw-toolbox"]["defaultRetrievalMode"]="strict"; del d["agents"]["mmw-reviewer"]; json.dump(d,open(p,"w"))
+p=sys.argv[1]; d=json.load(open(p)); del d["agents"]["mmw-reviewer"]; json.dump(d,open(p,"w"))
 PY
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "missing-object check expected 1, got $(cat "$TMP/code")"
-  grep -q '^缺    Nowledge Mem Identity mmw-reviewer 不存在' "$TMP/err" || fail "missing object was not named: $(cat "$TMP/err")"
-
-  echo "--- normal install repairs an existing Toolbox Space and Identity to their exact safe shape"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-p=sys.argv[1]; d=json.load(open(p))
-d["spaces"]["mmw-toolbox"]={"id":"mmw-toolbox","name":"wrong","defaultRetrievalMode":"shared","sharedSpaceIds":["default"]}
-d["agents"]["mmw-reviewer"]={"id":"mmw-reviewer","displayName":"wrong","role":"general","defaultSpaceId":"default","origin":"claimed"}
-json.dump(d,open(p,"w"))
-PY
+  grep -q '^缺    Nowledge Mem Identity mmw-reviewer' "$TMP/err" || fail "missing object was not named: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: agents :: enroll"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "repairing install expected 0: $(cat "$TMP/err")"
-  has "nmem :: --json :: spaces :: update :: mmw-toolbox :: --name :: MMW Toolbox :: --retrieval-mode :: strict :: --clear-shared"
-  has "nmem :: --json :: agents :: set :: mmw-reviewer :: --name :: MMW Reviewer :: --role :: reviewer :: --default-space :: mmw-toolbox"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "normal install did not repair the live object shapes"
-import json, sys
-d=json.load(open(sys.argv[1]))
-assert d["spaces"]["mmw-toolbox"] == {"id":"mmw-toolbox","name":"MMW Toolbox","defaultRetrievalMode":"strict","sharedSpaceIds":[]}, d
-r=d["agents"]["mmw-reviewer"]
-assert {k:r[k] for k in ("id","displayName","role","defaultSpaceId")} == {"id":"mmw-reviewer","displayName":"MMW Reviewer","role":"reviewer","defaultSpaceId":"mmw-toolbox"}, d
-PY
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: agents :: enroll :: mmw-reviewer"
+  hasnt "nmem :: --json :: agents :: enroll :: mmw-worker"
+  hasnt "nmem :: --json :: spaces :: create"
 
   echo "--- a machine without nmem says the objects were not checked, without changing check's exit"
   rm -rf "$no_nmem"; mkdir -p "$no_nmem"
@@ -6933,13 +6469,8 @@ scenario_startreturnssession() {
 }
 
 scenario_startreadsmodelsjson() {
-  local code legacy="$MMW_HOME/models.md"
-  echo "--- start reads models.json and ignores a conflicting retired Markdown file"
-  cat > "$legacy" <<'TABLE'
-| runner | herdr |
-| agent | host | model | effort |
-| junior-worker | claude | opus 5 | max |
-TABLE
+  local code
+  echo "--- start reads models.json"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
@@ -6948,13 +6479,11 @@ TABLE
     || fail "start did not use models.json: $(cat "$TMP/out")"
   [ "$(out_json settings.thinkingOptionId)" = "true" ] \
     || fail "start did not use the models.json effort: $(cat "$TMP/out")"
-  rm -f "$legacy"
 }
 
 scenario_startnomodelsjson() {
   local code saved="$TMP/models.saved"
   mv "$MMW_HOME/models.json" "$saved"
-  printf '%s\n' '| junior-worker | cursor | grok 4.6 | high |' > "$MMW_HOME/models.md"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
@@ -6962,7 +6491,6 @@ scenario_startnomodelsjson() {
   grep -q "no models.json.*run install.sh" "$TMP/err" \
     || fail "the refusal is not actionable: $(cat "$TMP/err")"
   never_ran
-  rm -f "$MMW_HOME/models.md"
   mv "$saved" "$MMW_HOME/models.json"
 }
 
@@ -8067,8 +7595,8 @@ scenario_orcanohosts() {
   echo "--- a host with no launch block refuses before any terminal is created"
   reset_log
   fresh_repo
-  code="$(run_runner start --host pi --model m --effort high --cwd "$TMP/repo" --prompt go)"
-  [ "$code" = 1 ] || fail "pi has no launch block, expected refusal 1, got $code"
+  code="$(run_runner start --host nohost --model m --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "nohost has no launch block, expected refusal 1, got $code"
   grep -q "cannot build the launch line" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
   hasnt "orca :: terminal :: create"
 }
@@ -10324,7 +9852,9 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="installtakesover installcheckhandover installorca installboardagent installcheckboardagent installtoolguard usesagree usesmismatch usesunreadable installorcashape installkeepsnewestbackup usesnorunners usesorcaunreadable installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+# The installer's scenarios, run by mmw-v3/tests/install/run.sh as `test_dispatch.sh install`.
+INSTALL="installtakesover installcheckhandover installorca installboardagent installcheckboardagent installtoolguard installkeepsnewestbackup installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome memory-install"
+ALL="memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-start"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
@@ -10333,14 +9863,18 @@ ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
-# One list of scenario names, ALL; a name on the command line is accepted when it is in it.
-case " $ALL all " in
+# Two lists of scenario names, ALL and INSTALL; a name on the command line is accepted when it is in either.
+case " $ALL $INSTALL all install " in
   *" ${1:-} "*) ;;
   *)
-    echo "usage: test_dispatch.sh $(echo "$ALL" | tr ' ' '|')|all" >&2
+    echo "usage: test_dispatch.sh $(echo "$ALL $INSTALL" | tr ' ' '|')|all|install" >&2
     exit 2 ;;
 esac
-if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
+case "$1" in
+  all) wanted="$ALL" ;;
+  install) wanted="$INSTALL" ;;
+  *) wanted="$1" ;;
+esac
 
 banner_for() {
   case "$1" in
@@ -10360,14 +9894,7 @@ banner_for() {
     installboardagent) echo INSTALL-BOARD-AGENT-OK ;;
     installcheckboardagent) echo INSTALL-CHECK-BOARD-AGENT-OK ;;
     installtoolguard) echo INSTALL-TOOL-GUARD-OK ;;
-    usesagree) echo USES-AGREE-OK ;;
-    usesmismatch) echo USES-MISMATCH-OK ;;
-    usesunreadable) echo USES-UNREADABLE-OK ;;
-    installorcashape) echo INSTALL-ORCA-SHAPE-OK ;;
     installkeepsnewestbackup) echo INSTALL-KEEPS-NEWEST-BACKUP-OK ;;
-    usesnorunners) echo USES-NO-RUNNERS-OK ;;
-    usesorcaunreadable) echo USES-ORCA-UNREADABLE-OK ;;
-    installimportsmodelsmd) echo INSTALL-IMPORTS-MODELS-MD-OK ;;
     installinitialvalues) echo INSTALL-INITIAL-VALUES-OK ;;
     installkeepsmodelsjson) echo INSTALL-KEEPS-MODELS-JSON-OK ;;
     installcheckmodelsjson) echo INSTALL-CHECK-MODELS-JSON-OK ;;

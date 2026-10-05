@@ -13,7 +13,7 @@ SHARED = RENDER.parent / "shared.md"
 
 def run(home, *args):
     env = dict(os.environ, MMW_INSTALL_HOME=str(home))
-    for k in ("CODEX_HOME", "PI_HOME", "PI_CODING_AGENT_DIR"):
+    for k in ("CODEX_HOME",):
         env.pop(k, None)
     return subprocess.run([sys.executable, str(RENDER), *args], env=env, capture_output=True, text=True)
 
@@ -27,18 +27,18 @@ class RenderTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.home = Path(self.tmp.name)
-        for d in (".codex", ".pi/agent", ".grok"):
+        for d in (".codex", ".grok"):
             (self.home / d).mkdir(parents=True)
         grok_config(self.home)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_writes_three_targets_with_the_shared_body(self):
+    def test_writes_both_targets_with_the_shared_body(self):
         r = run(self.home)
         self.assertEqual(r.returncode, 0, r.stderr)
         shared = SHARED.read_text()
-        for rel in (".codex/AGENTS.md", ".pi/agent/AGENTS.md", ".grok/AGENTS.md"):
+        for rel in (".codex/AGENTS.md", ".grok/AGENTS.md"):
             text = (self.home / rel).read_text()
             self.assertTrue(text.startswith("<!-- mmw prompt-sync:"), rel)
             self.assertEqual(text.split("\n", 1)[1], shared, rel)
@@ -65,7 +65,7 @@ class RenderTest(unittest.TestCase):
 
     def test_refuses_to_overwrite_hand_edited_target(self):
         run(self.home)
-        target = self.home / ".pi/agent/AGENTS.md"
+        target = self.home / ".grok/AGENTS.md"
         target.write_text(target.read_text() + "\nhand edit\n")
         r = run(self.home)
         self.assertEqual(r.returncode, 2)
@@ -83,10 +83,10 @@ class RenderTest(unittest.TestCase):
         self.assertTrue(target.read_text().startswith("<!-- mmw prompt-sync:"))
 
     def test_skips_missing_host(self):
-        shutil.rmtree(self.home / ".pi")
+        shutil.rmtree(self.home / ".codex")
         r = run(self.home)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertFalse((self.home / ".pi").exists())
+        self.assertFalse((self.home / ".codex").exists())
 
     def test_grok_compat_on_is_reported(self):
         grok_config(self.home, "true")

@@ -25,14 +25,6 @@
 # exit 0 printed; 3 this process runs in no session of this runner; 1 it does, and its id
 # cannot be read (the reason on stderr). The orchestrator names itself to the relay with it.
 # Paseo sets PASEO_AGENT_ID in every agent it runs, and that id is the one `send` takes.
-#
-# MMW_USES: run -d --json --provider --mode --thinking --cwd --title --env
-# MMW_USES: send --no-wait
-# MMW_USES: ls -g --json
-# MMW_USES: archive --force
-# MMW_USES: provider ls --json
-# MMW_USES: provider models --json
-# MMW_USES: provider diagnostic --json
 
 set -uo pipefail
 

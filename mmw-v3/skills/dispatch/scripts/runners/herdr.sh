@@ -35,12 +35,6 @@
 # Herdr sets HERDR_ENV=1 and HERDR_PANE_ID in every pane it runs; the session id is the
 # name `agent list` gives the agent in that pane, since a name is what `send` takes. An
 # agent with no name there cannot be addressed and is refused.
-#
-# MMW_USES: tab create --cwd --no-focus --env
-# MMW_USES: agent start --kind --pane --timeout
-# MMW_USES: agent prompt --wait --until --timeout
-# MMW_USES: agent list
-# MMW_USES: pane close
 
 set -uo pipefail
 

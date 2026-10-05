@@ -16,8 +16,5 @@
   ],
   "codex": [
     {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["low", "medium", "high", "xhigh"]}
-  ],
-  "pi": [
-    {"id": "xai/grok-4.6", "name": "grok-4.6", "thinkingOptionIds": ["off", "low", "medium", "high"]}
   ]
 }

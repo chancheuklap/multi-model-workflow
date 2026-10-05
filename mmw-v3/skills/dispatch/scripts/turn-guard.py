@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The turn guard: the first layer of liveness, a hook on the orchestrator's own turn end.
 
-    turn-guard.py stop <host>      <host> is claude, codex, grok, cursor or pi;
+    turn-guard.py stop <host>      <host> is claude, codex, grok or cursor;
                                    the host's turn-end payload is on stdin
 
 The worst way a night dies is the orchestrator stopping by itself: its turn ends and nothing
@@ -48,8 +48,6 @@ documents promise):
     codex    Stop             yes: exit 2, stderr to the model       exit 2 + stderr
     grok     Stop             yes: exit 2, stderr to the model,      exit 2 + stderr
                               another round in the same process
-    pi       agent_settled    no; the extension sends one follow-up  exit 2 + stderr, which the
-                              message, which starts another run      extension sends as a follow-up
     cursor   stop             no; exit 2 is ignored. One             exit 0, `{"followup_message":
                               `followup_message` on stdout starts    ...}` on stdout
                               another turn
@@ -59,8 +57,7 @@ forced (`stop_hook_active` for Claude and Codex, `stopHookActive` — or `stop_h
 when the camel-case field is absent — for Grok, `loop_count` 1 or more for Cursor) re-arms
 and is recorded like any other, and is let through; Grok's observe-only session-end fire
 (`reason` other than `end_turn`) is not a turn and is not looked at.
-The Pi extension keeps its own latch: it skips the `agent_settled` that follows its own
-follow-up. The block itself re-armed the watchdog, and the text tells the agent the one
+The block itself re-armed the watchdog, and the text tells the agent the one
 command to run when it did not come up.
 
 **Three lessons about hooks that fire in the wrong host**, copied from firstmate
@@ -114,12 +111,6 @@ every host upgrade.
                           with GROK_HOOK_EVENT and GROK_SESSION_ID set and GROK_AGENT unset;
                           that copy stood down every time (guard.log holds only grok lines).
                           The Cursor-registered stop copy did not fire at all.
-    pi 0.85.1             PI_CODING_AGENT_DIR=<throwaway>. agent_settled fired and the guard
-                          answered 2. Under `pi -p` the extension's follow-up started a second
-                          run and the process exited before that run replied. Under
-                          `pi --mode rpc` the follow-up run replied NOTED and its own
-                          agent_settled was skipped by the latch. Pi cannot hold a turn: the
-                          follow-up works only while the pi process stays up.
     cursor 2026.09.08     cursor-agent -p: the stop hook does not fire (a probe showed
                           sessionStart firing and stop, beforeSubmitPrompt and
                           afterAgentResponse not), so headless proves nothing. Interactive,
@@ -146,7 +137,7 @@ if str(HERE) not in sys.path:
 import statedir  # noqa: E402
 import briefs  # noqa: E402
 
-HOSTS = ("claude", "codex", "grok", "cursor", "pi")
+HOSTS = ("claude", "codex", "grok", "cursor")
 ARM_WAIT = 5.0
 SELF_TIMEOUT = 10
 # Cursor's `loop_count` is 0 on the first stop after a real message and one more per
