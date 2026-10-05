@@ -310,7 +310,7 @@ figure.wide .svgwrap{max-height:82vh;overflow:auto}
 <tbody>
 <tr><th>夜里那套机器</th><td>没有无记录的丢失。<code class="c k-script">verify-ticket.py</code> 每种模式参数相同；测试从 v2 到 v3 都多了（<span class="c k-skill">dispatch</span> 436 → 456 个，relay 117 → 136 个）</td><td><code>adopt</code>（自己捡一张票的会话）、<code>advise</code> 并进 <code>brief</code>、仓库检查从收尾挪到合并时</td></tr>
 <tr><th>v2 的 35 个技能</th><td>24 个完整，6 个有记录地去掉了一部分，3 个有记录地整个去掉，2 个有无记录的丢失（已补，见下表）</td><td><code class="c k-skill">grill-me</code>、<code class="c k-skill">grill-with-docs</code>、<code class="c k-skill">resolving-merge-conflicts</code></td></tr>
-<tr><th>15 条提示词规则</th><td>每条都有去处。两处小缺：Codex 那句「别打断正在干活的子代理」只搬了一半；规则 9 丢了「标题」「加粗」两个词</td><td>只给某一家宿主的提示词文件（内容本来是空的）</td></tr>
+<tr><th>15 条提示词规则</th><td>每条都有去处。两处小缺：Codex 那句「别打断正在干活的子代理」只搬了一半；规则 9 丢了「标题」「加粗」两个词。（后来：两处都补了，见<a href="0019-the-six-decisions-landed.html">第 19 课</a>。）</td><td>只给某一家宿主的提示词文件（内容本来是空的）</td></tr>
 <tr><th>安装、看板</th><td>九样东西都在；看板只多了按角色表取行</td><td>—</td></tr>
 <tr><th>merge-notes</th><td>不算丢：<code>imports.tsv</code> 每处改动一条 J 记录，<code class="c k-script">check_imports.py</code> 机器核对，比 merge-notes 细</td><td>—</td></tr>
 </tbody></table></div>
@@ -336,7 +336,7 @@ figure.wide .svgwrap{max-height:82vh;overflow:auto}
 <tr><th>加一个脚本开的角色</th><td><code>roles.json</code>、<code>hosts.json</code> 各一行；发送方写出 <code class="c k-script">dispatch.sh brief</code></td><td><code class="c k-script">check-interfaces.py</code> 全抓</td></tr>
 <tr><th>拿 pstack 新版</th><td>拉子树；<code>SPLITS</code> 加一行；逐行比上游改动、把行的提交号往前移</td><td>拉取的命令没写下来；一行都没更新也照样通过</td></tr>
 </tbody></table></div>
-<p>18 种漏法里 14 种今天抓不到；抓得到的集中在角色和事件。pstack 自己也没有这类检查，靠人眼；但它少一处登记（整个目录都装，没有 <code class="c k-config">skills.txt</code>）。</p>
+<p>18 种漏法里 14 种今天抓不到；抓得到的集中在角色和事件。pstack 自己也没有这类检查，靠人眼；但它少一处登记（整个目录都装，没有 <code class="c k-config">skills.txt</code>）。（后来：<code class="c k-config">skills.txt</code> 删了；接线检查 <code class="c k-script">check_wiring.py</code> 每套测试先跑，漏写路由行、索引行或点名一个不存在的东西都会让测试失败；拉上游的命令写进了 <code class="c k-reference">skill-set-rules.md</code>。见<a href="0019-the-six-decisions-landed.html">第 19 课</a>。）</p>
 
 <h2>6　哪里设计过度、防御过度</h2>
 <p>判断标准是成本对它防的问题。最硬的证据是这台机器的运行记录：2026-09-11 到 2026-10-02，relay 排过 715 次叫醒，watchdog 报过 23 次告警，turn guard 判过 478 次，加上 11 夜的 NIGHT SUMMARY。一条防御是在真出过事之后加的，就是它有用的证据。</p>
@@ -362,6 +362,7 @@ figure.wide .svgwrap{max-height:82vh;overflow:auto}
 <tr><th>关夜前的完整性检查</th><td>#407：57 条 finding 里 43 条从没处理；#441：还有票没走完就关了夜</td></tr>
 <tr><th>收尾可以安全重跑</th><td>#414：重跑把同一事件写了两次</td></tr>
 </tbody></table></div>
+<p>（后来：第一张表的八项都做了，第二张表的六项没动，见<a href="0019-the-six-decisions-landed.html">第 19 课</a>。）</p>
 
 <h2>7　接下来怎么改</h2>
 <p><b>我来做的（工程决定，不改变你能用到的功能）</b>，按收益排序：</p>
@@ -382,6 +383,7 @@ figure.wide .svgwrap{max-height:82vh;overflow:auto}
 <li><code class="c k-script">dispatch.sh check</code> 发现安装不全时，会在已安装的 checkout 里自己跑 <code class="c k-script">install.sh</code> 修补。根 <code>AGENTS.md</code> 一处说这是它的职责，另一处说 <code class="c k-script">install.sh</code> 只在你授权时跑。审计建议删掉自动修补，只报告。</li>
 <li>根目录的 <code>AGENTS.md</code>、<code>CONTEXT-MAP.md</code>、<code>docs/contexts/</code>、<code>docs/adr/</code> 还在描述 v2，要不要随 v3 一起改成现在的样子。</li>
 </ol>
+<p>（后来：两组十二件都做了。你的答案依次是支持、能用就要、不要、改票不兼容、删掉、改。见<a href="0019-the-six-decisions-landed.html">第 19 课</a>。）</p>
 
 <h2>8　怎样证明的</h2>
 <div class="tablewrap"><table class="roles wrap" style="min-width:820px">
@@ -403,7 +405,7 @@ figure.wide .svgwrap{max-height:82vh;overflow:auto}
 <div class="quiz" data-answer="3">
 <p class="q">2．今天加一份新 playbook 却忘了在 mode 写路由行，会怎样？</p>
 <div class="opts"><button>安装时报错停下</button><button>测试套件会失败</button><button>夜里脚本会拒绝</button><button>多半没人发现它</button></div>
-<div class="why" hidden>只有 worker、reviewer 和两份 orchestrator playbook 的路由行有检查；其余 20 份漏了没人抓（第 5 节）。</div>
+<div class="why" hidden>只有 worker、reviewer 和两份 orchestrator playbook 的路由行有检查；其余 20 份漏了没人抓（第 5 节）。（后来：接线检查让测试套件失败，见<a href="0019-the-six-decisions-landed.html">第 19 课</a>。）</div>
 </div>
 <div class="quiz" data-answer="0">
 <p class="q">3．怎样判断一条防御该不该留？</p>
@@ -413,7 +415,7 @@ figure.wide .svgwrap{max-height:82vh;overflow:auto}
 
 <h2>下一课</h2>
 <p class="ask">第 7 节第一组我直接做；第二组六件等你定。点全景图里任何一个你觉得不对的组件，直接告诉我它的名字。</p>
-<footer class="next"><a href="0017-the-install-entry.html">← 第 17 课</a><a href="../index.html">课程首页</a></footer>
+<footer class="next"><a href="0017-the-install-entry.html">← 第 17 课</a><a href="../index.html">课程首页</a><a href="0019-the-six-decisions-landed.html">第 19 课 →</a></footer>
 </div>
 
 <!--JS--><script>
