@@ -35,9 +35,9 @@
       "kind": "session",
       "command": "brief",
       "lead": {"skill": "research"},
-      "sent_by": ["how", "why"],
-      "brief": ["how/references/explorer-prompt.md", "why/references/investigator-prompt.md"],
-      "what": "reads one source, an angle of the code or one kind of evidence, and hands back cited findings",
+      "sent_by": ["how", "why", "mmw-mode/playbooks/chart-a-map.md", "mmw-mode/playbooks/resolve-a-map-ticket.md"],
+      "brief": ["how/references/explorer-prompt.md", "why/references/investigator-prompt.md", "mmw-mode/references/map-research-brief.md"],
+      "what": "reads one source, an angle of the code or one kind of evidence, or answers one research ticket of a map, and hands back cited findings",
       "returns": "its findings, reported to the session that briefed it"
     },
     {

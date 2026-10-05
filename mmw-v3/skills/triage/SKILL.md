@@ -34,7 +34,7 @@ Five **state** roles:
 - `ready-for-human`: one thing only a person can do, of kind `reaction` or `reach`
 - `wontfix`: will not be actioned
 
-Every triaged issue should carry exactly one category role and one state role. Work this repo plans for itself carries no category role: a spec's tickets carry a state role; a spec carries none and is not triaged. If state roles conflict, flag it and ask the maintainer before doing anything else.
+Every triaged issue should carry exactly one category role and one state role. Work this repo plans for itself carries no category role: a spec's tickets carry a state role; a map, a spec and a decision ticket carry none and are not triaged. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
 These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping is the repository's `docs/agents/triage-labels.md`. If it is missing, tell the user the repository is not set up for the pipeline, and stop.
 

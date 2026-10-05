@@ -147,7 +147,7 @@ def check_roles() -> list[str]:
                         out.append(f"{path.relative_to(SKILLS)}: sends the {name} subagent, and "
                                    f"never names its prompt {rel.split('/', 1)[1]}")
             elif f"dispatch.sh brief {name}" not in text:
-                out.append(f"{path.relative_to(SKILLS)}: {where} says this skill starts the "
+                out.append(f"{path.relative_to(SKILLS)}: {where} says this file starts the "
                            f"{name}, and it never writes `dispatch.sh brief {name}`")
     texts = sorted(SKILLS.glob("*/SKILL.md")) + sorted((MODE.parent / "playbooks").glob("*.md"))
     for path in texts:

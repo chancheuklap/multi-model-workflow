@@ -104,7 +104,7 @@ class CheckInterfaces(unittest.TestCase):
                   "start one synthesizer")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("why/SKILL.md: dispatch/roles.json says this skill starts the synthesizer", out)
+        self.assertIn("why/SKILL.md: dispatch/roles.json says this file starts the synthesizer", out)
 
     def test_a_brief_of_a_role_the_table_does_not_have_is_found(self):
         self.edit("how/SKILL.md", "Start one explainer with `dispatch.sh brief explainer`",
@@ -121,6 +121,13 @@ class CheckInterfaces(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("to-questionnaire/SKILL.md: sends out a subagent, and no subagent row", out)
 
+    def test_a_playbook_the_table_says_starts_a_role_and_does_not_is_found(self):
+        self.edit("mmw-mode/playbooks/chart-a-map.md", "one `dispatch.sh brief researcher <file>...` call",
+                  "one call")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("mmw-mode/playbooks/chart-a-map.md: dispatch/roles.json says this file starts the "
+                      "researcher", out)
 
     def test_a_playbook_that_sends_a_subagent_with_no_row_is_found(self):
         playbook = self.tmp / "mmw-mode" / "playbooks" / "bug-fix.md"
