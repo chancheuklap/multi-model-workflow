@@ -3292,49 +3292,24 @@ resume_after() {
 }
 
 refused_resume_names() {
-  local ending="$1" next="$2" code="$3"
+  local ending="$1" code="$2"
   [ "$code" = 2 ] || fail "resume after $ending expected exit 2, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: send"
   posted_events 61 | grep -q "^worker.resumed" \
     && fail "a refused resume must not post worker.resumed, which would make the ended hold live again: $(posted_events 61)"
   grep -q "$ending" "$TMP/err" || fail "the refusal should name $ending: $(cat "$TMP/err")"
-  grep -qF -- "$next" "$TMP/err" || fail "the refusal after $ending should name $next: $(cat "$TMP/err")"
   nothing_printed
 }
 
 scenario_resumeendedhold() {
   local code
-  echo "--- worker.lost ended the worker's hold: nothing is typed into the session, and start is named"
+  echo "--- worker.lost ended the worker's hold: nothing is typed into the session"
   code="$(resume_after worker.lost --actor judge --field session=agt_61_worker --field runner=paseo)"
-  refused_resume_names worker.lost "dispatch.sh start 61 worker" "$code"
-  grep -qF "dispatch.sh advance 76" "$TMP/err" || fail "inside a night the refusal should name advance: $(cat "$TMP/err")"
+  refused_resume_names worker.lost "$code"
 
-  echo "--- worker.retracted ended it the same way"
-  code="$(resume_after worker.retracted --field session=agt_61_worker --field runner=paseo)"
-  refused_resume_names worker.retracted "dispatch.sh start 61 worker" "$code"
-
-  echo "--- a ticket.refused naming the worker ended it: fix the reason, then start"
-  code="$(resume_after ticket.refused --field reason=dirty-tree --field session=agt_61_worker --field runner=paseo)"
-  refused_resume_names ticket.refused "dispatch.sh start 61 worker" "$code"
-  grep -q "dirty-tree" "$TMP/err" || fail "the refusal should carry the refusal's reason: $(cat "$TMP/err")"
-
-  echo "--- ticket.returned ended every hold: the ticket is triage's, not a worker's to continue"
-  code="$(resume_after ticket.returned)"
-  refused_resume_names ticket.returned "needs-triage" "$code"
-
-  echo "--- ticket.bounced ended every hold: the labels say whether advance takes it up or triage does"
-  code="$(resume_after ticket.bounced --field reason=conflict --field commit=abc123)"
-  refused_resume_names ticket.bounced "dispatch.sh advance 76" "$code"
-  grep -q "ready-for-agent means it bounced for the first time" "$TMP/err" \
-    || fail "the bounce refusal should name the first-bounce label: $(cat "$TMP/err")"
-
-  echo "--- ticket.landed ended every hold: the work is on the base branch"
+  echo "--- ticket.landed ended every hold the same way"
   code="$(resume_after ticket.landed)"
-  refused_resume_names ticket.landed "dispatch.sh status 76" "$code"
-
-  echo "--- spec.suspended ended every hold: the night is taken up again with open, then advance"
-  code="$(resume_after spec.suspended)"
-  refused_resume_names spec.suspended "dispatch.sh open 76" "$code"
+  refused_resume_names ticket.landed "$code"
 
   echo "--- a worker replaced by a live one: the text goes to the live one"
   reset_log

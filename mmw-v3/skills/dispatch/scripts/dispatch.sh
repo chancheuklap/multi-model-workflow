@@ -2157,62 +2157,20 @@ resume_one() {
   exit 3
 }
 
-# Why ticket <n> has no worker to resume, as one refusal: which event ended the newest
-# worker's hold, why that means nothing is sent, and the command that goes on from there.
-# Read off the fold, never worked out here.
+# Why ticket <n> has no worker to resume: the event the fold says ended its newest
+# worker's hold, or that it never had one. What to do about that event is the playbook's.
 ended_worker_hold() {
-  local number="$1" spec
-  spec="$(ticket_spec "$number")"
-  ticket_events "$number" fold 2>/dev/null \
-    | MMW_N="$number" MMW_SPEC_N="$spec" python3 -c "$(cat <<'PY'
-import json, os, sys
-n, spec = os.environ["MMW_N"], os.environ["MMW_SPEC_N"]
-state = json.load(sys.stdin)
-workers = [r for r in state.get("sessions") or [] if r.get("kind") == "worker"]
-start = f"dispatch.sh start {n} worker"
-if not workers:
-    print(f"#{n} has no worker.started event, so there is no session to send to. "
-          f"Nothing was ever started on it to resume. Start a worker with {start}.")
-    raise SystemExit(0)
-last = workers[-1]
-by = last.get("ended_by") or "an event"
-comment = next((e.get("comment") for e in reversed(state.get("events") or [])
-                if e.get("event") == by), None)
-where = f" (comment {comment})" if comment is not None else ""
-what = (f"#{n} has no worker holding it: {by}{where} ended the hold of its newest worker, "
-        f"{last.get('session')} on {last.get('runner')}, so nothing was sent.")
-why = ("A session whose hold an event ended is no longer the ticket's worker to the watchdog, "
-       "advance or status, and typing into it would post worker.resumed and make that hold "
-       "live again beside whatever starts next.")
-restart = (f"{start}, or inside the night on #{spec} dispatch.sh advance {spec}, which gives "
-           f"the claim back and starts it") if spec else start
-if by == "ticket.refused":
-    reason = (state.get("refused") or {}).get("reason") or "the reason on that event"
-    step = f"Fix what the refusal names ({reason}), then {restart}."
-elif by == "ticket.returned":
-    step = ("It is in needs-triage for a person to judge: leave its workspace for triage, and "
-            f"once triage puts it back in the agent queue, start it with {restart}.")
-elif by == "ticket.bounced":
-    triage = ("for a person to judge: leave its workspace for triage, and once triage puts it "
-              f"back in the agent queue, start it with {restart}.")
-    step = (f"Read its labels. ready-for-agent means it bounced for the first time in an open "
-            f"night, and the next dispatch.sh advance {spec} starts a worker in its workspace; "
-            f"needs-triage means it is there {triage}" if spec else
-            f"A bounce outside a night puts it in needs-triage {triage}")
-elif by == "ticket.landed":
-    look = f"dispatch.sh status {spec}" if spec else f"gh issue view {n}"
-    step = (f"Its work is on the base branch: read {look}; a landed ticket that needs more "
-            "work is reopened and started again, not resumed.")
-elif by == "spec.suspended":
-    step = (f"The night was suspended: once what suspended it is fixed, dispatch.sh open {spec} "
-            f"and then dispatch.sh advance {spec} take it up again." if spec else
-            "The night was suspended: once what suspended it is fixed, open that night again "
-            "and advance it.")
-else:
-    step = f"Start a worker again with {restart}."
-print(" ".join((what, why, step)))
-PY
-)" || printf '#%s has no worker holding it, and which event ended the hold could not be read, so nothing was sent. Sending into a session no event shows holding the ticket would make its hold live again. Read events.py fold %s before starting a worker with dispatch.sh start %s worker.\n' "$number" "$number" "$number"
+  local number="$1" by
+  by="$(ticket_events "$number" fold 2>/dev/null | python3 -c '
+import json, sys
+workers = [r for r in json.load(sys.stdin).get("sessions") or [] if r.get("kind") == "worker"]
+print((workers[-1].get("ended_by") or "an event") if workers else "")
+')" || by="an event"
+  if [ -z "$by" ]; then
+    printf '#%s has no worker.started event, so there is no session to send to; start one with dispatch.sh start %s worker\n' "$number" "$number"
+  else
+    printf '#%s has no worker holding it: %s ended its newest worker'"'"'s hold, so nothing was sent, since typing into that session would make the ended hold live again; act on %s as the playbook you are running says\n' "$number" "$by" "$by"
+  fi
 }
 
 # ------------------------------------------------------------------ wait
