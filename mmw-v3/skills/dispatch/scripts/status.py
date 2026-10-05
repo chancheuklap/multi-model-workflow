@@ -855,12 +855,41 @@ def print_findings(spec: int) -> int:
     return 0
 
 
-def closeout_ready(spec: int) -> int:
+def reverify_problems(tickets: dict[int, dict], at: str) -> tuple[int, list[str]]:
+    """(green, problems) of the reverify on commit `at`: every ticket `reverify` runs again
+    (landed, or reopened by an earlier reverify) needs its newest reverify run to be of
+    `at` and met. That run's `ticket.checked` is the record; nothing else is kept."""
+    green, problems = 0, []
+    for number in sorted(tickets):
+        ticket = tickets[number]
+        if not (landed(ticket) or regressed_in_triage(ticket)):
+            continue
+        record = events.checked_of(ticket["fold"], "reverify")
+        payload = (record or {}).get("payload") or {}
+        if payload.get("commit") != at:
+            problems.append(f"#{number} has no reverify run of {at}; run reverify again")
+        elif payload.get("result") != "met":
+            problems.append(f"#{number} is red on {at}: {', '.join(payload.get('failed') or [])}")
+        else:
+            green += 1
+    return green, problems
+
+
+def closeout_ready(spec: int, at: str | None) -> int:
+    """Exit 0, printing how many tickets were reverified green on `at`, when writing
+    `spec.closed` is safe; 2 with every reason on stderr when it is not."""
     rows, tickets = collect(spec)
     problems = closeout_problems(rows, tickets)
+    green = 0
+    if at:
+        green, more = reverify_problems(tickets, at)
+        problems += more
     for problem in problems:
         print(f"dispatch: summary refused: {problem}", file=sys.stderr)
-    return 2 if problems else 0
+    if problems:
+        return 2
+    print(green)
+    return 0
 
 # --------------------------------------------------------------------- entry
 
@@ -885,6 +914,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                        help="print `<ticket> <child> <title>` for every open finding")
     forms.add_argument("--land-plan", action="store_true",
                        help="print what landing each of these tickets calls for")
+    parser.add_argument("--at", help="with --closeout-ready: the base-branch commit every "
+                                     "landed ticket's reverify must have run on")
     parser.add_argument("spec", type=int, nargs="+",
                         help="the spec issue whose sub-issues are tonight's tickets, or "
                              "with --land-plan the ticket numbers to land")
@@ -908,7 +939,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.summary:
             return print_summary(args.spec[0])
         if args.closeout_ready:
-            return closeout_ready(args.spec[0])
+            return closeout_ready(args.spec[0], args.at)
         if args.findings:
             return print_findings(args.spec[0])
         return table(args.spec[0])

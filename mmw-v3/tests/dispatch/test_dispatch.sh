@@ -1856,12 +1856,15 @@ open_night() {
 }
 
 summary_ready_fixture() {
-  local spec="${1:-76}" into="${2:-main}" git_dir commit
-  open_night "$spec" "$into"
-  git_dir="$(git -C "$TMP/repo" rev-parse --git-common-dir)"
-  case "$git_dir" in /*) ;; *) git_dir="$TMP/repo/$git_dir" ;; esac
-  commit="$(git -C "$TMP/repo" rev-parse "origin/$into")"
-  printf '0 0 %s\n' "$commit" > "$git_dir/mmw-reverify-$spec"
+  open_night "${1:-76}" "${2:-main}"
+}
+
+# A green reverify of ticket <n> on origin/<into>'s tip, as `reverify` records it.
+reverified() {
+  local into="${2:-main}"
+  post_ev "$1" ticket.checked --ticket "$1" --line "Reverify" --actor main --stage regress \
+    --field run=reverify --field "commit=$(git -C "$TMP/origin.git" rev-parse "$into")" \
+    --field result=met
 }
 
 # A second clone is the other machine in origin-authority scenarios.
@@ -3751,12 +3754,26 @@ scenario_summary() {
   local when code copy other
   copy="$(skill_copy_for summary)"
   mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
+  # Like the real run, it posts its own `ticket.checked`, which is the whole record
+  # of a reverify that summary reads.
   cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
 #!/usr/bin/env python3
-import os, sys
+import json, os, subprocess, sys
+from pathlib import Path
 log = os.environ["MMW_TEST_LOG"]
 with open(log, "a", encoding="utf-8") as fh:
     fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+number = sys.argv[1]
+head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+body = subprocess.run(
+    [sys.executable, os.environ["MMW_EVENTS_PY_FOR_TESTS"], "emit", "ticket.checked",
+     "--ticket", number, "--line", "Reverify", "--actor", "main", "--stage", "regress",
+     "--field", "run=reverify", "--field", "commit=" + head, "--field", "result=met"],
+    capture_output=True, text=True, check=True).stdout
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(number, []).append(body)
+store.write_text(json.dumps(posted))
 print("ALL MET (5 met)")
 sys.exit(0)
 PY
@@ -3775,11 +3792,11 @@ JSON
   fresh_repo
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
-  echo "--- without a reverify receipt, summary refuses before it posts or closes the watch"
+  echo "--- without a reverify of the base branch, summary refuses before it posts or closes the watch"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 2 ] || fail "missing reverify expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "has no completed reverify" "$TMP/err" \
+  grep -q "#61 has no reverify run of" "$TMP/err" \
     || fail "missing reverify refusal was not explicit: $(cat "$TMP/err")"
   hasnt "gh :: issue :: comment :: 76 :: --body"
   hasnt "nmem :: --json :: memories"
@@ -3800,7 +3817,7 @@ JSON
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "an origin advance after reverify expected exit 2, got $code"
-  grep -q "origin/main advanced from reverified commit" "$TMP/err" \
+  grep -q "#61 has no reverify run of $(git -C "$TMP/origin.git" rev-parse main)" "$TMP/err" \
     || fail "the stale reverify refusal was not explicit: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: memories"
   hasnt "gh :: issue :: comment :: 76 :: --body"
@@ -3815,7 +3832,7 @@ JSON
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
     || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
-  grep -q "Reverify: 1/0" "$MMW_GH_LAST_BODY" \
+  grep -q "Reverify: 1 green on $(git -C "$TMP/origin.git" rev-parse main)" "$MMW_GH_LAST_BODY" \
     || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
   grep -q "Closed: #61 ALL MET" "$MMW_GH_LAST_BODY" \
     || fail "the closed line should carry the ticket's own result line: $(cat "$MMW_GH_LAST_BODY")"
@@ -3893,6 +3910,7 @@ JSON
   reset_log
   fresh_repo
   summary_ready_fixture
+  reverified 61
   echo "--- a finding no route reached refuses the summary: nothing posted, the watch still open"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
@@ -3914,6 +3932,7 @@ json.dump(rows, open(sys.argv[1], "w"))
 PY
   reset_log
   summary_ready_fixture
+  reverified 61
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
@@ -9460,7 +9479,8 @@ scenario_landedworktreekept() {
   assert_remote_branch 61
   local passed code ws port listener
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
-  write_one_passed 61 "$passed"
+  write_one_passed 61 "$passed" "$(ev worker.started 61 "started" --field session=s61 \
+    --field runner=paseo $(start_facts "$(wt 61)" 61 worker))"
   seed_workspace 61
   ws="$(wt 61)"
   mkdir -p "$ws/.mmw"

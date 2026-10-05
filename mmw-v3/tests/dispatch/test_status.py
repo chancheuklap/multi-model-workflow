@@ -213,6 +213,35 @@ class SummaryCloseoutGate(unittest.TestCase):
         self.assertEqual(self.problems(tickets), [])
 
 
+class ReverifyGate(unittest.TestCase):
+    """Every landed ticket's newest reverify has to be green on the commit summary checks."""
+
+    TIP = "b" * 40
+
+    def landed_with(self, number, *runs):
+        return ticket(number, state="CLOSED", labels=(),
+                      comments=(passed(number), landed(number), *runs))
+
+    def reverify(self, number, commit, result="met"):
+        return ev("ticket.checked", "Reverify", number, actor="main", stage="regress",
+                  run="reverify", commit=commit, result=result,
+                  failed=["AC2"] if result == "unmet" else [])
+
+    def test_green_on_the_tip_counts_and_anything_else_is_named(self):
+        tickets = {
+            61: self.landed_with(61, self.reverify(61, self.TIP)),
+            62: self.landed_with(62, self.reverify(62, "a" * 40)),
+            63: self.landed_with(63, self.reverify(63, self.TIP, "unmet")),
+            64: self.landed_with(64),
+            65: ticket(65, labels=("ready-for-human",)),
+        }
+        green, problems = status.reverify_problems(tickets, self.TIP)
+        self.assertEqual(green, 1)
+        self.assertEqual([p.split(" ")[0] for p in problems], ["#62", "#63", "#64"])
+        self.assertIn("is red on", problems[1])
+        self.assertIn("AC2", problems[1])
+
+
 class NamingWhatHoldsIt(unittest.TestCase):
     """How a ticket's live sessions are named where a plan says why it cannot start.
 
