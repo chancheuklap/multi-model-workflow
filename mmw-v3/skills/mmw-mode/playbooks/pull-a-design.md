@@ -1,0 +1,30 @@
+### Pull a design
+
+**You own one pull: the signed-off Claude Design project written into the repository as the design package, its report read, each design problem it names sent where it is fixed, and the next step chosen by what changed.** The `design-pages` skill's `scripts/pull_design.py` does the copying, and no file's bytes pass through you. What the design package and its report are is the `design-pages` skill; read it before step 1. Pull when the owner has signed the design off, and again whenever they have changed a signed-off design in Claude Design: on their own, or to answer a `contract` child that names a Claude Design page. Do not replace the design package while a worker is running a ticket; a ticket held at night on a `contract` question is not running, and its worker takes the new package when it is resumed. Distinct from Design in Claude Design, which changes the pages.
+
+1. **Check the tools,** as the `design-pages` skill's `## Who can do this work` says.
+   Done when the Claude Design tools answer, or the owner has been told this session cannot do the work.
+2. **Get the pages and the preview address.** `list_files` on the project root, and note the names of the `.dc.html` pages there. `render_preview`, and set `MMW_DESIGN_PREVIEW_URL` to its `serve_url`. That address carries a project token and lasts about one hour; do not print it or write it to a file.
+   Done when you hold the page names and the variable is set.
+3. **Run the pull.** `scripts/pull_design.py <package dir> --pages <page.dc.html>...`, with the package directory first and each page name quoted (names hold spaces and `·`); `<package dir>` is as the `design-pages` skill's `## The design package` says. Add `--state-list <README.md>` pointing at the `README.md` that holds the state list, when there is one, and `--contract <screen-contract.yaml>` pointing at the screen contract when one exists, so `改动分类` can compare the text its rows cite.
+   Done when the command exits 0; on exit 2 the package is as it was, so fix what stderr names and run it again.
+4. **Read `pull-report.md`** in the package directory, as the `design-pages` skill's table of its sections says. Each design fix it names goes where **Design problems in the report** below says.
+   Done when every `设计检查` and `覆盖` line is either information for the next edit or on its way to a fix, and you know what `改动分类` says.
+5. **Commit** the design package and `pull-report.md` together.
+   Done when both are in one commit.
+6. **Take the prototype's scaffolding down, after the first pull.** Remove what the `prototype` skill's UI prototype put up so its winner rendered inside the real app: the mount point or prototype route that renders the variants, the floating switcher, the import of the leaf directory, and any symlink beside the route. A prototype built with no app yet has none.
+   Done when nothing outside the leaf directories imports them: each can be deleted without breaking the build, and the variants stay there as reference.
+7. **Hand on,** as **Reached from here** below says.
+   Done when the run it names has started, or the owner has been told what was not re-run.
+8. **Finish the `contract` child** when this pull answered one, after the package is committed and pushed to `origin/<base branch>` and step 7's run is done, with the `dispatch` skill's `dispatch.sh`: comment on the child with the commit; `dispatch.sh route <n> <child> fixed`; move the not-yet-started tickets the night moved to `needs-triage` back to `ready-for-agent`; `dispatch.sh resume <n> "<the commit to integrate from>, then: continue"`. The worker then runs its criteria on the new package.
+   Done when the child is routed `fixed` and the worker has been resumed, or this pull answered no child.
+
+**Design problems in the report.** While the design is not yet signed off, or a map's design ticket is still open: return to **Design in Claude Design**, fix the pages there, and pull again. A design ticket closes after the first pull whose `设计检查` and `覆盖` have nothing left to fix, with a comment naming that commit and the package directory. When `本地改过的说明` says the package had local edits, those edits are gone now: tell the owner, because a change they wanted has to be made again in Claude Design. During implementation: open a `contract` child under the page ticket whose page it is, with the `verify-ticket` skill's `verify-ticket.py --sub-issue contract` on that ticket, naming the Claude Design page, the problem, and **Pull a design**. Claude Design's tools cannot comment on a design page, so a problem never goes back through comments.
+
+**Reached from here.** A pull made for a map's design ticket ends at that ticket: once **Design problems in the report** lets it close, return to **Resolve a map ticket** step 4 to record the resolution; the screen contract is the alignment ticket's. For any other pull, whether `docs/specs/<effort>/screen-contract.yaml` exists, and then `改动分类`, decide the next run; there is no default:
+
+- **No screen contract yet,** whatever `改动分类` says: **Write the screen contract**, for the whole file.
+- **`增删控件或改流转`:** **Write the screen contract** at its **Re-runs**, which edits only the rows those controls belong to.
+- **`只改外观或文案`:** the screen contract does not change, because no `data-ui` id did. An open ticket picks up the new package on its next run. Landed tickets are re-run by the `dispatch` skill's `dispatch.sh reverify <spec>` on `origin/<base branch>`, which reopens a red one into triage; that reopened ticket is the correction. Until the night's `finish`, push the commit to `origin/<base branch>`: while the night is open, its closing pass runs `reverify`; after its `summary`, run `reverify <spec>` from this session. After `finish` the base branch is gone: push to the project branch the night merged into, and tell the owner that the spec's landed tickets were not re-run against the new package.
+
+**Reply:** the package directory and the commit; `改动分类`; each design problem the report named and where it went; the local edits the pull overwrote, if any; and the run this handed on to.

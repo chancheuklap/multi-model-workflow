@@ -28,7 +28,7 @@ def layers():
             ("~/.mmw/models.json，mmw-toolbox Space", "只查", "other"),
         ]),
         ("不归 setup-mmw", [
-            ("产品层：target.json 的产品命令、harness、stories、journeys", "界面那一课", "other"),
+            ("产品层：target.json 的产品命令、harness、stories、journeys", "第 13 课", "other"),
             ("项目分支：一夜一个，dispatch.sh open 自己推断", "Run a night", "playbook"),
             ("每个功能自己的：原型、spec、票", "各自的 playbook", "playbook"),
         ]),
@@ -48,7 +48,7 @@ ARIA_LAYERS = ("setup-mmw 管什么。仓库这一层由 setup-mmw 建或写，c
                "AGENTS.md 指向它们的三行和 CLAUDE.md 的 @AGENTS.md 由它写；流水线的全部 16 个标签由 labels.py 建，只有这里建；"
                "这个仓库的 Memory Space 由 space.py 建，只有这里建；.gitignore 加 .worktrees/ 和 .scratch/；.mmw/target.json 的 checks 记下仓库已有、在基线上能过的检查命令；"
                "CODING_STANDARDS.md 和它的 ## Tests 照代码现在的写法写。机器这一层只查，由安装入口装：gh 登录，git、python3、uv、node、nmem，"
-               "至少一个 runner（paseo、herdr、orca），~/.mmw/models.json 和 mmw-toolbox Space。不归 setup-mmw 的：产品层，即 target.json 的产品命令、harness、stories、journeys，归界面那一课；"
+               "至少一个 runner（paseo、herdr、orca），~/.mmw/models.json 和 mmw-toolbox Space。不归 setup-mmw 的：产品层，即 target.json 的产品命令、harness、stories、journeys，归第 13 课；"
                "项目分支一夜一个，由 dispatch.sh open 推断，归 Run a night；每个功能自己的原型、spec、票，归各自的 playbook。")
 
 

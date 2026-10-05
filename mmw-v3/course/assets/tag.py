@@ -100,7 +100,7 @@ PLAIN = {
                  "Authoring or modifying a skill", "Open a night", "Close a night", "Accept a night",
                  "Suspend a night", "Settle a contract child", "Route a finding", "Fix on the base branch",
                  "Run one ticket", "Answer a review", "Write a ticket", "Cut tickets", "Write a spec",
-                 "Revise a spec", "Chart a map", "Resolve a map ticket", "Design pages", "Pull a design",
+                 "Revise a spec", "Chart a map", "Resolve a map ticket", "Design in Claude Design", "Design pages", "Pull a design",
                  "Build a design system", "Write the screen contract", "Answer a question",
                  "Map a large effort", "Design an interface", "Write a spec and tickets",
                  "Make a small change", "Research a question", "Triage"],

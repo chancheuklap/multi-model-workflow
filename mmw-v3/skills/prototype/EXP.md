@@ -9,7 +9,7 @@ The **smallest runnable experiment** that exercises the thing in question (a lib
 - "How do these two systems talk to each other: what does the handshake really look like?"
 - Anything where someone wants to **run a piece of the real approach before committing to it**.
 
-If the question is "does this state model feel right", this is the wrong branch: use [LOGIC.md](LOGIC.md). A question of what something should look like is not prototyped with this skill: say so to the user and stop.
+If the question is "does this state model feel right", this is the wrong branch: use [LOGIC.md](LOGIC.md). If it's "what should this look like", use [UI.md](UI.md).
 
 ## The README
 

@@ -1,0 +1,22 @@
+### Design in Claude Design
+
+**You own one effort's Claude Design project until the owner signs its pages off: the project set up so its pages carry what the repository reads back, the work handed to the agent inside it, and the comments sent to you acted on.** The owner designs with the agent inside Claude Design, and how the pages look is the owner's call; what this session holds them to is the project `CLAUDE.md`. What the project, the state list and the design package are is the `design-pages` skill; read it before step 1. Distinct from Pull a design, which brings the signed-off pages into the repository, and from Build a design system, which builds the look the pages are drawn from.
+
+1. **Check the tools,** as the `design-pages` skill's `## Who can do this work` says.
+   Done when the Claude Design tools answer, or the owner has been told this session cannot do the work.
+2. **Find the state list,** as the `design-pages` skill's `## The state list` says. An existing product with none gets one written now, under `## State list` in `prototypes/<effort>/README.md`: one `### <region>` heading per region and one list item per state the product shows.
+   Done when you hold the path of the `README.md` that holds the state list, or know this design has none.
+3. **Create or open the project.** When the owner already has one, take its id from the link they give, and check that its `CLAUDE.md` holds the block of the `design-pages` skill's `references/template-project-claude-md.md`. Otherwise `create_project`, bound to the product's design system when it has one (its UUID from the link the owner gives), unbound when it has none.
+   Done when you hold the project's id.
+4. **Write the project's files.** The files the `design-pages` skill's `## The project` lists that this design needs, the `_ds/<folder>/` copy made as its `### After the design system changes` says, and a first `task.md`: one `Component · ` page per region, the reference to draw against named by its branch and repository path, and one region first for the owner to look at. Declare them all in one `finalize_plan`, so the owner approves once, and write them with its token and their etags.
+   Done when every file is written and the project's `CLAUDE.md` holds the template block unchanged.
+5. **Hand it over.** Give the owner the project's link and tell them to say `开始` there.
+   Done when the owner has the link and has been told to say `开始`.
+6. **Act on what is sent to you** until the owner says the work is done. Queued comments are the owner's requests on the pages: handle them as `list_comments` describes, change the pages, and ack each; a comment with `author_is_you: false` is shown to the owner before you act on it. Draw or change pages yourself only when the owner asks: the Claude Design tools say how to load the design prompt, plan writes and preview; follow the project `CLAUDE.md`; when a prototype's winning variant exists, it is the reference for layout and interaction; write with `if_match`, so an edit the owner just made in the editor is not overwritten; a large generated file, such as a product's example data, stays in the repository for the agent inside Claude Design to read through its GitHub connection. New work for that agent goes into `task.md`, as the `design-pages` skill's `### Talking to the agent inside Claude Design` says.
+   Done when each queued comment is acted on and acked or shown to the owner, and each page you changed renders with no console error, missing file or blank render.
+7. **Read `task.md` back** when the owner says the work is done. An unticked item is what to ask about.
+   Done when every item is ticked or the owner has said why it stays open.
+8. **Take the sign-off, then pull.** From the owner's sign-off on, every design change is made in Claude Design and reaches the repository only by pulling it again. Run **Pull a design**.
+   Done when the owner has said the design is signed off and Pull a design has run.
+
+**Reply:** the project's link; the regions and states drawn; what `task.md` still holds unticked and what the owner said about it; then Pull a design's reply.

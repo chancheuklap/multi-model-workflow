@@ -5,7 +5,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # UI acceptance
 
-The **product under test** (the product, for short) is the application a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know. `lease.py` gives each ticket worktree its own ports and directories.
+The **product under test** (the product, for short) is the application a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know. `lease.py` gives each ticket worktree its own ports and directories. `design_render.py` renders a design package's pages offline, for the `design-pages` skill's pull and the `write-screen-contract` skill's skeleton.
 
 <!--
 Shell. The four oracles (the story oracle story-parity.py, boundary-check.py, journey.py,
@@ -18,7 +18,7 @@ verify-ticket.py before anything runs.
 
 ## Five rules while the product is running
 
-Several runs share one machine, and each gets its own ports and directories from a lease (`lease.py`). You never choose a port, start a backing service, or work out who holds what: one command — the `start` in `.mmw/target.json`, which `journey.py` runs — brings up everything a journey needs.
+Several runs share one machine, and each gets its own ports and directories from a lease (`lease.py`). You never choose a port, start a backing service, or work out who holds what: one command — the `start` in `.mmw/target.json` — brings up everything a journey needs.
 
 1. **Never end a process you did not start.** Stop your own product with the `stop` command its repository declares. Everything else on this machine belongs to another run, and another run's product looks exactly like a stuck one. Your shell refuses `kill`, `pkill`, `killall` and `xargs kill`.
 2. **Never start the product outside the lease.** Running the repository's start script yourself, in your own terminal, is how a run ends up on the ports another run is already using. The script refuses without a lease and prints the command that gives it one: `python3 scripts/lease.py run -- <the start command>`.

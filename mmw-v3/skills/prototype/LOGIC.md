@@ -11,7 +11,7 @@ Because it's one file with nothing to install, you can hand it to a non-develope
 - "I want to feel out what the API should look like before writing it."
 - Anything where someone wants to **press buttons and watch state change**.
 
-A question of what something should look like is not prototyped with this skill: say so to the user and stop.
+If the question is "what should this look like," this is the wrong branch. Use [UI.md](UI.md).
 
 ## Process
 

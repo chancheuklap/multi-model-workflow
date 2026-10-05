@@ -223,7 +223,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <tr><th>1 Name the destination</th><td>读 <code class="c k-skill">grilling</code>、<code class="c k-skill">domain-modeling</code>，和你定终点</td><td>第 1 步</td><td>Done when 写明是你同意的一两行</td></tr>
 <tr><th>2 Map the frontier</th><td>横着问遍；没有雾就不要地图</td><td>第 2 步</td><td>没有雾时点名 <span class="c k-playbook">Write a spec</span> 是路清了以后的去处，再问你</td></tr>
 <tr><th>3 Create the map</th><td>照格式写正文，发成一个带两个标签的 issue</td><td>第 3 步</td><td>v2 在缺时建 <code>mmw:map</code>；现在不建任何标签，缺了就是仓库没接入，说明并停下（第 8 节）</td></tr>
-<tr><th>4 Create the tickets you can state now</th><td>每张一个子 issue、一个类型标签，第二遍连先后</td><td>第 4 步</td><td>界面和重做产品要多开的票不在这里（第 7 节）</td></tr>
+<tr><th>4 Create the tickets you can state now</th><td>每张一个子 issue、一个类型标签，第二遍连先后</td><td>第 4 步</td><td>界面和重做产品要多开的票，读 <code class="c k-reference">interface-and-remake.md</code>（第 7 节）</td></tr>
 <tr><th>5 Answer the research tickets</th><td>每张一份 brief，一次开齐 researcher；叫醒后逐张收尾</td><td>第 5 步</td><td>研究员是 <code class="c k-script">dispatch.sh brief</code> 开的会话，不是子代理；研究员不写仓库和 tracker（第 4 节）</td></tr>
 <tr><th><b>You own</b> 那一行</th><td>画图不解决研究票以外的任何票</td><td>第 6 步「Stop」</td><td>从一步变成这份 playbook 管什么</td></tr>
 </tbody></table></div>
@@ -237,7 +237,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
    Done when you hold the open decisions, each either sharp enough to be a ticket or written down as fog, and what the owner ruled out of scope.
 3. **Create the map.** Write the map body in the shape of the `wayfinder` skill's `### The map body`: **Destination** and **Notes** filled in, the effort's directory name in **Notes**, **Decisions so far** empty, the fog sketched into **Not yet specified**, what the owner ruled out in **Out of scope**. Publish the map as one issue with the labels `wayfinder:map` and `mmw:map`, as the repository's `docs/agents/issue-tracker.md` `## Wayfinding operations` says.
    Done when the map is on the tracker with both labels, and you hold its number.
-4. **Create the tickets you can state now.** Create each as a child issue of the map, its body the `## Question` the `wayfinder` skill's `### Tickets` gives and its `wayfinder:&lt;type&gt;` label; then wire the blocking edges in a **second pass** (issues need ids before they can reference each other). Everything you cannot yet state sharply stays in **Not yet specified**.
+4. **Create the tickets you can state now.** Create each as a child issue of the map, its body the `## Question` the `wayfinder` skill's `### Tickets` gives and its `wayfinder:&lt;type&gt;` label; then wire the blocking edges in a **second pass** (issues need ids before they can reference each other). Everything you cannot yet state sharply stays in **Not yet specified**. A destination with a UI, or one that remakes an existing product, adds the tickets the `mmw-mode` skill's `references/interface-and-remake.md` names.
    Done when every ticket you could state is a child of the map with its type label, and every blocking edge between them is wired.
 5. **Answer the research tickets.** For each `research` ticket just created, write a brief from the `mmw-mode` skill's `references/map-research-brief.md`, with the ticket's question, the map's destination, and the note's path where the repository keeps research notes. Start them all in one `dispatch.sh brief researcher &lt;file&gt;...` call of the `dispatch` skill, then end your turn. On the wake `brief &lt;batch&gt; done`, follow the `dispatch` skill's `## On waking`. For each answer: save it at its note path, commit it on the base branch and push; post its `## Answer` and the note's path as the ticket's resolution comment and close the ticket; append its context pointer to the map's **Decisions so far**, one at a time, reading the map body fresh before each edit. Then `dispatch.sh brief close &lt;batch&gt;`.
    Done when every research ticket is closed with its note pushed and its pointer on the map, or the map has none.
@@ -269,11 +269,11 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
    Done when you know the destination, the decisions so far and the fog.
 2. **Choose the ticket and claim it.** Take the ticket the owner named; otherwise the first ticket of the frontier query in the repository's `docs/agents/issue-tracker.md` `## Wayfinding operations`. Claim it before any other work: `gh issue edit &lt;n&gt; --add-assignee @me`.
    Done when the ticket carries your assignee.
-3. **Resolve it by its type,** as the `wayfinder` skill's `## Ticket Types` says. Zoom as needed: fetch the full body of any related or closed ticket. For a `grilling` ticket, read the `grilling` and `domain-modeling` skills' `SKILL.md` and grill the owner; for a `prototype` ticket, read the `prototype` skill's `SKILL.md` and follow it, and the owner reacts to what it builds; for a `task` ticket, do the work, or hand the owner a precise checklist for what only they can do. A HITL ticket resolves only through the owner's own answers; never answer for them. For a `research` ticket, brief one researcher with `dispatch.sh brief researcher &lt;file&gt;`, the brief written from the `mmw-mode` skill's `references/map-research-brief.md`, and save, record and close it as Chart a map step 5 says when the wake comes; a research ticket does not count as this session's one ticket.
+3. **Resolve it by its type,** as the `wayfinder` skill's `## Ticket Types` says, unless its body opens with a line naming a playbook (a map's design ticket or alignment ticket): then run that playbook, whatever the type. Zoom as needed: fetch the full body of any related or closed ticket. For a `grilling` ticket, read the `grilling` and `domain-modeling` skills' `SKILL.md` and grill the owner; for a `prototype` ticket, read the `prototype` skill's `SKILL.md` and follow it, and the owner reacts to what it builds; for a `task` ticket, do the work, or hand the owner a precise checklist for what only they can do. A HITL ticket resolves only through the owner's own answers; never answer for them. For a `research` ticket, brief one researcher with `dispatch.sh brief researcher &lt;file&gt;`, the brief written from the `mmw-mode` skill's `references/map-research-brief.md`, and save, record and close it as Chart a map step 5 says when the wake comes; a research ticket does not count as this session's one ticket.
    Done when the ticket has its answer: the decision, the facts, or the work done.
 4. **Record the resolution.** Post the answer as the ticket's resolution comment, close it, and append a context pointer (the ticket's name, linked, and a one-line gist) to the map's **Decisions so far**. A prototype's resolution names its leaf directory; a decision the owner made says so.
    Done when the ticket is closed with its resolution comment and its pointer is on the map.
-5. **Move the frontier.** Create the tickets the answer has made statable, as child issues with their type labels, then wire their blocking edges; clear each patch of fog that graduated from **Not yet specified**. A ticket the answer shows to sit beyond the destination is ruled out of scope as the `wayfinder` skill's `## Out of scope` says, not resolved. A ticket the decision invalidated is updated or closed with a comment saying why.
+5. **Move the frontier.** Create the tickets the answer has made statable, as child issues with their type labels, then wire their blocking edges; when the answer gives the destination a UI, or makes it a remake, and the map lacks the tickets the `mmw-mode` skill's `references/interface-and-remake.md` names, add them as it says; clear each patch of fog that graduated from **Not yet specified**. A ticket the answer shows to sit beyond the destination is ruled out of scope as the `wayfinder` skill's `## Out of scope` says, not resolved. A ticket the decision invalidated is updated or closed with a comment saying why.
    Done when the map's tickets, fog and out-of-scope lines all agree with the answer.
 6. **Check whether the map is clear,** as the `wayfinder` skill's `## A clear map` says. When it is, the next move is a fresh session running Write a spec with this map as its reference; leave the map open.
    Done when you know whether the map is clear.
@@ -299,11 +299,11 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 </ul>
 
 <h2>6　prototype：搬了什么、没搬什么</h2>
-<p>原型票要读 <code class="c k-skill">prototype</code>。v2 的它有三支：<b>LOGIC</b> 回答「这套状态和逻辑对不对」，做一个你能点的单页；<b>EXP</b> 回答「到底该怎样实现」，做一个最小的能跑的实验，每跑一次写一页证据；<b>UI</b> 回答「应该长什么样」，做几种截然不同的界面让你挑，赢的那种交给 Claude Design。这一课搬了 LOGIC 和 EXP，<code>SKILL.md</code> 碰到长什么样的问题时说明这里不做，停下。UI 那一支等界面那一课和 <code class="c k-skill">design-pages</code> 一起搬。v2 要 effort 目录名在 <code>prototypes/</code> 和 <code>docs/specs/</code>（screen contract 所在）下相同；地图 Notes 一行和 <code class="c k-skill">prototype</code> 的规则 1 现在只说 <code>prototypes/</code>，<code>docs/specs/</code> 等那一课。</p>
+<p>原型票要读 <code class="c k-skill">prototype</code>。v2 的它有三支：<b>LOGIC</b> 回答「这套状态和逻辑对不对」，做一个你能点的单页；<b>EXP</b> 回答「到底该怎样实现」，做一个最小的能跑的实验，每跑一次写一页证据；<b>UI</b> 回答「应该长什么样」，做几种截然不同的界面让你挑，赢的那种交给 Claude Design。这一课先搬了 LOGIC 和 EXP；UI 那一支在第 12 课和 <code class="c k-skill">design-pages</code> 一起回来。v2 要 effort 目录名在 <code>prototypes/</code> 和 <code>docs/specs/</code>（screen contract 所在）下相同；地图 Notes 一行和 <code class="c k-skill">prototype</code> 的规则 1 都这样写，<code>docs/specs/</code> 也是第 12 课补回的。</p>
 <p>和 pstack 的 <code class="c k-playbook">prototype.md</code> 对读，留 v2 的。pstack 的原型用完就扔；v2 的原型留在仓库 <code>prototypes/&lt;effort&gt;/&lt;issue&gt;/</code>，旁边的 <code>README.md</code> 写问题和结论。v2 合并记录写的理由是：spec 引用这份结论、票照抄它的精确值、worker 夜里照它施工，读的人都不在那个会话里，结论只写一句「见某处讨论」时读不到决定本身。</p>
 
-<h2>7　没搬的：界面和重做产品</h2>
-<p>v2 的 <code class="c k-reference">wayfinder/references/interface-and-remake.md</code>（572 词）没搬。它管两种终点要多开的票：有界面的，要一张 design ticket（在 Claude Design 里画页）和一张 alignment ticket（写 screen contract，最后关）；重做一个已有产品的，要一张挑选清单（旧产品留哪些、删哪些），产品已上线、有付费客户时再加一张票定新旧界面怎样并存、怎样切换。这些都要 <code class="c k-skill">design-pages</code> 和 <code class="c k-skill">write-screen-contract</code>，等界面那一课。在那之前，有界面的终点画出的地图缺这几张票，<span class="c k-playbook">Write a spec</span> 写出的 spec 也没有 screen contract 的几节。</p>
+<h2>7　界面和重做产品</h2>
+<p>v2 的 <code class="c k-reference">wayfinder/references/interface-and-remake.md</code>（572 词）这一课没搬，第 12 课把它放进 <code class="c k-reference">mmw-mode/references/</code>，由 <span class="c k-playbook">Chart a map</span> 第 4 步和 <span class="c k-playbook">Resolve a map ticket</span> 第 5 步读。它管两种终点要多开的票：有界面的，要一张 design ticket（在 Claude Design 里画页）和一张 alignment ticket（写 screen contract，最后关）；重做一个已有产品的，要一张挑选清单（旧产品留哪些、删哪些），产品已上线、有付费客户时再加一张票定新旧界面怎样并存、怎样切换。这些都要 <code class="c k-skill">design-pages</code> 和 <code class="c k-skill">write-screen-contract</code>，两者也在第 12 课。</p>
 
 <h2>8　设计哪里错了，现在是什么</h2>
 <div class="tablewrap"><table class="roles wrap" style="min-width:860px">
@@ -333,7 +333,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <h2>10　还没做的</h2>
 <ol>
 <li>两份 playbook 都没在真的 tracker 上走过：画一张地图、开研究员、解决一张票、地图清了交给 <span class="c k-playbook">Write a spec</span>。</li>
-<li>界面那一课：<code class="c k-reference">interface-and-remake.md</code> 的四种票，<code class="c k-skill">prototype</code> 的 UI 那一支，地图 Notes 里的 <code>docs/specs/</code> 目录名。</li>
+<li>第 12 课已补回：<code class="c k-reference">interface-and-remake.md</code> 的四种票，<code class="c k-skill">prototype</code> 的 UI 那一支，地图 Notes 里的 <code>docs/specs/</code> 目录名。</li>
 <li>本仓库的 <code class="c k-agent">docs/agents/issue-tracker.md</code> 还写着 v2 的技能名（<code class="c k-skill">to-spec</code>、<code class="c k-skill">to-tickets</code>）和「标签第一次用到时建」。它正被 v2 用着，现在不改；接入仓库的 <code class="c k-skill">setup-mmw</code> 在第 11 课。</li>
 </ol>
 
@@ -358,10 +358,10 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <div class="opts"><button>没清，还有子票开着</button><button>没清，spec 没关</button><button>清了，并且该关地图</button><button>清了，接着写第二份</button></div>
 <div class="why" hidden>只数决定票（<code>## A clear map</code>），spec 是子 issue 但不算。清了的地图不关；<span class="c k-playbook">Write a spec</span> 读地图的 <code>## Specs</code>，写第一个还没有链接的那份。</div>
 </div>
-<div class="quiz" data-answer="1">
+<div class="quiz" data-answer="0">
 <p class="q">5．一张 prototype 票问「首页应该长什么样」。现在会怎样？</p>
 <div class="opts"><button>做几种界面让你挑选</button><button>说明这里不做并停下</button><button>换成逻辑原型来回答</button><button>直接写出真正的首页</button></div>
-<div class="why" hidden>v3 的 <code class="c k-skill">prototype</code> 只有 LOGIC 和 EXP 两支；长什么样的问题它说明这里不做，停下（第 6 节）。UI 那一支和界面那一课一起来。</div>
+<div class="why" hidden><code class="c k-skill">prototype</code> 的 UI 那一支：几种结构截然不同的界面挂在同一路由上让你挑，赢家写进 State list、交给 Claude Design（第 6 节；第 12 课补回）。</div>
 </div>
 
 <h2>下一课</h2>
