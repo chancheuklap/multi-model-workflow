@@ -1,0 +1,5 @@
+interface:
+  display_name: "MMW mode"
+  short_description: "Work in the owner's mode: route each task to its playbook"
+policy:
+  allow_implicit_invocation: false

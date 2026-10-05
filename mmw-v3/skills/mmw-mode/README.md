@@ -8,13 +8,13 @@ The model to imitate, in content as well as shape, is `mmw-v3/upstream-pstack/sk
 
 The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once, when `/mmw-mode` is invoked or when an agent MMW spawns is told to load it first, and stays in context for the rest of the session.
 
-It is the only skill with `disable-model-invocation: true`. Every other skill can be invoked by the model.
+It is one of the three skills only the person starts (`teach` and `wait-what` are the others); every other skill can be invoked by the model.
 
 ## Frontmatter
 
 - `name: mmw-mode`.
 - `description`: the style in one phrase and the triggers (`/mmw-mode`, requests to work in this mode).
-- `disable-model-invocation: true`.
+- `disable-model-invocation: true`, paired with `policy.allow_implicit_invocation: false` in `agents/openai.yaml` for Codex.
 
 poteto-mode's `mode`, `reminder`, `icon` and `color` are Cursor fields and are left out.
 
