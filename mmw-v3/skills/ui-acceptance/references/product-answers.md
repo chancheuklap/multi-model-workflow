@@ -74,8 +74,8 @@ These hold for every product. How a given repository meets them is its own.
 
 - **`harness_markers`.** Judged by [harness-guard.md](harness-guard.md).
 
-- **`checks`.** The repository's own checks, which the `verify-ticket` skill's
-  `--closeout` runs. `checks` is optional: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Every command receives `MMW_BASE_REF=origin/<into>`, where `into` is from the newest `worker.started`. A command that fails keeps the ticket open, so every entry must pass on the base branch as it stands.
+- **`checks`.** The repository's own checks, which the `dispatch` skill runs on each
+  ticket's merge result before it pushes. `checks` is optional: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Every command receives `MMW_BASE_REF=origin/<into>`, where `into` is from the newest `worker.started`. A command that fails bounces the ticket back to its worker with the command named, so every entry must pass on the base branch as it stands.
 
 ## `.mmw/` directory
 

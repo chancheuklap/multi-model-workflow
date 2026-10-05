@@ -37,7 +37,7 @@ number is right to; a derived port leaking into it turns a correct suite red.
 # once per worktree, by the first run of that worktree's criteria that needs the product,
 # and lives until the ticket's work ends — landed, handed back, released, suspended or its
 # start retracted: a worktree runs its criteria many times in a night — the worker's own
-# run, the worker's final reverify, the closeout checks — and they all want the same
+# run, the worker's final reverify — and they all want the same
 # application, so the lease cannot be per run. Writing code takes no slot. A criterion or
 # oracle run outside a ticket worktree gives back the slot **it acquired** when that run
 # ends, and leaves a slot that was already held to whoever acquired it; `lease.py run`

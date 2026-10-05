@@ -43,7 +43,7 @@ class Field:
 
 # The keys every repository answers, whatever kind of product it has. `discover`
 # prints an origin-class address plus `instance`. `checks` is read by
-# `verify-ticket.py --closeout`, not by this file, and is listed so the file has one
+# `verify-ticket.py`'s `target_json_checks` for `dispatch.sh`'s merge, not by this file, and is listed so the file has one
 # account.
 DISCOVER_PRINTS: tuple[tuple[str, str], ...] = (
     ("origin", "where the product is served, e.g. http://127.0.0.1:8000"),
@@ -81,8 +81,8 @@ FIELDS: tuple[Field, ...] = (
           "the strings this product uses only to make itself drivable; [] when it has none",
           '["/api/dev/", "transport off", "__stub"]'),
     Field("checks", "list",
-          "the repository's own checks, run by `verify-ticket.py --closeout` before an "
-          "ALL MET ticket closes; the ui-acceptance skill's references/product-answers.md says the "
+          "the repository's own checks, run by `dispatch.sh` on each ticket's merge result "
+          "before it pushes; the ui-acceptance skill's references/product-answers.md says the "
           "shape",
           '["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]',
           required=False),

@@ -30,12 +30,12 @@ _Home_: `mmw-v3/skills/design-pages/references/template-design-system-claude-md.
 The table at the end of a design system's `readme.md` recording each value it unified, the code values it joined, and its class name; the product follows it once pages drawn from the design system are pulled.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md`
 
-**edit pages**:
-The `design-pages` skill's moment around the editing of pages in Claude Design: creating the project, writing `task.md` for the **Claude Design agent**, refreshing `_ds/` after a design-system change, and taking the sign-off. The pages themselves are edited inside Claude Design, by the user and that agent; comments sent to Claude and this session's own drawing are in `references/draw.md`, bringing an existing product in is in `references/design-system.md`.
+**Design in Claude Design**:
+The `mmw-mode` playbook around the editing of pages in Claude Design: creating the project, writing `task.md` for the **Claude Design agent**, refreshing `_ds/` after a design-system change, acting on the comments sent to Claude, and taking the sign-off. The pages themselves are edited inside Claude Design, by the user and that agent; bringing an existing product's look in is the `Build a design system` playbook.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md`
 
 **pull**:
-The `design-pages` skill's moment, and its command, that writes the **design package** from a signed-off Claude Design project.
+The `Pull a design` playbook, and its command `pull_design.py` in the `design-pages` skill, that writes the **design package** from a signed-off Claude Design project.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md`
 
 **pull report**:
@@ -332,8 +332,8 @@ The screen contract's top-level list of decisions or operations with no control,
 _Home_: `mmw-v3/skills/write-screen-contract/references/screen-contract-format.md`
 
 **reverse sweep**:
-Step 5 of `write-screen-contract`, the pass from the backend to the design: every decision an end user could notice lands in a row's `source`, becomes a `backend-only` row, or gets a `backend_without_ui` line, and the **screen-contract lint** requires every operation in `openapi.json` to appear in a row's `calls`, in `backend_without_ui` or in `proposed_operations`. Without a machine-readable `openapi.json` the lint prints `UNVERIFIED` for it.
-_Home_: `mmw-v3/skills/write-screen-contract/SKILL.md`, `mmw-v3/skills/write-screen-contract/references/screen-contract-format.md`
+Step 6 of the `Write the screen contract` playbook, the pass from the backend to the design: every decision an end user could notice lands in a row's `source`, becomes a `backend-only` row, or gets a `backend_without_ui` line, and the **screen-contract lint** requires every operation in `openapi.json` to appear in a row's `calls`, in `backend_without_ui` or in `proposed_operations`. Without a machine-readable `openapi.json` the lint prints `UNVERIFIED` for it.
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-the-screen-contract.md`, `mmw-v3/skills/write-screen-contract/references/screen-contract-format.md`
 
 **screen-contract lint**:
 Running `lint_screen_contract.py` directly on a screen contract against its skeleton and, optionally, `openapi.json`; narrower than the tickets context's **lint**, `verify-ticket.py --lint`, which runs it as one of several checks.
@@ -373,11 +373,11 @@ The consuming repository's machine facts, read by the runtime: what brings the p
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **`discover`**:
-The `.mmw/target.json` command printing the product's address and its `instance`; `journey.py` reads every key it prints, uppercased, into the journey script's environment.
+The `.mmw/target.json` command printing the product's address and its **instance** name; `journey.py` reads every key it prints, uppercased, into the journey script's environment.
 _Home_: `mmw-v3/skills/ui-acceptance/references/journey.md`
 
 **`checks`**:
-The optional `.mmw/target.json` key listing the repository's own commands, which `--closeout` runs after an `ALL MET` draft is accepted and before the ticket closes, posting them as a `ticket.checked` of run `repo-checks`.
+The optional `.mmw/target.json` key listing the repository's own commands, which `dispatch.sh` runs on each ticket's merge result before it pushes; a failing one bounces the ticket with a `Failed checks:` line naming it.
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **`stop`**:
@@ -399,12 +399,12 @@ Giving a worktree's slot back once nothing still listens on its ports; refuses w
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`
 
 **slot**:
-What a lease hands out: a block of ports and a data directory that no other slot overlaps, numbered from 0.
+What a lease hands out: a block of ports and a data directory that no other slot overlaps, numbered from 0. A machine holds `MMW_LEASE_SLOTS` of them (8 by default); with every one taken, `lease.py claim` exits 4 and the run that needed one reports its ticket blocked.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`
 
 **instance**:
-One running copy of the product on this machine, and the optional `.mmw/target.json` field `instance`, which says how many one machine may hold at once (`max`) and why.
-_Home_: `mmw-v3/skills/ui-acceptance/scripts/target_config.py`
+One running copy of the product on this machine, one per **slot**, named by `MMW_INSTANCE`; `discover` prints it back as `instance`.
+_Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`, `mmw-v3/skills/ui-acceptance/scripts/target_config.py`
 
 **`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`**:
 The six variables a lease puts into the environment of every command `.mmw/target.json` declares: a readable name for the run, the slot number, the first port and the number of ports of its block, a directory it owns, and `1` as the signal to neutralise what would leave the machine.
