@@ -17,8 +17,8 @@ KINDS = ("finding", "contract", "deferred", "decision", "fault")
 def run_sub_issue(kind, text, label_problem=None):
     """Run --sub-issue; return (exit, stdout, stderr, gh argv list, posted bodies).
 
-    `label_problem` is what `ensure_label` answers: None when the repository has the
-    `mmw:child` label or it was created, a reason when it could not be created.
+    `label_problem` is what `missing_labels` answers: None when the repository has the
+    labels the child carries, a reason when it does not.
     """
     recorded = []
     posted_bodies = []
@@ -35,15 +35,15 @@ def run_sub_issue(kind, text, label_problem=None):
         result.stderr = ""
         return result
 
-    def fake_label(name):
-        labels_asked.append(name)
+    def fake_label(names):
+        labels_asked.extend(names)
         return label_problem
 
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "body.md"
         path.write_text(text, encoding="utf-8")
         with mock.patch.object(vt.subprocess, "run", side_effect=fake_run), \
-             mock.patch.object(vt, "ensure_label", side_effect=fake_label):
+             mock.patch.object(vt, "missing_labels", side_effect=fake_label):
             with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
                 code = vt.run_sub_issue(77, kind, path)
     run_sub_issue.labels_asked = labels_asked
@@ -96,38 +96,45 @@ class TestTheLayerLabel(unittest.TestCase):
     """Every child carries `mmw:child` beside its queue label, so a board reads its layer
     off a label rather than counting how deep it is nested."""
 
-    def test_the_child_label_is_made_sure_of_before_anything_is_opened(self):
+    def test_the_child_labels_are_asked_after_before_anything_is_opened(self):
         code, _, err, recorded, _ = run_sub_issue("finding", "A finding\n\nbody\n")
         self.assertEqual(code, 0, err)
-        self.assertEqual(run_sub_issue.labels_asked, ["mmw:child"])
+        self.assertEqual(run_sub_issue.labels_asked, ["needs-triage", "mmw:child"])
         self.assertIn("mmw:child", labels_of(create_of(recorded)))
 
-    def test_a_label_that_cannot_be_created_refuses_and_opens_nothing(self):
+    def test_a_repository_without_the_labels_refuses_and_opens_nothing(self):
         code, _, err, recorded, bodies = run_sub_issue(
-            "finding", "A finding\n\nbody\n", label_problem="HTTP 403: not allowed")
+            "finding", "A finding\n\nbody\n", label_problem="no `mmw:child` label")
         self.assertEqual(code, 2)
         self.assertIn("mmw:child", err)
-        self.assertIn("HTTP 403", err)
+        self.assertIn("nothing was opened", err)
+        self.assertEqual(run_sub_issue.labels_asked, ["needs-triage", "mmw:child"])
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))
         self.assertEqual(bodies, [])
 
-    def test_ensure_label_leaves_an_existing_label_alone(self):
+    def test_missing_labels_is_none_when_the_repository_has_them_and_never_creates(self):
         def fake_run(cmd, **kwargs):
-            return mock.Mock(returncode=1, stdout="",
-                             stderr='label with name "mmw:child" already exists; use `--force`')
+            return mock.Mock(returncode=0, stdout="needs-triage\nmmw:child\nbug\n", stderr="")
         with mock.patch.object(vt.subprocess, "run", side_effect=fake_run) as run:
-            self.assertIsNone(load().ensure_label("mmw:child"))
-        cmd = run.call_args.args[0]
-        self.assertEqual(cmd[:4], ["gh", "label", "create", "mmw:child"])
-        self.assertNotIn("--force", cmd)
+            self.assertIsNone(load().missing_labels(["needs-triage", "mmw:child"]))
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0][:3], ["gh", "label", "list"])
 
-    def test_ensure_label_names_any_other_failure(self):
+    def test_missing_labels_names_each_absent_label_and_setup_mmw(self):
+        def fake_run(cmd, **kwargs):
+            return mock.Mock(returncode=0, stdout="needs-triage\n", stderr="")
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake_run):
+            reason = load().missing_labels(["needs-triage", "mmw:child"])
+        self.assertIn("`mmw:child`", reason)
+        self.assertNotIn("`needs-triage`", reason)
+        self.assertIn("setup-mmw", reason)
+
+    def test_missing_labels_names_a_failed_read(self):
         def fake_run(cmd, **kwargs):
             return mock.Mock(returncode=1, stdout="", stderr="HTTP 403: Resource not accessible")
         with mock.patch.object(vt.subprocess, "run", side_effect=fake_run):
-            self.assertEqual(load().ensure_label("mmw:child"),
-                             "HTTP 403: Resource not accessible")
+            self.assertIn("HTTP 403", load().missing_labels(["mmw:child"]))
 
 
 class TestRecordsTheChildOnTheTicket(unittest.TestCase):
@@ -156,7 +163,7 @@ class TestRecordsTheChildOnTheTicket(unittest.TestCase):
             path = Path(tmp) / "body.md"
             path.write_text("A title\n\nbody\n", encoding="utf-8")
             with mock.patch.object(vt.subprocess, "run", side_effect=fake_run), \
-                 mock.patch.object(vt, "ensure_label", return_value=None):
+                 mock.patch.object(vt, "missing_labels", return_value=None):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                     code = vt.run_sub_issue(77, "decision", path)
         self.assertEqual(code, 1)

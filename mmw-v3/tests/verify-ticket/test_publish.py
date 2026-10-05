@@ -36,7 +36,7 @@ class TestPublishSpec(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "spec.md"
             path.write_text(body, encoding="utf-8")
-            with mock.patch.object(vt, "ensure_label", return_value=None) as label, \
+            with mock.patch.object(vt, "missing_labels", return_value=None) as label, \
                  mock.patch.object(vt, "gh_issue_create", return_value=create) as gh, \
                  mock.patch.object(vt, "fetch_parent", return_value=parent):
                 with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
@@ -47,7 +47,7 @@ class TestPublishSpec(unittest.TestCase):
         code, out, err, label, gh = self.publish()
         self.assertEqual(code, 0, err)
         self.assertEqual(out.strip(), "50")
-        label.assert_called_once_with(vt.CLASS_SPEC)
+        label.assert_called_once_with([vt.CLASS_SPEC])
         args, body = gh.call_args.args
         self.assertEqual(args[:4], ["--title", "A spec", "--label", "mmw:spec"])
         self.assertNotIn("--parent", args)
@@ -59,16 +59,16 @@ class TestPublishSpec(unittest.TestCase):
         self.assertIn("is empty", err)
         gh.assert_not_called()
 
-    def test_a_missing_label_that_cannot_be_created_is_refused(self):
+    def test_a_repository_without_the_label_is_refused(self):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "spec.md"
             path.write_text("A spec.\n", encoding="utf-8")
-            with mock.patch.object(vt, "ensure_label", return_value="permission denied"), \
+            with mock.patch.object(vt, "missing_labels", return_value="not set up"), \
                  mock.patch.object(vt, "gh_issue_create") as gh:
                 with redirect_stderr(io.StringIO()) as err:
                     code = vt.run_publish_spec(path, "A spec", None)
         self.assertEqual(code, 2)
-        self.assertIn("permission denied", err.getvalue())
+        self.assertIn("not set up", err.getvalue())
         gh.assert_not_called()
 
     def test_a_confirmed_map_parent_is_a_clean_exit(self):
@@ -145,7 +145,7 @@ class TestPublishDrafts(unittest.TestCase):
             titles.append(args[args.index("--title") + 1])
             return created(100 + len(titles))
 
-        with mock.patch.object(vt, "ensure_label", return_value=None), \
+        with mock.patch.object(vt, "missing_labels", return_value=None), \
              mock.patch.object(vt, "gh_issue_create", side_effect=fake_create), \
              mock.patch.object(vt, "add_blocking_link", return_value=None) as link, \
              mock.patch.object(vt, "lint_spec", return_value=0) as lint:
@@ -160,7 +160,7 @@ class TestPublishDrafts(unittest.TestCase):
 
     def test_an_issue_number_blocker_is_linked_without_being_created(self):
         self.draft("a", "A", blocked_by="#40")
-        with mock.patch.object(vt, "ensure_label", return_value=None), \
+        with mock.patch.object(vt, "missing_labels", return_value=None), \
              mock.patch.object(vt, "gh_issue_create", return_value=created(101)), \
              mock.patch.object(vt, "add_blocking_link", return_value=None) as link, \
              mock.patch.object(vt, "lint_spec", return_value=0):
@@ -180,7 +180,7 @@ class TestPublishDrafts(unittest.TestCase):
                 return created(101)
             return failed_create("gh: rate limited")
 
-        with mock.patch.object(vt, "ensure_label", return_value=None), \
+        with mock.patch.object(vt, "missing_labels", return_value=None), \
              mock.patch.object(vt, "gh_issue_create", side_effect=fake_create):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 code = vt.run_publish_drafts(76, self.dir)
@@ -188,14 +188,17 @@ class TestPublishDrafts(unittest.TestCase):
         self.assertIn("rate limited", err.getvalue())
         self.assertIn("a -> #101", err.getvalue())
 
-    def test_a_missing_label_that_cannot_be_created_stops_before_that_draft(self):
+    def test_a_repository_without_a_label_of_the_batch_publishes_nothing(self):
         self.draft("a", "A")
-        with mock.patch.object(vt, "ensure_label", return_value="permission denied"), \
+        self.draft("b", "B")
+        with mock.patch.object(vt, "missing_labels", return_value="not set up") as asked, \
              mock.patch.object(vt, "gh_issue_create") as create:
             with redirect_stderr(io.StringIO()) as err:
                 code = vt.run_publish_drafts(76, self.dir)
         self.assertEqual(code, 2)
-        self.assertIn("permission denied", err.getvalue())
+        self.assertIn("not set up", err.getvalue())
+        self.assertIn("nothing was published", err.getvalue())
+        asked.assert_called_once()
         create.assert_not_called()
 
     def test_a_link_that_cannot_be_recorded_fails_the_run_but_keeps_the_issues(self):
@@ -207,7 +210,7 @@ class TestPublishDrafts(unittest.TestCase):
             counter["n"] += 1
             return created(counter["n"])
 
-        with mock.patch.object(vt, "ensure_label", return_value=None), \
+        with mock.patch.object(vt, "missing_labels", return_value=None), \
              mock.patch.object(vt, "gh_issue_create", side_effect=fake_create), \
              mock.patch.object(vt, "add_blocking_link", return_value="gh: not found"), \
              mock.patch.object(vt, "lint_spec", return_value=0):
@@ -220,7 +223,7 @@ class TestPublishDrafts(unittest.TestCase):
 
     def test_lint_on_the_published_spec_decides_the_final_exit(self):
         self.draft("a", "A")
-        with mock.patch.object(vt, "ensure_label", return_value=None), \
+        with mock.patch.object(vt, "missing_labels", return_value=None), \
              mock.patch.object(vt, "gh_issue_create", return_value=created(101)), \
              mock.patch.object(vt, "add_blocking_link", return_value=None), \
              mock.patch.object(vt, "lint_spec", return_value=1) as lint:
@@ -293,7 +296,7 @@ class TestAddBlockingLink(unittest.TestCase):
 
 class TestLabelDefined(unittest.TestCase):
     def test_every_set_is_recognised(self):
-        for name in ("mmw:ticket", "ready-for-agent", "junior-worker"):
+        for name in ("mmw:ticket", "ready-for-agent", "junior-worker", "wayfinder:map"):
             with self.subTest(name=name):
                 self.assertTrue(vt.label_defined(name))
 

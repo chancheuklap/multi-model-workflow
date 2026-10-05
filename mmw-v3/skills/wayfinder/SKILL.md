@@ -21,7 +21,7 @@ The map is a single issue on this repo's issue tracker, labelled `wayfinder:map`
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place, its ticket, so the map never restates it, only gists it and links.
 
-**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The `## Wayfinding operations` section of the repository's `docs/agents/issue-tracker.md` says how _this_ repo expresses them. If that file is missing, tell the user the repository is not set up for the pipeline, and stop.
+**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The `## Wayfinding operations` section of the repository's `docs/agents/issue-tracker.md` says how _this_ repo expresses them. If that file is missing, or the tracker refuses a `wayfinder:*` or `mmw:map` label because the repository lacks it, tell the user the repository is not set up for the pipeline, and stop: the `setup-mmw` skill creates every label at once, and no session creates one.
 
 ### The map body
 

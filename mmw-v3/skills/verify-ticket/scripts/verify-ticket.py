@@ -65,10 +65,13 @@ CLASS_LABELS = {
 # The one of them `--lint` asks after by name: which number is a batch's container.
 CLASS_SPEC = "mmw:spec"
 # The other two label sets `docs/agents/issue-tracker.md` `## Three label sets` names:
-# who a ticket is waiting on, and which `models.json` row starts its worker. Colour and
-# description are defined once, here, for all three sets; `ensure_label` and `--publish`
-# create whichever of them a repository lacks. `docs/agents/triage-labels.md` maps queue
-# labels to this repository's own roles; it does not redefine them.
+# who a ticket is waiting on, and which `models.json` row starts its worker. With the
+# wayfinder set below, these four are every label the pipeline puts on an issue; colour and
+# description are defined once, here. The `setup-mmw` skill creates the whole set when it
+# sets a repository up; nothing else creates one, and a script about to put one on asks
+# `missing_labels` first and refuses when the repository lacks it.
+# `docs/agents/triage-labels.md` maps queue labels to this repository's own roles; it does
+# not redefine them.
 QUEUE_LABELS = {
     "needs-triage": ("F9D0C4", "还没评估过，不知道该不该做、怎么做"),
     "needs-info": ("B60205", "缺输入，等人补"),
@@ -79,6 +82,15 @@ QUEUE_LABELS = {
 GRADE_LABELS = {
     "junior-worker": ("C2E0C6", "worker grade: default row in models.json"),
     "senior-worker": ("E99695", "worker grade: silent-failure work"),
+}
+# A map and the type of each decision ticket under it, as the `wayfinder` skill names them;
+# `docs/agents/issue-tracker.md` `## Wayfinding operations` puts them on.
+WAYFINDER_LABELS = {
+    "wayfinder:map": ("BFDADC", "这张 issue 是一张 map，不是一件待办"),
+    "wayfinder:research": ("FEF2C0", "decision ticket，开一个 researcher 查一条事实就能解掉"),
+    "wayfinder:prototype": ("BFD4F2", "decision ticket，要先做一个粗糙版本给用户走查"),
+    "wayfinder:grilling": ("D93F0B", "decision ticket，靠跟人对谈解掉"),
+    "wayfinder:task": ("5319E7", "decision ticket，某个决定做得出来之前必须先完成的手工操作"),
 }
 # The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
@@ -1584,24 +1596,25 @@ def run_draft(number: int, out_file: Path | None) -> int:
     return 0
 
 
-def ensure_label(name: str) -> str | None:
-    """Make sure the repository has label `name`, from any of the three sets defined
-    above (layer, queue, grade); the reason when it could not.
+def missing_labels(names: list[str]) -> str | None:
+    """Why the repository cannot carry every label in `names` yet; None when it has them.
 
-    A label the repository lacks makes `gh issue create --label` fail outright, so the
-    first issue that would carry it creates it instead. One that already exists is left
-    exactly as it is. Patched out in tests.
+    One read of the repository's labels. A label it lacks means the repository is not set
+    up for the pipeline: `setup-mmw` creates the whole set at once, and the script about to
+    use one never creates it. Patched out in tests.
     """
-    color, description = (CLASS_LABELS.get(name) or QUEUE_LABELS.get(name)
-                          or GRADE_LABELS.get(name) or (None, None))
-    if color is None:
-        raise KeyError(name)
-    out = subprocess.run(["gh", "label", "create", name, "--color", color,
-                          "--description", description],
+    out = subprocess.run(["gh", "label", "list", "--limit", "1000", "--json", "name",
+                          "--jq", ".[].name"],
                          capture_output=True, text=True, env=GH_ENV)
-    if out.returncode == 0 or "already exists" in (out.stderr or out.stdout or ""):
+    if out.returncode != 0:
+        return f"could not read the repository's labels ({gh_detail(out)})"
+    have = set(out.stdout.splitlines())
+    lacking = [name for name in names if name not in have]
+    if not lacking:
         return None
-    return gh_detail(out)
+    return ("the repository has no " + ", ".join(f"`{name}`" for name in lacking)
+            + " label: it is not set up for the pipeline, and the setup-mmw skill creates"
+              " every label it uses")
 
 
 def gh_issue_create(args: list[str], body: str) -> tuple[subprocess.CompletedProcess, int | None]:
@@ -1636,10 +1649,9 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not text.strip():
         return refuse(f"{path} is empty")
     title = text.strip().splitlines()[0].strip()
-    missing = ensure_label("mmw:child")
+    missing = missing_labels(["needs-triage", "mmw:child"])
     if missing:
-        return refuse(f"the repository has no `mmw:child` label and it could not be "
-                      f"created ({missing}); nothing was opened")
+        return refuse(f"{missing}; nothing was opened")
     posted = f"A `{kind}` child of #{number}.\n\n" + text
     if not posted.endswith("\n"):
         posted += "\n"
@@ -1701,7 +1713,8 @@ def add_blocking_link(child: int, blocker: int) -> str | None:
 
 def label_defined(name: str) -> bool:
     """Whether `name` is one this file knows the colour and description of."""
-    return name in CLASS_LABELS or name in QUEUE_LABELS or name in GRADE_LABELS
+    return (name in CLASS_LABELS or name in QUEUE_LABELS or name in GRADE_LABELS
+            or name in WAYFINDER_LABELS)
 
 
 def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int:
@@ -1715,10 +1728,9 @@ def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int
     text = body_path.read_text(encoding="utf-8") if body_path.is_file() else ""
     if not text.strip():
         return refuse(f"{body_path} is empty")
-    missing = ensure_label(CLASS_SPEC)
+    missing = missing_labels([CLASS_SPEC])
     if missing:
-        return refuse(f"the repository has no `{CLASS_SPEC}` label and it could not be "
-                      f"created ({missing}); nothing was published")
+        return refuse(f"{missing}; nothing was published")
     args = ["--title", title, "--label", CLASS_SPEC]
     if map_number is not None:
         args += ["--parent", str(map_number)]
@@ -4029,16 +4041,14 @@ def run_publish_drafts(spec: int, directory: Path) -> int:
         return ("; already published: "
                 + ", ".join(f"{n} -> #{i}" for n, i in numbers.items()) if numbers else "")
 
+    # Every label the batch will put on is asked after before the first ticket opens, so a
+    # repository that lacks one publishes nothing rather than half a batch.
+    missing = missing_labels(sorted({label for draft in drafts for label in draft["labels"]
+                                     if label_defined(label)}))
+    if missing:
+        return refuse(f"{missing}; nothing was published")
     numbers: dict[str, int] = {}
     for draft in order:
-        for label in draft["labels"]:
-            if not label_defined(label):
-                continue
-            missing = ensure_label(label)
-            if missing:
-                return refuse(f"the repository has no `{label}` label and it could not "
-                              f"be created ({missing}); {draft['name']} was not published"
-                              + already_published(numbers))
         args = ["--parent", str(spec), "--title", draft["title"]]
         for label in draft["labels"]:
             args += ["--label", label]

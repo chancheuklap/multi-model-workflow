@@ -69,8 +69,8 @@ def chart():
          [("skill", "grilling、domain-modeling")], ("问你", ["终点那一两行"]), 0),
         ("2 铺开前沿", ["横着问遍整片，找出还没定的决定和", "现在能走的第一步；没有雾就不要地图"],
          [("skill", "grilling")], ("没有雾", ["告诉你，路清了走", "Write a spec，问你怎么走"]), 0),
-        ("3 建地图", ["照地图正文的格式写；缺的标签先建；", "发成一个 issue，带两个标签"],
-         [("skill", "wayfinder 的 ### The map body"), ("other", "gh label create、gh issue create")], None, 0),
+        ("3 建地图", ["照地图正文的格式写；发成一个 issue，", "带两个标签；缺标签就是仓库没接入，停下"],
+         [("skill", "wayfinder 的 ### The map body"), ("other", "gh issue create")], None, 0),
         ("4 建现在问得准的票", ["每张一个子 issue、一个类型标签；", "第二遍再连先后；问不准的留在雾里"],
          [("skill", "wayfinder 的 ### Tickets"), ("other", "issue-tracker.md 的 Wayfinding operations")], None, 0),
         ("5 回答研究票", ["每张一份 brief，一次开齐 researcher；", "叫醒后逐张存笔记、推、评论、关票、", "把指针加进地图"],
@@ -85,7 +85,7 @@ def chart():
 ARIA_CHART = ("Chart a map 的五步，左列步骤，中列用到的组件，右列问你或交回的地方。"
               "1 定终点：读 grilling 和 domain-modeling 两份技能，和你一起定走到头是什么样，终点那一两行问你。"
               "2 铺开前沿：再用 grilling，横着问遍整片，找出还没定的决定和现在能走的第一步；没有雾就不要地图，告诉你路清了走 Write a spec，问你怎么走。"
-              "3 建地图：照 wayfinder 技能 ### The map body 的格式写正文；缺的标签先用 gh label create 建；用 gh issue create 发成一个 issue，带 wayfinder:map 和 mmw:map。"
+              "3 建地图：照 wayfinder 技能 ### The map body 的格式写正文；用 gh issue create 发成一个 issue，带 wayfinder:map 和 mmw:map；仓库缺这些标签就是没接入，说明并停下，标签由 setup-mmw 一次建好。"
               "4 建现在问得准的票：照 wayfinder 的 ### Tickets，每张一个子 issue、一个 wayfinder 类型标签；第二遍再按 issue-tracker.md 的 Wayfinding operations 连先后；问不准的留在雾里。"
               "5 回答研究票：每张研究票照 mmw-mode 的 map-research-brief.md 写一份 brief，用 dispatch.sh brief researcher 一次开齐；被叫醒后照 dispatch 的 ## On waking，逐张存笔记、提交推到 base、评论答案、关票、把指针加进地图。"
               "交回：地图、前沿上的票、雾、研究的答案。")

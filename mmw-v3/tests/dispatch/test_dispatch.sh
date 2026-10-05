@@ -1380,13 +1380,11 @@ found = next((t for t in rows if t.get("number") == want), {})
 for name in found.get("labels", []):
     print(name)
 ' ;;
-  "label create "*)
-    # FAKE_GH_LABEL_EXISTS: the repository already has it, which `gh` reports as a failure.
-    if [ -n "${FAKE_GH_LABEL_EXISTS:-}" ]; then
-      echo "label with name \"$3\" already exists; use \`--force\` to update its color and description" >&2
-      exit 1
-    fi
-    echo "✓ Label \"$3\" created" ;;
+  "label list "*)
+    # The repository's labels: the pipeline's layer labels, less FAKE_GH_LABEL_MISSING.
+    for name in mmw:map mmw:spec mmw:ticket mmw:child; do
+      [ "$name" = "${FAKE_GH_LABEL_MISSING:-}" ] || echo "$name"
+    done ;;
   "issue reopen "*)
     if [ -n "${FAKE_GH_MUTATES_ISSUES:-}" ]; then
       "$MMW_FAKE_GH_STATE_HELPER" ticket-reopen "$FAKE_GH_TICKETS_FILE" "$3"
@@ -4448,14 +4446,15 @@ scenario_route() {
   echo "--- became-ticket as itself: relabelled mmw:ticket, left open, under the spec its child.opened names — never the map the tree would give"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
   [ "$code" = 0 ] || fail "route became-ticket expected exit 0, got $code: $(cat "$TMP/err")"
-  has "gh :: label :: create :: mmw:ticket"
+  has "gh :: label :: list"
+  hasnt "gh :: label :: create"
   has "gh :: issue :: edit :: 92 :: --add-label :: mmw:ticket :: --remove-label :: mmw:child"
   hasnt ":: --parent :: 18"
   hasnt "gh :: issue :: close :: 92"
 
   echo "--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate"
-  code="$(route_in env FAKE_GH_LABEL_EXISTS=1 bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
-  [ "$code" = 0 ] || fail "a label that already exists should not stop the route, got $code: $(cat "$TMP/err")"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
+  [ "$code" = 0 ] || fail "route became-ticket to another ticket expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket"
   hasnt "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --parent"
   has "gh :: issue :: close :: 93 :: --duplicate-of :: 80"
@@ -4503,6 +4502,16 @@ scenario_route() {
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket)"
   [ "$code" = 2 ] || fail "became-ticket with no ticket should exit 2, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: close"
+  hasnt "gh :: issue :: edit"
+  [ -z "$(posted_events 61)" ] || fail "nothing should be posted: $(posted_events 61)"
+
+  echo "--- a repository without mmw:ticket is not set up: refused, no label created, nothing done"
+  reset_log
+  write_route_batch
+  code="$(route_in env FAKE_GH_LABEL_MISSING=mmw:ticket bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
+  [ "$code" = 2 ] || fail "a repository without mmw:ticket should exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "setup-mmw" "$TMP/err" || fail "the refusal should name setup-mmw: $(cat "$TMP/err")"
+  hasnt "gh :: label :: create"
   hasnt "gh :: issue :: edit"
   [ -z "$(posted_events 61)" ] || fail "nothing should be posted: $(posted_events 61)"
 }

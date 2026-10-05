@@ -4510,25 +4510,23 @@ finish_spec() {
 
 # ------------------------------------------------------------------ route
 
-# Make sure the repository has the layer label `$1`. A label the repository lacks makes
-# every `gh issue edit --add-label` naming it fail, so the first issue of each layer
-# creates it; one that already exists is left exactly as it is.
-# Creates label <name> when the repository lacks it, from the one definition of the
-# pipeline's labels in `verify-ticket.py`.
-ensure_label() {
+# Refuses, exit 1, when the repository lacks label `$1`: it is not set up for the pipeline.
+# The setup-mmw skill creates every label at once; this never creates one. Asked through
+# `verify-ticket.py`'s `missing_labels`, beside the one definition of the pipeline's labels.
+require_label() {
   local name="$1" out
   out="$(env -u CLICOLOR_FORCE -u CLICOLOR python3 - "$VERIFY" "$name" <<'PY' 2>&1
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("verify_ticket", sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-reason = module.ensure_label(sys.argv[2])
+reason = module.missing_labels([sys.argv[2]])
 if reason:
     print(reason)
     sys.exit(1)
 PY
 )" && return 0
-  echo "dispatch: the repository has no $name label and it could not be created: $out" >&2
+  echo "dispatch: $out; nothing was done" >&2
   return 1
 }
 
@@ -4633,7 +4631,7 @@ route_child() {
         fixed-elsewhere) line="Closed #$child: the finding was fixed elsewhere" ;;
       esac ;;
     became-ticket)
-      ensure_label mmw:ticket || exit 2
+      require_label mmw:ticket || exit 2
       local current labels
       current="$(parent_of "$became")" || refuse "could not ask the tracker where #$became sits; nothing was done"
       labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
