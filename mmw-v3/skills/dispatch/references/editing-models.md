@@ -22,6 +22,8 @@ Run:
 python3 scripts/models.py config runner <runner>
 ```
 
+`<runner>` is `orca`, `herdr`, `paseo` or `auto`. `auto` takes the runner the session running `dispatch.sh` sits in: Herdr when that session runs in Herdr, otherwise Orca; Paseo is chosen only by name. `MMW_RUNNER` set in the environment overrides the saved runner for that process.
+
 Use `python3 scripts/models.py config show` to read the current saved object. The next `start` reads it again; no daemon restart or install is required.
 
 One difference between runners outlives the command; tell the user of it when the runner changes. A runner that cannot observe the program running inside its session answers exit 4 to every `resume` and every relay wake it delivers: the text went in, whether a turn started is not known. A night runs normally on it, since every result is an event on the ticket, but nobody can tell a silent worker that read its message from one that did not. Each adapter's header records what its runner can observe.

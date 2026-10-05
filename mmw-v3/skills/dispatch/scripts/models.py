@@ -39,7 +39,6 @@ def session_roles() -> tuple[str, ...]:
 
 ALLOWED_AGENTS = session_roles()
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
-WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
 # Which catalog a row resolves against: `paseo` asks paseo, `cli` asks the host's own
 # CLI (a runner that runs the CLI in a terminal starts it with those ids). dispatch.sh
@@ -242,57 +241,18 @@ def _can_start(runner: str, host_spec: dict) -> bool:
     return catalog_source(runner) in host_spec
 
 
-def runtime_from_environ(environ: Mapping[str, str]) -> tuple[str, ...]:
-    """Runners visible in this process: TERM_PROGRAM, then HERDR_ENV, then TMUX.
+def detected_runner(environ: Mapping[str, str]) -> str | None:
+    """The runner this process runs in, read from its environment, or None.
 
-    Environment variables cannot express nesting. TERM_PROGRAM is treated as
-    the outer signal: Herdr opened inside an Orca terminal is herdr, not orca.
-    When HERDR_ENV and TMUX are both set, this returns tmux last; that does not
-    say which is nested in which. This reports what the environment shows, adapter
-    or not; `pick_runner` is what passes over a runner no adapter can drive.
+    Herdr when HERDR_ENV is set, Orca when TERM_PROGRAM says orca. Herdr is checked
+    first because Herdr opened inside an Orca terminal keeps Orca's TERM_PROGRAM.
+    Paseo is chosen only by name.
     """
-    found: list[str] = []
-    if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":
-        found.append("orca")
     if (environ.get("HERDR_ENV") or "").strip():
-        found.append("herdr")
-    if (environ.get("TMUX") or "").strip():
-        found.append("tmux")
-    return tuple(found)
-
-
-def pick_runner(
-    ticket: str | None = None,
-    env: str | None = None,
-    saved: str | None = None,
-    runtime: Mapping[str, str] | Sequence[str] = (),
-    default: str = DEFAULT_RUNNER,
-) -> str:
-    """First speaker wins: ticket, env, saved config, innermost runtime, default.
-
-    A name given by the ticket, the environment or saved config is returned as given,
-    adapter or not: someone chose it, and `start` refuses a runner it has no adapter for
-    by name. The runtime level is a guess from the environment, so it only names a
-    runner that has an adapter (`has_adapter`) and does not cut its own worktree: a
-    guess that names tmux, which nothing here can drive, would refuse every start.
-    """
-    for value in (ticket, env, saved):
-        spoken = _spoken_runner(value)
-        if spoken:
-            return spoken
-    if isinstance(runtime, Mapping):
-        names = runtime_from_environ(runtime)
-    else:
-        names = tuple(
-            spoken for spoken in (_spoken_runner(n) for n in runtime) if spoken)
-    detected = [name for name in names
-                if name not in WORKTREE_OWNING and has_adapter(name)]
-    if detected:
-        return detected[-1]
-    spoken = _spoken_runner(default)
-    if spoken:
-        return spoken
-    raise ValueError("no runner")
+        return "herdr"
+    if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":
+        return "orca"
+    return None
 
 
 def _norm(text: str) -> str:
@@ -1066,19 +1026,18 @@ def row_tsv(agent: str) -> str:
 
 
 def runner_name(environ: Mapping[str, str] | None = None) -> str:
-    """Tonight's runner: MMW_RUNNER, then models.json, then the
-    innermost runner this process runs in that has an adapter, then the default."""
+    """Tonight's runner: MMW_RUNNER, then models.json's `runner`. Either one saying
+    `auto`, or neither saying anything, means the runner this process runs in
+    (`detected_runner`), then orca. A named runner is returned as given, adapter or
+    not: `start` refuses one it has no adapter for, by name."""
     env = os.environ if environ is None else environ
-    explicit = _spoken_runner(env.get("MMW_RUNNER"))
-    if explicit:
-        return explicit
-    configured = read_local_config().get("runner")
-    if configured == "auto":
-        configured = None
-    return pick_runner(
-        saved=configured,
-        runtime=env,
-    )
+    for value in (env.get("MMW_RUNNER"), read_local_config().get("runner")):
+        spoken = _spoken_runner(value)
+        if spoken == "auto":
+            break
+        if spoken:
+            return spoken
+    return detected_runner(env) or DEFAULT_RUNNER
 
 
 def paseo_run_args(host: str, model: str, effort: str) -> list[str]:
