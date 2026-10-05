@@ -1,6 +1,6 @@
 # The format of a ticket
 
-What one ticket holds, section by section, and how each acceptance criterion is written. `verify-ticket.py` runs what is written here: `--preflight` claims the ticket, `<n>` runs every criterion, `<n> --lint` checks one ticket and the graph of the batch it sits under ([linting.md](linting.md)).
+What one ticket holds, section by section, how each acceptance criterion is written, and what goes elsewhere. `verify-ticket.py` runs what is written here: `--preflight` claims the ticket, `<n>` runs every criterion, `<n> --lint` checks one ticket and the graph of the batch it sits under ([linting.md](linting.md)).
 
 ## The body
 
@@ -11,7 +11,7 @@ A reference to the parent issue on the tracker, followed by the numbered Impleme
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph.
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph. A choice the owner settled when the batch was cut is a point of its own here, stated as the ticket's decision.
 
 ## Read first
 
@@ -60,6 +60,18 @@ Three rules bind how each one is worded:
 
 **A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the worker's final run, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. The repository's own whole-tree checker (a `lint.sh`, a full type-check) is not a `CHECK:` either: it fails on files this ticket never touched and blocks it on somebody else's work. A behaviour the ticket must keep as it is, as a restructuring must, is decided by a pin (**principle-a-check-must-be-able-to-fail**), a criterion green before the work by design.
 
+Most of what you want to say about the work does not belong under `## Acceptance criteria`. Ask **the five questions** in order and stop at the first yes:
+
+1. **Is the rule a comparison (equal, matches, counts, over a threshold) against something a machine can reach?** It is a criterion. Write its `CHECK:` and `EXPECT:`.
+2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next, whether the test behind a criterion could ever have failed. Code review decides these, in a session other than the one that wrote the code, and its `Spec` axis reads the `## Implementation Decisions` subsection of the spec this ticket's **Parent** names. Leave the rule out of `## Acceptance criteria` and write it in that subsection as one sentence.
+3. **Is the property a person's reaction?** Whether a newcomer knows what to do, whether the wording lands, whether a morning page is legible at a glance. The person is the instrument, not a fallback judge: no agent can stand in, because the agent is not who is being measured. It becomes its own ticket, of kind *reaction*; see [person-ticket.md](person-ticket.md).
+4. **Could a machine decide it, if only it could reach the thing?** Two answers hide under one question, and they part on whether the reach is something you build.
+   - **It is.** The state lives inside software you are about to write, and something has to put the system there: a seeded row, a stub scripted to answer in a set order. This stays a criterion. But the thing that reaches the state has to be named in the spec's Testing Decisions, under **How a test arrives at a state**, and owned under some ticket's **Owns**. That ticket builds it: a criterion that assumes a mechanism nobody builds fails on the night it first runs. Missing either, the state is out of reach for this batch, and the criterion becomes its own ticket of kind *reach* (see [person-ticket.md](person-ticket.md)), whose retiring line names the mechanism that has no name yet, or the ticket that would own it.
+   - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach*; see [person-ticket.md](person-ticket.md).
+5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. It is the owner's: put it to them with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own.
+
+If no command exists because the spec never decided how this is verified, do not invent one: the spec's Testing Decisions decides it first.
+
 Every criterion is four lines, and carries a number you assign as you write it and never renumber.
 
 ```
@@ -76,8 +88,10 @@ Derive `CHECK:` and `EXPECT:`; do not invent either:
 
 `CHECK:` takes the object it checks from one of two places: this ticket itself (the number comes from `$MMW_TICKET`, or from the branch name `issue-<n>`), or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names: `gh api repos/{owner}/{repo}/issues/<n>/sub_issues`. A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
 
-`CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one, but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time: switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started.
+`CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one, but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time: switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started. The system's own state (the row, the balance, the screen) is put there by what question 4 names.
+
+**A criterion is also exposed to the rest of its own batch.** Every ticket lands on the same base branch, and the closing pass re-runs every criterion of the batch there, so a criterion that names something a later ticket may change is decided by that ticket's work rather than by its own. Two shapes do it: a sweep of the whole repository (a `grep` for a name that must now be gone, a count over the tree), which any later ticket can put back in a note, a doc or a comment; and a criterion that names a test case, a function or a symbol by a name a later ticket may rename. Put such a criterion on the batch's last ticket, or give the name one owner: the file that holds it is under exactly one ticket's **Owns** in the whole batch, not merely among the tickets that can run at the same time, so no other ticket of the batch may write it.
 
 ## Labels
 
-A ticket carries `mmw:ticket`. A ticket an agent works also carries `ready-for-agent` and one worker label. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
+A ticket carries `mmw:ticket`. A ticket an agent works also carries `ready-for-agent` and one worker label; a ticket a person must judge ([person-ticket.md](person-ticket.md)) carries `ready-for-human` instead, and no worker label. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.

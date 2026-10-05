@@ -109,7 +109,7 @@ ROUTES = [
      ["## Next：The to-tickets skill.",
       "## Next：第一次写交 to-spec，重写交 revising-a-spec.md"],
      ["做完之后", "谁接着？"],
-     [("playbook", "Write a spec 最后一步：Run Cut tickets", False, True)],
+     [("playbook", "Write a spec 最后一步：Run Cut tickets", False)],
      ["调用方 playbook 的最后一步用名字调用下一份。",
       "技能交回自己的产出就停"]),
     ("⑤", "跨会话的事做到哪了",
@@ -185,11 +185,11 @@ def net():
     design = _pb(f, DX, 180, DW, "Design pages", "在 Claude Design 里画页、处理评论", dashed=True)
     pull = _pb(f, DX, 250, DW, "Pull a design", "把签了字的设计包拉进仓库", dashed=True)
     wsc = _pb(f, DX, 334, DW, "Write the screen contract", "写 screen-contract.yaml", dashed=True)
-    spec = _pb(f, DX, 404, DW, "Write a spec", "spec 的模板在这一份里", dashed=True)
-    cut_ = _pb(f, DX, 474, DW, "Cut tickets", "切票、问你定；票的格式照 verify-ticket", dashed=True)
+    spec = _pb(f, DX, 404, DW, "Write a spec", "spec 的模板在这一份里")
+    cut_ = _pb(f, DX, 474, DW, "Cut tickets", "切票、问你定；票的格式照 verify-ticket")
     rev = _pb_lines(f, DX, 558, DW, "Revise a spec",
                     ["改已发布 spec 里的一个决定。调用它的：",
-                     "Run a night 的 contract 子票一节；以后的", "Cut tickets、Write the screen contract"])
+                     "Run a night 的 contract 子票一节、", "Cut tickets、Write a spec、Triage"])
     build = _pb(f, DX, 656, DW, "Build a design system", "你要建设计系统时；不在主线上", dashed=True)
     bug = _pb(f, DX, 722, DW, "Bug fix", "你报来的缺陷：诊断，写一张票，Run one ticket")
     _pb(f, DX, 788, DW, "Make a small change", "一个会话做完：测试、验证、第二个读者、推")
@@ -254,10 +254,10 @@ def net():
     f.ar([(MX - 4, 118), (NX + NW + 2, 118)], cls="human")
     _t(f, MX, 114, "你说验收：同一个会话")
     _t(f, MX, 132, "跑 Run a night 第 10 步的 finish")
-    _t(f, MX, 176, "交回、留在 needs-triage 的票：")
-    _chip(f, "skill", MX, 186, "triage", dashed=True)
-    _t(f, MX, 230, "你在任何会话里用它；和 Write a spec、")
-    _t(f, MX, 248, "Cut tickets 同一课搬")
+    _t(f, MX, 168, "交回、留在 needs-triage 的票：")
+    _pb(f, MX, 178, MW, "Triage", "你挑，逐张用 triage 技能判")
+    _t(f, MX, 244, "agent 做的进 spec：Write a spec，")
+    _t(f, MX, 262, "或 Revise a spec 再 Cut tickets")
     for i, name in enumerate(["Authoring or modifying a skill", "Review the skill set", "Pause safely"]):
         _pb(f, MX, 300 + i * 40, MW, name)
     _t(f, MX, 432, "已在 v3，不在这一课的范围")
@@ -271,7 +271,7 @@ def net():
     _t(f, MX, 710, "一个会话从开始做到交付的，是一份")
     _t(f, MX, 728, "playbook。叫醒和你开口都回到同一个")
     _t(f, MX, 746, "会话，所以这两处都不切开。")
-    return f.svg(H + 16, "MMW 拆成的 playbook，虚线框是还没写的。白天你在场：Chart a map 画地图，之后每个会话 Resolve a map ticket 解决一张；地图上的设计票走 Design pages，你签字后 Pull a design，没有 screen contract 或增删控件时 Write the screen contract，第一次写就接着 Write a spec；地图清了你开新会话 Write a spec；Write a spec 最后一步 Run Cut tickets；你答的问题改了决定时 Run Revise a spec。以上只有 Revise a spec 已写，它现在由 Run a night 的 contract 子票一节调用。Build a design system 不在主线上。你报来的缺陷走 Bug fix：诊断，写一张票，Run one ticket。一个会话做得完的小改动走 Make a small change：测试、验证、第二个读者、推到 base 分支。你说开始今晚，进夜里。夜里你不在：Run a night 是 orchestrator 一个会话，从 open 到 finish，十一步：开夜、advance、每次叫醒，收尾时给 finding 定去处、reverify、summary，retro，你验收后 finish，流水线坏了时 suspend；另有 contract 子票和 finding 分流两节；advance 开 worker 做 Work a ticket，worker 一个会话从认领到关票，中间 start reviewer 做 Review a ticket，reviewer.reported 叫醒同一个 worker；关票后 ticket.passed 叫醒 Run a night。Run one ticket 是夜外的一张票，叫醒和 contract 子票两节借 Run a night。早上你在场：你读 NIGHT SUMMARY 和 NIGHT RETRO，说验收，同一个 orchestrator 会话跑 Run a night 第 10 步的 finish；交回、留在 needs-triage 的票，你在任何会话里用 triage 技能处理，它还没搬。右栏另有：Investigation，只读，用 how 和 why 交回带出处的答案；接入仓库用 setup-mmw 技能，配齐仓库、产品、机器三层，还没做。")
+    return f.svg(H + 16, "MMW 拆成的 playbook，虚线框是还没写的。白天你在场：Chart a map 画地图，之后每个会话 Resolve a map ticket 解决一张；地图上的设计票走 Design pages，你签字后 Pull a design，没有 screen contract 或增删控件时 Write the screen contract，第一次写就接着 Write a spec；地图清了你开新会话 Write a spec；Write a spec 最后一步 Run Cut tickets；你答的问题改了决定时 Run Revise a spec。以上 Write a spec、Cut tickets、Revise a spec 已写；Revise a spec 由 Run a night 的 contract 子票一节、Cut tickets、Write a spec 和 Triage 调用。Build a design system 不在主线上。你报来的缺陷走 Bug fix：诊断，写一张票，Run one ticket。一个会话做得完的小改动走 Make a small change：测试、验证、第二个读者、推到 base 分支。你说开始今晚，进夜里。夜里你不在：Run a night 是 orchestrator 一个会话，从 open 到 finish，十一步：开夜、advance、每次叫醒，收尾时给 finding 定去处、reverify、summary，retro，你验收后 finish，流水线坏了时 suspend；另有 contract 子票和 finding 分流两节；advance 开 worker 做 Work a ticket，worker 一个会话从认领到关票，中间 start reviewer 做 Review a ticket，reviewer.reported 叫醒同一个 worker；关票后 ticket.passed 叫醒 Run a night。Run one ticket 是夜外的一张票，叫醒和 contract 子票两节借 Run a night。早上你在场：你读 NIGHT SUMMARY 和 NIGHT RETRO，说验收，同一个 orchestrator 会话跑 Run a night 第 10 步的 finish；交回、留在 needs-triage 的票，你在任何会话里走 Triage：挑出要判的，逐张用 triage 技能判；agent 做的进 spec，走 Write a spec，或 Revise a spec 再 Cut tickets。右栏另有：Investigation，只读，用 how 和 why 交回带出处的答案；接入仓库用 setup-mmw 技能，配齐仓库、产品、机器三层，还没做。")
 
 
 # ---- figure 3: where each v2 skill's text goes ----
@@ -283,8 +283,9 @@ FATES_A = [
     ([("reference", "dispatch/references/one-ticket.md")], ["Run one ticket"], "同上"),
     ([("skill", "implement")], ["Work a ticket"], "删掉；界面代码那份 reference 等界面验收"),
     ([("reference", "code-review/references/session.md")], ["Review a ticket"], "code-review 留下三条轴"),
-    ([("skill", "to-tickets")], [("todo", "Cut tickets")], "一张票用得到的格式已进 verify-ticket"),
-    ([("skill", "to-spec")], [("todo", "Write a spec"), "Revise a spec"], "spec 模板等 Write a spec"),
+    ([("skill", "to-tickets")], ["Cut tickets"], "票的格式进 verify-ticket；歧义扫描提示进 mmw-mode"),
+    ([("skill", "to-spec")], ["Write a spec", "Revise a spec"], "spec 模板在 Write a spec 里"),
+    ([("skill", "triage")], ["Triage"], "triage 留下：角色、逐张判断、模板"),
     ([("skill", "wayfinder")], [("todo", "Chart a map"), ("todo", "Resolve a map ticket")], "还没搬"),
     ([("skill", "design-pages")], [("todo", "Design pages"), ("todo", "Pull a design"), ("todo", "Build a design system")],
      "还没搬"),
@@ -294,12 +295,12 @@ FATES_A = [
 
 # (name, what it does, in v3 yet)
 VERBS = [
-    ("grilling", "问到每个决定都定下", True), ("domain-modeling", "定词、写 ADR", False),
+    ("grilling", "问到每个决定都定下", True), ("domain-modeling", "定词、写 ADR", True),
     ("research", "查一手来源，写研究文件", True), ("prototype", "写代码回答一个设计问题", False),
     ("tdd", "先红后绿", True), ("diagnosing-bugs", "复现、定因", True),
     ("code-review", "沿三条轴审 diff", True), ("ui-acceptance", "判定界面和设计一致；判官没搬", True),
     ("advisor", "请教一次", True), ("retro", "复盘一夜", True),
-    ("triage", "给 issue 分类，含夜里交回的票", False),
+    ("triage", "逐张判 issue，含夜里交回的票", True),
 ]
 
 
@@ -368,7 +369,7 @@ def fates():
         y = dy + 32 + i * 34
         x = _chips(f, 16, y, src)
         _t(f, max(x + 8, 420), y + 16.5, why)
-    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 等界面验收那一课；code-review 的 session.md 成为 Review a ticket，code-review 留下三条轴；to-tickets 将成为 Cut tickets，票格式里一张票用得到的部分已进 verify-ticket；to-spec 成为 Revise a spec，Write a spec 还没写；wayfinder、design-pages、write-screen-contract 还没搬；setup-mmw 还没做。B 一个动词，由 playbook 的步骤点名：已搬 grilling、research、tdd、diagnosing-bugs、code-review、ui-acceptance（判官没搬）、advisor、retro；还没搬 domain-modeling、prototype、triage。C 其余技能：已搬 to-questionnaire、writing-for-agents、teach、handoff、wait-what、diagram-design；还没搬 grill-with-docs、codebase-design、improve-codebase-architecture、manage-agents-md、code-checkers、exe-release、wizard。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，以及上游已删的 resolving-merge-conflicts。")
+    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 等界面验收那一课；code-review 的 session.md 成为 Review a ticket，code-review 留下三条轴；to-tickets 成为 Cut tickets，票的格式进 verify-ticket，歧义扫描的提示进 mmw-mode；to-spec 成为 Write a spec 和 Revise a spec；triage 里交给下一步的那几句成为 Triage，技能留下角色、逐张判断和模板；wayfinder、design-pages、write-screen-contract 还没搬；setup-mmw 还没做。B 一个动词，由 playbook 的步骤点名：已搬 grilling、domain-modeling、research、tdd、diagnosing-bugs、code-review、ui-acceptance（判官没搬）、advisor、retro、triage；还没搬 prototype。C 其余技能：已搬 to-questionnaire、writing-for-agents、teach、handoff、wait-what、diagram-design；还没搬 grill-with-docs、codebase-design、improve-codebase-architecture、manage-agents-md、code-checkers、exe-release、wizard。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，以及上游已删的 resolving-merge-conflicts。")
 
 
 def _box_lines(f, kind, x, y, w, title, lines, mono_title=True):
@@ -461,9 +462,9 @@ def wiring():
 
     # hand back
     by = uy + 80
-    f.zone(4, by, 992, 72, "要改代码时：不改，交回你，转 Bug fix 或 Make a small change；要你做产品决定的，告诉你要一份 spec")
+    f.zone(4, by, 992, 72, "要改代码时：不改，交回你，转 Bug fix 或 Make a small change；要你做产品决定的，转 Write a spec")
     x = 16
-    for name, dashed in (("Bug fix", False), ("Make a small change", False), ("Write a spec", True)):
+    for name, dashed in (("Bug fix", False), ("Make a small change", False), ("Write a spec", False)):
         x = _chip(f, "playbook", x, by + 34, name, mono=False, dashed=dashed) + 10
     f.ar([(480, 64 + hp), (480, by)])
 
@@ -472,7 +473,8 @@ def wiring():
     rows = [
         ("Bug fix 第 2 步", "how 看出问题的那一块，why 查是哪次改动引入的", False),
         ("Make a small change", "不点名：改动不小时，Non-negotiables 那一行管", False),
-        ("Write a spec、Chart a map", "决定碰到现有代码时 how，要知道当初为什么时 why", True),
+        ("Write a spec", "不点名：碰到架构决定时，Non-negotiables 那一行管", False),
+        ("Chart a map", "决定碰到现有代码时 how，要知道当初为什么时 why", True),
         ("Work a ticket（夜里的 worker）", "不接：票的 ## Read first 已经列好要读的", False),
     ]
     f.zone(4, cy, 992, 36 + len(rows) * 30 + 4, "其他用 how 和 why 的地方（虚线：还没写）")
@@ -481,14 +483,14 @@ def wiring():
         _chip(f, "playbook", 16, y, who, mono=False, dashed=dashed)
         _t(f, 300, y + 16.5, what)
     H = cy + 36 + len(rows) * 30 + 12
-    return f.svg(H, "从你的一个问题到交回的答案。mmw-mode 的 ## Playbooks 有一行路由，把只读的问题（怎么工作、为什么这样、确定吗、选哪个）送进 playbooks/investigation.md；## Non-negotiables 有一行触发，不小的改动、架构决定和「我们确定吗」在任何 playbook 里都用 how。Investigation 三步：走 how，问动机时也走 why；写成 how 的五节或带取舍表的建议；回复过 unslop。不提交、不开票，回复照 Writing the reply 写给你。how 简单问题开 1 个 explainer，复杂问题开 2 到 4 个 researcher 再开 1 个 explainer 汇总；why 先钉住代码和提交，每类有来源的证据开 1 个 researcher，再开 1 个 synthesizer。每个都是 dispatch.sh brief 开的独立会话，模型照 models.json 里它的角色；brief 结尾写明只读。要改代码时交回你，转 Bug fix 或 Make a small change，要你做产品决定的告诉你要一份 spec，Write a spec 还没写。其他用 how 和 why 的地方：Bug fix 第 2 步；Make a small change 不点名，改动不小时由 Non-negotiables 那一行管；还没写的 Write a spec 和 Chart a map；夜里的 worker 不接。")
+    return f.svg(H, "从你的一个问题到交回的答案。mmw-mode 的 ## Playbooks 有一行路由，把只读的问题（怎么工作、为什么这样、确定吗、选哪个）送进 playbooks/investigation.md；## Non-negotiables 有一行触发，不小的改动、架构决定和「我们确定吗」在任何 playbook 里都用 how。Investigation 三步：走 how，问动机时也走 why；写成 how 的五节或带取舍表的建议；回复过 unslop。不提交、不开票，回复照 Writing the reply 写给你。how 简单问题开 1 个 explainer，复杂问题开 2 到 4 个 researcher 再开 1 个 explainer 汇总；why 先钉住代码和提交，每类有来源的证据开 1 个 researcher，再开 1 个 synthesizer。每个都是 dispatch.sh brief 开的独立会话，模型照 models.json 里它的角色；brief 结尾写明只读。要改代码时交回你，转 Bug fix 或 Make a small change，要你做产品决定的转 Write a spec。其他用 how 和 why 的地方：Bug fix 第 2 步；Make a small change 不点名，改动不小时由 Non-negotiables 那一行管；Write a spec 不点名，碰到架构决定时由 Non-negotiables 那一行管；还没写的 Chart a map；夜里的 worker 不接。")
 
 
 def roles():
     f = Fig("m72", 1000)
     _t(f, 10, 20, "要开一个 agent 干活之前，依次问三个问题", "h")
     qs = [
-        ("1", "会话自己在这个回合里能不能做？", "能：不开 agent，会话自己做"),
+        ("1", "会话自己在这个回合里能不能做，自己读就够？", "能：不开 agent，会话自己做"),
         ("2", "要不要自己的模型，或者在这个回合之外独立跑？", "要：独立会话（session），dispatch.sh 开"),
         ("3", "其余：要几份同时做，或要一个没被会话思路影响过的上下文", "子代理（subagent），宿主的通用子代理，跟会话同一个模型"),
     ]
@@ -499,7 +501,7 @@ def roles():
         _t(f, 42, y + 20, q, "h")
         _t(f, 470, y + 20, a)
     y0 = 200
-    f.zone(4, y0, 492, 214, "独立会话：dispatch.sh 开，交回走中继")
+    f.zone(4, y0, 492, 222, "独立会话：dispatch.sh 开，交回走中继")
     rows = [("worker", "junior、senior 两种：写代码，关票"), ("reviewer", "审一张票"), ("advisor", "对一个决定给第二意见"),
             ("researcher", "读来源，交回带出处的发现"), ("explainer", "把发现写成「怎么工作」的说明"),
             ("synthesizer", "把发现分成查到、推断、不知道")]
@@ -507,16 +509,18 @@ def roles():
         y = y0 + 32 + i * 29
         _chip(f, "agent", 16, y, name)
         _t(f, 150, y + 16.5, what)
-    f.zone(504, y0, 492, 214, "子代理：技能在会话里派，当场交回")
+    f.zone(504, y0, 492, 222, "子代理：技能或 playbook 在会话里派，当场交回")
     _chip(f, "agent", 516, y0 + 32, "code-review 的轴")
     _t(f, 690, y0 + 48.5, "三条轴同时审一段 diff")
     _chip(f, "agent", 516, y0 + 64, "grilling 的 fact-finder")
     _t(f, 720, y0 + 80.5, "查一个问题要用的事实")
-    _t(f, 516, y0 + 124, "要换模型的角色都不在这一边：Codex 默认把子代理的")
-    _t(f, 516, y0 + 141, "模型参数藏起来，Claude Code 只能选系列；独立会话")
-    _t(f, 516, y0 + 158, "用命令行参数指定模型，五个宿主都管用。")
-    _t(f, 516, y0 + 192, "每个角色在 dispatch/roles.json 有一行。")
-    return f.svg(y0 + 222, "要开一个 agent 干活之前依次问三个问题。一，会话自己在这个回合里能不能做，能就不开。二，要不要自己的模型或在回合之外独立跑，要就做成独立会话，由 dispatch.sh 开。三，其余情况，要几份同时做或要一个干净的上下文，做成子代理，跟会话同一个模型。独立会话有 worker（junior、senior）、reviewer、advisor、researcher、explainer、synthesizer。子代理有 code-review 的轴和 grilling 的 fact-finder。要换模型的角色都不做成子代理，因为 Codex 默认藏起子代理的模型参数，Claude Code 只能选系列，独立会话用命令行参数指定模型，五个宿主都管用。每个角色在 dispatch/roles.json 有一行。")
+    _chip(f, "agent", 516, y0 + 96, "ambiguity scanner")
+    _t(f, 690, y0 + 112.5, "Cut tickets 派：找草稿漏掉的决定")
+    _t(f, 516, y0 + 146, "要换模型的角色都不在这一边：Codex 默认把子代理的")
+    _t(f, 516, y0 + 163, "模型参数藏起来，Claude Code 只能选系列；独立会话")
+    _t(f, 516, y0 + 180, "用命令行参数指定模型，五个宿主都管用。")
+    _t(f, 516, y0 + 204, "每个角色在 dispatch/roles.json 有一行。")
+    return f.svg(y0 + 230, "要开一个 agent 干活之前依次问三个问题。一，会话自己在这个回合里能不能做、自己读就够，能就不开。二，要不要自己的模型或在回合之外独立跑，要就做成独立会话，由 dispatch.sh 开。三，其余情况，要几份同时做或要一个干净的上下文，做成子代理，跟会话同一个模型。独立会话有 worker（junior、senior）、reviewer、advisor、researcher、explainer、synthesizer。子代理有 code-review 的轴、grilling 的 fact-finder 和 Cut tickets 派的 ambiguity scanner。要换模型的角色都不做成子代理，因为 Codex 默认藏起子代理的模型参数，Claude Code 只能选系列，独立会话用命令行参数指定模型，五个宿主都管用。每个角色在 dispatch/roles.json 有一行。")
 
 
 def howflow():

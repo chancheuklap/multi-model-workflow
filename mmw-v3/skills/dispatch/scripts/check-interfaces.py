@@ -30,11 +30,12 @@ three places have to agree, and nothing else notices when one of them moves:
 6. **Every agent has a row in the role table, and every row is used.** The dispatch
    skill's `roles.json` lists each role once. A `session` role has a default row in
    `hosts.json` (`defaults`), and nothing else does. A file a row names (a `lead` file,
-   a `brief` template, a subagent `prompt`) exists, and so does a `lead` skill. Each skill
-   in a row's `sent_by` exists and its `SKILL.md` uses the role: `dispatch.sh brief
-   <role>` for a session role, each prompt file's path for a subagent role. Every
-   `dispatch.sh brief <role>` a `SKILL.md` or playbook writes names a `brief` role, and
-   a `SKILL.md` that sends out a subagent is the `sent_by` of a subagent row.
+   a `brief` template, a subagent `prompt`) exists, and so does a `lead` skill. Each
+   sender in a row's `sent_by`, a skill or a playbook (`mmw-mode/playbooks/<name>.md`),
+   exists and its text uses the role: `dispatch.sh brief <role>` for a session role, each
+   prompt file's path for a subagent role. Every `dispatch.sh brief <role>` a `SKILL.md`
+   or playbook writes names a `brief` role, and a `SKILL.md` or playbook that sends out a
+   subagent is the `sent_by` of a subagent row.
 
 It reads the files and parses Python with `ast`; it imports nothing it checks and writes
 nothing. Exit 0 prints `INTERFACES OK`; exit 1 prints one finding per line, each naming
@@ -134,9 +135,9 @@ def check_roles() -> list[str]:
         if lead.get("skill") and not (SKILLS / lead["skill"] / "SKILL.md").is_file():
             out.append(f"{where}: {name} leads with the {lead['skill']} skill, which does not exist")
         for skill in role.get("sent_by") or []:
-            path = SKILLS / skill / "SKILL.md"
+            path = SKILLS / skill if skill.endswith(".md") else SKILLS / skill / "SKILL.md"
             if not path.is_file():
-                out.append(f"{where}: {name} is sent by the {skill} skill, which does not exist")
+                out.append(f"{where}: {name} is sent by {skill}, which does not exist")
                 continue
             text = path.read_text(encoding="utf-8")
             if role.get("kind") == "subagent":
@@ -154,8 +155,8 @@ def check_roles() -> list[str]:
         for name in sorted(set(BRIEFED.findall(text)) - briefed - {"show", "close", "watch"}):
             out.append(f"{path.relative_to(SKILLS)}: `dispatch.sh brief {name}` names no `brief` "
                        f"role in {where}")
-        if path.name == "SKILL.md" and path != MODE and SENDS_SUBAGENT.search(text) \
-                and path.parent.name not in senders:
+        sender = path.parent.name if path.name == "SKILL.md" else path.relative_to(SKILLS).as_posix()
+        if path != MODE and SENDS_SUBAGENT.search(text) and sender not in senders:
             out.append(f"{path.relative_to(SKILLS)}: sends out a subagent, and no subagent row of "
                        f"{where} names this skill in `sent_by`; add the row, or start a session role "
                        f"with `dispatch.sh brief`")

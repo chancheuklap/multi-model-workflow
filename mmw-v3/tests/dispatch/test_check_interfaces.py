@@ -122,5 +122,21 @@ class CheckInterfaces(unittest.TestCase):
         self.assertIn("to-questionnaire/SKILL.md: sends out a subagent, and no subagent row", out)
 
 
+    def test_a_playbook_that_sends_a_subagent_with_no_row_is_found(self):
+        playbook = self.tmp / "mmw-mode" / "playbooks" / "bug-fix.md"
+        playbook.write_text(playbook.read_text(encoding="utf-8") + "\nSend one subagent to scan the repro.\n",
+                            encoding="utf-8")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("mmw-mode/playbooks/bug-fix.md: sends out a subagent, and no subagent row", out)
+
+    def test_a_playbook_the_table_says_sends_a_subagent_that_never_names_its_prompt_is_found(self):
+        self.edit("mmw-mode/playbooks/cut-tickets.md", "references/ambiguity-scan.md", "the scan")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("mmw-mode/playbooks/cut-tickets.md: sends the ambiguity scanner subagent, and "
+                      "never names its prompt references/ambiguity-scan.md", out)
+
+
 if __name__ == "__main__":
     unittest.main()

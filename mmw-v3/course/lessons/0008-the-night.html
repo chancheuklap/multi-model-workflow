@@ -195,7 +195,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <p class="lede">夜里由一个会话从 <code class="c k-script">open</code> 守到 <code class="c k-script">finish</code>：开夜，派 worker，被叫醒就处理，前沿空了收尾，跑 <code class="c k-skill">retro</code>，等你早上验收后合进项目分支。这一课写的是 <code>mmw-rebuild</code> 分支上 <span class="c k-playbook">Run a night</span> 现在的十一步和两节、它调用的 <span class="c k-playbook">Revise a spec</span>、收尾用的 <code class="c k-skill">retro</code> 和两条原则。两份 playbook 的全文都在页里，是构建时从仓库读出来的。最后三节写设计哪里错过、怎样证明的、还没做的。</p>
 </div>
 <div class="brief">
-<div><b>这一课回答</b><ol><li>一夜的十一步，第 1 步怎样找到自己在哪</li><li>每一步写什么、从 v2 哪段来、改了什么</li><li>收尾时一条 finding 怎样分流</li><li>contract 子票怎样定，<span class="c k-playbook">Revise a spec</span> 为什么单独成一份</li><li><code class="c k-skill">retro</code>：v2、mattpocock、pstack 三份对读，留哪份</li><li><code class="c k-skill">triage</code> 为什么不在这一课</li><li>两条原则</li><li>设计哪里错过，怎样证明的，还没做的</li></ol></div>
+<div><b>这一课回答</b><ol><li>一夜的十一步，第 1 步怎样找到自己在哪</li><li>每一步写什么、从 v2 哪段来、改了什么</li><li>收尾时一条 finding 怎样分流</li><li>contract 子票怎样定，<span class="c k-playbook">Revise a spec</span> 为什么单独成一份</li><li><code class="c k-skill">retro</code>：v2、mattpocock、pstack 三份对读，留哪份</li><li>早上留在 <code>needs-triage</code> 的票交给谁</li><li>两条原则</li><li>设计哪里错过，怎样证明的，还没做的</li></ol></div>
 <div><b>依据</b>本分支现在的 <code>mmw-v3/skills/</code>；v2 在 <code>9df1ab67d</code> 的 <code class="c k-reference">dispatch/references/night.md</code>（3,598 词）、<code>retro/</code>、<code>triage/</code>、<code class="c k-reference">to-spec/references/revising-a-spec.md</code>（281 词）；mattpocock/skills 在 <code>d81f3a18</code> 的 <code class="c k-skill">retro</code>、<code class="c k-skill">triage</code>；pstack 在 <code>8224b490</code> 的 <code class="c k-skill">reflect</code>、<code class="c k-playbook">orchestrate.md</code>、<code class="c k-playbook">session-pickup.md</code> 和 24 条原则。这一课的每一句另请子代理对照仓库核过，查出的不符逐条改了文件或改了课文（第 8 节）。本课自己的判断标了 <span class="inf">归纳</span>。</div>
 <div><b>主要来源，建议先读</b>Google《Site Reliability Engineering》的 <a href="https://sre.google/sre-book/postmortem-culture/">Postmortem Culture: Learning from Failure</a>。<code class="c k-skill">retro</code> 的做法从这里来：只认证据，找的是环境里哪一处让错误漏过去，不找哪个人错了；同一个原因出现两次才值得花长期的代价去防。</div>
 </div>
@@ -208,7 +208,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <div class="legend" data-legend="playbook skill principle reference script other arrow zone"></div>
 <figcaption><b>图 1</b>　一个会话从上往下走。第 3 到 5 步是夜里的循环：advance 后结束回合，被叫醒后处理完再 advance。第 6 到 10 步是收尾和验收。第 11 步不在顺序里，流水线本身坏了才去。</figcaption>
 </figure>
-<p><span class="c k-playbook">Run a night</span> 3,323 词，十一个编号步骤，后面跟两节：<b>Settling a contract child</b> 和 <b>Routing a finding</b>。它比 pstack 最大的 <span class="c k-playbook">Orchestrate</span>（2,636 词）还大，原因是第 1 步：一个夜里的会话可能被压缩上下文，或者在第二天早上才被你叫回来，甚至换成另一个会话，它得只凭票和 spec 上的记录找到自己在哪（<code class="c k-principle">principle-progress-is-what-the-record-says</code>）。第 1 步的表一行一种情形，每一行把会话送到一个编号步骤，每一步有自己的「Done when」。</p>
+<p><span class="c k-playbook">Run a night</span> 3,362 词，十一个编号步骤，后面跟两节：<b>Settling a contract child</b> 和 <b>Routing a finding</b>。它比 pstack 最大的 <span class="c k-playbook">Orchestrate</span>（2,636 词）还大，原因是第 1 步：一个夜里的会话可能被压缩上下文，或者在第二天早上才被你叫回来，甚至换成另一个会话，它得只凭票和 spec 上的记录找到自己在哪（<code class="c k-principle">principle-progress-is-what-the-record-says</code>）。第 1 步的表一行一种情形，每一行把会话送到一个编号步骤，每一步有自己的「Done when」。</p>
 <div class="tablewrap"><table class="roles wrap" style="min-width:760px">
 <thead><tr><th>第 1 步的表：成立的事</th><th>去</th></tr></thead>
 <tbody>
@@ -394,18 +394,8 @@ Open as few tickets as possible. A finding that is a ticket on its own becomes o
 <p>什么问题值得开提案：<code class="c k-skill">retro</code> 第 10 条说，每一种预防都有长期代价（一条检查每次提交都跑，一句说明以后每个 agent 都读），所以一次出现只在 <code>Handled here</code> 里记怎样处理。开提案要二者之一：同一原因有两次独立核实过的事件或提交出现；或者第 7 步有一条 Memory 判了 <code>propose</code>，它的证据 URL 在这个问题的证据里，而且这个问题的来源里有一个 <b>stall event</b>（<code>worker.queued</code>、<code>ticket.returned</code>、<code>kind=fault</code> 的 <code>child.opened</code>、<code>result=handoff</code> 的 <code>ticket.checked</code>）。</p>
 <p>搬进 v3 时，<code>SKILL.md</code> 改三处：description 换成「只在被点名时运行」；Done when 不再写「回到 v2 night.md 第 5 节」，下一步由叫它的 <span class="c k-playbook">Run a night</span> 第 9 步写；改技能的来源路径从 <code>mmw-v2/prompt/</code> 改成 <code>mmw-v3/prompt/</code>。<code class="c k-script">retro.py</code>（4,071 词）一字不改。它用到的三个模块 v3 都有：<code class="c k-skill">ui-acceptance</code> 的 <code class="c k-script">refusal.py</code>、<code class="c k-skill">verify-ticket</code> 的 <code class="c k-script">issue_tree.py</code> 和 v2 逐字节相同；<code class="c k-script">events.py</code> 只差两段注释，说明 <code>repo-checks</code> 这种记录现在没有脚本写、v2 关过的票上还有（第 7 课第 11 节）。</p>
 
-<h2>6　triage 为什么不在这一课</h2>
-<p>夜里交回的票留在 <code>needs-triage</code>，由你用 <code class="c k-skill">triage</code> 处理。它点名的组件 v3 大多还没有：</p>
-<div class="tablewrap"><table class="roles wrap" style="min-width:760px">
-<thead><tr><th><code class="c k-skill">triage</code> 点名的</th><th>用在哪</th><th>v3 有没有</th></tr></thead>
-<tbody>
-<tr><th><code class="c k-skill">to-spec</code>、<code class="c k-skill">to-tickets</code></th><td>判成 <code>ready-for-agent</code> 的 issue 先写 spec、再切票；<code class="c k-skill">retro</code> 的提案批准后也走这条</td><td>没有。在 v3 是 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span>，还没写</td></tr>
-<tr><th><code class="c k-reference">to-tickets/references/person-ticket.md</code></th><td>判成 <code>ready-for-human</code> 时写「五样东西」</td><td>没有。其中两样是切票的「五个问题」定义的</td></tr>
-<tr><th><code class="c k-skill">setup-matt-pocock-skills</code></th><td>没给标签映射时叫你去跑它</td><td>没有，在 v3 是还没做的 <code class="c k-skill">setup-mmw</code></td></tr>
-<tr><th><code class="c k-skill">domain-modeling</code></th><td>追问时读</td><td>没有</td></tr>
-<tr><th><code class="c k-script">dispatch.sh route</code>、<code class="c k-script">events.py fold</code>、<code class="c k-reference">ticket-format.md</code>、<code class="c k-skill">grilling</code></th><td>流水线交回的票和子票</td><td>有</td></tr>
-</tbody></table></div>
-<p>四种结果里，<code>needs-info</code> 和 <code>wontfix</code> 能用；<code>ready-for-agent</code> 和 <code>ready-for-human</code> 交出去的地方都还不存在。所以 <code class="c k-skill">triage</code> 和 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 同一课落地。这期间没有损失：现在跑夜的是装好的 v2；<span class="c k-playbook">Run a night</span> 只把票留在 <code>needs-triage</code>、理由写在票上，不点名 <code class="c k-skill">triage</code>，以后它进来时这里什么也不用改。</p>
+<h2>6　早上留在 needs-triage 的票交给谁</h2>
+<p>夜里交回的票留在 <code>needs-triage</code>，理由写在票上；<span class="c k-playbook">Run a night</span> 不点名 <code class="c k-skill">triage</code>。早上你走 <span class="c k-playbook">Triage</span>：挑出要判的，逐张用 <code class="c k-skill">triage</code> 判。一张交回的票判成 <code>ready-for-agent</code>，不进 spec：标签换回去，它的 spec 下一次 <code class="c k-script">advance</code> 就派 worker；没有开着的夜，就当作夜外的一张票跑（<span class="c k-playbook">Run one ticket</span>）。外来的 issue 和 <code class="c k-skill">retro</code> 的提案判成 agent 做的，进一份 spec 和它的票（第 9 课）。</p>
 
 <h2>7　两条原则</h2>
 <p><b>进度以记录为准</b>，<code class="c k-principle">principle-progress-is-what-the-record-says</code>，新写。v2 里有四处各写了一遍：<code class="c k-skill">dispatch</code> 的 <code>SKILL.md</code>、<code class="c k-skill">exe-release</code> 的 <code>driving.md</code>、<code class="c k-skill">manage-agents-md</code>、<code>status</code> 读不全 tracker 时的提示。pstack 的 24 条原则和 mattpocock 的技能里没有这一条；最近的是 pstack 的 <code class="c k-playbook">session-pickup.md</code>「the prior trail is authoritative」和 <code class="c k-playbook">orchestrate.md</code> 重启后重读 <code>units.tsv</code>，都写在 playbook 的步骤里，不是原则。它说：开始、被叫醒或接手一件有记录的工作时，先读记录，从记录指的那一步做；记录和记忆不一致，以记录为准；不在记录旁边另记一份做过什么。它由 <span class="c k-playbook">Run a night</span> 第 1 步和 <span class="c k-playbook">Work a ticket</span> 第 1 步点名，在 mode 索引的 Delegation 一组。</p>
@@ -433,7 +423,7 @@ Open as few tickets as possible. A finding that is a ticket on its own becomes o
 <tr><th>设计里 <code>tests/retro/</code> 只列 <code class="c k-script">run.sh</code> 和 <code class="c k-script">test_retro.py</code></th><td>还要 <code class="c k-script">fake_gh.py</code>、<code class="c k-script">fake_nmem.py</code> 代替真的 tracker 和 Memory，少了跑不起来</td><td>四个文件都搬了</td></tr>
 <tr><th>这一课先前的自测说「两次出现，或一条 Memory 的 propose 指着它」就开提案</th><td>漏了 propose 那一路还要来源里有一个 stall event（核对时查出）</td><td>第 5 节照 <code class="c k-skill">retro</code> 第 10 条写全</td></tr>
 <tr><th>这一课先前说 <code class="c k-script">retro.py</code> 用的三个模块和 v2 逐字节相同</th><td><code class="c k-script">events.py</code> 后来改了两段注释（核对时查出）</td><td>第 5 节照实写</td></tr>
-<tr><th><code class="c k-skill">triage</code> 排在这一课</th><td>它交出去的两个地方还不存在</td><td>你说「开始落地吧」，我当作同意：和 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 同一课</td></tr>
+<tr><th><code class="c k-skill">triage</code> 排在这一课</th><td>它交出去的两个地方还不存在</td><td>你说「开始落地吧」，我当作同意；它和 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 在第 9 课一起写成</td></tr>
 </tbody></table></div>
 
 <h2>9　怎样证明的</h2>
@@ -453,7 +443,6 @@ Open as few tickets as possible. A finding that is a ticket on its own becomes o
 <h2>10　还没做的</h2>
 <ol>
 <li>这些 playbook 都没在真的夜里、真的宿主上跑过。v3 还没有安装入口：<code class="c k-script">dispatch.sh check</code> 找不到 <code class="c k-script">mmw-v3/install.sh</code>，只打一行警告，不拦开夜。</li>
-<li><code class="c k-skill">triage</code>、<span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 还没搬，切票的「五个问题」和 <code class="c k-reference">person-ticket.md</code> 跟它们一起。</li>
 <li>界面验收那部分：<code class="c k-script">target_config.py --check</code>，<span class="c k-playbook">Revise a spec</span> 里 screen contract 的行。设计包：contract 那一节只说这一夜做不到、留给你；怎样从 Claude Design 重新拉，设计那几课。</li>
 <li>Paseo 上，隔一轮送到的叫醒仍可能落在 orchestrator 的回合中间，没改 <code class="c k-script">runners/paseo.sh</code>。</li>
 <li>推之前跑仓库检查是写给 agent 的规矩，没有脚本拦着；漏跑时，脚本这一层只有 <code class="c k-script">finish</code> 会补上一次。</li>
@@ -487,8 +476,8 @@ Open as few tickets as possible. A finding that is a ticket on its own becomes o
 </div>
 
 <h2>下一课</h2>
-<p class="ask">第 6 到 8 课写完了到夜里为止的部分。下一块还没定，要你选：<b>写 spec、切票和 <span class="c k-skill">triage</span></b>（夜里交回的票才有地方去）；<b>setup-mmw，接入仓库</b>（v3 的检查和规矩在一个新仓库里才配得齐）；<b>界面验收</b>（判官、UI 轴、写界面代码的 reference）。我建议先做写 spec、切票和 <span class="c k-skill">triage</span>：没有它们，v3 从你的想法到一夜的票这一段是断的。有问题随时问我；哪一处和你看到的产品对不上，直接说。</p>
-<footer class="next"><a href="0007-code-playbooks.html">← 第 7 课</a><a href="../index.html">课程首页</a></footer>
+<p><a href="0009-spec-tickets-triage.html">第 9 课</a>：从你说定的事或队列里的一张 issue，到一夜跑的一批票，<span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span>、<span class="c k-playbook">Triage</span>。有问题随时问我；哪一处和你看到的产品对不上，直接说。</p>
+<footer class="next"><a href="0007-code-playbooks.html">← 第 7 课</a><a href="../index.html">课程首页</a><a href="0009-spec-tickets-triage.html">第 9 课 →</a></footer>
 </div>
 <!--JS--><script>
 /* Quiz widget: <div class="quiz" data-answer="2"> with buttons in .opts and a hidden .why.

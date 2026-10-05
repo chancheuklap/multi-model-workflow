@@ -76,6 +76,14 @@
       "sent_by": ["grilling"],
       "what": "looks up one fact a question needs, in the files or with the tools, while the session asks the rest",
       "returns": "the fact, to the session grilling the user, in the same turn"
+    },
+    {
+      "name": "ambiguity scanner",
+      "kind": "subagent",
+      "sent_by": ["mmw-mode/playbooks/cut-tickets.md"],
+      "prompt": ["mmw-mode/references/ambiguity-scan.md"],
+      "what": "reads a spec and its drafted tickets once and finds the decisions they leave missing or ambiguous",
+      "returns": "at most five questions, each with its options and a recommendation, to the session cutting the tickets, in the same turn"
     }
   ]
 }

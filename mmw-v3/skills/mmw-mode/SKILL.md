@@ -162,11 +162,11 @@ question on the screen").
 <!--
 Used: before spawning any subagent.
 
-Content: the rules for a subagent a skill sends out from inside a session, one paragraph
-each: which subagent to use and on which model; what its brief states; what to do on a
-host that cannot run one; who owns what it returns. Every subagent in MMW is sent out by a
-skill, which writes its prompt (an axis of code-review, the fact-finder of grilling);
-there is no subagent that loads this mode (mmw-v3/course lesson 5, decisions 6 and 7).
+Content: the rules for a subagent a skill or playbook sends out from inside a session, one
+paragraph each: which subagent to use and on which model; what its brief states; what to do
+on a host that cannot run one; who owns what it returns. Every subagent in MMW is sent out
+by a skill or a playbook, which writes its prompt (an axis of code-review, the fact-finder
+of grilling, the ambiguity scanner of Cut tickets); there is no subagent that loads this mode (mmw-v3/course lesson 5, decisions 6 and 7).
 Sessions a script starts (worker, reviewer, advisor, researcher, explainer, synthesizer)
 are not subagents; their start and their models are the dispatch skill's, and its
 roles.json lists every role of both kinds (mmw-v3/course lesson 6, section 8).
@@ -177,7 +177,7 @@ returns"), SKILL-SET-RULES.md ("A subagent's brief states what it returns and it
 length"), ADR 0015. From poteto-mode ## Subagents, only "You own every subagent's work".
 -->
 
-**Use your host's general-purpose subagent, and name no model.** It runs on this session's model. MMW ships no subagent definitions, so a skill that sends one out writes its whole prompt, and the skill's own text decides what that prompt says; follow it, do not add to it.
+**Use your host's general-purpose subagent, and name no model.** It runs on this session's model. MMW ships no subagent definitions, so a skill or playbook that sends one out writes its whole prompt, and its own text decides what that prompt says; follow it, do not add to it.
 
 **Work that needs a model of its own is a session, not a subagent.** Not every host lets a subagent run on another model, and a session can run on any host. A skill that needs one starts a session role with the `dispatch` skill's `dispatch.sh brief`; the `dispatch` skill's `roles.json` lists every role, session and subagent alike.
 
@@ -267,6 +267,9 @@ When your start prompt names a playbook, run that playbook from the step the tic
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a restart of the host, or imminent context compaction. Full steps: `playbooks/pause-safely.md`.
 - **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode. `playbooks/authoring-or-modifying-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
+- **Write a spec.** Turning what the owner and the sources have settled into a spec on the tracker, then cutting its batch ("write a spec", "turn this into a spec"). Distinct from Revise a spec, which changes a spec already published, and from Make a small change, which needs no spec. `playbooks/write-a-spec.md`.
+- **Cut tickets.** Breaking a published spec into the batch a night runs, approved by the owner and published under the spec ("cut tickets", "break the spec down"). Distinct from Write a spec, which runs it at its end, and from Bug fix, which writes one ticket outside any spec. `playbooks/cut-tickets.md`.
+- **Triage.** Judging the issues in the triage queue with the owner, the morning queue a night left included, and carrying the agent-ready ones into a spec ("triage", "what needs my attention"). Distinct from Bug fix, which starts from a defect the owner reports in this conversation. `playbooks/triage.md`.
 - **Run a night.** Running a spec's published tickets as their orchestrator, from `open` to `finish` once the owner has accepted the night ("start the night", "run the batch", "accept the night"). Distinct from Run one ticket, which runs one ticket outside any night. `playbooks/run-a-night.md`.
 - **Revise a spec.** Changing a decision in a spec already on the tracker: the section rewritten in place, the reason left on the spec, the tickets cut from it brought into line. Distinct from Make a small change, which changes the product's code. `playbooks/revise-a-spec.md`.
 - **Run one ticket.** Running one written ticket outside a night, with this session as its orchestrator, from `open-ticket` to `land`. Distinct from Run a night, which runs a spec's batch. `playbooks/run-one-ticket.md`.

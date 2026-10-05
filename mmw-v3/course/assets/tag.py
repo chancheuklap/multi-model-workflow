@@ -103,7 +103,7 @@ PLAIN = {
                  "Revise a spec", "Chart a map", "Resolve a map ticket", "Design pages", "Pull a design",
                  "Build a design system", "Write the screen contract", "Answer a question",
                  "Map a large effort", "Design an interface", "Write a spec and tickets",
-                 "Make a small change", "Research a question"],
+                 "Make a small change", "Research a question", "Triage"],
     "principle": ["Laziness Protocol", "Foundational Thinking", "Redesign from First Principles",
                   "Attack the Premise", "Subtract Before You Add", "Minimize Reader Load",
                   "Outcome-Oriented Execution", "Experience First", "Exhaust the Design Space",
