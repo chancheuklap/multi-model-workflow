@@ -10,9 +10,9 @@ The part of the work that comes out the same every time and that a program can d
 
 ## When a new script is warranted
 
-- **An instruction is about to be written a second time** (`principle-encode-lessons-in-structure`): "If the fix is structural, only use the structural fix. The instruction is the symptom."
-- **The work is not done at a glance** (`principle-build-the-lever`): "The tool is the artifact a reviewer can rerun."
-- **A repeated mistake can be made impossible** (the `correct` skill's order: architecture, then types, then a lint or CI check whose error names the fix, then a test; prose last). A check is proven by making it fail on a real past mistake.
+- **An instruction is about to be written a second time** (pstack's `principle-encode-lessons-in-structure`, `mmw-v3/upstream-pstack/skills/principle-encode-lessons-in-structure/SKILL.md`): "If the fix is structural, only use the structural fix. The instruction is the symptom."
+- **The work is not done at a glance** (pstack's `principle-build-the-lever`, `mmw-v3/upstream-pstack/skills/principle-build-the-lever/SKILL.md`): "The tool is the artifact a reviewer can rerun."
+- **A repeated mistake can be made impossible** (pstack's `correct` skill's order, `mmw-v3/upstream-pstack/skills/correct/SKILL.md`: architecture, then types, then a lint or CI check whose error names the fix, then a test; prose last). A check is proven by making it fail on a real past mistake.
 - **Not for a decision that needs judgement.** That stays in prose: written prominently, with an example of the failure.
 
 In the same change: the step or trigger that runs it gives the exact command.

@@ -30,7 +30,7 @@ poteto-mode's `mode`, `reminder`, `icon` and `color` are Cursor fields and are l
 - **Used:** at any moment of any task, as soon as the situation a line names arises, whichever playbook is running.
 - **Content:** one opening paragraph saying that the Principles section grounds every trigger (a principle's index line is itself a trigger), and that the reply names each principle that shaped a decision and the choice it changed, citing only principles whose full `SKILL.md` was read this session. Then one line per trigger: `Situation → what to use`, where what to use is a skill, a playbook (with its path), or a reference. A line names; it does not explain how. The exception is a judgement that must be made on the spot, written into the line (poteto-mode's "classify it before you ask" line).
 - **When to add a line:** the situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead. A situation a principle's index line already names gets no line here, unless the line adds an action the principle does not hold (poteto-mode's "Any code → name the data shape first").
-- **Sources in MMW v2:** rules of `mmw-v2/prompt/shared.md` that apply at a moment across tasks (rule 7 → a prose skill), and v2's own skills, compared one by one with their pstack counterparts before either is kept: agent-facing prose → `writing-for-agents` (it takes the place poteto-mode gives Cursor's `create-skill`); prose for people → `technical-writing`; any prose → `unslop`. The comparison and its results are in `mmw-v3/course/` lesson 4, figure 3.
+- **Sources in MMW v2:** rules of `mmw-v2/prompt/shared.md` that apply at a moment across tasks (rule 7 → a prose skill), and v2's own skills, compared one by one with their pstack counterparts before either is kept: agent-facing prose → `writing-for-agents` (it takes the place poteto-mode gives Cursor's `create-skill`); prose for people → `technical-writing`; any prose → `unslop`. The comparison and its results are in `mmw-v3/course/` lesson 4, figure 3. The `PRODUCT_RULES` sentence of `mmw-v2/skills/dispatch/scripts/dispatch.sh`, which every worker's start prompt carried → the `ui-acceptance` skill's five rules (lesson 5, decision 5). The `how` line is poteto-mode's own, brought in with the `how` skill (lesson 6, section 5). The `setup-mmw` line: a repository not set up is met in several playbooks and scripts, and only that skill sets one up (lesson 11).
 
 ### `## Principles`
 
@@ -44,18 +44,19 @@ This index is how a rule loads at the moment it applies: one line is always in c
 ### `## Autonomy`
 
 - **Used:** whenever the agent is deciding whether to act or to ask the owner first.
-- **Content:** four paragraphs, each opening in bold, as in poteto-mode:
+- **Content:** five paragraphs, each opening in bold, the first four as in poteto-mode:
   - **Just do it.** What proceeds without asking: reversible work, engineering decisions, and any fact you could observe by running something (behaviour, timing, layout, output), which is found by running it, not asked.
   - **Always pause** for what only the owner decides (the list is in the user-level prompt, which every session loads) and for irreversible writes.
   - **Session overrides:** what the owner's words change ("going to bed"; an approved plan or ticket is the go signal).
   - **No is an acceptable answer.** Disagreement is owed when there is a flaw, never manufactured.
-- **Sources in MMW v2:** `mmw-v2/prompt/shared.md` rules 1, 2 and 3. Rule 11 is `principle-never-block-on-the-human`'s, whose index line is read at the same moment. From poteto-mode's "classify it before you ask" line, only the clause on facts found by running something; which calls are the owner's is the Always pause list.
+  - **Unattended.** How a session a script started works with nobody to ask: which of the four paragraphs above hold for it, and what replaces asking. It is the only text a start prompt relies on for working unwatched; the start prompt itself carries no rule (lesson 5, decision 5).
+- **Sources in MMW v2:** `mmw-v2/prompt/shared.md` rules 1, 2 and 3. Rule 11 is `principle-never-block-on-the-human`'s, whose index line is read at the same moment. From poteto-mode's "classify it before you ask" line, only the clause on facts found by running something; which calls are the owner's is the Always pause list. Unattended: the `AUTONOMOUS` sentence of `mmw-v2/skills/dispatch/scripts/dispatch.sh`, the scripted-session paragraph of `mmw-v2/prompt/shared.md`, and the first bullet of `implement`'s code-writing rules ("Put no question on the screen").
 
 ### `## Subagents`
 
 - **Used:** before spawning any subagent.
 - **Content:** the rules for a subagent a skill or playbook sends out from inside a session, one paragraph each: which subagent to use and on which model; that work needing a model of its own is a session role; what its brief states; what to do on a host that cannot run one; who owns what it returns. Every subagent in MMW is sent out by a skill or a playbook, which writes its prompt (an axis of `code-review`, the fact-finder of `grilling`, the ambiguity scanner of Cut tickets); no subagent loads this mode. Sessions a script starts (worker, reviewer, advisor, researcher, explainer, synthesizer) are not subagents; their start and their models are the `dispatch` skill's, and its `roles.json` lists every role of both kinds.
-- **Sources in MMW v2:** `manage-agents-md` ("your host's general-purpose subagent, with no model named"), `code-review` `references/session.md` section 2, `to-tickets` ("Hold this turn until it returns"), `SKILL-SET-RULES.md` ("A subagent's brief states what it returns and its length"), ADR 0015. From poteto-mode's `## Subagents`, only "You own every subagent's work".
+- **Sources in MMW v2:** `mmw-v2/prompt/hosts/codex.md` ("Never interrupt subagents or other agents while they are working"), `manage-agents-md` ("your host's general-purpose subagent, with no model named"), `code-review` `references/session.md` section 2, `to-tickets` ("Hold this turn until it returns"), `SKILL-SET-RULES.md` ("A subagent's brief states what it returns and its length"), ADR 0015. From poteto-mode's `## Subagents`, only "You own every subagent's work".
 
 ### `## Writing the reply`
 
@@ -76,5 +77,6 @@ This index is how a rule loads at the moment it applies: one line is always in c
   1. Usage: open a todolist whose first items are the matched playbook's steps copied in verbatim; a step not done stays in the list as `skip: <reason>`.
   2. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
   3. One sentence for a session a script started: the playbook its start prompt names is its route, chosen by whoever dispatched it (`mmw-v3/course/` lesson 5, decision 3).
+  4. One sentence for a task no route line matches (poteto-mode sends it to `figure-it-out`, which MMW does not carry).
 - **When to add a line:** in the same change that adds the playbook file. Whether a playbook is warranted is in `playbooks/README.md`.
 - **Sources in MMW v2:** the `## Find your moment` tables of the `dispatch`, `verify-ticket`, `design-pages`, `ui-acceptance` and `code-review` skills, and the numbered procedures they point to (`implement`'s `## Closing steps`, `dispatch`'s `references/night.md`).

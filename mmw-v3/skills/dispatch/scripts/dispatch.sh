@@ -19,6 +19,8 @@
 #   dispatch.sh ack <n> <event> | relay.recovered | brief <batch>
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
+#   dispatch.sh findings <spec>
+#   dispatch.sh memory-list <spec>
 #   dispatch.sh reverify <spec>
 #   dispatch.sh summary <spec> --memory-decisions <file>
 #   dispatch.sh finish <spec>

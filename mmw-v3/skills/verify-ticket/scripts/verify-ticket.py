@@ -3426,7 +3426,7 @@ def lint_screen_contract(
     spec_bodies: dict[int, str] | None = None,
     fetch_spec_body: Callable[[int], str] | None = None,
 ) -> tuple[list[str], list[str]]:
-    """The UI rules of `to-tickets`, made mechanical.
+    """The UI rules of Cut tickets (mmw-mode's playbooks/cut-tickets.md), made mechanical.
 
     A `screen-contract.yaml rows: …` line makes this a page ticket. Its rows
     determine the required Component or App story mounts and boundary criteria, and

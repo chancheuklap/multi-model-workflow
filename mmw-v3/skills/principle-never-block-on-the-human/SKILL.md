@@ -11,7 +11,7 @@ The human supervises asynchronously. Agents must stay unblocked. Make reasonable
 
 **Pattern:**
 - **Proceed, then present.** Do the work, show the result. Don't ask "should I do X?" Do X, explain why.
-- **Make the system self-healing.** When you notice a problem, log it and fix it in the next round.
+- **Make the system self-healing.** When you notice a problem, log it and fix it in the next round if it is inside the scope you were given; outside it, the log is where the owner sees it, and the fix waits for their go.
 - **Finish what failed.** When a step fails or is interrupted, redo it yourself before replying. The reply reports what was done, and the only work it hands to the human is what only they can do: a device they own, a credential they hold, a decision that is theirs. If you can finish it, it is already finished.
 
 **Boundaries:**
