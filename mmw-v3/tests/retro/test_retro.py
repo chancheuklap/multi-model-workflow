@@ -21,15 +21,6 @@ REPOSITORY = "sample/retro-test"
 SPACE = "sample__retro-test"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards", "Global AGENTS.md",
               "Tool economy", "No-ops", "Information access")
-NAMES = {"complete-none": "RETRO-COMPLETE-NONE-OK",
-         "default-caller-repo": "RETRO-DEFAULT-CALLER-REPO-OK",
-         "partial-evidence": "RETRO-PARTIAL-EVIDENCE-OK",
-         "proposal-threshold": "RETRO-PROPOSAL-THRESHOLD-OK",
-         "prompt-and-record-contract": "RETRO-PROMPT-AND-RECORD-CONTRACT-OK",
-         "retry-finalize": "RETRO-RETRY-FINALIZE-OK",
-         "large-evidence": "RETRO-LARGE-EVIDENCE-OK",
-         "parent-without-map": "RETRO-PARENT-WITHOUT-MAP-OK",
-         "existing-proposal": "RETRO-EXISTING-PROPOSAL-OK"}
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -589,7 +580,7 @@ def main():
         fixture = Fixture()
         try:
             FUNCTIONS[name](fixture)
-            print(NAMES[name])
+            print("PASS " + name)
         finally:
             fixture.close()
     if wanted == "all":

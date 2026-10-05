@@ -331,7 +331,7 @@ NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again
 def relay_problem(state: Path, now: datetime) -> dict | None:
     """What is wrong with the relay of an open night, or None when it runs and reads.
 
-    Two facts, which one threshold used to answer as one (#406):
+    Two facts, each with its own threshold (#406):
 
         down          nothing is relaying. Its lock names no live process, or it has
                       finished no cycle within its grace: whatever lands on a ticket now

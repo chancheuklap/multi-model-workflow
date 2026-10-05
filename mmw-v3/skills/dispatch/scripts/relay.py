@@ -1157,8 +1157,8 @@ class Relay:
     @staticmethod
     def _since_cycle(beat: dict, now: datetime) -> float | None:
         """Seconds since the relay last finished a cycle, delivery time not counted, or
-        None when the beat carries no cycle stamp — a relay older than that field, whose
-        last good poll is then the only evidence it ran.
+        None when the beat carries no cycle stamp: a relay that has finished no cycle since
+        it started, whose last good poll is then the only evidence it ran.
 
         A cycle whose reads failed counts: the process ran, marked nothing read, and reads
         the same tickets again next cycle. That is what running means, and it is a
