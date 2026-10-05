@@ -16,7 +16,7 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`senior-worker`**:
 The worker grade for a ticket where a mistake would not show on the day it is written: money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 ### Specs
 
@@ -25,7 +25,7 @@ A GitHub issue, the tracker's unit: a map, a spec, a ticket, a ticket's child, a
 _Home_: `docs/agents/issue-tracker.md`
 
 **spec**:
-A container for a batch of tickets, not a piece of work: an issue labelled `mmw:spec`, in the `<spec-template>` shape, that the `to-spec` skill writes and publishes. A spec published from a wayfinder map is a native sub-issue of that map.
+A container for a batch of tickets, not a piece of work: an issue labelled `mmw:spec`, in the shape of **The spec template** of the `Write a spec` playbook, which writes it and publishes it with `verify-ticket.py --publish --spec-body`. A spec published from a wayfinder map is a native sub-issue of that map.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **`## Implementation Decisions`**:
@@ -70,7 +70,7 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **spec division**:
 The step-1 judgement of whether what a reference leads to is one spec or several, by whether the decisions share a **seam** and whether the dependency between parts runs one way. The division is written to the map's `## Specs` section, or, with no map, the first spec's `## Further Notes`.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`, `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **revising a spec**:
 Changing a section of an already-published spec in place rather than publishing a new issue, so no ticket's `## Parent` is left pointing at a wrong number. What changed and why goes in one comment on the spec; a landed ticket the new text no longer matches gets a correction ticket.
@@ -82,7 +82,7 @@ _Home_: `mmw-v3/skills/codebase-design/SKILL.md`, `mmw-v3/skills/tdd/SKILL.md`
 
 **precedent**:
 The similar existing test `## Testing Decisions` names per test layer. The ticket copies it into `## Seam`, and the ticket writer copies its invocation into `CHECK:` and its success line into `EXPECT:`.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **test layer**:
 The layer a feature's tests land in, named in `## Testing Decisions` with its directory and precedent.
@@ -91,28 +91,28 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 ### Tickets
 
 **ticket**:
-An issue that is a native sub-issue of its spec, in the `<issue-template>` shape and labelled `mmw:ticket`: one vertical slice a worker takes from claim to close.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+An issue that is a native sub-issue of its spec, in the **ticket format** and labelled `mmw:ticket`: one vertical slice a worker takes from claim to close.
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **batch**:
 The tickets under one spec, published together: `--lint` checks them as one graph of blocking edges, and the closing pass re-runs every one of their criteria on the base branch. Distinct from a migrate batch of a **wide refactor**, one step of an expand-contract sequence.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
 **vertical slice**:
 A ticket's cut: a narrow but complete path through every layer (schema, API, UI, tests), demoable or verifiable on its own (a tracer bullet), as against a horizontal slice of one layer.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
 **wide refactor**:
 The exception to vertical slicing: one mechanical change (renaming a column, retyping a shared symbol) whose blast radius fans across the whole codebase, so a single edit breaks thousands of call sites and no vertical slice can land green. Sequenced as expand-contract instead.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
 **integrate-and-verify ticket**:
 The final ticket of an expand-contract sequence whose migrate batches cannot each stay green alone: they share an integration branch and all block this ticket, where green is promised.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
 **prefactor ticket**:
 The ticket cut ahead of several tickets that would otherwise all edit the same registration files: it owns those files and lands in one pass the entries they need, each naming a placeholder the ticket behind it fills, so each of those tickets is blocked by it alone. Where the spec has a screen contract, it is also the **contract ticket**.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
 **design-system ticket**:
 The ticket that copies a design system's variables, fonts and part stylesheets from the design package's `_ds/` into the product, cut when the product lacks them and ahead of the **contract ticket**.
@@ -146,55 +146,55 @@ _Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
 The module under `.mmw/harness/`, built once by the contract ticket or the first journey ticket that needs it, for product access several journey tickets share (bringing the stack up, a health check, sign-in, a top-up). Later journey tickets import it.
 _Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
 
-**`<issue-template>`**:
-The ticket template in the `to-tickets` skill's `SKILL.md`: `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+**ticket format**:
+The `verify-ticket` skill's `references/ticket-format.md`: a ticket's sections, `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`, how each criterion is written, and its labels. `verify-ticket.py` runs what it describes, so the Cut tickets and Bug fix playbooks write every ticket in it.
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Parent`**:
 The ticket section routing it to its spec: `#<spec>, Implementation Decisions section <n>`.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## What to build`**:
 The end-to-end behaviour the ticket makes work, from the end user's point of view, in numbered points each with the test that decides it.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Read first`**:
 The sources the ticket's spec subsections cite, each read to its conclusion before work; an item that records a settled conclusion is marked as a **baseline**.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **baseline**:
 An item under `## Read first` that records a settled conclusion — a decision ticket's resolution, an ADR's decision, a research file's conclusion, a design package, a prototype's chosen artifact — which the worker follows rather than consults. The screen contract's `baselines.look` names the design package directory. In the configuration-management sense (IEEE Std 610.12), it is a reviewed and agreed item that further work builds on and that changes only through change control, which here is a `contract` child.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Seam`**:
 The ticket section saying where the ticket is verified: the test layer and directory, the precedent to copy, and how a test arrives at the state.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Owns`**:
 The repository-relative paths the ticket may write, one per line, including its test files and any file it must edit to put what it creates in service. Everything outside is read-only for the ticket.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Acceptance criteria`**:
 The ticket section holding the acceptance criteria. A `ready-for-human` ticket has none.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **Blocked by**:
-The tickets one ticket waits on. On an agent ticket they are its blocking edges on the tracker alone, which the quiz lists and step 5 of `to-tickets` calls a **Blocked by** edge; on a `ready-for-human` ticket, the body item naming the ticket that produces the thing it waits on.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`, `mmw-v3/skills/verify-ticket/references/person-ticket.md`
+The tickets one ticket waits on. On an agent ticket they are its blocking edges on the tracker alone, which the breakdown put to the owner lists and step 5 of the `Cut tickets` playbook calls a **Blocked by** edge; on a `ready-for-human` ticket, the body item naming the ticket that produces the thing it waits on.
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`, `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 ### Acceptance criteria
 
 **acceptance criterion**:
 One standard on a ticket (a criterion), decided by one command: the lines `- [ ] AC<n>:`, `CHECK:`, `EXPECT:` and `EVIDENCE:`, with `CWD:` and `TIMEOUT:` optional. A judgement no command decides is not one.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`CHECK:`**:
 The shell command that decides a criterion, run in its own shell at the repository root (or `CWD:`) with no agent in between. A multi-line command is a **fenced block** directly under it.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`EXPECT:`**:
 The string, or `/…/flags` regex, the `CHECK:` output must contain: a **success-only marker**, the line the precedent prints only when it passed.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`EVIDENCE:`**:
 The criterion line gate-check writes: `pending` until the criterion runs, then one line of fact about the run, which on a pass fingerprints the definition that passed. The checkbox, not this line, decides whether the criterion is met.
@@ -214,7 +214,7 @@ _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **the five questions**:
 The ordered questions the ticket writer asks of anything there is to say about the work, deciding whether it becomes an acceptance criterion, a code-review judgement, a `reaction` ticket, a `reach` ticket or a choice put to the user.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`met`, `unmet`, `abandoned`**:
 The three states of a criterion: met is ticked with real evidence, abandoned carries an `ABANDON:` line, and unmet is every other criterion.
@@ -270,20 +270,20 @@ Waiting on the user for more information; one of triage's four outcomes.
 _Home_: `docs/agents/triage-labels.md`
 
 **`ready-for-agent`**:
-The agent-queue label, which `to-tickets` puts on every agent ticket beside a worker-grade label. It never goes on a spec.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+The agent-queue label, which the ticket format puts on every agent ticket beside a worker-grade label. It never goes on a spec.
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`ready-for-human`**:
 The label of a person ticket: a ticket holding one thing only a person can do, of kind `reaction` or `reach`. Such a ticket holds only **the five things**, with no Seam, Owns, criteria or worker grade.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`, `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 **`reaction`**:
 The `ready-for-human` kind where the thing asserted is a person's reaction, so the person is the measuring instrument.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`reach`**:
 The `ready-for-human` kind where a machine would decide it if it could get to the thing: a device, a credential, a real environment, or a mechanism no ticket owns.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **the five things**:
 The fixed, minimal content of a `ready-for-human` ticket, the whole of it: **Parent**, **Which kind**, **What to look at**, **What makes it right**, **Blocked by**.
@@ -326,26 +326,26 @@ Wayfinder's single issue labelled `wayfinder:map` and `mmw:map`, the index of an
 _Home_: `mmw-v3/skills/wayfinder/SKILL.md`
 
 **agent brief**:
-The durable record the triage skill writes of what an evaluation established: an investigation record, not a work order. `to-spec` reads it as one of a spec's sources.
+The durable record the triage skill writes of what an evaluation established: an investigation record, not a work order. The `Write a spec` playbook reads it as one of a spec's sources.
 _Home_: `mmw-v3/skills/triage/AGENT-BRIEF.md`
 
 ### Publishing and linting
 
 **ambiguity scan**:
-The read-only pass over a spec and its drafted tickets that feeds questions into the `to-tickets` quiz's **Choices** before the breakdown is shown.
+The read-only pass over a spec and its drafted tickets, run by a subagent at step 6 of the `Cut tickets` playbook, that feeds questions into each ticket's **Choices** before the breakdown is shown to the owner.
 _Home_: `mmw-v3/skills/mmw-mode/references/ambiguity-scan.md`
 
 **Choices**:
-The line the `to-tickets` quiz shows for each ticket an agent works: every choice the fifth of **the five questions** sent there and every question the **ambiguity scan** returned, each with its options and the one the ticket writer would take. An answered choice is written into the ticket's `## What to build`, or back into the spec when it changes a decision there.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+The line the breakdown put to the owner at step 6 of the `Cut tickets` playbook shows for each ticket an agent works: every choice the fifth of **the five questions** sent there and every question the **ambiguity scan** returned, each with its options and the one the ticket writer would take. An answered choice is written into the ticket's `## What to build`, or back into the spec when it changes a decision there.
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
 **ticket draft**:
 An approved ticket written to a local file, `<draft name>.md`, in the directory `--lint --drafts <dir>` checks and `--publish --drafts <dir>` later creates as an issue: the header lines `TITLE:`, `LABELS:` and `BLOCKED BY:`, then `---`, then the body. The file's name, standing in for the issue number it does not have yet, is what `BLOCKED BY:` and the lint use to reference it.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+_Home_: `mmw-v3/skills/verify-ticket/references/linting.md`
 
 **publish**:
-Creating the spec or the tickets as GitHub issues, each ticket a native sub-issue of its spec, followed by the read-back step, which fetches every ticket again and runs `--lint` before the batch is reported as published.
-_Home_: `mmw-v3/skills/to-tickets/SKILL.md`
+`verify-ticket.py --publish`: creating the spec (`--spec-body`) or a batch's tickets (`<spec> --drafts <dir>`) as GitHub issues, each ticket a native sub-issue of its spec with its labels and blocking edges, ending by linting the published spec. The batch is read back from that lint, which alone sees the tracker's labels, sub-issues and edges, before it is reported as published.
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`, `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **lint**:
 `verify-ticket.py <n> --lint`: gate-lint plus the ticket-graph, worker-label and screen-contract checks, run on one ticket, on a spec's batch, or on the batch's drafts before publishing.
