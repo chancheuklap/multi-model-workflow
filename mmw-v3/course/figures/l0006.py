@@ -263,15 +263,15 @@ def net():
     _t(f, MX, 432, "已在 v3，不在这一课的范围")
     _pb(f, MX, 456, MW, "Investigation", "只读，交回带出处的答案；用 how、why")
     _t(f, MX, 530, "接入一个仓库，第一次和每次体检：")
-    _chip(f, "skill", MX, 540, "setup-mmw", dashed=True)
-    _t(f, MX, 584, "配齐仓库、产品、机器三层；")
+    _chip(f, "skill", MX, 540, "setup-mmw")
+    _t(f, MX, 584, "配齐仓库这一层，查机器这一层；")
     _t(f, MX, 602, "配不了的告诉你在哪里点什么")
     _t(f, MX, 642, "虚线框：还没写或还没搬")
     _t(f, MX, 660, "虚线箭头：同类兄弟之间按节借")
     _t(f, MX, 710, "一个会话从开始做到交付的，是一份")
     _t(f, MX, 728, "playbook。叫醒和你开口都回到同一个")
     _t(f, MX, 746, "会话，所以这两处都不切开。")
-    return f.svg(H + 16, "MMW 拆成的 playbook，虚线框是还没写的。白天你在场：Chart a map 画地图，之后每个会话 Resolve a map ticket 解决一张；地图上的设计票走 Design pages，你签字后 Pull a design，没有 screen contract 或增删控件时 Write the screen contract，第一次写就接着 Write a spec；地图清了你开新会话 Write a spec；Write a spec 最后一步 Run Cut tickets；你答的问题改了决定时 Run Revise a spec。以上 Chart a map、Resolve a map ticket、Write a spec、Cut tickets、Revise a spec 已写；Revise a spec 由 Run a night 的 contract 子票一节、Cut tickets、Write a spec 和 Triage 调用。Build a design system 不在主线上。你报来的缺陷走 Bug fix：诊断，写一张票，Run one ticket。一个会话做得完的小改动走 Make a small change：测试、验证、第二个读者、推到 base 分支。你说开始今晚，进夜里。夜里你不在：Run a night 是 orchestrator 一个会话，从 open 到 finish，十一步：开夜、advance、每次叫醒，收尾时给 finding 定去处、reverify、summary，retro，你验收后 finish，流水线坏了时 suspend；另有 contract 子票和 finding 分流两节；advance 开 worker 做 Work a ticket，worker 一个会话从认领到关票，中间 start reviewer 做 Review a ticket，reviewer.reported 叫醒同一个 worker；关票后 ticket.passed 叫醒 Run a night。Run one ticket 是夜外的一张票，叫醒和 contract 子票两节借 Run a night。早上你在场：你读 NIGHT SUMMARY 和 NIGHT RETRO，说验收，同一个 orchestrator 会话跑 Run a night 第 10 步的 finish；交回、留在 needs-triage 的票，你在任何会话里走 Triage：挑出要判的，逐张用 triage 技能判；agent 做的进 spec，走 Write a spec，或 Revise a spec 再 Cut tickets。右栏另有：Investigation，只读，用 how 和 why 交回带出处的答案；接入仓库用 setup-mmw 技能，配齐仓库、产品、机器三层，还没做。")
+    return f.svg(H + 16, "MMW 拆成的 playbook，虚线框是还没写的。白天你在场：Chart a map 画地图，之后每个会话 Resolve a map ticket 解决一张；地图上的设计票走 Design pages，你签字后 Pull a design，没有 screen contract 或增删控件时 Write the screen contract，第一次写就接着 Write a spec；地图清了你开新会话 Write a spec；Write a spec 最后一步 Run Cut tickets；你答的问题改了决定时 Run Revise a spec。以上 Chart a map、Resolve a map ticket、Write a spec、Cut tickets、Revise a spec 已写；Revise a spec 由 Run a night 的 contract 子票一节、Cut tickets、Write a spec 和 Triage 调用。Build a design system 不在主线上。你报来的缺陷走 Bug fix：诊断，写一张票，Run one ticket。一个会话做得完的小改动走 Make a small change：测试、验证、第二个读者、推到 base 分支。你说开始今晚，进夜里。夜里你不在：Run a night 是 orchestrator 一个会话，从 open 到 finish，十一步：开夜、advance、每次叫醒，收尾时给 finding 定去处、reverify、summary，retro，你验收后 finish，流水线坏了时 suspend；另有 contract 子票和 finding 分流两节；advance 开 worker 做 Work a ticket，worker 一个会话从认领到关票，中间 start reviewer 做 Review a ticket，reviewer.reported 叫醒同一个 worker；关票后 ticket.passed 叫醒 Run a night。Run one ticket 是夜外的一张票，叫醒和 contract 子票两节借 Run a night。早上你在场：你读 NIGHT SUMMARY 和 NIGHT RETRO，说验收，同一个 orchestrator 会话跑 Run a night 第 10 步的 finish；交回、留在 needs-triage 的票，你在任何会话里走 Triage：挑出要判的，逐张用 triage 技能判；agent 做的进 spec，走 Write a spec，或 Revise a spec 再 Cut tickets。右栏另有：Investigation，只读，用 how 和 why 交回带出处的答案；接入仓库用 setup-mmw 技能，配齐仓库这一层、查机器这一层，配不了的告诉你在哪里点什么。")
 
 
 # ---- figure 3: where each v2 skill's text goes ----
@@ -290,7 +290,7 @@ FATES_A = [
     ([("skill", "design-pages")], [("todo", "Design pages"), ("todo", "Pull a design"), ("todo", "Build a design system")],
      "还没搬"),
     ([("skill", "write-screen-contract")], [("todo", "Write the screen contract")], "还没搬"),
-    ([("skill", "setup-matt-pocock-skills")], [("skill", "setup-mmw")], "还没做：由它配齐整个仓库"),
+    ([("skill", "setup-matt-pocock-skills")], [("skill", "setup-mmw")], "配齐仓库这一层（第 11 课）"),
 ]
 
 # (name, what it does, in v3 yet)
@@ -369,7 +369,7 @@ def fates():
         y = dy + 32 + i * 34
         x = _chips(f, 16, y, src)
         _t(f, max(x + 8, 420), y + 16.5, why)
-    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 等界面验收那一课；code-review 的 session.md 成为 Review a ticket，code-review 留下三条轴；to-tickets 成为 Cut tickets，票的格式进 verify-ticket，歧义扫描的提示进 mmw-mode；to-spec 成为 Write a spec 和 Revise a spec；triage 里交给下一步的那几句成为 Triage，技能留下角色、逐张判断和模板；wayfinder 的两种做法成为 Chart a map 和 Resolve a map ticket，技能留下地图和它的票是什么；design-pages、write-screen-contract 还没搬；setup-mmw 还没做。B 一个动词，由 playbook 的步骤点名：已搬 grilling、domain-modeling、research、prototype（UI 那一支没搬）、tdd、diagnosing-bugs、code-review、ui-acceptance（判官没搬）、advisor、retro、triage。C 其余技能：已搬 to-questionnaire、writing-for-agents、teach、handoff、wait-what、diagram-design；还没搬 grill-with-docs、codebase-design、improve-codebase-architecture、manage-agents-md、code-checkers、exe-release、wizard。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，以及上游已删的 resolving-merge-conflicts。")
+    return f.svg(dy + hd + 8, "v2 每个技能的文字去哪，虚线是还没写或还没搬的。A 一种任务的做法搬进 playbook，技能只留下它管的那件东西的格式、规则和脚本：night.md 成为 Run a night，one-ticket.md 成为 Run one ticket，dispatch 留下脚本、换模型和 On waking；implement 成为 Work a ticket，技能删掉，写界面代码那份 reference 等界面验收那一课；code-review 的 session.md 成为 Review a ticket，code-review 留下三条轴；to-tickets 成为 Cut tickets，票的格式进 verify-ticket，歧义扫描的提示进 mmw-mode；to-spec 成为 Write a spec 和 Revise a spec；triage 里交给下一步的那几句成为 Triage，技能留下角色、逐张判断和模板；wayfinder 的两种做法成为 Chart a map 和 Resolve a map ticket，技能留下地图和它的票是什么；design-pages、write-screen-contract 还没搬；setup-matt-pocock-skills 成为 setup-mmw，配齐仓库这一层。B 一个动词，由 playbook 的步骤点名：已搬 grilling、domain-modeling、research、prototype（UI 那一支没搬）、tdd、diagnosing-bugs、code-review、ui-acceptance（判官没搬）、advisor、retro、triage。C 其余技能：已搬 to-questionnaire、writing-for-agents、teach、handoff、wait-what、diagram-design；还没搬 grill-with-docs、codebase-design、improve-codebase-architecture、manage-agents-md、code-checkers、exe-release、wizard。D 删掉的：v2 的 inside-a-ticket.md，dispatch.sh 的 adopt，verify-ticket 的两节路由，grill-me，以及上游已删的 resolving-merge-conflicts。")
 
 
 def _box_lines(f, kind, x, y, w, title, lines, mono_title=True):

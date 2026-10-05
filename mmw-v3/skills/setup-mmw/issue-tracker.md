@@ -1,0 +1,82 @@
+# Issue tracker: GitHub
+
+Issues, maps, specs and tickets for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+
+## Conventions
+
+- **Every list read is a whole list.** `gh issue list` stops at 30 without `-L`, and a `gh api` list
+  endpoint returns only its first page without `--paginate`. Both truncate in silence: the output
+  carries no marker, so a half-read set reads exactly like a complete one. A spec's tickets, a map's
+  children, a frontier and the `needs-triage` queue are sets, and an agent that cannot see a ticket
+  treats it as absent. Pass `-L <n>` above any count this repository can reach, or `--paginate` with
+  `?per_page=100`, on every one of them. The tree under a map or a spec is the one set not read list
+  by list: see **Reading a tree** below.
+- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
+- **List issues**: `gh issue list --state open --limit 500 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
+- **Comment on an issue**: `gh issue comment <number> --body "..."`
+- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
+- **Close**: `gh issue close <number> --comment "..."`
+- **Re-parent**: `gh issue edit <number> --parent <parent>` attaches issue `<number>` under parent `<parent>`; `gh issue edit <number> --remove-parent` detaches it.
+
+Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+
+## Reading a tree
+
+The tree below a map or a spec is read in one GraphQL query by the `verify-ticket` skill's
+`scripts/issue_tree.py` (`python3 <that script> <issue> --root map|spec|ticket`, default `spec`). It
+exits 2, and answers nothing, when a list comes back shorter than GitHub's count for it.
+
+## Three label sets
+
+Three sets, each answering one question, none standing in for another:
+
+| Set | Answers | Labels |
+| --- | --- | --- |
+| Layer | which layer of the tree this issue is | `mmw:map` · `mmw:spec` · `mmw:ticket` · `mmw:child` |
+| Queue | who it is waiting on | `needs-triage` · `needs-info` · `ready-for-agent` · `ready-for-human` · `wontfix` ([triage-labels.md](triage-labels.md)) |
+| Grade | which worker row starts it | `junior-worker` · `senior-worker` |
+
+The layer labels, put on by:
+
+| Label | Put on by |
+| --- | --- |
+| `mmw:map` | Chart a map, creating the map |
+| `mmw:spec` | `verify-ticket.py --publish --spec-body`, which Write a spec runs |
+| `mmw:ticket` | `verify-ticket.py --publish --drafts`, which Cut tickets runs; `dispatch.sh route … became-ticket` |
+| `mmw:child` | `verify-ticket.py --sub-issue` |
+
+A layer label puts an issue in no queue.
+
+These three sets and the `wayfinder:*` labels below are created together, once, by the `setup-mmw` skill, with the colour and description `verify-ticket.py` defines for each. Nothing else creates one: a script about to put one on refuses when the repository lacks it.
+
+## Pull requests as a triage surface
+
+**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; the triage skill reads this flag.)_
+
+When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
+
+- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
+- **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
+- **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
+
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
+
+## When a skill says "publish to the issue tracker"
+
+Create a GitHub issue.
+
+## When a skill says "fetch the relevant ticket"
+
+Run `gh issue view <number> --comments`.
+
+## Wayfinding operations
+
+Used by Chart a map and Resolve a map ticket. The **map** is a single issue whose children are **decision tickets**.
+
+- **Map**: a single issue labelled `wayfinder:map` and `mmw:map`, holding the map body the `wayfinder` skill describes. `gh issue create --label wayfinder:map --label mmw:map`.
+- **Decision ticket**: an issue linked to the map as a GitHub sub-issue (`gh api --paginate repos/<owner>/<repo>/issues/<map>/sub_issues?per_page=100`). Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket carries an assignee.
+- **Blocking edge**: GitHub's **native issue dependencies**, the canonical, UI-visible representation. Add one with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only, the live gate). A ticket is unblocked when every blocker is closed.
+- **Frontier query**: list the map's open children (`gh issue list --state open --limit 500`, scoped to the map's sub-issues read with `--paginate`), drop any carrying `mmw:spec`, any with an open blocker (`issue_dependencies_summary.blocked_by > 0`) or an assignee; first in map order wins. This query serves maps; the night's frontier is a different one, defined in the `dispatch` skill's `scripts/status.py`.
+- **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
+- **Resolution**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions so far.

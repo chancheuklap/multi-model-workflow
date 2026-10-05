@@ -1714,7 +1714,8 @@ reset_log() {
   unset MMW_FAKE_HERDR_SCENARIO MMW_FAKE_HERDR_PROMPT MMW_FAKE_SEND_FAILS
   unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND MMW_FAKE_USES
   unset MMW_FAKE_NMEM_SCENARIO
-  printf '%s\n' '{"spaces":{},"agents":{}}' > "$MMW_FAKE_NMEM_STATE"
+  # The fixture repository o/r has been set up: its Space exists in the shape setup-mmw gives it.
+  printf '%s\n' '{"spaces":{"o__r":{"id":"o__r","name":"o/r","defaultRetrievalMode":"shared","sharedSpaceIds":["mmw-toolbox"]}},"agents":{}}' > "$MMW_FAKE_NMEM_STATE"
   printf '%s\n' '{"status":"complete","total":0,"returned":0,"decisions":[]}' > "$MMW_EMPTY_MEMORY_DECISIONS"
   rm -rf "$MMW_HOME/leases"
   no_relay
@@ -2218,8 +2219,10 @@ TOOLS=(--tools "$TMP/fake/skills/ui-acceptance/scripts" --tools "$TMP/fake/skill
 skill_copy_for() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
-  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/ui-acceptance/scripts"
+  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/ui-acceptance/scripts" \
+    "$TMP/fake/skills/setup-mmw/scripts"
   cp -R "$SKILL/hosts.json" "$SKILL/roles.json" "$SKILL/scripts" "$SKILL/references" "$copy/"
+  cp "$(dirname "$SKILL")/setup-mmw/scripts/space.py" "$TMP/fake/skills/setup-mmw/scripts/"
   cp "$(dirname "$SKILL")/ui-acceptance/scripts/lease.py" \
      "$(dirname "$SKILL")/ui-acceptance/scripts/refusal.py" \
      "$TMP/fake/skills/ui-acceptance/scripts/"
@@ -6135,7 +6138,7 @@ scenario_startnomodelsjson() {
 
 scenario_memory_open_space() {
   local code
-  echo "--- open creates this repository's shared Space with only mmw-toolbox shared"
+  echo "--- open checks this repository's Space and writes to none"
   reset_log
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
@@ -6153,55 +6156,49 @@ PY
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "open expected 0: $(cat "$TMP/err")"
-  has "nmem :: --json :: spaces :: create :: o/r :: --id :: o__r :: --retrieval-mode :: shared :: --share-with :: mmw-toolbox"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repository Space was not created exactly"
-import json, sys
-spaces = json.load(open(sys.argv[1]))["spaces"]
-row = spaces["o__r"]
-assert row == {"id":"o__r", "name":"o/r", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, row
-assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
-assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
-PY
-  hasnt "nmem :: --json :: spaces :: update :: default"
-  hasnt "nmem :: --json :: spaces :: update :: else__where"
-  hasnt ":: --id :: default"
-  hasnt ":: --id :: else__where"
+  has "nmem :: --json :: spaces :: show :: o__r"
+  hasnt "nmem :: --json :: spaces :: create"
+  hasnt "nmem :: --json :: spaces :: update"
   no_relay
 
-  echo "--- open repairs a wrong repository Space"
+  echo "--- a repository never set up: open refuses, names setup-mmw, and creates no Space"
+  reset_log
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); del d["spaces"]["o__r"]; json.dump(d,open(p,"w"))
+PY
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  write_open_batch
+  seed_main_agent agt_main
+  local remote_before
+  git -C "$TMP/repo" commit -q --allow-empty -m "ahead of origin, which open would push"
+  remote_before="$(git -C "$TMP/repo" ls-remote origin)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 2 ] || fail "open without a Space expected 2, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" ls-remote origin)" = "$remote_before" ] \
+    || fail "a refused open pushed to origin: $(git -C "$TMP/repo" ls-remote origin)"
+  grep -q '^dispatch: repository Memory unavailable: .*setup-mmw' "$TMP/err" \
+    || fail "the refusal should name setup-mmw: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: spaces :: create"
+  hasnt "spec.opened"
+  no_relay
+
+  echo "--- a Space in the wrong shape: open refuses and repairs nothing"
+  reset_log
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["o__r"]={"id":"o__r","name":"wrong","defaultRetrievalMode":"strict","sharedSpaceIds":["default","mmw-toolbox"]}; json.dump(d,open(p,"w"))
 PY
-  : > "$MMW_TEST_LOG"; seed_main_agent agt_main
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  write_open_batch
+  seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "repairing open expected 0: $(cat "$TMP/err")"
-  has "nmem :: --json :: spaces :: update :: o__r :: --name :: o/r :: --retrieval-mode :: shared :: --clear-shared :: --share-with :: mmw-toolbox"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repair changed an unrelated Space"
-import json, sys
-spaces = json.load(open(sys.argv[1]))["spaces"]
-assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
-assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
-PY
-  hasnt "nmem :: --json :: spaces :: update :: default"
-  hasnt "nmem :: --json :: spaces :: update :: else__where"
-  hasnt ":: --id :: default"
-  hasnt ":: --id :: else__where"
-  no_relay
-
-  echo "--- open performs no Space write when its shape is already exact"
-  : > "$MMW_TEST_LOG"; seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "idempotent open expected 0: $(cat "$TMP/err")"
-  has "nmem :: --json :: spaces :: show :: o__r"
-  hasnt "nmem :: --json :: spaces :: create"
+  [ "$code" = 2 ] || fail "open with a wrong Space expected 2, got $code: $(cat "$TMP/err")"
+  grep -q 'setup-mmw skill repairs it' "$TMP/err" || fail "the refusal should name setup-mmw: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: spaces :: update"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "idempotent open changed an unrelated Space"
-import json, sys
-spaces = json.load(open(sys.argv[1]))["spaces"]
-assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
-assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
-PY
+  hasnt "spec.opened"
   no_relay
 }
 
@@ -6340,8 +6337,6 @@ def search(query):
     return ["--json", "memories", "search", "--space", "o__r", "--label", "mmw-experience",
             "--limit", "10", "--", query]
 expected = [
-    ["--json", "spaces", "show", "o__r"],
-    ["--json", "spaces", "create", "o/r", "--id", "o__r", "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"],
     ["--json", "spaces", "show", "o__r"],
 ]
 if shape != "wrong-parent":
@@ -6543,8 +6538,6 @@ calls = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if lin
 expected = [["--json", "context", "read", "--space", "o__r",
              "--agent-id", "mmw-reviewer", "--no-working-memory"]]
 expected = [
-    ["--json", "spaces", "show", "o__r"],
-    ["--json", "spaces", "create", "o/r", "--id", "o__r", "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"],
     ["--json", "spaces", "show", "o__r"],
 ] + expected
 assert calls == expected, (calls, expected)

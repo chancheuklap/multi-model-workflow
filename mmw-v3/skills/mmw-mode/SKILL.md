@@ -51,7 +51,8 @@ prose → unslop. The comparison and its results are in mmw-v3/course lesson 4, 
 The PRODUCT_RULES sentence of mmw-v2/skills/dispatch/scripts/dispatch.sh, which every
 worker's start prompt carried → the ui-acceptance skill's five rules (mmw-v3/course
 lesson 5, decision 5). The how line is poteto-mode's own, brought in with the how skill
-(mmw-v3/course lesson 6, section 5).
+(mmw-v3/course lesson 6, section 5). The setup-mmw line: a repository not set up is met in
+several playbooks and scripts, and only that skill sets one up (mmw-v3/course lesson 11).
 -->
 
 The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
@@ -62,6 +63,7 @@ Remaining triggers:
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows the **writing-for-agents** skill.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Starting, reaching or stopping the product, while other runs share this machine → the **ui-acceptance** skill's **Five rules while the product is running**, before the first command.
+- A repository not set up for the pipeline (a `docs/agents/` file, a label or the Memory Space missing), or the owner asks to set one up or check it → the **setup-mmw** skill.
 
 ## Principles
 

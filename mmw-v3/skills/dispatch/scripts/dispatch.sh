@@ -493,85 +493,14 @@ repo_slug() {
   printf '%s\n' "$slug"
 }
 
-# Make this repository's Memory boundary explicit before a night opens or any agent
-# starts. Only a confirmed 404 is absence, so an unavailable service never triggers a
-# create as a substitute.
+# Refuse, exit 1, unless this repository's Memory Space exists in the exact shape the
+# `setup-mmw` skill's `space.py` gives it: checked before a night opens or any agent
+# starts. Only `setup-mmw` creates or repairs the Space; this never writes to it.
 ensure_repository_memory() {
-  local slug="$1"
-  MMW_REPOSITORY_SLUG="$slug" python3 - <<'PY'
-import json
-import os
-import shutil
-import subprocess
-import sys
-
-slug = os.environ["MMW_REPOSITORY_SLUG"]
-parts = slug.split("/", 1)
-if len(parts) != 2 or not all(parts):
-    sys.stderr.write(f"dispatch: repository Memory unavailable: {slug!r} is not owner/name\n")
-    raise SystemExit(1)
-ident = "__".join(part.lower() for part in parts)
-
-if shutil.which("nmem") is None:
-    sys.stderr.write("dispatch: repository Memory unavailable: this machine has no nmem\n")
-    raise SystemExit(1)
-
-
-def call(args):
-    return subprocess.run(["nmem", "--json", *args], text=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-
-def detail(proc):
-    return (proc.stderr or proc.stdout or f"exit {proc.returncode}").strip().replace("\n", "; ")
-
-
-def parse(proc):
-    try:
-        value = json.loads(proc.stdout)
-    except Exception:
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def exact(value):
-    return (isinstance(value, dict) and value.get("id") == ident
-            and value.get("name") == slug
-            and value.get("defaultRetrievalMode") == "shared"
-            and value.get("sharedSpaceIds") == ["mmw-toolbox"])
-
-
-shown = call(["spaces", "show", ident])
-if shown.returncode:
-    missing = "404" in (shown.stderr or "") and "Unknown space:" in (shown.stderr or "")
-    if not missing:
-        sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces show {ident} failed ({detail(shown)})\n")
-        raise SystemExit(1)
-    changed = call(["spaces", "create", slug, "--id", ident,
-                    "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"])
-    action = "create"
-else:
-    value = parse(shown)
-    if value is None:
-        sys.stderr.write(
-            f"dispatch: repository Memory unavailable: nmem spaces show {ident} "
-            f"did not return a JSON object ({detail(shown)})\n"
-        )
-        raise SystemExit(1)
-    if exact(value):
-        raise SystemExit(0)
-    changed = call(["spaces", "update", ident, "--name", slug,
-                    "--retrieval-mode", "shared", "--clear-shared",
-                    "--share-with", "mmw-toolbox"])
-    action = "update"
-
-verified = call(["spaces", "show", ident]) if changed.returncode == 0 else changed
-value = parse(verified)
-if changed.returncode or verified.returncode or not exact(value):
-    why = detail(changed) if changed.returncode else (detail(verified) if verified.returncode else "the stored JSON has the wrong shape")
-    sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces {action} {ident} failed ({why})\n")
-    raise SystemExit(1)
-PY
+  local slug="$1" out
+  out="$(python3 "$SPACE" --check "$slug" 2>&1)" && return 0
+  echo "dispatch: $out" >&2
+  return 1
 }
 
 # The runner and session this process itself runs in, "runner<TAB>session", as that
@@ -914,13 +843,14 @@ open_night() {
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
     || refuse "the checkout has no branch to record as spec.opened.into"
+  # A repository that is not set up is refused before anything is pushed.
+  repository="$(repo_slug)" || exit 2
+  ensure_repository_memory "$repository" || exit 2
   fetch_origin "$root" || exit 2
   rows="$(inspect_open_branches "$root" "$spec" "$into")" || exit 2
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
   push_open_branches "$root" "$rows" || exit 2
   sync_base_with_project "$root" "$into" "$project" || exit 2
-  repository="$(repo_slug)" || exit 2
-  ensure_repository_memory "$repository" || exit 2
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
@@ -4716,6 +4646,7 @@ tool() {
 SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
 LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/ui-acceptance/scripts/lease.py")"
 VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
+SPACE="$(tool space.py || printf '%s\n' "$SKILLS_ROOT/setup-mmw/scripts/space.py")"
 EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
 [ -f "$EVENTS" ] \
   || refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"

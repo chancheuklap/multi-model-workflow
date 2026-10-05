@@ -1,0 +1,43 @@
+---
+name: setup-mmw
+description: "Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
+---
+
+# Set up MMW
+
+Sets a repository up for the landing pipeline: every file, label and Space the pipeline needs once per repository, checked, created where this skill can create it, and reported where only the owner can act. It hands back the check's table from before and after, what it wrote and created, and what is still missing with who has to act. Re-running it is safe, so it is also the check-up of a repository already set up: `scripts/check.py` writes nothing, and every write below keeps what is already there.
+
+What you write here is read at the moment of acting by every playbook that publishes or triages an issue, by every script that puts a label on one, and by every worker and reviewer of every night. A wrong command or a missing section is repeated by each spec, ticket and night after it, without an error. So make each file true of this repository rather than filling in a template: check a command against the repository before you write it down.
+
+This skill is the only thing that creates the pipeline's labels and the repository's Memory Space. The scripts that use them only ask, and refuse when one is missing.
+
+## Start
+
+Open a todolist with one item per step below.
+
+## Steps
+
+1. **Check.** From the repository root, run `python3 scripts/check.py` of this skill. It prints one line per item, `ok`, `missing`, `note` or `unchecked`, under the layers `repository` and `machine`, then `SETUP OK` or `SETUP INCOMPLETE <n> missing`.
+   Done when you hold its table.
+2. **Stop if the tracker is not GitHub.** The pipeline's store is GitHub Issues with sub-issues and issue dependencies, reached through `gh`; nothing else works. When the `tracker` row or the `sub-issues and dependencies` row is `missing`, tell the owner what the row says to do, set up nothing, and stop.
+   Done when both rows are `ok`, or `sub-issues and dependencies` is `unchecked` because the repository has no issue yet.
+3. **Write `docs/agents/`.** Write `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md` and `docs/agents/domain.md` from this skill's `issue-tracker.md`, `triage-labels.md` and `domain.md`. A file already there is this repository's own record and the seed only where it started: add what the seed has and the file lacks, change a line only where it is wrong for this repository, and leave every other line as it stands; tell the owner the other differences instead of resolving them. Keep the triage labels at their defaults, since the pipeline's scripts write the default strings. For `domain.md`, describe the layout the repository has: one root `CONTEXT.md` (single context) unless a root `CONTEXT-MAP.md` exists or the repository is a monorepo (`pnpm-workspace.yaml`, a `workspaces` field in `package.json`, packages under `packages/` with their own `src/`).
+   Done when the three files exist and `issue-tracker.md` has `## Three label sets` and `## Wayfinding operations`.
+4. **Point `AGENTS.md` and `CLAUDE.md` at them.** Add one row per `docs/agents/` file to the `## External References` table (`| Need | File |`) of the root `AGENTS.md`, creating the file or the section when it does not exist; a row already pointing at the same file is updated, not duplicated, and a pointer to it in another shape (an `## Agent skills` block, an `## Issue tracker` section) is replaced by the row. `CLAUDE.md` holds the line `@AGENTS.md`: create it with that line when it is missing, and add the line when it exists without it, leaving the rest of the file as it is.
+   Done when `AGENTS.md` names all three files and `CLAUDE.md` has the line `@AGENTS.md`.
+5. **Create the labels.** Run `python3 scripts/labels.py`. It creates every label of the pipeline the repository lacks, with the colour and description `verify-ticket.py` defines, and leaves the ones the repository has as they are.
+   Done when it printed `LABELS OK <n>`.
+6. **Create the Memory Space.** Run `python3 scripts/space.py <owner/name>`, with the owner/name the `tracker` row printed. It creates the repository's Space, or repairs one in the wrong shape, and reads it back.
+   Done when it exited 0.
+7. **Ignore the pipeline's directories.** Add `.worktrees/` and `.scratch/` to the root `.gitignore` when the `.gitignore` row says they are not ignored: ticket worktrees are cut under the first, prototype evidence is written under the second.
+   Done when `git check-ignore` reports both as ignored.
+8. **Record the repository's checks.** The `checks` array of `.mmw/target.json` is run at a ticket's closeout and again before it lands, and it is the one check a commit made with `--no-verify` still passes through. Find the commands this repository already uses to lint, type-check and test: its manifest's scripts, a `Makefile`, the `## Commands` table of `AGENTS.md`, its CI workflow. Run each once from the repository root on the branch nights are cut from; a command that fails there would fail every ticket, so it does not go in, and you tell the owner which one failed and its first failing line. Write the passing ones into `checks`, adding the key and leaving every other key of `.mmw/target.json` as it is, creating the file when it does not exist. When the repository has no such command, write no `checks` and tell the owner the repository has nothing to check its code with.
+   Done when `checks` lists every command that passed, or the reply says there is none.
+9. **Write `CODING_STANDARDS.md`.** When it is missing or has no `## Tests` section, write it from what the code does now: read enough of the repository's source and tests to state its conventions (naming, layout, errors, configuration, comments) and, under `## Tests`, where tests live, how one is run, which layers there are and which external boundaries are faked. Write only a rule the code already follows, each with a file that shows it. The worker reads this file before writing code, and the reviewer's Standards and Tests axes judge against it.
+   Done when the file exists with `## Tests`, or it already did.
+10. **Commit and push.** Commit every file steps 3 to 9 wrote, in one commit on the branch checked out, and push it: a night's worktrees are cut from `origin`, so a file only on this machine is one no worker reads. A push the remote refuses goes into the reply with its reason.
+    Done when the commit is on `origin`, or the reply says why it is not.
+11. **Check again.** Run `python3 scripts/check.py` again.
+    Done when you hold its second table.
+
+**Reply:** the second table's summary line; each item that changed between the two tables; what was written and created; each row still `missing` or `note`, with who acts on it: the owner for a GitHub setting or a branch rule, the machine's installer for a `machine` row, nobody yet for missing checks; and the commit and branch of step 10.
