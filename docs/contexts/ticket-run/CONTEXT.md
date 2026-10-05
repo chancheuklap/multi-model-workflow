@@ -7,7 +7,7 @@ One ticket from claim to close: the sessions that work and judge it, the events 
 ### Roles
 
 **worker**:
-The session dispatched to work one ticket from claim to closing comment, running the `implement` skill in the ticket's worktree. It starts its own reviewer and never closes the ticket by hand.
+The session dispatched to work one ticket from claim to closing comment, running the `Work a ticket` playbook of the `mmw-mode` skill in the ticket's worktree. It starts its own reviewer and never closes the ticket by hand.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **reviewer**:
@@ -15,11 +15,11 @@ The session a worker starts with `dispatch.sh start <n> reviewer` to review the 
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **advisor**:
-The second-opinion session on a stronger model, started with `dispatch.sh advise <brief file>` by whichever agent reached the decision. It implements nothing.
+The second-opinion session on a stronger model, started with `dispatch.sh brief advisor <brief file>` by whichever agent reached the decision, and answering it with `dispatch.sh report`. It implements nothing.
 _Home_: `mmw-v3/skills/advisor/SKILL.md`
 
 **brief**:
-What a caller hands the advisor, and the only thing the advisor sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude.
+What a caller hands a session `dispatch.sh brief` starts, the advisor among them, and the only thing that session sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude.
 _Avoid_: question packet, the packet
 _Home_: `mmw-v3/skills/advisor/SKILL.md`
 
@@ -46,18 +46,12 @@ The index of `mmw-experience` Memory records a worker's start finds by searching
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **save conditions**:
-`implement`'s three conditions that must all hold before a Memory is saved: another ticket or later agent may reuse the fact, a current command result or authority verifies it, and the ticket and code do not already make it obvious.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
+The three conditions that must all hold before a worker saves a Memory: another ticket or later agent may reuse the fact, a current command result or authority verifies it, and the ticket and code do not already make it obvious.
+_Home_: `mmw-v3/skills/mmw-mode/references/memory.md`
 
 **`MMW_TICKET`**:
 The environment variable holding the ticket number: in a worker's process, set by `dispatch.sh start <n> worker`, and in a criterion's shell, set by `verify-ticket.py`.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
-
-### Reviewer Rules
-
-**reviewer Rules**:
-The Nowledge Mem Rules the user approved that `dispatch.sh start <n> reviewer` copies into the reviewer's start prompt. They decide what the reviewer inspects; every finding still needs a current source.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 ### Comments on the ticket
 
@@ -99,7 +93,7 @@ The first line of an issue comment: prose for a person on an event, and a script
 _Home_: `mmw-v3/skills/verify-ticket/scripts/events.py`
 
 **`worker.started`, `reviewer.started`**:
-The event (a started event) `dispatch.sh start` posts once the runner has started the session, naming its runner, the runner's id for it and the machine. It is the only record of the session, and it begins a hold.
+The event (a started event) `dispatch.sh start` posts once the runner has started the session, naming its runner, the runner's id for it, its worktree, branch, base commit and base branch (`into`). It is the only record of the session, and it begins a hold.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.claimed`, `ticket.refused`**:
@@ -160,11 +154,11 @@ _Home_: `mmw-v3/skills/verify-ticket/references/sub-issues.md`
 
 **the kind questions**:
 The ordered yes/no ladder that picks a cut-out child's kind, the first `yes` deciding it: is the pipeline itself broken or the product unreachable (`fault`); does a baseline, named spec section or acceptance criterion fail to hold (`contract`); do the sources say nothing while defensible readings would produce observably different outcomes (`decision`); is it a review defect outside `## Owns` (`finding`); is it a merely convenient change outside `## Owns` (`deferred`).
-_Avoid_: the five questions (`to-tickets`' own name for a different five-step ladder, which decides how something becomes an acceptance criterion, a review judgement, a `reaction`/`reach` ticket, or a user choice)
+_Avoid_: the five questions (the ticket format's own name, in the `verify-ticket` skill's `references/ticket-format.md`, for a different five-step ladder, which decides how something becomes an acceptance criterion, a review judgement, a `reaction`/`reach` ticket, or a user choice)
 _Home_: `mmw-v3/skills/verify-ticket/references/sub-issues.md`
 
 **`ticket.checked`**:
-One run of a ticket's criteria, or of the repository's `checks`, on one commit. Its `run` says whose: `self`, `reverify`, `repo-checks` or `baseline`; its `stage` (`CHECK_STAGES`) groups those into `claim`, `work`, `verify` or `close`, and a `reverify` by the orchestrator (`actor` `main`) is `regress`.
+One run of a ticket's criteria on one commit. Its `run` says whose: `self`, `reverify` or `baseline`; its `stage` (`CHECK_STAGES`) groups those into `claim`, `work`, `verify` or `close`, and a `reverify` by the orchestrator (`actor` `main`) is `regress`.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **baseline run**:
@@ -175,13 +169,9 @@ _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 The event `--touched` posts on an open sibling ticket whose `## Owns` covers a file this ticket changed outside its own Owns.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
-**`worker.queued`**:
-The event a run of a ticket's criteria posts when it needs the product and no **slot** is free, its reason `product-full` (the product's own instance cap) or `machine-full` (every slot of the machine). The worker ends its turn, and the relay wakes it when a slot is given back.
-_Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
-
 **`worker.decided`**:
 The event (the `DECISIONS` comment) `--decisions <file>` posts once, before the reviewer starts: the worker's `## Decisions I made on my own`, one line per decision, and `## Outside Owns`, one line per file changed outside `## Owns` with the reason. The Spec axis gives each line `reasonable` or `should not`.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
+_Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **review report**:
 The reviewer's one report on the ticket, carried by `reviewer.reported`: first line `REVIEW <base-commit>..<HEAD commit>`, then the axis reports, the refuted findings, and the in-ticket and out-of-ticket findings.
@@ -244,15 +234,15 @@ One dimension of a code review — Standards, Spec, Tests, and UI when the ticke
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **story criterion**:
-A `CHECK:` that names `story-parity.py`: what tells the reviewer to run a fourth axis, UI. `implement`'s `references/writing-interface-code.md` is read when **Read first** lists a screen contract, not because of this criterion.
+A `CHECK:` that names `story-parity.py`: what tells the reviewer to run a fourth axis, UI. The `ui-acceptance` skill's `references/writing-interface-code.md` is read when **Read first** lists a screen contract, not because of this criterion.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **Holds / `refuted` / Could not tell**:
-The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or **Could not tell** (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across `code-review` and `implement`.
+The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or **Could not tell** (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across the `Review a ticket` and `Work a ticket` playbooks.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **review category**:
-The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: a Standards smell or `less-code`/`pass-through`, a Tests shape, a Spec or UI kind, or `documented-standard` for a breach of a rule the repository itself documents. Distinct from the retro's categories (`retro.py` `CATEGORIES`).
+The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: the rule of a `CODING_STANDARDS.md` it breaks, its Spec or UI kind, `documented-standard` for a breach of what `TESTING.md` or the domain glossary states, or else `less-code` or `pass-through` for a Standards finding. Distinct from the retro's categories (`retro.py` `CATEGORIES`).
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **review finding**:
@@ -276,8 +266,8 @@ The UI axis's three kinds of review finding, each about what its story screensho
 _Home_: `mmw-v3/skills/code-review/references/ui-reviewer.md`
 
 **Only the happy path**:
-The Tests axis's own sixth test-smell shape, alongside five drawn from the `tdd` skill: a case in scope covers only the ordinary input while the code it tests has an edge, a boundary, or an error path the criterion's behaviour depends on, left untested.
-_Home_: `mmw-v3/skills/code-review/references/tests-reviewer.md`
+A rule under `## Tests` in the `code-review` skill's general `CODING_STANDARDS.md`, which the Tests axis applies: a case in scope covers only the ordinary input while the code it tests has an edge, a boundary, or an error path the requested behaviour depends on, left untested.
+_Home_: `mmw-v3/skills/code-review/CODING_STANDARDS.md`
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.
@@ -290,7 +280,7 @@ _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md`
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`NOT_READY:`, `READY:`, `RESUME:`, `CARRIED:`**:
-The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY:` on stderr when it cannot, with a sentence saying why and what to do next (the refusal's code, `wrong-branch`, `dirty-tree`, `not-open`, `not-ready`, `blocked` or `claimed-by-other`, goes into the `ticket.refused` event's `reason`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim.
+The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY:` on stderr when the checkout is wrong for the claim, with a sentence saying why and what to do next (the refusal's code, `wrong-branch` or `dirty-tree`, goes into the `ticket.refused` event's `reason`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:
@@ -308,11 +298,11 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 ### Working discipline
 
 **code-writing rules**:
-The rules under `implement`'s `While writing code:` that govern every write on a ticket, the fixes of the review round included.
+The rules under `While writing:` in step 2 of the `Work a ticket` playbook that govern every write on a ticket, the fixes of the review round included.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
 
 **closing steps**:
-What `implement` does once the code is written, from integrating the base branch through the review, the **final run** and the Audit to `--closeout`.
+What the `Work a ticket` playbook does once the code is written, steps 3 to 11: from integrating the base branch through the review, the **final run** and the Audit to `--closeout`.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
 
 **final run**:
@@ -326,6 +316,3 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
 **closeout**:
 `verify-ticket.py <n> --closeout <draft>`: it checks the closing-comment draft against the ticket and the repository and, only when it passes, pushes the branch, closes the ticket or hands it back, and posts the closing comment as an event. A worker's command that would go around it is refused by `tool-guard.py`.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
-
-### Writing interface code
-
