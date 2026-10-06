@@ -8,8 +8,11 @@ here: the columns, a Chinese name and one sentence for each component, the decis
 the owner's, the links no step names (who starts which session, what a script reads and writes), and
 the typical paths. The page's script draws the network from the JSON this returns."""
 import json
+import html
 import re
 from pathlib import Path
+
+from kit import fits, tw
 
 REPO = Path(__file__).resolve().parents[3]
 SKILLS = REPO / "mmw-v3" / "skills"
@@ -204,11 +207,26 @@ HAND = {
     "r:mem": ("record", "external", "Nowledge Mem", "共享记忆", "worker 留给后来者的经验、每夜的 Retro Memory；关夜时逐条决定去留。", "外部", "mmw-v3/skills/mmw-mode/references/memory.md"),
     "r:claude-design": ("record", "external", "Claude Design", "画页面的地方", "你和里面的 agent 画页面；这边经它的工具读写项目。", "外部", "mmw-v3/skills/design-pages/SKILL.md"),
     "r:runner": ("record", "external", "runner 与宿主", "Orca、Herdr、Paseo；Claude Code、Codex、Grok、Cursor", "runner 开出并托管会话，宿主是真正跑模型的命令行程序。", "外部", "mmw-v3/skills/dispatch/hosts.json"),
+    "r:decisions": ("record", "tracker", "DECISIONS 评论", "worker 自己定的事", "worker 在开 reviewer 之前贴一次：票和 spec 都没定、它自己定的每件事，以及它改了 Owns 以外哪些文件、为什么。Spec 轴逐条判 reasonable 或 should not。", "GitHub", "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"),
+    "r:review": ("record", "tracker", "评审报告", "REVIEW 开头的评论", "reviewer 把四个轴的报告、撤回的发现、票内与票外两张清单贴在票上；它叫醒 worker。", "GitHub", "mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md"),
+    "r:closing": ("record", "tracker", "收尾评论", "--closeout 贴出", "每条标准的结果、每条评审发现怎样处理、worker 自己定的事。后面的 worker 合并冲突时、Spec 轴读已合入的票时都读它；它叫醒 orchestrator。", "GitHub", "mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md"),
+    "r:glossary": ("record", "file", "CONTEXT.md 与 ADR", "领域词汇与架构决定", "仓库里的领域词汇表和架构决定记录。白天写 spec、拆票时用它的词，worker 第 2 步读，Standards 轴拿它判命名；ADR 列进票的 Read first 时就是基线。", "git", "mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md"),
+    "r:sources": ("record", "file", "研究与原型", "docs/research、原型目录", "白天调研和原型的结论。写 spec 时全读；被票的 Read first 列出的那几份，worker 读到结论，Spec 轴把记了结论的当基线。", "git", "mmw-v3/skills/verify-ticket/references/ticket-format.md"),
+    "r:testing": ("record", "file", "TESTING.md", "仓库的测试事实", "测试放在哪、怎么跑、有哪些层、哪些外部边界替换成假的、测试怎样把系统放进一个状态。写 spec 的会话全读，把用得上的行抄进 spec；worker 只读 spec 里抄的那几行；Tests 轴读全文。", "git", "mmw-v3/skills/setup-mmw/SKILL.md"),
+    "r:coding-repo": ("record", "file", "仓库的 CODING_STANDARDS.md", "只在这个仓库成立的规则", "可选，在仓库根目录，和通用那份同样的表格。只有评审读：Standards 轴用 ## Code，Tests 轴用 ## Tests；和通用那份冲突时它赢。", "git", "mmw-v3/skills/manage-agents-md/SKILL.md"),
+    "ref:coding-standards": ("skill", "reference", "CODING_STANDARDS.md", "通用的代码与测试规则", "code-review 技能里的规则表。原文写明「The author of a change does not read this file」：写代码的不读，规则在评审时对着 diff 用。它随轴文件写进 Standards 和 Tests 两个轴的 prompt。", "评审独有", "mmw-v3/skills/code-review/CODING_STANDARDS.md"),
+    "ref:axis-files": ("skill", "reference", "四份轴文件", "standards / spec / tests / ui-reviewer.md", "每个审查轴的全部指引。reviewer 把它原样写进子代理的 prompt，轴看不到 reviewer 会话里别的东西。", "评审独有", "mmw-v3/skills/code-review/references/"),
+    "ref:memory-md": ("skill", "reference", "memory.md", "worker 怎样读写 Memory", "worker 第 2 步打开：怎样读 start prompt 里的两份 Memory 索引，什么时候存一条经验、怎样存。", "worker 独有", "mmw-v3/skills/mmw-mode/references/memory.md"),
+    "ref:interface-code": ("skill", "reference", "writing-interface-code.md", "写页面票的规则", "票的 Read first 列了屏幕契约时，worker 第 2 步读。", "worker 独有", "mmw-v3/skills/ui-acceptance/references/writing-interface-code.md"),
+    "ref:ticket-format": ("skill", "reference", "ticket-format.md", "票的格式", "一张票每节写什么、每条验收标准怎么写。拆票的白天会话照它写，worker 和 reviewer 读的是照它写出的票。", "白天独有", "mmw-v3/skills/verify-ticket/references/ticket-format.md"),
+    "ref:ambiguity-scan": ("skill", "reference", "ambiguity-scan.md", "歧义扫描的指引", "拆票第 6 步派出的歧义扫描子代理读它，扫 spec 和草稿票里没定或含糊的决定。", "白天独有", "mmw-v3/skills/mmw-mode/references/ambiguity-scan.md"),
+    "ro:day": ("role", "session", "白天会话", "你开的会话跑白天的 playbook", "和你讨论，把来源读到结论，把定下的东西写成地图、spec 和票。夜里的会话看不到这场对话，只读这些记录。", "会话", "mmw-v3/skills/mmw-mode/SKILL.md (## Playbooks)"),
     "r:build": ("record", "external", "Windows 构建机", "打包的机器", "接收 git archive HEAD，编译并打安装包。", "外部", "mmw-v3/skills/exe-release/references/new-product.md"),
 }
 
 MACHINE_GROUPS = ["调度", "验票", "产品验收", "设计", "其他", "工具箱"]
 RECORD_GROUPS = ["GitHub", "git", "本机", "外部"]
+REF_GROUPS = ["白天独有", "worker 独有", "评审独有"]
 
 # Which scripts a step's text names, by the file name an agent types.
 SCRIPT_NAMES = [
@@ -274,6 +292,41 @@ LINKS = [
     ("pb:run-a-night", "r:spec", "reads", "一批票"),
     # sessions a skill or playbook starts
     ("sk:code-review", "ro:code-review axis", "starts", "四个轴"),
+    # the day session
+    ("en:you", "ro:day", "starts", "你开的会话"),
+    *[("ro:day", f"pb:{p}", "runs", "照着做") for p in ("chart-a-map", "resolve-a-map-ticket", "write-a-spec", "revise-a-spec", "cut-tickets", "triage")],
+    # each file a skill hands to one role
+    ("sk:code-review", "ref:coding-standards", "calls", "它的文件"), ("sk:code-review", "ref:axis-files", "calls", "它的文件"),
+    ("mode", "ref:memory-md", "calls", "它的文件"), ("mode", "ref:ambiguity-scan", "calls", "它的文件"),
+    ("sk:ui-acceptance", "ref:interface-code", "calls", "它的文件"), ("sk:verify-ticket", "ref:ticket-format", "calls", "它的文件"),
+    ("sk:setup-mmw", "r:testing", "writes", "缺时写"), ("pb:write-agents-md", "r:testing", "writes", "移入测试规则"),
+    ("pb:write-agents-md", "r:coding-repo", "writes", "移入代码规则"),
+    # handoff records
+    ("pb:work-a-ticket", "r:decisions", "writes", "第 4 步"), ("pb:work-a-ticket", "r:closing", "writes", "第 11 步"),
+    ("pb:review-a-ticket", "r:review", "writes", "第 5 步"), ("r:review", "ro:worker", "wakes", "reviewer.reported"),
+    ("r:closing", "ro:orchestrator", "wakes", "ticket.passed"),
+    # context: what each session or subagent is given, and at which step
+    ("ro:day", "r:map", "gets", "写 spec 第 1 步"), ("ro:day", "r:sources", "gets", "写 spec 第 1 步，全读"),
+    ("ro:day", "r:glossary", "gets", "写 spec 第 2 步"), ("ro:day", "r:contract", "gets", "写 spec 第 2 步，全读"),
+    ("ro:day", "r:testing", "gets", "写 spec 第 3 步，全读"), ("ro:day", "ref:ticket-format", "gets", "拆票全程"),
+    ("ro:day", "r:spec", "writes", "写 spec 第 4 步"), ("ro:day", "r:ticket", "writes", "拆票第 7 步"),
+    ("ro:worker", "en:prompt", "gets", "开会话时"), ("ro:worker", "r:ticket", "gets", "第 2 步，全文和评论"),
+    ("ro:worker", "r:spec", "gets", "第 2 步，票点名的节"), ("ro:worker", "r:sources", "gets", "第 2 步，Read first"),
+    ("ro:worker", "r:glossary", "gets", "第 2 步"), ("ro:worker", "r:design", "gets", "第 2 步，照抄"),
+    ("ro:worker", "r:contract", "gets", "第 2 步，拥有的行"), ("ro:worker", "r:mem", "gets", "索引在 prompt，第 2 步打开"),
+    ("ro:worker", "sk:tdd", "gets", "第 2 步"), ("ro:worker", "ref:memory-md", "gets", "第 2 步"),
+    ("ro:worker", "ref:interface-code", "gets", "页面票第 2 步"), ("ro:worker", "r:review", "gets", "第 6 步"),
+    ("ro:worker", "r:closing", "gets", "第 3 步，冲突时读已合入的"),
+    ("ro:reviewer", "en:prompt", "gets", "开会话时"), ("ro:reviewer", "r:ticket", "gets", "第 2 步"),
+    ("ro:reviewer", "sk:code-review", "gets", "第 2 步"),
+    ("ro:code-review axis", "ref:axis-files", "gets", "prompt 里全文"),
+    ("ro:code-review axis", "ref:coding-standards", "gets", "Standards、Tests：prompt 里全文"),
+    ("ro:code-review axis", "r:coding-repo", "gets", "Standards、Tests：有就读"),
+    ("ro:code-review axis", "r:testing", "gets", "Tests 轴，全文"), ("ro:code-review axis", "r:glossary", "gets", "Standards 轴"),
+    ("ro:code-review axis", "r:ticket", "gets", "每个轴，全文和评论"), ("ro:code-review axis", "r:decisions", "gets", "Spec 轴逐条判"),
+    ("ro:code-review axis", "r:spec", "gets", "Spec 轴，票点名的节"), ("ro:code-review axis", "r:sources", "gets", "Spec 轴，基线"),
+    ("ro:code-review axis", "r:contract", "gets", "Spec、Tests、UI 轴"), ("ro:code-review axis", "r:design", "gets", "UI 轴，截图对比"),
+    ("ro:code-review axis", "r:closing", "gets", "Spec 轴，已合入的票"),
 ]
 
 GATES = {
@@ -288,6 +341,29 @@ GATES = {
 
 # ---------------------------------------------------------------- typical paths
 PRESETS = [
+    ("上下文：白天写进 spec 和票的", ["en:you", "ro:day", "pb:write-a-spec", "pb:cut-tickets", "r:map", "r:sources", "r:glossary", "r:contract",
+                            "r:design", "r:testing", "ref:ticket-format", "ref:ambiguity-scan", "ro:ambiguity scanner", "r:spec", "r:ticket", "g:spec-calls", "g:breakdown"], [
+        "白天你开的会话跑 Write a spec：第 1 步把地图、决策票、研究和原型读到结论，第 2 步读代码、CONTEXT.md、ADR 和屏幕契约，第 3 步读 TESTING.md 定下测试的位置。",
+        "读完的东西压成一份 spec：每个决定写明出处；TESTING.md 里用得上的事实抄进 Testing Decisions，因为 worker 读 spec，不读那个文件。",
+        "Cut tickets 照 ticket-format.md 把 spec 拆成票：Parent 点名 spec 的哪几节，Read first 只列那几节引用的来源，Seam 写测试放在哪，Owns 写能改哪些文件。歧义扫描子代理找出含糊处，你批准拆法后发布。",
+        "夜里的会话看不到这场对话：没写进 spec 和票的，worker 和 reviewer 都拿不到。",
+    ]),
+    ("上下文：worker 每一步拿到的", ["ro:worker", "en:prompt", "mode", "pb:work-a-ticket", "r:ticket", "r:spec", "r:sources", "r:glossary", "r:design",
+                              "r:contract", "r:mem", "sk:tdd", "ref:memory-md", "ref:interface-code", "sc:verify", "r:decisions", "r:review", "r:closing"], [
+        "开会话时，start prompt 只给三样：先读 mmw-mode，跑 Work a ticket，以及两份 Memory 索引。规则全在 mode 和 playbook 里。",
+        "第 1 步由 verify-ticket.py --preflight 认领，并按票上的事件告诉它从哪一步接着做。",
+        "第 2 步一次读入这张票要的全部上下文：票的全文和评论、Read first 列的来源、spec 里票点名的节、CONTEXT.md、和这张票相关的 Memory。写代码的指引也在这一步给：tdd 技能、九条原则、页面票的 writing-interface-code.md。",
+        "worker 不读 CODING_STANDARDS.md，也不读 TESTING.md 全文：前者原文写明作者不读，后者由写 spec 的会话抄进 spec。",
+        "第 4 步把自己定的事写成 DECISIONS 评论交给评审；第 6 步读评审报告；第 11 步写收尾评论交给 orchestrator。",
+    ]),
+    ("上下文：reviewer 与四个轴拿到的", ["ro:reviewer", "en:prompt", "pb:review-a-ticket", "sk:code-review", "ro:code-review axis", "ref:axis-files",
+                                "ref:coding-standards", "r:coding-repo", "r:testing", "r:glossary", "r:ticket", "r:decisions", "r:spec", "r:sources",
+                                "r:contract", "r:design", "r:closing", "r:review"], [
+        "reviewer 的 start prompt 只有路由和 base commit，不给 Memory：Review a ticket 写明 Memory 和 worker 的自我评价都不能作为发现的依据。",
+        "第 2 步它跑 code-review，每个轴一个子代理，同时派出、互相看不到。每个轴的 prompt 是它的轴文件全文；Standards 和 Tests 两个轴的 prompt 后面再附通用的 CODING_STANDARDS.md 全文。",
+        "各轴自己去读的：Standards 读仓库的 CODING_STANDARDS.md 和 CONTEXT.md；Spec 读 DECISIONS 评论、票点名的 spec 节、基线、屏幕契约的行、已合入的票；Tests 读 TESTING.md 全文和 CHECK 点名的测试；UI 看设计页和产品的截图。",
+        "reviewer 第 3 步核实每条发现，第 4 步分成票内和票外，第 5 步贴出评审报告，叫醒 worker。",
+    ]),
     ("路由：任务分到哪份 playbook", ["en:you", "en:hook", "en:slash", "mode"] + [f"pb:{p}" for _, ps in PLAYBOOK_GROUPS for p in ps], [
         "你开会话：Claude Code、Codex 在有 .mmw/ 的仓库里由 mode-hook.py 让会话先读 mmw-mode；别的宿主由你输入 /mmw-mode。",
         "mmw-mode 的 ## Playbooks 每份 playbook 一行路由条件。会话按任务挑一行，把那份 playbook 的步骤原样抄进待办清单再动手。",
@@ -510,7 +586,8 @@ def data():
         if c == "playbook":
             groups[c] = [[g, [f"pb:{s}" for s in ss]] for g, ss in PLAYBOOK_GROUPS]
         elif c == "skill":
-            groups[c] = [[g, [f"sk:{s}" for s in ss]] for g, ss in SKILL_GROUPS]
+            groups[c] = [[g, [f"sk:{s}" for s in ss]] for g, ss in SKILL_GROUPS] + \
+                [[g, [i for i, n in nodes.items() if n["car"] == "reference" and n["group"] == g]] for g in REF_GROUPS]
         elif c == "principle":
             order = []
             for nid, n in nodes.items():
@@ -542,4 +619,134 @@ def panorama_data():
     return '<script id="pano-data" type="application/json">' + text.replace("</", "<\\/") + "</script>"
 
 
-FIGS = {"l18-data": panorama_data}
+# ---------------------------------------------------------------- figure: who is given which context, and when
+# One row per piece of context, one column per session or subagent in the order they work. A cell names
+# the step and how: F reads it whole, P gets a part or a restatement, W writes it, N is told not to read
+# it or is not given it, G needs it and is not told to read it, ? not checked. In the last group a cell
+# is work a script does for that role.
+CTX_COLS = [("白天会话", "你开的"), ("worker", "脚本开的"), ("reviewer", "worker 开的"),
+            ("Standards", ""), ("Spec", ""), ("Tests", ""), ("UI", "")]
+CTX_ROWS = [
+    ("每个会话一开始就有，用到结束", [
+        ("用户级提示词 shared.md", "other", ["F:全程", "F:全程", "F:全程", "?:未查证", "?:未查证", "?:未查证", "?:未查证"]),
+        ("mmw-mode 的 SKILL.md", "mode", ["F:开头读完", "F:第一句点名", "F:第一句点名", "N:prompt 不含", "N:prompt 不含", "N:prompt 不含", "N:prompt 不含"]),
+        ("自己那份 playbook 的步骤", "playbook", ["F:抄进待办", "F:抄进待办", "F:抄进待办", "", "", "", ""]),
+    ]),
+    ("白天产生、几方共享的记录", [
+        ("决策票、研究、原型的结论", "reference", ["F:写 spec 全读", "P:Read first", "G:第 4 步要用", "", "P:当作基线", "", ""]),
+        ("CONTEXT.md 与 ADR", "reference", ["F:第 2 步", "F:第 2 步", "", "F:词汇表", "P:ADR 基线", "", ""]),
+        ("spec", "other", ["W:写出 第 4 步", "P:点名的节", "G:第 4 步要用", "", "P:点名的节", "", ""]),
+        ("票：全文和评论", "other", ["W:拆票时写出", "F:第 2 步", "F:第 2 步", "F:全文", "F:全文", "F:全文", "F:全文"]),
+        ("设计包", "reference", ["P:列进来源", "F:第 2 步照抄", "", "", "N:明文不看", "", "P:截图对比"]),
+        ("屏幕契约 screen-contract.yaml", "reference", ["F:第 2 步全读", "P:拥有的行", "", "", "P:拥有的行", "P:四列断言", "P:页面与场景"]),
+        ("TESTING.md", "reference", ["F:第 3 步全读", "P:经 spec 转述", "", "", "", "F:全文", ""]),
+        ("Memory 里的共享经验", "other", ["", "F:索引与第 2 步", "N:不作依据", "", "", "", ""]),
+        ("已合入的其他票和它们的收尾评论", "other", ["", "P:冲突时读", "", "", "F:逐张读", "", ""]),
+    ]),
+    ("会话之间交接的记录", [
+        ("start prompt", "agent", ["", "F:路由与索引", "F:路由与 base", "", "", "", ""]),
+        ("DECISIONS 评论（worker 自己定的事）", "other", ["", "W:写出 第 4 步", "", "P:看理由", "F:逐条判", "", ""]),
+        ("轴报告", "agent", ["", "", "F:第 3 步核实", "W:写出", "W:写出", "W:写出", "W:写出"]),
+        ("评审报告", "other", ["", "F:第 6 步", "W:写出 第 5 步", "", "", "", ""]),
+        ("收尾评论（交给 orchestrator）", "other", ["", "W:写出 第 11 步", "", "", "", "", ""]),
+    ]),
+    ("只交给一个角色的工作指引", [
+        ("tdd，和它的 tests.md、mocking.md", "skill", ["", "F:第 2 步", "", "", "", "P:规则出处", ""]),
+        ("Work a ticket 第 2 步点名的九条原则", "principle", ["", "F:第 2 步", "", "", "", "", ""]),
+        ("memory.md（怎样读写 Memory）", "reference", ["", "F:第 2 步", "", "", "", "", ""]),
+        ("writing-interface-code.md", "reference", ["", "P:页面票才读", "", "", "", "", ""]),
+        ("code-review 技能", "skill", ["", "", "F:第 2 步", "", "", "", ""]),
+        ("各轴自己的轴文件", "reference", ["", "", "", "F:prompt 全文", "F:prompt 全文", "F:prompt 全文", "F:prompt 全文"]),
+        ("CODING_STANDARDS.md（通用）", "reference", ["", "N:明文不读", "", "F:Code 节", "", "F:Tests 节", ""]),
+        ("仓库根目录的 CODING_STANDARDS.md", "reference", ["", "N:只给评审", "", "P:有就读", "", "P:有就读", ""]),
+        ("spec 模板、ticket-format.md", "reference", ["F:写 spec、拆票", "", "", "", "", "", ""]),
+        ("ambiguity-scan.md", "reference", ["P:给子代理", "", "", "", "", "", ""]),
+    ]),
+    ("交给脚本做，不占 agent 的注意力", [
+        ("认领、找续做的位置（--preflight）", "script", ["", "F:第 1 步", "", "", "", "", ""]),
+        ("跑验收标准、记证据（verify-ticket.py）", "script", ["", "F:第 3、7 步", "", "", "", "", ""]),
+        ("收尾评论草稿（--draft）", "script", ["", "F:第 10 步", "", "", "", "", ""]),
+        ("拼 start prompt 和 Memory 索引（dispatch.sh）", "script", ["", "F:开会话时", "F:开会话时", "", "", "", ""]),
+        ("列出已合入的票（dispatch.sh integrated）", "script", ["", "", "", "", "F:读票之前", "", ""]),
+        ("发布前 lint 一批票（--lint）", "script", ["F:拆票第 7 步", "", "", "", "", "", ""]),
+    ]),
+]
+CTX_LEGEND = [("F", "读入全文"), ("P", "只读一部分，或读别人转述的"), ("W", "写出它"), ("N", "明文不给或不读"),
+              ("G", "这一步要用，playbook 没让它读"), ("?", "没查证")]
+
+
+def _cell(f, mark, kind, x, y, w, text):
+    import html as _h
+    h = 20
+    if mark == "F":
+        f.e(f'<g class="k-{kind}"><rect class="box" x="{x}" y="{y}" width="{w}" height="{h}" rx="3"/></g>')
+    elif mark == "P":
+        f.e(f'<g class="k-{kind}"><rect class="box" x="{x}" y="{y}" width="{w}" height="{h}" rx="3" style="fill:var(--surface);stroke-dasharray:3 2"/></g>')
+    elif mark == "W":
+        f.e(f'<g class="k-{kind}"><rect class="box" x="{x}" y="{y}" width="{w}" height="{h}" rx="3" style="fill:var(--surface);stroke-width:2.4"/></g>')
+    elif mark == "N":
+        f.e(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3" style="fill:none;stroke:var(--rule2);stroke-dasharray:2 3"/>')
+    elif mark == "G":
+        f.e(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3" style="fill:color-mix(in srgb,var(--bad) 8%,var(--surface));stroke:var(--bad);stroke-width:1.6;stroke-dasharray:5 2"/>')
+    else:
+        f.e(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="3" style="fill:none;stroke:var(--rule2);stroke-dasharray:1 3"/>')
+    colour = {"N": "var(--muted)", "?": "var(--muted)", "G": "var(--bad)"}.get(mark, "var(--ink)")
+    if text:
+        fits(text, "s", w - 4)
+        f.e(f'<text x="{x + w / 2:.1f}" y="{y + 14}" text-anchor="middle" class="s" style="fill:{colour}">{_h.escape(text)}</text>')
+
+
+def context_figure():
+    from kit import Fig
+    f = Fig("m181", 1000)
+    X0, CW, LABEL = 330, 95, 316
+    cx = [X0 + i * CW for i in range(len(CTX_COLS))]
+    # headers: three sessions, then the four axes under one band
+    for i, (name, sub) in enumerate(CTX_COLS[:3]):
+        f.box("agent", cx[i] + 3, 8, CW - 6, 46, name, [sub] if sub else [], head=True)
+    f.e(f'<g class="k-agent"><rect class="box" x="{cx[3] + 3}" y="8" width="{4 * CW - 6}" height="22" rx="4"/></g>', False)
+    f.e(f'<text x="{cx[3] + 2 * CW:.1f}" y="23.5" text-anchor="middle" class="h" style="font-size:12.5px">四个审查轴：reviewer 同时派出的子代理</text>')
+    for i in range(3, 7):
+        f.e(f'<text x="{cx[i] + CW / 2:.1f}" y="48" text-anchor="middle" class="m">{CTX_COLS[i][0]}</text>')
+    f.e(f'<text x="10" y="24" class="h">谁在哪一步拿到什么</text>')
+    f.e(f'<text x="10" y="44" class="s">从左到右是干活的先后</text>')
+    y = 66
+    for title, rows in CTX_ROWS:
+        f.e(f'<rect x="4" y="{y}" width="992" height="24" rx="3" style="fill:var(--sunk)"/>', False)
+        f.e(f'<text x="12" y="{y + 16.5}" class="h" style="font-size:13px">{title}</text>')
+        y += 30
+        for label, kind, cells in rows:
+            f.e(f'<g class="k-{kind}"><rect class="box" x="8" y="{y + 3}" width="5" height="14" rx="1"/></g>')
+            fits(label, "s", LABEL - 24)
+            f.e(f'<text x="20" y="{y + 14.5}" class="s" style="fill:var(--ink);font-size:12px">{html.escape(label)}</text>')
+            for i, c in enumerate(cells):
+                if not c:
+                    continue
+                mark, text = c.split(":", 1)
+                _cell(f, mark, kind, cx[i] + 4, y, CW - 8, text)
+            f.e(f'<line class="rule" x1="8" y1="{y + 23}" x2="992" y2="{y + 23}"/>', False)
+            y += 26
+        y += 6
+    for x in cx + [X0 + 7 * CW]:
+        f.e(f'<line class="rule" x1="{x}" y1="60" x2="{x}" y2="{y - 6}"/>', False)
+    f.e(f'<line x1="{cx[3]}" y1="8" x2="{cx[3]}" y2="{y - 6}" style="stroke:var(--rule2);stroke-width:1.5"/>', False)
+    # legend
+    y += 8
+    lx = 10
+    for mark, text in CTX_LEGEND:
+        _cell(f, mark, "reference", lx, y, 40, "")
+        f.e(f'<text x="{lx + 48}" y="{y + 14.5}" class="s" style="fill:var(--ink2)">{text}</text>')
+        lx += 48 + tw(text, 11.5) + 22
+    y += 30
+    f.e(f'<text x="10" y="{y + 4}" class="s">最后一组的实心格，是脚本替这个角色做掉的事。格子的颜色是那一行组件的种类。</text>')
+    return f.svg(y + 14, CTX_ARIA)
+
+
+CTX_ARIA = ("第 18 课图 1，谁在哪一步拿到什么上下文。列从左到右：白天会话、worker、reviewer，以及 reviewer 同时派出的四个审查轴 "
+            "Standards、Spec、Tests、UI。worker 第 2 步读票、spec 里票点名的节、Read first 的来源、CONTEXT.md、Memory，并拿到 tdd、九条原则、memory.md；"
+            "它明文不读 CODING_STANDARDS.md，TESTING.md 只读写 spec 的会话抄进 spec 的那几行。CODING_STANDARDS.md 写进 Standards 和 Tests 两个轴的 prompt，"
+            "仓库自己那份它们有就读；Tests 轴读 TESTING.md 全文。白天会话写 spec 时全读来源、CONTEXT.md、屏幕契约和 TESTING.md，写出 spec 和票。"
+            "reviewer 第 4 步要按 spec 的节和基线给发现分类，Review a ticket 却只让它读票，图上标为缺口。认领、跑验收标准、收尾草稿、拼 start prompt、lint 由脚本做。")
+
+
+FIGS = {"l18-data": panorama_data, "l18-context": context_figure}
