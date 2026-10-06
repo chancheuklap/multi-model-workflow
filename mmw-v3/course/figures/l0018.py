@@ -352,8 +352,8 @@ PRESETS = [
                               "r:contract", "r:mem", "sk:tdd", "ref:memory-md", "ref:interface-code", "sc:verify", "r:decisions", "r:review", "r:closing"], [
         "开会话时，start prompt 只给三样：先读 mmw-mode，跑 Work a ticket，以及两份 Memory 索引。规则全在 mode 和 playbook 里。",
         "第 1 步由 verify-ticket.py --preflight 认领，并按票上的事件告诉它从哪一步接着做。",
-        "第 2 步一次读入这张票要的全部上下文：票的全文和评论、Read first 列的来源、spec 里票点名的节、CONTEXT.md、和这张票相关的 Memory。写代码的指引也在这一步给：tdd 技能、九条原则、页面票的 writing-interface-code.md。",
-        "worker 不读 CODING_STANDARDS.md，也不读 TESTING.md 全文：前者原文写明作者不读，后者只读票的 Read first 指到的那几行。",
+        "第 2 步一次读入这张票要的全部上下文：票的全文和评论、Read first 列的来源、spec 里票点名的节、CONTEXT.md、和这张票相关的 Memory。写代码的指引也在这一步给：tdd 技能、页面票的 writing-interface-code.md，以及流水线自己的规则（基线、不提问、Owns 的边界、跑哪些测试）和它们点名的五条原则。",
+        "worker 不读 CODING_STANDARDS.md，也不读 TESTING.md 全文：前者原文写明作者不读，后者只读票的 Read first 指到的那几行。代码规则只写在 CODING_STANDARDS.md 和它指向的原则里。",
         "第 4 步把自己定的事写成 DECISIONS 评论交给评审；第 6 步读评审报告；第 11 步写收尾评论交给 orchestrator。",
     ]),
     ("上下文：reviewer 与四个轴拿到的", ["ro:reviewer", "en:prompt", "pb:review-a-ticket", "sk:code-review", "ro:code-review axis", "ref:axis-files",
@@ -652,7 +652,7 @@ CTX_ROWS = [
     ]),
     ("只交给一个角色的工作指引", [
         ("tdd，和它的 tests.md、mocking.md", "skill", ["", "F:第 2 步", "", "", "", "P:规则出处", ""]),
-        ("Work a ticket 第 2 步点名的九条原则", "principle", ["", "F:第 2 步", "", "", "", "", ""]),
+        ("Work a ticket 第 2 步点名的五条原则", "principle", ["", "F:第 2 步", "", "", "", "", ""]),
         ("memory.md（怎样读写 Memory）", "reference", ["", "F:第 2 步", "", "", "", "", ""]),
         ("writing-interface-code.md", "reference", ["", "P:页面票才读", "", "", "", "", ""]),
         ("code-review 技能", "skill", ["", "", "F:第 2 步", "", "", "", ""]),
@@ -741,7 +741,7 @@ def context_figure():
 
 
 CTX_ARIA = ("第 18 课图 1，谁在哪一步拿到什么上下文。列从左到右：白天会话、worker、reviewer，以及 reviewer 同时派出的四个审查轴 "
-            "Standards、Spec、Tests、UI。worker 第 2 步读票、spec 里票点名的节、Read first 的来源、CONTEXT.md、Memory，并拿到 tdd、九条原则、memory.md；"
+            "Standards、Spec、Tests、UI。worker 第 2 步读票、spec 里票点名的节、Read first 的来源、CONTEXT.md、Memory，并拿到 tdd、五条原则、memory.md；"
             "它明文不读 CODING_STANDARDS.md，TESTING.md 只读票的 Read first 指到的那几行。CODING_STANDARDS.md 写进 Standards 和 Tests 两个轴的 prompt，"
             "仓库自己那份它们有就读；Tests 轴读 TESTING.md 全文。白天会话写 spec 时全读来源、CONTEXT.md、屏幕契约和 TESTING.md，写出 spec 和票。"
             "reviewer 第 4 步按票里指向 spec 节和基线的指针给发现分类。认领、跑验收标准、收尾草稿、拼 start prompt、lint 由脚本做。")

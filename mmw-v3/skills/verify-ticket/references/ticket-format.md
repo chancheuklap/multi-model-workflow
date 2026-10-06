@@ -19,7 +19,7 @@ The source material behind the sections named under **Parent**: decision tickets
 
 ## Seam
 
-Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy. Then, from the same section's **How a test arrives at a state**, what puts the system into the states the criteria below name; when this ticket is the one that builds that, say so here as well as under **Owns**.
+Where this ticket is verified, as pointers into the spec's Testing Decisions rather than a restatement of it: the test layer this ticket uses, by the name that section gives it (the layer's directory and precedent are there), and the test file this ticket adds. Then the mechanism under that section's **How a test arrives at a state** that puts the system into the states the criteria below name, by its name there; when this ticket is the one that builds it, say so here as well as under **Owns**.
 
 ## Owns
 
@@ -48,7 +48,7 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
 
 Avoid implementation file paths or code snippets: they go stale fast; paths to source material stay, and so do the two kinds of path a ticket cannot do without: the test directory or test file under **Seam**, and the paths under **Owns**, which say where this ticket may write, not where its code lives. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
 
-A ticket outside any spec has no Testing Decisions to copy from: its **Seam** and each `CHECK:` take their layer, directory and precedent from the repository's `TESTING.md` and the nearest test of the same kind.
+A ticket outside any spec has no Testing Decisions to point into: its **Seam** points at the lines of the repository's `TESTING.md` that name its layer and directory, and at the nearest test of the same kind, the precedent each `CHECK:` takes its invocation from.
 
 ## Each acceptance criterion
 

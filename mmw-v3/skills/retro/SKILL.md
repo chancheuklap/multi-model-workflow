@@ -80,7 +80,8 @@ The script writes outputs; the agent judges causes and dispositions.
    on one ticket or spec are one occurrence, not two.
 6. Reconcile intent: take the expected surface from Problem Statement and User
    Stories, the observed surface from checks and events, and compare both with
-   Out of Scope. Record aligned, diverged, or unverified; do not change the spec.
+   Out of Scope, and the map's Out of scope when it links one. Record aligned,
+   diverged, or unverified; do not change the spec.
    It catches a night that met every criterion yet delivered something other
    than what the spec asked for.
 7. Review the review results: distinguish a finding that was invalid from one

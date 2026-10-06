@@ -45,11 +45,11 @@ The Implementation Decisions paragraph, written only with a screen contract, sta
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **`## Testing Decisions`**:
-The spec section that says where a test observes the result, the seam and what is real on each side of it, each test layer's directory and precedent, how a test arrives at each state, and the commands to run before committing. A ticket's `## Seam`, `CHECK:` and `EXPECT:` are derived from it.
+The spec section that says where a test observes the result, the seam and what is real on each side of it, each test layer's directory and precedent, how a test arrives at each state, and the commands to run before committing. A ticket's `## Seam` points into it, and its `CHECK:` and `EXPECT:` come from the precedent it names.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **How a test arrives at a state**:
-The Testing Decisions item naming, per test layer, what a test can and cannot write to reach a state, and the mechanism that reaches what a test cannot write through the seam. A ticket's `## Seam` derives from it, and a state it names with no mechanism yet becomes a `reach` ticket.
+The Testing Decisions item naming, per test layer, what a test can and cannot write to reach a state, and the mechanism that reaches what a test cannot write through the seam. A ticket's `## Seam` names the mechanism it uses, and a state it names with no mechanism yet becomes a `reach` ticket.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **Critical flows**:
@@ -81,7 +81,7 @@ The place where a module's interface lives: where a test observes behaviour with
 _Home_: `mmw-v3/skills/codebase-design/SKILL.md`, `mmw-v3/skills/tdd/SKILL.md`
 
 **precedent**:
-The similar existing test `## Testing Decisions` names per test layer. The ticket copies it into `## Seam`, and the ticket writer copies its invocation into `CHECK:` and its success line into `EXPECT:`.
+The similar existing test `## Testing Decisions` names per test layer. A ticket's `## Seam` reaches it through the layer it names, and the ticket writer copies its invocation into `CHECK:` and its success line into `EXPECT:`.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **test layer**:
@@ -167,7 +167,7 @@ An item under `## Read first` that records a settled conclusion — a decision t
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Seam`**:
-The ticket section saying where the ticket is verified: the test layer and directory, the precedent to copy, and how a test arrives at the state.
+The ticket section saying where the ticket is verified, as pointers into the spec's `## Testing Decisions`: the test layer it uses, the test file it adds, and the mechanism by which a test arrives at the state.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Owns`**:

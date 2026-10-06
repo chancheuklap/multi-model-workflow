@@ -12,7 +12,7 @@ The newest comment whose first line is `DECISIONS`, posted by the worker before 
 
 - The spec sections the ticket's `## Parent` line names, and only those.
 - The spec's `## Testing Decisions`.
-- The spec's `## Out of Scope`.
+- The spec's `## Out of Scope`, and the map's **Out of scope** when it links one.
 - Every item under `## Read first` whose line marks it as a baseline, each read to its conclusion.
 
 The rest of the spec covers other tickets. Reading it makes you flag work that was never this ticket's to do. A baseline records a settled decision, so the diff answers to it exactly as it answers to those spec sections.
