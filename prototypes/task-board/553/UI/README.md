@@ -45,7 +45,6 @@
 - ticket-returned：票被交回，灯为橙
 - ticket-bounced：合不进 base branch，写出冲突文件或没过的检查
 - ticket-closeout：收口那一轮新开的票
-- ticket-waiting：等槽位
 - ticket-review：reviewer 正在评审
 - ticket-queued：尚未派发
 - ticket-landed：已落地
