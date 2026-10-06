@@ -41,7 +41,7 @@ The dot in front of every issue row, and the four counters in the top bar, sayin
 _Home_: `mmw-v3/board/page/board-logic.mjs`
 
 **phase pill**:
-The capsule on every ticket card saying where the ticket stands inside its own run — `queued`, `working`, `waiting`, `review`, `verify` or `landed` — computed from the ticket's fold and its event history. Distinct from the **phase** column of `status` and from the `stage` field of an event.
+The capsule on every ticket card saying where the ticket stands inside its own run — `queued`, `working`, `review`, `verify` or `landed` — computed from the ticket's fold and its event history. Distinct from the **phase** column of `status` and from the `stage` field of an event.
 _Home_: `mmw-v3/board/page/board-logic.mjs`
 
 **event display name**:
@@ -49,7 +49,7 @@ The English phrase an event row of the detail column shows for a pipeline **even
 _Home_: `mmw-v3/board/page/board-logic.mjs`
 
 **run line**:
-The sentence under a ticket card's title naming what is or was running it: `host · model · effort` while a live session holds the ticket, `stopped · host · model` if a fault child stopped that session, `waiting for a slot · since HH:MM`, `claimed · no session yet`, `not dispatched`, or `closed, never dispatched`.
+The sentence under a ticket card's title naming what is or was running it: `host · model · effort` while a live session holds the ticket, `stopped · host · model` if a fault child stopped that session, `claimed · no session yet`, `not dispatched`, or `closed, never dispatched`.
 _Home_: `mmw-v3/board/page/board-logic.mjs`
 
 **why**:

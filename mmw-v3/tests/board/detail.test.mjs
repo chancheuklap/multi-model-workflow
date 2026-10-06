@@ -9,7 +9,7 @@ import {accessibleName, installDom, namedButton, walk} from "./fake-dom.mjs";
 function fold(extra = {}) {
   return {
     children: {}, sessions: [], landed: false, returned: false, bounced: false,
-    outcome: null, waiting: null, review: null, worker: null, ...extra,
+    outcome: null, review: null, worker: null, ...extra,
   };
 }
 
@@ -143,7 +143,7 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
     fold: {
       children: {}, sessions: [{kind: "worker", live: false,
         started_at: "2026-09-10T22:38:00Z"}], landed: false, returned: false, bounced: false,
-      outcome: null, waiting: null, review: null, worker: null,
+      outcome: null, review: null, worker: null,
     },
   };
   const landed = {
@@ -151,7 +151,7 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
     blocker_hold: "",
     fold: {
       children: {}, sessions: [], landed: true, returned: false, bounced: false,
-      outcome: null, waiting: null, review: null,
+      outcome: null, review: null,
     },
   };
   const view = fromBoard({
@@ -174,7 +174,7 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
 
 test("selecting a spec that has no map shows the spec card with no map link", () => {
   const fold = {children: {}, sessions: [], landed: false, returned: false, bounced: false,
-    outcome: null, unreadable: [], passed: false, review: null, waiting: null};
+    outcome: null, unreadable: [], passed: false, review: null};
   const ticket = {n: 31, title: "its ticket", state: "open", blocked: [], blockers: [], children: [], events: [], fold};
   const spec = {n: 30, title: "lone spec", tickets: [ticket]};
   const tasks = [{n: 30, kind: "spec", title: "lone spec", state: "open", decisions: [], specs: [spec]}];
@@ -266,13 +266,13 @@ test("fromBoard opens the last block and a problem block, and shuts a plain midd
   assert.doesNotMatch(root.textContent, /Worker started/);
 });
 
-test("a claim after a waiting event stays in that waiting block", () => {
+test("a claim never opens a block of its own", () => {
   const events = [
-    {event: "worker.queued", at: "2026-09-12T10:00:00Z", payload: {reason: "product-full"}},
+    {event: "ticket.released", at: "2026-09-12T10:00:00Z", payload: {reason: "worker-lost"}},
     {event: "ticket.claimed", at: "2026-09-12T10:01:00Z", payload: {}},
   ];
   const blocks = eventBlocks(events);
-  assert.deepEqual(blocks.map(block => block.phase), ["waiting"]);
+  assert.deepEqual(blocks.map(block => block.phase), ["queued"]);
   assert.equal(blocks[0].items.length, 2);
   assert.equal(blocks[0].items[1].name, "Ticket claimed");
 });

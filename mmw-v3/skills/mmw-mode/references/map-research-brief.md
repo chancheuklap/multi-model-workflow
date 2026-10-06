@@ -1,6 +1,6 @@
 # Map research brief
 
-The brief of a `researcher` session that resolves one research ticket of a map. Chart a map step 5 and Resolve a map ticket step 3 build one per research ticket from the template below, with the placeholders filled. The session leads with the `research` skill; this brief gives it its scope and says what its answer is.
+The brief of a `researcher` session that resolves one research ticket of a map. Chart a map's **Answer the research tickets** and Resolve a map ticket's **Resolve it by its type** build one per research ticket from the template below, with the placeholders filled. The session leads with the `research` skill; this brief gives it its scope and says what its answer is.
 
 ---
 

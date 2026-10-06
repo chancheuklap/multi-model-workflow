@@ -8,7 +8,6 @@ function viewFromScene(scene) {
     greenN: scene.greenN,
     hollowN: scene.hollowN,
     inkN: scene.inkN,
-    waiting: scene.waiting,
     readFailed: scene.readFailed,
     readText: scene.readText,
     settingsOpen: scene.settingsOpen,

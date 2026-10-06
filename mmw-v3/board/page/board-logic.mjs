@@ -4,7 +4,7 @@ import {hhmm, minutes} from "./shared.mjs";
 // the phase is where the ticket stands inside itself, the lamp is what it wants from the
 // outside. A ticket can be `working` and still want nothing, or `landed` and still need a
 // person, so neither word can be read off the other.
-export const PHASES = ["queued", "working", "waiting", "review", "verify", "landed"];
+export const PHASES = ["queued", "working", "review", "verify", "landed"];
 export const LAMP_WORD = {orange: "needs you", green: "running", ink: "done", hollow: "queued"};
 const NEEDS_YOU_KIND = {
   decision: "只有你能拍板；worker 先按默认值继续",
@@ -94,7 +94,6 @@ export const Board = {
       return this.stoppedAt(ticket);
     }
     if (!live.length) return "queued";
-    if (fold.waiting) return "waiting";
     return this.workflowPhase(ticket);
   },
 
@@ -132,10 +131,6 @@ export const Board = {
     return "hollow";
   },
 
-  waitingSince(ticket) {
-    return ticket.fold.waiting && ticket.fold.sessions.some(session => session.live) ? ticket.fold.waiting.at : null;
-  },
-
   runLine(ticket) {
     const live = ticket.fold.sessions.filter(session => session.live);
     if (!ticket.fold.sessions.length) {
@@ -145,8 +140,6 @@ export const Board = {
       return {text: ticket.fold.claim_hold || ticket.fold.held
         ? "claimed · no session yet" : "not dispatched"};
     }
-    const since = this.waitingSince(ticket);
-    if (since) return {text: `waiting for a slot · since ${hhmm(since)}`};
     const session = live.length ? live[live.length - 1] : ticket.fold.worker;
     if (live.length && this.stoppedByFault(ticket)) return {text: `stopped · ${session.host} · ${session.model}`, flag: true};
     return {text: `${session.host} · ${session.model} · ${session.effort}`};
@@ -400,7 +393,6 @@ export function defaultExpanded(task) {
 const PHASE_OF_EVENT = {
   "worker.started": "working", "worker.resumed": "working", "ticket.claimed": "working",
   "worker.touched": "working", "worker.decided": "working", "child.opened": "working",
-  "worker.queued": "waiting",
   "reviewer.started": "review", "reviewer.reported": "review",
   "ticket.passed": "verify", "ticket.returned": "verify", "ticket.bounced": "verify",
   "ticket.refused": "queued", "ticket.released": "queued", "worker.retracted": "queued",
@@ -419,7 +411,7 @@ const EVENT_NAME = {
   "ticket.regressed": "Regressed after landing", "ticket.bounced": "Merge bounced",
   "worker.started": "Worker started", "worker.resumed": "Worker resumed",
   "worker.retracted": "Worker retracted", "worker.replaced": "Worker replaced",
-  "worker.decided": "Decisions recorded", "worker.queued": "Waiting for a slot",
+  "worker.decided": "Decisions recorded",
   "worker.touched": "Another ticket touched its files", "worker.lost": "Worker lost",
   "reviewer.started": "Reviewer started", "reviewer.reported": "Review posted",
   "reviewer.lost": "Reviewer lost",
@@ -440,10 +432,6 @@ const REFUSAL = {
 const RELEASE = {
   landed: "it had landed", suspended: "the night was suspended",
   "worker-lost": "its worker's session was gone",
-};
-const QUEUE = {
-  "product-full": "every instance of the product was in use",
-  "machine-full": "every slot on this machine was in use",
 };
 const RESOLUTION = {fixed: "fixed", stale: "no longer applies", "became-ticket": "became a ticket"};
 const COMMON_FIELDS = new Set(["v", "event", "stage", "actor", "spec", "ticket", "at"]);
@@ -472,8 +460,6 @@ function eventText(event, payload) {
       return payload.model ? `${payload.host} ${payload.model}, ${payload.effort} effort` : "";
     case "worker.touched":
       return `#${payload.by} changed ${plural((payload.files || []).length, "file")} this ticket owns`;
-    case "worker.queued":
-      return QUEUE[payload.reason] || "";
     case "worker.decided":
       return "the calls the worker made on its own, written down for the review";
     case "ticket.refused":

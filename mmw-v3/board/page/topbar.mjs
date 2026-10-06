@@ -25,7 +25,6 @@ export function fromBoard(payload = {}, now = new Date()) {
   const tasks = payload.tasks || [];
   const all = tasks.flatMap(task => Board.allTickets(task));
   const count = lamp => all.filter(ticket => Board.lamp(ticket) === lamp).length;
-  const waiting = all.filter(ticket => Board.phase(ticket) === "waiting").length;
   const readAt = payload.read_at;
   const failed = Boolean(payload.read_failed);
   const clock = readAt ? (failed ? dataTime(readAt, now) : hhmm(readAt)) : "";
@@ -35,7 +34,6 @@ export function fromBoard(payload = {}, now = new Date()) {
     greenN: count("green"),
     hollowN: count("hollow"),
     inkN: count("ink"),
-    waiting,
     readFailed: failed,
     readText: failed
       ? (clock ? `读 GitHub 失败 · 下面是 ${clock} 的数据（${ago}）` : "读 GitHub 失败")
@@ -54,7 +52,6 @@ async function notify(method, hook) {
 export function render(host, view = {}, api, hooks = {}) {
   const orangeN = view.orangeN ?? 0;
   const hot = orangeN > 0;
-  const waiting = view.waiting || 0;
   const root = el("header", {class: "topbar board", "data-ui": "顶栏.root"});
   root.dataset.screen = "topbar";
   root.append(
@@ -75,8 +72,7 @@ export function render(host, view = {}, api, hooks = {}) {
         LAMP_WORD.orange, el("span", {class: "counter-n", "data-ui": "顶栏.needs-you.count"}, String(orangeN))),
       el("span", {class: "counter", "data-ui": "顶栏.running"},
         el("span", {class: "lamp green", "data-ui": "顶栏.running.lamp"}), LAMP_WORD.green,
-        el("span", {class: "counter-n", "data-ui": "顶栏.running.count"}, String(view.greenN ?? 0)),
-        waiting ? el("span", {class: "counter-sub", "data-ui": "顶栏.running.sub"}, `waiting for a slot ${waiting}`) : null),
+        el("span", {class: "counter-n", "data-ui": "顶栏.running.count"}, String(view.greenN ?? 0))),
       el("span", {class: "counter", "data-ui": "顶栏.queued"},
         el("span", {class: "lamp hollow", "data-ui": "顶栏.queued.lamp"}), LAMP_WORD.hollow,
         el("span", {class: "counter-n", "data-ui": "顶栏.queued.count"}, String(view.hollowN ?? 0))),

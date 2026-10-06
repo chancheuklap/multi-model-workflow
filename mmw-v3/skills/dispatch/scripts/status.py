@@ -13,9 +13,9 @@ One program, six forms, reading one source, so there is never a second truth to
 reconcile. The source is the tracker (`gh`): the spec's tree of tickets and their
 children, read in one query by `issue_tree.py`, and each ticket's state, labels, assignees,
 blocking edges and comments. Where a ticket stands — which agent sessions were started
-on it and on which runner, whether its worker is still live or waiting for a product
-slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
-its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
+on it and on which runner, whether its worker is still live, how its criteria last ran,
+whether it passed, landed or came back — is the fold of its comments' events, computed
+by `events.py`. Both files are the verify-ticket skill's
 (`MMW_EVENTS_PY` names `events.py` when `dispatch.sh` resolved it somewhere else, and
 `issue_tree.py` is read from beside it). Nothing here asks a runner what it is running: a
 runner answers for one machine, and the ticket answers for all of them. Nothing this

@@ -117,7 +117,6 @@
   --closeout: #5e7a9b;
 
   --s-working: #7c8f6f;  --s-working-ink: #46553d;  --s-working-tint: rgba(124, 143, 111, 0.18);
-  --s-waiting: #9a8c58;  --s-waiting-ink: #5d5430;  --s-waiting-tint: rgba(154, 140, 88, 0.18);
   --s-review:  #7b6a9b;  --s-review-ink:  #4b3f63;  --s-review-tint:  rgba(123, 106, 155, 0.18);
   --s-verify:  #4f8783;  --s-verify-ink:  #2c5552;  --s-verify-tint:  rgba(79, 135, 131, 0.18);
 

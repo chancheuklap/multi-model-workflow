@@ -32,13 +32,13 @@ When the design system was built from code that already runs, the design page al
 
 Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one property, with its design and product values. Before changing the product to the design value, check that the design value itself is plausible: against the same-role elements beside it and the design system's scale. A value that is clearly wrong is not copied; it goes to **When the design side is the defect** below. Otherwise that id and property are the complete repair. Fix them, run again. The loop stays on this machine.
 
-The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are Work a ticket step 3's.
+The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are Work a ticket's **Integrate and run every criterion**'s.
 
-**Done when** the story criterion prints no `DIFF` line, or Work a ticket step 3 has recorded that it is abandoned.
+**Done when** the story criterion prints no `DIFF` line, or Work a ticket's **Integrate and run every criterion** has recorded that it is abandoned.
 
 ## When the design side is the defect
 
-A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: Work a ticket step 3 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket, with the `verify-ticket` skill's `verify-ticket.py`:
+A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: Work a ticket's **Integrate and run every criterion** records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket, with the `verify-ticket` skill's `verify-ticket.py`:
 
 ```
 verify-ticket.py <n> --sub-issue contract <file>

@@ -26,12 +26,12 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Core**
 
-- **Start from What Exists** (**principle-start-from-what-exists**). Before proposing an approach or writing non-trivial code. Search for what already exists and read it, then use it, extend it, or build only after the search came back empty.
-- **Laziness Protocol** (**principle-laziness-protocol**). Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
+- **Start from What Exists** (**principle-start-from-what-exists**). Before proposing an approach, writing non-trivial code, or writing a helper. Search the repository, then outside it, for what already exists and read it; use it, extend it, or build only after the search came back empty.
+- **Laziness Protocol** (**principle-laziness-protocol**). Refactoring, simplifying, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem, keeping security checks, data-loss error handling and accessibility intact.
 
 **Architecture**
 
-- **Migrate Callers Then Delete Legacy APIs** (**principle-migrate-callers-then-delete-legacy-apis**). Introducing a new internal API while old callers exist. Migrate and delete in one wave.
+- **Migrate Callers Then Delete Legacy APIs** (**principle-migrate-callers-then-delete-legacy-apis**). Introducing a new internal API while old callers exist, or changing a function that other code calls. Grep every caller; migrate and delete in one wave, and fix shared code once for all of them.
 - **Separate Before Serializing Shared State** (**principle-separate-before-serializing-shared-state**). Concurrent actors might write the same file, branch, key, or object. Eliminate the sharing first.
 
 **Verification**

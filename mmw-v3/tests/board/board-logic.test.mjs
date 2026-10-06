@@ -5,7 +5,7 @@ import {Board, defaultExpanded, describeEvent} from "../../board/page/board-logi
 function ticket(overrides = {}) {
   const fold = {
     children: {}, sessions: [], landed: false, returned: false, bounced: false,
-    outcome: null, unreadable: [], passed: false, review: null, waiting: null,
+    outcome: null, unreadable: [], passed: false, review: null,
     ...overrides.fold,
   };
   return {n: 1, state: "open", blocked: [], children: [], events: [], ...overrides, fold};
@@ -73,7 +73,6 @@ test("a fault opened after the newest start or resume stops the ticket", () => {
 test("phase follows who still holds the ticket", () => {
   assert.equal(Board.phase(ticket()), "queued");
   assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}})), "working");
-  assert.equal(Board.phase(ticket({fold: {sessions: [worker()], waiting: {at: "2026-01-01T00:00:00Z"}}})), "waiting");
   assert.equal(Board.phase(ticket({fold: {sessions: [worker(), {kind: "reviewer", live: true}]}})), "review");
   assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
     {event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},

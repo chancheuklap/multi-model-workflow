@@ -299,7 +299,6 @@ rows:
   shows:
     needs_you_count: tasks[].specs[].tickets[].fold@POST /api/board/refresh → count of lamp orange
     running_count: tasks[].specs[].tickets[].fold@POST /api/board/refresh → count of lamp green
-    waiting_sub: tasks[].specs[].tickets[].fold@POST /api/board/refresh → count of phase waiting
     queued_count: tasks[].specs[].tickets[].fold@POST /api/board/refresh → count of lamp hollow
     done_count: tasks[].specs[].tickets[].fold@POST /api/board/refresh → count of lamp ink
     read_time: read_at@POST /api/board/refresh
@@ -403,7 +402,7 @@ rows:
     title: tasks[].specs[].tickets[].title@GET /api/board
     lamp: tasks[].specs[].tickets[].fold, tasks[].specs[].tickets[].children, tasks[].specs[].tickets[].blocker_hold@GET /api/board → lamp (page computes)
     phase: tasks[].specs[].tickets[].fold@GET /api/board → phase pill (page computes)
-    run_line: tasks[].specs[].tickets[].events@GET /api/board → host · model · effort of the latest worker.started, or 尚未派发 / 等槽位 · HH:MM 起
+    run_line: tasks[].specs[].tickets[].events@GET /api/board → host · model · effort of the latest worker.started, or 尚未派发
     closeout_bar: tasks[].specs[].tickets[].closeout@GET /api/board
     blocking_lines: tasks[].specs[].tickets[].blocked, tasks[].specs[].tickets[].blockers[].blocker_hold@GET /api/board → walked / flow / blocked line (page computes)
   next: Component · 画布.morning
@@ -547,7 +546,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
   - Component · 详情.ticket-cleared-blocker
@@ -575,7 +573,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
   - Component · 详情.ticket-cleared-blocker
@@ -620,7 +617,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
   - Component · 详情.ticket-cleared-blocker
@@ -648,7 +644,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
   - Component · 详情.ticket-cleared-blocker
@@ -677,7 +672,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
   - Component · 详情.ticket-cleared-blocker
@@ -792,7 +786,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault
@@ -816,7 +809,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault
@@ -839,7 +831,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault
@@ -864,7 +855,6 @@ rows:
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
-  - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault

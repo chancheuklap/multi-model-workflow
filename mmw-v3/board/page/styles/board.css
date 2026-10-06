@@ -70,7 +70,6 @@
 .board .counter.plain { height: auto; padding: 0; border: 0; background: none; }
 .board .counter-n { font-family: var(--mono); font-weight: var(--w-bold); color: var(--ink); font-variant-numeric: tabular-nums; }
 .board .counter.hot .counter-n { color: var(--orange-ink); }
-.board .counter-sub { color: var(--faint); }
 
 .board .row {
   display: grid; grid-template-columns: 9px auto 1fr auto; gap: var(--sp-8); align-items: center;
@@ -164,7 +163,6 @@
 }
 .pill.queued { border-color: var(--rule); color: var(--soft); background: transparent; }
 .pill.working { border-color: var(--s-working); color: var(--s-working-ink); background: var(--s-working-tint); }
-.pill.waiting { border-color: var(--s-waiting); color: var(--s-waiting-ink); background: var(--s-waiting-tint); }
 .pill.review { border-color: var(--s-review);  color: var(--s-review-ink);  background: var(--s-review-tint); }
 .pill.verify { border-color: var(--s-verify);  color: var(--s-verify-ink);  background: var(--s-verify-tint); }
 .pill.landed { border-color: var(--ink); color: var(--on-ink); background: var(--ink); }

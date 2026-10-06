@@ -350,7 +350,7 @@ When a screen-contract row a ticket owns cites a section of an earlier spec as i
 
 Cut one whenever the design package carries a design system under `_ds/&lt;folder&gt;/` whose variables or part stylesheets the product code does not yet have; otherwise each page ticket writes the styles its component needs from the design pages. A design system built from an existing product's code counts: it merges inconsistent values into one scale and records each merge in its `readme.md` table `Unifications`, so copying it back changes the product. The ticket copies the variables (colour, type scale, spacing, radius, shadow), the fonts and the part stylesheets (each part a class name with its stylesheet) from `_ds/&lt;folder&gt;/` into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. A batch with no contract ticket has it block every **component page ticket** and **app page ticket** instead. Its criterion does not depend on `.mmw/`.
 
-**The design-system ticket is the second exception to vertical slicing**, beside the wide refactor Cut tickets step 3 names. It lands one layer, the styles, and demonstrates no behaviour of its own.
+**The design-system ticket is the second exception to vertical slicing**, beside the wide refactor Cut tickets' **Draft vertical slices** names. It lands one layer, the styles, and demonstrates no behaviour of its own.
 
 **Read first** names the `_ds/` copy in the design package, the design system Claude Design used to draw the pages. **Owns** is the product files the variables, fonts and part stylesheets land in.
 
@@ -386,7 +386,7 @@ The smoke journey uses the journey criterion and omits `--break`. It requires th
 
 Journeys appear on the contract ticket, on tickets the owner named, and on each critical-flow ticket.
 
-Where the spec has a screen contract, the **prefactor ticket** of Cut tickets step 5 is this ticket. It registers the scenes and routes of every design page in the screen contract, not only of the page it makes the precedent from.
+Where the spec has a screen contract, the **prefactor ticket** of Cut tickets' **Give each ticket its blocking edges** is this ticket. It registers the scenes and routes of every design page in the screen contract, not only of the page it makes the precedent from.
 
 ## component page ticket
 
@@ -472,13 +472,13 @@ When the design system was built from code that already runs, the design page al
 
 Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one property, with its design and product values. Before changing the product to the design value, check that the design value itself is plausible: against the same-role elements beside it and the design system's scale. A value that is clearly wrong is not copied; it goes to **When the design side is the defect** below. Otherwise that id and property are the complete repair. Fix them, run again. The loop stays on this machine.
 
-The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are Work a ticket step 3's.
+The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are Work a ticket's **Integrate and run every criterion**'s.
 
-**Done when** the story criterion prints no `DIFF` line, or Work a ticket step 3 has recorded that it is abandoned.
+**Done when** the story criterion prints no `DIFF` line, or Work a ticket's **Integrate and run every criterion** has recorded that it is abandoned.
 
 ## When the design side is the defect
 
-A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: Work a ticket step 3 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket, with the `verify-ticket` skill's `verify-ticket.py`:
+A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: Work a ticket's **Integrate and run every criterion** records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket, with the `verify-ticket` skill's `verify-ticket.py`:
 
 ```
 verify-ticket.py &lt;n&gt; --sub-issue contract &lt;file&gt;

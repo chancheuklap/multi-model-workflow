@@ -19,7 +19,6 @@ colors:
   led-red: "#c9304f"
   closeout: "#5e7a9b"
   s-working: "#7c8f6f"
-  s-waiting: "#9a8c58"
   s-review: "#7b6a9b"
   s-verify: "#4f8783"
 typography:
@@ -47,7 +46,7 @@ The task board is a local web page that reads the issue tracker and never writes
 - **Green (`led-green`, `led-green-ink`) means "running".** The lamp of a running ticket and the moving blocking line into it share this one green.
 - **Red (`led-red`) marks a blocking line whose blocker has not landed.** It is a crimson kept visibly apart from the orange lamp.
 - **Grey (`line-grey`) draws containment and paths already walked**: the trunk, the lines from a container to its issues, and blocking lines whose blocker has landed while the blocked ticket is not running.
-- **Step pills each take their own muted hue** (`s-working`, `s-waiting`, `s-review`, `s-verify`); `queued` is an outline and `landed` is solid ink. None of them is orange.
+- **Step pills each take their own muted hue** (`s-working`, `s-review`, `s-verify`); `queued` is an outline and `landed` is solid ink. None of them is orange.
 - **`closeout` is the inner bar on a card opened in the closeout round.**
 
 ## Typography
@@ -63,7 +62,7 @@ Three columns: tasks on the left, the canvas in the middle, details on the right
 ## Components
 
 - **Lamp**: one dot answering "does this need me" — orange needs you, green running, ink done, hollow not dispatched. The same lamp appears on task rows, containers, tickets, child rows and every event row.
-- **Pill**: a capsule that names the current step (`queued`, `working`, `waiting`, `review`, `verify`, `landed`). A card shows only the current pill; the detail panel lays out the whole path with the current step bold and coloured and the rest grey.
+- **Pill**: a capsule that names the current step (`queued`, `working`, `review`, `verify`, `landed`). A card shows only the current pill; the detail panel lays out the whole path with the current step bold and coloured and the rest grey.
 - **Ticket card**: three rows — lamp, number and pill on top; the title, the largest text on the card, in the middle; `host · model · effort` at the bottom. A decision-ticket card is one row shorter and shows its kind where a ticket shows its pill.
 - **Blocking line**: a smooth curve from the blocker's right edge into the blocked card's left edge with a small dot at each end and no arrowhead. A moving line carries a white-headed green comet toward the blocked card.
 

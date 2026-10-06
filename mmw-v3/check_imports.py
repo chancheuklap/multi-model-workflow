@@ -17,6 +17,9 @@ Run from anywhere inside the repository: python3 mmw-v3/check_imports.py
 3. A row with no mechanical edit and no judgement entry is byte-identical to
    its source, and so is every file a directory row covers. A row for one
    `## <heading>` section compares that section's text, HTML comments left out.
+4. A row that lists an edit has a line for every later one: its file, or its
+   section, is the same now as in the commit that last changed the row's line
+   of imports.tsv. A row changed but not yet committed is not compared.
 
 Exit 0 prints `IMPORTS OK <n> rows`. Exit 1 prints one finding per line.
 """
@@ -77,9 +80,24 @@ def section(text, heading):
     return re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S).strip() if m else None
 
 
+def row_commits():
+    """The commit that last changed each line of imports.tsv, by `local`; None while uncommitted."""
+    out = git("blame", "--line-porcelain", "--", "mmw-v3/imports.tsv").stdout.decode()
+    commits, commit = {}, None
+    for line in out.splitlines():
+        if re.match(r"^[0-9a-f]{40} ", line):
+            commit = line.split()[0]
+        elif line.startswith("\t"):
+            local = line[1:].split("\t")[1:2]
+            if local:
+                commits[local[0]] = None if set(commit) == {"0"} else commit
+    return commits
+
+
 def main():
     with open(ROOT / "mmw-v3" / "imports.tsv", newline="") as fh:
         rows = list(csv.DictReader(fh, delimiter="\t"))
+    commits = row_commits()
     findings = []
     locals_ = [r["local"] for r in rows]
     dirs = [r for r in rows if r["local"].endswith("/")]
@@ -125,6 +143,17 @@ def main():
                 same = local.read_bytes() == body
             if not same:
                 findings.append(f"UNREGISTERED-EDIT {row['local']}: differs from its source and lists no edit")
+        elif commits.get(row["local"]):
+            path, _, heading = row["local"].partition("#")
+            then = git("show", f"{commits[row['local']]}:{path}")
+            if then.returncode == 0:
+                if heading:
+                    same = section(then.stdout.decode(), heading) == section(local.read_text(), heading)
+                else:
+                    same = then.stdout == local.read_bytes()
+                if not same:
+                    findings.append(f"UNRECORDED-EDIT {row['local']}: changed since {commits[row['local']][:9]}, "
+                                    f"the last commit to its row; add a J entry for the change")
     if findings:
         print("\n".join(findings))
         return 1

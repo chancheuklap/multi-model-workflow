@@ -1,6 +1,6 @@
 # Tickets for an interface or a remake
 
-Which extra tickets a map gets when its destination has a UI, or remakes an existing product. Chart a map step 4 and Resolve a map ticket step 5 read it.
+Which extra tickets a map gets when its destination has a UI, or remakes an existing product. Chart a map's **Create the tickets you can state now** and Resolve a map ticket's **Move the frontier** read it.
 
 ## A destination with an interface
 
@@ -8,7 +8,7 @@ A UI is decided in two places that never meet on their own: the owner draws its 
 
 A destination with a UI gets two more tickets. The **alignment ticket** is a `grilling` ticket blocked by every decision ticket and by the ticket that produces the design package, whose resolution is the effort's **screen contract**, written by the playbook Write the screen contract. It is the last ticket to close. That producer is the **design ticket**: a `prototype` ticket, blocked by every `prototype` decision ticket and by every decision ticket that will change a page's states, resolved by the playbooks Design in Claude Design and Pull a design. A decision that changes what a page can show, settled after the pages are drawn, sends the owner back to redraw them; one that only changes what happens behind a page does not block the design ticket.
 
-Each of the two opens its body, above `## Question`, with one line in the map's language naming the playbook that resolves it: Write the screen contract for the alignment ticket; Design in Claude Design for the design ticket, whose line also says that only a session whose host has the Claude Design MCP tools can work it. Their type labels would otherwise send whoever picks them up the wrong way: a grilling ticket to an interview, a prototype ticket to the `prototype` skill. Resolve a map ticket step 3 runs the playbook such a line names.
+Each of the two opens its body, above `## Question`, with one line in the map's language naming the playbook that resolves it: Write the screen contract for the alignment ticket; Design in Claude Design for the design ticket, whose line also says that only a session whose host has the Claude Design MCP tools can work it. Their type labels would otherwise send whoever picks them up the wrong way: a grilling ticket to an interview, a prototype ticket to the `prototype` skill. Resolve a map ticket's **Resolve it by its type** runs the playbook such a line names.
 
 Write one standing rule into the map's `## Notes`, which every later session reads: every decision ticket added later also blocks the alignment ticket, and blocks the design ticket too when it will change a page's states.
 

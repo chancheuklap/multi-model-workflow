@@ -63,8 +63,6 @@ class TopbarRowsTest(unittest.TestCase):
                              str(shown["orangeN"]))
             self.assertEqual(page.locator('[data-ui="顶栏.running.count"]').inner_text(),
                              str(shown["greenN"]))
-            self.assertEqual(page.locator('[data-ui="顶栏.running.sub"]').inner_text(),
-                             f"waiting for a slot {shown['waiting']}")
             self.assertEqual(page.locator('[data-ui="顶栏.queued.count"]').inner_text(),
                              str(shown["hollowN"]))
             self.assertEqual(page.locator('[data-ui="顶栏.done.count"]').inner_text(),
@@ -90,7 +88,6 @@ class TopbarRowsTest(unittest.TestCase):
                              str(failed_shown["orangeN"]))
             self.assertEqual(page.locator('[data-ui="顶栏.running.count"]').inner_text(),
                              str(failed_shown["greenN"]))
-            self.assertEqual(page.locator('[data-ui="顶栏.running.sub"]').count(), 0)
             self.assertEqual(page.locator('[data-ui="顶栏.queued.count"]').inner_text(),
                              str(failed_shown["hollowN"]))
             self.assertEqual(page.locator('[data-ui="顶栏.done.count"]').inner_text(),

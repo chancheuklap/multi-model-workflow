@@ -273,7 +273,7 @@ Name each finding by its rule and quote the lines it is about. Every rule is a j
 | Old path kept | adds a path that does the job of an existing branch, guard, helper or file, and leaves the old one, or a caller still on it, in place | **principle-migrate-callers-then-delete-legacy-apis** |
 | Fix at one caller | fixes a defect at the one caller that met it, while the shared code it comes from still hands it to the other callers | **principle-migrate-callers-then-delete-legacy-apis** |
 | Unexplained addition | adds a file, a dependency or a configuration entry, and neither the change nor its author's recorded decisions say why the existing one was not enough | **principle-laziness-protocol** |
-| Lost safeguard | simplifies away a security check, error handling that prevents data loss, accessibility, or anything the request explicitly asked for | |
+| Lost safeguard | simplifies away a security check, error handling that prevents data loss, accessibility, or anything the request explicitly asked for | **principle-laziness-protocol** |
 | Silent pass | lets a check, a guard or a script that verified nothing (no file matched, no case ran, a source could not be read) report success | **principle-a-check-must-be-able-to-fail** |
 | Narrating comment | adds a comment that restates the code or narrates steps (`// Phase 1: add cards`), where only a non-obvious why earns a comment | the `mmw-mode` skill's `## Comments` |
 | History in a file | writes into a file, a comment or a docstring what changed ("now", "previously", "no longer"), not what is true of its subject | **principle-files-describe-the-present** |

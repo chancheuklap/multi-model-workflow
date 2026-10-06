@@ -23,6 +23,7 @@
 #   dispatch.sh memory-list <spec>
 #   dispatch.sh reverify <spec>
 #   dispatch.sh summary <spec> --memory-decisions <file>
+#   dispatch.sh summary <spec> --memory-unavailable
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
 #   dispatch.sh route <ticket> <child> fixed
@@ -443,6 +444,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh memory-list <spec>
        dispatch.sh reverify <spec>
        dispatch.sh summary <spec> --memory-decisions <file>
+       dispatch.sh summary <spec> --memory-unavailable
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
        dispatch.sh route <ticket> <child> fixed
@@ -520,6 +522,23 @@ ensure_repository_memory() {
   local slug="$1" out
   out="$(python3 "$SPACE" --check "$slug" 2>&1)" && return 0
   echo "dispatch: $out" >&2
+  return 1
+}
+
+# The Memory Space of repository owner/name, named the way `space.py` names it.
+repository_space_of() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|'
+}
+
+# Return 1, with the reason on stderr, unless this session's NMEM_SPACE is repository
+# owner/name's Space. The orchestrator writes Memory through its own environment, which
+# nothing here can change once the session has started; under any other value what it
+# learns lands in another repository's Space, or in Default.
+ensure_session_space() {
+  local space
+  space="$(repository_space_of "$1")"
+  [ "${NMEM_SPACE:-}" = "$space" ] && return 0
+  echo "dispatch: this session's NMEM_SPACE is ${NMEM_SPACE:-not set}, not this repository's Space $space, so what it writes to Memory would land outside $space; start this session with NMEM_SPACE=$space in its environment, then run this again" >&2
   return 1
 }
 
@@ -866,6 +885,7 @@ open_night() {
   # A repository that is not set up is refused before anything is pushed.
   repository="$(repo_slug)" || exit 2
   ensure_repository_memory "$repository" || exit 2
+  ensure_session_space "$repository" || exit 2
   fetch_origin "$root" || exit 2
   rows="$(inspect_open_branches "$root" "$spec" "$into")" || exit 2
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
@@ -899,7 +919,9 @@ open_night() {
 # themselves, and the board is the one view of the ticket for a person. A board that will
 # not start is said on stderr and leaves the watch open.
 open_ticket() {
-  local number="$1" opened runner session how board
+  local number="$1" opened runner session how board repository
+  repository="$(repo_slug)" || exit 2
+  ensure_session_space "$repository" || exit 2
   opened="$(open_relay --tickets "$number")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if board="$(ensure_board)"; then
@@ -1720,7 +1742,7 @@ start_one() {
   repository_slug="$(repo_slug)" || exit 2
   ensure_repository_memory "$repository_slug" \
     || refuse "the repository Space could not be verified, so #$number's $kind was not started; the specific Nowledge failure is above. Restore Nowledge Mem or its repository Space, then run start again"
-  repository_space="$(printf '%s' "$repository_slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  repository_space="$(repository_space_of "$repository_slug")"
 
   workspace_origin_ready "$number" "$root" "$into" \
     || refuse "could not use origin to prepare issue-$number; an existing worker was not stopped"
@@ -1962,6 +1984,15 @@ brief_many() {
   repo="$(repo_slug)" || exit 2
   line="$(own_session)" \
     || refuse "nothing could wake this session with the results, so no $role was started"
+  # A brief session runs in the runner's environment, not this one's, so it is handed the
+  # repository's Space the way a worker is. A brief does not need Memory to do its job: when
+  # the Space cannot be verified the sessions start without it, and stderr says so.
+  local -a brief_environment=()
+  if ensure_repository_memory "$repo"; then
+    brief_environment+=("NMEM_SPACE=$(repository_space_of "$repo")")
+  else
+    echo "dispatch: the $role sessions start with no Memory Space, so whatever they write to Memory lands in Default" >&2
+  fi
   parent_runner="${line%%$'\t'*}"
   parent_session="${line#*$'\t'}"
   batch="$(python3 "$BRIEFS" new --repo "$repo" --role "$role" --count "$#" \
@@ -1977,7 +2008,8 @@ brief_many() {
     prompt="$lead$body"$'\n\n'"$(brief_footer "$batch/$n")"
     # Herdr's session id is basename(cwd) plus the title's last word, so the last word
     # carries the batch and the brief.
-    if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n")"; then
+    if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n" \
+                       "${brief_environment[@]+"${brief_environment[@]}"}")"; then
       close_batch "$batch"
       refuse "$RUNNER_NAME did not start $host as $role for brief $n of $# (its reason is above); nothing was retried, batch $batch was closed and the sessions it had started were stopped. Fix what it names, or change this agent's row in $MODELS_JSON, then brief again"
     fi
@@ -2239,6 +2271,12 @@ check_machine() {
       failed=1
     fi
   fi
+  local repository
+  if repository="$(repo_slug)"; then
+    ensure_session_space "$repository" || failed=1
+  else
+    failed=1
+  fi
 
   # What install.sh checks is this machine's whole toolbox, most of it nothing the night
   # uses, and what the night does use is checked below by what reads it. So an incomplete
@@ -2410,7 +2448,7 @@ integrate_conflict_report() {
     git -C "$root" diff --name-only --diff-filter=U | sed 's/^/    /'
     echo
     echo "  Resolve this merge as Work a ticket's step Integrate and run every criterion says, run the"
-    echo "  repository checks affected by the merged tickets, commit the merge,"
+    echo "  tests that cover the conflicted files, commit the merge,"
     echo "  then run dispatch.sh integrate $number again."
   } >&2
 }
@@ -3564,11 +3602,13 @@ print((rows[0].get("login") or "") if rows else "")
 # the `mmw-spec-<spec>` label. `memory_py close <spec> <file>` applies the file's
 # decisions and prints them as one JSON line, then the summary's Memory lines. A record
 # the file deprecates or supersedes that is no longer active was changed by an earlier
-# run, and is not changed again.
+# run, and is not changed again. `memory_py unavailable <spec>` closes nothing: it answers
+# only while nmem cannot list every record of the label, with an empty decision list and
+# the reason, so the night can close without its Memory closing.
 memory_py() {
   local mode="$1" spec="$2" file="${3:-}" slug space
   slug="$(repo_slug)" || return 2
-  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  space="$(repository_space_of "$slug")"
   MMW_MEMORY_MODE="$mode" MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" \
     MMW_MEMORY_DECISIONS="$file" python3 - <<'PY'
 import json
@@ -3590,7 +3630,9 @@ PROPOSE_EVIDENCE = re.compile(
 
 def fail(fact):
     again = (f"fix it in {path}, then run dispatch.sh summary {spec} --memory-decisions {path} again"
-             if mode == "close" else f"run dispatch.sh memory-list {spec} again once nmem answers")
+             if mode == "close" else
+             f"run dispatch.sh memory-list {spec} again once nmem lists them all, or close the night "
+             f"without its Memory closing: dispatch.sh summary {spec} --memory-unavailable")
     print(f"dispatch: Memory closing for #{spec}: {fact}; {again}", file=sys.stderr)
     raise SystemExit(2)
 
@@ -3600,7 +3642,7 @@ def nmem(*args):
     try:
         return subprocess.run(command, text=True, capture_output=True, check=False)
     except OSError as exc:
-        fail(f"nmem could not run ({exc})")
+        return subprocess.CompletedProcess(command, 127, "", f"nmem could not run ({exc})")
 
 
 def said(done):
@@ -3614,9 +3656,25 @@ except json.JSONDecodeError:
     value = None
 rows = value.get("memories") if isinstance(value, dict) else None
 if not isinstance(rows, list):
-    fail(f"nmem memories list gave no list of records ({said(listed)})")
-if isinstance(value.get("total"), int) and value["total"] > len(rows):
-    fail(f"nmem memories list returned {len(rows)} of {value['total']} records")
+    unlisted = f"nmem memories list gave no list of records ({said(listed)})"
+elif isinstance(value.get("total"), int) and value["total"] > len(rows):
+    unlisted = f"nmem memories list returned {len(rows)} of {value['total']} records"
+else:
+    unlisted = None
+if mode == "unavailable":
+    # The night closes without its Memory closing only while nmem cannot list every record;
+    # once it can, the records are decided as usual.
+    if unlisted is None:
+        print(f"dispatch: Memory closing for #{spec}: nmem lists every record, so each can be decided; "
+              f"run dispatch.sh summary {spec} --memory-decisions <file> with the file memory-list "
+              f"wrote, deciding each record first, or run dispatch.sh memory-list {spec} to write one",
+              file=sys.stderr)
+        raise SystemExit(2)
+    print(json.dumps({"decisions": [], "unavailable": unlisted}, ensure_ascii=False, separators=(",", ":")))
+    print(f"Memory closing: not done; {unlisted}. The records labelled mmw-spec-{spec} stay as they are.")
+    raise SystemExit(0)
+if unlisted:
+    fail(unlisted)
 active = [row["id"] for row in rows if isinstance(row, dict) and row.get("id")]
 
 if mode == "list":
@@ -3732,7 +3790,11 @@ summary_spec() {
        esac ;;
   esac
 
-  memory_result="$(memory_py close "$spec" "$decisions_file")" || exit $?
+  if [ -n "$decisions_file" ]; then
+    memory_result="$(memory_py close "$spec" "$decisions_file")" || exit $?
+  else
+    memory_result="$(memory_py unavailable "$spec")" || exit $?
+  fi
   memory_manifest="$(printf '%s\n' "$memory_result" | head -n 1)"
   memory_summary="$(printf '%s\n' "$memory_result" | tail -n +2)"
   body="$(printf '%s\n%s\n' "$body" "$memory_summary")"
@@ -3794,7 +3856,7 @@ finish_preflight() {
     [ "$state" = CLOSED ] || open="$open #$child"
   done
   if [ -n "$open" ]; then
-    echo "dispatch: #$spec's tickets still open:${open}; close them before finish $spec" >&2
+    echo "dispatch: #$spec's tickets still open:${open}; they are the owner's to settle (close, or run again another night), so close none of them yourself; run finish $spec again once the owner has" >&2
     return 2
   fi
 }
@@ -4314,6 +4376,8 @@ case "${1:-}" in
   summary)
     if [ "$#" -eq 4 ] && [ "$3" = "--memory-decisions" ]; then
       summary_spec "$2" "$4"
+    elif [ "$#" -eq 3 ] && [ "$3" = "--memory-unavailable" ]; then
+      summary_spec "$2" ""
     else
       usage
     fi

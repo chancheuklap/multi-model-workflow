@@ -6,12 +6,12 @@ import {fromBoard, render} from "../../board/page/topbar.mjs";
 import {installDom, namedButton, walk} from "./fake-dom.mjs";
 
 const morningView = {
-  orangeN: 3, greenN: 3, hollowN: 9, inkN: 9, waiting: 1,
+  orangeN: 3, greenN: 3, hollowN: 9, inkN: 9,
   readFailed: false, readText: "只读 · 07:39 读取", settingsOpen: false,
 };
 
 const emptyView = {
-  orangeN: 0, greenN: 0, hollowN: 0, inkN: 0, waiting: 0,
+  orangeN: 0, greenN: 0, hollowN: 0, inkN: 0,
   readFailed: false, readText: "只读 · 07:39 读取", settingsOpen: false,
 };
 
@@ -27,20 +27,18 @@ function mount(view, api, hooks) {
   return {document, host, root: render(host, view, api, hooks)};
 }
 
-test("a populated view shows the four counts and the waiting sub-line", () => {
+test("a populated view shows the four counts", () => {
   const {root} = mount(morningView);
   assert.equal(root.dataset.screen, "topbar");
   assert.deepEqual(counterNs(root), ["3", "3", "9", "9"]);
-  assert.match(root.textContent, /waiting for a slot 1/);
   assert.match(root.textContent, /只读 · 07:39 读取/);
   assert.equal(namedButton(root, "needs you 3").disabled, false);
 });
 
-test("an empty view disables needs you and hides the waiting sub-line", () => {
+test("an empty view disables needs you", () => {
   const {root} = mount(emptyView);
   assert.equal(namedButton(root, "needs you 0").disabled, true);
   assert.deepEqual(counterNs(root), ["0", "0", "0", "0"]);
-  assert.equal(walk(root).some(node => (node.className || "").includes("counter-sub")), false);
 });
 
 test("立刻重读 GitHub calls POST /api/board/refresh", async () => {
@@ -111,7 +109,7 @@ test("a failed read shows the time and age of the data below", () => {
     fold: {
       children: {9: {child: 9, kind: "decision", title: "choose"}},
       sessions: [], landed: false, returned: false, bounced: false,
-      outcome: null, waiting: null, review: null,
+      outcome: null, review: null,
     },
   };
   const readAt = new Date(2026, 8, 11, 7, 12);

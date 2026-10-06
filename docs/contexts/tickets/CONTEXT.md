@@ -57,7 +57,7 @@ The bullet of `## Testing Decisions`, written only in a spec with a screen contr
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **`## Out of Scope`**:
-The spec section of what is not being done, read by the worker and the Spec axis. A wayfinder map's Out of scope section is a different heading, carried into the spec.
+The spec section of what is not being done, read by the worker and the Spec axis. A wayfinder map's Out of scope section is a different heading, which the spec's Out of Scope links rather than copies.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **`## Sources`**:
@@ -77,7 +77,7 @@ Changing a section of an already-published spec in place rather than publishing 
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/revise-a-spec.md`
 
 **seam**:
-The place where a module's interface lives: where a test observes behaviour without reaching inside, and where what is behind the interface can be replaced (a stub, an adapter). `## Testing Decisions` names it and a ticket copies it into `## Seam`.
+The place where a module's interface lives: where a test observes behaviour without reaching inside, and where what is behind the interface can be replaced (a stub, an adapter). `## Testing Decisions` names it and a ticket's `## Seam` points at it by that name.
 _Home_: `mmw-v3/skills/codebase-design/SKILL.md`, `mmw-v3/skills/tdd/SKILL.md`
 
 **precedent**:
@@ -308,10 +308,6 @@ _Home_: `mmw-v3/skills/triage/SKILL.md`
 **`.out-of-scope/`**:
 The directory of one-file-per-concept records of enhancement requests rejected as `wontfix`, read during triage for institutional memory and to catch a repeat request before it is re-litigated; a request closed as already implemented is a different outcome, with no file here.
 _Home_: `mmw-v3/skills/triage/OUT-OF-SCOPE.md`
-
-**PRs as a request surface**:
-The per-repository flag deciding whether triage covers external pull requests as it covers issues; when it does, a PR is triaged as an issue with attached code, through the same roles, states and machine, and only a PR from outside the maintainer and collaborators is surfaced for triage (one named explicitly is triaged regardless).
-_Home_: `docs/agents/issue-tracker.md`
 
 **decision ticket**:
 A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. It carries no state role and is not triaged. Its resolution comment is a baseline source.

@@ -71,7 +71,7 @@ When a screen-contract row a ticket owns cites a section of an earlier spec as i
 
 Cut one whenever the design package carries a design system under `_ds/<folder>/` whose variables or part stylesheets the product code does not yet have; otherwise each page ticket writes the styles its component needs from the design pages. A design system built from an existing product's code counts: it merges inconsistent values into one scale and records each merge in its `readme.md` table `Unifications`, so copying it back changes the product. The ticket copies the variables (colour, type scale, spacing, radius, shadow), the fonts and the part stylesheets (each part a class name with its stylesheet) from `_ds/<folder>/` into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. A batch with no contract ticket has it block every **component page ticket** and **app page ticket** instead. Its criterion does not depend on `.mmw/`.
 
-**The design-system ticket is the second exception to vertical slicing**, beside the wide refactor Cut tickets step 3 names. It lands one layer, the styles, and demonstrates no behaviour of its own.
+**The design-system ticket is the second exception to vertical slicing**, beside the wide refactor Cut tickets' **Draft vertical slices** names. It lands one layer, the styles, and demonstrates no behaviour of its own.
 
 **Read first** names the `_ds/` copy in the design package, the design system Claude Design used to draw the pages. **Owns** is the product files the variables, fonts and part stylesheets land in.
 
@@ -107,7 +107,7 @@ The smoke journey uses the journey criterion and omits `--break`. It requires th
 
 Journeys appear on the contract ticket, on tickets the owner named, and on each critical-flow ticket.
 
-Where the spec has a screen contract, the **prefactor ticket** of Cut tickets step 5 is this ticket. It registers the scenes and routes of every design page in the screen contract, not only of the page it makes the precedent from.
+Where the spec has a screen contract, the **prefactor ticket** of Cut tickets' **Give each ticket its blocking edges** is this ticket. It registers the scenes and routes of every design page in the screen contract, not only of the page it makes the precedent from.
 
 ## component page ticket
 

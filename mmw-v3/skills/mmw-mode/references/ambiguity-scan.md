@@ -2,7 +2,7 @@
 
 The prompt of the ambiguity scanner, the subagent step 6 of Cut tickets (`../playbooks/cut-tickets.md`) sends out before the owner sees the breakdown. The subagent is told to read this file, with the spec's issue number and the file that holds the drafted tickets; on a host that cannot run subagents, the session runs it itself.
 
-Read only the spec and the drafted tickets. Run one pass. Write nothing on the tracker.
+Read only the spec, the drafted tickets, and the **Out of scope** of the map the spec's Out of Scope links, when it links one: what that excludes is settled, not a gap. Run one pass. Write nothing on the tracker.
 
 It is very likely that important decisions are missing or ambiguous, even if the spec looks good on the surface. Be skeptical, adversarial, and actively try to find gaps.
 

@@ -1,6 +1,6 @@
 # Memory while working a ticket
 
-How a worker reads and saves the shared experience a ticket can use. Work a ticket's **Read yourself in and write the code** opens this file; the two indexes it reads are in the worker's start prompt, which the `dispatch` skill's `dispatch.sh start` builds.
+How a worker reads and saves the shared experience a ticket can use. Work a ticket's **Read yourself in and write the code** opens this file whatever the indexes hold; the two indexes it reads are in the worker's start prompt, which the `dispatch` skill's `dispatch.sh start` builds.
 
 ## Read
 

@@ -135,7 +135,7 @@ _Home_: `mmw-v3/skills/dispatch/references/editing-models.md`, `mmw-v3/skills/di
 ### The night's commands
 
 **check**:
-`dispatch.sh check <spec>`: the checks before a night opens — the branches, `install.sh --check`, the runner, the model rows and the worker-grade labels.
+`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows and the worker-grade labels.
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **repository Space**:
@@ -143,7 +143,7 @@ The Nowledge Mem Space for one tracker repository, id `<owner>__<name>` in lower
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **open**:
-`dispatch.sh open <spec>`: the night begins. It records the project branch, brings the base branch up to it, opens the relay's **watch** with the calling session as orchestrator, and posts `spec.opened`.
+`dispatch.sh open <spec>`: the night begins. It refuses a session whose `NMEM_SPACE` is not the repository's Space (ADR 0035), then records the project branch, brings the base branch up to it, opens the relay's **watch** with the calling session as orchestrator, and posts `spec.opened`.
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **`dispatch.sh finish`**:
@@ -187,15 +187,15 @@ _Home_: `docs/contexts/night/how-it-works.md`
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **summary**:
-`dispatch.sh summary <spec> --memory-decisions <file>`: once nothing of the night is left running or unrouted, posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch. It refuses, with nothing posted, while the batch holds a finding no `child.closed` accounts for, by the last count on its own `Findings routed:` line.
+`dispatch.sh summary <spec> --memory-decisions <file>`, or `summary <spec> --memory-unavailable` while Nowledge Mem does not answer: once nothing of the night is left running or unrouted, posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch. It refuses, with nothing posted, while the batch holds a finding no `child.closed` accounts for, by the last count on its own `Findings routed:` line.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **Memory closing**:
-The part of the **closing pass** in which the orchestrator gives every Memory record labelled `mmw-spec-<spec>` one decision — `retain`, `propose`, `deprecate` or `supersede` — recorded as `memory_closing` in `spec.closed`.
+The part of the **closing pass** in which the orchestrator gives every Memory record labelled `mmw-spec-<spec>` one decision — `retain`, `propose`, `deprecate` or `supersede` — recorded as `memory_closing` in `spec.closed`. While Nowledge Mem cannot list every record (it does not answer, or returns part of them), the night closes without it: `memory_closing` holds no decisions and the reason, and the records stay as they are (ADR 0035).
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md` (step 7), `mmw-v3/skills/dispatch/scripts/dispatch.sh` (`memory_py`)
 
 **memory-list**:
-`dispatch.sh memory-list <spec>`: computes the repository Space id, pulls the spec's full `mmw-spec-<spec>` Memory record set, and prints a **`--memory-decisions` file** skeleton, one blank decision per active record. It exits 2 when Nowledge Mem does not answer or returns a truncated list, and the night cannot close until it does.
+`dispatch.sh memory-list <spec>`: computes the repository Space id, pulls the spec's full `mmw-spec-<spec>` Memory record set, and prints a **`--memory-decisions` file** skeleton, one blank decision per active record. It exits 2 when Nowledge Mem does not answer or returns a truncated list.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`--memory-decisions` file**:
@@ -393,7 +393,7 @@ _Avoid_: blocking event
 _Home_: `mmw-v3/skills/retro/SKILL.md`
 
 **review_learning**:
-The retro's record distinguishing a review finding that was invalid from one that was valid and fixed elsewhere; two invalid findings of one review category point to a reviewer Rule to change, two valid findings of one kind point to a check.
+The retro's record distinguishing a review finding that was invalid from one that was valid and fixed elsewhere; two invalid findings citing one `CODING_STANDARDS.md` rule point to that rule, to clarify or remove, two valid findings of one kind with a fixed shape point to a check.
 _Home_: `mmw-v3/skills/retro/SKILL.md`
 
 **intent_reconciliation**:
@@ -401,7 +401,7 @@ The retro's comparison of the spec's expected surface (Problem Statement and Use
 _Home_: `mmw-v3/skills/retro/SKILL.md`
 
 **Prevention destinations**:
-The eight values a retro problem's Prevention names by its `destination`, each with one fixed reader: a check, a script, that repository's `AGENTS.md`, a repository-local skill, an active reviewer Rule, an MMW skill, toolbox Memory, or none.
+The eight values a retro problem's Prevention names by its `destination`, each with one fixed reader: a check, a script, that repository's `AGENTS.md`, a repository-local skill, a row of a `CODING_STANDARDS.md`, an MMW skill, toolbox Memory, or none.
 _Home_: `mmw-v3/skills/retro/SKILL.md`
 
 **proposal**:
