@@ -17,10 +17,13 @@
 ## 改动分类
 
 - 分类：增删控件或改流转
-- design page：`Component · 详情.dc.html`
+- design page：`Component · 详情.dc.html`、`Component · 顶栏.dc.html`
 - `data-ui` id 新增：无
-- `data-ui` id 删除：无
-- `scene` 取值变化：`Component · 详情.dc.html`；新增 ticket-cleared-blocker；删除 无。
+- `data-ui` id 删除：`顶栏.running.sub`
+- `scene` 取值变化：`Component · 详情.dc.html`；新增 无；删除 ticket-waiting。
+- 合同行引用的文字变化：`detail.goto-blocked`：`#222 「不知道」与「死了」分开 held | #135 投递回执 held | #137 中继自检命令 held | #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 waiting` → `#222 「不知道」与「死了」分开 held | #135 投递回执 held | #137 中继自检命令 held | #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 working`
+- 合同行引用的文字变化：`detail.goto-ticket-row`：`#132 中继进程骨架 landed #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 waiting #135 投递回执 queued #137 中继自检命令 queued` → `#132 中继进程骨架 landed #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 working #135 投递回执 queued #137 中继自检命令 queued`
+- 合同行引用的文字变化：`board.goto-ticket-row`：`#132 中继进程骨架 landed #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 waiting #135 投递回执 queued #137 中继自检命令 queued` → `#132 中继进程骨架 landed #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 working #135 投递回执 queued #137 中继自检命令 queued`
 
 ## 本地改过的说明
 

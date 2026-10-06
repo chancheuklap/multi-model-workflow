@@ -192,11 +192,6 @@ scenes:
     input:
       file: data/detail-scenes.js
       value: DETAIL_SCENES.ticket-closeout
-  Component · 详情.ticket-waiting:
-    page: Component · 详情.dc.html
-    input:
-      file: data/detail-scenes.js
-      value: DETAIL_SCENES.ticket-waiting
   Component · 详情.ticket-review:
     page: Component · 详情.dc.html
     input:

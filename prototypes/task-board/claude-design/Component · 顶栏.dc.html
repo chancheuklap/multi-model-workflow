@@ -37,9 +37,6 @@
     </button>
     <span class="counter" data-ui="顶栏.running">
       <span class="lamp green" data-ui="顶栏.running.lamp"></span>running<span class="counter-n" data-ui="顶栏.running.count">{{ greenN }}</span>
-      <sc-if value="{{ hasWaiting }}" hint-placeholder-val="{{ true }}">
-        <span class="counter-sub" data-ui="顶栏.running.sub">{{ waitingText }}</span>
-      </sc-if>
     </span>
     <span class="counter" data-ui="顶栏.queued">
       <span class="lamp hollow" data-ui="顶栏.queued.lamp"></span>queued<span class="counter-n" data-ui="顶栏.queued.count">{{ hollowN }}</span>
@@ -87,7 +84,6 @@ class Component extends DCLogic {
     const view = this.data();
     const orangeN = view.orangeN ?? 0;
     const hot = orangeN > 0;
-    const waiting = view.waiting ?? 0;
     const open = this.props.settingsOpen !== undefined ? Boolean(this.props.settingsOpen)
       : this.state.settingsOpen === undefined ? Boolean(view.settingsOpen) : this.state.settingsOpen;
     return {
@@ -98,8 +94,6 @@ class Component extends DCLogic {
       hotCls: hot ? "counter hot" : "counter",
       hotLamp: hot ? "lamp orange" : "lamp hollow",
       notHot: !hot,
-      hasWaiting: waiting > 0,
-      waitingText: "waiting for a slot " + waiting,
       readCls: view.readFailed ? "hatch-bar" : "readstate",
       readText: view.readText || "",
       gearCls: open ? "iconbtn bare on" : "iconbtn bare",

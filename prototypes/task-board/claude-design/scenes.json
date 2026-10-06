@@ -21,8 +21,7 @@
           "顶栏.running": {
             "_text": "running",
             "顶栏.running.lamp": "",
-            "顶栏.running.count": "3",
-            "顶栏.running.sub": "waiting for a slot 1"
+            "顶栏.running.count": "3"
           },
           "顶栏.queued": {
             "_text": "queued",
@@ -213,9 +212,9 @@
               "画布.ticket-card.open": "",
               "画布.ticket-card.lamp": "",
               "画布.ticket-card.num": "#136",
-              "画布.ticket-card.phase": "waiting",
+              "画布.ticket-card.phase": "working",
               "画布.ticket-card.title": "重试与退避",
-              "画布.ticket-card.run": "waiting for a slot · since 07:32"
+              "画布.ticket-card.run": "claude · opus 5 · high"
             },
             {
               "画布.ticket-card.open": "",
@@ -398,8 +397,7 @@
           "顶栏.running": {
             "_text": "running",
             "顶栏.running.lamp": "",
-            "顶栏.running.count": "4",
-            "顶栏.running.sub": "waiting for a slot 1"
+            "顶栏.running.count": "4"
           },
           "顶栏.queued": {
             "_text": "queued",
@@ -562,9 +560,9 @@
               "画布.ticket-card.open": "",
               "画布.ticket-card.lamp": "",
               "画布.ticket-card.num": "#225",
-              "画布.ticket-card.phase": "waiting",
+              "画布.ticket-card.phase": "working",
               "画布.ticket-card.title": "陈旧绑定检测",
-              "画布.ticket-card.run": "waiting for a slot · since 07:26"
+              "画布.ticket-card.run": "cursor · grok 4.6 · high"
             },
             {
               "画布.ticket-card.open": "",
@@ -1069,8 +1067,7 @@
           "顶栏.running": {
             "_text": "running",
             "顶栏.running.lamp": "",
-            "顶栏.running.count": "3",
-            "顶栏.running.sub": "waiting for a slot 1"
+            "顶栏.running.count": "3"
           },
           "顶栏.queued": {
             "_text": "queued",
@@ -1261,9 +1258,9 @@
               "画布.ticket-card.open": "",
               "画布.ticket-card.lamp": "",
               "画布.ticket-card.num": "#136",
-              "画布.ticket-card.phase": "waiting",
+              "画布.ticket-card.phase": "working",
               "画布.ticket-card.title": "重试与退避",
-              "画布.ticket-card.run": "waiting for a slot · since 07:32"
+              "画布.ticket-card.run": "claude · opus 5 · high"
             },
             {
               "画布.ticket-card.open": "",
@@ -1320,8 +1317,7 @@
           "顶栏.running": {
             "_text": "running",
             "顶栏.running.lamp": "",
-            "顶栏.running.count": "3",
-            "顶栏.running.sub": "waiting for a slot 1"
+            "顶栏.running.count": "3"
           },
           "顶栏.queued": {
             "_text": "queued",
@@ -1512,9 +1508,9 @@
               "画布.ticket-card.open": "",
               "画布.ticket-card.lamp": "",
               "画布.ticket-card.num": "#136",
-              "画布.ticket-card.phase": "waiting",
+              "画布.ticket-card.phase": "working",
               "画布.ticket-card.title": "重试与退避",
-              "画布.ticket-card.run": "waiting for a slot · since 07:32"
+              "画布.ticket-card.run": "claude · opus 5 · high"
             },
             {
               "画布.ticket-card.open": "",
@@ -2987,9 +2983,9 @@
             "画布.ticket-card.open": "",
             "画布.ticket-card.lamp": "",
             "画布.ticket-card.num": "#136",
-            "画布.ticket-card.phase": "waiting",
+            "画布.ticket-card.phase": "working",
             "画布.ticket-card.title": "重试与退避",
-            "画布.ticket-card.run": "waiting for a slot · since 07:32"
+            "画布.ticket-card.run": "claude · opus 5 · high"
           },
           {
             "画布.ticket-card.open": "",
@@ -3164,9 +3160,9 @@
             "画布.ticket-card.open": "",
             "画布.ticket-card.lamp": "",
             "画布.ticket-card.num": "#225",
-            "画布.ticket-card.phase": "waiting",
+            "画布.ticket-card.phase": "working",
             "画布.ticket-card.title": "陈旧绑定检测",
-            "画布.ticket-card.run": "waiting for a slot · since 07:26"
+            "画布.ticket-card.run": "cursor · grok 4.6 · high"
           },
           {
             "画布.ticket-card.open": "",
@@ -3510,9 +3506,9 @@
             "画布.ticket-card.open": "",
             "画布.ticket-card.lamp": "",
             "画布.ticket-card.num": "#136",
-            "画布.ticket-card.phase": "waiting",
+            "画布.ticket-card.phase": "working",
             "画布.ticket-card.title": "重试与退避",
-            "画布.ticket-card.run": "waiting for a slot · since 07:32"
+            "画布.ticket-card.run": "claude · opus 5 · high"
           },
           {
             "画布.ticket-card.open": "",
@@ -4239,89 +4235,6 @@
     }
   },
   {
-    "name": "Component · 详情.ticket-waiting",
-    "page": "Component · 详情.dc.html",
-    "props": {
-      "scene": "ticket-waiting"
-    },
-    "data": {
-      "详情.root": {
-        "详情.head": {
-          "详情.head.eyebrow": "Ticket",
-          "详情.head.github": "GitHub ↗",
-          "详情.head.close": "×"
-        },
-        "详情.title": "重试与退避",
-        "详情.origin": {
-          "_text": "· ·",
-          "详情.origin.number": "#136",
-          "详情.origin.link": [
-            "spec #131",
-            "map #98"
-          ]
-        },
-        "详情.status": {
-          "详情.status.lamp": "",
-          "详情.status.status": "running",
-          "详情.status.phase": "waiting",
-          "详情.status.elapsed": "1h02m"
-        },
-        "详情.runtime": {
-          "详情.runtime.grade": "senior-worker",
-          "详情.runtime.model": "claude · opus 5 · high",
-          "详情.runtime.key": [
-            "ticket branch",
-            "base branch",
-            "worktree",
-            "machine"
-          ],
-          "详情.runtime.value": [
-            "issue-136",
-            "wake-relay",
-            "…/.worktrees/136-work",
-            "cheuk-mbp"
-          ]
-        },
-        "详情.blocked-by": {
-          "详情.blocked-by.title": "Blocked by",
-          "详情.blocked-by.count": "1",
-          "详情.blocker": {
-            "详情.blocker.lamp": "",
-            "详情.blocker.number": "#132",
-            "详情.blocker.title": "中继进程骨架",
-            "详情.blocker.phase": "landed"
-          }
-        },
-        "详情.events": {
-          "详情.events.title": "Events",
-          "详情.events.count": "3",
-          "详情.event-block": [
-            {
-              "详情.event-block.toggle": {
-                "详情.event-block.chev": "▸",
-                "详情.event-block.phase": "working",
-                "详情.event-block.summary": "Worker started — claude opus 5, high effort",
-                "详情.event-block.time": "06:38"
-              }
-            },
-            {
-              "详情.event-block.toggle": {
-                "详情.event-block.chev": "▾",
-                "详情.event-block.phase": "waiting",
-                "详情.event-block.time": "07:32"
-              },
-              "详情.event": {
-                "详情.event.time": "07:32",
-                "详情.event.name": "Waiting for a slot",
-                "详情.event.text": "every instance of the product was in use"
-              }
-            }
-          ]
-        }
-      }
-    }
-  },
-  {
     "name": "Component · 详情.ticket-review",
     "page": "Component · 详情.dc.html",
     "props": {
@@ -4569,7 +4482,7 @@
               "详情.blocks.lamp": "",
               "详情.blocks.number": "#136",
               "详情.blocks.title": "重试与退避",
-              "详情.blocks.phase": "waiting"
+              "详情.blocks.phase": "working"
             }
           ]
         },
@@ -4898,8 +4811,7 @@
           "详情.phase-counts": {
             "详情.phase-counts.item": [
               "queued · 2",
-              "working · 2",
-              "waiting · 1",
+              "working · 3",
               "review · 1",
               "verify · 2",
               "landed · 2"
@@ -4955,7 +4867,7 @@
               "详情.ticket-row.lamp": "",
               "详情.ticket-row.number": "#136",
               "详情.ticket-row.title": "重试与退避",
-              "详情.ticket-row.phase": "waiting"
+              "详情.ticket-row.phase": "working"
             },
             {
               "详情.ticket-row.lamp": "",
@@ -5010,8 +4922,7 @@
           "详情.phase-counts": {
             "详情.phase-counts.item": [
               "queued · 6",
-              "working · 2",
-              "waiting · 1",
+              "working · 3",
               "review · 1",
               "verify · 2",
               "landed · 6"
@@ -5170,8 +5081,7 @@
         "顶栏.running": {
           "_text": "running",
           "顶栏.running.lamp": "",
-          "顶栏.running.count": "3",
-          "顶栏.running.sub": "waiting for a slot 1"
+          "顶栏.running.count": "3"
         },
         "顶栏.queued": {
           "_text": "queued",
@@ -5210,8 +5120,7 @@
         "顶栏.running": {
           "_text": "running",
           "顶栏.running.lamp": "",
-          "顶栏.running.count": "4",
-          "顶栏.running.sub": "waiting for a slot 1"
+          "顶栏.running.count": "4"
         },
         "顶栏.queued": {
           "_text": "queued",
