@@ -195,7 +195,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <p class="lede">你担心迁移把 v2 时期精心设计的原则和路由弄坏。我从 Nowledge Mem 读了 825 条记忆，归纳成 96 条 v2 要防的问题，派九个只读 agent 逐条对照 v2 和 v3 的原文，只留下仓库用 <span class="c k-skill">setup-mmw</span> 配置好、按设计使用时仍会发生的。没有一条 v2 的守卫整条消失。迁移后变弱的 8 条和两处说法相反的，连同你定的三件，这次都改完了。96 条里 2 条是 v2 时就缺的，还缺着。</p>
 </div>
 <div class="brief">
-<div><b>这一课回答</b><ol><li>96 条现在各自的结论</li><li>五个会出错的时刻，现在怎样</li><li>你定的三件怎样落地</li><li>其余的修改</li><li>还没做的，和只有你能做的一件</li><li>怎样查的</li></ol></div>
+<div><b>这一课回答</b><ol><li>96 条现在各自的结论</li><li>五个会出错的时刻，现在怎样</li><li>你定的三件怎样落地</li><li>其余的修改</li><li>还没做的</li><li>怎样查的</li></ol></div>
 <div><b>依据</b>本分支 <code>mmw-rebuild</code> 上这一课所在的提交；v2 是 <code>mmw-v2/</code>。每条发现我都回到 v2 和 v3 的原文核过。改动只在分支上：本机已安装的 checkout 没动，夜里跑的仍是旧版本。没跑真的一夜；凭读代码得出的后果标了 <span class="inf">推断</span>。</div>
 <div><b>主要来源，建议先读</b><code class="c k-playbook">mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md</code> 第 2、3 步，和 <code class="c k-playbook">mmw-v3/skills/mmw-mode/playbooks/run-a-night.md</code> 第 7、8 步。这次的改动多数落在这四步里。</div>
 </div>
@@ -221,7 +221,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <h2>3　你定的三件怎样落地</h2>
 <div class="pairs">
 <div class="pair neutral"><div class="ours"><h4>1　按推荐改：三句进原则</h4><span class="c k-principle">principle-migrate-callers-then-delete-legacy-apis</span> 现在管每一次改动别处会调用的代码，修 bug 也算：先 grep 所有调用方，共享代码里的缺陷在共享代码里修一次。<span class="c k-principle">principle-laziness-protocol</span> 加了 <b>Keep the safeguards</b>：删减时保留安全检查、防丢数据的错误处理、可访问性和需求明确要的东西。<span class="c k-principle">principle-start-from-what-exists</span> 先在本仓库和票的 <b>Read first</b> 里找 helper，这一条在就地修 bug 时也适用。</div><div class="theirs"><h4>worker 什么时候读到</h4>mode 的 <code class="c k-mode">## Principles</code> 索引里，三行的条件改成写 helper、简化、改动别处会调用的函数时触发，每个会话都带着这几行。<code class="c k-config">CODING_STANDARDS.md</code> 的「Lost safeguard」一行现在指向 <span class="c k-principle">principle-laziness-protocol</span>，评审和 worker 读的是同一条。</div><div class="cost">走查发现一处冲突：<span class="c k-playbook">Work a ticket</span> 第 2 步原来只在验收条件非改不可时才允许改 <b>Owns</b> 以外的文件，和「共享代码修一次」相反。现在那一条把共享代码的修复也算进去，照样记在 <code>Outside Owns:</code> 下。</div></div>
-<div class="pair neutral"><div class="ours"><h4>2a　删看板的「waiting for a slot」</h4>看板的代码、样式、屏幕契约、<code>docs/contexts/task-board/CONTEXT.md</code>、<code>DESIGN.md</code> 和看板测试里都删了。<code class="c k-script">status.py</code> 的说明也不再提等槽位。看板测试套 <code>all passed</code>。</div><div class="theirs"><h4>还留着的一处</h4>设计包 <code>prototypes/task-board/claude-design/</code> 还画着这个状态。屏幕契约必须声明设计包里的每个场景，所以 <code>Component · 详情.ticket-waiting</code> 的声明还留着。产品和设计包现在对不上：<code class="c k-script">story-parity.py</code> 报 52 行 <code>DIFF</code>，每一行都是这个状态。</div><div class="cost">后果：下一张碰顶栏、详情或画布卡片的看板票，它的 story 验收条件会是红的。要你做的一件事在第 5 节。</div></div>
+<div class="pair neutral"><div class="ours"><h4>2a　删看板的「waiting for a slot」</h4>看板的代码、样式、屏幕契约、<code>docs/contexts/task-board/CONTEXT.md</code>、<code>DESIGN.md</code> 和看板测试里都删了。<code class="c k-script">status.py</code> 的说明也不再提等槽位。看板测试套 <code>all passed</code>。</div><div class="theirs"><h4>设计包也删了</h4>设计包只有 Claude Design 自己能改。我把要改的 15 处先在本地副本上做完、核过，写成项目里的 <code>task.md</code>，你说「开始」后那边的 agent 照着改，我再拉回来。拉回来的文件和我核过的版本逐字节相同；屏幕契约删掉最后那条 <code>Component · 详情.ticket-waiting</code> 声明。</div><div class="cost">示例里原来画成在等槽位的两张票 #136、#225，现在照产品真实的显示画成 worker 在跑。设计和产品逐元素比对是 <code>STORY OK 46/46</code>；删之前是 52 行差异。</div></div>
 <div class="pair neutral"><div class="ours"><h4>2b　Nowledge Mem 不可用时，夜能关</h4><code>memory-list</code> 退 2 时，<span class="c k-playbook">Run a night</span> 第 8 步改跑 <code class="c k-script">dispatch.sh summary &lt;spec&gt; --memory-unavailable</code>。<code>spec.closed</code> 里记一个空的决定列表和原因，<code>NIGHT SUMMARY</code> 写一行「Memory closing: not done」。退 2 的两种情形都算：Nowledge Mem 没回应，或只返回了部分记录。</div><div class="theirs"><h4>防止误用</h4>Nowledge Mem 能把记录列全时，<code>--memory-unavailable</code> 被拒绝，什么都不发；这时照常逐条决定。走查查出原来的写法会让夜在两步之间来回（只列出部分记录时），已改成两处用同一个判断。</div><div class="cost">代价：这一夜的记录原样留着，仍带 <code>mmw-experience</code> 标签，后来的 worker 照样会看到它们，其中可能有已经过时的。没有哪一步回头处理它们。</div></div>
 <div class="pair neutral"><div class="ours"><h4>3　每个仓库分开</h4><code class="c k-script">dispatch.sh open</code>、<code>open-ticket</code> 和 <code>check</code> 现在先看本会话的 <code>NMEM_SPACE</code>：不是本仓库的 Space（例如 <code>chancheuklap__multi-model-workflow</code>）就拒绝，什么都不推、不开。<code>brief</code> 开出的研究会话也带上本仓库的 Space；Space 核不到时照样开，stderr 说它们会写进 Default。</div><div class="theirs"><h4>你会看到什么</h4>你在本仓库的终端里开的会话，<code>~/.zshrc</code> 已经按仓库设好了这个变量，检查直接通过；那段设置只在有终端（TTY）的 shell 里运行。不经过它开的会话会在 <code>check</code> 那一步停下，<span class="c k-playbook">Run a night</span> 第 2 步让 orchestrator 告诉你重开会话。<span class="inf">推断</span>：哪些启动方式不经过 <code>~/.zshrc</code>，我没有逐个试。</div><div class="cost">为什么是拒绝、不是警告：orchestrator 写 Memory 用的是它自己会话的环境，会话开起来以后脚本改不了；放它开夜，这一夜学到的就进了 Default。拒绝发生在推送和开夜之前，重开会话就能继续。</div></div>
 </div>
@@ -240,8 +240,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <li>根目录 <code>CODING_STANDARDS.md</code> 改成和 <span class="c k-skill">code-review</span> 那份同样的表，12 条规则各有名字，评审可以按名字报，<span class="c k-skill">retro</span> 可以按名字数。规则内容不变；和 <span class="c k-skill">code-review</span> 的 Silent pass 重复的那一句，只在出处一栏留下 ADR 0008。</li>
 </ul>
 
-<h2>5　还没做的，和只有你能做的一件</h2>
-<p><b>要你做的一件</b>：在 Claude Design 里把顶栏和详情两个组件的 waiting 状态删掉（包括 <code>ticket-waiting</code> 场景和顶栏「waiting for a slot」那一行），然后让我照 <span class="c k-playbook">Pull a design</span> 拉一次设计包。设计包只有 Claude Design 自己能改。拉回来之后，我删掉屏幕契约里剩下的那条场景声明，52 行 <code>DIFF</code> 应当随之消失。</p>
+<h2>5　还没做的</h2>
 <p><b>v2 时就缺、这次没动的三处</b>：story 判官不比较边框颜色，尺寸差 2 px 以内不报（G5）；夜外跑一张票时 relay 停了没有东西重启它；<span class="c k-skill">retro</span> 提案的去处 <code>toolbox-memory</code> 没有哪一步执行（H4）。</p>
 <p><b>走查看到、留给以后的</b>（不会让这次改的东西做错，各自是一处没写到的情形）：</p>
 <ul class="tight">
@@ -282,7 +281,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 </div>
 
 <h2>下一课</h2>
-<p class="ask">你定的三件和其余修改都在分支上了。要你做的只有第 5 节那一件：在 Claude Design 删掉 waiting 状态，然后叫我拉设计包。要发布这批改动，说一声。有问题随时问我；哪一处和你看到的对不上，直接说。</p>
+<p class="ask">你定的三件和其余修改都在分支上了，看板的设计包也已拉回、和产品一致。要发布这批改动，说一声。有问题随时问我；哪一处和你看到的对不上，直接说。</p>
 <footer class="next"><a href="0019-the-six-decisions-landed.html">← 第 19 课</a><a href="../index.html">课程首页</a></footer>
 </div>
 <!--JS--><script>
