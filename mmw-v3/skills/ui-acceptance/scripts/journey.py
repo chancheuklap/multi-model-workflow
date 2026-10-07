@@ -50,7 +50,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from target_config import command_env, discover, repo_root, run_command, target_config  # noqa: E402
+from target_config import DISCOVER_NOTES, command_env, discover, repo_root, run_command, target_config  # noqa: E402
 from lease import holder, judge_run, listener, ports_of, registered, worktree_of  # noqa: E402
 from refusal import refusal  # noqa: E402
 
@@ -74,19 +74,11 @@ def strip_color(text: str) -> str:
     return COLOR_RE.sub("", text)
 
 
-# `discover` appends one of these when the command's own stdout is not a JSON object.
-# They are this oracle's note, not output the command printed.
-_DISCOVER_NOTE = (
-    "discover printed no JSON object",
-    "discover must print one JSON object",
-)
-
-
 def command_was_silent(proc: subprocess.CompletedProcess) -> bool:
     if (proc.stdout or "").strip():
         return False
     lines = [line for line in (proc.stderr or "").splitlines() if line.strip()]
-    return all(line.startswith(_DISCOVER_NOTE) for line in lines)
+    return all(line.startswith(DISCOVER_NOTES) for line in lines)
 
 
 def prepare_evidence(root: Path, name: str, *, break_pass: bool) -> Path:

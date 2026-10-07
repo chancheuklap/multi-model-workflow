@@ -162,6 +162,11 @@ def run_command(command: str, cwd: Path, env: dict[str, str] | None = None,
     return proc
 
 
+# The note `discover` appends to stderr when its command printed no JSON object;
+# `journey.py` reads a stderr made only of these as a silent command.
+DISCOVER_NOTES = ("discover printed no JSON object", "discover must print one JSON object")
+
+
 def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
     """One JSON object of addresses, or SystemExit wrapping that command's CompletedProcess.
 
@@ -173,10 +178,10 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
     try:
         data = json.loads(out)
     except json.JSONDecodeError as exc:
-        why = f"discover printed no JSON object: {out[:200]!r} ({exc})"
+        why = f"{DISCOVER_NOTES[0]}: {out[:200]!r} ({exc})"
     else:
         if not isinstance(data, dict):
-            why = "discover must print one JSON object"
+            why = DISCOVER_NOTES[1]
     if why:
         proc.stderr += why + "\n"
         raise SystemExit(proc)
