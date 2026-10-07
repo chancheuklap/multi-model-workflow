@@ -21,7 +21,6 @@ def write_evidence(page, context, console_errors: list[str], failed_requests: li
     if not raw:
         return
     dest = Path(raw)
-    dest.mkdir(parents=True, exist_ok=True)
     if page is not None:
         try:
             page.screenshot(path=str(dest / "screenshot.png"))
@@ -91,7 +90,6 @@ def main() -> int:
                 print(first_line(exc), file=sys.stderr)
                 return 1
     except Exception as exc:
-        write_evidence(page, context, console_errors, failed_requests)
         print(first_line(exc), file=sys.stderr)
         return 1
     return 0

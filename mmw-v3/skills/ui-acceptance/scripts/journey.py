@@ -236,19 +236,22 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
              kind: str | None = None,
              command: str | None = None) -> int:
         stop(cfg, root, env)
-        if kind is not None and proc is not None:
-            print(f"{kind} {command} exit {proc.returncode}")
         if proc is not None:
+            # stdout is block-buffered on a pipe. Flush the naming line, and the
+            # command's own stdout, before stderr, or a merged stream shows the
+            # command's error first.
+            print(f"{kind} {command} exit {proc.returncode}")
+            sys.stdout.flush()
             if proc.stdout:
                 sys.stdout.write(proc.stdout)
+                if not proc.stdout.endswith("\n"):
+                    sys.stdout.write("\n")
+                sys.stdout.flush()
             if proc.stderr:
                 sys.stderr.write(proc.stderr)
-            if kind is not None and command_was_silent(proc):
+            if command_was_silent(proc):
                 print("(no output)")
-            elif kind is not None and proc.stdout and not proc.stdout.endswith("\n"):
-                sys.stdout.write("\n")
-            if kind is not None:
-                print(f"MMW_DATA_DIR {env['MMW_DATA_DIR']}")
+            print(f"MMW_DATA_DIR {env['MMW_DATA_DIR']}")
         if message:
             print(message, file=sys.stderr)
         return 2
@@ -260,6 +263,9 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     stop_cmd = cfg.get("stop")
     if not isinstance(stop_cmd, str) or not stop_cmd.strip():
         return bail("`.mmw/target.json` has no `stop` command")
+
+    # A run that dies in start or discover still replaces the previous run's evidence.
+    prepare_evidence(root, name, break_pass=False)
 
     try:
         run_command(start_cmd, root, env=env)
@@ -285,7 +291,6 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         evidence = prepare_evidence(root, name, break_pass=break_pass)
         script_env = dict(environment)
         script_env.pop("FORCE_COLOR", None)
-        script_env.pop("MMW_BREAK", None)
         script_env["MMW_EVIDENCE_DIR"] = str(evidence)
         proc = subprocess.run(
             spec, shell=isinstance(spec, str), cwd=dest,

@@ -23,17 +23,20 @@ def choose_another_model(row):
     if alternative is None:
         raise AssertionError(f"reviewer.model has no legal alternative to {current!r}")
     select.select_option(alternative)
-    # A model that does not offer the current effort, and offers more than one,
-    # clears the effort. The sheet will not save until an effort is chosen.
-    effort = row.locator('[data-ui="本机配置.role.effort"]')
-    if not effort.input_value():
-        picked = next((choice for choice in enabled_values(effort) if choice), None)
-        if picked is None:
-            raise AssertionError(
-                f"reviewer.effort has no legal value after selecting {alternative!r}"
-            )
-        effort.select_option(picked)
     return alternative
+
+
+def choose_effort_when_the_model_cleared_it(row, model: str) -> None:
+    """A model that does not offer the current effort, and offers more than one, clears it."""
+    effort = row.locator('[data-ui="本机配置.role.effort"]')
+    if effort.input_value():
+        return
+    picked = next((choice for choice in enabled_values(effort) if choice), None)
+    if picked is None:
+        raise AssertionError(
+            f"reviewer.effort has no legal value after selecting {model!r}"
+        )
+    effort.select_option(picked)
 
 
 def first_line(exc: BaseException) -> str:
@@ -50,7 +53,6 @@ def write_evidence(page, context, console_errors: list[str], failed_requests: li
     if not raw:
         return
     dest = Path(raw)
-    dest.mkdir(parents=True, exist_ok=True)
     if page is not None:
         try:
             page.screenshot(path=str(dest / "screenshot.png"))
@@ -113,6 +115,7 @@ def main() -> int:
                 sheet.wait_for(state="visible", timeout=10_000)
                 reviewer = sheet.locator('[data-ui="本机配置.role"]').filter(has_text="reviewer")
                 expected = choose_another_model(reviewer)
+                choose_effort_when_the_model_cleared_it(reviewer, expected)
 
                 save = sheet.locator('[data-ui="本机配置.sheet.save"]')
                 if save.is_disabled():
@@ -150,7 +153,6 @@ def main() -> int:
                 print(first_line(exc), file=sys.stderr)
                 return 1
     except Exception as exc:
-        write_evidence(page, context, console_errors, failed_requests)
         print(first_line(exc), file=sys.stderr)
         return 1
     return 0
