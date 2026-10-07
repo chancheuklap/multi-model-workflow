@@ -9,13 +9,20 @@ import { fileURLToPath } from "node:url";
 export const ERROR_LINE_RE = /error|fail|assert|exception|traceback/i;
 export const PATH_LINE_RE = /(?:^|[\s"'`(])(?:[\w.+@-]+\/)*[\w.+@-]+\.[A-Za-z][\w]*:\d+\b/;
 
+function hide(text) {
+  return String(text).replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
+}
+
+function transcriptLines(output) {
+  return String(output).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
 // Error lines and path:line lines, in the order they appeared, then the last two
 // lines. When that does not fit, path:line lines and the last two lines keep their
 // place and error lines fill what remains. The cut names how many lines were left
 // out and where the whole output was written.
 export function failureOutput(output, max = 480, logPath = null) {
-  const hide = (text) => text.replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
-  const lines = String(output).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lines = transcriptLines(output);
   if (!lines.length) return hide("(no output)".slice(0, max));
   const indexed = lines.map((line, index) => ({
     line, index,
@@ -61,8 +68,7 @@ export function failureOutput(output, max = 480, logPath = null) {
 // spends one of those places — plus the last `tailLines`, once each, in appearance
 // order. Blank lines are dropped the same way `failureOutput` drops them.
 export function checksExcerpt(output, maxErrorLines = 10, tailLines = 30) {
-  const hide = (text) => text.replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
-  const lines = String(output).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lines = transcriptLines(output);
   const indexed = lines.map((line, index) => ({
     line, index,
     hit: ERROR_LINE_RE.test(line) || PATH_LINE_RE.test(line),

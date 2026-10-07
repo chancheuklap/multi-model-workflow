@@ -2122,18 +2122,14 @@ RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment
 def failed_checks_quote(record: dict | None) -> str | None:
     """The `Failed checks:` slice of a bounce, quoted verbatim on the resume's next line.
 
-    The token stays on the event's first line. A line that begins with it is quoted
-    whole; otherwise the quote runs from the token to the end of that line. A conflict
-    bounce has no such line.
+    The token stays on the event's first line. The quote is that line from the token
+    to its end. A conflict bounce has no such line.
     """
     body = (record or {}).get("body") or ""
     for line in body.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("Failed checks:"):
-            return stripped
         at = line.find("Failed checks:")
         if at >= 0:
-            return line[at:]
+            return line[at:].strip()
     return None
 
 
@@ -2285,14 +2281,10 @@ def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
 
 
 # A repository check's bounce keeps the first ten error or path:line lines and the
-# last thirty, then stops at what one GitHub issue comment can hold.
+# last thirty, then drops excerpt lines until the comment fits.
 CHECKS_ERROR_LINES = 10
 CHECKS_TAIL_LINES = 30
 COMMENT_BODY_LIMIT = 65536
-# One excerpt line, and one command's excerpt, stay under this so the failed-check
-# JSON can travel in the environment to the bounce. The log holds the rest.
-EXCERPT_LINE_LIMIT = 8000
-EXCERPT_BUDGET = 48000
 FAILURE_LINES = HERE / "gate-check" / "lib" / "failure-lines.mjs"
 
 
@@ -2366,37 +2358,31 @@ def _checks_excerpt(output: str) -> str:
     return proc.stdout
 
 
-def _cap_excerpt(text: str) -> str:
-    """Keep the excerpt small enough to ride along to the bounce in the environment."""
-    lines = [line[:EXCERPT_LINE_LIMIT] for line in text.splitlines()]
-    while lines and sum(len(line) + 1 for line in lines) > EXCERPT_BUDGET:
-        lines.pop()
-    return "\n".join(lines)
-
-
 def _failed_row(command: str, tail: str, exit_code: int | None = None,
-                log: str | None = None) -> dict:
+                log: str | None = None, unwritten: str | None = None) -> dict:
     row: dict = {"command": command, "tail": tail}
     if type(exit_code) is int:
         row["exit"] = exit_code
     if log:
         row["log"] = log
+    elif unwritten:
+        row["unwritten"] = unwritten
     return row
 
 
 def _write_check_log(worktree: Path | str | None, ticket: str | int | None, seq: int,
-                     raw: str, started: list[bool]) -> str | None:
+                     raw: str, started: list[bool]) -> tuple[str | None, str | None]:
     """The full output of one failed check, in the ticket worktree.
 
+    Returns the relative path, or a sentence when a log was asked for and not written.
     The first failure of a run replaces `.scratch/checks/<ticket>/`. A missing worktree
-    is left missing: the merge still bounces, and the excerpt is what the comment carries.
-    A log that cannot be written does too — the red check is the event.
+    is left missing. No log is asked for when the caller passes no worktree.
     """
     if worktree is None or ticket in (None, ""):
-        return None
+        return None, None
     root = Path(worktree)
     if not root.is_dir():
-        return None
+        return None, f"the full output was not saved: {root} is not a directory"
     folder = root / ".scratch" / "checks" / str(ticket)
     try:
         if not started[0]:
@@ -2405,9 +2391,9 @@ def _write_check_log(worktree: Path | str | None, ticket: str | int | None, seq:
             folder.mkdir(parents=True)
             started[0] = True
         (folder / f"{seq}.log").write_text(raw, encoding="utf-8")
-    except OSError:
-        return None
-    return f".scratch/checks/{ticket}/{seq}.log"
+    except OSError as exc:
+        return None, f"the full output was not saved: {exc}"
+    return f".scratch/checks/{ticket}/{seq}.log", None
 
 
 def _check_heading(row: dict) -> str:
@@ -2448,8 +2434,11 @@ def _rest_of(rows: list[dict], excerpts: list[list[str]]) -> str:
     for row, lines in zip(rows, excerpts):
         parts = [_check_heading(row)]
         log = row.get("log")
+        note = row.get("unwritten")
         if isinstance(log, str) and log:
             parts.extend(["", log])
+        elif isinstance(note, str) and note:
+            parts.extend(["", note])
         if lines:
             parts.extend(["", *lines])
         blocks.append("\n".join(parts))
@@ -2459,63 +2448,20 @@ def _rest_of(rows: list[dict], excerpts: list[list[str]]) -> str:
 def _commands_of(rows: list[dict], excerpts: list[list[str]]) -> list[dict]:
     commands = []
     for row, lines in zip(rows, excerpts):
-        item: dict = {"command": row.get("command", "?"), "tail": "\n".join(lines)}
-        if type(row.get("exit")) is int:
-            item["exit"] = row["exit"]
-        if row.get("log"):
-            item["log"] = row["log"]
+        item = {**row, "tail": "\n".join(lines)}
+        if item.get("log") == "":
+            del item["log"]
         commands.append(item)
     return commands
-
-
-def _fit_last_line(rows: list[dict], excerpts: list[list[str]], index: int,
-                   prefix_len: int) -> None:
-    original = excerpts[index][0]
-
-    def size_with(text: str) -> int:
-        excerpts[index] = [text] if text else []
-        return _comment_size(prefix_len, _summary_of(rows), _rest_of(rows, excerpts),
-                             _commands_of(rows, excerpts))
-
-    if size_with(original) <= COMMENT_BODY_LIMIT:
-        excerpts[index] = [original]
-        return
-    if size_with("") > COMMENT_BODY_LIMIT:
-        excerpts[index] = []
-        return
-    lo, hi, best = 0, len(original), 0
-    while lo <= hi:
-        mid = (lo + hi) // 2
-        if size_with(original[:mid]) <= COMMENT_BODY_LIMIT:
-            best = mid
-            lo = mid + 1
-        else:
-            hi = mid - 1
-    excerpts[index] = [original[:best]] if best else []
-
-
-def _shrink_until_it_fits(rows: list[dict], excerpts: list[list[str]], prefix_len: int) -> None:
-    for _ in range(64):
-        if _comment_size(prefix_len, _summary_of(rows), _rest_of(rows, excerpts),
-                         _commands_of(rows, excerpts)) <= COMMENT_BODY_LIMIT:
-            return
-        index = max(range(len(rows)), key=lambda i: len(str(rows[i].get("command") or "")))
-        command = " ".join(str(rows[index].get("command") or "").split())
-        if len(command) > 8:
-            rows[index]["command"] = command[: max(8, len(command) // 2)]
-            continue
-        if rows[index].get("log"):
-            rows[index]["log"] = ""
-            continue
-        return
 
 
 def checks_bounce_prose(rows: list | None, prefix_len: int = 0) -> dict:
     """The checks bounce: one summary line, one paragraph per command, and the JSON.
 
-    `prefix_len` is the merge sentence already written before ` Failed checks:`. The
-    returned `commands` carry the excerpt that still fits, so the posted comment stays
-    inside `COMMENT_BODY_LIMIT`. The full output stays in the log the paragraph names.
+    `prefix_len` is the merge sentence already written before ` Failed checks:`.
+    Excerpt lines drop from the end until the comment fits. A line that by itself
+    does not fit is dropped whole; the log keeps it. A command name or a log path
+    longer than the comment is not shortened.
     """
     copied = [dict(row) for row in (rows or []) if isinstance(row, dict)]
     excerpts = [(row.get("tail") or "").splitlines() for row in copied]
@@ -2529,11 +2475,7 @@ def checks_bounce_prose(rows: list | None, prefix_len: int = 0) -> dict:
         index = next((i for i in range(len(excerpts) - 1, -1, -1) if excerpts[i]), None)
         if index is None:
             break
-        if len(excerpts[index]) == 1:
-            _fit_last_line(copied, excerpts, index, prefix_len)
-            break
         excerpts[index].pop()
-    _shrink_until_it_fits(copied, excerpts, prefix_len)
     summary = _summary_of(copied)
     rest = _rest_of(copied, excerpts)
     commands = _commands_of(copied, excerpts)
@@ -2553,10 +2495,11 @@ def run_target_json_checks(root: Path | None, into: str,
 
     None when the key is absent: nothing ran. Otherwise `{"total", "failed",
     "problem"}`. `failed` is one row per command that did not exit 0: `command`,
-    `tail` (the excerpt), `exit` when the process exited, and `log` when the full
-    output was written under `worktree`. `problem` says why the file itself could
-    not be read — a malformed file is a failure, not absence. A string entry is
-    held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
+    `tail` (the excerpt), `exit` when the process exited, `log` when the full
+    output was written under `worktree`, and `unwritten` when that write was asked
+    for and did not happen. `problem` says why the file itself could not be read —
+    a malformed file is a failure, not absence. A string entry is held to
+    `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
     `{"run": …, "timeout": …}` is held to its own.
     """
     try:
@@ -2577,11 +2520,11 @@ def run_target_json_checks(root: Path | None, into: str,
         except subprocess.TimeoutExpired as exc:
             combined = _as_text(exc.stdout) + _as_text(exc.stderr)
             seq += 1
-            log = _write_check_log(worktree, ticket, seq, combined, log_started)
-            excerpt = _cap_excerpt(_checks_excerpt(combined))
+            log, unwritten = _write_check_log(worktree, ticket, seq, combined, log_started)
+            excerpt = _checks_excerpt(combined)
             note = f"timed out after {bound}s"
             tail = f"{note}\n{excerpt}" if excerpt else note
-            failed.append(_failed_row(command, tail, log=log))
+            failed.append(_failed_row(command, tail, log=log, unwritten=unwritten))
             continue
         except OSError as exc:
             failed.append(_failed_row(command, str(exc)))
@@ -2589,9 +2532,9 @@ def run_target_json_checks(root: Path | None, into: str,
         if proc.returncode != 0:
             combined = _as_text(proc.stdout) + _as_text(proc.stderr)
             seq += 1
-            log = _write_check_log(worktree, ticket, seq, combined, log_started)
+            log, unwritten = _write_check_log(worktree, ticket, seq, combined, log_started)
             failed.append(_failed_row(
-                command, _cap_excerpt(_checks_excerpt(combined)), proc.returncode, log))
+                command, _checks_excerpt(combined), proc.returncode, log, unwritten))
     return {"total": len(commands), "failed": failed, "problem": None}
 
 

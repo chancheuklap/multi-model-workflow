@@ -8962,11 +8962,74 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
 }
 
-# 29 lines, the failing test's name on line 10, nothing later repeats that name.
+# 29 lines, the failing test's name on line 10. The command builds that name at
+# runtime, so the command text itself does not contain it.
 twenty_nine_line_check() {
   cat <<'EOF'
-python3 -c 'import sys; lines=["noise-%d"%i for i in range(1,30)]; lines[9]="test_price_rounds"; sys.stdout.write("\n".join(lines)+"\n"); sys.exit(1)'
+python3 -c 'import sys; name="test_price_"+"rounds"; lines=["noise-%d"%i for i in range(1,30)]; lines[9]=name; sys.stdout.write("\n".join(lines)+"\n"); sys.exit(1)'
 EOF
+}
+
+# The name counts only as an excerpt line after the command heading. A match inside
+# the command, the summary, or the event block does not.
+excerpt_has_name() {
+  local body="$1" name="$2"
+  MMW_BODY="$body" MMW_NAME="$name" python3 -c '
+import os, sys
+body = os.environ["MMW_BODY"]
+name = os.environ["MMW_NAME"]
+prose = body.split("<!--", 1)[0]
+lines = prose.splitlines()
+hits = [line for line in lines[1:] if name in line and "python3" not in line]
+if not hits:
+    sys.stderr.write("excerpt drops %s:\n%s\n" % (name, prose))
+    sys.exit(1)
+'
+}
+
+# Read the bounce the fake tracker holds, then claim that same ticket. The resume
+# quotes the Failed checks slice of the comment that was posted.
+assert_resume_quotes_posted_bounce() {
+  local n="${1:-61}" body quote out err code commit
+  body="$(bounced_comment "$n")"
+  quote="$(printf '%s\n' "$body" | python3 -c '
+import sys
+for line in sys.stdin:
+    at = line.find("Failed checks:")
+    if at >= 0:
+        print(line[at:].strip())
+        raise SystemExit(0)
+raise SystemExit(1)
+')" || fail "the posted bounce has no Failed checks: line: $body"
+  commit="$(git -C "$(wt "$n")" rev-parse HEAD)"
+  post_ev "$n" ticket.checked --ticket "$n" --line "self run" \
+    --field run=self --field "commit=$commit" --field result=met
+  out="$TMP/preflight-$n.out"
+  err="$TMP/preflight-$n.err"
+  code="$(
+    cd "$(wt "$n")" \
+      && python3 "$(dirname "$SKILL")/verify-ticket/scripts/verify-ticket.py" "$n" --preflight \
+         >"$out" 2>"$err"
+    echo "$?"
+  )"
+  [ "$code" = 0 ] || fail "preflight on the bounced ticket exited $code: $(cat "$err") $(cat "$out")"
+  MMW_QUOTE="$quote" MMW_OUT="$(cat "$out")" python3 -c '
+import os, sys
+out = os.environ["MMW_OUT"].splitlines()
+quote = os.environ["MMW_QUOTE"]
+resume = [i for i, line in enumerate(out) if line.startswith("RESUME:")]
+if len(resume) != 1:
+    sys.stderr.write("preflight did not print one RESUME line:\n%s\n" % os.environ["MMW_OUT"])
+    sys.exit(1)
+i = resume[0]
+if not out[i].startswith("RESUME: Integrate and run every criterion"):
+    sys.stderr.write("resume is not the bounce step: %s\n" % out[i])
+    sys.exit(1)
+following = out[i + 1] if i + 1 < len(out) else ""
+if following != quote:
+    sys.stderr.write("resume does not quote the posted bounce\nposted: %s\nresume: %s\n" % (quote, following))
+    sys.exit(1)
+' || fail "preflight did not quote the bounce posted on #$n"
 }
 
 scenario_advancebouncedkeepserrors() {
@@ -8978,15 +9041,16 @@ scenario_advancebouncedkeepserrors() {
   [ "$code" = 0 ] || fail "a red merge check should bounce and continue: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
   body="$(bounced_comment 61)"
-  printf '%s\n' "$body" | grep -q 'test_price_rounds' \
-    || fail "ticket.bounced drops the test name on line 10 of a 29-line check: $body"
+  excerpt_has_name "$body" test_price_rounds \
+    || fail "ticket.bounced drops the test name on line 10 of a 29-line check"
+  assert_resume_quotes_posted_bounce 61
 }
 
 scenario_advancebouncedpercommand() {
   local before code body
   setup_checked_commands \
-    "python3 -c 'import sys; sys.exit(1)'" \
-    "python3 -c 'import sys; sys.exit(3)'"
+    "python3 -c 'import sys; print(\"alpha\"+\"-line\"); sys.exit(1)'" \
+    "python3 -c 'import sys; print(\"beta\"+\"-line\"); sys.exit(3)'"
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
@@ -8997,30 +9061,39 @@ scenario_advancebouncedpercommand() {
 import os, sys
 body = os.environ["MMW_BODY"]
 prose = body.split("<!--", 1)[0]
-headings = [
-    "python3 -c '"'"'import sys; sys.exit(1)'"'"' exit 1",
-    "python3 -c '"'"'import sys; sys.exit(3)'"'"' exit 3",
-]
 lines = prose.splitlines()
-for heading in headings:
-    if heading not in lines:
-        sys.stderr.write("bounce prose has no paragraph starting with %r\n%s\n" % (heading, prose))
-        sys.exit(1)
-rest = lines[1:]
-if any(headings[0] in line and headings[1] in line for line in rest):
-    sys.stderr.write("both commands share one paragraph line:\n%s\n" % prose)
-    sys.exit(1)
 first = lines[0] if lines else ""
 at = first.find("Failed checks:")
 if at < 0:
     sys.stderr.write("the bounce line has no Failed checks: token:\n%s\n" % first)
     sys.exit(1)
 quote = first[at:]
-for heading in headings:
-    if heading not in quote:
-        sys.stderr.write("Failed checks line omits %r:\n%s\n" % (heading, quote))
+for token in ("sys.exit(1)", "sys.exit(3)"):
+    if token not in quote:
+        sys.stderr.write("Failed checks line omits %r:\n%s\n" % (token, quote))
         sys.exit(1)
+
+def heading(token, other):
+    found = [i for i, line in enumerate(lines)
+             if i and token in line and other not in line]
+    if len(found) != 1:
+        sys.stderr.write("expected one paragraph heading for %s, saw %s\n%s\n" % (token, found, prose))
+        sys.exit(1)
+    return found[0]
+
+h1 = heading("sys.exit(1)", "sys.exit(3)")
+h2 = heading("sys.exit(3)", "sys.exit(1)")
+if lines[h1 - 1] != "" or lines[h2 - 1] != "":
+    sys.stderr.write("a command heading does not start its own paragraph:\n%s\n" % prose)
+    sys.exit(1)
+if "alpha-line" not in lines[h1 + 1:h2]:
+    sys.stderr.write("the first command'"'"'s output is not in its paragraph:\n%s\n" % prose)
+    sys.exit(1)
+if "beta-line" not in lines[h2 + 1:]:
+    sys.stderr.write("the second command'"'"'s output is not in its paragraph:\n%s\n" % prose)
+    sys.exit(1)
 ' || fail "the bounce text does not give each command its own paragraph"
+  assert_resume_quotes_posted_bounce 61
 }
 
 scenario_advancebouncedsavesoutput() {
@@ -9040,6 +9113,7 @@ scenario_advancebouncedsavesoutput() {
   body="$(bounced_comment 61)"
   printf '%s\n' "$body" | grep -q '.scratch/checks/61/1.log' \
     || fail "ticket.bounced does not name the saved output: $body"
+  assert_resume_quotes_posted_bounce 61
 }
 
 scenario_advancechecksonce() {
