@@ -1,6 +1,6 @@
 # HTML Report Format
 
-The architectural review is rendered as a single self-contained HTML file in the OS temp directory. This file sets what goes on the page, top to bottom: the header, one card per candidate, then the top recommendation.
+The architectural review is rendered as a single self-contained HTML page, shown where the `diagram-design` skill's §12 says. This file sets what goes on the page, top to bottom: the header, one card per candidate, then the top recommendation.
 
 ## Header
 

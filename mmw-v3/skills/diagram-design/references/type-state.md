@@ -11,7 +11,7 @@
 ## Layout conventions
 - States are rounded rectangles (`rx=8`), labeled in Geist.
 - **Start**: filled ink dot (`r=6`). **End**: ringed dot (outer `r=8` outline, inner filled `r=5`).
-- Transitions: curved arrows labeled in Geist Mono as `event [guard] / action` (omit sections you don't need).
+- Transitions: rounded right-angle connectors (SKILL.md §6 rule 1), labeled in Geist Mono as `event [guard] / action` (omit sections you don't need).
 - Self-loops curve above the state.
 - Orient along the dominant flow direction (left→right or top→down); rearrange before crossing transitions.
 - Coral on the state the reader should notice — typically the error state, or "happy completion".

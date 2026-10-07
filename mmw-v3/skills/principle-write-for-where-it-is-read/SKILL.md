@@ -13,6 +13,7 @@ Everything you produce is read or run somewhere other than this conversation: by
 - Who picks it up: a person, an agent, or a program?
 - What are they trying to do at that moment?
 - What can they see from there, and what can they not see (this conversation, your working memory, the files you read)?
+- Every term the reader may not know is explained in one plain sentence where it first appears, or links to a place they can open.
 - Read the draft as that reader. Everything they need is in it or one named pointer away.
 
 Text an agent reads follows the **writing-for-agents** skill; text people read follows the **technical-writing** skill. Distinct from **principle-anchor-every-reference**, which names each thing the text mentions.

@@ -38,13 +38,14 @@ Applied to schematics:
 - Coral is **editorial, not a flag.** 1–2 focal nodes per diagram. Using it on 5 nodes erases the signal.
 - The schematic isn't done when everything is added. It's done when nothing can be removed.
 
-Five rules hold for every diagram and for the page around it. Each ends on the question to ask of the finished page.
+Six rules hold for every diagram and for the page around it. Each ends on the question to ask of the finished page.
 
 1. **Question first.** A diagram answers the one question the reader asked, and draws the object of that question. A diagram you cannot draw is one you have not understood yet: go back to the source rather than routing round the picture with a table or prose. *Can the reader answer their question from this diagram alone?*
-2. **Bounded by the source.** A diagram of an existing system, document or process draws what its source holds. Every component, connection, name and grouping traces to the source. Names are copied as the source writes them, never translated, shortened or renamed. Nothing is invented to fill a layout, and nothing that does work in the source is silently dropped. A grouping the source has no word for gets a plain description, labelled as this diagram's own. A type's minimum count never adds an element: choose a type the source fills. The subject is drawn as it is now, or as the design will leave it, never as the history of changing it. *Does every element match the source, and is everything that does work in the source on the diagram?*
+2. **Bounded by the source.** A diagram of an existing system, document or process draws what its source holds. Every component, connection, name and grouping traces to the source. Names are copied as the source writes them, never translated, shortened or renamed; a project's glossary, where it has one, is part of the source. Nothing is invented to fill a layout, and nothing that does work in the source is silently dropped. A grouping the source has no word for gets a plain description, never a new name or code, even one the conversation has already started using. A type's minimum count never adds an element: choose a type the source fills. The subject is drawn as it is now, or as the design will leave it, never as the history of changing it. *Does every element match the source, and is everything that does work in the source on the diagram?*
 3. **Whole and detail on one canvas.** The reader looks for breaks and repeats across the whole, so one subject stays on one canvas; above 9 nodes it nests, as the budget in §7 says. Detail means the real steps and what each step uses, not a few coarse boxes. A document or a process is drawn on its own structure, with its flow drawn inside it. A before/after comparison is one subject: its two states sit side by side at the same scale, so the reader compares them by eye. *Can the reader walk one real run through the diagram and see what each step takes in and hands on?*
 4. **The picture carries the content.** The reader knows nothing about the topic: pictures show what things are and how they connect. Flows, structures, routes, who reads or writes what, and before/after comparisons are drawn; a table is for parallel entries with no relations between them, such as a lookup sheet. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn. Detail the source already holds is cited, not retold. *What would the reader lose without this sentence? Would this table read faster as a diagram?*
 5. **One mark, one meaning.** A kind of thing keeps one shape and one colour across the whole page, in the diagrams and in the prose that names it, with the legend beside the diagram. Colour by kind sorts things; coral marks the focus, and the two never share a colour. *Does each mark mean the same thing wherever it appears?*
+6. **The page stands alone.** Write it by **principle-write-for-where-it-is-read**, for a reader who saw none of the conversation that produced it, and name everything on it by **principle-anchor-every-reference**. What the conversation settled, a design among it, is stated on the page, not referred to. *Could someone who saw none of that conversation read every sentence?*
 
 ---
 
@@ -399,7 +400,7 @@ Expand SVG `viewBox` height by ~60px.
 | Max annotation callouts | 2 |
 | Max motion (optional) | 8 steps, 12 marked items, 2 simultaneous items — see [animation.md](references/animation.md) |
 
-If you exceed, re-draw in a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture) and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, while the canvas as a whole may exceed it. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
+If you exceed, re-draw in a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture) and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, while the canvas as a whole may exceed it. An arrow between two nodes of one container counts against that container; an arrow that crosses containers counts against the canvas. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
 
 Split into overview + detail only when the subject genuinely holds two independent questions — then say which question each diagram answers. A reader who has to hold two canvases in their head to see one system has lost the thing they came for. The per-type caps above (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
 
@@ -560,6 +561,13 @@ Always produce a single self-contained `.html` file:
 - Embedded CSS (no external except Google Fonts)
 - Inline SVG (no external images)
 - Static by default; inline JavaScript where interaction helps the reader read the subject (pan and zoom across a whole system, opening a component's source text, switching a kind of connector on and off), and the canonical controller for animation. No script is loaded from outside the file.
+
+### Where the page goes
+
+Show the page in the richest surface this session has:
+
+- **You hold a tool that renders HTML for the user**: a visual panel, canvas, artifact, or site surface. Use it.
+- **Plain CLI only**: write the file to a temporary location outside the working tree, open it with this machine's file-opening command, and give the user the path in your reply.
 
 Renders correctly in any modern browser. Motion-enabled output must render its complete meaning without JavaScript; under `prefers-reduced-motion: reduce` it shows the complete static frame and hides/disables playback controls.
 

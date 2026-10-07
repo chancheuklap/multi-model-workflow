@@ -4,13 +4,6 @@ The `visual` branch of [`wait-what`](SKILL.md). Same job as the prose re-pitch (
 
 Explain what was already said. The material is the message the user just stopped you on, not a fresh investigation.
 
-## Put the page where the user is looking
-
-Show the page in the richest surface this session has:
-
-- **You hold a tool that renders HTML for the user**: a visual panel, canvas, artifact, or site surface. Use it.
-- **Plain CLI only**: write the file to a temporary location outside the working tree, open it with this machine's file-opening command, and give the user the path in your reply.
-
 ## Draw the page
 
-Read the `diagram-design` skill's `SKILL.md` and follow it: it sets the page's look, draws every picture on it, and says what the words beside the pictures do.
+Read the `diagram-design` skill's `SKILL.md` and follow it: it sets the page's look, draws every picture on it, says what the words beside the pictures do, and where the page goes.

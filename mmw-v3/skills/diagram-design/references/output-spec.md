@@ -133,9 +133,9 @@ How much of the source survives. This is a *count* dial — it governs how many 
 
 `balanced` and `simplified` sit inside the standard complexity budget (SKILL.md §7). **`faithful` deliberately exceeds it** — that's the trade, and it comes with conditions:
 
-1. **Zoning is mandatory.** Above 9 nodes, every node belongs to a labeled zone (2–4 zones, hairline-bordered, `paper-2` fill, mono uppercase zone label at top-left). An unzoned 20-node diagram is a wiring diagram, not a schematic.
-2. **Connector rules don't relax.** SKILL.md §6 rules 1–5 still apply at 24 nodes. If you can't route it without overlaps, you're over the real ceiling — split.
-3. **Above 24 nodes, re-draw in a type that nests, with the budget binding per level** (SKILL.md §7's degrade ladder). Split into an overview (zones as nodes, `balanced` grammar) plus one detail diagram per zone only when the source genuinely holds two independent questions; name them `<base>-overview.html`, `<base>-<zone>.html`.
+1. **Zoning is mandatory.** Above 9 nodes, every node belongs to a labeled zone (from 2 up to the chosen type's zone limit, hairline-bordered, `paper-2` fill, mono uppercase zone label at top-left). An unzoned 20-node diagram is a wiring diagram, not a schematic.
+2. **Connector rules don't relax.** SKILL.md §6 rules 1–5 still apply at 24 nodes. If you can't route it without overlaps, you're over the real ceiling — nest further.
+3. **Above 24 nodes, re-draw in a type that nests, with the budget binding per level** (SKILL.md §7; step 6 of the degrade ladder below). Split into an overview (zones as nodes, `balanced` grammar) plus one detail diagram per zone only when the source genuinely holds two independent questions; name them `<base>-overview.html`, `<base>-<zone>.html`.
 4. **Accent stays at 2.** More nodes never buys more focal elements.
 
 ### Degrade ladder
