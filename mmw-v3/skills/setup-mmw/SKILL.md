@@ -27,7 +27,7 @@ Open a todolist with one item per step below.
    Done when `AGENTS.md` names all three files and `CLAUDE.md` has the line `@AGENTS.md`.
 5. **Create the labels.** Run `python3 scripts/labels.py`. It creates every label of the pipeline the repository lacks, with the colour and description `verify-ticket.py` defines, and leaves the ones the repository has as they are.
    Done when it printed `LABELS OK <n>`.
-6. **Create the Memory Space.** Run `python3 scripts/space.py <owner/name>`, with the owner/name the `tracker` row printed. It creates the repository's Space, or repairs one in the wrong shape, and reads it back.
+6. **Create the Memory Space.** Run `python3 scripts/space.py <owner/name>`, with the owner/name the `tracker` row printed. It creates the repository's Space, or repairs one in the wrong shape, and reads it back. A session writes to Memory in the Space its `NMEM_SPACE` names, which the shell sets when a terminal opens in the repository; this session and every terminal already open were started before the Space existed, so they still write to Default.
    Done when it exited 0.
 7. **Ignore the pipeline's directories.** Add `.worktrees/`, `.scratch/` and `story-shots/` to the root `.gitignore` when the `.gitignore` row says they are not ignored: ticket worktrees are cut under the first, prototype evidence is written under the second, and the story oracle writes its screenshots under the third when a criterion runs it with no `--out`.
    Done when `git check-ignore` reports all three as ignored.
@@ -40,4 +40,4 @@ Open a todolist with one item per step below.
 11. **Check again.** Run `python3 scripts/check.py` again.
     Done when you hold its second table.
 
-**Reply:** the second table's summary line; each item that changed between the two tables; what was written and created; each row still `missing` or `note`, with who acts on it: the owner for a GitHub setting or a branch rule, the machine's installer for a `machine` row, nobody yet for missing checks; and the commit and branch of step 10.
+**Reply:** the second table's summary line; each item that changed between the two tables; what was written and created; each row still `missing` or `note`, with who acts on it: the owner for a GitHub setting or a branch rule, the machine's installer for a `machine` row, nobody yet for missing checks, and for the `session` row the owner, who opens a new terminal in this repository and starts the next session from it; and the commit and branch of step 10.

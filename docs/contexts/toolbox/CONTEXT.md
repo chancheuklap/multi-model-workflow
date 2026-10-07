@@ -142,7 +142,7 @@ The models one host offers, each with the reasoning efforts it takes, read from 
 _Home_: `mmw-v3/skills/dispatch/scripts/models.py`
 
 **`install.sh`**:
-`mmw-v3/install.sh`, the one install entry: it installs the nine items its header comment lists, removes each **stale link**, and records its checkout's `mmw-v3/` directory in `~/.mmw/installed-root`. `install.sh --check` changes nothing and exits 1 when something is missing or stale.
+`mmw-v3/install.sh`, the one install entry: it installs the ten items its header comment lists, removes each **stale link**, and records its checkout's `mmw-v3/` directory in `~/.mmw/installed-root`. `install.sh --check` changes nothing and exits 1 when something is missing or stale.
 _Home_: `mmw-v3/install.sh`
 
 **`~/.mmw/installed-root`**:

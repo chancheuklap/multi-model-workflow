@@ -15,7 +15,8 @@ The summary is `SETUP OK` when nothing is missing, else `SETUP INCOMPLETE <n> mi
 Exit 0 with `SETUP OK`, 1 otherwise.
 
 The repository layer is what the `setup-mmw` skill sets up; the machine layer is the
-tools the night's scripts call, which this skill reports and does not install.
+tools the night's scripts call, which this skill reports and does not install; the session
+layer is this session's own environment, which no script can change once it has started.
 """
 import json
 import os
@@ -211,6 +212,22 @@ def check_space(report: Report, slug: str):
         report.add("missing", "repository", "Memory Space", reason(proc))
 
 
+def check_session(report: Report, slug: str):
+    """This session's NMEM_SPACE: what it writes to Memory goes there, or to Default."""
+    sys.path.insert(0, str(HERE))
+    import space  # noqa: E402  (beside this script)
+    want = space.ident_of(slug)
+    have = os.environ.get("NMEM_SPACE", "")
+    if have == want:
+        report.add("ok", "session", "NMEM_SPACE", want)
+        return
+    report.add("note", "session", "NMEM_SPACE",
+               f"this session's is {have or 'not set'}, not {want}, so what it writes to Memory "
+               f"lands in {have or 'Default'}, and dispatch.sh refuses to open a night from it. "
+               "A terminal opened in this repository after the Space exists sets it; start the "
+               "session from there")
+
+
 def check_checks(report: Report, root: Path):
     path = root / ".mmw" / "target.json"
     if not path.is_file():
@@ -280,6 +297,8 @@ def main() -> int:
     check_checks(report, root)
     check_testing(report, root)
     check_machine(report)
+    if slug:
+        check_session(report, slug)
     report.print()
     return 0 if report.missing() == 0 else 1
 

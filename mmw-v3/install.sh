@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把 MMW 装到本机，让每个 host 都读得到。九样东西，全部指向运行本脚本的这个 checkout 的 mmw-v3/：
+# 把 MMW 装到本机，让每个 host 都读得到。十样东西，全部指向运行本脚本的这个 checkout 的 mmw-v3/：
 #
 #   技能              skills/ 下每个带 SKILL.md 的目录，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   hook              dispatch 的 tool-guard.py 与 turn-guard.py，写进各 host 自己的配置；mmw-mode 的
@@ -15,6 +15,8 @@
 #   Nowledge Mem 对象  strict 的 mmw-toolbox Space；mmw-worker、mmw-reviewer 两个 Identity，
 #                     默认 Space 都是 mmw-toolbox。没有的才建。没有 nmem 时 --check 明说没查，但不因此失败。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
+#   shell 的 Space    ~/.zshrc 里加载 shell/nmem-space.zsh 的一段：终端进入一个仓库时，把 NMEM_SPACE
+#                     设成这个仓库的 Nowledge Mem Space
 #
 # 装完把本 checkout 的 mmw-v3 目录记进 ~/.mmw/installed-root。
 #
@@ -844,6 +846,98 @@ XML
   fi
   [ "$prompt_rc" -eq 0 ] || rc=1
 fi
+
+# ---------------- shell 里的 Nowledge Mem Space ----------------
+#
+# 会话写 Memory 用的是 NMEM_SPACE 指的那个 Space；没设、或指的 Space 不存在，nmem 不报错，
+# 静默写进 Default。shell/nmem-space.zsh 在终端进入一个仓库时，按 origin 把它设成这个仓库的
+# Space。~/.zshrc 只放加载它的一段，两行标记夹着，指向本 checkout，所以改 nmem-space.zsh 不用重装。
+# 这一段每台机器装一次，对所有仓库都一样；仓库自己的 Space 由 setup-mmw 建。
+#
+# 同样的代码以前手写在 ~/.zshrc 里：从「# Nowledge Mem Space per repository: in a git checkout
+# whose origin has a Space」那一行，到其后第一个顶格的 fi，中间有 _nmem_space_sync。认得出整段，
+# 就原地换成加载的那一段，--check 报残留；认不全，就报冲突，不动文件。
+
+MMW_MODE="$mode" MMW_ZSHRC="$HOME_DIR/.zshrc" MMW_NMEM_SHELL="$ROOT/shell/nmem-space.zsh" \
+python3 - <<'PY' || rc=1
+import os
+import shutil
+import sys
+from datetime import datetime
+from pathlib import Path
+
+mode = os.environ["MMW_MODE"]
+zshrc = Path(os.environ["MMW_ZSHRC"])
+source = os.environ["MMW_NMEM_SHELL"]
+BEGIN = "# >>> mmw: Nowledge Mem Space per repository (mmw-v3/install.sh) >>>"
+END = "# <<< mmw: Nowledge Mem Space per repository <<<"
+BLOCK = [BEGIN, f"[ -f '{source}' ] && source '{source}'", END]
+LEGACY = "# Nowledge Mem Space per repository: in a git checkout whose origin has a Space"
+
+lines = zshrc.read_text(encoding="utf-8").split("\n") if zshrc.is_file() else []
+
+
+def span(first, last, needle=None):
+    """(start, end) of the lines from `first` to the next line equal to `last`, both kept;
+    (start, None) when `last` never follows, or `needle` is not between them; None without `first`."""
+    if first not in lines:
+        return None
+    start = lines.index(first)
+    end = next((i for i in range(start + 1, len(lines)) if lines[i] == last), None)
+    if end is not None and needle is not None and not any(needle in l for l in lines[start:end]):
+        end = None
+    return start, end
+
+
+ours = span(BEGIN, END)
+legacy = span(LEGACY, "fi", "_nmem_space_sync")
+conflicts = []
+if ours and ours[1] is None:
+    conflicts.append(f"冲突  {zshrc} 有「{BEGIN}」却没有「{END}」；补上或删掉那一行再跑")
+if legacy and legacy[1] is None:
+    conflicts.append(f"冲突  {zshrc} 第 {legacy[0] + 1} 行起手写的 NMEM_SPACE 一段认不全；"
+                     "删掉它再跑，本段会装上同样的东西")
+if conflicts:
+    sys.stderr.write("\n".join(conflicts) + "\n")
+    sys.exit(1)
+
+if mode == "check":
+    failed = False
+    if not ours or lines[ours[0]:ours[1] + 1] != BLOCK:
+        sys.stderr.write(f"缺    {zshrc} 里加载 {source} 的一段，跑一次 install.sh\n")
+        failed = True
+    if legacy:
+        sys.stderr.write(f"残留  {zshrc} 第 {legacy[0] + 1} 行起手写的 NMEM_SPACE 一段，"
+                         "跑一次 install.sh 换成加载 shell/nmem-space.zsh\n")
+        failed = True
+    if not failed:
+        print(f"shell {zshrc} 加载 {source}")
+    sys.exit(1 if failed else 0)
+
+dropped = set()
+for found in (ours, legacy):
+    if found:
+        dropped.update(range(found[0], found[1] + 1))
+if dropped:
+    at = min(dropped)
+    new = lines[:at] + BLOCK + [l for i, l in enumerate(lines) if i > at and i not in dropped]
+else:
+    body = lines[:-1] if lines and lines[-1] == "" else lines
+    new = body + ([""] if body else []) + BLOCK + [""]
+if new != lines:
+    if zshrc.is_file():
+        backup = zshrc.with_name(zshrc.name + ".bak-" + datetime.now().strftime("%Y%m%d%H%M%S"))
+        shutil.copy2(zshrc, backup)
+        for old in zshrc.parent.glob(zshrc.name + ".bak-*"):
+            if old != backup and old.is_file():
+                old.unlink()
+    scratch = zshrc.with_name(zshrc.name + ".mmw-tmp")
+    scratch.write_text("\n".join(new), encoding="utf-8")
+    scratch.replace(zshrc)
+    if legacy:
+        print(f"换掉  {zshrc} 里手写的 NMEM_SPACE 一段")
+print(f"已装  {zshrc} 加载 {source}")
+PY
 
 # ---------------- task board LaunchAgent ----------------
 #

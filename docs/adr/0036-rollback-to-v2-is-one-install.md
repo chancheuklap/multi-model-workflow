@@ -22,4 +22,5 @@ amends: [0032]
 
 - 退回只换本机的安装。在 v3 下开着的夜，要在退回之前由 v3 关掉或挂起（Self-hosting boundary）；v2 能不能读懂 v3 写在票上的事件，没有核过。
 - 退回丢掉那三行里改过的值，最近一份 `models.json.bak-` 留着；再换回 v3 时，它们按 `mmw-v3/skills/dispatch/hosts.json` 的默认值补回。
+- `~/.zshrc` 里加载 `mmw-v3/shell/nmem-space.zsh` 的那一段，v2 的安装器不认识，退回后原样留着；它加载的文件在同一个 checkout 的 `mmw-v3/` 里，所以终端照旧设 `NMEM_SPACE`。
 - 只要装着的 checkout 里还有 `mmw-v2/`，这条退路就在；从仓库里删掉 `mmw-v2/`，就没有退路了。

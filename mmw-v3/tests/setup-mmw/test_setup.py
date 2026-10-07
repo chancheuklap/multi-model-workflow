@@ -7,6 +7,7 @@ reads sit in a temporary directory.
 import importlib.util
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -247,14 +248,20 @@ class TestCheck(unittest.TestCase):
         (self.root / ".mmw" / "target.json").write_text(json.dumps({"checks": ["make check"]}))
         (self.root / "TESTING.md").write_text("# Testing\n")
 
-    def run_check(self, fake):
+    def run_check(self, fake, nmem_space=None):
         check = load("check")
+        env = {"MMW_HOME": str(self.home)}
+        if nmem_space is not None:
+            env["NMEM_SPACE"] = nmem_space
         with mock.patch("subprocess.run", side_effect=fake), \
              mock.patch.object(check.shutil, "which", return_value="/bin/tool"), \
-             mock.patch.dict("os.environ", {"MMW_HOME": str(self.home)}), \
+             mock.patch.dict("os.environ", env), \
              redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()):
+            if nmem_space is None:
+                os.environ.pop("NMEM_SPACE", None)
             code = check.main()
         sys.modules.pop("labels", None)
+        sys.modules.pop("space", None)
         return code, out.getvalue()
 
     def test_a_repository_set_up_is_setup_ok(self):
@@ -289,6 +296,17 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertRegex(out, r"(?m)^missing +repository +tracker: o/r has Issues turned off")
         self.assertRegex(out, r"(?m)^note +repository +branch rules: protected branches main")
+
+    def test_the_session_space_is_only_a_note_naming_where_memory_lands(self):
+        self.set_up_repository()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^note +session +NMEM_SPACE: this session's is not set, not o__r, "
+                              r"so what it writes to Memory lands in Default")
+        code, out = self.run_check(Fake(root=self.root), nmem_space="other__repo")
+        self.assertRegex(out, r"(?m)^note +session +NMEM_SPACE: this session's is other__repo, not o__r")
+        code, out = self.run_check(Fake(root=self.root), nmem_space="o__r")
+        self.assertRegex(out, r"(?m)^ok +session +NMEM_SPACE: o__r$")
 
 
 if __name__ == "__main__":

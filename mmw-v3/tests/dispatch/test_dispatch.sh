@@ -6327,6 +6327,83 @@ PY
   rm -f "$MMW_HOME/models.json.bak-"*
 }
 
+scenario_installzshrc() {
+  local home="$TMP/install-home" v3 zshrc before
+  v3="$(dirname "$(dirname "$HERE")")"
+  zshrc="$home/.zshrc"
+  echo "--- install replaces the hand-written NMEM_SPACE lines of ~/.zshrc with one block that loads shell/nmem-space.zsh"
+  rm -rf "$home"; mkdir -p "$home"
+  cat > "$zshrc" <<'ZSH'
+export EDITOR=vim
+# Nowledge Mem Space per repository: in a git checkout whose origin has a Space
+if command -v nmem >/dev/null 2>&1; then
+  _nmem_space_sync() {
+    :
+  }
+fi
+alias ll='ls -l'
+ZSH
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  grep -q "^残留  $zshrc 第 2 行起手写的 NMEM_SPACE 一段" "$TMP/err" \
+    || fail "--check should report the hand-written lines: $(cat "$TMP/err")"
+  grep -q "^缺    $zshrc 里加载 " "$TMP/err" || fail "--check should report the missing block: $(cat "$TMP/err")"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
+  python3 - "$zshrc" "$v3/shell/nmem-space.zsh" <<'PY' || fail "~/.zshrc is not the expected shape: $(cat "$zshrc")"
+import sys
+lines = open(sys.argv[1]).read().split("\n")
+src = sys.argv[2]
+assert lines == ["export EDITOR=vim",
+                 "# >>> mmw: Nowledge Mem Space per repository (mmw-v3/install.sh) >>>",
+                 f"[ -f '{src}' ] && source '{src}'",
+                 "# <<< mmw: Nowledge Mem Space per repository <<<",
+                 "alias ll='ls -l'", ""], lines
+PY
+  ls "$zshrc.bak-"* >/dev/null 2>&1 || fail "the ~/.zshrc install replaced should be kept as a backup"
+  before="$(shasum -a 256 "$zshrc")"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(shasum -a 256 "$zshrc")" = "$before" ] || fail "a second install changed ~/.zshrc: $(cat "$zshrc")"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  grep -q "zshrc" "$TMP/err" && fail "--check after install still reports ~/.zshrc: $(cat "$TMP/err")"
+  grep -qx "shell $zshrc 加载 $v3/shell/nmem-space.zsh" "$TMP/out" || fail "--check did not confirm the block: $(cat "$TMP/out")"
+
+  echo "--- a hand-written block install cannot delimit is refused and left as it is"
+  printf '# Nowledge Mem Space per repository: in a git checkout whose origin has a Space\n_nmem_space_sync() { :; }\n' > "$zshrc"
+  before="$(shasum -a 256 "$zshrc")"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  grep -q "^冲突  $zshrc 第 1 行起手写的 NMEM_SPACE 一段认不全" "$TMP/err" || fail "install should refuse: $(cat "$TMP/err")"
+  [ "$(shasum -a 256 "$zshrc")" = "$before" ] || fail "install changed a ~/.zshrc it refused"
+
+  echo "--- a home with no ~/.zshrc gets one holding only the block"
+  rm -f "$zshrc" "$zshrc.bak-"*
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(sed -n 1p "$zshrc")" = "# >>> mmw: Nowledge Mem Space per repository (mmw-v3/install.sh) >>>" ] \
+    || fail "install did not create ~/.zshrc with the block: $(cat "$zshrc")"
+
+  echo "--- on a terminal, a repository's Space reaches NMEM_SPACE, also when it is created after the shell opened"
+  local repo="$TMP/zsh-repo" fakebin="$TMP/zsh-bin" spaces="$TMP/zsh-spaces"
+  rm -rf "$repo" "$fakebin" "$spaces"; mkdir -p "$repo" "$fakebin"; : > "$spaces"
+  git -C "$repo" init -q && git -C "$repo" remote add origin git@github.com:Own/Repo.git
+  cat > "$fakebin/nmem" <<SH
+#!/bin/sh
+grep -qx "\$4" "$spaces"
+SH
+  chmod +x "$fakebin/nmem"
+  python3 -c "import pty, sys; pty.spawn(sys.argv[1:])" env -u NMEM_SPACE PATH="$fakebin:$PATH" MMW_NMEM_SPACE_RECHECK=0 zsh -f -c "
+    cd '$repo'; source '$v3/shell/nmem-space.zsh'
+    print -r -- \"before:\${NMEM_SPACE:-unset}\"
+    print own__repo >> '$spaces'
+    for f in \$precmd_functions; do \$f; done
+    print -r -- \"after:\${NMEM_SPACE:-unset}\"" < /dev/null > "$TMP/zsh.out" 2>&1
+  tr -d '\r' < "$TMP/zsh.out" | grep -q "before:unset$" || fail "no Space yet should leave NMEM_SPACE unset: $(cat "$TMP/zsh.out")"
+  tr -d '\r' < "$TMP/zsh.out" | grep -q "after:own__repo$" || fail "the Space created later should be picked up at the next prompt: $(cat "$TMP/zsh.out")"
+  python3 -c "import pty, sys; pty.spawn(sys.argv[1:])" env -u NMEM_SPACE PATH="$fakebin:$PATH" NMEM_SPACE=given__elsewhere zsh -f -c "
+    cd '$repo'; source '$v3/shell/nmem-space.zsh'; print -r -- \"given:\$NMEM_SPACE\"" < /dev/null > "$TMP/zsh.out" 2>&1
+  tr -d '\r' < "$TMP/zsh.out" | grep -q "given:given__elsewhere$" || fail "a value this shell did not set must be left alone: $(cat "$TMP/zsh.out")"
+  env -u NMEM_SPACE PATH="$fakebin:$PATH" zsh -f -c "cd '$repo'; source '$v3/shell/nmem-space.zsh'; print -r -- \"notty:\${NMEM_SPACE:-unset}\"" < /dev/null > "$TMP/zsh.out" 2>&1
+  grep -q "notty:unset$" "$TMP/zsh.out" || fail "a shell with no terminal must not set NMEM_SPACE: $(cat "$TMP/zsh.out")"
+}
+
 scenario_installcheckhandover() {
   local home="$TMP/install-home" other="$TMP/installed-checkout/mmw-v3"
   echo "--- --check from a checkout that is not the installed one only hands over to the installed one's install.sh"
@@ -9874,7 +9951,7 @@ JSON
 }
 
 # The installer's scenarios, run by mmw-v3/tests/install/run.sh as `test_dispatch.sh install`.
-INSTALL="installtakesover installrollback installcheckhandover installorca installboardagent installcheckboardagent installtoolguard installkeepsnewestbackup installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome memory-install"
+INSTALL="installtakesover installrollback installzshrc installcheckhandover installorca installboardagent installcheckboardagent installtoolguard installkeepsnewestbackup installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome memory-install"
 ALL="memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-start"
