@@ -1,0 +1,18 @@
+### Runtime forensics
+
+**You own the diagnosis. Instrument the live process, don't theorize from source.** The deliverable is a cited diagnosis, not a fix. Distinct from Trace forensics, which starts from an artifact someone already captured, and from Investigation, which reads the code.
+
+An artifact can carry customer data and credentials. Keep every one outside the repository, in a directory the reply names. On the tracker and in a ticket, cite it by its path and quote from it only function names, the product's own file paths and numbers.
+
+1. **Capture the live signal.** Bring up an instance of your own of the process that shows the symptom: on this machine, with the `start` command of the repository's `.mmw/target.json` when that command brings up this process, under the `ui-acceptance` skill's **Five rules while the product is running**; otherwise with the start command the repository's own instructions give for it. Before you start anything on another machine, ask the owner, and say what the start stops there and which services it reaches, as the repository's instructions describe them: a start can end the owner's own running copy, or reach production services and spend real money. Drive the workload the owner described until the symptom shows, for as long as it takes to build, and note how long that was. Find the process that shows it and capture a real artifact with the tool the `mmw-mode` skill's `references/forensics-tools.md` names: a CPU profile for a spinning process, heap snapshots for memory that grows, a trace for a visual glitch, the thread stacks for a hang. A guess is not an artifact. When the symptom shows only on an instance you did not start, such as the owner's running product, ask the owner before you capture from it.
+   Done when the artifact is on disk outside the repository, and you can say which instance it came from, what workload ran, and for how long.
+2. **Reduce the artifact to the smoking gun:** the function on the hot path, the class or object whose retained size keeps growing and its retainer chain to a GC root, the loop firing without input, the thread a hang is blocked in. For an artifact too large to read whole, send out one subagent, the artifact reducer, with the prompt in the `mmw-mode` skill's `references/artifact-reducer.md`; keep its reduced finding here, not the raw artifact.
+   Done when one candidate cause is named with the evidence from the artifact that singles it out.
+3. **Prove the mechanism before believing it.** On the instance you started, inject instrumentation through the product's debugging interface (the Chrome DevTools Protocol for a Chrome, Electron or Node process), add a probe, or change the live code without reloading, to confirm the hypothesis cheaply. Never change an instance you did not start.
+   Done when a probe's result matches what the candidate cause predicts, or the candidate is ruled out and step 2 names the next one.
+4. **Map the finding back to source:** file, symbol, the line that allocates or schedules.
+   Done when the cause has a file, a symbol and a line, or the reply says why the artifact cannot give them.
+5. **Stop what you started,** with the `stop` command of `.mmw/target.json` or the stop command the repository's instructions give. Where they give none, tell the owner which instance is still running, and where.
+   Done when nothing this session started is still running, or the owner has heard what is.
+
+**Reply:** the signal captured, the workload and how long it ran, the reduced finding, how you proved the mechanism, the source location, the artifact paths. No fix unless asked. Once the cause is known, a fix runs the Bug fix playbook from its step **Write the ticket**.

@@ -13,7 +13,7 @@ Each agent below is a session of its own, on the model `~/.mmw/models.json` give
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no researchers. One explainer explores and explains in a single pass. Go to Step 2b.
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no sessions. You explore and explain it in a single pass. Go to Step 2b.
 - **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): start parallel researchers first, then hand off to the explainer. Go to Step 2a.
 
 When in doubt, take the simple path.
@@ -24,7 +24,7 @@ Decompose the question into 2 to 4 exploration angles, each a distinct slice of 
 
 ## Step 2b. Direct Explain (simple questions)
 
-Start one explainer with `dispatch.sh brief explainer`; it explores and explains in one pass. Build its brief from `references/explainer-prompt.md` without the explorer-findings section. Go to Step 4.
+Explore and write the explanation yourself, in the sections and style of `references/explainer-prompt.md` (its `## Output Format` and `## Communication Style`). Go to Step 4.
 
 ## Step 3. Synthesize (complex questions only)
 
@@ -32,7 +32,7 @@ Once the researchers' batch has woken you, start one explainer with `dispatch.sh
 
 ## Step 4. Present
 
-Check the explainer's output against the code before you use it, then write it to the user as mmw-mode's `## Writing the reply` says. Close every batch you started.
+Check the explanation against the code before you use it, then write it to the user as mmw-mode's `## Writing the reply` says. Close every batch you started.
 
 ## Output Format
 

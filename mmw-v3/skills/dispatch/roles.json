@@ -35,9 +35,9 @@
       "kind": "session",
       "command": "brief",
       "lead": {"skill": "research"},
-      "sent_by": ["how", "why", "mmw-mode/playbooks/chart-a-map.md", "mmw-mode/playbooks/resolve-a-map-ticket.md"],
+      "sent_by": ["how", "why", "mmw-mode/playbooks/chart-a-map.md", "mmw-mode/playbooks/resolve-a-map-ticket.md", "mmw-mode/playbooks/investigation.md"],
       "brief": ["how/references/explorer-prompt.md", "why/references/investigator-prompt.md", "mmw-mode/references/map-research-brief.md"],
-      "what": "reads one source, an angle of the code or one kind of evidence, or answers one research ticket of a map, and hands back cited findings",
+      "what": "reads one source, an angle of the code or one kind of evidence, answers one research ticket of a map, or answers one question the owner asked about the world outside the repository, and hands back cited findings",
       "returns": "its findings, reported to the session that briefed it"
     },
     {
@@ -46,7 +46,7 @@
       "command": "brief",
       "sent_by": ["how"],
       "brief": ["how/references/explainer-prompt.md"],
-      "what": "turns findings into one explanation of how something works, or explores and explains a simple question itself",
+      "what": "turns researchers' findings into one explanation of how something works",
       "returns": "the five-section explanation, reported to the session that briefed it"
     },
     {
@@ -93,6 +93,14 @@
       "prompt": ["mmw-mode/references/architecture-explorer.md"],
       "what": "walks the paths an architecture review scoped and notes where the code is hard to understand, change or test",
       "returns": "at most ten friction points, each with its files, evidence and deletion-test result, to the session running the review, in the same turn"
+    },
+    {
+      "name": "artifact reducer",
+      "kind": "subagent",
+      "sent_by": ["mmw-mode/playbooks/runtime-forensics.md", "mmw-mode/playbooks/trace-forensics.md"],
+      "prompt": ["mmw-mode/references/artifact-reducer.md"],
+      "what": "loads one diagnostic artifact (a profile, a trace, a heap snapshot, a thread dump) into a form it can query and narrows it to the evidence of the cause",
+      "returns": "at most five findings, each with its numbers and the query that shows it, and what the artifact cannot show, to the session diagnosing, in the same turn"
     },
     {
       "name": "interface designer",

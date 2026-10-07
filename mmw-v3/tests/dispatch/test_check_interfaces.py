@@ -107,8 +107,8 @@ class CheckInterfaces(unittest.TestCase):
         self.assertIn("why/SKILL.md: dispatch/roles.json says this file starts the synthesizer", out)
 
     def test_a_brief_of_a_role_the_table_does_not_have_is_found(self):
-        self.edit("how/SKILL.md", "Start one explainer with `dispatch.sh brief explainer`",
-                  "Start one narrator with `dispatch.sh brief narrator`")
+        self.edit("how/SKILL.md", "start one explainer with `dispatch.sh brief explainer`",
+                  "start one narrator with `dispatch.sh brief narrator`")
         code, out = self.run_check()
         self.assertEqual(code, 1)
         self.assertIn("how/SKILL.md: `dispatch.sh brief narrator` names no `brief` role", out)
