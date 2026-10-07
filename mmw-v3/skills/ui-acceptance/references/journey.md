@@ -21,10 +21,17 @@ declaring `scripts.run`; `journeys` in `.mmw/target.json` says where they live, 
   address from there; ports come from the lease.
 - **the lease variables** — `MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`,
   `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`.
+- **`MMW_EVIDENCE_DIR`** — an empty directory, `.scratch/journeys/<name>/` under the
+  worktree. The `--break` second pass uses `.scratch/journeys/<name>/break/` and
+  leaves the first pass's files where they are.
 
-The script never receives `MMW_BREAK` or another signal saying which pass is running.
-Drive the page with Playwright's own API. Exit 0 for a pass, non-zero for a failure, and put what went wrong on the
-last line of the output — that line is what the oracle prints.
+The script never receives `MMW_BREAK`. Drive the page with Playwright's own API. Exit 0
+for a pass, non-zero for a failure, and make the last line of the output the first line
+of the error — that line is what the oracle quotes after `at`. On failure, before the
+process exits, write four files into `MMW_EVIDENCE_DIR`: `screenshot.png` (the page at
+the moment of failure), `trace.zip` (the Playwright trace), `console.txt` (browser
+console errors) and `requests.txt` (each response with status 400 or above, and each
+request that failed).
 
 **End by reading the result back from another page.** A journey that clicks Submit and
 accepts a success message or redirect has proved only that the click handler ran. Go to
@@ -42,7 +49,8 @@ The product's fault-injection switch matches the method and route the criterion'
 ## The negative control
 
 With `--break`, the second pass starts the product again with the named operation
-failing and runs the same script with nothing telling it which pass it is; **that pass
+failing and runs the same script. `MMW_BREAK` is absent on that pass too. The evidence
+directory ends in `break/`, and the script does not branch on that path; **that pass
 has to fail**, or the journey did not prove the operation matters to the result it
 asserted. Without `--break`, the smoke journey's second pass runs with the product
 stopped and every discovered address pointing at a closed port.
@@ -55,4 +63,14 @@ control and leaves the next run blocked.
 
 ## Exit codes
 
-On `JOURNEY FAILED`, what to fix is what the last line names: the script's own output, not this oracle's words.
+On `JOURNEY FAILED`, the oracle prints the script's stdout and stderr first, with color
+codes removed, then `JOURNEY FAILED <name> at <last non-empty line>`. The next line is
+`MMW_DATA_DIR` and this run's data directory. After that, one line per file in this
+run's evidence directory, or one line naming that directory and pointing back to this
+reference when the script left it empty. What to fix is what the script printed.
+
+A `start` or `discover` that fails prints one line naming the command, its command
+string and its exit code, then that command's own output, or `(no output)` when the
+command itself printed nothing, then a line naming `MMW_DATA_DIR`. The run exits 2.
+
+The `--break` second pass prints the script's output only when that pass exits 0.
