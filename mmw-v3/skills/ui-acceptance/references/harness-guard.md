@@ -25,9 +25,14 @@ while the criteria ran is not part of the repository.
 
 ## Exit codes
 
-- `1`, one line `HARNESS LEAK <file>:<line>` per leak, and one line
+- `1`, one line `HARNESS LEAK <file>:<line> <marker>` per matched name, and one line
   `HARNESS DESIGN PAGE <file>:<line>` per story-service file that names a `.dc.html`
-  (the first such line in that file). Move a leak into `.mmw/`, `tests/` or
+  (the first such line in that file). `<marker>` is the `MMW_` variable, or the
+  `harness_markers` string, that the source line contains. A source line that matches
+  two names prints two lines. Move a leak into `.mmw/`, `tests/` or
   `scripts/dev/`, or name the file in `leaves_machine` when what it does is a thing
   that reaches past this machine. A design-page hit is a story service rendering a
   design page: point it at `scenes.json` instead.
+- `2`, when the scan read no file. The refusal names `0 files` and the root it
+  scanned. Its next step is `REPORT_BLOCKED` in `scripts/refusal.py`. The run does
+  not print `HARNESS OK`.
