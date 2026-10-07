@@ -15,11 +15,11 @@ Forty visual types. Semantic patterns describe behavior independently; type refe
 
 **Before your first diagram in a new project, settle which style guide it draws in.**
 
-Name the one you used beside the deliverable, so a default-skinned diagram never reaches a branded context unannounced.
+When a profile other than the default is in use, name it beside the deliverable, so a diagram never reaches a branded context in the wrong skin unannounced.
 
 First resolve any project `.diagram-design` marker per [`references/profiles.md`](references/profiles.md); a successfully resolved marker selects its profile and bypasses this gate. That reference owns failures, the protected default, and save behavior.
 
-For a markerless project, open [`references/style-guide.md`](references/style-guide.md). If it still has the shipped paper, ink, and accent tokens, **draw with them**; keep the note beside the deliverable to one line and name in it the four ways to change it: from a website URL, from a local design-system directory, from pasted tokens, or from a saved client profile. Most diagrams are read once to understand something and never leave the room; stopping every one of them at a branding question costs more than it saves.
+For a markerless project, open [`references/style-guide.md`](references/style-guide.md). If it still has the shipped paper, ink, and accent tokens, **draw with them**, and add no note about the skin. Most diagrams are read once to understand something and never leave the room; stopping every one of them at a branding question costs more than it saves.
 
 When the artifact is going to a client, a customer, or anywhere the project's own visual identity is part of the message, ask first: present the choices from [`references/onboarding.md`](references/onboarding.md) and follow the selected method; saved profiles route to `references/profiles.md`. Keep the result out of the installed `style-guide.md`: this install is shared by every repository on the machine. Save it as a profile and bind this project with a `.diagram-design` marker (`references/profiles.md`).
 
@@ -29,7 +29,7 @@ After customization or an explicit default choice, skip this gate. Detect and sa
 
 ## 1. Philosophy
 
-**The highest-quality move is usually deletion.**
+**The highest-quality move is usually deletion.** The reader's question decides what goes: whatever the question does not need is deleted, and whatever it needs stays.
 
 Applied to schematics:
 
@@ -38,22 +38,24 @@ Applied to schematics:
 - Coral is **editorial, not a flag.** 1–2 focal nodes per diagram. Using it on 5 nodes erases the signal.
 - The schematic isn't done when everything is added. It's done when nothing can be removed.
 
-**Target density: 4/10.** Enough to be technically complete. Not so dense it needs a guide. Above 9 nodes, reach for a type that nests before you reach for a second diagram.
+Five rules hold for every diagram and for the page around it. Each ends on the question to ask of the finished page.
+
+1. **Question first.** A diagram answers the one question the reader asked, and draws the object of that question. A diagram you cannot draw is one you have not understood yet: go back to the source rather than routing round the picture with a table or prose. *Can the reader answer their question from this diagram alone?*
+2. **Bounded by the source.** A diagram of an existing system, document or process draws what its source holds. Every component, connection, name and grouping traces to the source. Names are copied as the source writes them, never translated, shortened or renamed. Nothing is invented to fill a layout, and nothing that does work in the source is silently dropped. A grouping the source has no word for gets a plain description, labelled as this diagram's own. A type's minimum count never adds an element: choose a type the source fills. The subject is drawn as it is now, or as the design will leave it, never as the history of changing it. *Does every element match the source, and is everything that does work in the source on the diagram?*
+3. **Whole and detail on one canvas.** The reader looks for breaks and repeats across the whole, so one subject stays on one canvas; above 9 nodes it nests, as the budget in §7 says. Detail means the real steps and what each step uses, not a few coarse boxes. A document or a process is drawn on its own structure, with its flow drawn inside it. A before/after comparison is one subject: its two states sit side by side at the same scale, so the reader compares them by eye. *Can the reader walk one real run through the diagram and see what each step takes in and hands on?*
+4. **The picture carries the content.** The reader knows nothing about the topic: pictures show what things are and how they connect. Flows, structures, routes, who reads or writes what, and before/after comparisons are drawn; a table is for parallel entries with no relations between them, such as a lookup sheet. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn. Detail the source already holds is cited, not retold. *What would the reader lose without this sentence? Would this table read faster as a diagram?*
+5. **One mark, one meaning.** A kind of thing keeps one shape and one colour across the whole page, in the diagrams and in the prose that names it, with the legend beside the diagram. Colour by kind sorts things; coral marks the focus, and the two never share a colour. *Does each mark mean the same thing wherever it appears?*
 
 ---
 
 ## 2. When to Use
 
-Use for any of the 40 visual types (§3) when a reader will learn more from a visual than from prose, a table, or a bulleted list.
+Use for any of the 40 visual types (§3), and for any page that explains a system, a flow or a design to a reader.
 
 **Don't use for:**
 
-- Quick unicode diagrams → use **wiretext**.
-- Lists of things → table or bullets.
-- Simple before/after → table.
+- Parallel entries with no relations between them → table (§1 rule 4).
 - One-shape "diagrams" → just write the sentence.
-
-Before drawing, ask: *Would the reader learn more from this than from a well-written paragraph?* If no, don't draw.
 
 ---
 
@@ -122,15 +124,10 @@ The pattern owns semantic primitives and its tighter budget; the type owns layou
 
 Rules of thumb:
 
-- If a 3-column table communicates the same thing, pick the table.
 - If two types seem useful, pick the dominant axis; a semantic pattern may add behavior-specific primitives, not a second layout grammar.
 - If you're past the complexity budget (§7), re-pick a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture) and carry the whole subject on one canvas.
 
-**Always load the chosen type reference linked in the guide before drawing.** When routed above, also load `semantic-patterns.md`; when animation is chosen, load `animation.md`.
-
-### Confirm before drawing
-
-Before rendering, state the plan in one short message: the chosen visual type (and semantic pattern, if routed), the size preset, and anything the complexity budget (§7) will force out. If the user is reachable, let them redirect before you draw; if not, proceed and note the assumptions beside the deliverable. Skip the pause only when the request already pins type, size, and content exactly.
+**Always load the chosen type reference linked in the guide before drawing.** When routed above, also load `semantic-patterns.md`; when animation is chosen, load `animation.md`. Then draw: the page is where the reader judges the choice.
 
 ---
 
@@ -410,7 +407,7 @@ Split into overview + detail only when the subject genuinely holds two independe
 
 1. **Header** — eyebrow (Geist Mono), title (Instrument Serif), optional subtitle (Geist muted).
 2. **Diagram container** — default: **clean, borderless**, no background — the SVG sits directly on the page paper. Optional *framed* variant (for card-heavy layouts or hero placements): `paper-2` bg + 1px `rule` border + 8px radius + `1.5rem` padding + `overflow-x: auto`.
-3. **Summary cards** — 2–3 col grid with *varied* widths (e.g., `1.1fr 1fr 0.9fr`).
+3. **Summary cards** — optional, for parallel facts beside a diagram: 2–3 col grid with *varied* widths (e.g., `1.1fr 1fr 0.9fr`).
 4. **Footer** — colophon in Geist Mono, muted, hairline top border.
 
 ---
@@ -444,12 +441,14 @@ Rules:
 
 Run before producing any diagram.
 
+**The five rules:**
+
+- [ ] Asked each §1 rule's question of every diagram and of the page around it?
+
 **Type fit:**
 
 - [ ] If behavior matters, did I choose one semantic pattern before the visual type and load `semantic-patterns.md`?
 - [ ] Right visual type for the layout? (§3 visual-type guide)
-- [ ] Stated type, pattern, size preset, and planned cuts before drawing — confirmed, or assumptions noted? (§3)
-- [ ] Would a table / paragraph do the same job? (If yes — don't draw.)
 - [ ] Loaded the matching type reference linked in the visual-type guide?
 - [ ] If this is an import — format, size, detail level, and audience set? `viewBox` and type ramp match the size preset? (§11, [output-spec.md §6](references/output-spec.md))
 - [ ] If this is an import — fidelity ledger ready to report? (§11)
@@ -537,7 +536,7 @@ The short version:
 3. **Redraw — never convert.** Source or renderer coordinates, colors, fonts, and shape quirks are discarded. You keep the *content*: components, relationships, grouping, direction.
 4. **Report the fidelity ledger** — what you merged, collapsed, or dropped. The user knows the source and will notice.
 
-An import is bounded by its source: never invent a component to fill a layout, and never silently drop one.
+An import is bounded by its source (§1 rule 2).
 
 ### Output dials — format, size, detail level, audience
 
@@ -550,7 +549,7 @@ Set these four import decisions **before** drawing. Full spec: [output-spec.md](
 | **Detail** | `faithful` (≤24 nodes, zoned) · `balanced` (≤12) · `simplified` (≤7) | `balanced` |
 | **Audience** | `engineer` · `mixed` · `executive` — governs wording, not count | `mixed` |
 
-The size preset sets the `viewBox` **and** the type ramp; `faithful` is the only exemption from the §7 budget — zoned above 9 nodes, split above 24. The §6 connector rules never relax.
+The size preset sets the `viewBox` **and** the type ramp; `faithful` is the only exemption from the §7 budget — zoned above 9 nodes, nested with the budget per level above 24. The §6 connector rules never relax.
 
 ---
 
@@ -560,7 +559,7 @@ Always produce a single self-contained `.html` file:
 
 - Embedded CSS (no external except Google Fonts)
 - Inline SVG (no external images)
-- Static by default; minimal inline JavaScript only for explicit animation controls/state
+- Static by default; inline JavaScript where interaction helps the reader read the subject (pan and zoom across a whole system, opening a component's source text, switching a kind of connector on and off), and the canonical controller for animation. No script is loaded from outside the file.
 
 Renders correctly in any modern browser. Motion-enabled output must render its complete meaning without JavaScript; under `prefers-reduced-motion: reduce` it shows the complete static frame and hides/disables playback controls.
 

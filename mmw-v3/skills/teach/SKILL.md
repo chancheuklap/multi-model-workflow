@@ -53,7 +53,7 @@ A lesson should be **beautiful**, with clean, readable typography and layout, si
 
 The lesson should be short, and completable very quickly. Learners' working memory is very small, and we need to stay within it. But each lesson should give the user a single tangible win that they can build on. It should be directly tied to the mission, and should be in the user's zone of proximal development.
 
-The reader knows nothing about this topic. Pictures show what things are and how they connect. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn.
+Draw every picture in a lesson, and write the words around it, as the `diagram-design` skill's §1 says; the workspace's stylesheet sets the look. Open the rendered lesson and look at every picture before handing it over.
 
 Hand the finished lesson over by serving the workspace root over a local HTTP server and giving the user the lesson's URL. Opened straight from disk, under `file://`, some browsers block links that leave the page's own directory, so lessons and reference pages stop reaching each other.
 

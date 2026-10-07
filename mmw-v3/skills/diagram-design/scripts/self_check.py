@@ -7,8 +7,9 @@ Ships inside the skill so an installed agent can verify its own output:
 
 Checks the accessible-SVG contract, the single-file safety rules (no remote
 assets beyond the approved Google Fonts stylesheet, no executable attributes,
-no scripts other than the one canonical motion controller), and — when motion
-markup is present — the structural motion contract. This is a distilled
+no script loaded from outside the file), and — when motion markup is present —
+the structural motion contract, whose one script is the canonical controller.
+A page without motion markup may carry its own inline scripts. This is a distilled
 subset of the repository gates (`lint-skin.py`, `verify-motion.py`), which
 remain the authority for contributions to the repository itself.
 """
@@ -312,7 +313,7 @@ def check_svgs(parser: DiagramParser, errors: list[str]) -> None:
 
 
 def check_scripts(parser: DiagramParser, errors: list[str]) -> None:
-    if not parser.scripts:
+    if not parser.scripts or not (parser.roots or parser.items):
         return
     if len(parser.scripts) > 1:
         errors.append(f"at most one script is allowed; found {len(parser.scripts)}")
@@ -334,7 +335,7 @@ def check_scripts(parser: DiagramParser, errors: list[str]) -> None:
 
 
 def check_motion(parser: DiagramParser, source: str, errors: list[str]) -> None:
-    has_motion_markup = bool(parser.roots or parser.items or parser.scripts)
+    has_motion_markup = bool(parser.roots or parser.items)
     if not has_motion_markup:
         return
     if len(parser.roots) != 1:

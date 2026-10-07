@@ -32,7 +32,7 @@ If the extractor exits 2, report its message verbatim and stop. Do not open the 
 
 ## Step 2 — Set the four dials
 
-Set `--format`, `--size`, `--detail`, and `--audience` from [`output-spec.md`](output-spec.md) before drawing. Infer what the destination makes obvious, and ask once if a choice changes the result materially. The digest's `budget:` line determines whether the requested combination fits.
+Set `--format`, `--size`, `--detail`, and `--audience` from [`output-spec.md`](output-spec.md) before drawing. Infer what the destination makes obvious, and take the defaults for the rest. The digest's `budget:` line determines whether the requested combination fits.
 
 Command-level flags are `--format`, `--size`, `--detail`, `--audience`, optional `--type`, `--variant`, and `--output`. An Excalidraw file holds a single scene, so there is no page or diagram selector.
 
@@ -62,7 +62,7 @@ Work from the digest, not from sketch coordinates. In order:
 1. Name the story in one sentence.
 2. Apply the requested detail level using [`output-spec.md` §3](output-spec.md)'s degrade ladder. Start with unconnected nodes, then the digest's collapsible groups — frames and explicit groups are the author's own clustering, pre-computed for you.
 3. Pick 1–2 focal nodes using the hubs as evidence, not as an automatic answer.
-4. Rewrite labels for the audience. Whiteboard labels are shorthand written mid-conversation; expand them into names a reader can use. Preserve proper nouns and meaning.
+4. Keep labels as the source writes them. Whiteboard labels are shorthand written mid-conversation, so say what each shorthand means in the sublabel, at the audience level.
 5. Preserve meaningful edge labels, decision branches, frame membership, and direction of flow. Excalidraw has no store/actor shape vocabulary, so infer roles from labels (`DB`, `queue`, `user`) and say so in the ledger when you do.
 
 ## Step 5 — Redraw
@@ -110,7 +110,7 @@ The extractor reports 10 IR nodes (8 drawable including 2 frames) and 6 edges; t
 | Labels are empty across the board | The sketch carries meaning in position only. Ask the user what the boxes are — don't invent names. |
 | `unknown elements` in the discarded line | A newer element type this extractor doesn't map. Say so in the ledger; never guess its meaning from coordinates. |
 | Element links or embeds counted | They were discarded. Never open, fetch, or reproduce their targets. |
-| Source has 40+ nodes | Don't offer `faithful`. Propose overview + per-frame detail up front, before drawing anything. |
+| Source has 40+ nodes | Don't offer `faithful`. Redraw it in a type that nests, with the budget per level (SKILL.md §7). |
 | CJK / non-Latin labels | Follow `output-spec.md` font fallback. Do not romanize. |
 
 ## Anti-patterns

@@ -12,7 +12,7 @@ The review is informed by the project's domain model and built on a shared desig
 2. **Explore.** Read the project's domain glossary (`CONTEXT.md`) and any ADRs in the area you're touching first. Then send out one subagent, the architecture explorer, to walk the codebase, with the paths of step 1 and the prompt in the `mmw-mode` skill's `references/architecture-explorer.md`. Apply the **deletion test** to anything it reports as shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
    Done when the explorer has returned and each friction point it reports has had the deletion test.
 3. **Present candidates as an HTML report.** Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the owner (`xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows) and tell them the absolute path.
-   The report's look and every diagram in it come from the `diagram-design` skill: read its `SKILL.md` and follow it. Its §3 "Confirm before drawing" pause does not apply here: the report is where the owner reviews the diagrams, so draw every candidate's straight away. Each candidate gets a **before/after visualisation**. Be visual.
+   The report's look and every diagram in it come from the `diagram-design` skill: read its `SKILL.md` and follow it. Each candidate gets a **before/after visualisation**. Be visual.
    For each candidate, render a card with:
    - **Files**: which files/modules are involved
    - **Problem**: why the current architecture is causing friction

@@ -35,9 +35,9 @@ Every token is referred to by **semantic role**, not by its hex value. Type refe
 
 Any `rgba(28,25,23, X)` in light becomes `rgba(250,247,242, X)` in dark. Same opacities, RGB flipped. The accent gets a slight hue-shift brighter to read on dark paper.
 
-### Series palette (multi-series chart types only)
+### Series palette (series and kinds)
 
-A small set of desaturated, editorial-tone colors for chart types that genuinely need to distinguish multiple overlapping entities (currently: **radar**). The "1-focal" rule still holds — `accent` is reserved for the focal series; the palette below covers the rest.
+A small set of desaturated, editorial-tone colors for telling kinds apart: the overlapping series of a chart (currently: **radar**), and, in any type, the kinds of thing a page names (SKILL.md §1 rule 5). The "1-focal" rule still holds — `accent` is reserved for the focal series or node; the palette below covers the rest.
 
 | Token | Light | Dark | Notes |
 |---|---|---|---|
@@ -47,7 +47,7 @@ A small set of desaturated, editorial-tone colors for chart types that genuinely
 | `series-4` | `#9c6b50` (rust-brown) | `#b88670` | Non-focal series |
 | `series-5` | `#6e6479` (slate) | `#8d8298` | Non-focal series |
 
-Fills sit at `0.18` opacity light, `0.22` dark; strokes use the full color. **Don't backfill these tokens to non-chart types** — architecture, swimlane, etc. continue to use muted-ink variants. The series palette is opt-in for diagrams where overlapping shapes demand distinguishable color, not a license to add color elsewhere.
+Fills sit at `0.18` opacity light, `0.22` dark; strokes use the full color. One kind keeps one token across the whole page. A diagram whose nodes are all one kind keeps the muted-ink variants of the node treatments below. A page with more kinds than tokens tells the rest apart by the fill, stroke and dash of those node treatments.
 
 ### Terminal skin (opt-in alternate)
 

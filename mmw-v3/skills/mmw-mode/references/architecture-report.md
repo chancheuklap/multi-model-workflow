@@ -1,6 +1,6 @@
 # HTML Report Format
 
-The architectural review is rendered as a single self-contained HTML file in the OS temp directory. This file sets what goes on the page, top to bottom: the header, one card per candidate, the top recommendation, then a footer carrying the one line `diagram-design` asks for naming the style guide used.
+The architectural review is rendered as a single self-contained HTML file in the OS temp directory. This file sets what goes on the page, top to bottom: the header, one card per candidate, then the top recommendation.
 
 ## Header
 
@@ -20,8 +20,6 @@ Each candidate is one `<article>`:
 - **Solution**: one sentence. What changes.
 - **Wins**: bullets, ≤6 words each. e.g. "Tests hit one interface", "Pricing logic stops leaking", "Delete 4 shallow wrappers".
 - **ADR callout** (if applicable): one line in an `accent-tint` box.
-
-The reader knows nothing about this topic. Pictures show what things are and how they connect. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn.
 
 ## Diagrams
 

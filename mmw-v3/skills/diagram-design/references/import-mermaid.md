@@ -31,7 +31,7 @@ If the extractor exits 2, report its message verbatim and stop. Do not render th
 
 ## Step 2 — Set the four dials
 
-Set `--format`, `--size`, `--detail`, and `--audience` from [`output-spec.md`](output-spec.md) before drawing. Infer what the destination makes obvious, and ask once if a choice changes the result materially. The digest's `budget:` line determines whether the requested combination fits.
+Set `--format`, `--size`, `--detail`, and `--audience` from [`output-spec.md`](output-spec.md) before drawing. Infer what the destination makes obvious, and take the defaults for the rest. The digest's `budget:` line determines whether the requested combination fits.
 
 Command-level flags are `--format`, `--size`, `--detail`, `--audience`, optional `--type`, `--diagram`, `--variant`, and `--output`.
 
@@ -55,7 +55,7 @@ Load the selected `type-*.md`. Override the grammar only when the content disagr
 1. Name the story in one sentence.
 2. Apply the requested detail level using `output-spec.md`'s degrade ladder. Start with unconnected nodes and the digest's collapsible groups.
 3. Pick 1–2 focal nodes using the hubs as evidence, not as an automatic answer.
-4. Rewrite labels for the audience. Preserve proper nouns and meaning; strip source markup.
+4. Keep labels as the source writes them, without source markup; where one is a code a reader cannot use, say what it does in the sublabel, at the audience level.
 5. Preserve meaningful edge labels, state guards, sequence order/fragments, ER cardinality/fields, and container membership.
 6. Treat direction (`TD`, `LR`, `RL`, `BT`) as a hint. A chosen type's layout conventions may override it.
 

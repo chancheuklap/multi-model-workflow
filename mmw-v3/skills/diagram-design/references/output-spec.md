@@ -9,7 +9,7 @@ Four dials decide what an imported diagram becomes. Set them **before** redrawin
 | **Detail level** | Reproduce every element, or compress it? | `balanced` |
 | **Audience** | How technical should the wording be? | `mixed` |
 
-Infer choices that are clear from the request (for example, "for my deck" implies a slide preset). Ask one concise question for anything material that remains ambiguous. If the user does not care, use the defaults above and say which ones you used.
+Infer choices that are clear from the request (for example, "for my deck" implies a slide preset). Take the defaults above for the rest, and say which ones you used.
 
 ---
 
@@ -155,13 +155,13 @@ Anything cut in steps 2–6 goes in the fidelity ledger (§5). Step 1 doesn't ne
 
 ## 4. Audience level
 
-Independent of the detail dial: the same 12 nodes get named differently for a platform team than for a steering committee. Detail sets *how many*; audience sets *what they're called*.
+Independent of the detail dial: the same 12 nodes get labelled differently for a platform team than for a steering committee. Detail sets *how many*; audience sets the words around each name. Every audience reads the source's own names (SKILL.md §1 rule 2).
 
 | Audience | Node names | Sublabels | Edge labels | Never |
 |---|---|---|---|---|
-| `engineer` | exact service / component names | protocol, port, version, image tag | `POST /v2/orders`, `SQL`, `gRPC` | Vague verbs like "connects to" |
-| `mixed` (default) | component names, expanded acronyms | technology only where it changes a decision | plain verbs — `verifies`, `writes`, `notifies` | Ports, versions, internal codenames |
-| `executive` | capabilities and outcomes | none | business verbs — `approves`, `pays out` | Vendor names, infrastructure, protocols |
+| `engineer` | the source's names | protocol, port, version, image tag | `POST /v2/orders`, `SQL`, `gRPC` | Vague verbs like "connects to" |
+| `mixed` (default) | the source's names, an acronym's expansion beside it | technology only where it changes a decision | plain verbs — `verifies`, `writes`, `notifies` | Ports, versions, internal codenames |
+| `executive` | the source's names | the capability or outcome | business verbs — `approves`, `pays out` | Vendor detail, infrastructure, protocols |
 
 Worked example — the same node through all three:
 
@@ -169,12 +169,11 @@ Worked example — the same node through all three:
 |---|---|---|
 | `engineer` | `Auth Service` | `JWT · RS256 · :8443` |
 | `mixed` | `Auth Service` | `token check` |
-| `executive` | `Sign-in` | — |
+| `executive` | `Auth Service` | `sign-in` |
 
-Two rules that hold at every audience level:
+One rule that holds at every audience level:
 
 - **Never invent detail to fill a slot.** If the source says `svc-04`, `executive` output says what it does only if you can tell from context — otherwise ask, don't guess a business name.
-- **Keep the source's vocabulary for proper nouns.** Renaming `Kafka` to `Message Bus` is fine at `executive`; renaming it to `Event Grid` (a different product) is a factual error.
 
 ### Non-Latin labels
 
@@ -216,7 +215,7 @@ Run alongside the SKILL.md §9 taste gate.
 - [ ] Type ramp matches the size class — not the standard ramp on a slide?
 - [ ] 40px outer margin honoured (64px for `social-og`)?
 - [ ] Node count inside the detail level's ceiling?
-- [ ] `faithful` above 9 nodes → zoned, and split above 24?
+- [ ] `faithful` above 9 nodes → zoned, and nested with the budget per level above 24?
 - [ ] Node names, sublabels, and edge labels all at the same audience level?
 - [ ] CJK labels given a font fallback?
 - [ ] Fidelity ledger reported for anything cut?

@@ -34,11 +34,7 @@ Read the digest, not the file. If the digest is empty (`0 nodes`), the source is
 
 ## Step 2 — Set the four dials
 
-Before drawing, fix format, size, detail level, and audience per [`output-spec.md`](output-spec.md). Infer what the destination makes obvious, then ask once for any material ambiguity and let the digest inform the options you offer:
-
-> *"18 nodes in 3 groups. Where's this going — slide, blog post, or hand-off? And should I keep every component or compress to the request path?"*
-
-The digest's `budget:` line tells you whether the ask is even possible: a source over the node budget cannot go to `slide-16x9` at `faithful` without splitting. Say so at this step rather than after drawing.
+Before drawing, fix format, size, detail level, and audience per [`output-spec.md`](output-spec.md): infer what the destination makes obvious, and take the defaults for the rest. The digest's `budget:` line tells you whether the combination fits: a source over the node budget cannot go to `slide-16x9` at `faithful`, so it is redrawn nested, with the budget per level (SKILL.md §7).
 
 ## Step 3 — Pick the target type
 
@@ -69,7 +65,7 @@ Work from the digest, not from coordinates. In order:
 1. **Name the story.** One sentence: *"A request enters through the gateway, gets authenticated, and lands in Postgres."* Everything that doesn't serve that sentence is a degrade-ladder candidate.
 2. **Apply the detail level.** Walk [`output-spec.md` §3](output-spec.md) degrade ladder until you're under the node ceiling. The digest's *collapsible groups* section is step 3 of that ladder, pre-computed.
 3. **Pick 1–2 focal nodes.** The digest's `hubs` ranking (highest degree) is the usual answer, but the focal node is the one the *reader* should look at first — sometimes that's the entry point or the new component, not the busiest one. These get `accent`; everything else does not.
-4. **Rewrite every label** at the audience level ([`output-spec.md` §4](output-spec.md)). draw.io labels are written by the author for the author: `svc-auth-prod-v2` becomes `Auth Service`. Preserve proper nouns, expand acronyms once.
+4. **Keep every label as the source writes it** ([`output-spec.md` §4](output-spec.md)), so the reader can find each node in the source. draw.io labels are written by the author for the author: where one is a code a reader cannot use (`svc-auth-prod-v2`), say what it does in the sublabel, at the audience level, and expand an acronym once beside it.
 5. **Prune edges.** Source graphs carry edges that layout already implies. If A sits above B in a stack and everything flows down, the arrow is noise. Keep edges that carry a label, cross a zone boundary, or run against the dominant direction.
 
 ## Step 5 — Redraw
@@ -152,7 +148,7 @@ Default is page 0. When the file has several pages:
 | `edges_dangling > 0` | Edges whose endpoints were deleted in the source. Drop them silently — they're source rot, not content. |
 | Unconnected nodes listed | Usually legends, titles, or abandoned boxes. Drop unless the label says otherwise; mention in the ledger if it looked meaningful. |
 | Labels are empty across the board | The source carries meaning in shape and position only. Ask the user what the boxes are — don't invent names. |
-| Source has 40+ nodes | Don't offer `faithful`. Propose overview + per-zone detail up front, before drawing anything. |
+| Source has 40+ nodes | Don't offer `faithful`. Redraw it in a type that nests, with the budget per level (SKILL.md §7). |
 | Source is someone else's branded diagram | Redraw in the *project's* skin (`style-guide.md`), not the source's. Say so — it's a feature, not a bug. |
 | CJK / non-Latin labels | Font fallback per [`output-spec.md` §4](output-spec.md). Don't romanize labels. |
 
@@ -164,7 +160,7 @@ Default is page 0. When the file has several pages:
 | Keeping the source palette | Six pastel fills read as six meanings; the design system has one accent |
 | One-to-one node mapping regardless of budget | A 30-node canvas is a wiring diagram nobody reads |
 | Keeping every edge because it was in the source | Source graphs carry edges layout already implies |
-| Copying labels verbatim | `svc-auth-prod-v2` is a hostname, not a name a reader can use |
+| A code-like label with nothing beside it | `svc-auth-prod-v2` finds the node in the source, but the reader also needs what it does |
 | Re-embedding vendor logos from the source | Breaks the self-contained rule and the monochrome icon system |
 | Silently dropping components | The user knows the source. Always ship the fidelity ledger. |
 | Inventing components to fill a layout | An import is bounded by its source. Gaps get asked about, not filled. |
