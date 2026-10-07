@@ -154,21 +154,26 @@ The design page throws, or `#dc-root` never becomes visible. The oracle prints f
 lines, `scene`, `file`, `url` and `error`, then a refusal. The refusal says the design
 page failed and the product was not compared. The next step is a contract child,
 `verify-ticket.py <n> --sub-issue contract <file>`. A throw inside a timer on the
-paused clock is reported as a console error with a stack. That is still this refusal.
-A one-line `console.error` string is not.
+paused clock is a console error whose stack names `ClockController`, and `pageerror`
+does not fire. That is still this refusal. `console.error`, including one that
+passes an Error object, is not.
 
 Anything else compare did not expect, such as a navigation timeout, is the same exit
 2. It is not exit 1. Exit 1 is a real `DIFF` line.
 
 A design page that throws nothing and renders no `data-ui` element prints one stdout
-line, `read 0 data-ui elements at <url> screenshot <path>`, and exits 2. `<url>` is
-the design page. `<path>` is the design screenshot under `--out`. This is not
-`NEGATIVE CONTROL FAILED`.
+line, `read 0 data-ui elements at <url> screenshot <path>`, then a refusal, and
+exits 2. `<url>` is the design page. `<path>` is the design screenshot under
+`--out`. The refusal says the page gives the oracle nothing to compare. The next
+step is a contract child, `verify-ticket.py <n> --sub-issue contract <file>`. This
+is not `NEGATIVE CONTROL FAILED`.
 
 ## Console errors
 
 A design-page console error that is not an uncaught exception is printed and written
-to `--out/media/<scene>-<W>x<H>-console.txt`. The verdict is unchanged. There is no
+to `--out/media/<scene>-<W>x<H>-console.txt`. An Error object passed to
+`console.error` is one of these. A timer throw whose stack names `ClockController`
+is the design-page refusal above. The verdict is unchanged. There is no
 `--console-errors` flag.
 
 ## Element facts on disk

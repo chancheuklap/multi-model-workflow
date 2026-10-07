@@ -16,7 +16,6 @@ import socketserver
 import subprocess
 import sys
 import threading
-import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -291,13 +290,6 @@ def serve_baseline(root: Path, pages: dict[str, str]) -> tuple[_Server, int]:
 
         def do_GET(self):
             path = urllib.parse.unquote(self.path.split("?", 1)[0])
-            # The navigation-timeout test holds one request open. The handler
-            # polls so server shutdown can finish; nothing else requests this path.
-            if path == "/__mmw_hang__":
-                while not getattr(self.server, "mmw_stop", False):
-                    time.sleep(0.05)
-                self.send_error(503)
-                return
             body = pages.get(path)
             if body is None:
                 super().do_GET()

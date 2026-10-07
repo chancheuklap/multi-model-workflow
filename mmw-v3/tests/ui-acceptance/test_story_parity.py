@@ -534,15 +534,27 @@ class TestStoryFixture(unittest.TestCase):
         self.assertIn("design page console only",
                       evidence[0].read_text(encoding="utf-8"))
 
-    def test_an_unexpected_error_is_a_refusal_not_a_diff(self):
+    def test_a_console_error_object_is_not_a_refusal(self):
         root = self.copied_fixture()
         support = root / "efforts" / "story" / "claude-design" / "support.js"
         support.write_text(
-            support.read_text(encoding="utf-8") + '\nfetch("/__mmw_hang__");\n',
+            support.read_text(encoding="utf-8")
+            + '\nconsole.error(new Error("logged not thrown"));\n',
             encoding="utf-8")
+        out = Path(tempfile.mkdtemp(prefix="story-console-error-"))
+        self.addCleanup(shutil.rmtree, out, ignore_errors=True)
         proc = self.run_story(
-            cwd=root,
-            extra_env={"MMW_NAV_TIMEOUT_MS": "400"},
+            cwd=root, extra_args=["--scenes", "alpha"], out=out)
+        combined = proc.stdout + proc.stderr
+        self.assertEqual(proc.returncode, 0, combined)
+        self.assertIn("STORY OK", proc.stdout)
+        self.assertIn("logged not thrown", combined)
+        evidence = list((out / "media").glob("alpha-400x300-console.txt"))
+        self.assertEqual(len(evidence), 1, combined)
+
+    def test_an_unexpected_error_is_a_refusal_not_a_diff(self):
+        proc = self.run_story(
+            extra_env={"MMW_NAV_TIMEOUT_MS": "1"},
             extra_args=["--scenes", "alpha"],
             timeout=30)
         combined = proc.stdout + proc.stderr
@@ -550,20 +562,22 @@ class TestStoryFixture(unittest.TestCase):
         self.assertNotIn("\nDIFF ", "\n" + proc.stdout)
         self.assertNotIn("STORY OK", proc.stdout)
         self.assertIn("Timeout", combined)
+        self.assertNotIn("could not be opened", combined)
 
     def test_the_element_facts_are_written(self):
         out = Path(tempfile.mkdtemp(prefix="story-facts-"))
         self.addCleanup(shutil.rmtree, out, ignore_errors=True)
-        proc = self.run_story(extra_args=["--scenes", "alpha"], out=out)
+        proc = self.run_story(extra_env={"STORY_MUTATE": "copy"},
+                              extra_args=["--scenes", "alpha"], out=out)
         combined = proc.stdout + proc.stderr
-        self.assertEqual(proc.returncode, 0, combined)
+        self.assertEqual(proc.returncode, 1, combined)
         path = out / "media" / "alpha-400x300-elements.json"
         self.assertTrue(path.is_file(), combined)
         data = json.loads(path.read_text(encoding="utf-8"))
-        design = next(item for item in data["design"] if item["id"] == "title")
-        product = next(item for item in data["product"] if item["id"] == "title")
-        self.assertEqual(design["text"], "Demo card")
-        self.assertEqual(product["text"], "Demo card")
+        design = next(item for item in data["design"] if item["id"] == "body")
+        product = next(item for item in data["product"] if item["id"] == "body")
+        self.assertEqual(design["text"], "Alpha scene copy")
+        self.assertEqual(product["text"], "Alpha scene COPY")
 
     def test_a_missing_line_carries_the_other_side(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "missing"},

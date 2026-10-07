@@ -43,10 +43,12 @@ When the story service exits or stalls before printing origin, its last 15 outpu
 lines are printed and then the refusal. Those lines are not part of the refusal.
 A design-page failure names the scene, the design-page file, the URL and the first
 error, then refuses. The same four facts are printed on their own lines first, because
-the refusal is capped at 256 characters. Console errors with no uncaught exception are
+the refusal is capped at 256 characters. A timer throw under the paused clock is a
+console error whose stack names `ClockController`, and `pageerror` does not fire.
+That is a design-page failure. `console.error`, including an Error object, is
 printed and written under `--out`, and the run continues. A design page that renders
-no `data-ui` element prints one line with the count 0, the URL and the design
-screenshot path, and exits 2.
+no `data-ui` element prints one stdout line with the count 0, the URL and the design
+screenshot path, then a refusal, and exits 2.
 
 `--out` holds screenshots, capture evidence and a pixel difference image for every
 pair, plus `<scene>-<W>x<H>-elements.json` for each compared pair. `--render-only`
@@ -66,6 +68,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import traceback
 from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import urlencode
@@ -411,7 +414,9 @@ def _with_reasons(values: list[dict], reasons: list) -> list[dict]:
     annotated = []
     for index, item in enumerate(values):
         copied = dict(item)
-        copied["_reason"] = reasons[index] if index < len(reasons) else None
+        # The two reads use one selector. A shorter reason list raises, and
+        # compare refuses instead of pairing a reason with the wrong element.
+        copied["_reason"] = reasons[index]
         annotated.append(copied)
     return annotated
 
@@ -608,18 +613,15 @@ def write_element_facts(media: Path, scene: str, tag: str,
 
 
 def console_error_is_uncaught(text: str) -> bool:
-    """A thrown Error the paused clock reports as a console message.
+    """A timer throw the paused clock reports as a console message.
 
-    Measured 2026-10-08: a `setTimeout` throw under Playwright's paused clock
-    arrives as a console error whose text is `Error: …` plus stack frames, and
-    `pageerror` does not fire. A one-line `console.error` string does not.
+    Measured 2026-10-08. A `setTimeout` throw under Playwright's paused clock
+    arrives as a console error whose stack names `ClockController`, and
+    `pageerror` does not fire. `console.error(new Error(...))` is also `Error:`
+    plus an `at` frame, and its stack does not name `ClockController`. A
+    synchronous throw arrives as `pageerror` and not as a console message.
     """
-    lines = text.splitlines()
-    if not lines:
-        return False
-    if lines[0].startswith("Uncaught"):
-        return True
-    return len(lines) > 1 and any(line.lstrip().startswith("at ") for line in lines[1:])
+    return "ClockController._callFirstTimer" in text or "ClockController._runTo" in text
 
 
 def hidden_reasons(page, selector: str) -> list:
@@ -637,28 +639,24 @@ def component_box(page, selector: str, shot_box: tuple[int, int, int, int]
             int(round(vw)), int(round(vh)))
 
 
-def _crop_png(png: Path, box: tuple[int, int, int, int]) -> Path:
-    from PIL import Image
-
+def _clamped_box(image, box: tuple[int, int, int, int]
+                 ) -> tuple[int, int, int, int]:
+    """`box` clamped to `image`, as x, y, width, height."""
     x, y, w, h = box
-    with Image.open(png) as image:
-        x = max(0, x)
-        y = max(0, y)
-        right = min(image.width, x + max(0, w))
-        lower = min(image.height, y + max(0, h))
-        cropped = image.crop((x, y, right, lower))
-        handle = tempfile.NamedTemporaryFile(
-            prefix="mmw-crop-", suffix=".png", delete=False)
-        handle.close()
-        cropped.save(handle.name)
-        return Path(handle.name)
+    x = max(0, x)
+    y = max(0, y)
+    right = min(image.width, x + max(0, w))
+    lower = min(image.height, y + max(0, h))
+    return x, y, max(0, right - x), max(0, lower - y)
 
 
-def _png_size(path: Path) -> tuple[int, int]:
-    from PIL import Image
-
-    with Image.open(path) as image:
-        return image.width, image.height
+def _save_crop(image, box: tuple[int, int, int, int]) -> Path:
+    x, y, w, h = box
+    handle = tempfile.NamedTemporaryFile(
+        prefix="mmw-crop-", suffix=".png", delete=False)
+    handle.close()
+    image.crop((x, y, x + w, y + h)).save(handle.name)
+    return Path(handle.name)
 
 
 def _diff_facts(path: Path) -> tuple[str, str]:
@@ -695,20 +693,20 @@ def pixel_report(scene: str, design_png: Path, product_png: Path,
     pair look about half different. The crop is here. `pixel_diff` still pads when
     a caller hands it two unequal images directly.
     """
+    from PIL import Image
+
     crops: list[Path] = []
     try:
-        design_crop = _crop_png(design_png, design_box)
-        crops.append(design_crop)
-        product_crop = _crop_png(product_png, product_box)
-        crops.append(product_crop)
-        design_size = _png_size(design_crop)
-        product_size = _png_size(product_crop)
-        overlap = (min(design_size[0], product_size[0]),
-                   min(design_size[1], product_size[1]))
-        left = _crop_png(design_crop, (0, 0, overlap[0], overlap[1]))
-        crops.append(left)
-        right = _crop_png(product_crop, (0, 0, overlap[0], overlap[1]))
-        crops.append(right)
+        with Image.open(design_png) as design_image, Image.open(product_png) as product_image:
+            dx, dy, dw, dh = _clamped_box(design_image, design_box)
+            px, py, pw, ph = _clamped_box(product_image, product_box)
+            overlap = (min(dw, pw), min(dh, ph))
+            left = _save_crop(design_image, (dx, dy, *overlap))
+            crops.append(left)
+            right = _save_crop(product_image, (px, py, *overlap))
+            crops.append(right)
+        design_size = (dw, dh)
+        product_size = (pw, ph)
         pixel_diff(left, right, diff_png)
         percent, bbox = _diff_facts(diff_png)
     finally:
@@ -786,7 +784,6 @@ def run(args) -> int:
                            story_origin=stories.origin,
                            locale=locale)
     finally:
-        server.mmw_stop = True
         server.shutdown()
         server.server_close()
 
@@ -843,13 +840,11 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
         design_ctx.route("**/*", route_baseline)
         story_page = story_ctx.new_page()
         design_page = design_ctx.new_page()
-        # Playwright's navigation timeout is 30s. A test sets this so a hung
-        # design request fails in this run without waiting that long.
+        # Playwright's navigation timeout is 30s. A test may shorten the design
+        # page's navigation only, so that timeout happens in this run.
         nav_ms = os.environ.get("MMW_NAV_TIMEOUT_MS")
         if nav_ms:
-            for watched in (story_page, design_page):
-                watched.set_default_navigation_timeout(int(nav_ms))
-                watched.set_default_timeout(int(nav_ms))
+            design_page.set_default_navigation_timeout(int(nav_ms))
         page_errors: list[str] = []
         console_errors: list[str] = []
 
@@ -920,18 +915,14 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                 page_errors.clear()
                 console_errors.clear()
                 dr.resize(design_page, viewport)
-                dr.navigate(design_page, design_page_url(scene))
-                if page_errors:
-                    fail_design_page(scene, page_errors[0])
                 try:
+                    dr.navigate(design_page, design_page_url(scene))
                     dr.wait_for_mount(design_page, "#dc-root")
                     shot = dr.capture(
                         design_page, png, selector="#dc-root", extra_js=extra_js)
                 except SystemExit as exc:
-                    if page_errors:
-                        fail_design_page(scene, page_errors[0])
-                    message = exc.code if isinstance(exc.code, str) else str(exc.code)
-                    fail_design_page(scene, message)
+                    fail_design_page(
+                        scene, page_errors[0] if page_errors else str(exc.code))
                 if page_errors:
                     fail_design_page(scene, page_errors[0])
                 return shot
@@ -951,8 +942,14 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                     if seen_console:
                         write_console_errors(media, scene.name, tag, seen_console)
                     if not base.values:
-                        print(f"read 0 data-ui elements at {design_page_url(scene)} "
+                        url = design_page_url(scene)
+                        print(f"read 0 data-ui elements at {url} "
                               f"screenshot {base.png}")
+                        print(refusal(
+                            f"read 0 data-ui elements at {url} screenshot {base.png}",
+                            "A design page with no data-ui element gives the oracle nothing to compare.",
+                            "Run verify-ticket.py <n> --sub-issue contract <file>."),
+                              file=sys.stderr)
                         print(f"story evidence: {media}", file=sys.stderr)
                         return 2
                     pair_count += 1
@@ -982,13 +979,13 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                             element_differences(base.values, no_ids.values),
                         )
         except Exception as exc:
-            # SystemExit is the refusal path and must keep propagating. Anything else
-            # used to become exit 1, which is reserved for a real DIFF line.
-            text = str(exc)
+            # SystemExit is a refusal and keeps propagating. Exit 1 is a real
+            # DIFF line, so any other exception is reported with its traceback.
+            text = traceback.format_exc()
             print(text, file=sys.stderr)
             where = (f" while comparing scene {current_scene.name}"
                      if current_scene is not None else "")
-            first = text.splitlines()[0] if text else type(exc).__name__
+            first = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
             print(refusal(
                 f"{type(exc).__name__}{where}: {first}",
                 "An unexpected failure is not an element difference.",
