@@ -26,11 +26,22 @@ with one `DIFF` line per differing element fact. Exit 2 when a negative control
 fails, the story service does not start, a story page is unreachable or 404, the
 requested mount or scene is outside the screen contract, `--pages` is empty, there is no
 visible `[data-story-root]`, the screen contract lacks `viewports` or `locale`, the
-screen contract still carries a key the oracle no longer executes, or the product story
-page hosts Claude Design runtime.
+screen contract still carries a key the oracle no longer executes, the product story
+page hosts Claude Design runtime, the design page throws or does not mount, the design
+page renders no `data-ui` element, or compare hits an unexpected error.
+
+When the story service exits or stalls before printing origin, its last 15 output
+lines are printed and then the refusal. Those lines are not part of the refusal.
+A design-page failure names the scene, the design-page file, the URL and the first
+error, then refuses. The same four facts are printed on their own lines first, because
+the refusal is capped at 256 characters. Console errors with no uncaught exception are
+printed and written under `--out`, and the run continues. A design page that renders
+no `data-ui` element prints one line with the count 0, the URL and the design
+screenshot path, and exits 2.
 
 `--out` holds screenshots, capture evidence and a pixel difference image for every
-pair. `--render-only` needs no product and writes the design facts to
+pair, plus `<scene>-<W>x<H>-elements.json` for each compared pair. `--render-only`
+needs no product and writes the design facts to
 `--out/values/<mount>/<scene>-<W>x<H>.json`.
 """
 
@@ -222,14 +233,17 @@ class Stories:
             return self
         code = self.proc.poll()
         detail = "".join(collected).strip().splitlines()
-        first = detail[0] if detail else "(no output)"
+        # The refusal is capped at 256 characters. The log stays outside it, or the
+        # real error, which is often not the first line, is the part that is cut.
+        for line in detail[-15:]:
+            print(line, file=sys.stderr)
         if code is not None:
             raise SystemExit(refusal(
-                f"`{command}` exited {code} before printing origin: {first}",
+                f"`{command}` exited {code} before printing origin.",
                 "The story service must print origin before the oracle can open a page.",
                 "Fix the stories command so it prints origin, then re-run."))
         raise SystemExit(refusal(
-            f"`{command}` printed no origin within {ORIGIN_WAIT_S}s: {first}",
+            f"`{command}` printed no origin within {ORIGIN_WAIT_S}s.",
             "The story service must print origin before the oracle can open a page.",
             "Fix the stories command so it prints origin, then re-run."))
 
@@ -479,6 +493,55 @@ def refuse_design_trace(scene: str, named: str) -> str:
         f"Remove {named} from the product story page, then re-run.")
 
 
+def refuse_design_page(scene: str, page: str, url: str, error: str) -> str:
+    """The design page threw or did not mount. The product was not compared.
+
+    The four facts are printed in full first. `refusal` keeps the next step and
+    trims the tail of what happened, so a long URL would otherwise take the error with it.
+    """
+    print(f"scene {scene}", file=sys.stderr)
+    print(f"file {page}", file=sys.stderr)
+    print(f"url {url}", file=sys.stderr)
+    print(f"error {error}", file=sys.stderr)
+    return refusal(
+        f"{error} scene {scene} file {page} url {url}",
+        "The design page failed, so the product was not compared.",
+        "Run verify-ticket.py <n> --sub-issue contract <file>.")
+
+
+def write_element_facts(media: Path, scene: str, tag: str,
+                        design: list, product: list) -> None:
+    """Both sides' element facts, beside the screenshots for this pair."""
+    path = media / f"{scene}-{tag}-elements.json"
+    path.write_text(
+        json.dumps({"design": design, "product": product},
+                   ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+
+
+def console_error_is_uncaught(text: str) -> bool:
+    """A thrown Error the paused clock reports as a console message.
+
+    Measured 2026-10-08: a `setTimeout` throw under Playwright's paused clock
+    arrives as a console error whose text is `Error: …` plus stack frames, and
+    `pageerror` does not fire. A one-line `console.error` string does not.
+    """
+    lines = text.splitlines()
+    if not lines:
+        return False
+    if lines[0].startswith("Uncaught"):
+        return True
+    return len(lines) > 1 and any(line.lstrip().startswith("at ") for line in lines[1:])
+
+
+def write_console_errors(media: Path, scene: str, tag: str, errors: list[str]) -> None:
+    """Console errors from the design page. They do not change the verdict."""
+    path = media / f"{scene}-{tag}-console.txt"
+    path.write_text("\n".join(errors) + "\n", encoding="utf-8")
+    for line in errors:
+        print(line, file=sys.stderr)
+
+
 def run(args) -> int:
     contract_path = Path(args.contract).resolve()
     doc = dr.load_yaml(contract_path)
@@ -535,6 +598,7 @@ def run(args) -> int:
                            story_origin=stories.origin,
                            locale=locale)
     finally:
+        server.mmw_stop = True
         server.shutdown()
         server.server_close()
 
@@ -590,6 +654,31 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
         design_ctx.route("**/*", route_baseline)
         story_page = story_ctx.new_page()
         design_page = design_ctx.new_page()
+        # Playwright's navigation timeout is 30s. A test sets this so a hung
+        # design request fails in this run without waiting that long.
+        nav_ms = os.environ.get("MMW_NAV_TIMEOUT_MS")
+        if nav_ms:
+            for watched in (story_page, design_page):
+                watched.set_default_navigation_timeout(int(nav_ms))
+                watched.set_default_timeout(int(nav_ms))
+        page_errors: list[str] = []
+        console_errors: list[str] = []
+
+        def on_pageerror(error) -> None:
+            page_errors.append(str(error))
+
+        def on_console(message) -> None:
+            if message.type != "error":
+                return
+            text = message.text
+            if console_error_is_uncaught(text):
+                page_errors.append(text.splitlines()[0])
+            else:
+                console_errors.append(text)
+
+        design_page.on("pageerror", on_pageerror)
+        design_page.on("console", on_console)
+        current_scene = None
         try:
             def capture_story(scene, viewport, png, extra_js=None,
                               *, negative_control=False):
@@ -631,14 +720,35 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                 return dr.capture(story_page, png, selector=STORY_ROOT, clip=box,
                                   extra_js=extra_js)
 
+            def design_page_url(scene) -> str:
+                return f"{design_origin}{dr.wrapper_path(scene.name)}"
+
+            def fail_design_page(scene, error: str) -> None:
+                raise SystemExit(refuse_design_page(
+                    scene.name, scene.page, design_page_url(scene), error))
+
             def capture_design(scene, viewport, png, extra_js=None):
+                page_errors.clear()
+                console_errors.clear()
                 dr.resize(design_page, viewport)
-                dr.navigate(design_page, f"{design_origin}{dr.wrapper_path(scene.name)}")
-                dr.wait_for_mount(design_page, "#dc-root")
-                return dr.capture(
-                    design_page, png, selector="#dc-root", extra_js=extra_js)
+                dr.navigate(design_page, design_page_url(scene))
+                if page_errors:
+                    fail_design_page(scene, page_errors[0])
+                try:
+                    dr.wait_for_mount(design_page, "#dc-root")
+                    shot = dr.capture(
+                        design_page, png, selector="#dc-root", extra_js=extra_js)
+                except SystemExit as exc:
+                    if page_errors:
+                        fail_design_page(scene, page_errors[0])
+                    message = exc.code if isinstance(exc.code, str) else str(exc.code)
+                    fail_design_page(scene, message)
+                if page_errors:
+                    fail_design_page(scene, page_errors[0])
+                return shot
 
             for scene in plan:
+                current_scene = scene
                 for viewport in scene.viewports or viewports:
                     tag = f"{viewport[0]}x{viewport[1]}"
                     impl = capture_story(
@@ -646,6 +756,16 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                     base = capture_design(
                         scene, viewport,
                         media / f"{scene.name}-{tag}-baseline.png")
+                    seen_console = list(console_errors)
+                    write_element_facts(
+                        media, scene.name, tag, base.values, impl.values)
+                    if seen_console:
+                        write_console_errors(media, scene.name, tag, seen_console)
+                    if not base.values:
+                        print(f"read 0 data-ui elements at {design_page_url(scene)} "
+                              f"screenshot {base.png}")
+                        print(f"story evidence: {media}", file=sys.stderr)
+                        return 2
                     pair_count += 1
                     pixel_diff(base.png, impl.png,
                                media / f"{scene.name}-{tag}-diff.png")
@@ -665,6 +785,19 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                             element_differences(font_design.values, impl.values),
                             element_differences(base.values, no_ids.values),
                         )
+        except Exception as exc:
+            # SystemExit is the refusal path and must keep propagating. Anything else
+            # used to become exit 1, which is reserved for a real DIFF line.
+            text = str(exc)
+            print(text, file=sys.stderr)
+            where = (f" while comparing scene {current_scene.name}"
+                     if current_scene is not None else "")
+            first = text.splitlines()[0] if text else type(exc).__name__
+            print(refusal(
+                f"{type(exc).__name__}{where}: {first}",
+                "An unexpected failure is not an element difference.",
+                "Fix the cause named above, then re-run."), file=sys.stderr)
+            return 2
         finally:
             browser.close()
 

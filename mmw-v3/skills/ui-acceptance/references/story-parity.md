@@ -4,7 +4,8 @@
 page it was built from, element by element, by `data-ui` id.
 
 Two agents use this page. An agent building a story reads **The story page the product
-serves**. An agent fixing a failure reads **The DIFF line**.
+serves**. An agent fixing a `DIFF` line reads **The DIFF line**. An agent whose run
+exited 2 reads **When the oracle cannot judge**.
 
 ## The story page the product serves
 
@@ -111,8 +112,47 @@ the story page: the story page only puts the real component into a scene, so a s
 or wrapper added there closes the `DIFF` while the product stays wrong. `--out <dir>`
 keeps both screenshots, their pixel difference image and the ARIA capture.
 
+## When the oracle cannot judge
+
+Exit 2. The output is not a `DIFF` line and does not contain `STORY OK`.
+
+The story service exits, or prints no origin within its wait. The oracle prints that
+service's last 15 output lines, one per line, then a refusal. The log lines stay
+outside the refusal, because the refusal is capped at 256 characters and the real
+error is often not the first line.
+
+The design page throws, or `#dc-root` never becomes visible. The oracle prints four
+lines, `scene`, `file`, `url` and `error`, then a refusal. The refusal says the design
+page failed and the product was not compared. The next step is a contract child,
+`verify-ticket.py <n> --sub-issue contract <file>`. A throw inside a timer on the
+paused clock is reported as a console error with a stack. That is still this refusal.
+A one-line `console.error` string is not.
+
+Anything else compare did not expect, such as a navigation timeout, is the same exit
+2. It is not exit 1. Exit 1 is a real `DIFF` line.
+
+A design page that throws nothing and renders no `data-ui` element prints one stdout
+line, `read 0 data-ui elements at <url> screenshot <path>`, and exits 2. `<url>` is
+the design page. `<path>` is the design screenshot under `--out`. This is not
+`NEGATIVE CONTROL FAILED`.
+
+## Console errors
+
+A design-page console error that is not an uncaught exception is printed and written
+to `--out/media/<scene>-<W>x<H>-console.txt`. The verdict is unchanged. There is no
+`--console-errors` flag.
+
+## Element facts on disk
+
+Each compared pair writes `--out/media/<scene>-<W>x<H>-elements.json`. The file has
+two arrays, `design` and `product`. Each item is one `[data-ui]` element, and the
+fields are the table in **The two sides**. The file sits next to that pair's
+screenshots. `--render-only` still writes
+`--out/values/<mount>/<scene>-<W>x<H>.json` and does not write this file.
+
 ## Negative controls
 
-Once per run the oracle proves it can see a changed style and a missing id; when it
-cannot, it exits 2 with `NEGATIVE CONTROL FAILED`, so a design page with no `data-ui`
-cannot pass.
+Once per run, after a design page has rendered at least one `data-ui` element, the
+oracle proves it can see a changed style and a missing id. When it cannot, it exits 2
+with `NEGATIVE CONTROL FAILED`. A design page with no `data-ui` element takes the
+zero-count line in **When the oracle cannot judge** and does not reach this gate.
