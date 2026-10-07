@@ -45,7 +45,11 @@ number is right to; a derived port leaking into it turns a correct suite red.
 #
 # A machine holds `SLOTS` leases. With every slot taken `claim` exits 4 and prints who
 # holds them, and the run that needed one reports its ticket blocked (the ui-acceptance
-# skill's rule 4): a machine that is full is not waited on.
+# skill's rule 4): a machine that is full is not waited on. A slot with no registry
+# record is not issued while a port of its block is listening. When none can be issued,
+# the exit-4 JSON names each slot's holder in full. The refusal names those same
+# holders when they fit beside the blocked-ticket sentence, and one short token per
+# slot when they do not, so the last slots are not the ones cut off.
 #
 # `claim` is atomic against other acquirers: the count and the take happen under one lock on
 # the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
@@ -84,7 +88,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from refusal import REPORT_BLOCKED, refusal  # noqa: E402
+from refusal import REASON_LIMIT, REPORT_BLOCKED, refusal  # noqa: E402
 
 # The block every slot gets. 21000 is above the ranges a consuming repository already
 # derives for its own long-lived services and below the ephemeral range macOS hands out.
@@ -289,6 +293,22 @@ def busy(slot: int) -> tuple[int, int] | None:
     return None
 
 
+def foreign_holder(slot: int) -> str | None:
+    """Who listens on an unregistered slot, or None when the block is quiet.
+
+    The registry has no record for this slot, so the listener is not a lease.
+    `pid` is what a reader can check. When this machine will not say which
+    process, the port is the fact.
+    """
+    held = busy(slot)
+    if held is None:
+        return None
+    port, pid = held
+    if pid > 0:
+        return f"slot {slot} pid {pid}"
+    return f"slot {slot} port {port}"
+
+
 # ----------------------------------------------------------------- claim / release
 def sweep() -> list[int]:
     """Slots whose worktree is gone and whose ports are quiet, given back.
@@ -316,7 +336,12 @@ def sweep() -> list[int]:
 
 
 class Full(Exception):
-    """Every slot of this machine is taken; `holders` are the worktrees holding them."""
+    """Every slot of this machine is taken.
+
+    `holders` names each one. A registered slot is its worktree path. A slot
+    with no registry record whose ports are listening is `slot N pid P`, or
+    `slot N port P` when the machine will not name the process.
+    """
 
     def __init__(self, holders: list[str]):
         super().__init__(f"all {SLOTS} slots of this machine are held")
@@ -393,6 +418,8 @@ def try_claim(worktree: Path) -> dict:
 
     Re-acquiring is a lookup, so every command of a run agrees without a shared file to
     keep in step, and a worktree that already holds its slot is never refused one.
+    A slot with no registry record is not issued while any port of its block is
+    listening. That listener is not in the registry, and the next slot is tried.
     """
     target = str(worktree)
     with _Locked():
@@ -409,9 +436,17 @@ def try_claim(worktree: Path) -> dict:
             # So a slot that is still held in the morning can be read against the night.
             "claimed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
+        holders: list[str] = []
         for slot in range(SLOTS):
             record["slot"] = slot
             record["port_base"] = PORT_BASE + slot * PORT_STRIDE
+            if slot_file(slot).exists():
+                holders.append(_named_holder(slot))
+                continue
+            foreign = foreign_holder(slot)
+            if foreign is not None:
+                holders.append(foreign)
+                continue
             payload = json.dumps(record, ensure_ascii=False, indent=2).encode("utf-8")
             try:
                 fd = os.open(slot_file(slot), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
@@ -420,7 +455,57 @@ def try_claim(worktree: Path) -> dict:
             with os.fdopen(fd, "wb") as handle:
                 handle.write(payload)
             return record
-        raise Full([r.get("worktree", "") for r in claimed()])
+        raise Full(holders)
+
+
+def _named_holder(slot: int) -> str:
+    """The worktree a slot file names, or which slot it is when the file cannot be read."""
+    return (read_slot(slot) or {}).get("worktree") or f"slot {slot} record unreadable"
+
+
+def _holder_fact(text: str) -> str:
+    """The pid, the port, or the path's last name. Enough to check one holder."""
+    parts = text.split()
+    if (len(parts) == 4 and parts[0] == "slot" and parts[1].isdigit()
+            and parts[3].isdigit()):
+        if parts[2] == "pid":
+            return "p" + parts[3]
+        if parts[2] == "port":
+            return parts[3]
+    if not text or text.endswith("record unreadable"):
+        return "?"
+    return Path(text).name or "?"
+
+
+_NONE_FREE = "A run needs one and none is free."
+
+
+def _refusal_holders(holders: list[str]) -> str:
+    """Every holder, written so `refusal` keeps the whole list.
+
+    Part 1 is trimmed from the end to leave the blocked-ticket sentence whole.
+    Eight worktree paths, and eight `slot N pid P` lines, are longer than the
+    room that leaves, so the last slots would be the ones cut off. A list that
+    does not fit is one token per slot instead: `<slot>:<fact>`.
+    """
+    full = ", ".join(holders)
+    room = REASON_LIMIT - len(f" {_NONE_FREE} {REPORT_BLOCKED}")
+    if len(full) <= room:
+        return full
+    count = len(holders)
+    sep = ", "
+    width = (room - len(sep) * (count - 1)) // count if count else room
+    if width < 3:
+        return full
+    tokens = []
+    for index, text in enumerate(holders):
+        fact = _holder_fact(text)
+        body = f"{index}:{fact}"
+        if len(body) > width:
+            keep = width - len(str(index)) - 1
+            body = f"{index}:{fact[-keep:]}" if keep > 0 else body[:width]
+        tokens.append(body)
+    return sep.join(tokens)
 
 
 def claim(worktree: Path) -> dict:
@@ -429,13 +514,14 @@ def claim(worktree: Path) -> dict:
     The oracles of the ui-acceptance skill come here through `leased_environment` in the
     middle of a criterion: `verify-ticket.py` has already acquired the slot before the
     run began, so an oracle reaching this with no slot free is a run that skipped that step.
+    When none is free, the refusal names each slot's holder.
     """
     try:
         return try_claim(worktree)
-    except Full:
+    except Full as full:
         raise SystemExit(refusal(
-            f"All {SLOTS} instance slots on this machine are acquired.",
-            "A run needs one and none is free.",
+            _refusal_holders(full.holders),
+            _NONE_FREE,
             REPORT_BLOCKED,
         )) from None
 
