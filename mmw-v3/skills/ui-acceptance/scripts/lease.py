@@ -47,7 +47,9 @@ number is right to; a derived port leaking into it turns a correct suite red.
 # holds them, and the run that needed one reports its ticket blocked (the ui-acceptance
 # skill's rule 4): a machine that is full is not waited on. A slot with no registry
 # record is not issued while a port of its block is listening. When none can be issued,
-# the refusal and the exit-4 JSON name each slot's holder.
+# the exit-4 JSON names each slot's holder in full. The refusal names those same
+# holders when they fit beside the blocked-ticket sentence, and one short token per
+# slot when they do not, so the last slots are not the ones cut off.
 #
 # `claim` is atomic against other acquirers: the count and the take happen under one lock on
 # the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
@@ -86,7 +88,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from refusal import REPORT_BLOCKED, refusal  # noqa: E402
+from refusal import REASON_LIMIT, REPORT_BLOCKED, refusal  # noqa: E402
 
 # The block every slot gets. 21000 is above the ranges a consuming repository already
 # derives for its own long-lived services and below the ephemeral range macOS hands out.
@@ -438,9 +440,8 @@ def try_claim(worktree: Path) -> dict:
         for slot in range(SLOTS):
             record["slot"] = slot
             record["port_base"] = PORT_BASE + slot * PORT_STRIDE
-            existing = read_slot(slot)
-            if existing:
-                holders.append(existing.get("worktree", ""))
+            if slot_file(slot).exists():
+                holders.append(_named_holder(slot))
                 continue
             foreign = foreign_holder(slot)
             if foreign is not None:
@@ -450,13 +451,61 @@ def try_claim(worktree: Path) -> dict:
             try:
                 fd = os.open(slot_file(slot), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
             except FileExistsError:
-                raced = read_slot(slot) or {}
-                holders.append(raced.get("worktree", ""))
                 continue
             with os.fdopen(fd, "wb") as handle:
                 handle.write(payload)
             return record
         raise Full(holders)
+
+
+def _named_holder(slot: int) -> str:
+    """The worktree a slot file names, or which slot it is when the file cannot be read."""
+    return (read_slot(slot) or {}).get("worktree") or f"slot {slot} record unreadable"
+
+
+def _holder_fact(text: str) -> str:
+    """The pid, the port, or the path's last name. Enough to check one holder."""
+    parts = text.split()
+    if (len(parts) == 4 and parts[0] == "slot" and parts[1].isdigit()
+            and parts[3].isdigit()):
+        if parts[2] == "pid":
+            return "p" + parts[3]
+        if parts[2] == "port":
+            return parts[3]
+    if not text or text.endswith("record unreadable"):
+        return "?"
+    return Path(text).name or "?"
+
+
+_NONE_FREE = "A run needs one and none is free."
+
+
+def _refusal_holders(holders: list[str]) -> str:
+    """Every holder, written so `refusal` keeps the whole list.
+
+    Part 1 is trimmed from the end to leave the blocked-ticket sentence whole.
+    Eight worktree paths, and eight `slot N pid P` lines, are longer than the
+    room that leaves, so the last slots would be the ones cut off. A list that
+    does not fit is one token per slot instead: `<slot>:<fact>`.
+    """
+    full = ", ".join(holders)
+    room = REASON_LIMIT - len(f" {_NONE_FREE} {REPORT_BLOCKED}")
+    if len(full) <= room:
+        return full
+    count = len(holders)
+    sep = ", "
+    width = (room - len(sep) * (count - 1)) // count if count else room
+    if width < 3:
+        return full
+    tokens = []
+    for index, text in enumerate(holders):
+        fact = _holder_fact(text)
+        body = f"{index}:{fact}"
+        if len(body) > width:
+            keep = width - len(str(index)) - 1
+            body = f"{index}:{fact[-keep:]}" if keep > 0 else body[:width]
+        tokens.append(body)
+    return sep.join(tokens)
 
 
 def claim(worktree: Path) -> dict:
@@ -471,8 +520,8 @@ def claim(worktree: Path) -> dict:
         return try_claim(worktree)
     except Full as full:
         raise SystemExit(refusal(
-            ", ".join(full.holders),
-            "A run needs one and none is free.",
+            _refusal_holders(full.holders),
+            _NONE_FREE,
             REPORT_BLOCKED,
         )) from None
 

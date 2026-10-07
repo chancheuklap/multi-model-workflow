@@ -138,8 +138,9 @@ class SeeingWhatListens(Base):
 class Claiming(Base):
     def test_a_slot_with_a_foreign_listener_is_skipped(self):
         """One port of the first slot is listened on by this process, which the
-        registry does not name. The lease issues the next slot."""
-        occupied = self.lease.PORT_BASE
+        registry does not name. The port is not the first of the block. The lease
+        issues the next slot."""
+        occupied = self.lease.PORT_BASE + 2
         self.bind(occupied)
         record = self.lease.claim(self.tree("issue-640"))
         issued = range(record["port_base"], record["port_base"] + record["port_count"])
@@ -538,8 +539,8 @@ class AFullMachine(Base):
         reason = str(caught.exception)
         for slot in range(self.lease.SLOTS):
             self.assertIn(f"slot {slot} pid {pid}", reason)
-        self.assertIn("blocked", reason)
-        self.assertLessEqual(len(reason), self.lease.refusal.__globals__["REASON_LIMIT"])
+        self.assertIn(self.lease.REPORT_BLOCKED, reason)
+        self.assertNotIn("…", reason)
         self.assertEqual(self.lease.claimed(), [])
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
@@ -548,6 +549,49 @@ class AFullMachine(Base):
         holders = json.loads(out.getvalue())["holders"]
         for slot in range(self.lease.SLOTS):
             self.assertIn(f"slot {slot} pid {pid}", holders)
+
+    def test_eight_listeners_are_all_named(self):
+        """The default machine has eight slots. Short `slot N pid P` lines still
+        overflow the refusal once the blocked-ticket sentence is kept, and a cut
+        list drops the last slots."""
+        self.lease, extra = load(self.home, slots=8, port_base=22100)
+        self.addCleanup(extra.stop)
+        pid = os.getpid()
+        for slot in range(self.lease.SLOTS):
+            self.bind(self.lease.ports_of(slot).start)
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.claim(self.tree("issue-one-too-many"))
+        reason = str(caught.exception)
+        self.assertIn(self.lease.REPORT_BLOCKED, reason)
+        self.assertNotIn("…", reason)
+        for slot in range(self.lease.SLOTS):
+            self.assertIn(f"{slot}:p{pid}", reason)
+
+    def test_a_full_registry_names_every_worktree(self):
+        """Registered holders are worktree paths. Four of them do not fit in the
+        refusal whole, and the last paths are the ones a cut list drops."""
+        holders = self.full()
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.claim(self.tree("issue-5"))
+        reason = str(caught.exception)
+        self.assertIn(self.lease.REPORT_BLOCKED, reason)
+        self.assertNotIn("…", reason)
+        for path in holders:
+            self.assertIn(Path(path).name, reason)
+
+    def test_an_unreadable_slot_record_names_the_slot(self):
+        """A slot file left empty between create and write has no worktree to name.
+        The holder is still a fact a reader can check."""
+        self.lease.registry().mkdir(parents=True, exist_ok=True)
+        for slot in range(self.lease.SLOTS):
+            self.lease.slot_file(slot).write_text("", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.lease.main(["claim", str(self.tree("issue-cli"))])
+        self.assertEqual(code, 4)
+        holders = json.loads(out.getvalue())["holders"]
+        for slot in range(self.lease.SLOTS):
+            self.assertEqual(holders[slot], f"slot {slot} record unreadable")
 
     def test_a_fifth_worktree_is_told_the_machine_is_full(self):
         holders = self.full()

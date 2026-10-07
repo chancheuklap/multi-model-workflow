@@ -64,9 +64,7 @@ def _mmw_name(line: str, match: re.Match[str]) -> str:
     """The `MMW_` variable the match landed on, or the matched text when it has no name."""
     named = re.search(r"MMW_[A-Za-z0-9_]+", line[match.start():])
     if named is not None and named.start() <= match.end() - match.start():
-        token = named.group(0)
-        if len(token) > len("MMW_"):
-            return token
+        return named.group(0)
     return match.group(0)
 
 
