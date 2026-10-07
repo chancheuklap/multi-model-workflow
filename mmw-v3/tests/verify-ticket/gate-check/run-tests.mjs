@@ -358,9 +358,8 @@ test("checks: the output cap applies to stdout and stderr combined", async () =>
   } finally { s.cleanup(); }
 });
 
-// A 29-line framework transcript hides the assertion and the file:line in the middle.
-// The summary keeps those lines. The first and last noise lines are how this fails
-// when the summary is still "first 6 and last 2".
+// A 29-line transcript puts the assertion and the file:line in the middle.
+// The summary keeps those two lines and drops the noise around them.
 test("failure summary keeps error lines", async () => {
   const s = sandbox();
   try {
@@ -390,6 +389,25 @@ test("unmatched expect names the expectation", async () => {
     const outcome = r.out.split(/\n/).find((line) => line.includes("EXPECT=")) || "";
     assertHas(outcome, "EXPECT=not matched", "outcome");
     assertHas(outcome, "expected=wanted-token-zz", "outcome");
+  } finally { s.cleanup(); }
+});
+
+test("failure tail stays inside the fail block", async () => {
+  const s = sandbox();
+  try {
+    const js = "process.stdout.write('ALL MET (9 met)\\nSTORY OK x\\nJOURNEY OK y\\nHARNESS OK z\\nLINT OK w\\nsecret-overwritten\\rVISIBLE\\n'); process.exit(1)";
+    s.write("GATES.md", "# Gates\n\n" + gate("AC4", "the tail is quoted", nodeEval(js), "never-this-token-zz"));
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, "expected exit 1, got " + r.code + "\n" + r.out);
+    const summary = r.out.split(/\n/).find((line) => /^(ALL MET|UNMET:|HANDOFF REQUIRED:)/.test(line)) || "";
+    assert(summary.startsWith("UNMET:"), "summary was " + JSON.stringify(summary) + "\n" + r.out);
+    assertLacks(r.out, "STORY OK", "tail");
+    assertLacks(r.out, "JOURNEY OK", "tail");
+    assertLacks(r.out, "HARNESS OK", "tail");
+    assertLacks(r.out, "LINT OK", "tail");
+    assertLacks(r.out, "\r", "tail");
+    assertHas(r.out, "secret-overwritten", "tail");
+    assertHas(r.out, "VISIBLE", "tail");
   } finally { s.cleanup(); }
 });
 

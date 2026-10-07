@@ -5,10 +5,10 @@
 //
 // The ledgers are files verify-ticket writes into a directory of its own for one
 // run, so one process reads and writes each of them and nothing else does.
-// When MMW_TICKET is set, a failing criterion's stdout and stderr are also written
-// to `.scratch/criteria/<ticket>/<id>.log`, and PATH to `.scratch/criteria/<ticket>/PATH`.
+// When MMW_TICKET is set, each run replaces `.scratch/criteria/<ticket>/`.
+// PATH is written there, and a failing criterion's stdout and stderr go to `<id>.log`.
 
-import { mkdirSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { Worker } from "node:worker_threads";
 import { delimiter, dirname, basename, join, resolve } from "node:path";
@@ -147,26 +147,24 @@ const TICKET_RE = /^[0-9]+$/;
 const GATE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const ERROR_LINE_RE = /error|fail|assert|exception|traceback/i;
 const PATH_LINE_RE = /(?:^|[\s"'`(])(?:[\w.+@-]+\/)*[\w.+@-]+\.[A-Za-z][\w]*:\d+\b/;
-// The 40 lines a worker reads on screen keep tab and space. Other controls can
-// rewrite the terminal, so those still become spaces.
-const TAIL_UNSAFE_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g;
-
-function ticketEvidenceDir() {
+function criterionFolder() {
   const ticket = String(process.env.MMW_TICKET || "");
   if (!TICKET_RE.test(ticket)) return null;
-  return join(process.cwd(), ".scratch", "criteria", ticket);
+  return ".scratch/criteria/" + ticket;
 }
 
 // The path a worker can open. Relative to the worktree gate-check was started in.
 function relativeCriterionLog(id) {
-  const ticket = String(process.env.MMW_TICKET || "");
-  if (!TICKET_RE.test(ticket) || !GATE_ID_RE.test(String(id))) return null;
-  return ".scratch/criteria/" + ticket + "/" + id + ".log";
+  const folder = criterionFolder();
+  if (!folder || !GATE_ID_RE.test(String(id))) return null;
+  return folder + "/" + id + ".log";
 }
 
-function writePathTranscript() {
-  const dir = ticketEvidenceDir();
-  if (!dir) return;
+function prepareCriterionDir() {
+  const folder = criterionFolder();
+  if (!folder) return;
+  const dir = join(process.cwd(), folder);
+  rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "PATH"), pathValue, "utf8");
 }
@@ -352,7 +350,7 @@ for (const ledger of ledgers) {
   }
 }
 
-writePathTranscript();
+prepareCriterionDir();
 for (const task of pending) {
   console.log("  RUN  " + qualify(task.file, task.gate.id) + " shell=" + SHELL + " cwd=" + task.cwd);
 }
@@ -393,12 +391,17 @@ function saveFailureLog(result) {
   return rel;
 }
 
+// Quoted under the FAIL line, so a line of the criterion cannot be read as this run's
+// summary. Tabs stay. Every other control becomes a space. A success marker is removed
+// so a failing run cannot satisfy an EXPECT that looks for one.
 function printRawTail(output) {
   const lines = String(output).split(/\r?\n/);
   if (lines.length && lines[lines.length - 1] === "") lines.pop();
-  const tail = lines.slice(-40);
-  if (!tail.length) return;
-  process.stdout.write(tail.map((line) => line.replace(TAIL_UNSAFE_RE, " ")).join("\n") + "\n");
+  for (const line of lines.slice(-40)) {
+    const kept = line.split("\t").map(terminalSafe).join("\t")
+      .replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
+    process.stdout.write("       " + kept + "\n");
+  }
 }
 
 // Error lines and path:line lines, in the order they appeared, then the last two
@@ -406,26 +409,14 @@ function printRawTail(output) {
 // place and error lines fill what remains. The cut names how many lines were left
 // out and where the whole output was written.
 function failureOutput(output, max = 480, logPath = null) {
+  const hide = (text) => text.replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
   const lines = String(output).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (!lines.length) return "(no output)".slice(0, max);
+  if (!lines.length) return hide("(no output)".slice(0, max));
   const indexed = lines.map((line, index) => ({
     line, index,
     error: ERROR_LINE_RE.test(line),
     path: PATH_LINE_RE.test(line),
   }));
-  const chosen = [];
-  const have = new Set();
-  const take = (item) => {
-    if (have.has(item.index)) return;
-    have.add(item.index);
-    chosen.push(item);
-  };
-  for (const item of indexed) if (item.error || item.path) take(item);
-  for (const item of indexed.slice(-2)) take(item);
-  const joinLines = (items) => items.map((item) => item.line).join(" | ");
-  const full = joinLines(chosen);
-  if (full.length <= max) return full;
-
   const reserved = [];
   const reservedAt = new Set();
   const reserve = (item) => {
@@ -436,27 +427,29 @@ function failureOutput(output, max = 480, logPath = null) {
   for (const item of indexed) if (item.path) reserve(item);
   for (const item of indexed.slice(-2)) reserve(item);
   let errors = indexed.filter((item) => item.error && !reservedAt.has(item.index));
-  const render = (errorItems, tailItems) => {
+  let tails = reserved.filter((item) => !item.path);
+  const render = (errorItems, tailItems, withSuffix) => {
     const body = [...errorItems, ...reserved.filter((item) => item.path || tailItems.includes(item))];
     body.sort((a, b) => a.index - b.index);
     const omitted = lines.length - body.length;
-    const suffix = omitted > 0
+    const suffix = withSuffix && omitted > 0
       ? " | +" + omitted + " more" + (logPath ? " | " + logPath : "")
       : "";
-    return joinLines(body) + suffix;
+    return body.map((item) => item.line).join(" | ") + suffix;
   };
-  let tails = reserved.filter((item) => !item.path);
-  let summary = render(errors, tails);
+  const plain = render(errors, tails, false);
+  if (plain.length <= max) return hide(plain);
+  let summary = render(errors, tails, true);
   while (summary.length > max && errors.length) {
     errors = errors.slice(0, -1);
-    summary = render(errors, tails);
+    summary = render(errors, tails, true);
   }
   while (summary.length > max && tails.length) {
     tails = tails.slice(0, -1);
-    summary = render(errors, tails);
+    summary = render(errors, tails, true);
   }
   if (summary.length > max) summary = summary.slice(0, max);
-  return summary;
+  return hide(summary);
 }
 
 function evidenceFor(result) {
@@ -489,10 +482,7 @@ function failureEvidenceFor(result) {
     "; output=";
   const room = Math.max(0, MAX_AUTOMATIC_EVIDENCE_CHARS - head.length);
   const summary = clean(failureOutput(result.output, room, relativeCriterionLog(result.gate.id)));
-  const text = head + summary;
-  if (text.length <= MAX_AUTOMATIC_EVIDENCE_CHARS) return text;
-  if (head.length >= MAX_AUTOMATIC_EVIDENCE_CHARS) return text.slice(0, MAX_AUTOMATIC_EVIDENCE_CHARS);
-  return head + summary.slice(0, MAX_AUTOMATIC_EVIDENCE_CHARS - head.length);
+  return (head + summary).slice(0, MAX_AUTOMATIC_EVIDENCE_CHARS);
 }
 
 function insertOrUpdateEvidence(doc, gate, value) {
