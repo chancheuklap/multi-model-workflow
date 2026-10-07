@@ -358,6 +358,53 @@ test("checks: the output cap applies to stdout and stderr combined", async () =>
   } finally { s.cleanup(); }
 });
 
+// A 29-line framework transcript hides the assertion and the file:line in the middle.
+// The summary keeps those lines. The first and last noise lines are how this fails
+// when the summary is still "first 6 and last 2".
+test("failure summary keeps error lines", async () => {
+  const s = sandbox();
+  try {
+    const lines = Array.from({ length: 29 }, (_, index) => {
+      const n = index + 1;
+      if (n === 15) return "E AssertionError: assert 16.9915 == 16.99";
+      if (n === 16) return "src/pricing.py:42";
+      return "frame-noise-" + n;
+    });
+    const js = "console.log(" + JSON.stringify(lines.join("\n")) + "); process.exit(1)";
+    s.write("GATES.md", "# Gates\n\n" + gate("AC1", "the price is wrong", nodeEval(js), "never-this-token-zz"));
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, "expected exit 1, got " + r.code + "\n" + r.out);
+    const summary = r.out.split(/\n/).find((line) => line.includes("output=")) || "";
+    assertHas(summary, "E AssertionError: assert 16.9915 == 16.99", "summary");
+    assertHas(summary, "src/pricing.py:42", "summary");
+    assertLacks(summary, "frame-noise-1", "summary");
+  } finally { s.cleanup(); }
+});
+
+test("unmatched expect names the expectation", async () => {
+  const s = sandbox();
+  try {
+    s.write("GATES.md", "# Gates\n\n" + gate("AC5", "the token is missing", echoOk("actual-token"), "wanted-token-zz"));
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, "expected exit 1, got " + r.code + "\n" + r.out);
+    const outcome = r.out.split(/\n/).find((line) => line.includes("EXPECT=")) || "";
+    assertHas(outcome, "EXPECT=not matched", "outcome");
+    assertHas(outcome, "expected=wanted-token-zz", "outcome");
+  } finally { s.cleanup(); }
+});
+
+test("run line has no path", async () => {
+  const s = sandbox();
+  try {
+    s.write("GATES.md", "# Gates\n\n" + gate("AC7", "a check runs", echoOk("OK"), "OK"));
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, "expected exit 0, got " + r.code + "\n" + r.out);
+    const runLine = r.out.split(/\n/).find((line) => line.includes("  RUN  ")) || "";
+    assertHas(runLine, "shell=", "run line");
+    assertLacks(runLine, "PATH=", "run line");
+  } finally { s.cleanup(); }
+});
+
 // ---------------------------------------------------------------- driver
 
 const selected = tests.filter(t => t.name.includes(filter));

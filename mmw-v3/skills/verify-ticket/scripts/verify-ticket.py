@@ -4,7 +4,8 @@
 The ticket is the only state. Every run reads the `## Acceptance criteria` and
 `## Owns` sections fresh from the issue, writes them to a ledger, hands
 that ledger to unlazy's `gate-check`, and posts the result back as one
-`ticket.checked` event. Nothing is cached and no file is left behind.
+`ticket.checked` event. Nothing is cached. The ledger is removed when the run
+ends. A failing criterion's output stays at `.scratch/criteria/<ticket>/<id>.log`.
 """
 
 from __future__ import annotations
@@ -1777,6 +1778,58 @@ def hold_slot(root: Path) -> dict | int:
                       f"rule 4 says.")
 
 
+def _refusal(what: str, why: str, next_step: str) -> str:
+    """One refusal in `refusal.py`'s three parts, from the ui-acceptance skill."""
+    path = tool("refusal.py")
+    if path is None:
+        path = HERE.parents[1] / "ui-acceptance" / "scripts" / "refusal.py"
+    spec = importlib.util.spec_from_file_location("mmw_refusal", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.refusal(what, why, next_step)
+
+
+def present_unrunnable(printed: str, number: int, tmp: str) -> str:
+    """gate-check exited 2. Name the ticket and the criterion, and drop the ledger path.
+
+    The ledger is a temporary file. Its path and its line numbers are not a place the
+    worker can edit. The criterion lives on the ticket.
+    """
+    text = printed
+    paths = []
+    for path in (str(tmp), os.path.realpath(str(tmp))):
+        if path and path not in paths:
+            paths.append(path)
+        if path.startswith("/private/"):
+            short = path[len("/private"):]
+        elif path.startswith("/"):
+            short = ""
+            paths.append("/private" + path)
+        else:
+            short = ""
+        if short and short not in paths:
+            paths.append(short)
+    for path in sorted(set(paths), key=len, reverse=True):
+        text = text.replace(path, "")
+    text = re.sub(rf"/?{re.escape(LEDGER_NAME)}:?", "", text)
+    text = re.sub(r"\bline \d+:\s*", "", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r" *\n *", "\n", text).strip()
+    ids = []
+    for gate_id in re.findall(r"\bgate ([A-Za-z0-9][A-Za-z0-9._-]*)\b", text):
+        if gate_id not in ids:
+            ids.append(gate_id)
+    named = ", ".join(ids) if ids else "unknown"
+    note = _refusal(
+        f"ticket #{number} criterion {named}, gate-check exited 2",
+        "the criterion could not be run, so nothing was judged",
+        f"verify-ticket.py {number} --sub-issue contract <file>",
+    )
+    if text:
+        return text + "\n" + note + "\n"
+    return note + "\n"
+
+
 def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
     """Run criteria under the lifetime of a non-ticket oracle lease."""
     body = fetch_body(number)
@@ -1836,9 +1889,10 @@ def _run_checks(number: int, reverify: bool,
             env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
-        sys.stdout.write(printed)
         if result.returncode == 2:
+            sys.stdout.write(present_unrunnable(printed, number, tmp))
             return 2
+        sys.stdout.write(printed)
         summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
 
