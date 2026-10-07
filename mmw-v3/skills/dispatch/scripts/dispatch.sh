@@ -2700,18 +2700,23 @@ landed_tip_ticket() {
 
 MERGE_CHECKS_JSON=""
 run_merge_checks() {
-  local root="$1" into="$2"
-  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" <<'PY'
+  local root="$1" into="$2" worktree="${3:-}" ticket="${4:-}"
+  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" "$worktree" "$ticket" <<'PY'
 import importlib.util, json, sys
 from pathlib import Path
 
-script, root, into = sys.argv[1:]
+script, root, into, worktree, ticket = sys.argv[1:6]
 sys.path.insert(0, str(Path(script).resolve().parent))
 spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
-print(json.dumps(mod.run_target_json_checks(Path(root), into), separators=(",", ":")))
+kwargs = {}
+if worktree:
+    kwargs["worktree"] = Path(worktree)
+if ticket:
+    kwargs["ticket"] = ticket
+print(json.dumps(mod.run_target_json_checks(Path(root), into, **kwargs), separators=(",", ":")))
 PY
 )" || return 2
   [ "$MERGE_CHECKS_JSON" != null ] || return 3
@@ -2743,9 +2748,9 @@ bounce_goes_to_triage() {
 
 bounce_ticket() {
   local root="$1" number="$2" spec="$3" into="$4" base="$5" reason="$6" detail="$7"
-  local started siblings="" text failed_text retry=0 rc
+  local started siblings="" text retry=0 rc
   local add_label=needs-triage remove_label=ready-for-agent outcome="labelled needs-triage"
-  local fields=()
+  local fields=() prose_dir="" summary="" rest="" commands_json="" rest_file=""
   bounce_goes_to_triage "$number" "$spec"; rc=$?
   case "$rc" in
     0) ;;
@@ -2773,14 +2778,39 @@ bounce_ticket() {
     text="$text Conflicted files: $(MMW_LIST="$detail" python3 -c 'import json, os; print(", ".join(json.loads(os.environ["MMW_LIST"])))')."
     fields=(--json-field "files=$detail")
   else
-    failed_text="$(MMW_COMMANDS="$detail" python3 -c '
-import json, os
+    prose_dir="$(mktemp -d)"
+    if ! MMW_COMMANDS="$detail" MMW_PREFIX_LEN="${#text}" python3 - "$VERIFY" "$prose_dir" <<'PY'
+import importlib.util, json, os, sys
+from pathlib import Path
+
+script, dest = sys.argv[1:]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
 rows = json.loads(os.environ["MMW_COMMANDS"])
-print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).rstrip()
-                 for row in rows))
-')"
-    text="$text Failed checks: $failed_text."
-    fields=(--json-field "commands=$detail")
+prefix = int(os.environ.get("MMW_PREFIX_LEN") or "0")
+prose = mod.checks_bounce_prose(rows, prefix)
+out = Path(dest)
+out.joinpath("summary").write_text(prose["summary"], encoding="utf-8")
+out.joinpath("rest").write_text(prose["rest"], encoding="utf-8")
+out.joinpath("commands").write_text(
+    json.dumps(prose["commands"], ensure_ascii=False, separators=(",", ":")),
+    encoding="utf-8")
+PY
+    then
+      rm -rf "$prose_dir"
+      echo "dispatch: could not build the checks report for #$number" >&2
+      return 2
+    fi
+    summary="$(cat "$prose_dir/summary")"
+    rest="$(cat "$prose_dir/rest")"
+    commands_json="$(cat "$prose_dir/commands")"
+    rm -rf "$prose_dir"
+    prose_dir=""
+    text="$text Failed checks: $summary."
+    fields=(--json-field "commands=$commands_json")
   fi
 
   gh_ issue reopen "$number" >/dev/null 2>&1 \
@@ -2789,10 +2819,24 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
       --remove-assignee @me >/dev/null 2>&1 \
     || { echo "dispatch: #$number is open, but could not be $outcome and unassigned" >&2; return 2; }
   give_ticket_slot_back "$number" || true
-  post_event "$number" ticket.bounced --ticket "$number" --spec "$spec" \
-      --line "$text" --field "reason=$reason" --field "commit=$base" \
-      --field "into=$into" "${fields[@]}" \
-    || { echo "dispatch: #$number was relabelled after its landing failure, but its ticket.bounced event was not written" >&2; return 2; }
+  if [ -n "$rest" ]; then
+    rest_file="$(mktemp)"
+    printf '%s\n' "$rest" > "$rest_file"
+  fi
+  local -a post_args
+  post_args=(post_event "$number" ticket.bounced --ticket "$number" --spec "$spec"
+      --line "$text" --field "reason=$reason" --field "commit=$base"
+      --field "into=$into")
+  if [ -n "$rest_file" ]; then
+    post_args+=(--text-file "$rest_file")
+  fi
+  post_args+=("${fields[@]}")
+  if ! "${post_args[@]}"; then
+    [ -z "$rest_file" ] || rm -f "$rest_file"
+    echo "dispatch: #$number was relabelled after its landing failure, but its ticket.bounced event was not written" >&2
+    return 2
+  fi
+  [ -z "$rest_file" ] || rm -f "$rest_file"
   stop_live_ticket_agents "$number" \
     || echo "dispatch: #$number was bounced, but its sessions could not be read and stopped" >&2
 }
@@ -2959,7 +3003,7 @@ land_one_via_origin() {
 
     # The merge result is the tree that lands, so the repository's checks run on it, once
     # per ticket, whatever ran on the ticket's branch.
-    run_merge_checks "$merge_root" "$into"; rc=$?
+    run_merge_checks "$merge_root" "$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
     if [ "$rc" -eq 3 ]; then
       echo "dispatch: 没有检查：.mmw/target.json 没声明 checks" >&2
     elif [ "$rc" -eq 1 ]; then
@@ -4021,7 +4065,7 @@ finish_spec() {
         run_merge_checks "$MERGE_ROOT" "$project"; rc=$?
       fi
       if [ "$rc" -eq 1 ]; then
-        failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c 'import json,os; v=json.loads(os.environ["MMW_CHECKS_JSON"]); print(" | ".join((r.get("command") or ".mmw/target.json") + ": " + (r.get("tail") or v.get("problem") or "failed") for r in (v.get("failed") or [{}] if v.get("problem") else v.get("failed") or [])))')"
+        failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c 'import json,os; v=json.loads(os.environ["MMW_CHECKS_JSON"]); print(" | ".join((r.get("command") or ".mmw/target.json") + ": " + " ".join((r.get("tail") or v.get("problem") or "failed").split()) for r in (v.get("failed") or [{}] if v.get("problem") else v.get("failed") or [])))')"
         git -C "$MERGE_ROOT" reset --hard "origin/$project" >/dev/null
         release_merge_lock
         echo "dispatch: finish #$spec repository checks failed: $failed; nothing was pushed or deleted" >&2

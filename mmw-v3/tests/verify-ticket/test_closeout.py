@@ -779,7 +779,7 @@ class TestTargetJsonChecks(unittest.TestCase):
             write_checks(root, commands)
             return vt.run_target_json_checks(root, into)
 
-    def test_each_failure_carries_its_command_and_last_twenty_lines(self):
+    def test_each_failure_carries_its_command_exit_and_excerpt(self):
         result = self.run_checks_in([
             "python3 -c \"import sys; [print(i) for i in range(1, 26)]; sys.exit(1)\"",
             "python3 -c \"raise SystemExit(2)\"",
@@ -789,7 +789,92 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(len(result["failed"]), 2)
         self.assertIn("raise SystemExit(2)", result["failed"][1]["command"])
         tail = result["failed"][0]["tail"].splitlines()
-        self.assertEqual((tail[0], tail[-1], len(tail)), ("6", "25", 20))
+        self.assertEqual((tail[0], tail[-1], len(tail)), ("1", "25", 25))
+        self.assertEqual(result["failed"][0]["exit"], 1)
+        self.assertEqual(result["failed"][1]["exit"], 2)
+
+    def test_an_early_error_line_is_kept_ahead_of_the_tail(self):
+        lines = ["AssertionError: price"] + [f"noise-{i}" for i in range(1, 41)]
+        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
+        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
+        tail = result["failed"][0]["tail"].splitlines()
+        self.assertIn("AssertionError: price", tail)
+        self.assertNotIn("noise-2", tail)
+        self.assertIn("noise-40", tail)
+        self.assertNotIn("noise-10", tail)
+
+    def test_only_ten_error_lines_are_kept_before_the_tail(self):
+        lines = [f"error-{i}" for i in range(1, 13)] + [f"noise-{i}" for i in range(1, 41)]
+        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
+        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
+        tail = result["failed"][0]["tail"].splitlines()
+        self.assertIn("error-1", tail)
+        self.assertIn("error-10", tail)
+        self.assertNotIn("error-11", tail)
+        self.assertNotIn("error-12", tail)
+        self.assertNotIn("noise-1", tail)
+        self.assertIn("noise-40", tail)
+
+    def test_the_saved_log_keeps_the_markers_the_excerpt_hides(self):
+        source = "import sys; print('error STORY OK'); print('JOURNEY OK'); sys.exit(1)"
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            write_checks(root, ["python3 -c " + json.dumps(source)])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
+        self.assertIn("STORY OK", log)
+        self.assertNotIn("STORY OK", result["failed"][0]["tail"])
+        self.assertNotIn("JOURNEY OK", result["failed"][0]["tail"])
+        self.assertIn("error", result["failed"][0]["tail"])
+        self.assertEqual(result["failed"][0]["log"], ".scratch/checks/61/1.log")
+
+    def test_a_missing_worktree_is_not_created_for_the_log(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing = root / "absent"
+            write_checks(root, ["python3 -c \"import sys; sys.exit(1)\""])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=missing, ticket=61)
+        self.assertFalse(missing.exists())
+        self.assertNotIn("log", result["failed"][0])
+
+    def test_each_failed_command_opens_its_own_paragraph(self):
+        rows = [
+            {"command": "python3 -c 'import sys; sys.exit(1)'", "tail": "", "exit": 1},
+            {"command": "python3 -c 'import sys; sys.exit(3)'", "tail": "", "exit": 3},
+        ]
+        prose = vt.checks_bounce_prose(rows, prefix_len=80)
+        self.assertEqual(
+            prose["summary"],
+            "python3 -c 'import sys; sys.exit(1)' exit 1; "
+            "python3 -c 'import sys; sys.exit(3)' exit 3",
+        )
+        self.assertEqual(prose["rest"].splitlines(), [
+            "python3 -c 'import sys; sys.exit(1)' exit 1",
+            "",
+            "python3 -c 'import sys; sys.exit(3)' exit 3",
+        ])
+
+    def test_a_huge_excerpt_line_stays_inside_a_comment(self):
+        source = "import sys; sys.stdout.write('x' * 100000); sys.exit(1)"
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            write_checks(root, ["python3 -c " + json.dumps(source)])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
+        self.assertGreaterEqual(len(log), 100000)
+        prose = vt.checks_bounce_prose(
+            [{"command": "python3 -c 'print(1)'", "tail": "y" * 100000, "exit": 1}],
+            prefix_len=400,
+        )
+        self.assertIn("python3 -c 'print(1)'", prose["summary"])
+        rendered = ("x" * 400) + " Failed checks: " + prose["summary"] + ".\n\n" + prose["rest"]
+        rendered += json.dumps(prose["commands"])
+        self.assertLess(len(rendered), 65536)
+        self.assertLess(len(result["failed"][0]["tail"]), 65536)
 
     def test_checks_see_mmw_base_ref(self):
         result = self.run_checks_in([
