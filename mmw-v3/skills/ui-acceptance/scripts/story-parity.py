@@ -26,11 +26,33 @@ with one `DIFF` line per differing element fact. Exit 2 when a negative control
 fails, the story service does not start, a story page is unreachable or 404, the
 requested mount or scene is outside the screen contract, `--pages` is empty, there is no
 visible `[data-story-root]`, the screen contract lacks `viewports` or `locale`, the
-screen contract still carries a key the oracle no longer executes, or the product story
-page hosts Claude Design runtime.
+screen contract still carries a key the oracle no longer executes, the product story
+page hosts Claude Design runtime, the design page throws or does not mount, the design
+page renders no `data-ui` element, or compare hits an unexpected error.
+
+A `missing` or `extra` line appends the other side's size, parent and quoted text.
+A `visible` line appends the first reason that holds: `display:none`,
+`visibility:hidden`, `opacity:0`, `size 0`, or `clipped by an ancestor`. Text
+values are quoted. Exit 0 and exit 1 also print one `PIXEL` line per compared
+scene and viewport, after the verdict. That line does not contain `STORY OK` and
+does not change the exit code. Each screenshot is cropped to that side's component
+box and only the overlap is compared, so an identical pair is 0%. When the boxes
+differ, the line names both sizes.
+
+When the story service exits or stalls before printing origin, its last 15 output
+lines are printed and then the refusal. Those lines are not part of the refusal.
+A design-page failure names the scene, the design-page file, the URL and the first
+error, then refuses. The same four facts are printed on their own lines first, because
+the refusal is capped at 256 characters. A timer throw under the paused clock is a
+console error whose stack names `ClockController`, and `pageerror` does not fire.
+That is a design-page failure. `console.error`, including an Error object, is
+printed and written under `--out`, and the run continues. A design page that renders
+no `data-ui` element prints one stdout line with the count 0, the URL and the design
+screenshot path, then a refusal, and exits 2.
 
 `--out` holds screenshots, capture evidence and a pixel difference image for every
-pair. `--render-only` needs no product and writes the design facts to
+pair, plus `<scene>-<W>x<H>-elements.json` for each compared pair. `--render-only`
+needs no product and writes the design facts to
 `--out/values/<mount>/<scene>-<W>x<H>.json`.
 """
 
@@ -44,7 +66,9 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import threading
+import traceback
 from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import urlencode
@@ -87,6 +111,43 @@ DESIGN_TRACE_JS = """() => {
   if (document.getElementById('dc-root')) return 'dc-root';
   return null;
 }"""
+# Same element walk as UI_VALUES_JS. The values record only `visible`; the reason
+# stays beside that record so the JSON key set does not change.
+HIDDEN_REASON_JS = """(selector) => {
+  const root = document.querySelector(selector);
+  if (!root) return [];
+  const els = [];
+  if (root.hasAttribute('data-ui')) els.push(root);
+  for (const el of root.querySelectorAll('[data-ui]')) els.push(el);
+  const reasonOf = (el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none') return 'display:none';
+    if (cs.visibility === 'hidden') return 'visibility:hidden';
+    if (cs.opacity === '0') return 'opacity:0';
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return 'size 0';
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const pcs = getComputedStyle(p);
+      if (pcs.overflowX === 'visible' && pcs.overflowY === 'visible') continue;
+      const pr = p.getBoundingClientRect();
+      const ix = Math.min(r.right, pr.right) - Math.max(r.left, pr.left);
+      const iy = Math.min(r.bottom, pr.bottom) - Math.max(r.top, pr.top);
+      if (ix <= 0 || iy <= 0) return 'clipped by an ancestor';
+    }
+    return null;
+  };
+  return els.map(reasonOf);
+}"""
+# The screenshot is clipped to `selector`. The product selector is the component.
+# `#dc-root` is the design viewport, so the component is the first `[data-ui]` in it.
+COMPONENT_BOX_JS = """(selector) => {
+  const root = document.querySelector(selector);
+  if (!root) return null;
+  const el = root.hasAttribute('data-ui') ? root
+    : (root.querySelector('[data-ui]') || root);
+  const r = el.getBoundingClientRect();
+  return [r.x, r.y, r.width, r.height];
+}"""
 
 
 class ElementDifference(NamedTuple):
@@ -94,6 +155,7 @@ class ElementDifference(NamedTuple):
     property: str
     design: str | None = None
     product: str | None = None
+    note: str = ""
 
 
 def _ensure_script_env() -> None:
@@ -222,14 +284,17 @@ class Stories:
             return self
         code = self.proc.poll()
         detail = "".join(collected).strip().splitlines()
-        first = detail[0] if detail else "(no output)"
+        # The refusal is capped at 256 characters. The log stays outside it, or the
+        # real error, which is often not the first line, is the part that is cut.
+        for line in detail[-15:]:
+            print(line, file=sys.stderr)
         if code is not None:
             raise SystemExit(refusal(
-                f"`{command}` exited {code} before printing origin: {first}",
+                f"`{command}` exited {code} before printing origin.",
                 "The story service must print origin before the oracle can open a page.",
                 "Fix the stories command so it prints origin, then re-run."))
         raise SystemExit(refusal(
-            f"`{command}` printed no origin within {ORIGIN_WAIT_S}s: {first}",
+            f"`{command}` printed no origin within {ORIGIN_WAIT_S}s.",
             "The story service must print origin before the oracle can open a page.",
             "Fix the stories command so it prints origin, then re-run."))
 
@@ -286,15 +351,18 @@ def element_differences(design: list[dict], product: list[dict]
         if uid in suppressed:
             continue
         if uid not in product_by_id:
-            differences.append(ElementDifference(uid, "missing"))
+            differences.append(ElementDifference(
+                uid, "missing", note=_other_side_facts(before)))
             continue
         after = product_by_id[uid]
         if not (before["visible"] and after["visible"]):
             if before["visible"] != after["visible"]:
+                hidden = before if not before["visible"] else after
                 differences.append(ElementDifference(
                     uid, "visible",
                     "yes" if before["visible"] else "no",
-                    "yes" if after["visible"] else "no"))
+                    "yes" if after["visible"] else "no",
+                    note=hidden.get("_reason") or ""))
             suppressed.update(_descendant_ids(design, uid))
             suppressed.update(_descendant_ids(product, uid))
             continue
@@ -319,8 +387,38 @@ def element_differences(design: list[dict], product: list[dict]
     for after in product:
         uid = after["id"]
         if uid not in suppressed and uid not in design_by_id:
-            differences.append(ElementDifference(uid, "extra"))
+            differences.append(ElementDifference(
+                uid, "extra", note=_other_side_facts(after)))
     return differences
+
+
+def _quote(value: str) -> str:
+    """Quote a text value so a space or ` product=` stays inside the value."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _other_side_facts(item: dict) -> str:
+    """Size, parent and quoted text of the side that does have the element."""
+    width, height = item["size"]
+    parent = item["ancestor"] or "null"
+    return f"size={width}x{height} parent={parent} text={_quote(item['text'])}"
+
+
+def _with_reasons(values: list[dict], reasons: list) -> list[dict]:
+    """Copies that carry the hidden reason beside the recorded facts.
+
+    The reason is not a field of the values JSON. Alignment copies each dict, so
+    the reason stays with its element when a lone id gains `#1`.
+    """
+    annotated = []
+    for index, item in enumerate(values):
+        copied = dict(item)
+        # The two reads use one selector. A shorter reason list raises, and
+        # compare refuses instead of pairing a reason with the wrong element.
+        copied["_reason"] = reasons[index]
+        annotated.append(copied)
+    return annotated
 
 
 def format_element_difference(mount: str, scene: str, viewport: str,
@@ -328,8 +426,17 @@ def format_element_difference(mount: str, scene: str, viewport: str,
     """The one public line for a structured element difference."""
     prefix = f"DIFF {mount} {scene} {viewport} {difference.uid} {difference.property}"
     if difference.design is None and difference.product is None:
-        return prefix
-    return f"{prefix} design={difference.design} product={difference.product}"
+        line = prefix
+    else:
+        design = difference.design
+        product = difference.product
+        if difference.property == "text":
+            design = _quote(design)
+            product = _quote(product)
+        line = f"{prefix} design={design} product={product}"
+    if difference.note:
+        return f"{line} {difference.note}"
+    return line
 
 
 def _align_repeated_ids(design: list[dict], product: list[dict]
@@ -479,6 +586,148 @@ def refuse_design_trace(scene: str, named: str) -> str:
         f"Remove {named} from the product story page, then re-run.")
 
 
+def refuse_design_page(scene: str, page: str, url: str, error: str) -> str:
+    """The design page threw or did not mount. The product was not compared.
+
+    The four facts are printed in full first. `refusal` keeps the next step and
+    trims the tail of what happened, so a long URL would otherwise take the error with it.
+    """
+    print(f"scene {scene}", file=sys.stderr)
+    print(f"file {page}", file=sys.stderr)
+    print(f"url {url}", file=sys.stderr)
+    print(f"error {error}", file=sys.stderr)
+    return refusal(
+        f"{error} scene {scene} file {page} url {url}",
+        "The design page failed, so the product was not compared.",
+        "Run verify-ticket.py <n> --sub-issue contract <file>.")
+
+
+def write_element_facts(media: Path, scene: str, tag: str,
+                        design: list, product: list) -> None:
+    """Both sides' element facts, beside the screenshots for this pair."""
+    path = media / f"{scene}-{tag}-elements.json"
+    path.write_text(
+        json.dumps({"design": design, "product": product},
+                   ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+
+
+def console_error_is_uncaught(text: str) -> bool:
+    """A timer throw the paused clock reports as a console message.
+
+    Measured 2026-10-08. A `setTimeout` throw under Playwright's paused clock
+    arrives as a console error whose stack names `ClockController`, and
+    `pageerror` does not fire. `console.error(new Error(...))` is also `Error:`
+    plus an `at` frame, and its stack does not name `ClockController`. A
+    synchronous throw arrives as `pageerror` and not as a console message.
+    """
+    return "ClockController._callFirstTimer" in text or "ClockController._runTo" in text
+
+
+def hidden_reasons(page, selector: str) -> list:
+    """One hidden reason per `[data-ui]` element, in the values reader's order."""
+    return page.evaluate(HIDDEN_REASON_JS, selector)
+
+
+def component_box(page, selector: str, shot_box: tuple[int, int, int, int]
+                  ) -> tuple[int, int, int, int]:
+    """The component's box inside the screenshot, in CSS pixels."""
+    raw = page.evaluate(COMPONENT_BOX_JS, selector)
+    vx, vy, vw, vh = raw
+    sx, sy, _, _ = shot_box
+    return (int(round(vx - sx)), int(round(vy - sy)),
+            int(round(vw)), int(round(vh)))
+
+
+def _clamped_box(image, box: tuple[int, int, int, int]
+                 ) -> tuple[int, int, int, int]:
+    """`box` clamped to `image`, as x, y, width, height."""
+    x, y, w, h = box
+    x = max(0, x)
+    y = max(0, y)
+    right = min(image.width, x + max(0, w))
+    lower = min(image.height, y + max(0, h))
+    return x, y, max(0, right - x), max(0, lower - y)
+
+
+def _save_crop(image, box: tuple[int, int, int, int]) -> Path:
+    x, y, w, h = box
+    handle = tempfile.NamedTemporaryFile(
+        prefix="mmw-crop-", suffix=".png", delete=False)
+    handle.close()
+    image.crop((x, y, x + w, y + h)).save(handle.name)
+    return Path(handle.name)
+
+
+def _diff_facts(path: Path) -> tuple[str, str]:
+    """The integer percent of overlap pixels that differ, and their bounding box.
+
+    0 means no pixel differs. A difference smaller than half a percent is still
+    1, so a real difference is never reported as 0.
+    """
+    from PIL import Image
+
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+        box = rgb.getbbox()
+        if box is None:
+            return "0", ""
+        raw = rgb.tobytes()
+        differ = sum(1 for i in range(0, len(raw), 3)
+                     if raw[i] or raw[i + 1] or raw[i + 2])
+        total = rgb.width * rgb.height
+        percent = round(100 * differ / total) if total else 0
+        if differ and percent == 0:
+            percent = 1
+        x0, y0, x1, y1 = box
+        return str(percent), f"{x0},{y0},{x1 - x0},{y1 - y0}"
+
+
+def pixel_report(scene: str, design_png: Path, product_png: Path,
+                 design_box: tuple[int, int, int, int],
+                 product_box: tuple[int, int, int, int],
+                 diff_png: Path) -> str:
+    """Crop each side to its component box, compare the overlap, return the PIXEL line.
+
+    Measured 2026-10-08: padding the smaller screenshot with black made an identical
+    pair look about half different. The crop is here. `pixel_diff` still pads when
+    a caller hands it two unequal images directly.
+    """
+    from PIL import Image
+
+    crops: list[Path] = []
+    try:
+        with Image.open(design_png) as design_image, Image.open(product_png) as product_image:
+            dx, dy, dw, dh = _clamped_box(design_image, design_box)
+            px, py, pw, ph = _clamped_box(product_image, product_box)
+            overlap = (min(dw, pw), min(dh, ph))
+            left = _save_crop(design_image, (dx, dy, *overlap))
+            crops.append(left)
+            right = _save_crop(product_image, (px, py, *overlap))
+            crops.append(right)
+        design_size = (dw, dh)
+        product_size = (pw, ph)
+        pixel_diff(left, right, diff_png)
+        percent, bbox = _diff_facts(diff_png)
+    finally:
+        for path in crops:
+            path.unlink(missing_ok=True)
+    if design_size == product_size:
+        size = f"{design_size[0]}x{design_size[1]}"
+    else:
+        size = (f"{design_size[0]}x{design_size[1]} "
+                f"{product_size[0]}x{product_size[1]}")
+    return f"PIXEL {scene} {size} {percent}% bbox={bbox}"
+
+
+def write_console_errors(media: Path, scene: str, tag: str, errors: list[str]) -> None:
+    """Console errors from the design page. They do not change the verdict."""
+    path = media / f"{scene}-{tag}-console.txt"
+    path.write_text("\n".join(errors) + "\n", encoding="utf-8")
+    for line in errors:
+        print(line, file=sys.stderr)
+
+
 def run(args) -> int:
     contract_path = Path(args.contract).resolve()
     doc = dr.load_yaml(contract_path)
@@ -580,6 +829,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
 
     pair_count = 0
     element_lines: list[str] = []
+    pixel_lines: list[str] = []
     controls: tuple[list[ElementDifference], list[ElementDifference]] | None = None
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
@@ -590,6 +840,29 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
         design_ctx.route("**/*", route_baseline)
         story_page = story_ctx.new_page()
         design_page = design_ctx.new_page()
+        # Playwright's navigation timeout is 30s. A test may shorten the design
+        # page's navigation only, so that timeout happens in this run.
+        nav_ms = os.environ.get("MMW_NAV_TIMEOUT_MS")
+        if nav_ms:
+            design_page.set_default_navigation_timeout(int(nav_ms))
+        page_errors: list[str] = []
+        console_errors: list[str] = []
+
+        def on_pageerror(error) -> None:
+            page_errors.append(str(error))
+
+        def on_console(message) -> None:
+            if message.type != "error":
+                return
+            text = message.text
+            if console_error_is_uncaught(text):
+                page_errors.append(text.splitlines()[0])
+            else:
+                console_errors.append(text)
+
+        design_page.on("pageerror", on_pageerror)
+        design_page.on("console", on_console)
+        current_scene = None
         try:
             def capture_story(scene, viewport, png, extra_js=None,
                               *, negative_control=False):
@@ -631,14 +904,31 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                 return dr.capture(story_page, png, selector=STORY_ROOT, clip=box,
                                   extra_js=extra_js)
 
+            def design_page_url(scene) -> str:
+                return f"{design_origin}{dr.wrapper_path(scene.name)}"
+
+            def fail_design_page(scene, error: str) -> None:
+                raise SystemExit(refuse_design_page(
+                    scene.name, scene.page, design_page_url(scene), error))
+
             def capture_design(scene, viewport, png, extra_js=None):
+                page_errors.clear()
+                console_errors.clear()
                 dr.resize(design_page, viewport)
-                dr.navigate(design_page, f"{design_origin}{dr.wrapper_path(scene.name)}")
-                dr.wait_for_mount(design_page, "#dc-root")
-                return dr.capture(
-                    design_page, png, selector="#dc-root", extra_js=extra_js)
+                try:
+                    dr.navigate(design_page, design_page_url(scene))
+                    dr.wait_for_mount(design_page, "#dc-root")
+                    shot = dr.capture(
+                        design_page, png, selector="#dc-root", extra_js=extra_js)
+                except SystemExit as exc:
+                    fail_design_page(
+                        scene, page_errors[0] if page_errors else str(exc.code))
+                if page_errors:
+                    fail_design_page(scene, page_errors[0])
+                return shot
 
             for scene in plan:
+                current_scene = scene
                 for viewport in scene.viewports or viewports:
                     tag = f"{viewport[0]}x{viewport[1]}"
                     impl = capture_story(
@@ -646,12 +936,35 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                     base = capture_design(
                         scene, viewport,
                         media / f"{scene.name}-{tag}-baseline.png")
+                    seen_console = list(console_errors)
+                    write_element_facts(
+                        media, scene.name, tag, base.values, impl.values)
+                    if seen_console:
+                        write_console_errors(media, scene.name, tag, seen_console)
+                    if not base.values:
+                        url = design_page_url(scene)
+                        print(f"read 0 data-ui elements at {url} "
+                              f"screenshot {base.png}")
+                        print(refusal(
+                            f"read 0 data-ui elements at {url} screenshot {base.png}",
+                            "A design page with no data-ui element gives the oracle nothing to compare.",
+                            "Run verify-ticket.py <n> --sub-issue contract <file>."),
+                              file=sys.stderr)
+                        print(f"story evidence: {media}", file=sys.stderr)
+                        return 2
                     pair_count += 1
-                    pixel_diff(base.png, impl.png,
-                               media / f"{scene.name}-{tag}-diff.png")
+                    design_reasons = hidden_reasons(design_page, "#dc-root")
+                    product_reasons = hidden_reasons(story_page, STORY_ROOT)
+                    pixel_lines.append(pixel_report(
+                        scene.name, base.png, impl.png,
+                        component_box(design_page, "#dc-root", base.box),
+                        component_box(story_page, STORY_ROOT, impl.box),
+                        media / f"{scene.name}-{tag}-diff.png"))
                     element_lines.extend(
                         format_element_difference(scene.mount, scene.name, tag, difference)
-                        for difference in element_differences(base.values, impl.values))
+                        for difference in element_differences(
+                            _with_reasons(base.values, design_reasons),
+                            _with_reasons(impl.values, product_reasons)))
                     if controls is None:
                         font_design = capture_design(
                             scene, viewport,
@@ -665,6 +978,19 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                             element_differences(font_design.values, impl.values),
                             element_differences(base.values, no_ids.values),
                         )
+        except Exception as exc:
+            # SystemExit is a refusal and keeps propagating. Exit 1 is a real
+            # DIFF line, so any other exception is reported with its traceback.
+            text = traceback.format_exc()
+            print(text, file=sys.stderr)
+            where = (f" while comparing scene {current_scene.name}"
+                     if current_scene is not None else "")
+            first = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
+            print(refusal(
+                f"{type(exc).__name__}{where}: {first}",
+                "An unexpected failure is not an element difference.",
+                "Fix the cause named above, then re-run."), file=sys.stderr)
+            return 2
         finally:
             browser.close()
 
@@ -673,9 +999,9 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
     if control_code == 2:
         code, lines = control_code, control_lines
     elif element_lines:
-        code, lines = 1, element_lines
+        code, lines = 1, [*element_lines, *pixel_lines]
     else:
-        code, lines = 0, [f"STORY OK {pair_count}/{pair_count}"]
+        code, lines = 0, [f"STORY OK {pair_count}/{pair_count}", *pixel_lines]
     for line in lines:
         print(line)
     if code:
