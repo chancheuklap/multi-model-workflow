@@ -51,17 +51,30 @@ def normalize_newlines(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def run_extract(args: list[str]) -> str:
-    proc = subprocess.run(
+def invoke(args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [sys.executable, str(EXTRACT), *args],
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
+
+
+def run_extract(args: list[str]) -> str:
+    proc = invoke(args)
     if proc.returncode != 0:
         fail(f"extractor exited {proc.returncode} for {args}: {proc.stderr.strip()}")
     return proc.stdout
+
+
+def expect_extract_error(args: list[str], message: str) -> None:
+    proc = invoke(args)
+    if proc.returncode != 2 or message not in proc.stderr:
+        fail(
+            f"expected exit 2 containing {message!r} for {args}; got "
+            f"{proc.returncode}: {proc.stderr.strip()!r}"
+        )
 
 
 def check_legacy_stdout_encoding(tmp: Path) -> None:
@@ -239,6 +252,37 @@ def check_nested_geometry(tmp: Path) -> None:
         if page["bounds"] != {"x0": 100, "y0": 200, "x1": 200, "y1": 300}:
             fail(f"nested geometry changed canvas bounds: {page['bounds']}")
     ok("nested geometry and bounds are independent of cell order")
+
+
+def check_bom_prefixed(tmp: Path) -> None:
+    model = re.search(
+        r"<mxGraphModel.*?</mxGraphModel>", FIXTURE.read_text(encoding="utf-8"), re.S
+    )
+    if not model:
+        fail("fixture has no mxGraphModel")
+    # ElementTree accepts a leading U+FEFF, so the raw XML case passes even
+    # without BOM handling. The bare payload is the case that needs it:
+    # base64 decoding rejects the BOM and the extractor exits 2.
+    inputs = {
+        "raw XML": FIXTURE.read_bytes(),
+        "bare base64+deflate payload": compress_model(model.group(0)).encode("ascii"),
+    }
+    for index, (label, body) in enumerate(inputs.items()):
+        # Same file name in both runs: a bare payload's page is named after it.
+        plain = tmp / f"bom-{index}" / "plain" / "input.drawio"
+        prefixed = tmp / f"bom-{index}" / "prefixed" / "input.drawio"
+        for path in (plain, prefixed):
+            path.parent.mkdir(parents=True)
+        plain.write_bytes(body)
+        prefixed.write_bytes(b"\xef\xbb\xbf" + body)
+        expected = json.loads(run_extract([str(plain), "--json"]))["pages"]
+        actual = json.loads(run_extract([str(prefixed), "--json"]))["pages"]
+        analysis = actual[0]["analysis"]
+        if analysis["nodes_total"] != 12 or analysis["edges_total"] != 8:
+            fail(f"UTF-8 BOM-prefixed {label} graph differs from the source fixture")
+        if actual != expected:
+            fail(f"UTF-8 BOM-prefixed {label} extracts differently from the same input without a BOM")
+    ok("UTF-8 BOM-prefixed raw XML and bare compressed payload parse like their unprefixed input")
 
 
 def check_containers(tmp: Path) -> None:
@@ -427,6 +471,125 @@ def check_security_and_limits(tmp: Path) -> None:
     if proc.returncode != 2 or "truncated metadata chunk" not in proc.stderr:
         fail("truncated PNG metadata must be rejected with a clear diagnostic")
 
+    duplicate_id = tmp / "duplicate-id.drawio"
+    duplicate_id.write_text(
+        '<mxGraphModel><root><mxCell id="same" vertex="1"/>'
+        '<mxCell id="same" value="amplified label" vertex="1"/>'
+        '</root></mxGraphModel>',
+        encoding="utf-8",
+    )
+    expect_extract_error([str(duplicate_id)], "duplicate cell id")
+
+    nested_pages = tmp / "nested-pages.drawio"
+    nested_pages.write_text(
+        '<mxfile>'
+        + '<diagram name="outer">' * 20
+        + '<mxGraphModel><root><mxCell id="node" value="Node" vertex="1"/>'
+        + '</root></mxGraphModel>'
+        + '</diagram>' * 20
+        + '</mxfile>',
+        encoding="utf-8",
+    )
+    nested_payload = json.loads(run_extract([str(nested_pages), "--json"]))
+    if nested_payload["pages_total"] != 1:
+        fail("nested diagram descendants were treated as independent pages")
+
+    too_many_pages = tmp / "too-many-pages.drawio"
+    too_many_pages.write_text(
+        '<mxfile>'
+        + '<diagram><mxGraphModel><root/></mxGraphModel></diagram>'
+        * (extractor.MAX_PAGES + 1)
+        + '</mxfile>',
+        encoding="utf-8",
+    )
+    expect_extract_error(
+        [str(too_many_pages)], f"page limit exceeded (max {extractor.MAX_PAGES})"
+    )
+
+    too_many_cells = tmp / "too-many-cells.drawio"
+    too_many_cells.write_text(
+        '<mxGraphModel><root>'
+        + '<mxCell id="cell"/>' * (extractor.MAX_CELLS_PER_PAGE + 1)
+        + '</root></mxGraphModel>',
+        encoding="utf-8",
+    )
+    expect_extract_error(
+        [str(too_many_cells)],
+        f"cell limit exceeded (max {extractor.MAX_CELLS_PER_PAGE})",
+    )
+
+    for name, coordinate, diagnostic in (
+        ("nan", "NaN", "must be finite"),
+        ("infinity", "Infinity", "must be finite"),
+        ("derived-overflow", "1e308", "bounding box overflow"),
+    ):
+        malformed_geometry = tmp / f"{name}.drawio"
+        malformed_geometry.write_text(
+            '<mxGraphModel><root><mxCell id="node" value="Node" vertex="1">'
+            f'<mxGeometry x="{coordinate}" y="0" width="{coordinate}" height="10"/>'
+            '</mxCell></root></mxGraphModel>',
+            encoding="utf-8",
+        )
+        for output_args in ([], ["--json"]):
+            expect_extract_error(
+                [str(malformed_geometry), *output_args], diagnostic
+            )
+
+    canvas_span_overflow = tmp / "canvas-span-overflow.drawio"
+    canvas_span_overflow.write_text(
+        '<mxGraphModel><root>'
+        '<mxCell id="left" value="Left" vertex="1">'
+        '<mxGeometry x="-1e308" y="0" width="10" height="10"/></mxCell>'
+        '<mxCell id="right" value="Right" vertex="1">'
+        '<mxGeometry x="1e308" y="0" width="10" height="10"/></mxCell>'
+        '</root></mxGraphModel>',
+        encoding="utf-8",
+    )
+    for output_args in ([], ["--json"]):
+        expect_extract_error(
+            [str(canvas_span_overflow), *output_args], "canvas span overflow"
+        )
+
+    parent_position_overflow = tmp / "parent-position-overflow.drawio"
+    parent_position_overflow.write_text(
+        '<mxGraphModel><root>'
+        '<mxCell id="parent" value="Parent" vertex="1">'
+        '<mxGeometry x="1e308" y="0" width="10" height="10"/></mxCell>'
+        '<mxCell id="child" value="Child" vertex="1" parent="parent">'
+        '<mxGeometry x="1e308" y="0" width="10" height="10"/></mxCell>'
+        '</root></mxGraphModel>',
+        encoding="utf-8",
+    )
+    for output_args in ([], ["--json"]):
+        expect_extract_error(
+            [str(parent_position_overflow), *output_args], "page 0: geometry overflow"
+        )
+
+    deep_parents = tmp / "deep-parents.drawio"
+    deep_parents.write_text(
+        '<mxGraphModel><root>'
+        + ''.join(
+            f'<mxCell id="n{index}" value="Node" vertex="1" parent="n{index - 1}">'
+            '<mxGeometry x="1" y="1" width="1" height="1"/></mxCell>'
+            for index in range(1, 1101)
+        )
+        + '</root></mxGraphModel>',
+        encoding="utf-8",
+    )
+    deepest = json.loads(run_extract([str(deep_parents), "--json"]))["pages"][0]["nodes"][-1]
+    if (deepest["x"], deepest["y"], deepest["depth"]) != (1100, 1100, 1099):
+        fail(f"deep parent chain resolved incorrectly: {deepest}")
+
+    parent_cycle = tmp / "parent-cycle.drawio"
+    parent_cycle.write_text(
+        '<mxGraphModel><root>'
+        '<mxCell id="a" value="A" vertex="1" parent="b"/>'
+        '<mxCell id="b" value="B" vertex="1" parent="a"/>'
+        '</root></mxGraphModel>',
+        encoding="utf-8",
+    )
+    expect_extract_error([str(parent_cycle)], "parent cycle")
+
     proc = subprocess.run(
         [sys.executable, str(EXTRACT), str(FIXTURE), "--max-rows", "0"],
         capture_output=True,
@@ -476,6 +639,7 @@ def check_docs() -> None:
         "social-og",
         "social-square",
         "print-a4-landscape",
+        "print-a3-landscape",
         "print-letter-landscape",
         "`fit`",
     ):
@@ -491,7 +655,8 @@ def check_docs() -> None:
         if needle not in output_text:
             fail(f"output-spec.md missing section {needle!r}")
 
-    # Every viewBox preset must respect the 4px grid rule (SKILL.md §7).
+    # Every viewBox preset must respect the 4px grid rule (SKILL.md §7; the
+    # table lives in references/layout-budget.md).
     for w, h in re.findall(r"`0 0 (\d+) (\d+)`", output_text):
         if int(w) % 4 or int(h) % 4:
             fail(f"viewBox preset {w}×{h} is off the 4px grid")
@@ -548,6 +713,7 @@ def main() -> int:
         check_files()
         check_parse_raw()
         check_nested_geometry(tmp)
+        check_bom_prefixed(tmp)
         check_containers(tmp)
         check_legacy_stdout_encoding(tmp)
         check_digest_escaping(tmp)
