@@ -1700,6 +1700,23 @@ store.write_text(json.dumps(posted))
 '
 }
 
+# The newest ticket.bounced comment posted on ticket <n>, body included.
+bounced_comment() {
+  local n="${1:-61}"
+  MMW_N="$n" python3 -c '
+import json, os
+from pathlib import Path
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()).get(os.environ["MMW_N"], []) if store.is_file() else []
+found = ""
+for body in posted:
+    if "\"event\":\"ticket.bounced\"" in body:
+        found = body
+if found:
+    print(found)
+'
+}
+
 # The events posted on ticket <n> during this run, one `name key=value...` per line, for
 # the keys asked for: `posted_events 61 session runner`.
 posted_events() {
@@ -8910,13 +8927,13 @@ scenario_advancenohalfmerge() {
     || fail "the conflict was not recorded: $(posted_events 61 reason)"
 }
 
-setup_checked_ticket() {
-  local check="$1"
+setup_checked_commands() {
+  local json
+  json="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "$@")"
   reset_log
   fresh_repo
   mkdir -p "$TMP/repo/.mmw"
-  printf '{"checks":[%s]}\n' "$(MMW_VALUE="$check" python3 -c 'import json, os; print(json.dumps(os.environ["MMW_VALUE"]))')" \
-    > "$TMP/repo/.mmw/target.json"
+  printf '{"checks":%s}\n' "$json" > "$TMP/repo/.mmw/target.json"
   git -C "$TMP/repo" add .mmw/target.json
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m checks
   git -C "$TMP/repo" push -q origin main
@@ -8925,6 +8942,10 @@ setup_checked_ticket() {
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
   seed_workspace 61
+}
+
+setup_checked_ticket() {
+  setup_checked_commands "$1"
 }
 
 scenario_advancebouncedchecks() {
@@ -8939,6 +8960,160 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced reason is wrong: $(posted_events 61 reason commands)"
   posted_events 61 commands | grep -q "red-tail" \
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
+}
+
+# 29 lines, the failing test's name on line 10. The command builds that name at
+# runtime, so the command text itself does not contain it.
+twenty_nine_line_check() {
+  cat <<'EOF'
+python3 -c 'import sys; name="test_price_"+"rounds"; lines=["noise-%d"%i for i in range(1,30)]; lines[9]=name; sys.stdout.write("\n".join(lines)+"\n"); sys.exit(1)'
+EOF
+}
+
+# The name counts only as an excerpt line after the command heading. A match inside
+# the command, the summary, or the event block does not.
+excerpt_has_name() {
+  local body="$1" name="$2"
+  MMW_BODY="$body" MMW_NAME="$name" python3 -c '
+import os, sys
+body = os.environ["MMW_BODY"]
+name = os.environ["MMW_NAME"]
+prose = body.split("<!--", 1)[0]
+lines = prose.splitlines()
+hits = [line for line in lines[1:] if name in line and "python3" not in line]
+if not hits:
+    sys.stderr.write("excerpt drops %s:\n%s\n" % (name, prose))
+    sys.exit(1)
+'
+}
+
+# Read the bounce the fake tracker holds, then claim that same ticket. The resume
+# quotes the Failed checks slice of the comment that was posted.
+assert_resume_quotes_posted_bounce() {
+  local n="${1:-61}" body quote out err code commit
+  body="$(bounced_comment "$n")"
+  quote="$(printf '%s\n' "$body" | python3 -c '
+import sys
+for line in sys.stdin:
+    at = line.find("Failed checks:")
+    if at >= 0:
+        print(line[at:].strip())
+        raise SystemExit(0)
+raise SystemExit(1)
+')" || fail "the posted bounce has no Failed checks: line: $body"
+  commit="$(git -C "$(wt "$n")" rev-parse HEAD)"
+  post_ev "$n" ticket.checked --ticket "$n" --line "self run" \
+    --field run=self --field "commit=$commit" --field result=met
+  out="$TMP/preflight-$n.out"
+  err="$TMP/preflight-$n.err"
+  code="$(
+    cd "$(wt "$n")" \
+      && python3 "$(dirname "$SKILL")/verify-ticket/scripts/verify-ticket.py" "$n" --preflight \
+         >"$out" 2>"$err"
+    echo "$?"
+  )"
+  [ "$code" = 0 ] || fail "preflight on the bounced ticket exited $code: $(cat "$err") $(cat "$out")"
+  MMW_QUOTE="$quote" MMW_OUT="$(cat "$out")" python3 -c '
+import os, sys
+out = os.environ["MMW_OUT"].splitlines()
+quote = os.environ["MMW_QUOTE"]
+resume = [i for i, line in enumerate(out) if line.startswith("RESUME:")]
+if len(resume) != 1:
+    sys.stderr.write("preflight did not print one RESUME line:\n%s\n" % os.environ["MMW_OUT"])
+    sys.exit(1)
+i = resume[0]
+if not out[i].startswith("RESUME: Integrate and run every criterion"):
+    sys.stderr.write("resume is not the bounce step: %s\n" % out[i])
+    sys.exit(1)
+following = out[i + 1] if i + 1 < len(out) else ""
+if following != quote:
+    sys.stderr.write("resume does not quote the posted bounce\nposted: %s\nresume: %s\n" % (quote, following))
+    sys.exit(1)
+' || fail "preflight did not quote the bounce posted on #$n"
+}
+
+scenario_advancebouncedkeepserrors() {
+  local before code body
+  setup_checked_commands "$(twenty_nine_line_check)"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a red merge check should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
+  body="$(bounced_comment 61)"
+  excerpt_has_name "$body" test_price_rounds \
+    || fail "ticket.bounced drops the test name on line 10 of a 29-line check"
+  assert_resume_quotes_posted_bounce 61
+}
+
+scenario_advancebouncedpercommand() {
+  local before code body
+  setup_checked_commands \
+    "python3 -c 'import sys; print(\"alpha\"+\"-line\"); sys.exit(1)'" \
+    "python3 -c 'import sys; print(\"beta\"+\"-line\"); sys.exit(3)'"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "two red checks should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
+  body="$(bounced_comment 61)"
+  MMW_BODY="$body" python3 -c '
+import os, sys
+body = os.environ["MMW_BODY"]
+prose = body.split("<!--", 1)[0]
+lines = prose.splitlines()
+first = lines[0] if lines else ""
+at = first.find("Failed checks:")
+if at < 0:
+    sys.stderr.write("the bounce line has no Failed checks: token:\n%s\n" % first)
+    sys.exit(1)
+quote = first[at:]
+for token in ("sys.exit(1)", "sys.exit(3)"):
+    if token not in quote:
+        sys.stderr.write("Failed checks line omits %r:\n%s\n" % (token, quote))
+        sys.exit(1)
+
+def heading(token, other):
+    found = [i for i, line in enumerate(lines)
+             if i and token in line and other not in line]
+    if len(found) != 1:
+        sys.stderr.write("expected one paragraph heading for %s, saw %s\n%s\n" % (token, found, prose))
+        sys.exit(1)
+    return found[0]
+
+h1 = heading("sys.exit(1)", "sys.exit(3)")
+h2 = heading("sys.exit(3)", "sys.exit(1)")
+if lines[h1 - 1] != "" or lines[h2 - 1] != "":
+    sys.stderr.write("a command heading does not start its own paragraph:\n%s\n" % prose)
+    sys.exit(1)
+if "alpha-line" not in lines[h1 + 1:h2]:
+    sys.stderr.write("the first command'"'"'s output is not in its paragraph:\n%s\n" % prose)
+    sys.exit(1)
+if "beta-line" not in lines[h2 + 1:]:
+    sys.stderr.write("the second command'"'"'s output is not in its paragraph:\n%s\n" % prose)
+    sys.exit(1)
+' || fail "the bounce text does not give each command its own paragraph"
+  assert_resume_quotes_posted_bounce 61
+}
+
+scenario_advancebouncedsavesoutput() {
+  local before code body log
+  setup_checked_commands "$(twenty_nine_line_check)"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a red merge check should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
+  log="$(wt 61)/.scratch/checks/61/1.log"
+  [ -f "$log" ] || fail "the full check output is not at $log"
+  [ "$(sed -n '10p' "$log")" = "test_price_rounds" ] \
+    || fail "line 10 of the saved output is '$(sed -n '10p' "$log")'"
+  [ "$(grep -c . "$log" | tr -d ' ')" = 29 ] \
+    || fail "the saved output is not the full 29 lines: $(grep -c . "$log")"
+  body="$(bounced_comment 61)"
+  printf '%s\n' "$body" | grep -q '.scratch/checks/61/1.log' \
+    || fail "ticket.bounced does not name the saved output: $body"
+  assert_resume_quotes_posted_bounce 61
 }
 
 scenario_advancechecksonce() {
@@ -9952,7 +10127,7 @@ JSON
 
 # The installer's scenarios, run by mmw-v3/tests/install/run.sh as `test_dispatch.sh install`.
 INSTALL="installtakesover installrollback installzshrc installcheckhandover installorca installboardagent installcheckboardagent installtoolguard installkeepsnewestbackup installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome memory-install"
-ALL="memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedpercommand advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-start"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memory-closing-unavailable memorylist"

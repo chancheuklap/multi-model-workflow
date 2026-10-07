@@ -17,6 +17,7 @@ import {
   MAX_AUTOMATIC_EVIDENCE_CHARS, MAX_CHECK_OUTPUT_BYTES, automaticEvidencePrefix,
   formatDocument, gateDefinitionDigest, gateState, parseGates, qualify, readLedger, sha256,
 } from "./lib/gates.mjs";
+import { failureOutput } from "./lib/failure-lines.mjs";
 import { terminateProcessTree } from "./lib/process-tree.mjs";
 
 const HELP = `usage: gate-check.mjs [--reverify] [--timeout S] [--cwd DIR] file ...
@@ -145,8 +146,6 @@ const pathEvidence = sha256(pathValue).slice(0, 12) + "/" +
   (pathValue ? pathValue.split(delimiter).length : 0) + " entries";
 const TICKET_RE = /^[0-9]+$/;
 const GATE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const ERROR_LINE_RE = /error|fail|assert|exception|traceback/i;
-const PATH_LINE_RE = /(?:^|[\s"'`(])(?:[\w.+@-]+\/)*[\w.+@-]+\.[A-Za-z][\w]*:\d+\b/;
 function criterionFolder() {
   const ticket = String(process.env.MMW_TICKET || "");
   if (!TICKET_RE.test(ticket)) return null;
@@ -402,54 +401,6 @@ function printRawTail(output) {
       .replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
     process.stdout.write("       " + kept + "\n");
   }
-}
-
-// Error lines and path:line lines, in the order they appeared, then the last two
-// lines. When that does not fit, path:line lines and the last two lines keep their
-// place and error lines fill what remains. The cut names how many lines were left
-// out and where the whole output was written.
-function failureOutput(output, max = 480, logPath = null) {
-  const hide = (text) => text.replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
-  const lines = String(output).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (!lines.length) return hide("(no output)".slice(0, max));
-  const indexed = lines.map((line, index) => ({
-    line, index,
-    error: ERROR_LINE_RE.test(line),
-    path: PATH_LINE_RE.test(line),
-  }));
-  const reserved = [];
-  const reservedAt = new Set();
-  const reserve = (item) => {
-    if (reservedAt.has(item.index)) return;
-    reservedAt.add(item.index);
-    reserved.push(item);
-  };
-  for (const item of indexed) if (item.path) reserve(item);
-  for (const item of indexed.slice(-2)) reserve(item);
-  let errors = indexed.filter((item) => item.error && !reservedAt.has(item.index));
-  let tails = reserved.filter((item) => !item.path);
-  const render = (errorItems, tailItems, withSuffix) => {
-    const body = [...errorItems, ...reserved.filter((item) => item.path || tailItems.includes(item))];
-    body.sort((a, b) => a.index - b.index);
-    const omitted = lines.length - body.length;
-    const suffix = withSuffix && omitted > 0
-      ? " | +" + omitted + " more" + (logPath ? " | " + logPath : "")
-      : "";
-    return body.map((item) => item.line).join(" | ") + suffix;
-  };
-  const plain = render(errors, tails, false);
-  if (plain.length <= max) return hide(plain);
-  let summary = render(errors, tails, true);
-  while (summary.length > max && errors.length) {
-    errors = errors.slice(0, -1);
-    summary = render(errors, tails, true);
-  }
-  while (summary.length > max && tails.length) {
-    tails = tails.slice(0, -1);
-    summary = render(errors, tails, true);
-  }
-  if (summary.length > max) summary = summary.slice(0, max);
-  return hide(summary);
 }
 
 function evidenceFor(result) {

@@ -779,7 +779,7 @@ class TestTargetJsonChecks(unittest.TestCase):
             write_checks(root, commands)
             return vt.run_target_json_checks(root, into)
 
-    def test_each_failure_carries_its_command_and_last_twenty_lines(self):
+    def test_each_failure_carries_its_command_exit_and_excerpt(self):
         result = self.run_checks_in([
             "python3 -c \"import sys; [print(i) for i in range(1, 26)]; sys.exit(1)\"",
             "python3 -c \"raise SystemExit(2)\"",
@@ -789,7 +789,119 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(len(result["failed"]), 2)
         self.assertIn("raise SystemExit(2)", result["failed"][1]["command"])
         tail = result["failed"][0]["tail"].splitlines()
-        self.assertEqual((tail[0], tail[-1], len(tail)), ("6", "25", 20))
+        self.assertEqual((tail[0], tail[-1], len(tail)), ("1", "25", 25))
+        self.assertEqual(result["failed"][0]["exit"], 1)
+        self.assertEqual(result["failed"][1]["exit"], 2)
+
+    def test_an_early_error_line_is_kept_ahead_of_the_tail(self):
+        lines = ["AssertionError: price"] + [f"noise-{i}" for i in range(1, 41)]
+        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
+        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
+        tail = result["failed"][0]["tail"].splitlines()
+        self.assertIn("AssertionError: price", tail)
+        self.assertNotIn("noise-2", tail)
+        self.assertIn("noise-40", tail)
+        self.assertNotIn("noise-10", tail)
+
+    def test_only_ten_error_lines_are_kept_before_the_tail(self):
+        lines = [f"error-{i}" for i in range(1, 13)] + [f"noise-{i}" for i in range(1, 41)]
+        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
+        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
+        tail = result["failed"][0]["tail"].splitlines()
+        self.assertIn("error-1", tail)
+        self.assertIn("error-10", tail)
+        self.assertNotIn("error-11", tail)
+        self.assertNotIn("error-12", tail)
+        self.assertNotIn("noise-1", tail)
+        self.assertIn("noise-40", tail)
+
+    def test_the_saved_log_keeps_the_markers_the_excerpt_hides(self):
+        source = "import sys; print('error STORY OK'); print('JOURNEY OK'); sys.exit(1)"
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            write_checks(root, ["python3 -c " + json.dumps(source)])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
+        self.assertIn("STORY OK", log)
+        self.assertNotIn("STORY OK", result["failed"][0]["tail"])
+        self.assertNotIn("JOURNEY OK", result["failed"][0]["tail"])
+        self.assertIn("error", result["failed"][0]["tail"])
+        self.assertEqual(result["failed"][0]["log"], ".scratch/checks/61/1.log")
+
+    def test_a_missing_worktree_is_not_created_for_the_log(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing = root / "absent"
+            write_checks(root, ["python3 -c \"import sys; sys.exit(1)\""])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=missing, ticket=61)
+            prose = vt.checks_bounce_prose(result["failed"])
+        self.assertFalse(missing.exists())
+        self.assertNotIn("log", result["failed"][0])
+        self.assertIn("the full output was not saved", prose["rest"])
+        self.assertIn(str(missing), prose["rest"])
+
+    def test_a_log_that_cannot_be_written_names_the_os_error(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            (work / ".scratch").write_text("not a directory", encoding="utf-8")
+            write_checks(root, ["python3 -c \"import sys; sys.exit(1)\""])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            prose = vt.checks_bounce_prose(result["failed"])
+        self.assertNotIn("log", result["failed"][0])
+        self.assertFalse((work / ".scratch" / "checks").exists())
+        self.assertIn("the full output was not saved", prose["rest"])
+        self.assertIn("Not a directory", prose["rest"])
+
+    def test_the_posted_comment_stays_inside_the_limit_events_builds(self):
+        source = "import sys; sys.stdout.write('x' * 100000); sys.exit(1)"
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            write_checks(root, ["python3 -c " + json.dumps(source)])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
+        self.assertGreaterEqual(len(log), 100000)
+        self.assertGreaterEqual(len(result["failed"][0]["tail"]), 100000)
+        huge = vt.checks_bounce_prose(result["failed"], prefix_len=400)
+        huge_body = self.bounce_comment(huge, "p" * 400)
+        prose, _, _block = huge_body.partition("<!--")
+        self.assertLessEqual(len(huge_body), vt.COMMENT_BODY_LIMIT)
+        self.assertNotIn("x" * 80, prose)
+        self.assertNotIn("x" * 80, huge["commands"][0]["tail"])
+        self.assertIn(result["failed"][0]["log"], huge_body)
+
+        line = "n" * 200
+        filled = vt.checks_bounce_prose(
+            [{"command": "python3 -c 'print(1)'", "tail": "\n".join([line] * 500),
+              "exit": 1, "log": ".scratch/checks/61/1.log"}],
+            prefix_len=80,
+        )
+        filled_body = self.bounce_comment(filled, "p" * 80)
+        self.assertLessEqual(len(filled_body), vt.COMMENT_BODY_LIMIT)
+        self.assertLess(filled["rest"].count(line), 500)
+        self.assertIn(".scratch/checks/61/1.log", filled_body)
+
+    def bounce_comment(self, prose, prefix):
+        """The comment `events.build` writes for this bounce prose."""
+        return vt.events.build(
+            "ticket.bounced",
+            ticket=10**9,
+            spec=10**9,
+            actor="main",
+            stage="land",
+            at="2026-01-01T00:00:00Z",
+            line=prefix + f" Failed checks: {prose['summary']}.",
+            text=prose["rest"],
+            reason="checks",
+            commit="f" * 40,
+            into="x" * 80,
+            commands=prose["commands"],
+        )
 
     def test_checks_see_mmw_base_ref(self):
         result = self.run_checks_in([

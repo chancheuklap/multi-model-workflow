@@ -435,6 +435,37 @@ class TestResume(unittest.TestCase):
         ])
         self.assertIn("RESUME: Integrate and run every criterion, then Run every criterion one final time onward (ticket.returned)", out)
 
+    def test_resume_quotes_failed_checks(self):
+        failed = "Failed checks: python3 -c 'import sys; sys.exit(1)' exit 1."
+        line = ("Tried to merge issue-77 into origin/main at " + "a" * 40
+                + " and handed it to triage. No sibling landing after this ticket "
+                + "started was found. " + failed)
+        out = self.resume([
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("ticket.bounced", line, ticket=77, reason="checks", commit="b" * 40),
+        ])
+        lines = out.splitlines()
+        resume = next(i for i, row in enumerate(lines) if row.startswith("RESUME:"))
+        self.assertEqual(
+            lines[resume],
+            "RESUME: Integrate and run every criterion, then Run every criterion one final time onward (ticket.bounced)",
+        )
+        following = lines[resume + 1] if resume + 1 < len(lines) else ""
+        self.assertEqual(following, failed)
+
+    def test_a_conflict_bounce_adds_no_failed_checks_line(self):
+        out = self.resume([
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("ticket.bounced", "Tried to merge and handed it to triage. Conflicted files: shared.txt.",
+                  ticket=77, reason="conflict", commit="b" * 40),
+        ])
+        lines = out.splitlines()
+        resume = next(i for i, row in enumerate(lines) if row.startswith("RESUME:"))
+        self.assertTrue(lines[resume].endswith("(ticket.bounced)"))
+        self.assertFalse(any(row.startswith("Failed checks:") for row in lines))
+
 
 if __name__ == "__main__":
     unittest.main()
