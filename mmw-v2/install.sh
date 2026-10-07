@@ -19,6 +19,12 @@
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
 # install 摘掉，--check 报残留。
 #
+# mmw-v3/install.sh 装过的机器，在装着的 checkout 里跑一次本脚本就退回本版：指向 mmw-v3/skills/
+# 的技能软链同名的原地改指这里，本版没有的摘掉；~/.claude/CLAUDE.md 从 mmw-v3/prompt/ 改指这里；
+# mmw-v3 挂在 SessionStart 上的 mode-hook.py 由 hook 一段的清扫摘掉；mmw-v3 往
+# ~/.mmw/models.json 补的 researcher、explainer、synthesizer 三行摘掉（原文件留一份 .bak-）；
+# installed-root 记回本目录。前提是装着的 checkout 里还有 mmw-v2/，而且没有开着的夜。
+#
 # 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
 # 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
 # 装法完全一样。
@@ -54,9 +60,11 @@ LIST="$ROOT/skills.txt"
 # 一条软链是不是本仓库装的：目标落在本仓库任一 checkout（主 checkout 或某个 worktree）
 # 的对应 source directory 里，按路径段认。ADR 0006 说的「指回本仓库」是仓库，不是某一个
 # checkout：从哪个 checkout 运行本脚本，哪个 checkout 的 source directory 就接管这批软链。
+# mmw-v3/install.sh 装的软链也认：退回本版时由它接管（见文件头）。
 ours_skill_target() {
   case "$1" in
-    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/*) return 0 ;;
+    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/* \
+      | */mmw-v3/skills/*) return 0 ;;
   esac
   return 1
 }
@@ -913,6 +921,9 @@ link_prompt() {
     if [ "$(readlink "$link")" = "$want" ]; then return 0; fi
     case "$(readlink "$link")" in
       */mmw-v2/prompt/*) [ "$mode" = check ] || ln -sfn "$want" "$link"; return 0 ;;
+      */mmw-v3/prompt/*)
+        if [ "$mode" = check ]; then echo "缺    $link 指向 mmw-v3 的提示词，跑一次 install.sh 改指本版" >&2; return 1; fi
+        ln -sfn "$want" "$link"; return 0 ;;
       *) echo "冲突  $link 是软链但不指回本仓库，跳过" >&2; return 1 ;;
     esac
   fi
@@ -1187,9 +1198,35 @@ def merge_providers(data):
     return data
 
 
+# mmw-v3/install.sh 给 models.json 补的三个角色，本版不认，留着整份配置就读不进来。
+# 只摘这三行，别的行与字段一字不动；原文件留一份 .bak-。
+V3_ROLES = ("researcher", "explainer", "synthesizer")
+
+
+def drop_v3_rows(path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return []
+    rows = data.get("rows") if isinstance(data, dict) else None
+    extra = [role for role in V3_ROLES if isinstance(rows, dict) and role in rows]
+    if not extra:
+        return []
+    if mode == "check":
+        sys.stderr.write(f"残留  {path} 里 {'、'.join(extra)} 是 mmw-v3 加的行，跑一次 install.sh 摘掉\n")
+        sys.exit(1)
+    for role in extra:
+        del rows[role]
+    save(path, data)
+    return extra
+
+
 failed = False
 try:
     config_file = models.models_json_path()
+    dropped_rows = drop_v3_rows(config_file)
+    if dropped_rows:
+        print(f"摘掉  {config_file} 里 mmw-v3 加的行：{'、'.join(dropped_rows)}")
     legacy_file = config_file.with_name("models.md")
     if mode != "check":
         installed = models.install_local_config(legacy_file)

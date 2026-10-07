@@ -247,7 +247,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <tr><th><code>installed-root</code> 记的是 v2</th><td>记的是 v3；接着跑 <code>--check</code> 返回 0，打印 HOOKS-INSTALLED</td></tr>
 </tbody></table></div>
 <p>两个 launchd 任务的 plist 内容变了，安装器先停掉旧任务再装上新的（v2 就是这样写的）；测试里只写 plist、不碰 launchctl，所以这一步在真机上的效果是读代码得出的 <span class="inf">归纳</span>。v3 的 supervisor 用同一份 <code>~/.mmw/boards.json</code>，各仓库的端口不变。</p>
-<p><b>反过来不是一条命令。</b>装完 v3 之后再跑 v2 的 <code class="c k-script">install.sh</code>，它认不出指向 <code>mmw-v3/</code> 的软链是「本仓库装的」，会报「冲突」并跳过（<code class="c k-script">mmw-v2/install.sh</code> 第 220、916 行）。这是读代码得出的，没跑 <span class="inf">归纳</span>。要能一条命令退回 v2，得另做；做不做由你定（第 9 节）。</p>
+<p><b>反过来不是一条命令。</b>装完 v3 之后再跑 v2 的 <code class="c k-script">install.sh</code>，它认不出指向 <code>mmw-v3/</code> 的软链是「本仓库装的」，会报「冲突」并跳过（<code class="c k-script">mmw-v2/install.sh</code> 第 220、916 行）。这是读代码得出的，没跑 <span class="inf">归纳</span>。要能一条命令退回 v2，得另做；做不做由你定（第 9 节）。（后来：已做。在装着的 checkout 里跑一次 <code class="c k-script">bash mmw-v2/install.sh</code> 就退回 v2，另要摘掉 v3 给 <code>models.json</code> 补的三行；见 <code>docs/adr/0036-rollback-to-v2-is-one-install.md</code>。）</p>
 
 <h2>5　mode 怎样进会话</h2>
 <figure>
@@ -299,7 +299,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <h2>9　还没做的</h2>
 <ol>
 <li>在已安装的 checkout 里跑 <code>bash mmw-v3/install.sh</code>，就是换成 v3。跑不跑、什么时候跑，由你定；前提是那个 checkout 已经移到含 v3 的提交。</li>
-<li>退回 v2 现在不是一条命令（第 4 节）。要做的话，是让 v2 的安装器也认得指向 <code>mmw-v3/</code> 的软链，并摘掉 SessionStart 那条钩子；要不要做，由你定。</li>
+<li>退回 v2 现在不是一条命令（第 4 节）。要做的话，是让 v2 的安装器也认得指向 <code>mmw-v3/</code> 的软链，并摘掉 SessionStart 那条钩子；要不要做，由你定。（后来：已做。在装着的 checkout 里跑一次 <code class="c k-script">bash mmw-v2/install.sh</code> 就退回 v2，另要摘掉 v3 给 <code>models.json</code> 补的三行；见 <code>docs/adr/0036-rollback-to-v2-is-one-install.md</code>。）</li>
 <li><code>mmw-v2/</code> 在 v3 装上之前不能从仓库里删：已安装的 checkout 一移到没有 <code>mmw-v2/</code> 的提交，本机所有软链就断了 <span class="inf">归纳</span>。</li>
 <li>根目录的 <code>AGENTS.md</code> 还在描述 v2。（后来：已改，见<a href="0019-the-six-decisions-landed.html">第 19 课</a>。）</li>
 </ol>

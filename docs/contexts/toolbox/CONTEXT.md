@@ -23,7 +23,7 @@ _Home_: `docs/adr/0015-no-custom-subagents.md`
 ### Places
 
 **MMW**:
-This toolbox (the toolbox): the skills the user shares across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a dispatched worker → a closed ticket) and the task board. Only `mmw-v3/` is live; `mmw-v2/` and `archive/` (earlier generations), `deprecated/` (what v2 retired) and `docs/research/code-landing-refs/` (read-only snapshots of third-party repositories) are kept for history, and the rest of `docs/research/` holds research notes a spec may cite.
+This toolbox (the toolbox): the skills the user shares across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a dispatched worker → a closed ticket) and the task board. Only `mmw-v3/` is live; `mmw-v2/` and `archive/` (earlier generations), `deprecated/` (what v2 retired) and `docs/research/code-landing-refs/` (read-only snapshots of third-party repositories) are kept for history, and the rest of `docs/research/` holds research notes a spec may cite. `mmw-v2/install.sh` is also the way back from v3 to v2 (ADR 0036).
 _Home_: `AGENTS.md`
 
 **consuming repository**:

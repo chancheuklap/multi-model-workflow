@@ -6256,6 +6256,77 @@ PY
   [ ! -s "$TMP/hook.out" ] || fail "a repository without .mmw/ gets no context: $(cat "$TMP/hook.out")"
 }
 
+scenario_installrollback() {
+  local home="$TMP/install-home" v3 v2 v2_installer name link saved="$TMP/models.json.before-rollback"
+  echo "--- mmw-v2's install.sh over what this install.sh installed takes the machine back to mmw-v2"
+  v3="$(dirname "$(dirname "$HERE")")"
+  v2="$(dirname "$v3")/mmw-v2"
+  v2_installer="$v2/install.sh"
+  [ -f "$v2_installer" ] || { fail "no mmw-v2 install.sh beside this mmw-v3: $v2_installer"; return; }
+  cp "$MMW_HOME/models.json" "$saved"
+  rm -rf "$home"
+  mkdir -p "$home/.claude" "$home/.codex" "$home/.agents/skills" "$TMP/elsewhere/surge"
+  ln -s "$TMP/elsewhere/surge" "$home/.agents/skills/surge"
+  cat > "$home/.claude/settings.json" <<'JSON'
+{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"someone-elses-start","timeout":5}]}]}}
+JSON
+  seed_orca_projects 1 .worktrees show
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "install of mmw-v3 failed: $(cat "$TMP/err")"; return; }
+  python3 -c 'import json,sys; assert "researcher" in json.load(open(sys.argv[1]))["rows"]' "$MMW_HOME/models.json" \
+    || fail "mmw-v3's models.json should hold its researcher row, or this scenario proves nothing"
+
+  (env -u CODEX_HOME -u PI_CODING_AGENT_DIR -u PI_HOME MMW_V2_HOME="$home" MMW_HOST_CATALOG="$v2/tests/dispatch/catalog.json" \
+    bash "$v2_installer" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  [ "$(cat "$TMP/code")" = 0 ] || fail "mmw-v2's install over mmw-v3 failed: $(cat "$TMP/err")"
+  for link in "$home/.agents/skills/dispatch" "$home/.claude/skills/dispatch" "$home/.agents/skills/tdd"; do
+    case "$(readlink "$link")" in
+      "$v2"/*) ;;
+      *) fail "$link should point back into mmw-v2: $(readlink "$link")" ;;
+    esac
+  done
+  for name in mmw-mode principle-prove-it-works how; do
+    [ -L "$home/.agents/skills/$name" ] && fail "$name is a skill only mmw-v3 has and should be removed"
+  done
+  [ "$(readlink "$home/.agents/skills/surge")" = "$TMP/elsewhere/surge" ] \
+    || fail "another tool's skill link must not be touched"
+  [ "$(readlink "$home/.claude/CLAUDE.md")" = "$v2/prompt/shared.md" ] \
+    || fail "CLAUDE.md should point back at mmw-v2's shared.md: $(readlink "$home/.claude/CLAUDE.md")"
+  [ "$(readlink "$home/.claude/rules/mmw-claude.md")" = "$v2/prompt/hosts/claude.md" ] \
+    || fail "mmw-v2's Claude-only prompt link should be back"
+  [ "$(cat "$home/.mmw/installed-root")" = "$v2" ] \
+    || fail "installed-root should name mmw-v2: $(cat "$home/.mmw/installed-root")"
+  python3 - "$home/.claude/settings.json" "$home/.codex/hooks.json" "$MMW_HOME/models.json" <<'PY' \
+    || fail "the hooks or models.json were not taken back"
+import json, sys
+claude, codex, models = (json.load(open(p)) for p in sys.argv[1:])
+for config in (claude, codex):
+    commands = [h["command"] for groups in config["hooks"].values() for g in groups for h in g["hooks"]]
+    assert not any("mode-hook.py" in c for c in commands), commands
+    assert any("tool-guard.py' pretool" in c for c in commands), commands
+start = [h["command"] for g in claude["hooks"]["SessionStart"] for h in g["hooks"]]
+assert start == ["someone-elses-start"], start
+assert sorted(models["rows"]) == ["advisor", "junior-worker", "reviewer", "senior-worker"], models["rows"]
+PY
+  ls "$MMW_HOME/models.json.bak-"* >/dev/null 2>&1 || fail "the models.json mmw-v3 left should be kept as a backup"
+
+  (env -u CODEX_HOME -u PI_CODING_AGENT_DIR -u PI_HOME MMW_V2_HOME="$home" MMW_HOST_CATALOG="$v2/tests/dispatch/catalog.json" \
+    bash "$v2_installer" --check > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  grep -E '^(缺|残留|冲突)' "$TMP/err" && fail "mmw-v2's --check after the rollback still finds something to fix"
+  grep -qx 'HOOKS-INSTALLED' "$TMP/out" || fail "mmw-v2's --check did not report HOOKS-INSTALLED: $(cat "$TMP/out")"
+
+  echo "--- this install.sh over the rolled-back machine takes it over again"
+  # The three rows the rollback dropped come back from hosts.json's defaults on a real
+  # machine; this suite's catalog does not offer those models, so start from the fixture.
+  cp "$saved" "$MMW_HOME/models.json"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install of mmw-v3 after the rollback failed: $(cat "$TMP/err")"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || fail "--check after switching forward again failed: $(cat "$TMP/err")"
+  mv "$saved" "$MMW_HOME/models.json"
+  rm -f "$MMW_HOME/models.json.bak-"*
+}
+
 scenario_installcheckhandover() {
   local home="$TMP/install-home" other="$TMP/installed-checkout/mmw-v3"
   echo "--- --check from a checkout that is not the installed one only hands over to the installed one's install.sh"
@@ -9803,7 +9874,7 @@ JSON
 }
 
 # The installer's scenarios, run by mmw-v3/tests/install/run.sh as `test_dispatch.sh install`.
-INSTALL="installtakesover installcheckhandover installorca installboardagent installcheckboardagent installtoolguard installkeepsnewestbackup installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome memory-install"
+INSTALL="installtakesover installrollback installcheckhandover installorca installboardagent installcheckboardagent installtoolguard installkeepsnewestbackup installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome memory-install"
 ALL="memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open opentakeover openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-start"

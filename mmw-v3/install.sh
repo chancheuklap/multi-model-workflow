@@ -27,7 +27,8 @@
 # 本仓库装过、这次不装的东西，install 摘掉，--check 报残留：指回 mmw-v2 的技能软链（skills/ 下
 # 没有的那些）、~/.claude/rules/mmw-claude.md、Pi 的两个扩展文件与生成的 AGENTS.md、本仓库在
 # host 配置里写过这次不装的 hook。mmw-v2 装过、这里同名再装的，原地换成指向本 checkout：所以
-# 从 mmw-v2 换到这一份，就是在装着的 checkout 里跑一次本脚本。
+# 从 mmw-v2 换到这一份，就是在装着的 checkout 里跑一次本脚本。反过来，在同一个 checkout 里跑一次
+# bash mmw-v2/install.sh 就退回 mmw-v2（ADR 0036）。
 #
 # 软链不是拷贝：host 读的就是仓库里那个文件。在用技能的当中直接改 mmw-v3/skills/ 下的
 # SKILL.md，下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是 host 启动时扫的，
