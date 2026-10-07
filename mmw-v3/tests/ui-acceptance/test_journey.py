@@ -230,7 +230,11 @@ class JourneyOrder(unittest.TestCase):
             "demo", "echo first-of-script >&2\necho last-of-script >&2\nexit 7")
         code, out, _ = self.repo.run("demo")
         self.assertEqual(code, 1, out)
-        self.assertEqual(out, "JOURNEY FAILED demo at last-of-script\n")
+        failed_at = out.find("JOURNEY FAILED demo at last-of-script")
+        self.assertGreater(failed_at, 0, out)
+        before = out[:failed_at]
+        self.assertIn("first-of-script", before)
+        self.assertIn("last-of-script", before)
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "stop"])
 
@@ -239,10 +243,10 @@ class JourneyOrder(unittest.TestCase):
         self.repo.write_journey(
             "demo", "echo last-of-script >&2\nexit 7")
         code, out, err = self.repo.run("demo")
-        self.assertEqual(code, 1, err)
-        self.assertEqual(out, "JOURNEY FAILED demo at last-of-script\n")
-        self.assertNotIn("Traceback", err)
-        self.assertNotIn("CompletedProcess", err)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("JOURNEY FAILED demo at last-of-script", out)
+        self.assertNotIn("Traceback", out + err)
+        self.assertNotIn("CompletedProcess", out + err)
 
     def test_start_failure_is_exit_2_and_prints_the_refusal_unchanged(self):
         self.repo.write_stack(start="echo Gateway points elsewhere >&2\nexit 1")
@@ -354,6 +358,232 @@ class JourneyOrder(unittest.TestCase):
         self.assertIn("must hold one JSON object", err)
         self.assertNotIn("Traceback", err)
         self.assertNotIn("AttributeError", err)
+
+
+class FailureReport(unittest.TestCase):
+    """A failed journey shows the script output the worker would otherwise lose."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+        self.repo.write_target()
+        self.repo.write_stack()
+
+    def test_a_failing_script_prints_its_whole_output(self):
+        self.repo.write_journey("demo", "\n".join([
+            "echo stdout-before",
+            "echo 'AssertionError: selector .missing waited 5000ms'",
+            "echo stdout-after",
+            "echo stderr-before >&2",
+            "echo stderr-after >&2",
+            "exit 7",
+        ]))
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 1, out + err)
+        failed_at = out.find("JOURNEY FAILED demo at ")
+        self.assertGreater(failed_at, 0, out)
+        before = out[:failed_at]
+        self.assertIn("stdout-before", before)
+        self.assertIn("AssertionError: selector .missing waited 5000ms", before)
+        self.assertIn("stdout-after", before)
+        self.assertIn("stderr-before", before)
+        self.assertIn("stderr-after", before)
+        self.assertIn("JOURNEY FAILED demo at stderr-after", out)
+        self.assertNotIn("JOURNEY OK", out + err)
+
+    def test_colour_codes_are_stripped(self):
+        self.repo.write_journey("demo", "\n".join([
+            'if [ -n "${FORCE_COLOR+x}" ]; then echo FORCE_COLOR=present; else echo FORCE_COLOR=absent; fi',
+            "printf '\\033[31mred failed\\033[0m\\n'",
+            "echo plain middle assertion",
+            "exit 1",
+        ]))
+        with mock.patch.dict(os.environ, {"FORCE_COLOR": "1"}, clear=False):
+            code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("FORCE_COLOR=absent", out)
+        self.assertNotIn("FORCE_COLOR=present", out)
+        self.assertIn("red failed", out)
+        self.assertIn("plain middle assertion", out)
+        self.assertNotIn("\x1b", out + err)
+        self.assertIn("JOURNEY FAILED demo at plain middle assertion", out)
+
+    def test_a_failure_names_the_data_dir(self):
+        marker = self.repo.root / ".mmw" / "data-dir"
+        self.repo.write_journey("demo", "\n".join([
+            f"printf %s \"$MMW_DATA_DIR\" > '{marker}'",
+            "echo last-of-script",
+            "exit 1",
+        ]))
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 1, out + err)
+        recorded = marker.read_text(encoding="utf-8")
+        self.assertTrue(recorded, "the script was not given MMW_DATA_DIR")
+        self.assertTrue(Path(recorded).is_dir(), recorded)
+        lines = out.splitlines()
+        failed = next(i for i, line in enumerate(lines) if line.startswith("JOURNEY FAILED demo at "))
+        self.assertGreater(len(lines), failed + 1, out)
+        self.assertIn(recorded, lines[failed + 1])
+        self.assertNotIn("JOURNEY OK", out)
+
+    def test_the_evidence_dir_is_given_and_listed(self):
+        stale = self.repo.root / ".scratch" / "journeys" / "demo" / "stale.png"
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(b"old")
+        self.repo.write_journey("demo", "\n".join([
+            'if [ -z "${MMW_EVIDENCE_DIR:-}" ]; then echo missing-evidence-dir; exit 1; fi',
+            'if [ -n "$(ls -A "$MMW_EVIDENCE_DIR" 2>/dev/null)" ]; then echo was-not-empty; exit 1; fi',
+            'printf %s "$MMW_EVIDENCE_DIR" > "$MMW_EVIDENCE_DIR/where.txt"',
+            'echo kept > "$MMW_EVIDENCE_DIR/note.txt"',
+            "echo assertion failed in the middle",
+            "exit 1",
+        ]))
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 1, out + err)
+        self.assertNotIn("missing-evidence-dir", out + err)
+        self.assertNotIn("was-not-empty", out + err)
+        expected = (self.repo.root / ".scratch" / "journeys" / "demo").resolve()
+        where = (expected / "where.txt").read_text(encoding="utf-8")
+        self.assertEqual(Path(where), expected)
+        after = out[out.find("JOURNEY FAILED demo at "):]
+        self.assertIn("where.txt", after)
+        self.assertIn("note.txt", after)
+        self.assertNotIn("stale.png", out)
+        self.assertFalse(stale.exists())
+
+    def test_an_empty_evidence_dir_is_said(self):
+        self.repo.write_journey("demo", "echo only-the-failure\nexit 1")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 1, out + err)
+        evidence = (self.repo.root / ".scratch" / "journeys" / "demo").resolve()
+        self.assertTrue(evidence.is_dir())
+        self.assertEqual([item for item in evidence.rglob("*") if item.is_file()], [])
+        said = [line for line in out.splitlines() if "references/journey.md" in line]
+        self.assertEqual(len(said), 1, out)
+        self.assertIn(str(evidence), said[0])
+        self.assertNotIn("JOURNEY OK", out + err)
+
+    def test_the_break_pass_prints_only_when_it_passes(self):
+        broken = self.repo.root / ".mmw" / "broken"
+        secret = "SECOND-PASS-OUTPUT-token"
+        self.repo.write_stack(start="\n".join([
+            'if [ -n "$MMW_BREAK" ]; then',
+            f"  touch '{broken}'",
+            '  echo "BREAK ARMED $MMW_BREAK"',
+            "else",
+            f"  rm -f '{broken}'",
+            "fi",
+        ]))
+        self.repo.write_journey("demo", "\n".join([
+            f"if [ -f '{broken}' ]; then echo {secret}; exit 1; fi",
+            "exit 0",
+        ]))
+        code, out, err = self.repo.run("demo", "--break", "PUT /api/settings")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out, "JOURNEY OK demo\n")
+        self.assertNotIn(secret, out + err)
+
+        first = "FIRST-PASS-TOKEN"
+        second = "SECOND-PASS-TOKEN"
+        self.repo.write_journey("demo", "\n".join([
+            f"if [ -f '{broken}' ]; then echo {second}; echo second-pass-last; exit 0; fi",
+            f"echo {first}",
+            "exit 0",
+        ]))
+        code, out, err = self.repo.run("demo", "--break", "PUT /api/settings")
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(second, out)
+        self.assertNotIn(first, out)
+        self.assertLess(out.find(second), out.find("JOURNEY GREEN WITH BREAK demo"))
+        self.assertIn("second-pass-last", out)
+        self.assertNotIn("JOURNEY OK", out)
+
+    def test_a_silent_start_failure_is_named(self):
+        marker = self.repo.root / ".mmw" / "data-dir"
+        command = self.repo.root / ".mmw" / "start.sh"
+        stale = self.repo.root / ".scratch" / "journeys" / "demo" / "stale.png"
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(b"old")
+        self.repo.write_stack(
+            start=f"printf %s \"$MMW_DATA_DIR\" > '{marker}'\nexit 1")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2, out + err)
+        text = out + err
+        named = [line for line in text.splitlines()
+                 if "start" in line.split() and str(command) in line and "1" in line.split()]
+        self.assertEqual(len(named), 1, text)
+        self.assertFalse(stale.exists(), "a failed start left the previous run's evidence")
+        self.assertIn("(no output)", text)
+        recorded = marker.read_text(encoding="utf-8")
+        self.assertTrue(recorded)
+        self.assertTrue(Path(recorded).is_dir(), recorded)
+        self.assertIn(recorded, text)
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_a_start_failure_names_the_command_before_its_stderr(self):
+        """A pipe that merges the two streams still shows the naming line first.
+
+        stdout here holds writes until flush, which is what a pipe does. stderr
+        lands immediately. Without a flush after the naming line, the command's
+        own stderr comes out ahead of it.
+        """
+        self.repo.write_stack(start="echo Gateway points elsewhere >&2\nexit 1")
+        chunks: list[str] = []
+
+        class Hold(io.TextIOBase):
+            def __init__(self, hold: bool):
+                self.hold = hold
+                self.buf: list[str] = []
+
+            def write(self, s: str) -> int:
+                if self.hold:
+                    self.buf.append(s)
+                else:
+                    chunks.append(s)
+                return len(s)
+
+            def flush(self) -> None:
+                if self.buf:
+                    chunks.append("".join(self.buf))
+                    self.buf.clear()
+
+        stdout, stderr = Hold(True), Hold(False)
+        here = Path.cwd()
+        os.chdir(self.repo.root)
+        try:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = jy.main(["run", "demo"])
+        finally:
+            os.chdir(here)
+            stdout.flush()
+        text = "".join(chunks)
+        self.assertEqual(code, 2, text)
+        header = text.find("start ")
+        heard = text.find("Gateway points elsewhere")
+        self.assertGreaterEqual(header, 0, text)
+        self.assertGreater(heard, header, text)
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_an_empty_discover_is_named(self):
+        marker = self.repo.root / ".mmw" / "data-dir"
+        command = self.repo.root / ".mmw" / "discover.sh"
+        self.repo.write_stack(
+            discover=f"printf %s \"$MMW_DATA_DIR\" > '{marker}'\nexit 0")
+        code, out, err = self.repo.run("demo")
+        self.assertEqual(code, 2, out + err)
+        text = out + err
+        named = [line for line in text.splitlines()
+                 if "discover" in line.split() and str(command) in line and "0" in line.split()]
+        self.assertEqual(len(named), 1, text)
+        self.assertIn("(no output)", text)
+        recorded = marker.read_text(encoding="utf-8")
+        self.assertTrue(recorded)
+        self.assertTrue(Path(recorded).is_dir(), recorded)
+        self.assertIn(recorded, text)
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
 
 
 class NegativeControl(unittest.TestCase):
@@ -468,7 +698,20 @@ class NegativeControl(unittest.TestCase):
 
         self.assertEqual(code, 0, out + err)
         first, _, second = seen.read_text(encoding="utf-8").partition("pass-end\n")
-        self.assertEqual(first, second.removesuffix("pass-end\n"))
+        second = second.removesuffix("pass-end\n")
+
+        def without_evidence(text: str) -> str:
+            return "".join(
+                line + "\n" for line in text.splitlines()
+                if not line.startswith("MMW_EVIDENCE_DIR=")
+            )
+
+        self.assertEqual(without_evidence(first), without_evidence(second))
+        first_evidence = next(
+            line for line in first.splitlines() if line.startswith("MMW_EVIDENCE_DIR="))
+        second_evidence = next(
+            line for line in second.splitlines() if line.startswith("MMW_EVIDENCE_DIR="))
+        self.assertEqual(second_evidence, first_evidence + "/break")
         for pass_environment in (first, second):
             self.assertNotIn(f"{break_key}=", pass_environment)
 
@@ -492,7 +735,7 @@ class NegativeControl(unittest.TestCase):
             f"echo script >> '{self.repo.log}'\necho last-of-script >&2\nexit 7")
         code, out, _ = self.repo.run("broken")
         self.assertEqual(code, 1, out)
-        self.assertEqual(out, "JOURNEY FAILED broken at last-of-script\n")
+        self.assertIn("JOURNEY FAILED broken at last-of-script", out)
         self.assertEqual(
             self.repo.log.read_text(encoding="utf-8").splitlines().count("script"), 1)
 
@@ -581,7 +824,7 @@ class FixtureRepo(unittest.TestCase):
         proc = self.run_fixture(root, "weak", "--break", "GET /result/{id}")
 
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
-        self.assertTrue(proc.stdout.startswith("JOURNEY GREEN WITH BREAK weak —"), proc.stdout)
+        self.assertIn("JOURNEY GREEN WITH BREAK weak —", proc.stdout)
         self.assertTrue((root / ".mmw" / "stop-ran").is_file())
 
     def test_the_committed_demo_passes_with_break(self):
