@@ -30,6 +30,15 @@ screen contract still carries a key the oracle no longer executes, the product s
 page hosts Claude Design runtime, the design page throws or does not mount, the design
 page renders no `data-ui` element, or compare hits an unexpected error.
 
+A `missing` or `extra` line appends the other side's size, parent and quoted text.
+A `visible` line appends the first reason that holds: `display:none`,
+`visibility:hidden`, `opacity:0`, `size 0`, or `clipped by an ancestor`. Text
+values are quoted. Exit 0 and exit 1 also print one `PIXEL` line per compared
+scene and viewport, after the verdict. That line does not contain `STORY OK` and
+does not change the exit code. Each screenshot is cropped to that side's component
+box and only the overlap is compared, so an identical pair is 0%. When the boxes
+differ, the line names both sizes.
+
 When the story service exits or stalls before printing origin, its last 15 output
 lines are printed and then the refusal. Those lines are not part of the refusal.
 A design-page failure names the scene, the design-page file, the URL and the first
@@ -55,6 +64,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import threading
 from pathlib import Path
 from typing import NamedTuple
@@ -98,6 +108,43 @@ DESIGN_TRACE_JS = """() => {
   if (document.getElementById('dc-root')) return 'dc-root';
   return null;
 }"""
+# Same element walk as UI_VALUES_JS. The values record only `visible`; the reason
+# stays beside that record so the JSON key set does not change.
+HIDDEN_REASON_JS = """(selector) => {
+  const root = document.querySelector(selector);
+  if (!root) return [];
+  const els = [];
+  if (root.hasAttribute('data-ui')) els.push(root);
+  for (const el of root.querySelectorAll('[data-ui]')) els.push(el);
+  const reasonOf = (el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none') return 'display:none';
+    if (cs.visibility === 'hidden') return 'visibility:hidden';
+    if (cs.opacity === '0') return 'opacity:0';
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return 'size 0';
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const pcs = getComputedStyle(p);
+      if (pcs.overflowX === 'visible' && pcs.overflowY === 'visible') continue;
+      const pr = p.getBoundingClientRect();
+      const ix = Math.min(r.right, pr.right) - Math.max(r.left, pr.left);
+      const iy = Math.min(r.bottom, pr.bottom) - Math.max(r.top, pr.top);
+      if (ix <= 0 || iy <= 0) return 'clipped by an ancestor';
+    }
+    return null;
+  };
+  return els.map(reasonOf);
+}"""
+# The screenshot is clipped to `selector`. The product selector is the component.
+# `#dc-root` is the design viewport, so the component is the first `[data-ui]` in it.
+COMPONENT_BOX_JS = """(selector) => {
+  const root = document.querySelector(selector);
+  if (!root) return null;
+  const el = root.hasAttribute('data-ui') ? root
+    : (root.querySelector('[data-ui]') || root);
+  const r = el.getBoundingClientRect();
+  return [r.x, r.y, r.width, r.height];
+}"""
 
 
 class ElementDifference(NamedTuple):
@@ -105,6 +152,7 @@ class ElementDifference(NamedTuple):
     property: str
     design: str | None = None
     product: str | None = None
+    note: str = ""
 
 
 def _ensure_script_env() -> None:
@@ -300,15 +348,18 @@ def element_differences(design: list[dict], product: list[dict]
         if uid in suppressed:
             continue
         if uid not in product_by_id:
-            differences.append(ElementDifference(uid, "missing"))
+            differences.append(ElementDifference(
+                uid, "missing", note=_other_side_facts(before)))
             continue
         after = product_by_id[uid]
         if not (before["visible"] and after["visible"]):
             if before["visible"] != after["visible"]:
+                hidden = before if not before["visible"] else after
                 differences.append(ElementDifference(
                     uid, "visible",
                     "yes" if before["visible"] else "no",
-                    "yes" if after["visible"] else "no"))
+                    "yes" if after["visible"] else "no",
+                    note=hidden.get("_reason") or ""))
             suppressed.update(_descendant_ids(design, uid))
             suppressed.update(_descendant_ids(product, uid))
             continue
@@ -333,8 +384,36 @@ def element_differences(design: list[dict], product: list[dict]
     for after in product:
         uid = after["id"]
         if uid not in suppressed and uid not in design_by_id:
-            differences.append(ElementDifference(uid, "extra"))
+            differences.append(ElementDifference(
+                uid, "extra", note=_other_side_facts(after)))
     return differences
+
+
+def _quote(value: str) -> str:
+    """Quote a text value so a space or ` product=` stays inside the value."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _other_side_facts(item: dict) -> str:
+    """Size, parent and quoted text of the side that does have the element."""
+    width, height = item["size"]
+    parent = item["ancestor"] or "null"
+    return f"size={width}x{height} parent={parent} text={_quote(item['text'])}"
+
+
+def _with_reasons(values: list[dict], reasons: list) -> list[dict]:
+    """Copies that carry the hidden reason beside the recorded facts.
+
+    The reason is not a field of the values JSON. Alignment copies each dict, so
+    the reason stays with its element when a lone id gains `#1`.
+    """
+    annotated = []
+    for index, item in enumerate(values):
+        copied = dict(item)
+        copied["_reason"] = reasons[index] if index < len(reasons) else None
+        annotated.append(copied)
+    return annotated
 
 
 def format_element_difference(mount: str, scene: str, viewport: str,
@@ -342,8 +421,17 @@ def format_element_difference(mount: str, scene: str, viewport: str,
     """The one public line for a structured element difference."""
     prefix = f"DIFF {mount} {scene} {viewport} {difference.uid} {difference.property}"
     if difference.design is None and difference.product is None:
-        return prefix
-    return f"{prefix} design={difference.design} product={difference.product}"
+        line = prefix
+    else:
+        design = difference.design
+        product = difference.product
+        if difference.property == "text":
+            design = _quote(design)
+            product = _quote(product)
+        line = f"{prefix} design={design} product={product}"
+    if difference.note:
+        return f"{line} {difference.note}"
+    return line
 
 
 def _align_repeated_ids(design: list[dict], product: list[dict]
@@ -534,6 +622,106 @@ def console_error_is_uncaught(text: str) -> bool:
     return len(lines) > 1 and any(line.lstrip().startswith("at ") for line in lines[1:])
 
 
+def hidden_reasons(page, selector: str) -> list:
+    """One hidden reason per `[data-ui]` element, in the values reader's order."""
+    return page.evaluate(HIDDEN_REASON_JS, selector)
+
+
+def component_box(page, selector: str, shot_box: tuple[int, int, int, int]
+                  ) -> tuple[int, int, int, int]:
+    """The component's box inside the screenshot, in CSS pixels."""
+    raw = page.evaluate(COMPONENT_BOX_JS, selector)
+    vx, vy, vw, vh = raw
+    sx, sy, _, _ = shot_box
+    return (int(round(vx - sx)), int(round(vy - sy)),
+            int(round(vw)), int(round(vh)))
+
+
+def _crop_png(png: Path, box: tuple[int, int, int, int]) -> Path:
+    from PIL import Image
+
+    x, y, w, h = box
+    with Image.open(png) as image:
+        x = max(0, x)
+        y = max(0, y)
+        right = min(image.width, x + max(0, w))
+        lower = min(image.height, y + max(0, h))
+        cropped = image.crop((x, y, right, lower))
+        handle = tempfile.NamedTemporaryFile(
+            prefix="mmw-crop-", suffix=".png", delete=False)
+        handle.close()
+        cropped.save(handle.name)
+        return Path(handle.name)
+
+
+def _png_size(path: Path) -> tuple[int, int]:
+    from PIL import Image
+
+    with Image.open(path) as image:
+        return image.width, image.height
+
+
+def _diff_facts(path: Path) -> tuple[str, str]:
+    """The integer percent of overlap pixels that differ, and their bounding box.
+
+    0 means no pixel differs. A difference smaller than half a percent is still
+    1, so a real difference is never reported as 0.
+    """
+    from PIL import Image
+
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+        box = rgb.getbbox()
+        if box is None:
+            return "0", ""
+        raw = rgb.tobytes()
+        differ = sum(1 for i in range(0, len(raw), 3)
+                     if raw[i] or raw[i + 1] or raw[i + 2])
+        total = rgb.width * rgb.height
+        percent = round(100 * differ / total) if total else 0
+        if differ and percent == 0:
+            percent = 1
+        x0, y0, x1, y1 = box
+        return str(percent), f"{x0},{y0},{x1 - x0},{y1 - y0}"
+
+
+def pixel_report(scene: str, design_png: Path, product_png: Path,
+                 design_box: tuple[int, int, int, int],
+                 product_box: tuple[int, int, int, int],
+                 diff_png: Path) -> str:
+    """Crop each side to its component box, compare the overlap, return the PIXEL line.
+
+    Measured 2026-10-08: padding the smaller screenshot with black made an identical
+    pair look about half different. The crop is here. `pixel_diff` still pads when
+    a caller hands it two unequal images directly.
+    """
+    crops: list[Path] = []
+    try:
+        design_crop = _crop_png(design_png, design_box)
+        crops.append(design_crop)
+        product_crop = _crop_png(product_png, product_box)
+        crops.append(product_crop)
+        design_size = _png_size(design_crop)
+        product_size = _png_size(product_crop)
+        overlap = (min(design_size[0], product_size[0]),
+                   min(design_size[1], product_size[1]))
+        left = _crop_png(design_crop, (0, 0, overlap[0], overlap[1]))
+        crops.append(left)
+        right = _crop_png(product_crop, (0, 0, overlap[0], overlap[1]))
+        crops.append(right)
+        pixel_diff(left, right, diff_png)
+        percent, bbox = _diff_facts(diff_png)
+    finally:
+        for path in crops:
+            path.unlink(missing_ok=True)
+    if design_size == product_size:
+        size = f"{design_size[0]}x{design_size[1]}"
+    else:
+        size = (f"{design_size[0]}x{design_size[1]} "
+                f"{product_size[0]}x{product_size[1]}")
+    return f"PIXEL {scene} {size} {percent}% bbox={bbox}"
+
+
 def write_console_errors(media: Path, scene: str, tag: str, errors: list[str]) -> None:
     """Console errors from the design page. They do not change the verdict."""
     path = media / f"{scene}-{tag}-console.txt"
@@ -644,6 +832,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
 
     pair_count = 0
     element_lines: list[str] = []
+    pixel_lines: list[str] = []
     controls: tuple[list[ElementDifference], list[ElementDifference]] | None = None
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
@@ -767,11 +956,18 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                         print(f"story evidence: {media}", file=sys.stderr)
                         return 2
                     pair_count += 1
-                    pixel_diff(base.png, impl.png,
-                               media / f"{scene.name}-{tag}-diff.png")
+                    design_reasons = hidden_reasons(design_page, "#dc-root")
+                    product_reasons = hidden_reasons(story_page, STORY_ROOT)
+                    pixel_lines.append(pixel_report(
+                        scene.name, base.png, impl.png,
+                        component_box(design_page, "#dc-root", base.box),
+                        component_box(story_page, STORY_ROOT, impl.box),
+                        media / f"{scene.name}-{tag}-diff.png"))
                     element_lines.extend(
                         format_element_difference(scene.mount, scene.name, tag, difference)
-                        for difference in element_differences(base.values, impl.values))
+                        for difference in element_differences(
+                            _with_reasons(base.values, design_reasons),
+                            _with_reasons(impl.values, product_reasons)))
                     if controls is None:
                         font_design = capture_design(
                             scene, viewport,
@@ -806,9 +1002,9 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
     if control_code == 2:
         code, lines = control_code, control_lines
     elif element_lines:
-        code, lines = 1, element_lines
+        code, lines = 1, [*element_lines, *pixel_lines]
     else:
-        code, lines = 0, [f"STORY OK {pair_count}/{pair_count}"]
+        code, lines = 0, [f"STORY OK {pair_count}/{pair_count}", *pixel_lines]
     for line in lines:
         print(line)
     if code:

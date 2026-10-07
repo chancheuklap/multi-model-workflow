@@ -164,7 +164,11 @@ class TestStoryFixture(unittest.TestCase):
     def test_three_equal_scenes_print_story_ok(self):
         proc = self.run_story()
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+        self.assertEqual(proc.stdout.strip(),
+                         "STORY OK 3/3\n"
+                         "PIXEL alpha 320x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
         self.assertNotIn("NEGATIVE CONTROL FAILED", proc.stdout)
 
     def test_a_13px_value_against_26px_is_one_font_size_line(self):
@@ -172,128 +176,195 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 metric font-size "
-                         "design=13px product=26px")
+                         "design=13px product=26px\n"
+                         "PIXEL alpha 320x200 1% bbox=16,88,26,21\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_an_element_moved_alone_is_one_position_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "move-alone"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 body position "
-                         "design=16,48 product=16,78")
+                         "design=16,48 product=16,78\n"
+                         "PIXEL alpha 320x200 3% bbox=15,53,133,47\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_block_moved_down_as_a_whole_is_no_diff(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "block-down"})
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+        self.assertEqual(proc.stdout.strip(),
+                         "STORY OK 3/3\n"
+                         "PIXEL alpha 320x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_moved_parent_is_one_position_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "move-parent"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 group position "
-                         "design=16,84 product=16,114")
+                         "design=16,84 product=16,114\n"
+                         "PIXEL alpha 320x200 1% bbox=16,94,13,41\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_sibling_pushed_by_a_taller_one_is_not_reported(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "taller-previous"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 title size "
-                         "design=288x24 product=288x54")
+                         "design=288x24 product=288x54\n"
+                         "PIXEL alpha 320x200 7% bbox=15,53,133,147\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_size_beyond_two_pixels_is_a_size_line(self):
         ten = self.run_story(extra_env={"STORY_MUTATE": "size-10"})
         self.assertEqual(ten.returncode, 1, ten.stderr + ten.stdout)
         self.assertEqual(ten.stdout.strip(),
                          "DIFF demo alpha 400x300 swatch size "
-                         "design=80x80 product=90x80")
+                         "design=80x80 product=90x80\n"
+                         "PIXEL alpha 320x200 1% bbox=96,114,10,80\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
         two = self.run_story(extra_env={"STORY_MUTATE": "size-2"})
         self.assertEqual(two.returncode, 0, two.stderr + two.stdout)
-        self.assertEqual(two.stdout.strip(), "STORY OK 3/3")
+        self.assertEqual(two.stdout.strip(),
+                         "STORY OK 3/3\n"
+                         "PIXEL alpha 320x200 1% bbox=96,114,2,80\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_an_element_the_product_lacks_is_missing(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "missing"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
-                         "DIFF demo alpha 400x300 metric missing")
+                         "DIFF demo alpha 400x300 metric missing "
+                         "size=30x30 parent=group text=\"13\"\n"
+                         "PIXEL alpha 320x200 1% bbox=16,94,13,11\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_an_element_only_the_product_has_is_extra(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "extra"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
-                         "DIFF demo alpha 400x300 product-only extra")
+                         "DIFF demo alpha 400x300 product-only extra "
+                         "size=38x22 parent=root text=\"extra\"\n"
+                         "PIXEL alpha 320x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_product_without_data_ui_reports_missing_elements(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "no-ids"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertNotIn("NEGATIVE CONTROL FAILED", proc.stdout)
-        self.assertIn("DIFF demo alpha 400x300 root missing", proc.stdout.splitlines())
+        self.assertTrue(any(
+            line.startswith("DIFF demo alpha 400x300 root missing")
+            for line in proc.stdout.splitlines()), proc.stdout)
 
     def test_a_wrapper_the_product_adds_is_no_diff(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "wrapper"})
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+        self.assertEqual(proc.stdout.strip(),
+                         "STORY OK 3/3\n"
+                         "PIXEL alpha 320x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_an_element_drawn_hidden_is_one_visible_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "hidden-parent"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 group visible "
-                         "design=yes product=no")
+                         "design=yes product=no visibility:hidden\n"
+                         "PIXEL alpha 320x200 1% bbox=16,94,13,11\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_an_element_under_another_parent_is_a_parent_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "other-parent"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 metric parent "
-                         "design=group product=root")
+                         "design=group product=root\n"
+                         "PIXEL alpha 320x200 1% bbox=16,94,13,11\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_changed_word_is_one_text_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "copy"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 body text "
-                         "design=Alpha scene copy product=Alpha scene COPY")
+                         "design=\"Alpha scene copy\" product=\"Alpha scene COPY\"\n"
+                         "PIXEL alpha 320x200 1% bbox=112,53,45,17\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_changed_weight_is_a_font_weight_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "weight"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 metric font-weight "
-                         "design=700 product=400")
+                         "design=700 product=400\n"
+                         "PIXEL alpha 320x200 1% bbox=16,94,13,11\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_changed_colour_is_a_color_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "color"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 body color "
-                         "design=rgb(26, 26, 26) product=rgb(255, 45, 85)")
+                         "design=rgb(26, 26, 26) product=rgb(255, 45, 85)\n"
+                         "PIXEL alpha 320x200 1% bbox=15,53,133,17\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_changed_background_is_a_background_color_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "background"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 root background-color "
-                         "design=rgb(244, 241, 236) product=rgb(255, 255, 255)")
+                         "design=rgb(244, 241, 236) product=rgb(255, 255, 255)\n"
+                         "PIXEL alpha 320x200 88% bbox=0,0,320,200\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_changed_radius_is_a_border_radius_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "radius"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 group border-radius "
-                         "design=0px product=8px")
+                         "design=0px product=8px\n"
+                         "PIXEL alpha 320x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_repeated_ids_pair_in_document_order(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "repeat-missing"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
-                         "DIFF demo alpha 400x300 repeat#3 missing")
+                         "DIFF demo alpha 400x300 repeat#3 missing "
+                         "size=11x24 parent=repeats text=\"R\"\n"
+                         "PIXEL alpha 320x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_repeated_ids_pair_in_document_order_when_product_has_one(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "repeat-one"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip().splitlines(), [
-            "DIFF demo alpha 400x300 repeat#2 missing",
-            "DIFF demo alpha 400x300 repeat#3 missing",
+            "DIFF demo alpha 400x300 repeat#2 missing "
+            "size=11x24 parent=repeats text=\"R\"",
+            "DIFF demo alpha 400x300 repeat#3 missing "
+            "size=11x24 parent=repeats text=\"R\"",
+            "PIXEL alpha 320x200 0% bbox=",
+            "PIXEL beta 320x200 0% bbox=",
+            "PIXEL gamma 320x200 0% bbox=",
         ])
 
     def test_a_pixel_only_difference_keeps_story_ok_and_writes_the_diff_image(self):
@@ -301,7 +372,11 @@ class TestStoryFixture(unittest.TestCase):
         self.addCleanup(shutil.rmtree, out, ignore_errors=True)
         proc = self.run_story(extra_env={"STORY_MUTATE": "pixel-only"}, out=out)
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+        self.assertEqual(proc.stdout.strip(),
+                         "STORY OK 3/3\n"
+                         "PIXEL alpha 320x200 1% bbox=16,180,10,10\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
         diff = out / "media" / "alpha-400x300-diff.png"
         self.assertTrue(diff.is_file(), f"missing {diff}")
         self.assertGreater(diff.stat().st_size, 0)
@@ -312,7 +387,9 @@ class TestStoryFixture(unittest.TestCase):
     def test_an_app_page_mount_is_compared(self):
         proc = self.run_story(pages="app")
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 1/1")
+        self.assertEqual(proc.stdout.strip(),
+                         "STORY OK 1/1\n"
+                         "PIXEL app 320x200 0% bbox=")
 
     def test_a_design_page_without_data_ui(self):
         out = Path(tempfile.mkdtemp(prefix="story-no-ui-"))
@@ -488,6 +565,36 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(design["text"], "Demo card")
         self.assertEqual(product["text"], "Demo card")
 
+    def test_a_missing_line_carries_the_other_side(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "missing"},
+                              extra_args=["--scenes", "alpha"])
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        line = next(item for item in proc.stdout.splitlines()
+                    if item.startswith("DIFF demo alpha 400x300 metric missing"))
+        self.assertIn("size=30x30", line)
+        self.assertIn("parent=group", line)
+        self.assertIn('text="13"', line)
+
+    def test_a_visible_line_names_why(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "display-none"},
+                              extra_args=["--scenes", "alpha"])
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        diff_lines = [line for line in proc.stdout.splitlines()
+                      if line.startswith("DIFF ")]
+        self.assertEqual(diff_lines, [
+            "DIFF demo alpha 400x300 metric visible "
+            "design=yes product=no display:none",
+        ])
+
+    def test_an_identical_pair_is_zero_pixel(self):
+        proc = self.run_story(extra_args=["--scenes", "alpha"])
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        lines = proc.stdout.splitlines()
+        self.assertIn("STORY OK 1/1", lines)
+        pixel = [line for line in lines if line.startswith("PIXEL ")]
+        self.assertEqual(pixel, ["PIXEL alpha 320x200 0% bbox="])
+        self.assertNotIn("STORY OK", pixel[0])
+
     def test_a_mount_the_contract_does_not_declare_exits_2(self):
         proc = self.run_story(pages="no-such-page")
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
@@ -541,7 +648,10 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 root size "
-                         "design=320x200 product=300x200")
+                         "design=320x200 product=300x200\n"
+                         "PIXEL alpha 320x200 300x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_page_with_its_own_viewports_is_compared_only_there(self):
         root = self.copied_fixture()
@@ -550,7 +660,11 @@ class TestStoryFixture(unittest.TestCase):
             "    mount: demo\n", "    mount: demo\n    viewports: [400x300]\n"))
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+        self.assertEqual(proc.stdout.strip(),
+                         "STORY OK 3/3\n"
+                         "PIXEL alpha 320x200 0% bbox=\n"
+                         "PIXEL beta 320x200 0% bbox=\n"
+                         "PIXEL gamma 320x200 0% bbox=")
 
     def test_a_contract_without_viewports_exits_2_naming_it(self):
         root = self.copied_fixture()
@@ -622,7 +736,9 @@ class TestStoryFixture(unittest.TestCase):
         compared = self.run_story(
             cwd=root, extra_args=["--scenes", "alpha"], out=out)
         self.assertEqual(compared.returncode, 0, compared.stderr + compared.stdout)
-        self.assertEqual(compared.stdout.strip(), "STORY OK 1/1")
+        self.assertEqual(compared.stdout.strip(),
+                         "STORY OK 1/1\n"
+                         "PIXEL alpha 320x200 4% bbox=0,2,148,198")
         product_aria = (out / "media" / "alpha-400x300-impl.aria.yml").read_text(
             encoding="utf-8")
         self.assertIn("en-US", product_aria)
