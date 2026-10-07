@@ -45,7 +45,9 @@ number is right to; a derived port leaking into it turns a correct suite red.
 #
 # A machine holds `SLOTS` leases. With every slot taken `claim` exits 4 and prints who
 # holds them, and the run that needed one reports its ticket blocked (the ui-acceptance
-# skill's rule 4): a machine that is full is not waited on.
+# skill's rule 4): a machine that is full is not waited on. A slot with no registry
+# record is not issued while a port of its block is listening. When none can be issued,
+# the refusal and the exit-4 JSON name each slot's holder.
 #
 # `claim` is atomic against other acquirers: the count and the take happen under one lock on
 # the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
@@ -289,6 +291,22 @@ def busy(slot: int) -> tuple[int, int] | None:
     return None
 
 
+def foreign_holder(slot: int) -> str | None:
+    """Who listens on an unregistered slot, or None when the block is quiet.
+
+    The registry has no record for this slot, so the listener is not a lease.
+    `pid` is what a reader can check. When this machine will not say which
+    process, the port is the fact.
+    """
+    held = busy(slot)
+    if held is None:
+        return None
+    port, pid = held
+    if pid > 0:
+        return f"slot {slot} pid {pid}"
+    return f"slot {slot} port {port}"
+
+
 # ----------------------------------------------------------------- claim / release
 def sweep() -> list[int]:
     """Slots whose worktree is gone and whose ports are quiet, given back.
@@ -393,6 +411,8 @@ def try_claim(worktree: Path) -> dict:
 
     Re-acquiring is a lookup, so every command of a run agrees without a shared file to
     keep in step, and a worktree that already holds its slot is never refused one.
+    A slot with no registry record is not issued while any port of its block is
+    listening. That listener is not in the registry, and the next slot is tried.
     """
     target = str(worktree)
     with _Locked():
@@ -409,18 +429,29 @@ def try_claim(worktree: Path) -> dict:
             # So a slot that is still held in the morning can be read against the night.
             "claimed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
+        holders: list[str] = []
         for slot in range(SLOTS):
             record["slot"] = slot
             record["port_base"] = PORT_BASE + slot * PORT_STRIDE
+            existing = read_slot(slot)
+            if existing:
+                holders.append(existing.get("worktree", ""))
+                continue
+            foreign = foreign_holder(slot)
+            if foreign is not None:
+                holders.append(foreign)
+                continue
             payload = json.dumps(record, ensure_ascii=False, indent=2).encode("utf-8")
             try:
                 fd = os.open(slot_file(slot), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
             except FileExistsError:
+                raced = read_slot(slot) or {}
+                holders.append(raced.get("worktree", ""))
                 continue
             with os.fdopen(fd, "wb") as handle:
                 handle.write(payload)
             return record
-        raise Full([r.get("worktree", "") for r in claimed()])
+        raise Full(holders)
 
 
 def claim(worktree: Path) -> dict:
@@ -429,12 +460,13 @@ def claim(worktree: Path) -> dict:
     The oracles of the ui-acceptance skill come here through `leased_environment` in the
     middle of a criterion: `verify-ticket.py` has already acquired the slot before the
     run began, so an oracle reaching this with no slot free is a run that skipped that step.
+    When none is free, the refusal names each slot's holder.
     """
     try:
         return try_claim(worktree)
-    except Full:
+    except Full as full:
         raise SystemExit(refusal(
-            f"All {SLOTS} instance slots on this machine are acquired.",
+            ", ".join(full.holders),
             "A run needs one and none is free.",
             REPORT_BLOCKED,
         )) from None

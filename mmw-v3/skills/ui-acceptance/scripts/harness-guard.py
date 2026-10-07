@@ -16,9 +16,10 @@ command names — may reference `scenes.json` and must not reference `.dc.html`.
 What is read is what the repository tracks, or would track — `git ls-files --cached
 --others --exclude-standard`.
 
-    HARNESS LEAK <file>:<line>          exit 1
+    HARNESS LEAK <file>:<line> <marker> exit 1
     HARNESS DESIGN PAGE <file>:<line>   exit 1
     HARNESS OK                          exit 0
+    read 0 files, refusal               exit 2
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from lease import TargetJSONError, read_target_json  # noqa: E402
-from refusal import refusal  # noqa: E402
+from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 READ_MMW = re.compile(
     r"os\.environ(?:\.get)?\(\s*['\"]MMW_"
@@ -59,10 +60,27 @@ TEST_FILE_RE = re.compile(r".+\.(?:test|spec)\.[A-Za-z0-9]+$")
 DESIGN_PAGE = ".dc.html"
 
 
-def is_leak(line: str, markers: tuple[str, ...]) -> bool:
-    if READ_MMW.search(line):
-        return True
-    return any(marker in line for marker in markers)
+def _mmw_name(line: str, match: re.Match[str]) -> str:
+    """The `MMW_` variable the match landed on, or the matched text when it has no name."""
+    named = re.search(r"MMW_[A-Za-z0-9_]+", line[match.start():])
+    if named is not None and named.start() <= match.end() - match.start():
+        token = named.group(0)
+        if len(token) > len("MMW_"):
+            return token
+    return match.group(0)
+
+
+def hit_markers(line: str, markers: tuple[str, ...]) -> list[str]:
+    """The names this line leaked, in the order a reader meets them on the line."""
+    found: list[str] = []
+    for match in READ_MMW.finditer(line):
+        name = _mmw_name(line, match)
+        if name not in found:
+            found.append(name)
+    for marker in markers:
+        if marker in line and marker not in found:
+            found.append(marker)
+    return found
 
 
 def load_target(root: Path) -> tuple[dict | None, str | None]:
@@ -235,8 +253,8 @@ def scan_leaks(root: Path, files: list[Path], named: set[Path],
         if allowed(path, root, named):
             continue
         for rel, number, line in numbered_lines(root, path):
-            if is_leak(line, markers):
-                leaks.append(f"HARNESS LEAK {rel}:{number}")
+            for name in hit_markers(line, markers):
+                leaks.append(f"HARNESS LEAK {rel}:{number} {name}")
     return leaks
 
 
@@ -268,6 +286,15 @@ def main(argv: list[str] | None = None) -> int:
     if why is not None:
         return refuse_markers(given, why)
     files = list(iter_files(root))
+    if not files:
+        # `what` leads with the count. `refusal` trims that part from the end, and a
+        # temp-directory root already spends most of the room the host leaves.
+        print(refusal(
+            f"0 files under {root}",
+            "Nothing checked is not a pass.",
+            REPORT_BLOCKED,
+        ), file=sys.stderr)
+        return 2
     leaks = scan_leaks(root, files, load_named_files(root, cfg), markers)
     pages = scan_design_pages(root, story_service_files(root, cfg, files))
     lines = leaks + pages

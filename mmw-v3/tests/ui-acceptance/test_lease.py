@@ -136,6 +136,17 @@ class SeeingWhatListens(Base):
 
 
 class Claiming(Base):
+    def test_a_slot_with_a_foreign_listener_is_skipped(self):
+        """One port of the first slot is listened on by this process, which the
+        registry does not name. The lease issues the next slot."""
+        occupied = self.lease.PORT_BASE
+        self.bind(occupied)
+        record = self.lease.claim(self.tree("issue-640"))
+        issued = range(record["port_base"], record["port_base"] + record["port_count"])
+        self.assertEqual(record["slot"], 1)
+        self.assertNotIn(occupied, issued)
+        self.assertFalse(self.lease.slot_file(0).exists())
+
     def test_a_worktree_keeps_the_slot_it_was_given(self):
         """Re-acquiring is a lookup. Every command of a run has to agree on the ports
         without a file they all have to keep in step."""
@@ -515,6 +526,28 @@ class AFullMachine(Base):
         for tree in trees:
             self.lease.try_claim(tree)
         return [str(tree) for tree in trees]
+
+    def test_a_full_machine_names_every_holder(self):
+        """Every slot's first port is listened on by this process, which the registry
+        does not name. Nothing is issued, and the refusal names each listener."""
+        pid = os.getpid()
+        for slot in range(self.lease.SLOTS):
+            self.bind(self.lease.ports_of(slot).start)
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.claim(self.tree("issue-one-too-many"))
+        reason = str(caught.exception)
+        for slot in range(self.lease.SLOTS):
+            self.assertIn(f"slot {slot} pid {pid}", reason)
+        self.assertIn("blocked", reason)
+        self.assertLessEqual(len(reason), self.lease.refusal.__globals__["REASON_LIMIT"])
+        self.assertEqual(self.lease.claimed(), [])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.lease.main(["claim", str(self.tree("issue-cli"))])
+        self.assertEqual(code, 4)
+        holders = json.loads(out.getvalue())["holders"]
+        for slot in range(self.lease.SLOTS):
+            self.assertIn(f"slot {slot} pid {pid}", holders)
 
     def test_a_fifth_worktree_is_told_the_machine_is_full(self):
         holders = self.full()
