@@ -18,7 +18,7 @@ import re
 import sys
 from pathlib import Path
 
-PAGE = Path(__file__).resolve().parents[4] / "mmw-v3" / "board" / "page"
+PAGE = Path(__file__).resolve().parents[5] / "mmw-v3" / "board" / "page"
 SHARED = {"shared", "board-logic", "local-config"}
 MODULES = ["shared", "board-logic", "local-config", "topbar", "tasks", "canvas", "detail", "settings"]
 IMPORT = re.compile(r'^import \{([^}]*)\} from "\./([\w-]+)\.mjs";\n', re.M)

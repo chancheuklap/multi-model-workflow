@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[3]
+REPO = HERE.parents[4]
 DISPATCH_SCRIPTS = REPO / "mmw-v3" / "skills" / "dispatch" / "scripts"
 sys.path.insert(0, str(REPO / "mmw-v3" / "skills" / "verify-ticket" / "scripts"))
 sys.path.insert(0, str(DISPATCH_SCRIPTS))

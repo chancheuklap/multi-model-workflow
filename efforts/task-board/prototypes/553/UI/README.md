@@ -6,7 +6,7 @@
 
 ## Current conclusion
 
-胜出方案是生产版任务板，`mmw-v2/board/page/`（纯 JavaScript 模块加 `styles/` 下的 CSS，非 React）。四张界面 decision ticket 各自回答了一部分：画布（#546）、灯与药丸（#547）、卡片与右栏（#548）、本机配置页（#551）；它们的叶目录在 `prototypes/task-board/<n>/UI/`，只写结论。design system 从 `mmw-v2/board/page/styles/` 与共用组件建。
+胜出方案是生产版任务板，`mmw-v2/board/page/`（纯 JavaScript 模块加 `styles/` 下的 CSS，非 React）。四张界面 decision ticket 各自回答了一部分：画布（#546）、灯与药丸（#547）、卡片与右栏（#548）、本机配置页（#551）；它们的叶目录在 `efforts/task-board/prototypes/<n>/UI/`，只写结论。design system 从 `mmw-v2/board/page/styles/` 与共用组件建。
 
 ## Which parts the real code has taken
 

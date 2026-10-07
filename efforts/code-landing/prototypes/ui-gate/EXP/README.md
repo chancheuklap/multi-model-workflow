@@ -13,7 +13,7 @@
 ## How to run
 
 ```sh
-uv run prototypes/code-landing/ui-gate/EXP/run.py            # writes .scratch/code-landing/ui-gate/evidence/round-2/
+uv run efforts/code-landing/prototypes/ui-gate/EXP/run.py            # writes .scratch/code-landing/ui-gate/evidence/round-2/
 python3 -m http.server 18780 -d .scratch/code-landing/ui-gate/evidence/round-2
 open http://127.0.0.1:18780/
 ```

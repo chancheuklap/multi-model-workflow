@@ -22,9 +22,12 @@ Every moved `screen-contract.yaml` has its `look:` rewritten to the new path.
 
 Every change is staged and nothing is committed. Prints one `MOVED <from> -> <to>` line per
 move and one `REWROTE <contract> baselines.look` line per rewritten baseline, then
-`STILL NAMED <n>` when tracked lines outside `efforts/` still name an old path: the
-`git grep` it names lists them, for the agent to judge (a history file such as an ADR keeps
-the path it was written with). Last comes `LAYOUT MIGRATED <n> changes`, or `LAYOUT OK`
+`STILL NAMED <n>` when tracked lines still name an old path: the `git grep` it names lists
+them, for the agent to judge (a history file such as an ADR keeps the path it was written
+with). A design package is left out: the next pull rewrites it. Then `CLIMBS <n>` when a
+moved file that now sits at another depth (`prototypes/<effort>/<leaf>` one deeper,
+`docs/specs/<effort>/<entry>` one shallower) finds the repository by counting parent
+directories (`parents[3]`, `../../..`): the count changes by the same difference. Last comes `LAYOUT MIGRATED <n> changes`, or `LAYOUT OK`
 when there was nothing to move. Exit 0 on either. Exit 1, with nothing changed, when a
 destination already exists or two sources would land on one destination.
 """
@@ -141,10 +144,17 @@ def main() -> int:
     patterns = ["docs/specs/", "docs/prototypes/", "(^|[^/[:alnum:]_-])prototypes/"]
     patterns += sorted({f"docs/research/{old.split('/')[2]}/" for old, _ in done if old.startswith("docs/research/")})
     grep = ["grep", "-n", "-I", "-E"] + [arg for p in patterns for arg in ("-e", p)]
-    hits = git(root, *grep, "--", ".", ":!efforts", check=False).stdout.splitlines()
+    hits = git(root, *grep, "--", ".", ":(exclude,glob)efforts/**/claude-design/**", check=False).stdout.splitlines()
     if hits:
         shown = " ".join(f"'{a}'" if " " in a or "(" in a else a for a in grep)
-        print(f"STILL NAMED {len(hits)}: git {shown} -- . ':!efforts' lists them")
+        print(f"STILL NAMED {len(hits)}: git {shown} -- . ':(exclude,glob)efforts/**/claude-design/**' lists them")
+    shifted = [new for old, new in done
+               if new.count("/") != old.count("/") and not new.endswith("/claude-design")]
+    climbs = ["grep", "-n", "-I", "-E", "-e", r"parents\[[0-9]+\]", "-e", r"(\.\./){2,}"]
+    climbing = git(root, *climbs, "--", *shifted, check=False).stdout.splitlines() if shifted else []
+    if climbing:
+        print(f"CLIMBS {len(climbing)}: git {' '.join(climbs[:4])} -e 'parents\\[[0-9]+\\]' "
+              f"-e '(\\.\\./){{2,}}' -- {' '.join(shifted)} lists them")
     print(f"LAYOUT MIGRATED {len(done)} changes")
     return 0
 

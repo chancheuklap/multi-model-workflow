@@ -5,7 +5,7 @@
 ## 三条命令
 
 ```sh
-cd prototypes/code-landing/fixture
+cd efforts/code-landing/prototypes/fixture
 uv run pytest -q                                  # 8 passed
 python3 -m http.server 8765 --directory site      # 实现页 http://127.0.0.1:8765/index.html?scenario=default
 python3 -m http.server 8766 --directory baseline  # 基线页 http://127.0.0.1:8766/Component · 任务队列.dc.html
@@ -50,4 +50,4 @@ python3 -m http.server 8766 --directory baseline  # 基线页 http://127.0.0.1:8
 
 所以 #77 的 AC4 是一条**应当通过**的 UI 验收标准；把 `--scenes` 里的场景换错（拿 `queue-empty` 的基线比 `default` 的实现）就是现成的负控制。
 
-基线目录的非默认场景还没有各自的页面：Claude Design 的场景是 Tweaks 面板上的 props，不是 URL 参数（`prototypes/code-landing/ui-gate/EXP/README.md` 的 Open 一段）。`scenes.json` 把「场景名 → 页面 + props」写成了数据，等 `visual-parity.py` 决定用哪种方式渲染非默认场景。
+基线目录的非默认场景还没有各自的页面：Claude Design 的场景是 Tweaks 面板上的 props，不是 URL 参数（`efforts/code-landing/prototypes/ui-gate/EXP/README.md` 的 Open 一段）。`scenes.json` 把「场景名 → 页面 + props」写成了数据，等 `visual-parity.py` 决定用哪种方式渲染非默认场景。

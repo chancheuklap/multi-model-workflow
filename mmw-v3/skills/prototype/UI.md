@@ -97,7 +97,7 @@ Behaviour:
 - Visually distinct from the page (e.g. high-contrast pill, subtle shadow) so it's obviously not part of the design being evaluated.
 - Hidden in production builds: gate on `process.env.NODE_ENV !== 'production'` or an equivalent check, so a stray prototype merge can't ship the bar to users.
 
-Put the switcher in a single shared component so both sub-shapes can reuse it. Locate it wherever shared UI lives in the project.
+Put the switcher in one component under `efforts/<effort>/prototypes/`, beside the leaf directories, so every prototype of the effort reuses it and nothing of it stays in the product's source once the mount point comes down.
 
 ### 5. Hand it over
 

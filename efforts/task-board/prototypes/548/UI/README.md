@@ -10,4 +10,4 @@
 
 ## Which parts the real code has taken
 
-全部：胜出方案就是生产代码。它的状态清单与交给 Claude Design 的输入，合在 `prototypes/task-board/553/UI/README.md` 的 `## State list`。
+全部：胜出方案就是生产代码。它的状态清单与交给 Claude Design 的输入，合在 `efforts/task-board/prototypes/553/UI/README.md` 的 `## State list`。

@@ -326,9 +326,11 @@ class TestMigrateLayout(unittest.TestCase):
         self.write("docs/specs/notes/screen-contract.yaml",
                    "effort: notes\nbaselines:\n  look: prototypes/notes/claude-design\n")
         self.write("docs/specs/notes/targets/App.aria", "old snapshot\n")
-        self.write("prototypes/notes/claude-design/App.dc.html", "<p>page</p>\n")
+        self.write("prototypes/notes/claude-design/App.dc.html", "<p>data in prototypes/notes/example-data</p>\n")
         self.write("prototypes/notes/example-data/board.js", "x\n")
-        self.write("prototypes/notes/12/UI/README.md", "# variant\n")
+        self.write("prototypes/notes/claude-design/_ds/kit/readme.md", "data in prototypes/notes/example-data\n")
+        self.write("prototypes/notes/12/UI/README.md", "# variant\n\nState list: prototypes/notes/README.md\n")
+        self.write("prototypes/notes/12/UI/serve.py", "ROOT = HERE.parents[3]\n")
         self.write("prototypes/other/7/claude-design/App.dc.html", "<p>page</p>\n")
         self.write("docs/specs/reuse/screen-contract.yaml",
                    "effort: reuse\nbaselines:\n  look: prototypes/other/7/claude-design\n")
@@ -369,7 +371,8 @@ class TestMigrateLayout(unittest.TestCase):
                       (self.root / "efforts/notes/screen-contract.yaml").read_text())
         self.assertIn("look: efforts/reuse/claude-design\n",
                       (self.root / "efforts/reuse/screen-contract.yaml").read_text())
-        self.assertRegex(out, r"STILL NAMED 1:")
+        self.assertRegex(out, r"STILL NAMED 2:")
+        self.assertRegex(out, r"CLIMBS 1:")
         self.assertTrue(out.rstrip().endswith("LAYOUT MIGRATED 9 changes"), out)
         unstaged = [line for line in self.git("status", "--porcelain").stdout.splitlines() if line[1] != " "]
         self.assertEqual(unstaged, [])

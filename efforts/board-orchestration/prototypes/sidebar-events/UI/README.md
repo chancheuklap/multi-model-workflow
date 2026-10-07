@@ -15,7 +15,7 @@ Three variants, on the real page, over the real board payload of ticket #729 of
 ## Run it
 
 ```
-python3 prototypes/board-orchestration/sidebar-events/UI/serve.py
+python3 efforts/board-orchestration/prototypes/sidebar-events/UI/serve.py
 ```
 
 It prints one URL per variant and serves `mmw-v2/board/page/` as it is, with `/api/board`
@@ -132,7 +132,7 @@ sentence and C's per-run cards are both worth stealing from if A's blocks turn o
 hide too much.
 
 A is also the ticket column of the signed-off task-board handoff page
-`prototypes/task-board/claude-design/Component · 详情.dc.html`. The screen contract
-`docs/specs/task-board/screen-contract.yaml` names that package as `baselines.look`; the
+`efforts/task-board/claude-design/Component · 详情.dc.html`. The screen contract
+`efforts/task-board/screen-contract.yaml` names that package as `baselines.look`; the
 page's ticket scenes (`Component · 详情.ticket-landed`,
 `Component · 详情.ticket-returned`, …) are where A is held.

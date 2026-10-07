@@ -2,7 +2,7 @@
 """Run the real task board page against a frozen payload, with the prototype variants
 mounted on the detail column.
 
-    python3 prototypes/board-orchestration/sidebar-events/UI/serve.py
+    python3 efforts/board-orchestration/prototypes/sidebar-events/UI/serve.py
 
 Serves `mmw-v2/board/page/` as it is, this directory under `/proto/`, and `/api/board`
 from `fixture.json` beside this file. The fixture is one answer of a live board, fetched
@@ -22,7 +22,7 @@ import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-PAGE = HERE.parents[3] / "mmw-v2" / "board" / "page"
+PAGE = HERE.parents[4] / "mmw-v2" / "board" / "page"
 FIXTURE = HERE / "fixture.json"
 
 

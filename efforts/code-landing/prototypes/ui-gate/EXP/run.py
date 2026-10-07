@@ -186,8 +186,8 @@ def capture(page, url: str, root_sel: str | None, vp: tuple[int, int], png: Path
 # ---------------------------------------------------------------- main
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=str(HERE.parents[3] / ".scratch/code-landing/ui-gate/evidence/round-2"))
-    ap.add_argument("--cdn", default=str(HERE.parents[3] / ".scratch/code-landing/ui-gate/cdn"))
+    ap.add_argument("--out", default=str(HERE.parents[4] / ".scratch/code-landing/ui-gate/evidence/round-2"))
+    ap.add_argument("--cdn", default=str(HERE.parents[4] / ".scratch/code-landing/ui-gate/cdn"))
     ap.add_argument("--threshold", type=float, default=1.0, help="max diff pixel percent")
     ap.add_argument("--round", default="round-2")
     args = ap.parse_args()
