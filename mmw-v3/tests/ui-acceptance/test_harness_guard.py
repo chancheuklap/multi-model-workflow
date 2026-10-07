@@ -80,6 +80,16 @@ class WhatTheGuardReads(unittest.TestCase):
         self.err = err.getvalue()
         return code, out.getvalue()
 
+    def test_a_repo_with_nothing_to_read_is_refused(self):
+        """Every file is gitignored, so the guard reads nothing. A pass would be silence."""
+        self.write(".gitignore", "*\n")
+        code, out = self.guard()
+        combined = out + self.err
+        self.assertEqual(code, 2)
+        self.assertIn("0 files", combined)
+        self.assertIn(str(self.root.resolve()), combined)
+        self.assertNotIn("HARNESS OK", combined)
+
     def test_a_file_git_ignores_is_not_judged(self):
         """A log the product wrote while the criteria ran, a scratch copy of a ticket.
         Read, they make the same commit green or red by how recently anyone ran the
@@ -155,6 +165,18 @@ class WhatTheGuardReads(unittest.TestCase):
         code, text = self.guard()
         self.assertEqual(code, 1)
         self.assertIn("HARNESS LEAK src/app.js:1", text)
+
+    def test_a_leak_line_names_the_marker(self):
+        """The worker sees which name leaked. A declared marker is that string.
+        An `MMW_` read is the variable name."""
+        self.declare(markers=["__backdoor__"])
+        self.write("src/app.js", "const x = '__backdoor__';\n")
+        self.write("src/env.js", self.LEAK)
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        self.assertIn("HARNESS LEAK src/app.js:1 __backdoor__", text)
+        self.assertIn("HARNESS LEAK src/env.js:1 MMW_PORT_BASE", text)
+        self.assertNotIn("HARNESS OK", text)
 
     def test_an_old_builtin_marker_not_declared_is_not_a_leak(self):
         self.write("src/app.js", 'console.log("transport off");\n')

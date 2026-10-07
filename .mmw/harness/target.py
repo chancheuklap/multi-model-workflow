@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -18,6 +19,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS = ROOT / ".mmw" / "harness"
 BOARD_SERVER = HARNESS / "board_server.py"
+
+
+def _refusal():
+    """`refusal.py` of the ui-acceptance skill. The blocked-ticket sentence lives there."""
+    path = ROOT / "mmw-v3" / "skills" / "ui-acceptance" / "scripts" / "refusal.py"
+    spec = importlib.util.spec_from_file_location("mmw_board_refusal", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def start_command() -> str:
@@ -225,9 +235,12 @@ def start() -> int:
         probe.bind(("127.0.0.1", port))
     except OSError as exc:
         holder = port_holder(port)
-        sys.stderr.write(
-            f"127.0.0.1:{port} is held by {holder} ({exc}). Stop that PID, then rerun {start_command()}\n"
-        )
+        refusal = _refusal()
+        sys.stderr.write(refusal.refusal(
+            f"127.0.0.1:{port} is held by {holder} ({exc}).",
+            "The port belongs to another run.",
+            refusal.REPORT_BLOCKED,
+        ) + "\n")
         return 2
     finally:
         probe.close()

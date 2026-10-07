@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import json
 import os
 import socket
@@ -240,6 +241,33 @@ class HarnessTest(unittest.TestCase):
                                text=True, capture_output=True)
         self.assertEqual(status, 200)
         self.assertEqual(sorted(settings["rows"]), sorted(session_roles))
+
+    def test_a_held_port_reports_blocked(self):
+        """The next step is the blocked-ticket sentence. The fact of who holds the port stays."""
+        refusal_path = (ROOT / "mmw-v3" / "skills" / "ui-acceptance" / "scripts"
+                        / "refusal.py")
+        spec = importlib.util.spec_from_file_location("mmw_refusal", refusal_path)
+        refusal = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(refusal)
+        with tempfile.TemporaryDirectory() as directory, socket.socket() as listener:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            port = listener.getsockname()[1]
+            env = {
+                **os.environ,
+                "MMW_DATA_DIR": directory,
+                "MMW_PORT_BASE": str(port),
+                "MMW_INSTANCE": "board-harness-held-port-blocked",
+            }
+            started = subprocess.run(
+                ["python3", str(TARGET), "start"], cwd=ROOT, env=env,
+                text=True, capture_output=True,
+            )
+        self.assertNotEqual(started.returncode, 0)
+        self.assertIn(refusal.REPORT_BLOCKED, started.stderr)
+        self.assertNotIn("Stop that PID", started.stderr)
+        self.assertIn(f"127.0.0.1:{port} is held by", started.stderr)
 
     def test_start_still_refuses_a_real_listener(self):
         with tempfile.TemporaryDirectory() as directory, socket.socket() as listener:
