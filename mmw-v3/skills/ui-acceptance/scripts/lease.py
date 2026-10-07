@@ -334,7 +334,12 @@ def sweep() -> list[int]:
 
 
 class Full(Exception):
-    """Every slot of this machine is taken; `holders` are the worktrees holding them."""
+    """Every slot of this machine is taken.
+
+    `holders` names each one. A registered slot is its worktree path. A slot
+    with no registry record whose ports are listening is `slot N pid P`, or
+    `slot N port P` when the machine will not name the process.
+    """
 
     def __init__(self, holders: list[str]):
         super().__init__(f"all {SLOTS} slots of this machine are held")
