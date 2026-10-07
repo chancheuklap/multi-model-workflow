@@ -958,6 +958,12 @@ launch_agent() {
     mkdir -p "$(dirname "$plist")"
     if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
       launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+      # bootout 返回时，有进程在跑的任务还在退出，launchctl print 仍找得到它；下面据此跳过
+      # bootstrap，任务就停着没人起。等它真的不在了（最多 10 秒）再往下走。
+      for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1 || break
+        sleep 0.5
+      done
     fi
     printf '%s\n' "$want" > "$plist"
   fi
