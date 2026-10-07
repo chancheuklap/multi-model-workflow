@@ -34,7 +34,7 @@ def open_board(browser, scene: str, responses=None):
 
 
 def settings_scene(name: str = "mine") -> dict:
-    source = (ROOT / "prototypes" / "task-board" / "example-data" / "settings.js").read_text(encoding="utf-8")
+    source = (ROOT / "efforts" / "task-board" / "example-data" / "settings.js").read_text(encoding="utf-8")
     match = re.fullmatch(r"window\.SETTINGS_SCENES = (\{.*\});?\n?", source)
     if not match:
         raise AssertionError("cannot read settings scenes")
@@ -42,7 +42,7 @@ def settings_scene(name: str = "mine") -> dict:
 
 
 def board_scene(name: str) -> dict:
-    source = (ROOT / "prototypes" / "task-board" / "example-data" / f"board-{name}.js").read_text(encoding="utf-8")
+    source = (ROOT / "efforts" / "task-board" / "example-data" / f"board-{name}.js").read_text(encoding="utf-8")
     match = re.fullmatch(
         r'\(window\.BOARD_SCENES = window\.BOARD_SCENES \|\| \{\}\)\["[^"]+"\] = (\{.*\});?\n?',
         source,

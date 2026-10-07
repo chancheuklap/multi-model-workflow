@@ -30,7 +30,7 @@ _Home_: `mmw-v3/board/codeversion.py`
 
 **page regions**:
 The four areas of the task board page, each a `Component · ` page of the screen contract: the top bar (`顶栏`), the left column (`任务列表`), the canvas (`画布`) and the detail column (`详情`). The settings sheet (`本机配置`) is a dialog over them, not a region.
-_Home_: `docs/specs/task-board/screen-contract.yaml`, `mmw-v3/board/page/app.mjs`
+_Home_: `efforts/task-board/screen-contract.yaml`, `mmw-v3/board/page/app.mjs`
 
 **Maps & specs**:
 One row of the left column, and that column's title: a top-level map, or a spec no open map holds, together with the specs and tickets under it. A selected map's detail title is `Map`, and a selected spec's stays `Spec`. Distinct from a **night**, one run of one spec's tickets.

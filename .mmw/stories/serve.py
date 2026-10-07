@@ -25,12 +25,12 @@ HERE = Path(__file__).resolve().parent
 PAGE = ROOT / "mmw-v3" / "board" / "page"
 HANDOFF = Path(os.environ.get(
     "MMW_STORY_HANDOFF",
-    ROOT / "prototypes" / "task-board" / "claude-design",
+    ROOT / "efforts" / "task-board" / "claude-design",
 ))
 SCENES = HANDOFF / "scenes.json"
 CONTRACT = Path(os.environ.get(
     "MMW_STORY_CONTRACT",
-    ROOT / "docs" / "specs" / "task-board" / "screen-contract.yaml",
+    ROOT / "efforts" / "task-board" / "screen-contract.yaml",
 ))
 ADAPTERS = HERE / "adapters"
 
@@ -133,12 +133,12 @@ def example_board(name: str) -> dict:
     """The example payload a board scene names.
 
     `APP_SCENES.<scene>.board` is the dataset name. The file
-    `prototypes/task-board/example-data/board-<name>.js` is that dataset: the
+    `efforts/task-board/example-data/board-<name>.js` is that dataset: the
     `GET /api/board` answer the design views were computed from, plus `now`.
     """
     if not re.fullmatch(r"[a-z0-9-]+", name or ""):
         raise ValueError(f"board name is not a dataset name: {name!r}")
-    path = ROOT / "prototypes" / "task-board" / "example-data" / f"board-{name}.js"
+    path = ROOT / "efforts" / "task-board" / "example-data" / f"board-{name}.js"
     if not path.is_file():
         raise ValueError(f"no example dataset board-{name}.js")
     values = handoff_values(path)
@@ -189,7 +189,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 message = (
                     f"example board unavailable for {name}: {exc}. "
                     "APP_SCENES names the dataset; the file is "
-                    "prototypes/task-board/example-data/board-<name>.js and must set "
+                    "efforts/task-board/example-data/board-<name>.js and must set "
                     "BOARD_SCENES[<name>]. Add that file, or point the scene's board "
                     "field at a dataset that exists.\n"
                 )

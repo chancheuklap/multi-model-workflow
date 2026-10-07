@@ -33,7 +33,7 @@ In both sub-shapes the floating bottom bar is identical.
 
 ### When there is no app yet
 
-A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `prototypes/<effort>/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them.
+A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `efforts/<effort>/prototypes/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them.
 
 ## Process
 
@@ -80,7 +80,7 @@ For sub-shape A (existing page): keep all the existing data fetching above the s
 
 For sub-shape B (new page): the prototype route you created above mounts the same switcher.
 
-In both sub-shapes the variant components live in the leaf directory `prototypes/<effort>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app, and it comes down after the first pull of the design (the playbook Pull a design, which the `design-pages` skill names). Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
+In both sub-shapes the variant components live in the leaf directory `efforts/<effort>/prototypes/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app, and it comes down after the first pull of the design (the playbook Pull a design, which the `design-pages` skill names). Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
 ### 4. Build the floating switcher
 

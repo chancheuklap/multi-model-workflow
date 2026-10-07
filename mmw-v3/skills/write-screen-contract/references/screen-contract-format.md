@@ -1,6 +1,6 @@
 # The screen contract file
 
-`docs/specs/<effort>/screen-contract.yaml`. One file per effort, read by Write a spec, Cut tickets, Work a ticket, Review a ticket, the story oracle, the boundary check and the lint.
+`efforts/<effort>/screen-contract.yaml`. One file per effort, read by Write a spec, Cut tickets, Work a ticket, Review a ticket, the story oracle, the boundary check and the lint.
 
 `rows` is one row per user-visible behaviour, keyed by the control's `data-ui` id. `pages` names each design page's story id (`mount`) and the component that owns it; `scenes` names which design page each scene of `scenes.json` belongs to. `rows` and these declarations cannot be derived from each other — a page holds many rows, a row is visible on many scenes — so both are written, and the lint holds them to each other.
 
@@ -9,9 +9,9 @@ A server-rendered product and a desktop product use the same keys. The two label
 ## Top level
 
 ```yaml
-effort: notes-v1                          # the effort's directory name, as in docs/specs/<effort>/
+effort: notes-v1                          # the effort's directory name, as in efforts/<effort>/
 baselines:
-  look: prototypes/<effort>/claude-design   # the design package directory, unchanged
+  look: efforts/<effort>/claude-design      # the design package directory, unchanged
   precedence: "look & verbatim copy -> design package; calls, shows, next, on_failure -> this file"
 locale: en-US                             # BCP 47 tag; required; the story oracle sets both browser contexts; no fallback
 viewports: [1280x800]                     # the size pages without their own `viewports` are drawn at

@@ -27,7 +27,7 @@ This toolbox (the toolbox): the skills the user shares across hosts, repositorie
 _Home_: `AGENTS.md`
 
 **consuming repository**:
-A repository whose real tickets run through the pipeline and which holds its **product answers** in `.mmw/`, its screen contracts and its `prototypes/`. This repository is one too, for its own task board tickets.
+A repository whose real tickets run through the pipeline and which holds its **product answers** in `.mmw/` and each development effort's files in `efforts/<effort>/`. This repository is one too, for its own task board tickets.
 _Home_: `AGENTS.md`
 
 **repository root**:

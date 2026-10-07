@@ -17,8 +17,8 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[3]
 PAGE_MODULES = ROOT / "mmw-v3" / "board" / "page"
-CONTRACT = ROOT / "docs" / "specs" / "task-board" / "screen-contract.yaml"
-HANDOFF = ROOT / "prototypes" / "task-board" / "claude-design"
+CONTRACT = ROOT / "efforts" / "task-board" / "screen-contract.yaml"
+HANDOFF = ROOT / "efforts" / "task-board" / "claude-design"
 STORY_SERVER = ROOT / ".mmw" / "stories" / "serve.py"
 VIEWPORTS = {
     "board": (1440, 900),
@@ -148,7 +148,7 @@ def render_scene(product_page, design_page, product_origin, design_origin, name,
 
 class StaticGuardsTest(unittest.TestCase):
     def test_no_product_module_reads_scene_data(self):
-        forbidden = ("fromScene", "scenes.json", "BOARD_SCENES", "SETTINGS_SCENES", "prototypes/")
+        forbidden = ("fromScene", "scenes.json", "BOARD_SCENES", "SETTINGS_SCENES", "efforts/")
         found = []
         for path in sorted(PAGE_MODULES.rglob("*.mjs")):
             source = path.read_text(encoding="utf-8")

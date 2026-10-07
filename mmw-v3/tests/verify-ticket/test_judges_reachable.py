@@ -29,7 +29,7 @@ def ticket(check: str) -> str:
             "  EXPECT: /^STORY OK/m\n  EVIDENCE: pending\n")
 
 
-STORY = ("story-parity.py --contract docs/specs/x/screen-contract.yaml "
+STORY = ("story-parity.py --contract efforts/x/screen-contract.yaml "
          "--pages create-project")
 HARNESS = "harness-guard.py ."
 

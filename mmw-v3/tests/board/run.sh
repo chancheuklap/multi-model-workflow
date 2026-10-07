@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The task board's suite: mmw-v3/board/ against a fake gh, a temporary MMW_HOME and the
-# design package's example data under prototypes/task-board/example-data/.
+# design package's example data under efforts/task-board/example-data/.
 # Needs bash, python3, uv (Playwright and a real headless Chromium) and node.
 # No live tracker, no running board, no install.
 set -euo pipefail

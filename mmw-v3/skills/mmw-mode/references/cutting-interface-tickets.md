@@ -11,7 +11,7 @@ Every one of these is a line written onto the ticket, run by a shell months late
 ### Story criterion
 
 ```
-CHECK: story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <id,id>
+CHECK: story-parity.py --contract efforts/<effort>/screen-contract.yaml --pages <id,id>
 EXPECT: STORY OK <passed>/<total>
 ```
 
@@ -120,7 +120,7 @@ A row whose `next` is a scene of another page (`note-list.open`, whose `next` is
 **Read first** carries two baseline lines, and the design page names for a person to read:
 
 - the design package, for look and verbatim copy
-- the screen contract with the row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c`: path and ids on one line, for calls, shown values, transitions and timing. Pages and mounts follow from those rows.
+- the screen contract with the row ids this ticket owns, written `efforts/<effort>/screen-contract.yaml rows: a.b, a.c`: path and ids on one line, for calls, shown values, transitions and timing. Pages and mounts follow from those rows.
 
 The rest of **Read first** is derived from those row ids, not hand-picked: `scenes.json`; and every `source` of the owned rows that is a baseline (a decision ticket (`#<n>`), an ADR, a domain document under `docs/`), listed once per document, with a word on what it settles. Spec sections and stories reach the worker through **Parent**.
 

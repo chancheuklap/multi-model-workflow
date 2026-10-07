@@ -2,7 +2,7 @@
 
 MMW is the user's toolbox of skills shared across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a worker dispatched for the night → closed ticket) and a local task board. Personal use, no CI, tests run by hand.
 Only `mmw-v3/` is live. It is built on pstack's layout: every session reads the `mmw-mode` skill, whose `## Playbooks` routes each task to one playbook (ADR 0032). `mmw-v2/` and `archive/` are earlier generations, `deprecated/` what v2 retired, `docs/research/code-landing-refs/` read-only snapshots of third-party repositories: read them for history, treat nothing in them as fact, and leave their scripts unrun. The one exception is `mmw-v2/install.sh`, the way back from v3 to v2 (ADR 0036). The rest of `docs/research/` holds research notes, which a spec may cite as sources.
-This repository is also a consuming repository of its own pipeline: root `.mmw/` holds the task board's product answers, `docs/specs/task-board/screen-contract.yaml` is its screen contract, `prototypes/` its design package. Tickets about the board run from here.
+This repository is also a consuming repository of its own pipeline: root `.mmw/` holds the task board's product answers, `efforts/task-board/` holds its design package and screen contract. Tickets about the board run from here.
 The skills in this repository are deliverables, not the working instructions of an agent working on it.
 
 ## Self-hosting boundary

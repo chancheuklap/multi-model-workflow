@@ -8,7 +8,7 @@ from _load import load
 vt = load()
 
 STORY = ("story-parity.py --contract "
-         "docs/specs/x/screen-contract.yaml --pages create-project")
+         "efforts/x/screen-contract.yaml --pages create-project")
 BOUNDARY = 'boundary-check.py --run "pnpm vitest run tests/boundary/add-material.test.ts"'
 JOURNEY = "journey.py run smoke"
 OK_EXPECT = "/^OK$/m"
@@ -35,7 +35,7 @@ def ticket(read_first, *criteria, parent="", blocked_by="", owns=""):
 CONTRACT = """
 effort: x
 baselines:
-  look: docs/prototypes/x/claude-design
+  look: efforts/x/claude-design
   precedence: "look and copy -> handoff; behaviour -> contract"
 locale: zh-CN
 viewports: [1440x900]
@@ -115,7 +115,7 @@ class ContractFixture:
         self.dir.cleanup()
 
     def story(self, mounts="create-project"):
-        return STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
+        return STORY.replace("efforts/x/screen-contract.yaml", self.path).replace(
             "--pages create-project", f"--pages {mounts}")
 
     def lint(self, *criteria):
@@ -442,7 +442,7 @@ class TestPipelineFlags(unittest.TestCase):
         chained = ("uv run python scripts/testing/reach.py seed:x --perturb && " + STORY)
         self.assertEqual(vt.lint_pipeline_flags("AC1", chained), [])
         self.assertEqual(vt.script_segment(chained, "story-parity.py"),
-                         " --contract docs/specs/x/screen-contract.yaml --pages create-project")
+                         " --contract efforts/x/screen-contract.yaml --pages create-project")
 
 
 class TestParentSections(unittest.TestCase):
@@ -467,7 +467,7 @@ class TestSources(ContractFixture, unittest.TestCase):
         super().setUp()
         self.rows = (f"- `{self.path} rows: create-project.add-material, create-project.name`"
                      "（基线）")
-        self.story_check = STORY.replace("docs/specs/x/screen-contract.yaml", self.path)
+        self.story_check = STORY.replace("efforts/x/screen-contract.yaml", self.path)
         self.boundary_check = BOUNDARY
 
     def _lint(self, read_first_extra="", parent="", blocked_by="- #637", number=639):
@@ -578,7 +578,7 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
 
     def test_an_equals_pages_flag_is_read(self):
         self.rows = f"- `{self.path} rows: desk.filter-customer`（基线）"
-        check = STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
+        check = STORY.replace("efforts/x/screen-contract.yaml", self.path).replace(
             "--pages create-project", "--pages=app-shell")
         self.assertEqual(self.lint(gate("AC1", check)), [])
 

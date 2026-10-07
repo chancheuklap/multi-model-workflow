@@ -1,7 +1,7 @@
 effort: story
 locale: zh-CN
 baselines:
-  look: docs/prototypes/story/claude-design
+  look: efforts/story/claude-design
 target:
   kind: web-spa
 viewports: [400x300]

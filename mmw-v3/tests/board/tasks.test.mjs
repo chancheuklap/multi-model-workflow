@@ -9,7 +9,7 @@ import {installDom} from "./fake-dom.mjs";
 function exampleScene(name) {
   const context = {window: {}};
   const source = fs.readFileSync(
-    new URL(`../../../prototypes/task-board/example-data/board-${name}.js`, import.meta.url),
+    new URL(`../../../efforts/task-board/example-data/board-${name}.js`, import.meta.url),
     "utf8",
   );
   vm.runInNewContext(source, context);

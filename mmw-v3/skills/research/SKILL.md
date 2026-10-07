@@ -7,4 +7,4 @@ Investigate a question against high-trust primary sources and capture the findin
 
 1. Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them. Follow every claim back to the source that owns it.
 2. Write the findings to a single Markdown file, citing each claim's source.
-3. Save it where the brief says. A brief that ends with a report command takes this file as your answer: report it, and write nothing into the repository. With no brief, save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+3. Save it where the brief says. A brief that ends with a report command takes this file as your answer: report it, and write nothing into the repository. With no brief, save it in the operating system's temporary directory and say where; a note the repository keeps has its path set by the brief of the session that needs it.

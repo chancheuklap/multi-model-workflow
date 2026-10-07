@@ -63,7 +63,7 @@ The instruction file at a Claude Design project's root — a page project's page
 _Home_: `mmw-v3/skills/design-pages/references/template-project-claude-md.md`, `mmw-v3/skills/design-pages/references/template-design-system-claude-md.md`
 
 **state list**:
-The fixed heading `## State list` in a UI prototype's leaf `README.md`: every state of the winning variant, one heading per **region**. On a wayfinder map it is in the **design ticket**'s leaf `README.md`; for an existing product brought into Claude Design, in `prototypes/<effort>/README.md`.
+The fixed heading `## State list` in a UI prototype's leaf `README.md`: every state of the winning variant, one heading per **region**. On a wayfinder map it is in the **design ticket**'s leaf `README.md`; for an existing product brought into Claude Design, in `efforts/<effort>/README.md`.
 _Home_: `mmw-v3/skills/prototype/UI.md`, `mmw-v3/skills/design-pages/SKILL.md`
 
 **design ticket**:
@@ -103,7 +103,7 @@ The `data-props` field every `Component ·`/`App ·` page declares, `width` and 
 _Home_: `mmw-v3/skills/design-pages/references/template-project-claude-md.md`
 
 **design package**:
-The Claude Design project as it sits in the repository, written only by **pull** into `prototypes/<effort>/claude-design/`: the project's pages, every file they load, and what pull writes beside them. The screen contract's `baselines.look` names it.
+The Claude Design project as it sits in the repository, written only by **pull** into `efforts/<effort>/claude-design/`: the project's pages, every file they load, and what pull writes beside them. The screen contract's `baselines.look` names it.
 _Avoid_: handoff package (for this; `handoff` is the `handoff` skill and `HANDOFF REQUIRED`)
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md`
 
@@ -120,7 +120,7 @@ The `data` field of a `scenes.json` entry: the displayed values keyed by **`data
 _Home_: `mmw-v3/skills/ui-acceptance/references/story-parity.md`
 
 **example data**:
-The product's real data for the states a design draws, kept in its own directory beside the **design package** (`prototypes/<effort>/example-data/`), never inside it; a design system's `CLAUDE.md` names it, and the **Claude Design agent** derives each region's data file from it. Distinct from a page's own data files under `data/`, which the project template's `## Page data` governs.
+The product's real data for the states a design draws, kept in its own directory beside the **design package** (`efforts/<effort>/example-data/`), never inside it; a design system's `CLAUDE.md` names it, and the **Claude Design agent** derives each region's data file from it. Distinct from a page's own data files under `data/`, which the project template's `## Page data` governs.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/build-a-design-system.md`, `mmw-v3/skills/design-pages/references/template-design-system-claude-md.md`
 
 **`DESIGN.md`**:
@@ -128,15 +128,15 @@ A DESIGN.md-format file a consuming repository may keep. It is not the design so
 _Home_: `docs/adr/0029-claude-design-is-the-design-source.md`
 
 **prototype**:
-Code that answers one design question, kept under `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`. A UI prototype is several structurally different variants on one real route, of which the user picks the winner, handed to Claude Design rather than folded into the real code directly.
+Code that answers one design question, kept under `efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`. A UI prototype is several structurally different variants on one real route, of which the user picks the winner, handed to Claude Design rather than folded into the real code directly.
 _Home_: `mmw-v3/skills/prototype/SKILL.md`
 
 **leaf directory**:
-`prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind, `<issue>` the ticket number or a short feature name when there is no ticket. Its `README.md` is read to its verdict as a `## Read first` item.
+`efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind, `<issue>` the ticket number or a short feature name when there is no ticket. Its `README.md` is read to its verdict as a `## Read first` item.
 _Home_: `mmw-v3/skills/prototype/SKILL.md`
 
 **effort** (`<effort>`):
-The development effort's directory name, shared verbatim under `prototypes/<effort>/` and `docs/specs/<effort>/`: lowercase ASCII words joined by `-`, from a wayfinder map's `## Notes` when the ticket has one, otherwise asked of the user with the current branch name as fallback. Distinct from the toolbox's **`effort`**, a model's reasoning effort in `models.json`.
+The development effort's directory name, lowercase ASCII words joined by `-`, from a wayfinder map's `## Notes` when the ticket has one, otherwise asked of the user with the current branch name as fallback. Its directory `efforts/<effort>/` holds every file of that effort and nothing else: the **design package**, the **example data**, the **state list** of an existing product, the **screen contract**, its **prototype**s under `prototypes/` and its map's research notes under `research/`. Whether the effort is still open is its spec's or map's state on the tracker, recorded nowhere in the directory; a closed effort's directory records what was built then, not the product as it is now. Distinct from the toolbox's **`effort`**, a model's reasoning effort in `models.json`.
 _Home_: `mmw-v3/skills/prototype/SKILL.md`
 
 **scaffolding**:
@@ -272,7 +272,7 @@ _Home_: `mmw-v3/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v3/skills/
 ### Screen contract
 
 **screen contract**:
-`docs/specs/<effort>/screen-contract.yaml`: one row per user-visible behaviour — the control, what it calls, which field feeds each shown value, what state follows, what a failure shows — written by the `write-screen-contract` skill. It is a UI's behaviour baseline, beside the design package as its look-and-copy baseline.
+`efforts/<effort>/screen-contract.yaml`: one row per user-visible behaviour — the control, what it calls, which field feeds each shown value, what state follows, what a failure shows — written by the `write-screen-contract` skill. It is a UI's behaviour baseline, beside the design package as its look-and-copy baseline.
 _Home_: `mmw-v3/skills/write-screen-contract/references/screen-contract-format.md`
 
 **row** (screen-contract row):
@@ -308,7 +308,7 @@ The write-screen-contract skill's script that calls a FastAPI app factory and wr
 _Home_: `mmw-v3/skills/write-screen-contract/scripts/dump_openapi.py`
 
 **`<scratch>`**:
-The `mktemp`-created directory holding a write-screen-contract run's screen contract in progress, until step 7 copies it to `docs/specs/<effort>/`.
+The `mktemp`-created directory holding a write-screen-contract run's screen contract in progress, until step 8 of Write the screen contract copies it to `efforts/<effort>/`.
 _Home_: `mmw-v3/skills/write-screen-contract/SKILL.md`
 
 **`retired_ids`**:

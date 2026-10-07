@@ -4,7 +4,7 @@
 
 1. **Check the tools,** as the `design-pages` skill's `## Who can do this work` says.
    Done when the Claude Design tools answer, or the owner has been told this session cannot do the work.
-2. **Find the state list,** as the `design-pages` skill's `## The state list` says. An existing product with none gets one written now, under `## State list` in `prototypes/<effort>/README.md`: one `### <region>` heading per region and one list item per state the product shows.
+2. **Find the state list,** as the `design-pages` skill's `## The state list` says. An existing product with none gets one written now, under `## State list` in `efforts/<effort>/README.md`: one `### <region>` heading per region and one list item per state the product shows.
    Done when you hold the path of the `README.md` that holds the state list, or know this design has none.
 3. **Create or open the project.** When the owner already has one, take its id from the link they give, and check that its `CLAUDE.md` holds the block of the `design-pages` skill's `references/template-project-claude-md.md`. Otherwise `create_project`, bound to the product's design system when it has one (its UUID from the link the owner gives), unbound when it has none.
    Done when you hold the project's id.

@@ -5,7 +5,7 @@
 # ///
 """Compare a product story with its design page by `data-ui` element facts.
 
-    uv run story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <mount,…>
+    uv run story-parity.py --contract efforts/<effort>/screen-contract.yaml --pages <mount,…>
 
 The screen contract names the design package, viewports, pages and scenes. `--pages`
 names the `pages.<page>.mount` values this run covers, including `App · ` pages;

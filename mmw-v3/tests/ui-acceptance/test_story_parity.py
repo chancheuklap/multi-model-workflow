@@ -18,7 +18,7 @@ SCRIPT = (
     / "skills" / "ui-acceptance" / "scripts" / "story-parity.py"
 )
 REPO = Path(__file__).resolve().parent / "fixtures" / "story" / "repo"
-CONTRACT = "docs/specs/story/screen-contract.yaml"
+CONTRACT = "efforts/story/screen-contract.yaml"
 
 
 def load():
@@ -403,7 +403,7 @@ class TestStoryFixture(unittest.TestCase):
         root = self.copied_fixture()
         self._rewrite_contract(root, lambda text: text.replace(
             "locale: zh-CN\n", "locale: en-US\n"))
-        design = (root / "docs" / "prototypes" / "story" / "claude-design"
+        design = (root / "efforts" / "story" / "claude-design"
                   / "Component · Demo.dc.html")
         design.write_text(
             design.read_text(encoding="utf-8").replace(
@@ -413,7 +413,7 @@ class TestStoryFixture(unittest.TestCase):
                 'overflow:hidden"></span>\n        <span data-ui="hidden"',
                 1),
             encoding="utf-8")
-        support = (root / "docs" / "prototypes" / "story" / "claude-design"
+        support = (root / "efforts" / "story" / "claude-design"
                    / "support.js")
         support.write_text(
             support.read_text(encoding="utf-8")

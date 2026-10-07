@@ -256,6 +256,18 @@ def check_testing(report: Report, root: Path):
                    "and the reviewer's Tests axis says there is none")
 
 
+def check_layout(report: Report, root: Path):
+    earlier = [rel for rel in ("docs/specs", "prototypes", "docs/prototypes")
+               if (root / rel).is_dir() and any(p.is_dir() for p in (root / rel).iterdir())]
+    if earlier:
+        report.add("missing", "repository", "effort layout",
+                   f"{', '.join(earlier)} hold effort files in the earlier layout, where no "
+                   "playbook reads them; run python3 scripts/migrate_layout.py of the "
+                   "setup-mmw skill on this branch")
+    else:
+        report.add("ok", "repository", "effort layout", "each effort's files under efforts/<effort>/")
+
+
 def check_machine(report: Report):
     auth = run(["gh", "auth", "status"])
     report.add("ok" if auth.returncode == 0 else "missing", "machine", "gh login",
@@ -296,6 +308,7 @@ def main() -> int:
         check_space(report, slug)
     check_checks(report, root)
     check_testing(report, root)
+    check_layout(report, root)
     check_machine(report)
     if slug:
         check_session(report, slug)

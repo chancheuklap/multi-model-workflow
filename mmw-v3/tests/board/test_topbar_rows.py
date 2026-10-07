@@ -13,7 +13,7 @@ from test_board_rows import board_scene
 
 
 ROOT = Path(__file__).resolve().parents[3]
-HANDOFF = ROOT / "prototypes" / "task-board" / "claude-design"
+HANDOFF = ROOT / "efforts" / "task-board" / "claude-design"
 # The example clocks are UTC instants written as Hong Kong wall time (23:39Z is 07:39).
 ZONE = "Asia/Hong_Kong"
 

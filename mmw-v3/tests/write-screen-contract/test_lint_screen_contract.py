@@ -102,7 +102,7 @@ class Repo:
                 f'<input data-ui="fixture.editor">'
                 f'<script type="text/x-dc" data-dc-script data-props=\'{props}\'></script>'
                 f'</body></html>')
-        self.spec_dir = self.root / "docs" / "specs" / "x"
+        self.spec_dir = self.root / "efforts" / "x"
         self.spec_dir.mkdir(parents=True)
         self.contract = self.spec_dir / "screen-contract.yaml"
         mmw = self.root / ".mmw"
@@ -131,7 +131,7 @@ class TestScreenAxis(unittest.TestCase):
         with tempfile.TemporaryDirectory() as scratch:
             outside = Path(scratch) / "screen-contract.yaml"
             outside.write_text("effort: x\n")
-            nested = self.repo.root / "docs"
+            nested = self.repo.root / "efforts"
             before = os.getcwd()
             os.chdir(nested)
             try:

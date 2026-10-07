@@ -1,6 +1,6 @@
 effort: task-board
 baselines:
-  look: prototypes/task-board/claude-design
+  look: efforts/task-board/claude-design
   precedence: look & verbatim copy -> handoff package; calls, shows, next, on_failure -> this file
 locale: zh-CN
 viewports:

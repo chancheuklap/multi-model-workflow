@@ -83,9 +83,10 @@ def operation(entry) -> tuple[str, str] | None:
 def repo_root(contract: Path) -> Path:
     """The repository `baselines.look` is relative to.
 
-    A screen contract still in `<scratch>` (step 7 copies it to `docs/specs/` only once the
-    gap list is settled) sits in no repository; the repository is then the one the
-    lint is run from, found from the current directory rather than taken as it."""
+    A screen contract still in `<scratch>` (Write the screen contract's step 8 copies it
+    to `efforts/<effort>/` only once the gap list is settled) sits in no repository; the
+    repository is then the one the lint is run from, found from the current directory
+    rather than taken as it."""
     for start in (contract.resolve(), Path.cwd().resolve()):
         for parent in [start] + list(start.parents):
             if (parent / ".git").exists():

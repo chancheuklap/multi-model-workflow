@@ -1,13 +1,15 @@
-"""The setup-mmw skill's three scripts, against a fake `gh`, `nmem` and `git`.
+"""The setup-mmw skill's scripts: three against a fake `gh`, `nmem` and `git`, and
+`migrate_layout.py` against a real `git` repository made in a temporary directory.
 
 Nothing here reaches GitHub, Nowledge Mem or a real repository: every subprocess the
-scripts start is answered by `Fake`, which records the command, and the files `check.py`
-reads sit in a temporary directory.
+first three start is answered by `Fake`, which records the command, and the files
+`check.py` reads sit in a temporary directory.
 """
 import importlib.util
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -307,6 +309,93 @@ class TestCheck(unittest.TestCase):
         self.assertRegex(out, r"(?m)^note +session +NMEM_SPACE: this session's is other__repo, not o__r")
         code, out = self.run_check(Fake(root=self.root), nmem_space="o__r")
         self.assertRegex(out, r"(?m)^ok +session +NMEM_SPACE: o__r$")
+
+    def test_the_earlier_effort_layout_is_missing_and_names_the_migration(self):
+        self.set_up_repository()
+        (self.root / "docs" / "specs" / "notes").mkdir(parents=True)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1)
+        self.assertRegex(out, r"(?m)^missing +repository +effort layout: docs/specs hold .*migrate_layout.py")
+
+
+class TestMigrateLayout(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.git("init", "-q")
+        self.write("docs/specs/notes/screen-contract.yaml",
+                   "effort: notes\nbaselines:\n  look: prototypes/notes/claude-design\n")
+        self.write("docs/specs/notes/targets/App.aria", "old snapshot\n")
+        self.write("prototypes/notes/claude-design/App.dc.html", "<p>page</p>\n")
+        self.write("prototypes/notes/example-data/board.js", "x\n")
+        self.write("prototypes/notes/12/UI/README.md", "# variant\n")
+        self.write("prototypes/other/7/claude-design/App.dc.html", "<p>page</p>\n")
+        self.write("docs/specs/reuse/screen-contract.yaml",
+                   "effort: reuse\nbaselines:\n  look: prototypes/other/7/claude-design\n")
+        self.write("docs/prototypes/older/issue-3/README.md", "# older\n")
+        self.write("docs/research/older/issue-4/note.md", "# note\n")
+        self.write("docs/research/shared/note.md", "# not an effort\n")
+        self.write("AGENTS.md", "the contract is docs/specs/notes/screen-contract.yaml\n")
+        self.git("add", "-A")
+        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "earlier layout")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args], capture_output=True, text=True, check=True)
+
+    def write(self, rel, text):
+        (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / rel).write_text(text)
+
+    def migrate(self):
+        out = subprocess.run([sys.executable, str(SCRIPTS / "migrate_layout.py")], cwd=self.root,
+                             capture_output=True, text=True)
+        return out.returncode, out.stdout + out.stderr
+
+    def test_moves_each_effort_into_one_directory_and_rewrites_the_baseline(self):
+        code, out = self.migrate()
+        self.assertEqual(code, 0, out)
+        for rel in ("efforts/notes/screen-contract.yaml", "efforts/notes/claude-design/App.dc.html",
+                    "efforts/notes/example-data/board.js", "efforts/notes/prototypes/12/UI/README.md",
+                    "efforts/reuse/claude-design/App.dc.html", "efforts/notes/targets/App.aria",
+                    "efforts/older/prototypes/issue-3/README.md", "efforts/older/research/issue-4/note.md",
+                    "docs/research/shared/note.md"):
+            self.assertTrue((self.root / rel).is_file(), rel)
+        for rel in ("docs/specs", "prototypes", "docs/prototypes", "docs/research/older", "efforts/other"):
+            self.assertFalse((self.root / rel).exists(), rel)
+        self.assertIn("look: efforts/notes/claude-design\n",
+                      (self.root / "efforts/notes/screen-contract.yaml").read_text())
+        self.assertIn("look: efforts/reuse/claude-design\n",
+                      (self.root / "efforts/reuse/screen-contract.yaml").read_text())
+        self.assertRegex(out, r"STILL NAMED 1:")
+        self.assertTrue(out.rstrip().endswith("LAYOUT MIGRATED 9 changes"), out)
+        unstaged = [line for line in self.git("status", "--porcelain").stdout.splitlines() if line[1] != " "]
+        self.assertEqual(unstaged, [])
+        self.assertIn("efforts/notes/claude-design/App.dc.html", self.git("ls-files").stdout)
+        self.assertNotIn("docs/specs/", self.git("ls-files").stdout)
+
+    def test_two_sources_for_one_destination_refuse(self):
+        self.write("docs/prototypes/notes/12/UI/README.md", "# same leaf, older tree\n")
+        code, out = self.migrate()
+        self.assertEqual(code, 1)
+        self.assertIn("two sources would move to efforts/notes/prototypes/12", out)
+        self.assertTrue((self.root / "prototypes/notes/12/UI/README.md").is_file())
+        self.assertEqual(self.git("log", "--oneline").stdout.count("\n"), 1)
+
+    def test_a_second_run_moves_nothing(self):
+        self.migrate()
+        code, out = self.migrate()
+        self.assertEqual((code, out.strip()), (0, "LAYOUT OK"))
+
+    def test_an_existing_destination_refuses_and_changes_nothing(self):
+        self.write("efforts/notes/screen-contract.yaml", "already here\n")
+        code, out = self.migrate()
+        self.assertEqual(code, 1)
+        self.assertIn("efforts/notes/screen-contract.yaml already exists", out)
+        self.assertTrue((self.root / "docs/specs/notes/screen-contract.yaml").is_file())
+        self.assertTrue((self.root / "prototypes/notes/claude-design/App.dc.html").is_file())
 
 
 if __name__ == "__main__":

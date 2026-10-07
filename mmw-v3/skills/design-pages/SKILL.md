@@ -35,11 +35,11 @@ Changes to a design system are made in Claude Design, by the owner or by its age
 
 ## The state list
 
-The state list names the regions and states to draw: one `### <region>` heading per region (the region name is the later `Component · <region>` page) and one list item per state, starting with the state name (the later `scene` value). It is the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, or, for an existing product, of `prototypes/<effort>/README.md`, written as Build a design system's **An existing product** says. A UI has one state list. The pull report and any decision ticket that will change a page's states match against its names.
+The state list names the regions and states to draw: one `### <region>` heading per region (the region name is the later `Component · <region>` page) and one list item per state, starting with the state name (the later `scene` value). It is the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, or, for an existing product, of `efforts/<effort>/README.md`, written as Build a design system's **An existing product** says. A UI has one state list. The pull report and any decision ticket that will change a page's states match against its names.
 
 ## The design package
 
-The pull writes the design package to `prototypes/<effort>/claude-design/`, where `prototypes/<effort>/` is the directory that holds this effort's prototype leaves, or its `README.md` with the state list for an existing product; when neither exists, `<effort>` is as the `prototype` skill's rule 1 **Lives in `prototypes/`** defines it. The pull also writes `pull-report.md` beside the pages. Every pull of the project writes the same directory, and the package holds exactly the files the pages load: the bound design system's `readme.md` comes with it, for the `Unifications` table the product's code follows, and example data lives beside it, never inside it.
+The pull writes the design package to `efforts/<effort>/claude-design/`, with `<effort>` as the `prototype` skill's rule 1 **Lives in `efforts/<effort>/prototypes/`** defines it. The pull also writes `pull-report.md` beside the pages. Every pull of the project writes the same directory, and the package holds exactly the files the pages load: the bound design system's `readme.md` comes with it, for the `Unifications` table the product's code follows, and example data lives beside it, never inside it.
 
 The design package is written only by `pull_design.py`, never by Claude Design's "Handoff to Claude Code" export, and a local edit is overwritten by the next pull. Git is the design's version history; Claude Design keeps none.
 
