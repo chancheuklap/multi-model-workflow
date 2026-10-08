@@ -8,9 +8,7 @@ Two failures make the file useless to the next agent. A behaviour with no execut
 
 Each product has one directory, `docs/features/<product>/`. The directory holds one `<feature>.md` for each feature and one `README.md`.
 
-The directory stays in the repository while the product does. `docs/adr/0038-repository-files-are-layered-by-lifetime.md` takes a standing file into the repository when something keeps it true. Three things keep a feature map true. A lint checks the format, the index, each `source` and each `check` target. The worker who changes a feature updates its file in the same commit as the code. A periodic review turns each `check: none:` line into a command. That review is a later spec's procedure.
-
-The directory is not under `.mmw/`. That tree holds what a script executes, and the search an agent uses skips a hidden directory. The directory does not sit with `CONTEXT.md`. A context is split by domain, not by product.
+The directory stays in the repository while the product does. A lint checks the format, the index, each `source` and each `check` target. The worker who changes a feature updates its file in the same commit as the code.
 
 ## The product README
 
@@ -19,7 +17,7 @@ The directory is not under `.mmw/`. That tree holds what a script executes, and 
 1. `Baseline preconditions`. Conditions that hold before anyone operates the product.
 2. `Driving conventions`. Identifiers a recipe uses to find a control.
 3. `Proof and skip reporting`. Where evidence goes, and how a skipped path is reported.
-4. `Feature entry contract`. Points at **How a feature is divided** below. Adds a rule only when that rule is true of this product and not of every product.
+4. `Feature entry contract`. Points at **How a feature is divided** and at **A feature file** below. Adds a rule only when that rule is true of this product and not of every product.
 5. `Features`. The index. One line per feature file. The line links the file and says what the user can finish there.
 
 Example of one index line. The notes app is an example, and the line is not a requirement.
