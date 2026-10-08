@@ -61,7 +61,7 @@ The one argument is the repository root, and a `CHECK:` line runs there, so it i
 
 ## Seam and Owns on these tickets
 
-**Seam** names each criterion shape the ticket uses; where each shape observes and what puts the product there is fixed, and stated here once: a story criterion observes the product's story page, put into its scene by the story adapter reading the scene data; a boundary criterion observes the product's gateway, replaced for the test, with the interaction helper acting on the row's `data-ui` id; a journey criterion observes the real product brought up by `start` in `.mmw/target.json`; the design-system, static-guard and harness-guard criteria read the repository tree. The precedent is the one the spec's Testing Decisions names; on a product from zero it is what the **contract ticket** lands, and **Seam** names that ticket.
+**Seam** names each criterion shape the ticket uses; where each shape observes and what puts the product there is fixed, and stated here once: a story criterion observes the product's story page, put into its scene by the story adapter reading the scene data; a boundary criterion observes the product's gateway, replaced for the test, with the interaction helper acting on the row's `data-ui` id; a journey criterion observes the real product brought up by `start` in `.mmw/<product>/target.json`; the design-system, static-guard and harness-guard criteria read the repository tree. The precedent is the one the spec's Testing Decisions names; on a product from zero it is what the **contract ticket** lands, and **Seam** names that ticket.
 
 When a screen-contract row a ticket owns cites a section of an earlier spec as its source, **Parent** names that spec and its sections after the parent's, in the same words, and never first (for example, "#12, Implementation Decisions sections 5 and 7; #7 Implementation Decisions section 4").
 
@@ -81,17 +81,17 @@ Its criterion is one shell command showing that the design system's variables an
 
 An existing product: fill only what the spec's **How a test arrives at a state** names as missing. When something is missing, this ticket blocks the tickets that need those deliverables. When nothing is, cut none.
 
-A new product: land `.mmw/` in full. It blocks every ticket in the batch except the **design-system ticket**. What it lands is the precedent later tickets copy.
+A new product: land `.mmw/<product>/` in full. It blocks every ticket in the batch except the **design-system ticket**. What it lands is the precedent later tickets copy.
 
 What it delivers:
 
 - the spec's **API contract** subsection turned into models and route signatures
-- `.mmw/target.json`, including `harness_markers`
+- `.mmw/<product>/`, written as the `create-verification-skill` skill says. The ticket names that skill and does not restate what the directory holds
 - the story service and the first story adapter
 - the interaction helper that finds a control by its `data-ui` id
 - this product's element parity precedent: one existing component made comparable, with the design page's `data-ui` ids written onto its elements and `[data-story-root]` on its root, rendered by the first story adapter; for a new product with no component yet, see below
 - the static guards: the UI takes no fake data; `mount` is unique in one render; a `data-ui` id repeats only on the repeating part of a list
-- the **fault-injection switch** under `.mmw/harness/`: `start` reads `MMW_BREAK` and the switch acts only on the product process
+- the **fault-injection switch** under `.mmw/<product>/harness/`: `start` reads `MMW_BREAK` and the switch acts only on the product process
 - the smoke journey
 - the **harness guard**
 
@@ -99,11 +99,11 @@ Of those, only the smoke journey carries a criterion on this ticket. The static 
 
 The contract ticket's **What to build** fixes each static guard's test file and case name; the last ticket's static-guard `CHECK:` runs that case with the repository's test runner, and its `EXPECT:` is the runner's success line.
 
-This ticket writes the `data-ui` ids onto the precedent's component and builds the story adapter for its page, and its **Owns** lists those component files beside `.mmw/`. The **component page ticket** that takes that component's page owns the same directory, is blocked by this one, and carries the story and boundary criteria that first judge the precedent. A new product with no component yet has nothing to make comparable here: its precedent is the component the first **component page ticket** builds, and this ticket delivers the story service, the story adapter shape and the interaction helper that ticket uses, with no component files under **Owns**.
+This ticket writes the `data-ui` ids onto the precedent's component and builds the story adapter for its page, and its **Owns** lists those component files beside `.mmw/<product>/`. The **component page ticket** that takes that component's page owns the same directory, is blocked by this one, and carries the story and boundary criteria that first judge the precedent. A new product with no component yet has nothing to make comparable here: its precedent is the component the first **component page ticket** builds, and this ticket delivers the story service, the story adapter shape and the interaction helper that ticket uses, with no component files under **Owns**.
 
 The smoke journey uses the journey criterion and omits `--break`. It requires the product to come up and answer; it signs in when the product has a login. Its second pass is the product-down pass the **Journey criterion** above already names. The first **critical-flow ticket**'s journey is what proves the fault-injection switch.
 
-**Read first** names three sections of the `ui-acceptance` skill: `references/story-parity.md` **The story page the product serves**; `references/journey.md`; and `references/product-answers.md`. **Owns** is `.mmw/`, the story service and the interaction helper, and, as the prefactor ticket below, every file that registers a design page's scenes and routes.
+**Read first** names three sections of the `ui-acceptance` skill: `references/story-parity.md` **The story page the product serves**; `references/journey.md`; and `references/product-answers.md`. **Owns** is `.mmw/<product>/`, the product's own story service and the interaction helper, and, as the prefactor ticket below, every file that registers a design page's scenes and routes.
 
 Journeys appear on the contract ticket, on tickets the owner named, and on each critical-flow ticket.
 
@@ -140,11 +140,11 @@ The ticket-cutting session writes the journey criterion, with `--break`, taking 
 
 **Parent** names the Implementation Decisions sections that flow lists. It is blocked by every ticket of this batch whose work that flow uses: the **component page ticket** and **app page ticket** of the pages it walks, and the tickets that build the operations those rows' `calls` name. A journey drives the real product with nothing mocked, so an operation that does not exist yet fails it at the first write, and the blockers are derived from the flow's rows, not from the list of ticket kinds. It is `senior-worker`.
 
-**Owns** is `.mmw/journeys/<flow>/`, plus adding to the shared helper when there is one; product code is not in it.
+**Owns** is `.mmw/<product>/journeys/<flow>/`, plus adding to the shared helper when there is one; product code is not in it.
 
 ## Shared journey helper
 
-When two or more journey tickets in the batch (a **critical-flow ticket**, or another ticket that names a journey) need the same product access (bringing the stack up, a health check, sign-in, a top-up), the **contract ticket** (when there is one) or the first journey ticket in the batch creates one helper module under `.mmw/harness/` and lists it under its **Owns**. Later journey tickets import it.
+When two or more journey tickets in the batch (a **critical-flow ticket**, or another ticket that names a journey) need the same product access (bringing the stack up, a health check, sign-in, a top-up), the **contract ticket** (when there is one) or the first journey ticket in the batch creates one helper module under `.mmw/<product>/harness/` and lists it under its **Owns**. Later journey tickets import it.
 
 ## reaction ticket
 

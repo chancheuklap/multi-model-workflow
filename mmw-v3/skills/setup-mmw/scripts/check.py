@@ -239,10 +239,27 @@ def _lease():
     return module
 
 
+def _target_config():
+    """The module whose `layout_problems` is what `--check` exits on."""
+    path = HERE.parents[1] / "ui-acceptance" / "scripts" / "target_config.py"
+    name = "setup_mmw_target_config"
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    # dataclass looks the class's module up in sys.modules while the class body runs.
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def check_checks(report: Report, root: Path):
-    """Count the root's `checks`. A product file's own list is not this count."""
+    """Count the root's `checks`. A product file's own list is not this count.
+
+    Returns the read, False when the old layout refuses the read, or None when
+    there is no readable root.
+    """
     path = root / ".mmw" / "target.json"
     checks = None
+    read = None
     if not path.is_file():
         report.add("missing", "repository", ".mmw/target.json checks",
                    "no .mmw/target.json; a ticket closes and lands with no repository check run")
@@ -255,6 +272,7 @@ def check_checks(report: Report, root: Path):
             return False
         except lease.TargetJSONError as exc:
             report.add("missing", "repository", ".mmw/target.json checks", f"not JSON ({exc})")
+            read = None
         else:
             checks = read.root.get("checks") if read is not None else None
             if isinstance(checks, list) and checks:
@@ -268,6 +286,37 @@ def check_checks(report: Report, root: Path):
         report.add("missing", "repository", "feature map lint",
                    "docs/features/ exists; add "
                    f"`{FEATURE_MAP_LINT}` to `.mmw/target.json` `checks`")
+    return read
+
+
+def check_products(report: Report, root: Path, read) -> None:
+    """One `missing` line per listed product whose file is absent or whose `--check` fails."""
+    names = read.root.get("products")
+    if not isinstance(names, list):
+        return
+    target = _target_config()
+    problems = target.layout_problems(root)
+    used: set[int] = set()
+    for name in names:
+        if not isinstance(name, str) or target.PRODUCT_NAME.fullmatch(name) is None:
+            continue
+        shown = f".mmw/{name}/target.json"
+        about = [i for i, line in enumerate(problems)
+                 if shown in line or f" on {name};" in line or f" on {name} " in line]
+        path = root / ".mmw" / name / "target.json"
+        if not path.is_file():
+            report.add("missing", "repository", shown,
+                       f"no file; the create-verification-skill skill writes .mmw/{name}/")
+            used.update(about)
+            continue
+        if about:
+            report.add("missing", "repository", shown,
+                       f"target_config.py --check --product {name} did not pass; {problems[about[0]]}")
+            used.update(about)
+    for i, line in enumerate(problems):
+        if i not in used:
+            report.add("missing", "repository", "target_config.py --check", line)
+            break
 
 
 def check_testing(report: Report, root: Path):
@@ -329,9 +378,12 @@ def main() -> int:
     check_labels(report)
     if slug:
         check_space(report, slug)
-    if check_checks(report, root) is False:
+    read = check_checks(report, root)
+    if read is False:
         report.print()
         return 2
+    if read is not None:
+        check_products(report, root, read)
     check_testing(report, root)
     check_layout(report, root)
     check_machine(report)
