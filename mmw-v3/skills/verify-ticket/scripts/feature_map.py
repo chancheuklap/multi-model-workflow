@@ -4,24 +4,25 @@
     python3 feature_map.py lint
 
 Reads `docs/features/<product>/` and the screen contracts at
-`efforts/<effort>/screen-contract.yaml`. The same read is `lint(root)`, for a
-caller that already holds the repository root.
+`efforts/<effort>/screen-contract.yaml`. `lint(root)` is the check.
+`read_subfeatures(text)` is the read of one feature file, including each
+sub-feature id, for a caller that loads this file by path.
 
 Exit 0 prints `FEATURE MAP OK <n> features`, where n is the number of feature
 files. Exit 1 prints one line per problem. Exit 2 refuses when the map cannot
 be read. A `check: none:` line is a `NOTE` and does not change the exit code.
+A map with no feature file exits 1.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import json
 import re
 import shlex
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 FEATURE_SECTIONS = (
     "Sub-features",
@@ -49,9 +50,19 @@ SECTION_SOURCE = re.compile(r"^#\d+ §\d+$")
 ROW_SOURCE = re.compile(r"^row:(\S+)$")
 ADR_SOURCE = re.compile(r"^ADR \d+$")
 EXISTING_SOURCE = re.compile(r"^existing (\d{4}-\d{2}-\d{2})$")
-PY_EXT = re.compile(r"\.(?:sh|py|mjs|js|md|yaml|yml)$")
+FILE_SUFFIX = re.compile(r"\.(?:sh|py|mjs|js|md|yaml|yml)$")
+ITEM_ID = re.compile(r"^- `([^`]+)`")
 
 _refusal = None
+_yaml_file = None
+
+
+class ProductLint(NamedTuple):
+    findings: list[str]
+    notes: list[str]
+    count: int
+    saw_row: bool
+    blocked: str | None
 
 
 def refuse(what: str, why: str, next_step: str) -> str:
@@ -167,14 +178,10 @@ def index_names(product: Path, readme: Path, body: list[tuple[int, str]]) -> lis
     return named
 
 
-def index_findings(root: Path, product: Path, readme: Path | None,
+def index_findings(root: Path, product: Path, readme: Path,
                    sections: list[tuple[int, str, list[tuple[int, str]]]],
                    files: list[Path]) -> list[str]:
     on_disk = {path.name for path in files}
-    if readme is None:
-        return [problem(show(root, path), 1, "index",
-                        f"a Features entry for {path.name}", "absent")
-                for path in files]
     body: list[tuple[int, str]] = []
     for _line, title, section_body in sections:
         if title == "Features":
@@ -217,7 +224,9 @@ def subfeature_rows(body: list[tuple[int, str]]) -> list[dict]:
         if BULLET.match(line):
             if current is not None:
                 items.append(current)
-            current = {"line": number, "source": None, "check": None}
+            identity = ITEM_ID.match(line)
+            current = {"line": number, "id": identity.group(1) if identity else None,
+                       "source": None, "check": None}
         elif current is not None and (match := FIELD.match(line)):
             key = match.group(1)
             if current[key] is None:
@@ -227,6 +236,19 @@ def subfeature_rows(body: list[tuple[int, str]]) -> list[dict]:
     return items
 
 
+def read_subfeatures(text: str) -> list[dict]:
+    """Each sub-feature of one feature file.
+
+    `id` is the backtick id on the bullet, or None when the bullet has none.
+    `source` and `check` are `(line, text)` or None.
+    """
+    found = []
+    for _line, title, body in h2_sections(text.splitlines()):
+        if title == "Sub-features":
+            found.extend(subfeature_rows(body))
+    return found
+
+
 def split_command(command: str) -> list[str]:
     try:
         return shlex.split(command)
@@ -234,13 +256,27 @@ def split_command(command: str) -> list[str]:
         return command.split()
 
 
+def path_token(token: str) -> str:
+    """The file a command token names, without a pytest node id, with `~` expanded."""
+    token = token.split("::", 1)[0]
+    if token.startswith("~"):
+        return str(Path(token).expanduser())
+    return token
+
+
 def join_path(root: Path, cwd: Path, token: str) -> Path | None:
-    """A repository path named by `token`, or None when `token` is not one."""
+    """A repository path named by `token`, or None when `token` is not one.
+
+    A path outside the repository, including `~/.agents/skills`, is not one.
+    """
     if token.startswith("-") or "://" in token:
         return None
-    if "/" not in token and not PY_EXT.search(token):
+    token = path_token(token)
+    if not token:
         return None
     path = Path(token)
+    if not path.is_absolute() and "/" not in token and not FILE_SUFFIX.search(token):
+        return None
     if path.is_absolute():
         resolved = path
     else:
@@ -318,7 +354,6 @@ def remember(seen: set[str], label: str) -> bool:
 
 def segment_targets(root: Path, cwd: Path, segment: list[str], seen: set[str]) -> list[tuple[str, str]]:
     missing = []
-    command = segment[0]
     for cursor, token in enumerate(segment):
         if token == "journey.py" or token.endswith("/journey.py"):
             if cursor + 2 < len(segment) and segment[cursor + 1] == "run":
@@ -334,15 +369,7 @@ def segment_targets(root: Path, cwd: Path, segment: list[str], seen: set[str]) -
                     if not UNITTEST_TARGET.fullmatch(target):
                         continue
                     missing.extend(unittest_target(root, cwd, target, seen))
-    if command in ("node", "nodejs") or command.endswith(("/node", "/nodejs")):
-        arguments = [token for token in segment[1:] if not token.startswith("-")]
-        if arguments:
-            missing.extend(path_target(root, cwd, arguments[0], seen))
     for token in segment[1:]:
-        if token.startswith("-") or token in ("python", "python3", "node", "nodejs"):
-            continue
-        if "/" not in token and not PY_EXT.search(token):
-            continue
         missing.extend(path_target(root, cwd, token, seen))
     return missing
 
@@ -360,14 +387,13 @@ def path_target(root: Path, cwd: Path, token: str, seen: set[str]) -> list[tuple
 
 
 def _display(root: Path, cwd: Path, token: str) -> str:
-    path = Path(token)
+    path = Path(path_token(token))
     if path.is_absolute():
         try:
             return path.resolve().relative_to(root.resolve()).as_posix()
         except ValueError:
-            return token
-    base = cwd if cwd.is_absolute() else Path(cwd)
-    return (base / path).as_posix()
+            return path.as_posix()
+    return (cwd / path).as_posix()
 
 
 def unittest_target(root: Path, cwd: Path, target: str, seen: set[str]) -> list[tuple[str, str]]:
@@ -396,37 +422,33 @@ def unittest_target(root: Path, cwd: Path, target: str, seen: set[str]) -> list[
 def load_yaml(path: Path):
     """The document, `{}` when it is empty, or None when it cannot be read.
 
-    `pyyaml` when this interpreter has it, otherwise `uv run --with pyyaml`, the
-    same fallback `verify-ticket.py` uses for a screen contract.
+    The pyyaml-or-uv read is `load_yaml_file` in `verify-ticket.py`. The import
+    stays inside this function: the publish lint loads this file from
+    `verify-ticket.py`, and a module-level import would load `verify-ticket.py`
+    while that file is still loading this one.
     """
-    text = read_text(path)
-    if text is None:
-        return None
+    global _yaml_file
+    if _yaml_file is None:
+        sibling = Path(__file__).resolve().parent / "verify-ticket.py"
+        spec = importlib.util.spec_from_file_location("mmw_verify_ticket_yaml", sibling)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _yaml_file = module.load_yaml_file
     try:
         import yaml
     except ImportError:
         yaml = None
-    if yaml is not None:
-        try:
-            return yaml.safe_load(text) or {}
-        except yaml.YAMLError:
+    try:
+        document = _yaml_file(str(path))
+    except OSError:
+        return None
+    except Exception as exc:
+        if yaml is not None and isinstance(exc, yaml.YAMLError):
             return None
-    try:
-        out = subprocess.run(
-            ["uv", "run", "--with", "pyyaml", "python", "-c",
-             "import json,sys,yaml; print(json.dumps(yaml.safe_load(sys.stdin.read()) or {}, "
-             "default=str))"],
-            input=text, capture_output=True, text=True, timeout=120,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if out.returncode != 0:
-        return None
-    try:
-        loaded = json.loads(out.stdout)
-    except json.JSONDecodeError:
-        return None
-    return loaded if isinstance(loaded, dict) else {}
+        raise
+    if not isinstance(document, dict):
+        return None if document is None else {}
+    return document
 
 
 def row_ids(root: Path) -> tuple[set[str], str | None]:
@@ -449,31 +471,28 @@ def row_ids(root: Path) -> tuple[set[str], str | None]:
 
 
 def lint_product(root: Path, product: Path, rows: set[str],
-                  judge_rows: bool) -> tuple[list[str], list[str], int, bool, str | None]:
+                  judge_rows: bool) -> ProductLint:
     findings: list[str] = []
     notes: list[str] = []
     saw_row = False
     readme_path = product / "README.md"
     readme_text = read_text(readme_path) if readme_path.is_file() else None
     if readme_path.is_file() and readme_text is None:
-        return [], [], 0, False, refuse_unreadable(show(root, readme_path))
+        return ProductLint([], [], 0, False, refuse_unreadable(show(root, readme_path)))
     files = sorted(path for path in product.glob("*.md") if path.name != "README.md" and path.is_file())
     sections: list[tuple[int, str, list[tuple[int, str]]]] = []
     if readme_text is None:
-        rel = show(root, readme_path)
-        findings.extend(problem(rel, 1, "readme", f"## {title}", "absent")
-                        for title in README_SECTIONS)
+        findings.extend(readme_shape(show(root, readme_path), []))
     else:
         readme_lines = readme_text.splitlines()
         sections = h2_sections(readme_lines)
         findings.extend(readme_shape(show(root, readme_path), readme_lines))
-    findings.extend(index_findings(root, product, readme_path if readme_text is not None else None,
-                                   sections, files))
+    findings.extend(index_findings(root, product, readme_path, sections, files))
     for path in files:
         text = read_text(path)
         rel = show(root, path)
         if text is None:
-            return [], [], 0, False, refuse_unreadable(rel)
+            return ProductLint([], [], 0, False, refuse_unreadable(rel))
         lines = text.splitlines()
         findings.extend(feature_shape(rel, lines))
         for _line, title, body in h2_sections(lines):
@@ -508,7 +527,7 @@ def lint_product(root: Path, product: Path, rows: set[str],
                     continue
                 for expected, actual in inspect_check(root, value):
                     findings.append(problem(rel, line, "check", expected, actual))
-    return findings, notes, len(files), saw_row, None
+    return ProductLint(findings, notes, len(files), saw_row, None)
 
 
 def refuse_unreadable(rel: str) -> str:
@@ -543,15 +562,18 @@ def lint(root: Path | str) -> tuple[int, list[str]]:
     saw_row = False
     products = sorted(path for path in features.iterdir()
                       if path.is_dir() and not path.name.startswith("."))
-    for product in products:
-        product_findings, product_notes, product_count, product_row, blocked = lint_product(
-            root, product, rows, unreadable is None)
-        if blocked is not None:
-            return 2, [blocked]
-        findings.extend(product_findings)
-        notes.extend(product_notes)
-        count += product_count
-        saw_row = saw_row or product_row
+    for product_dir in products:
+        read = lint_product(root, product_dir, rows, unreadable is None)
+        if read.blocked is not None:
+            return 2, [read.blocked]
+        findings.extend(read.findings)
+        notes.extend(read.notes)
+        count += read.count
+        saw_row = saw_row or read.saw_row
+    if count == 0:
+        findings.append(problem(
+            "docs/features", 1, "shape",
+            "at least one feature file", "0 feature files read"))
     if saw_row and unreadable is not None:
         return 2, [refuse(
             f"{unreadable} is not readable (its row ids were not read).",

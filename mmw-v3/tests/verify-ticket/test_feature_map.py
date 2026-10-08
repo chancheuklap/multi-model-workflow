@@ -1,5 +1,6 @@
 """feature_map.py lint, run against a repository the test writes in a temporary directory."""
 
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -165,12 +166,30 @@ def lines_of(output: str) -> list[str]:
     return [line for line in output.splitlines() if line.strip()]
 
 
+def load_feature_map():
+    spec = importlib.util.spec_from_file_location("feature_map_under_test", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class TestFeatureMap(unittest.TestCase):
     def test_a_complete_map_is_ok(self):
         # alpha/open.md, alpha/save.md and beta/close.md. README.md is not a feature file.
         code, output = lint_complete()
         self.assertEqual(code, 0, output)
         self.assertEqual(output.strip(), "FEATURE MAP OK 3 features")
+        rows = load_feature_map().read_subfeatures(
+            (FIXTURES / "complete" / OPEN).read_text(encoding="utf-8"))
+        self.assertEqual([row["id"] for row in rows], [
+            "open-from-command",
+            "open-from-spec",
+            "open-from-ticket",
+            "open-from-record",
+            "open-existing",
+        ])
+        self.assertEqual(rows[0]["source"][1], "row:demo.open")
+        self.assertEqual(rows[0]["check"][1], "bash tests/guard.sh")
 
     def test_a_missing_section_is_named(self):
         code, output = lint_complete(lambda root: replace(root, OPEN, MISSING_SECTION))
@@ -248,23 +267,40 @@ class TestFeatureMap(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             text = text.replace("check: bash tests/guard.sh", "check: node tests/missing.js", 1)
             text = text.replace(
+                "check: node tests/guard.js",
+                "check: uv run pytest tests/test_guard.py::GuardTests::test_opens",
+                1)
+            text = text.replace(
                 "check: python -m unittest tests.test_guard.GuardTests.test_opens",
                 "check: python3 -m unittest tests.test_guard.GuardTests.test_missing",
                 1)
+            text = text.replace(
+                "check: cd tests && python -m unittest test_guard.GuardTests.test_opens",
+                "check: cd tests && python -m unittest test_guard.GuardTests.test_missing",
+                1)
             text = text.replace("check: journey.py run smoke", "check: journey.py run absent")
             path.write_text(text, encoding="utf-8")
+            save = root / "docs/features/alpha/save.md"
+            save.write_text(save.read_text(encoding="utf-8").replace(
+                "check: bash tests/guard.sh",
+                "check: python3 ~/.agents/skills/ui-acceptance/scripts/journey.py run smoke",
+                1), encoding="utf-8")
 
         code, output = lint_complete(edit)
         self.assertEqual(code, 1, output)
         self.assertNotIn("FEATURE MAP OK", output)
         reported = lines_of(output)
-        self.assertEqual(len(reported), 3, output)
+        self.assertEqual(len(reported), 4, output)
         self.assertTrue(any("open.md:9:" in line and "tests/missing.js" in line for line in reported),
                         reported)
         self.assertTrue(any("open.md:15:" in line and "test_missing" in line for line in reported),
                         reported)
+        self.assertTrue(any("open.md:18:" in line and "test_missing" in line for line in reported),
+                        reported)
         self.assertTrue(any("open.md:21:" in line and ".mmw/journeys/absent/" in line for line in reported),
                         reported)
+        self.assertNotIn("::", output)
+        self.assertNotIn("~/.agents", output)
 
     def test_a_bad_source_is_named(self):
         code, output = lint_complete(lambda root: replace(root, OPEN, BAD_SOURCE))
@@ -300,6 +336,32 @@ class TestFeatureMap(unittest.TestCase):
         self.assertEqual(code, 2, output)
         self.assertNotIn("FEATURE MAP OK", output)
         self.assertIn("docs/features/", output)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs" / "features").mkdir(parents=True)
+            code, output = run_lint(root)
+        self.assertEqual(code, 1, output)
+        self.assertNotIn("FEATURE MAP OK", output)
+        self.assertIn("docs/features:1:", output)
+        self.assertIn("0 feature files", output)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            readme = root / "docs" / "features" / "alpha" / "README.md"
+            readme.parent.mkdir(parents=True)
+            readme.write_text(
+                "# Alpha\n\n"
+                "## Baseline preconditions\n\n"
+                "## Driving conventions\n\n"
+                "## Proof and skip reporting\n\n"
+                "## Feature entry contract\n\n"
+                "## Features\n",
+                encoding="utf-8")
+            code, output = run_lint(root)
+        self.assertEqual(code, 1, output)
+        self.assertNotIn("FEATURE MAP OK", output)
+        self.assertIn("0 feature files", output)
 
 
 if __name__ == "__main__":
