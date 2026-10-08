@@ -247,11 +247,12 @@ def check_checks(report: Report, root: Path):
             else:
                 report.add("missing", "repository", ".mmw/target.json checks",
                            "no `checks`; a ticket closes and lands with no repository check run")
-    recorded = isinstance(checks, list) and any(
-        isinstance(item, str) and item.strip() == FEATURE_MAP_LINT for item in checks)
+    recorded = isinstance(checks, list) and FEATURE_MAP_LINT in (
+        item.get("run") if isinstance(item, dict) else item for item in checks)
     if (root / "docs" / "features").is_dir() and not recorded:
         report.add("missing", "repository", "feature map lint",
-                   f"add `{FEATURE_MAP_LINT}` to `checks`")
+                   "docs/features/ exists; add "
+                   f"`{FEATURE_MAP_LINT}` to `.mmw/target.json` `checks`")
 
 
 def check_testing(report: Report, root: Path):
