@@ -892,13 +892,13 @@ class NeededProducts(unittest.TestCase):
         starts = [e for e in events if e["verb"] == "start"]
         self.assertEqual([e["product"] for e in starts], ["gateway", "parrot"])
         gateway, parrot = starts
-        expected = "http://127.0.0.1:" + gateway["env"]["MMW_PORT_BASE"]
+        expected = "http://127.0.0.1:" + gateway["env"]["MMW_PORT_BASE"] + "/discovered"
         self.assertEqual(parrot["env"]["GATEWAY_ORIGIN"], expected)
         for e in events:
             if e["product"] == "parrot":
                 self.assertEqual(e["env"]["GATEWAY_ORIGIN"], expected)
-        self.assertEqual((self.root / ".scratch/journeys/parrot/open/result.txt").read_text(),
-                         "parrot")
+        self.assertEqual([e["evidence_files"] for e in events if e["verb"] == "journey"],
+                         [[], []])
 
     def test_a_journey_stops_its_needs_in_reverse_order(self):
         proc = self.run_product()
@@ -907,7 +907,10 @@ class NeededProducts(unittest.TestCase):
         events = self.events()
         self.assertEqual([e["product"] for e in events if e["verb"] == "stop"],
                          ["parrot", "gateway"])
-        self.assertEqual(list((self.home / "leases").glob("slot-*.json")), [])
+        listed = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "list"],
+                                env=self.env, capture_output=True, text=True)
+        self.assertEqual(listed.returncode, 0, listed.stdout + listed.stderr)
+        self.assertEqual(json.loads(listed.stdout), [])
         import socket
         for e in events:
             if e["verb"] != "start":
@@ -945,6 +948,24 @@ class NeededProducts(unittest.TestCase):
         for e in self.events():
             if e["verb"] != "stop":
                 self.assertNotIn("MMW_BREAK", e["env"])
+
+    def test_a_journey_refuses_to_restart_a_product_owned_by_another_run(self):
+        proc = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "run",
+                               "--product", "parrot", "--", sys.executable,
+                               ".mmw/product.py", "start"], cwd=self.root,
+                              env=self.env, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        before = self.events()
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("parrot", proc.stderr)
+        self.assertNotIn("JOURNEY OK", proc.stdout)
+        self.assertEqual(self.events(), before)
+        listed = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "list"],
+                                env=self.env, capture_output=True, text=True)
+        record = json.loads(listed.stdout)[0]
+        self.assertEqual(record["started"], ["gateway", "parrot"])
+        self.assertIsNotNone(record["busy"])
 
 
 class TwoProducts(unittest.TestCase):

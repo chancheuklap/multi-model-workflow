@@ -47,7 +47,11 @@ with (root / "events.jsonl").open("a") as log:
         prefix = product.upper().replace("-", "_") + "_"
         keys.update(prefix + key for key in ("ORIGIN", "INSTANCE", "METADATA"))
     seen = {key: value for key, value in os.environ.items() if key in keys}
-    log.write(json.dumps({"product": name, "verb": verb, "env": seen}) + "\n")
+    event = {"product": name, "verb": verb, "env": seen}
+    if verb == "journey":
+        event["evidence_files"] = sorted(p.name for p in
+                                         Path(os.environ["MMW_EVIDENCE_DIR"]).iterdir())
+    log.write(json.dumps(event) + "\n")
 
 if verb in ("start", "discover", "doctor", "command", "journey"):
     config = json.loads((root / "target.json").read_text())
@@ -86,7 +90,7 @@ elif verb == "stop":
             raise RuntimeError("server still listening after stop")
         (data / "pid").unlink()
 elif verb == "discover":
-    print(json.dumps({"origin": origin, "instance": os.environ["MMW_INSTANCE"],
+    print(json.dumps({"origin": origin + "/discovered", "instance": os.environ["MMW_INSTANCE"],
                       "metadata": {"product": name}}))
 elif verb == "command":
     record = Path(os.environ["MMW_HOME"]) / "leases" / f"slot-{os.environ['MMW_SLOT']}.json"

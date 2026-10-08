@@ -13,7 +13,8 @@ defaults to `.mmw/journeys`.
 Named products start their needs first and receive each dependency's discovered keys
 under its uppercase product prefix. Cleanup stops only products this invocation
 started, in reverse order, then checks their port segments. A dependency already
-running under this lease is left running for its owner.
+running under this lease is left running for its owner. A tested product already
+started under this lease is refused before any commands run.
 
 Acquires or reuses this worktree's lease, runs `start` every time, runs `discover`
 and puts each printed address into the environment under its uppercase key (plus
@@ -63,8 +64,8 @@ if str(HERE) not in sys.path:
 
 from target_config import DISCOVER_NOTES, command_env, discover, repo_root, run_command, target_config  # noqa: E402
 from lease import (  # noqa: E402
-    ProductCommandFailed, ProductRun, TargetJSONError, addresses_into,
-    holder, judge_run, listener, ports_of, product_at_port, product_segments,
+    DEFAULT_PRODUCT, ProductCommandFailed, ProductRun, TargetJSONError, addresses_into,
+    holder, judge_run, listener, ports_of, product_at_port, product_port_ranges,
     product_journey, product_layout, read_target_json, registered, worktree_of,
     update_started,
 )
@@ -156,11 +157,9 @@ def still_up(root: Path, initial_started: list[str] | None = None) -> list[str]:
         return []
     left = []
     previous_ports = set()
-    segments = product_segments(worktree_of(root)) if initial_started else {}
+    segments = product_port_ranges(record) if initial_started else {}
     for name in initial_started or []:
-        offset, count = segments[name]
-        previous_ports.update(range(record["port_base"] + offset,
-                                    record["port_base"] + offset + count))
+        previous_ports.update(segments[name])
     for port in ports_of(record["slot"]):
         if port in previous_ports:
             continue
@@ -262,6 +261,12 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     try:
         cfg, dest = journey_binding(name, root)
         stack = ProductRun(root, cfg.name) if cfg.name is not None else None
+        if stack is not None and cfg.name in stack.initial_started:
+            raise SystemExit(refusal(
+                f"Product {cfg.name} is already started under this lease.",
+                "This journey cannot restart or stop a product another run owns.",
+                "Stop that instance through its owner, then run the journey again.",
+            ))
         env = stack.env() if stack is not None else command_env(root)
     except SystemExit as exc:
         print(exc, file=sys.stderr)
@@ -310,16 +315,23 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     # A run that dies in start or discover still replaces the previous run's evidence.
     prepare_evidence(root, name, break_pass=False)
 
+    def prepare_start() -> int | None:
+        nonlocal env
+        if stack is not None:
+            try:
+                stack.start_needs()
+            except ProductCommandFailed as exc:
+                return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
+            env = stack.env()
+            stack.mark_started(cfg.name)
+        return None
+
     if stack is not None:
-        try:
-            stack.start_needs()
-        except ProductCommandFailed as exc:
-            return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
-        env = stack.env()
-        env.pop("MMW_BREAK", None)
-        stack.mark_started(cfg.name)
+        failed = prepare_start()
+        if failed is not None:
+            return failed
     else:
-        update_started(worktree_of(root), "default")
+        update_started(worktree_of(root), DEFAULT_PRODUCT)
     try:
         run_command(start_cmd, root, env=env)
     except SystemExit as exc:
@@ -332,7 +344,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     if stack is not None:
         stack.remember(cfg.name, data)
     else:
-        update_started(worktree_of(root), "default", data=data)
+        update_started(worktree_of(root), DEFAULT_PRODUCT, data=data)
 
     spec = journey_command(dest)
     if spec is None:
@@ -341,10 +353,9 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
               f"and no package.json scripts.run")
         return 1
 
-    def attempt(environment: dict[str, str], *, break_pass: bool = False, preserve: bool = False
+    def attempt(environment: dict[str, str], *, break_pass: bool = False
                 ) -> tuple[subprocess.CompletedProcess, Path]:
-        evidence = ((root / ".scratch" / "journeys" / name).resolve() if preserve
-                    else prepare_evidence(root, name, break_pass=break_pass))
+        evidence = prepare_evidence(root, name, break_pass=break_pass)
         script_env = dict(environment)
         script_env.pop("FORCE_COLOR", None)
         script_env["MMW_EVIDENCE_DIR"] = str(evidence)
@@ -367,13 +378,9 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
 
     if break_spec is not None:
         if stack is not None:
-            try:
-                stack.start_needs()
-            except ProductCommandFailed as exc:
-                return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
-            env = stack.env()
-            env.pop("MMW_BREAK", None)
-            stack.mark_started(cfg.name)
+            failed = prepare_start()
+            if failed is not None:
+                return failed
         start_env = dict(env)
         start_env["MMW_BREAK"] = break_spec
         try:
@@ -417,8 +424,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             "satisfy."
         )
     try:
-        control, _control_evidence = attempt(control_env, break_pass=break_spec is not None,
-                                            preserve=break_spec is None)
+        control, _control_evidence = attempt(control_env, break_pass=break_spec is not None)
     finally:
         stop_this_run()
     if control.returncode == 0:

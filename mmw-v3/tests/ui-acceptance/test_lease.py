@@ -134,7 +134,8 @@ class Products(Base):
         events = self.events()
         self.assertEqual([(e["product"], e["verb"]) for e in events],
                          [("gateway", "start"), ("gateway", "discover"), ("parrot", "command")])
-        self.assertEqual(events[-1]["env"]["GATEWAY_ORIGIN"], "http://127.0.0.1:22400")
+        self.assertEqual(events[-1]["env"]["GATEWAY_ORIGIN"],
+                         "http://127.0.0.1:22400/discovered")
 
     def test_release_stops_products_in_reverse_order(self):
         self.stack()
@@ -195,10 +196,10 @@ class Products(Base):
         self.assertEqual([e["product"] for e in starts], ["api-gateway", "cache", "aux"])
         command = self.events()[-1]["env"]
         self.assertEqual(command["MMW_PORT_BASE"], "22400")
-        self.assertEqual(command["API_GATEWAY_ORIGIN"], "http://127.0.0.1:22401")
+        self.assertEqual(command["API_GATEWAY_ORIGIN"], "http://127.0.0.1:22401/discovered")
         self.assertEqual(json.loads(command["API_GATEWAY_METADATA"]), {"product": "api-gateway"})
-        self.assertEqual(command["CACHE_ORIGIN"], "http://127.0.0.1:22402")
-        self.assertEqual(command["AUX_ORIGIN"], "http://127.0.0.1:22403")
+        self.assertEqual(command["CACHE_ORIGIN"], "http://127.0.0.1:22402/discovered")
+        self.assertEqual(command["AUX_ORIGIN"], "http://127.0.0.1:22403/discovered")
 
     def test_ports_that_exceed_the_slot_are_refused_without_a_registration(self):
         path = self.root / ".mmw/parrot/target.json"
@@ -244,6 +245,9 @@ class Products(Base):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
     def test_each_product_gets_its_own_segment(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({
+            "products": ["parrot", "gateway"], "needs": {"parrot": ["gateway"]},
+        }))
         seen = []
         for name in ("gateway", "parrot"):
             proc = self.cli("run", "--product", name, "--", sys.executable, "-c",
@@ -252,9 +256,9 @@ class Products(Base):
             seen.append(json.loads(proc.stdout))
         gateway, parrot = seen
         self.assertEqual((gateway["MMW_PORT_BASE"], gateway["MMW_PORT_COUNT"]),
-                         ("22400", "2"))
+                         ("22403", "2"))
         self.assertEqual((parrot["MMW_PORT_BASE"], parrot["MMW_PORT_COUNT"]),
-                         ("22402", "3"))
+                         ("22400", "3"))
         for name, env in zip(("gateway", "parrot"), seen):
             self.assertEqual(Path(env["MMW_DATA_DIR"]).name, name)
             self.assertEqual(env["MMW_PRODUCT"], name)
@@ -262,6 +266,18 @@ class Products(Base):
             self.assertEqual(env["MMW_AUTOMATION"], "1")
         self.assertEqual(gateway["MMW_SLOT"], parrot["MMW_SLOT"])
         self.assertEqual(gateway["MMW_INSTANCE"], parrot["MMW_INSTANCE"])
+
+    def test_the_old_layout_run_keeps_the_callers_working_directory(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({"stop": "true"}))
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        subdir = self.root / "subdir"
+        subdir.mkdir()
+        self.addCleanup(self.cli, "release", "--stop")
+        proc = subprocess.run([sys.executable, str(SCRIPT), "run", "--", sys.executable,
+                               "-c", "import os; print(os.getcwd())"], cwd=subdir,
+                              env=dict(os.environ), capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(Path(proc.stdout.strip()).resolve(), subdir.resolve())
 
 
 class SeeingWhatListens(Base):
