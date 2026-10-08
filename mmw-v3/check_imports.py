@@ -6,7 +6,8 @@ Run from anywhere inside the repository: python3 mmw-v3/check_imports.py
 1. Every file under mmw-v3/skills/ has one row, except the files v3 wrote
    itself (mmw-v3/skills/README.md, everything under mmw-mode/, the dispatch
    skill's roles.json, scripts/check-interfaces.py and scripts/briefs.py, and the setup-mmw
-   skill's scripts/check.py, scripts/labels.py and scripts/migrate_layout.py, the verify-ticket
+   skill's scripts/check.py, scripts/labels.py, scripts/migrate_layout.py and
+   scripts/migrate_products.py, the verify-ticket
    skill's scripts/feature_map.py, and the code-review skill's
    CODING_STANDARDS.md) and the
    `__pycache__/` a test run leaves,
@@ -42,14 +43,19 @@ V3_WRITTEN = ("mmw-v3/skills/README.md", "mmw-v3/skills/mmw-mode/",
               "mmw-v3/skills/setup-mmw/scripts/check.py",
               "mmw-v3/skills/setup-mmw/scripts/labels.py",
               "mmw-v3/skills/setup-mmw/scripts/migrate_layout.py",
+              "mmw-v3/skills/setup-mmw/scripts/migrate_products.py",
               "mmw-v3/skills/verify-ticket/scripts/feature_map.py",
               "mmw-v3/skills/code-review/CODING_STANDARDS.md")
-# mmw-v3/upstream-pstack/ is a split of cursor/plugins' pstack/ directory, so its
-# squash commit names the split, not the cursor/plugins commit. Each line maps a
-# cursor/plugins commit to its split and the directory the split was cut from.
-# A pull of that subtree adds its line here.
+# mmw-v3/upstream-pstack/ and mmw-v3/upstream-cursor-team-kit/ are splits of two
+# directories of cursor/plugins, so each squash commit names the split, not the
+# cursor/plugins commit. Each line maps (cursor/plugins commit, directory) to the
+# split commit and the directory prefix stripped from source. The same upstream
+# commit can name both directories. A pull of either subtree adds its line here.
 SPLITS = {
-    "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a": ("8224b490d845050775fac05f9d34652815fc361e", "pstack/"),
+    ("e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a", "pstack/"): (
+        "8224b490d845050775fac05f9d34652815fc361e", "pstack/"),
+    ("d0ef80d86795816da932a153458c5dbe192d294e", "cursor-team-kit/"): (
+        "d48cf0b17c8a5a1360c47ab7afb95a2ecd406f76", "cursor-team-kit/"),
 }
 
 
@@ -62,12 +68,23 @@ def squash_commit(split):
     return out[0] if out else None
 
 
+def split_for(commit, source):
+    """The split commit and the prefix to strip for this upstream commit and source path.
+
+    A source that matches no directory is read at the commit itself, with nothing stripped.
+    """
+    for (c, directory), value in SPLITS.items():
+        if c == commit and source.startswith(directory):
+            return value
+    return commit, ""
+
+
 def read_source(row, below=""):
     source = row["source"].split("#")[0] + below
     if row["upstream"] == OWN:
         rev = row["commit"]
     else:
-        split, prefix = SPLITS.get(row["commit"], (row["commit"], ""))
+        split, prefix = split_for(row["commit"], source)
         rev = squash_commit(split)
         if prefix and source.startswith(prefix):
             source = source[len(prefix):]
