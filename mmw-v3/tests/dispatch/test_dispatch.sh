@@ -4582,11 +4582,13 @@ JSON
   ws="$TMP/repo/.worktrees/issue-61"
   marker="$TMP/stopped-61"
   rm -f "$marker"
-  mkdir -p "$ws/.mmw"
-  printf '{"start":"true","discover":"true","reach":"true","stop":"touch %s"}\n' "$marker" \
-    > "$ws/.mmw/target.json"
-  # The product runs only under a slot, which the first run of the worker's criteria acquires.
-  python3 "$LEASE_PY" claim "$ws" >/dev/null
+  mkdir -p "$ws/.mmw/app"
+  printf '%s\n' '{"products":["app"]}' > "$ws/.mmw/target.json"
+  printf '{"ports":1,"start":"true","discover":"true","reach":"true","stop":"touch %s"}\n' "$marker" \
+    > "$ws/.mmw/app/target.json"
+  # The product runs only under a slot, which the first run of the worker's criteria acquires,
+  # and `release --stop` stops only the products the lease records as started.
+  python3 "$LEASE_PY" run "$ws" --product app -- true >/dev/null
 
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \
@@ -4628,9 +4630,10 @@ JSON
   # Retract is for a start whose session is gone, so the session is shown gone first.
   set_agent_status "$(cat "$TMP/out")" closed
   ws="$TMP/repo/.worktrees/issue-63"
-  mkdir -p "$ws/.mmw"
-  printf '%s\n' '{"start":"true","discover":"true","reach":"true","stop":"true"}' \
-    > "$ws/.mmw/target.json"
+  mkdir -p "$ws/.mmw/app"
+  printf '%s\n' '{"products":["app"]}' > "$ws/.mmw/target.json"
+  printf '%s\n' '{"ports":1,"start":"true","discover":"true","reach":"true","stop":"true"}' \
+    > "$ws/.mmw/app/target.json"
   # `claim` on a worktree that already has a slot is a lookup and prints the record, so
   # this reads #63's port without parsing `list`, which is the human view.
   port="$(python3 "$LEASE_PY" claim "$ws" \
@@ -9822,8 +9825,9 @@ scenario_landedworktreekept() {
     --field runner=paseo $(start_facts "$(wt 61)" 61 worker))"
   seed_workspace 61
   ws="$(wt 61)"
-  mkdir -p "$ws/.mmw"
-  printf '%s\n' '{"stop":"true"}' > "$ws/.mmw/target.json"
+  mkdir -p "$ws/.mmw/app"
+  printf '%s\n' '{"products":["app"]}' > "$ws/.mmw/target.json"
+  printf '%s\n' '{"ports":1,"stop":"true"}' > "$ws/.mmw/app/target.json"
   port="$(python3 "$LEASE_PY" claim "$ws" | python3 -c 'import json,sys; print(json.load(sys.stdin)["port_base"])')"
   python3 -m http.server "$port" --bind 127.0.0.1 --directory "$TMP" >/dev/null 2>&1 &
   listener=$!

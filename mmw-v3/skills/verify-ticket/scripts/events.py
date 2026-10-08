@@ -79,7 +79,7 @@ SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child")
 
 AGENT_KINDS = ("worker", "reviewer")
 
-# The six refusals of `verify-ticket.py --preflight`, in the order it checks them.
+# The refusals of `verify-ticket.py --preflight`, in the order it checks them.
 REFUSALS = ("wrong-branch", "dirty-tree")
 RELEASE_REASONS = ("landed", "suspended", "worker-lost")
 CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
