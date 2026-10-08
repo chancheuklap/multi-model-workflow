@@ -3,11 +3,17 @@
 
     journey.py run <name> [--break "<METHOD> <route>"]
 
-Acquires or reuses this worktree's lease, runs `.mmw/target.json`'s `start` every
-time, runs `discover` and puts each printed address into the environment under
-its uppercase key (plus the lease variables and `MMW_EVIDENCE_DIR`), runs
-`<journeys>/<name>` (a `run` executable, or the command `package.json` declares),
-and runs `stop` whether the script succeeded or not.
+When `.mmw/target.json` lists `products`, `<name>` is `<product>/<flow>`, including
+a repository with one product. The run uses that product's `start`, `stop` and
+`discover`. The script is `<journeys>/<flow>` (a `run` executable, or the command
+`package.json` declares), and `journeys` defaults to `.mmw/<product>/journeys`.
+When the root file is itself the product, `<name>` is `<flow>` and `journeys`
+defaults to `.mmw/journeys`.
+
+Acquires or reuses this worktree's lease, runs `start` every time, runs `discover`
+and puts each printed address into the environment under its uppercase key (plus
+the lease variables and `MMW_EVIDENCE_DIR`), runs the script, and runs `stop`
+whether the script succeeded or not.
 
 With `--break`, it starts the product again with `MMW_BREAK` supplied only to `start`,
 requires `BREAK ARMED <METHOD> <route>`, discovers the product again, and re-runs the
@@ -51,7 +57,10 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from target_config import DISCOVER_NOTES, command_env, discover, repo_root, run_command, target_config  # noqa: E402
-from lease import holder, judge_run, listener, ports_of, registered, worktree_of  # noqa: E402
+from lease import (  # noqa: E402
+    TargetJSONError, holder, judge_run, listener, ports_of,
+    product_journey, product_layout, read_target_json, registered, worktree_of,
+)
 from refusal import refusal  # noqa: E402
 
 # The first critical-flow ticket builds the fault-injection switch, so a switch that does not arm is
@@ -214,10 +223,40 @@ def negative_env(env: dict[str, str], data: dict) -> dict[str, str]:
     return control
 
 
+def journey_binding(name: str, root: Path) -> tuple[dict, Path]:
+    """The product config this run starts, and the directory the script lives in.
+
+    A listed-products repository takes `<product>/<flow>` and that product's
+    `journeys` directory. The root-as-product repository takes `<flow>` under
+    its own `journeys` directory. `target_config` reports a missing file, a
+    missing product and a product file that is not JSON.
+    """
+    try:
+        read = read_target_json(root)
+    except TargetJSONError:
+        read = None
+    if read is not None and product_layout(read.root):
+        parts = product_journey(name)
+        if parts is None:
+            raise SystemExit(refusal(
+                f"journey name {name!r} is not <product>/<flow>.",
+                "A repository that lists products names every journey that way, "
+                "including a repository with one product.",
+                "Run `journey.py run <product>/<flow>` again.",
+            ))
+        product, flow = parts
+        cfg = target_config(root, product)
+        journeys = cfg.get("journeys") or f".mmw/{product}/journeys"
+        return cfg, (root / journeys / flow).resolve()
+    cfg = target_config(root)
+    journeys = cfg.get("journeys") or DEFAULT_JOURNEYS
+    return cfg, (root / journeys / name).resolve()
+
+
 def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     try:
         env = command_env(root)
-        cfg = target_config(root)
+        cfg, dest = journey_binding(name, root)
     except SystemExit as exc:
         print(exc, file=sys.stderr)
         return 2
@@ -269,8 +308,6 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         return bail(proc=exc.code, kind="discover", command=str(cfg.get("discover")))
     addresses_into(env, data)
 
-    journeys = cfg.get("journeys") or DEFAULT_JOURNEYS
-    dest = (root / journeys / name).resolve()
     spec = journey_command(dest)
     if spec is None:
         stop(cfg, root, env)

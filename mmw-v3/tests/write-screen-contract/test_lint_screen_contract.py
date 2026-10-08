@@ -658,5 +658,52 @@ class TestRetiredPrinted(unittest.TestCase):
 
 
 
+class TestProductKey(unittest.TestCase):
+    """A new-layout repository requires `product`, and the value is one of `products`."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.skeleton = self.repo.root / "skeleton.json"
+        self.skeleton.write_text(json.dumps(SKELETON), encoding="utf-8")
+
+    def tearDown(self):
+        self.repo.cleanup()
+
+    def lint_doc(self, doc) -> tuple[int, str]:
+        self.repo.contract.write_text(json.dumps(doc), encoding="utf-8")
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = lc.main(["lint_screen_contract.py", str(self.repo.contract),
+                            str(self.skeleton)])
+        return code, out.getvalue()
+
+    def test_a_product_layout_contract_names_its_product(self):
+        doc = contract()
+        # The shared fixture leaves one page without a row, so its exit code is
+        # not about `product`. This case drops that page from both sides.
+        doc["pages"].pop(PAGE_APP)
+        doc["scenes"].pop("library.ready")
+        skeleton = json.loads(self.skeleton.read_text(encoding="utf-8"))
+        skeleton["scene_pages"].pop("library.ready")
+        self.skeleton.write_text(json.dumps(skeleton), encoding="utf-8")
+        code, text = self.lint_doc(doc)
+        self.assertEqual(code, 0, text)
+
+        (self.repo.root / ".mmw" / "target.json").write_text(
+            json.dumps({"products": ["alpha", "beta"]}), encoding="utf-8")
+        code, text = self.lint_doc(doc)
+        self.assertEqual(code, 1, text)
+
+        doc["product"] = "nope"
+        code, text = self.lint_doc(doc)
+        self.assertEqual(code, 1, text)
+        self.assertIn("nope", text)
+
+        doc["product"] = "alpha"
+        code, text = self.lint_doc(doc)
+        self.assertEqual(code, 0, text)
+        self.assertNotIn("product is not a screen-contract field", text)
+
+
 if __name__ == "__main__":
     unittest.main()

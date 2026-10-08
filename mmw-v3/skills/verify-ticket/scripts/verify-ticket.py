@@ -3072,10 +3072,78 @@ RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
 JOURNEY_NAME_RE = re.compile(r"^\s*run\s+(\S+)")
 CD_PREFIX_RE = re.compile(r"^\s*cd\s+(\S+)\s*&&")
 CRITICAL_FLOWS_RE = re.compile(r"Critical flows|关键流程", re.IGNORECASE)
-JOURNEY_PATH_RE = re.compile(r"\.mmw/journeys/([a-z0-9][a-z0-9-]*)/?")
-
-
+# `journeys` itself is not a product name. A bare `.mmw/journeys/<flow>/` keeps
+# group 1 empty, so the flow stays the whole name.
+JOURNEY_PATH_RE = re.compile(
+    r"\.mmw/(?:(?!journeys/)([a-z0-9][a-z0-9-]*)/)?journeys/([a-z0-9][a-z0-9-]*)/?"
+)
 OPERATOR_RE = re.compile(r"(?:&&|\|\||;|\|)(?:\s|$)")
+
+
+def journey_path_name(match: re.Match[str]) -> str:
+    """`<product>/<flow>` when the path names a product, else `<flow>`."""
+    product, flow = match.group(1), match.group(2)
+    return f"{product}/{flow}" if product else flow
+
+
+def _journeys_value(read, default: str) -> str:
+    if read is None:
+        return default
+    custom = read.get("journeys")
+    if isinstance(custom, str) and custom.strip():
+        return custom
+    return default
+
+
+def journey_directory(base: Path, name: str) -> Path:
+    """The directory `journey.py run <name>` is looked up in, from `base`.
+
+    A slashed name uses that product's `journeys` key, defaulting to
+    `.mmw/<product>/journeys/<flow>`. A bare name uses the root file's key only
+    when that file is itself the product, defaulting to `.mmw/journeys/<name>`.
+    A missing or unreadable file keeps the default, so a ticket that has not
+    written `.mmw/target.json` yet is still judged at the old path.
+    """
+    lease = load_lease()
+    parts = lease.product_journey(name) if lease is not None else None
+
+    def read(product: str | None):
+        if lease is None:
+            return None
+        try:
+            return lease.read_target_json(base, product)
+        except lease.TargetJSONError:
+            return None
+
+    if parts is not None:
+        product, flow = parts
+        default = f".mmw/{product}/journeys"
+        loaded = read(product)
+        journeys = default
+        if loaded is not None and loaded.present:
+            journeys = _journeys_value(loaded, default)
+        return base / journeys / flow
+    journeys = ".mmw/journeys"
+    loaded = read(None)
+    if loaded is not None and not lease.product_layout(loaded.root):
+        journeys = _journeys_value(loaded, journeys)
+    return base / journeys / name
+
+
+def contract_runtime_for(name: str, owns) -> bool:
+    """Owning these paths excuses `--break` for `name`.
+
+    A slashed name owns `.mmw/<product>/target.json` and `.mmw/<product>/stories`.
+    A bare name owns `.mmw/target.json` and `.mmw/stories`.
+    """
+    lease = load_lease()
+    parts = lease.product_journey(name) if lease is not None else None
+    if parts is None:
+        required = (".mmw/target.json", ".mmw/stories")
+    else:
+        product, _flow = parts
+        required = (f".mmw/{product}/target.json", f".mmw/{product}/stories")
+    return all(any(glob_covers(pattern, path) for pattern in owns) for path in required)
 
 
 def script_segment(check: str, script: str) -> str:
@@ -3517,8 +3585,9 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
 
     The **Critical flows** bullet holds one line per flow, in the shape
     `CRITICAL_FLOW_SHAPE`, nested under the marker or on the marker line itself: the
-    flow is the backticked name (or `.mmw/journeys/<flow>/`, or the bare first word of
-    the item), and the section numbers are the ones after the words
+    flow is the backticked name (or `.mmw/journeys/<flow>/`, or
+    `.mmw/<product>/journeys/<flow>/` read as `<product>/<flow>`, or the bare first
+    word of the item), and the section numbers are the ones after the words
     `Implementation Decisions` (`sections 2 and 3 of Implementation Decisions` reads the
     same). The section is named by its heading in the spec, in English whatever language
     the rest of the spec is in, because that heading is what `## Parent` names too; a
@@ -3560,9 +3629,9 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
         if re.fullmatch(r"[-*\s]*`?none`?[.。]?\s*", line, re.IGNORECASE):
             continue
         path = JOURNEY_PATH_RE.search(line)
-        quoted = re.search(r"`([a-z0-9][a-z0-9-]*)`", line)
+        quoted = re.search(r"`([a-z0-9][a-z0-9-]*(?:/[a-z0-9][a-z0-9-]*)?)`", line)
         plain = re.match(r"^\s*[-*]\s+([a-z0-9][a-z0-9-]*)\b", line)
-        name = (path.group(1) if path else quoted.group(1) if quoted else
+        name = (journey_path_name(path) if path else quoted.group(1) if quoted else
                 plain.group(1) if plain else "")
         after = re.search(r"Implementation Decisions\s*(.+)$", line)
         before = re.search(r"sections?\s+(.+?)\s+of\s+Implementation Decisions", line,
@@ -3608,7 +3677,8 @@ def lint_screen_contract(
     determine the required Component or App story mounts and boundary criteria, and
     each readable boundary test file must contain the row's trigger. A
     `boundary-check.py --run` is a non-empty command; a `journey.py run <name>` exists
-    under `.mmw/journeys/` unless this ticket's `## Owns` covers that directory;
+    under that name's journeys directory (`.mmw/journeys/<name>` when `<name>` has no
+    product) unless this ticket's `## Owns` covers that directory;
     critical-flow journeys require `--break`, while a user-named journey without it is
     a warning;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
@@ -3628,11 +3698,6 @@ def lint_screen_contract(
     acceptance: set[str] | None = None
     acceptance_readable: bool | None = None
     unreadable_specs_reported: set[int] = set()
-    contract_runtime = all(
-        any(glob_covers(pattern, required) for pattern in owns)
-        for required in (".mmw/target.json", ".mmw/stories")
-    )
-
     def load_acceptance_journeys() -> tuple[set[str], bool]:
         """Read parent specs once; False means at least one could not be read."""
         readable = True
@@ -3669,28 +3734,33 @@ def lint_screen_contract(
         # `journeys` is read from where the command will run, not from the repository
         # root: a criterion that drives journey.py against a fixture `cd`s into it first,
         # and the journey it names is under that directory's `.mmw/`.
-        base, prefix = repo, ""
+        base = repo
         cdm = CD_PREFIX_RE.search(check)
         if cdm:
             candidate = (repo / cdm.group(1)).resolve()
             if candidate.is_dir():
                 base = candidate
-                prefix = cdm.group(1).removeprefix("./").strip("/")
         journey_segment = script_segment(check, "journey.py")
         journey_has_break = "--break" in segment_flags(journey_segment)
+        repo_path = Path(repo).resolve()
         for name in JOURNEY_NAME_RE.findall(journey_segment):
-            if (base / ".mmw" / "journeys" / name).exists():
+            dest = journey_directory(base, name)
+            try:
+                rel = dest.resolve().relative_to(repo_path).as_posix()
+            except ValueError:
+                rel = dest.as_posix()
+            if dest.exists():
                 exists_or_owned = True
             else:
                 # A ticket whose `## Owns` covers the directory is the ticket that creates
                 # it, so it is absent until this ticket's own work lands. The rule asks
                 # after a journey someone else was to have built.
-                path = "/".join(p for p in (prefix, ".mmw", "journeys", name) if p)
-                exists_or_owned = any(glob_covers(g, path) for g in owns)
+                exists_or_owned = any(glob_covers(g, rel) for g in owns)
             if not exists_or_owned:
-                findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
+                findings.append(f"{gate_id}: journey.py run {name} is not under {rel}/")
                 continue
-            if journey_has_break or name == "smoke" or contract_runtime:
+            if (journey_has_break or name == "smoke"
+                    or contract_runtime_for(name, owns)):
                 continue
             if acceptance is None:
                 acceptance, acceptance_readable = load_acceptance_journeys()

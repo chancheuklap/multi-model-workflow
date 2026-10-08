@@ -10,8 +10,12 @@ no release (`__tests__/`, `__mocks__/`, `*.test.*`, `*.spec.*`), and files
 product has no back doors. Missing or unusable `harness_markers` is a
 refusal, not a default.
 
-Story-service files — everything under `.mmw/stories/`, and files the `stories`
-command names — may reference `scenes.json` and must not reference `.dc.html`.
+Story-service files — everything under each product's stories directory
+(`.mmw/stories/` when the root file is itself the product, `.mmw/<product>/stories/`
+when the root lists products), and files that product's `stories` command names —
+may reference `scenes.json` and must not reference `.dc.html`. Markers are the
+union of every product's `harness_markers`. A marker one product declares, found
+in another product's application code, is a leak.
 
 What is read is what the repository tracks, or would track — `git ls-files --cached
 --others --exclude-standard`.
@@ -35,7 +39,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from lease import TargetJSONError, read_target_json  # noqa: E402
+from lease import TargetJSONError, product_layout, product_names, read_target_json  # noqa: E402
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 READ_MMW = re.compile(
@@ -81,23 +85,60 @@ def hit_markers(line: str, markers: tuple[str, ...]) -> list[str]:
     return found
 
 
-def load_target(root: Path) -> tuple[dict | None, str | None]:
+def load_products(root: Path) -> tuple[list[tuple[str | None, dict]] | None, str | None]:
+    """Every product config, or why the guard cannot read them.
+
+    The root file that is itself the product is one config with no name. A root
+    that lists products is one config per name, from `.mmw/<name>/target.json`.
+    """
     try:
-        cfg = read_target_json(root)
+        root_read = read_target_json(root)
     except TargetJSONError as exc:
         return None, str(exc)
-    if cfg is None:
+    if root_read is None:
         return None, ".mmw/target.json is not there."
-    return cfg, None
+    if not product_layout(root_read.root):
+        return [(None, root_read)], None
+    names = product_names(root_read.root.get("products"))
+    if not names:
+        return None, ".mmw/target.json products must list the product names."
+    configs: list[tuple[str | None, dict]] = []
+    for name in names:
+        try:
+            one = read_target_json(root, name)
+        except TargetJSONError as exc:
+            return None, str(exc)
+        if one is None:
+            return None, ".mmw/target.json is not there."
+        if one.error:
+            return None, one.error
+        if not one.present:
+            return None, f".mmw/{name}/target.json is not there."
+        configs.append((name, one))
+    return configs, None
 
 
-def markers_of(cfg: dict) -> tuple[tuple[str, ...] | None, str | None]:
+def markers_of(cfg: dict, where: str = ".mmw/target.json") -> tuple[tuple[str, ...] | None, str | None]:
     if "harness_markers" not in cfg:
-        return None, ".mmw/target.json has no harness_markers."
+        return None, f"{where} has no harness_markers."
     value = cfg["harness_markers"]
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        return None, ".mmw/target.json harness_markers must be a list of strings."
+        return None, f"{where} harness_markers must be a list of strings."
     return tuple(item for item in value if item), None
+
+
+def markers_of_all(configs: list[tuple[str | None, dict]]) -> tuple[tuple[str, ...] | None, str | None]:
+    """The union of every product's markers, in the order the products are listed."""
+    found: list[str] = []
+    for name, cfg in configs:
+        where = f".mmw/{name}/target.json" if name else ".mmw/target.json"
+        markers, why = markers_of(cfg, where)
+        if why is not None:
+            return None, why
+        for marker in markers:
+            if marker not in found:
+                found.append(marker)
+    return tuple(found), None
 
 
 def refuse_markers(repo: str, what: str) -> int:
@@ -150,25 +191,31 @@ def load_named_files(root: Path, cfg: dict) -> set[Path]:
     return named
 
 
-def story_service_files(root: Path, cfg: dict, files: list[Path]) -> list[Path]:
-    """Tracked files under `.mmw/stories/`, plus files the `stories` command names."""
-    stories_root = (root / ".mmw" / "stories").resolve()
+def story_service_files(root: Path, configs: list[tuple[str | None, dict]],
+                        files: list[Path]) -> list[Path]:
+    """Tracked files under each product's stories directory, plus files its command names.
+
+    The root-as-product directory is `.mmw/stories/`. A listed product's is
+    `.mmw/<product>/stories/`.
+    """
+    stories_roots: list[Path] = []
     named: set[Path] = set()
-    command = cfg.get("stories")
-    if isinstance(command, str):
-        named = files_named_in(root, command)
+    for name, cfg in configs:
+        if name:
+            stories_roots.append((root / ".mmw" / name / "stories").resolve())
+        else:
+            stories_roots.append((root / ".mmw" / "stories").resolve())
+        command = cfg.get("stories")
+        if isinstance(command, str):
+            named |= files_named_in(root, command)
     chosen: list[Path] = []
     seen: set[Path] = set()
     for path in files:
         resolved = path.resolve()
         if resolved in seen:
             continue
-        try:
-            resolved.relative_to(stories_root)
-            under_stories = True
-        except ValueError:
-            under_stories = False
-        if under_stories or resolved in named:
+        if (any(resolved.is_relative_to(stories_root) for stories_root in stories_roots)
+                or resolved in named):
             seen.add(resolved)
             chosen.append(path)
     return chosen
@@ -277,10 +324,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no such directory: {root}", file=sys.stderr)
         return 2
     root = root.resolve()
-    cfg, why = load_target(root)
+    configs, why = load_products(root)
     if why is not None:
         return refuse_markers(given, why)
-    markers, why = markers_of(cfg)
+    markers, why = markers_of_all(configs)
     if why is not None:
         return refuse_markers(given, why)
     files = list(iter_files(root))
@@ -293,8 +340,11 @@ def main(argv: list[str] | None = None) -> int:
             REPORT_BLOCKED,
         ), file=sys.stderr)
         return 2
-    leaks = scan_leaks(root, files, load_named_files(root, cfg), markers)
-    pages = scan_design_pages(root, story_service_files(root, cfg, files))
+    named: set[Path] = set()
+    for _name, cfg in configs:
+        named |= load_named_files(root, cfg)
+    leaks = scan_leaks(root, files, named, markers)
+    pages = scan_design_pages(root, story_service_files(root, configs, files))
     lines = leaks + pages
     if lines:
         print("\n".join(lines))

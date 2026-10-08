@@ -220,5 +220,54 @@ class WhatTheGuardReads(unittest.TestCase):
         self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
 
 
+class TwoProducts(unittest.TestCase):
+    """Every product's markers are judged. A marker under `.mmw/` stays allowed."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / "repo"
+        (self.root / "src").mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+
+    def write(self, relative: str, text: str) -> None:
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def guard(self) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = hg.main([str(self.root)])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_markers_of_every_product_are_judged(self):
+        self.write(".mmw/target.json", json.dumps({"products": ["alpha", "beta"]}))
+        self.write(".mmw/alpha/target.json", json.dumps({
+            "harness_markers": ["ALPHA_MARK"],
+            "stories": "python3 .mmw/alpha/stories/serve.py",
+        }))
+        self.write(".mmw/beta/target.json", json.dumps({
+            "harness_markers": ["BETA_MARK"],
+            "stories": "python3 .mmw/beta/stories/serve.py",
+        }))
+        self.write("src/app.js", "const x = 'BETA_MARK';\n")
+        self.write("src/other.js", "const z = 'ALPHA_MARK';\n")
+        self.write(".mmw/alpha/note.js", "const y = 'ALPHA_MARK';\n")
+        self.write(".mmw/beta/stories/serve.py", 'a = "Foo.dc.html"\n')
+        code, out, err = self.guard()
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("HARNESS LEAK src/app.js:1 BETA_MARK", out)
+        self.assertIn("HARNESS LEAK src/other.js:1 ALPHA_MARK", out)
+        self.assertNotIn("note.js", out)
+        self.assertIn("HARNESS DESIGN PAGE .mmw/beta/stories/serve.py:1", out)
+
+        self.write(".mmw/beta/target.json", json.dumps({"stories": "true"}))
+        code, out, err = self.guard()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn(".mmw/beta/target.json", err)
+        self.assertNotIn("HARNESS OK", out)
+
+
 if __name__ == "__main__":
     unittest.main()

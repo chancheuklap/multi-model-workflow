@@ -913,6 +913,81 @@ class TestRenderOnlyValues(unittest.TestCase):
         self.assertTrue((out / "values" / "demo" / "alpha-400x300.json").is_file())
 
 
+class TwoProductStories(unittest.TestCase):
+    """The screen contract's product selects which stories command starts.
+
+    A repository that lists more than one product and whose contract names none
+    refuses until `--product` is passed. One listed product is selected on its own.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        if not shutil.which("uv"):
+            raise AssertionError(
+                "uv is missing; the story fixture cannot run and this criterion "
+                "must not print all passed")
+        cls.home = tempfile.mkdtemp(prefix="mmw-story-products-")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.home, ignore_errors=True)
+
+    def make_repo(self, products=("alpha", "beta")) -> Path:
+        root = copy_fixture(self.addCleanup)
+        mmw = root / ".mmw"
+        (mmw / "target.json").write_text(
+            json.dumps({"products": list(products)}), encoding="utf-8")
+        order = mmw / "order"
+        for name in products:
+            stories = mmw / name / "stories"
+            stories.mkdir(parents=True)
+            (stories / "serve.py").write_text(
+                "import pathlib\n"
+                f"pathlib.Path({str(order)!r}).open('a', encoding='utf-8').write({name!r} + '\\n')\n"
+                "raise SystemExit(3)\n",
+                encoding="utf-8")
+            (mmw / name / "target.json").write_text(json.dumps({
+                "stories": f"python3 -u .mmw/{name}/stories/serve.py",
+            }), encoding="utf-8")
+        return root
+
+    def order(self, root: Path) -> str:
+        path = root / ".mmw" / "order"
+        return path.read_text(encoding="utf-8") if path.is_file() else ""
+
+    def test_stories_come_from_the_contract_product(self):
+        root = self.make_repo()
+        contract = root / CONTRACT
+        contract.write_text("product: alpha\n" + contract.read_text(encoding="utf-8"),
+                            encoding="utf-8")
+        proc = run_story_cmd(self.home, cwd=root, extra_args=["--scenes", "alpha"])
+        self.assertIn("alpha", self.order(root))
+        self.assertNotIn("beta", self.order(root))
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        self.assertIn(".mmw/alpha/stories/serve.py", proc.stderr)
+        self.assertNotIn(".mmw/beta/stories/serve.py", proc.stderr)
+
+        contract.write_text(contract.read_text(encoding="utf-8").replace(
+            "product: alpha\n", ""), encoding="utf-8")
+        (root / ".mmw" / "order").unlink(missing_ok=True)
+        proc = run_story_cmd(self.home, cwd=root, extra_args=["--scenes", "alpha"])
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        self.assertIn("--product", proc.stderr)
+        self.assertEqual(self.order(root), "")
+
+        proc = run_story_cmd(
+            self.home, cwd=root, extra_args=["--scenes", "alpha", "--product", "beta"])
+        self.assertEqual(self.order(root).strip(), "beta")
+        self.assertIn(".mmw/beta/stories/serve.py", proc.stderr)
+        self.assertNotIn(".mmw/alpha/stories/serve.py", proc.stderr)
+
+        single = self.make_repo(("alpha",))
+        proc = run_story_cmd(self.home, cwd=single, extra_args=["--scenes", "alpha"])
+        self.assertIn("alpha", self.order(single))
+        self.assertNotIn("more than one product", proc.stderr)
+        self.assertIn(".mmw/alpha/stories/serve.py", proc.stderr)
+
+
 def running(pid: int) -> bool:
     try:
         os.kill(pid, 0)

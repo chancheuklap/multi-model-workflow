@@ -10,6 +10,7 @@ A server-rendered product and a desktop product use the same keys. The two label
 
 ```yaml
 effort: notes-v1                          # the effort's directory name, as in efforts/<effort>/
+product: notes                            # one name from the root .mmw/target.json products list; not the effort name. Omit when that file is itself the product
 baselines:
   look: efforts/<effort>/claude-design      # the design package directory, unchanged
   precedence: "look & verbatim copy -> design package; calls, shows, next, on_failure -> this file"
@@ -49,6 +50,7 @@ rows: [...]
 | --- | --- |
 | `viewports` | `WIDTHxHEIGHT` entries: the sizes the pages that declare no `viewports` of their own are rendered and compared at. A viewport equal to a media-query breakpoint of the package's stylesheets — any `.css` in the package (including `_ds/`), or a page's `<style>` block — compares two reflows and verifies nothing. |
 | `locale` | BCP 47 tag (`zh-CN`, `en-US`) the story oracle sets on both browser contexts. The story oracle reads it and does not fall back. |
+| `product` | Required when the root `.mmw/target.json` lists `products`. The value is one of those names. Omit the key when that file is itself the product. It is not the effort name. One effort may hold a screen contract for each product. The story oracle starts that product's stories command. |
 | `states` | The state names this product allows in `next` that are not a scene: domain states, and local view states no scene draws (a zoomed canvas, an expanded container, a closed dialog). Omit the key when `next` never names one. |
 | `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. |
 | `pages.<page>.viewports` | The sizes this page's scenes are rendered and compared at, when they are not the top-level `viewports`: a page drawn at its own `$preview` size (a 236-wide column, a 52-high bar) is compared there only, not at every size of the other pages. Omit it for a page drawn at a top-level size. |

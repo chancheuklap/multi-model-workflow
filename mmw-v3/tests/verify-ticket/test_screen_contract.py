@@ -649,6 +649,69 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
             self.lint(gate("AC1", "cd fixtures/repo && journey.py run absent"),
                       owns="- `fixtures/repo/.mmw/journeys/absent/**`"), [])
 
+    def test_a_product_journey_path_is_read(self):
+        """A slashed name is that product's `journeys` directory. The finding names
+        the path. A critical-flow line `.mmw/<product>/journeys/<flow>/` is the
+        name `<product>/<flow>`. Owning that product's runtime files, not the old
+        root files, is what excuses `--break`."""
+        findings = self.lint(gate("AC1", "journey.py run alpha/open"))
+        self.assertTrue(any(
+            "alpha/open" in finding and ".mmw/alpha/journeys/open" in finding
+            for finding in findings), findings)
+
+        alpha = os.path.join(self.root, ".mmw", "alpha")
+        os.makedirs(alpha, exist_ok=True)
+        with open(os.path.join(self.root, ".mmw", "target.json"), "w", encoding="utf-8") as handle:
+            handle.write('{"products": ["alpha", "beta"]}\n')
+        with open(os.path.join(alpha, "target.json"), "w", encoding="utf-8") as handle:
+            handle.write('{"journeys": ".mmw/alpha/trips"}\n')
+        findings = self.lint(gate("AC1", "journey.py run alpha/open"))
+        self.assertTrue(any(".mmw/alpha/trips/open" in finding for finding in findings),
+                        findings)
+        self.assertFalse(any(".mmw/alpha/journeys" in finding for finding in findings),
+                         findings)
+
+        os.makedirs(os.path.join(alpha, "trips", "open"), exist_ok=True)
+        findings = self.lint(gate("AC1", "journey.py run alpha/open"))
+        self.assertFalse(any("not under" in finding and "alpha/open" in finding
+                             for finding in findings), findings)
+
+        flows, unreadable = vt.critical_flows("""## Testing Decisions
+
+- **Critical flows** (关键流程):
+  - `.mmw/alpha/journeys/open/` — Implementation Decisions sections 2 and 3
+  - `.mmw/journeys/checkout/` — Implementation Decisions sections 2 and 3
+""")
+        self.assertEqual(unreadable, [])
+        self.assertEqual(flows, {"alpha/open": {2, 3}, "checkout": {2, 3}})
+
+        spec = """## Testing Decisions
+
+- **Critical flows** (关键流程):
+  - `.mmw/alpha/journeys/open/` — Implementation Decisions sections 2 and 3
+"""
+        old_owns = "- `.mmw/target.json`\n- `.mmw/stories/**`"
+        product_owns = "- `.mmw/alpha/target.json`\n- `.mmw/alpha/stories/**`"
+
+        def judged(owns):
+            body = ticket(
+                self.rows,
+                gate("AC1", "journey.py run alpha/open"),
+                gate("AC90", self.story("create-project")),
+                gate("AC91", BOUNDARY),
+                parent="#537, Implementation Decisions sections 2 and 3",
+                owns=owns)
+            return vt.lint_screen_contract(
+                body, 639, root=self.root, spec_bodies={537: spec})
+
+        findings, _warnings = judged(old_owns)
+        self.assertTrue(any("alpha/open" in finding and "--break" in finding
+                            for finding in findings), findings)
+        findings, warnings = judged(product_owns)
+        self.assertEqual(findings, [], findings)
+        self.assertFalse(any("alpha/open" in warning or "--break" in warning
+                             for warning in warnings), warnings)
+
 
 class TestJourneyBreakRules(unittest.TestCase):
     SPEC = """## Testing Decisions

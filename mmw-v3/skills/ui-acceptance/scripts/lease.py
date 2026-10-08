@@ -362,6 +362,18 @@ class TargetJSONError(Exception):
 # A product name is the directory `.mmw/<product>/`. It is also one path segment,
 # so it allows only the characters the layout allows, and nothing that could climb out.
 PRODUCT_NAME = re.compile(r"^[a-z0-9-]+$")
+# The second segment of `<product>/<flow>`. That segment is a directory name.
+FLOW_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def product_journey(name: str) -> tuple[str, str] | None:
+    """`<product>/<flow>` when `name` is that shape, else None."""
+    product, sep, flow = name.partition("/")
+    if (not sep or "/" in flow or PRODUCT_NAME.fullmatch(product) is None
+            or FLOW_NAME.fullmatch(flow) is None):
+        return None
+    return product, flow
+
 
 # Keys that belong to one product. On the root file they mean the old layout,
 # where that file is the one product.
@@ -452,6 +464,47 @@ def read_target_json(root: Path, product: str | None = None) -> TargetRead | Non
     if product_data is None:
         return TargetRead(None, data, chosen, present=False)
     return TargetRead(product_data, data, chosen, present=True)
+
+
+def product_names(value) -> list[str] | None:
+    """The `products` entries when every one is a string, else None.
+
+    An empty list is an empty list. A missing key, a non-list, or a non-string
+    entry is None.
+    """
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        return None
+    return list(value)
+
+
+def product_gap(read: TargetRead | None, product: str | None, *,
+                membership: bool = False) -> str | None:
+    """Why `read` is not one product's config, or None when it is.
+
+    `absent` — no root file. `error` — the product file is not JSON (`read.error`).
+    `old-named` — the root file is the product and a name was passed.
+    `not-in-list` — `membership` is set and `product` is not one of `products`.
+    `not-selected` — a name was passed and the read did not select it.
+    `many` — the root lists more than one product and none was selected.
+    `missing` — the selected product has no file.
+    `discover` and `stories` are the caller's concern.
+    """
+    if read is None:
+        return "absent"
+    if not product_layout(read.root):
+        return "old-named" if product is not None else None
+    if (membership and product
+            and product not in (product_names(read.root.get("products")) or [])):
+        return "not-in-list"
+    if read.error:
+        return "error"
+    if product is not None and read.name != product:
+        return "not-selected"
+    if read.name is None:
+        return "many"
+    if not read.present:
+        return "missing"
+    return None
 
 
 def target_json(worktree: Path, unreadable: type[RuntimeError]):
