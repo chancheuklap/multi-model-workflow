@@ -1745,10 +1745,16 @@ def needs_product(body: str) -> bool:
 
 
 def load_lease():
-    """`lease.py` of the ui-acceptance skill, from the directories in force; None when
-    none holds it."""
+    """`lease.py` of the ui-acceptance skill, from the directories in force.
+
+    None when those directories do not hold it. `TOOLS` is empty until `main`
+    sets it, and a caller that imports this module still finds the sibling.
+    `--tools` that names other directories and leaves `lease.py` out stays None.
+    """
     path = tool("lease.py")
-    if path is None:
+    if path is None and not TOOLS:
+        path = HERE.parents[1] / "ui-acceptance" / "scripts" / "lease.py"
+    if path is None or not path.is_file():
         return None
     spec = importlib.util.spec_from_file_location("mmw_lease", path)
     module = importlib.util.module_from_spec(spec)
@@ -2294,23 +2300,6 @@ class TargetJsonChecksError(Exception):
     as the list of commands the gate expects."""
 
 
-def _config_lease():
-    """The lease module whose read point parses `.mmw/target.json`.
-
-    `TOOLS` is set only while `main` is handling a command. A caller that imports
-    this function, the checks run included, still finds the sibling copy.
-    """
-    path = tool("lease.py")
-    if path is None:
-        path = HERE.parents[1] / "ui-acceptance" / "scripts" / "lease.py"
-    if not path.is_file():
-        return None
-    spec = importlib.util.spec_from_file_location("mmw_lease_config", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     """The `checks` of `.mmw/target.json` as `(command, timeout)` pairs — an entry is a
     string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` naming its own
@@ -2328,7 +2317,7 @@ def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     path = Path(root) / ".mmw" / "target.json"
     if not path.is_file():
         return None
-    lease = _config_lease()
+    lease = load_lease()
     if lease is None:
         raise TargetJsonChecksError(
             "lease.py is not beside this skill, so .mmw/target.json cannot be read")

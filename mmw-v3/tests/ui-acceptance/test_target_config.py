@@ -139,7 +139,7 @@ class TestTargetCheck(unittest.TestCase):
             self.assertNotEqual(code, 0, text)
             self.assertIn("gateway 11", text)
             self.assertIn("parrot 10", text)
-            self.assertIn("20", text)
+            self.assertIn("at most 20", text)
             write_product_layout_ports(root, {"gateway": "many", "parrot": 3})
             code, out, err = self.run_target("--check", "--repo", d)
             text = out + err
@@ -183,6 +183,17 @@ class TestTargetCheck(unittest.TestCase):
             code, out, err = self.run_target("--check", "--repo", d)
             self.assertEqual(code, 1, out + err)
             self.assertIn(".mmw/gateway/target.json", out + err)
+
+    def test_a_name_on_the_old_layout_is_refused(self):
+        """The old layout has no named product, so `--product` cannot select one."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / ".mmw").mkdir()
+            (root / ".mmw" / "target.json").write_text(json.dumps(self.COMPLETE))
+            code, out, err = self.run_target("--check", "--repo", d, "--product", "nonesuch")
+            text = out + err
+            self.assertNotEqual(code, 0, text)
+            self.assertIn("nonesuch", text)
 
     COMPLETE = {"start": "s", "stop": "t", "discover": "d", "stories": "st",
                 "leaves_machine": [], "harness_markers": []}

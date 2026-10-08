@@ -13,6 +13,7 @@ and imports `discover`.
 
 from __future__ import annotations
 
+import graphlib
 import json
 import os
 import shlex
@@ -372,31 +373,18 @@ def _needs_problems(problems: list[str], data: dict, seen: set[str], shown: str)
 
 
 def _one_cycle(graph: dict[str, list[str]]) -> list[str]:
-    """The names in one cycle of `needs`, or an empty list when there is none."""
-    seen: set[str] = set()
-    stack: list[str] = []
-    onstack: set[str] = set()
+    """The names in one cycle of `needs`, or an empty list when there is none.
 
-    def walk(node: str) -> list[str] | None:
-        seen.add(node)
-        onstack.add(node)
-        stack.append(node)
-        for nxt in graph.get(node, []):
-            if nxt not in seen:
-                found = walk(nxt)
-                if found:
-                    return found
-            elif nxt in onstack:
-                return stack[stack.index(nxt):]
-        stack.pop()
-        onstack.remove(node)
-        return None
-
-    for node in list(graph):
-        if node not in seen:
-            found = walk(node)
-            if found:
-                return found
+    A `needs` value lists the products that start first, which is the predecessor
+    direction `graphlib` walks. The raised list repeats its first name at the end.
+    """
+    try:
+        graphlib.TopologicalSorter(graph).prepare()
+    except graphlib.CycleError as exc:
+        cycle = list(exc.args[1])
+        if len(cycle) > 1 and cycle[0] == cycle[-1]:
+            cycle.pop()
+        return cycle
     return []
 
 
@@ -452,10 +440,25 @@ def target_main(argv: list[str]) -> int:
         return _report_product_layout(repo, args.product, args.validate)
     cfg = read or {}
     problems = target_problems(cfg)
+    old_name = None
+    if args.product is not None and read is not None and not product_layout(read.root):
+        old_name = _line(
+            "no product name, because this file is the old layout",
+            args.product,
+            ".mmw/target.json",
+            ".mmw/target.json",
+        )
     if args.validate:
+        shown = []
         if problems:
             key, why = problems[0]
-            print(f"{path}: {key} {why}" + (f" (+{len(problems) - 1} more)" if len(problems) > 1 else ""))
+            shown.append(f"{key} {why}")
+        if old_name:
+            shown.append(old_name)
+        if shown:
+            extra = len(problems) + (1 if old_name else 0) - 1
+            more = f" (+{extra} more)" if extra else ""
+            print(f"{path}: {shown[0]}{more}")
             return 1
         print(f"{path}: complete")
         return 0
@@ -481,8 +484,11 @@ def target_main(argv: list[str]) -> int:
     print("rules:")
     print("  automation uses placeholder keys, vendor stubs, and local accounts")
     print("  leaves_machine actions record under MMW_AUTOMATION=1")
-    if problems:
-        print(f"{len(problems)} to answer; run this again when the file is filled")
+    if old_name:
+        print(old_name)
+    if problems or old_name:
+        print(f"{len(problems) + (1 if old_name else 0)} to answer; "
+              "run this again when the file is filled")
         return 1
     print("complete: the oracles can drive this repository")
     return 0

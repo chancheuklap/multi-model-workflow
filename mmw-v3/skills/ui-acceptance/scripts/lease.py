@@ -442,10 +442,9 @@ def read_target_json(root: Path, product: str | None = None) -> TargetRead | Non
     if not isinstance(chosen, str) or PRODUCT_NAME.fullmatch(chosen) is None:
         return TargetRead(None, data, chosen if isinstance(chosen, str) else None, present=False)
     shown = f".mmw/{chosen}/target.json"
-    if not (root / ".mmw" / chosen / "target.json").is_file():
-        return TargetRead(None, data, chosen, present=False)
+    product_path = root / ".mmw" / chosen / "target.json"
     try:
-        product_data = _read_json_object(root / ".mmw" / chosen / "target.json", shown)
+        product_data = _read_json_object(product_path, shown)
     except TargetJSONError as exc:
         # The root was read. A product file that is not JSON must not hide it,
         # or a checks reader cannot see the root and --check exits 2.
