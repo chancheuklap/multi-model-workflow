@@ -13,7 +13,7 @@ Each agent below is a session of its own, on the model `~/.mmw/models.json` give
 
 ## Operating Posture
 
-Operate as a **careful, cautious, and precise investigator**. Be honest about what you know vs what you're inferring. Read `references/epistemics.md` for the full confidence framework and phrasing guide. The synthesizer must follow it.
+Operate as a **careful, cautious, and precise investigator**. Be honest about what you know vs what you're inferring. Read `references/epistemics.md` for the full confidence framework and phrasing guide.
 
 ## Step 1. Understand the Target and the Question
 
@@ -28,7 +28,7 @@ Before starting investigators, anchor the investigation in concrete code. You ne
 - The relevant file path(s) and line range(s)
 - The key symbols (function names, class names, constants)
 - An initial commit list. The last few commits touching the target.
-- PR numbers from merge commits (pattern `(#1234)` in the subject line)
+- PR numbers: each `#1234` in a commit's subject or body. `gh pr view` it; a number it does not find is an issue, so record it as a ticket ID and read it with `gh issue view <number> --comments`
 
 Build this inline.
 
@@ -40,7 +40,7 @@ git blame -L <start>,<end> <file>
 git log --follow -p -- <file>
 
 # Last N commits touching the file, PR numbers visible
-git log --oneline -20 -- <file>
+git log --follow --oneline -20 -- <file>
 
 # Extract PR numbers from a commit message
 git log -1 --format=%B <commit>
@@ -60,7 +60,7 @@ Capture this as seed context (file paths, symbols, commits, PR numbers, linked t
 
 ### Discovery
 
-Before starting investigators, list the MCP servers and tools available to this session. An investigator runs on the researcher's host, which may reach other MCP servers than this session: name in each brief the server it is to search, and have it say in its answer when it cannot reach that server.
+Before starting investigators, list the MCP servers and tools available to this session. An investigator runs on the researcher's host, which may reach other MCP servers than this session: name in each brief the server it is to search.
 
 Map each available MCP to one evidence category:
 
@@ -72,24 +72,22 @@ Map each available MCP to one evidence category:
 6. Error / exception tracking
 7. Product analytics warehouse
 
-Source control is always available through git and `gh`. For the other six, classify using the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence. Record ambiguous cases in the coverage map.
+Source control is always available through git and `gh`. When the repository's issues are on GitHub (`gh issue list` answers), the issue / ticket tracker is available too, through `gh issue`: its investigator searches with `gh`, and source control's searches only commits and PRs. For the other categories, classify using the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence. Record ambiguous cases in the coverage map.
 
 Aim for a complete **coverage map**, not a minimal one. Document the null, don't skip the search.
 
 Start all matching investigators in one `dispatch.sh brief researcher` call, one brief file each, so they run concurrently and you are woken once. Don't ask one agent to cover multiple MCPs.
 
-Leave each investigator able to call MCP tools. **Do not use a host's read-only mode.** It can strip MCP access, which disables MCP-backed investigators entirely. Investigators still only read: end each brief with the line `Read only. Change no file of the repository, and run nothing that changes state but the report command below.`
+Leave each investigator able to call MCP tools. **Do not use a host's read-only mode.** It can strip MCP access, which disables MCP-backed investigators entirely.
 
 Each investigator's brief holds:
-1. The base prompt from `references/investigator-prompt.md`
-2. The category playbook `references/sources/<source>.md` for the selected MCP, adapted from the examples in `references/source-playbook.md`
-3. The cross-cutting `references/sources/incident-postmortem.md` **if the target code looks defensive** (null checks, retry logic, timeout handling, rate limiting, feature flags, egress guards, OOM handlers)
-4. The code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs)
-5. The user's original question
+1. The user's original question
+2. The code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs)
+3. Its evidence category and the MCP server to search (for source control, git and `gh`)
 
 ### Investigator roster. One per available evidence category
 
-Start one investigator per category that has a matching MCP. Each owns exactly one tool or MCP.
+Start one investigator per category that has a matching MCP. Each owns exactly one evidence category.
 
 Each entry names the category and the kind of "why" it uniquely surfaces. Use it to know what to expect back, how to name a gap when a category returns empty, and (only in the rare provably-irrelevant case) to justify a skip.
 
@@ -124,8 +122,6 @@ The synthesizer's brief holds:
 1. The path of each investigator's answer file, and the categories skipped with justification
 2. The code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs)
 3. The user's original question
-4. The epistemics framework from `references/epistemics.md`
-5. The synthesizer prompt template from `references/synthesizer-prompt.md`
 
 ## Step 5. Present
 
@@ -143,8 +139,5 @@ After the Sources Consulted block, if the user's `why` question is a precursor t
 
 ## Reference Files
 
-- `references/epistemics.md`. Confidence tiers and phrasing guide. The synthesizer must follow it.
-- `references/investigator-prompt.md`. Base prompt template for an investigator's brief.
-- `references/source-playbook.md`. Index pointing at the category playbooks below.
-- `references/sources/*.md`. One self-contained example playbook per category, plus cross-cutting `incident-postmortem.md`. Give an investigator the single file that matches its category and adapt it to the available MCP.
-- `references/synthesizer-prompt.md`. Prompt template for the synthesizer's brief, including the output format.
+- `references/epistemics.md`. Confidence tiers and phrasing guide, which the synthesizer's opening text names.
+- `references/synthesizer-prompt.md`. The synthesizer's opening text, including the output format.

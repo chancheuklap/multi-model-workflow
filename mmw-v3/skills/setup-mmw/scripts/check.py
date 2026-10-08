@@ -328,6 +328,14 @@ def check_products(report: Report, root: Path, read) -> None:
             break
 
 
+def check_coding_standards(report: Report, root: Path):
+    if (root / "CODING_STANDARDS.md").is_file():
+        report.add("ok", "repository", "CODING_STANDARDS.md", "present")
+    else:
+        report.add("missing", "repository", "CODING_STANDARDS.md",
+                   "absent; the Standards and Tests axes apply no rules from this repository")
+
+
 def check_testing(report: Report, root: Path):
     if (root / "TESTING.md").is_file():
         report.add("ok", "repository", "TESTING.md", "present")
@@ -390,6 +398,7 @@ def main() -> int:
     if check_checks(report, root) is False:
         report.print()
         return 2
+    check_coding_standards(report, root)
     check_testing(report, root)
     check_layout(report, root)
     check_machine(report)

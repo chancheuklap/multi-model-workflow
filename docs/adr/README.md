@@ -50,15 +50,17 @@
 | [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 0030 |
 | [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 无 |
 | [0031](0031-worker-start-memory-is-a-searched-index.md) | worker 开工时拿到两份有上限的 Memory 索引：相关经验用本票 `## Owns` 路径和各级标题的短查询搜出，不用 spec 或 map 正文 | 2026-09-18 | 无 | 无 |
-| [0032](0032-v3-is-built-on-pstacks-shape.md) | MMW v3 按 pstack 的形状重建：一份 mode 按任务选 playbook，规则写成原则技能，上游拷进 `skills/` 由 `imports.tsv` 逐行记账 | 2026-10-06 | 0003 | 0036 |
+| [0032](0032-v3-is-built-on-pstacks-shape.md) | MMW v3 按 pstack 的形状重建：一份 mode 按任务选 playbook，规则写成原则技能，上游拷进 `skills/` 由 `imports.tsv` 逐行记账 | 2026-10-06 | 0003 | 0036、0040 |
 | [0033](0033-a-full-machine-is-a-blocked-ticket.md) | 机器的产品槽位全被占时，worker 这次运行什么都不跑、退 2，票报受阻；不排队，也没有人为槽位叫醒它 | 2026-10-06 | 0022 | 无 |
 | [0034](0034-each-night-fact-has-one-record.md) | 夜里每个事实只从记下它的那一条事件读；事件在写时按表校验，读时只拒读不懂的 | 2026-10-06 | 0019、0023 | 无 |
 | [0035](0035-a-nights-memory-stays-in-its-repository.md) | 一夜的 Memory 只写进本仓库的 Space：开夜的会话 `NMEM_SPACE` 不对就拒绝开夜；Nowledge Mem 列不全记录时，夜照样关，不做 Memory 收尾 | 2026-10-06 | 无 | 0037 |
 | [0036](0036-rollback-to-v2-is-one-install.md) | 从 v3 退回 v2，是在装着的 checkout 里跑一次 `bash mmw-v2/install.sh`；`mmw-v2/` 因此是退路，不只是历史 | 2026-10-07 | 0032 | 无 |
 | [0037](0037-the-session-space-is-installed-per-machine.md) | 终端里的 `NMEM_SPACE` 由 `mmw-v3/install.sh` 每台机器装一次；仓库的 Space 仍由 `setup-mmw` 建，它只报告会话的 `NMEM_SPACE` 对不对 | 2026-10-07 | 0035 | 无 |
 | [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 无 |
-| [0039](0039-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 无 |
-| [0040](0040-several-products-in-one-repository.md) | 一个仓库里每个产品占 `.mmw/<产品>/`，一次运行仍只租一个按产品分段的 lease，control-ui 与 control-cli 是 ui-acceptance 的 reference 而不是 skill | 2026-10-08 | 无 | 无 |
+| [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 无 |
+| [0040](0040-writing-rules-live-in-writing-for-agents.md) | 技能文字的写作规则都在 `writing-for-agents` 技能里；改技能一律从 Authoring or modifying a skill 开始，一个会话做不完的由它交给 Write a spec | 2026-10-08 | 0032 | 无 |
+| [0041](0041-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 无 |
+| [0042](0042-several-products-in-one-repository.md) | 一个仓库里每个产品占 `.mmw/<产品>/`，一次运行仍只租一个按产品分段的 lease，control-ui 与 control-cli 是 ui-acceptance 的 reference 而不是 skill | 2026-10-08 | 无 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
@@ -77,6 +79,8 @@ issue tracker、commit message，以及 `docs/` 下的历史材料仍写着旧�
 | 其余任何编号 | 其余任何编号 | 已删除，没有对应 |
 
 两列旧编号互不重叠地共存：同一个 `0015`，写在 8 月 26 日之前指的是现在的 0003，写在那之后指的是现在的 0002。分不清是哪一代时，看写下它的那条 commit 或 issue 的日期。
+
+2026-10-08 两条分支各自写了 0039 和 0040。spec #893、#894 和它们的票里写的 `0039` 是现在的 0041（feature map），`0040` 是现在的 0042（一个仓库多个产品）。同一天其他地方写的 0039、0040 指的就是现在的 0039、0040。
 
 ## 删过哪几批
 

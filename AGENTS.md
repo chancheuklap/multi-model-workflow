@@ -46,8 +46,8 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard | `docs/contexts/night/how-it-works.md` |
 | The ten installed items, what v2 installed and install now removes | `mmw-v3/install.sh` header comment |
 | Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v3/prompt/README.md` |
-| How the skill set is organised, where each part came from, how to add a playbook, principle or skill | `mmw-v3/skills/README.md` |
-| Every rule for the text of a skill, playbook or reference, and the commands that pull an upstream's new version; read before writing, editing or reviewing one | `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` |
+| Where each part of the skill set came from | `mmw-v3/skills/README.md` |
+| Every rule for the text of a skill, playbook or reference, which component a text goes in and the shape of each, and the commands that pull an upstream's new version; read before writing, editing or reviewing one | `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md` and `SKILL-SET-COMPONENTS.md` |
 | How code in this repository is written; the reviewer's Standards axis applies it | `CODING_STANDARDS.md` |
 | Where the tests live, how they are isolated, which suites a change needs; the reviewer's Tests axis applies it | `TESTING.md` |
 
@@ -61,7 +61,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 
 ## Gotchas
 
-- This machine's install is served from the installed checkout `.worktrees/mmw-installed` (recorded in `~/.mmw/installed-root`), and every host symlink points there: an edit to a `SKILL.md` or script in the main worktree reaches no host until it is released. A change is finished only when all four promotion steps have run, in this order: commit on `dev`; fast-forward `main` to it (`git push . dev:main`); move the installed checkout to `main` (`git -C .worktrees/mmw-installed checkout --detach main`) and confirm with `bash mmw-v3/install.sh --check`; push both (`git push origin dev main`). The third step waits while any watch is open (Self-hosting boundary). `install.sh` runs only when the user explicitly authorises it; its read-only `--check` is the exception.
+- This machine's install is served from the installed checkout `.worktrees/mmw-installed` (recorded in `~/.mmw/installed-root`), and every host symlink points there: an edit to a `SKILL.md` or script in the main worktree reaches no host until it is released. Releasing is the owner's call: a change is committed on `dev` as part of the work, and the three steps after that run only when the owner says to release. The four promotion steps, in this order: commit on `dev`; fast-forward `main` to it (`git push . dev:main`); move the installed checkout to `main` (`git -C .worktrees/mmw-installed checkout --detach main`) and confirm with `bash mmw-v3/install.sh --check`; push both (`git push origin dev main`). The third step waits while any watch is open (Self-hosting boundary). `install.sh` runs only when the user explicitly authorises it; its read-only `--check` is the exception.
 - With Claude Code's Bash sandbox on, the PreToolUse hook `install.sh` registered cannot open the symlink target under `~/.agents/skills` and blocks every command with `can't open file '…/dispatch/scripts/tool-guard.py'`. The file is there; the same command passes with the sandbox off. Leave the install alone.
 - Each Codex hook needs a `trusted_hash` line in `~/.codex/config.toml`; `install.sh` computes it with Codex's own algorithm. When Codex changes the algorithm it prompts "hooks need review" again and `--check` cannot tell.
 - Both dispatch hooks decide whether to stand down from the host's own payload fields, never from the environment: Cursor and Grok export their variables into every child process, and an environment test would also switch off the hooks of a Claude session started from one of their panes.
@@ -73,7 +73,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 </important>
 
 <important if="you are pulling an upstream's new version or editing a file copied from one">
-- Follow the upstream-update bullets of `mmw-v3/skills/mmw-mode/references/skill-set-rules.md`: pull the subtree, `grep -n '<source path>' mmw-v3/imports.tsv` for every row a changed upstream file touches, carry each change in or record why not as a `J` entry, move the row's commit forward, and finish with `python3 mmw-v3/check_imports.py`.
+- Follow the upstream-update bullets of `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`: pull the subtree, `grep -n '<source path>' mmw-v3/imports.tsv` for every row a changed upstream file touches, carry each change in or record why not as a `J` entry, move the row's commit forward, and finish with `python3 mmw-v3/check_imports.py`.
 </important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.

@@ -91,8 +91,8 @@ set -uo pipefail
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 # The mode a started session reads first, in the checkout this script runs from. A session
-# is told to read the file: the skill is started only by the person, so a model cannot call
-# it by name.
+# is told to read the file, so that it reads the mode whether or not the model would load the
+# skill on its own.
 MODE_SKILL="$(dirname "$SKILL_ROOT")/mmw-mode/SKILL.md"
 MODELS_JSON="${MMW_HOME:-$HOME/.mmw}/models.json"
 STATUS="$SKILL_ROOT/scripts/status.py"

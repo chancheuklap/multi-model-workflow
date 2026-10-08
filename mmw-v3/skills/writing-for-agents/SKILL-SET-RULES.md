@@ -1,6 +1,6 @@
 # Skill-set rules
 
-The rules for text in a **skill set**: the skills under `mmw-v3/skills/`, with the mode's playbooks and references, the principles and the scripts, run by agents that each load only their own part. Which kind of component a text is (the mode, a playbook, a principle, a skill, a reference, a script) and the shape of each are in `mmw-v3/skills/README.md`. The `writing-for-agents` skill's `SKILL.md` gives the levers and the names of the failure modes; this file applies them to a set whose parts hand work to each other. The checks are also the rules for writing: whoever writes or edits text in the set applies them to the passage in hand.
+The rules for text in a **skill set**: the skills under `mmw-v3/skills/`, with the mode's playbooks and references, the principles and the scripts, run by agents that each load only their own part. Which kind of component a text is (the mode, a playbook, a principle, a skill, a reference, a script) and the shape of each are in [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md). The `writing-for-agents` skill's `SKILL.md` gives the levers and the names of the failure modes; this file applies them to a set whose parts hand work to each other. The checks are also the rules for writing: whoever writes or edits text in the set applies them to the passage in hand.
 
 ## What skill text is for
 
@@ -65,7 +65,7 @@ These stay, though a trimming pass reads them as noise: a sentence that prevents
 - A description carries the trigger and nothing else: what the skill is, and the branches on which to load it (`writing-for-agents` `SKILL.md` `## Context pointers`); a skill that runs only when named says so in place of triggers (`writing-for-agents` `SKILL-MECHANICS.md` `## Invocation`). Routing (which role's file, which row of a command table, which reference), usage, process and outputs belong to the body; a description carrying them is a finding. A branch naming the role an agent was started as ("when you were started as the advisor") is a trigger.
 - Read every description in the set side by side, also in a partial review. Two descriptions that claim the same job are a conflict. A caller and the skill it hands to may share a trigger word when each description names only its own part of the job.
 - A description names no host and no runner: every host scans it into its system prompt, so one name ties the skill to that host or runner. A runner that cannot start is refused by its script at run time.
-- A skill has no host-side manifest beside it (`agents/openai.yaml`), so its name and description have one authority. The frontmatter holds `name` and `description`, plus `argument-hint` when the skill takes an argument the person types, and `disable-model-invocation: true` on the three skills only the person starts (`mmw-mode`, `teach`, `wait-what`), each paired with `policy.allow_implicit_invocation: false` in its `agents/openai.yaml`, the only file that may sit beside it for a host. The frontmatter is valid YAML: quote a value that holds a colon followed by a space.
+- A skill has no host-side manifest beside it, so its name and description have one authority. The frontmatter holds `name` and `description`, plus `argument-hint` when the skill takes an argument the person types, and `disable-model-invocation: true` on the two skills only the person starts (`teach`, `wait-what`), each paired with `policy.allow_implicit_invocation: false` in its `agents/openai.yaml`, the only file that may sit beside it for a host. The frontmatter is valid YAML: quote a value that holds a colon followed by a space.
 
 ### Vocabulary
 
@@ -130,7 +130,7 @@ An **upstream skill** is one whose text was first written outside `mmw-v3/skills
 - A ticket's `CHECK:` line names no path: a shell runs it with no agent in between, `verify-ticket.py` puts the `ui-acceptance` skill's `scripts/` on that shell's `PATH`, so an oracle is named bare. Its shapes are in the `mmw-mode` skill's `references/cutting-interface-tickets.md` **Criterion shapes**.
 - One text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability ("a host that cannot hold a turn open", "a host that can run subagents"). The runner is the one `models.py runner` selects; the text states that and assumes nothing past it. A skill is named by its name, as `/X` or `the X skill`; a host's tool for invoking skills is not named (`the Skill tool` exists on one host only). A session command (emptying a session's context, compressing it into a summary) is written as the action, and the file that names one carries this sentence once: `Emptying a session's context and compressing it into a summary both exist on every host, under a different name on each; use the one your host gives you.`
 
-The check is a `grep` of every `SKILL.md`, description and reference (this file excepted) for: a relative path that climbs out of the skill directory; a path in a `CHECK:` line; a host name (`claude`, `codex`, `grok`, `cursor`), a tool name (`the Skill tool`, `the Task tool`), or a runner name (`orca`, `herdr`, `paseo`). A hit passes when the word does not name the agent's host or runner: a file or directory name (`CLAUDE.md`, `.cursor/rules/`), a product that is not a host (Claude Design), an ordinary word (a text cursor), or text read by the skill set's authors rather than an agent at work (a skill directory's `README.md`). Two files have a host or runner as their subject and pass whole: the `writing-for-agents` skill's `SKILL-MECHANICS.md`, which says which host reads which frontmatter key, and the `dispatch` skill's `references/editing-models.md`, whose commands take a runner's name. An upstream copy's hit is left to the upstream.
+The check is a `grep` of every `SKILL.md`, description and reference (this file excepted) for: a relative path that climbs out of the skill directory; a path in a `CHECK:` line; a host name (`claude`, `codex`, `grok`, `cursor`), a tool name (`the Skill tool`, `the Task tool`), or a runner name (`orca`, `herdr`, `paseo`). A hit passes when the word does not name the agent's host or runner: a file or directory name (`CLAUDE.md`, `.cursor/rules/`), a product that is not a host (Claude Design), an ordinary word (a text cursor), or text read by the skill set's authors rather than an agent at work. Two files have a host or runner as their subject and pass whole: the `writing-for-agents` skill's `SKILL-MECHANICS.md`, which says which host reads which frontmatter key, and the `dispatch` skill's `references/editing-models.md`, whose commands take a runner's name. An upstream copy's hit is left to the upstream.
 
 ### Rules and completion criteria
 
@@ -156,29 +156,6 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 - Before a rename, move or deletion, `grep` the set for the heading, file name, token and term you are changing, and change every file that states it in the same edit: skills, references, scripts, templates, tests. Callers cite sections by name, and a program may import a script by file path.
 - Text taken from another source keeps its authors' wording (see [Upstream skills](#upstream-skills)). Excerpts are quoted verbatim and collected into one block before they are placed; finding places for them first splits the source apart.
 - The file states what is true now; what changed and why goes to the commit message and the report.
-
-## Walking a task
-
-A walk is a **cognitive walkthrough** (the usability-inspection method): for each task an agent does with the set, you read and run what that agent would, in its order, holding nothing it would not hold. A **task** is one job an agent is entered into a skill to do (consult an advisor, publish a spec, work one ticket); a skill entered in the middle of a bigger task is walked from its entry to its return. A skill is judged by how an agent uses it inside its tasks and how it joins the skills before and after; a per-file defect count misses both.
-
-### List the tasks
-
-A skill, or a playbook, principle or reference inside one, is entered three ways: a branch its description or its route line triggers on; a prompt that starts an agent into it (built by a script, or written by a model from a template); a sentence in other text or a script that sends the agent to it by name or by step. A principle is also entered by every task its index line's condition in the mode fits. `grep` its name across every skill and script in the set for the third kind, then read the scoped text for entries described without the name.
-
-Done when every entry of everything in scope maps to a task, or is listed as out of scope.
-
-### Walk each task
-
-Start from what the agent holds at entry: the description, the start prompt, or the text that sent it. Open only what the text in front of you points to. Where the text says what a script or CLI does, accepts, reads or prints, check it against the source or `--help`. Record, per step: each file you opened and why, its word count, the skill it belongs to, and which of its sections the step used (a passage that passes fact 1 of [What skill text is for](#what-skill-text-is-for) is recorded as read by the task, not as unused); each term you had to resolve; each choice you made without guidance; and where the text ends before the task does. Walk the outcomes that happen in use: success, and each failure the history shows or a normal input produces. A principle has no steps of its own: walk it inside a task that applies it, to that task's end.
-
-Done when each task reaches its completion criterion or a recorded finding, and every step has its load recorded.
-
-### A fresh agent's walk
-
-- Green tests prove the scripts, not that the text reads well; report them on a separate line.
-- The text is proven by a run: a fresh agent given only the trigger and a real job (one the tracker or the repository's history shows was done with this text; where history has none, one the user would plausibly give, which the walk record calls made up) does the task. Watch which files it opens, where it guesses, and where it stops before the completion criterion. A sentence present in the text is not a behaviour observed; a claim that the text now changes behaviour is unverified until such a run shows it.
-- The fresh agent's brief carries the trigger (the user's words or the start prompt), the job (the smallest real instance of the task that reaches the changed text), that it opens only what the text in front of it points to and does the job on paper (it writes nothing, and walks a step that would write as far as deciding what it would write), the record [Walk each task](#walk-each-task) asks for, and a length limit on its report.
-- On a host that cannot start a subagent, give the user the trigger and the job to run in a new session, and list the walk as not done until that session's result comes back.
 
 ## Upstream examples
 

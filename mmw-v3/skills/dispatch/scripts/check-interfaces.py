@@ -24,8 +24,8 @@ three places have to agree, and nothing else notices when one of them moves:
    written once: in the route lines of the mmw-mode skill's `## Playbooks` and in the steps
    of its playbooks. A `SKILL.md` of any other skill with a `## Find your moment`,
    `## Reached from here` or `## Next` section, or a table whose first header is `You are`,
-   routes a second time, and the second statement drifts from the first (the mmw-mode
-   skill's `references/skill-set-rules.md` rule 7).
+   routes a second time, and the second statement drifts from the first (the writing-for-agents
+   skill's `SKILL-SET-RULES.md` rule 7).
 6. **Every agent has a row in the role table, and every row is used.** The dispatch
    skill's `roles.json` lists each role once. A `session` role has a default row in
    `hosts.json` (`defaults`), and nothing else does. A file a row names (a `lead` file,

@@ -3059,15 +3059,15 @@ scenario_brief() {
   [ "$(out_json provider)" = "claude/claude-opus-5" ] \
     || fail "brief researcher did not start the researcher row: $(out_json provider)"
 
-  echo "--- brief explainer has no lead: the brief is the whole prompt before how to report"
+  echo "--- brief explainer leads with explainer-prompt.md, then the brief, then how to report"
   reset_log
   fresh_repo
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief explainer "$packet")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   case "$(out_json initialPrompt)" in
-    "the brief body"*"report "*) ;;
-    *) fail "the explainer's prompt should open with the brief: $(out_json initialPrompt)" ;;
+    "# Explainer"*"Your brief gives the question"*"the brief body"*"report "*) ;;
+    *) fail "the explainer's prompt should be explainer-prompt.md, then the brief, then how to report: $(out_json initialPrompt)" ;;
   esac
   [ "$(out_json settings.thinkingOptionId)" = xhigh ] \
     || fail "the explainer row's effort: $(out_json settings.thinkingOptionId)"

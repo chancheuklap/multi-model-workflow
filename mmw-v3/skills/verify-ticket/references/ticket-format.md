@@ -19,7 +19,7 @@ The source material behind the sections named under **Parent**: decision tickets
 
 ## Seam
 
-Where this ticket is verified, as pointers into the spec's Testing Decisions rather than a restatement of it: the test layer this ticket uses, by the name that section gives it (the layer's directory and precedent are there), and the test file this ticket adds. Then the mechanism under that section's **How a test arrives at a state** that puts the system into the states the criteria below name, by its name there; when this ticket is the one that builds it, say so here as well as under **Owns**.
+Where this ticket is verified, as pointers into the spec's Testing Decisions rather than a restatement of it: the test layer this ticket uses, by the name that section gives it (the layer's directory and precedent are there), and the test file this ticket adds. Then the mechanism under that section's **How a test arrives at a state** that puts the system into the states the criteria below name, by its name there; when this ticket is the one that builds it, say so here as well as under **Owns**, and list the root `TESTING.md` under **Owns** too: the ticket that builds a mechanism writes the line of `TESTING.md` that states it.
 
 ## Owns
 
