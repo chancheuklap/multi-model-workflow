@@ -6,7 +6,7 @@ The rules that hold only in this repository. The review applies them beside the 
 
 | Rule | A finding when the diff | Details |
 | --- | --- | --- |
-| Foreign file in a skill | puts into `mmw-v3/skills/<name>/`, which is symlinked whole into every host, a file the agent holding the skill neither reads nor runs; only `SKILL.md`, reference files and `scripts/<…>` belong there | `mmw-v3/skills/README.md` |
+| Foreign file in a skill | puts into `mmw-v3/skills/<name>/`, which is symlinked whole into every host, a file the agent holding the skill neither reads nor runs; only `SKILL.md`, reference files and `scripts/<…>` belong there | the writing-for-agents skill's SKILL-SET-COMPONENTS.md |
 | Procedure outside a playbook | writes how a task is done anywhere but a playbook of the `mmw-mode` skill, or a routing section into a `SKILL.md` other than `mmw-mode`'s | `check-interfaces.py` refuses the routing section |
 | Fixed path | has a script find a neighbour other than from its own resolved location, or name an absolute path other than a fixed user-level location (`~/.mmw`, `~/.agents/skills`, `~/.claude/skills`) or one the run made with `mktemp`; a fixed name under `/tmp` is one | |
 | Runner command outside its adapter | runs a runner's own command anywhere but its adapter `mmw-v3/skills/dispatch/scripts/runners/<runner>.sh`, or picks a runner other than the one `models.py runner` selects (its last step is a default) | |

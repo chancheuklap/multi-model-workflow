@@ -83,7 +83,7 @@ _Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
 
 **skill**:
 The unit the toolbox ships: one directory under `mmw-v3/skills/` with a `SKILL.md`, which is what makes `install.sh` install it; there is no second list. A skill says how one thing is done and what it hands back; how a whole task runs is a **playbook**.
-_Home_: `mmw-v3/skills/README.md`, `mmw-v3/install.sh`
+_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-COMPONENTS.md`, `mmw-v3/install.sh`
 
 **mode**:
 The `mmw-mode` skill: the owner's way of working, which every session reads in full before any work. Its `## Non-negotiables`, `## Principles` index, `## Autonomy` and reply rules hold for every task, and its `## Playbooks` routes each kind of task to one playbook. A session a script starts is told to read it by its start prompt; in a repository with `.mmw/`, the host hook `mode-hook.py` tells a Claude Code or Codex session to read it at start.
@@ -91,11 +91,11 @@ _Home_: `mmw-v3/skills/mmw-mode/SKILL.md`
 
 **playbook**:
 One file under `mmw-v3/skills/mmw-mode/playbooks/` saying how one kind of task is done, start to end: what the session owns, numbered steps each ending in a **`Done when` line**, and the `**Reply:**`. It is reached only through its route line in the mode's `## Playbooks`, and named in prose by its title (`Run a night`, `Work a ticket`).
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/README.md`
+_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-COMPONENTS.md`
 
 **principle**:
 A skill named `principle-<slug>` holding one judgement many tasks need. Its line in the mode's `## Principles` says when it applies and is always in context; the full text is read only then, and every step where it applies names it in bold.
-_Home_: `mmw-v3/skills/README.md`
+_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-COMPONENTS.md`
 
 **`imports.tsv`**:
 `mmw-v3/imports.tsv`, one row per file copied into `mmw-v3/skills/` from anywhere else: its type, its local path, the upstream repository, the source path and commit, the mechanical changes, and its **`J` entries**. `python3 mmw-v3/check_imports.py` fails when a file has no row, a source cannot be read at its commit, or a file with no recorded edit differs from its source.

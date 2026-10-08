@@ -67,6 +67,10 @@ class WiringTest(unittest.TestCase):
         (self.skills / "mmw-mode/playbooks/new-thing.md").write_text("### New thing\n")
         self.assertFinds("no route line for playbooks/new-thing.md")
 
+    def test_a_readme_with_no_route_line(self):
+        (self.skills / "mmw-mode/playbooks/README.md").write_text("# Component guide\n")
+        self.assertFinds("no route line for playbooks/README.md")
+
     def test_a_route_name_that_is_not_the_title(self):
         self.edit(self.mode, "- **Triage.**", "- **Triage the queue.**")
         self.assertFinds("is titled 'Triage'")
