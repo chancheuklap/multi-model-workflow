@@ -24,17 +24,15 @@ A criterion that runs `journey.py` is the same: read the journey script's assert
 
 ## 2. Find the repository's test facts
 
-The repository's `TESTING.md` says how its tests run: which layers there are, which external boundaries are stubbed and how, how a test puts the system into a state. Read it before you read the cases in scope. A case that contradicts it (it stubs a boundary the file says runs real, or sits in a layer the file does not have) is a finding named `documented-standard`: cite the file and the line. When the repository has no `TESTING.md`, say so in one line of your report.
+The repository's `TESTING.md` is in your prompt. It says how its tests run: which layers there are, which external boundaries are stubbed and how, how a test puts the system into a state. Read it before you read the cases in scope. A case that contradicts it (it stubs a boundary the file says runs real, or sits in a layer the file does not have) is a finding named `documented-standard`: cite the file and the line. When the prompt says this repository has no `TESTING.md`, say so in one line of your report.
 
 ## 3. Apply the test rules
 
-The general `CODING_STANDARDS.md` follows this file in your prompt. The repository may keep its own `CODING_STANDARDS.md` at its root; read it when it exists. Ask every rule under their `## Tests` of each case in scope, `Cannot fail` first, and name each finding by its rule. The repository's own rule wins: where it endorses something a general rule would flag, the general rule is silent. Each finding quotes the assertion it is about.
+The repository's `CODING_STANDARDS.md` follows this file in your prompt. Ask every rule under its `## Tests` of each case in scope, `Cannot fail` first, and name each finding by its rule. When the prompt says this repository has no `CODING_STANDARDS.md`, this axis has no `## Tests` rules from it. Each finding quotes the assertion it is about.
 
 ## 4. Report
 
-Open the report with one line: `Standards applied: CODING_STANDARDS.md (general)`, then `, <path>` for the repository's own file or `, no repository file`, then `, TESTING.md` or `, no TESTING.md`.
-
-Then one entry per review finding: the file, the case name, the rule or `documented-standard`, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+One entry per review finding: the file, the case name, the rule or `documented-standard`, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## Two things this axis never reports
 

@@ -263,6 +263,7 @@ class TestCheck(unittest.TestCase):
         (self.root / "CLAUDE.md").write_text("@AGENTS.md\n")
         (self.root / ".mmw").mkdir()
         (self.root / ".mmw" / "target.json").write_text(json.dumps({"checks": ["make check"]}))
+        (self.root / "CODING_STANDARDS.md").write_text("# Coding standards\n")
         (self.root / "TESTING.md").write_text("# Testing\n")
 
     def run_check(self, fake, nmem_space=None):
@@ -293,7 +294,8 @@ class TestCheck(unittest.TestCase):
         code, out = self.run_check(fake)
         self.assertEqual(code, 1)
         for item in ("docs/agents/issue-tracker.md", "AGENTS.md", "CLAUDE.md", "labels",
-                     "Memory Space", ".gitignore", ".mmw/target.json checks", "TESTING.md"):
+                     "Memory Space", ".gitignore", ".mmw/target.json checks",
+                     "CODING_STANDARDS.md", "TESTING.md"):
             self.assertRegex(out, rf"(?m)^missing +repository +{item}:", item)
         self.assertIn("SETUP INCOMPLETE", out)
         self.assertEqual(fake.writes(), [])
