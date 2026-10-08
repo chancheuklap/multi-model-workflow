@@ -94,6 +94,27 @@ class WiringTest(unittest.TestCase):
                   "`references/pipeline.md`")
         self.assertFinds("names references/pipeline.md, which is not there")
 
+    def test_a_bare_skill_file_that_is_not_there(self):
+        path = self.skills / "mmw-mode/playbooks/authoring-or-modifying-a-skill.md"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace("SKILL-SET-RULES.md", "SKILL-SET-RULSE.md", 1),
+                        encoding="utf-8")
+        self.assertFinds("names writing-for-agents/SKILL-SET-RULSE.md, which is not there")
+
+    def test_bare_skill_file_ignores_scripts_and_flags(self):
+        path = self.skills / "mmw-mode/playbooks/authoring-or-modifying-a-skill.md"
+        text = path.read_text(encoding="utf-8")
+        for name in ("missing-script.sh", "--lint"):
+            with self.subTest(name=name):
+                path.write_text(text + f"\nThe command is the `dispatch` skill's `{name}`.\n",
+                                encoding="utf-8")
+                r = self.run_check()
+                self.assertEqual(r.returncode, 0, r.stdout)
+                self.assertEqual(r.stdout, "WIRING OK\n")
+        path.write_text(text + "\nRead the `dispatch` skill's `missing-file.md`.\n",
+                        encoding="utf-8")
+        self.assertFinds("names dispatch/missing-file.md, which is not there")
+
     def test_a_step_naming_a_script_that_is_not_there(self):
         (self.skills / "write-screen-contract/scripts/extract_skeleton.py").unlink()
         self.assertFinds("names scripts/extract_skeleton.py, which is not there")
