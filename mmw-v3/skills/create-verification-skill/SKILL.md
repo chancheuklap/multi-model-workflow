@@ -29,3 +29,6 @@ Open a todolist with one item per step below.
 4. **Drive one feature.** Run `start`, then `doctor`, through the `ui-acceptance` skill's `scripts/lease.py`, as `python3 scripts/lease.py run --product <product> -- <command>`. Each command is the one `.mmw/<product>/target.json` names. Drive one feature. The feature file says what the user finishes, and step 2 says how the product is operated. Write `## Driving it` from that walk, as that reference's **Driving it** says. Save a screenshot under `.scratch/` in the worktree. Then run `stop` through the same lease command. The screenshot file is still there after `stop`.
    When a step fails, run `stop` before the next attempt, so a broken attempt does not leave the product running.
    Done when `doctor` exited 0, the screenshot shows the feature after the action, `## Driving it` records that walk, and that file is still at its path after `stop`.
+
+5. **Name the upkeep.** The `maintain-verification-skill` skill keeps that product's feature map honest after the product changes. A schedule for the pass is the owner's to name.
+   Done when the reply names the `maintain-verification-skill` skill.
