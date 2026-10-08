@@ -271,7 +271,7 @@ _Home_: `mmw-v3/skills/code-review/CODING_STANDARDS.md`
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md`
+_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 ### Claiming and handing back
 
