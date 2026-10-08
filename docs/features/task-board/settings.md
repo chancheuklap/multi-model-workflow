@@ -58,7 +58,7 @@ The owner changes the runner and the host, model, and effort of each role, then 
 
 - `settings.effort-locked` An effort this machine no longer offers stays selected, and the sheet names that the model has no such level.
   source: row:settings.effort-locked
-  check: node --test --test-name-pattern 'a saved value this machine no longer offers is flagged with its reason' mmw-v3/tests/board/local-config.test.mjs
+  check: node --test mmw-v3/tests/board/local-config.test.mjs
 
 - `settings.effort-locked-scanning` While a scan is running, an effort select does not take a new effort.
   source: row:settings.effort-locked-scanning
@@ -70,19 +70,19 @@ The owner changes the runner and the host, model, and effort of each role, then 
 
 - `settings.save-unchanged` With no draft change, Save stays disabled.
   source: row:settings.save-unchanged
-  check: node --test --test-name-pattern 'save is enabled only with changes, no flag and no scan running' mmw-v3/tests/board/local-config.test.mjs
+  check: none: no test asserts the Save button stays disabled when the draft is unchanged. The case that calls LocalConfig.saveOff does not drive the button.
 
 - `settings.save-blocked` While a cell is flagged, Save stays disabled.
   source: row:settings.save-blocked
-  check: node --test --test-name-pattern 'save is enabled only with changes, no flag and no scan running' mmw-v3/tests/board/local-config.test.mjs
+  check: none: no test asserts the Save button stays disabled while a cell is flagged. The case that calls LocalConfig.saveOff does not drive the button.
 
 - `settings.save-scanning` While a scan is running, Save stays disabled.
   source: row:settings.save-scanning
-  check: node --test --test-name-pattern 'save is enabled only with changes, no flag and no scan running' mmw-v3/tests/board/local-config.test.mjs
+  check: none: no test asserts the Save button stays disabled while a scan is running. The case that calls LocalConfig.saveOff does not drive the button.
 
 - `settings.save-refused` After a version conflict, Save stays disabled until the sheet is read again.
   source: row:settings.save-refused
-  check: node --test --test-name-pattern 'save is enabled only with changes, no flag and no scan running' mmw-v3/tests/board/local-config.test.mjs
+  check: none: no test asserts the Save button stays disabled while a version conflict is showing. The case that calls LocalConfig.saveOff does not drive the button.
 
 - `settings.reread` 重新读取 loads the saved configuration again and drops the refusal banner.
   source: row:settings.reread

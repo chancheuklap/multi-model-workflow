@@ -14,7 +14,7 @@ The owner reads the four lamp counts, refreshes that read, and jumps to the next
 
 - `topbar.needs-you-none` With no orange lamp, Needs you stays disabled and the count stays 0.
   source: row:topbar.needs-you-none
-  check: node --test --test-name-pattern 'an empty view disables needs you' mmw-v3/tests/board/topbar.test.mjs
+  check: node --test mmw-v3/tests/board/topbar.test.mjs
 
 - `topbar.needs-you-jump` Needs you opens the next ticket whose lamp is orange.
   source: row:topbar.needs-you-jump

@@ -10,7 +10,7 @@ The owner opens one ticket, spec, map, or decision and reads its state, its even
 
 - `detail.open-github` GitHub on a ticket opens that issue in a new tab and leaves the detail column as it is.
   source: row:detail.open-github
-  check: node --test --test-name-pattern 'GitHub uses a new tab and does not call the API client' mmw-v3/tests/board/detail.test.mjs
+  check: node --test mmw-v3/tests/board/detail.test.mjs
 
 - `detail.open-github-summary` GitHub on a map, a spec, or a decision opens that issue in a new tab and leaves the column as it is.
   source: row:detail.open-github-summary
@@ -34,7 +34,7 @@ The owner opens one ticket, spec, map, or decision and reads its state, its even
 
 - `detail.blocker-unknown` A blocker that is not in this tree reads unknown, and a click stays on the current detail.
   source: row:detail.blocker-unknown
-  check: node --test --test-name-pattern 'ticket numbers in the panel call onGoto, unknown rows do not' mmw-v3/tests/board/detail.test.mjs
+  check: node --test mmw-v3/tests/board/detail.test.mjs
 
 - `detail.goto-blocked` A later ticket that this one blocks opens in the detail column.
   source: row:detail.goto-blocked
