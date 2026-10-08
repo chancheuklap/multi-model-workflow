@@ -47,7 +47,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | The ten installed items, what v2 installed and install now removes | `mmw-v3/install.sh` header comment |
 | Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v3/prompt/README.md` |
 | How the skill set is organised, where each part came from, how to add a playbook, principle or skill | `mmw-v3/skills/README.md` |
-| Every rule for the text of a skill, playbook or reference, and the commands that pull an upstream's new version; read before writing, editing or reviewing one | `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` |
+| Every rule for the text of a skill, playbook or reference, and the commands that pull an upstream's new version; read before writing, editing or reviewing one | `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md` |
 | How code in this repository is written; the reviewer's Standards axis applies it | `CODING_STANDARDS.md` |
 | Where the tests live, how they are isolated, which suites a change needs; the reviewer's Tests axis applies it | `TESTING.md` |
 
@@ -73,7 +73,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 </important>
 
 <important if="you are pulling an upstream's new version or editing a file copied from one">
-- Follow the upstream-update bullets of `mmw-v3/skills/mmw-mode/references/skill-set-rules.md`: pull the subtree, `grep -n '<source path>' mmw-v3/imports.tsv` for every row a changed upstream file touches, carry each change in or record why not as a `J` entry, move the row's commit forward, and finish with `python3 mmw-v3/check_imports.py`.
+- Follow the upstream-update bullets of `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`: pull the subtree, `grep -n '<source path>' mmw-v3/imports.tsv` for every row a changed upstream file touches, carry each change in or record why not as a `J` entry, move the row's commit forward, and finish with `python3 mmw-v3/check_imports.py`.
 </important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.

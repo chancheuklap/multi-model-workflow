@@ -13,7 +13,7 @@ happened for real: `advisor` and `ui-acceptance` both shipped a `description` wi
 unquoted colon and space, which breaks a strict YAML parser though a lenient one
 accepts it (docs/reviews/2026-09-23-skill-set, fixed in d37a6048).
 
-The rule is the `mmw-mode` skill's references/skill-set-rules.md `### Descriptions`:
+The rule is the `writing-for-agents` skill's SKILL-SET-RULES.md `### Descriptions`:
 the frontmatter holds `name` and `description`, `argument-hint` when the skill takes
 an argument the person types, and `disable-model-invocation: true` on a skill only the
 person starts. Claude Code reads that key and Codex reads only
@@ -120,7 +120,7 @@ def main() -> int:
     print("Why: a host parses this block as YAML at start, and a skill started only by the "
           "person has to say so to Claude Code and to Codex alike.")
     print("Next: quote any value holding a colon followed by a space; keep only the keys "
-          "skill-set-rules.md `### Descriptions` allows; set or remove "
+          "the writing-for-agents skill's SKILL-SET-RULES.md `### Descriptions` allows; set or remove "
           "`disable-model-invocation: true` and agents/openai.yaml's policy together.")
     return 1
 
