@@ -45,8 +45,7 @@ accepts a success message or redirect has proved only that the click handler ran
 the page that owns the saved result and assert the value there, so breaking the write or
 read operation makes the second pass fail for the reason the user path would fail.
 
-At the end, `stop` runs for every product this run started, in reverse order, and every
-port of each product's segment must be quiet. **The negative control** names the line a
+At the end, `stop` runs as **The negative control** states. That section names the line a
 port that still answers produces.
 
 **A journey script starts nothing itself.** For a desktop application, `start` launches

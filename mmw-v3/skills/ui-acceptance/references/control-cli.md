@@ -31,10 +31,9 @@ Use a repeatable local harness to exercise an interactive CLI instead of poking 
 
 ## Minimal tmux Harness
 
-`start` creates the session. `stop` removes it. Drive the session `start` created.
+`start` creates the session. `stop` removes it. Drive the session `start` created. `SESSION` in the example is that session.
 
 ```bash
-SESSION="mmw-$MMW_INSTANCE"
 tmux capture-pane -pt "$SESSION"
 tmux send-keys -t "$SESSION" "help" Enter
 tmux capture-pane -pt "$SESSION"
