@@ -20,6 +20,8 @@ A criterion names an oracle bare; run one by hand as `scripts/<name>`.
 | the `mmw-mode` skill's `references/cutting-interface-tickets.md`, **Criterion shapes** | Writing a story, boundary, journey or harness guard criterion onto a ticket |
 | [references/boundary-check.md](references/boundary-check.md) | The four-column boundary test for one screen-contract row; `MISS` and `GREEN WITHOUT INTERACTION` |
 | [references/journey.md](references/journey.md) | A journey script and the product's fault-injection switch; `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` and `JOURNEY GREEN WITHOUT PRODUCT` |
+| `references/control-ui.md` | How an agent connects to a web page or an Electron application, acts once, and looks again. The address is what `discover` printed |
+| `references/control-cli.md` | How an agent drives a command-line product in a tmux session whose name contains `MMW_INSTANCE` |
 | [references/product-answers.md](references/product-answers.md) | The reasons behind each field of `.mmw/target.json`. `python3 scripts/target_config.py --check` in the repository says what is missing; fill the file until it exits 0 |
 | [references/harness-guard.md](references/harness-guard.md) | `python3 scripts/harness-guard.py <repository-root>`, which checks that acceptance names are not scattered through the consuming repository; `HARNESS LEAK` and `HARNESS DESIGN PAGE` |
 | `scripts/lease.py` | `python3 scripts/lease.py run -- <the start command>` gives a run its own ports and directories; every refusal names its next step |
