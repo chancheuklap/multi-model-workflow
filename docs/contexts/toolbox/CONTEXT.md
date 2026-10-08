@@ -199,7 +199,7 @@ An architecture decision record in `docs/adr/`, named `0001-slug.md`. `docs/adr/
 _Home_: `docs/adr/README.md`
 
 **research file**:
-The Markdown file, citing each claim's source, that the `research` skill writes where the repository already keeps such notes.
+The Markdown file, citing each claim's source, that a researcher reports as its answer. Only a map's research ticket keeps it, as the research note under `efforts/<effort>/research/`.
 _Home_: `mmw-v3/skills/research/SKILL.md`
 
 **refusal**:

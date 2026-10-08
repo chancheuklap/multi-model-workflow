@@ -12,7 +12,7 @@ A reference belongs to one skill and sits under it. There is no directory of ref
 
 ## When a new reference is warranted
 
-- **The material is used only on one branch, or only by one subagent.** `how` hands its explorer prompt to a subagent only for complex questions; `why` hands each investigator only the `references/sources/<source>.md` for the sources available.
+- **The material is used only on one branch, or only by one subagent.** `research` opens `references/explorer.md` or `references/investigator.md` only on the branch its brief calls for, and an investigator reads only the `references/sources/<source>.md` of its category.
 - **Several playbooks or triggers open the same material.** That is still a reference. `bugbot-triage.md` is opened by four playbooks and one `## Non-negotiables` line.
 - **Not for material every invocation uses.** That goes in the skill file itself: "Templates and references used on every invocation belong in the skill file, not in separate files that cost a read each time."
 

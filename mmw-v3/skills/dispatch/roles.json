@@ -36,7 +36,6 @@
       "command": "brief",
       "lead": {"skill": "research"},
       "sent_by": ["how", "why", "mmw-mode/playbooks/chart-a-map.md", "mmw-mode/playbooks/resolve-a-map-ticket.md", "mmw-mode/playbooks/investigation.md"],
-      "brief": ["how/references/explorer-prompt.md", "why/references/investigator-prompt.md", "mmw-mode/references/map-research-brief.md"],
       "what": "reads one source, an angle of the code or one kind of evidence, answers one research ticket of a map, or answers one question the owner asked about the world outside the repository, and hands back cited findings",
       "returns": "its findings, reported to the session that briefed it"
     },
@@ -45,7 +44,7 @@
       "kind": "session",
       "command": "brief",
       "sent_by": ["how"],
-      "brief": ["how/references/explainer-prompt.md"],
+      "lead": {"file": "how/references/explainer-prompt.md"},
       "what": "turns researchers' findings into one explanation of how something works",
       "returns": "the five-section explanation, reported to the session that briefed it"
     },
@@ -54,7 +53,7 @@
       "kind": "session",
       "command": "brief",
       "sent_by": ["why"],
-      "brief": ["why/references/synthesizer-prompt.md"],
+      "lead": {"file": "why/references/synthesizer-prompt.md"},
       "what": "sorts findings into what was found, what is inferred and what is not known, and spot-checks citations",
       "returns": "the answer in the synthesizer prompt's sections, reported to the session that briefed it"
     },

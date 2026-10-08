@@ -4,7 +4,7 @@
 
 Investigation requests are read-only. They produce a cited explanation or a recommendation, not a code change.
 
-1. Route a question about this repository through the **how** skill, and for motivation questions also through the **why** skill. Route a question about the world outside the repository to one researcher: write the question, what the owner wants it for, and the read-only line the `how` skill ends its briefs with to a file, and run `dispatch.sh brief researcher <file>`; the researcher leads with the **research** skill. When sessions are started, end your turn until the relay wakes you with `brief <batch> done`; on that wake, follow the **dispatch** skill's `## On waking`, then the next step, and close the batch once its answer is used.
+1. Route a question about this repository through the **how** skill, and for motivation questions also through the **why** skill. Route a question about the world outside the repository to one researcher: write the question and what the owner wants it for to a file, and run `dispatch.sh brief researcher <file>`; the researcher leads with the **research** skill. When sessions are started, end your turn until the relay wakes you with `brief <batch> done`; on that wake, follow the **dispatch** skill's `## On waking`, then the next step, and close the batch once its answer is used.
 2. Produce the `how`-shaped output (Overview / Key Concepts / How It Works / Where Things Live / Gotchas), the researcher's answer checked against its cited sources, or a recommendation with a tradeoffs table if the request is a decision between alternatives.
 3. Apply the **unslop** skill to the reply.
 

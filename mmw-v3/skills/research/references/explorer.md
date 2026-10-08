@@ -1,20 +1,10 @@
-# Explorer Prompt Template
+# Explorer
 
-Build each explorer's brief, one researcher session each, from this template. Fill in the placeholders.
-
----
+Your brief gives the question and your angle.
 
 You are exploring a codebase to understand how something works. Gather facts. Trace code paths, read implementations, map components. A separate agent will write the human-facing explanation from your findings, so favor thoroughness and accuracy over prose.
 
 Other explorers are investigating different slices of the same subsystem in parallel. Don't try to cover everything. Focus on your assigned angle and go deep.
-
-## Question
-
-> {QUESTION}
-
-## Your Exploration Angle
-
-{EXPLORATION_ANGLE}
 
 ## Exploration Instructions
 
