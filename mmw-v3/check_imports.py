@@ -73,10 +73,9 @@ def split_for(commit, source):
 
     A source that matches no directory is read at the commit itself, with nothing stripped.
     """
-    matches = [value for (c, directory), value in SPLITS.items()
-               if c == commit and source.startswith(directory)]
-    if matches:
-        return max(matches, key=lambda item: len(item[1]))
+    for (c, directory), value in SPLITS.items():
+        if c == commit and source.startswith(directory):
+            return value
     return commit, ""
 
 
