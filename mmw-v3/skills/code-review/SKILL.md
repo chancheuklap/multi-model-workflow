@@ -16,6 +16,6 @@ You are given a request, a base commit and the axes to run. The request is a tic
 | Tests | [references/tests-reviewer.md](references/tests-reviewer.md) |
 | UI, for a ticket whose criteria include a story criterion | [references/ui-reviewer.md](references/ui-reviewer.md) |
 
-The Standards and Tests prompts also carry [CODING_STANDARDS.md](CODING_STANDARDS.md), in full, after the axis file. Those rules reach the axes in their prompt, never as a file left for them to find, so an axis cannot settle for another document in their place.
+The Standards and Tests prompts also carry the repository's root `CODING_STANDARDS.md` at `HEAD`, in full, after the axis file. The Tests prompt then carries the repository's root `TESTING.md` at `HEAD`, in full. When a file is absent from `HEAD`, its place in the prompt holds one line: `This repository has no CODING_STANDARDS.md.` or `This repository has no TESTING.md.` Those rules reach the axes in their prompt, never as a file left for them to find, so an axis cannot settle for another document in their place.
 
-Hold your turn until every axis has reported. A Standards or Tests report that does not open with its `Standards applied:` line has not said what it judged against: send that axis again, once. Hand back each axis's report as it came, under the axis's name.
+Hold your turn until every axis has reported. Hand back each axis's report as it came, under the axis's name.
