@@ -44,6 +44,25 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 The Implementation Decisions paragraph, written only with a screen contract, stating that appearance is decided by **element parity**, citing the screen contract's pages (`App · ` pages included), with each design page's `mount` as the story page id.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
+**feature map**:
+One product's standing account of what a user can do now, where they enter, and which check guards each behaviour. Distinct from a screen contract, which records each control, and from a context glossary, which is not split by product.
+_Avoid_: verification map
+_Home_: `mmw-v3/skills/mmw-mode/references/feature-map.md`
+
+**sub-feature**:
+One observable behaviour inside a feature file, the unit a `source` and a `check` attach to. Distinct from a feature, which is one thing a user finishes from one entry.
+_Avoid_: test case
+_Home_: `mmw-v3/skills/mmw-mode/references/feature-map.md`
+
+**`existing` source**:
+The `source` written `existing <YYYY-MM-DD>` for a behaviour that was already in the product and that no decision record names. The date is the day it was written into the feature map. Distinct from a decision ticket, a spec subsection, a screen-contract row and an ADR.
+_Avoid_: legacy
+_Home_: `mmw-v3/skills/mmw-mode/references/feature-map.md`
+
+**`## Feature map changes`**:
+The spec section between `## Implementation Decisions` and `## Testing Decisions` that lists each feature file this spec adds or changes, or `none` when no behaviour a user can observe changes. The owner confirms that division.
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
+
 **`## Testing Decisions`**:
 The spec section that says where a test observes the result, the seam and what is real on each side of it, each test layer's directory and precedent, how a test arrives at each state, and the commands to run before committing. A ticket's `## Seam` points into it, and its `CHECK:` and `EXPECT:` come from the precedent it names.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
