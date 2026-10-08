@@ -1,5 +1,5 @@
 """The setup-mmw skill's scripts: three against a fake `gh`, `nmem` and `git`, and
-`migrate_layout.py` against a real `git` repository made in a temporary directory.
+`migrate_layout.py` and `migrate_products.py` against a real `git` repository made in a temporary directory.
 
 Nothing here reaches GitHub, Nowledge Mem or a real repository: every subprocess the
 first three start is answered by `Fake`, which records the command, and the files
@@ -477,6 +477,172 @@ class TestMigrateLayout(unittest.TestCase):
         self.assertIn("efforts/notes/screen-contract.yaml already exists", out)
         self.assertTrue((self.root / "docs/specs/notes/screen-contract.yaml").is_file())
         self.assertTrue((self.root / "prototypes/notes/claude-design/App.dc.html").is_file())
+
+
+class TestMigrateProducts(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.git("init", "-q")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args], capture_output=True, text=True, check=True)
+
+    def write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def commit(self):
+        self.git("add", "-A")
+        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "old layout")
+
+    def migrate(self, *args):
+        out = subprocess.run([sys.executable, str(SCRIPTS / "migrate_products.py"), *args],
+                             cwd=self.root, capture_output=True, text=True)
+        return out.returncode, out.stdout, out.stderr
+
+    def old_layout(self):
+        self.write(".mmw/target.json", json.dumps({
+            "checks": ["make check"],
+            "start": "python3 .mmw/harness/target.py start",
+            "stop": "python3 .mmw/harness/target.py stop",
+            "discover": "python3 .mmw/harness/target.py discover",
+            "stories": "python3 -u .mmw/stories/serve.py",
+            "journeys": ".mmw/journeys",
+            "leaves_machine": ["uses .mmw/harness/bin/gh"],
+            "harness_markers": ["MMW_BREAK"],
+        }, indent=2) + "\n")
+        self.write(".mmw/harness/target.py", "ROOT = HERE.parents[2]\n")
+        self.write(".mmw/stories/serve.py", "ROOT = Path(__file__).resolve().parents[2]\n")
+        self.write(".mmw/journeys/smoke/run.sh", "echo ok\n")
+        self.write(".mmw/AGENTS.md", "stay at the root\n")
+        self.write(".mmw/CLAUDE.md", "@AGENTS.md\n")
+        self.write("README.md", "the harness is .mmw/harness/target.py\n")
+
+    def test_an_old_layout_moves_into_its_product(self):
+        self.old_layout()
+        self.commit()
+        code, stdout, stderr = self.migrate("task-board")
+        self.assertEqual(code, 0, stdout + stderr)
+        self.assertEqual(stderr, "")
+        product = json.loads((self.root / ".mmw/task-board/target.json").read_text())
+        self.assertEqual(product["start"], "python3 .mmw/task-board/harness/target.py start")
+        self.assertEqual(product["stop"], "python3 .mmw/task-board/harness/target.py stop")
+        self.assertEqual(product["discover"], "python3 .mmw/task-board/harness/target.py discover")
+        self.assertEqual(product["stories"], "python3 -u .mmw/task-board/stories/serve.py")
+        self.assertEqual(product["journeys"], ".mmw/task-board/journeys")
+        self.assertEqual(product["leaves_machine"], ["uses .mmw/task-board/harness/bin/gh"])
+        self.assertEqual(product["harness_markers"], ["MMW_BREAK"])
+        self.assertNotIn("checks", product)
+        root = json.loads((self.root / ".mmw/target.json").read_text())
+        self.assertEqual(list(root), ["checks", "products"])
+        self.assertEqual(root["checks"], ["make check"])
+        self.assertEqual(root["products"], ["task-board"])
+        for rel in ("harness/target.py", "stories/serve.py", "journeys/smoke/run.sh"):
+            self.assertTrue((self.root / ".mmw/task-board" / rel).is_file(), rel)
+            self.assertFalse((self.root / ".mmw" / rel).exists(), rel)
+        self.assertEqual((self.root / ".mmw/AGENTS.md").read_text(), "stay at the root\n")
+        self.assertEqual((self.root / ".mmw/CLAUDE.md").read_text(), "@AGENTS.md\n")
+        for rel in ("harness", "stories", "journeys"):
+            self.assertIn(f"MOVED .mmw/{rel} -> .mmw/task-board/{rel}", stdout)
+        self.assertIn("CLIMBS 2:", stdout)
+        self.assertIn(".mmw/task-board/harness/target.py", stdout)
+        self.assertIn(".mmw/task-board/stories/serve.py", stdout)
+        self.assertIn("STILL NAMED 1:", stdout)
+        self.assertTrue(stdout.rstrip().endswith("PRODUCTS MIGRATED 4 changes"), stdout)
+        unstaged = [line for line in self.git("status", "--porcelain").stdout.splitlines() if line[1] != " "]
+        self.assertEqual(unstaged, [])
+        self.assertEqual(self.git("rev-list", "--count", "HEAD").stdout.strip(), "1")
+
+    def test_an_existing_product_directory_is_refused(self):
+        self.old_layout()
+        self.write(".mmw/task-board/keep.txt", "already\n")
+        self.commit()
+        before = self.git("status", "--porcelain").stdout
+        head = self.git("rev-parse", "HEAD").stdout
+        code, stdout, stderr = self.migrate("task-board")
+        self.assertEqual(code, 2, stdout + stderr)
+        self.assertEqual(stdout, "")
+        self.assertIn(".mmw/task-board", stderr)
+        self.assertEqual(self.git("status", "--porcelain").stdout, before)
+        self.assertEqual(self.git("rev-parse", "HEAD").stdout, head)
+        self.assertTrue((self.root / ".mmw/harness/target.py").is_file())
+        self.assertEqual((self.root / ".mmw/task-board/keep.txt").read_text(), "already\n")
+        self.assertIn('"start"', (self.root / ".mmw/target.json").read_text())
+
+    def test_a_migrated_repository_is_products_ok(self):
+        self.old_layout()
+        self.commit()
+        code, stdout, stderr = self.migrate("task-board")
+        self.assertEqual(code, 0, stdout + stderr)
+        status = self.git("status", "--porcelain").stdout
+        target = (self.root / ".mmw/task-board/target.json").read_text()
+        code, stdout, stderr = self.migrate("task-board")
+        self.assertEqual((code, stderr, stdout.strip()), (0, "", "PRODUCTS OK"))
+        self.assertEqual(self.git("status", "--porcelain").stdout, status)
+        self.assertEqual((self.root / ".mmw/task-board/target.json").read_text(), target)
+        self.assertIn(".mmw/task-board/harness/target.py start", target)
+        self.assertNotIn(".mmw/harness/", target)
+
+    def test_migration_rewrites_contracts_and_feature_map_journeys(self):
+        self.write(".mmw/target.json", json.dumps({
+            "checks": ["make check"],
+            "start": "python3 .mmw/harness/target.py start",
+        }, indent=2) + "\n")
+        self.write("efforts/notes/screen-contract.yaml",
+                   "effort: notes\nbaselines:\n  look: efforts/notes/claude-design\n")
+        self.write("efforts/other/screen-contract.yaml", "effort: other\n")
+        self.write("docs/features/board/open.md",
+                   "check: journey.py run smoke\n"
+                   "again: python3 path/journey.py run smoke --break \"POST /x\"\n"
+                   "kept: journey.py run task-board/smoke\n")
+        self.commit()
+        code, stdout, stderr = self.migrate("task-board")
+        self.assertEqual(code, 0, stdout + stderr)
+        for rel in ("efforts/notes/screen-contract.yaml", "efforts/other/screen-contract.yaml"):
+            text = (self.root / rel).read_text()
+            self.assertTrue(text.startswith("product: task-board\n"), text)
+            self.assertEqual(text.count("\nproduct:"), 0, text)
+            self.assertIn(f"REWROTE {rel} product", stdout)
+        feature = (self.root / "docs/features/board/open.md").read_text()
+        self.assertEqual(feature, "check: journey.py run task-board/smoke\n"
+                         "again: python3 path/journey.py run task-board/smoke --break \"POST /x\"\n"
+                         "kept: journey.py run task-board/smoke\n")
+        self.assertEqual(stdout.count("REWROTE docs/features/board/open.md journeys"), 1)
+        self.assertTrue(stdout.rstrip().endswith("PRODUCTS MIGRATED 4 changes"), stdout)
+
+    def test_needs_stays_on_the_root_and_the_given_name_is_the_product_list(self):
+        self.old_layout()
+        doc = json.loads((self.root / ".mmw/target.json").read_text())
+        doc["needs"] = {"parrot": ["gateway"]}
+        doc["products"] = ["old"]
+        self.write(".mmw/target.json", json.dumps(doc, indent=2) + "\n")
+        self.commit()
+        code, stdout, stderr = self.migrate("task-board")
+        self.assertEqual(code, 0, stdout + stderr)
+        root = json.loads((self.root / ".mmw/target.json").read_text())
+        self.assertEqual(list(root), ["checks", "needs", "products"])
+        self.assertEqual(root["needs"], {"parrot": ["gateway"]})
+        self.assertEqual(root["products"], ["task-board"])
+        product = json.loads((self.root / ".mmw/task-board/target.json").read_text())
+        self.assertNotIn("needs", product)
+        self.assertNotIn("products", product)
+
+    def test_a_product_name_outside_the_alphabet_is_refused(self):
+        self.old_layout()
+        self.commit()
+        before = self.git("status", "--porcelain").stdout
+        for args in [(), ("Task",), ("a/b",), ("task_board",)]:
+            code, stdout, stderr = self.migrate(*args)
+            self.assertEqual(code, 2, args)
+            self.assertEqual(stdout, "", args)
+            self.assertNotEqual(stderr, "", args)
+            self.assertEqual(self.git("status", "--porcelain").stdout, before)
+        self.assertTrue((self.root / ".mmw/harness/target.py").is_file())
 
 
 if __name__ == "__main__":
