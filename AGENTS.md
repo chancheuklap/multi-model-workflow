@@ -46,8 +46,8 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard | `docs/contexts/night/how-it-works.md` |
 | The ten installed items, what v2 installed and install now removes | `mmw-v3/install.sh` header comment |
 | Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v3/prompt/README.md` |
-| How the skill set is organised, where each part came from, how to add a playbook, principle or skill | `mmw-v3/skills/README.md` |
-| Every rule for the text of a skill, playbook or reference, and the commands that pull an upstream's new version; read before writing, editing or reviewing one | `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md` |
+| Where each part of the skill set came from | `mmw-v3/skills/README.md` |
+| Every rule for the text of a skill, playbook or reference, which component a text goes in and the shape of each, and the commands that pull an upstream's new version; read before writing, editing or reviewing one | `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md` and `SKILL-SET-COMPONENTS.md` |
 | How code in this repository is written; the reviewer's Standards axis applies it | `CODING_STANDARDS.md` |
 | Where the tests live, how they are isolated, which suites a change needs; the reviewer's Tests axis applies it | `TESTING.md` |
 

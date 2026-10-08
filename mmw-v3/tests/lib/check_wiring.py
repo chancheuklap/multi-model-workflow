@@ -9,7 +9,7 @@ agent told to read a file or run a skill that is not there guesses. Four kinds o
 pointer are checked, in the text of every `.md` under `mmw-v3/skills/` (HTML comments
 and fenced code left out):
 
-1. **Routes.** Each file in the mmw-mode skill's `playbooks/` (its README aside) has
+1. **Routes.** Each file in the mmw-mode skill's `playbooks/` has
    exactly one route line in `## Playbooks` of its `SKILL.md`, every route line names
    a file that exists, and the bold name of the line is the file's `# ` title.
 2. **Principles.** Each `principle-*` skill has exactly one index line in `## Principles`,
@@ -96,8 +96,6 @@ def check_routes(mode: str) -> list[str]:
             found.append(f"{line}: the route line says **{name}.**, and {rel} is titled {title(path)!r}")
     for path in sorted((MODE_DIR / "playbooks").glob("*.md")):
         rel = f"playbooks/{path.name}"
-        if path.name == "README.md":
-            continue
         if rel not in named:
             found.append(f"{MODE.relative_to(SKILLS.parent.parent)}: `## Playbooks` has no route line for {rel}")
         elif len(named[rel]) > 1:
