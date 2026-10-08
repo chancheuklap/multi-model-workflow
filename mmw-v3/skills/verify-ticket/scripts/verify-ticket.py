@@ -45,6 +45,7 @@ def _load(name: str, filename: str):
 # under a spec, read with one query.
 events = _load("mmw_events", "events.py")
 tree = _load("mmw_tree", "issue_tree.py")
+feature_map = _load("mmw_feature_map", "feature_map.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
 LEDGER_NAME = "AC.md"
@@ -2767,18 +2768,27 @@ def lint_ticket_graph(number: int, body: str) -> int:
     return lint_batch_graph(spec, numbers)
 
 
+# The edges `lint_batch_graph` just read. `lint_spec` hands them to the feature-map
+# rules so the tracker is asked once. None until that read happens.
+_graph_entries: list[dict] | None = None
+
+
 def lint_batch_graph(spec: int, numbers: list[int],
                      entries: list[dict] | None = None) -> int:
     """Check that `numbers`, the sub-issues of `spec`, form a startable graph.
 
     `entries` replaces the tracker's blocking edges with ones read elsewhere: the
-    `BLOCKED BY:` headers of a directory of drafts, whose ids are draft names."""
+    `BLOCKED BY:` headers of a directory of drafts, whose ids are draft names.
+    The edges this call read are left on `_graph_entries` for the feature-map rules.
+    """
+    global _graph_entries
     if not numbers and not entries:
         print(f"  ERROR #{spec} has no sub-issues — publish tickets as sub-issues of the "
               f"spec, or the graph cannot be checked  [no-sub-issues]")
         return 1
     if entries is None:
         entries = ticket_entries(numbers)
+    _graph_entries = entries
     # Printed before the errors, because an error returns here and a disagreement about
     # an edge is often what the error is: a cycle, or a blocker that is no ticket.
     for finding in cross_batch_findings(entries):
@@ -3351,6 +3361,34 @@ def print_uncovered_sections(spec: int, spec_body: str, named: set[int]) -> None
                   f"ticket's ## Parent [uncovered-section]")
     covered = sum(1 for n in numbers if n in named)
     print(f"sections named by a ticket: {covered}/{len(numbers)}")
+
+
+def load_yaml_text(text: str) -> dict | None:
+    """A mapping parsed from YAML text. None when the text does not parse.
+
+    The same pyyaml-or-uv read as `load_yaml_file`, from the text itself.
+    """
+    try:
+        import yaml  # noqa: PLC0415
+    except ImportError:
+        yaml = None
+    if yaml is not None:
+        try:
+            loaded = yaml.safe_load(text) or {}
+        except yaml.YAMLError:
+            return None
+        return loaded if isinstance(loaded, dict) else {}
+    try:
+        out = subprocess.run(
+            ["uv", "run", "--with", "pyyaml", "python", "-c",
+             "import json,sys,yaml; print(json.dumps(yaml.safe_load(sys.stdin.read()) or {}))"],
+            input=text, capture_output=True, text=True, timeout=120, env=GH_ENV)
+        if out.returncode == 0:
+            loaded = json.loads(out.stdout)
+            return loaded if isinstance(loaded, dict) else {}
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+    return None
 
 
 def load_yaml_file(path: str) -> dict | None:
@@ -3926,19 +3964,313 @@ def run_lint(number: int) -> int:
     return 1 if (ticket_rc or graph) else 0
 
 
+FILE_CHANGE_RE = re.compile(r"^- `([^`]+)` \((new|changed)\)\s*$")
+SUB_CHANGE_RE = re.compile(
+    r"^- (added|changed|removed) `([^`]+)`(?:\s+source:\s*(.*?))?\s*$")
+CONTRACT_PATH_RE = re.compile(r"efforts/([A-Za-z0-9._-]+)/screen-contract\.yaml")
+
+
+def git_text(root: Path, path: str) -> str | None:
+    """The file at `HEAD:path`, or None when that path is not on the base branch."""
+    result = subprocess.run(
+        ["git", "show", f"HEAD:{path}"],
+        cwd=root, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def git_paths(root: Path, prefix: str) -> list[str] | None:
+    """Paths under `prefix` at HEAD. None when this checkout's git cannot be read."""
+    result = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "HEAD", "--", prefix],
+        cwd=root, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def is_feature_file(path: str) -> bool:
+    """A feature file is `docs/features/<product>/<feature>.md`, not the product README."""
+    parts = path.split("/")
+    return (len(parts) == 4 and parts[0] == "docs" and parts[1] == "features"
+            and parts[3].endswith(".md") and parts[3] != "README.md")
+
+
+def feature_map_changes(body: str) -> dict | None:
+    """`## Feature map changes` parsed in the shape `references/feature-map.md` gives.
+
+    None when the heading is absent. `rows` is every `row:<id>` source under it.
+    A section whose only line is `none` has no files.
+    """
+    if not any(line.strip() == "## Feature map changes" for line in body.splitlines()):
+        return None
+    content = [line.strip() for line in section(body, "Feature map changes") if line.strip()]
+    if content == ["none"]:
+        content = []
+    files: list[dict] = []
+    rows: set[str] = set()
+    current: dict | None = None
+    for line in content:
+        found = FILE_CHANGE_RE.match(line)
+        if found:
+            current = {"path": found.group(1), "changed": set(), "removed": set()}
+            files.append(current)
+            continue
+        found = SUB_CHANGE_RE.match(line)
+        if found is None or current is None:
+            continue
+        kind, identity, source = found.group(1), found.group(2), found.group(3)
+        if kind == "changed":
+            current["changed"].add(identity)
+        elif kind == "removed":
+            current["removed"].add(identity)
+        if not source:
+            continue
+        parsed, row_id = feature_map.source_kind(source.strip())
+        if parsed == "row" and row_id:
+            rows.add(row_id)
+    return {"files": files, "rows": rows}
+
+
+def contract_row_ids(text: str) -> set[str] | None:
+    """Row ids in one screen contract's text. None when the text does not parse."""
+    document = load_yaml_text(text)
+    if document is None:
+        return None
+    return feature_map.ids_in(document)
+
+
+def effort_contracts(body: str, changes: dict, root: Path) -> dict[str, str]:
+    """Screen contracts of this spec's effort that exist on the base branch, text included.
+
+    The effort is a contract path the spec names, or the product a Feature map
+    changes path names when `efforts/<product>/screen-contract.yaml` is on the base.
+    """
+    names = set(CONTRACT_PATH_RE.findall(body))
+    for entry in changes["files"]:
+        parts = entry["path"].split("/")
+        if len(parts) >= 3 and parts[0] == "docs" and parts[1] == "features":
+            names.add(parts[2])
+    found = {}
+    for name in sorted(names):
+        path = f"efforts/{name}/screen-contract.yaml"
+        text = git_text(root, path)
+        if text is not None:
+            found[path] = text
+    return found
+
+
+def homed_rows(root: Path, paths: list[str]) -> set[str]:
+    """Row ids named by a feature file on the base branch."""
+    found: set[str] = set()
+    for path in paths:
+        if not path.endswith(".md"):
+            continue
+        text = git_text(root, path)
+        if text is None:
+            continue
+        for item in feature_map.read_subfeatures(text):
+            source = item.get("source")
+            if not source:
+                continue
+            kind, row_id = feature_map.source_kind(source[1])
+            if kind == "row" and row_id:
+                found.add(row_id)
+    return found
+
+
+def pin_candidates(text: str, excluded: set[str]) -> list[str]:
+    """`check:` commands still able to pin the file. `changed` and `removed` ids are out."""
+    commands = []
+    for item in feature_map.read_subfeatures(text):
+        if item.get("id") in excluded:
+            continue
+        check = item.get("check")
+        if not check:
+            continue
+        value = check[1].strip()
+        if not value or value.startswith("none:"):
+            continue
+        commands.append(value)
+    return commands
+
+
+def feature_paths(changes: dict, tickets: list[dict], on_base: list[str]) -> list[str]:
+    """Feature files the section lists, or an Owns glob names, base files included."""
+    found: list[str] = []
+
+    def add(path: str) -> None:
+        if is_feature_file(path) and path not in found:
+            found.append(path)
+
+    for entry in changes["files"]:
+        add(entry["path"])
+    for ticket in tickets:
+        for pattern in owns_globs(ticket["body"]):
+            if is_feature_file(pattern):
+                add(pattern)
+            for path in on_base:
+                if is_feature_file(path) and glob_covers(pattern, path):
+                    add(path)
+    return found
+
+
+def owners_of(path: str, tickets: list[dict]) -> list[dict]:
+    return [ticket for ticket in tickets
+            if any(glob_covers(pattern, path) for pattern in owns_globs(ticket["body"]))]
+
+
+def waits_on(entries: list[dict]) -> dict:
+    """Each ticket's blockers, walked out through the batch. A cycle stops the walk."""
+    deps = {entry["id"]: list(entry.get("dependencies") or []) for entry in entries}
+    closure: dict = {}
+
+    def walk(node, stack: set) -> set:
+        if node in closure:
+            return closure[node]
+        if node in stack:
+            return set()
+        stack.add(node)
+        found: set = set()
+        for dep in deps.get(node, ()):
+            found.add(dep)
+            found |= walk(dep, stack)
+        stack.remove(node)
+        closure[node] = found
+        return found
+
+    for node in deps:
+        walk(node, set())
+    return closure
+
+
+def lint_feature_map_batch(spec: int, spec_body: str, tickets: list[dict],
+                           entries: list[dict] | None) -> int:
+    """Publish-time rules for `## Feature map changes`. 1 when one is an ERROR.
+
+    A missing section is a warning and the three rules do not run: a spec published
+    before the section existed has nothing for them to read. `entries` are the
+    blocking edges the graph check recorded. When that check did not record them,
+    they are read once here, and only if the section is present. HEAD of the
+    checkout is the base branch. A closed ticket still counts as an owner. Its
+    missing pin is printed and does not stop the batch. Only open tickets can run
+    at the same time.
+    """
+    if not spec_body:
+        return 0
+    print("\n## feature map changes")
+    changes = feature_map_changes(spec_body)
+    if changes is None:
+        print(f"  WARN  #{spec} has no ## Feature map changes  [no-feature-map-changes]")
+        return 0
+    root = repo_root()
+    on_base = git_paths(root, "docs/features")
+    if on_base is None:
+        print(f"  ERROR #{spec} base branch: expected a git checkout to read "
+              f"docs/features/; actual git could not read HEAD; evidence {root}  "
+              f"[base-unreadable]")
+        return 1
+    errors = 0
+    listed = changes["rows"]
+    homed = homed_rows(root, on_base)
+    for path, text in effort_contracts(spec_body, changes, root).items():
+        row_ids = contract_row_ids(text)
+        if row_ids is None:
+            print(f"  ERROR #{spec} `{path}`: expected a screen contract; actual the "
+                  f"file on the base branch did not parse; evidence {path}  "
+                  f"[contract-unreadable]")
+            errors += 1
+            continue
+        for row_id in sorted(row_ids - homed - listed):
+            print(f"  ERROR #{spec} row `{row_id}`: expected the row in "
+                  f"## Feature map changes; actual absent from ## Feature map changes "
+                  f"and from every feature file on the base branch; evidence spec "
+                  f"#{spec} ## Feature map changes  [unhomed-row]")
+            errors += 1
+    by_path = {entry["path"]: entry for entry in changes["files"]}
+    paths = feature_paths(changes, tickets, on_base)
+    open_tickets = [ticket for ticket in tickets
+                    if (ticket.get("state") or "").upper() != "CLOSED"]
+    for path in paths:
+        owners = owners_of(path, tickets)
+        if path in by_path and not owners:
+            print(f"  ERROR #{spec} `{path}`: expected the file in one ticket's "
+                  f"## Owns; actual no ticket owns it; evidence spec #{spec} "
+                  f"## Feature map changes  [unowned-feature]")
+            errors += 1
+    for ticket in tickets:
+        closed = (ticket.get("state") or "").upper() == "CLOSED"
+        checks = [command for _, command, _ in criteria_lines(ticket["body"])]
+        missed = False
+        for path in paths:
+            if path not in on_base or ticket not in owners_of(path, tickets):
+                continue
+            entry = by_path.get(path) or {}
+            excluded = set(entry.get("changed") or ()) | set(entry.get("removed") or ())
+            text = git_text(root, path)
+            if text is None:
+                continue
+            candidates = pin_candidates(text, excluded)
+            if not candidates:
+                continue
+            if any(command in check for command in candidates for check in checks):
+                continue
+            shown = ", ".join(f"`{command}`" for command in candidates)
+            print(f"  ERROR {ref(ticket['id'])} `{path}`: expected a CHECK containing "
+                  f"one of {shown}; actual no CHECK contains one; evidence "
+                  f"{ref(ticket['id'])} ## Acceptance criteria  [missing-pin]")
+            if closed:
+                missed = True
+            else:
+                errors += 1
+        if missed:
+            print(f"  WARN  {ref(ticket['id'])} is closed, so the ERROR above does not "
+                  f"stop the batch  [closed-ticket]")
+    if entries is None:
+        entries = ticket_entries([ticket["id"] for ticket in tickets])
+    waiting = waits_on(entries)
+    seen: set[tuple] = set()
+    for path in paths:
+        running = owners_of(path, open_tickets)
+        for left in running:
+            for right in running:
+                if left["id"] == right["id"]:
+                    continue
+                if (left["id"] in waiting.get(right["id"], ())
+                        or right["id"] in waiting.get(left["id"], ())):
+                    continue
+                pair = tuple(sorted((left["id"], right["id"]), key=str))
+                key = (pair, path)
+                if key in seen:
+                    continue
+                seen.add(key)
+                print(f"  ERROR {ref(pair[0])} and {ref(pair[1])} both own `{path}`: "
+                      f"expected one to wait on the other; actual the two can run at "
+                      f"the same time; evidence {ref(pair[0])} ## Owns and "
+                      f"{ref(pair[1])} ## Owns  [concurrent-owners]")
+                errors += 1
+    return 1 if errors else 0
+
+
 def lint_spec(spec: int) -> int:
     """Every sub-issue of the spec through `lint_criteria`, each under a line naming
-    it, then the batch graph once. Exit 1 if an open ticket or the graph has an ERROR: a
-    closed ticket is never started again, so its findings are printed and count for nothing."""
+    it, then the batch graph once, then the feature-map rules. Exit 1 if an open
+    ticket, the graph, or a feature-map rule has an ERROR: a closed ticket is never
+    started again, so its own findings are printed and count for nothing."""
     numbers = fetch_sub_issues(spec)
     spec_body = fetch_body(spec)
     print(f"#{spec} is a spec with {len(numbers)} sub-issues; linting each, then the graph")
     failed: list[int] = []
     named: set[int] = set()
+    tickets: list[dict] = []
     for child in numbers:
         ticket = fetch_ticket(child)
         state = ticket.get('state') or 'state unknown'
         body = fetch_body(child)
+        tickets.append({"id": child, "body": body, "state": state})
         named |= set(parent_sections("\n".join(section(body, "Parent")))
                      .get(spec, {}).get("sections") or ())
         print(f"\n## #{child} ({state})")
@@ -3948,11 +4280,14 @@ def lint_spec(spec: int) -> int:
             else:
                 failed.append(child)
     print("\n## ticket graph")
+    global _graph_entries
+    _graph_entries = None
     graph = lint_batch_graph(spec, numbers)
     print_uncovered_sections(spec, spec_body, named)
+    feature = lint_feature_map_batch(spec, spec_body, tickets, _graph_entries)
     if failed:
         print("  ERROR tickets with findings: " + ", ".join(f"#{n}" for n in failed))
-    return 1 if (failed or graph) else 0
+    return 1 if (failed or graph or feature) else 0
 
 
 DRAFT_HEADER_RE = re.compile(r"^([A-Z][A-Z ]*[A-Z]):\s*(.*)$")
@@ -4076,12 +4411,16 @@ def lint_drafts(spec: int, directory: Path) -> int:
     graph = lint_batch_graph(spec, [], entries) if entries else 1
     if spec_body:
         print_uncovered_sections(spec, spec_body, named)
+    draft_tickets = [{"id": draft["name"], "body": draft["body"], "state": "OPEN"}
+                     for draft in drafts]
+    feature = (lint_feature_map_batch(spec, spec_body, draft_tickets, entries)
+               if spec_body else 0)
     print("\nnot checked on drafts; run --lint on the published spec for these:")
     for line in DRAFTS_NOT_CHECKED:
         print("  - " + line)
     if failed:
         print("  ERROR drafts with findings: " + ", ".join(failed))
-    return 1 if (failed or graph) else 0
+    return 1 if (failed or graph or feature) else 0
 
 
 def _draft_dependencies(draft: dict, names: set[str], directory: Path) -> list[int | str]:
