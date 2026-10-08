@@ -1,6 +1,7 @@
 """feature_map.py lint, run against a repository the test writes in a temporary directory."""
 
 import importlib.util
+import json
 import shutil
 import subprocess
 import sys
@@ -191,6 +192,38 @@ class TestFeatureMap(unittest.TestCase):
         self.assertEqual(rows[0]["source"][1], "row:demo.open")
         self.assertEqual(rows[0]["check"][1], "bash tests/guard.sh")
 
+    def test_a_product_journey_uses_its_configured_directory(self):
+        def edit(root: Path) -> None:
+            product = root / ".mmw/alpha"
+            (product / "journeys").rename(product / "flows")
+            (product / "target.json").write_text(json.dumps({
+                "journeys": ".mmw/alpha/flows",
+            }), encoding="utf-8")
+
+        code, output = lint_complete(edit)
+        self.assertEqual(code, 0, output)
+        self.assertEqual(output.strip(), "FEATURE MAP OK 3 features")
+
+    def test_a_journey_check_does_not_ignore_an_old_root_layout(self):
+        def edit(root: Path) -> None:
+            (root / ".mmw/target.json").write_text(json.dumps({"start": "true"}))
+
+        code, output = lint_complete(edit)
+        self.assertEqual(code, 1, output)
+        self.assertIn("migrate_products.py <产品名>", output)
+        self.assertNotIn("FEATURE MAP OK", output)
+
+    def test_a_bare_journey_name_is_not_a_check_target(self):
+        def edit(root: Path) -> None:
+            path = root / OPEN
+            path.write_text(path.read_text().replace(
+                "journey.py run alpha/smoke", "journey.py run smoke"))
+
+        code, output = lint_complete(edit)
+        self.assertEqual(code, 1, output)
+        self.assertIn("<product>/<flow>", output)
+        self.assertNotIn("FEATURE MAP OK", output)
+
     def test_a_missing_section_is_named(self):
         code, output = lint_complete(lambda root: replace(root, OPEN, MISSING_SECTION))
         self.assertEqual(code, 1, output)
@@ -278,12 +311,12 @@ class TestFeatureMap(unittest.TestCase):
                 "check: cd tests && python -m unittest test_guard.GuardTests.test_opens",
                 "check: cd tests && python -m unittest test_guard.GuardTests.test_missing",
                 1)
-            text = text.replace("check: journey.py run smoke", "check: journey.py run absent")
+            text = text.replace("check: journey.py run alpha/smoke", "check: journey.py run alpha/absent")
             path.write_text(text, encoding="utf-8")
             save = root / "docs/features/alpha/save.md"
             save.write_text(save.read_text(encoding="utf-8").replace(
                 "check: bash tests/guard.sh",
-                "check: python3 ~/.agents/skills/ui-acceptance/scripts/journey.py run smoke",
+                "check: python3 ~/.agents/skills/ui-acceptance/scripts/journey.py run alpha/smoke",
                 1), encoding="utf-8")
 
         code, output = lint_complete(edit)
@@ -297,7 +330,7 @@ class TestFeatureMap(unittest.TestCase):
                         reported)
         self.assertTrue(any("open.md:18:" in line and "test_missing" in line for line in reported),
                         reported)
-        self.assertTrue(any("open.md:21:" in line and ".mmw/journeys/absent/" in line for line in reported),
+        self.assertTrue(any("open.md:21:" in line and ".mmw/alpha/journeys/absent/" in line for line in reported),
                         reported)
         self.assertNotIn("::", output)
         self.assertNotIn("~/.agents", output)

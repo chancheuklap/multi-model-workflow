@@ -488,8 +488,8 @@ BASELINE_GREEN = checked(
   EXPECT: 1 passed
   EVIDENCE: exit=0; EXPECT=matched; output-bytes=9
 - [ ] AC2: a journey
-  CHECK: journey.py run import
-  EXPECT: JOURNEY OK import
+  CHECK: journey.py run notes/import
+  EXPECT: JOURNEY OK notes/import
   EVIDENCE: skipped""",
     "UNMET: 1 (met: 1)",
     commit="0" * 40,

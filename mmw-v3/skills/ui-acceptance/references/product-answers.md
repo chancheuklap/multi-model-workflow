@@ -1,6 +1,6 @@
 # Product answers
 
-The **product answers** live in `.mmw/` at the repository root; `target_config.py --check`
+The **product answers** live in `.mmw/<product>/target.json`; `target_config.py --check`
 lists the fields. This page says what every answer must guarantee and why each field is
 shaped as it is.
 
@@ -25,7 +25,7 @@ These hold for every product. How a given repository meets them is its own.
 - **Time values come from scene data.** A client-rendered product loads the same
   paused clock the design side uses, so a clock reading is not a live instant.
 - **A boundary test replaces the gateway**, which the repository names ([boundary-check.md](boundary-check.md)).
-- **`.mmw/harness/` implements the fault-injection switch** that [journey.md](journey.md)
+- **`.mmw/<product>/harness/` implements the fault-injection switch** that [journey.md](journey.md)
   **The fault-injection switch** specifies.
 - **A journey script reads only the addresses `discover` printed.** It starts
   nothing of its own — no application, server, container, or backing service.
@@ -42,14 +42,30 @@ These hold for every product. How a given repository meets them is its own.
   the product needs — which backing service, which data directory, which log — is
   found or chosen inside this command, from the lease in its environment
   (`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`,
-  `MMW_AUTOMATION`). Every per-user location the product reads or writes by default
+  `MMW_AUTOMATION`). A product with `needs` starts only once each dependency
+  address is present. `start` copies those variables into the names the product
+  reads, and refuses while any of them is absent. Starting on the product's own
+  default address can reach a live environment outside this lease. Every per-user location the product reads or writes by default
   (a configuration home such as `~/.<product>` or the variable that moves it, an XDG
   directory, a user-level settings file) is pointed inside `MMW_DATA_DIR` here and
   seeded there, so a journey that saves changes nothing of this machine's own; a
   location that cannot be moved is listed under `leaves_machine`. It refuses to start with no lease and prints the command that
-  supplies one: `python3 scripts/lease.py run -- <the start command>`. When
+  supplies one: `python3 scripts/lease.py run --product <product> -- <the start command>`. When
   `MMW_BREAK` is in that command's environment, this is also the process that
   arms the fault-injection switch.
+
+- **`doctor`.** One read-only command that answers whether this instance is worth
+  driving. Each product file
+  has this command, and `target_config.py --check` names a product that omits it.
+  It checks three things: the process is up; the version is this worktree's commit
+  (`MMW_WORKTREE_COMMIT`) or the product's own build number; the ports it listens
+  on sit inside its own lease segment, from `MMW_PORT_BASE` for `MMW_PORT_COUNT`
+  ports. When all three hold it exits 0 and prints
+  one JSON object with `pid`, `version` and `ports`. `pid` is a number or a
+  string. When any check fails it exits 1 and prints, for that check, what it
+  expected and what it found. It does not restart the process and it does not
+  clear data. The run after a failed journey script also sets `MMW_DOCTOR_PID`
+  to the `pid` the first run printed. Print the pid of the process that is up now.
 
 - **Servers under a burst.** A page opens many connections at once (stylesheets, scripts, data). Every server the oracles load a page from, the story service and the product itself, accepts at least 64 pending connections (`request_queue_size` for Python's `socketserver`, whose default of 5 lets a busy machine reset the rest and the page render empty).
 
@@ -61,7 +77,7 @@ These hold for every product. How a given repository meets them is its own.
 
 - **`stories`.** Brings up the story service and prints its `origin`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
-  pages themselves live in `.mmw/stories/`. It takes **no lease**: a story page
+  pages themselves live in `.mmw/<product>/stories/`. It takes **no lease**: a story page
   renders product components from scene data — presentational, fed by that data
   and nothing else — with no backend, no seed and no route behind it, so the one
   thing it needs is a port, and it asks the machine for a free one (bind port `0`,
@@ -77,15 +93,18 @@ These hold for every product. How a given repository meets them is its own.
 - **`checks`.** The repository's own checks, which the `dispatch` skill runs on each
   ticket's merge result before it pushes. `checks` is optional: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Every command receives `MMW_BASE_REF=origin/<into>`, where `into` is from the newest `worker.started`. A command that fails bounces the ticket back to its worker with the command named, so every entry must pass on the base branch as it stands.
 
-## `.mmw/` directory
+## `.mmw/<product>/` directory
 
-Product answers live here, not scattered through the repository:
+Product answers live here. The root `.mmw/target.json` holds `products`, optional
+`needs`, and optional repository `checks`. It holds no product fields.
 
-- `target.json` — the fields above
+Each product directory contains:
+
+- `target.json` — the product fields above
 - `harness/` — start the stack, the fault-injection switch, vendor stubs, account seeds, the
   few seeds a journey uses, the entry that records an action that would leave the
   machine
-- `journeys/` — one directory per named journey
+- `journeys/` — one directory per flow, invoked as `<product>/<flow>`
 - `stories/` — story pages and their adapter
 
 Scripts a person runs on their own machine may stay where they are, provided they

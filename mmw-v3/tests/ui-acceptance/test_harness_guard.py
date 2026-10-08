@@ -71,7 +71,8 @@ class WhatTheGuardReads(unittest.TestCase):
         }
         if not omit_markers:
             cfg["harness_markers"] = list(markers)
-        self.write(".mmw/target.json", json.dumps(cfg) + "\n")
+        self.write(".mmw/target.json", '{"products": ["notes"]}\n')
+        self.write(".mmw/notes/target.json", json.dumps(cfg) + "\n")
 
     def guard(self) -> tuple[int, str]:
         out, err = io.StringIO(), io.StringIO()
@@ -151,9 +152,9 @@ class WhatTheGuardReads(unittest.TestCase):
 
     def test_a_non_list_harness_markers_names_the_shape(self):
         self.declare()
-        cfg = json.loads((self.root / ".mmw" / "target.json").read_text(encoding="utf-8"))
+        cfg = json.loads((self.root / ".mmw" / "notes" / "target.json").read_text(encoding="utf-8"))
         cfg["harness_markers"] = "nope"
-        self.write(".mmw/target.json", json.dumps(cfg) + "\n")
+        self.write(".mmw/notes/target.json", json.dumps(cfg) + "\n")
         code, _ = self.guard()
         self.assertEqual(code, 2)
         self.assertIn("must be a list of strings", self.err)
@@ -189,14 +190,14 @@ class WhatTheGuardReads(unittest.TestCase):
         self.assertIn("HARNESS LEAK src/app.js:1", text)
 
     def test_a_story_service_file_naming_a_dc_html_is_one_line_per_file(self):
-        self.write(".mmw/stories/serve.py", 'a = "Foo.dc.html"\nb = "Bar.dc.html"\n')
-        self.write(".mmw/stories/other.py", 'c = "Baz.dc.html"\n')
+        self.write(".mmw/notes/stories/serve.py", 'a = "Foo.dc.html"\nb = "Bar.dc.html"\n')
+        self.write(".mmw/notes/stories/other.py", 'c = "Baz.dc.html"\n')
         code, text = self.guard()
         self.assertEqual(code, 1)
         lines = [ln for ln in text.splitlines() if ln.startswith("HARNESS DESIGN PAGE ")]
         self.assertEqual(len(lines), 2, text)
-        self.assertIn("HARNESS DESIGN PAGE .mmw/stories/serve.py:1", lines)
-        self.assertIn("HARNESS DESIGN PAGE .mmw/stories/other.py:1", lines)
+        self.assertIn("HARNESS DESIGN PAGE .mmw/notes/stories/serve.py:1", lines)
+        self.assertIn("HARNESS DESIGN PAGE .mmw/notes/stories/other.py:1", lines)
         self.assertNotIn("serve.py:2", text)
 
     def test_a_file_the_stories_command_names_is_read_as_story_service(self):
@@ -216,8 +217,57 @@ class WhatTheGuardReads(unittest.TestCase):
         self.assertEqual(text, "HARNESS DESIGN PAGE story.mjs:1\n")
 
     def test_a_story_service_reading_scenes_json_only_is_ok(self):
-        self.write(".mmw/stories/serve.py", 'scenes = "scenes.json"\n')
+        self.write(".mmw/notes/stories/serve.py", 'scenes = "scenes.json"\n')
         self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
+
+
+class TwoProducts(unittest.TestCase):
+    """Every product's markers are judged. A marker under `.mmw/` stays allowed."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / "repo"
+        (self.root / "src").mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+
+    def write(self, relative: str, text: str) -> None:
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def guard(self) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = hg.main([str(self.root)])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_markers_of_every_product_are_judged(self):
+        self.write(".mmw/target.json", json.dumps({"products": ["alpha", "beta"]}))
+        self.write(".mmw/alpha/target.json", json.dumps({
+            "harness_markers": ["ALPHA_MARK"],
+            "stories": "python3 .mmw/alpha/stories/serve.py",
+        }))
+        self.write(".mmw/beta/target.json", json.dumps({
+            "harness_markers": ["BETA_MARK"],
+            "stories": "python3 .mmw/beta/stories/serve.py",
+        }))
+        self.write("src/app.js", "const x = 'BETA_MARK';\n")
+        self.write("src/other.js", "const z = 'ALPHA_MARK';\n")
+        self.write(".mmw/alpha/note.js", "const y = 'ALPHA_MARK';\n")
+        self.write(".mmw/beta/stories/serve.py", 'a = "Foo.dc.html"\n')
+        code, out, err = self.guard()
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("HARNESS LEAK src/app.js:1 BETA_MARK", out)
+        self.assertIn("HARNESS LEAK src/other.js:1 ALPHA_MARK", out)
+        self.assertNotIn("note.js", out)
+        self.assertIn("HARNESS DESIGN PAGE .mmw/beta/stories/serve.py:1", out)
+
+        self.write(".mmw/beta/target.json", json.dumps({"stories": "true"}))
+        code, out, err = self.guard()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn(".mmw/beta/target.json", err)
+        self.assertNotIn("HARNESS OK", out)
 
 
 if __name__ == "__main__":

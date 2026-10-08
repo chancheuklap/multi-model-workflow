@@ -20,7 +20,7 @@ _Home_: `mmw-v3/board/supervisor.py`
 
 **page token**:
 The secret `server.py` mints at every start and hands to the page, which sends it back as the `X-MMW-Token` header on every non-`GET` request. A write from another origin, a stale page or a bare `curl` is refused. This repository's own product answers read it from `<meta name="mmw-page-token">` as their liveness proof and instance check.
-_Home_: `mmw-v3/board/server.py`, `.mmw/harness/target.py`
+_Home_: `mmw-v3/board/server.py`, `.mmw/task-board/harness/target.py`
 
 **`codeversion.py`**:
 `mmw-v3/board/codeversion.py`'s `Watch`, which fingerprints `board/*.py` and the five scripts and `roles.json` in `LOADED` and reports a change only once two reads agree: `server.py` exits on it for the supervisor to start it again, and `supervisor.py` stops its servers and re-`execv`s itself.

@@ -41,7 +41,7 @@ jy = load("journey", JOURNEY)
 # The lease the driver acquires through, reached from the function `journey.py` itself
 # imported: filling this registry is filling the one a run started here would acquire from,
 # and it is this suite's own `MMW_HOME`, never the machine's.
-LEASE = sys.modules[jy.command_env.__globals__["leased_environment"].__module__]
+LEASE = sys.modules[jy.ProductRun.__module__]
 
 
 def write_exec(path: Path, body: str) -> None:
@@ -65,6 +65,7 @@ class Repo:
 
     def write_target(self, extra=None):
         cfg = {
+            "ports": 1,
             "start": str(self.root / ".mmw" / "start.sh"),
             "stop": str(self.root / ".mmw" / "stop.sh"),
             "discover": str(self.root / ".mmw" / "discover.sh"),
@@ -74,6 +75,9 @@ class Repo:
         if extra:
             cfg.update(extra)
         (self.root / ".mmw" / "target.json").write_text(
+            json.dumps({"products": ["notes"]}), encoding="utf-8")
+        (self.root / ".mmw" / "notes").mkdir(exist_ok=True)
+        (self.root / ".mmw" / "notes" / "target.json").write_text(
             json.dumps(cfg), encoding="utf-8")
 
     def write_stack(self, *, start="exit 0", stop=None, discover=None):
@@ -89,7 +93,7 @@ class Repo:
                    "#!/bin/sh\n" + f"echo discover >> '{self.log}'\n" + discover + "\n")
 
     def write_journey(self, name: str, body: str, *, package=False):
-        dest = self.root / ".mmw" / "journeys" / name
+        dest = self.root / ".mmw" / "notes" / "journeys" / name
         dest.mkdir(parents=True, exist_ok=True)
         if package:
             (dest / "package.json").write_text(
@@ -133,14 +137,11 @@ class JourneyOrder(unittest.TestCase):
                 "exit 0")
 
     def test_start_discover_script_stop_control_and_addresses_reach_the_script(self):
-        code, out, _ = self.repo.run("demo")
+        code, out, _ = self.repo.run("notes/demo")
         self.assertEqual(code, 0, out)
-        self.assertEqual(out, "JOURNEY OK demo\n")
-        # The control pass is the `script` after the first `stop`: the product is already
-        # down when it runs. The second `stop` is the run's last act, before it looks at
-        # whether anything is still listening on its slot.
+        self.assertEqual(out, "JOURNEY OK notes/demo\n")
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
-                         ["start", "discover", "script", "stop", "script", "stop"])
+                         ["start", "discover", "script", "stop", "script"])
         env = (self.repo.root / ".mmw" / "env").read_text(encoding="utf-8")
         self.assertIn("ORIGIN=http://127.0.0.1:9", env)
         self.assertIn("origin=[]", env)
@@ -156,7 +157,7 @@ class JourneyOrder(unittest.TestCase):
                 "echo stop-ran > .mmw/stop-ran"
             ),
         )
-        code, out, _ = self.repo.run("demo")
+        code, out, _ = self.repo.run("notes/demo")
         self.assertEqual(code, 0, out)
         env = stop_env.read_text(encoding="utf-8")
         self.assertIn("ORIGIN=http://127.0.0.1:9", env)
@@ -200,9 +201,9 @@ class JourneyOrder(unittest.TestCase):
             "fi",
             f'[ "$ORIGIN" = "{self.ADDRESS}" ] || exit 9',
         ]))
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out)
-        self.assertTrue(out.startswith("JOURNEY LEFT THE PRODUCT UP demo"), out)
+        self.assertTrue(out.startswith("JOURNEY LEFT THE PRODUCT UP notes/demo"), out)
         self.assertIn(pidfile.read_text(encoding="utf-8").strip(), out, "no pid to go to")
         self.assertNotIn("JOURNEY OK", out)
         self.assertIn("still has a listener", err)
@@ -228,9 +229,9 @@ class JourneyOrder(unittest.TestCase):
     def test_stop_runs_when_the_script_fails(self):
         self.repo.write_journey(
             "demo", "echo first-of-script >&2\necho last-of-script >&2\nexit 7")
-        code, out, _ = self.repo.run("demo")
+        code, out, _ = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out)
-        failed_at = out.find("JOURNEY FAILED demo at last-of-script")
+        failed_at = out.find("JOURNEY FAILED notes/demo at last-of-script")
         self.assertGreater(failed_at, 0, out)
         before = out[:failed_at]
         self.assertIn("first-of-script", before)
@@ -242,15 +243,15 @@ class JourneyOrder(unittest.TestCase):
         self.repo.write_stack(stop="echo stop-broke >&2\nexit 3")
         self.repo.write_journey(
             "demo", "echo last-of-script >&2\nexit 7")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out + err)
-        self.assertIn("JOURNEY FAILED demo at last-of-script", out)
+        self.assertIn("JOURNEY FAILED notes/demo at last-of-script", out)
         self.assertNotIn("Traceback", out + err)
         self.assertNotIn("CompletedProcess", out + err)
 
     def test_start_failure_is_exit_2_and_prints_the_refusal_unchanged(self):
         self.repo.write_stack(start="echo Gateway points elsewhere >&2\nexit 1")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("Gateway points elsewhere", err)
         self.assertNotIn("JOURNEY OK", out)
@@ -259,9 +260,9 @@ class JourneyOrder(unittest.TestCase):
                          ["start", "stop"])
 
     def test_a_missing_journey_prints_failed_and_is_exit_1(self):
-        code, out, _ = self.repo.run("no-such")
+        code, out, _ = self.repo.run("notes/no-such")
         self.assertEqual(code, 1, out)
-        self.assertTrue(out.startswith("JOURNEY FAILED no-such at "), out)
+        self.assertTrue(out.startswith("JOURNEY FAILED notes/no-such at "), out)
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "stop"])
 
@@ -272,11 +273,11 @@ class JourneyOrder(unittest.TestCase):
             f'[ "$ORIGIN" = "{self.ADDRESS}" ] || exit 9',
             package=True,
         )
-        code, out, _ = self.repo.run("via-npm")
+        code, out, _ = self.repo.run("notes/via-npm")
         self.assertEqual(code, 0, out)
-        self.assertEqual(out, "JOURNEY OK via-npm\n")
+        self.assertEqual(out, "JOURNEY OK notes/via-npm\n")
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
-                         ["start", "discover", "script", "stop", "script", "stop"])
+                         ["start", "discover", "script", "stop", "script"])
 
     def test_a_full_machine_is_exit_2_and_nothing_is_started(self):
         held = tempfile.TemporaryDirectory()
@@ -287,32 +288,31 @@ class JourneyOrder(unittest.TestCase):
             tree = Path(held.name) / f"held-{n}"
             tree.mkdir()
             LEASE.claim(tree)
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertNotIn("JOURNEY", out)
-        self.assertIn("instance slots", err)
+        self.assertIn("A run needs one and none is free", err)
         self.assertFalse(self.repo.log.exists(), "a command ran on a full machine")
 
     def test_a_missing_stop_is_refused_before_start_and_is_exit_2(self):
         self.repo.write_target(extra={"stop": ""})
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("no `stop` command", err)
         self.assertNotIn("JOURNEY", out)
         self.assertFalse(self.repo.log.exists(), "the product was started anyway")
 
-    def test_a_missing_start_runs_stop_and_is_exit_2(self):
+    def test_a_missing_start_runs_no_commands_and_is_exit_2(self):
         self.repo.write_target(extra={"start": ""})
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("no `start` command", err)
         self.assertNotIn("JOURNEY OK", out)
-        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
-                         ["stop"])
+        self.assertFalse(self.repo.log.exists(), "nothing started, so nothing may be stopped")
 
     def test_a_failing_discover_forwards_stdout_and_stderr_whole(self):
         self.repo.write_stack(discover="echo disc-out\necho disc-err >&2\nexit 1")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("disc-out", out)
         self.assertIn("disc-err", err)
@@ -322,7 +322,7 @@ class JourneyOrder(unittest.TestCase):
 
     def test_discover_that_prints_no_json_forwards_stdout_and_stderr_whole(self):
         self.repo.write_stack(discover="echo disc-plain-out\necho disc-plain-err >&2")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("disc-plain-out", out)
         self.assertIn("disc-plain-err", err)
@@ -333,7 +333,7 @@ class JourneyOrder(unittest.TestCase):
 
     def test_discover_that_prints_an_array_forwards_stdout_and_stderr_whole(self):
         self.repo.write_stack(discover="printf %s '[1]'\necho disc-arr-err >&2")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("[1]", out)
         self.assertIn("disc-arr-err", err)
@@ -344,7 +344,7 @@ class JourneyOrder(unittest.TestCase):
 
     def test_malformed_target_json_is_a_sentence_not_a_traceback(self):
         (self.repo.root / ".mmw" / "target.json").write_text("{bad\n", encoding="utf-8")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("cannot be read as JSON", err)
         self.assertNotIn("Traceback", err)
@@ -353,7 +353,7 @@ class JourneyOrder(unittest.TestCase):
 
     def test_a_target_json_array_is_a_sentence_not_a_traceback(self):
         (self.repo.root / ".mmw" / "target.json").write_text("[]\n", encoding="utf-8")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2)
         self.assertIn("must hold one JSON object", err)
         self.assertNotIn("Traceback", err)
@@ -378,9 +378,9 @@ class FailureReport(unittest.TestCase):
             "echo stderr-after >&2",
             "exit 7",
         ]))
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out + err)
-        failed_at = out.find("JOURNEY FAILED demo at ")
+        failed_at = out.find("JOURNEY FAILED notes/demo at ")
         self.assertGreater(failed_at, 0, out)
         before = out[:failed_at]
         self.assertIn("stdout-before", before)
@@ -388,7 +388,7 @@ class FailureReport(unittest.TestCase):
         self.assertIn("stdout-after", before)
         self.assertIn("stderr-before", before)
         self.assertIn("stderr-after", before)
-        self.assertIn("JOURNEY FAILED demo at stderr-after", out)
+        self.assertIn("JOURNEY FAILED notes/demo at stderr-after", out)
         self.assertNotIn("JOURNEY OK", out + err)
 
     def test_colour_codes_are_stripped(self):
@@ -399,14 +399,14 @@ class FailureReport(unittest.TestCase):
             "exit 1",
         ]))
         with mock.patch.dict(os.environ, {"FORCE_COLOR": "1"}, clear=False):
-            code, out, err = self.repo.run("demo")
+            code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out + err)
         self.assertIn("FORCE_COLOR=absent", out)
         self.assertNotIn("FORCE_COLOR=present", out)
         self.assertIn("red failed", out)
         self.assertIn("plain middle assertion", out)
         self.assertNotIn("\x1b", out + err)
-        self.assertIn("JOURNEY FAILED demo at plain middle assertion", out)
+        self.assertIn("JOURNEY FAILED notes/demo at plain middle assertion", out)
 
     def test_a_failure_names_the_data_dir(self):
         marker = self.repo.root / ".mmw" / "data-dir"
@@ -415,19 +415,19 @@ class FailureReport(unittest.TestCase):
             "echo last-of-script",
             "exit 1",
         ]))
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out + err)
         recorded = marker.read_text(encoding="utf-8")
         self.assertTrue(recorded, "the script was not given MMW_DATA_DIR")
         self.assertTrue(Path(recorded).is_dir(), recorded)
         lines = out.splitlines()
-        failed = next(i for i, line in enumerate(lines) if line.startswith("JOURNEY FAILED demo at "))
+        failed = next(i for i, line in enumerate(lines) if line.startswith("JOURNEY FAILED notes/demo at "))
         self.assertGreater(len(lines), failed + 1, out)
         self.assertIn(recorded, lines[failed + 1])
         self.assertNotIn("JOURNEY OK", out)
 
     def test_the_evidence_dir_is_given_and_listed(self):
-        stale = self.repo.root / ".scratch" / "journeys" / "demo" / "stale.png"
+        stale = self.repo.root / ".scratch" / "journeys" / "notes" / "demo" / "stale.png"
         stale.parent.mkdir(parents=True)
         stale.write_bytes(b"old")
         self.repo.write_journey("demo", "\n".join([
@@ -438,14 +438,14 @@ class FailureReport(unittest.TestCase):
             "echo assertion failed in the middle",
             "exit 1",
         ]))
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out + err)
         self.assertNotIn("missing-evidence-dir", out + err)
         self.assertNotIn("was-not-empty", out + err)
-        expected = (self.repo.root / ".scratch" / "journeys" / "demo").resolve()
+        expected = (self.repo.root / ".scratch" / "journeys" / "notes" / "demo").resolve()
         where = (expected / "where.txt").read_text(encoding="utf-8")
         self.assertEqual(Path(where), expected)
-        after = out[out.find("JOURNEY FAILED demo at "):]
+        after = out[out.find("JOURNEY FAILED notes/demo at "):]
         self.assertIn("where.txt", after)
         self.assertIn("note.txt", after)
         self.assertNotIn("stale.png", out)
@@ -453,9 +453,9 @@ class FailureReport(unittest.TestCase):
 
     def test_an_empty_evidence_dir_is_said(self):
         self.repo.write_journey("demo", "echo only-the-failure\nexit 1")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 1, out + err)
-        evidence = (self.repo.root / ".scratch" / "journeys" / "demo").resolve()
+        evidence = (self.repo.root / ".scratch" / "journeys" / "notes" / "demo").resolve()
         self.assertTrue(evidence.is_dir())
         self.assertEqual([item for item in evidence.rglob("*") if item.is_file()], [])
         said = [line for line in out.splitlines() if "references/journey.md" in line]
@@ -478,9 +478,9 @@ class FailureReport(unittest.TestCase):
             f"if [ -f '{broken}' ]; then echo {secret}; exit 1; fi",
             "exit 0",
         ]))
-        code, out, err = self.repo.run("demo", "--break", "PUT /api/settings")
+        code, out, err = self.repo.run("notes/demo", "--break", "PUT /api/settings")
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(out, "JOURNEY OK demo\n")
+        self.assertEqual(out, "JOURNEY OK notes/demo\n")
         self.assertNotIn(secret, out + err)
 
         first = "FIRST-PASS-TOKEN"
@@ -490,23 +490,23 @@ class FailureReport(unittest.TestCase):
             f"echo {first}",
             "exit 0",
         ]))
-        code, out, err = self.repo.run("demo", "--break", "PUT /api/settings")
+        code, out, err = self.repo.run("notes/demo", "--break", "PUT /api/settings")
         self.assertEqual(code, 1, out + err)
         self.assertIn(second, out)
         self.assertNotIn(first, out)
-        self.assertLess(out.find(second), out.find("JOURNEY GREEN WITH BREAK demo"))
+        self.assertLess(out.find(second), out.find("JOURNEY GREEN WITH BREAK notes/demo"))
         self.assertIn("second-pass-last", out)
         self.assertNotIn("JOURNEY OK", out)
 
     def test_a_silent_start_failure_is_named(self):
         marker = self.repo.root / ".mmw" / "data-dir"
         command = self.repo.root / ".mmw" / "start.sh"
-        stale = self.repo.root / ".scratch" / "journeys" / "demo" / "stale.png"
+        stale = self.repo.root / ".scratch" / "journeys" / "notes" / "demo" / "stale.png"
         stale.parent.mkdir(parents=True)
         stale.write_bytes(b"old")
         self.repo.write_stack(
             start=f"printf %s \"$MMW_DATA_DIR\" > '{marker}'\nexit 1")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2, out + err)
         text = out + err
         named = [line for line in text.splitlines()
@@ -553,7 +553,7 @@ class FailureReport(unittest.TestCase):
         os.chdir(self.repo.root)
         try:
             with redirect_stdout(stdout), redirect_stderr(stderr):
-                code = jy.main(["run", "demo"])
+                code = jy.main(["run", "notes/demo"])
         finally:
             os.chdir(here)
             stdout.flush()
@@ -571,7 +571,7 @@ class FailureReport(unittest.TestCase):
         command = self.repo.root / ".mmw" / "discover.sh"
         self.repo.write_stack(
             discover=f"printf %s \"$MMW_DATA_DIR\" > '{marker}'\nexit 0")
-        code, out, err = self.repo.run("demo")
+        code, out, err = self.repo.run("notes/demo")
         self.assertEqual(code, 2, out + err)
         text = out + err
         named = [line for line in text.splitlines()
@@ -615,7 +615,7 @@ class NegativeControl(unittest.TestCase):
     def test_a_break_value_without_method_and_route_exits_2(self):
         for value in ("get /health", "GET health"):
             with self.subTest(value=value):
-                code, out, err = self.repo.run("lazy", "--break", value)
+                code, out, err = self.repo.run("notes/lazy", "--break", value)
                 self.assertEqual(code, 2)
                 self.assertEqual(out, "")
                 self.assertIn(
@@ -627,10 +627,10 @@ class NegativeControl(unittest.TestCase):
         broken = self.write_arming_stack()
         self.repo.write_journey("root", f"[ ! -f '{broken}' ]")
 
-        code, out, err = self.repo.run("root", "--break", "GET /")
+        code, out, err = self.repo.run("notes/root", "--break", "GET /")
 
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(out, "JOURNEY OK root\n")
+        self.assertEqual(out, "JOURNEY OK notes/root\n")
 
     def test_start_gets_mmw_break_only_on_the_second_pass(self):
         seen = self.repo.root / ".mmw" / "start-env"
@@ -638,10 +638,10 @@ class NegativeControl(unittest.TestCase):
         self.repo.write_journey(
             "write", f"echo script >> '{self.repo.log}'\n[ ! -f '{broken}' ]")
 
-        code, out, err = self.repo.run("write", "--break", "POST /items/{id}")
+        code, out, err = self.repo.run("notes/write", "--break", "POST /items/{id}")
 
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(out, "JOURNEY OK write\n")
+        self.assertEqual(out, "JOURNEY OK notes/write\n")
         self.assertEqual(seen.read_text(encoding="utf-8").splitlines(),
                          ["BREAK=[]", "BREAK=[POST /items/{id}]"])
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(), [
@@ -659,7 +659,7 @@ class NegativeControl(unittest.TestCase):
         self.repo.write_journey(
             "real", '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
 
-        code, out, err = self.repo.run("real", "--break", "GET /result/{id}")
+        code, out, err = self.repo.run("notes/real", "--break", "GET /result/{id}")
 
         self.assertEqual(code, 2, out + err)
         self.assertNotIn("JOURNEY OK", out)
@@ -673,7 +673,7 @@ class NegativeControl(unittest.TestCase):
             "real", f"echo script >> '{self.repo.log}'\n"
                     '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
 
-        code, out, err = self.repo.run("real", "--break", "GET /result/{id}")
+        code, out, err = self.repo.run("notes/real", "--break", "GET /result/{id}")
 
         self.assertEqual(code, 2, out + err)
         self.assertIn("references/journey.md", err)
@@ -694,7 +694,7 @@ class NegativeControl(unittest.TestCase):
             os.environ, {break_key: "inherited-break"},
             clear=False,
         ):
-            code, out, err = self.repo.run("watch", "--break", "GET /result/{id}")
+            code, out, err = self.repo.run("notes/watch", "--break", "GET /result/{id}")
 
         self.assertEqual(code, 0, out + err)
         first, _, second = seen.read_text(encoding="utf-8").partition("pass-end\n")
@@ -717,25 +717,25 @@ class NegativeControl(unittest.TestCase):
 
     def test_a_journey_that_asserts_nothing_is_caught(self):
         self.repo.write_journey("lazy", "exit 0")
-        code, out, _ = self.repo.run("lazy")
+        code, out, _ = self.repo.run("notes/lazy")
         self.assertEqual(code, 1, out)
-        self.assertTrue(out.startswith("JOURNEY GREEN WITHOUT PRODUCT lazy at "), out)
+        self.assertTrue(out.startswith("JOURNEY GREEN WITHOUT PRODUCT notes/lazy at "), out)
         self.assertIn("product stopped", out)
 
     def test_a_journey_that_reaches_the_product_passes(self):
         self.repo.write_journey(
             "real", '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
-        code, out, _ = self.repo.run("real")
+        code, out, _ = self.repo.run("notes/real")
         self.assertEqual(code, 0, out)
-        self.assertEqual(out, "JOURNEY OK real\n")
+        self.assertEqual(out, "JOURNEY OK notes/real\n")
 
     def test_a_first_pass_that_fails_never_reaches_the_control(self):
         self.repo.write_journey(
             "broken",
             f"echo script >> '{self.repo.log}'\necho last-of-script >&2\nexit 7")
-        code, out, _ = self.repo.run("broken")
+        code, out, _ = self.repo.run("notes/broken")
         self.assertEqual(code, 1, out)
-        self.assertIn("JOURNEY FAILED broken at last-of-script", out)
+        self.assertIn("JOURNEY FAILED notes/broken at last-of-script", out)
         self.assertEqual(
             self.repo.log.read_text(encoding="utf-8").splitlines().count("script"), 1)
 
@@ -748,7 +748,7 @@ class NegativeControl(unittest.TestCase):
             f"echo ORIGIN=$ORIGIN INSTANCE=$INSTANCE SLOT=$MMW_SLOT >> '{seen}'\n"
             f"echo pass-end >> '{seen}'\n"
             '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
-        code, out, _ = self.repo.run("watch")
+        code, out, _ = self.repo.run("notes/watch")
         self.assertEqual(code, 0, out)
         passes = seen.read_text(encoding="utf-8").split("pass-start\n")[1:]
         self.assertEqual(len(passes), 2)
@@ -806,9 +806,9 @@ class FixtureRepo(unittest.TestCase):
 
     def assert_demo_breaks(self, break_spec: str) -> Path:
         root = self.copy_repo()
-        proc = self.run_fixture(root, "demo", "--break", break_spec)
+        proc = self.run_fixture(root, "notes/demo", "--break", break_spec)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertEqual(proc.stdout, "JOURNEY OK demo\n")
+        self.assertEqual(proc.stdout, "JOURNEY OK notes/demo\n")
         return root
 
     def test_a_break_journey_that_reads_the_result_back_passes(self):
@@ -816,15 +816,15 @@ class FixtureRepo(unittest.TestCase):
 
     def test_a_break_journey_that_only_checks_the_page_is_green_with_break(self):
         root = self.copy_repo()
-        write_exec(root / ".mmw" / "journeys" / "weak" / "run", "\n".join([
+        write_exec(root / ".mmw" / "notes" / "journeys" / "weak" / "run", "\n".join([
             "#!/bin/sh",
             'curl -sf --max-time 5 "$ORIGIN/health" | grep -q \'^ok$\'',
         ]))
 
-        proc = self.run_fixture(root, "weak", "--break", "GET /result/{id}")
+        proc = self.run_fixture(root, "notes/weak", "--break", "GET /result/{id}")
 
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
-        self.assertIn("JOURNEY GREEN WITH BREAK weak —", proc.stdout)
+        self.assertIn("JOURNEY GREEN WITH BREAK notes/weak —", proc.stdout)
         self.assertTrue((root / ".mmw" / "stop-ran").is_file())
 
     def test_the_committed_demo_passes_with_break(self):
@@ -833,7 +833,7 @@ class FixtureRepo(unittest.TestCase):
     def test_after_a_break_run_the_slot_is_empty(self):
         root = self.copy_repo()
 
-        proc = self.run_fixture(root, "demo", "--break", "GET /result/{id}")
+        proc = self.run_fixture(root, "notes/demo", "--break", "GET /result/{id}")
 
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertTrue((root / ".mmw" / "stop-ran").is_file())
@@ -842,9 +842,9 @@ class FixtureRepo(unittest.TestCase):
 
     def test_the_committed_demo_prints_ok_and_stop_ran(self):
         root = self.copy_repo()
-        proc = self.run_fixture(root, "demo")
+        proc = self.run_fixture(root, "notes/demo")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(proc.stdout.splitlines()[0], "JOURNEY OK demo")
+        self.assertEqual(proc.stdout.splitlines()[0], "JOURNEY OK notes/demo")
         self.assertIn("stop-ran", (root / ".mmw" / "stop-ran").read_text())
 
     def test_the_committed_demo_would_go_red_without_its_product(self):
@@ -855,12 +855,392 @@ class FixtureRepo(unittest.TestCase):
         home = tempfile.mkdtemp(prefix="mmw-journey-neg-")
         self.addCleanup(shutil.rmtree, home, True)
         proc = subprocess.run(
-            [sys.executable, str(FIXTURE / "repo" / ".mmw" / "journeys" / "demo" / "run")],
-            cwd=FIXTURE / "repo" / ".mmw" / "journeys" / "demo",
+            [sys.executable, str(FIXTURE / "repo" / ".mmw" / "notes" / "journeys" / "demo" / "run")],
+            cwd=FIXTURE / "repo" / ".mmw" / "notes" / "journeys" / "demo",
             capture_output=True, text=True,
             env={**os.environ, "ORIGIN": f"http://127.0.0.1:{jy.closed_port()}"},
         )
         self.assertNotEqual(proc.returncode, 0, proc.stdout)
+
+
+class NeededProducts(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / "repo"
+        fixture = Path(__file__).resolve().parent / "fixtures" / "products" / "repo"
+        shutil.copytree(fixture, self.root)
+        self.home = Path(self.tmp.name) / "mmw"
+        self.env = dict(os.environ, MMW_HOME=str(self.home))
+        self.addCleanup(subprocess.run, [sys.executable, str(SCRIPTS / "lease.py"),
+                                        "release", str(self.root), "--stop"],
+                        env=self.env, capture_output=True, text=True)
+
+    def run_product(self):
+        return subprocess.run([sys.executable, str(JOURNEY), "run", "parrot/open"],
+                              cwd=self.root, env=self.env, capture_output=True, text=True)
+
+    def events(self):
+        return [json.loads(line) for line in
+                (self.root / ".mmw" / "events.jsonl").read_text().splitlines()]
+
+    def test_a_needed_product_starts_first_and_hands_its_address(self):
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        events = self.events()
+        starts = [e for e in events if e["verb"] == "start"]
+        self.assertEqual([e["product"] for e in starts], ["gateway", "parrot"])
+        gateway, parrot = starts
+        expected = "http://127.0.0.1:" + gateway["env"]["MMW_PORT_BASE"] + "/discovered"
+        self.assertEqual(parrot["env"]["GATEWAY_ORIGIN"], expected)
+        for e in events:
+            if e["product"] == "parrot":
+                self.assertEqual(e["env"]["GATEWAY_ORIGIN"], expected)
+        self.assertEqual([e["evidence_files"] for e in events if e["verb"] == "journey"],
+                         [[], []])
+
+    def test_a_journey_stops_its_needs_in_reverse_order(self):
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        events = self.events()
+        self.assertEqual([e["product"] for e in events if e["verb"] == "stop"],
+                         ["parrot", "gateway"])
+        listed = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "list"],
+                                env=self.env, capture_output=True, text=True)
+        self.assertEqual(listed.returncode, 0, listed.stdout + listed.stderr)
+        self.assertEqual(json.loads(listed.stdout), [])
+        import socket
+        for e in events:
+            if e["verb"] != "start":
+                continue
+            env = e["env"]
+            for port in range(int(env["MMW_PORT_BASE"]),
+                              int(env["MMW_PORT_BASE"]) + int(env["MMW_PORT_COUNT"])):
+                with socket.socket() as probe:
+                    self.assertNotEqual(probe.connect_ex(("127.0.0.1", port)), 0)
+
+    def test_a_journey_keeps_a_dependency_started_before_it(self):
+        proc = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "run",
+                               "--product", "gateway", "--", sys.executable,
+                               ".mmw/product.py", "start"], cwd=self.root,
+                              env=self.env, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        events = self.events()
+        self.assertEqual([e["product"] for e in events if e["verb"] == "start"],
+                         ["gateway", "parrot"])
+        self.assertEqual([e["product"] for e in events if e["verb"] == "stop"], ["parrot"])
+        proc = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "list"],
+                              env=self.env, capture_output=True, text=True)
+        record = json.loads(proc.stdout)[0]
+        self.assertEqual(record["started"], ["gateway"])
+        self.assertEqual(record["busy"]["port"], record["port_base"])
+
+    def test_neither_product_inherits_a_break_from_the_parent_session(self):
+        self.env["MMW_BREAK"] = "GET /"
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        for e in self.events():
+            if e["verb"] != "stop":
+                self.assertNotIn("MMW_BREAK", e["env"])
+
+    def test_a_journey_refuses_to_restart_a_product_owned_by_another_run(self):
+        proc = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "run",
+                               "--product", "parrot", "--", sys.executable,
+                               ".mmw/product.py", "start"], cwd=self.root,
+                              env=self.env, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        before = self.events()
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("parrot", proc.stderr)
+        self.assertNotIn("JOURNEY OK", proc.stdout)
+        self.assertEqual(self.events(), before)
+        listed = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "list"],
+                                env=self.env, capture_output=True, text=True)
+        record = json.loads(listed.stdout)[0]
+        self.assertEqual(record["started"], ["gateway", "parrot"])
+        self.assertIsNotNone(record["busy"])
+
+
+class TwoProducts(unittest.TestCase):
+    """A new-layout repository: each product has its own start and its own journey."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+        (self.repo.root / ".mmw" / "target.json").write_text(
+            json.dumps({"products": ["alpha", "beta"]}), encoding="utf-8")
+
+    def write_product(self, name: str) -> None:
+        base = self.repo.root / ".mmw" / name
+        base.mkdir(parents=True)
+        log = self.repo.log
+        write_exec(base / "start.sh",
+                   "#!/bin/sh\n" + f"echo {name}-start >> '{log}'\nexit 0\n")
+        write_exec(base / "stop.sh",
+                   "#!/bin/sh\n" + f"echo {name}-stop >> '{log}'\n")
+        write_exec(base / "discover.sh",
+                   "#!/bin/sh\n" + f"echo {name}-discover >> '{log}'\n"
+                   + "printf %s '{\"origin\":\"http://127.0.0.1:9\",\"instance\":\"t\"}'\n")
+        (base / "target.json").write_text(json.dumps({
+            "ports": 1,
+            "start": str(base / "start.sh"),
+            "stop": str(base / "stop.sh"),
+            "discover": str(base / "discover.sh"),
+            "stories": "true",
+            "leaves_machine": [],
+            "harness_markers": [],
+        }), encoding="utf-8")
+        dest = base / "journeys" / "open"
+        dest.mkdir(parents=True)
+        write_exec(dest / "run",
+                   "#!/bin/sh\n"
+                   + f"echo {name}-script >> '{log}'\n"
+                   + '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9\n')
+
+    def test_a_product_journey_runs_with_its_own_start(self):
+        self.write_product("alpha")
+        self.write_product("beta")
+        code, out, err = self.repo.run("alpha/open")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out, "JOURNEY OK alpha/open\n")
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        self.assertIn("alpha-start", lines)
+        self.assertNotIn("beta-start", lines)
+        self.assertNotIn("beta-script", lines)
+        # One product or two, a bare flow name is not a journey. The read point
+        # would otherwise start the only product.
+        started = lines.count("alpha-start")
+        for label, products in (("two", ["alpha", "beta"]), ("one", ["alpha"])):
+            (self.repo.root / ".mmw" / "target.json").write_text(
+                json.dumps({"products": products}), encoding="utf-8")
+            code, out, err = self.repo.run("open")
+            self.assertEqual(code, 2, f"{label}: {out}{err}")
+            self.assertIn("<product>/<flow>", err, label)
+            self.assertNotIn("JOURNEY", out, label)
+        self.assertEqual(
+            self.repo.log.read_text(encoding="utf-8").count("alpha-start"), started)
+
+    def test_a_held_lease_naming_a_product_no_longer_listed_still_finishes(self):
+        self.write_product("alpha")
+        self.write_product("beta")
+        tree = LEASE.worktree_of(self.repo.root)
+        LEASE.claim(tree)
+        self.addCleanup(LEASE.release, tree)
+        LEASE.update_started(tree, "gone")
+        code, out, err = self.repo.run("alpha/open")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out, "JOURNEY OK alpha/open\n")
+
+
+class Doctor(unittest.TestCase):
+    """`doctor` runs after `discover` and before the journey script."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+
+    def lay_out(self, products: list[str], needs: dict) -> None:
+        (self.repo.root / ".mmw" / "target.json").write_text(json.dumps({
+            "products": products,
+            "needs": needs,
+        }), encoding="utf-8")
+
+    def add_product(self, name: str, doctor: str, script: str) -> Path:
+        root = self.repo.root
+        base = root / ".mmw" / name
+        log = self.repo.log
+        write_exec(base / "start.sh", f"#!/bin/sh\necho {name}-start >> '{log}'\nexit 0\n")
+        write_exec(base / "stop.sh", f"#!/bin/sh\necho {name}-stop >> '{log}'\n")
+        write_exec(base / "discover.sh",
+                   "#!/bin/sh\n"
+                   + f"echo {name}-discover >> '{log}'\n"
+                   + "printf %s '{\"origin\":\"http://127.0.0.1:9\",\"instance\":\"t\"}'\n")
+        command = base / "doctor.sh"
+        write_exec(command, "#!/bin/sh\n" + doctor + "\n")
+        (base / "target.json").write_text(json.dumps({
+            "ports": 1,
+            "start": str(base / "start.sh"),
+            "stop": str(base / "stop.sh"),
+            "discover": str(base / "discover.sh"),
+            "doctor": str(command),
+            "stories": "true",
+            "leaves_machine": [],
+            "harness_markers": [],
+        }), encoding="utf-8")
+        dest = base / "journeys" / "open"
+        dest.mkdir(parents=True)
+        write_exec(dest / "run", "#!/bin/sh\n" + f"echo {name}-script >> '{log}'\n" + script + "\n")
+        return command
+
+    def write_product(self, name: str, doctor: str, script: str) -> Path:
+        self.lay_out([name], {})
+        return self.add_product(name, doctor, script)
+
+    def commit(self) -> str:
+        root = self.repo.root
+        subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True, text=True)
+        subprocess.run(
+            ["git", "-c", "user.email=doctor@example.com", "-c", "user.name=doctor",
+             "commit", "-m", "init"],
+            cwd=root, check=True, capture_output=True, text=True,
+        )
+        found = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True,
+                               capture_output=True, text=True)
+        return found.stdout.strip()
+
+    def test_a_failing_doctor_stops_the_journey_before_the_script(self):
+        heard = self.repo.root / ".mmw" / "commit"
+        marker = self.repo.root / ".mmw" / "script-ran"
+        command = self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            f"printf %s \"$MMW_WORKTREE_COMMIT\" > '{heard}'",
+            "echo doctor-says-no",
+            "exit 1",
+        ]), f"touch '{marker}'\nexit 0")
+        sha = self.commit()
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertIn("doctor-says-no", text)
+        self.assertNotEqual(code, 0, text)
+        self.assertFalse(marker.exists(), text)
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        self.assertLess(lines.index("parrot-discover"), lines.index("parrot-doctor"))
+        self.assertNotIn("parrot-script", lines)
+        named = [line for line in text.splitlines()
+                 if str(command) in line and "1" in line.split()]
+        self.assertEqual(len(named), 1, text)
+        self.assertEqual(heard.read_text(encoding="utf-8"), sha)
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_a_doctor_without_a_pid_names_what_it_printed(self):
+        marker = self.repo.root / ".mmw" / "script-ran"
+        self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "printf '%s\\n' '{\"version\":\"t\"}'",
+            "exit 0",
+        ]), f"touch '{marker}'\nexit 0")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 2, text)
+        self.assertFalse(marker.exists(), text)
+        self.assertIn("product parrot doctor pid expected a pid actual no pid", out)
+        self.assertIn('{"version":"t"}', out)
+        self.assertLess(out.find("exit 0"), out.find("expected a pid"), out)
+        self.assertLess(out.find("expected a pid"), out.find("MMW_DATA_DIR"), out)
+        self.assertNotIn("parrot-script", self.repo.log.read_text(encoding="utf-8"))
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_a_silent_doctor_without_a_pid_names_the_gap(self):
+        marker = self.repo.root / ".mmw" / "script-ran"
+        self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "exit 0",
+        ]), f"touch '{marker}'\nexit 0")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 2, text)
+        self.assertFalse(marker.exists(), text)
+        self.assertIn("product parrot doctor pid expected a pid actual none", out)
+        self.assertIn("(no output)", out)
+        self.assertLess(out.find("exit 0"), out.find("expected a pid"), out)
+        self.assertLess(out.find("expected a pid"), out.find("(no output)"), out)
+        self.assertNotIn("parrot-script", self.repo.log.read_text(encoding="utf-8"))
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_doctor_runs_again_after_a_failed_script(self):
+        asked = self.repo.root / ".mmw" / "asked-pid"
+        self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            'if [ -n "${MMW_DOCTOR_PID+x}" ]; then',
+            f"  printf %s \"$MMW_DOCTOR_PID\" > '{asked}'",
+            "  printf '%s\\n' '{\"pid\":222,\"version\":\"t\",\"ports\":[9],\"note\":\"second-look\"}'",
+            "else",
+            "  printf '%s\\n' '{\"pid\":111,\"version\":\"t\",\"ports\":[9]}'",
+            "fi",
+            "exit 0",
+        ]), "echo script-broke\nexit 1")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 1, text)
+        self.assertIn("second-look", out)
+        failed_at = out.find("JOURNEY FAILED parrot/open at ")
+        self.assertGreater(failed_at, out.find("script-broke"), out)
+        self.assertGreater(out.find("second-look"), failed_at, out)
+        self.assertGreater(out.find("111"), failed_at, out)
+        self.assertGreater(out.find("MMW_DATA_DIR"), out.find("second-look"), out)
+        self.assertEqual(asked.read_text(encoding="utf-8"), "111")
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(), [
+            "parrot-start", "parrot-discover", "parrot-doctor",
+            "parrot-script", "parrot-doctor", "parrot-stop",
+        ])
+        self.assertNotIn("JOURNEY OK", text)
+
+    def test_doctor_runs_for_every_started_product(self):
+        marker = self.repo.root / ".mmw" / "script-ran"
+        self.lay_out(["gateway", "parrot"], {"parrot": ["gateway"]})
+        command = self.add_product("gateway", "\n".join([
+            f"echo gateway-doctor >> '{self.repo.log}'",
+            "echo gateway-unfit",
+            "exit 1",
+        ]), "exit 0")
+        self.add_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "printf '%s\\n' '{\"pid\":1,\"version\":\"t\",\"ports\":[9]}'",
+            "exit 0",
+        ]), f"touch '{marker}'\nexit 0")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertIn("gateway-unfit", text)
+        self.assertNotEqual(code, 0, text)
+        self.assertFalse(marker.exists(), text)
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        self.assertIn("gateway-start", lines)
+        self.assertLess(lines.index("gateway-discover"), lines.index("gateway-doctor"))
+        self.assertNotIn("parrot-script", lines)
+        named = [line for line in text.splitlines()
+                 if "gateway" in line.split() and str(command) in line and "1" in line.split()]
+        self.assertEqual(len(named), 1, text)
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_a_failed_script_doctors_a_dependency_again(self):
+        self.lay_out(["gateway", "parrot"], {"parrot": ["gateway"]})
+        self.add_product("gateway", "\n".join([
+            f"echo gateway-doctor >> '{self.repo.log}'",
+            'if [ -n "${MMW_DOCTOR_PID+x}" ]; then',
+            "  echo gateway-again",
+            "fi",
+            "printf '%s\\n' '{\"pid\":1,\"version\":\"t\",\"ports\":[9]}'",
+            "exit 0",
+        ]), "exit 0")
+        self.add_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "printf '%s\\n' '{\"pid\":9,\"version\":\"t\",\"ports\":[9]}'",
+            "exit 0",
+        ]), "echo script-broke\nexit 1")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 1, text)
+        failed_at = out.find("JOURNEY FAILED parrot/open at ")
+        self.assertGreater(failed_at, out.find("script-broke"), out)
+        self.assertGreater(out.find("gateway-again"), failed_at, out)
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        first = lines.index("gateway-doctor")
+        second = lines.index("gateway-doctor", first + 1)
+        self.assertLess(lines.index("parrot-script"), second, lines)
+        self.assertEqual(lines.count("gateway-doctor"), 2, lines)
+        self.assertNotIn("JOURNEY OK", text)
 
 
 if __name__ == "__main__":

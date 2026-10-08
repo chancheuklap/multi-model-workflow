@@ -55,7 +55,7 @@ FILE_SUFFIX = re.compile(r"\.(?:sh|py|mjs|js|md|yaml|yml)$")
 ITEM_ID = re.compile(r"^- `([^`]+)`")
 
 _refusal = None
-_yaml_file = None
+_verifier_module = None
 
 
 class ProductLint(NamedTuple):
@@ -355,14 +355,22 @@ def remember(seen: set[str], label: str) -> bool:
 
 def segment_targets(root: Path, cwd: Path, segment: list[str], seen: set[str]) -> list[tuple[str, str]]:
     missing = []
+    journey_arguments = set()
     for cursor, token in enumerate(segment):
         if token == "journey.py" or token.endswith("/journey.py"):
             if cursor + 2 < len(segment) and segment[cursor + 1] == "run":
                 name = segment[cursor + 2]
                 if name.startswith("-"):
                     continue
-                label = f".mmw/journeys/{name}/"
-                if remember(seen, label) and not (root / ".mmw" / "journeys" / name).is_dir():
+                journey_arguments.add(cursor + 2)
+                try:
+                    directory = verifier().journey_directory(root, name)
+                except ValueError as exc:
+                    if remember(seen, name):
+                        missing.append(("journey name <product>/<flow>", str(exc)))
+                    continue
+                label = show(root, directory) + "/"
+                if remember(seen, label) and not directory.is_dir():
                     missing.append((label, "absent"))
         if token in ("python", "python3") or token.endswith(("/python", "/python3")):
             if cursor + 2 < len(segment) and segment[cursor + 1] == "-m" and segment[cursor + 2] == "unittest":
@@ -370,8 +378,9 @@ def segment_targets(root: Path, cwd: Path, segment: list[str], seen: set[str]) -
                     if not UNITTEST_TARGET.fullmatch(target):
                         continue
                     missing.extend(unittest_target(root, cwd, target, seen))
-    for token in segment[1:]:
-        missing.extend(path_target(root, cwd, token, seen))
+    for cursor, token in enumerate(segment[1:], 1):
+        if cursor not in journey_arguments:
+            missing.extend(path_target(root, cwd, token, seen))
     return missing
 
 
@@ -420,27 +429,26 @@ def unittest_target(root: Path, cwd: Path, target: str, seen: set[str]) -> list[
     return [(qualified, "absent")]
 
 
-def load_yaml(path: Path):
-    """The document, `{}` when it is empty, or None when it cannot be read.
-
-    The pyyaml-or-uv read is `load_yaml_file` in `verify-ticket.py`. The import
-    stays inside this function: the publish lint loads this file from
-    `verify-ticket.py`, and a module-level import would load `verify-ticket.py`
-    while that file is still loading this one.
-    """
-    global _yaml_file
-    if _yaml_file is None:
+def verifier():
+    """Load the shared readers lazily because verify-ticket imports this module."""
+    global _verifier_module
+    if _verifier_module is None:
         sibling = Path(__file__).resolve().parent / "verify-ticket.py"
-        spec = importlib.util.spec_from_file_location("mmw_verify_ticket_yaml", sibling)
+        spec = importlib.util.spec_from_file_location("mmw_feature_map_verifier", sibling)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        _yaml_file = module.load_yaml_file
+        _verifier_module = module
+    return _verifier_module
+
+
+def load_yaml(path: Path):
+    """The document, `{}` when it is empty, or None when it cannot be read."""
     try:
         import yaml
     except ImportError:
         yaml = None
     try:
-        document = _yaml_file(str(path))
+        document = verifier().load_yaml_file(str(path))
     except OSError:
         return None
     except Exception as exc:
