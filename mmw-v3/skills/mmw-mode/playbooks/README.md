@@ -21,7 +21,7 @@ In the same change as the new file: add its route line to `../SKILL.md` `## Play
 1. `### <Name>`: the title, identical to the name in the route line.
 2. `**You own …**` in bold on the first line: what this run owns, and what goes to subagents.
 3. One paragraph: the stance for the whole playbook, and how it differs from the playbook most easily confused with it.
-4. Numbered steps, one action each. Each step names the skill, principle, reference or script it uses, by name or path. The steps are copied verbatim into the todolist, so each must stand on its own as a todo. A principle is named on the step where it applies, including a step every run takes.
+4. Numbered steps, one action each. Each step names the skill, principle, reference or script it uses, by name or path. A principle is named on the step where it applies, including a step every run takes.
 5. Optionally one paragraph of rules that hold across all the steps.
 6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in `../SKILL.md` `## Writing the reply` and are not repeated here.
 

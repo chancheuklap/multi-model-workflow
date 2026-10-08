@@ -74,7 +74,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 
 - **Used:** at the start of a task, to choose its route.
 - **Content, in this order:**
-  1. Usage: open a todolist whose first items are the matched playbook's steps copied in verbatim; a step not done stays in the list as `skip: <reason>`.
+  1. Usage: match the task to a route line and open its playbook.
   2. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
   3. One sentence for a session a script started: the playbook its start prompt names is its route, chosen by whoever dispatched it (`mmw-v3/course/` lesson 5, decision 3).
   4. One sentence for a task no route line matches (poteto-mode sends it to `figure-it-out`, which MMW does not carry).
