@@ -187,7 +187,7 @@ The script writes outputs; the agent judges causes and dispositions.
           "cause": "...",
           "evidence": ["event URL|commit URL|repository-relative file|check:read-only command"],
           "handled_here": "...",
-          "prevention": {"destination": "check|script|repository-agents|repository-skill|coding-standard|mmw-skill|toolbox-memory|none", "text": "..."},
+          "prevention": {"destination": "check|script|repository-agents|repository-skill|coding-standard|testing-fact|mmw-skill|toolbox-memory|none", "text": "..."},
           "earlier_occurrences": [{"memory_id": "...", "evidence": "original event|commit URL"}],
           "proposal": null
         }
@@ -212,7 +212,8 @@ A problem's Prevention names one of them by its `destination` value:
 | `script` | a mechanical step a script can carry out |
 | `repository-agents` | a short repository-wide, non-inferable navigation pointer or universal instruction, in that repository's `AGENTS.md` |
 | `repository-skill` | a repeated multi-step workflow specific to one repository, as a repository-local skill with a discovery test |
-| `coding-standard` | a judgement the review applies to every later diff, as a row of a `CODING_STANDARDS.md`: the `code-review` skill's when it holds in every repository, the repository's root file (created by this proposal when absent) when it holds only there |
+| `coding-standard` | a judgement the review applies to every later diff, as a row of this repository's root `CODING_STANDARDS.md` |
+| `testing-fact` | a fact of how this repository's tests run, as a line of its root `TESTING.md` added, corrected or removed |
 | `mmw-skill` | a cross-repository MMW workflow or rule, in the MMW skill set: a playbook or a section of the `mmw-mode` skill, a principle, or a skill, wherever the mode's Authoring or modifying a skill playbook places it; also a change to a user-level `AGENTS.md`, whose sources are MMW's `mmw-v3/prompt/` |
 | `toolbox-memory` | approved, broadly useful knowledge, copied into toolbox Memory while the source Memory remains in the repository |
 | `none` | nothing would prevent the next instance |
