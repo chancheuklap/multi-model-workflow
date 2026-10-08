@@ -2,7 +2,8 @@
 """One ticket worktree's share of this machine.
 
     lease.py claim [<worktree>]           acquire (or return) this worktree's slot; 4 none free
-    lease.py run [<worktree>] -- CMD…     run CMD with the lease in its environment
+    lease.py run [<worktree>] [--product <name>] -- CMD…
+                                        start its needs, then run CMD in its segment
     lease.py release <worktree> [--stop]  give the slot back, with --stop after running the
                                           product's `stop`; 0 given back, 3 there was none
     lease.py remove-instance <worktree>   remove its data directory after its worktree is gone;
@@ -17,6 +18,12 @@ What a lease puts in the environment:
     MMW_PORT_COUNT   how many ports the block holds
     MMW_DATA_DIR     a directory this run owns
     MMW_AUTOMATION   `1`, so a product can neutralise what would leave this machine
+
+With a named product, the port variables describe its segment in root products order,
+MMW_DATA_DIR ends in that product's name and MMW_PRODUCT names it. Dependencies start
+first. Their discovered keys use uppercase product prefixes, with hyphens replaced
+by underscores. The registry records started products and discovered values so stop
+commands receive the same addresses even after a dependent has stopped.
 
 A repository reads these in the commands `.mmw/target.json` declares, and translates them
 into whatever its own product needs — **at the moment it starts a process, never into the
@@ -70,6 +77,7 @@ number is right to; a derived port leaking into it turns a correct suite red.
 
 from __future__ import annotations
 
+import argparse
 import fcntl
 import hashlib
 import json
@@ -104,6 +112,7 @@ STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
 # as unanswered. A listener on this machine answers in well under a millisecond; the wait
 # is for the one that has stopped accepting, which is held, not free.
 PROBE_TIMEOUT_S = 0.5
+DEFAULT_PRODUCT = "default"
 
 
 # Where the registry and the instance directories live. Read at the moment one is
@@ -545,6 +554,7 @@ def try_claim(worktree: Path) -> dict:
     A slot with no registry record is not issued while any port of its block is
     listening. That listener is not in the registry, and the next slot is tried.
     """
+    product_segments(worktree)
     target = str(worktree)
     with _Locked():
         held = registered(worktree)
@@ -557,6 +567,7 @@ def try_claim(worktree: Path) -> dict:
             "slot": None,
             "port_base": None,
             "port_count": PORT_STRIDE,
+            "started": [],
             # So a slot that is still held in the morning can be read against the night.
             "claimed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
@@ -650,15 +661,20 @@ def claim(worktree: Path) -> dict:
         )) from None
 
 
-def stop_command(worktree: Path) -> str | None:
+def stop_command(worktree: Path, product: str | None = None) -> str | None:
     """The `stop` this worktree's `.mmw/target.json` declares, or None when it declares
     none. Raises `StopUnreadable` for a file that is there and cannot be read."""
-    data = target_json(worktree, StopUnreadable)
+    try:
+        data = read_target_json(worktree, product)
+    except TargetJSONError as exc:
+        raise StopUnreadable(str(exc)) from None
+    if data is not None and (data.error or (product is not None and not data.present)):
+        raise StopUnreadable(data.error or f".mmw/{product}/target.json is missing")
     command = data.get("stop") if isinstance(data, dict) else None
     return command if isinstance(command, str) and command.strip() else None
 
 
-def stop_product(worktree: Path, record: dict) -> str | None:
+def stop_product(worktree: Path, record: dict, product: str | None = None) -> str | None:
     """Run the product's `stop` from inside `worktree`, under the lease `record` it was
     started under; the reason when it did not stop cleanly, None when it did or declares
     no `stop`.
@@ -666,11 +682,10 @@ def stop_product(worktree: Path, record: dict) -> str | None:
     Its output goes to a file rather than a pipe: a stop past `STOP_TIMEOUT_S` is ended,
     and a process it started that still held a pipe open would keep this waiting on it.
     """
-    command = stop_command(worktree)
+    command = stop_command(worktree, product)
     if command is None:
         return None
-    env = dict(os.environ)
-    env.update(environment(record))
+    env = product_environment(record, product)
     with tempfile.TemporaryFile() as out:
         try:
             proc = subprocess.run(command, shell=True, cwd=worktree, env=env, stdout=out,
@@ -709,15 +724,19 @@ def release(worktree: Path, stop: bool = False) -> dict:
         return {"released": False, "worktree": target, "slot": None, "reason": "no-lease"}
     slot = record["slot"]
     if stop:
-        problem = stop_product(worktree, record)
-        if problem:
-            sys.stderr.write(f"lease.py: the product of {target} did not stop cleanly "
-                             f"({problem}); giving slot {slot} back is still tried\n")
+        read = target_json(worktree, StopUnreadable)
+        names = list(record.get("started", [])) if read is not None and product_layout(read.root) else [None]
+        # Read all stop commands before stopping any product. An unreadable declaration
+        # must leave the lease untouched, as it did in the one-product layout.
+        for name in names:
+            stop_command(worktree, name)
+        stop_products(worktree, record, names)
     held = busy(slot)
     if held:
         port, pid = held
+        product = product_at_port(record, port)
         raise SystemExit(refusal(
-            f"Slot {slot} still has a listener: port {port}, pid {pid}, cwd {holder(pid)}.",
+            f"Slot {slot} still has a listener: {product}port {port}, pid {pid}, cwd {holder(pid)}.",
             "Re-acquiring a slot from a live process is the same act as killing it.",
             "Stop that process where it was started, then release again.",
         ))
@@ -725,9 +744,37 @@ def release(worktree: Path, stop: bool = False) -> dict:
     return {"released": True, "worktree": target, "slot": slot, "reason": None}
 
 
-def environment(record: dict) -> dict[str, str]:
+def product_segments(worktree: Path) -> dict[str, tuple[int, int]]:
+    """Offsets and counts in root products order, before any slot is acquired."""
+    try:
+        read = read_target_json(worktree)
+        if read is None or not product_layout(read.root):
+            return {}
+        segments = {}
+        offset = 0
+        for name in read.root.get("products", []):
+            one = read_target_json(worktree, name)
+            if one is None or not one.present or one.error:
+                raise TargetJSONError(one.error if one is not None and one.error
+                                      else f".mmw/{name}/target.json is missing")
+            count = one.get("ports")
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                raise TargetJSONError(f".mmw/{name}/target.json ports must be a nonnegative integer")
+            segments[name] = (offset, count)
+            offset += count
+        if offset > PORT_STRIDE:
+            raise TargetJSONError(f"products need {offset} ports, slot holds {PORT_STRIDE}")
+        return segments
+    except TargetJSONError as exc:
+        raise SystemExit(refusal(
+            str(exc), "The product port segments cannot fit this lease.",
+            "Run `target_config.py --check` and correct the named configuration.",
+        )) from None
+
+
+def environment(record: dict, product: str | None = None) -> dict[str, str]:
     data_dir = instance_data_dir(Path(record["worktree"]))
-    return {
+    env = {
         "MMW_INSTANCE": record["instance"],
         "MMW_SLOT": str(record["slot"]),
         "MMW_PORT_BASE": str(record["port_base"]),
@@ -735,6 +782,163 @@ def environment(record: dict) -> dict[str, str]:
         "MMW_DATA_DIR": str(data_dir),
         "MMW_AUTOMATION": "1",
     }
+    if product is not None:
+        segments = product_port_ranges(record)
+        if product not in segments:
+            raise SystemExit(refusal(
+                f".mmw/target.json does not list product {product}.",
+                "A command needs one declared product's port segment.",
+                "Run `target_config.py --check` and select a listed --product.",
+            ))
+        ports = segments[product]
+        env.update(MMW_PORT_BASE=str(ports.start),
+                   MMW_PORT_COUNT=str(len(ports)), MMW_DATA_DIR=str(data_dir / product),
+                   MMW_PRODUCT=product)
+    return env
+
+
+def product_port_ranges(record: dict) -> dict[str, range]:
+    return {name: range(record["port_base"] + offset, record["port_base"] + offset + count)
+            for name, (offset, count) in product_segments(Path(record["worktree"])).items()}
+
+
+def dependency_order(worktree: Path, product: str) -> list[str]:
+    read = read_target_json(worktree, product)
+    needs = read.root.get("needs", {})
+    order: list[str] = []
+    visiting: set[str] = set()
+
+    def visit(name: str):
+        if name in order:
+            return
+        if name in visiting or name not in read.root.get("products", []):
+            raise SystemExit(refusal(
+                f".mmw/target.json needs cannot resolve product {name}.",
+                "Dependencies must be listed products without cycles.",
+                "Run `target_config.py --check` and correct needs.",
+            ))
+        visiting.add(name)
+        for dependency in needs.get(name, []):
+            visit(dependency)
+        visiting.remove(name)
+        order.append(name)
+
+    visit(product)
+    return order
+
+
+def addresses_into(env: dict[str, str], data: dict, prefix: str = "") -> None:
+    for key, value in data.items():
+        env[prefix + str(key).upper()] = (json.dumps(value, ensure_ascii=False)
+                                         if isinstance(value, (dict, list)) else str(value))
+
+
+def product_environment(record: dict, product: str | None) -> dict[str, str]:
+    env = dict(os.environ)
+    env.update(environment(record, product))
+    Path(env["MMW_DATA_DIR"]).mkdir(parents=True, exist_ok=True)
+    data = record.get("discovered", {})
+    if product is not None:
+        env.pop("MMW_BREAK", None)
+        for dependency in dependency_order(Path(record["worktree"]), product)[:-1]:
+            addresses_into(env, data.get(dependency, {}), dependency.upper().replace("-", "_") + "_")
+    addresses_into(env, data.get(product or DEFAULT_PRODUCT, {}))
+    return env
+
+
+def update_started(worktree: Path, product: str, *, data: dict | None = None,
+                   stopped: bool = False) -> dict:
+    with _Locked():
+        record = registered(worktree)
+        started = record.setdefault("started", [])
+        if stopped:
+            if product in started:
+                started.remove(product)
+        elif product not in started:
+            started.append(product)
+        if data is not None:
+            record.setdefault("discovered", {})[product] = data
+        fd, path = tempfile.mkstemp(dir=registry(), prefix=".slot-")
+        try:
+            with os.fdopen(fd, "w") as output:
+                json.dump(record, output, ensure_ascii=False, indent=2)
+            os.replace(path, slot_file(record["slot"]))
+        finally:
+            Path(path).unlink(missing_ok=True)
+        return record
+
+
+def product_at_port(record: dict, port: int) -> str:
+    for name, ports in product_port_ranges(record).items():
+        if port in ports:
+            return f"product {name}, "
+    return ""
+
+
+def stop_products(worktree: Path, record: dict, names: list[str | None]) -> None:
+    for name in reversed(names):
+        problem = stop_product(worktree, record, name)
+        if problem:
+            sys.stderr.write(f"lease.py: product {name or worktree} did not stop cleanly "
+                             f"({problem}); its ports are still checked\n")
+        ports = product_port_ranges(record)[name] if name is not None else ports_of(record["slot"])
+        if not any(listener(port) is not None for port in ports):
+            record = update_started(worktree, name or DEFAULT_PRODUCT, stopped=True)
+
+
+class ProductCommandFailed(Exception):
+    def __init__(self, product: str, kind: str, command: str, proc: subprocess.CompletedProcess):
+        self.product, self.kind, self.command, self.proc = product, kind, command, proc
+        super().__init__(f"product {product} {kind} {command} exit {proc.returncode}")
+
+
+class ProductRun:
+    """Dependencies and cleanup owned by one invocation, within a persistent lease."""
+
+    def __init__(self, worktree: Path, product: str):
+        self.worktree = worktree_of(worktree)
+        self.product = product
+        self.order = dependency_order(self.worktree, product)
+        self.record = claim(self.worktree)
+        self.initial_started = list(self.record.get("started", []))
+        self.owned: list[str] = []
+
+    def env(self, product: str | None = None) -> dict[str, str]:
+        self.record = registered(self.worktree)
+        return product_environment(self.record, product or self.product)
+
+    def mark_started(self, product: str) -> None:
+        self.record = registered(self.worktree)
+        if product not in self.record.get("started", []):
+            self.owned.append(product)
+            # Register before launching so a partial start still has an owner and stop.
+            self.record = update_started(self.worktree, product)
+
+    def remember(self, product: str, data: dict) -> None:
+        self.record = update_started(self.worktree, product, data=data)
+
+    def start_needs(self) -> None:
+        from target_config import discover, run_command, target_config
+
+        for product in self.order[:-1]:
+            cfg = target_config(self.worktree, product)
+            if product not in registered(self.worktree).get("started", []):
+                self.mark_started(product)
+                try:
+                    run_command(cfg["start"], self.worktree, env=self.env(product))
+                except SystemExit as exc:
+                    raise ProductCommandFailed(product, "start", cfg["start"], exc.code) from None
+            try:
+                data = discover(cfg, self.worktree, env=self.env(product))
+            except SystemExit as exc:
+                raise ProductCommandFailed(product, "discover", cfg["discover"], exc.code) from None
+            self.remember(product, data)
+
+    def stop(self) -> None:
+        self.record = registered(self.worktree)
+        stop_products(self.worktree, self.record, self.owned)
+        self.record = registered(self.worktree)
+        self.owned = [name for name in self.owned if name in self.record.get("started", [])]
 
 
 def leased_environment(worktree: Path | None = None) -> dict[str, str]:
@@ -797,17 +1001,55 @@ def main(argv: list[str] | None = None) -> int:
 
     if verb == "run":
         if "--" not in rest:
-            sys.stderr.write("usage: lease.py run [<worktree>] -- <command>…\n")
+            sys.stderr.write("usage: lease.py run [<worktree>] [--product <name>] -- <command>…\n")
             return 2
         cut = rest.index("--")
         head, command = rest[:cut], rest[cut + 1:]
         if not command:
-            sys.stderr.write("usage: lease.py run [<worktree>] -- <command>…\n")
+            sys.stderr.write("usage: lease.py run [<worktree>] [--product <name>] -- <command>…\n")
             return 2
-        tree = worktree_of(head[0] if head else None)
-        env = dict(os.environ)
-        env.update(leased_environment(tree))
-        return subprocess.run(command, env=env).returncode
+        parser = argparse.ArgumentParser(prog="lease.py run")
+        parser.add_argument("worktree", nargs="?")
+        parser.add_argument("--product")
+        args = parser.parse_args(head)
+        tree = worktree_of(args.worktree)
+        read = read_target_json(tree, args.product)
+        product = read.name if read is not None else args.product
+        if read is not None and product_layout(read.root) and product is None:
+            raise SystemExit(refusal(
+                ".mmw/target.json lists several products without --product.",
+                "The command needs one product's port segment.",
+                "Run `lease.py run --product <name> -- <command>`.",
+            ))
+        run = None
+        if product is not None:
+            run = ProductRun(tree, product)
+            try:
+                run.start_needs()
+            except ProductCommandFailed as exc:
+                run.stop()
+                print(f"{exc}\n{exc.proc.stdout}{exc.proc.stderr}", file=sys.stderr)
+                return 2
+            run.mark_started(product)
+            env = run.env()
+        else:
+            env = dict(os.environ)
+            env.update(leased_environment(tree))
+            update_started(tree, DEFAULT_PRODUCT)
+        try:
+            code = subprocess.run(command, env=env).returncode
+        except OSError as exc:
+            if run is not None:
+                run.stop()
+            print(refusal(
+                f"Command {command[0]} could not run: {exc.strerror or exc}.",
+                "No product command was completed.",
+                "Correct the command and run `lease.py run` again.",
+            ), file=sys.stderr)
+            return 2
+        if code != 0 and run is not None:
+            run.stop()
+        return code
 
     if verb == "remove-instance":
         if not rest:
