@@ -90,6 +90,14 @@ class WiringTest(unittest.TestCase):
                   "`references/pipeline.md`")
         self.assertFinds("names references/pipeline.md, which is not there")
 
+    def test_a_mode_reference_no_text_names(self):
+        for path in self.skills.rglob("*.md"):
+            text = path.read_text(encoding="utf-8")
+            if "references/feature-map.md" in text:
+                path.write_text(text.replace("references/feature-map.md", "feature map reference"),
+                                encoding="utf-8")
+        self.assertFinds("references/feature-map.md")
+
     def test_a_step_naming_a_script_that_is_not_there(self):
         (self.skills / "write-screen-contract/scripts/extract_skeleton.py").unlink()
         self.assertFinds("names scripts/extract_skeleton.py, which is not there")
