@@ -317,6 +317,67 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertRegex(out, r"(?m)^missing +repository +effort layout: docs/specs hold .*migrate_layout.py")
 
+    def test_a_feature_map_without_its_lint_is_missing(self):
+        self.set_up_repository()
+        (self.root / "docs" / "features").mkdir()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^ok +repository +\.mmw/target\.json checks: 1 command\(s\)$")
+        lint = [line for line in out.splitlines() if "feature_map.py" in line]
+        self.assertEqual(len(lint), 1, out)
+        self.assertTrue(lint[0].startswith("missing"), lint[0])
+        self.assertIn("feature map lint:", lint[0])
+        self.assertIn("docs/features/ exists", lint[0])
+        self.assertIn(".mmw/target.json", lint[0])
+        self.assertIn(
+            "python3 ~/.agents/skills/verify-ticket/scripts/feature_map.py lint", lint[0])
+
+    def test_feature_map_lint_row_only_when_needed(self):
+        lint = "python3 ~/.agents/skills/verify-ticket/scripts/feature_map.py lint"
+        self.set_up_repository()
+        (self.root / "docs" / "features").mkdir()
+        (self.root / ".mmw" / "target.json").write_text(
+            json.dumps({"checks": ["make check", lint]}))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.feature_map_lint_missing(out), out)
+        self.assertRegex(out, r"(?m)^ok +repository +\.mmw/target\.json checks: 2 command\(s\)$")
+
+        (self.root / "docs" / "features").rmdir()
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({"checks": ["make check"]}))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.feature_map_lint_missing(out), out)
+        self.assertNotIn("feature_map.py", out)
+
+        (self.root / "docs" / "features").mkdir()
+        (self.root / ".mmw" / "target.json").write_text(json.dumps(
+            {"checks": [{"run": lint, "timeout": 60}]}))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.feature_map_lint_missing(out), out)
+        self.assertRegex(out, r"(?m)^ok +repository +\.mmw/target\.json checks: 1 command\(s\)$")
+
+    def test_a_target_without_a_checks_key_is_missing(self):
+        self.set_up_repository()
+        (self.root / ".mmw" / "target.json").write_text("{}")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +\.mmw/target\.json checks: no `checks`")
+
+    def test_a_target_that_is_not_json_is_missing(self):
+        self.set_up_repository()
+        (self.root / ".mmw" / "target.json").write_text("{")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +\.mmw/target\.json checks: not JSON")
+
+    @staticmethod
+    def feature_map_lint_missing(out):
+        return any(
+            line.startswith("missing") and ("feature map lint" in line or "feature_map.py" in line)
+            for line in out.splitlines())
+
 
 class TestMigrateLayout(unittest.TestCase):
     def setUp(self):
