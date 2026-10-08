@@ -1,6 +1,6 @@
 # Coding standards
 
-The rules the review applies to every change, in every repository. The Standards axis applies `## Code` and the Tests axis applies `## Tests`. A repository may keep its own `CODING_STANDARDS.md` at its root, in the same shape, with rules that hold only there; where the two disagree, the repository's rule wins.
+The rules the review applies to every change in this repository. The Standards axis applies `## Code` and the Tests axis applies `## Tests`.
 
 The author of a change does not read this file. Writing the change already takes more context than anything else in the work, and the review has room to spare, so the rules are applied where they are read: here, against the diff. A rule here is a judgement the diff shows. A violation with a fixed shape (a banned call, an import form, a file location) is a check that fails, not a row. A row is added, changed or removed only through a retro proposal the owner approved.
 

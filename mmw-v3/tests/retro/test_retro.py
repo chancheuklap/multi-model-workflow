@@ -564,12 +564,32 @@ def existing_proposal(f: Fixture):
     assert len(f.state("gh")["issues"]["683"]["comments"]) == 1
 
 
+def testing_fact_destination(f: Fixture):
+    cause = "root TESTING.md omitted how this suite starts"
+    current = f.event(71, "ticket.checked", cause, ticket=71,
+                      run="self", result="unmet", commit=f.landed)
+    f.save()
+    problem = {"category": "Information access", "cause": cause, "evidence": [current],
+               "handled_here": "Left the stale line for a later change",
+               "prevention": {"destination": "testing-fact",
+                              "text": "Add the missing line to root TESTING.md"},
+               "earlier_occurrences": [], "proposal": None}
+    gathered = f.run("gather", "70")
+    outcome = f.finish(gathered, f.analysis([problem]))
+    receipt = f.assert_receipt("recorded")
+    assert outcome["problem_count"] == receipt["problem_count"] == 1
+    assert outcome["proposals"] == receipt["proposals"] == []
+    content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
+    assert "[testing-fact]" in content, content
+
+
 FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_caller_repo,
              "partial-evidence": partial_evidence,
              "proposal-threshold": proposal_threshold,
              "prompt-and-record-contract": prompt_and_record_contract,
              "retry-finalize": retry_finalize, "large-evidence": large_evidence,
-             "parent-without-map": parent_without_map, "existing-proposal": existing_proposal}
+             "parent-without-map": parent_without_map, "existing-proposal": existing_proposal,
+             "testing-fact-destination": testing_fact_destination}
 
 
 def main():

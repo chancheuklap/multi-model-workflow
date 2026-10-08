@@ -401,7 +401,7 @@ The retro's comparison of the spec's expected surface (Problem Statement and Use
 _Home_: `mmw-v3/skills/retro/SKILL.md`
 
 **Prevention destinations**:
-The eight values a retro problem's Prevention names by its `destination`, each with one fixed reader: a check, a script, that repository's `AGENTS.md`, a repository-local skill, a row of a `CODING_STANDARDS.md`, an MMW skill, toolbox Memory, or none.
+The nine values a retro problem's Prevention names by its `destination`, each with one fixed reader: a check, a script, that repository's `AGENTS.md`, a repository-local skill, a row of a `CODING_STANDARDS.md`, a line of `TESTING.md`, an MMW skill, toolbox Memory, or none.
 _Home_: `mmw-v3/skills/retro/SKILL.md`
 
 **proposal**:

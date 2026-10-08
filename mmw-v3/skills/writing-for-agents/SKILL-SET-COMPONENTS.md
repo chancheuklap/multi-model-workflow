@@ -97,7 +97,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 
 - **Used:** at the start of a task, to choose its route.
 - **Content, in this order:**
-  1. Usage: open a todolist whose first items are the matched playbook's steps copied in verbatim; a step not done stays in the list as `skip: <reason>`.
+  1. Usage: match the task to a route line and open its playbook.
   2. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
   3. One sentence for a session a script started: the playbook its start prompt names is its route, chosen by whoever dispatched it (`mmw-v3/course/` lesson 5, decision 3).
   4. One sentence for a task no route line matches (poteto-mode sends it to `figure-it-out`, which MMW does not carry).
@@ -124,7 +124,7 @@ In the same change as the new file: add its route line to the `mmw-mode` skill's
 1. `### <Name>`: the title, identical to the name in the route line.
 2. `**You own …**` in bold on the first line: what this run owns, and what goes to subagents.
 3. One paragraph: the stance for the whole playbook, and how it differs from the playbook most easily confused with it.
-4. Numbered steps, one action each. Each step names the skill, principle, reference or script it uses, by name or path. The steps are copied verbatim into the todolist, so each must stand on its own as a todo. A principle is named on the step where it applies, including a step every run takes.
+4. Numbered steps, one action each. Each step names the skill, principle, reference or script it uses, by name or path. A principle is named on the step where it applies, including a step every run takes.
 5. Optionally one paragraph of rules that hold across all the steps.
 6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in the `mmw-mode` skill's `SKILL.md` `## Writing the reply` and are not repeated here.
 
@@ -152,7 +152,6 @@ A judgement several steps point to may follow the steps as a section of its own,
   - Frontmatter: `name`, `description` (what it does, then `Use for …` or `Use when …` with the words someone would use), and `argument-hint` when the skill takes an argument the person types.
   - `# <Title>` and one paragraph: what it does and what it hands back.
   - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names no model (`mmw-mode/SKILL.md` `## Subagents`).
-  - `## Start`: open a todolist with one item per phase.
   - The phases or steps; a step that needs a template names `references/<file>`.
   - What it hands back, and in what form.
 

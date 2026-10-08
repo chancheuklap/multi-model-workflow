@@ -266,8 +266,8 @@ The UI axis's three kinds of review finding, each about what its story screensho
 _Home_: `mmw-v3/skills/code-review/references/ui-reviewer.md`
 
 **Only the happy path**:
-A rule under `## Tests` in the `code-review` skill's general `CODING_STANDARDS.md`, which the Tests axis applies: a case in scope covers only the ordinary input while the code it tests has an edge, a boundary, or an error path the requested behaviour depends on, left untested.
-_Home_: `mmw-v3/skills/code-review/CODING_STANDARDS.md`
+A rule under `## Tests` in a repository's `CODING_STANDARDS.md`, which the Tests axis applies: a case in scope covers only the ordinary input while the code it tests has an edge, a boundary, or an error path the requested behaviour depends on, left untested.
+_Home_: `mmw-v3/skills/setup-mmw/CODING_STANDARDS.md`
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.

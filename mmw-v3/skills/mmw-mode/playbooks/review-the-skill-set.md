@@ -29,7 +29,7 @@ Every finding is fixed. There are no severity levels: a finding is either establ
    - Not walked, not verified, and checks that did not apply.
 
    Done when that `README.md` holds these parts in this order, and every finding carries its evidence and its fix.
-5. **Fix every finding.** Run this step when the user asked for the fixes, or has read the report and said go; otherwise the review ends at **Report**, and this step stays in the todolist with its `skip:` line. Run **Authoring or modifying a skill** on the findings, each with the address, the failure mode and the fix the report gives it. Its **Walk a real task** stays in the todolist with `skip:`: the review's walk is the walk of these fixes, and no task is walked again. Its **Deliver** commits the fixes. A finding that waits on a decision the user holds stays in the report and does not hold the delivery back.
+5. **Fix every finding.** Run this step when the user asked for the fixes, or has read the report and said go; otherwise the review ends at **Report**, and this step is skipped. Run **Authoring or modifying a skill** on the findings, each with the address, the failure mode and the fix the report gives it. Its **Walk a real task** is skipped: the review's walk is the walk of these fixes, and no task is walked again. Its **Deliver** commits the fixes. A finding that waits on a decision the user holds stays in the report and does not hold the delivery back.
    Done when every finding is fixed or is a decision the user holds, and the fixes are committed.
 
 **Reply:** the report's path; the load table; each finding with its fix, or the decision it waits on; what was not walked or not verified.
