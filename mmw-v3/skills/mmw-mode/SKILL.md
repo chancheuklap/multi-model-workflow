@@ -1,7 +1,6 @@
 ---
 name: mmw-mode
-description: MMW's way of working on the owner's products. Use for /mmw-mode, or requests to work in this mode.
-disable-model-invocation: true
+description: MMW's way of working on the owner's products. Use at the start of any task in a repository that has a `.mmw/` directory, or for /mmw-mode.
 ---
 
 # MMW mode
@@ -117,7 +116,7 @@ When no route below matches, say which comes closest and what does not fit, then
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y, or what does the world outside the repository say (a library, a standard, a service's API). A fact you could observe by running something is found by running it (see Autonomy). `playbooks/investigation.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a restart of the host, or imminent context compaction. Full steps: `playbooks/pause-safely.md`.
-- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode. `playbooks/authoring-or-modifying-a-skill.md`.
+- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode, whatever its size. Distinct from Write a spec, which this playbook runs for a change one session cannot finish. `playbooks/authoring-or-modifying-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
 - **Chart a map.** A loose idea too big for one session, whose way to the destination is not visible yet, charted as a map of decision tickets on the tracker ("chart a map", "wayfinder", a greenfield product, a feature too big for one session). Distinct from Write a spec, which starts from decisions already made. `playbooks/chart-a-map.md`.
 - **Resolve a map ticket.** Resolving one decision ticket of an existing map in one session, the owner's named one or the frontier's first ("work the map", "next map ticket", a map's link or number). Distinct from Chart a map, which creates the map, and from Work a ticket, which builds a ticket of a spec. `playbooks/resolve-a-map-ticket.md`.

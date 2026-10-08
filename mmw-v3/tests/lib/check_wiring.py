@@ -9,7 +9,7 @@ agent told to read a file or run a skill that is not there guesses. Four kinds o
 pointer are checked, in the text of every `.md` under `mmw-v3/skills/` (HTML comments
 and fenced code left out):
 
-1. **Routes.** Each file in the mmw-mode skill's `playbooks/` (its README aside) has
+1. **Routes.** Each file in the mmw-mode skill's `playbooks/` has
    exactly one route line in `## Playbooks` of its `SKILL.md`, every route line names
    a file that exists, and the bold name of the line is the file's `# ` title.
 2. **Principles.** Each `principle-*` skill has exactly one index line in `## Principles`,
@@ -17,7 +17,8 @@ and fenced code left out):
 3. **Skills and files named.** A skill named as "the `x` skill", "the **x** skill",
    "`x` skill's" or "skill `x`", and a principle named in bold or code
    (`**principle-x**`), is a directory under `mmw-v3/skills/`, unless the name follows
-   "pstack" or "pstack's", whose skills MMW does not carry. A file path starting
+   "pstack" or "pstack's", whose skills MMW does not carry. A bare `.md` file named
+   as "the `x` skill's `FILE.md`" is a file in that skill's directory. A file path starting
    `references/`, `scripts/`, `playbooks/` or `agents/` resolves in a skill named earlier
    in its paragraph, in the skill the text belongs to, beside the file, in the mmw-mode
    skill, or, for a skill copied from a vendored upstream, in that upstream's tree. A path
@@ -54,6 +55,7 @@ SKILL_NAMED = [
     re.compile(r"(?<!pstack's )(?<!pstack )(?<![`*])[`*]+(principle-[a-z0-9-]+)[`*]"),
 ]
 PATH_NAMED = re.compile(r"`((?:references|scripts|playbooks|agents)/[A-Za-z0-9_./-]+)`")
+BARE_SKILL_FILE = re.compile(r"(?<!pstack's )the `([a-z0-9-]+)` skill's `([A-Za-z0-9_.-]+\.md)`")
 NAME_BEFORE = re.compile(r"[`*]([a-z0-9-]+)[`*]")
 DISPATCH_CMD = re.compile(r"dispatch\.sh ([a-z][a-z-]+)")
 
@@ -96,8 +98,6 @@ def check_routes(mode: str) -> list[str]:
             found.append(f"{line}: the route line says **{name}.**, and {rel} is titled {title(path)!r}")
     for path in sorted((MODE_DIR / "playbooks").glob("*.md")):
         rel = f"playbooks/{path.name}"
-        if path.name == "README.md":
-            continue
         if rel not in named:
             found.append(f"{MODE.relative_to(SKILLS.parent.parent)}: `## Playbooks` has no route line for {rel}")
         elif len(named[rel]) > 1:
@@ -146,6 +146,10 @@ def check_names(path: Path, commands: set[str]) -> list[str]:
         for m in rx.finditer(text):
             if not (SKILLS / m.group(1)).is_dir():
                 found.append(f"{where(path, text, m.start())}: names the {m.group(1)} skill, which is not a skill")
+    for m in BARE_SKILL_FILE.finditer(text):
+        skill, filename = m.groups()
+        if (SKILLS / skill).is_dir() and not (SKILLS / skill / filename).is_file():
+            found.append(f"{where(path, text, m.start())}: names {skill}/{filename}, which is not there")
     for m in PATH_NAMED.finditer(text):
         rel = m.group(1).split("#")[0].rstrip(".,;:)")
         if rel.endswith("/") or len(Path(rel).stem) == 1:
