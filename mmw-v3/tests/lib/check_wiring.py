@@ -148,7 +148,7 @@ def check_names(path: Path, commands: set[str]) -> list[str]:
                 found.append(f"{where(path, text, m.start())}: names the {m.group(1)} skill, which is not a skill")
     for m in BARE_SKILL_FILE.finditer(text):
         skill, filename = m.groups()
-        if not (SKILLS / skill / filename).is_file():
+        if (SKILLS / skill).is_dir() and not (SKILLS / skill / filename).is_file():
             found.append(f"{where(path, text, m.start())}: names {skill}/{filename}, which is not there")
     for m in PATH_NAMED.finditer(text):
         rel = m.group(1).split("#")[0].rstrip(".,;:)")

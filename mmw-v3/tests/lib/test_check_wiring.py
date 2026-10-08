@@ -115,6 +115,16 @@ class WiringTest(unittest.TestCase):
                         encoding="utf-8")
         self.assertFinds("names dispatch/missing-file.md, which is not there")
 
+    def test_bare_skill_file_with_a_missing_skill_reports_the_skill(self):
+        path = self.skills / "mmw-mode/playbooks/authoring-or-modifying-a-skill.md"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text + "\nRead the `writng-for-agents` skill's `SKILL-SET-RULES.md`.\n",
+                        encoding="utf-8")
+        r = self.run_check()
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("names the writng-for-agents skill, which is not a skill", r.stdout)
+        self.assertNotIn("names writng-for-agents/SKILL-SET-RULES.md, which is not there", r.stdout)
+
     def test_a_step_naming_a_script_that_is_not_there(self):
         (self.skills / "write-screen-contract/scripts/extract_skeleton.py").unlink()
         self.assertFinds("names scripts/extract_skeleton.py, which is not there")
