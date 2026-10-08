@@ -168,7 +168,7 @@ _Home_: `mmw-v3/skills/prototype/EXP.md`
 ### The oracles
 
 **product under test**:
-The application a consuming repository runs under automation, which the oracles test; "the product" is its short form. The repository answers in `.mmw/` what the ui-acceptance skill cannot know about it.
+The application a consuming repository runs under automation, which the oracles test. In the oracle references, "the product" is this running application, distinct from the **product** directory. The repository answers in `.mmw/` what the ui-acceptance skill cannot know about it.
 _Home_: `mmw-v3/skills/ui-acceptance/SKILL.md`
 
 **oracle**:
@@ -185,7 +185,7 @@ The story oracle's comparison of a product story with its design page, both side
 _Home_: `mmw-v3/skills/ui-acceptance/references/story-parity.md`
 
 **story**:
-A product page, served from `.mmw/stories/`, that renders the product's own components from the same scene data the design page used, addressed as `?page=<mount>&scene=<name>&viewport=<WxH>`. It has no backend, seed, route or lease.
+A product page, served from `.mmw/<product>/stories/`, that renders the product's own components from the same scene data the design page used, addressed as `?page=<mount>&scene=<name>&viewport=<WxH>`. It has no backend, seed, route or lease.
 _Home_: `mmw-v3/skills/ui-acceptance/references/story-parity.md`
 
 **user story**:
@@ -203,7 +203,7 @@ What puts a **product component** into one scene on a **story** page: one per de
 _Home_: `mmw-v3/skills/ui-acceptance/references/story-parity.md`
 
 **story service**:
-The server `.mmw/target.json`'s `stories` command brings up under `.mmw/stories/`, serving the story pages both the story oracle and the harness guard read.
+The server `.mmw/<product>/target.json`'s `stories` command brings up under `.mmw/<product>/stories/`, serving the story pages both the story oracle and the harness guard read.
 _Avoid_: story-service files (for the server itself; that phrase names its files, in `references/harness-guard.md`)
 _Home_: `mmw-v3/skills/ui-acceptance/references/story-parity.md`
 
@@ -237,15 +237,15 @@ The one shared click-and-fill helper the **contract ticket** delivers, which eve
 _Home_: `mmw-v3/skills/ui-acceptance/references/boundary-check.md`
 
 **fault-injection switch**:
-The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on its second start, so that the product itself fails one named operation. On that start `journey.py` puts the operation in `MMW_BREAK`, and `start` must print the exact line `BREAK ARMED <METHOD> <route>`; anything else is a refusal.
+The product-owned switch in `.mmw/<product>/harness/` that a journey criterion with `--break` arms on its second start, so that the product itself fails one named operation. On that start `journey.py` puts the operation in `MMW_BREAK`, and `start` must print the exact line `BREAK ARMED <METHOD> <route>`; anything else is a refusal.
 _Avoid_: break switch
 _Home_: `mmw-v3/skills/ui-acceptance/references/journey.md`
 
 **journey**:
-One Playwright path run against the real product on this machine, from a directory under `.mmw/journeys/`. `journey.py run <name>` starts the product, runs the script and stops the product.
+One Playwright path run against the real product on this machine, from `.mmw/<product>/journeys/<flow>/`. `journey.py run <product>/<flow>` starts the product, runs the script and stops the product.
 _Home_: `mmw-v3/skills/ui-acceptance/references/journey.md`
 
-**`.mmw/harness`**:
+**`.mmw/<product>/harness`**:
 The directory in a consuming repository that holds what starts the stack, the **fault-injection switch**, vendor stubs, seeds, and the record of actions that would leave the machine.
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
@@ -254,7 +254,7 @@ _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 _Home_: `mmw-v3/skills/ui-acceptance/references/harness-guard.md`
 
 **`harness_markers`**:
-The `.mmw/target.json` field declaring a product's own **back doors**; `[]` is a legal answer, and a missing key is not a default.
+The `.mmw/<product>/target.json` field declaring a product's own **back doors**; `[]` is a legal answer, and a missing key is not a default.
 _Home_: `mmw-v3/skills/ui-acceptance/references/harness-guard.md`, `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **back door**:
@@ -356,8 +356,12 @@ _Home_: `mmw-v3/skills/write-screen-contract/references/screen-contract-format.m
 `design_render.py` of the ui-acceptance skill, the shared code `story-parity.py` and `extract_skeleton.py` import to serve and render a design page offline and read its `[data-ui]` elements. Nothing in it judges.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/design_render.py`
 
+**product**:
+The directory `.mmw/<product>/` for one product named in the root `products` list. Distinct from the release context's **product**, which is the shipping unit, from **product under test**, and from **product answers**.
+_Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
+
 **product answers**:
-What a consuming repository answers in `.mmw/` so the oracles can run its product: `.mmw/target.json`, `.mmw/harness/`, `.mmw/journeys/` and `.mmw/stories/`.
+What a consuming repository answers under `.mmw/<product>/` so the oracles can run that product. The directory holds that product's `target.json`, `harness/`, `journeys/` and `stories/`.
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **Claude Design runtime marker**:
@@ -365,33 +369,41 @@ One of the four strings (`sc-interp`, `data-dc-tpl`, `data-dc-script`, `dc-root`
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **`target_config.py`**:
-`target_config.py` of the ui-acceptance skill, which reads and checks `.mmw/target.json`; `target_config.py --check` lists what a repository has not answered yet.
+`target_config.py` of the ui-acceptance skill, which reads and checks the root `.mmw/target.json` and each `.mmw/<product>/target.json`. `target_config.py --check` lists what a repository has not answered yet.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/target_config.py`
 
 **`.mmw/target.json`**:
-The consuming repository's machine facts, read by the runtime: what brings the product up and down on this machine, where it answers, where its stories and journeys are, and what it does that reaches past the machine.
+The root file a consuming repository's runtime reads, holding only `checks`, `products` and `needs`. Each product's own answers are in `.mmw/<product>/target.json`.
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **`discover`**:
-The `.mmw/target.json` command printing the product's address and its **instance** name; `journey.py` reads every key it prints, uppercased, into the journey script's environment.
+The `.mmw/<product>/target.json` command printing the product's address and its **instance** name. `journey.py` reads every key it prints, uppercased, into the journey script's environment.
 _Home_: `mmw-v3/skills/ui-acceptance/references/journey.md`
 
-**`checks`**:
-The optional `.mmw/target.json` key listing the repository's own commands, which `dispatch.sh` runs on each ticket's merge result before it pushes; a failing one bounces the ticket with a `Failed checks:` line naming it.
+**`doctor`**:
+The read-only command on `.mmw/<product>/target.json` that answers whether this instance is worth driving. Distinct from `discover`, which prints addresses, and from `start` and `stop`, which change the instance.
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
+**`checks`**:
+The optional `.mmw/target.json` key listing the repository's own commands, which `dispatch.sh` runs on each ticket's merge result before it pushes. A failing one bounces the ticket with a `Failed checks:` line naming it.
+_Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
+
+**`needs`**:
+The optional key of the root `.mmw/target.json` whose value maps a product to the products that start before it, for example `{"parrot": ["gateway"]}`. Distinct from `products`, the ordered list of product names.
+_Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`, `mmw-v3/skills/ui-acceptance/scripts/target_config.py`
+
 **`stop`**:
-The `.mmw/target.json` key that ends what `start` started and nothing else: the only way a run may end a process.
+The `.mmw/<product>/target.json` key that ends what `start` started and nothing else. It is the only way a run may end a process.
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **`leaves_machine`**:
-The required `.mmw/target.json` key answering what the product does in a run that reaches past the machine, and how the run neutralises and records each such action under `MMW_AUTOMATION=1`. `[]` is an answer.
+The required `.mmw/<product>/target.json` key answering what the product does in a run that reaches past the machine, and how the run neutralises and records each such action under `MMW_AUTOMATION=1`. `[]` is an answer.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/target_config.py`
 
 ### The lease
 
 **lease**:
-One ticket worktree's share of this machine: a registration of `worktree path -> slot` under `MMW_HOME/leases`, acquired by a ticket worktree at its first run that needs the product and kept until the ticket's work ends. Unlike a distributed-systems lease it has no term and is never renewed: it ends only by `release`, or when `lease.py`'s `sweep()` finds its worktree gone and nothing listening on its ports. `lease.py` is its whole interface.
+One ticket worktree's share of this machine, a registration of `worktree path -> slot` under `MMW_HOME/leases`, acquired at the first run that needs a product and kept until the work ends, whose port block is split across products in root `products` order, with `started` recording the products brought up and `release --stop` stopping them in reverse. Unlike a distributed-systems lease it has no term and is never renewed, and it ends only by `release` or when `lease.py`'s `sweep()` finds the worktree gone and nothing listening on its ports, with `lease.py` as its whole interface.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`
 
 **release** (lease):
@@ -403,11 +415,11 @@ What a lease hands out: a block of ports and a data directory that no other slot
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`
 
 **instance**:
-One running copy of the product on this machine, one per **slot**, named by `MMW_INSTANCE`; `discover` prints it back as `instance`.
+The name of one **lease**'s run on this machine, one per **slot**, carried by `MMW_INSTANCE`. `discover` prints it back as `instance`.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`, `mmw-v3/skills/ui-acceptance/scripts/target_config.py`
 
 **`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`**:
-The six variables a lease puts into the environment of every command `.mmw/target.json` declares: a readable name for the run, the slot number, the first port and the number of ports of its block, a directory it owns, and `1` as the signal to neutralise what would leave the machine.
+The six variables a lease puts into the environment of every command `.mmw/<product>/target.json` declares are a readable name for the run, the slot number, the first port and the number of ports of that product's segment, a directory it owns, and `1` as the signal to neutralise what would leave the machine. For that product the lease also sets `MMW_PRODUCT` to the product name.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`
 
 ### Refusals
