@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Check that the skill set's text points only at things that exist.
+"""Check the skill set's pointers and the reachability of mmw-mode references.
 
     python3 mmw-v3/tests/lib/check_wiring.py [<skills dir>]
 
 Adding a playbook, a principle or a skill means writing its name in more than one
 place, and a name written in one place and missing from the other fails silently: an
-agent told to read a file or run a skill that is not there guesses. Four kinds of
-pointer are checked, in the text of every `.md` under `mmw-v3/skills/` (HTML comments
+agent told to read a file or run a skill that is not there guesses. Five kinds of
+wiring are checked, in the text of every `.md` under `mmw-v3/skills/` (HTML comments
 and fenced code left out):
 
 1. **Routes.** Each file in the mmw-mode skill's `playbooks/` (its README aside) has
@@ -24,6 +24,10 @@ and fenced code left out):
    ending in `/` is a directory of the repository being worked on, and a one-letter name
    (`references/x.md`) is an example; neither is checked.
 4. **dispatch.sh commands.** Each `dispatch.sh <command>` is a command `dispatch.sh` has.
+5. **Mode references.** Every file under the mmw-mode skill's `references/` (its README
+   aside) is named by at least one path in that text, resolved by rule 3. The first
+   existing target in rule 3's search order is the file named. Other skills' references
+   are not checked.
 
 Text about MMW v2 (a line naming it, or a section whose heading does) records where
 something came from and is not checked.
@@ -138,7 +142,7 @@ def upstream_roots(skill: str) -> list[Path]:
             if (skills / skill).is_dir()]
 
 
-def check_names(path: Path, commands: set[str]) -> list[str]:
+def check_names(path: Path, commands: set[str], named: set[Path]) -> list[str]:
     text = readable(path)
     own = path.relative_to(SKILLS).parts[0]
     found = []
@@ -154,8 +158,11 @@ def check_names(path: Path, commands: set[str]) -> list[str]:
         places = [SKILLS / name for name in NAME_BEFORE.findall(paragraph)
                   if (SKILLS / name).is_dir()]
         places += [SKILLS / own, path.parent, MODE_DIR, *upstream_roots(own)]
-        if not any((place / rel).exists() for place in places):
+        target = next((place / rel for place in places if (place / rel).exists()), None)
+        if target is None:
             found.append(f"{where(path, text, m.start())}: names {rel}, which is not there")
+        else:
+            named.add(target.resolve())
     for m in DISPATCH_CMD.finditer(text):
         if m.group(1) not in commands:
             found.append(f"{where(path, text, m.start())}: names `dispatch.sh {m.group(1)}`, "
@@ -167,9 +174,17 @@ def main() -> int:
     mode = readable(MODE)
     findings = check_routes(mode) + check_principles(mode)
     commands = dispatch_commands()
+    named = set()
     for path in sorted(SKILLS.rglob("*.md")):
         if "__pycache__" not in path.parts:
-            findings += check_names(path, commands)
+            findings += check_names(path, commands, named)
+    for path in sorted((MODE_DIR / "references").rglob("*")):
+        if path == MODE_DIR / "references" / "README.md":
+            continue
+        if path.is_file() and path.resolve() not in named:
+            rel = path.relative_to(MODE_DIR)
+            findings.append(f"{path.relative_to(SKILLS.parent.parent)}: names no step: "
+                            f"{rel} is read by nothing; name it in a step under {SKILLS.name}/")
     for finding in findings:
         print(finding)
     if findings:
