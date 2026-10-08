@@ -2294,24 +2294,54 @@ class TargetJsonChecksError(Exception):
     as the list of commands the gate expects."""
 
 
+def _config_lease():
+    """The lease module whose read point parses `.mmw/target.json`.
+
+    `TOOLS` is set only while `main` is handling a command. A caller that imports
+    this function, the checks run included, still finds the sibling copy.
+    """
+    path = tool("lease.py")
+    if path is None:
+        path = HERE.parents[1] / "ui-acceptance" / "scripts" / "lease.py"
+    if not path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("mmw_lease_config", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     """The `checks` of `.mmw/target.json` as `(command, timeout)` pairs — an entry is a
     string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` naming its own
     bound in seconds — or None when the key is absent. `dispatch.sh` reads them through
     `run_target_json_checks`; no mode of this script runs them. A file that names
     `checks` but is not a JSON object with a list raises `TargetJsonChecksError` rather
-    than looking like absence."""
+    than looking like absence.
+
+    Both layouts take the list from the root object. A product file's own `checks`
+    is not this list. `lease.read_target_json` parses the file, and it is the one
+    read point.
+    """
     if root is None:
         return None
     path = Path(root) / ".mmw" / "target.json"
     if not path.is_file():
         return None
+    lease = _config_lease()
+    if lease is None:
+        raise TargetJsonChecksError(
+            "lease.py is not beside this skill, so .mmw/target.json cannot be read")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise TargetJsonChecksError(f"{path} is not JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise TargetJsonChecksError(f"{path} is not an object")
+        read = lease.read_target_json(Path(root))
+    except lease.TargetJSONError as exc:
+        text = str(exc)
+        if "must hold one JSON object" in text:
+            raise TargetJsonChecksError(f"{path} is not an object") from None
+        raise TargetJsonChecksError(f"{path} is not JSON: {text}") from None
+    if read is None:
+        return None
+    data = read.root
     if "checks" not in data:
         return None
     raw = data["checks"]

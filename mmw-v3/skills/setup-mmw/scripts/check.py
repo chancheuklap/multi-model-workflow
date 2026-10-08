@@ -18,6 +18,7 @@ The repository layer is what the `setup-mmw` skill sets up; the machine layer is
 tools the night's scripts call, which this skill reports and does not install; the session
 layer is this session's own environment, which no script can change once it has started.
 """
+import importlib.util
 import json
 import os
 import shutil
@@ -229,19 +230,30 @@ def check_session(report: Report, slug: str):
                "session from there")
 
 
+def _lease():
+    """The lease module whose read point parses `.mmw/target.json`."""
+    path = HERE.parents[1] / "ui-acceptance" / "scripts" / "lease.py"
+    spec = importlib.util.spec_from_file_location("setup_mmw_lease", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def check_checks(report: Report, root: Path):
+    """Count the root's `checks`. A product file's own list is not this count."""
     path = root / ".mmw" / "target.json"
     checks = None
     if not path.is_file():
         report.add("missing", "repository", ".mmw/target.json checks",
                    "no .mmw/target.json; a ticket closes and lands with no repository check run")
     else:
+        lease = _lease()
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except ValueError as exc:
+            read = lease.read_target_json(root)
+        except lease.TargetJSONError as exc:
             report.add("missing", "repository", ".mmw/target.json checks", f"not JSON ({exc})")
         else:
-            checks = data.get("checks") if isinstance(data, dict) else None
+            checks = read.root.get("checks") if read is not None else None
             if isinstance(checks, list) and checks:
                 report.add("ok", "repository", ".mmw/target.json checks", f"{len(checks)} command(s)")
             else:
