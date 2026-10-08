@@ -365,6 +365,23 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"(?m)^missing +repository +\.mmw/target\.json checks: no `checks`")
 
+    def test_check_reads_checks_from_a_product_layout(self):
+        """The count is the root's. Each product file carries a one-command decoy."""
+        self.set_up_repository()
+        for name in ("gateway", "parrot"):
+            (self.root / ".mmw" / name).mkdir()
+            (self.root / ".mmw" / name / "target.json").write_text(json.dumps({
+                "ports": 3, "checks": ["echo product"],
+            }))
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({
+            "checks": ["echo one", "echo two"],
+            "products": ["gateway", "parrot"],
+            "needs": {"parrot": ["gateway"]},
+        }))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +\.mmw/target\.json checks: 2 command\(s\)$")
+
     def test_a_target_that_is_not_json_is_missing(self):
         self.set_up_repository()
         (self.root / ".mmw" / "target.json").write_text("{")

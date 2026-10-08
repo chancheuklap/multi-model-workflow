@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """Read and check a repository's `.mmw/target.json`.
 
-Which keys a repository answers is declared here, once, on `FIELDS`, and printed by
-
-    target_config.py --check [--repo <dir>]
-
-which names every field still missing, with one sentence and one example each, and
-exits 0 once the file is complete. `discover` prints an origin-class address plus
-`instance`. `--validate` prints the first problem only. `journey.py` runs every command
-`.mmw/target.json` declares through `run_command`, and imports `discover`.
+The old layout answers one product in that file. `FIELDS` lists its keys, and
+`--check` names every field still missing. The new layout keeps `checks`,
+`products` and `needs` on the root, and one product in `.mmw/<product>/target.json`.
+`--product <name>` selects that product. With one product the name can be omitted.
+`--check` exits 0 when the layout in front of it is complete. `--validate` prints
+the first problem only. `discover` prints an origin-class address plus `instance`.
+`journey.py` runs every command the selected product declares through `run_command`,
+and imports `discover`.
 """
 
 from __future__ import annotations
 
+import graphlib
 import json
 import os
 import shlex
@@ -25,7 +26,15 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from lease import TargetJSONError, leased_environment, read_target_json, worktree_of  # noqa: E402
+from lease import (  # noqa: E402
+    PORT_STRIDE,
+    PRODUCT_NAME,
+    TargetJSONError,
+    leased_environment,
+    product_layout,
+    read_target_json,
+    worktree_of,
+)
 
 
 # ---------------------------------------------------------------- repository config
@@ -102,16 +111,36 @@ def repo_root(start: Path | None = None) -> Path:
     return worktree_of(start)
 
 
-def target_config(root: Path) -> dict:
+def target_config(root: Path, product: str | None = None) -> dict:
     path = root / ".mmw" / "target.json"
     try:
-        cfg = read_target_json(root)
+        cfg = read_target_json(root, product=product)
     except TargetJSONError as exc:
         raise SystemExit(str(exc))
     if cfg is None:
         raise SystemExit(f"no {path}: the repository has not said how its product is "
                          f"reached. Run `target_config.py --check --repo {root}` "
                          f"(the ui-acceptance skill) and answer what it names")
+    if cfg.error:
+        raise SystemExit(cfg.error)
+    if product_layout(cfg.root):
+        if product is not None and cfg.name != product:
+            raise SystemExit(f"{path} has no product {product}. "
+                             f"Run `target_config.py --check --repo {root}` "
+                             f"(the ui-acceptance skill) and answer what it names")
+        if cfg.name is None:
+            listed = cfg.root.get("products")
+            names = ", ".join(listed) if isinstance(listed, list) else ""
+            raise SystemExit(f"{path} names more than one product ({names}); "
+                             f"pass --product <name>. "
+                             f"Run `target_config.py --check --repo {root}`")
+        if not cfg.present:
+            raise SystemExit(f"no .mmw/{cfg.name}/target.json. "
+                             f"Run `target_config.py --check --repo {root}` "
+                             f"(the ui-acceptance skill) and answer what it names")
+    elif product is not None:
+        raise SystemExit(f"{path} is the old layout and has no named product {product}. "
+                         f"Run `target_config.py --check --repo {root}`")
     if not cfg.get("discover"):
         raise SystemExit(f"{path} has no `discover` command; run `target_config.py "
                          f"--check --repo {root}` and answer what it names")
@@ -213,6 +242,172 @@ def target_problems(cfg: dict) -> list[tuple[str, str]]:
     return problems
 
 
+ROOT_KEYS = ("checks", "products", "needs")
+
+
+def _line(expected: str, actual: str, change: str, evidence: str) -> str:
+    """One problem a worker can act on without this session.
+
+    The reader is fixing `.mmw/` after `--check` failed. The line names the check,
+    what was expected, what was there, the file to change, and where the evidence is.
+    """
+    return (f"target_config.py --check: expected {expected}; actual {actual}. "
+            f"Change {change}. Evidence {evidence}.")
+
+
+def layout_problems(root: Path, product: str | None = None) -> list[str]:
+    """One line per problem in a new-layout repository. Empty when it is complete."""
+    read = read_target_json(root)
+    shown = ".mmw/target.json"
+    if read is None:
+        return [_line(shown, "no file", shown, shown)]
+    data = read.root
+    problems: list[str] = []
+    missing = [key for key in ROOT_KEYS if key not in data]
+    extra = sorted(set(data) - set(ROOT_KEYS))
+    if missing or extra:
+        parts = []
+        if missing:
+            parts.append("missing " + ", ".join(missing))
+        if extra:
+            parts.append("also " + ", ".join(extra))
+        problems.append(_line(
+            "root keys checks, products, needs", "; ".join(parts), shown, shown))
+    names = data.get("products")
+    seen: set[str] = set()
+    counted: list[tuple[str, int]] = []
+    if not isinstance(names, list):
+        problems.append(_line(
+            "products to be a list of product names", type(names).__name__, shown, shown))
+        names = []
+    for name in names:
+        if not isinstance(name, str) or PRODUCT_NAME.fullmatch(name) is None:
+            label = name if isinstance(name, str) else type(name).__name__
+            problems.append(_line(
+                "a product name of lowercase letters, digits and hyphens",
+                label, shown, shown))
+            continue
+        if name in seen:
+            problems.append(_line(
+                f"{name} once in products", f"{name} repeated", shown, shown))
+            continue
+        seen.add(name)
+        file_shown = f".mmw/{name}/target.json"
+        one = read_target_json(root, product=name)
+        if one is not None and one.error:
+            problems.append(_line(
+                f"{file_shown} to be one JSON object", one.error, file_shown, file_shown))
+            continue
+        if one is None or not one.present:
+            problems.append(_line(file_shown, "no file", file_shown, file_shown))
+            continue
+        value = _ports_value(problems, name, one, file_shown)
+        if value is not None:
+            counted.append((name, value))
+    if seen and len(counted) == len(seen):
+        total = sum(count for _, count in counted)
+        if total > PORT_STRIDE:
+            actual = ", ".join(f"{name} {count}" for name, count in counted)
+            evidence = ", ".join(f".mmw/{name}/target.json" for name, _ in counted)
+            problems.append(_line(
+                f"ports to sum to at most {PORT_STRIDE}",
+                f"{actual}, sum {total}",
+                evidence,
+                evidence,
+            ))
+    _needs_problems(problems, data, seen, shown)
+    if product is not None and product not in seen:
+        problems.append(_line(
+            "the named product to be in products", product, shown, shown))
+    return problems
+
+
+def _ports_value(problems: list[str], name: str, one: dict, file_shown: str) -> int | None:
+    """The product's `ports` integer, or None after recording why it is not one.
+
+    A JSON boolean is an int in Python and is not a port count.
+    """
+    if "ports" not in one:
+        problems.append(_line(f"ports on {name}", "no ports", file_shown, file_shown))
+        return None
+    value = one["ports"]
+    if isinstance(value, bool) or not isinstance(value, int):
+        problems.append(_line(
+            f"ports on {name} to be an integer", json.dumps(value), file_shown, file_shown))
+        return None
+    return value
+
+
+def _needs_problems(problems: list[str], data: dict, seen: set[str], shown: str) -> None:
+    """Names in `needs` that are not listed products, and one cycle when there is one."""
+    if "needs" not in data:
+        return
+    needs = data["needs"]
+    if not isinstance(needs, dict):
+        problems.append(_line(
+            "needs to be an object of product name to a list of product names",
+            type(needs).__name__, shown, shown))
+        return
+    outside: list[str] = []
+    graph: dict[str, list[str]] = {}
+    for key, value in needs.items():
+        label = key if isinstance(key, str) else type(key).__name__
+        if not isinstance(key, str) or key not in seen:
+            if label not in outside:
+                outside.append(label)
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            problems.append(_line(
+                f"needs of {label} to be a list of product names",
+                json.dumps(value), shown, shown))
+            continue
+        if isinstance(key, str):
+            graph[key] = list(value)
+        for item in value:
+            if item not in seen and item not in outside:
+                outside.append(item)
+    for name in outside:
+        problems.append(_line("needs to name a product in products", name, shown, shown))
+    cycle = _one_cycle(graph)
+    if cycle:
+        problems.append(_line("needs to have no cycle", ", ".join(cycle), shown, shown))
+
+
+def _one_cycle(graph: dict[str, list[str]]) -> list[str]:
+    """The names in one cycle of `needs`, or an empty list when there is none.
+
+    A `needs` value lists the products that start first, which is the predecessor
+    direction `graphlib` walks. The raised list repeats its first name at the end.
+    """
+    try:
+        graphlib.TopologicalSorter(graph).prepare()
+    except graphlib.CycleError as exc:
+        cycle = list(exc.args[1])
+        if len(cycle) > 1 and cycle[0] == cycle[-1]:
+            cycle.pop()
+        return cycle
+    return []
+
+
+def _report_product_layout(root: Path, product: str | None, validate: bool) -> int:
+    path = root / ".mmw" / "target.json"
+    problems = layout_problems(root, product)
+    if validate:
+        if problems:
+            more = f" (+{len(problems) - 1} more)" if len(problems) > 1 else ""
+            print(f"{path}: {problems[0]}{more}")
+            return 1
+        print(f"{path}: complete")
+        return 0
+    print(f"{path}: read")
+    for line in problems:
+        print(line)
+    if problems:
+        print(f"{len(problems)} to answer; run this again when the file is filled")
+        return 1
+    print("complete: the oracles can drive this repository")
+    return 0
+
+
 def target_main(argv: list[str]) -> int:
     """`target_config.py …`: the setup-time bar for one repository.
 
@@ -228,6 +423,8 @@ def target_main(argv: list[str]) -> int:
     mode.add_argument("--validate", action="store_true", help="print the first problem only")
     parser.add_argument("--repo", type=Path, default=None,
                         help="the repository (default: the one the working directory is in)")
+    parser.add_argument("--product", default=None,
+                        help="which product, when the repository has several")
     args = parser.parse_args(argv)
     repo = (args.repo or repo_root()).resolve()
     if not repo.is_dir():
@@ -235,15 +432,33 @@ def target_main(argv: list[str]) -> int:
         return 2
     path = repo / ".mmw" / "target.json"
     try:
-        cfg = read_target_json(repo) or {}
+        read = read_target_json(repo)
     except TargetJSONError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    if read is not None and product_layout(read.root):
+        return _report_product_layout(repo, args.product, args.validate)
+    cfg = read or {}
     problems = target_problems(cfg)
+    old_name = None
+    if args.product is not None and read is not None and not product_layout(read.root):
+        old_name = _line(
+            "no product name, because this file is the old layout",
+            args.product,
+            ".mmw/target.json",
+            ".mmw/target.json",
+        )
     if args.validate:
+        shown = []
         if problems:
             key, why = problems[0]
-            print(f"{path}: {key} {why}" + (f" (+{len(problems) - 1} more)" if len(problems) > 1 else ""))
+            shown.append(f"{key} {why}")
+        if old_name:
+            shown.append(old_name)
+        if shown:
+            extra = len(problems) + (1 if old_name else 0) - 1
+            more = f" (+{extra} more)" if extra else ""
+            print(f"{path}: {shown[0]}{more}")
             return 1
         print(f"{path}: complete")
         return 0
@@ -269,8 +484,11 @@ def target_main(argv: list[str]) -> int:
     print("rules:")
     print("  automation uses placeholder keys, vendor stubs, and local accounts")
     print("  leaves_machine actions record under MMW_AUTOMATION=1")
-    if problems:
-        print(f"{len(problems)} to answer; run this again when the file is filled")
+    if old_name:
+        print(old_name)
+    if problems or old_name:
+        print(f"{len(problems) + (1 if old_name else 0)} to answer; "
+              "run this again when the file is filled")
         return 1
     print("complete: the oracles can drive this repository")
     return 0

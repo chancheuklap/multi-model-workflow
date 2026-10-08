@@ -735,6 +735,33 @@ TARGET_CHECK = ticket("- [ ] AC1: the target file is complete",
                       "  EVIDENCE: pending")
 
 
+class TestChecksAreReadFromTheRootOfAProductLayout(unittest.TestCase):
+    """`checks` stay on the root when each product has its own file.
+
+    A product file that carries its own `checks` is a decoy: the commands come
+    from the root, so a reader that opened the product file fails this.
+    """
+
+    def test_checks_are_read_from_the_root_of_a_product_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            mmw = root / ".mmw"
+            mmw.mkdir()
+            (mmw / "target.json").write_text(json.dumps({
+                "checks": ["echo one", {"run": "echo two", "timeout": 30}],
+                "products": ["gateway", "parrot"],
+                "needs": {"parrot": ["gateway"]},
+            }), encoding="utf-8")
+            for name in ("gateway", "parrot"):
+                (mmw / name).mkdir()
+                (mmw / name / "target.json").write_text(json.dumps({
+                    "ports": 3,
+                    "checks": ["echo product"],
+                }), encoding="utf-8")
+            commands = vt.target_json_checks(root)
+        self.assertEqual(commands, [("echo one", vt.DEFAULT_TIMEOUT), ("echo two", 30)])
+
+
 class TestTargetConfigCheckNeedsNoProduct(unittest.TestCase):
     """Checking `.mmw/target.json` does not start the product, so it takes no slot."""
 

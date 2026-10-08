@@ -359,31 +359,99 @@ class TargetJSONError(Exception):
     """`.mmw/target.json` is there and is not one readable JSON object."""
 
 
-def read_target_json(root: Path) -> dict | None:
-    """The parsed object at `root/.mmw/target.json`, or None when the file is not there.
+# A product name is the directory `.mmw/<product>/`. It is also one path segment,
+# so it allows only the characters the layout allows, and nothing that could climb out.
+PRODUCT_NAME = re.compile(r"^[a-z0-9-]+$")
 
-    Every reader of this file parses it exactly this way, once, here: `target_config.py`
-    (which already imports this module), `harness-guard.py` and `story-parity.py` each
-    wrap `TargetJSONError` into their own refusal wording. It lives in `lease.py` rather
-    than `target_config.py` because `target_config.py` imports `lease`, and the reverse
-    would cycle.
+# Keys that belong to one product. On the root file they mean the old layout,
+# where that file is the one product.
+PRODUCT_KEYS = frozenset({
+    "start", "stop", "discover", "doctor", "ports", "stories",
+    "journeys", "leaves_machine", "harness_markers",
+})
 
-    The message names the file by its short, relative spelling, never the absolute
-    `path`: this run's own `stop_command` feeds it straight into
-    `refusal()`, which trims from the front to stay under Grok Build's 256-character
-    deny-reason limit, and a long temp-directory path can trim away the very words
-    ("cannot be read as JSON") a caller or a test depends on.
+
+def product_layout(data: dict) -> bool:
+    """Whether `data` is the new root: `products` or `needs`, and no product key.
+
+    A root that still carries `start` or another product key is the old layout.
+    A file with only `checks` is that layout too: it has not declared a product list.
     """
-    path = root / ".mmw" / "target.json"
+    if PRODUCT_KEYS.intersection(data):
+        return False
+    return "products" in data or "needs" in data
+
+
+class TargetRead(dict):
+    """One product's config. The root object is `.root`.
+
+    Callers that read `start`, `discover` or `harness_markers` use the mapping,
+    which is the product. `checks` is on `.root` in both layouts. On the old
+    layout the mapping carries the same keys as `.root`, `name` is None and
+    `present` is True. `error` is set when the product file is there and is not
+    one JSON object. The root is still on `.root`.
+    """
+
+    def __init__(self, product: dict | None, root: dict, name: str | None, *,
+                 present: bool, error: str | None = None):
+        super().__init__(product or {})
+        self.root = root
+        self.name = name
+        self.present = present
+        self.error = error
+
+
+def _read_json_object(path: Path, shown: str) -> dict | None:
+    """The object at `path`, or None when the file is not there.
+
+    `shown` is the short relative spelling. A refusal trims from the front to stay
+    under the deny-reason limit, and an absolute temp path can trim away the words
+    a caller matches.
+    """
     if not path.is_file():
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise TargetJSONError(f".mmw/target.json cannot be read as JSON: {exc}") from None
+        raise TargetJSONError(f"{shown} cannot be read as JSON: {exc}") from None
     if not isinstance(data, dict):
-        raise TargetJSONError(".mmw/target.json must hold one JSON object")
+        raise TargetJSONError(f"{shown} must hold one JSON object")
     return data
+
+
+def read_target_json(root: Path, product: str | None = None) -> TargetRead | None:
+    """The root config and one product's config, or None when the root file is absent.
+
+    On the new layout the product is `.mmw/<product>/target.json`. With no name and
+    exactly one listed product, that product is selected. On the old layout the root
+    file is the product, and a passed name is not applied (`name` stays None).
+
+    Every reader parses the file this way, once, here. The function lives in
+    `lease.py` because `target_config.py` imports `lease`, and the reverse would cycle.
+    """
+    data = _read_json_object(root / ".mmw" / "target.json", ".mmw/target.json")
+    if data is None:
+        return None
+    if not product_layout(data):
+        return TargetRead(data, data, None, present=True)
+    names = data.get("products")
+    chosen = product
+    if (chosen is None and isinstance(names, list) and len(names) == 1
+            and isinstance(names[0], str)):
+        chosen = names[0]
+    if not isinstance(chosen, str) or PRODUCT_NAME.fullmatch(chosen) is None:
+        return TargetRead(None, data, chosen if isinstance(chosen, str) else None, present=False)
+    shown = f".mmw/{chosen}/target.json"
+    product_path = root / ".mmw" / chosen / "target.json"
+    try:
+        product_data = _read_json_object(product_path, shown)
+    except TargetJSONError as exc:
+        # The root was read. A product file that is not JSON must not hide it,
+        # or a checks reader cannot see the root and --check exits 2.
+        return TargetRead(None, data, chosen, present=False, error=str(exc))
+    if product_data is None:
+        return TargetRead(None, data, chosen, present=False)
+    return TargetRead(product_data, data, chosen, present=True)
 
 
 def target_json(worktree: Path, unreadable: type[RuntimeError]):
@@ -393,9 +461,12 @@ def target_json(worktree: Path, unreadable: type[RuntimeError]):
     declares is then unknown, and unknown is not "declares nothing".
     """
     try:
-        return read_target_json(worktree)
+        read = read_target_json(worktree)
     except TargetJSONError as exc:
         raise unreadable(str(exc)) from None
+    if read is not None and read.error:
+        raise unreadable(read.error)
+    return read
 
 
 class _Locked:
