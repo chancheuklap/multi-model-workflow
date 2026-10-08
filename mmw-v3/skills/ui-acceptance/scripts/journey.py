@@ -157,8 +157,9 @@ def still_up(root: Path, initial_started: list[str] | None = None) -> list[str]:
     left = []
     previous_ports = set()
     segments = product_port_ranges(record) if initial_started else {}
+    # A product the layout no longer lists has no segment; its ports are checked as this run's.
     for name in initial_started or []:
-        previous_ports.update(segments[name])
+        previous_ports.update(segments.get(name, ()))
     for port in ports_of(record["slot"]):
         if port in previous_ports:
             continue

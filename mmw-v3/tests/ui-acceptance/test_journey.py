@@ -1027,6 +1027,17 @@ class TwoProducts(unittest.TestCase):
         self.assertEqual(
             self.repo.log.read_text(encoding="utf-8").count("alpha-start"), started)
 
+    def test_a_held_lease_naming_a_product_no_longer_listed_still_finishes(self):
+        self.write_product("alpha")
+        self.write_product("beta")
+        tree = LEASE.worktree_of(self.repo.root)
+        LEASE.claim(tree)
+        self.addCleanup(LEASE.release, tree)
+        LEASE.update_started(tree, "gone")
+        code, out, err = self.repo.run("alpha/open")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out, "JOURNEY OK alpha/open\n")
+
 
 class Doctor(unittest.TestCase):
     """`doctor` runs after `discover` and before the journey script."""
