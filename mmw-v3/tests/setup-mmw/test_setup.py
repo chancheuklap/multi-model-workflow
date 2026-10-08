@@ -41,8 +41,10 @@ class Fake:
     """Answers `gh`, `nmem`, `git` and `space.py --check` as a repository in a given state."""
 
     def __init__(self, root=None, labels_have=None, spaces=None, issues=True, protected="",
-                 ignored=(".worktrees/", ".scratch/", "story-shots/")):
+                 ignored=(".worktrees/", ".scratch/", "story-shots/"),
+                 absent="error: /spaces/{ident} returned 404: Unknown space: {ident}"):
         self.root = root
+        self.absent = absent
         self.labels_have = dict(labels_have if labels_have is not None else
                                 {n: (c, d) for n, (c, d) in TABLE.items()})
         self.spaces = dict(spaces if spaces is not None else {"o__r": dict(EXACT)})
@@ -102,7 +104,7 @@ class Fake:
                 return done(cmd, 0, json.dumps({"id": "mmw-toolbox"}))
             row = self.spaces.get(ident)
             if row is None:
-                return done(cmd, 1, "", f"error: /spaces/{ident} returned 404: Unknown space: {ident}")
+                return done(cmd, 1, "", self.absent.format(ident=ident))
             return done(cmd, 0, json.dumps(row))
         if args[:2] == ["spaces", "create"]:
             ident = args[args.index("--id") + 1]
@@ -192,6 +194,19 @@ class TestSpace(unittest.TestCase):
         code, err = self.run_space(fake, ["o/r"])
         self.assertEqual(code, 0, err)
         self.assertEqual(fake.spaces["o__r"], EXACT)
+
+    def test_creates_an_absent_space_when_nmem_names_it_unknown_name_or_alias(self):
+        fake = Fake(spaces={}, absent='error: Unknown Space name or alias: "{ident}"')
+        code, err = self.run_space(fake, ["o/r"])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(fake.spaces["o__r"], EXACT)
+
+    def test_check_reports_a_space_nmem_names_unknown_name_or_alias_as_absent(self):
+        fake = Fake(spaces={}, absent='error: Unknown Space name or alias: "{ident}"')
+        code, err = self.run_space(fake, ["--check", "o/r"])
+        self.assertEqual(code, 1)
+        self.assertIn("setup-mmw", err)
+        self.assertNotIn("o__r", fake.spaces)
 
     def test_repairs_a_wrong_shape(self):
         fake = Fake(spaces={"o__r": {"id": "o__r", "name": "wrong", "defaultRetrievalMode": "strict",

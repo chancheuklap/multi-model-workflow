@@ -20,6 +20,9 @@ import subprocess
 import sys
 
 SHARED = ["mmw-toolbox"]
+# How `nmem spaces show` says a Space does not exist, lowercased: `/spaces/<id> returned 404:
+# Unknown space: <id>` from older nmem, `Unknown Space name or alias: "<id>"` from 0.10.89.
+ABSENT = ("unknown space:", "unknown space name or alias:")
 
 
 def ident_of(slug: str) -> str:
@@ -71,7 +74,7 @@ def main(argv: list[str]) -> int:
 
     shown = call(["spaces", "show", ident])
     if shown.returncode:
-        missing = "404" in (shown.stderr or "") and "Unknown space:" in (shown.stderr or "")
+        missing = any(marker in (shown.stderr or "").lower() for marker in ABSENT)
         if not missing:
             return unavailable(f"nmem spaces show {ident} failed ({detail(shown)})")
         if check:
