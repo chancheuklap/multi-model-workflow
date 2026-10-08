@@ -290,7 +290,7 @@ class JourneyOrder(unittest.TestCase):
         code, out, err = self.repo.run("demo")
         self.assertEqual(code, 2)
         self.assertNotIn("JOURNEY", out)
-        self.assertIn("instance slots", err)
+        self.assertIn("A run needs one and none is free", err)
         self.assertFalse(self.repo.log.exists(), "a command ran on a full machine")
 
     def test_a_missing_stop_is_refused_before_start_and_is_exit_2(self):
