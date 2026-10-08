@@ -365,14 +365,79 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"(?m)^missing +repository +\.mmw/target\.json checks: no `checks`")
 
+    def onboarded_product(self, name, **extra):
+        """One product file that `target_config.py --check` accepts."""
+        directory = self.root / ".mmw" / name
+        directory.mkdir(parents=True)
+        body = {
+            "ports": 1,
+            "start": "true",
+            "stop": "true",
+            "discover": "true",
+            "doctor": "true",
+            "stories": "true",
+            "leaves_machine": [],
+            "harness_markers": [],
+        }
+        body.update(extra)
+        (directory / "target.json").write_text(json.dumps(body))
+
+    def test_a_listed_product_without_its_directory_is_missing(self):
+        self.set_up_repository()
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({
+            "checks": ["make check"],
+            "products": ["notes"],
+        }))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        lines = [line for line in out.splitlines()
+                 if line.startswith("missing") and "notes" in line]
+        self.assertEqual(len(lines), 1, out)
+
+    def test_every_listed_product_onboarded_is_ok(self):
+        self.set_up_repository()
+        self.onboarded_product("notes")
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({
+            "checks": ["make check"],
+            "products": ["notes"],
+        }))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertFalse(any(
+            line.startswith("missing") and "notes" in line for line in out.splitlines()), out)
+
+    def test_a_listed_product_that_fails_its_check_is_missing(self):
+        self.set_up_repository()
+        directory = self.root / ".mmw" / "notes"
+        directory.mkdir(parents=True)
+        (directory / "target.json").write_text(json.dumps({"ports": 1}))
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({
+            "checks": ["make check"],
+            "products": ["notes"],
+        }))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        lines = [line for line in out.splitlines()
+                 if line.startswith("missing") and "notes" in line]
+        self.assertEqual(len(lines), 1, out)
+
+    def test_a_products_value_that_is_not_a_list_is_missing(self):
+        self.set_up_repository()
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({
+            "checks": ["make check"],
+            "products": "notes",
+        }))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        lines = [line for line in out.splitlines()
+                 if line.startswith("missing") and "products" in line]
+        self.assertEqual(len(lines), 1, out)
+
     def test_check_reads_checks_from_a_product_layout(self):
         """The count is the root's. Each product file carries a one-command decoy."""
         self.set_up_repository()
         for name in ("gateway", "parrot"):
-            (self.root / ".mmw" / name).mkdir()
-            (self.root / ".mmw" / name / "target.json").write_text(json.dumps({
-                "ports": 3, "checks": ["echo product"],
-            }))
+            self.onboarded_product(name, ports=3, checks=["echo product"])
         (self.root / ".mmw" / "target.json").write_text(json.dumps({
             "checks": ["echo one", "echo two"],
             "products": ["gateway", "parrot"],
