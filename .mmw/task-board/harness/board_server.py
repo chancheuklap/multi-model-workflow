@@ -6,11 +6,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 BOARD = ROOT / "mmw-v3" / "board"
 if str(BOARD) not in sys.path:
     sys.path.insert(0, str(BOARD))
@@ -40,6 +41,22 @@ def arm(module, method: str, route: str) -> None:
 
 
 def main() -> int:
+    version = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                                      text=True).strip()
+    original = server.make_handler
+
+    def make_handler(token):
+        class Handler(original(token)):
+            def do_GET(self):
+                if urllib.parse.urlsplit(self.path).path == "/__mmw/doctor":
+                    body = json.dumps({"pid": os.getpid(), "version": version}).encode()
+                    self._respond(200, {"Content-Type": "application/json"}, body)
+                    return
+                super().do_GET()
+
+        return Handler
+
+    server.make_handler = make_handler
     value = os.environ.get("MMW_BREAK", "").strip()
     if value:
         method, route = value.split(maxsplit=1)

@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-SERVER = ROOT / ".mmw" / "stories" / "serve.py"
+SERVER = ROOT / ".mmw" / "task-board" / "stories" / "serve.py"
 VIEWPORTS = {
     "topbar": "1440x52",
     "tasks": "236x848",

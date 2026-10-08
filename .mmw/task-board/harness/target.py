@@ -16,8 +16,8 @@ import time
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-HARNESS = ROOT / ".mmw" / "harness"
+ROOT = Path(__file__).resolve().parents[3]
+HARNESS = Path(__file__).resolve().parent
 BOARD_SERVER = HARNESS / "board_server.py"
 
 
@@ -31,7 +31,7 @@ def _refusal():
 
 
 def start_command() -> str:
-    return "python3 .mmw/harness/target.py start"
+    return "python3 .mmw/task-board/harness/target.py start"
 
 
 def lease_command() -> str:
@@ -325,10 +325,56 @@ def discover() -> int:
     return 0
 
 
+def doctor() -> int:
+    raw = os.environ.get("MMW_DATA_DIR")
+    record = Path(raw) / "board-process.json" if raw else None
+    try:
+        state = json.loads(record.read_text()) if record else None
+    except (FileNotFoundError, json.JSONDecodeError):
+        state = None
+
+    def failed(check, expected, actual):
+        sys.stderr.write(f"doctor {check}: expected {expected}; actual {actual}. "
+                         f"Evidence {record}.\n")
+        return 1
+
+    if not state or not owns(state):
+        return failed("process", "this lease's running board", state)
+    origin = state.get("origin", "")
+    if not state.get("token") or page_token(origin) != state["token"]:
+        return failed("instance", state.get("token"), "no matching page token")
+    try:
+        with urllib.request.urlopen(origin + "/__mmw/doctor", timeout=2) as response:
+            facts = json.loads(response.read())
+    except (OSError, json.JSONDecodeError) as exc:
+        return failed("process", f"PID {state['pid']} answering at {origin}", str(exc))
+    if facts.get("pid") != state["pid"]:
+        return failed("pid", state["pid"], facts.get("pid"))
+    expected = os.environ.get("MMW_WORKTREE_COMMIT") or subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    if facts.get("version") != expected:
+        return failed("version", expected, facts.get("version"))
+    try:
+        base = int(os.environ["MMW_PORT_BASE"])
+        count = int(os.environ["MMW_PORT_COUNT"])
+        listeners = subprocess.run(
+            ["lsof", "-nP", "-a", "-p", str(state["pid"]), "-iTCP", "-sTCP:LISTEN", "-Fn"],
+            text=True, capture_output=True, check=True,
+        )
+    except (KeyError, ValueError, OSError, subprocess.CalledProcessError) as exc:
+        return failed("ports", "the board's listeners in its lease segment", str(exc))
+    ports = sorted({int(match.group(1)) for line in listeners.stdout.splitlines()
+                    if (match := re.fullmatch(r"n.*:(\d+)", line))})
+    if not ports or any(not base <= port < base + count for port in ports):
+        return failed("ports", f"{base} through {base + count - 1}", ports)
+    print(json.dumps({"pid": facts["pid"], "version": facts["version"], "ports": ports}))
+    return 0
+
+
 def main() -> int:
-    commands = {"start": start, "stop": stop, "discover": discover}
+    commands = {"start": start, "stop": stop, "discover": discover, "doctor": doctor}
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
-        sys.stderr.write("usage: target.py start|stop|discover\n")
+        sys.stderr.write("usage: target.py start|stop|discover|doctor\n")
         return 2
     return commands[sys.argv[1]]()
 
