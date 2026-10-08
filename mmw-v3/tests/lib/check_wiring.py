@@ -178,10 +178,9 @@ def main() -> int:
     for path in sorted(SKILLS.rglob("*.md")):
         if "__pycache__" not in path.parts:
             findings += check_names(path, commands, named)
-    for path in sorted((MODE_DIR / "references").rglob("*")):
-        if path == MODE_DIR / "references" / "README.md":
-            continue
-        if path.is_file() and path.resolve() not in named:
+    refs = MODE_DIR / "references"
+    for path in sorted(refs.rglob("*")):
+        if path.is_file() and path != refs / "README.md" and path.resolve() not in named:
             rel = path.relative_to(MODE_DIR)
             findings.append(f"{path.relative_to(SKILLS.parent.parent)}: names no step: "
                             f"{rel} is read by nothing; name it in a step under {SKILLS.name}/")
