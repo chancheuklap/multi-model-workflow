@@ -114,7 +114,7 @@ The hand-run test entry point of one skill or subsystem, one directory each unde
 _Home_: `TESTING.md`
 
 **`disable-model-invocation` pairing**:
-The rule that a skill's frontmatter `disable-model-invocation: true` (read by Claude Code) and its `agents/openai.yaml` `policy.allow_implicit_invocation: false` (read by Codex) say the same thing — the skill fires only when the user names it — and change together, on the three skills only the person starts: `mmw-mode`, `teach`, `wait-what`. Touching one without the other leaves a skill user-invoked on half the hosts and model-invoked on the rest.
+The rule that a skill's frontmatter `disable-model-invocation: true` (read by Claude Code) and its `agents/openai.yaml` `policy.allow_implicit_invocation: false` (read by Codex) say the same thing — the skill fires only when the user names it — and change together, on the two skills only the person starts: `teach`, `wait-what`. Touching one without the other leaves a skill user-invoked on half the hosts and model-invoked on the rest.
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md`
 
 **`models.json`**:

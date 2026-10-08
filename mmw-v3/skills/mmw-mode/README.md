@@ -8,13 +8,12 @@ The model to imitate, in content as well as shape, is `mmw-v3/upstream-pstack/sk
 
 The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Three routes load it: the person types `/mmw-mode`; `scripts/mode-hook.py`, which `install.sh` registers at SessionStart on Claude Code and Codex, tells a session in a repository with `.mmw/` to read `SKILL.md`; the start prompt `dispatch.sh` gives a worker or reviewer opens with the same instruction and the file's path.
 
-It is one of the three skills only the person starts (`teach` and `wait-what` are the others); every other skill can be invoked by the model. So the hook and the start prompt tell a session to read the file, never to use the skill: a model cannot call it by name.
+The hook and the start prompt tell a session to read the file rather than to use the skill, so that the mode is read whether or not the model would load it on its own.
 
 ## Frontmatter
 
 - `name: mmw-mode`.
-- `description`: the style in one phrase and the triggers (`/mmw-mode`, requests to work in this mode).
-- `disable-model-invocation: true`, paired with `policy.allow_implicit_invocation: false` in `agents/openai.yaml` for Codex.
+- `description`: the style in one phrase and the triggers (the start of any task in a repository with `.mmw/`, `/mmw-mode`).
 
 poteto-mode's `mode`, `reminder`, `icon` and `color` are Cursor fields and are left out.
 

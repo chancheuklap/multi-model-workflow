@@ -1,7 +1,6 @@
 ---
 name: mmw-mode
-description: MMW's way of working on the owner's products. Use for /mmw-mode, or requests to work in this mode.
-disable-model-invocation: true
+description: MMW's way of working on the owner's products. Use at the start of any task in a repository that has a `.mmw/` directory, or for /mmw-mode.
 ---
 
 # MMW mode

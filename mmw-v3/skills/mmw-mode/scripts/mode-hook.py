@@ -7,8 +7,8 @@ The host hands the session's payload on stdin. When the repository the session w
 (the nearest directory up from `cwd` with a `.git`) has a `.mmw/` directory, which
 setup-mmw gives every repository it onboards, this prints the host's SessionStart answer
 with one line of added context: read this skill's SKILL.md in full before any work. It
-names the file by path because the skill is started only by the person
-(`disable-model-invocation`), so the model cannot call it by name. Outside such a
+names the file by path so that every session there reads the mode, whether or not
+the model would load the skill on its own. Outside such a
 repository it prints nothing.
 
 It only adds context and never decides anything, so every failure is silent: no error
