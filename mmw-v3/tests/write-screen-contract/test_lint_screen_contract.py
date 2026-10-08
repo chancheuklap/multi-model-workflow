@@ -658,5 +658,49 @@ class TestRetiredPrinted(unittest.TestCase):
 
 
 
+class TestProductKey(unittest.TestCase):
+    """A new-layout repository requires `product`, and the value is one of `products`."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.skeleton = self.repo.root / "skeleton.json"
+        self.skeleton.write_text(json.dumps(SKELETON), encoding="utf-8")
+
+    def tearDown(self):
+        self.repo.cleanup()
+
+    def lint_doc(self, doc) -> tuple[int, str]:
+        self.repo.contract.write_text(json.dumps(doc), encoding="utf-8")
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = lc.main(["lint_screen_contract.py", str(self.repo.contract),
+                            str(self.skeleton)])
+        return code, out.getvalue()
+
+    def test_a_product_layout_contract_names_its_product(self):
+        doc = contract()
+        code, text = self.lint_doc(doc)
+        self.assertNotIn("product missing", text, text)
+        self.assertNotIn("is not in .mmw/target.json products", text, text)
+
+        (self.repo.root / ".mmw" / "target.json").write_text(
+            json.dumps({"products": ["alpha", "beta"]}), encoding="utf-8")
+        code, text = self.lint_doc(doc)
+        self.assertEqual(code, 1, text)
+        self.assertIn("product missing", text)
+
+        doc["product"] = "nope"
+        code, text = self.lint_doc(doc)
+        self.assertEqual(code, 1, text)
+        self.assertIn("nope", text)
+        self.assertIn("is not in .mmw/target.json products", text)
+
+        doc["product"] = "alpha"
+        _, text = self.lint_doc(doc)
+        self.assertNotIn("product missing", text, text)
+        self.assertNotIn("nope", text)
+        self.assertNotIn("is not in .mmw/target.json products", text)
+
+
 if __name__ == "__main__":
     unittest.main()

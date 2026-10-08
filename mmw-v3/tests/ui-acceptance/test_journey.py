@@ -863,5 +863,64 @@ class FixtureRepo(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0, proc.stdout)
 
 
+class TwoProducts(unittest.TestCase):
+    """A new-layout repository: each product has its own start and its own journey."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+        (self.repo.root / ".mmw" / "target.json").write_text(
+            json.dumps({"products": ["alpha", "beta"]}), encoding="utf-8")
+
+    def write_product(self, name: str) -> None:
+        base = self.repo.root / ".mmw" / name
+        base.mkdir(parents=True)
+        log = self.repo.log
+        write_exec(base / "start.sh",
+                   "#!/bin/sh\n" + f"echo {name}-start >> '{log}'\nexit 0\n")
+        write_exec(base / "stop.sh",
+                   "#!/bin/sh\n" + f"echo {name}-stop >> '{log}'\n")
+        write_exec(base / "discover.sh",
+                   "#!/bin/sh\n" + f"echo {name}-discover >> '{log}'\n"
+                   + "printf %s '{\"origin\":\"http://127.0.0.1:9\",\"instance\":\"t\"}'\n")
+        (base / "target.json").write_text(json.dumps({
+            "start": str(base / "start.sh"),
+            "stop": str(base / "stop.sh"),
+            "discover": str(base / "discover.sh"),
+            "stories": "true",
+            "leaves_machine": [],
+            "harness_markers": [],
+        }), encoding="utf-8")
+        dest = base / "journeys" / "open"
+        dest.mkdir(parents=True)
+        write_exec(dest / "run",
+                   "#!/bin/sh\n"
+                   + f"echo {name}-script >> '{log}'\n"
+                   + '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9\n')
+
+    def test_a_product_journey_runs_with_its_own_start(self):
+        self.write_product("alpha")
+        self.write_product("beta")
+        code, out, err = self.repo.run("alpha/open")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out, "JOURNEY OK alpha/open\n")
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        self.assertIn("alpha-start", lines)
+        self.assertNotIn("beta-start", lines)
+        self.assertNotIn("beta-script", lines)
+        # One product or two, a bare flow name is not a journey. The read point
+        # would otherwise start the only product.
+        started = lines.count("alpha-start")
+        for label, products in (("two", ["alpha", "beta"]), ("one", ["alpha"])):
+            (self.repo.root / ".mmw" / "target.json").write_text(
+                json.dumps({"products": products}), encoding="utf-8")
+            code, out, err = self.repo.run("open")
+            self.assertEqual(code, 2, f"{label}: {out}{err}")
+            self.assertNotIn("JOURNEY", out, label)
+            self.assertIn("<product>/<flow>", err, label)
+        self.assertEqual(
+            self.repo.log.read_text(encoding="utf-8").count("alpha-start"), started)
+
+
 if __name__ == "__main__":
     unittest.main()

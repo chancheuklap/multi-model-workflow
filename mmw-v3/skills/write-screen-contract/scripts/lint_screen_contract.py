@@ -15,6 +15,7 @@ kept in sight so a retired identity is never a silent allowance.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import sys
@@ -44,8 +45,8 @@ SCENE_KEYS = {"page", "input"}
 PAGE_KEYS = {"mount", "component", "viewports"}
 TOAST = re.compile(r"toast:[A-Z][A-Z0-9_]*")
 TOP_KEYS = {
-    "effort", "baselines", "locale", "viewports", "pages", "scenes", "states", "rows",
-    "retired_ids",
+    "effort", "product", "baselines", "locale", "viewports", "pages", "scenes", "states",
+    "rows", "retired_ids",
     "backend_without_ui", "proposed_operations",
 }
 REMOVED_TOP_KEYS = {"target", "volatile_values", "readme_dispositions"}
@@ -78,6 +79,44 @@ def operation(entry) -> tuple[str, str] | None:
     if len(parts) < 2 or parts[0].upper() not in HTTP_METHODS:
         return None
     return parts[0].upper(), parts[1]
+
+
+def load_lease():
+    """`lease.py`, where the one read of `.mmw/target.json` lives. None when it is absent."""
+    path = Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts" / "lease.py"
+    if not path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("mmw_lease_for_screen_contract", path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def product_name_errors(doc: dict, root: Path) -> list[str]:
+    """`product` when the root lists products: required, and one of those names.
+
+    A root that is itself the product does not carry the key. `product` is not the
+    effort name. A root that cannot be read is left to the reader that owns that file.
+    """
+    lease = load_lease()
+    if lease is None:
+        return []
+    try:
+        read = lease.read_target_json(root)
+    except lease.TargetJSONError:
+        return []
+    if read is None or not lease.product_layout(read.root):
+        return []
+    names = read.root.get("products")
+    listed = [name for name in names if isinstance(name, str)] if isinstance(names, list) else []
+    value = doc.get("product")
+    if not isinstance(value, str) or not value.strip():
+        return ["product missing (name one product from .mmw/target.json products)"]
+    if value not in listed:
+        return [f"product {value!r} is not in .mmw/target.json products"]
+    return []
 
 
 def repo_root(contract: Path) -> Path:
@@ -566,6 +605,8 @@ def main(argv: list[str]) -> int:
     e2, w2 = lint_declarations(doc, skeleton, baseline)
     errors += e2
     warnings += w2
+    if isinstance(doc, dict):
+        errors += product_name_errors(doc, repo_root(contract))
     for w in warnings:
         print("WARN ", w)
     for e in errors:

@@ -9,8 +9,11 @@
 
 The screen contract names the design package, viewports, pages and scenes. `--pages`
 names the `pages.<page>.mount` values this run covers, including `App · ` pages;
-`--scenes` narrows that set. `.mmw/target.json`'s `stories` command prints the
-origin, and the story URL is
+`--scenes` narrows that set. When the screen contract names `product`, that
+product's `stories` command prints the origin. When it does not and the root
+lists more than one product, `--product` names which command. One listed product
+is selected without the flag. A root file that is itself the product is unchanged.
+The story URL is
 `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`.
 
 The product side is `[data-story-root]`; the design side is `#dc-root` at the size
@@ -209,9 +212,27 @@ def product_root() -> Path:
     return tc.repo_root()
 
 
-def load_stories_config(root: Path) -> dict:
+def stories_product(doc: dict, flag: str | None) -> str | None:
+    """The product whose stories command this run starts, or None to let the read choose.
+
+    The screen contract's `product` wins. `--product` is only for a contract that
+    names none. The two disagreeing is a refusal: starting the flag's product would
+    ignore the contract the oracle was given.
+    """
+    named = doc.get("product")
+    contract_name = named.strip() if isinstance(named, str) else ""
+    flag_name = flag.strip() if isinstance(flag, str) else ""
+    if contract_name and flag_name and contract_name != flag_name:
+        raise SystemExit(refusal(
+            f"--product {flag_name} disagrees with screen contract product {contract_name}.",
+            "The story oracle starts the product the screen contract names.",
+            "Drop --product, or pass that same name, then re-run."))
+    return contract_name or flag_name or None
+
+
+def load_stories_config(root: Path, product: str | None = None) -> dict:
     try:
-        cfg = lease_mod.read_target_json(root)
+        cfg = lease_mod.read_target_json(root, product)
     except lease_mod.TargetJSONError as exc:
         raise SystemExit(refusal(
             str(exc),
@@ -222,11 +243,31 @@ def load_stories_config(root: Path) -> dict:
             "no .mmw/target.json.",
             "story-parity.py starts the product story pages with the stories command in that file.",
             "Add .mmw/target.json with a stories command, then re-run."))
+    if lease_mod.product_layout(cfg.root):
+        listed = cfg.root.get("products")
+        names = [item for item in listed if isinstance(item, str)] if isinstance(listed, list) else []
+        if product and product not in names:
+            raise SystemExit(refusal(
+                f"product {product!r} is not in .mmw/target.json products.",
+                "The story oracle starts one product from that list.",
+                "Name a product from .mmw/target.json products, then re-run."))
+        if product and (cfg.name != product or not cfg.present):
+            raise SystemExit(refusal(
+                f"no .mmw/{product}/target.json.",
+                "The story oracle starts the stories command in that product's file.",
+                f"Add .mmw/{product}/target.json with a stories command, then re-run."))
+        if not cfg.present:
+            shown = ", ".join(names)
+            raise SystemExit(refusal(
+                f".mmw/target.json names more than one product ({shown}); pass --product <name>.",
+                "The screen contract names no product, so the oracle cannot choose a stories command.",
+                "Pass --product <name>, or set product in the screen contract, then re-run."))
     if not cfg.get("stories"):
+        where = f".mmw/{cfg.name}/target.json" if cfg.name else ".mmw/target.json"
         raise SystemExit(refusal(
-            ".mmw/target.json has no `stories` command.",
+            f"{where} has no `stories` command.",
             "story-parity.py starts the product story page with that command, which prints origin.",
-            "Add a stories command to .mmw/target.json, then re-run."))
+            f"Add a stories command to {where}, then re-run."))
     return cfg
 
 
@@ -547,6 +588,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="render the design side of the selected scenes into --out "
                         "(screenshots and values/<mount>/<scene>-<WxH>.json) and stop; "
                         "no product is needed")
+    p.add_argument("--product", metavar="NAME", default=None,
+                   help="which product's stories command to start, when the screen "
+                        "contract names none and the repository lists more than one")
     return p
 
 
@@ -764,7 +808,8 @@ def run(args) -> int:
     media = out / "media"
     media.mkdir(parents=True, exist_ok=True)
     cache = Path(args.cdn).expanduser() if args.cdn else dr.DEFAULT_CACHE
-    cfg = None if args.render_only else load_stories_config(root)
+    cfg = None if args.render_only else load_stories_config(
+        root, stories_product(doc, args.product))
 
     pages = {dr.wrapper_path(s.name): dr.wrapper_page(dr.component_of(s.page), s.props,
                                                       lang=locale)
