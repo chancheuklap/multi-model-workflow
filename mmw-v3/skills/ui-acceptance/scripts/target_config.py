@@ -430,15 +430,16 @@ def _report_product_layout(root: Path, product: str | None, validate: bool) -> i
 def target_main(argv: list[str]) -> int:
     """`target_config.py …`: the setup-time bar for one repository.
 
-    `--check` prints every field of `.mmw/target.json` as `ok` or `missing`, so a
-    person filling the file reads one screen and nothing else; exit 0 complete, 1
-    something missing, 2 the repository cannot be read. `--validate` prints the first
+    `--check` prints the rules, then each stale key, then one `target_config.py --check:`
+    line per field still to answer, and `complete: the oracles can drive this repository`
+    when none is, so a person filling the file reads one screen and nothing else; exit 0
+    complete, 1 something missing, 2 the repository cannot be read. `--validate` prints the first
     problem only. Keys outside `FIELDS` are stale and reported without changing exit.
     """
     import argparse
     parser = argparse.ArgumentParser(prog="target_config.py")
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--check", action="store_true", help="print every field, ok or missing")
+    mode.add_argument("--check", action="store_true", help="print every field still to answer")
     mode.add_argument("--validate", action="store_true", help="print the first problem only")
     parser.add_argument("--repo", type=Path, default=None,
                         help="the repository (default: the one the working directory is in)")

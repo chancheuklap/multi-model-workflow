@@ -99,12 +99,14 @@ control and leaves the next run blocked.
 ## Exit codes
 
 On `JOURNEY FAILED`, the oracle prints the script's stdout and stderr first, with color
-codes removed, then `JOURNEY FAILED <name> at <last non-empty line>`. The next line is
+codes removed, then `JOURNEY FAILED <name> at <last non-empty line>`. Next comes the
+second `doctor`'s output of every started product that declares one, with a line
+`product <name> doctor pid expected <first> actual <second>` when its pid changed. Then
 `MMW_DATA_DIR` and this run's data directory. After that, one line per file in this
 run's evidence directory, or one line naming that directory and pointing back to this
 reference when the script left it empty. What to fix is what the script printed.
 
-A `start` or `discover` that fails prints one line naming the command, its command
+A `start`, `discover` or `doctor` that fails prints one line naming the command, its command
 string and its exit code, then that command's own output, or `(no output)` when the
 command itself printed nothing, then a line naming `MMW_DATA_DIR`. The run exits 2.
 

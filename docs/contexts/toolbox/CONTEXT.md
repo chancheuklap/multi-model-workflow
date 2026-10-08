@@ -39,7 +39,7 @@ The working tree of the repository's own clone, as against the linked worktrees 
 _Home_: `AGENTS.md`
 
 **subtree**:
-How an upstream repository is carried inside this one, read-only (`git subtree pull --prefix … --squash`): `mmw-v3/upstream-mattpocock/` is `mattpocock/skills`, `mmw-v3/upstream-pstack/` is pstack from `cursor/plugins`, `mmw-v3/upstream-diagram-design/` is `cathrynlavery/diagram-design`. Nothing runs from a subtree: a file a skill needs is copied into `mmw-v3/skills/` and gets a row in **`imports.tsv`**.
+How an upstream repository is carried inside this one, read-only (`git subtree pull --prefix … --squash`): `mmw-v3/upstream-mattpocock/` is `mattpocock/skills`, `mmw-v3/upstream-pstack/` is pstack from `cursor/plugins`, `mmw-v3/upstream-cursor-team-kit/` is `cursor-team-kit/` from the same `cursor/plugins`, `mmw-v3/upstream-diagram-design/` is `cathrynlavery/diagram-design`. Nothing runs from a subtree: a file a skill needs is copied into `mmw-v3/skills/` and gets a row in **`imports.tsv`**.
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md`
 
 **upstream**:
