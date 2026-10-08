@@ -28,7 +28,7 @@ Before starting investigators, anchor the investigation in concrete code. You ne
 - The relevant file path(s) and line range(s)
 - The key symbols (function names, class names, constants)
 - An initial commit list. The last few commits touching the target.
-- PR numbers from merge commits (pattern `(#1234)` in the subject line)
+- PR numbers: each `#1234` in a commit's subject or body. `gh pr view` it; a number it does not find is an issue, so record it as a ticket ID and read it with `gh issue view <number> --comments`
 
 Build this inline.
 
@@ -40,7 +40,7 @@ git blame -L <start>,<end> <file>
 git log --follow -p -- <file>
 
 # Last N commits touching the file, PR numbers visible
-git log --oneline -20 -- <file>
+git log --follow --oneline -20 -- <file>
 
 # Extract PR numbers from a commit message
 git log -1 --format=%B <commit>
@@ -72,7 +72,7 @@ Map each available MCP to one evidence category:
 6. Error / exception tracking
 7. Product analytics warehouse
 
-Source control is always available through git and `gh`. For the other six, classify using the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence. Record ambiguous cases in the coverage map.
+Source control is always available through git and `gh`. When the repository's issues are on GitHub (`gh issue list` answers), the issue / ticket tracker is available too, through `gh issue`: its investigator searches with `gh`, and source control's searches only commits and PRs. For the other categories, classify using the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence. Record ambiguous cases in the coverage map.
 
 Aim for a complete **coverage map**, not a minimal one. Document the null, don't skip the search.
 
@@ -87,7 +87,7 @@ Each investigator's brief holds:
 
 ### Investigator roster. One per available evidence category
 
-Start one investigator per category that has a matching MCP. Each owns exactly one tool or MCP.
+Start one investigator per category that has a matching MCP. Each owns exactly one evidence category.
 
 Each entry names the category and the kind of "why" it uniquely surfaces. Use it to know what to expect back, how to name a gap when a category returns empty, and (only in the rare provably-irrelevant case) to justify a skip.
 
