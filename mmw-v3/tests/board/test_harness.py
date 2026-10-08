@@ -13,9 +13,9 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-TARGET = ROOT / ".mmw" / "harness" / "target.py"
-GH = ROOT / ".mmw" / "harness" / "bin" / "gh"
-GH_RESPONSES = ROOT / ".mmw" / "harness" / "github" / "responses.json"
+TARGET = ROOT / ".mmw" / "task-board" / "harness" / "target.py"
+GH = ROOT / ".mmw" / "task-board" / "harness" / "bin" / "gh"
+GH_RESPONSES = ROOT / ".mmw" / "task-board" / "harness" / "github" / "responses.json"
 
 
 def free_port() -> int:
@@ -49,6 +49,7 @@ def running_target(*, armed_break=""):
         env.update({
             "MMW_DATA_DIR": str(data_dir),
             "MMW_PORT_BASE": str(free_port()),
+            "MMW_PORT_COUNT": "1",
             "MMW_INSTANCE": "board-harness-test",
         })
         if armed_break:
@@ -74,6 +75,51 @@ def running_target(*, armed_break=""):
 
 
 class HarnessTest(unittest.TestCase):
+    def test_doctor_reports_the_running_commit_and_listener_without_writing(self):
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                                         text=True).strip()
+        with running_target() as (data_dir, env, state, _stdout):
+            env = {**env, "MMW_WORKTREE_COMMIT": commit}
+            before = {p.relative_to(data_dir): (p.read_bytes(), p.stat().st_mtime_ns)
+                      for p in data_dir.rglob("*") if p.is_file()}
+            checked = subprocess.run(["python3", str(TARGET), "doctor"], cwd=ROOT,
+                                     env=env, text=True, capture_output=True)
+            after = {p.relative_to(data_dir): (p.read_bytes(), p.stat().st_mtime_ns)
+                     for p in data_dir.rglob("*") if p.is_file()}
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+            self.assertEqual(json.loads(checked.stdout), {
+                "pid": state["pid"], "version": commit,
+                "ports": [int(env["MMW_PORT_BASE"])],
+            })
+            self.assertEqual(after, before)
+
+    def test_doctor_refuses_a_stale_commit_and_an_outside_listener_without_restarting(self):
+        with running_target() as (data_dir, env, state, _stdout):
+            before = (data_dir / "board-process.json").read_bytes()
+            for change, fact in [
+                ({"MMW_WORKTREE_COMMIT": "not-the-running-commit"}, "version"),
+                ({"MMW_PORT_BASE": str(int(env["MMW_PORT_BASE"]) + 1)}, "ports"),
+            ]:
+                with self.subTest(fact=fact):
+                    checked = subprocess.run(["python3", str(TARGET), "doctor"], cwd=ROOT,
+                                             env={**env, **change}, text=True, capture_output=True)
+                    self.assertEqual(checked.returncode, 1, checked.stdout + checked.stderr)
+                    self.assertIn(fact, checked.stderr)
+                    self.assertEqual((data_dir / "board-process.json").read_bytes(), before)
+                    status, facts = request_json(state["origin"], "GET", "/__mmw/doctor")
+                    self.assertEqual(status, 200)
+                    self.assertEqual(facts["pid"], state["pid"])
+
+    def test_doctor_refuses_a_missing_process_without_creating_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory) / "not-started"
+            checked = subprocess.run(["python3", str(TARGET), "doctor"], cwd=ROOT,
+                                     env={**os.environ, "MMW_DATA_DIR": str(data_dir)},
+                                     text=True, capture_output=True)
+            self.assertEqual(checked.returncode, 1, checked.stdout + checked.stderr)
+            self.assertIn("process", checked.stderr)
+            self.assertFalse(data_dir.exists())
+
     def test_fake_gh_reads_exact_fixture_and_records_every_call(self):
         with tempfile.TemporaryDirectory() as data_dir:
             env = {**os.environ, "MMW_DATA_DIR": data_dir}

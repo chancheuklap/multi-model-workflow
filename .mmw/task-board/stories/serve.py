@@ -20,7 +20,7 @@ import urllib.parse
 from copy import deepcopy
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 PAGE = ROOT / "mmw-v3" / "board" / "page"
 HANDOFF = Path(os.environ.get(

@@ -265,7 +265,7 @@ def layout_problems(root: Path, product: str | None = None) -> list[str]:
         return [_line(shown, "no file", shown, shown)]
     data = read.root
     problems: list[str] = []
-    missing = [key for key in ROOT_KEYS if key not in data]
+    missing = [] if "products" in data else ["products"]
     extra = sorted(set(data) - set(ROOT_KEYS))
     if missing or extra:
         parts = []
@@ -274,7 +274,8 @@ def layout_problems(root: Path, product: str | None = None) -> list[str]:
         if extra:
             parts.append("also " + ", ".join(extra))
         problems.append(_line(
-            "root keys checks, products, needs", "; ".join(parts), shown, shown))
+            "products and optional checks, needs as the only root keys",
+            "; ".join(parts), shown, shown))
     names = data.get("products")
     seen: set[str] = set()
     counted: list[tuple[str, int]] = []

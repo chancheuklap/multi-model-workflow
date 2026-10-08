@@ -1,0 +1,15 @@
+{
+  "start": "python3 .mmw/task-board/harness/target.py start",
+  "stop": "python3 .mmw/task-board/harness/target.py stop",
+  "discover": "python3 .mmw/task-board/harness/target.py discover",
+  "stories": "python3 -u .mmw/task-board/stories/serve.py",
+  "journeys": ".mmw/task-board/journeys",
+  "leaves_machine": [
+    "board reads GitHub through gh; .mmw/task-board/harness/bin/gh records calls in $MMW_DATA_DIR/gh-calls during automation"
+  ],
+  "harness_markers": [
+    "MMW_BREAK"
+  ],
+  "ports": 1,
+  "doctor": "python3 .mmw/task-board/harness/target.py doctor"
+}

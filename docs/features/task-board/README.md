@@ -4,9 +4,9 @@ The task board is the local page for reading this repository's maps, specs, and 
 
 ## Baseline preconditions
 
-- Hold this worktree's lease. Run `python3 ~/.agents/skills/ui-acceptance/scripts/lease.py run -- python3 .mmw/harness/target.py start`.
-- Run `python3 .mmw/harness/target.py discover` the same way. It prints the origin. The page is on 127.0.0.1 at that lease port.
-- The harness puts `.mmw/harness/bin` first on `PATH` and uses a private `MMW_HOME`. A write from the page stays in that copy.
+- Hold this worktree's lease. Run `python3 ~/.agents/skills/ui-acceptance/scripts/lease.py run --product task-board -- python3 .mmw/task-board/harness/target.py start`.
+- Run `python3 .mmw/task-board/harness/target.py discover` the same way. It prints the origin. The page is on 127.0.0.1 at that lease port.
+- The harness puts `.mmw/task-board/harness/bin` first on `PATH` and uses a private `MMW_HOME`. A write from the page stays in that copy.
 - Leave the board that the `com.mmw.board` LaunchAgent keeps. This map drives the leased copy only.
 
 ## Driving conventions
@@ -18,7 +18,7 @@ The task board is the local page for reading this repository's maps, specs, and 
 
 ## Proof and skip reporting
 
-- A journey that fails writes `screenshot.png`, `trace.zip`, `console.txt`, and `requests.txt` under `MMW_EVIDENCE_DIR`, from `.mmw/journeys/evidence.py`.
+- A journey that fails writes `screenshot.png`, `trace.zip`, `console.txt`, and `requests.txt` under `MMW_EVIDENCE_DIR`, from `.mmw/task-board/journeys/evidence.py`.
 - Name the feature file and the entry you used with that evidence.
 - Report a path you could not reach with the command you ran and the precondition that failed.
 - A path you did not take is not verified by a different path.

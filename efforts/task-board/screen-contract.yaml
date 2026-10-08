@@ -1,3 +1,4 @@
+product: task-board
 effort: task-board
 baselines:
   look: efforts/task-board/claude-design
