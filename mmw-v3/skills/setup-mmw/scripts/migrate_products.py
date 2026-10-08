@@ -33,13 +33,14 @@ at the root.
 import importlib.util
 import json
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 
 DIRS = ("harness", "stories", "journeys")
 ROOT_KEYS = ("checks", "needs")
-KEPT = {"checks", "needs", "products"}
+KEPT = {*ROOT_KEYS, "products"}
 NAME = re.compile(r"^[a-z0-9-]+$")
 OLD_PATH = re.compile(r"\.mmw/(harness/|stories/|journeys(?=/|$|[\s\"']))")
 JOURNEY_RUN = re.compile(r"(journey\.py run )([A-Za-z0-9][A-Za-z0-9_-]*)(?![A-Za-z0-9_/-])")
@@ -87,19 +88,13 @@ def rewrite_value(value, product):
 def split_target(doc, product):
     root_doc = {key: doc[key] for key in ROOT_KEYS if key in doc}
     root_doc["products"] = [product]
-    product_doc = {}
-    for key, value in doc.items():
-        if key in KEPT:
-            continue
-        product_doc[key] = rewrite_value(value, product)
+    product_doc = {key: rewrite_value(value, product) for key, value in doc.items() if key not in KEPT}
     return root_doc, product_doc
 
 
-def old_layout(root, doc, had_file):
+def old_layout(root, doc):
     if any((root / ".mmw" / name).exists() for name in DIRS):
         return True
-    if not had_file:
-        return False
     return any(key not in KEPT for key in doc)
 
 
@@ -136,23 +131,13 @@ def rewrite_journeys(path, product):
 def climbing_files(root, moved):
     found = []
     for rel in moved:
-        base = root / rel
-        files = [base] if base.is_file() else [path for path in base.rglob("*") if path.is_file()]
-        for path in files:
+        for path in (root / rel).rglob("*"):
+            if not path.is_file():
+                continue
             text = read_text(path)
             if text is not None and CLIMB.search(text):
                 found.append(path.relative_to(root).as_posix())
     return sorted(found)
-
-
-def shell_join(args):
-    shown = []
-    for arg in args:
-        if any(char in arg for char in " ()\\$|"):
-            shown.append("'" + arg.replace("'", "'\\''") + "'")
-        else:
-            shown.append(arg)
-    return " ".join(shown)
 
 
 def main():
@@ -177,9 +162,8 @@ def main():
         )
     root = Path(top.stdout.strip())
     target = root / ".mmw" / "target.json"
-    had_file = target.is_file()
-    doc = json.loads(target.read_text(encoding="utf-8")) if had_file else {}
-    if not old_layout(root, doc, had_file):
+    doc = json.loads(target.read_text(encoding="utf-8")) if target.is_file() else {}
+    if not old_layout(root, doc):
         print("PRODUCTS OK")
         return 0
     destination = root / ".mmw" / product
@@ -191,7 +175,7 @@ def main():
             f"Move .mmw/{product} aside, then run python3 {script} {product} again.",
         )
     destination.mkdir(parents=True)
-    moves = []
+    moved = []
     for name in DIRS:
         old = f".mmw/{name}"
         new = f".mmw/{product}/{name}"
@@ -202,7 +186,7 @@ def main():
             git(root, "mv", "--", old, new)
         else:
             source.rename(destination / name)
-        moves.append((old, new))
+        moved.append(new)
         print(f"MOVED {old} -> {new}")
     root_doc, product_doc = split_target(doc, product)
     target.write_text(json.dumps(root_doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -221,15 +205,15 @@ def main():
             if rewrite_journeys(path, product):
                 rewritten.append(rel)
                 print(f"REWROTE {rel} journeys")
-    add = [".mmw/target.json", f".mmw/{product}/target.json", *[new for _, new in moves], *rewritten]
+    add = [".mmw/target.json", f".mmw/{product}/target.json", *moved, *rewritten]
     git(root, "add", "--", *add)
     hits = git(root, *GREP, "--", ".", check=False).stdout.splitlines()
     if hits:
-        print(f"STILL NAMED {len(hits)}: git {shell_join(GREP)} -- . lists them")
-    climbing = climbing_files(root, [new for _, new in moves])
+        print(f"STILL NAMED {len(hits)}: git {shlex.join(GREP)} -- . lists them")
+    climbing = climbing_files(root, moved)
     if climbing:
         print(f"CLIMBS {len(climbing)}: {' '.join(climbing)}")
-    print(f"PRODUCTS MIGRATED {len(moves) + 1 + len(rewritten)} changes")
+    print(f"PRODUCTS MIGRATED {len(moved) + 1 + len(rewritten)} changes")
     return 0
 
 
