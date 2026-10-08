@@ -1109,6 +1109,43 @@ class Doctor(unittest.TestCase):
         self.assertNotIn("JOURNEY OK", text)
         self.assertNotIn("JOURNEY FAILED", text)
 
+    def test_a_doctor_without_a_pid_names_what_it_printed(self):
+        marker = self.repo.root / ".mmw" / "script-ran"
+        self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "printf '%s\\n' '{\"version\":\"t\"}'",
+            "exit 0",
+        ]), f"touch '{marker}'\nexit 0")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 2, text)
+        self.assertFalse(marker.exists(), text)
+        self.assertIn("product parrot doctor pid expected a pid actual no pid", out)
+        self.assertIn('{"version":"t"}', out)
+        self.assertLess(out.find("exit 0"), out.find("expected a pid"), out)
+        self.assertLess(out.find("expected a pid"), out.find("MMW_DATA_DIR"), out)
+        self.assertNotIn("parrot-script", self.repo.log.read_text(encoding="utf-8"))
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_a_silent_doctor_without_a_pid_names_the_gap(self):
+        marker = self.repo.root / ".mmw" / "script-ran"
+        self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "exit 0",
+        ]), f"touch '{marker}'\nexit 0")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 2, text)
+        self.assertFalse(marker.exists(), text)
+        self.assertIn("product parrot doctor pid expected a pid actual none", out)
+        self.assertIn("(no output)", out)
+        self.assertLess(out.find("exit 0"), out.find("expected a pid"), out)
+        self.assertLess(out.find("expected a pid"), out.find("(no output)"), out)
+        self.assertNotIn("parrot-script", self.repo.log.read_text(encoding="utf-8"))
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
     def test_doctor_runs_again_after_a_failed_script(self):
         asked = self.repo.root / ".mmw" / "asked-pid"
         self.write_product("parrot", "\n".join([

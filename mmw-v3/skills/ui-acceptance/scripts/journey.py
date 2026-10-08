@@ -44,8 +44,9 @@ output for every started product that declares one, then `MMW_DATA_DIR <path>`,
 then the files in this run's evidence directory. A pid that differs from the
 first is written on its own line there. A `start`, `discover` or `doctor`
 that fails names the command, its command string and its exit code, forwards its
-output or `(no output)`, names `MMW_DATA_DIR`, and exits 2. A product with a name
-is named on that line. The `--break` second pass prints the script only when
+output or `(no output)`, names `MMW_DATA_DIR`, and exits 2. A `doctor` that
+exits 0 without a `pid` also writes that a pid was expected and what was found in its place.
+A product with a name is named on that line. The `--break` second pass prints the script only when
 that pass exits 0.
 
     JOURNEY OK <name>                                 exit 0
@@ -276,6 +277,24 @@ def reported_pid(proc: subprocess.CompletedProcess) -> str | None:
     return text or None
 
 
+def pid_actual(proc: subprocess.CompletedProcess) -> str:
+    """What a `doctor` showed where a usable `pid` would be.
+
+    A usable `pid` is a number or a non-empty string. Anything else is the
+    failure `examine` reports, so the words here are the actual half of that line.
+    """
+    raw = (proc.stdout or "").strip()
+    if not raw:
+        return "none"
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return "not a JSON object"
+    if not isinstance(data, dict) or "pid" not in data:
+        return "no pid"
+    return json.dumps(data["pid"], ensure_ascii=False)
+
+
 def journey_binding(name: str, root: Path) -> tuple[dict, Path]:
     """The product config this run starts, and the directory the script lives in.
 
@@ -331,7 +350,8 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     def bail(message: str | None = None,
              proc: subprocess.CompletedProcess | None = None,
              kind: str | None = None,
-             command: str | None = None) -> int:
+             command: str | None = None,
+             detail: str | None = None) -> int:
         stop_this_run()
         if proc is not None:
             # stdout is block-buffered on a pipe. Flush the naming line, and the
@@ -346,6 +366,9 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
                 sys.stdout.flush()
             if proc.stderr:
                 sys.stderr.write(proc.stderr)
+            if detail:
+                print(detail)
+                sys.stdout.flush()
             if command_was_silent(proc):
                 print("(no output)")
             print(f"MMW_DATA_DIR {env['MMW_DATA_DIR']}")
@@ -355,28 +378,42 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
 
     seen_pids: dict[str, str] = {}
 
-    def examine(product_cfg: dict, product_env: dict[str, str]) -> int | None:
+    def run_doctor(product_cfg: dict, product_env: dict[str, str],
+                   pid: str | None = None
+                   ) -> tuple[str, str | None, subprocess.CompletedProcess] | None:
         command = product_cfg.get("doctor")
         if not isinstance(command, str) or not command.strip():
             return None
-        proc = run_command(
-            command, root, env=doctor_environment(product_env, root), check=False)
         product = getattr(product_cfg, "name", None)
+        proc = run_command(
+            command, root, env=doctor_environment(product_env, root, pid), check=False)
+        return command, product, proc
+
+    def examine(product_cfg: dict, product_env: dict[str, str]) -> int | None:
+        ran = run_doctor(product_cfg, product_env)
+        if ran is None:
+            return None
+        command, product, proc = ran
         kind = "doctor" if not product else f"product {product} doctor"
-        pid = reported_pid(proc)
-        if proc.returncode != 0 or pid is None:
+        found = reported_pid(proc)
+        if proc.returncode != 0:
             return bail(proc=proc, kind=kind, command=command)
-        seen_pids[product or ""] = pid
+        if found is None:
+            label = product or "doctor"
+            return bail(
+                proc=proc, kind=kind, command=command,
+                detail=(f"product {label} doctor pid expected a pid "
+                        f"actual {pid_actual(proc)}"))
+        seen_pids[product or ""] = found
         return None
 
     def diagnose(product_cfg: dict, product_env: dict[str, str]) -> str:
-        command = product_cfg.get("doctor")
-        if not isinstance(command, str) or not command.strip():
+        product_name = getattr(product_cfg, "name", None)
+        previous = seen_pids.get(product_name or "")
+        ran = run_doctor(product_cfg, product_env, previous)
+        if ran is None:
             return ""
-        product = getattr(product_cfg, "name", None)
-        previous = seen_pids.get(product or "")
-        proc = run_command(
-            command, root, env=doctor_environment(product_env, root, previous), check=False)
+        _, product, proc = ran
         parts: list[str] = []
         for chunk in (proc.stdout or "", proc.stderr or ""):
             if chunk:
