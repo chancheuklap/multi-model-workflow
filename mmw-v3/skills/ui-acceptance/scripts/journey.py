@@ -18,8 +18,14 @@ started under this lease is refused before any commands run.
 
 Acquires or reuses this worktree's lease, runs `start` every time, runs `discover`
 and puts each printed address into the environment under its uppercase key (plus
-the lease variables and `MMW_EVIDENCE_DIR`), runs the script, and runs `stop`
-whether the script succeeded or not.
+the lease variables and `MMW_EVIDENCE_DIR`). Each started product that declares
+`doctor` runs that command after its own `discover`. A dependency runs it before
+the product under test starts. The product under test runs it before the script. The command
+receives `MMW_WORKTREE_COMMIT`, this worktree's commit. A non-zero `doctor`, or
+one that exits 0 without a `pid`, stops the run before the script and names that
+product. Otherwise the script runs. When the script exits non-zero, each of those
+commands runs once more before `stop`, with `MMW_DOCTOR_PID` set to the pid that
+product's first `doctor` printed. `stop` runs whether the script succeeded or not.
 
 With `--break`, it starts the product again with `MMW_BREAK` supplied only to `start`,
 requires `BREAK ARMED <METHOD> <route>`, discovers the product again, and re-runs the
@@ -33,11 +39,15 @@ machine as it found it, and anything still listening on the slot outlives the ru
 blocks whichever run is given the slot next.
 
 A script that exits non-zero is printed in full first (stdout, then stderr, SGR
-color codes removed). `JOURNEY FAILED` follows, then `MMW_DATA_DIR <path>`, then
-the files in this run's evidence directory. A `start` or `discover` that fails
-names the command, its command string and its exit code, forwards its output or
-`(no output)`, names `MMW_DATA_DIR`, and exits 2. The `--break` second pass prints
-the script only when that pass exits 0.
+color codes removed). `JOURNEY FAILED` follows, then each second `doctor`'s
+output for every started product that declares one, then `MMW_DATA_DIR <path>`,
+then the files in this run's evidence directory. A pid that differs from the
+first is written on its own line there. A `start`, `discover` or `doctor`
+that fails names the command, its command string and its exit code, forwards its
+output or `(no output)`, names `MMW_DATA_DIR`, and exits 2. A `doctor` that
+exits 0 without a `pid` also writes that a pid was expected and what was found in its place.
+A product with a name is named on that line. The `--break` second pass prints the script only when
+that pass exits 0.
 
     JOURNEY OK <name>                                 exit 0
     JOURNEY FAILED <name> at <last line>              exit 1
@@ -227,6 +237,64 @@ def negative_env(env: dict[str, str], data: dict) -> dict[str, str]:
     return control
 
 
+def worktree_commit(root: Path) -> str:
+    """The commit `doctor` compares a build against, or empty when `root` has none."""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root,
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ""
+
+
+def doctor_environment(env: dict[str, str], root: Path, pid: str | None = None) -> dict[str, str]:
+    """The lease environment `doctor` runs in, plus this worktree's commit.
+
+    `MMW_DOCTOR_PID` from the parent session is dropped. `pid` is the one the
+    first `doctor` printed, and is set only on the run after a failed script.
+    """
+    prepared = dict(env)
+    prepared.pop("MMW_DOCTOR_PID", None)
+    prepared["MMW_WORKTREE_COMMIT"] = worktree_commit(root)
+    if pid is not None:
+        prepared["MMW_DOCTOR_PID"] = pid
+    return prepared
+
+
+def reported_pid(proc: subprocess.CompletedProcess) -> str | None:
+    """The `pid` a `doctor` that exited 0 printed, or None when it printed none."""
+    try:
+        data = json.loads((proc.stdout or "").strip())
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict) or "pid" not in data:
+        return None
+    pid = data["pid"]
+    if isinstance(pid, bool) or not isinstance(pid, (int, str)):
+        return None
+    text = str(pid).strip()
+    return text or None
+
+
+def pid_actual(proc: subprocess.CompletedProcess) -> str:
+    """What a `doctor` showed where a usable `pid` would be.
+
+    A usable `pid` is a number or a non-empty string. Anything else is the
+    failure `examine` reports, so the words here are the actual half of that line.
+    """
+    raw = (proc.stdout or "").strip()
+    if not raw:
+        return "none"
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return "not a JSON object"
+    if not isinstance(data, dict) or "pid" not in data:
+        return "no pid"
+    return json.dumps(data["pid"], ensure_ascii=False)
+
+
 def journey_binding(name: str, root: Path) -> tuple[dict, Path]:
     """The product config this run starts, and the directory the script lives in.
 
@@ -282,7 +350,8 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     def bail(message: str | None = None,
              proc: subprocess.CompletedProcess | None = None,
              kind: str | None = None,
-             command: str | None = None) -> int:
+             command: str | None = None,
+             detail: str | None = None) -> int:
         stop_this_run()
         if proc is not None:
             # stdout is block-buffered on a pipe. Flush the naming line, and the
@@ -297,12 +366,74 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
                 sys.stdout.flush()
             if proc.stderr:
                 sys.stderr.write(proc.stderr)
+            if detail:
+                print(detail)
+                sys.stdout.flush()
             if command_was_silent(proc):
                 print("(no output)")
             print(f"MMW_DATA_DIR {env['MMW_DATA_DIR']}")
         if message:
             print(message, file=sys.stderr)
         return 2
+
+    seen_pids: dict[str, str] = {}
+
+    def run_doctor(product_cfg: dict, product_env: dict[str, str],
+                   pid: str | None = None
+                   ) -> tuple[str, str | None, subprocess.CompletedProcess] | None:
+        command = product_cfg.get("doctor")
+        if not isinstance(command, str) or not command.strip():
+            return None
+        product = getattr(product_cfg, "name", None)
+        proc = run_command(
+            command, root, env=doctor_environment(product_env, root, pid), check=False)
+        return command, product, proc
+
+    def examine(product_cfg: dict, product_env: dict[str, str]) -> int | None:
+        ran = run_doctor(product_cfg, product_env)
+        if ran is None:
+            return None
+        command, product, proc = ran
+        kind = "doctor" if not product else f"product {product} doctor"
+        found = reported_pid(proc)
+        if proc.returncode != 0:
+            return bail(proc=proc, kind=kind, command=command)
+        if found is None:
+            label = product or "doctor"
+            return bail(
+                proc=proc, kind=kind, command=command,
+                detail=(f"product {label} doctor pid expected a pid "
+                        f"actual {pid_actual(proc)}"))
+        seen_pids[product or ""] = found
+        return None
+
+    def diagnose(product_cfg: dict, product_env: dict[str, str]) -> str:
+        product_name = getattr(product_cfg, "name", None)
+        previous = seen_pids.get(product_name or "")
+        ran = run_doctor(product_cfg, product_env, previous)
+        if ran is None:
+            return ""
+        _, product, proc = ran
+        parts: list[str] = []
+        for chunk in (proc.stdout or "", proc.stderr or ""):
+            if chunk:
+                parts.append(chunk if chunk.endswith("\n") else chunk + "\n")
+        second = reported_pid(proc)
+        if previous is not None and second is not None and previous != second:
+            label = product or "doctor"
+            parts.append(f"product {label} doctor pid expected {previous} actual {second}\n")
+        return "".join(parts)
+
+    def diagnose_started() -> str:
+        if stack is None:
+            return diagnose(cfg, env)
+        parts: list[str] = []
+        for product in stack.order:
+            if product == cfg.name:
+                parts.append(diagnose(cfg, env))
+            else:
+                parts.append(diagnose(target_config(root, product), stack.env(product)))
+        return "".join(parts)
 
     start_cmd = cfg.get("start")
     if not isinstance(start_cmd, str) or not start_cmd.strip():
@@ -322,6 +453,10 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
                 stack.start_needs()
             except ProductCommandFailed as exc:
                 return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
+            for dependency in stack.order[:-1]:
+                failed = examine(target_config(root, dependency), stack.env(dependency))
+                if failed is not None:
+                    return failed
             env = stack.env()
             stack.mark_started(cfg.name)
         return None
@@ -345,6 +480,9 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         stack.remember(cfg.name, data)
     else:
         update_started(worktree_of(root), DEFAULT_PRODUCT, data=data)
+    failed = examine(cfg, env)
+    if failed is not None:
+        return failed
 
     spec = journey_command(dest)
     if spec is None:
@@ -367,11 +505,14 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
 
     try:
         script, evidence = attempt(env)
+        follow_up = diagnose_started() if script.returncode != 0 else ""
     finally:
         stop_this_run()
 
     if script.returncode != 0:
         print(f"JOURNEY FAILED {name} at {emit_script_output(script)}")
+        if follow_up:
+            sys.stdout.write(follow_up)
         print(f"MMW_DATA_DIR {env['MMW_DATA_DIR']}")
         emit_evidence(evidence)
         return 1
@@ -406,6 +547,9 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         addresses_into(env, control_data)
         if stack is not None:
             stack.remember(cfg.name, control_data)
+        failed = examine(cfg, env)
+        if failed is not None:
+            return failed
         control_env = env
         green_prefix = f"JOURNEY GREEN WITH BREAK {name} — "
         green_explanation = (

@@ -73,6 +73,7 @@ def write_product_layout(root: Path, *, products=("gateway", "parrot"), ports=(7
         (mmw / name / "target.json").write_text(json.dumps({
             "ports": count,
             "discover": discovers[name],
+            "doctor": f"{name}-doctor",
         }))
 
 
@@ -126,6 +127,28 @@ class TestTargetCheck(unittest.TestCase):
             code, out, err = self.run_target("--check", "--repo", d)
             self.assertNotEqual(code, 0, out + err)
             self.assertIn(".mmw/parrot/target.json", out + err)
+
+    def test_a_product_without_doctor_is_refused(self):
+        """A new-layout product with no `doctor` is named. One that has the command passes."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            write_product_layout(root)
+            for name in ("gateway", "parrot"):
+                path = root / ".mmw" / name / "target.json"
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload["doctor"] = f"{name}-doctor"
+                path.write_text(json.dumps(payload), encoding="utf-8")
+            code, out, err = self.run_target("--check", "--repo", d)
+            self.assertEqual(code, 0, out + err)
+            parrot = root / ".mmw" / "parrot" / "target.json"
+            payload = json.loads(parrot.read_text(encoding="utf-8"))
+            del payload["doctor"]
+            parrot.write_text(json.dumps(payload), encoding="utf-8")
+            code, out, err = self.run_target("--check", "--repo", d)
+            text = out + err
+            self.assertNotEqual(code, 0, text)
+            self.assertIn("parrot", text)
+            self.assertNotIn("gateway", text)
 
     def test_ports_beyond_the_block_are_refused(self):
         with tempfile.TemporaryDirectory() as d:
