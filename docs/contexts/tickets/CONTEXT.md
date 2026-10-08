@@ -72,7 +72,7 @@ The Testing Decisions item naming, per test layer, what a test can and cannot wr
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **Critical flows**:
-The bullet of `## Testing Decisions`, written only in a spec with a screen contract, naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/journeys/` each one runs from and the Implementation Decisions section numbers it involves, which `--lint` reads to decide which journeys need `--break`.
+The bullet of `## Testing Decisions`, written only in a spec with a screen contract, naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/<product>/journeys/` each one runs from and the Implementation Decisions section numbers it involves, which `--lint` reads to decide which journeys need `--break`.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **`## Out of Scope`**:
@@ -162,7 +162,7 @@ The contract ticket's repository-wide deliverables that every later page ticket 
 _Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
 
 **Shared journey helper**:
-The module under `.mmw/harness/`, built once by the contract ticket or the first journey ticket that needs it, for product access several journey tickets share (bringing the stack up, a health check, sign-in, a top-up). Later journey tickets import it.
+The module under `.mmw/<product>/harness/`, built once by the contract ticket or the first journey ticket that needs it, for product access several journey tickets share (bringing the stack up, a health check, sign-in, a top-up). Later journey tickets import it.
 _Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
 
 **ticket format**:

@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Read and check a repository's `.mmw/target.json`.
 
-The old layout answers one product in that file. `FIELDS` lists its keys, and
-`--check` names every field still missing. The new layout keeps `checks`,
-`products` and `needs` on the root, and one product in `.mmw/<product>/target.json`.
-Each product file has `doctor`. The old layout does not.
+The root holds `checks`, `products` and `needs`. Each product answers the fields
+in `.mmw/<product>/target.json`, including `doctor` and `ports`.
 `--product <name>` selects that product. With one product the name can be omitted.
 `--check` exits 0 when the layout in front of it is complete. `--validate` prints
 the first problem only. `discover` prints an origin-class address plus `instance`.
@@ -33,7 +31,6 @@ from lease import (  # noqa: E402
     TargetJSONError,
     leased_environment,
     product_gap,
-    product_layout,
     read_target_json,
     worktree_of,
 )
@@ -67,21 +64,21 @@ FIELDS: tuple[Field, ...] = (
           "directory, log — chosen inside the command from the lease in its environment, "
           "and returns once the product answers and can be driven; idempotent: leaves its "
           "own current product alone, clears its own stale one, refuses over anyone else's",
-          '"uv run python .mmw/harness/target.py start"'),
+          '"uv run python .mmw/<product>/harness/target.py start"'),
     Field("stop", "command",
           "ends what start started and nothing else, and exits 0 with nothing of its own "
           "to end; the only way a run may end a process",
-          '"uv run python .mmw/harness/target.py stop"'),
+          '"uv run python .mmw/<product>/harness/target.py stop"'),
     Field("discover", "command",
           "prints one JSON object of origin-class addresses plus `instance`, a readable "
           "name for this run",
-          '"uv run python .mmw/harness/target.py discover"'),
+          '"uv run python .mmw/<product>/harness/target.py discover"'),
     Field("stories", "command",
           "brings up the story service and prints its `origin`",
-          '"uv run python .mmw/harness/target.py stories"'),
+          '"uv run python .mmw/<product>/harness/target.py stories"'),
     Field("journeys", "directory",
-          "the directory of journey scripts; default .mmw/journeys",
-          '".mmw/journeys"',
+          "the directory of journey scripts; default .mmw/<product>/journeys",
+          '".mmw/<product>/journeys"',
           required=False),
     Field("leaves_machine", "list of strings",
           "each thing this product does in a run that reaches past this machine, naming "
@@ -91,12 +88,7 @@ FIELDS: tuple[Field, ...] = (
     Field("harness_markers", "list of strings",
           "the strings this product uses only to make itself drivable; [] when it has none",
           '["/api/dev/", "transport off", "__stub"]'),
-    Field("checks", "list",
-          "the repository's own checks, run by `dispatch.sh` on each ticket's merge result "
-          "before it pushes; the ui-acceptance skill's references/product-answers.md says the "
-          "shape",
-          '["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]',
-          required=False),
+
 )
 
 
@@ -140,11 +132,8 @@ def target_config(root: Path, product: str | None = None) -> dict:
         raise SystemExit(f"no .mmw/{cfg.name}/target.json. "
                          f"Run `target_config.py --check --repo {root}` "
                          f"(the ui-acceptance skill) and answer what it names")
-    if gap == "old-named":
-        raise SystemExit(f"{path} is the old layout and has no named product {product}. "
-                         f"Run `target_config.py --check --repo {root}`")
     if not cfg.get("discover"):
-        raise SystemExit(f"{path} has no `discover` command; run `target_config.py "
+        raise SystemExit(f".mmw/{cfg.name}/target.json has no `discover` command; run `target_config.py "
                          f"--check --repo {root}` and answer what it names")
     return cfg
 
@@ -222,7 +211,7 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
 # ---------------------------------------------------------------- --check
 
 def target_problems(cfg: dict) -> list[tuple[str, str]]:
-    """What `.mmw/target.json` still has to answer: `(key, problem)` pairs, in the
+    """What `.mmw/<product>/target.json` still has to answer: `(key, problem)` pairs, in the
     order `FIELDS` lists them. Empty when the file is complete."""
     problems: list[tuple[str, str]] = []
     for f in FIELDS:
@@ -308,6 +297,8 @@ def layout_problems(root: Path, product: str | None = None) -> list[str]:
         if value is not None:
             counted.append((name, value))
         _doctor_command(problems, name, one, file_shown)
+        for key, why in target_problems(one):
+            problems.append(_line(f"{key} on {name}", f"{key} {why}", file_shown, file_shown))
     if seen and len(counted) == len(seen):
         total = sum(count for _, count in counted)
         if total > PORT_STRIDE:
@@ -343,10 +334,9 @@ def _ports_value(problems: list[str], name: str, one: dict, file_shown: str) -> 
 
 
 def _doctor_command(problems: list[str], name: str, one: dict, file_shown: str) -> None:
-    """Record a missing or empty `doctor`. The new layout requires the command.
+    """Record a missing or empty `doctor`. Each product requires the command.
 
-    The old layout's single file does not. A blank string is the same gap as a
-    missing key: there is no command to run.
+    A blank string is the same gap as a missing key: there is no command to run.
     """
     if "doctor" not in one:
         problems.append(_line(f"doctor on {name}", "no doctor", file_shown, file_shown))
@@ -419,6 +409,16 @@ def _report_product_layout(root: Path, product: str | None, validate: bool) -> i
         print(f"{path}: complete")
         return 0
     print(f"{path}: read")
+    print("rules:")
+    print("  automation uses placeholder keys, vendor stubs, and local accounts")
+    print("  leaves_machine actions record under MMW_AUTOMATION=1")
+    read = read_target_json(root)
+    names = read.root.get("products") if read is not None else None
+    for name in (names if isinstance(names, list) else []):
+        one = read_target_json(root, name)
+        if one is not None and one.present:
+            for key in sorted(set(one) - {f.key for f in FIELDS} - {"doctor", "ports"}):
+                print(f"  stale  {key} in .mmw/{name}/target.json — no MMW script reads it; delete it")
     for line in problems:
         print(line)
     if problems:
@@ -450,68 +450,12 @@ def target_main(argv: list[str]) -> int:
     if not repo.is_dir():
         print(f"no such directory: {repo}", file=sys.stderr)
         return 2
-    path = repo / ".mmw" / "target.json"
     try:
-        read = read_target_json(repo)
+        read_target_json(repo)
     except TargetJSONError as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    if read is not None and product_layout(read.root):
-        return _report_product_layout(repo, args.product, args.validate)
-    cfg = read or {}
-    problems = target_problems(cfg)
-    old_name = None
-    if args.product is not None and read is not None and not product_layout(read.root):
-        old_name = _line(
-            "no product name, because this file is the old layout",
-            args.product,
-            ".mmw/target.json",
-            ".mmw/target.json",
-        )
-    if args.validate:
-        shown = []
-        if problems:
-            key, why = problems[0]
-            shown.append(f"{key} {why}")
-        if old_name:
-            shown.append(old_name)
-        if shown:
-            extra = len(problems) + (1 if old_name else 0) - 1
-            more = f" (+{extra} more)" if extra else ""
-            print(f"{path}: {shown[0]}{more}")
-            return 1
-        print(f"{path}: complete")
-        return 0
-    print("  discover prints:")
-    for key, what in DISCOVER_PRINTS:
-        print(f"    {key} — {what}")
-    print(f"{path}: {'not there yet' if not path.exists() else 'read'}")
-    named = {key for key, _ in problems}
-    for f in FIELDS:
-        if f.key in named:
-            why = next(w for k, w in problems if k == f.key)
-            if why.startswith("is missing"):
-                print(f"  missing  {f.key} ({f.shape}) — {f.what} — e.g. {f.example}")
-            else:
-                print(f"  wrong    {f.key} ({f.shape}) {why}")
-        elif f.key in cfg:
-            print(f"  ok       {f.key}")
-        else:
-            print(f"  absent   {f.key} ({f.shape}, optional) — {f.what}")
-    field_keys = {f.key for f in FIELDS}
-    for key in sorted(set(cfg) - field_keys):
-        print(f"  stale  {key} — no MMW script reads it; delete it")
-    print("rules:")
-    print("  automation uses placeholder keys, vendor stubs, and local accounts")
-    print("  leaves_machine actions record under MMW_AUTOMATION=1")
-    if old_name:
-        print(old_name)
-    if problems or old_name:
-        print(f"{len(problems) + (1 if old_name else 0)} to answer; "
-              "run this again when the file is filled")
-        return 1
-    print("complete: the oracles can drive this repository")
-    return 0
+    return _report_product_layout(repo, args.product, args.validate)
 
 
 if __name__ == "__main__":

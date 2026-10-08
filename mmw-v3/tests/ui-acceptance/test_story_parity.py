@@ -416,7 +416,7 @@ class TestStoryFixture(unittest.TestCase):
             "print('real error on line 5', flush=True)\n"
             "sys.exit(3)\n",
             encoding="utf-8")
-        (root / ".mmw" / "target.json").write_text(
+        (root / ".mmw" / "notes" / "target.json").write_text(
             '{"stories": "python3 -u stories/die.py"}\n', encoding="utf-8")
         proc = self.run_story(cwd=root, timeout=30)
         combined = proc.stdout + proc.stderr
@@ -623,7 +623,7 @@ class TestStoryFixture(unittest.TestCase):
 
     def test_target_json_without_stories_exits_2(self):
         root = self.copied_fixture()
-        (root / ".mmw" / "target.json").write_text("{}\n", encoding="utf-8")
+        (root / ".mmw" / "notes" / "target.json").write_text("{}\n", encoding="utf-8")
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("stories", proc.stderr)
@@ -785,7 +785,7 @@ class TestStoryFixture(unittest.TestCase):
         """fixtures/story/repo/stories/launch.py holds serve.py as a child and forwards
         no signal, so ending only the stories command would leave serve.py running."""
         root = self.copied_fixture()
-        (root / ".mmw" / "target.json").write_text(
+        (root / ".mmw" / "notes" / "target.json").write_text(
             '{"stories": "python3 -u stories/launch.py"}\n', encoding="utf-8")
         pid_file = root / "child.pid"
         proc = self.run_story(cwd=root, extra_env={"STORY_CHILD_PID": str(pid_file)})

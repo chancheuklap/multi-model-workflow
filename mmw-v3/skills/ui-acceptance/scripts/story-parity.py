@@ -12,8 +12,7 @@ names the `pages.<page>.mount` values this run covers, including `App · ` pages
 `--scenes` narrows that set. When the screen contract names `product`, that
 product's `stories` command prints the origin. When it does not and the root
 lists more than one product, `--product` names which command. One listed product
-is selected without the flag. When the root file is itself the product, its
-`stories` command is the one that runs.
+is selected without the flag.
 The story URL is
 `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`.
 
@@ -234,15 +233,14 @@ def stories_product(doc: dict, flag: str | None) -> str | None:
 def load_stories_config(root: Path, product: str | None = None) -> dict:
     try:
         cfg = lease_mod.read_target_json(root, product)
+    except lease_mod.LegacyLayoutError as exc:
+        raise SystemExit(str(exc)) from None
     except lease_mod.TargetJSONError as exc:
         raise SystemExit(refusal(
             str(exc),
             "story-parity.py starts the product story pages with the stories command in that file.",
             "Fix .mmw/target.json so it holds one valid JSON object, then re-run."))
     gap = lease_mod.product_gap(cfg, product, membership=True)
-    if gap == "old-named":
-        # The root file is the product. A passed name is not applied.
-        gap = None
     if gap == "absent":
         raise SystemExit(refusal(
             "no .mmw/target.json.",
@@ -271,7 +269,7 @@ def load_stories_config(root: Path, product: str | None = None) -> dict:
             "The screen contract names no product, so the oracle cannot choose a stories command.",
             "Pass --product <name>, or set product in the screen contract, then re-run."))
     if not cfg.get("stories"):
-        where = f".mmw/{cfg.name}/target.json" if cfg.name else ".mmw/target.json"
+        where = f".mmw/{cfg.name}/target.json"
         raise SystemExit(refusal(
             f"{where} has no `stories` command.",
             "story-parity.py starts the product story page with that command, which prints origin.",

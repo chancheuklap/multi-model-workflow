@@ -250,6 +250,9 @@ def check_checks(report: Report, root: Path):
         lease = _lease()
         try:
             read = lease.read_target_json(root)
+        except lease.LegacyLayoutError as exc:
+            report.add("missing", "repository", ".mmw/target.json checks", str(exc))
+            return False
         except lease.TargetJSONError as exc:
             report.add("missing", "repository", ".mmw/target.json checks", f"not JSON ({exc})")
         else:
@@ -326,7 +329,9 @@ def main() -> int:
     check_labels(report)
     if slug:
         check_space(report, slug)
-    check_checks(report, root)
+    if check_checks(report, root) is False:
+        report.print()
+        return 2
     check_testing(report, root)
     check_layout(report, root)
     check_machine(report)
