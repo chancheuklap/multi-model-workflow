@@ -57,6 +57,7 @@
 | [0036](0036-rollback-to-v2-is-one-install.md) | 从 v3 退回 v2，是在装着的 checkout 里跑一次 `bash mmw-v2/install.sh`；`mmw-v2/` 因此是退路，不只是历史 | 2026-10-07 | 0032 | 无 |
 | [0037](0037-the-session-space-is-installed-per-machine.md) | 终端里的 `NMEM_SPACE` 由 `mmw-v3/install.sh` 每台机器装一次；仓库的 Space 仍由 `setup-mmw` 建，它只报告会话的 `NMEM_SPACE` 对不对 | 2026-10-07 | 0035 | 无 |
 | [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 无 |
+| [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
