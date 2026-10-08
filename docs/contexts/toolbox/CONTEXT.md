@@ -210,6 +210,14 @@ _Home_: `CODING_STANDARDS.md`, `mmw-v3/skills/ui-acceptance/scripts/refusal.py`
 The three checks in `mmw-v3/tests/lib/` that every `mmw-v3/tests/<name>/run.sh` runs before its own: `check_module_paths.py` (a script names a module file that no longer exists), `check_wiring.py` (a route, a principle line, or a skill, file, script or `dispatch.sh` command a step names is missing), `check_skill_frontmatter.py` (invalid YAML, or a key beyond those `SKILL-SET-RULES.md` allows, on one of this repository's skills).
 _Home_: `TESTING.md`, `AGENTS.md`
 
+**verify-this**:
+The skill that proves or disproves one claim and returns exactly one of `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE`. Distinct from a **feature map review**.
+_Home_: `mmw-v3/skills/verify-this/SKILL.md`
+
+**feature map review**:
+One run of the `maintain-verification-skill` skill over one product's feature map. It ends as exactly one of **clean**, **changed**, or **blocked**. Distinct from a feature map (`docs/contexts/tickets/CONTEXT.md`) and from **verify-this**.
+_Home_: `mmw-v3/skills/maintain-verification-skill/SKILL.md`
+
 ### Skill-set review
 
 Vocabulary of the `writing-for-agents` skill's `SKILL-SET-RULES.md` and `WALKING-A-SKILL-SET.md` and the `mmw-mode` skill's `Review the skill set` playbook: the rules and the review method this repository applies to its own skill set.
