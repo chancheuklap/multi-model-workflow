@@ -38,7 +38,7 @@ The rules for placing and writing the set's text are the `writing-for-agents` sk
 
 ### playbook
 
-**Sources in MMW v2:** Numbered procedures that already have this shape: `implement`'s `## Closing steps` (eight steps, each ending in "Done when"), `dispatch`'s `references/night.md` (sections 1 to 6), `dispatch`'s `references/one-ticket.md`, and the routing rows of the `## Find your moment` tables that point to them. Decide each one by the tests above, not by its current location.
+**Sources in MMW v2:** Numbered procedures that already have this shape: `implement`'s `## Closing steps` (eight steps, each ending in "Done when"), `dispatch`'s `references/night.md` (sections 1 to 6), `dispatch`'s `references/one-ticket.md`, and the routing rows of the `## Find your moment` tables that point to them. Decide each one by the tests in the `writing-for-agents` skill's `SKILL-SET-COMPONENTS.md` `## playbook`, not by its current location.
 
 ### principle
 
