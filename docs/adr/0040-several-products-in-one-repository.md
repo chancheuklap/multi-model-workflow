@@ -19,10 +19,11 @@ amends: []
 - 根 `.mmw/target.json` 出现 `start` 这类产品键，就是旧布局。产品自己的键在 `.mmw/<产品>/target.json`。`checks` 仍是整仓的，可以没有。
 - journey 的名字是 `<产品>/<flow>`，目录是 `.mmw/<产品>/journeys/<flow>/`。只有一个产品的仓库也这么写。
 - ADR 0038 的分层不变。`.mmw/<产品>/` 仍是 `.mmw/` 那一层，是 MMW 会执行的产品答案。
-- Electron 两套并行的结论在 `efforts/verification/prototypes/894/EXP/README.md` 的 `## 5. Conclusion`，2026-10-08 实测。端口都落在自己那一段，并且 `start` 把用户数据目录以外的状态也挪进 `MMW_DATA_DIR` 时，两套 parrot 互不干扰。只换用户数据目录不够。`PARROT_DUBBING_RUNTIME_ROOT` 不移动数据库，要设 `PARROT_DUBBING_DB_PATH`。两个日志根、`RUNTIME_DIR`、渲染进程的后端端口和 Vite 端口也要挪。单实例锁跟着用户数据目录走。Vite 会从 5173 静默换到下一个空端口，那个端口在 lease 外面。命令行没给调试端口或后端端口时，产品不得自己选一个写死的端口。写死的端口既躲开 lease，也躲开最后那次端口安静检查。
-- Gateway 实测听 4 个端口。harness 仍占块内第 3 到第 6 个时，`ports` 写 7。parrot 和 hedgehog 在开发模式各要 3 个端口，分别是后端、CDP 和 Vite，不是 2 个。打包后的应用，以及 `electron-vite preview`，去掉 Vite 那一个。三者合计 13 个端口，少于一个 slot 的 20 个。`PORT_STRIDE` 的默认值是 20。
-- 先起依赖是安全规则，不是存活规则。未激活的 parrot 没有 Gateway 也能起来，设置页能用。激活之后的功能需要 Gateway。生产地址的回退是真的。agentflow 里 parrot 的 `app.py`、`client_security.py` 和 `api/activation_routes.py` 依次读 `PARROT_GATEWAY_BASE_URL`、`GATEWAY_URL`、`https://capyapi.cn`。hedgehog 依次读 `HEDGEHOG_GATEWAY_BASE_URL`、`GATEWAY_URL`，然后再到生产地址。所以有 `needs` 的 `start` 在没拿到依赖地址时不得启动。
+- Electron 两套并行的结论在 `efforts/verification/prototypes/894/EXP/README.md` 的 `## 5. Conclusion`。2026-10-08 实测到下面这些。端口都落在自己那一段，并且 `start` 把状态根都挪进 `MMW_DATA_DIR` 时，两套 parrot 互不干扰。`PARROT_DUBBING_RUNTIME_ROOT` 单独设上并不挪走数据库。不设 `PARROT_DUBBING_DB_PATH` 时，运行写入 `~/.local/share/parrot_dubbing/app.db`。两套各自的用户数据目录里各有一把 `SingletonLock`，两套都活着。5173、8796、9226 和 8788 都没有监听。传入 `--remoteDebuggingPort` 之后，写死的 9226 没有起来。
+- 读代码才得到下面这些。真正挪开数据库的是 `PARROT_DUBBING_DB_PATH`。`start` 还要设 `PARROT_DUBBING_RUNTIME_ROOT`、两个日志根、`RUNTIME_DIR`、渲染进程的后端端口和 Vite 端口。单实例锁跟着用户数据目录走。Vite 会从 5173 静默换到下一个空端口，那个端口在 lease 外面。命令行没给调试端口或后端端口时，产品会自己选一个写死的端口。写死的端口既躲开 lease，也躲开最后那次端口安静检查。
+- Gateway 实测听 4 个端口。harness 仍占块内第 3 到第 6 个时，`ports` 写 7。这 7 个是按那些索引留出的空位，这次没有数到 7 个监听。parrot 在开发模式实测听 3 个，分别是后端、CDP 和 Vite。hedgehog 在开发模式读代码是 3 个，同样是后端、CDP 和 Vite。这次没有跑 hedgehog。打包后的应用，以及 `electron-vite preview`，按同一张表去掉 Vite 那一个。这次也没有跑打包。parrot 的 3 个、hedgehog 的 3 个和 Gateway 的 7 个合计 13 个，少于一个 slot 的 20 个。`PORT_STRIDE` 的默认值是 20。
+- 先起依赖是安全规则，不是存活规则。实测未激活的 parrot 没有 Gateway 也能起来，设置页能用。读代码，激活之后的功能需要 Gateway。生产地址的回退也是读代码得到的。agentflow 里 parrot 的 `app.py`、`client_security.py` 和 `api/activation_routes.py` 依次读 `PARROT_GATEWAY_BASE_URL`、`GATEWAY_URL`、`https://capyapi.cn`。hedgehog 依次读 `HEDGEHOG_GATEWAY_BASE_URL`、`GATEWAY_URL`，然后再到生产地址。这次没有跑 hedgehog。所以有 `needs` 的 `start` 在没拿到依赖地址时不得启动。
 - `doctor` 在两套实例上都通过。每个监听都属于该实例自己的进程组，版本是源提交。
 - 停的次序是先 parrot，后 Gateway。40 个端口随后都安静。`stop` 跑 `compose down` 且不带 `-v` 时，留下两个具名卷，以及每个实例一个 2.9 GB 的 `mmw-<instance>-gateway` 镜像。`lease.py list` 把 Docker 发布的端口记在 colima 的 `ssh … [mux]` 进程上，cwd 对不上。点名产品、端口和 pid 的拒绝，会把 Gateway 端口的 pid 说成 colima。
 - 截图在 `stop` 和 `release` 之后还在 `$MMW_DATA_DIR/parrot/evidence`。`lease.py remove-instance` 在工作树消失后会删掉它们。要先拷出来。
-- 真去操作一个 parrot 功能，需要已经激活的实例。激活要过浏览器授权，那是人的一步。系统原生对话框，调试端口够不到。这两件不在这份决定里改产品。
+- 真去操作一个 parrot 功能需要已经激活的实例。激活要过浏览器授权，那是人的一步。这次只跑了未激活的设置页。spec #894 `### 6. Electron 与命令行产品的接法` 写明系统原生对话框调试端口够不到，并且只点了原生对话框，没有点激活种子。这次没有跑原生对话框。这两件不在这份决定里改产品。

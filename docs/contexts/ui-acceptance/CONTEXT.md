@@ -419,7 +419,7 @@ The name of one **lease**'s run on this machine, one per **slot**, carried by `M
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`, `mmw-v3/skills/ui-acceptance/scripts/target_config.py`
 
 **`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`**:
-The six variables a lease puts into the environment of every command `.mmw/<product>/target.json` declares. They are a readable name for the run, the slot number, the first port and the number of ports of that product's segment, a directory it owns, and `1` as the signal to neutralise what would leave the machine.
+The six variables a lease puts into the environment of every command `.mmw/<product>/target.json` declares are a readable name for the run, the slot number, the first port and the number of ports of that product's segment, a directory it owns, and `1` as the signal to neutralise what would leave the machine. For that product the lease also sets `MMW_PRODUCT` to the product name.
 _Home_: `mmw-v3/skills/ui-acceptance/scripts/lease.py`
 
 ### Refusals
