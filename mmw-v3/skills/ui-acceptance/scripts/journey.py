@@ -58,8 +58,8 @@ if str(HERE) not in sys.path:
 
 from target_config import DISCOVER_NOTES, command_env, discover, repo_root, run_command, target_config  # noqa: E402
 from lease import (  # noqa: E402
-    PRODUCT_NAME, TargetJSONError, holder, judge_run, listener, ports_of,
-    product_layout, read_target_json, registered, worktree_of,
+    TargetJSONError, holder, judge_run, listener, ports_of,
+    product_journey, product_layout, read_target_json, registered, worktree_of,
 )
 from refusal import refusal  # noqa: E402
 
@@ -69,7 +69,6 @@ BREAK_NEXT = ("If this ticket owns .mmw/harness/, fix the switch and run the cri
               "again; otherwise report the ticket blocked and stop.")
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
-FLOW_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 BREAK_RE = re.compile(r"[A-Z]+ /\S*")
 # SGR color sequences only. Other ANSI (cursor, OSC) is not a color code.
 COLOR_RE = re.compile(r"\x1b\[[0-9;]*m")
@@ -222,15 +221,6 @@ def negative_env(env: dict[str, str], data: dict) -> dict[str, str]:
         if moved is not None:
             control[name] = moved
     return control
-
-
-def product_journey(name: str) -> tuple[str, str] | None:
-    """`<product>/<flow>` when `name` is that shape, else None."""
-    product, sep, flow = name.partition("/")
-    if (not sep or "/" in flow or PRODUCT_NAME.fullmatch(product) is None
-            or FLOW_NAME.fullmatch(flow) is None):
-        return None
-    return product, flow
 
 
 def journey_binding(name: str, root: Path) -> tuple[dict, Path]:

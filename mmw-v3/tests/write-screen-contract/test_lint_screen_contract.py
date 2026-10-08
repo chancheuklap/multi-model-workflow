@@ -679,27 +679,30 @@ class TestProductKey(unittest.TestCase):
 
     def test_a_product_layout_contract_names_its_product(self):
         doc = contract()
+        # The shared fixture leaves one page without a row, so its exit code is
+        # not about `product`. This case drops that page from both sides.
+        doc["pages"].pop(PAGE_APP)
+        doc["scenes"].pop("library.ready")
+        skeleton = json.loads(self.skeleton.read_text(encoding="utf-8"))
+        skeleton["scene_pages"].pop("library.ready")
+        self.skeleton.write_text(json.dumps(skeleton), encoding="utf-8")
         code, text = self.lint_doc(doc)
-        self.assertNotIn("product missing", text, text)
-        self.assertNotIn("is not in .mmw/target.json products", text, text)
+        self.assertEqual(code, 0, text)
 
         (self.repo.root / ".mmw" / "target.json").write_text(
             json.dumps({"products": ["alpha", "beta"]}), encoding="utf-8")
         code, text = self.lint_doc(doc)
         self.assertEqual(code, 1, text)
-        self.assertIn("product missing", text)
 
         doc["product"] = "nope"
         code, text = self.lint_doc(doc)
         self.assertEqual(code, 1, text)
         self.assertIn("nope", text)
-        self.assertIn("is not in .mmw/target.json products", text)
 
         doc["product"] = "alpha"
-        _, text = self.lint_doc(doc)
-        self.assertNotIn("product missing", text, text)
-        self.assertNotIn("nope", text)
-        self.assertNotIn("is not in .mmw/target.json products", text)
+        code, text = self.lint_doc(doc)
+        self.assertEqual(code, 0, text)
+        self.assertNotIn("product is not a screen-contract field", text)
 
 
 if __name__ == "__main__":

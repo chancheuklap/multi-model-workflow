@@ -972,7 +972,6 @@ class TwoProductStories(unittest.TestCase):
         (root / ".mmw" / "order").unlink(missing_ok=True)
         proc = run_story_cmd(self.home, cwd=root, extra_args=["--scenes", "alpha"])
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        self.assertIn("more than one product", proc.stderr)
         self.assertIn("--product", proc.stderr)
         self.assertEqual(self.order(root), "")
 

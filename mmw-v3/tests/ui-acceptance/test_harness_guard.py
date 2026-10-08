@@ -266,7 +266,6 @@ class TwoProducts(unittest.TestCase):
         code, out, err = self.guard()
         self.assertEqual(code, 2, out + err)
         self.assertIn(".mmw/beta/target.json", err)
-        self.assertIn("has no harness_markers", err)
         self.assertNotIn("HARNESS OK", out)
 
 

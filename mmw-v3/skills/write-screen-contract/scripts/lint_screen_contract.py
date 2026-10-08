@@ -81,12 +81,12 @@ def operation(entry) -> tuple[str, str] | None:
     return parts[0].upper(), parts[1]
 
 
-def load_lease():
-    """`lease.py`, where the one read of `.mmw/target.json` lives. None when it is absent."""
-    path = Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts" / "lease.py"
+def load_ui_script(filename: str, module_name: str):
+    """A script of the ui-acceptance skill. None when this checkout does not have it."""
+    path = Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts" / filename
     if not path.is_file():
         return None
-    spec = importlib.util.spec_from_file_location("mmw_lease_for_screen_contract", path)
+    spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         return None
     module = importlib.util.module_from_spec(spec)
@@ -94,29 +94,51 @@ def load_lease():
     return module
 
 
-def product_name_errors(doc: dict, root: Path) -> list[str]:
-    """`product` when the root lists products: required, and one of those names.
+def load_lease():
+    """`lease.py`, where the one read of `.mmw/target.json` lives. None when it is absent."""
+    return load_ui_script("lease.py", "mmw_lease_for_screen_contract")
 
-    A root that is itself the product does not carry the key. `product` is not the
-    effort name. A root that cannot be read is left to the reader that owns that file.
+
+def three_part(what: str, why: str, next_step: str) -> str:
+    """A refusal in `refusal.py`'s three parts. The sentences joined when that file is absent."""
+    mod = load_ui_script("refusal.py", "mmw_refusal_for_screen_contract")
+    if mod is None:
+        return f"{what} {why} {next_step}"
+    return mod.refusal(what, why, next_step)
+
+
+def product_name_errors(doc: dict, root: Path) -> tuple[list[str], str | None]:
+    """Contract errors for `product`, and a refusal when that check could not run.
+
+    When the root lists products the key is required and the value is one of those
+    names. A root that is itself the product does not carry the key. `product` is
+    not the effort name. A missing `lease.py`, or a root file that is not JSON,
+    is a refusal: the check has not looked at `product`.
     """
     lease = load_lease()
     if lease is None:
-        return []
+        return [], three_part(
+            "lease.py is not beside lint_screen_contract.py, so product was not checked.",
+            "This toolbox checkout is missing part of the ui-acceptance skill.",
+            "Report that to the owner.",
+        )
     try:
         read = lease.read_target_json(root)
-    except lease.TargetJSONError:
-        return []
+    except lease.TargetJSONError as exc:
+        return [], three_part(
+            str(exc),
+            "Whether product is required cannot be known while that file is unreadable.",
+            "Fix .mmw/target.json so it holds one JSON object, then re-run the lint.",
+        )
     if read is None or not lease.product_layout(read.root):
-        return []
-    names = read.root.get("products")
-    listed = [name for name in names if isinstance(name, str)] if isinstance(names, list) else []
+        return [], None
+    listed = lease.product_names(read.root.get("products")) or []
     value = doc.get("product")
     if not isinstance(value, str) or not value.strip():
-        return ["product missing (name one product from .mmw/target.json products)"]
+        return ["product missing (name one product from .mmw/target.json products)"], None
     if value not in listed:
-        return [f"product {value!r} is not in .mmw/target.json products"]
-    return []
+        return [f"product {value!r} is not in .mmw/target.json products"], None
+    return [], None
 
 
 def repo_root(contract: Path) -> Path:
@@ -605,12 +627,17 @@ def main(argv: list[str]) -> int:
     e2, w2 = lint_declarations(doc, skeleton, baseline)
     errors += e2
     warnings += w2
+    blocked = None
     if isinstance(doc, dict):
-        errors += product_name_errors(doc, repo_root(contract))
+        found, blocked = product_name_errors(doc, repo_root(contract))
+        errors += found
     for w in warnings:
         print("WARN ", w)
     for e in errors:
         print("ERROR", e)
+    if blocked:
+        print(blocked, file=sys.stderr)
+        return 2
     print(f"{len(errors)} errors, {len(warnings)} warnings over {len(doc.get('rows') or [])} rows")
     return 1 if errors else 0
 

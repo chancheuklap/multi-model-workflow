@@ -39,7 +39,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from lease import TargetJSONError, product_layout, read_target_json  # noqa: E402
+from lease import TargetJSONError, product_layout, product_names, read_target_json  # noqa: E402
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 READ_MMW = re.compile(
@@ -99,8 +99,8 @@ def load_products(root: Path) -> tuple[list[tuple[str | None, dict]] | None, str
         return None, ".mmw/target.json is not there."
     if not product_layout(root_read.root):
         return [(None, root_read)], None
-    names = root_read.root.get("products")
-    if not isinstance(names, list) or not names or not all(isinstance(name, str) for name in names):
+    names = product_names(root_read.root.get("products"))
+    if not names:
         return None, ".mmw/target.json products must list the product names."
     configs: list[tuple[str | None, dict]] = []
     for name in names:
@@ -214,15 +214,8 @@ def story_service_files(root: Path, configs: list[tuple[str | None, dict]],
         resolved = path.resolve()
         if resolved in seen:
             continue
-        under_stories = False
-        for stories_root in stories_roots:
-            try:
-                resolved.relative_to(stories_root)
-            except ValueError:
-                continue
-            under_stories = True
-            break
-        if under_stories or resolved in named:
+        if (any(resolved.is_relative_to(stories_root) for stories_root in stories_roots)
+                or resolved in named):
             seen.add(resolved)
             chosen.append(path)
     return chosen
@@ -332,8 +325,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     root = root.resolve()
     configs, why = load_products(root)
-    if why is not None or configs is None:
-        return refuse_markers(given, why or ".mmw/target.json is not there.")
+    if why is not None:
+        return refuse_markers(given, why)
     markers, why = markers_of_all(configs)
     if why is not None:
         return refuse_markers(given, why)

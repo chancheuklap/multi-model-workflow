@@ -31,6 +31,7 @@ from lease import (  # noqa: E402
     PRODUCT_NAME,
     TargetJSONError,
     leased_environment,
+    product_gap,
     product_layout,
     read_target_json,
     worktree_of,
@@ -117,28 +118,28 @@ def target_config(root: Path, product: str | None = None) -> dict:
         cfg = read_target_json(root, product=product)
     except TargetJSONError as exc:
         raise SystemExit(str(exc))
-    if cfg is None:
+    gap = product_gap(cfg, product)
+    if gap == "absent":
         raise SystemExit(f"no {path}: the repository has not said how its product is "
                          f"reached. Run `target_config.py --check --repo {root}` "
                          f"(the ui-acceptance skill) and answer what it names")
-    if cfg.error:
+    if gap == "error":
         raise SystemExit(cfg.error)
-    if product_layout(cfg.root):
-        if product is not None and cfg.name != product:
-            raise SystemExit(f"{path} has no product {product}. "
-                             f"Run `target_config.py --check --repo {root}` "
-                             f"(the ui-acceptance skill) and answer what it names")
-        if cfg.name is None:
-            listed = cfg.root.get("products")
-            names = ", ".join(listed) if isinstance(listed, list) else ""
-            raise SystemExit(f"{path} names more than one product ({names}); "
-                             f"pass --product <name>. "
-                             f"Run `target_config.py --check --repo {root}`")
-        if not cfg.present:
-            raise SystemExit(f"no .mmw/{cfg.name}/target.json. "
-                             f"Run `target_config.py --check --repo {root}` "
-                             f"(the ui-acceptance skill) and answer what it names")
-    elif product is not None:
+    if gap == "not-selected":
+        raise SystemExit(f"{path} has no product {product}. "
+                         f"Run `target_config.py --check --repo {root}` "
+                         f"(the ui-acceptance skill) and answer what it names")
+    if gap == "many":
+        listed = cfg.root.get("products")
+        names = ", ".join(listed) if isinstance(listed, list) else ""
+        raise SystemExit(f"{path} names more than one product ({names}); "
+                         f"pass --product <name>. "
+                         f"Run `target_config.py --check --repo {root}`")
+    if gap == "missing":
+        raise SystemExit(f"no .mmw/{cfg.name}/target.json. "
+                         f"Run `target_config.py --check --repo {root}` "
+                         f"(the ui-acceptance skill) and answer what it names")
+    if gap == "old-named":
         raise SystemExit(f"{path} is the old layout and has no named product {product}. "
                          f"Run `target_config.py --check --repo {root}`")
     if not cfg.get("discover"):

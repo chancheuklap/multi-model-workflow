@@ -12,7 +12,8 @@ names the `pages.<page>.mount` values this run covers, including `App · ` pages
 `--scenes` narrows that set. When the screen contract names `product`, that
 product's `stories` command prints the origin. When it does not and the root
 lists more than one product, `--product` names which command. One listed product
-is selected without the flag. A root file that is itself the product is unchanged.
+is selected without the flag. When the root file is itself the product, its
+`stories` command is the one that runs.
 The story URL is
 `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`.
 
@@ -238,30 +239,37 @@ def load_stories_config(root: Path, product: str | None = None) -> dict:
             str(exc),
             "story-parity.py starts the product story pages with the stories command in that file.",
             "Fix .mmw/target.json so it holds one valid JSON object, then re-run."))
-    if cfg is None:
+    gap = lease_mod.product_gap(cfg, product, membership=True)
+    if gap == "old-named":
+        # The root file is the product. A passed name is not applied.
+        gap = None
+    if gap == "absent":
         raise SystemExit(refusal(
             "no .mmw/target.json.",
             "story-parity.py starts the product story pages with the stories command in that file.",
             "Add .mmw/target.json with a stories command, then re-run."))
-    if lease_mod.product_layout(cfg.root):
-        listed = cfg.root.get("products")
-        names = [item for item in listed if isinstance(item, str)] if isinstance(listed, list) else []
-        if product and product not in names:
-            raise SystemExit(refusal(
-                f"product {product!r} is not in .mmw/target.json products.",
-                "The story oracle starts one product from that list.",
-                "Name a product from .mmw/target.json products, then re-run."))
-        if product and (cfg.name != product or not cfg.present):
-            raise SystemExit(refusal(
-                f"no .mmw/{product}/target.json.",
-                "The story oracle starts the stories command in that product's file.",
-                f"Add .mmw/{product}/target.json with a stories command, then re-run."))
-        if not cfg.present:
-            shown = ", ".join(names)
-            raise SystemExit(refusal(
-                f".mmw/target.json names more than one product ({shown}); pass --product <name>.",
-                "The screen contract names no product, so the oracle cannot choose a stories command.",
-                "Pass --product <name>, or set product in the screen contract, then re-run."))
+    if gap == "not-in-list":
+        raise SystemExit(refusal(
+            f"product {product!r} is not in .mmw/target.json products.",
+            "The story oracle starts one product from that list.",
+            "Name a product from .mmw/target.json products, then re-run."))
+    if gap == "error":
+        raise SystemExit(refusal(
+            cfg.error,
+            "The story oracle starts the stories command in that product's file.",
+            "Fix that file so it holds one JSON object, then re-run."))
+    if gap in ("not-selected", "missing"):
+        shown = product or cfg.name
+        raise SystemExit(refusal(
+            f"no .mmw/{shown}/target.json.",
+            "The story oracle starts the stories command in that product's file.",
+            f"Add .mmw/{shown}/target.json with a stories command, then re-run."))
+    if gap == "many":
+        shown = ", ".join(lease_mod.product_names(cfg.root.get("products")) or [])
+        raise SystemExit(refusal(
+            f".mmw/target.json names more than one product ({shown}); pass --product <name>.",
+            "The screen contract names no product, so the oracle cannot choose a stories command.",
+            "Pass --product <name>, or set product in the screen contract, then re-run."))
     if not cfg.get("stories"):
         where = f".mmw/{cfg.name}/target.json" if cfg.name else ".mmw/target.json"
         raise SystemExit(refusal(

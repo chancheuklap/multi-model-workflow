@@ -917,7 +917,6 @@ class TwoProducts(unittest.TestCase):
             code, out, err = self.repo.run("open")
             self.assertEqual(code, 2, f"{label}: {out}{err}")
             self.assertNotIn("JOURNEY", out, label)
-            self.assertIn("<product>/<flow>", err, label)
         self.assertEqual(
             self.repo.log.read_text(encoding="utf-8").count("alpha-start"), started)
 

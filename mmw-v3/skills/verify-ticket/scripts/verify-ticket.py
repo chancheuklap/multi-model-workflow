@@ -3077,10 +3077,6 @@ CRITICAL_FLOWS_RE = re.compile(r"Critical flows|关键流程", re.IGNORECASE)
 JOURNEY_PATH_RE = re.compile(
     r"\.mmw/(?:(?!journeys/)([a-z0-9][a-z0-9-]*)/)?journeys/([a-z0-9][a-z0-9-]*)/?"
 )
-PRODUCT_JOURNEY_RE = re.compile(r"^[a-z0-9-]+$")
-FLOW_JOURNEY_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-
-
 OPERATOR_RE = re.compile(r"(?:&&|\|\||;|\|)(?:\s|$)")
 
 
@@ -3088,15 +3084,6 @@ def journey_path_name(match: re.Match[str]) -> str:
     """`<product>/<flow>` when the path names a product, else `<flow>`."""
     product, flow = match.group(1), match.group(2)
     return f"{product}/{flow}" if product else flow
-
-
-def product_journey_name(name: str) -> tuple[str, str] | None:
-    """`<product>/<flow>` split, or None when `name` is a bare flow."""
-    product, sep, flow = name.partition("/")
-    if (not sep or "/" in flow or PRODUCT_JOURNEY_RE.fullmatch(product) is None
-            or FLOW_JOURNEY_RE.fullmatch(flow) is None):
-        return None
-    return product, flow
 
 
 def _journeys_value(read, default: str) -> str:
@@ -3118,7 +3105,7 @@ def journey_directory(base: Path, name: str) -> Path:
     written `.mmw/target.json` yet is still judged at the old path.
     """
     lease = load_lease()
-    parts = product_journey_name(name)
+    parts = lease.product_journey(name) if lease is not None else None
 
     def read(product: str | None):
         if lease is None:
@@ -3138,30 +3125,25 @@ def journey_directory(base: Path, name: str) -> Path:
         return base / journeys / flow
     journeys = ".mmw/journeys"
     loaded = read(None)
-    if loaded is not None and lease is not None and not lease.product_layout(loaded.root):
+    if loaded is not None and not lease.product_layout(loaded.root):
         journeys = _journeys_value(loaded, journeys)
     return base / journeys / name
 
 
-def contract_runtime_paths(name: str) -> tuple[str, str]:
-    """The two files whose ownership makes this journey a runtime contract.
+def contract_runtime_for(name: str, owns) -> bool:
+    """Owning these paths excuses `--break` for `name`.
 
     A slashed name owns `.mmw/<product>/target.json` and `.mmw/<product>/stories`.
-    A bare name keeps `.mmw/target.json` and `.mmw/stories`.
+    A bare name owns `.mmw/target.json` and `.mmw/stories`.
     """
-    parts = product_journey_name(name)
+    lease = load_lease()
+    parts = lease.product_journey(name) if lease is not None else None
     if parts is None:
-        return ".mmw/target.json", ".mmw/stories"
-    product, _flow = parts
-    return f".mmw/{product}/target.json", f".mmw/{product}/stories"
-
-
-def contract_runtime_for(name: str, owns, prefix: str) -> bool:
-    return all(
-        any(glob_covers(pattern, "/".join(part for part in (prefix, required) if part))
-            for pattern in owns)
-        for required in contract_runtime_paths(name)
-    )
+        required = (".mmw/target.json", ".mmw/stories")
+    else:
+        product, _flow = parts
+        required = (f".mmw/{product}/target.json", f".mmw/{product}/stories")
+    return all(any(glob_covers(pattern, path) for pattern in owns) for path in required)
 
 
 def script_segment(check: str, script: str) -> str:
@@ -3752,13 +3734,12 @@ def lint_screen_contract(
         # `journeys` is read from where the command will run, not from the repository
         # root: a criterion that drives journey.py against a fixture `cd`s into it first,
         # and the journey it names is under that directory's `.mmw/`.
-        base, prefix = repo, ""
+        base = repo
         cdm = CD_PREFIX_RE.search(check)
         if cdm:
             candidate = (repo / cdm.group(1)).resolve()
             if candidate.is_dir():
                 base = candidate
-                prefix = cdm.group(1).removeprefix("./").strip("/")
         journey_segment = script_segment(check, "journey.py")
         journey_has_break = "--break" in segment_flags(journey_segment)
         repo_path = Path(repo).resolve()
@@ -3779,7 +3760,7 @@ def lint_screen_contract(
                 findings.append(f"{gate_id}: journey.py run {name} is not under {rel}/")
                 continue
             if (journey_has_break or name == "smoke"
-                    or contract_runtime_for(name, owns, prefix)):
+                    or contract_runtime_for(name, owns)):
                 continue
             if acceptance is None:
                 acceptance, acceptance_readable = load_acceptance_journeys()
