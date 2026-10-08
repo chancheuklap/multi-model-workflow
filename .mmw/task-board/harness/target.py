@@ -21,6 +21,11 @@ HARNESS = Path(__file__).resolve().parent
 BOARD_SERVER = HARNESS / "board_server.py"
 
 
+def worktree_commit() -> str:
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                                   text=True).strip()
+
+
 def _refusal():
     """`refusal.py` of the ui-acceptance skill. The blocked-ticket sentence lives there."""
     path = ROOT / "mmw-v3" / "skills" / "ui-acceptance" / "scripts" / "refusal.py"
@@ -350,8 +355,7 @@ def doctor() -> int:
         return failed("process", f"PID {state['pid']} answering at {origin}", str(exc))
     if facts.get("pid") != state["pid"]:
         return failed("pid", state["pid"], facts.get("pid"))
-    expected = os.environ.get("MMW_WORKTREE_COMMIT") or subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    expected = os.environ.get("MMW_WORKTREE_COMMIT") or worktree_commit()
     if facts.get("version") != expected:
         return failed("version", expected, facts.get("version"))
     try:

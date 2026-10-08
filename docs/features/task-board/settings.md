@@ -130,5 +130,3 @@ A run wastes its time, or reports a pass it did not earn, in these cases.
 - After a change, the dismiss control reads 取消 and drops the draft. With no change it reads 关闭.
 - When `MMW_RUNNER` is set, it wins over the runner cell. The sheet says so.
 - A version conflict leaves the sheet up and offers 重新读取. Save stays off until that reread.
-
-The critical flow `task-board/settings-save` saves another legal reviewer model and reads it back on reopening. Run `python3 ~/.agents/skills/ui-acceptance/scripts/journey.py run task-board/settings-save --break "PUT /api/settings"`.

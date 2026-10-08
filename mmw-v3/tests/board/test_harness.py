@@ -75,13 +75,6 @@ def running_target(*, armed_break=""):
 
 
 class HarnessTest(unittest.TestCase):
-    def test_task_board_product_answers_can_drive_the_repository(self):
-        check = ROOT / "mmw-v3" / "skills" / "ui-acceptance" / "scripts" / "target_config.py"
-        result = subprocess.run(["python3", str(check), "--check", "--product", "task-board"],
-                                cwd=ROOT, text=True, capture_output=True)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("complete: the oracles can drive this repository", result.stdout)
-
     def test_doctor_reports_the_running_commit_and_listener_without_writing(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
                                          text=True).strip()

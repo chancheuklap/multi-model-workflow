@@ -6,10 +6,11 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
+
+from target import worktree_commit
 
 ROOT = Path(__file__).resolve().parents[3]
 BOARD = ROOT / "mmw-v3" / "board"
@@ -41,8 +42,7 @@ def arm(module, method: str, route: str) -> None:
 
 
 def main() -> int:
-    version = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
-                                      text=True).strip()
+    version = worktree_commit()
     original = server.make_handler
 
     def make_handler(token):
