@@ -7,7 +7,7 @@ amends: [0032]
 
 写进一套技能的文字，规则在 `writing-for-agents` 这一个技能里，按要写的东西打开其中一份。`SKILL.md` 是任何一份给 agent 读的文字的写法。`SKILL-MECHANICS.md` 管一个技能的 frontmatter。`SKILL-SET-RULES.md` 管会落进 `mmw-v3/skills/` 的文字，拉上游新版的命令在它的 `### Upstream skills`。`SKILL-SET-COMPONENTS.md` 决定一段文字放进哪种组件。`WALKING-A-SKILL-SET.md` 在一项任务上证明一次改动。
 
-改技能从 playbook Authoring or modifying a skill 开始。一个会话做得完的，在这个会话里检查、走查、提交。一个会话做不完的，由 Land it 交给 Write a spec。主人接受这一夜并且 `finish` 跑完之后，回到 Validate it。Deliver 仍停在提交并告诉主人。发布的四步只在主人说发布时才跑。
+改技能从 playbook Authoring or modifying a skill 开始。一个会话做得完的，在这个会话里检查、走查、提交。一个会话做不完的，由 Land it 交给 Write a spec。主人接受这一夜并且 `finish` 跑完之后，回到 Validate it。Deliver 仍停在提交并告诉主人。发布的四步仍写在根目录 `AGENTS.md` 的 `## Gotchas`，只在主人说发布时才跑。
 
 0032 的正文写着，拉新版的命令在 `mmw-mode` 的 `references/skill-set-rules.md`。那份文件现在是 `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`。命令仍在 `### Upstream skills`。
 
@@ -19,7 +19,4 @@ amends: [0032]
 
 ## Consequences
 
-- 写技能文字的 agent 读 `writing-for-agents`，按分支打开上面五份里要用的那一份。
 - 一次技能改动从 Authoring or modifying a skill 进入。Write a spec、Cut tickets、Work a ticket、Review a ticket、Run a night 不改。
-- Deliver 不包含发布。四步提升仍写在根目录 `AGENTS.md` 的 `## Gotchas`，只在主人说发布时跑。
-- 读拉新版命令的人打开 `writing-for-agents` 的 `SKILL-SET-RULES.md`，节名是 `### Upstream skills`。
