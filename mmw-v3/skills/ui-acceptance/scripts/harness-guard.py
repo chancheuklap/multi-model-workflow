@@ -3,7 +3,7 @@
 
     harness-guard.py <repository-root>
 
-Reads of `MMW_` variables, and the strings `.mmw/target.json`'s `harness_markers`
+Reads of `MMW_` variables, and the strings `.mmw/<product>/target.json`'s `harness_markers`
 lists, may appear in `.mmw/`, `tests/`, `scripts/dev/`, a test file that ships with
 no release (`__tests__/`, `__mocks__/`, `*.test.*`, `*.spec.*`), and files
 `leaves_machine` names. Anywhere else is a leak. `[]` is a legal answer: this
@@ -11,8 +11,7 @@ product has no back doors. Missing or unusable `harness_markers` is a
 refusal, not a default.
 
 Story-service files — everything under each product's stories directory
-(`.mmw/stories/` when the root file is itself the product, `.mmw/<product>/stories/`
-when the root lists products), and files that product's `stories` command names —
+(`.mmw/<product>/stories/`), and files that product's `stories` command names —
 may reference `scenes.json` and must not reference `.dc.html`. Markers are the
 union of every product's `harness_markers`. A marker one product declares, found
 in another product's application code, is a leak.
@@ -39,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from lease import TargetJSONError, product_layout, product_names, read_target_json  # noqa: E402
+from lease import LegacyLayoutError, TargetJSONError, product_names, read_target_json  # noqa: E402
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 READ_MMW = re.compile(
@@ -85,24 +84,23 @@ def hit_markers(line: str, markers: tuple[str, ...]) -> list[str]:
     return found
 
 
-def load_products(root: Path) -> tuple[list[tuple[str | None, dict]] | None, str | None]:
+def load_products(root: Path) -> tuple[list[tuple[str, dict]] | None, str | LegacyLayoutError | None]:
     """Every product config, or why the guard cannot read them.
 
-    The root file that is itself the product is one config with no name. A root
-    that lists products is one config per name, from `.mmw/<name>/target.json`.
+    Each listed product is read from `.mmw/<name>/target.json`.
     """
     try:
         root_read = read_target_json(root)
+    except LegacyLayoutError as exc:
+        return None, exc
     except TargetJSONError as exc:
         return None, str(exc)
     if root_read is None:
         return None, ".mmw/target.json is not there."
-    if not product_layout(root_read.root):
-        return [(None, root_read)], None
     names = product_names(root_read.root.get("products"))
     if not names:
         return None, ".mmw/target.json products must list the product names."
-    configs: list[tuple[str | None, dict]] = []
+    configs: list[tuple[str, dict]] = []
     for name in names:
         try:
             one = read_target_json(root, name)
@@ -118,7 +116,7 @@ def load_products(root: Path) -> tuple[list[tuple[str | None, dict]] | None, str
     return configs, None
 
 
-def markers_of(cfg: dict, where: str = ".mmw/target.json") -> tuple[tuple[str, ...] | None, str | None]:
+def markers_of(cfg: dict, where: str) -> tuple[tuple[str, ...] | None, str | None]:
     if "harness_markers" not in cfg:
         return None, f"{where} has no harness_markers."
     value = cfg["harness_markers"]
@@ -127,11 +125,11 @@ def markers_of(cfg: dict, where: str = ".mmw/target.json") -> tuple[tuple[str, .
     return tuple(item for item in value if item), None
 
 
-def markers_of_all(configs: list[tuple[str | None, dict]]) -> tuple[tuple[str, ...] | None, str | None]:
+def markers_of_all(configs: list[tuple[str, dict]]) -> tuple[tuple[str, ...] | None, str | None]:
     """The union of every product's markers, in the order the products are listed."""
     found: list[str] = []
     for name, cfg in configs:
-        where = f".mmw/{name}/target.json" if name else ".mmw/target.json"
+        where = f".mmw/{name}/target.json"
         markers, why = markers_of(cfg, where)
         if why is not None:
             return None, why
@@ -141,10 +139,13 @@ def markers_of_all(configs: list[tuple[str | None, dict]]) -> tuple[tuple[str, .
     return tuple(found), None
 
 
-def refuse_markers(repo: str, what: str) -> int:
+def refuse_markers(repo: str, what: str | LegacyLayoutError) -> int:
     # Part 2 is the first clause of the rule only: `refusal()` keeps parts 2–3
     # whole and trims part 1, and `--repo` plus a machine path already spend
     # most of the 256-character host limit.
+    if isinstance(what, LegacyLayoutError):
+        print(what, file=sys.stderr)
+        return 2
     print(refusal(
         what,
         "The guard has no markers of its own.",
@@ -191,20 +192,16 @@ def load_named_files(root: Path, cfg: dict) -> set[Path]:
     return named
 
 
-def story_service_files(root: Path, configs: list[tuple[str | None, dict]],
+def story_service_files(root: Path, configs: list[tuple[str, dict]],
                         files: list[Path]) -> list[Path]:
     """Tracked files under each product's stories directory, plus files its command names.
 
-    The root-as-product directory is `.mmw/stories/`. A listed product's is
-    `.mmw/<product>/stories/`.
+    Each product's directory is `.mmw/<product>/stories/`.
     """
     stories_roots: list[Path] = []
     named: set[Path] = set()
     for name, cfg in configs:
-        if name:
-            stories_roots.append((root / ".mmw" / name / "stories").resolve())
-        else:
-            stories_roots.append((root / ".mmw" / "stories").resolve())
+        stories_roots.append((root / ".mmw" / name / "stories").resolve())
         command = cfg.get("stories")
         if isinstance(command, str):
             named |= files_named_in(root, command)

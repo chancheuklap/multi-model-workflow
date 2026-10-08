@@ -232,17 +232,24 @@ class Products(Base):
         self.assertIn(".mmw/parrot/target.json", proc.stderr)
         self.assertEqual(json.loads(self.cli("list").stdout), [])
 
-    def test_the_old_layout_keeps_the_whole_block_and_one_started_product(self):
-        (self.root / ".mmw/target.json").write_text(json.dumps({"stop": "true"}))
+    def test_a_checks_only_root_runs_a_generic_command_under_its_lease(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({"checks": ["true"]}))
         proc = self.cli("run", "--", sys.executable, "-c",
-                        "import os,json; print(json.dumps(dict(os.environ)))")
+                        "import os; print(os.environ['MMW_SLOT'])")
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        env = json.loads(proc.stdout)
-        self.assertEqual((env["MMW_PORT_BASE"], env["MMW_PORT_COUNT"]), ("22400", "5"))
-        self.assertNotIn("MMW_PRODUCT", env)
-        self.assertEqual(json.loads(self.cli("list").stdout)[0]["started"], ["default"])
-        proc = self.cli("release", "--stop")
-        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        records = json.loads(self.cli("list").stdout)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(proc.stdout.strip(), str(records[0]["slot"]))
+        self.assertEqual(records[0]["started"], [])
+
+    def test_an_old_layout_run_refuses_before_commands_or_claiming(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({"stop": "true"}))
+        marker = self.root / "command-ran"
+        proc = self.cli("run", "--", "touch", str(marker))
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("migrate_products.py", proc.stderr)
+        self.assertFalse(marker.exists())
+        self.assertEqual(json.loads(self.cli("list").stdout), [])
 
     def test_each_product_gets_its_own_segment(self):
         (self.root / ".mmw/target.json").write_text(json.dumps({
@@ -267,8 +274,8 @@ class Products(Base):
         self.assertEqual(gateway["MMW_SLOT"], parrot["MMW_SLOT"])
         self.assertEqual(gateway["MMW_INSTANCE"], parrot["MMW_INSTANCE"])
 
-    def test_the_old_layout_run_keeps_the_callers_working_directory(self):
-        (self.root / ".mmw/target.json").write_text(json.dumps({"stop": "true"}))
+    def test_a_single_product_run_keeps_the_callers_working_directory(self):
+        (self.root / ".mmw/target.json").write_text('{"products": ["parrot"]}')
         subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
         subdir = self.root / "subdir"
         subdir.mkdir()
@@ -458,7 +465,10 @@ class Releasing(Base):
         (tree / ".mmw").mkdir(exist_ok=True)
         stopped = self.trees / "stopped"
         (tree / ".mmw" / "target.json").write_text(
-            json.dumps({"stop": f"touch '{stopped}'"}), encoding="utf-8")
+            json.dumps({"products": ["notes"]}), encoding="utf-8")
+        (tree / ".mmw/notes").mkdir()
+        (tree / ".mmw/notes/target.json").write_text(
+            json.dumps({"ports": 1, "stop": f"touch '{stopped}'"}))
         self.lease.claim(self.lease.worktree_of(tree))
         with self.lease.judge_run(tree, stop=True):
             self.lease.leased_environment(tree)
@@ -481,8 +491,15 @@ class StoppingBeforeReleasing(Base):
 
     def declare(self, tree: Path, stop: str = "", text: str | None = None) -> None:
         (tree / ".mmw").mkdir(exist_ok=True)
-        (tree / ".mmw" / "target.json").write_text(
-            text if text is not None else json.dumps({"stop": stop}), encoding="utf-8")
+        if text is not None:
+            (tree / ".mmw/target.json").write_text(text)
+            return
+        (tree / ".mmw/target.json").write_text('{"products": ["notes"]}')
+        (tree / ".mmw/notes").mkdir(exist_ok=True)
+        (tree / ".mmw/notes/target.json").write_text(json.dumps({"ports": 5, "stop": stop}))
+        if self.lease.registered(tree.resolve()) is not None:
+            code, _, err = self.run_cli("run", str(tree), "--product", "notes", "--", "true")
+            self.assertEqual(code, 0, err)
 
     def run_cli(self, *argv) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()

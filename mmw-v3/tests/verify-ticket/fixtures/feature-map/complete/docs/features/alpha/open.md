@@ -18,7 +18,7 @@ The user opens the product and sees it ready.
   check: cd tests && python -m unittest test_guard.GuardTests.test_opens
 - `open-existing` The user could already open it.
   source: existing 2026-10-08
-  check: journey.py run smoke
+  check: journey.py run alpha/smoke
 
 ## How to get to it (user POV)
 

@@ -3,6 +3,7 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 from _load import load
 
 vt = load()
@@ -10,7 +11,7 @@ vt = load()
 STORY = ("story-parity.py --contract "
          "efforts/x/screen-contract.yaml --pages create-project")
 BOUNDARY = 'boundary-check.py --run "pnpm vitest run tests/boundary/add-material.test.ts"'
-JOURNEY = "journey.py run smoke"
+JOURNEY = "journey.py run notes/smoke"
 OK_EXPECT = "/^OK$/m"
 
 
@@ -536,7 +537,7 @@ class TestContractPathInBackticks(unittest.TestCase):
 
 class TestCriterionShapes(ContractFixture, unittest.TestCase):
     """Each `--pages` mount is a non-App page of the screen contract; a boundary-check.py
-    --run is a non-empty command; a journey.py run <name> exists under .mmw/journeys/."""
+    --run is a non-empty command; a journey.py run <name> exists under .mmw/notes/journeys/."""
 
     def setUp(self):
         super().setUp()
@@ -548,7 +549,7 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
             "- `docs/context/chameleon-product.md`——正名"
         )
         self.parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节与 Testing Decisions"
-        os.makedirs(os.path.join(self.root, ".mmw", "journeys", "smoke"), exist_ok=True)
+        os.makedirs(os.path.join(self.root, ".mmw", "notes", "journeys", "smoke"), exist_ok=True)
 
     def lint(self, *criteria, owns=""):
         criteria = list(criteria)
@@ -605,49 +606,49 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
         self.assertEqual(self.lint(gate("AC1", JOURNEY)), [])
 
     def test_a_chained_journey_check_reads_only_the_name(self):
-        self.assertEqual(self.lint(gate("AC1", "journey.py run smoke; true")), [])
+        self.assertEqual(self.lint(gate("AC1", "journey.py run notes/smoke; true")), [])
 
     def test_a_journey_name_missing_under_journeys_is_an_error(self):
-        findings = self.lint(gate("AC1", "journey.py run paid-smoke"))
-        self.assertTrue(any("paid-smoke" in f and ".mmw/journeys" in f for f in findings),
+        findings = self.lint(gate("AC1", "journey.py run notes/paid-smoke"))
+        self.assertTrue(any("paid-smoke" in f and ".mmw/notes/journeys" in f for f in findings),
                         findings)
         self.assertFalse(any("--break" in f for f in findings), findings)
 
     def test_a_journey_under_a_directory_the_check_cds_into_is_fine(self):
         """A criterion that drives journey.py against a fixture `cd`s into it first, so
         the journey it names is under that directory's `.mmw/`, not the repository's."""
-        os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw", "journeys", "demo"),
+        os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw", "notes", "journeys", "demo"),
                     exist_ok=True)
         self.assertEqual(
-            self.lint(gate("AC1", "cd fixtures/repo && journey.py run demo")), [])
+            self.lint(gate("AC1", "cd fixtures/repo && journey.py run notes/demo")), [])
 
     def test_a_journey_missing_under_the_directory_the_check_cds_into_is_an_error(self):
-        os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw", "journeys", "demo"),
+        os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw", "notes", "journeys", "demo"),
                     exist_ok=True)
-        findings = self.lint(gate("AC1", "cd fixtures/repo && journey.py run absent"))
-        self.assertTrue(any("absent" in f and ".mmw/journeys" in f for f in findings),
+        findings = self.lint(gate("AC1", "cd fixtures/repo && journey.py run notes/absent"))
+        self.assertTrue(any("absent" in f and ".mmw/notes/journeys" in f for f in findings),
                         findings)
 
     def test_a_journey_this_ticket_owns_is_not_yet_expected_to_exist(self):
         """The ticket that builds the journey names it before it is there; `## Owns`
         covering the directory is what says this ticket is that ticket."""
         self.assertEqual(
-            self.lint(gate("AC1", "journey.py run money"), owns="- `.mmw/journeys/money/**`"), [])
+            self.lint(gate("AC1", "journey.py run notes/money"), owns="- `.mmw/notes/journeys/money/**`"), [])
 
     def test_a_wider_owns_glob_covers_the_journey_directory(self):
         self.assertEqual(
-            self.lint(gate("AC1", "journey.py run money"), owns="- `.mmw/**`"), [])
+            self.lint(gate("AC1", "journey.py run notes/money"), owns="- `.mmw/**`"), [])
 
     def test_an_owns_glob_for_another_journey_does_not_cover_this_one(self):
-        findings = self.lint(gate("AC1", "journey.py run money"),
-                             owns="- `.mmw/journeys/login-gate/**`")
-        self.assertTrue(any("money" in f and ".mmw/journeys" in f for f in findings), findings)
+        findings = self.lint(gate("AC1", "journey.py run notes/money"),
+                             owns="- `.mmw/notes/journeys/login-gate/**`")
+        self.assertTrue(any("money" in f and ".mmw/notes/journeys" in f for f in findings), findings)
 
     def test_owns_covers_a_journey_under_the_directory_the_check_cds_into(self):
         os.makedirs(os.path.join(self.root, "fixtures", "repo", ".mmw"), exist_ok=True)
         self.assertEqual(
-            self.lint(gate("AC1", "cd fixtures/repo && journey.py run absent"),
-                      owns="- `fixtures/repo/.mmw/journeys/absent/**`"), [])
+            self.lint(gate("AC1", "cd fixtures/repo && journey.py run notes/absent"),
+                      owns="- `fixtures/repo/.mmw/notes/journeys/absent/**`"), [])
 
     def test_a_product_journey_path_is_read(self):
         """A slashed name is that product's `journeys` directory. The finding names
@@ -680,17 +681,17 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
 
 - **Critical flows** (关键流程):
   - `.mmw/alpha/journeys/open/` — Implementation Decisions sections 2 and 3
-  - `.mmw/journeys/checkout/` — Implementation Decisions sections 2 and 3
+  - `.mmw/notes/journeys/checkout/` — Implementation Decisions sections 2 and 3
 """)
         self.assertEqual(unreadable, [])
-        self.assertEqual(flows, {"alpha/open": {2, 3}, "checkout": {2, 3}})
+        self.assertEqual(flows, {"alpha/open": {2, 3}, "notes/checkout": {2, 3}})
 
         spec = """## Testing Decisions
 
 - **Critical flows** (关键流程):
   - `.mmw/alpha/journeys/open/` — Implementation Decisions sections 2 and 3
 """
-        old_owns = "- `.mmw/target.json`\n- `.mmw/stories/**`"
+        old_owns = "- `.mmw/notes/target.json`\n- `.mmw/notes/stories/**`"
         product_owns = "- `.mmw/alpha/target.json`\n- `.mmw/alpha/stories/**`"
 
         def judged(owns):
@@ -717,19 +718,19 @@ class TestJourneyBreakRules(unittest.TestCase):
     SPEC = """## Testing Decisions
 
 - **Critical flows** (关键流程):
-  - `checkout` — Implementation Decisions sections 2 and 3
+  - `notes/checkout` — Implementation Decisions sections 2 and 3
 """
 
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         for name in ("smoke", "checkout", "owner-demo"):
-            os.makedirs(os.path.join(self.dir.name, ".mmw", "journeys", name))
+            os.makedirs(os.path.join(self.dir.name, ".mmw", "notes", "journeys", name))
 
     def tearDown(self):
         self.dir.cleanup()
 
     def lint(self, flow, *, break_value="", owns="", spec_body=None):
-        check = f"journey.py run {flow}" + (f' --break "{break_value}"' if break_value else "")
+        check = f"journey.py run notes/{flow}" + (f' --break "{break_value}"' if break_value else "")
         body = ticket("- ADR-0008 (baseline)", gate("AC1", check),
                       parent="#537, Implementation Decisions sections 2 and 3",
                       owns=owns)
@@ -737,6 +738,19 @@ class TestJourneyBreakRules(unittest.TestCase):
             body, 639, root=self.dir.name,
             spec_bodies={537: spec_body} if spec_body is not None else {})
         return findings, warnings
+
+    def test_missing_lease_does_not_crash_the_critical_flow_reader(self):
+        with mock.patch.object(vt, "load_lease", return_value=None):
+            flows, unreadable = vt.critical_flows(self.SPEC)
+        self.assertEqual(flows, {})
+        self.assertEqual(len(unreadable), 1)
+        self.assertIn("notes/checkout", unreadable[0])
+
+    def test_missing_lease_does_not_crash_journey_lint(self):
+        with mock.patch.object(vt, "load_lease", return_value=None):
+            findings, warnings = self.lint("checkout", spec_body=self.SPEC)
+        self.assertTrue(findings)
+        self.assertEqual(warnings, [])
 
     def test_an_acceptance_journey_without_break_is_an_error(self):
         findings, warnings = self.lint("checkout", spec_body=self.SPEC)
@@ -755,7 +769,7 @@ class TestJourneyBreakRules(unittest.TestCase):
             self.lint("checkout", owns="- `.mmw/**`", spec_body=self.SPEC), ([], []))
 
     def test_a_contract_with_enumerated_runtime_owns_needs_no_break(self):
-        owns = "- `.mmw/target.json`\n- `.mmw/stories/**`"
+        owns = "- `.mmw/notes/target.json`\n- `.mmw/notes/stories/**`"
         self.assertEqual(self.lint("checkout", owns=owns, spec_body=self.SPEC), ([], []))
 
     def test_an_owner_named_journey_without_break_is_a_warning(self):
@@ -771,7 +785,7 @@ class TestJourneyBreakRules(unittest.TestCase):
         self.assertEqual(warnings, [])
 
     def test_a_missing_break_fetches_the_parent_spec_before_classifying(self):
-        check = gate("AC1", "journey.py run checkout")
+        check = gate("AC1", "journey.py run notes/checkout")
         body = ticket("- ADR-0008 (baseline)", check,
                       parent="#537, Implementation Decisions sections 2 and 3")
         fetched = []
@@ -779,12 +793,12 @@ class TestJourneyBreakRules(unittest.TestCase):
             body, 639, root=self.dir.name,
             fetch_spec_body=lambda number: fetched.append(number) or self.SPEC)
         self.assertEqual(fetched, [537])
-        self.assertTrue(any("critical-flow journey `checkout`" in finding
+        self.assertTrue(any("critical-flow journey `notes/checkout`" in finding
                             for finding in findings), findings)
         self.assertEqual(warnings, [])
 
     def test_a_break_does_not_fetch_the_parent_spec(self):
-        check = gate("AC1", 'journey.py run checkout --break "POST /items"')
+        check = gate("AC1", 'journey.py run notes/checkout --break "POST /items"')
         body = ticket("- ADR-0008 (baseline)", check,
                       parent="#537, Implementation Decisions sections 2 and 3")
         fetched = []
@@ -812,26 +826,31 @@ class TestJourneyBreakRules(unittest.TestCase):
             """## Testing Decisions
 
 - **Critical flows** (关键流程):
-  - `checkout` — Implementation Decisions sections 2 and 3
+  - notes/checkout: Implementation Decisions sections 2 and 3
 """,
             """## Testing Decisions
 
 - **Critical flows** (关键流程):
-  - `.mmw/journeys/checkout/` — Implementation Decisions sections 2 and 3
-""",
-            """## Testing Decisions
-
-- **Critical flows** (关键流程): `checkout` — Implementation Decisions sections 2 and 3
+  - `notes/checkout` — Implementation Decisions sections 2 and 3
 """,
             """## Testing Decisions
 
 - **Critical flows** (关键流程):
-  - `checkout` — sections 2 and 3 of Implementation Decisions
+  - `.mmw/notes/journeys/checkout/` — Implementation Decisions sections 2 and 3
+""",
+            """## Testing Decisions
+
+- **Critical flows** (关键流程): `notes/checkout` — Implementation Decisions sections 2 and 3
+""",
+            """## Testing Decisions
+
+- **Critical flows** (关键流程):
+  - `notes/checkout` — sections 2 and 3 of Implementation Decisions
 """,
         )
         for spec in bodies:
             findings, warnings = self.lint("checkout", spec_body=spec)
-            self.assertTrue(any("critical-flow journey `checkout`" in finding
+            self.assertTrue(any("critical-flow journey `notes/checkout`" in finding
                                 for finding in findings), (spec, findings))
             self.assertEqual(warnings, [], spec)
 
@@ -844,11 +863,11 @@ class TestJourneyBreakRules(unittest.TestCase):
         flows, unreadable = vt.critical_flows("""## Testing Decisions
 
 - **Critical flows** (关键流程):
-  - `checkout`: Implementation Decisions sections 2 and 3
+  - `notes/checkout`: Implementation Decisions sections 2 and 3
 - 提交前运行：run `uv run python -m unittest` on each changed file 1 and 2
 - **Test surfaces**: none
 """)
-        self.assertEqual(flows, {"checkout": {2, 3}})
+        self.assertEqual(flows, {"notes/checkout": {2, 3}})
         self.assertEqual(unreadable, [])
 
     def test_none_is_no_flow_and_not_an_unreadable_line(self):
@@ -860,10 +879,10 @@ class TestJourneyBreakRules(unittest.TestCase):
     def test_a_flow_on_the_marker_line_does_not_take_the_next_bullet(self):
         flows, unreadable = vt.critical_flows("""## Testing Decisions
 
-- **Critical flows**: `checkout`: Implementation Decisions sections 2 and 3
+- **Critical flows**: `notes/checkout`: Implementation Decisions sections 2 and 3
 - before committing: run the suite 4 times
 """)
-        self.assertEqual(flows, {"checkout": {2, 3}})
+        self.assertEqual(flows, {"notes/checkout": {2, 3}})
         self.assertEqual(unreadable, [])
 
     def test_a_marker_that_is_a_paragraph_owns_the_list_under_it(self):
@@ -871,32 +890,32 @@ class TestJourneyBreakRules(unittest.TestCase):
 
 Critical flows:
 
-- `checkout`: Implementation Decisions section 2
-- `sign-in`: Implementation Decisions section 5
+- `notes/checkout`: Implementation Decisions section 2
+- `notes/sign-in`: Implementation Decisions section 5
 
 Before committing, run the suite 4 times.
 """)
-        self.assertEqual(flows, {"checkout": {2}, "sign-in": {5}})
+        self.assertEqual(flows, {"notes/checkout": {2}, "notes/sign-in": {5}})
         self.assertEqual(unreadable, [])
 
     def test_the_chinese_section_words_read_once_the_heading_is_named(self):
         flows, unreadable = vt.critical_flows("""## Testing Decisions
 
 - **Critical flows** (关键流程)：
-  - `settings-save`：打开、改一格、保存、读回；Implementation Decisions 第 6、8、9 节。
+  - `notes/settings-save`：打开、改一格、保存、读回；Implementation Decisions 第 6、8、9 节。
 """)
-        self.assertEqual(flows, {"settings-save": {6, 8, 9}})
+        self.assertEqual(flows, {"notes/settings-save": {6, 8, 9}})
         self.assertEqual(unreadable, [])
 
     def test_a_flow_line_without_the_heading_name_says_the_shape_it_wants(self):
         spec = """## Testing Decisions
 
 - **Critical flows** (关键流程)：
-  - `checkout`：打开、改一格、保存、读回；第 6、8、9 节。
+  - `notes/checkout`：打开、改一格、保存、读回；第 6、8、9 节。
 """
         findings, _ = self.lint("checkout", spec_body=spec)
         self.assertTrue(any("could not be read" in finding
-                            and "- `<flow>`: Implementation Decisions sections <n>, <n>"
+                            and "- `<product>/<flow>`: Implementation Decisions sections <n>, <n>"
                             in finding for finding in findings), findings)
 
 

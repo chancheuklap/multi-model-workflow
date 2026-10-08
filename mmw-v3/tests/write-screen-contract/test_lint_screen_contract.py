@@ -8,7 +8,7 @@ import os
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "write-screen-contract" / "scripts" / "lint_screen_contract.py"
@@ -38,6 +38,7 @@ SKELETON = {
 def contract():
     return {
         "effort": "x",
+        "product": "notes",
         "baselines": {"look": "handoff"},
         "locale": "zh-CN",
         "viewports": ["1440x900", "1180x720"],
@@ -107,8 +108,10 @@ class Repo:
         self.contract = self.spec_dir / "screen-contract.yaml"
         mmw = self.root / ".mmw"
         mmw.mkdir()
-        (mmw / "target.json").write_text(json.dumps({
-            "start": "s", "stop": "t", "discover": "d",
+        (mmw / "target.json").write_text(json.dumps({"products": ["notes"]}))
+        (mmw / "notes").mkdir()
+        (mmw / "notes/target.json").write_text(json.dumps({
+            "start": "s", "stop": "t", "discover": "d", "doctor": "d", "ports": 1,
             "stories": "st", "leaves_machine": [], "harness_markers": [],
         }))
 
@@ -672,10 +675,18 @@ class TestProductKey(unittest.TestCase):
     def lint_doc(self, doc) -> tuple[int, str]:
         self.repo.contract.write_text(json.dumps(doc), encoding="utf-8")
         out = io.StringIO()
-        with redirect_stdout(out):
+        with redirect_stdout(out), redirect_stderr(out):
             code = lc.main(["lint_screen_contract.py", str(self.repo.contract),
                             str(self.skeleton)])
         return code, out.getvalue()
+
+    def test_an_old_layout_refuses_with_the_migration_command(self):
+        (self.repo.root / ".mmw/target.json").write_text(json.dumps({"start": "true"}))
+        code, text = self.lint_doc(contract())
+        self.assertEqual(code, 2, text)
+        self.assertIn("python3 ~/.agents/skills/setup-mmw/scripts/"
+                      "migrate_products.py <产品名>", text)
+        self.assertNotIn("0 errors", text)
 
     def test_a_product_layout_contract_names_its_product(self):
         doc = contract()
@@ -691,6 +702,7 @@ class TestProductKey(unittest.TestCase):
 
         (self.repo.root / ".mmw" / "target.json").write_text(
             json.dumps({"products": ["alpha", "beta"]}), encoding="utf-8")
+        doc.pop("product")
         code, text = self.lint_doc(doc)
         self.assertEqual(code, 1, text)
 

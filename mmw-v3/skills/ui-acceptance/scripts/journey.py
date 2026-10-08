@@ -3,12 +3,10 @@
 
     journey.py run <name> [--break "<METHOD> <route>"]
 
-When `.mmw/target.json` lists `products`, `<name>` is `<product>/<flow>`, including
+`<name>` is `<product>/<flow>`, including
 a repository with one product. The run uses that product's `start`, `stop` and
 `discover`. The script is `<journeys>/<flow>` (a `run` executable, or the command
 `package.json` declares), and `journeys` defaults to `.mmw/<product>/journeys`.
-When the root file is itself the product, `<name>` is `<flow>` and `journeys`
-defaults to `.mmw/journeys`.
 
 Named products start their needs first and receive each dependency's discovered keys
 under its uppercase product prefix. Cleanup stops only products this invocation
@@ -34,7 +32,7 @@ ticket's smoke journey keeps the product down, moves discovered addresses to a c
 port, and runs the same script again. An oracle that cannot go red is not an
 oracle (`docs/adr/0008-silence-is-never-a-pass.md`).
 
-Then `stop` runs once more and this run's slot must be quiet: a journey ends leaving the
+Cleanup stops every product still owned by this invocation and its ports must be quiet: a journey ends leaving the
 machine as it found it, and anything still listening on the slot outlives the run and
 blocks whichever run is given the slot next.
 
@@ -72,21 +70,19 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from target_config import DISCOVER_NOTES, command_env, discover, repo_root, run_command, target_config  # noqa: E402
+from target_config import DISCOVER_NOTES, discover, repo_root, run_command, target_config  # noqa: E402
 from lease import (  # noqa: E402
-    DEFAULT_PRODUCT, ProductCommandFailed, ProductRun, TargetJSONError, addresses_into,
+    ProductCommandFailed, ProductRun, TargetJSONError, addresses_into,
     holder, judge_run, listener, ports_of, product_at_port, product_port_ranges,
-    product_journey, product_layout, read_target_json, registered, worktree_of,
-    update_started,
+    product_journey, read_target_json, registered, worktree_of,
 )
 from refusal import refusal  # noqa: E402
 
 # The first critical-flow ticket builds the fault-injection switch, so a switch that does not arm is
 # that worker's own defect to fix; for any other ticket it is a fault to report.
-BREAK_NEXT = ("If this ticket owns .mmw/harness/, fix the switch and run the criterion "
+BREAK_NEXT = ("If this ticket owns .mmw/<product>/harness/, fix the switch and run the criterion "
               "again; otherwise report the ticket blocked and stop.")
 
-DEFAULT_JOURNEYS = ".mmw/journeys"
 BREAK_RE = re.compile(r"[A-Z]+ /\S*")
 # SGR color sequences only. Other ANSI (cursor, OSC) is not a color code.
 COLOR_RE = re.compile(r"\x1b\[[0-9;]*m")
@@ -143,13 +139,6 @@ def emit_script_output(proc: subprocess.CompletedProcess) -> str:
         if not text.endswith("\n"):
             sys.stdout.write("\n")
     return last_line(text)
-
-
-def stop(cfg: dict, root: Path, env: dict[str, str]) -> None:
-    command = cfg.get("stop")
-    if not command:
-        return
-    run_command(command, root, env=env, check=False)
 
 
 def still_up(root: Path, initial_started: list[str] | None = None) -> list[str]:
@@ -298,61 +287,49 @@ def pid_actual(proc: subprocess.CompletedProcess) -> str:
 def journey_binding(name: str, root: Path) -> tuple[dict, Path]:
     """The product config this run starts, and the directory the script lives in.
 
-    A listed-products repository takes `<product>/<flow>` and that product's
-    `journeys` directory. The root-as-product repository takes `<flow>` under
-    its own `journeys` directory. `target_config` reports a missing file, a
+    Every journey takes `<product>/<flow>` and that product's `journeys` directory.
+    `target_config` reports a missing file, a
     missing product and a product file that is not JSON.
     """
     try:
-        read = read_target_json(root)
-    except TargetJSONError:
-        read = None
-    if read is not None and product_layout(read.root):
-        parts = product_journey(name)
-        if parts is None:
-            raise SystemExit(refusal(
-                f"journey name {name!r} is not <product>/<flow>.",
-                "A repository that lists products names every journey that way, "
-                "including a repository with one product.",
-                "Run `journey.py run <product>/<flow>` again.",
-            ))
-        product, flow = parts
-        cfg = target_config(root, product)
-        journeys = cfg.get("journeys") or f".mmw/{product}/journeys"
-        return cfg, (root / journeys / flow).resolve()
-    cfg = target_config(root)
-    journeys = cfg.get("journeys") or DEFAULT_JOURNEYS
-    return cfg, (root / journeys / name).resolve()
+        read_target_json(root)
+    except TargetJSONError as exc:
+        raise SystemExit(str(exc)) from None
+    parts = product_journey(name)
+    if parts is None:
+        raise SystemExit(refusal(
+            f"journey name {name!r} is not <product>/<flow>.",
+            "Every journey needs a product name, including a single-product repository.",
+            "Run `journey.py run <product>/<flow>` again.",
+        ))
+    product, flow = parts
+    cfg = target_config(root, product)
+    journeys = cfg.get("journeys") or f".mmw/{product}/journeys"
+    return cfg, (root / journeys / flow).resolve()
 
 
 def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     try:
         cfg, dest = journey_binding(name, root)
-        stack = ProductRun(root, cfg.name) if cfg.name is not None else None
-        if stack is not None and cfg.name in stack.initial_started:
+        stack = ProductRun(root, cfg.name)
+        if cfg.name in stack.initial_started:
             raise SystemExit(refusal(
                 f"Product {cfg.name} is already started under this lease.",
                 "This journey cannot restart or stop a product another run owns.",
                 "Stop that instance through its owner, then run the journey again.",
             ))
-        env = stack.env() if stack is not None else command_env(root)
+        env = stack.env()
     except SystemExit as exc:
         print(exc, file=sys.stderr)
         return 2
     env.pop("MMW_BREAK", None)
-
-    def stop_this_run():
-        if stack is None:
-            stop(cfg, root, env)
-        else:
-            stack.stop()
 
     def bail(message: str | None = None,
              proc: subprocess.CompletedProcess | None = None,
              kind: str | None = None,
              command: str | None = None,
              detail: str | None = None) -> int:
-        stop_this_run()
+        stack.stop()
         if proc is not None:
             # stdout is block-buffered on a pipe. Flush the naming line, and the
             # command's own stdout, before stderr, or a merged stream shows the
@@ -425,8 +402,6 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         return "".join(parts)
 
     def diagnose_started() -> str:
-        if stack is None:
-            return diagnose(cfg, env)
         parts: list[str] = []
         for product in stack.order:
             if product == cfg.name:
@@ -437,36 +412,32 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
 
     start_cmd = cfg.get("start")
     if not isinstance(start_cmd, str) or not start_cmd.strip():
-        return bail("`.mmw/target.json` has no `start` command")
+        return bail(f"`.mmw/{cfg.name}/target.json` has no `start` command")
 
     stop_cmd = cfg.get("stop")
     if not isinstance(stop_cmd, str) or not stop_cmd.strip():
-        return bail("`.mmw/target.json` has no `stop` command")
+        return bail(f"`.mmw/{cfg.name}/target.json` has no `stop` command")
 
     # A run that dies in start or discover still replaces the previous run's evidence.
     prepare_evidence(root, name, break_pass=False)
 
     def prepare_start() -> int | None:
         nonlocal env
-        if stack is not None:
-            try:
-                stack.start_needs()
-            except ProductCommandFailed as exc:
-                return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
-            for dependency in stack.order[:-1]:
-                failed = examine(target_config(root, dependency), stack.env(dependency))
-                if failed is not None:
-                    return failed
-            env = stack.env()
-            stack.mark_started(cfg.name)
+        try:
+            stack.start_needs()
+        except ProductCommandFailed as exc:
+            return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
+        for dependency in stack.order[:-1]:
+            failed = examine(target_config(root, dependency), stack.env(dependency))
+            if failed is not None:
+                return failed
+        env = stack.env()
+        stack.mark_started(cfg.name)
         return None
 
-    if stack is not None:
-        failed = prepare_start()
-        if failed is not None:
-            return failed
-    else:
-        update_started(worktree_of(root), DEFAULT_PRODUCT)
+    failed = prepare_start()
+    if failed is not None:
+        return failed
     try:
         run_command(start_cmd, root, env=env)
     except SystemExit as exc:
@@ -476,17 +447,14 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     except SystemExit as exc:
         return bail(proc=exc.code, kind="discover", command=str(cfg.get("discover")))
     addresses_into(env, data)
-    if stack is not None:
-        stack.remember(cfg.name, data)
-    else:
-        update_started(worktree_of(root), DEFAULT_PRODUCT, data=data)
+    stack.remember(cfg.name, data)
     failed = examine(cfg, env)
     if failed is not None:
         return failed
 
     spec = journey_command(dest)
     if spec is None:
-        stop_this_run()
+        stack.stop()
         print(f"JOURNEY FAILED {name} at {dest} has no executable `run` "
               f"and no package.json scripts.run")
         return 1
@@ -507,7 +475,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         script, evidence = attempt(env)
         follow_up = diagnose_started() if script.returncode != 0 else ""
     finally:
-        stop_this_run()
+        stack.stop()
 
     if script.returncode != 0:
         print(f"JOURNEY FAILED {name} at {emit_script_output(script)}")
@@ -518,10 +486,9 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         return 1
 
     if break_spec is not None:
-        if stack is not None:
-            failed = prepare_start()
-            if failed is not None:
-                return failed
+        failed = prepare_start()
+        if failed is not None:
+            return failed
         start_env = dict(env)
         start_env["MMW_BREAK"] = break_spec
         try:
@@ -545,8 +512,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         except SystemExit as exc:
             return bail(proc=exc.code, kind="discover", command=str(cfg.get("discover")))
         addresses_into(env, control_data)
-        if stack is not None:
-            stack.remember(cfg.name, control_data)
+        stack.remember(cfg.name, control_data)
         failed = examine(cfg, env)
         if failed is not None:
             return failed
@@ -570,7 +536,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     try:
         control, _control_evidence = attempt(control_env, break_pass=break_spec is not None)
     finally:
-        stop_this_run()
+        stack.stop()
     if control.returncode == 0:
         # A break pass that passes is the one the worker has to read. A pass that fails
         # as designed stays quiet: that failure is the negative control.
@@ -580,7 +546,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             quoted = last_line(strip_color((control.stdout or "") + (control.stderr or "")))
         print(f"{green_prefix}{quoted}{green_explanation}")
         return 1
-    left = still_up(root, stack.initial_started if stack is not None else None)
+    left = still_up(root, stack.initial_started)
     if left:
         print(f"JOURNEY LEFT THE PRODUCT UP {name} — this run's slot still has "
               f"{len(left)} listener(s) after `stop`: {'; '.join(left)}. Whatever started "

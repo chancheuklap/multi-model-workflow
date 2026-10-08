@@ -859,8 +859,15 @@ class TestTheProductSlot(unittest.TestCase):
         main, _ = self.main_repo()
         stopped = self.tmp / "stopped"
         (main / ".mmw").mkdir()
-        (main / ".mmw" / "target.json").write_text(json.dumps({"stop": f"touch '{stopped}'"}))
-        code, posted, err = self.run_in(main.resolve(), PRODUCT, reverify=True, actor="main")
+        (main / ".mmw/target.json").write_text('{"products": ["notes"]}')
+        (main / ".mmw/notes").mkdir()
+        (main / ".mmw/notes/target.json").write_text(json.dumps({
+            "ports": 1, "stop": f"touch '{stopped}'",
+        }))
+        body = PRODUCT.replace("echo journey.py import",
+            f"MMW_HOME='{self.tmp / 'home'}' python3 '{UI_ACCEPTANCE / 'lease.py'}' "
+            "run --product notes -- true && echo journey.py import", 1)
+        code, posted, err = self.run_in(main.resolve(), body, reverify=True, actor="main")
         self.assertEqual(code, 0, err)
         self.assertEqual(payload_of(posted[-1])["actor"], "main")
         self.assertIsNotNone(payload_of(posted[-1])["slot"])

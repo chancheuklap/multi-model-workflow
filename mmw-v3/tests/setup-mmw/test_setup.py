@@ -382,6 +382,18 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertRegex(out, r"(?m)^ok +repository +\.mmw/target\.json checks: 2 command\(s\)$")
 
+    def test_an_old_product_layout_is_refused_without_running_checks(self):
+        self.set_up_repository()
+        (self.root / ".mmw/target.json").write_text(json.dumps({
+            "checks": ["make check"], "start": "true",
+        }))
+        fake = Fake(root=self.root)
+        code, out = self.run_check(fake)
+        self.assertEqual(code, 2, out)
+        self.assertIn("migrate_products.py <产品名>", out)
+        self.assertNotIn("SETUP OK", out)
+        self.assertEqual(fake.writes(), [])
+
     def test_a_target_that_is_not_json_is_missing(self):
         self.set_up_repository()
         (self.root / ".mmw" / "target.json").write_text("{")

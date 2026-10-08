@@ -4,7 +4,7 @@
 # product process and fails only the method and route pattern MMW_BREAK names.
 set -e
 rm -f .mmw/stop-ran
-python3 .mmw/harness/server.py >"$MMW_DATA_DIR/http.log" 2>&1 &
+python3 .mmw/notes/harness/server.py >"$MMW_DATA_DIR/http.log" 2>&1 &
 echo $! > "$MMW_DATA_DIR/pid"
 # Return only once the product answers, not merely once it is alive.
 i=0

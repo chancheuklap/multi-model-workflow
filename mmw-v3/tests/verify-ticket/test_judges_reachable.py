@@ -74,8 +74,8 @@ class RequireJudges(unittest.TestCase):
                 "  EVIDENCE: pending\n"
                 "- [ ] AC2: the click calls\n  CHECK: boundary-check.py --run \"pnpm t\"\n"
                 "  EXPECT: /^BOUNDARY OK/m\n  EVIDENCE: pending\n"
-                "- [ ] AC3: the journey\n  CHECK: journey.py run smoke\n"
-                "  EXPECT: JOURNEY OK smoke\n  EVIDENCE: pending\n"
+                "- [ ] AC3: the journey\n  CHECK: journey.py run notes/smoke\n"
+                "  EXPECT: JOURNEY OK notes/smoke\n  EVIDENCE: pending\n"
                 f"- [ ] AC4: no acceptance name leaks\n  CHECK: {HARNESS}\n"
                 "  EXPECT: HARNESS OK\n  EVIDENCE: pending\n")
         with self.assertRaises(vt.JudgeUnreachable) as caught:

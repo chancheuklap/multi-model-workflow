@@ -9,11 +9,11 @@ reads **The PIXEL line**. An agent whose run exited 2 reads **When the oracle ca
 
 ## The story page the product serves
 
-The contract ticket builds the **story service** (the server that `.mmw/target.json`'s
-`stories` command brings up) under `.mmw/stories/`; later page
+The contract ticket builds the **story service** (the server that `.mmw/<product>/target.json`'s
+`stories` command brings up) under `.mmw/<product>/stories/`; later page
 tickets add one story adapter per design page.
 
-- `.mmw/target.json`'s `stories` command starts the service in the foreground and
+- `.mmw/<product>/target.json`'s `stories` command starts the service in the foreground and
   prints `origin=<url>`. The oracle starts that command with `MMW_AUTOMATION=1` and
   ends the command and all descendants it started. A story uses a machine-chosen
   port and no lease.

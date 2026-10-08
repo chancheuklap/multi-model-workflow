@@ -47,7 +47,9 @@ class TestTargetConfig(unittest.TestCase):
                 tc.target_config(root)
             self.assertIn("target.json", str(raised.exception))
             (root / ".mmw").mkdir()
-            (root / ".mmw" / "target.json").write_text(json.dumps(
+            (root / ".mmw" / "target.json").write_text('{"products": ["notes"]}')
+            (root / ".mmw" / "notes").mkdir()
+            (root / ".mmw" / "notes" / "target.json").write_text(json.dumps(
                 {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'"}))
             cfg = tc.target_config(root)
             self.assertEqual(cfg["discover"], "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'")
@@ -71,6 +73,8 @@ def write_product_layout(root: Path, *, products=("gateway", "parrot"), ports=(7
     for name, count in zip(products, ports):
         (mmw / name).mkdir()
         (mmw / name / "target.json").write_text(json.dumps({
+            "start": "true", "stop": "true", "stories": "true",
+            "leaves_machine": [], "harness_markers": [],
             "ports": count,
             "discover": discovers[name],
             "doctor": f"{name}-doctor",
@@ -216,7 +220,8 @@ class TestTargetCheck(unittest.TestCase):
             code, out, err = self.run_target("--check", "--repo", d, "--product", "nonesuch")
             text = out + err
             self.assertNotEqual(code, 0, text)
-            self.assertIn("nonesuch", text)
+            self.assertEqual(code, 2)
+            self.assertIn("migrate_products.py", text)
 
     COMPLETE = {"start": "s", "stop": "t", "discover": "d", "stories": "st",
                 "leaves_machine": [], "harness_markers": []}
@@ -229,21 +234,25 @@ class TestTargetCheck(unittest.TestCase):
             code = tc.target_main(list(argv))
         return code, out.getvalue(), err.getvalue()
 
-    def test_a_repository_without_the_file_is_told_every_required_field(self):
+    def test_a_repository_without_the_file_is_told_to_declare_products(self):
         with tempfile.TemporaryDirectory() as d:
             code, out, _ = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 1)
-        for f in tc.FIELDS:
-            self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
-        self.assertIn("    origin — where the product is served", out)
-        self.assertNotIn("  missing  reach", out)
-        self.assertNotIn("transport_off", out)
-        self.assertIn("e.g.", out)
+        self.assertIn("expected .mmw/target.json", out)
+        self.assertIn("actual no file", out)
+
+    def write_single(self, root, cfg=None):
+        mmw = root / ".mmw"
+        mmw.mkdir(exist_ok=True)
+        (mmw / "target.json").write_text('{"products": ["notes"]}')
+        (mmw / "notes").mkdir(exist_ok=True)
+        (mmw / "notes/target.json").write_text(json.dumps(
+            {"ports": 1, "doctor": "true", **(self.COMPLETE if cfg is None else cfg)}))
 
     def test_a_complete_file_passes_and_optional_keys_stay_optional(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / ".mmw").mkdir()
-            (Path(d) / ".mmw" / "target.json").write_text(json.dumps(self.COMPLETE))
+            self.write_single(Path(d))
             code, out, _ = self.run_target("--check", "--repo", d)
             self.assertEqual(code, 0, out)
             self.assertIn("complete", out)
@@ -256,7 +265,7 @@ class TestTargetCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / ".mmw").mkdir()
-            (root / ".mmw" / "target.json").write_text(json.dumps(self.COMPLETE))
+            self.write_single(root)
             nested = root / "inner"
             nested.mkdir()
             here = Path.cwd()
@@ -275,7 +284,7 @@ class TestTargetCheck(unittest.TestCase):
             cfg = dict(self.COMPLETE)
             cfg["start"] = ""
             cfg["leaves_machine"] = "browser"
-            (Path(d) / ".mmw" / "target.json").write_text(json.dumps(cfg))
+            self.write_single(Path(d), cfg)
             code, out, _ = self.run_target("--validate", "--repo", d)
         self.assertEqual(code, 1)
         self.assertIn("start must be a non-empty command", out)
@@ -293,8 +302,7 @@ class TestTargetCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / ".mmw").mkdir()
-            (root / ".mmw" / "target.json").write_text(json.dumps(
-                {**self.COMPLETE, "kind": "electron", "unknown": True}))
+            self.write_single(root, {**self.COMPLETE, "kind": "electron", "unknown": True})
             code, out, _ = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 0, out)
         self.assertIn("  stale  kind", out)
@@ -319,10 +327,10 @@ class TestTargetCheck(unittest.TestCase):
     def test_harness_markers_is_required_as_a_list_of_strings(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / ".mmw").mkdir()
-            (Path(d) / ".mmw" / "target.json").write_text("{}")
+            self.write_single(Path(d), {})
             code, out, _ = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 1)
-        self.assertIn("  missing  harness_markers (list of strings)", out)
+        self.assertIn("harness_markers is missing", out)
         problems = tc.target_problems({**self.COMPLETE, "harness_markers": "nope"})
         self.assertEqual([k for k, _ in problems], ["harness_markers"])
         leaves = tc.target_problems({**self.COMPLETE, "leaves_machine": "nope"})

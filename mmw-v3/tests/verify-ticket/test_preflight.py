@@ -193,8 +193,8 @@ class TestBaselineRun(unittest.TestCase):
   EXPECT: PARITY OK
   EVIDENCE: pending
 - [ ] AC4: a journey
-  CHECK: journey.py run unused
-  EXPECT: JOURNEY OK unused
+  CHECK: journey.py run notes/unused
+  EXPECT: JOURNEY OK notes/unused
   EVIDENCE: pending
 """
 
@@ -343,8 +343,8 @@ class TestBaselineRun(unittest.TestCase):
         body = """## Acceptance criteria
 
 - [ ] AC1: a journey
-  CHECK: journey.py run unused
-  EXPECT: JOURNEY OK unused
+  CHECK: journey.py run notes/unused
+  EXPECT: JOURNEY OK notes/unused
   EVIDENCE: pending
 """
         root, base, _ = self.repo()

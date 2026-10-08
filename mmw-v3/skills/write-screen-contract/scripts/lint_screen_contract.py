@@ -110,10 +110,9 @@ def three_part(what: str, why: str, next_step: str) -> str:
 def product_name_errors(doc: dict, root: Path) -> tuple[list[str], str | None]:
     """Contract errors for `product`, and a refusal when that check could not run.
 
-    When the root lists products the key is required and the value is one of those
-    names. A root that is itself the product does not carry the key. `product` is
-    not the effort name. A missing `lease.py`, or a root file that is not JSON,
-    is a refusal: the check has not looked at `product`.
+    The key is required and the value is one of the root's product names.
+    `product` is not the effort name. A missing `lease.py`, an old-layout root,
+    or a root file that is not JSON is a refusal: product could not be checked.
     """
     lease = load_lease()
     if lease is None:
@@ -124,13 +123,15 @@ def product_name_errors(doc: dict, root: Path) -> tuple[list[str], str | None]:
         )
     try:
         read = lease.read_target_json(root)
+    except lease.LegacyLayoutError as exc:
+        return [], str(exc)
     except lease.TargetJSONError as exc:
         return [], three_part(
             str(exc),
             "Whether product is required cannot be known while that file is unreadable.",
             "Fix .mmw/target.json so it holds one JSON object, then re-run the lint.",
         )
-    if read is None or not lease.product_layout(read.root):
+    if read is None:
         return [], None
     listed = lease.product_names(read.root.get("products")) or []
     value = doc.get("product")
