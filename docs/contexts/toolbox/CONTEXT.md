@@ -211,11 +211,11 @@ The three checks in `mmw-v3/tests/lib/` that every `mmw-v3/tests/<name>/run.sh` 
 _Home_: `TESTING.md`, `AGENTS.md`
 
 **verify-this**:
-The skill that proves or disproves one claim and returns exactly one verdict. `VERIFIED` means baseline and treatment differ in the predicted direction, by the claimed threshold. `NOT VERIFIED` means the behaviour is unchanged, moves the wrong way, misses the threshold, or a repository check fails. `INCONCLUSIVE` means there is no valid baseline, the signal is noisy, the measurement failed, an environment difference invalidates the comparison, or a check reached none of the changed code. Distinct from a **feature map review**.
+The skill that proves or disproves one claim and returns exactly one of `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE`. Distinct from a **feature map review**.
 _Home_: `mmw-v3/skills/verify-this/SKILL.md`
 
 **feature map review**:
-One run of the `maintain-verification-skill` skill over one product's feature map. **clean** means every feature was covered and driven and the map needs no commit. Product defects, with the map left as it is, are **clean**. **changed** means the map, a drive script, `doctor`, or a journey changed, and that change ships through Make a small change, including Get a second reading. **blocked** means coverage did not finish, or a proven fix could not ship. Distinct from a feature map (`docs/contexts/tickets/CONTEXT.md`) and from **verify-this**.
+One run of the `maintain-verification-skill` skill over one product's feature map. It ends as exactly one of **clean**, **changed**, or **blocked**. Distinct from a feature map (`docs/contexts/tickets/CONTEXT.md`) and from **verify-this**.
 _Home_: `mmw-v3/skills/maintain-verification-skill/SKILL.md`
 
 ### Skill-set review
