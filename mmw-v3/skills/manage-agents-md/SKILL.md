@@ -90,7 +90,7 @@ A root file carries only the sections above, plus one section of its own for a c
 No `AGENTS.md` carries a rule about how code or tests are written here: every session loads that file, and the author of a change is the agent with the least context to spare. Each such entry has one home, chosen by who reads it:
 
 - How the tests run here (where they live, how one is run, which layers there are, which external boundaries are stubbed and how, how a test puts the system into a state): `TESTING.md` at the root. Whoever writes a spec or a ticket reads it, and so does the review's Tests axis.
-- A judgement about how code or tests are written that holds only in this repository: a row of the root `CODING_STANDARDS.md`, in the shape of the `code-review` skill's general one. Only the review reads it. A rule the general file already holds is not repeated, and a rule with a fixed shape is linter territory (`## What NOT to Add`), not a row.
+- A judgement about how code or tests are written that holds only in this repository: a row of the root `CODING_STANDARDS.md`. The `setup-mmw` skill writes that file from its template, and after that a row is added, changed or removed only through a retro proposal the owner approved. Only the review reads it. A rule with a fixed shape is linter territory (`## What NOT to Add`), not a row.
 
 A worker gets what it needs from either file through the spec and the ticket. The root's External References names each of the two files that exists. An entry is written into its file, which is created when absent. A command, test commands included, stays a row of `## Commands`.
 

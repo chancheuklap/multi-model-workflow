@@ -29,7 +29,7 @@ UI_ACCEPTANCE = MMW / "skills" / "ui-acceptance" / "scripts"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards",
               "Global AGENTS.md", "Tool economy", "No-ops", "Information access")
 DESTINATIONS = ("check", "script", "repository-agents", "repository-skill",
-                "coding-standard", "mmw-skill", "toolbox-memory", "none")
+                "coding-standard", "testing-fact", "mmw-skill", "toolbox-memory", "none")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR", "CLICOLOR_FORCE")}
 
