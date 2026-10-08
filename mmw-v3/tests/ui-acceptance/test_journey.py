@@ -1027,5 +1027,172 @@ class TwoProducts(unittest.TestCase):
             self.repo.log.read_text(encoding="utf-8").count("alpha-start"), started)
 
 
+class Doctor(unittest.TestCase):
+    """`doctor` runs after `discover` and before the journey script."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+
+    def lay_out(self, products: list[str], needs: dict) -> None:
+        (self.repo.root / ".mmw" / "target.json").write_text(json.dumps({
+            "products": products,
+            "needs": needs,
+        }), encoding="utf-8")
+
+    def add_product(self, name: str, doctor: str, script: str) -> Path:
+        root = self.repo.root
+        base = root / ".mmw" / name
+        log = self.repo.log
+        write_exec(base / "start.sh", f"#!/bin/sh\necho {name}-start >> '{log}'\nexit 0\n")
+        write_exec(base / "stop.sh", f"#!/bin/sh\necho {name}-stop >> '{log}'\n")
+        write_exec(base / "discover.sh",
+                   "#!/bin/sh\n"
+                   + f"echo {name}-discover >> '{log}'\n"
+                   + "printf %s '{\"origin\":\"http://127.0.0.1:9\",\"instance\":\"t\"}'\n")
+        command = base / "doctor.sh"
+        write_exec(command, "#!/bin/sh\n" + doctor + "\n")
+        (base / "target.json").write_text(json.dumps({
+            "ports": 1,
+            "start": str(base / "start.sh"),
+            "stop": str(base / "stop.sh"),
+            "discover": str(base / "discover.sh"),
+            "doctor": str(command),
+            "stories": "true",
+            "leaves_machine": [],
+            "harness_markers": [],
+        }), encoding="utf-8")
+        dest = base / "journeys" / "open"
+        dest.mkdir(parents=True)
+        write_exec(dest / "run", "#!/bin/sh\n" + f"echo {name}-script >> '{log}'\n" + script + "\n")
+        return command
+
+    def write_product(self, name: str, doctor: str, script: str) -> Path:
+        self.lay_out([name], {})
+        return self.add_product(name, doctor, script)
+
+    def commit(self) -> str:
+        root = self.repo.root
+        subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True, text=True)
+        subprocess.run(
+            ["git", "-c", "user.email=doctor@example.com", "-c", "user.name=doctor",
+             "commit", "-m", "init"],
+            cwd=root, check=True, capture_output=True, text=True,
+        )
+        found = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True,
+                               capture_output=True, text=True)
+        return found.stdout.strip()
+
+    def test_a_failing_doctor_stops_the_journey_before_the_script(self):
+        heard = self.repo.root / ".mmw" / "commit"
+        marker = self.repo.root / ".mmw" / "script-ran"
+        command = self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            f"printf %s \"$MMW_WORKTREE_COMMIT\" > '{heard}'",
+            "echo doctor-says-no",
+            "exit 1",
+        ]), f"touch '{marker}'\nexit 0")
+        sha = self.commit()
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertIn("doctor-says-no", text)
+        self.assertNotEqual(code, 0, text)
+        self.assertFalse(marker.exists(), text)
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        self.assertLess(lines.index("parrot-discover"), lines.index("parrot-doctor"))
+        self.assertNotIn("parrot-script", lines)
+        named = [line for line in text.splitlines()
+                 if str(command) in line and "1" in line.split()]
+        self.assertEqual(len(named), 1, text)
+        self.assertEqual(heard.read_text(encoding="utf-8"), sha)
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_doctor_runs_again_after_a_failed_script(self):
+        asked = self.repo.root / ".mmw" / "asked-pid"
+        self.write_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            'if [ -n "${MMW_DOCTOR_PID+x}" ]; then',
+            f"  printf %s \"$MMW_DOCTOR_PID\" > '{asked}'",
+            "  printf '%s\\n' '{\"pid\":222,\"version\":\"t\",\"ports\":[9],\"note\":\"second-look\"}'",
+            "else",
+            "  printf '%s\\n' '{\"pid\":111,\"version\":\"t\",\"ports\":[9]}'",
+            "fi",
+            "exit 0",
+        ]), "echo script-broke\nexit 1")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 1, text)
+        self.assertIn("second-look", out)
+        failed_at = out.find("JOURNEY FAILED parrot/open at ")
+        self.assertGreater(failed_at, out.find("script-broke"), out)
+        self.assertGreater(out.find("second-look"), failed_at, out)
+        self.assertGreater(out.find("111"), failed_at, out)
+        self.assertGreater(out.find("MMW_DATA_DIR"), out.find("second-look"), out)
+        self.assertEqual(asked.read_text(encoding="utf-8"), "111")
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(), [
+            "parrot-start", "parrot-discover", "parrot-doctor",
+            "parrot-script", "parrot-doctor", "parrot-stop",
+        ])
+        self.assertNotIn("JOURNEY OK", text)
+
+    def test_doctor_runs_for_every_started_product(self):
+        marker = self.repo.root / ".mmw" / "script-ran"
+        self.lay_out(["gateway", "parrot"], {"parrot": ["gateway"]})
+        command = self.add_product("gateway", "\n".join([
+            f"echo gateway-doctor >> '{self.repo.log}'",
+            "echo gateway-unfit",
+            "exit 1",
+        ]), "exit 0")
+        self.add_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "printf '%s\\n' '{\"pid\":1,\"version\":\"t\",\"ports\":[9]}'",
+            "exit 0",
+        ]), f"touch '{marker}'\nexit 0")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertIn("gateway-unfit", text)
+        self.assertNotEqual(code, 0, text)
+        self.assertFalse(marker.exists(), text)
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        self.assertIn("gateway-start", lines)
+        self.assertLess(lines.index("gateway-discover"), lines.index("gateway-doctor"))
+        self.assertNotIn("parrot-script", lines)
+        named = [line for line in text.splitlines()
+                 if "gateway" in line.split() and str(command) in line and "1" in line.split()]
+        self.assertEqual(len(named), 1, text)
+        self.assertNotIn("JOURNEY OK", text)
+        self.assertNotIn("JOURNEY FAILED", text)
+
+    def test_a_failed_script_doctors_a_dependency_again(self):
+        self.lay_out(["gateway", "parrot"], {"parrot": ["gateway"]})
+        self.add_product("gateway", "\n".join([
+            f"echo gateway-doctor >> '{self.repo.log}'",
+            'if [ -n "${MMW_DOCTOR_PID+x}" ]; then',
+            "  echo gateway-again",
+            "fi",
+            "printf '%s\\n' '{\"pid\":1,\"version\":\"t\",\"ports\":[9]}'",
+            "exit 0",
+        ]), "exit 0")
+        self.add_product("parrot", "\n".join([
+            f"echo parrot-doctor >> '{self.repo.log}'",
+            "printf '%s\\n' '{\"pid\":9,\"version\":\"t\",\"ports\":[9]}'",
+            "exit 0",
+        ]), "echo script-broke\nexit 1")
+        code, out, err = self.repo.run("parrot/open")
+        text = out + err
+        self.assertEqual(code, 1, text)
+        failed_at = out.find("JOURNEY FAILED parrot/open at ")
+        self.assertGreater(failed_at, out.find("script-broke"), out)
+        self.assertGreater(out.find("gateway-again"), failed_at, out)
+        lines = self.repo.log.read_text(encoding="utf-8").splitlines()
+        first = lines.index("gateway-doctor")
+        second = lines.index("gateway-doctor", first + 1)
+        self.assertLess(lines.index("parrot-script"), second, lines)
+        self.assertEqual(lines.count("gateway-doctor"), 2, lines)
+        self.assertNotIn("JOURNEY OK", text)
+
+
 if __name__ == "__main__":
     unittest.main()

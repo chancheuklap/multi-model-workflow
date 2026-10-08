@@ -4,6 +4,7 @@
 The old layout answers one product in that file. `FIELDS` lists its keys, and
 `--check` names every field still missing. The new layout keeps `checks`,
 `products` and `needs` on the root, and one product in `.mmw/<product>/target.json`.
+Each product file has `doctor`. The old layout does not.
 `--product <name>` selects that product. With one product the name can be omitted.
 `--check` exits 0 when the layout in front of it is complete. `--validate` prints
 the first problem only. `discover` prints an origin-class address plus `instance`.
@@ -305,6 +306,7 @@ def layout_problems(root: Path, product: str | None = None) -> list[str]:
         value = _ports_value(problems, name, one, file_shown)
         if value is not None:
             counted.append((name, value))
+        _doctor_command(problems, name, one, file_shown)
     if seen and len(counted) == len(seen):
         total = sum(count for _, count in counted)
         if total > PORT_STRIDE:
@@ -337,6 +339,22 @@ def _ports_value(problems: list[str], name: str, one: dict, file_shown: str) -> 
             f"ports on {name} to be an integer", json.dumps(value), file_shown, file_shown))
         return None
     return value
+
+
+def _doctor_command(problems: list[str], name: str, one: dict, file_shown: str) -> None:
+    """Record a missing or empty `doctor`. The new layout requires the command.
+
+    The old layout's single file does not. A blank string is the same gap as a
+    missing key: there is no command to run.
+    """
+    if "doctor" not in one:
+        problems.append(_line(f"doctor on {name}", "no doctor", file_shown, file_shown))
+        return
+    value = one["doctor"]
+    if not isinstance(value, str) or not value.strip():
+        problems.append(_line(
+            f"doctor on {name} to be a non-empty command string",
+            json.dumps(value), file_shown, file_shown))
 
 
 def _needs_problems(problems: list[str], data: dict, seen: set[str], shown: str) -> None:

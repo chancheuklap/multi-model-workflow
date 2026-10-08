@@ -42,7 +42,10 @@ These hold for every product. How a given repository meets them is its own.
   the product needs — which backing service, which data directory, which log — is
   found or chosen inside this command, from the lease in its environment
   (`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`,
-  `MMW_AUTOMATION`). Every per-user location the product reads or writes by default
+  `MMW_AUTOMATION`). A product with `needs` starts only once each dependency
+  address is present. `start` copies those variables into the names the product
+  reads, and refuses while any of them is absent. Starting on the product's own
+  default address can reach a live environment outside this lease. Every per-user location the product reads or writes by default
   (a configuration home such as `~/.<product>` or the variable that moves it, an XDG
   directory, a user-level settings file) is pointed inside `MMW_DATA_DIR` here and
   seeded there, so a journey that saves changes nothing of this machine's own; a
@@ -50,6 +53,19 @@ These hold for every product. How a given repository meets them is its own.
   supplies one: `python3 scripts/lease.py run -- <the start command>`. When
   `MMW_BREAK` is in that command's environment, this is also the process that
   arms the fault-injection switch.
+
+- **`doctor`.** One read-only command that answers whether this instance is worth
+  driving. On a repository whose root file lists `products`, each product file
+  has this command, and `target_config.py --check` names a product that omits it.
+  It checks three things: the process is up; the version is this worktree's commit
+  (`MMW_WORKTREE_COMMIT`) or the product's own build number; the ports it listens
+  on sit inside its own lease segment, from `MMW_PORT_BASE` for `MMW_PORT_COUNT`
+  ports. When all three hold it exits 0 and prints
+  one JSON object with `pid`, `version` and `ports`. `pid` is a number or a
+  string. When any check fails it exits 1 and prints, for that check, what it
+  expected and what it found. It does not restart the process and it does not
+  clear data. The run after a failed journey script also sets `MMW_DOCTOR_PID`
+  to the `pid` the first run printed. Print the pid of the process that is up now.
 
 - **Servers under a burst.** A page opens many connections at once (stylesheets, scripts, data). Every server the oracles load a page from, the story service and the product itself, accepts at least 64 pending connections (`request_queue_size` for Python's `socketserver`, whose default of 5 lets a busy machine reset the rest and the page render empty).
 
