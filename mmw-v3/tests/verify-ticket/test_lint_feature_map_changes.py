@@ -51,6 +51,8 @@ rows:
   component: fixture
 - id: demo.new
   component: fixture
+- id: demo.listed
+  component: fixture
 """
 
 
@@ -108,12 +110,12 @@ class FeatureMapChangesLint(unittest.TestCase):
              "commit", "-q", "--allow-empty", "-m", "base"],
             check=True, capture_output=True)
 
-    def lint(self, body, tickets, blocked=None):
+    def lint(self, body, tickets, blocked=None, state="OPEN"):
         """`run_lint` over `tickets`, a list of `(number, body)`."""
         numbers = [number for number, _ in tickets]
         bodies = {SPEC: body, **{number: text for number, text in tickets}}
         spec_ticket = {"labels": [{"name": "mmw:spec"}], "state": "OPEN"}
-        child = {"labels": [{"name": name} for name in CHILD_LABELS], "state": "OPEN"}
+        child = {"labels": [{"name": name} for name in CHILD_LABELS], "state": state}
         blockers = blocked or {}
 
         def fetch_ticket(number):
@@ -136,13 +138,26 @@ class FeatureMapChangesLint(unittest.TestCase):
             "efforts/demo/screen-contract.yaml": CONTRACT,
             "docs/features/demo/open.md": FEATURE,
         })
+        changes = (
+            "- `docs/features/demo/open.md` (changed)\n"
+            "  - added `open-extra` source: row:demo.listed\n"
+        )
         code, printed = self.lint(
-            spec_body("none", "Screen contract: `efforts/demo/screen-contract.yaml`"),
-            [(301, ticket())])
+            spec_body(changes, "Screen contract: `efforts/demo/screen-contract.yaml`"),
+            [(301, ticket(("docs/features/demo/open.md",), check="bash tests/guard.sh"))])
         self.assertEqual(code, 1, printed)
         self.assertIn("[unhomed-row]", printed)
         self.assertIn("demo.new", printed)
+        self.assertNotIn("demo.listed", printed)
         self.assertNotIn("demo.open", printed)
+
+        code, bare = self.lint(
+            spec_body("none", "Screen contract: `efforts/demo/screen-contract.yaml`"),
+            [(301, ticket())])
+        self.assertEqual(code, 1, bare)
+        self.assertIn("demo.new", bare)
+        self.assertIn("demo.listed", bare)
+        self.assertNotIn("demo.open", bare)
 
     def test_an_unowned_feature_file_is_an_error(self):
         self.empty_base()
@@ -202,6 +217,20 @@ class FeatureMapChangesLint(unittest.TestCase):
         self.assertIn("[no-feature-map-changes]", printed)
         self.assertIn("WARN", printed)
         self.assertNotIn("ERROR", printed)
+
+    def test_a_closed_ticket_missing_pin_does_not_stop_the_batch(self):
+        self.commit({"docs/features/demo/open.md": FEATURE})
+        changes = (
+            "- `docs/features/demo/open.md` (changed)\n"
+            "  - added `open-extra` source: #12 §2\n"
+        )
+        code, printed = self.lint(
+            spec_body(changes),
+            [(301, ticket(("docs/features/demo/open.md",)))],
+            state="CLOSED")
+        self.assertEqual(code, 0, printed)
+        self.assertIn("[missing-pin]", printed)
+        self.assertIn("[closed-ticket]", printed)
 
     def test_a_changed_sub_feature_is_not_a_pin_candidate(self):
         self.commit({"docs/features/demo/open.md": FEATURE})
