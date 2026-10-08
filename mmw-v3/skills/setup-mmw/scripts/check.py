@@ -36,6 +36,7 @@ DOCS = {
 IGNORED = (".worktrees/", ".scratch/", "story-shots/")
 TOOLS = ("git", "python3", "uv", "node", "nmem")
 RUNNERS = ("paseo", "herdr", "orca")
+FEATURE_MAP_LINT = "python3 ~/.agents/skills/verify-ticket/scripts/feature_map.py lint"
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -230,21 +231,27 @@ def check_session(report: Report, slug: str):
 
 def check_checks(report: Report, root: Path):
     path = root / ".mmw" / "target.json"
+    checks = None
     if not path.is_file():
         report.add("missing", "repository", ".mmw/target.json checks",
                    "no .mmw/target.json; a ticket closes and lands with no repository check run")
-        return
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except ValueError as exc:
-        report.add("missing", "repository", ".mmw/target.json checks", f"not JSON ({exc})")
-        return
-    checks = data.get("checks") if isinstance(data, dict) else None
-    if isinstance(checks, list) and checks:
-        report.add("ok", "repository", ".mmw/target.json checks", f"{len(checks)} command(s)")
     else:
-        report.add("missing", "repository", ".mmw/target.json checks",
-                   "no `checks`; a ticket closes and lands with no repository check run")
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            report.add("missing", "repository", ".mmw/target.json checks", f"not JSON ({exc})")
+        else:
+            checks = data.get("checks") if isinstance(data, dict) else None
+            if isinstance(checks, list) and checks:
+                report.add("ok", "repository", ".mmw/target.json checks", f"{len(checks)} command(s)")
+            else:
+                report.add("missing", "repository", ".mmw/target.json checks",
+                           "no `checks`; a ticket closes and lands with no repository check run")
+    recorded = isinstance(checks, list) and any(
+        isinstance(item, str) and item.strip() == FEATURE_MAP_LINT for item in checks)
+    if (root / "docs" / "features").is_dir() and not recorded:
+        report.add("missing", "repository", "feature map lint",
+                   f"add `{FEATURE_MAP_LINT}` to `checks`")
 
 
 def check_testing(report: Report, root: Path):
