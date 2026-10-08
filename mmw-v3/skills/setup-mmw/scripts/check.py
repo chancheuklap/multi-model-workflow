@@ -230,32 +230,35 @@ def check_session(report: Report, slug: str):
                "session from there")
 
 
-def _lease():
-    """The lease module whose read point parses `.mmw/target.json`."""
-    path = HERE.parents[1] / "ui-acceptance" / "scripts" / "lease.py"
-    spec = importlib.util.spec_from_file_location("setup_mmw_lease", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def _load(name: str, path: Path):
+    """Load one skill script by file.
 
-
-def _target_config():
-    """The module whose `layout_problems` is what `--check` exits on."""
-    path = HERE.parents[1] / "ui-acceptance" / "scripts" / "target_config.py"
-    name = "setup_mmw_target_config"
+    dataclass looks the class's module up in sys.modules while the class body runs.
+    """
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
-    # dataclass looks the class's module up in sys.modules while the class body runs.
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
 
+def _lease():
+    """The lease module whose read point parses `.mmw/target.json`."""
+    path = HERE.parents[1] / "ui-acceptance" / "scripts" / "lease.py"
+    return _load("setup_mmw_lease", path)
+
+
+def _target_config():
+    """The module whose `layout_problems` is what `--check` exits on."""
+    path = HERE.parents[1] / "ui-acceptance" / "scripts" / "target_config.py"
+    return _load("setup_mmw_target_config", path)
+
+
 def check_checks(report: Report, root: Path):
     """Count the root's `checks`. A product file's own list is not this count.
 
-    Returns the read, False when the old layout refuses the read, or None when
-    there is no readable root.
+    Returns False when the old layout refuses the read, so the caller stops.
+    When the root was read, the product check has already run.
     """
     path = root / ".mmw" / "target.json"
     checks = None
@@ -272,9 +275,8 @@ def check_checks(report: Report, root: Path):
             return False
         except lease.TargetJSONError as exc:
             report.add("missing", "repository", ".mmw/target.json checks", f"not JSON ({exc})")
-            read = None
         else:
-            checks = read.root.get("checks") if read is not None else None
+            checks = read.root.get("checks")
             if isinstance(checks, list) and checks:
                 report.add("ok", "repository", ".mmw/target.json checks", f"{len(checks)} command(s)")
             else:
@@ -286,17 +288,24 @@ def check_checks(report: Report, root: Path):
         report.add("missing", "repository", "feature map lint",
                    "docs/features/ exists; add "
                    f"`{FEATURE_MAP_LINT}` to `.mmw/target.json` `checks`")
-    return read
+    if read is not None:
+        check_products(report, root, read)
 
 
 def check_products(report: Report, root: Path, read) -> None:
-    """One `missing` line per listed product whose file is absent or whose `--check` fails."""
-    names = read.root.get("products")
-    if not isinstance(names, list):
+    """One `missing` line per listed product whose file is absent or whose `--check` fails.
+
+    A root with no `products` key is checks-only and is not this check. A value
+    that is not a list is reported from the layout check, which names that fact.
+    """
+    if "products" not in read.root:
         return
+    names = read.root["products"]
     target = _target_config()
     problems = target.layout_problems(root)
     used: set[int] = set()
+    if not isinstance(names, list):
+        names = []
     for name in names:
         if not isinstance(name, str) or target.PRODUCT_NAME.fullmatch(name) is None:
             continue
@@ -378,12 +387,9 @@ def main() -> int:
     check_labels(report)
     if slug:
         check_space(report, slug)
-    read = check_checks(report, root)
-    if read is False:
+    if check_checks(report, root) is False:
         report.print()
         return 2
-    if read is not None:
-        check_products(report, root, read)
     check_testing(report, root)
     check_layout(report, root)
     check_machine(report)

@@ -406,11 +406,31 @@ class TestCheck(unittest.TestCase):
         self.assertFalse(any(
             line.startswith("missing") and "notes" in line for line in out.splitlines()), out)
 
-        (self.root / ".mmw" / "notes" / "target.json").write_text(json.dumps({"ports": 1}))
+    def test_a_listed_product_that_fails_its_check_is_missing(self):
+        self.set_up_repository()
+        directory = self.root / ".mmw" / "notes"
+        directory.mkdir(parents=True)
+        (directory / "target.json").write_text(json.dumps({"ports": 1}))
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({
+            "checks": ["make check"],
+            "products": ["notes"],
+        }))
         code, out = self.run_check(Fake(root=self.root))
         self.assertEqual(code, 1, out)
         lines = [line for line in out.splitlines()
                  if line.startswith("missing") and "notes" in line]
+        self.assertEqual(len(lines), 1, out)
+
+    def test_a_products_value_that_is_not_a_list_is_missing(self):
+        self.set_up_repository()
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({
+            "checks": ["make check"],
+            "products": "notes",
+        }))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        lines = [line for line in out.splitlines()
+                 if line.startswith("missing") and "products" in line]
         self.assertEqual(len(lines), 1, out)
 
     def test_check_reads_checks_from_a_product_layout(self):
