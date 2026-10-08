@@ -6,7 +6,8 @@
 Reads `docs/features/<product>/` and the screen contracts at
 `efforts/<effort>/screen-contract.yaml`. `lint(root)` is the check.
 `read_subfeatures(text)` is the read of one feature file, including each
-sub-feature id, for a caller that loads this file by path.
+sub-feature id, for a caller that loads this file by path. `ids_in(document)`
+is the row ids of one screen contract.
 
 Exit 0 prints `FEATURE MAP OK <n> features`, where n is the number of feature
 files. Exit 1 prints one line per problem. Exit 2 refuses when the map cannot
@@ -451,6 +452,15 @@ def load_yaml(path: Path):
     return document
 
 
+def ids_in(document) -> set[str]:
+    """The `id` of each item in a screen contract's top-level `rows` list."""
+    rows = document.get("rows") if isinstance(document, dict) else None
+    if not isinstance(rows, list):
+        return set()
+    return {row["id"] for row in rows
+            if isinstance(row, dict) and isinstance(row.get("id"), str)}
+
+
 def row_ids(root: Path) -> tuple[set[str], str | None]:
     """Every row id under `efforts/*/screen-contract.yaml`, or the file that did not read."""
     efforts = root / "efforts"
@@ -461,12 +471,7 @@ def row_ids(root: Path) -> tuple[set[str], str | None]:
         document = load_yaml(path)
         if document is None:
             return found, show(root, path)
-        rows = document.get("rows") if isinstance(document, dict) else None
-        if not isinstance(rows, list):
-            continue
-        for row in rows:
-            if isinstance(row, dict) and isinstance(row.get("id"), str):
-                found.add(row["id"])
+        found |= ids_in(document)
     return found, None
 
 
