@@ -684,7 +684,6 @@ class TestProductKey(unittest.TestCase):
         (self.repo.root / ".mmw/target.json").write_text(json.dumps({"start": "true"}))
         code, text = self.lint_doc(contract())
         self.assertEqual(code, 2, text)
-        self.assertIn("old layout", text)
         self.assertIn("python3 ~/.agents/skills/setup-mmw/scripts/"
                       "migrate_products.py <产品名>", text)
         self.assertNotIn("0 errors", text)

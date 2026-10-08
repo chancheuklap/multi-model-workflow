@@ -434,7 +434,7 @@ def _read_json_object(path: Path, shown: str) -> dict | None:
 def read_target_json(root: Path, product: str | None = None) -> TargetRead | None:
     """The root config and one product's config, or None when the root file is absent.
 
-    On the new layout the product is `.mmw/<product>/target.json`. With no name and
+    The product configuration is `.mmw/<product>/target.json`. With no name and
     exactly one listed product, that product is selected. Product keys on the root
     are refused with the migration command. A checks-only root has no product.
 
@@ -758,8 +758,8 @@ def product_segments(worktree: Path) -> dict[str, tuple[int, int]]:
         if offset > PORT_STRIDE:
             raise TargetJSONError(f"products need {offset} ports, slot holds {PORT_STRIDE}")
         return segments
-    except LegacyLayoutError as exc:
-        raise SystemExit(exc) from None
+    except LegacyLayoutError:
+        raise
     except TargetJSONError as exc:
         raise SystemExit(refusal(
             str(exc), "The product port segments cannot fit this lease.",
@@ -1009,7 +1009,8 @@ def main(argv: list[str] | None = None) -> int:
         tree = worktree_of(args.worktree)
         read = read_target_json(tree, args.product)
         product = read.name if read is not None else args.product
-        if read is not None and product is None:
+        if (read is not None and product is None
+                and ("products" in read.root or "needs" in read.root)):
             raise SystemExit(refusal(
                 ".mmw/target.json does not select a product for this command.",
                 "The command needs one product's port segment.",
@@ -1081,8 +1082,6 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (TargetJSONError, SystemExit) as exc:
-        if isinstance(exc, SystemExit) and not isinstance(exc.code, LegacyLayoutError):
-            raise
+    except LegacyLayoutError as exc:
         print(exc, file=sys.stderr)
         sys.exit(2)

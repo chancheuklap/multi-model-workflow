@@ -390,7 +390,6 @@ class TestCheck(unittest.TestCase):
         fake = Fake(root=self.root)
         code, out = self.run_check(fake)
         self.assertEqual(code, 2, out)
-        self.assertIn("old layout", out)
         self.assertIn("migrate_products.py <产品名>", out)
         self.assertNotIn("SETUP OK", out)
         self.assertEqual(fake.writes(), [])

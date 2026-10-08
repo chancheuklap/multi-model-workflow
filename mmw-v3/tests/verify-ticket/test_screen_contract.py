@@ -3,6 +3,7 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 from _load import load
 
 vt = load()
@@ -737,6 +738,19 @@ class TestJourneyBreakRules(unittest.TestCase):
             body, 639, root=self.dir.name,
             spec_bodies={537: spec_body} if spec_body is not None else {})
         return findings, warnings
+
+    def test_missing_lease_does_not_crash_the_critical_flow_reader(self):
+        with mock.patch.object(vt, "load_lease", return_value=None):
+            flows, unreadable = vt.critical_flows(self.SPEC)
+        self.assertEqual(flows, {})
+        self.assertEqual(len(unreadable), 1)
+        self.assertIn("notes/checkout", unreadable[0])
+
+    def test_missing_lease_does_not_crash_journey_lint(self):
+        with mock.patch.object(vt, "load_lease", return_value=None):
+            findings, warnings = self.lint("checkout", spec_body=self.SPEC)
+        self.assertTrue(findings)
+        self.assertEqual(warnings, [])
 
     def test_an_acceptance_journey_without_break_is_an_error(self):
         findings, warnings = self.lint("checkout", spec_body=self.SPEC)

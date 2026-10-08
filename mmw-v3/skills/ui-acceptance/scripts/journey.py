@@ -324,15 +324,12 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         return 2
     env.pop("MMW_BREAK", None)
 
-    def stop_this_run():
-        stack.stop()
-
     def bail(message: str | None = None,
              proc: subprocess.CompletedProcess | None = None,
              kind: str | None = None,
              command: str | None = None,
              detail: str | None = None) -> int:
-        stop_this_run()
+        stack.stop()
         if proc is not None:
             # stdout is block-buffered on a pipe. Flush the naming line, and the
             # command's own stdout, before stderr, or a merged stream shows the
@@ -457,7 +454,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
 
     spec = journey_command(dest)
     if spec is None:
-        stop_this_run()
+        stack.stop()
         print(f"JOURNEY FAILED {name} at {dest} has no executable `run` "
               f"and no package.json scripts.run")
         return 1
@@ -478,7 +475,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         script, evidence = attempt(env)
         follow_up = diagnose_started() if script.returncode != 0 else ""
     finally:
-        stop_this_run()
+        stack.stop()
 
     if script.returncode != 0:
         print(f"JOURNEY FAILED {name} at {emit_script_output(script)}")
@@ -539,7 +536,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     try:
         control, _control_evidence = attempt(control_env, break_pass=break_spec is not None)
     finally:
-        stop_this_run()
+        stack.stop()
     if control.returncode == 0:
         # A break pass that passes is the one the worker has to read. A pass that fails
         # as designed stays quiet: that failure is the negative control.

@@ -140,9 +140,6 @@ class JourneyOrder(unittest.TestCase):
         code, out, _ = self.repo.run("notes/demo")
         self.assertEqual(code, 0, out)
         self.assertEqual(out, "JOURNEY OK notes/demo\n")
-        # The control pass is the `script` after the first `stop`: the product is already
-        # down when it runs. The second `stop` is the run's last act, before it looks at
-        # whether anything is still listening on its slot.
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "script", "stop", "script"])
         env = (self.repo.root / ".mmw" / "env").read_text(encoding="utf-8")
@@ -1023,8 +1020,9 @@ class TwoProducts(unittest.TestCase):
         for label, products in (("two", ["alpha", "beta"]), ("one", ["alpha"])):
             (self.repo.root / ".mmw" / "target.json").write_text(
                 json.dumps({"products": products}), encoding="utf-8")
-            code, out, err = self.repo.run("notes/open")
+            code, out, err = self.repo.run("open")
             self.assertEqual(code, 2, f"{label}: {out}{err}")
+            self.assertIn("<product>/<flow>", err, label)
             self.assertNotIn("JOURNEY", out, label)
         self.assertEqual(
             self.repo.log.read_text(encoding="utf-8").count("alpha-start"), started)

@@ -3135,9 +3135,8 @@ def contract_runtime_for(name: str, owns) -> bool:
     parts = lease.product_journey(name) if lease is not None else None
     if parts is None:
         return False
-    else:
-        product, _flow = parts
-        required = (f".mmw/{product}/target.json", f".mmw/{product}/stories")
+    product, _flow = parts
+    required = (f".mmw/{product}/target.json", f".mmw/{product}/stories")
     return all(any(glob_covers(pattern, path) for pattern in owns) for path in required)
 
 
@@ -3633,7 +3632,8 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
                            re.IGNORECASE)
         decision = after.group(1) if after else before.group(1) if before else ""
         sections = {int(value) for value in re.findall(r"\d+", decision)}
-        if load_lease().product_journey(name) is not None and sections:
+        lease = load_lease()
+        if lease is not None and lease.product_journey(name) is not None and sections:
             out[name] = sections
         else:
             unreadable.append(line.strip())
@@ -3739,7 +3739,8 @@ def lint_screen_contract(
         journey_has_break = "--break" in segment_flags(journey_segment)
         repo_path = Path(repo).resolve()
         for name in JOURNEY_NAME_RE.findall(journey_segment):
-            parts = load_lease().product_journey(name)
+            lease = load_lease()
+            parts = lease.product_journey(name) if lease is not None else None
             if parts is None:
                 findings.append(f"{gate_id}: journey name {name!r} must be <product>/<flow>")
                 continue

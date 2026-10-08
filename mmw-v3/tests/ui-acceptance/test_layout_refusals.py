@@ -41,7 +41,6 @@ class LayoutRefusals(unittest.TestCase):
                     proc = self.cli(*command)
                     self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
                     self.assertIn(".mmw/target.json", proc.stderr)
-                    self.assertIn("old layout", proc.stderr)
                     self.assertIn("python3 ~/.agents/skills/setup-mmw/scripts/"
                                   "migrate_products.py <产品名>", proc.stderr)
                     self.assertNotIn("complete:", proc.stdout)

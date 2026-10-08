@@ -232,6 +232,16 @@ class Products(Base):
         self.assertIn(".mmw/parrot/target.json", proc.stderr)
         self.assertEqual(json.loads(self.cli("list").stdout), [])
 
+    def test_a_checks_only_root_runs_a_generic_command_under_its_lease(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({"checks": ["true"]}))
+        proc = self.cli("run", "--", sys.executable, "-c",
+                        "import os; print(os.environ['MMW_SLOT'])")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        records = json.loads(self.cli("list").stdout)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(proc.stdout.strip(), str(records[0]["slot"]))
+        self.assertEqual(records[0]["started"], [])
+
     def test_an_old_layout_run_refuses_before_commands_or_claiming(self):
         (self.root / ".mmw/target.json").write_text(json.dumps({"stop": "true"}))
         marker = self.root / "command-ran"

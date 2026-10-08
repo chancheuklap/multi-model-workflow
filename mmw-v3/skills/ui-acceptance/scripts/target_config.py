@@ -88,7 +88,6 @@ FIELDS: tuple[Field, ...] = (
     Field("harness_markers", "list of strings",
           "the strings this product uses only to make itself drivable; [] when it has none",
           '["/api/dev/", "transport off", "__stub"]'),
-
 )
 
 
