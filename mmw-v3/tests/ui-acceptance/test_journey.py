@@ -863,6 +863,90 @@ class FixtureRepo(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0, proc.stdout)
 
 
+class NeededProducts(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / "repo"
+        fixture = Path(__file__).resolve().parent / "fixtures" / "products" / "repo"
+        shutil.copytree(fixture, self.root)
+        self.home = Path(self.tmp.name) / "mmw"
+        self.env = dict(os.environ, MMW_HOME=str(self.home))
+        self.addCleanup(subprocess.run, [sys.executable, str(SCRIPTS / "lease.py"),
+                                        "release", str(self.root), "--stop"],
+                        env=self.env, capture_output=True, text=True)
+
+    def run_product(self):
+        return subprocess.run([sys.executable, str(JOURNEY), "run", "parrot/open"],
+                              cwd=self.root, env=self.env, capture_output=True, text=True)
+
+    def events(self):
+        return [json.loads(line) for line in
+                (self.root / ".mmw" / "events.jsonl").read_text().splitlines()]
+
+    def test_a_needed_product_starts_first_and_hands_its_address(self):
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        events = self.events()
+        starts = [e for e in events if e["verb"] == "start"]
+        self.assertEqual([e["product"] for e in starts], ["gateway", "parrot"])
+        gateway, parrot = starts
+        expected = "http://127.0.0.1:" + gateway["env"]["MMW_PORT_BASE"]
+        self.assertEqual(parrot["env"]["GATEWAY_ORIGIN"], expected)
+        for e in events:
+            if e["product"] == "parrot":
+                self.assertEqual(e["env"]["GATEWAY_ORIGIN"], expected)
+        self.assertEqual((self.root / ".scratch/journeys/parrot/open/result.txt").read_text(),
+                         "parrot")
+
+    def test_a_journey_stops_its_needs_in_reverse_order(self):
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        events = self.events()
+        self.assertEqual([e["product"] for e in events if e["verb"] == "stop"],
+                         ["parrot", "gateway"])
+        self.assertEqual(list((self.home / "leases").glob("slot-*.json")), [])
+        import socket
+        for e in events:
+            if e["verb"] != "start":
+                continue
+            env = e["env"]
+            for port in range(int(env["MMW_PORT_BASE"]),
+                              int(env["MMW_PORT_BASE"]) + int(env["MMW_PORT_COUNT"])):
+                with socket.socket() as probe:
+                    self.assertNotEqual(probe.connect_ex(("127.0.0.1", port)), 0)
+
+    def test_a_journey_keeps_a_dependency_started_before_it(self):
+        proc = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "run",
+                               "--product", "gateway", "--", sys.executable,
+                               ".mmw/product.py", "start"], cwd=self.root,
+                              env=self.env, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        events = self.events()
+        self.assertEqual([e["product"] for e in events if e["verb"] == "start"],
+                         ["gateway", "parrot"])
+        self.assertEqual([e["product"] for e in events if e["verb"] == "stop"], ["parrot"])
+        proc = subprocess.run([sys.executable, str(SCRIPTS / "lease.py"), "list"],
+                              env=self.env, capture_output=True, text=True)
+        record = json.loads(proc.stdout)[0]
+        self.assertEqual(record["started"], ["gateway"])
+        self.assertEqual(record["busy"]["port"], record["port_base"])
+
+    def test_neither_product_inherits_a_break_from_the_parent_session(self):
+        self.env["MMW_BREAK"] = "GET /"
+        proc = self.run_product()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("JOURNEY OK parrot/open", proc.stdout)
+        for e in self.events():
+            if e["verb"] != "stop":
+                self.assertNotIn("MMW_BREAK", e["env"])
+
+
 class TwoProducts(unittest.TestCase):
     """A new-layout repository: each product has its own start and its own journey."""
 
@@ -884,6 +968,7 @@ class TwoProducts(unittest.TestCase):
                    "#!/bin/sh\n" + f"echo {name}-discover >> '{log}'\n"
                    + "printf %s '{\"origin\":\"http://127.0.0.1:9\",\"instance\":\"t\"}'\n")
         (base / "target.json").write_text(json.dumps({
+            "ports": 1,
             "start": str(base / "start.sh"),
             "stop": str(base / "stop.sh"),
             "discover": str(base / "discover.sh"),

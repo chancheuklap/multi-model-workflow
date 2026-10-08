@@ -10,6 +10,11 @@ a repository with one product. The run uses that product's `start`, `stop` and
 When the root file is itself the product, `<name>` is `<flow>` and `journeys`
 defaults to `.mmw/journeys`.
 
+Named products start their needs first and receive each dependency's discovered keys
+under its uppercase product prefix. Cleanup stops only products this invocation
+started, in reverse order, then checks their port segments. A dependency already
+running under this lease is left running for its owner.
+
 Acquires or reuses this worktree's lease, runs `start` every time, runs `discover`
 and puts each printed address into the environment under its uppercase key (plus
 the lease variables and `MMW_EVIDENCE_DIR`), runs the script, and runs `stop`
@@ -58,8 +63,10 @@ if str(HERE) not in sys.path:
 
 from target_config import DISCOVER_NOTES, command_env, discover, repo_root, run_command, target_config  # noqa: E402
 from lease import (  # noqa: E402
-    TargetJSONError, holder, judge_run, listener, ports_of,
+    ProductCommandFailed, ProductRun, TargetJSONError, addresses_into,
+    holder, judge_run, listener, ports_of, product_at_port, product_segments,
     product_journey, product_layout, read_target_json, registered, worktree_of,
+    update_started,
 )
 from refusal import refusal  # noqa: E402
 
@@ -134,7 +141,7 @@ def stop(cfg: dict, root: Path, env: dict[str, str]) -> None:
     run_command(command, root, env=env, check=False)
 
 
-def still_up(root: Path) -> list[str]:
+def still_up(root: Path, initial_started: list[str] | None = None) -> list[str]:
     """What still listens on this run's slot, once its `stop` has been run for the last
     time: one `port <n> pid <pid> cwd <dir>` line each, empty when the slot is quiet.
 
@@ -148,10 +155,18 @@ def still_up(root: Path) -> list[str]:
     if record is None:
         return []
     left = []
+    previous_ports = set()
+    segments = product_segments(worktree_of(root)) if initial_started else {}
+    for name in initial_started or []:
+        offset, count = segments[name]
+        previous_ports.update(range(record["port_base"] + offset,
+                                    record["port_base"] + offset + count))
     for port in ports_of(record["slot"]):
+        if port in previous_ports:
+            continue
         pid = listener(port)
         if pid is not None:
-            left.append(f"port {port} pid {pid} cwd {holder(pid)}")
+            left.append(f"{product_at_port(record, port)}port {port} pid {pid} cwd {holder(pid)}")
     return left
 
 
@@ -171,16 +186,6 @@ def journey_command(dest: Path) -> list[str] | str | None:
         if isinstance(command, str) and command.strip():
             return command
     return None
-
-
-def addresses_into(env: dict[str, str], data: dict) -> None:
-    """Put each discover key into the environment under its uppercase spelling."""
-    for key, value in data.items():
-        if isinstance(value, (dict, list)):
-            rendered = json.dumps(value, ensure_ascii=False)
-        else:
-            rendered = str(value)
-        env[str(key).upper()] = rendered
 
 
 ADDRESS_RE = re.compile(r"^([A-Za-z][A-Za-z0-9+.\-]*://)?([^/:\s]+):(\d+)(.*)$")
@@ -255,18 +260,25 @@ def journey_binding(name: str, root: Path) -> tuple[dict, Path]:
 
 def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     try:
-        env = command_env(root)
         cfg, dest = journey_binding(name, root)
+        stack = ProductRun(root, cfg.name) if cfg.name is not None else None
+        env = stack.env() if stack is not None else command_env(root)
     except SystemExit as exc:
         print(exc, file=sys.stderr)
         return 2
     env.pop("MMW_BREAK", None)
 
+    def stop_this_run():
+        if stack is None:
+            stop(cfg, root, env)
+        else:
+            stack.stop()
+
     def bail(message: str | None = None,
              proc: subprocess.CompletedProcess | None = None,
              kind: str | None = None,
              command: str | None = None) -> int:
-        stop(cfg, root, env)
+        stop_this_run()
         if proc is not None:
             # stdout is block-buffered on a pipe. Flush the naming line, and the
             # command's own stdout, before stderr, or a merged stream shows the
@@ -298,6 +310,16 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     # A run that dies in start or discover still replaces the previous run's evidence.
     prepare_evidence(root, name, break_pass=False)
 
+    if stack is not None:
+        try:
+            stack.start_needs()
+        except ProductCommandFailed as exc:
+            return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
+        env = stack.env()
+        env.pop("MMW_BREAK", None)
+        stack.mark_started(cfg.name)
+    else:
+        update_started(worktree_of(root), "default")
     try:
         run_command(start_cmd, root, env=env)
     except SystemExit as exc:
@@ -307,17 +329,22 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     except SystemExit as exc:
         return bail(proc=exc.code, kind="discover", command=str(cfg.get("discover")))
     addresses_into(env, data)
+    if stack is not None:
+        stack.remember(cfg.name, data)
+    else:
+        update_started(worktree_of(root), "default", data=data)
 
     spec = journey_command(dest)
     if spec is None:
-        stop(cfg, root, env)
+        stop_this_run()
         print(f"JOURNEY FAILED {name} at {dest} has no executable `run` "
               f"and no package.json scripts.run")
         return 1
 
-    def attempt(environment: dict[str, str], *, break_pass: bool = False
+    def attempt(environment: dict[str, str], *, break_pass: bool = False, preserve: bool = False
                 ) -> tuple[subprocess.CompletedProcess, Path]:
-        evidence = prepare_evidence(root, name, break_pass=break_pass)
+        evidence = ((root / ".scratch" / "journeys" / name).resolve() if preserve
+                    else prepare_evidence(root, name, break_pass=break_pass))
         script_env = dict(environment)
         script_env.pop("FORCE_COLOR", None)
         script_env["MMW_EVIDENCE_DIR"] = str(evidence)
@@ -330,7 +357,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
     try:
         script, evidence = attempt(env)
     finally:
-        stop(cfg, root, env)
+        stop_this_run()
 
     if script.returncode != 0:
         print(f"JOURNEY FAILED {name} at {emit_script_output(script)}")
@@ -339,6 +366,14 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         return 1
 
     if break_spec is not None:
+        if stack is not None:
+            try:
+                stack.start_needs()
+            except ProductCommandFailed as exc:
+                return bail(proc=exc.proc, kind=f"product {exc.product} {exc.kind}", command=exc.command)
+            env = stack.env()
+            env.pop("MMW_BREAK", None)
+            stack.mark_started(cfg.name)
         start_env = dict(env)
         start_env["MMW_BREAK"] = break_spec
         try:
@@ -362,6 +397,8 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         except SystemExit as exc:
             return bail(proc=exc.code, kind="discover", command=str(cfg.get("discover")))
         addresses_into(env, control_data)
+        if stack is not None:
+            stack.remember(cfg.name, control_data)
         control_env = env
         green_prefix = f"JOURNEY GREEN WITH BREAK {name} — "
         green_explanation = (
@@ -380,9 +417,10 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             "satisfy."
         )
     try:
-        control, _control_evidence = attempt(control_env, break_pass=break_spec is not None)
+        control, _control_evidence = attempt(control_env, break_pass=break_spec is not None,
+                                            preserve=break_spec is None)
     finally:
-        stop(cfg, root, env)
+        stop_this_run()
     if control.returncode == 0:
         # A break pass that passes is the one the worker has to read. A pass that fails
         # as designed stays quiet: that failure is the negative control.
@@ -392,7 +430,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             quoted = last_line(strip_color((control.stdout or "") + (control.stderr or "")))
         print(f"{green_prefix}{quoted}{green_explanation}")
         return 1
-    left = still_up(root)
+    left = still_up(root, stack.initial_started if stack is not None else None)
     if left:
         print(f"JOURNEY LEFT THE PRODUCT UP {name} — this run's slot still has "
               f"{len(left)} listener(s) after `stop`: {'; '.join(left)}. Whatever started "
