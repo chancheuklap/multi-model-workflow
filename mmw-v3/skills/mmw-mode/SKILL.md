@@ -109,7 +109,7 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 ## Playbooks
 
 
-Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim.
+Match the task to a playbook below and open its file.
 
 When your start prompt names a playbook, run that playbook from the step the ticket's events put you at; the session that dispatched you chose it, so do not route again.
 

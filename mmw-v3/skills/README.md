@@ -61,7 +61,6 @@ These hold for every component. They come from how pstack itself adds and change
   - Frontmatter: `name`, `description` (what it does, then `Use for …` or `Use when …` with the words someone would use), and `argument-hint` when the skill takes an argument the person types.
   - `# <Title>` and one paragraph: what it does and what it hands back.
   - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names no model (`mmw-mode/SKILL.md` `## Subagents`).
-  - `## Start`: open a todolist with one item per phase.
   - The phases or steps; a step that needs a template names `references/<file>`.
   - What it hands back, and in what form.
 - **Main source in MMW v2:** v2's skills under `mmw-v2/skills/` and the changed upstream skills under `mmw-v2/upstream/skills/`, each with a merge-note in `mmw-v2/merge-notes/`.

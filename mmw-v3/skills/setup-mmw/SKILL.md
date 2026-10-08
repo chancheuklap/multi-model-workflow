@@ -11,10 +11,6 @@ What you write here is read at the moment of acting by every playbook that publi
 
 This skill is the only thing that creates the pipeline's labels and the repository's Memory Space. The scripts that use them only ask, and refuse when one is missing.
 
-## Start
-
-Open a todolist with one item per step below.
-
 ## Steps
 
 1. **Check.** From the repository root, run `python3 scripts/check.py` of this skill. It prints one line per item, `ok`, `missing`, `note` or `unchecked`, under the layers `repository` and `machine`, then `SETUP OK` or `SETUP INCOMPLETE <n> missing`.
