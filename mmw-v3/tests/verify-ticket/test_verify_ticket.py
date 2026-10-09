@@ -222,6 +222,12 @@ class TestTheRunIsOneTicketCheckedEvent(LedgerRun):
         self.assertNotIn("outside_owns", payload)
         self.assertNotIn("Outside Owns:", comment)
 
+    def test_a_worker_reverify_records_outside_owns_for_the_closing_comment(self):
+        body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
+        _, comment, _ = self.run_ticket(body, reverify=True, actor="worker",
+                                        outside=["docs/stray.md"])
+        self.assertEqual(payload_of(comment)["outside_owns"], ["docs/stray.md"])
+
     def test_a_worker_reverify_has_the_verify_stage(self):
         body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
         _, comment, _ = self.run_ticket(body, reverify=True, actor="worker")
@@ -861,12 +867,29 @@ class TestTheProductSlot(unittest.TestCase):
         (main / ".mmw").mkdir()
         (main / ".mmw/target.json").write_text('{"products": ["notes"]}')
         (main / ".mmw/notes").mkdir()
+        # The criterion starts a product that listens on its port, as a real one does;
+        # `lease.py run` keeps a product recorded as started only while it listens.
+        serve = self.tmp / "serve.py"
+        serve.write_text(
+            "import os, socket, time\n"
+            "s = socket.socket()\n"
+            "s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
+            "s.bind(('127.0.0.1', int(os.environ['MMW_PORT_BASE'])))\n"
+            "s.listen()\n"
+            "open(os.path.join(os.environ['MMW_DATA_DIR'], 'pid'), 'w').write(str(os.getpid()))\n"
+            "time.sleep(60)\n")
+        start = self.tmp / "start.sh"
+        start.write_text(
+            f"python3 '{serve}' >/dev/null 2>&1 &\n"
+            "while [ ! -s \"$MMW_DATA_DIR/pid\" ]; do sleep 0.05; done\n")
         (main / ".mmw/notes/target.json").write_text(json.dumps({
-            "ports": 1, "stop": f"touch '{stopped}'",
+            "ports": 1,
+            "stop": (f"touch '{stopped}'; pid=$(cat \"$MMW_DATA_DIR/pid\"); kill $pid; "
+                     "while kill -0 $pid 2>/dev/null; do sleep 0.05; done"),
         }))
         body = PRODUCT.replace("echo journey.py import",
             f"MMW_HOME='{self.tmp / 'home'}' python3 '{UI_ACCEPTANCE / 'lease.py'}' "
-            "run --product notes -- true && echo journey.py import", 1)
+            f"run --product notes -- sh '{start}' && echo journey.py import", 1)
         code, posted, err = self.run_in(main.resolve(), body, reverify=True, actor="main")
         self.assertEqual(code, 0, err)
         self.assertEqual(payload_of(posted[-1])["actor"], "main")

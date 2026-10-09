@@ -319,24 +319,38 @@ class TestTheFinalRunSettlesAllMet(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("unmet", err)
 
-    def test_a_later_self_run_cannot_override_the_final_run(self):
-        """Only the newest worker reverify is closing proof, even if a self run follows."""
+    def test_the_newest_worker_run_is_the_proof_whichever_run_it_is(self):
+        """A self run after the worker's reverify is the newer run, so it decides."""
+        unmet_self_at_head = checked("self", [UNMET], "UNMET: 1 (met: 0)", commit=HEAD)
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(FINAL_RUN, self.UNMET_RUN, self.MET_SELF_RUN))
+                             comments=(FINAL_RUN, unmet_self_at_head))
         self.assertEqual(code, 1)
         self.assertIn("unmet", err)
 
-    def test_a_ticket_with_no_reverify_cannot_close_as_all_met(self):
+    def test_the_first_run_is_accepted_when_nothing_was_committed_after_it(self):
+        own_run_at_head = checked("self", [MET], "ALL MET (1 met)", commit=HEAD)
+        code, err, _ = check(draft(counts=counts_line()), comments=(own_run_at_head,),
+                             reverify=False)
+        self.assertEqual(code, 0, err)
+
+    def test_a_first_run_on_an_older_commit_is_not_accepted(self):
+        own_run = checked("self", [MET], "ALL MET (1 met)", commit=VERIFIED)
+        code, err, _ = check(draft(counts=counts_line()), comments=(own_run,),
+                             reverify=False)
+        self.assertEqual(code, 1)
+        self.assertIn(VERIFIED, err)
+
+    def test_a_first_run_left_unmet_cannot_close_as_all_met(self):
         code, err, _ = check(draft(counts=counts_line()), comments=NO_FINAL_RUN,
                              reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("ticket.checked", err)
+        self.assertIn("unmet", err)
 
     def test_a_reverify_typed_as_a_comment_is_not_a_reverify(self):
         """A hand-typed comment is prose, not the final run event."""
         typed = "reverify\nALL MET (1 met)\n\n" + MET
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(*NO_FINAL_RUN, typed), reverify=False)
+                             comments=(typed,), reverify=False)
         self.assertEqual(code, 1)
         self.assertIn("ticket.checked", err)
 
@@ -663,6 +677,29 @@ class TestReviewFindingCompleteness(unittest.TestCase):
         code, err, _ = check(text, comments=(review,))
         self.assertEqual(code, 1)
         self.assertIn(row, err)
+
+
+class TestAReportThatIsNoReview(unittest.TestCase):
+    """A report with no `## In-ticket` section reviewed nothing; one whose section says
+    None found nothing."""
+
+    def test_a_report_with_no_in_ticket_section_refuses_and_names_the_fault_child(self):
+        failed = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
+                       "fatal: abcdef0 does not resolve to a commit\n",
+                       base="abcdef0", head="1234567")
+        for check_only in (True, False):
+            with self.subTest(check_only=check_only):
+                code, err, seen = check(draft(counts=counts_line()), comments=(failed,),
+                                        check_only=check_only)
+                self.assertEqual(code, 1)
+                self.assertIn("--sub-issue fault", err)
+                self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
+
+    def test_a_report_whose_in_ticket_section_says_none_closes(self):
+        empty = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
+                      "None\n", base="abcdef0", head="1234567")
+        code, err, _ = check(draft(counts=counts_line()), comments=(empty,))
+        self.assertEqual(code, 0, err)
 
 
 class TestNoSideEffectOnFail(unittest.TestCase):

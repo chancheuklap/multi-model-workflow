@@ -604,6 +604,16 @@ def newest_run(comments: list, *runs: str, actor: str | None = None) -> dict | N
     return max(found, key=lambda record: record["comment"]) if found else None
 
 
+def final_worker_run(comments: list) -> dict | None:
+    """The worker run the closeout accepts and the closing comment quotes: the newest of
+    the worker's own runs and its reverify runs. The closeout holds it to `HEAD`, so when
+    nothing was committed after the worker's first run, that run is the final one."""
+    runs = [record for record in (newest_run(comments, "self"),
+                                  newest_run(comments, "reverify", actor="worker"))
+            if record is not None]
+    return max(runs, key=lambda record: record["comment"]) if runs else None
+
+
 def ledger_with_results(lines: list[str], results: list[dict]) -> list[str]:
     """The ledger `lines` with each criterion ticked and its `EVIDENCE:` written the way
     one run left it: `results` is that run's `criteria`, `{id, met, evidence}` each.
@@ -907,10 +917,10 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
     if first != "ALL MET":
         return problems
 
-    record = newest_run(comments, "reverify", actor="worker")
+    record = final_worker_run(comments)
     reverify = record["payload"] if record else None
     if reverify is None:
-        problems.append("the ticket carries no worker reverify `ticket.checked` event. Run "
+        problems.append("the ticket carries no `ticket.checked` event of a worker run. Run "
                         "`verify-ticket.py <n> --reverify --actor worker` after the final "
                         "commit, or close out as `HANDOFF REQUIRED`")
     else:
@@ -923,11 +933,11 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         unmet = list(reverify.get("failed") or [])
         covered = result == "unmet" and unmet and set(unmet) <= decided
         if result != "met" and not covered:
-            problems.append("the worker's final reverify still reports unmet or abandoned "
+            problems.append("the worker's final run still reports unmet or abandoned "
                             "criteria. Add the required `ABANDON:` lines and close out as "
                             "`HANDOFF REQUIRED`")
         if reverify.get("commit") != git("rev-parse", "HEAD"):
-            problems.append(f"the worker's final reverify is on {reverify.get('commit')} and "
+            problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
@@ -1303,6 +1313,20 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
     return found
 
 
+def require_in_ticket(review: str, comment: int | str | None, number: int) -> None:
+    """Refuse a review report that carries no `## In-ticket` heading: the reviewer posts
+    one whatever it found, `None` included, so a report without one stopped before any
+    axis ran (a commit that does not resolve, an empty diff) and reviewed nothing."""
+    if any(line.strip() == "## In-ticket" for line in review.splitlines()):
+        return
+    first = review.splitlines()[0] if review else "(empty)"
+    raise ValueError(
+        f"the newest review report (comment {comment}, `{first[:80]}`) has no ## In-ticket "
+        f"section, so nothing reviewed this ticket and it cannot close as reviewed; open a "
+        f"fault child with `verify-ticket.py {number} --sub-issue fault <file>`, its body "
+        f"the report, and stop")
+
+
 def review_findings_block(review: str, comment: int | str | None = None) -> str:
     items = in_ticket_findings(review, comment)
     if not items:
@@ -1506,7 +1530,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
     into, problem = worker_started_field(number, comments, "into")
     if problem:
         return refuse(problem)
-    record = newest_run(comments, "self")
+    record = final_worker_run(comments)
     run = record["payload"] if record else None
     criteria = overlay_run_evidence(body, run)
     abandons = list((run or {}).get("abandons") or [])
@@ -1524,6 +1548,8 @@ def run_draft(number: int, out_file: Path | None) -> int:
     review_event = events.newest(comments, "reviewer.reported") or {}
     review = review_event.get("body") or ""
     try:
+        if review_event:
+            require_in_ticket(review, review_event.get("comment"), number)
         review_block = review_findings_block(review, review_event.get("comment"))
     except ValueError as exc:
         return refuse(str(exc))
@@ -1876,7 +1902,11 @@ def _run_checks(number: int, reverify: bool,
     comments = fetch_comments(number)
     started = events.newest(comments, "worker.started")
     started_payload = (started or {}).get("payload", {})
-    base = started_payload.get("base") if not reverify else None
+    # Every worker run can be the one the closeout accepts and quotes, so each records
+    # Outside Owns; a reverify by the main agent runs on the merged branch, where the
+    # question has no answer.
+    worker = actor == "worker"
+    base = started_payload.get("base") if worker else None
     into = started_payload.get("into")
     slot = None
     if needs_product(body):
@@ -1912,10 +1942,9 @@ def _run_checks(number: int, reverify: bool,
                 "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
                 "evidence": c["evidence"] or "pending"} for c in criteria]
     outcome = check_run_outcome(result.returncode, summary)
-    fields = ({} if reverify else
-              outside_owns_fields(number, owns_globs(body), root, base))
+    fields = (outside_owns_fields(number, owns_globs(body), root, base) if worker else {})
     prose = [updated]
-    if not reverify:
+    if worker:
         prose += ["", outside_owns_text(fields)]
     try:
         post_event(number, "ticket.checked",
@@ -2122,8 +2151,8 @@ def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
 # The steps of mmw-mode's Work a ticket playbook a `RESUME:` line can name, by their
 # titles there; the dispatch skill's `check-interfaces.py` finds each one in that file.
 RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment",
-                "Start the reviewer", "Read the review", "Run every criterion one final time",
-                "Audit")
+                "Start the reviewer", "Read the review", "Audit",
+                "Run every criterion one final time")
 
 
 def failed_checks_quote(record: dict | None) -> str | None:
@@ -2147,7 +2176,7 @@ def resume_at(comments: list[str], head: str) -> str | None:
     fresh claim, not a resume. A checks bounce adds a second line, the `Failed checks:`
     quote, so the next turn sees which commands failed.
     """
-    integrate, decisions, start_reviewer, read_review, final_run, audit = RESUME_STEPS
+    integrate, decisions, start_reviewer, read_review, audit, final_run = RESUME_STEPS
     self_run = newest_run(comments, "self")
     reviewed = events.newest(comments, "reviewer.reported")
     reverify = newest_run(comments, "reverify", actor="worker")
@@ -2173,13 +2202,13 @@ def resume_at(comments: list[str], head: str) -> str | None:
         if events.live_of(state, "reviewer"):
             return f"{read_review} (reviewer.started, no reviewer.reported yet)"
         return f"{start_reviewer} (worker.decided, no reviewer.reported)"
-    if self_run["comment"] <= reviewed["comment"]:
+    newest = final_worker_run(comments)
+    if newest["comment"] <= reviewed["comment"]:
         return f"{read_review} (reviewer.reported, no run of your own since)"
-    if reverify is None or reverify["comment"] < self_run["comment"]:
-        return f"{final_run} (a run of your own since reviewer.reported, no worker reverify)"
-    if reverify["payload"].get("commit") == head and (
-            not ordered or reverify["comment"] == ordered[-1]["comment"]):
-        return f"{audit} (worker reverify on HEAD)"
+    if newest["payload"].get("commit") != head:
+        return f"{audit} (a run of your own since reviewer.reported, and commits after it)"
+    if not ordered or newest["comment"] == ordered[-1]["comment"]:
+        return f"{final_run} (a run of your own on HEAD since reviewer.reported)"
     return None
 
 
@@ -2243,7 +2272,7 @@ def run_preflight(number: int) -> int:
 ROW_ID_RE = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+\b")
 
 
-def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
+def review_finding_problems(draft: str, comments: list[str], number: int) -> list[str]:
     """The newest review's In-ticket rows must each have a handled draft row.
 
     Compare the whole source-bearing row, not just its path or claim. Counting rows
@@ -2251,6 +2280,9 @@ def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
     """
     review_event = events.newest(comments, "reviewer.reported") or {}
     try:
+        if review_event:
+            require_in_ticket(review_event.get("body") or "", review_event.get("comment"),
+                              number)
         required = in_ticket_findings(review_event.get("body") or "",
                                       review_event.get("comment"))
     except ValueError as exc:
@@ -2673,7 +2705,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     into = (started or {}).get("into") if passed else None
     problems = draft_problems(draft, comments)
     problems += verified_problems(draft, body, comments, first)
-    problems += review_finding_problems(draft, comments)
+    problems += review_finding_problems(draft, comments, number)
     problems += event_problems(comments)
     if started_problem:
         problems.append(started_problem)
@@ -3951,6 +3983,12 @@ def lint_criteria(number: int, body: str, labels: list[str],
     if not section(body, "Acceptance criteria"):
         print(f"{who} carries no `## Acceptance criteria`, so only its worker label "
               f"and its place in the batch are checked")
+        if "ready-for-agent" in labels:
+            say("error", f"{who} is labelled `ready-for-agent` and has no "
+                f"`## Acceptance criteria` section, so a worker would have nothing to run "
+                f"and the night would hand it back; write the section under exactly that "
+                f"heading, or label the ticket `ready-for-human` when a person does it",
+                "no-criteria")
         if not any(label in CLASS_LABELS for label in labels):
             say("warn", f"{who} carries no layer label, so its layer was read off "
                 f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "

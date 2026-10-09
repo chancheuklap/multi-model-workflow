@@ -395,15 +395,14 @@ class TestResume(unittest.TestCase):
         ])
         self.assertIn("RESUME: Read the review (reviewer.started, no reviewer.reported yet)", out)
 
-    def test_a_report_older_than_your_own_run_resumes_at_step_4(self):
+    def test_commits_after_your_run_since_the_report_resume_at_the_audit(self):
         out = self.resume([
             event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
                   ticket=77, base="a" * 7, head="b" * 7),
             checked("self", SELF_LEDGER, ticket=77),
             event("worker.decided", "DECISIONS", ticket=77),
         ])
-        self.assertIn("RESUME: Run every criterion one final time "
-                      "(a run of your own since reviewer.reported, no worker reverify)", out)
+        self.assertIn("RESUME: Audit (", out)
 
     def test_a_report_newer_than_your_own_run_resumes_at_its_fix_round(self):
         out = self.resume([
@@ -422,7 +421,7 @@ class TestResume(unittest.TestCase):
             checked("self", SELF_LEDGER, ticket=77),
             checked("reverify", SELF_LEDGER, ticket=77, actor="worker", commit=HEAD),
         ])
-        self.assertIn("RESUME: Audit (worker reverify on HEAD)", out)
+        self.assertIn("RESUME: Run every criterion one final time (", out)
 
     def test_a_returned_ticket_resumes_at_step_1_then_4(self):
         out = self.resume([

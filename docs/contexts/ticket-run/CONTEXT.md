@@ -302,15 +302,15 @@ The rules under `While writing:` in step 2 of the `Work a ticket` playbook that 
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
 
 **closing steps**:
-What the `Work a ticket` playbook does once the code is written, steps 3 to 11: from integrating the base branch through the review, the **final run** and the Audit to `--closeout`.
+What the `Work a ticket` playbook does once the code is written, steps 3 to 11: from integrating the base branch through the review, the Audit and the **final run** to `--closeout`.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
 
 **final run**:
-`verify-ticket.py <n> --reverify --actor worker`, the worker's last run of every criterion, after the last step that writes a commit and with no fix round after it. `--closeout` accepts an `ALL MET` draft only when the newest such run is on `HEAD` and ran the ticket's current criteria.
+The worker's last run of every criterion, after the last step that writes a commit and with no fix round after it: `verify-ticket.py <n> --reverify --actor worker`, or, when nothing was committed after it, the worker's own run of `Integrate and run every criterion`. It is the newest worker run on the ticket, of either kind; `--closeout` accepts an `ALL MET` draft only when that run is on `HEAD` and ran the ticket's current criteria, and `--draft` quotes the same run (ADR 0045).
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`, `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`Audit`**:
-The closing step that reads the ticket once more against the branch, the way the user will read the closing comment: each point under `## What to build` holds in the product, not only in a test, and each baseline under `## Read first` is followed where it applies, with what does not hold said in the closing comment. It computes nothing itself: `Counts:` is `--closeout`'s own tally of the draft's `ABANDON:` lines.
+The closing step that reads the ticket once more against the branch, the way the user will read the closing comment: each point under `## What to build` holds in the product, not only in a test, and each baseline under `## Read first` is followed where it applies. It comes before the **final run**: a point that does not hold is fixed then, with a `contract` child when no criterion covers it. It computes nothing itself: `Counts:` is `--closeout`'s own tally of the draft's `ABANDON:` lines.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
 
 **closeout**:
