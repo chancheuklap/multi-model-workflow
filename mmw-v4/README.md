@@ -48,11 +48,13 @@ morning.
 ```
 
 <details>
-<summary>the twenty-three playbooks</summary>
+<summary>the twenty-four playbooks</summary>
 
 | playbook | for |
 |---|---|
 | [investigation](./skills/poteto-mode/playbooks/investigation.md) | a read-only question. how does x work, why was y built this way, are we sure. |
+| [chart the map](./skills/poteto-mode/playbooks/chart-the-map.md) | a loose idea too big for one session. chart it as a shared map of decision tickets on github issues. |
+| [work through the map](./skills/poteto-mode/playbooks/work-through-the-map.md) | resolve the next decision ticket on a wayfinder map, one per session. |
 | [bug fix](./skills/poteto-mode/playbooks/bug-fix.md) | reproduce a defect, root-cause it, and fix with runtime evidence. |
 | [perf](./skills/poteto-mode/playbooks/perf-issue.md) | trace a measured slowness and improve it against a baseline. |
 | [hillclimb](./skills/poteto-mode/playbooks/hillclimb.md) | sustained, scientific improvement of one metric against a target, looping hypotheses with before/after measurement and one commit per accepted win. |
@@ -60,7 +62,7 @@ morning.
 | [trace forensics](./skills/poteto-mode/playbooks/trace-forensics.md) | diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot). |
 | [feature](./skills/poteto-mode/playbooks/feature.md) | new or changed behavior, built from a named data shape. |
 | [refactoring](./skills/poteto-mode/playbooks/refactoring.md) | a behavior-preserving change to structure or shape. |
-| [prototype](./skills/poteto-mode/playbooks/prototype.md) | a throwaway sketch to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it. |
+| [prototype](./skills/prototype/SKILL.md) (a skill) | a throwaway prototype to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it. |
 | [visual parity](./skills/poteto-mode/playbooks/visual-parity.md) | pixel-exact ui equivalence between two implementations. |
 | [authoring a skill](./skills/poteto-mode/playbooks/authoring-a-skill.md) | writing or editing a SKILL.md. |
 | [eval](./skills/poteto-mode/playbooks/eval.md) | test how a skill or prompt change affects agent behavior, blinded. |

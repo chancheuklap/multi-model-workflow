@@ -78,7 +78,7 @@ Never take the first design. Ask for a few, and pick from evidence you can see:
 /poteto-mode prototype a few options for the new dropdown menu. take screenshots or videos for me to compare.
 ```
 
-The [Prototype playbook](../../skills/poteto-mode/playbooks/prototype.md) builds throwaway sketches in a scratch directory, puts the variants behind one switcher, drives each one, and captures screenshots or timings. It also works for behavior and algorithms, not just UI. Prototypes are planning with code. They let the agent answer its own open questions by running something instead of asking you, and they leave room for an option you wouldn't have thought of.
+The [prototype skill](../../skills/prototype/SKILL.md) builds a throwaway prototype shaped by the question. A logic question gets a single HTML file you click through. A UI question gets several variants on the real route behind one switcher. A behavior or timing question gets the smallest script that shows the answer, and the result decides. Prototypes are planning with code. They let the agent answer its own open questions by running something instead of asking you, and they leave room for an option you wouldn't have thought of.
 
 The same idea scales up to a real design. Pair `/architect` with prototypes and keep a review gate:
 
