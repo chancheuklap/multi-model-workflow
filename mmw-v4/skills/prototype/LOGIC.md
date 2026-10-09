@@ -17,11 +17,11 @@ If the question is "what should this look like," this is the wrong branch. Use [
 
 ### 1. State the question
 
-Before writing code, write down what state model and what question you're prototyping. One paragraph, at the top of the demo (in a visible intro, not just a comment). A logic prototype that answers the wrong question is pure waste, so make the question explicit so it can be checked later, whether the user is watching now or returning to it AFK.
+Before writing code, write down what state model and what question you're prototyping. One paragraph, at the top of the demo (in a visible intro, not just a comment) and opening the leaf `README.md`. A logic prototype that answers the wrong question is pure waste, so make the question explicit so it can be checked later, whether the user is watching now or returning to it AFK.
 
 ### 2. Isolate the logic in a portable module
 
-Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module that could be lifted out and dropped into the real codebase later. The page around it is throwaway; this module isn't.
+Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module that could be lifted out and dropped into the real codebase later. The page around it is a shell; this module is what the real code will be written from.
 
 The right shape depends on the question:
 
@@ -35,6 +35,8 @@ Pick whichever shape best fits the question being asked, *not* whichever is easi
 ### 3. Build the shareable HTML file
 
 One file, plain HTML/CSS/JS: no framework, no bundler, no server, everything inline so it opens by double-click and survives being emailed around. Anyone should be able to run it by opening it.
+
+Write the file into the leaf directory. If the host can publish a file as a live interactive page (an artifact, a site, a canvas, whatever it calls it), publish it from there and hand over the link: the file in the repo stays the source, the page is how it's viewed. Otherwise the file itself is what you hand over.
 
 Write it for a non-developer. Every label is in **domain language**, not code: buttons and state read like the business, not the reducer. Explain in plain words what's happening.
 
@@ -51,11 +53,11 @@ Keep it beautiful but restrained: clean typography, generous spacing, one accent
 
 ### 4. Hand it over
 
-Send them the file, or open it for them. They'll click through the walkthroughs and free-play whenever they get to it; the interesting moments are when they say "wait, that shouldn't be possible" or "huh, I assumed X would be different"; those are the bugs in the _idea_, which is the whole point. If they want new actions or a new scenario, add them. Prototypes evolve.
+Send them the link or the file, or open it for them. They'll click through the walkthroughs and free-play whenever they get to it; the interesting moments are when they say "wait, that shouldn't be possible" or "huh, I assumed X would be different"; those are the bugs in the _idea_, which is the whole point. If they want new actions or a new scenario, add them. Prototypes evolve.
 
 ### 5. Capture the answer and the prototype
 
-Once the prototype has answered its question, capture the answer, then capture the prototype the way the [SKILL](SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set lifts into the real module (the decision, absorbed); the HTML shell rides along to the throwaway branch that keeps the prototype as a primary source, and being one self-contained file, it stays trivially re-runnable there.
+Once the prototype has answered its question, record the answer the way the [SKILL](SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set is what the real module is written from; the HTML shell stays in the leaf directory, and being one self-contained file, it stays trivially re-runnable for the next round.
 
 ## Anti-patterns
 

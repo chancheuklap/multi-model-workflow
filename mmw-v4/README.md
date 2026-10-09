@@ -62,7 +62,7 @@ morning.
 | [trace forensics](./skills/poteto-mode/playbooks/trace-forensics.md) | diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot). |
 | [feature](./skills/poteto-mode/playbooks/feature.md) | new or changed behavior, built from a named data shape. |
 | [refactoring](./skills/poteto-mode/playbooks/refactoring.md) | a behavior-preserving change to structure or shape. |
-| [prototype](./skills/prototype/SKILL.md) (a skill) | a throwaway prototype to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it. |
+| [prototype](./skills/prototype/SKILL.md) (a skill) | a prototype kept in the repo to make a design or behavioral decision cheaply, or to settle how something should be implemented by running it. |
 | [visual parity](./skills/poteto-mode/playbooks/visual-parity.md) | pixel-exact ui equivalence between two implementations. |
 | [authoring a skill](./skills/poteto-mode/playbooks/authoring-a-skill.md) | writing or editing a SKILL.md. |
 | [eval](./skills/poteto-mode/playbooks/eval.md) | test how a skill or prompt change affects agent behavior, blinded. |
@@ -200,10 +200,10 @@ pstack also ships [Comment Sicko](./agents/comment-sicko.md), a read-only commen
 
 ## principles
 
-twenty-four short skills, one principle each. `poteto-mode` indexes them inline and reads that index at task start. the standalone files are there so other skills can reference a principle by name, and so the index can point at the full rule for each.
+twenty-five short skills, one principle each. `poteto-mode` indexes them inline and reads that index at task start. the standalone files are there so other skills can reference a principle by name, and so the index can point at the full rule for each.
 
 <details>
-<summary>all twenty-four principles</summary>
+<summary>all twenty-five principles</summary>
 
 | principle | group | rule |
 |---|---|---|
@@ -216,6 +216,7 @@ twenty-four short skills, one principle each. `poteto-mode` indexes them inline 
 | [outcome-oriented-execution](./skills/principle-outcome-oriented-execution/SKILL.md) | core | Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code. |
 | [experience-first](./skills/principle-experience-first/SKILL.md) | core | Choose user delight over implementation convenience; ship fewer polished features over more rough ones. |
 | [exhaust-the-design-space](./skills/principle-exhaust-the-design-space/SKILL.md) | core | Build 2-3 competing prototypes and compare side by side before committing. |
+| [first-principles-thinking](./skills/principle-first-principles-thinking/SKILL.md) | core | Apply when forming a recommendation on a plan, decision, or idea whose path is not already clear. Challenge the premise, reduce the requirements, keep only constraints with independent support, and rebuild the simplest solution. |
 | [build-the-lever](./skills/principle-build-the-lever/SKILL.md) | core | Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun. |
 | [model-the-domain](./skills/principle-model-the-domain/SKILL.md) | architecture | Encode the domain in a structure instead of scattered conditionals. |
 | [boundary-discipline](./skills/principle-boundary-discipline/SKILL.md) | architecture | Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions. |

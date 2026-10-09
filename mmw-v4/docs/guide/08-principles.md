@@ -1,6 +1,6 @@
 # Steer with principle names
 
-pstack ships 24 principles as individual skills. `/poteto-mode` reads their index at the start of every multi-step task, applies the ones the task triggers, and names each applied principle in its reply along with the decision it changed.
+pstack ships 25 principles as individual skills. `/poteto-mode` reads their index at the start of every multi-step task, applies the ones the task triggers, and names each applied principle in its reply along with the decision it changed.
 
 You don't invoke principles. You use their names to steer. Each name points at a complete rule the agent has already read, so one phrase redirects the work more precisely than a paragraph of instructions.
 
@@ -39,6 +39,7 @@ The core principles decide how much to build and when to rethink the design:
 - [Outcome-Oriented Execution](../../skills/principle-outcome-oriented-execution/SKILL.md) converges rewrites on the target design instead of preserving throwaway compatibility states.
 - [Experience First](../../skills/principle-experience-first/SKILL.md) chooses the user's result over implementation convenience.
 - [Exhaust the Design Space](../../skills/principle-exhaust-the-design-space/SKILL.md) builds two or three competing prototypes when there's no precedent.
+- [First-Principles Thinking](../../skills/principle-first-principles-thinking/SKILL.md) questions whether a plan should exist and rebuilds it from the constraints that have independent support, before recommending it.
 - [Build the Lever](../../skills/principle-build-the-lever/SKILL.md) builds the script that does or proves the work, so a reviewer can rerun it. When an agent keeps doing the same thing by hand, have it write the tool or skill it wishes it had. If a script can do a step the same way every time, use the script, and save agents for the judgment calls.
 
 The architecture principles decide where state, validation, and compatibility live:

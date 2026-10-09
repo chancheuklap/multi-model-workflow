@@ -1,6 +1,6 @@
 # UI Prototype
 
-Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.
+Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser and picks one (or steals bits from each); the rest stay as reference.
 
 If the question is about logic/state rather than what something looks like, this is the wrong branch. Use [LOGIC.md](LOGIC.md).
 
@@ -13,7 +13,7 @@ If the question is about logic/state rather than what something looks like, this
 
 ## Two sub-shapes: strongly prefer sub-shape A
 
-A UI prototype is much easier to judge when it's **butting up against the rest of the app**: real header, real sidebar, real data, real density. A throwaway route on its own is a vacuum: every variant looks fine in isolation. Default to sub-shape A whenever there's a plausible existing page to host the variants. Only reach for sub-shape B if the prototype genuinely has no nearby home.
+A UI prototype is much easier to judge when it's **butting up against the rest of the app**: real header, real sidebar, real data, real density. A prototype route on its own is a vacuum: every variant looks fine in isolation. Default to sub-shape A whenever there's a plausible existing page to host the variants. Only reach for sub-shape B if the prototype genuinely has no nearby home.
 
 ### Sub-shape A: adjustment to an existing page (preferred)
 
@@ -25,11 +25,15 @@ If the prototype is for something that doesn't yet have a page but *would natura
 
 Only use this when the thing being prototyped genuinely has no existing page to live inside (e.g. an entirely new top-level surface, or a flow that can't be embedded anywhere sensible).
 
-Create a **throwaway route** following whatever routing convention the project already uses. Don't invent a new top-level structure. Name it so it's obviously a prototype (e.g. include the word `prototype` in the path or filename). Same `?variant=` pattern.
+Create a **prototype route** following whatever routing convention the project already uses. Don't invent a new top-level structure. Name it so it's obviously a prototype (e.g. include the word `prototype` in the path or filename). Same `?variant=` pattern.
 
 Before committing to sub-shape B, sanity-check: is there really no existing page this could be embedded in? An empty route hides design problems that a populated one would expose.
 
 In both sub-shapes the floating bottom bar is identical.
+
+### When there is no app yet
+
+A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `efforts/<effort>/prototypes/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them.
 
 ## Process
 
@@ -72,7 +76,9 @@ return (
 
 For sub-shape A (existing page): keep all the existing data fetching above the switcher; only the rendered subtree changes per variant.
 
-For sub-shape B (new page): the throwaway route under `/prototype/<name>` mounts the same switcher.
+For sub-shape B (new page): the prototype route you created above mounts the same switcher.
+
+In both sub-shapes the variant components live in the leaf directory `efforts/<effort>/prototypes/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app, and it comes down at step 6. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
 ### 4. Build the floating switcher
 
@@ -89,7 +95,7 @@ Behaviour:
 - Visually distinct from the page (e.g. high-contrast pill, subtle shadow) so it's obviously not part of the design being evaluated.
 - Hidden in production builds: gate on `process.env.NODE_ENV !== 'production'` or an equivalent check, so a stray prototype merge can't ship the bar to users.
 
-Put the switcher in a single shared component so both sub-shapes can reuse it. Locate it wherever shared UI lives in the project.
+Put the switcher in one component under `efforts/<effort>/prototypes/`, beside the leaf directories, so every prototype of the effort reuses it and nothing of it stays in the product's source once the mount point comes down.
 
 ### 5. Hand it over
 
@@ -97,12 +103,12 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer and clean up
 
-Once a variant has won, capture the answer (which variant and why), then capture the prototype the way the [SKILL](SKILL.md) describes. Fold the winner into the real code and move the rest onto the throwaway branch, not into main:
+Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Then fold the winner into the real code, rewritten to production standard, with the variant as reference:
 
-- **Sub-shape A**: fold the winner into the existing page; drop the losing variants and the switcher from main.
-- **Sub-shape B**: promote the winning variant to a real route; drop the throwaway route and the switcher from main.
+- **Sub-shape A**: fold the winner into the existing page; remove the mount point and the switcher from the route.
+- **Sub-shape B**: promote the winning variant to a real route; remove the prototype route.
 
-The full set of variants is the primary source, so it lands on the throwaway branch, not the bin, since variant components and the switcher left in the main branch rot fast and confuse the next reader.
+The variants, the winner included, stay in the leaf directory as reference, so the next round of the same question iterates them instead of starting over. Nothing outside the leaf directory imports them once the mount point is gone.
 
 ## Anti-patterns
 
