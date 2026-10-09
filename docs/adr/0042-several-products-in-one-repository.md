@@ -12,7 +12,7 @@ amends: []
 - **根 `target.json` 加 `surfaces` 列表。** 否决。产品答案还是挤在同一个文件里，两张票会写同一处。spec #894 `### 2. 目录布局与唯一的读入点` 改成每个产品一个目录，根上只留 `checks`、`products`、`needs`。contract ticket 只拥有自己那个产品的 `.mmw/<产品>/`。
 - **每个产品一个 lease。** 否决。一次运行要同时起被测产品和它依赖的产品，并且一起停掉。spec #894 `## Solution` 定的是一次运行仍只租一个 lease。一个产品一份 lease 会把同一次运行拆成多份登记。端口分段、`started` 和倒序停都没有一个登记可写。
 - **照 pstack 给每个仓库生成一个验证 skill。** 否决。spec #894 `### 7. 引入 create-verification-skill，并让 setup-mmw 逐个产品接入` 让 create-verification-skill 写 `.mmw/<产品>/`，不写 `.cursor/skills/verify-<app>/`。pstack 的 Launch、Doctor、Drive、Evidence、Cleanup、Isolate 落到已有的 `start` 与 `stop`、`doctor`、证据位置和 lease 分段上。再生成一份验证 skill，就是把同一套验收再写一份。
-- **control-ui 作独立 skill。** 否决。spec #894 `### 8. control-ui 与 control-cli 作为 ui-acceptance 的 reference` 采纳 advisor 2026-10-07 的意见。改写后剩下的是多窗口共用调试端口时怎么选页面、一次做一个动作再看一次、以及 CDP 能做的事。这些属于 `mmw-v3/skills/ui-acceptance/references/journey.md` 的 `## What the script gets, and what it must be`。两份 skill 讲同一件事，按 `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` 的 `## Checks` 里 Duplication 一条删一份。`mmw-v3/imports.tsv` 的 J579 已经把 runtime-forensics 里的 "via the control skill" 改成在 lease 里用 `start` 起自己的实例。这个判断保留。control-cli 同样不单独成 skill。
+- **control-ui 作独立 skill。** 否决。spec #894 `### 8. control-ui 与 control-cli 作为 ui-acceptance 的 reference` 采纳 advisor 2026-10-07 的意见。改写后剩下的是多窗口共用调试端口时怎么选页面、一次做一个动作再看一次、以及 CDP 能做的事。这些属于 `mmw-v3/skills/ui-acceptance/references/journey.md` 的 `## What the script gets, and what it must be`。两份 skill 讲同一件事，按 `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md` 的 `## Checks` 里 Duplication 一条删一份。`mmw-v3/imports.tsv` 的 J579 已经把 runtime-forensics 里的 "via the control skill" 改成在 lease 里用 `start` 起自己的实例。这个判断保留。control-cli 同样不单独成 skill。
 
 ## Consequences
 

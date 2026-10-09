@@ -1,4 +1,7 @@
 {
+  "checks": [
+    "python3 ~/.agents/skills/verify-ticket/scripts/feature_map.py lint"
+  ],
   "products": [
     "task-board"
   ]

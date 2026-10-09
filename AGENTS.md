@@ -69,7 +69,6 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 
 <important if="you are opening a night or working one ticket inside this repository">
 - `dispatch.sh start` cuts the ticket worktree under the main worktree's `.worktrees/` whichever worktree it is run from, so a worker starts its reviewer from its own worktree and both work in the same place.
-- This repository's `.mmw/target.json` has no `checks` key; `advance`'s merge step says so on stderr. Known, not a fault.
 </important>
 
 <important if="you are pulling an upstream's new version or editing a file copied from one">
