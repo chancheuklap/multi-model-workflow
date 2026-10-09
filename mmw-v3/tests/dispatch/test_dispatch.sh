@@ -4584,11 +4584,23 @@ JSON
   rm -f "$marker"
   mkdir -p "$ws/.mmw/app"
   printf '%s\n' '{"products":["app"]}' > "$ws/.mmw/target.json"
-  printf '{"ports":1,"start":"true","discover":"true","reach":"true","stop":"touch %s"}\n' "$marker" \
+  python3 -c 'import json, sys; print(json.dumps({"ports": 1, "start": "true", "discover": "true", "reach": "true", "stop": "touch %s; pid=$(cat \"$MMW_DATA_DIR/pid\"); kill $pid; while kill -0 $pid 2>/dev/null; do sleep 0.05; done" % sys.argv[1]}))' "$marker" \
     > "$ws/.mmw/app/target.json"
+  cat > "$TMP/serve61.py" <<'PY'
+import os, socket, time
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", int(os.environ["MMW_PORT_BASE"])))
+s.listen()
+open(os.path.join(os.environ["MMW_DATA_DIR"], "pid"), "w").write(str(os.getpid()))
+time.sleep(120)
+PY
   # The product runs only under a slot, which the first run of the worker's criteria acquires,
-  # and `release --stop` stops only the products the lease records as started.
-  python3 "$LEASE_PY" run "$ws" --product app -- true >/dev/null
+  # and `release --stop` stops only the products the lease records as started: one that
+  # still listens on its port when `run` returns.
+  python3 "$LEASE_PY" run "$ws" --product app -- sh -c \
+    'python3 "$0" >/dev/null 2>&1 & while [ ! -s "$MMW_DATA_DIR/pid" ]; do sleep 0.05; done' \
+    "$TMP/serve61.py" >/dev/null
 
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 FAKE_GH_LOGIN=mmw-bot \

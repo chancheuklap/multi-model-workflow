@@ -18,12 +18,17 @@ What a lease puts in the environment:
     MMW_PORT_COUNT   how many ports the block holds
     MMW_DATA_DIR     a directory this run owns
     MMW_AUTOMATION   `1`, so a product can neutralise what would leave this machine
+    MMW_WORKTREE_COMMIT  this worktree's `HEAD`, the build a product's `doctor` compares
+                     against; empty outside a git checkout
 
 With a named product, the port variables describe its segment in root products order,
 MMW_DATA_DIR ends in that product's name and MMW_PRODUCT names it. Dependencies start
 first. Their discovered keys use uppercase product prefixes, with hyphens replaced
 by underscores. The registry records started products and discovered values so stop
-commands receive the same addresses even after a dependent has stopped.
+commands receive the same addresses even after a dependent has stopped. When `run`'s
+command returns and nothing listens on the product's own ports any longer (the command
+was its `stop`, or a probe that started nothing), the product is no longer recorded as
+started, so a journey from the same worktree is not refused for an instance nobody runs.
 
 A repository reads these in the commands `.mmw/target.json` declares, and translates them
 into whatever its own product needs — **at the moment it starts a process, never into the
@@ -767,6 +772,17 @@ def product_segments(worktree: Path) -> dict[str, tuple[int, int]]:
         )) from None
 
 
+def worktree_commit(root: Path) -> str:
+    """The commit `doctor` compares a build against, or empty when `root` has none."""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root,
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ""
+
+
 def environment(record: dict, product: str | None = None) -> dict[str, str]:
     data_dir = instance_data_dir(Path(record["worktree"]))
     env = {
@@ -776,6 +792,7 @@ def environment(record: dict, product: str | None = None) -> dict[str, str]:
         "MMW_PORT_COUNT": str(record["port_count"]),
         "MMW_DATA_DIR": str(data_dir),
         "MMW_AUTOMATION": "1",
+        "MMW_WORKTREE_COMMIT": worktree_commit(Path(record["worktree"])),
     }
     if product is not None:
         segments = product_port_ranges(record)
@@ -928,6 +945,17 @@ class ProductRun:
                 raise ProductCommandFailed(product, "discover", cfg["discover"], exc.code) from None
             self.remember(product, data)
 
+    def forget_if_quiet(self) -> None:
+        """Take the product off `started` when nothing listens on its own ports.
+
+        A product with no ports gives no such evidence, so it stays recorded and
+        `release --stop` still runs its `stop`.
+        """
+        self.record = registered(self.worktree)
+        ports = product_port_ranges(self.record)[self.product]
+        if len(ports) and not any(listener(port) is not None for port in ports):
+            self.record = update_started(self.worktree, self.product, stopped=True)
+
     def stop(self) -> None:
         self.record = registered(self.worktree)
         stop_products(self.worktree, self.record, self.owned)
@@ -1043,6 +1071,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if code != 0 and run is not None:
             run.stop()
+        elif run is not None:
+            run.forget_if_quiet()
         return code
 
     if verb == "remove-instance":

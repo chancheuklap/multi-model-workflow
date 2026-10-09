@@ -4,7 +4,8 @@
     python3 migrate_products.py <product>
 
 Run from inside a clone, on the branch to migrate. `<product>` is given by the
-person running the command and uses only lowercase letters, digits and hyphens.
+person running the command and uses only lowercase letters, digits and hyphens,
+starting with a letter or digit, so an option such as `--help` is never a name.
 
 `git mv` moves `.mmw/harness/`, `.mmw/stories/` and `.mmw/journeys/` into
 `.mmw/<product>/`. Product keys in the root `.mmw/target.json` move into
@@ -41,7 +42,7 @@ from pathlib import Path
 DIRS = ("harness", "stories", "journeys")
 ROOT_KEYS = ("checks", "needs")
 KEPT = {*ROOT_KEYS, "products"}
-NAME = re.compile(r"^[a-z0-9-]+$")
+NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 OLD_PATH = re.compile(r"\.mmw/(harness/|stories/|journeys(?=/|$|[\s\"']))")
 JOURNEY_RUN = re.compile(r"(journey\.py run )([A-Za-z0-9][A-Za-z0-9_-]*)(?![A-Za-z0-9_/-])")
 TOP_PRODUCT = re.compile(r"(?m)^product:")
@@ -147,7 +148,7 @@ def main():
         given = sys.argv[1] if len(sys.argv) == 2 else " ".join(sys.argv[1:]) or "(none)"
         return refuse(
             say,
-            f"product name {given} is not lowercase letters, digits and hyphens",
+            f"product name {given} is not lowercase letters, digits and hyphens starting with a letter or digit",
             "a product directory is named that way.",
             f"Run python3 {script} <product> with a name of that shape.",
         )

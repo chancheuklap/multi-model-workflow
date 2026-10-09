@@ -274,6 +274,25 @@ class Products(Base):
         self.assertEqual(gateway["MMW_SLOT"], parrot["MMW_SLOT"])
         self.assertEqual(gateway["MMW_INSTANCE"], parrot["MMW_INSTANCE"])
 
+    def test_a_product_whose_ports_are_free_when_the_command_returns_is_not_left_started(self):
+        self.addCleanup(self.cli, "release", "--stop")
+        proc = self.cli("run", "--product", "parrot", "--", "true")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        record = json.loads(self.cli("list").stdout)[0]
+        self.assertNotIn("parrot", record["started"])
+
+    def test_a_product_command_gets_the_worktree_commit(self):
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q",
+                        "--allow-empty", "-m", "one"], cwd=self.root, check=True)
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.root, check=True,
+                              capture_output=True, text=True).stdout.strip()
+        self.addCleanup(self.cli, "release", "--stop")
+        proc = self.cli("run", "--product", "parrot", "--", sys.executable, "-c",
+                        "import os; print(os.environ.get('MMW_WORKTREE_COMMIT', ''))")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(proc.stdout.strip(), head)
+
     def test_a_single_product_run_keeps_the_callers_working_directory(self):
         (self.root / ".mmw/target.json").write_text('{"products": ["parrot"]}')
         subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
@@ -497,9 +516,10 @@ class StoppingBeforeReleasing(Base):
         (tree / ".mmw/target.json").write_text('{"products": ["notes"]}')
         (tree / ".mmw/notes").mkdir(exist_ok=True)
         (tree / ".mmw/notes/target.json").write_text(json.dumps({"ports": 5, "stop": stop}))
+        # A product `run` started and that is still up is recorded as started; these
+        # cases are about what `release --stop` does with one, so the record is made here.
         if self.lease.registered(tree.resolve()) is not None:
-            code, _, err = self.run_cli("run", str(tree), "--product", "notes", "--", "true")
-            self.assertEqual(code, 0, err)
+            self.lease.update_started(tree.resolve(), "notes")
 
     def run_cli(self, *argv) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()

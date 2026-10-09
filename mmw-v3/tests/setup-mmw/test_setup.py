@@ -730,7 +730,7 @@ class TestMigrateProducts(unittest.TestCase):
         self.old_layout()
         self.commit()
         before = self.git("status", "--porcelain").stdout
-        for args in [(), ("Task",), ("a/b",), ("task_board",)]:
+        for args in [(), ("Task",), ("a/b",), ("task_board",), ("--help",), ("-board",)]:
             code, stdout, stderr = self.migrate(*args)
             self.assertEqual(code, 2, args)
             self.assertEqual(stdout, "", args)

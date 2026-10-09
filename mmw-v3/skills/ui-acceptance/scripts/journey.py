@@ -227,26 +227,15 @@ def negative_env(env: dict[str, str], data: dict) -> dict[str, str]:
     return control
 
 
-def worktree_commit(root: Path) -> str:
-    """The commit `doctor` compares a build against, or empty when `root` has none."""
-    try:
-        return subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=root,
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return ""
-
-
-def doctor_environment(env: dict[str, str], root: Path, pid: str | None = None) -> dict[str, str]:
-    """The lease environment `doctor` runs in, plus this worktree's commit.
+def doctor_environment(env: dict[str, str], pid: str | None = None) -> dict[str, str]:
+    """The lease environment `doctor` runs in; the lease carries this worktree's commit
+    as `MMW_WORKTREE_COMMIT`.
 
     `MMW_DOCTOR_PID` from the parent session is dropped. `pid` is the one the
     first `doctor` printed, and is set only on the run after a failed script.
     """
     prepared = dict(env)
     prepared.pop("MMW_DOCTOR_PID", None)
-    prepared["MMW_WORKTREE_COMMIT"] = worktree_commit(root)
     if pid is not None:
         prepared["MMW_DOCTOR_PID"] = pid
     return prepared
@@ -364,7 +353,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             return None
         product = getattr(product_cfg, "name", None)
         proc = run_command(
-            command, root, env=doctor_environment(product_env, root, pid), check=False)
+            command, root, env=doctor_environment(product_env, pid), check=False)
         return command, product, proc
 
     def examine(product_cfg: dict, product_env: dict[str, str]) -> int | None:

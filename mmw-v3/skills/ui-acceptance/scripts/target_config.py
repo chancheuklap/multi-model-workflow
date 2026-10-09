@@ -283,21 +283,24 @@ def layout_problems(root: Path, product: str | None = None) -> list[str]:
                 f"{name} once in products", f"{name} repeated", shown, shown))
             continue
         seen.add(name)
+        # With a product named, another product's own file is not this check's to judge:
+        # a product being set up beside one still incomplete would never pass.
+        own = problems if product is None or name == product else []
         file_shown = f".mmw/{name}/target.json"
         one = read_target_json(root, product=name)
         if one is not None and one.error:
-            problems.append(_line(
+            own.append(_line(
                 f"{file_shown} to be one JSON object", one.error, file_shown, file_shown))
             continue
         if one is None or not one.present:
-            problems.append(_line(file_shown, "no file", file_shown, file_shown))
+            own.append(_line(file_shown, "no file", file_shown, file_shown))
             continue
-        value = _ports_value(problems, name, one, file_shown)
+        value = _ports_value(own, name, one, file_shown)
         if value is not None:
             counted.append((name, value))
-        _doctor_command(problems, name, one, file_shown)
+        _doctor_command(own, name, one, file_shown)
         for key, why in target_problems(one):
-            problems.append(_line(f"{key} on {name}", f"{key} {why}", file_shown, file_shown))
+            own.append(_line(f"{key} on {name}", f"{key} {why}", file_shown, file_shown))
     if seen and len(counted) == len(seen):
         total = sum(count for _, count in counted)
         if total > PORT_STRIDE:
@@ -414,6 +417,8 @@ def _report_product_layout(root: Path, product: str | None, validate: bool) -> i
     read = read_target_json(root)
     names = read.root.get("products") if read is not None else None
     for name in (names if isinstance(names, list) else []):
+        if product is not None and name != product:
+            continue
         one = read_target_json(root, name)
         if one is not None and one.present:
             for key in sorted(set(one) - {f.key for f in FIELDS} - {"doctor", "ports"}):

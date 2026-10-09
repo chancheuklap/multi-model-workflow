@@ -154,6 +154,25 @@ class TestTargetCheck(unittest.TestCase):
             self.assertIn("parrot", text)
             self.assertNotIn("gateway", text)
 
+    def test_a_named_product_is_judged_on_its_own_problems(self):
+        """A product being onboarded beside one that is still incomplete passes on its own."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            write_product_layout(root, products=("gateway", "parrot", "hedgehog"),
+                                 ports=(4, 3, 2))
+            hedgehog = root / ".mmw" / "hedgehog" / "target.json"
+            payload = json.loads(hedgehog.read_text(encoding="utf-8"))
+            del payload["doctor"]
+            hedgehog.write_text(json.dumps(payload), encoding="utf-8")
+            code, out, err = self.run_target("--check", "--repo", d, "--product", "parrot")
+            self.assertEqual(code, 0, out + err)
+            self.assertNotIn("hedgehog", out + err)
+            code, out, err = self.run_target("--check", "--repo", d, "--product", "hedgehog")
+            self.assertEqual(code, 1, out + err)
+            self.assertIn(".mmw/hedgehog/target.json", out + err)
+            code, out, err = self.run_target("--check", "--repo", d)
+            self.assertEqual(code, 1, out + err)
+
     def test_ports_beyond_the_block_are_refused(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

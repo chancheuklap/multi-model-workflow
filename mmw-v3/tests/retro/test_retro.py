@@ -564,15 +564,13 @@ def existing_proposal(f: Fixture):
     assert len(f.state("gh")["issues"]["683"]["comments"]) == 1
 
 
-def testing_fact_destination(f: Fixture):
-    cause = "root TESTING.md omitted how this suite starts"
+def fact_destination(f: Fixture, destination: str, cause: str, text: str):
     current = f.event(71, "ticket.checked", cause, ticket=71,
                       run="self", result="unmet", commit=f.landed)
     f.save()
     problem = {"category": "Information access", "cause": cause, "evidence": [current],
                "handled_here": "Left the stale line for a later change",
-               "prevention": {"destination": "testing-fact",
-                              "text": "Add the missing line to root TESTING.md"},
+               "prevention": {"destination": destination, "text": text},
                "earlier_occurrences": [], "proposal": None}
     gathered = f.run("gather", "70")
     outcome = f.finish(gathered, f.analysis([problem]))
@@ -580,7 +578,17 @@ def testing_fact_destination(f: Fixture):
     assert outcome["problem_count"] == receipt["problem_count"] == 1
     assert outcome["proposals"] == receipt["proposals"] == []
     content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
-    assert "[testing-fact]" in content, content
+    assert f"[{destination}]" in content, content
+
+
+def testing_fact_destination(f: Fixture):
+    fact_destination(f, "testing-fact", "root TESTING.md omitted how this suite starts",
+                     "Add the missing line to root TESTING.md")
+
+
+def feature_fact_destination(f: Fixture):
+    fact_destination(f, "feature-fact", "a feature file named a check that no longer exists",
+                     "Correct the check: line of docs/features/task-board/settings.md")
 
 
 FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_caller_repo,
@@ -589,7 +597,8 @@ FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_call
              "prompt-and-record-contract": prompt_and_record_contract,
              "retry-finalize": retry_finalize, "large-evidence": large_evidence,
              "parent-without-map": parent_without_map, "existing-proposal": existing_proposal,
-             "testing-fact-destination": testing_fact_destination}
+             "testing-fact-destination": testing_fact_destination,
+             "feature-fact-destination": feature_fact_destination}
 
 
 def main():
