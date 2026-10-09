@@ -24,6 +24,8 @@ Build a real mental model of every system the new code touches. Run the **how** 
 
 Naming a file isn't grounding. Produce the traced model `how` prescribes. If the design redefines ownership or layering, also run the **why** skill on the existing shape so the rationale becomes a constraint, not a guess.
 
+From the grounding, write down the constraints any new interface would need to satisfy, the dependencies it would rely on and the category each falls into (the **codebase-design** skill's `DEEPENING.md`), and a rough illustrative code sketch that makes the constraints concrete, not a proposal.
+
 Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 
 ## Phase B: Sketch
@@ -34,9 +36,16 @@ Take the runners from the `architect runners` line in the `pstack-models.mdc` ru
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 
+Give each runner a separate technical brief (file paths, coupling details, the dependency category of each dependency, what sits behind the seam) and a different design constraint. Run three, and the fourth when it applies:
+
+- Runner 1: "Minimize the interface: aim for 1–3 entry points max. Maximise leverage per entry point."
+- Runner 2: "Maximise flexibility: support many use cases and extension."
+- Runner 3: "Optimise for the most common caller: make the default case trivial."
+- Runner 4 (if applicable): "Design around ports & adapters for cross-seam dependencies."
+
 Screen every candidate against [`references/design-red-flags.md`](references/design-red-flags.md) before synthesis. Assume the next contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Prefer the design where a change that looks right from one file is right for the whole repo.
 
-Compare viable candidates on interface depth. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
+Compare viable candidates on depth (leverage at the interface), locality (where change concentrates), and seam placement. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
 
 Arena returns one synthesized design package. The synthesis decision populates the rationale's "Synthesis decision" section.
 
