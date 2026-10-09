@@ -1,6 +1,6 @@
 # MMW design intents
 
-What MMW's skill set is built to keep true, and the standard a change to it is held to. **Authoring or modifying a skill** reads it at **Place it** to name the intent a change serves; **Review the skill set** traces each intent that bears on its scope. A change that breaks an intent is not made without the owner's word; MMW's deliberate departures from its upstreams, listed below, are decisions, not gaps.
+What MMW's skill set is built to keep true, and the standard a change to it is held to. **Authoring or modifying a skill** reads it at **Read the skill set's standards** to name the intent a change serves; **Review the skill set** traces each intent that bears on its scope. A change that breaks an intent is not made without the owner's word; MMW's deliberate departures from its upstreams, listed below, are decisions, not gaps.
 
 Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INTENTS.md`](UPSTREAM-INTENTS.md) (kept as upstream has it, or adapted, and how), and its home: the files whose text carries the rule an agent acts on. This file is an index: the rule itself is written in its home, where the acting agent reads it. A change that adds, changes or drops an intent, or moves its home, changes its entry here in the same commit.
 
@@ -62,7 +62,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) facts 1 and 4.
 18. **A change to the skill text is proven by a fresh agent walking a real task with only its trigger;** tests prove the scripts, not the text.
     Takes: P37, adapted (structural changes get a walk rather than only a test); P23, adapted (a walk on a real task rather than a blind eval).
-    Home: [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md); **Authoring or modifying a skill** step 5.
+    Home: [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md); **Authoring or modifying a skill**'s **Prove it, once**.
 19. **Text for an agent leaves no branch without a way on and no choice unguided;** examples use a neutral domain; a refusal puts the next step in its first lines.
     Takes: M13, adapted (adds the set's placement and writing rules).
     Home: `writing-for-agents` `SKILL.md`; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Hand-offs`, `### Examples`, `### Refusals and output an agent reads`.

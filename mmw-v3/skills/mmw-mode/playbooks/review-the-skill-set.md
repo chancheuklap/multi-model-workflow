@@ -4,7 +4,7 @@
 
 A review walks each task an agent does with the set, then holds what each task read to the checks in the `writing-for-agents` skill's `SKILL-SET-RULES.md`.
 
-Scope: what the user names (skills, files inside one, or a workflow: its playbooks, the mode's route lines and sections their steps rely on, every file their steps name, and the scripts those files run), or the whole set when they name nothing; and each upstream skill's differences from upstream. The scripts those skills call are inside the walk wherever they live, including every message a script prints for an agent (refusals, `--help`, the start prompts it builds). Other skills are read only where the scoped skills hand work to them or take it back. A review of part of the set lists the tasks it left out.
+Scope: what the user names (skills, files inside one, intents of the `writing-for-agents` skill's `DESIGN-INTENTS.md`, which cover the files their `Home:` lines name, or a workflow: its playbooks, the mode's route lines and sections their steps rely on, every file their steps name, and the scripts those files run), or the whole set when they name nothing; and each upstream skill's differences from upstream. The scripts those skills call are inside the walk wherever they live, including every message a script prints for an agent (refusals, `--help`, the start prompts it builds). Other skills are read only where the scoped skills hand work to them or take it back. A review of part of the set walks only the tasks that enter its scope, and lists the tasks it left out.
 
 Until **Fix every finding** runs, run only commands that write nothing and start no session (`--help`, a script's read-only verbs); when you cannot tell whether a command writes, read its source instead.
 
@@ -29,7 +29,7 @@ Every finding is fixed. There are no severity levels: a finding is either establ
    - Not walked, not verified, and checks that did not apply.
 
    Done when that `README.md` holds these parts in this order, and every finding carries its evidence and its fix.
-5. **Fix every finding.** Run this step when the user asked for the fixes, or has read the report and said go; otherwise the review ends at **Report**, and this step is skipped. Run **Authoring or modifying a skill** on the findings, each with the address, the failure mode and the fix the report gives it. Its **Walk a real task** is skipped: the review's walk is the walk of these fixes, and no task is walked again. Its **Deliver** commits the fixes. A finding that waits on a decision the user holds stays in the report and does not hold the delivery back.
-   Done when every finding is fixed or is a decision the user holds, and the fixes are committed.
+5. **Fix every finding.** Run this step when the user asked for the fixes, or has read the report and said go; otherwise the review ends at **Report**, and this step is skipped. Run **Authoring or modifying a skill** on the findings, each with the address, the failure mode and the fix the report gives it. Its **Prove it, once** runs its checks alone: the review's walk is the walk of these fixes, and no task is walked again. A finding that waits on a decision the user holds stays in the report and does not hold the fixes back.
+   Done when every finding is fixed or is a decision the user holds, and the fixes are committed or in a batch Cut tickets published.
 
 **Reply:** the report's path; the load table; each finding with its fix, or the decision it waits on; what was not walked or not verified.
