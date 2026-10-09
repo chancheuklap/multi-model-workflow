@@ -107,10 +107,13 @@ export const LocalConfig = {
     }
     return d;
   },
+  // The one rule the Save button follows. `flags.serverFlags` are the cells the last
+  // save attempt was refused on.
   saveOff(scan, d, saved, flags = {}, catalog = CATALOG) {
     const ch = LocalConfig.changes(d, saved, catalog);
     const probs = LocalConfig.problems(scan, d, catalog);
-    return !ch.length || probs.length > 0 || !!flags.scanning || !!flags.refused;
+    return !ch.length || probs.length > 0 || (flags.serverFlags || []).length > 0
+      || !!flags.scanning || !!flags.refused;
   },
 
   runnerOptions(d, catalog = CATALOG) {
@@ -241,7 +244,9 @@ export function settingsView(sheet, scan, catalog) {
     refusedText: `这一页打开之后，本机配置在 ${at ? hhmm(at) : ""} 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 ${sheet.refused} 处要再改一次。`,
     strong, quiet, hatch,
     closeLabel: ch.length ? "取消" : "关闭",
-    saveOff: !ch.length || probs.length > 0 || !!sheet.scanning || !!sheet.refused,
+    saveOff: L.saveOff(scan, draft, sheet.saved, {
+      serverFlags: sheet.serverFlags, scanning: sheet.scanning, refused: sheet.refused,
+    }, catalog),
     changed: ch.length > 0,
   };
 }

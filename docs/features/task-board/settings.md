@@ -70,25 +70,25 @@ The owner changes the runner and the host, model, and effort of each role, then 
 
 - `settings.save-unchanged` With no draft change, Save stays disabled.
   source: row:settings.save-unchanged
-  check: none: no test asserts the Save button stays disabled when the draft is unchanged. The case that calls LocalConfig.saveOff does not drive the button.
+  check: node --test mmw-v3/tests/board/local-config.test.mjs
 
 - `settings.save-blocked` While a cell is flagged, Save stays disabled.
   source: row:settings.save-blocked
-  check: none: no test asserts the Save button stays disabled while a cell is flagged. The case that calls LocalConfig.saveOff does not drive the button.
+  check: node --test mmw-v3/tests/board/local-config.test.mjs
 
 - `settings.save-scanning` While a scan is running, Save stays disabled.
   source: row:settings.save-scanning
-  check: none: no test asserts the Save button stays disabled while a scan is running. The case that calls LocalConfig.saveOff does not drive the button.
+  check: node --test mmw-v3/tests/board/local-config.test.mjs
 
 - `settings.save-refused` After a version conflict, Save stays disabled until the sheet is read again.
   source: row:settings.save-refused
-  check: none: no test asserts the Save button stays disabled while a version conflict is showing. The case that calls LocalConfig.saveOff does not drive the button.
+  check: node --test mmw-v3/tests/board/local-config.test.mjs
 
 - `settings.reread` 重新读取 loads the saved configuration again and drops the refusal banner.
   source: row:settings.reread
   check: cd mmw-v3/tests/board && uv run --quiet --with playwright python -m unittest test_settings_rows.SettingsRowsTest.test_settings_reread
 
-- `settings.close` The X on an unchanged sheet closes it.
+- `settings.close` The X closes the sheet whether or not it was changed; changes not saved are dropped.
   source: row:settings.close
   check: cd mmw-v3/tests/board && uv run --quiet --with playwright python -m unittest test_settings_rows.SettingsRowsTest.test_settings_close
 
@@ -117,9 +117,10 @@ The owner changes the runner and the host, model, and effort of each role, then 
 Preconditions: the board is open on the origin `discover` printed, as Open the board describes. The sheet writes the lease's private `MMW_HOME` copy of `models.json`.
 
 - Click `[data-ui="顶栏.settings"]`. The sheet title is 这台机器上，每个 agent 跑在哪. `[data-ui="本机配置.sheet.status"]` reads 没有改动. `[data-ui="本机配置.sheet.save"]` is disabled. The dismiss control reads 关闭.
-- Set `[data-ui="本机配置.runner.select"]` to herdr. The status becomes 改了 1 处：runner. Save is enabled. The dismiss control reads 取消.
-- Click `[data-ui="本机配置.sheet.cancel"]`. The sheet is gone. Open the gear again and the runner is still orca.
-- Set the runner to herdr and click `[data-ui="本机配置.sheet.save"]`. The status becomes 已保存 and a time, and Save is disabled. Set the runner back to orca and save again. The runner on the reopened sheet is orca.
+- Set `[data-ui="本机配置.runner.select"]` to herdr, or to orca when it already reads herdr. The status becomes 改了 1 处：runner. Save is enabled. The dismiss control reads 取消.
+- Before the first change, read `[data-ui="本机配置.runner.select"]`: its value is the saved runner. orca holds only on the lease's first start, which seeds the copy; a save on an earlier run of the same lease keeps its value.
+- Click `[data-ui="本机配置.sheet.cancel"]`. The sheet is gone. Open the gear again and the runner is the value read before the change.
+- Set the runner to herdr and click `[data-ui="本机配置.sheet.save"]`. The status becomes 已保存 and a time, and Save is disabled. Set the runner back to the value read first and save again. The runner on the reopened sheet is that value.
 
 ## Gotchas
 
@@ -128,5 +129,5 @@ A run wastes its time, or reports a pass it did not earn, in these cases.
 - A save from the harness board writes the lease's private `MMW_HOME` only. This machine's real `models.json` stays as it was.
 - Save stays disabled until the draft differs from the saved copy, no cell is flagged, and no scan is running.
 - After a change, the dismiss control reads 取消 and drops the draft. With no change it reads 关闭.
-- When `MMW_RUNNER` is set, it wins over the runner cell. The sheet says so.
+- When `MMW_RUNNER` is set, it wins over the runner cell. The sheet's note under the runner cell names `MMW_RUNNER` whether or not the variable is set, so the note is no evidence that it is.
 - A version conflict leaves the sheet up and offers 重新读取. Save stays off until that reread.

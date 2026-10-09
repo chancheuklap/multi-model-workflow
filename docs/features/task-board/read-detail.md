@@ -4,9 +4,9 @@ The owner opens one ticket, spec, map, or decision and reads its state, its even
 
 ## Sub-features
 
-- `detail.close` Close clears the detail column back to the empty prompt.
+- `detail.close` Close takes the detail column off the board.
   source: row:detail.close
-  check: cd mmw-v3/tests/board && uv run --quiet --with playwright python -m unittest test_detail_rows.DetailRowsTest.test_detail_close
+  check: cd mmw-v3/tests/board && uv run --quiet --with playwright python -m unittest test_board_rows.BoardRowsTest.test_board_close_detail
 
 - `detail.open-github` GitHub on a ticket opens that issue in a new tab and leaves the detail column as it is.
   source: row:detail.open-github
@@ -121,9 +121,9 @@ The owner opens one ticket, spec, map, or decision and reads its state, its even
 
 Preconditions: the board is open on map #900, and spec #901 is expanded, as Browse the canvas describes.
 
-- Click `[data-ui="画布.ticket-card.open"]` for ticket #902. The detail eyebrow reads TICKET and the title is Automation ticket. Click `[data-ui="详情.head.github"]`. A new tab opens `https://github.com/chancheuklap/multi-model-workflow/issues/902`. The detail column stays on the ticket.
-- Click `[data-ui="详情.origin.link"]`, which reads spec #901. The eyebrow becomes SPEC and the title becomes Automation spec. `[data-ui="详情.github"]` reads 在 GitHub 打开 #901 ↗.
-- Click `[data-ui="画布.container-card.open"]` on map #900. The eyebrow reads MAP and the title is Automation task. `[data-ui="详情.github"]` reads 在 GitHub 打开 #900 ↗.
+- Click `[data-ui="画布.ticket-card.open"]` for ticket #902. The text of `[data-ui="详情.head.eyebrow"]` is Ticket (CSS shows it uppercase, so `innerText` reads TICKET) and the title is Automation ticket. Click `[data-ui="详情.head.github"]`. A new tab opens `https://github.com/chancheuklap/multi-model-workflow/issues/902`. The detail column stays on the ticket.
+- Click `[data-ui="详情.origin.link"]`, which reads spec #901. The eyebrow text becomes Spec and the title becomes Automation spec. `[data-ui="详情.github"]` reads 在 GitHub 打开 #901 ↗.
+- Click `[data-ui="画布.container-card.open"]` on map #900. The eyebrow text is Map and the title is Automation task. `[data-ui="详情.github"]` reads 在 GitHub 打开 #900 ↗.
 - Press Esc, or click `[data-ui="详情.head.close"]`. `[data-ui="详情.root"]` is gone.
 
 ## Gotchas
@@ -133,3 +133,4 @@ A run wastes its time, or reports a pass it did not earn, in these cases.
 - GitHub opens a new browser tab. A driver that only watches the board page does not see that tab.
 - The harness ticket #902 has no blocker and no event history. Blocker, unknown, and event-block behavior is on the story checks, not on this fixture.
 - Esc closes the detail column.
+- On the harness fixture the Needs you count is 0 and its button is disabled, so the Needs you entry cannot be driven there. The jump is the story check on `topbar.needs-you-jump`.

@@ -173,6 +173,21 @@ test("save is enabled only with changes, no flag and no scan running", () => {
   assert.equal(LocalConfig.saveOff(scan, draft, saved, {refused: 1}), true);
 });
 
+test("a cell the server flagged keeps Save off, on the rule and on the sheet's button", () => {
+  const draft = copy(saved);
+  LocalConfig.setCell(scan, draft, "senior-worker", "host", "claude");
+  LocalConfig.setCell(scan, draft, "senior-worker", "model", "opus 5");
+  LocalConfig.setCell(scan, draft, "senior-worker", "effort", "high");
+  const serverFlags = [{key: "senior-worker", cell: "model", text: "start refused it"}];
+  assert.equal(LocalConfig.saveOff(scan, draft, saved, {serverFlags}), true);
+  const sheet = {draft, saved: copy(saved)};
+  assert.equal(settingsView(sheet, scan, CATALOG).saveOff, false);
+  assert.equal(settingsView({...sheet, serverFlags}, scan, CATALOG).saveOff, true);
+  assert.equal(settingsView({...sheet, scanning: true}, scan, CATALOG).saveOff, true);
+  assert.equal(settingsView({...sheet, refused: 1}, scan, CATALOG).saveOff, true);
+  assert.equal(settingsView({draft: copy(saved), saved: copy(saved)}, scan, CATALOG).saveOff, true);
+});
+
 test("crossing paseo asks for a rescan", () => {
   assert.equal(LocalConfig.needsRescan({runner: "orca"}, {runner: "paseo"}), true);
   assert.equal(LocalConfig.needsRescan({runner: "paseo"}, {runner: "herdr"}), true);
