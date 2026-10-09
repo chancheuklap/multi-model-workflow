@@ -48,6 +48,7 @@ V3_WRITTEN = ("mmw-v3/skills/README.md", "mmw-v3/skills/mmw-mode/",
 # A pull of that subtree adds its line here.
 SPLITS = {
     "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a": ("8224b490d845050775fac05f9d34652815fc361e", "pstack/"),
+    "ccb5507cec1546dc88135c1139c811e6c59115ba": ("00d7d39062d7b78b019b38d7b4914724b50829d3", "pstack/"),
 }
 
 
