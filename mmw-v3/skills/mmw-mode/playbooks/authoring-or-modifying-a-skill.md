@@ -4,13 +4,12 @@
 
 A skill change is a project like any other, with its own standards and its own proof: it runs the general flow for its size, held to the skill set's standards, and is proven once. Every agent that loads the changed text acts on it in cases its writer did not foresee, with no one to ask: a rule written in a second place drifts from the first, and a rule without its reason fails in the case nobody listed. The temptation is to answer each slip with one more sentence; every sentence costs attention on every run that loads the file, so the change deletes before it adds. Distinct from Review the skill set, which finds what to change.
 
-1. **Read the skill set's standards.** Everything this change writes, text and scripts alike, keeps to them:
+1. **Read the skill set's standards.** A meaning the text already states as asked needs no change: tell the owner where it says so and whether the installed checkout (`~/.mmw/installed-root`) carries it yet, and stop. Otherwise everything this change writes, text and scripts alike, keeps to these standards:
    - The intent of the `writing-for-agents` skill's `DESIGN-INTENTS.md` the change serves, and its entry there. A change that would break an intent, or bring back one of its departures, is not made: tell the owner which intent and why, and wait for their word.
    - Which component, and so which file, each passage belongs in: the `writing-for-agents` skill's `SKILL-SET-COMPONENTS.md`.
    - How text is written: the `writing-for-agents` skill's `SKILL.md` whole, since each of its levers bears on every passage, and the `writing-for-agents` skill's `SKILL-SET-RULES.md` `## Checks` and `## Editing`.
    - An edit to a file `mmw-v3/imports.tsv` lists gets a `J<n>` entry in that file's row, `<n>` the highest `J` number in the table plus one.
 
-   A meaning the text already states as asked needs no change: tell the owner so, and stop.
    Done when the intent the change serves is named and every passage you will write has one component and one file, or the owner has heard that the text already states the change.
 2. **Run the general flow by size.** Text and scripts take the same flow. Judge the size by **Make a small change**'s first step; the skill set has no feature file and no design package.
    - Small: run **Make a small change**, with step 3 here in place of its **Prove it on the product and run the affected tests**, so its **Commit it** waits on no `VERIFIED` entry. Commit on `dev`, or the branch the work is on, and end after its **Get a second reading**: its **Push to the base branch** is part of releasing, which is the owner's call.
