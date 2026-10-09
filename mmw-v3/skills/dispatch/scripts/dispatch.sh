@@ -3792,8 +3792,9 @@ summary_spec() {
     || refuse "origin could not be refreshed, so summary cannot prove the base branch is still the one reverified"
   expected="$(git -C "$caller_root" rev-parse "origin/$into" 2>/dev/null)" \
     || refuse "origin/$into does not resolve to a commit"
-  # Every landed ticket's newest reverify has to be green on this very commit: a fix
-  # pushed after the reverify, or a ticket it left red, is named and nothing is posted.
+  # Every landed ticket's newest reverify has to be of this very commit, and green unless
+  # it reopened the ticket in triage: a fix pushed after the reverify is named and nothing
+  # is posted.
   green="$(python3 "$STATUS" --closeout-ready "$spec" --at "$expected")" \
     || refuse "#${spec} is not ready for summary; resolve every condition named above (a ticket with no reverify run of origin/$into: run reverify $spec again), then run summary again"
 
