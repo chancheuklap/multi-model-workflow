@@ -33,7 +33,7 @@ The whole map at low resolution, loaded once per session. Open tickets are **not
 
 ## Notes
 
-<domain; skills every session should consult; standing preferences for this effort>
+<domain; skills every session should consult; standing preferences for this effort; the effort's directory name under `efforts/`>
 
 ## Decisions so far
 
