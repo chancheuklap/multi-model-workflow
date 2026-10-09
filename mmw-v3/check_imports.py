@@ -8,8 +8,9 @@ Run from anywhere inside the repository: python3 mmw-v3/check_imports.py
    skill's roles.json, scripts/check-interfaces.py and scripts/briefs.py, and the setup-mmw
    skill's scripts/check.py, scripts/labels.py, scripts/migrate_layout.py,
    scripts/migrate_products.py, the verify-ticket skill's scripts/feature_map.py,
-   and the setup-mmw skill's
-   CODING_STANDARDS.md) and the
+   the setup-mmw skill's
+   CODING_STANDARDS.md, and the writing-for-agents skill's DESIGN-INTENTS.md and
+   UPSTREAM-INTENTS.md) and the
    `__pycache__/` a test run leaves,
    and every row's `local` exists. A row whose `local` ends in `/` covers every file
    below it that has no row of its own; links are not followed.
@@ -45,7 +46,9 @@ V3_WRITTEN = ("mmw-v3/skills/README.md", "mmw-v3/skills/mmw-mode/",
               "mmw-v3/skills/setup-mmw/scripts/migrate_layout.py",
               "mmw-v3/skills/setup-mmw/scripts/migrate_products.py",
               "mmw-v3/skills/verify-ticket/scripts/feature_map.py",
-              "mmw-v3/skills/setup-mmw/CODING_STANDARDS.md")
+              "mmw-v3/skills/setup-mmw/CODING_STANDARDS.md",
+              "mmw-v3/skills/writing-for-agents/DESIGN-INTENTS.md",
+              "mmw-v3/skills/writing-for-agents/UPSTREAM-INTENTS.md")
 # mmw-v3/upstream-pstack/ and mmw-v3/upstream-cursor-team-kit/ are splits of two
 # directories of cursor/plugins, so each squash commit names the split, not the
 # cursor/plugins commit. Each line maps (cursor/plugins commit, directory) to the

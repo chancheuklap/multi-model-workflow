@@ -61,6 +61,7 @@
 | [0040](0040-writing-rules-live-in-writing-for-agents.md) | 技能文字的写作规则都在 `writing-for-agents` 技能里；改技能一律从 Authoring or modifying a skill 开始，一个会话做不完的由它交给 Write a spec | 2026-10-08 | 0032 | 无 |
 | [0041](0041-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 无 |
 | [0042](0042-several-products-in-one-repository.md) | 一个仓库里每个产品占 `.mmw/<产品>/`，一次运行仍只租一个按产品分段的 lease，control-ui 与 control-cli 是 ui-acceptance 的 reference 而不是 skill | 2026-10-08 | 无 | 无 |
+| [0043](0043-design-intents-are-the-standard.md) | 改技能以 `writing-for-agents` 的 `DESIGN-INTENTS.md` 为标准：每次改动先说出它服务哪条意图，审查逐条意图追踪落地，一个结论只判一次 | 2026-10-09 | 无 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
