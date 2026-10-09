@@ -4,41 +4,127 @@
 
 Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it, published as GitHub issues. The ticket template is `../references/ticket.md`; the `gh` commands are in `../references/github-issues.md`.
 
-1. **Gather context.** Work from whatever is already in the conversation context. If the user passes a reference (an issue number or URL) as an argument, fetch it and read its full body and comments.
-2. **Explore the codebase (optional).** If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
+Each ticket is read by agents who were not in this conversation and cannot ask it anything: a worker at night, a reviewer in another session. This session is the last one that holds the spec, the codebase and the user at once, so settle here what can be settled: a choice left open is made at night by a worker who cannot ask.
+
+1. **Gather context.** Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
+
+   A plan or a conversation with no published spec goes through the To spec playbook (`playbooks/to-spec.md`) first; this playbook cuts tickets from the spec's issue number.
+
+   Done when you hold the spec's issue number and have read its full body and comments.
+2. **Explore the codebase.** If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
 
    Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
+
+   Done when you know the module or directory each ticket will write to.
 3. **Draft vertical slices.** Break the work into **tracer bullet** tickets.
 
    <vertical-slice-rules>
 
    - Each slice cuts a narrow but COMPLETE path through every layer (schema, API, UI, tests): vertical, NOT a horizontal slice of one layer
    - A completed slice is demoable or verifiable on its own
-   - Each slice is sized to fit in a single fresh context window
    - Any prefactoring should be done first
 
    </vertical-slice-rules>
 
-   Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
+   Split where the parts can run at the same time, or where one part's criteria can fail without the other's; keep together what would write the same files, since splitting that only adds an edge.
 
    **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
-4. **Quiz the user.** Present the proposed breakdown as a numbered list. For each ticket, show:
+
+   Done when the work is drafted as slices, each one vertical or one step of an expand–contract sequence.
+4. **Write each acceptance criterion.** Three rules bind how each one is worded:
+
+   1. Observable external behaviour, from the spec's seam or a user-visible UI. Not internals.
+   2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected".
+   3. One behaviour per criterion, independently true or false. Split compounds.
+
+   **A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. Most of what you want to say about the work does not belong there. Ask **the five questions** in order and stop at the first yes:
+
+   1. **Is the rule a comparison (equal, matches, counts, over a threshold) against something a machine can reach?** It is a criterion. Write its `CHECK:` and `EXPECT:`.
+   2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next, whether the test behind a criterion could ever have failed. Review decides these, in a session other than the one that wrote the code, reading the `## Implementation Decisions` subsection of the spec this ticket's **Parent** names. Leave the rule out of `## Acceptance criteria` and write it there as one sentence, through the Revising a spec playbook (`playbooks/revising-a-spec.md`).
+   3. **Is the property a person's reaction?** Whether a newcomer knows what to do, whether the wording lands, whether a morning page is legible at a glance. The person is the instrument, not a fallback judge: no agent can stand in, because the agent is not who is being measured. It becomes its own ticket, of kind *reaction*; see `../references/person-ticket.md`.
+   4. **Could a machine decide it, if only it could reach the thing?** Two answers hide under one question, and they part on whether the reach is something you build.
+      - **It is.** The state lives inside software you are about to write, and something has to put the system there: a seeded row, a stub scripted to answer in a set order. This stays a criterion. But the thing that reaches the state has to be named in the spec's Testing Decisions, under **How a test arrives at a state**, and owned under some ticket's **Owns**. That ticket builds it: a criterion that assumes a mechanism nobody builds fails on the night it first runs. Missing either, the state is out of reach for this batch, and the criterion becomes its own ticket of kind *reach* (see `../references/person-ticket.md`), whose retiring line names the mechanism that has no name yet, or the ticket that would own it.
+      - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach*; see `../references/person-ticket.md`.
+   5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. The user is here now, so ask them: carry the choice into the quiz of step 6, with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own.
+
+   If no command exists because the spec never decided how this is verified, stop and return to the To spec playbook. Do not invent it.
+
+   Every criterion is four lines, and carries a number you assign as you write it and never renumber.
+
+   ```
+   - [ ] AC1: POST /projects with a name that already exists returns 409 and error name-duplicate
+     CHECK: pnpm vitest run tests/api/projects.create.test.ts -t "duplicate name returns 409"
+     EXPECT: /Tests\s+1 passed/
+     EVIDENCE: pending
+   ```
+
+   Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
+
+   - `CHECK:` comes from Testing Decisions: its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds.
+   - `EXPECT:` is a **success-only marker**: the line the precedent prints only when it passed. Run the precedent once and copy that line. `ok`, `passed` or `done` on their own also appear in failing output; take the whole counted line.
+
+   `CHECK:` takes the object it checks from one of two places: this ticket itself, or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names (a parent's sub-issues, for one). A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
+
+   `CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one, but the branch, the ticket and the working tree are shared: switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started. The system's own state (the row, the balance, the screen) is put there by what question 4 names.
+
+   **A criterion is also exposed to the rest of its own batch.** Every ticket lands on the same base branch, and the batch's criteria are run again there once the batch has landed, so a criterion that names something a later ticket may change is decided by that ticket's work rather than by its own. Two shapes do it: a sweep of the whole repository (a `grep` for a name that must now be gone, a count over the tree), which any later ticket can put back in a note, a doc or a comment; and a criterion that names a test case, a function or a symbol by a name a later ticket may rename. Put such a criterion on the batch's last ticket, or give the name one owner: the file that holds it is under exactly one ticket's **Owns** in the whole batch, not merely among the tickets that can run at the same time, so no other ticket of the batch may write it.
+
+   Done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
+5. **Give each ticket its blocking edges**: the other tickets that must complete before it can start. The edges are the night's schedule: every ticket whose blockers have landed starts at once, so a missing edge sends two workers into one file or onto work not built yet, and an edge that gates nothing makes the night wait for no reason.
+
+   **What a ticket creates is put in service by an edit to something it did not create**: the registry, router, parent template, index, story adapter or stylesheet that has to name it. Until one does, no criterion of that ticket can see it; and when several tickets that can run at the same time each make that edit, all but the first to land bounce on a merge conflict. For each path a ticket marks `(new)`, `grep` the nearest existing file of its kind twice, once for its file name and once for the one identifier it declares for others (its root class, exported symbol or route path), and put every file that answers under this ticket's **Owns**, whoever created it. Where that sibling is still to be built in this batch, its ticket's **Owns** is the same list.
+
+   What overlaps there now decides the shape of the batch:
+
+   - **Two tickets that can run at the same time**: the **Blocked by** edge the **Owns** section already calls for.
+   - **Several tickets on the same registration files**, where chaining them would make a large part of the night run one ticket at a time: cut a **prefactor ticket** ahead of them (prefactoring goes first in any case), which owns those files and lands in one pass every entry, route, include and export, each naming a placeholder the ticket behind it fills; and where a shared file is only a list of independent entries, a stylesheet or a registry or a bundle index, splits it into one file per ticket that the shared one includes once. Each of them is then blocked by that ticket alone, and they run together.
+
+   A shared file that is one body of logic, such as a route module several tickets add handlers to, is neither pre-landed nor split, because what each ticket writes there is the ticket's own work. Those tickets keep their chain.
+
+   **Every branch above keeps one rule: no two tickets that can run at the same time write the same file.** Two tickets can run at the same time when neither blocks the other, directly or down a chain.
+
+   Done when every path marked `(new)` has the files that put it in service under the same ticket's **Owns**, and no two tickets that can run at the same time write the same file.
+6. **Quiz the user.** Write the spec body and the drafted tickets to a file `mktemp` makes, and have them scanned for ambiguities before you list the breakdown: the scan's questions belong in each ticket's **Choices** when the user first sees it. When the host can run subagents, start your host's general-purpose subagent, on this session's model and thinking level and restricted to reading and searching where the host allows it, with one sentence:
+
+   ```
+   Read the poteto-mode skill's `references/ambiguity-scan.md` and scan spec #<spec> and the drafted tickets in <file> for ambiguities.
+   ```
+
+   Hold this turn until it returns; where the host runs subagents in the background, ask for it to be waited on. When the host cannot run subagents, run the scan yourself from `../references/ambiguity-scan.md`, and write its result to a file before you list the breakdown.
+
+   Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
 
    - **Title**: short descriptive name
    - **Blocked by**: which other tickets (if any) must complete first
    - **What it delivers**: the end-to-end behaviour this ticket makes work
+   - **Worker**: `junior` or `senior`, and the one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
+   - **Choices**: every choice question 5 sent here, and every question the ambiguity scan returned, one line each: the options, and the one you would take. Omit the line when there are none.
+
+   Then the `ready-for-human` tickets, in the same list, each with its **Title**, **Blocked by**, its kind (*reaction* or *reach*) and what is to be looked at.
 
    Ask the user:
 
    - Does the granularity feel right? (too coarse / too fine)
    - Are the blocking edges correct: does each ticket only depend on tickets that genuinely gate it?
    - Should any tickets be merged or split further?
+   - Is each worker grade right for what going wrong on that ticket would cost?
+   - For each choice listed: which option?
 
-   Iterate until the user approves the breakdown.
-5. **Publish the tickets.** Publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers, using `../references/ticket.md`. Use GitHub's native blocking relationship; otherwise set each ticket's "Blocked by" to the blocking issues. If the source was an existing issue, make each ticket its sub-issue. Apply the `ready-for-agent` triage label unless instructed otherwise; the tickets are agent-grabbable by construction.
+   Iterate until the user approves the breakdown. Write each answered choice that only changes what one ticket delivers into that ticket's **What to build** before publishing. Write each answered choice that changes a decision in a spec section back through the Revising a spec playbook (`playbooks/revising-a-spec.md`), then into the tickets.
 
-   Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
+   Done when the user has approved the breakdown and every answered choice is written into a ticket's **What to build** or the spec, and step 5's Done when still holds for the approved breakdown.
+7. **Publish the tickets** with `../references/ticket.md`, each as a sub-issue of the spec, in dependency order (blockers first) so each ticket's blocking edges can name real issues. Each carries `mmw:ticket`, and, for a ticket an agent works, `ready-for-agent` beside the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; a ticket a person must judge carries `ready-for-human` instead, and no worker label. Then add every blocking edge.
 
-   Do NOT close or modify any parent issue.
+   Close no parent issue.
 
-**Reply:** each ticket by name with its link and its blocking edges, in dependency order.
+   Done when every approved ticket is published as a sub-issue of the spec, with its labels and its blocking edges.
+8. **Read every ticket back.** After publishing, list the spec's sub-issues and fetch each ticket again, and check:
+
+   - The spec's sub-issues are exactly the approved tickets.
+   - Each ticket carries `mmw:ticket` and one queue label; each agent's ticket carries exactly one worker label, and each `ready-for-human` ticket none.
+   - Each ticket's blockers are the ones the approved breakdown gives it.
+   - Each `ready-for-human` ticket holds all of **the five things** in `../references/person-ticket.md`, because no agent can repair one.
+
+   Done when every check above passes.
+
+**Reply:** each ticket by name with its link, its blocking edges and its worker grade, in dependency order; the `ready-for-human` tickets with their kind; and each choice the user answered, with where it was written.

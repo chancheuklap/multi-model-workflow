@@ -8,7 +8,6 @@ Because it's one file with nothing to install, you can hand it to a non-develope
 
 - "I'm not sure if this state machine handles the edge case where X then Y."
 - "Does this data model actually let me represent the case where..."
-- "I want to feel out what the API should look like before writing it."
 - Anything where someone wants to **press buttons and watch state change**.
 
 If the question is "what should this look like," this is the wrong branch. Use [UI.md](UI.md).

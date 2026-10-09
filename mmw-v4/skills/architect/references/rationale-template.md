@@ -4,7 +4,7 @@ The prose that ships alongside the type sketch. One page. Sentence-case headings
 
 ## Problem
 
-*One paragraph. What we're trying to do, and what about the existing system or constraints makes the shape non-obvious. If [Phase A](../SKILL.md#phase-a-ground-the-problem) surfaced constraints the design must honor (existing types to interop with, callers we can't break, invariants that crossed our boundary), name them here so the reader sees the same constraints you saw.*
+*One paragraph. What we're trying to do, and what about the existing system or constraints makes the shape non-obvious. If [Phase A](../SKILL.md#phase-a-ground-the-problem) surfaced constraints the design must honor (existing types to interop with, callers we can't break, invariants that crossed our seam), name them here so the reader sees the same constraints you saw.*
 
 ## Usage (caller's view)
 
@@ -28,8 +28,8 @@ The prose that ships alongside the type sketch. One page. Sentence-case headings
 
 ## Open questions and risks
 
-*Things you noticed during the sketch that the human needs to weigh in on, and risks worth flagging before implementation starts. Phrase as questions, not assertions, so the human's answer is the resolution rather than a comment.*
+*Only what the human alone can decide: what the user sees, what happens to money, what is in scope. Settle every engineering question in [Shape](#shape) instead. Add risks worth flagging before implementation starts. Phrase the human's questions as questions, not assertions, so the human's answer is the resolution rather than a comment.*
 
 ## Next implementation step
 
-*The first thing to build against the sketch. One sentence. What you'd start writing immediately after synthesis (or after Phase D sign-off, if a checkpoint was opted into).*
+*The first thing to build against the sketch. One sentence. What you'd start writing immediately after synthesis.*

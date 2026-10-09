@@ -1,6 +1,6 @@
 # Route work through `/poteto-mode`
 
-`/poteto-mode` is the front door. You give it a goal, it matches one of twenty-seven playbooks, copies that playbook's steps into the todo list, and calls the other skills as the steps need them. In this page you learn what a good prompt looks like, and how little of one you actually need.
+`/poteto-mode` is the front door. You give it a goal, it matches one of twenty-eight playbooks, copies that playbook's steps into the todo list, and calls the other skills as the steps need them. In this page you learn what a good prompt looks like, and how little of one you actually need.
 
 ![A dispatcher pulls a switch lever to route robots on rail handcars toward lit gates, under a /poteto-mode departure board listing BUG FIX, FEATURE, and INVESTIGATION.](./images/router.jpg)
 
@@ -16,7 +16,7 @@ flowchart TD
     D -->|New behavior| G[Feature]
     D -->|Structure only| H[Refactoring]
     D -->|Measured slowness| I[Perf issue]
-    D -->|Large work or no match| J[figure-it-out]
+    D -->|No match| J[figure-it-out]
     E --> K[Verify and report]
     F --> K
     G --> K
@@ -25,7 +25,7 @@ flowchart TD
     J --> K
 ```
 
-The diagram shows the common routes. There are also playbooks for sharpening a plan by interview (grill with docs), writing a spec and breaking it into tickets, charting and working through a map, hillclimbing a metric, diagnosing runtime symptoms and captured traces, prototypes, visual parity, authoring and evaluating skills, autonomous runs, babysitting a PR or stack to merge-ready, shipping a verified stack, running a PR queue on autopilot, orchestrating project-scale programs, session pickup, pausing safely, multi-phase plans, and worktree cleanup. The [playbook directory](../../skills/poteto-mode/playbooks/) has the full set.
+The diagram shows the common routes. There are also playbooks for sharpening a plan by interview (grill with docs), writing a spec, revising it, and breaking it into tickets, charting and working through a map, hillclimbing a metric, diagnosing runtime symptoms and captured traces, prototypes, visual parity, authoring and evaluating skills, autonomous runs, babysitting a PR or stack to merge-ready, shipping a verified stack, running a PR queue on autopilot, orchestrating project-scale programs, session pickup, pausing safely, multi-phase plans, and worktree cleanup. The [playbook directory](../../skills/poteto-mode/playbooks/) has the full set.
 
 ## Say the goal, not the ceremony
 
@@ -122,7 +122,7 @@ When you step away, say what done means and go:
 /poteto-mode im stepping away. keep going until the migration check reports zero old callers. log your decisions.
 ```
 
-Work you'll review later routes through [`/figure-it-out`](../../skills/figure-it-out/SKILL.md), which designs the run's phases and keeps a [`/show-me-your-work`](../../skills/show-me-your-work/SKILL.md) decision log. [Run work while you sleep](./07-overnight.md) covers the full overnight contract.
+Work you'll review later keeps a [`/show-me-your-work`](../../skills/show-me-your-work/SKILL.md) decision log, and a long task driven to a finish condition runs the [Autonomous run playbook](../../skills/poteto-mode/playbooks/autonomous-run.md). [Run work while you sleep](./07-overnight.md) covers the full overnight contract.
 
 **Pitfall:** don't enumerate skills in your prompt ("use /how, then /architect, then /arena..."). The playbook already sequences them, and a hand-written sequence usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
 

@@ -35,7 +35,7 @@ use [`/poteto-mode`](./skills/poteto-mode/SKILL.md) at the start of a task. it r
 
 ### just use [`/poteto-mode`](./skills/poteto-mode/SKILL.md)
 
-this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-seven playbooks:
+this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-eight playbooks:
 
 ```
 /poteto-mode this pr has a subtle bug where the scroll drifts every 750ms even when idle. repro
@@ -48,7 +48,7 @@ morning.
 ```
 
 <details>
-<summary>the twenty-seven playbooks</summary>
+<summary>the twenty-eight playbooks</summary>
 
 | playbook | for |
 |---|---|
@@ -56,7 +56,8 @@ morning.
 | [chart the map](./skills/poteto-mode/playbooks/chart-the-map.md) | a loose idea too big for one session. chart it as a shared map of decision tickets on github issues. |
 | [work through the map](./skills/poteto-mode/playbooks/work-through-the-map.md) | resolve the next decision ticket on a wayfinder map, one per session. |
 | [grill with docs](./skills/poteto-mode/playbooks/grill-with-docs.md) | a plan or design to sharpen in one session, through a relentless interview that writes the glossary and adrs as it goes. |
-| [to spec](./skills/poteto-mode/playbooks/to-spec.md) | turn the current conversation into a spec published as a github issue. synthesis only, no interview. |
+| [to spec](./skills/poteto-mode/playbooks/to-spec.md) | turn the current conversation or a cleared map into a spec published as a github issue. records the decisions already made, decides nothing new. |
+| [revising a spec](./skills/poteto-mode/playbooks/revising-a-spec.md) | change a section of a published spec in place, and bring the unlanded tickets cut from it along. |
 | [to tickets](./skills/poteto-mode/playbooks/to-tickets.md) | break a spec, plan, or conversation into tracer-bullet tickets with blocking edges, published as github issues. |
 | [bug fix](./skills/poteto-mode/playbooks/bug-fix.md) | reproduce a defect, root-cause it, and fix with runtime evidence. |
 | [perf](./skills/poteto-mode/playbooks/perf-issue.md) | trace a measured slowness and improve it against a baseline. |
@@ -120,7 +121,7 @@ to keep [`/poteto-mode`](./skills/poteto-mode/SKILL.md) on across turns, pick it
 | [`/why`](./skills/why/SKILL.md) | you want to know why something was built this way. discovers available MCPs at run time and queries each evidence category in parallel (source control, issue tracker, long-form docs, real-time chat, infra observability, error tracking, analytics warehouse). |
 | [`/recall`](./skills/recall/SKILL.md) | you're starting or resuming work and want your recent context on a topic rebuilt from your own chat history and the shared record, handed back as a tight current-state brief. |
 | [`/blast-radius`](./skills/blast-radius/SKILL.md) | you have a small-looking change and want to know what else it could break, with the one fact it's safe because of proven by running code, not asserted. |
-| [`/architect`](./skills/architect/SKILL.md) | you're about to write code that crosses a function boundary and want the caller's usage, types, and module shape settled first. |
+| [`/architect`](./skills/architect/SKILL.md) | you're about to write code that crosses a function boundary and want the caller's usage, types, and module shape settled first. hands back a sketch; writes no implementation. |
 | [`/codebase-design`](./skills/codebase-design/SKILL.md) | you want the shared vocabulary for deep modules: module, interface, depth, seam, adapter, leverage, locality. |
 | [`/arena`](./skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then to grab the best parts of each. |
 | [`/swarm`](./skills/swarm/SKILL.md) | you want N parallel workers across different slices or races, then one aggregated report. |
@@ -252,9 +253,10 @@ a few things `poteto-mode` references but doesn't bundle:
 
 install `cursor-team-kit` alongside pstack if you want the full set.
 
-## why are there no planning skills?
+## why are there planning playbooks?
 
-cursor already has a great plan mode which works great with pstack. but personally, i don't believe in planning. the best spec is code. if you do want to make a plan, [`/poteto-mode`](./skills/poteto-mode/SKILL.md) covers it, but it's not a default. 
+pstack has none: poteto doesn't believe in planning, and holds that the best spec is code. this collection departs there. its owner does not read code, so the spec and the tickets are what the owner can check and accept before agents build from them unattended. a plan is sharpened with [grill with docs](./skills/poteto-mode/playbooks/grill-with-docs.md) or a wayfinder map, recorded by [to spec](./skills/poteto-mode/playbooks/to-spec.md), and cut into tickets by [to tickets](./skills/poteto-mode/playbooks/to-tickets.md). design questions are still settled in code first: prototypes answer them, and [`/architect`](./skills/architect/SKILL.md) sketches the shape of the code.
+
 
 ## make it yours
 

@@ -16,7 +16,7 @@ Every map and ticket is an issue, so it has a **name**: its title. In everything
 
 ## The Map
 
-The map is a single issue on this repo's issue tracker, labelled `wayfinder:map`, the canonical artifact. Its tickets are child issues of the map.
+The map is a single issue on this repo's issue tracker, labelled `wayfinder:map` and `mmw:map`, the canonical artifact. Its tickets are child issues of the map.
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place, its ticket, so the map never restates it, only gists it and links.
 
@@ -60,7 +60,7 @@ Each ticket is a **child issue** of the map; the tracker's issue id is its ident
 <the decision or investigation this ticket resolves>
 ```
 
-Each ticket carries a `wayfinder:<type>` label, one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)). `wayfinder:` labels are the only labels a map and its tickets carry, never a triage label like `ready-for-agent`: they are decisions, not implementation work.
+Each ticket carries a `wayfinder:<type>` label, one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)). Besides the map's `mmw:map`, `wayfinder:` labels are the only labels a map and its tickets carry, never a triage label like `ready-for-agent`: they are decisions, not implementation work.
 
 A session **claims** a ticket by assigning it to the dev driving the map, **first**, before any work, so concurrent sessions skip it. That assignee _is_ the claim: an open, unassigned ticket is unclaimed.
 
@@ -73,7 +73,7 @@ The answer isn't part of the body; it's recorded on resolution (see Work through
 Every ticket is either **HITL** (human in the loop, worked _with_ a human who speaks for themselves) or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it (a grilling agent that answers its own questions has broken this).
 
 - **Research** (AFK): Reading the repo's code and history, documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. Resolved by a subagent that runs the Investigation playbook (`../playbooks/investigation.md`), which records the answer per its Research-ticket rule. Use when a decision waits on a fact, inside the repo or outside it.
-- **Prototype** (HITL for the logic and UI branches, AFK for the experiment branch): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to (an outline, a rough take, a stub, or UI/logic code) with the **prototype** skill. Links the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question. When the question is how something should be implemented (which behavior, timing, or approach holds up), the prototype skill's experiment branch runs it against a bar set first, and the result decides, without the human.
+- **Prototype** (HITL for the logic and UI branches, AFK for the experiment and sketch branches): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to (an outline, a rough take, a stub, or UI/logic code) with the **prototype** skill. Links the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question. When the question is how something should be implemented (which behavior, timing, or approach holds up), the prototype skill's experiment branch runs it against a bar set first, and the result decides, without the human. When the question is what shape the code should take, the prototype skill's sketch branch settles it by comparing candidate sketches, without the human.
 - **Grilling** (HITL): Conversation. Run the Grill with docs playbook (`../playbooks/grill-with-docs.md`).
 - **Task** (HITL or AFK): Manual work that must happen before a _decision_ can be made: nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that _does_ rather than decides, and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
 

@@ -19,7 +19,7 @@ Remaining triggers:
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - About to `AskQuestion` on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the **prototype** skill and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the operator can make. Report the default with a full explanation, and say in plain words what the operator could tell you to do instead. The operator answers in their own words. Never give a shorthand token to type back. Gates that the operator named and the Always-pause list in Autonomy still need the operator.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
-- Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing. Prototype code under the **prototype** skill is the exception: speed over polish, no planning.
+- Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing. Prototype code under the **prototype** skill's logic, UI and experiment branches is the exception: speed over polish, no planning.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
 - Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
@@ -43,7 +43,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 - **Laziness Protocol** (**principle-laziness-protocol**). Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
 - **Foundational Thinking** (**principle-foundational-thinking**). Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
-- **Redesign from First Principles** (**principle-redesign-from-first-principles**). Integrating a new requirement into an existing design. Redesign as if it had been foundational from day one.
+- **Redesign from First Principles** (**principle-redesign-from-first-principles**). Integrating a new requirement into an existing design, or code written against an architect sketch keeps failing to fit it. Redesign as if it had been foundational from day one.
 - **Attack the Premise** (**principle-attack-the-premise**). Two or more fixes that share one premise have failed the same gate. Take a census of which actors hold the imbalance before the next fix, then question the premise instead of writing another fix that assumes it.
 - **Subtract Before You Add** (**principle-subtract-before-you-add**). Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
 - **Minimize Reader Load** (**principle-minimize-reader-load**). Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
@@ -121,13 +121,14 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 
 Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim.
 
-A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead. figure-it-out designs one bespoke run, orchestrate runs the program.
+Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead. figure-it-out designs one bespoke run, orchestrate runs the program.
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y. `playbooks/investigation.md`.
 - **Chart the map.** A loose idea too big for one agent session, with the way to the destination not yet visible ("wayfinder"). Charts it as a shared map of decision tickets on GitHub issues. `playbooks/chart-the-map.md`.
 - **Work through the map.** An existing wayfinder map, given by URL or number, with or without a ticket. Resolves its next decision ticket, one per session. `playbooks/work-through-the-map.md`.
 - **Grill with docs.** A plan or design to sharpen in one session, through a relentless interview that writes the glossary and ADRs as it goes. Distinct from Chart the map, which takes an idea too big for one session. `playbooks/grill-with-docs.md`.
-- **To spec.** Turn the current conversation into a spec published as a GitHub issue. No interview, only synthesis of what was already discussed. `playbooks/to-spec.md`.
+- **To spec.** Turn the current conversation, or a cleared wayfinder map, into a spec published as a GitHub issue, when the change takes more than one session to build. No interview, only a record of what was already decided. Work already settled that one session can build goes to Feature instead. `playbooks/to-spec.md`.
+- **Revising a spec.** A section of a published spec has to change: the user asks, or To tickets sends a choice back to a spec decision. Edits the spec in place, never publishes a new one. `playbooks/revising-a-spec.md`.
 - **To tickets.** Break a spec, plan, or conversation into tracer-bullet tickets with blocking edges, published as GitHub issues. `playbooks/to-tickets.md`.
 - **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence. `playbooks/bug-fix.md`.
 - **Perf issue.** A measured slowness to trace and improve against a baseline. `playbooks/perf-issue.md`.

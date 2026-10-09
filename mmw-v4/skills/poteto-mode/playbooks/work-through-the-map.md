@@ -10,6 +10,8 @@ The user gives a map (URL or number). A ticket is optional: without one, you pic
 4. **Record the resolution**: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
 5. **Add newly-surfaced tickets** (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that a ticket (this one or another) sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
 
+6. **Stop when the map is clear.** If no child ticket of the map is still open and **Not yet specified** is empty, the map is clear. Stop and tell the user the next move: in a fresh session, run the To spec playbook (`playbooks/to-spec.md`) against this map, passing the map's full reference. Leave the map open: it stays this effort's index of decisions.
+
 The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
 
-**Reply:** the ticket resolved, by name, with its answer; the context pointer added; new tickets, graduated fog, and out-of-scope rulings, each by name.
+**Reply:** the ticket resolved, by name, with its answer; the context pointer added; new tickets, graduated fog, and out-of-scope rulings, each by name; and, when the map is clear, the next move.

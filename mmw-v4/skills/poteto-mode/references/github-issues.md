@@ -1,6 +1,6 @@
 # GitHub issues
 
-Maps, specs and tickets live as GitHub issues. Use the `gh` CLI for all operations. The To spec (`../playbooks/to-spec.md`), To tickets (`../playbooks/to-tickets.md`), Chart the map (`../playbooks/chart-the-map.md`) and Work through the map (`../playbooks/work-through-the-map.md`) playbooks take their `gh` commands from here.
+Maps, specs and tickets live as GitHub issues. Use the `gh` CLI for all operations. The To spec (`../playbooks/to-spec.md`), Revising a spec (`../playbooks/revising-a-spec.md`), To tickets (`../playbooks/to-tickets.md`), Chart the map (`../playbooks/chart-the-map.md`) and Work through the map (`../playbooks/work-through-the-map.md`) playbooks take their `gh` commands from here.
 
 ## Conventions
 
@@ -17,9 +17,38 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
+- **Rewrite an issue body**: `gh issue edit <number> --body-file <file>`.
+- **List a parent's sub-issues**: `gh api --paginate "repos/<owner>/<repo>/issues/<parent>/sub_issues?per_page=100" --jq '.[] | {number, title, labels: [.labels[].name]}'`.
+- **List an issue's open blockers**: `gh api "repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by" --jq '.[] | select(.state == "open") | .number'`.
+
+## Three label sets
+
+Three sets, each answering one question, none standing in for another:
+
+| Set | Answers | Labels |
+| --- | --- | --- |
+| Layer | which layer of the tree this issue is | `mmw:map` · `mmw:spec` · `mmw:ticket` |
+| Queue | who it is waiting on | `ready-for-agent` · `ready-for-human` |
+| Grade | which worker starts it | `junior-worker` · `senior-worker` |
+
+A layer label puts an issue in no queue. When the repository lacks a label an issue is about to carry, create it first with `gh label create <name> --color <colour> --description "<description>"` from this table; `gh issue create --label` fails outright on a missing label. Leave a label that already exists as it is.
+
+| Label | Colour | Description |
+| --- | --- | --- |
+| `mmw:map` | `5319e7` | MMW layer: the map one discussion opened |
+| `mmw:spec` | `1d76db` | MMW layer: a spec, the container of one batch of tickets |
+| `mmw:ticket` | `0e8a16` | MMW layer: a ticket, one unit of work |
+| `ready-for-agent` | `FEF2C0` | 已写清楚，可以直接派工人 AFK 跑 |
+| `ready-for-human` | `BFDADC` | HITL 的活，不派工人 |
+| `junior-worker` | `C2E0C6` | worker grade: the default |
+| `senior-worker` | `E99695` | worker grade: silent-failure work |
+
 ## When a playbook says "publish"
 
 Create a GitHub issue.
+
+- **A spec**: `gh issue create --label mmw:spec --title "<title>" --body-file <file>`, with `--parent <map>` when the spec comes from a wayfinder map. From a map, list the map's sub-issues afterwards and confirm the spec is among them; until it is, the spec is not published.
+- **The tickets of a spec**: one `gh issue create --parent <spec> --label mmw:ticket --label <queue> [--label <grade>] --title "<title>" --body-file <file>` per ticket, blockers first, so each ticket's blocking edges can name real issues. Then add each **Blocking** edge.
 
 ## When a playbook says "fetch the relevant ticket"
 
@@ -29,9 +58,9 @@ Read it as in **Read an issue** above.
 
 The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
+- **Map**: a single issue labelled `wayfinder:map` and `mmw:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map --label mmw:map`.
 - **Child ticket**: an issue linked to the map as a GitHub sub-issue (see **Make an issue a sub-issue of a parent**). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
 - **Blocking**: as in **Blocking** above. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
+- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any carrying `mmw:spec`, any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.

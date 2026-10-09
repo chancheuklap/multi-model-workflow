@@ -22,7 +22,7 @@ Public re-exports of transport or wire types are leakage. Parse external data in
 
 ## Temporal decomposition
 
-Temporal decomposition organizes modules by execution order instead of the knowledge they own. Separate load, validate, transform, and save stages often repeat one representation and its invariants across several boundaries.
+Temporal decomposition organizes modules by execution order instead of the knowledge they own. Separate load, validate, transform, and save stages often repeat one representation and its invariants across several modules.
 
 Group code around domain knowledge and ownership. Methods that run at different times can still belong to one module when they protect the same decisions.
 
@@ -30,7 +30,7 @@ Group code around domain knowledge and ownership. Methods that run at different 
 
 A pass-through method forwards the same arguments to another method with the same shape. It adds a layer without hiding complexity.
 
-Remove it or move responsibility to the module that can complete the operation. Keep a forwarding boundary only when it adds policy, adaptation, or a distinct abstraction.
+Remove it or move responsibility to the module that can complete the operation. Keep a forwarding layer only when it adds policy, adaptation, or a distinct abstraction.
 
 ## Split ownership
 

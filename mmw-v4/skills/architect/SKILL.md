@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Architect
 
-Design before implementing. Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Synthesize across multiple model perspectives, then fill in code against the chosen sketch. If implementation proves the sketch wrong, throw it out and redesign.
+Design before implementing. Sketch types, function signatures, class shapes, and seams with `not implemented` bodies and pseudocode. Synthesize across multiple model perspectives.
 
 ## Start
 
@@ -14,9 +14,7 @@ Open a todolist with one entry per phase before starting.
 
 1. Ground
 2. Sketch
-3. Agree
-4. Implement
-5. Scrap
+3. Hand back
 
 ## Phase A: Ground the problem
 
@@ -30,7 +28,7 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`.
+Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt, and fill in the variable inputs around it: the task, the Phase A grounding artifacts, the runner's technical brief and constraint, its isolated working directory, and the path to write its outputs. The working directory is a git worktree when available, otherwise a per-runner subdirectory under the sketch dir. What matters is independence between candidates. Each candidate produces a design package shaped per `references/rationale-template.md`. The synthesized sketch goes where the caller says; under the **prototype** skill that is the leaf `SKETCH/` directory, with the rationale as its `README.md`.
 
 Take the runners from the `architect runners` line in the `pstack-models.mdc` rule, in place of the `arena runners` line. If the rule or that line is missing, use `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. Alias and rejected entries follow the runner rules in the **arena** skill's Phase A.
 
@@ -45,47 +43,15 @@ Give each runner a separate technical brief (file paths, coupling details, the d
 
 Screen every candidate against [`references/design-red-flags.md`](references/design-red-flags.md) before synthesis. Assume the next contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Prefer the design where a change that looks right from one file is right for the whole repo.
 
-Compare viable candidates on depth (leverage at the interface), locality (where change concentrates), and seam placement. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
+Hand arena its rubric: depth (leverage at the interface), locality (where change concentrates), and seam placement. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
 
-Arena returns one synthesized design package. The synthesis decision populates the rationale's "Synthesis decision" section.
+Arena returns one synthesized design package. The synthesis decision populates the rationale's "Synthesis decision" section. Arena's verification of a sketch is the red-flag screen and the **codebase-design** skill's measures above.
 
-## Phase C: Agree (opt-in)
+## Phase C: Hand back
 
-Default: proceed directly to implementation with the synthesized design. No human checkpoint.
+Hand the synthesized sketch and its rationale back to the caller. For adversarial pressure on the design, run the **interrogate** skill on the synthesized sketch.
 
-Opt in to a checkpoint when the invoker explicitly asks: "/architect with checkpoint," "stop and show me before implementing," or similar. Then surface the synthesized design and pause for sign-off.
-
-The synthesis can ship as its own commit either way, as the "scaffold first" mode of the **foundational-thinking** principle skill. Planned and scoped breakage during fill-in is fine, per the **outcome-oriented-execution** principle skill. For adversarial pressure on the design before implementing, run the **interrogate** skill on the synthesized sketch.
-
-If the human pushes back on the shape (in a checkpoint or after the fact), treat that as Phase A evidence. Re-ground and re-run Phase B before writing more code.
-
-## Phase D: Implement against the sketch
-
-Replace `not implemented` bodies with code, pseudocode with logic. The synthesized sketch is the contract.
-
-Deviations from the sketch are signal worth surfacing, not friction to absorb silently. If a function needs a parameter the sketch didn't anticipate, ask whether the sketch was wrong, the requirement was missed, or the implementation is overreaching.
-
-## Phase E: Scrap when the architecture is wrong
-
-If implementation keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design, per the **redesign-from-first-principles** and **fix-root-causes** principle skills.
-
-The signal is a *pattern*, not single instances. Tells:
-
-- The same shape of workaround appearing repeatedly across unrelated code.
-- Multiple unrelated edge cases that all need special-case branches.
-- Types that need escape hatches (`any`, casts, optional fields always set in practice) to compile.
-- The "we need a lock" reflex when the sketch said the state wasn't shared.
-- Callers having to know the abstraction's internal rules to use it.
-- Two or more independent Phase D deviations of the same shape across the implementation.
-
-Use judgment. A few edge cases don't condemn an architecture. Some problems are legitimately complex. Complexity in the data is not complexity in the design.
-
-When you scrap:
-
-1. Re-run the **how** skill over what's been built.
-2. Redesign as if the new constraints had been day-one assumptions, per redesign-from-first-principles.
-3. Subtract before adding, per the **subtract-before-you-add** principle skill. The new sketch should be smaller than the old one before it grows.
-4. Return to Phase B and re-run arena.
+If the human pushes back on the shape, treat that as Phase A evidence. Re-ground and re-run Phase B.
 
 ## Outputs
 

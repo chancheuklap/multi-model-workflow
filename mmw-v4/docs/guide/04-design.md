@@ -14,13 +14,9 @@ The two most common design mistakes are taking the agent's first design and poli
 
 [`/architect`](../../skills/architect/SKILL.md) grounds itself first, running `/how` over the code the design touches and `/why` when it moves ownership or layers. Then it runs `/arena` to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
 
-By default it proceeds straight from the synthesized design into implementation. If you want to see the design first, say so:
+It stops at the sketch. It hands the synthesized design and its rationale back to you and writes no implementation. Inside a discussion you don't have to ask for it: when a question about the shape of the code reaches beyond one ticket and nothing has settled it yet, the [prototype skill](../../skills/prototype/SKILL.md)'s sketch branch runs `/architect` and keeps the sketch with the other prototypes.
 
-```text
-/architect with checkpoint. stop and show me before implementing.
-```
-
-The design isn't sacred once code starts. If implementation shows the same workaround in unrelated places, or types that only compile with `any` or forced casts, `/architect` treats that as proof the design is wrong. It scraps the sketch and starts over instead of patching around it.
+The design isn't sacred once code starts. If implementation shows the same workaround in unrelated places, or types that only compile with `any` or forced casts, the [redesign-from-first-principles](../../skills/principle-redesign-from-first-principles/SKILL.md) principle treats that as proof the sketch is wrong. Scrap it and re-run `/architect` instead of patching around it.
 
 ## Fan out attempts with `/arena`
 
@@ -78,7 +74,7 @@ Never take the first design. Ask for a few, and pick from evidence you can see:
 /poteto-mode prototype a few options for the new dropdown menu. take screenshots or videos for me to compare.
 ```
 
-The [prototype skill](../../skills/prototype/SKILL.md) builds a prototype shaped by the question and keeps it in the repo, under `efforts/<effort>/prototypes/`, for the next round and for the real code to be written from. A logic question gets a single HTML file you click through. A UI question gets several variants on the real route behind one switcher. An implementation question gets the smallest runnable experiment, judged against a bar set before it runs. Prototypes are planning with code. They let the agent answer its own open questions by running something instead of asking you, and they leave room for an option you wouldn't have thought of.
+The [prototype skill](../../skills/prototype/SKILL.md) builds a prototype shaped by the question and keeps it in the repo, under `efforts/<effort>/prototypes/`, for the next round and for the real code to be written from. A logic question gets a single HTML file you click through. A UI question gets several variants on the real route behind one switcher. An implementation question gets the smallest runnable experiment, judged against a bar set before it runs. A question about the shape of the code gets `/architect`'s sketch. Prototypes are planning with code. They let the agent answer its own open questions by running something instead of asking you, and they leave room for an option you wouldn't have thought of.
 
 The same idea scales up to a real design. Pair `/architect` with prototypes and keep a review gate:
 
@@ -100,7 +96,15 @@ Writing the tutorial first forces the caller's view. You describe the API to a h
 
 ## Plan after the design settles
 
-pstack has no planning skill, on purpose. When you do want a written plan, ask for it once the design is settled:
+pstack has no planning skill, on purpose: its author holds that the best spec is code. This collection writes the plan down, on purpose too. Its owner does not read code, so a spec and its tickets are what the owner can check and accept before agents build from them. Once a [Grill with docs](../../skills/poteto-mode/playbooks/grill-with-docs.md) session or a wayfinder map has settled the design, ask for the spec:
+
+```text
+/poteto-mode turn what we decided into a spec.
+```
+
+The [To spec playbook](../../skills/poteto-mode/playbooks/to-spec.md) records the decisions already made and asks you only the calls that are yours: what the user sees, money, and scope. The [To tickets playbook](../../skills/poteto-mode/playbooks/to-tickets.md) then cuts the spec into tickets, and you approve the breakdown before anything is published.
+
+When you want a per-PR execution checklist instead, ask for it once the design is settled:
 
 ```text
 /poteto-mode turn this design into a plan. small verifiable PRs, each with its own verification steps.
