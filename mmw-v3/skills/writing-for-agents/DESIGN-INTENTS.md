@@ -96,7 +96,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
 27. **A criterion is a command.** It goes red on the old code first and can fail for the defect it guards. A judgement goes to review, a person's reaction to a ticket for a person, and what cannot yet be reached gets a tool built to reach it first.
     Takes: M3, adapted (the red-green loop became a ticket's criteria, run by a script); P7, adapted (the decidable condition is `CHECK:` and `EXPECT:`); P11, adapted (build the tool to reach it); P13, kept (never relax the condition to pass).
     Home: the `verify-ticket` skill's `references/ticket-format.md`; `principle-a-check-must-be-able-to-fail`; `principle-fix-the-product-not-the-check`.
-28. **A bug fix starts from a reproduction that goes red, every changed line has runtime evidence, and the fix lands as one ticket.**
+28. **A bug fix starts from a reproduction that goes red, every line of the ticket traces to runtime evidence, and the fix lands as one ticket.**
     Takes: M12, kept; P18, adapted (the fix lands through **Run one ticket**).
     Home: **Bug fix**; the `diagnosing-bugs` skill.
 29. **Proof happens on the real product, from every entry of the feature.** Every product can be started, health-checked, driven and captured, and the knowledge of driving it lives in the product's repository.
