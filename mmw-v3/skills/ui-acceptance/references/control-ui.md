@@ -12,7 +12,7 @@ Use local browser automation to verify UI behavior with evidence. First reuse th
 
 ## Setup Pattern
 
-1. Start the product with `start` inside the lease. A journey does this through `journey.py`. A probe that is not a journey runs that same `start` through the lease command in **Five rules while the product is running**, and passes `--product <product>`.
+1. Start the product with `start` inside the lease. A journey does this through `journey.py`. A probe that is not a journey runs that same `start` through the lease command in **Five rules while the product is running**, and passes `--product <product>`; then it runs `doctor` the same way. After you change the product's code, run `stop` and `start` again before you look: `start` leaves a product it already started as it is, so the old code would still be running.
 2. Discover existing local harnesses: Playwright tests, Cypress specs, Storybook, browser scripts, Electron launch scripts, or snapshot tools.
 3. For a web app, connect to the address `discover` printed. The key `origin` arrives uppercased as `ORIGIN`.
 4. For Electron or another Chromium app, `start` passes `--remote-debugging-port` from this product's port segment and `--user-data-dir` under `MMW_DATA_DIR`. `discover` prints `cdp`, which arrives as `CDP`. Connect with `connectOverCDP`.

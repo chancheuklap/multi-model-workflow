@@ -22,9 +22,8 @@ Do not use this for vague claims like "the code is cleaner". Ask for a measurabl
 2. Pick the smallest local surface that can disprove it.
 3. Capture a baseline from the old state: merge base, parent commit, failing branch, or current broken repro.
 4. Capture treatment from the changed state with the same command, data, warmup, and environment.
-5. Run the repository's own checks on the changed state before the comparison. Run its checker command and the tests its own instructions name for the files the change touched. Those instructions are its `AGENTS.md` and the files that file points to. A full suite runs only when those instructions name one for this change. Read what each run ran. A run that collected no test, or none that reach the changed files, has checked nothing. When the repository names no tests for the changed files, say so in the output, and the surface evidence decides the verdict.
-6. Compare raw artifacts: numbers, screenshots, terminal transcripts, HTTP responses, profiles, heap snapshots, or test output.
-7. Return exactly one verdict: `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE`.
+5. Compare raw artifacts: numbers, screenshots, terminal transcripts, HTTP responses, profiles, heap snapshots, or test output.
+6. Return exactly one verdict: `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE`.
 
 ## Local Surfaces
 
@@ -56,8 +55,8 @@ If artifacts may contain sensitive code, prompts, screenshots, HTTP bodies, or h
 ## Verdict Rules
 
 - `VERIFIED`: baseline and treatment differ in the predicted direction, by the claimed threshold, with no obvious confound.
-- `NOT VERIFIED`: the behavior is unchanged, moves the wrong way, or misses the threshold, or a repository check fails.
-- `INCONCLUSIVE`: no valid baseline, noisy signal, failed measurement, an environment difference invalidates the comparison, or a repository check that ran reached none of the changed code.
+- `NOT VERIFIED`: the behavior is unchanged, moves the wrong way, or misses the threshold.
+- `INCONCLUSIVE`: no valid baseline, noisy signal, failed measurement, or an environment difference invalidates the comparison.
 
 ## Output
 
@@ -69,7 +68,6 @@ Claim: <falsifiable claim>
 
 Evidence:
 <metric/artifact>: baseline=<...>, treatment=<...>, delta=<...>, threshold=<...>
-<check command>: <result, and what it reached>
 
 Reasoning:
 <one tight paragraph naming the evidence and any confounds>

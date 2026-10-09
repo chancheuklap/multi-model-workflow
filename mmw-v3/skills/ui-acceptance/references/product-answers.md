@@ -54,6 +54,13 @@ These hold for every product. How a given repository meets them is its own.
   `MMW_BREAK` is in that command's environment, this is also the process that
   arms the fault-injection switch.
 
+- **`discover`.** Run after `start`, it prints one JSON object naming where this
+  instance is reached and nothing else: `origin` for a web page, `cdp` for Electron or
+  another Chromium application, and `instance`. A command-line product prints only
+  `instance`: its tmux session is named from it, as [control-cli.md](control-cli.md) says.
+  Readers get each key as an uppercased environment variable (`ORIGIN`, `CDP`), and a
+  product that `needs` this one reads the same object.
+
 - **`doctor`.** One read-only command that answers whether this instance is worth
   driving. Each product file
   has this command, and `target_config.py --check` names a product that omits it.
@@ -75,7 +82,7 @@ These hold for every product. How a given repository meets them is its own.
   as well as its processes. When it returns, nothing listens on any port of this
   run's lease — that is what "stopped" means here.
 
-- **`stories`.** Brings up the story service and prints its `origin`.
+- **`stories`.** Brings up the story service and prints its `origin`; a product with no pages writes `"none"`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
   pages themselves live in `.mmw/<product>/stories/`. It takes **no lease**: a story page
   renders product components from scene data — presentational, fed by that data

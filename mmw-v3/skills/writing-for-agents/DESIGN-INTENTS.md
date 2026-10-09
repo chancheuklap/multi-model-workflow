@@ -77,7 +77,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: the `grilling` skill; **Write a spec** step 3.
 22. **The day settles every decision the owner holds, into the spec and the tickets; the night has nobody to ask.** The night copies what the day settled and does not improve on it; where a copy does not hold, it opens a child saying so.
     Takes: P13, adapted (the unattended contract became the ticket and its criteria; an owner's decision met at night is recorded with its options and default); M9, adapted (decisions live in the spec and tickets on the tracker).
-    Home: `mmw-mode` `## Autonomy` (**Unattended**); **Write a spec**; **Cut tickets**; `principle-baseline-is-the-contract`.
+    Home: `mmw-mode` `## Autonomy` (**Unattended**); **Write a spec**; **Cut tickets**; `principle-baseline-is-the-contract`; `mmw-mode` `references/feature-map.md` `## How a feature is divided` (the owner confirms what a user can do before it is written).
 23. **The day's trunk: write a spec, cut it into narrow tickets through every layer (a task graph), implement, review once, retro.** A written plan is kept.
     Takes: M7, kept; M8, adapted (tickets carry Owns, Seam and runnable criteria); M3, kept (test first is the `tdd` skill's; the red-green loop's other half is intent 27); P20, adapted (the unit of delivery is the ticket, not the PR).
     Home: **Write a spec**; **Cut tickets**; **Work a ticket**; **Review a ticket**; the `retro` skill.
@@ -133,8 +133,8 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
 ## Learning and rules
 
 38. **A lesson goes into a mechanism first:** a mechanical mistake becomes a check, a judgement call goes into `CODING_STANDARDS.md`, prose comes last; a rule changes with the owner's approval. The default is to edit what exists or delete, not to add a component.
-    Takes: M11, adapted (the retro runs when the night closes, and its proposals have fixed destinations the owner approves); P10, kept.
-    Home: the `retro` skill; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` items 4 and 5.
+    Takes: M11, adapted (the retro runs when the night closes, and its proposals have fixed destinations the owner approves); P10, kept; P28, adapted (skill text found wrong mid-task is fixed as its own change after the task in the day, and recorded as a `deferred` child at night).
+    Home: the `retro` skill; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` items 4 and 5; `mmw-mode` `## Non-negotiables` (skill text found wrong).
 
 ## The toolbox
 
@@ -157,6 +157,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P12 | No written plan; the code is the spec | The owner does not read code; the spec and the tickets are what the owner can accept (1, 23) |
 | P15 | Steps copied verbatim into a to-do list | Progress is read from the events (33) |
 | P26 | Bound to Cursor: its subagent types, `/loop`, cloud agents, rule files | One text serves every host, with the host's general-purpose subagent (39, 14) |
+| P18 (the rest) | Revert the edits made for each hypothesis that failed | The diagnosis edits nothing but debug lines it removes, and the fix is one worker's ticket (28) |
 | P27 | Work starts from a sentence in the conversation; the PR is the unit | The unit is the ticket and the tracker is the work queue (32, 33) |
 | P8, P20 (the rest) | PRs, one verdict per PR bound to the patch, a contiguous verified stack | No PRs; code lands only through a ticket; judged once (30, 32) |
 | P13 (the rest) | A decision-log file reviewed by another vendor's model before hand-back | Decisions are posted on the ticket; the night's facts are events and the night summary (33, 37) |
@@ -181,6 +182,3 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P40 | Unattended work fired by Cursor's automation files | A night is started by `dispatch` and woken by the relay, on any host (34, 39) |
 | P41 | One shared closing step that opens a PR | No PRs; how each playbook commits follows its situation (32, 15) |
 
-## Taken, without a home yet
-
-- **P28, a broken skill is not worked around.** Its home is to be a line in `mmw-mode` `## Non-negotiables`: skill or playbook text found wrong mid-task is neither worked around nor folded into the change in hand; in the day it is fixed on its own through **Authoring or modifying a skill**, at night it is left for the retro. The only sentence that says anything now, in the Owns paragraph of the `verify-ticket` skill's `references/ticket-format.md`, is read by no daytime session and has a night edit the installed skill directly; it is replaced in the same change.

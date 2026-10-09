@@ -16,8 +16,10 @@ Remaining triggers:
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows the **writing-for-agents** skill.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - A diagram, or an HTML page that explains something to a person → the **diagram-design** skill. The host's own guidance for pages, even one it requires you to load first, covers only publishing and the constraints it sets on a page (themes, widths, allowed sources); what the page shows and how it is drawn come from diagram-design.
-- A criterion that has to launch, reach or observe the running product; a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line to read; a repository with no `.mmw/target.json`, or one to fill; a page ticket's code about to be written; a process or a port about to be touched → the **ui-acceptance** skill. Its **Five rules while the product is running** bind every run, before the first command.
+- A criterion that has to launch, reach or observe the running product; a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line to read; a page ticket's code about to be written; a process or a port about to be touched → the **ui-acceptance** skill. Its **Five rules while the product is running** bind every run, before the first command.
 - A repository not set up for the pipeline (a `docs/agents/` file, a label or the Memory Space missing, or effort files still under `docs/specs/` or `prototypes/`), or the owner asks to set one up or check it → the **setup-mmw** skill.
+- A product with no `.mmw/<product>/` yet, or the owner asks to onboard one to verification → the **create-verification-skill** skill.
+- A skill's, playbook's or reference's text found wrong in the middle of another task → in a day session, finish the task, then fix the text as its own change through the **Authoring or modifying a skill** playbook; in a scripted session, leave the text and record a `deferred` child naming the file, the sentence and what it got wrong.
 - The owner asks to review a product's feature map, or to operate every feature → the **maintain-verification-skill** skill.
 - The owner says "verify this", or asks whether a change took effect or whether a bug is fixed → the **verify-this** skill.
 

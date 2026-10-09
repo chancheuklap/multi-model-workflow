@@ -23,12 +23,12 @@ Open a todolist with one item per step below.
    When the product's own code has to change before it can be driven, open a ticket in that repository and leave the product code unchanged. The usual case is a port written into the source.
    Done when `target_config.py --check --product <product>` exits 0, or the reply names the ticket that has to land first.
 
-3. **Write the feature map.** Write `docs/features/<product>/` as the `mmw-mode` skill's `references/feature-map.md` says. The owner confirms the division. A behaviour already in the product, which no decision record names, uses the `existing <date>` source that reference defines. The date is the day that behaviour is written into the map.
-   Done when the owner has confirmed the division and each feature file matches that reference. `## Driving it` is still empty here. Step 4 writes it after the walk.
+3. **Write the feature map.** Write `docs/features/<product>/` as the `mmw-mode` skill's `references/feature-map.md` says; the owner confirms it as that reference's **How a feature is divided** says. A behaviour already in the product, which no decision record names, uses the `existing <date>` source that reference defines. The date is the day that behaviour is written into the map.
+   Done when the owner has confirmed what the map says a user can do and `feature_map.py lint` (the `verify-ticket` skill's `scripts/feature_map.py`), run from the repository root, exits 0. `## Driving it` is still empty here. Step 4 writes it after the walk.
 
 4. **Drive one feature.** Run `start`, then `doctor`, through the `ui-acceptance` skill's `scripts/lease.py`, as `python3 scripts/lease.py run --product <product> -- <command>`. Each command is the one `.mmw/<product>/target.json` names. Drive one feature. The feature file says what the user finishes, and step 2 says how the product is operated. Write `## Driving it` from that walk, as that reference's **Driving it** says. Save a screenshot under `.scratch/` in the worktree. Then run `stop` through the same lease command. The screenshot file is still there after `stop`.
    When a step fails, run `stop` before the next attempt, so a broken attempt does not leave the product running.
    Done when `doctor` exited 0, the screenshot shows the feature after the action, `## Driving it` records that walk, and that file is still at its path after `stop`.
 
-5. **Name the upkeep.** The `maintain-verification-skill` skill keeps that product's feature map honest after the product changes. A schedule for the pass is the owner's to name.
-   Done when the reply names the `maintain-verification-skill` skill.
+5. **Commit and name the upkeep.** Commit `.mmw/<product>/` and `docs/features/<product>/` and push them: a worker starts from the base branch on origin and sees nothing left in this checkout. The `maintain-verification-skill` skill keeps that product's feature map honest after the product changes, when the owner asks for a pass.
+   Done when both directories are on the base branch on origin and the reply names the `maintain-verification-skill` skill.

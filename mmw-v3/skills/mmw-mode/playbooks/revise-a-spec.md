@@ -8,9 +8,9 @@
    Done when the issue body on the tracker reads as if written that way from the start.
 3. **Say what changed and why.** Post one comment on the spec: what changed, why, and the issue, child or decision it came from.
    Done when the comment is posted.
-4. **Bring the tickets into line.** Check each ticket cut from the section and not yet landed against the new text, correct it where it no longer matches, and lint it (`verify-ticket.py <n> --lint`, read as the `verify-ticket` skill's `references/linting.md` says). A criterion whose premise disappeared is taken out of `## Acceptance criteria` rather than left there without a command; its number is not reused, and a comment on the ticket says what became of it. A landed ticket the change contradicts is followed by a correction ticket, written as the `verify-ticket` skill's `references/ticket-format.md` says.
+4. **Bring the tickets into line.** Check each ticket cut from the section and not yet landed against the new text, correct it where it no longer matches, and lint it (`verify-ticket.py <n> --lint`, read as the `verify-ticket` skill's `references/linting.md` says). A criterion whose premise disappeared is taken out of `## Acceptance criteria` rather than left there without a command; its number is not reused, and a comment on the ticket says what became of it. A landed ticket the change contradicts is followed by a correction ticket, written as the `verify-ticket` skill's `references/ticket-format.md` says and published with `verify-ticket.py <spec> --publish --drafts <dir>` as Cut tickets step **Lint and publish the batch** says.
    Done when every ticket cut from the section and not yet landed matches the new text and lints with no `ERROR`.
 
 **When the rows change.** When a later pull's `pull-report.md` records `增删控件或改流转`, and Write the screen contract's **Re-runs** rewrote the rows, the same holds row by row, and a new row gains one boundary criterion on the ticket that owns it.
 
-**Reply:** the section that changed and why, and each ticket corrected, cut down, or followed by a correction ticket.
+**Reply:** the section that changed and why, and each ticket corrected, cut down, or followed by a correction ticket, with that ticket's number.

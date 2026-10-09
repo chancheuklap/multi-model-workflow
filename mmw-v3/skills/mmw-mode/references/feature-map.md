@@ -30,9 +30,18 @@ A feature is one thing a user can finish from one entry. A sub-feature is one be
 
 The detail of an interface behaviour stays in the screen contract's row. The feature map names that row's id and does not copy the row.
 
-An agent proposes the division. The owner confirms the first map when the product is adopted, and confirms each spec's change in `## Feature map changes`.
+A feature map writes down the owner's understanding of what the product does for a user, so the owner confirms it. Before you write or change what a feature file says a user can do (its opening paragraph, the sentences of `## Sub-features`, the entries of `## How to get to it (user POV)`, and the product README's `Features` line), list the change in the conversation, in the owner's words where they gave them, and write it once the owner confirms it. A spec's `## Feature map changes` is that list for a night: the owner confirms it with the spec, and a worker writes only what it lists. `## Driving it`, `## Gotchas`, `source` and `check` record how the product is operated and checked; the agent writes them without asking.
 
 Leave out a behaviour that has no executor. `check: none:` is allowed when the same line states the reason. The lint lists those lines, and they do not fail the lint. A behaviour with no interface, which a user cannot finish from an entry, stays out of the feature map. A test can still guard it.
+
+## Using it in a task
+
+A playbook that drives one feature of the product reads its feature file before the first command: the entries from `## How to get to it (user POV)`, the steps from `## Driving it`, the traps from `## Gotchas`. The path it follows is the one the file states.
+
+- A product with no `docs/features/<product>/` has no feature map. Drive the surface the owner named, say so in the reply, and tell the owner that the `setup-mmw` skill onboards the product.
+- When no feature file covers the feature, write one in the shape below, with `source` `existing <YYYY-MM-DD>`, confirmed as **How a feature is divided** says, before you go on. Run `feature_map.py lint` (the `verify-ticket` skill's `scripts/feature_map.py`) from the repository root, commit the file on its own and push it: a worker starts from the base branch on origin and never sees a file left in this checkout.
+- A change that alters what a feature file says changes it in the commit of the code it describes, after the owner confirmed it, with the lint run before that commit. When a ticket will make the change, the confirmed lines are quoted under **What to build** and the file is under **Owns**. With no `docs/features/`, there is nothing to lint.
+- A session a script started that finds a feature file wrong and does not own it leaves it as it is and records a `deferred` child naming the line and what the product does.
 
 ## A feature file
 
