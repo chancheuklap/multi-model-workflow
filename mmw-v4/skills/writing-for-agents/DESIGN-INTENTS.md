@@ -48,10 +48,10 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
 13. **A start prompt carries only data** (the ticket, a base commit, where the task came from); rules arrive through the mode and the playbook it loads. A subagent's brief holds everything it needs and states what it returns and how long.
     Takes: P35, adapted (no subagent definition; a session a script starts invokes the mode itself); P17, adapted (a subagent's brief is complete).
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Prompts written for other agents`.
-14. **Models by strength.** Work that needs another model or must run outside the turn is a session role, started by `dispatch` and listed in `roles.json`; everything else uses the host's general-purpose subagent, and the set defines none. Each role's model is recorded only in `~/.mmw/models.json`, changed only through `models.py`.
+14. **Models by strength.** Work that needs another model, must run outside the turn, or is a different job from the sender's is a session role, started by `dispatch` and listed in `roles.json`; everything else uses the host's general-purpose subagent, and the set defines none. Each role's model is recorded only in `~/.mmw/models.json`, changed only through `models.py`.
     Takes: P3, adapted (another model means another session; the second opinion is the advisor session); P36, adapted (configuration in `models.json`, not in a host rule); P17, adapted (fresh subagents by default; a worker keeps its session for its one fix).
     Home: `mmw-mode` `## Subagents`; the `dispatch` skill's `roles.json` and `scripts/models.py`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## subagent`.
-15. **One home per fact, registered in the same change.** A new playbook gets its route line, a new principle its index line, a new reference or script is named by the step that uses it, and copied text is named with its source in the commit that brings it in. `check_wiring.py` and `check_skill_frontmatter.py` hold this at the start of every test suite, and the dispatch suite runs `check-interfaces.py`.
+15. **One home per fact, registered in the same change.** A new playbook gets its route line, a new principle its index line, a new reference or script is named by the step that uses it, and copied text is named with its source in the commit that brings it in. `check_wiring.py` and `check_skill_frontmatter.py` hold this at the start of every suite under `mmw-v4/tests/` but `lib`, and the dispatch suite runs `check-interfaces.py`.
     Takes: M18, adapted (kept in step by checks); M29, adapted (no buckets: every directory with a `SKILL.md` is installed); P37, adapted (the frontmatter and link checks run first in every suite).
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) fact 7, `### Redundancy and bloat`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` item 6.
 16. **From an upstream, take the content, not only the shape.** Before writing a component, read the upstream component doing the closest job; where both sides do one job, read both whole and keep the one that does more (pstack is not the default winner); a component only an upstream has comes in when a step needs it.
@@ -86,10 +86,10 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: the `domain-modeling` skill; `docs/adr/`.
 25. **A prototype is code that answers a question,** kept in the repository with its verdict; a code shape that reaches beyond one ticket is settled by competing sketches.
     Takes: M16, adapted (the verdict, not the code, is what the real build takes); P19, kept (options are compared in prototypes, `architect` sketches and `arena`).
-    Home: the `prototype` skill; the `architect` and `arena` skills. Where a product's signed-off screens live has no home in the set yet.
+    Home: the `prototype` skill; the `architect` and `arena` skills. Where a product's signed-off screens live has no home in the set.
 26. **Each repository is set up once and skills only read the setup;** the repository's files are placed by how long they stay true.
     Takes: M19, adapted (`setup-mmw` also writes `.mmw/` and the standing files).
-    Home: none in the set yet (`setup-mmw` is not carried); **Shared closing** reads `.mmw/target.json` when it is there.
+    Home: none in the set (`setup-mmw` is not carried); **Shared closing** reads `.mmw/target.json` when it is there.
 
 ## Proof
 

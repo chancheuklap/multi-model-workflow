@@ -39,7 +39,7 @@ Each path ends in one pull request to the project branch. The owner reads its to
 2. **A day ticket.** [Bug fix](./skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](./skills/mmw-mode/playbooks/perf-issue.md) and [Hillclimb](./skills/mmw-mode/playbooks/hillclimb.md) diagnose the problem and write one ticket. Run a night's **One ticket** section then cuts a `fix-<n>` branch, sends a worker with `dispatch.sh send`, checks the result on the original reproduction, lands it, and opens the pull request.
 3. **A day change with no ticket.** In [Feature](./skills/mmw-mode/playbooks/feature.md), [Refactoring](./skills/mmw-mode/playbooks/refactoring.md) and [Visual parity](./skills/mmw-mode/playbooks/visual-parity.md), the session writes the change itself. [Shared closing](./skills/mmw-mode/playbooks/shared-closing.md) then proves it on the product, cleans the comments, has it reviewed on the four axes of `code-review`, commits it, merges the latest project branch, and opens the pull request.
 
-The full list of playbooks is the `## Playbooks` section of [`mmw-mode`](./skills/mmw-mode/SKILL.md). The Babysit, Shipping, Opening a PR, Autonomous run, Orchestrate, Autopilot and Multi-phase plan playbooks are retired. [`docs/retired-playbooks/README.md`](./docs/retired-playbooks/README.md) says what replaced each one.
+The full list of playbooks is the `## Playbooks` section of [`mmw-mode`](./skills/mmw-mode/SKILL.md). The Babysit, Shipping, Opening a PR, Autonomous run, Orchestrate, Autopilot-full, Autopilot-stack and Multi-phase plan playbooks are retired. [`docs/retired-playbooks/README.md`](./docs/retired-playbooks/README.md) says what replaced each one.
 
 ## Why there are planning playbooks
 

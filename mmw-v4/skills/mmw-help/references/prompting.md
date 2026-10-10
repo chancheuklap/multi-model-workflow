@@ -33,7 +33,7 @@ A prompt states the intent and the check for done. The playbook supplies the ste
 ## Follow up short
 
 - "do it", "continue", and "keep going until done" are whole prompts once the session holds the task.
-- Start with "new task" when the subject changes. Otherwise the mode treats the message as the next step.
+- Start with "new task" when the subject changes. Otherwise a session in the middle of a task tends to treat the message as its next step.
 
 ## Before stepping away
 

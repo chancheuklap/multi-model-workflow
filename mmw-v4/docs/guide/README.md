@@ -9,8 +9,8 @@ The chapters:
 3. [Understand the code](./03-understand.md). The Investigation playbook, then `how`, `why`, `teach` and `recall`, before anything changes.
 4. [Design the change](./04-design.md). `architect`, `arena`, `swarm`, prototypes and `code-review`, and the planning playbooks: Grill with docs, To spec and To tickets.
 5. [Build and clean the change](./05-build-and-clean.md). Feature, Refactoring and Visual parity, which the session writes itself. Bug fix, Perf issue and Hillclimb, which each send one ticket to a worker. Then `tdd`, `unslop` and `no-comments`.
-6. [Verify and ship](./06-verify-and-ship.md). Prove the change on the real product with `control-cli`, `control-ui` and a verification skill, vet numbers with `benchmark-checklist`, and deliver one pull request through Shared closing or a night's `finish`.
-7. [Run a night](./07-overnight.md). A spec's tickets worked unattended by dispatched workers, delivered as one pull request in the morning.
+6. [Verify and ship](./06-verify-and-ship.md). Prove the change on the real product with `control-cli`, `control-ui` and a verification skill, vet numbers with `benchmark-checklist`, and deliver one pull request through Shared closing, One ticket, or a night.
+7. [Run work while you sleep](./07-overnight.md). A spec's tickets worked unattended by dispatched workers, delivered as one pull request in the morning.
 8. [Steer with principle names](./08-principles.md). The 33 principles, and how naming one redirects an agent mid-task.
 9. [Make it yours](./09-make-it-yours.md). Author a skill, test it with Eval, and capture lessons with `reflect`, `correct` and `automate-me`.
 10. [Recipes and pitfalls](./10-recipes-and-pitfalls.md). Prompts to copy and mistakes to skip.

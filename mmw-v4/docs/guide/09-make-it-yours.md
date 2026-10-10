@@ -114,7 +114,7 @@ It fixes the most frequent classes one commit each, and proves each new check fa
 
 The [automate-me](../../skills/automate-me/SKILL.md) skill reads your style out of your history rather than asking you to describe it. It mines recent transcripts of the current workspace for repeated preferences (how you like replies, delegation, verification, code, prose and process), asks you which patterns are really yours, drafts a `<handle>-mode` skill, runs the draft through `unslop`, and opens a pull request from a worktree. Run again, it updates the existing mode skill with only what changed since its last edit.
 
-## Where these skills still show their origin
+## Where these skills assume Cursor
 
 `reflect`, `automate-me`, `create-verification-skill` and the Eval playbook keep text written for Cursor. `reflect` and `automate-me` name Cursor's `create-skill` skill for drafting. `reflect` names a `pstack-models.mdc` rule for its reviewers' models and falls back to the defaults its table gives when the rule is missing. `automate-me` and `create-verification-skill` write the new skill under `.cursor/skills/`, a directory install does not link into `~/.agents/skills` or `~/.claude/skills`. The Eval playbook and `reflect` look for transcripts in the workspace's `agent-transcripts/` directory, a path Cursor's system prompt names. These are the places to look first when one of them stalls on another host.
 

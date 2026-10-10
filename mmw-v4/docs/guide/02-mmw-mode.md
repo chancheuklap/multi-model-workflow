@@ -63,7 +63,7 @@ You do not write a spec. Say what is wrong or what you want, plus anything you a
 users get two notifications after a retry. repro first, then fix and verify.
 ```
 
-That is a Bug fix prompt. "repro first" is a real constraint, and the playbook keeps it. The session reproduces the defect, finds the cause, and writes one ticket that carries the cause and a failing regression test. A worker writes the fix. The session then runs the original reproduction again before it opens the pull request.
+That is a Bug fix prompt. "repro first" is a real constraint, and the playbook keeps it. The session reproduces the defect, finds the cause, and writes one ticket that carries the cause and, as its first criterion, a regression test that must fail on the project branch. A worker writes the fix. The session then runs the original reproduction again before it opens the pull request.
 
 ## What goes in a prompt
 
@@ -154,7 +154,7 @@ The [Worktree and simulator cleanup](../../skills/mmw-mode/playbooks/worktree-cl
 im stepping away. keep going until the migration check reports zero old callers. log your decisions.
 ```
 
-Work too large for one session goes through the pipeline instead. To spec records the decisions, To tickets cuts the tickets, and Run a night has workers build them unattended into one pull request. [Run a night](./07-overnight.md) covers it.
+Work too large for one session goes through the pipeline instead. To spec records the decisions, To tickets cuts the tickets, and Run a night has workers build them unattended into one pull request. [Run work while you sleep](./07-overnight.md) covers it.
 
 To stop a session cleanly, ask it to pause. The [Pause safely](../../skills/mmw-mode/playbooks/pause-safely.md) playbook commits the work in progress and writes a resume note. A later session resumes from it with [Session pickup](../../skills/mmw-mode/playbooks/session-pickup.md).
 
