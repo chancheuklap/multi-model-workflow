@@ -7,7 +7,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 Answer the user's question about MMW, hand them a prompt they can send, and link the file the answer came from. For a help question, don't start the work. The user asked how, and a run spends real tokens, so let them send the prompt.
 
-A message that asks for work, such as "fix this bug", is not a help question. Do the work under the **mmw-mode** skill.
+A message that asks for work, such as "fix this bug", is not a help question: do the work.
 
 This file maps questions to the skills and guide pages that hold the answers. Those files own the details. Read the file you route to before you quote it, and trust it when it disagrees with this map. Give the user each file's path in the toolbox checkout, the directory above the one `~/.mmw/installed-root` names.
 
@@ -99,7 +99,7 @@ Close calls:
 
 Playbooks are step lists inside the **mmw-mode** skill, not skills. Describing the task picks one; the mode's `## Playbooks` is the one list of which task goes to which playbook, so read it there rather than answering from memory. Guide page 5 (`mmw-v4/docs/guide/05-build-and-clean.md`), page 6 (`mmw-v4/docs/guide/06-verify-and-ship.md`) and page 7 (`mmw-v4/docs/guide/07-overnight.md`) show how a change is built, delivered as one pull request, and run unattended overnight.
 
-Planning here is a spec and its tickets, because the owner checks those, not code. Grill with docs or a wayfinder map settles the decisions, To spec records them, To tickets cuts the spec into tickets the owner approves. For a design question, the Prototype playbook or `architect` settles it in code first.
+Planning here is a spec and its tickets, because the owner checks those, not code. Grill with docs or a wayfinder map settles the decisions, To spec records them, To tickets cuts the spec into tickets the owner approves. For a design question, the **prototype** skill or `architect` settles it in code first.
 
 Principles are one-rule skills that the mode indexes in its `## Principles` and cites in its replies. The user rarely invokes one. They steer with the names instead, as in "apply prove it works. show me the real output." Guide page 8 (`mmw-v4/docs/guide/08-principles.md`) lists them.
 
@@ -107,7 +107,7 @@ Principles are one-rule skills that the mode indexes in its `## Principles` and 
 
 | Symptom | Fix |
 |---|---|
-| A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
+| A question got treated as the next step of the last task | Say "new task". |
 | A new model choice had no effect | `models.py config set` takes effect at the next start of that role; a session already running keeps its model. |
 | A skill's new description had no effect | A host reads descriptions at session start. Start a new session. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |

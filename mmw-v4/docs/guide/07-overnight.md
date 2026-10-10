@@ -50,7 +50,7 @@ A woken session first follows the dispatch skill's `## On waking`: it reads what
 
 The orchestrator finds its place from the record, not from memory: the first row of the playbook's table whose fact holds on the tracker says which step comes next.
 
-1. **`check` and `open`.** `dispatch.sh check <spec>` confirms the machine is ready, including `install.sh --check`. `dispatch.sh open <spec>` opens the night's watch on the relay and makes this session the orchestrator.
+1. **`check` and `open`.** `dispatch.sh check <spec>` confirms the machine is ready; what `install.sh --check` finds it shows as a warning the night does not wait on. `dispatch.sh open <spec>` opens the night's watch on the relay and makes this session the orchestrator.
 2. **Lint the batch.** `verify-ticket.py <spec> --lint` reports every ticket the night cannot run on. Each `ERROR` is fixed on its ticket before any worker starts.
 3. **`advance`.** `dispatch.sh advance <spec>` lands every passed ticket and starts a worker on every ticket whose blockers are cleared. The orchestrator then ends its turn.
 4. **Each wake.** The orchestrator runs `dispatch.sh status <spec>`, handles every row the table matches, then runs `advance` once. It can tell a live worker to continue with `dispatch.sh resume <n> "<text>"`, release a worker whose session is gone with `dispatch.sh retract <n>`, fix a `fault` in this repository's environment, or settle a `contract` child by the authority order the playbook gives: decision tickets and ADRs, then the spec, then the design package, then domain documents, then the ticket body. A correction no written authority settles goes back to you, and the tickets that depend on it move to `needs-triage`.

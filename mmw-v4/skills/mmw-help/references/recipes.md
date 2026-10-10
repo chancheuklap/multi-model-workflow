@@ -14,7 +14,7 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 ## Build
 
 - Bug: `<symptom>. repro first, then fix and verify.`
-- Bug in an app: `repro this with /verify-<app>. if it repros on main, fix it and show me a video as proof.`
+- Bug in an app: `repro this with /verify-<app>. if it repros on the project branch, fix it and show me a video as proof.`
 - Bug with a cheap test: `repro <bug> first. if there's a cheap test path, /tdd it. then fix and rerun.`
 - Feature: `add <behavior>. <current output> stays byte-identical. verify both.`
 - Refactor: `move <code> into one module, zero behavior change. record the current output first and prove it's unchanged after.`
@@ -25,7 +25,7 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 - `prototype a few options for <feature>. take screenshots or videos for me to compare.`
 - `we need <feature>. /architect it first, and answer open questions with prototypes. let me review before proceeding.`
 - `write a tutorial for how i would use <new package> first. then /teach me why it beats the current one.`
-- `ask /arena for a second opinion on this thread and our approach.`
+- `get the advisor's second opinion on this thread and our approach.`
 - `turn this design into a spec, then cut it into tickets.`
 - `spec the migration of <library> to <target>. the result must match the original exactly, bugs included.`
 

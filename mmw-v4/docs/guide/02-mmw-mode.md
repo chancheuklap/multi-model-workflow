@@ -8,7 +8,7 @@ You do not type a command to turn `mmw-mode` on. Its `description` tells every s
 
 Most of the other skills carry the description "Run only when the user, mmw-mode or another skill names it". They do not start on their own. `mmw-mode` and its playbooks name them at the step that needs them, and you can name one yourself in a prompt.
 
-The skill holds five things:
+The skill holds seven sections. These five shape what you see:
 
 - **Non-negotiables.** Triggers that apply to any task. For example, a nontrivial change runs `how` first, any prose runs `unslop`, and a contested design gets `code-review`.
 - **Principles.** An index of the 33 principle skills, each with when it applies. The reply names each principle that changed a decision. [Steer with principle names](./08-principles.md) covers them.
