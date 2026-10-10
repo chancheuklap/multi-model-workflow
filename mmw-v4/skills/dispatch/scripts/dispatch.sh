@@ -1,35 +1,40 @@
 #!/usr/bin/env bash
 #
-# Start an agent on a ticket, move a spec's batch forward, or report on one.
+# Send a session to work, move a spec's batch forward, or report on one.
 #
+#   dispatch.sh send worker|reviewer <n>
+#   dispatch.sh send <role> <brief file>...
+#   dispatch.sh report <batch>/<n> <file>
+#   dispatch.sh brief show|close|watch <batch>
+#   dispatch.sh ack <n> <event> | brief <batch>
 #   dispatch.sh check <spec>
 #   dispatch.sh open <spec>
 #   dispatch.sh open-ticket <n>
-#   dispatch.sh board
 #   dispatch.sh self
 #   dispatch.sh advance <spec>
-#   dispatch.sh integrate <n>
-#   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer
-#   dispatch.sh brief <role> <brief file>...
-#   dispatch.sh brief show|close|watch <batch>
-#   dispatch.sh report <batch>/<n> <file>
+#   dispatch.sh integrate <n>
+#   dispatch.sh integrated <n>
+#   dispatch.sh land <n>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer
-#   dispatch.sh ack <n> <event> | brief <batch>
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
+#   dispatch.sh findings <spec>
 #   dispatch.sh reverify <spec>
-#   dispatch.sh summary <spec> --memory-decisions <file>
+#   dispatch.sh summary <spec>
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
 #   dispatch.sh route <ticket> <child> fixed
 #   dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
 #   dispatch.sh route <ticket> <child> became-ticket <new ticket>
 #
+# `send` is the one command a step sends a session with. `start` is what `send worker`,
+# `send reviewer` and `advance` run once the watch is settled.
+#
 # Every script this one calls is found by resolution, from this file's own path:
-# `lease.py` of the ui-acceptance skill, and `verify-ticket.py` and `events.py` of the
-# verify-ticket skill, are in the `scripts/` of their own skills one directory over. One
+# `verify-ticket.py` and `events.py` of the verify-ticket skill are in the `scripts/` of
+# their own skill one directory over. One
 # file belongs to the toolbox itself, not to any skill, and is taken from the toolbox
 # root (this skill directory two levels up): `install.sh`. `--tools <directory>` is an
 # override, repeatable: a directory given that way is searched before the resolved
@@ -49,9 +54,9 @@
 # `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
 # session, writes a `worker.started` or `reviewer.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
-# path, branch and base commit — and prints the session id. A worker takes no product
-# slot here: the first run of its criteria that needs the product acquires one
-# (`verify-ticket.py`), and the worktree keeps it until the ticket lands. A start the
+# path, branch and base commit — and prints the session id. Its prompt is one line,
+# `Dispatched: <role>, ticket #<n>, base <commit>`; everything else the session reads
+# from the mmw-mode skill. A start the
 # adapter refuses is refused once: no retry, no other host, no other runner. A worker
 # started on a ticket whose events still show a live worker replaces that one: the old
 # session is stopped through its own runner and a `worker.replaced` naming it goes on
@@ -70,10 +75,7 @@
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
 # how a woken session says it handled the wake it read. A ticket's worker is always a
 # session `start` opened, so its events name it. `self` prints the
-# runner and session this process runs in. `open` and `open-ticket` also make sure this
-# repository's task board is registered and answering and name its URL on the line they
-# print: everything else a watch starts is read by the orchestrator, and the board is what a
-# person reads.
+# runner and session this process runs in.
 #
 # Every refusal names its next step on stderr. What the agent must decide on an exit the
 # message cannot settle is written in the skill text of the agent that runs the command;
@@ -93,23 +95,19 @@ RUNNER=""
 RUNNER_NAME=""
 REPO_URL=""
 # The skill lives under mmw-v4/skills/<name> of the toolbox checkout, so `install.sh`
-# is two directories up, and `verify-ticket.py` and `lease.py` are in the `scripts/` of
-# their own skills one directory over. A `--tools` directory given on the command line
+# is two directories up, and `verify-ticket.py` and `events.py` are in the `scripts/` of
+# their own skill one directory over. A `--tools` directory given on the command line
 # is searched before those.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
-BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
 # `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
-LEASE=""
 
 # The row a ticket with no `*-worker` label starts from.
 DEFAULT_WORKER=junior-worker
 
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
-AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -307,31 +305,49 @@ worker_base() {
   esac
 }
 
-# Resolve worker.started.into first, then an open night's spec.opened.into, then the
-# caller's fallback. `start` supplies its current branch as that fallback; `integrate`
-# supplies none. A worker.started with no into counts as none.
-resolve_into() {
-  local number="$1" spec="$2" fallback="$3" into rc
-  into="$(newest_worker_field "$number" into)"
+# A ticket's base branch: the `into` of its newest worker.started. Exit 3 when no worker
+# has started on it, 2 when its events could not be read.
+ticket_into() {
+  newest_worker_field "$1" into
+}
+
+# The base branch a passed ticket lands on: the `into` its newest ticket.passed recorded,
+# beside the commit that passed. Exit 2, the reason on stderr, when there is none.
+passed_into() {
+  local number="$1" into rc
+  into="$(newest_field "$number" into ticket.passed)"; rc=$?
+  case "$rc" in
+    0) printf '%s\n' "$into" ;;
+    2) echo "dispatch: could not read #$number's events, so its base branch is unknown" >&2; return 2 ;;
+    *) echo "dispatch: #$number carries no ticket.passed with a base branch" >&2; return 2 ;;
+  esac
+}
+
+# The base branch of the night on spec <spec> while it is open: its spec.opened's `into`.
+# Exit 3 when the night is not open, 2 when its events could not be read.
+night_into() {
+  local into rc
+  into="$(newest_field "$1" into spec.opened spec.suspended spec.closed)"
   rc=$?
   case "$rc" in
-    0) printf '%s\n' "$into"; return 0 ;;
-    2) return 2 ;;
-    3) ;;
+    0) printf '%s\n' "$into" ;;
+    3) return 3 ;;
+    *) echo "dispatch: could not read whether the night on #$1 is open, so its base branch is unknown" >&2; return 2 ;;
   esac
+}
+
+# The base branch a new session on ticket <n> records: the one its earlier worker
+# recorded, else the open night's, else the branch `start` was run from.
+start_into() {
+  local number="$1" spec="$2" fallback="$3" rc
+  ticket_into "$number"; rc=$?
+  [ "$rc" = 3 ] || return "$rc"
   if [ -n "$spec" ]; then
-    into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)"
-    rc=$?
-    case "$rc" in
-      0) printf '%s\n' "$into"; return 0 ;;
-      2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
-      4) echo "dispatch: the open night on #$spec carries no spec.opened.into; open it again so the base branch is recorded" >&2; return 2 ;;
-      3) ;;
-      *) echo "dispatch: could not resolve #$number's base branch from the night on #$spec" >&2; return 2 ;;
-    esac
+    night_into "$spec"; rc=$?
+    [ "$rc" = 3 ] || return "$rc"
   fi
   [ -n "$fallback" ] || {
-    echo "dispatch: #$number has no worker.started.into and is outside an open night; run start from a checkout of the branch it will merge into" >&2
+    echo "dispatch: #$number has no worker yet and is outside an open night; run start from a checkout of the branch it will merge into" >&2
     return 2
   }
   printf '%s\n' "$fallback"
@@ -370,28 +386,27 @@ post_event() {
 
 usage() {
   cat >&2 <<'USAGE'
-usage: dispatch.sh check <spec>
+usage: dispatch.sh send worker|reviewer <n>
+       dispatch.sh send <role> <brief file>...
+       dispatch.sh report <batch>/<n> <file>
+       dispatch.sh brief show|close|watch <batch>
+       dispatch.sh ack <n> <event> | brief <batch>
+       dispatch.sh check <spec>
        dispatch.sh open <spec>
        dispatch.sh open-ticket <n>
-       dispatch.sh board
        dispatch.sh self
        dispatch.sh advance <spec>
+       dispatch.sh start <n> worker|reviewer
        dispatch.sh integrate <n>
        dispatch.sh integrated <n>
        dispatch.sh land <n>
-       dispatch.sh start <n> worker|reviewer
-       dispatch.sh brief <role> <brief file>...
-       dispatch.sh brief show|close|watch <batch>
-       dispatch.sh report <batch>/<n> <file>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer
-       dispatch.sh ack <n> <event> | brief <batch>
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh findings <spec>
-       dispatch.sh memory-list <spec>
        dispatch.sh reverify <spec>
-       dispatch.sh summary <spec> --memory-decisions <file>
+       dispatch.sh summary <spec>
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
        dispatch.sh route <ticket> <child> fixed
@@ -399,46 +414,6 @@ usage: dispatch.sh check <spec>
        dispatch.sh route <ticket> <child> became-ticket <new ticket>
 USAGE
   exit 2
-}
-
-# ------------------------------------------------------------------ task board
-
-# Register this repository's task board and make sure it answers, without opening it
-# anywhere. Prints its URL. Non-zero, with the reason on stderr, when it could not be
-# registered or started; the caller decides what that means to it. The board is a
-# read-only view of the tracker, so making sure one runs takes nothing away from a
-# command that fails to do it.
-ensure_board() {
-  local repository port
-  if [ ! -f "$BOARD_SUPERVISOR" ]; then
-    echo "dispatch: no task board supervisor at $BOARD_SUPERVISOR" >&2
-    return 2
-  fi
-  repository="$(main_checkout)"
-  if [ -z "$repository" ]; then
-    echo "dispatch: not inside a git repository, so there is no main worktree to register a task board for" >&2
-    return 2
-  fi
-  if ! port="$(python3 "$BOARD_SUPERVISOR" --ensure "$repository")"; then
-    echo "dispatch: could not register and start the task board for $repository" >&2
-    return 2
-  fi
-  printf 'http://127.0.0.1:%s\n' "$port"
-}
-
-open_board() {
-  local current url answer rc
-  current="$(git rev-parse --show-toplevel 2>/dev/null)"
-  [ -n "$current" ] || refuse "not inside a git repository, so there is no checkout for the task board tab"
-  url="$(ensure_board)" || exit 2
-  use_runner "$(tonight_runner)"
-  answer="$(runner open-url --cwd "$current" --url "$url" 2>&1)"
-  rc=$?
-  case "$rc" in
-    0) return 0 ;;
-    3) printf '%s\n' "$url"; return 0 ;;
-    *) refuse "$RUNNER_NAME could not open $url in $current: ${answer:-the adapter gave no reason}" ;;
-  esac
 }
 
 # ------------------------------------------------------------------ the relay
@@ -460,87 +435,6 @@ repo_slug() {
     return 2
   fi
   printf '%s\n' "$slug"
-}
-
-# Make this repository's Memory boundary explicit before a night opens or any agent
-# starts. Only a confirmed 404 is absence, so an unavailable service never triggers a
-# create as a substitute.
-ensure_repository_memory() {
-  local slug="$1"
-  MMW_REPOSITORY_SLUG="$slug" python3 - <<'PY'
-import json
-import os
-import shutil
-import subprocess
-import sys
-
-slug = os.environ["MMW_REPOSITORY_SLUG"]
-parts = slug.split("/", 1)
-if len(parts) != 2 or not all(parts):
-    sys.stderr.write(f"dispatch: repository Memory unavailable: {slug!r} is not owner/name\n")
-    raise SystemExit(1)
-ident = "__".join(part.lower() for part in parts)
-
-if shutil.which("nmem") is None:
-    sys.stderr.write("dispatch: repository Memory unavailable: this machine has no nmem\n")
-    raise SystemExit(1)
-
-
-def call(args):
-    return subprocess.run(["nmem", "--json", *args], text=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-
-def detail(proc):
-    return (proc.stderr or proc.stdout or f"exit {proc.returncode}").strip().replace("\n", "; ")
-
-
-def parse(proc):
-    try:
-        value = json.loads(proc.stdout)
-    except Exception:
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def exact(value):
-    return (isinstance(value, dict) and value.get("id") == ident
-            and value.get("name") == slug
-            and value.get("defaultRetrievalMode") == "shared"
-            and value.get("sharedSpaceIds") == ["mmw-toolbox"])
-
-
-shown = call(["spaces", "show", ident])
-if shown.returncode:
-    missing = "404" in (shown.stderr or "") and "Unknown space:" in (shown.stderr or "")
-    if not missing:
-        sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces show {ident} failed ({detail(shown)})\n")
-        raise SystemExit(1)
-    changed = call(["spaces", "create", slug, "--id", ident,
-                    "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"])
-    action = "create"
-else:
-    value = parse(shown)
-    if value is None:
-        sys.stderr.write(
-            f"dispatch: repository Memory unavailable: nmem spaces show {ident} "
-            f"did not return a JSON object ({detail(shown)})\n"
-        )
-        raise SystemExit(1)
-    if exact(value):
-        raise SystemExit(0)
-    changed = call(["spaces", "update", ident, "--name", slug,
-                    "--retrieval-mode", "shared", "--clear-shared",
-                    "--share-with", "mmw-toolbox"])
-    action = "update"
-
-verified = call(["spaces", "show", ident]) if changed.returncode == 0 else changed
-value = parse(verified)
-if changed.returncode or verified.returncode or not exact(value):
-    why = detail(changed) if changed.returncode else (detail(verified) if verified.returncode else "the stored JSON has the wrong shape")
-    sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces {action} {ident} failed ({why})\n")
-    raise SystemExit(1)
-PY
 }
 
 # The runner and session this process itself runs in, "runner<TAB>session", as that
@@ -878,7 +772,7 @@ sync_base_with_project() {
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
-  local spec="$1" root into opened runner session how rows project board repository git_dir
+  local spec="$1" root into opened runner session how rows project
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
@@ -888,8 +782,6 @@ open_night() {
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
   push_open_branches "$root" "$rows" || exit 2
   sync_base_with_project "$root" "$into" "$project" || exit 2
-  repository="$(repo_slug)" || exit 2
-  ensure_repository_memory "$repository" || exit 2
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
@@ -899,37 +791,19 @@ open_night() {
     [ "$how" = started ] && stop_relay --spec "$spec"
     refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
   fi
-  git_dir="$(git -C "$root" rev-parse --git-common-dir)"
-  case "$git_dir" in /*) ;; *) git_dir="$root/$git_dir" ;; esac
-  rm -f "$git_dir/mmw-reverify-$spec"
   # Every other process a night needs starts itself: `open` starts the relay, and the
-  # turn guard arms the watchdog. The task board was the one thing somebody had to
-  # remember, and it is the only one of the three whose output is for a person — the
-  # relay's and the watchdog's are for the orchestrator. A board that will not start is
-  # said so on stderr and takes nothing else with it: the night is open either way.
-  if board="$(ensure_board)"; then
-    echo "opened #$spec: wake-ups go to $runner session $session; task board $board"
-  else
-    echo "opened #$spec: wake-ups go to $runner session $session"
-    echo "dispatch: the night is open and its task board is not, so the night's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
-  fi
+  # turn guard arms the watchdog.
+  echo "opened #$spec: wake-ups go to $runner session $session"
 }
 
 # `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
-# session as its orchestrator; `land <n>` closes the watch. The task board is made sure of
-# the way `open` makes sure of it, for the same reason: the relay and the watchdog start
-# themselves, and the board is the one view of the ticket for a person. A board that will
-# not start is said on stderr and leaves the watch open.
+# session as its orchestrator; `land <n>` closes the watch. `send worker <n>` opens it
+# first; alone, it hands the watch of a ticket whose session is gone to this one.
 open_ticket() {
-  local number="$1" opened runner session how board
+  local number="$1" opened runner session how
   opened="$(open_relay --tickets "$number")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
-  if board="$(ensure_board)"; then
-    echo "opened #$number: wake-ups go to $runner session $session; task board $board"
-  else
-    echo "opened #$number: wake-ups go to $runner session $session"
-    echo "dispatch: the watch on #$number is open and its task board is not, so the ticket's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
-  fi
+  echo "opened #$number: wake-ups go to $runner session $session"
 }
 
 # `ack <n> <event>` or `ack brief <batch>`: the wake this session
@@ -1166,47 +1040,6 @@ push_ticket_branch() {
 }
 
 
-# The registered worktree for ticket `number`, even after its workspace has been
-# archived: `lease.py` still holds the path. Used when `workspace_cwd_for` is empty.
-# Matched under this checkout's worktrees_root, not by basename: two repositories
-# can both have issue-<n>.
-lease_worktree_for() {
-  local number="$1" root
-  root="$(worktrees_root)"
-  [ -n "$root" ] || return 0
-  MMW_LEASE_PY="$LEASE" MMW_SLUG="issue-$number" MMW_TREES="$root" python3 -c '
-import importlib.util, os, sys
-from pathlib import Path
-
-path = os.environ["MMW_LEASE_PY"]
-spec = importlib.util.spec_from_file_location("mmw_lease", path)
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
-want = os.environ["MMW_SLUG"]
-root = Path(os.environ["MMW_TREES"]).resolve()
-for rec in mod.claimed():
-    tree = Path(rec.get("worktree") or "")
-    if tree.name != want:
-        continue
-    try:
-        resolved = tree.resolve()
-    except OSError:
-        resolved = tree
-    if resolved == root / want or root in resolved.parents:
-        print(rec["worktree"])
-        break
-' 2>/dev/null
-}
-
-# ------------------------------------------------------------------ slots
-#
-# Several runs share one machine. `lease.py` hands each worktree a block of ports and a
-# directory nothing else uses. Nothing here takes a slot: a worker writes code without
-# one, and the first run of its criteria that needs the product acquires it; with every
-# slot of the machine held, that run reports its ticket blocked. What this script does
-# is give slots back — at landing, at a retraction, at a suspension — after taking the
-# product down, since a slot is free only once nothing listens on its ports.
-
 # Give a ticket's claim back, when this pipeline's own account holds it. Returns 0
 # given back, 1 nothing to give back (no login, or someone else holds it), 2 the
 # write failed. A ticket a person took for themselves is left exactly as it is.
@@ -1226,45 +1059,6 @@ raise SystemExit(0 if login in [a.get("login") for a in rows if isinstance(a, di
 ' || return 1
   gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 || return 2
   return 0
-}
-
-# Take a worktree's product down and give its slot back: `lease.py release --stop`, which
-# runs the `stop` that worktree's `.mmw/target.json` declares, from inside it, and then
-# releases the slot. The stop lives in the worktree and names that worktree's own compose
-# project, so this runs before the worktree is archived; a stack left up holds its slot
-# with nothing left to reach it. `lease.py` answers in its exit code, never its wording:
-# 0 released, 3 no slot was held there, anything else kept — something still listens on
-# the slot, or `.mmw/target.json` cannot be read, so the stop is unknown. Returns 0, 3, or
-# 1 for kept, with `lease.py`'s reason on stderr.
-give_slot_back() {
-  local err rc
-  err="$(python3 "$LEASE" release "$1" --stop 2>&1 >/dev/null)"
-  rc=$?
-  case "$rc" in
-    0) [ -z "$err" ] || printf '%s\n' "$err" >&2
-       return 0 ;;
-    3) return 3 ;;
-  esac
-  printf 'dispatch: lease not released for %s: %s\n' "$1" "$err" >&2
-  return 1
-}
-
-# Give ticket <n>'s slot back at the moment a released claim ends its work: a slot is
-# held until the ticket's work ends, not until somebody next lands it. Returns 0 given
-# back or none held, 1 still held (said on stderr).
-give_ticket_slot_back() {
-  local number="$1" cwd
-  [ -f "$LEASE" ] \
-    || { echo "dispatch: no lease.py in any --tools directory, so #$number's slot was not given back" >&2; return 1; }
-  cwd="$(workspace_cwd_for "$number")"
-  [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
-  [ -n "$cwd" ] || return 0
-  give_slot_back "$cwd"
-  case "$?" in
-    0 | 3) return 0 ;;
-  esac
-  echo "dispatch: #$number's claim is given back, but its slot is still held: stop its product in $cwd, then python3 $LEASE release $cwd" >&2
-  return 1
 }
 
 # Prints dest<TAB>cwd<TAB>created. `into` is already resolved from events (or the current
@@ -1414,39 +1208,19 @@ stop_returned_ticket_agents() {
   done
 }
 
-# Removing the worktree is where the product's stop command lives — so a worktree
-# whose slot did not come back is kept, not removed. Keeping it is recoverable
-# (stop the product there and run this again); deleting it is not. The sessions the
-# ticket's events name are ended here as well: git worktree remove does not end them.
+# The sessions the ticket's events name are ended here as well: git worktree remove
+# does not end them.
 archive_workspace() {
-  local number="$1" cwd rc root
+  local number="$1" cwd root
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
   cwd="$(workspace_cwd_for "$number")"
-  [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
-  if [ -n "$cwd" ] && [ ! -f "$LEASE" ]; then
-    echo "dispatch: #$number keeps its workspace — no lease.py was found, so its instance data cannot be removed safely" >&2
-    return 1
-  fi
-  if [ -n "$cwd" ]; then
-    give_slot_back "$cwd"
-    rc=$?
-    if [ "$rc" = 1 ]; then
-      echo "dispatch: #$number keeps its workspace — its product is still up, and archiving would delete the worktree its stop command lives in. Stop it in $cwd, then run this again" >&2
-      return 1
-    fi
-  fi
   if ! archive_ticket_agents "$number"; then
     echo "dispatch: #$number keeps its workspace — its events could not be read, so which sessions run in it is unknown. Run this again once the tracker answers" >&2
     return 1
   fi
   [ -n "$cwd" ] || return 0
   [ -n "$root" ] || root="$(dirname "$(dirname "$cwd")")"
-  if remove_worktree "$root" "$cwd"; then
-    python3 "$LEASE" remove-instance "$cwd" >/dev/null \
-      || echo "dispatch: could not remove #$number's instance data after its worktree was removed" >&2
-  else
-    return 1
-  fi
+  remove_worktree "$root" "$cwd"
 }
 
 # ------------------------------------------------------------------ start
@@ -1470,206 +1244,6 @@ start_session() {
     return 1
   fi
   printf '%s\n' "$session" | tail -n 1
-}
-
-# Build the deterministic Memory indexes appended to a worker's first prompt. Native
-# parent links alone choose the task root; a malformed graph yields disclosed Memory indexes
-# with no task scope and no task-scoped list. Both blocks are indexes (id, title, the
-# record's first line) with fixed caps, so the prompt does not grow with the store: the
-# worker opens the records it judges relevant. Related experience comes from several
-# short searches — each path under the ticket's `## Owns`, the ticket title, the spec
-# title and the map title — because Nowledge suppresses every result for a query that
-# names an anchor no record holds, which long task prose always does. A record whose
-# body names one of those paths ranks first; then how many searches returned it; then
-# its best score, which is only comparable within one search. Nowledge failures are
-# data in the Memory indexes rather than a reason to stop otherwise-completable ticket work.
-worker_memory_packet() {
-  local number="$1" spec="$2" repository_space="$3"
-  MMW_MEMORY_TICKET="$number" MMW_MEMORY_SPEC="$spec" \
-  MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
-import json
-import os
-import re
-import subprocess
-import sys
-
-ticket = os.environ["MMW_MEMORY_TICKET"]
-spec_number = os.environ["MMW_MEMORY_SPEC"]
-space = os.environ["MMW_MEMORY_SPACE"]
-CURRENT_CAP = 30
-RELATED_CAP = 15
-PATH_CAP = 8
-PER_SEARCH = 10
-
-
-def call(command):
-    env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
-    try:
-        return subprocess.run(command, text=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, env=env)
-    except OSError:
-        return subprocess.CompletedProcess(command, 127, "",
-                                           f"{command[0]} is unavailable")
-
-
-def reason(proc, fallback):
-    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ") or fallback
-    # A failing CLI can echo its whole request; the prompt carries only the start of it.
-    return text if len(text) <= 300 else text[:300] + "…"
-
-
-def issue(number, fields):
-    proc = call(["gh", "issue", "view", str(number), "--json", fields])
-    if proc.returncode:
-        return None, reason(proc, f"gh issue view {number} failed")
-    try:
-        value = json.loads(proc.stdout)
-    except Exception:
-        return None, f"gh issue view {number} did not return readable JSON"
-    if not isinstance(value, dict):
-        return None, f"gh issue view {number} did not return a JSON object"
-    return value, None
-
-
-def memories(args):
-    proc = call(["nmem", "--json", "memories", *args])
-    if proc.returncode:
-        return None, reason(proc, "nmem failed")
-    try:
-        value = json.loads(proc.stdout)
-    except Exception:
-        return None, "nmem did not return readable JSON"
-    if not isinstance(value, dict) or not isinstance(value.get("memories"), list):
-        return None, "nmem did not return a memories JSON object"
-    return value, None
-
-
-def owned_paths(body):
-    lines = str(body or "").splitlines()
-    start = next((i for i, line in enumerate(lines) if line.strip() == "## Owns"), None)
-    if start is None:
-        return []
-    paths = []
-    for line in lines[start + 1:]:
-        if re.match(r"^#{1,2} ", line):
-            break
-        item = line.strip()
-        if not item.startswith(("-", "*")):
-            continue
-        words = item.lstrip("-* ").replace("`", "").split()
-        path = words[0].split("*", 1)[0].rstrip("/") if words else ""
-        if path and path not in paths:
-            paths.append(path)
-    return paths[:PATH_CAP]
-
-
-def entry(row):
-    content = str(row.get("content") or "")
-    first = next((line.strip() for line in content.splitlines() if line.strip()), "")
-    shown = {"id": row.get("id"), "title": row.get("title"),
-             "applies": first if len(first) <= 200 else first[:200] + "…",
-             "space": row.get("space_id") or space}
-    return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
-
-
-routing_error = None
-task_root = ""
-task_scope = ""
-titles = []
-own, own_error = issue(ticket, "title,body")
-paths = owned_paths((own or {}).get("body"))
-if own:
-    titles.append(own.get("title") or "")
-if not spec_number.isdigit():
-    routing_error = f"ticket #{ticket} has no native spec parent"
-else:
-    spec, routing_error = issue(spec_number, "parent,title")
-    if spec is not None:
-        titles.append(spec.get("title") or "")
-        parent = spec.get("parent")
-        if parent is None:
-            task_root = f"standalone spec #{spec_number}"
-            task_scope = f"mmw-spec-{spec_number}"
-        elif not isinstance(parent, dict) or not str(parent.get("number") or "").isdigit():
-            routing_error = f"spec #{spec_number} has an unreadable native parent"
-        else:
-            map_number = str(parent["number"])
-            root, root_error = issue(map_number, "labels,title")
-            if root_error:
-                routing_error = f"could not read native parent #{map_number} of spec #{spec_number}: {root_error}"
-            else:
-                labels = [row.get("name") for row in root.get("labels") or [] if isinstance(row, dict)]
-                if "mmw:map" not in labels:
-                    routing_error = f"native parent #{map_number} of spec #{spec_number} has no mmw:map label"
-                else:
-                    task_root = f"map #{map_number}"
-                    task_scope = f"mmw-map-{map_number}"
-                    titles.append(root.get("title") or "")
-
-shown_ids = set()
-if routing_error:
-    sys.stderr.write(f"dispatch: worker Memory routing unavailable: {routing_error}; task-scoped retrieval and writes are disabled\n")
-    current = task_root = task_scope = f"unavailable: {routing_error}"
-else:
-    listed, list_error = memories(["list", "--space", space, "--label", task_scope,
-                                   "--limit", str(CURRENT_CAP)])
-    if list_error:
-        current = f"unavailable: {list_error}"
-    else:
-        rows = [row for row in listed["memories"] if isinstance(row, dict)]
-        shown_ids = {row.get("id") for row in rows}
-        total = listed.get("total", len(rows))
-        prefix = [f"truncated: {len(rows)}/{total}"] if isinstance(total, int) and total > len(rows) else []
-        current = "\n".join(prefix + [entry(row) for row in rows]) or "none"
-
-queries = [query for query in [*paths, *titles] if query.strip()]
-candidates = {}
-failures = []
-for query in queries:
-    found, search_error = memories(["search", "--space", space, "--label", "mmw-experience",
-                                    "--limit", str(PER_SEARCH), "--", query])
-    if search_error:
-        failures.append(search_error)
-        continue
-    for row in found["memories"]:
-        if not isinstance(row, dict) or not row.get("id") or row["id"] in shown_ids:
-            continue
-        seen = candidates.setdefault(row["id"], {"row": row, "hits": 0, "best": 0.0})
-        seen["hits"] += 1
-        score = row.get("score")
-        if isinstance(score, (int, float)):
-            seen["best"] = max(seen["best"], float(score))
-ranked = sorted(candidates.values(), reverse=True, key=lambda seen: (
-    any(path in str(seen["row"].get("content") or "") for path in paths),
-    seen["hits"], seen["best"]))[:RELATED_CAP]
-if not queries:
-    related = f"unavailable: {own_error or routing_error or 'the ticket names no path and no title'}"
-elif len(failures) == len(queries):
-    related = f"unavailable: {failures[0]}"
-else:
-    notes = []
-    if own_error:
-        notes.append(f"partial: ticket #{ticket} was unreadable, so its paths and title were not searched ({own_error})")
-    if failures:
-        notes.append(f"partial: {len(failures)} of {len(queries)} searches failed ({failures[0]})")
-    related = "\n".join(notes + [entry(seen["row"]) for seen in ranked]) or "none"
-
-prompt = f"""Shared experience for ticket #{ticket}.
-
-MMW repository Space: {space}
-MMW task root: {task_root}
-MMW task scope: {task_scope}
-
-Current task shared experience:
-{current}
-
-Related experience:
-{related}
-
-These are indexes, not the records; the implement skill's `## Shared experience while implementing` says how to use them."""
-print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
-                 ensure_ascii=False))
-PY
 }
 
 start_one() {
@@ -1725,7 +1299,7 @@ start_one() {
   local fallback into
   fallback="$(current_branch .)" || fallback=""
   case "$fallback" in issue-[0-9]* | "") fallback="" ;; esac
-  into="$(resolve_into "$number" "$spec" "$fallback")" || exit 2
+  into="$(start_into "$number" "$spec" "$fallback")" || exit 2
 
   # The checkout the night runs in, whichever worktree this runs from: a worker starts its
   # reviewer from its own worktree, and `.worktrees/` cut under that one
@@ -1861,37 +1435,18 @@ start_one() {
 
 # ------------------------------------------------------------------ briefs
 
-# `brief <role> <file>...`: one session of <role> per brief file, all in the current
-# worktree, all answering this session; together they are one batch (briefs.py). The
-# roles are the `brief` rows of roles.json. Each session's prompt is the role's lead (the
-# whole of a file the row names, or `Use the <skill> skill.`), then the brief, then the
-# lines that say how to report. This session must run in a runner whose adapter can name
-# it: the relay opens a watch on the batch with it as the orchestrator, and wakes it once,
-# `brief <batch> done`, when every brief has reported or been found lost. Prints one line
-# per brief, `<batch>/<n><TAB><session>`. A start the runner refuses is refused once, and
-# every session already started for the batch is stopped and the batch removed.
-brief_lead() {
-  MMW_ROLES="$ROLES_JSON" MMW_ROLE="$1" python3 -c '
-import json, os, sys
-roles = json.load(open(os.environ["MMW_ROLES"], encoding="utf-8"))["roles"]
-mine = [r for r in roles if r.get("command") == "brief"]
-role = next((r for r in mine if r["name"] == os.environ["MMW_ROLE"]), None)
-if role is None:
-    print(", ".join(r["name"] for r in mine))
-    sys.exit(3)
-lead = role.get("lead") or {}
-if lead.get("file"):
-    print("file\t" + lead["file"])
-elif lead.get("skill"):
-    print("skill\t" + lead["skill"])
-else:
-    print("none\t")
-'
-}
-
+# `send <role> <file>...` for a role that takes a brief: one session of <role> per brief
+# file, all in the current worktree, all answering this session; together they are one
+# batch (briefs.py). Each brief is copied into the batch with the lines that say how to
+# report under it, and the session's whole prompt is one line naming its role and that
+# copy. This session must run in a runner whose adapter can name it: the relay opens a
+# watch on the batch with it as the orchestrator, and wakes it once, `brief <batch> done`,
+# when every brief has reported or been found lost. Prints one line per brief,
+# `<batch>/<n><TAB><session>`. A start the runner refuses is refused once, and every
+# session already started for the batch is stopped and the batch removed.
 brief_footer() {
   printf '%s\n' "---" \
-    "This brief is $1. The session that briefed you waits for your answer and sees nothing else of yours. When you are done, write your whole answer to one file and run:" \
+    "This brief is $1. The session that sent you waits for your answer and sees nothing else of yours. When you are done, write your whole answer to one file and run:" \
     "" \
     "bash $SELF report $1 <file>" \
     "" \
@@ -1927,42 +1482,22 @@ brief_many() {
   [ "$#" -ge 1 ] || usage
   local file
   for file in "$@"; do
-    [ -f "$file" ] || refuse "no brief file at $file; write the brief to a file, then brief again"
-    [ -s "$file" ] || refuse "the brief file $file is empty, and the $role sees the brief and nothing else; write it, then brief again"
+    [ -f "$file" ] || refuse "no brief file at $file; write the brief to a file, then send again"
+    [ -s "$file" ] || refuse "the brief file $file is empty, and the $role sees the brief and nothing else; write it, then send again"
   done
-
-  local answer kind where lead=""
-  answer="$(brief_lead "$role")"
-  case "$?" in
-    0) ;;
-    3) refuse "$role is not a role brief starts; the roles are: $answer (roles.json)" ;;
-    *) refuse "could not read the roles at $ROLES_JSON" ;;
-  esac
-  IFS=$'\t' read -r kind where <<<"$answer"
-  case "$kind" in
-    file)
-      where="$SKILLS_ROOT/$where"
-      [ -s "$where" ] \
-        || refuse "no $role's text at $where, so the $role would start without knowing its job; nothing was started. Restore that file, then brief again"
-      lead="$(cat -- "$where")" \
-        || refuse "could not read the $role's text at $where; make it readable, then brief again"
-      lead="$lead"$'\n\n'
-      ;;
-    skill) lead="Use the $where skill."$'\n\n' ;;
-  esac
 
   use_runner "$(tonight_runner)"
   use_catalog_of "$RUNNER_NAME"
 
   local row host model effort
   row="$(row_for_role "$role")" || exit 2
-  [ -n "$row" ] || refuse "missing $role row in $MODELS_JSON; add it with models.py config set $role <host> <model> <level>, then brief again"
+  [ -n "$row" ] || refuse "missing $role row in $MODELS_JSON; add it with models.py config set $role <host> <model> <level>, then send again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
   local cwd repo line parent_runner parent_session batch
   cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$cwd" ] \
-    || refuse "not inside a git repository, so there is no worktree to start the $role in; run brief from a worktree"
+    || refuse "not inside a git repository, so there is no worktree to start the $role in; run send from a worktree"
   repo="$(repo_slug)" || exit 2
   line="$(own_session)" \
     || refuse "nothing could wake this session with the results, so no $role was started"
@@ -1973,17 +1508,18 @@ brief_many() {
   open_relay --briefs "$batch" >/dev/null \
     || { python3 "$BRIEFS" forget --repo "$repo" --batch "$batch"; exit 2; }
 
-  local n=0 body prompt session started=()
+  local n=0 copy prompt session started=()
   for file in "$@"; do
     n=$((n + 1))
-    body="$(cat -- "$file")" \
-      || { close_batch "$batch"; refuse "could not read the brief file $file; batch $batch was closed and the sessions it had started were stopped"; }
-    prompt="$lead$body"$'\n\n'"$(brief_footer "$batch/$n")"
+    copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
+            --footer "$(brief_footer "$batch/$n")")" \
+      || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
+    prompt="Dispatched: $role, brief $copy"
     # Herdr's session id is basename(cwd) plus the title's last word, so the last word
     # carries the batch and the brief.
     if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n")"; then
       close_batch "$batch"
-      refuse "$RUNNER_NAME did not start $host as $role for brief $n of $# (its reason is above); nothing was retried, batch $batch was closed and the sessions it had started were stopped. Fix what it names, or change this agent's row in $MODELS_JSON, then brief again"
+      refuse "$RUNNER_NAME did not start $host as $role for brief $n of $# (its reason is above); nothing was retried, batch $batch was closed and the sessions it had started were stopped. Fix what it names, or change this agent's row in $MODELS_JSON, then send again"
     fi
     if ! python3 "$BRIEFS" started --repo "$repo" --brief "$batch/$n" --runner "$RUNNER_NAME" \
          --session "$session" --host "$host" --model "$model" --effort "${effort:-—}"; then
@@ -2019,18 +1555,52 @@ brief_command() {
         watch) open_relay --briefs "$2" >/dev/null || exit 2 ;;
       esac
       ;;
-    "") usage ;;
-    *) brief_many "$@" ;;
+    *) usage ;;
+  esac
+}
+
+# The roles `send` takes a brief file for: the rows of roles.json sent with a brief.
+brief_roles() {
+  MMW_ROLES="$ROLES_JSON" python3 -c '
+import json, os
+roles = json.load(open(os.environ["MMW_ROLES"], encoding="utf-8"))["roles"]
+print(" ".join(r["name"] for r in roles if r.get("sent_with") == "brief"))
+'
+}
+
+# `send <role> <ticket|brief file...>`: the one command a step uses to send a session.
+#   send worker <n>     open the watch on ticket <n> for this session, then start its worker
+#   send reviewer <n>   start ticket <n>'s reviewer; the watch is left as it is, so the
+#                       reviewer's result wakes the worker that sent it, never re-owned
+#   send <role> <file>  one session per brief file, for a role sent with a brief
+# A night's workers are started by `advance`, on the night's own watch.
+send_one() {
+  local role="${1:-}" roles
+  [ "$#" -ge 2 ] || usage
+  shift
+  case "$role" in
+    worker | reviewer)
+      [ "$#" -eq 1 ] || usage
+      case "$1" in *[!0-9]* | "") refuse "ticket number must be digits only, got $1" ;; esac
+      [ "$role" = reviewer ] || open_ticket "$1"
+      start_one "$1" "$role"
+      ;;
+    *)
+      roles="$(brief_roles)" || refuse "could not read the roles at $ROLES_JSON"
+      case " $roles " in
+        *" $role "*) brief_many "$role" "$@" ;;
+        *) refuse "$role is not a role send starts; the roles are worker, reviewer and $roles (roles.json)" ;;
+      esac
+      ;;
   esac
 }
 
 # ------------------------------------------------------------------ retract
 
-# Undo what start left behind when its session is gone: archive the workspace,
-# give the slot back, give the claim back if this pipeline still holds it. The
-# branch stays, so the next start reuses it. A live agent on the ticket is a
-# running worker, not a failed start — refuse. `slot given back` is 1 only when
-# lease.py actually released; a missing `lease.py` is a refusal, not a silent keep.
+# Undo what start left behind when its session is gone: archive the workspace and
+# give the claim back if this pipeline still holds it. The branch stays, so the next
+# start reuses it. A live agent on the ticket is a running worker, not a failed start —
+# refuse.
 retract_one() {
   local number="$1"
 
@@ -2059,9 +1629,8 @@ retract_one() {
     esac
   fi
 
-  local cwd archived=0 slot=0 claim=0 rc
+  local cwd archived=0 claim=0
   cwd="$(workspace_cwd_for "$number")"
-  [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
   # Archiving removes the worktree with --force, and its uncommitted edits with it. They
   # are the ticket's unfinished work, so they are saved on its branch first, and the
   # next start picks them up with the branch.
@@ -2071,14 +1640,7 @@ retract_one() {
     keep_unfinished_work "$number" "$cwd" "$left_by" \
       || refuse "the uncommitted work in $cwd was not saved (the reason is above), and archiving would delete it; commit or set it aside on issue-$number, then retract again. Nothing was retracted"
     push_ticket_branch "$number" "$cwd" \
-      || refuse "issue-$number was not pushed, so its worktree, slot and claim were kept; reconcile it with origin/issue-$number and retract again"
-  fi
-  if [ -n "$cwd" ]; then
-    [ -f "$LEASE" ] \
-      || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the ui-acceptance skill's scripts directory>, then retract again"
-    if give_slot_back "$cwd"; then
-      slot=1
-    fi
+      || refuse "issue-$number was not pushed, so its worktree and claim were kept; reconcile it with origin/issue-$number and retract again"
   fi
   if [ -n "$cwd" ] && [ -d "$cwd" ]; then
     archive_workspace "$number" && archived=1
@@ -2095,14 +1657,13 @@ retract_one() {
   local -a named=()
   [ -z "$ident" ] || named=(--field "session=$ident" --field "runner=$RUNNER_NAME")
   post_event "$number" worker.retracted --ticket "$number" --spec "$(ticket_spec "$number")" \
-      --line "Retracted the start on #$number: archived $archived, slot given back $slot, claim given back $claim" \
+      --line "Retracted the start on #$number: archived $archived, claim given back $claim" \
       ${named[@]+"${named[@]}"} \
       --json-field "archived=$([ "$archived" = 1 ] && echo true || echo false)" \
-      --json-field "slot_given_back=$([ "$slot" = 1 ] && echo true || echo false)" \
       --json-field "claim_given_back=$([ "$claim" = 1 ] && echo true || echo false)" \
     || echo "dispatch: could not write the worker.retracted event on #$number, so its events still show the start as live and advance will not start it again; run retract again" >&2
 
-  echo "retract #$number: archived $archived, slot given back $slot, claim given back $claim" >&2
+  echo "retract #$number: archived $archived, claim given back $claim" >&2
 }
 
 # ------------------------------------------------------------------ resume
@@ -2430,7 +1991,7 @@ integrated_since_start() {
     3) refuse "#$number's events carry no worker.started.base, so there is no starting point to read history from" ;;
     *) exit 2 ;;
   esac
-  into="$(ticket_into "$number" "$(ticket_spec "$number")")" || exit 2
+  into="$(ticket_into "$number")" || refuse "#$number has no worker.started with a base branch"
   fetch_origin "$root" || exit 2
   require_origin_branch "$root" "$into" || exit 2
   integrated_ticket_numbers "$root" "$base..origin/$into"
@@ -2456,7 +2017,7 @@ integrate_conflict_report() {
     git -C "$root" diff --name-only --diff-filter=U | sed 's/^/    /'
     echo
     echo "  Resolve this merge as Work a ticket's step Integrate and run every criterion says, run the"
-    echo "  repository checks affected by the merged tickets, commit the merge,"
+    echo "  tests that cover the conflicted files, commit the merge,"
     echo "  then run dispatch.sh integrate $number again."
   } >&2
 }
@@ -2474,7 +2035,8 @@ integrate_ticket() {
   [ -z "$(git -C "$root" status --porcelain --untracked-files=no)" ] \
     || refuse "issue-$number has uncommitted tracked changes; commit them before integrating the base branch"
 
-  into="$(resolve_into "$number" "$(ticket_spec "$number")" "")" || exit 2
+  into="$(ticket_into "$number")" \
+    || refuse "#$number has no worker.started with a base branch; start it first"
 
   fetch_origin "$root" || exit 2
   require_origin_branch "$root" "$into" || exit 2
@@ -2688,36 +2250,6 @@ ticket_passed_commit() {
   esac
 }
 
-ticket_into() {
-  local number="$1" spec="$2" into rc
-  into="$(newest_field "$number" into ticket.passed)"; rc=$?
-  case "$rc" in
-    0) printf '%s\n' "$into"; return 0 ;;
-    2) echo "dispatch: could not read #$number's events, so its base branch is unknown" >&2; return 2 ;;
-    3 | 4) ;;
-    *) return 2 ;;
-  esac
-  into="$(newest_worker_field "$number" into)"; rc=$?
-  case "$rc" in
-    0) printf '%s\n' "$into"; return 0 ;;
-    2) return 2 ;;
-    3) ;;
-    *) return 2 ;;
-  esac
-  if [ -n "$spec" ]; then
-    into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)"; rc=$?
-    case "$rc" in
-      0) printf '%s\n' "$into"; return 0 ;;
-      2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
-      3) ;;
-      4) echo "dispatch: the open night on #$spec carries no spec.opened.into" >&2; return 2 ;;
-      *) return 2 ;;
-    esac
-  fi
-  echo "dispatch: #$number carries no base branch in ticket.passed, worker.started, or its open night" >&2
-  return 2
-}
-
 # Prints the ticket whose landing put origin/<into>'s tip there, when that tip is the merge
 # commit `land` checked and recorded in the ticket's ticket.landed; non-zero otherwise,
 # and when the tip is anything else: a commit pushed to the base branch by hand is a tree
@@ -2737,18 +2269,19 @@ landed_tip_ticket() {
 
 MERGE_CHECKS_JSON=""
 run_merge_checks() {
-  local root="$1" into="$2"
-  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" <<'PY'
+  local root="$1" into="$2" worktree="${3:-}" ticket="${4:-}"
+  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" "$worktree" "$ticket" <<'PY'
 import importlib.util, json, sys
 from pathlib import Path
 
-script, root, into = sys.argv[1:]
+script, root, into, worktree, ticket = sys.argv[1:6]
 sys.path.insert(0, str(Path(script).resolve().parent))
 spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
-print(json.dumps(mod.run_target_json_checks(Path(root), into), separators=(",", ":")))
+print(json.dumps(mod.run_target_json_checks(
+    Path(root), into, worktree or None, ticket or None), separators=(",", ":")))
 PY
 )" || return 2
   [ "$MERGE_CHECKS_JSON" != null ] || return 3
@@ -2780,9 +2313,9 @@ bounce_goes_to_triage() {
 
 bounce_ticket() {
   local root="$1" number="$2" spec="$3" into="$4" base="$5" reason="$6" detail="$7"
-  local started siblings="" text failed_text retry=0 rc
+  local started siblings="" text retry=0 rc
   local add_label=needs-triage remove_label=ready-for-agent outcome="labelled needs-triage"
-  local fields=()
+  local fields=() prose_dir="" summary="" rest="" commands_json=""
   bounce_goes_to_triage "$number" "$spec"; rc=$?
   case "$rc" in
     0) ;;
@@ -2810,14 +2343,39 @@ bounce_ticket() {
     text="$text Conflicted files: $(MMW_LIST="$detail" python3 -c 'import json, os; print(", ".join(json.loads(os.environ["MMW_LIST"])))')."
     fields=(--json-field "files=$detail")
   else
-    failed_text="$(MMW_COMMANDS="$detail" python3 -c '
-import json, os
+    prose_dir="$(mktemp -d)"
+    if ! MMW_COMMANDS="$detail" MMW_PREFIX_LEN="${#text}" python3 - "$VERIFY" "$prose_dir" <<'PY'
+import importlib.util, json, os, sys
+from pathlib import Path
+
+script, dest = sys.argv[1:]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
 rows = json.loads(os.environ["MMW_COMMANDS"])
-print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).rstrip()
-                 for row in rows))
-')"
-    text="$text Failed checks: $failed_text."
-    fields=(--json-field "commands=$detail")
+prefix = int(os.environ.get("MMW_PREFIX_LEN") or "0")
+prose = mod.checks_bounce_prose(rows, prefix)
+out = Path(dest)
+out.joinpath("summary").write_text(prose["summary"], encoding="utf-8")
+out.joinpath("rest").write_text(prose["rest"], encoding="utf-8")
+out.joinpath("commands").write_text(
+    json.dumps(prose["commands"], ensure_ascii=False, separators=(",", ":")),
+    encoding="utf-8")
+PY
+    then
+      rm -rf "$prose_dir"
+      echo "dispatch: could not build the checks report for #$number" >&2
+      return 2
+    fi
+    summary="$(cat "$prose_dir/summary")"
+    rest="$(cat "$prose_dir/rest")"
+    commands_json="$(cat "$prose_dir/commands")"
+    rm -rf "$prose_dir"
+    prose_dir=""
+    text="$text Failed checks: $summary."
+    fields=(--json-field "commands=$commands_json")
   fi
 
   gh_ issue reopen "$number" >/dev/null 2>&1 \
@@ -2825,11 +2383,15 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
   gh_ issue edit "$number" --remove-label "$remove_label" --add-label "$add_label" \
       --remove-assignee @me >/dev/null 2>&1 \
     || { echo "dispatch: #$number is open, but could not be $outcome and unassigned" >&2; return 2; }
-  give_ticket_slot_back "$number" || true
-  post_event "$number" ticket.bounced --ticket "$number" --spec "$spec" \
-      --line "$text" --field "reason=$reason" --field "commit=$base" \
-      --field "into=$into" "${fields[@]}" \
-    || { echo "dispatch: #$number was relabelled after its landing failure, but its ticket.bounced event was not written" >&2; return 2; }
+  if ! post_event "$number" ticket.bounced --ticket "$number" --spec "$spec" \
+      --line "$text" \
+      --text-file <(printf '%s\n' "$rest") \
+      --field "reason=$reason" --field "commit=$base" \
+      --field "into=$into" \
+      "${fields[@]}"; then
+    echo "dispatch: #$number was relabelled after its landing failure, but its ticket.bounced event was not written" >&2
+    return 2
+  fi
   stop_live_ticket_agents "$number" \
     || echo "dispatch: #$number was bounced, but its sessions could not be read and stopped" >&2
 }
@@ -2996,7 +2558,7 @@ land_one_via_origin() {
 
     # The merge result is the tree that lands, so the repository's checks run on it, once
     # per ticket, whatever ran on the ticket's branch.
-    run_merge_checks "$merge_root" "$into"; rc=$?
+    run_merge_checks "$merge_root" "$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
     if [ "$rc" -eq 3 ]; then
       echo "dispatch: 没有检查：.mmw/target.json 没声明 checks" >&2
     elif [ "$rc" -eq 1 ]; then
@@ -3097,7 +2659,7 @@ advance() {
       echo "dispatch: #${number}'s ticket.passed event carries no usable commit, so it is not landed" >&2
       failed=$((failed + 1)); continue
     fi
-    if ! into="$(ticket_into "$number" "$spec")"; then
+    if ! into="$(passed_into "$number")"; then
       echo "dispatch: #${number}'s events carry no usable base branch, so it is not landed" >&2
       failed=$((failed + 1)); continue
     fi
@@ -3133,7 +2695,6 @@ advance() {
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       released=$((released + 1))
       echo "released the claim on #$number: it is open in the agent queue and an event on it ended its worker's hold, so the worker that claimed it is gone" >&2
-      give_ticket_slot_back "$number" || true
       post_event "$number" ticket.released --ticket "$number" --spec "$spec" \
           --line "Gave the claim on #$number back: an event on it ended its worker's hold" \
           --field reason=worker-lost \
@@ -3150,9 +2711,7 @@ advance() {
     || refuse "could not read the batch under #$spec again after its merges, so nothing was started"
 
   # Every ticket on the frontier is started: how many work at once is the frontier's
-  # answer alone. A product slot is taken at the first run of each worker's criteria
-  # that needs the product, not here — writing code takes no slot, so a worker is never
-  # kept from its code by a port.
+  # answer alone.
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     case " $bounced_this_advance " in *" $number "*) continue ;; esac
@@ -3199,16 +2758,15 @@ advance() {
 #
 # Landing is what closing a ticket does not do: merge the passed commit and record
 # `ticket.landed` on it, end every session its events name through that session's
-# runner, remove the worktree with git, give the slot back, and give the claim back
+# runner, remove the worktree with git, and give the claim back
 # (`ticket.released`, reason `landed`). `advance` does it for a
 # batch after a merge; this does it for one ticket, and asks for a ticket number
 # rather than a spec — which is the whole point. A ticket dispatched outside a
 # night belongs to no spec, so before this there was no command it could be
-# landed with, and its agents, its worktree and its slot stayed until somebody
+# landed with, and its agents and its worktree stayed until somebody
 # noticed.
 #
-# Order is fixed: the worktree directory is where the product's stop command
-# lives, so a passed commit not yet in origin has to be merged first or the work has to
+# Order is fixed: a passed commit not yet in origin has to be merged first or the work has to
 # be rebuilt from the ticket branch to get it back. Agents are archived in the same
 # step as the worktree, after that merge.
 land_tickets() {
@@ -3230,7 +2788,7 @@ land_tickets() {
     passed="$(ticket_passed_commit "$number")" \
       || { echo "land: #$number has no usable ticket.passed commit" >&2; failed=$((failed + 1)); continue; }
     spec="$(ticket_spec "$number")"
-    into="$(ticket_into "$number" "$spec")" \
+    into="$(passed_into "$number")" \
       || { echo "land: #$number has no base branch in its events" >&2; failed=$((failed + 1)); continue; }
     land_one_via_origin "$root" "$number" "$spec" "$into" "$passed" land
     rc=$?
@@ -3250,7 +2808,6 @@ land_tickets() {
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
-      give_ticket_slot_back "$number" || true
       post_event "$number" ticket.released --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Gave the claim on #$number back: its work is over" --field reason=landed \
         || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
@@ -3263,7 +2820,7 @@ land_tickets() {
   # work that origin/<into> does not contain.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "ARCHIVE" { print $2 }'); do
     case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
-    archive_into="$(ticket_into "$number" "$(ticket_spec "$number")")" \
+    archive_into="$(ticket_into "$number")" \
       || { echo "land: #$number has no base branch in its events; not archiving it" >&2; failed=$((failed + 1)); continue; }
     fetch_origin "$root" \
       || { echo "land: could not fetch origin before deciding whether to archive #$number" >&2; failed=$((failed + 1)); continue; }
@@ -3329,23 +2886,20 @@ suspend_text() {
 
 # Suspend the night without throwing its work away.
 #
-# Five things happen: every session still holding a ticket of the batch — worker or
+# Four things happen: every session still holding a ticket of the batch — worker or
 # reviewer — that is not already stopped is ended through its own runner's
 # `stop`, which interrupts a running agent (workspace and branch stay); every ticket
 # still in the agent queue gets a `spec.suspended` event,
 # and so does the spec; every OPEN ready-for-agent ticket assigned to this pipeline's
 # account has that claim given back, with a `ticket.released` event (reason
-# `suspended`); and every lease slot the batch holds is given back. A batch dispatched
+# `suspended`). A batch dispatched
 # again from scratch would throw the night's work away along with the night; `advance`
 # after this takes the same workspaces up where they stand.
 #
 # A ticket one of whose sessions could not be stopped gets none of that: `spec.suspended`
 # would close that session on the ticket's events while it still runs, and the next
-# `advance` would start a second worker beside it. It keeps its claim and its slot, and
-# is counted as left behind.
-#
-# `lease.py` refuses a slot something still listens on, and that refusal is reported
-# rather than forced: taking a slot off a live process is the same act as ending it.
+# `advance` would start a second worker beside it. It keeps its claim, and is counted as
+# left behind.
 suspend_night() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
@@ -3391,7 +2945,7 @@ suspend_night() {
     done <<<"$sessions"
   done
 
-  # A stopped session commits and pushes its ticket branch before its event hold, claim or slot is
+  # A stopped session commits and pushes its ticket branch before its event hold or claim is
   # released. If commit or push fails, that ticket stays held exactly as a session that
   # could not be stopped does; the rest of the night can still be suspended.
   local cwd left_by
@@ -3405,7 +2959,7 @@ suspend_night() {
     [ -n "$left_by" ] || left_by="the suspended work on #$number"
     if ! keep_unfinished_work "$number" "$cwd" "$left_by" \
         || ! push_ticket_branch "$number" "$cwd"; then
-      echo "dispatch: #$number could not commit and push its ticket branch, so its workspace, claim, slot and event hold are kept" >&2
+      echo "dispatch: #$number could not commit and push its ticket branch, so its workspace, claim and event hold are kept" >&2
       kept="$kept $number"
       push_failed="$push_failed $number"
       left=$((left + 1))
@@ -3453,39 +3007,6 @@ suspend_night() {
     esac
   done
 
-  local back=0 rc
-  if [ -f "$LEASE" ]; then
-    [ -n "$(worktrees_root)" ] \
-      || echo "dispatch: no workspace of this checkout is standing, so a lease can be matched to a ticket only through a standing workspace; python3 $LEASE list shows what is still held, and claim re-acquires a lease whose directory is gone" >&2
-    for number in $batch; do
-      # A worker still running will start the product again, and the `stop` in between
-      # tears up the record of what it started — leaving processes that stop can no
-      # longer reach. So a ticket whose worker survived the archive keeps its slot: it
-      # is already counted as left behind, and this only says why.
-      case " $kept " in
-        *" $number "*)
-          case " $push_failed " in
-            *" $number "*) echo "dispatch: #$number keeps its slot because its ticket branch could not be committed and pushed; reconcile issue-$number with origin/issue-$number, then suspend again" >&2 ;;
-            *) echo "dispatch: #$number keeps its slot while a session may still run; stopping a product under a live session leaves processes its own stop cannot reach. End that agent, then suspend again" >&2 ;;
-          esac
-          continue
-          ;;
-      esac
-      cwd="$(workspace_cwd_for "$number")"
-      [ -n "$cwd" ] || cwd="$(lease_worktree_for "$number")"
-      [ -n "$cwd" ] || continue
-      give_slot_back "$cwd"
-      rc=$?
-      case "$rc" in
-        0) back=$((back + 1)) ;;
-        1) left=$((left + 1)) ;;
-      esac
-    done
-  else
-    echo "dispatch: no lease.py in any --tools directory, so this night's slots were not given back and the next night will read this machine as fuller than it is; pass --tools <the ui-acceptance skill's scripts directory>" >&2
-    left=$((left + 1))
-  fi
-
   # A suspended night wakes nobody: its watch closes with it.
   stop_relay --spec "$spec"
   case "$?" in
@@ -3493,7 +3014,7 @@ suspend_night() {
     3) echo "dispatch: the relay running for this repository does not watch #$spec, so it was left running" >&2 ;;
   esac
 
-  echo "suspend #$spec: stopped $stopped, commented $commented, slots given back $back, claims given back $claims"
+  echo "suspend #$spec: stopped $stopped, commented $commented, claims given back $claims"
   [ "$left" -eq 0 ] || exit 1
 }
 
@@ -3544,22 +3065,14 @@ reverify_spec() {
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
   [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
 
-  local caller_root root git_dir commit plan number rc printed ids login into first
+  local caller_root root commit plan number rc printed ids login into
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$caller_root" ] || refuse "not inside a git repository"
-  git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
-  case "$git_dir" in /*) ;; *) git_dir="$caller_root/$git_dir" ;; esac
 
   plan="$(python3 "$STATUS" --reverify-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
-  first="$(printf '%s\n' "$plan" | awk '$1 == "REVERIFY" || $1 == "RECOVER" { print $2; exit }')"
-  into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" || into=""
-  if [ -z "$into" ] && [ -n "$first" ]; then
-    into="$(ticket_into "$first" "$spec")" \
-      || refuse "#${first}'s events carry no base branch for reverify"
-  fi
-  [ -n "$into" ] \
-    || refuse "#${spec} carries no active spec.opened.into, so the base branch for reverify is unknown"
+  into="$(night_into "$spec")" \
+    || refuse "the night on #${spec} is not open, so the base branch for reverify is unknown"
   prepare_merge_worktree "$caller_root" "$into" || exit 2
   root="$MERGE_ROOT"
   commit="$(git -C "$root" rev-parse HEAD)"
@@ -3572,14 +3085,10 @@ reverify_spec() {
                    | awk '$1 == "REVERIFY" || $1 == "RECOVER" { print $1 ":" $2 }'); do
     verb="${entry%%:*}"
     number="${entry#*:}"
-    # `--tools` is forwarded because the oracles of a criterion are named bare and are
-    # found only in the directories it names. Without it every UI criterion of
-    # every ticket fails `command not found`, and the branch below would reopen and hand
-    # back a whole night of finished work for a fault in this command line.
     # The run writes its own `ticket.checked` (run `reverify`, actor `main`), which is the
     # whole record of a green one.
     printed="$(cd "$root" && env MMW_BASE_REF="origin/$into" \
-      python3 "$VERIFY" "$number" --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
+      python3 "$VERIFY" "$number" --reverify --actor main 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
     # Red is exit 1 and a reverify ticket.checked of this HEAD that is not met; every
@@ -3635,7 +3144,6 @@ print((rows[0].get("login") or "") if rows else "")
     fi
   done
 
-  printf '%s %s %s\n' "$green" "$red" "$commit" > "$git_dir/mmw-reverify-$spec"
   release_merge_lock
   local also=""
   [ "$recovered" -eq 0 ] || also=", $recovered recovered"
@@ -3643,395 +3151,24 @@ print((rows[0].get("login") or "") if rows else "")
   [ "$red" -eq 0 ] || exit 1
 }
 
-# Print a `--memory-decisions` file skeleton for the closing pass's Memory lifecycle step: the same
-# Space id `close_spec_memories` computes, the spec's full `mmw-spec-<spec>` record set,
-# and one empty decision per record with `total`/`returned` already filled in — or a
-# ready-made `unchecked` object when the list could not be read or was truncated, so a
-# orchestrator never has to infer an empty set from a bad answer. The orchestrator fills in
-# `decision`, `reason` and `evidence` (and `replacement_id` for `supersede`) per entry;
-# `close_spec_memories` still enforces every rule this stops short of, at `summary` time.
-memory_list_spec() {
-  local spec="$1" slug space
-  slug="$(repo_slug)" || return 2
-  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
-
-  MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" python3 - <<'PY'
-import json
-import os
-import subprocess
-
-spec = os.environ["MMW_MEMORY_SPEC"]
-space = os.environ["MMW_MEMORY_SPACE"]
-label = f"mmw-spec-{spec}"
-
-
-def nmem(*args):
-    command = ["nmem", "--json", *args]
-    try:
-        return subprocess.run(command, text=True, capture_output=True, check=False)
-    except OSError as exc:
-        return subprocess.CompletedProcess(command, 127, "", str(exc))
-
-
-def object_output(completed):
-    try:
-        value = json.loads(completed.stdout)
-    except (TypeError, json.JSONDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def command_detail(completed):
-    return (completed.stderr or completed.stdout or f"exit {completed.returncode}").strip().replace("\n", "; ")
-
-
-listed_call = nmem("memories", "list", "--space", space, "--label", label, "--limit", "1000")
-listed = object_output(listed_call) if listed_call.returncode == 0 else None
-list_available = listed is not None
-if list_available:
-    rows = listed.get("memories")
-    total = listed.get("total")
-    returned = listed.get("returned")
-    list_available = (
-        isinstance(rows, list)
-        and isinstance(total, int) and not isinstance(total, bool) and total >= 0
-        and isinstance(returned, int) and not isinstance(returned, bool) and returned >= 0
-        and returned == len(rows)
-    )
-else:
-    rows, total, returned = [], None, None
-
-if not list_available:
-    manifest = {
-        "status": "unchecked",
-        "reason": f"nmem memories list returned an unreadable result ({command_detail(listed_call)})",
-        "total": None, "returned": None, "decisions": [],
-    }
-elif total > returned:
-    manifest = {
-        "status": "unchecked",
-        "reason": f"the fresh Memory list is truncated ({returned}/{total})",
-        "total": total, "returned": returned, "decisions": [],
-    }
-else:
-    ids = [row.get("id") for row in rows if isinstance(row, dict) and row.get("id")]
-    manifest = {
-        "status": "complete",
-        "total": total,
-        "returned": returned,
-        "decisions": [{"memory_id": ident, "decision": "", "reason": "", "evidence": ""}
-                      for ident in ids],
-    }
-
-print(json.dumps(manifest, ensure_ascii=False, indent=2))
-PY
-}
-
-close_spec_memories() {
-  local spec="$1" decisions_file="$2" slug space result
-  slug="$(repo_slug)" || return 2
-  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
-
-  result="$(MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" \
-      MMW_MEMORY_DECISIONS="$decisions_file" python3 - <<'PY'
-import json
-import os
-import re
-import subprocess
-import sys
-
-spec = os.environ["MMW_MEMORY_SPEC"]
-space = os.environ["MMW_MEMORY_SPACE"]
-manifest_path = os.environ.get("MMW_MEMORY_DECISIONS") or ""
-label = f"mmw-spec-{spec}"
-
-
-def fail(fact):
-    why = f"Memory closing for #{spec} cannot safely close because its exact decision set and lifecycle result are not established"
-    action = f"correct the named condition in {manifest_path or 'the --memory-decisions file'}, then run dispatch.sh summary {spec} --memory-decisions {manifest_path or '<file>'} again"
-    print(f"dispatch: {fact}; {why}; {action}", file=sys.stderr)
-    raise SystemExit(2)
-
-
-def nmem(*args):
-    command = ["nmem", "--json", *args]
-    try:
-        return subprocess.run(command, text=True, capture_output=True, check=False)
-    except OSError as exc:
-        return subprocess.CompletedProcess(command, 127, "", str(exc))
-
-
-def object_output(completed):
-    try:
-        value = json.loads(completed.stdout)
-    except (TypeError, json.JSONDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def command_detail(completed):
-    return (completed.stderr or completed.stdout or f"exit {completed.returncode}").strip().replace("\n", "; ")
-
-
-def shown_memory(ident):
-    shown = nmem("memories", "show", ident, "--space", space)
-    if shown.returncode != 0:
-        detail = command_detail(shown)
-        confirmed_missing = "404" in detail and "not found" in detail.lower()
-        if confirmed_missing:
-            return None
-        fail(f"nmem memories show {ident} failed without confirming absence ({detail})")
-    value = object_output(shown)
-    if value is None:
-        fail(f"nmem memories show {ident} returned no JSON object ({command_detail(shown)})")
-    if value.get("id") != ident:
-        fail(f"nmem memories show {ident} returned id {value.get('id')!r}")
-    return value
-
-
-def exact_active(ident):
-    shown = shown_memory(ident)
-    if shown is None:
-        fail(f"nmem memories show confirmed that Memory {ident} does not exist")
-    query = shown.get("title") or shown.get("content")
-    if not isinstance(query, str) or not query.strip():
-        fail(f"Memory {ident} has no title or content for ordinary recall")
-    found = nmem("memories", "search", query, "--space", space,
-                 "--label", label, "--limit", "1000")
-    value = object_output(found)
-    if found.returncode != 0 or value is None or not isinstance(value.get("memories"), list):
-        fail(f"ordinary recall for Memory {ident} returned an unreadable result ({command_detail(found)})")
-    return any(isinstance(row, dict) and row.get("id") == ident for row in value["memories"])
-
-
-def evolves_to(ident, replacement):
-    found = nmem("memories", "link", "list", ident, "--space", space,
-                 "--type", "EVOLVES", "--status", "active", "--limit", "50")
-    value = object_output(found)
-    if found.returncode != 0 or value is None:
-        fail(f"the EVOLVES lookup for Memory {ident} returned an unreadable result ({command_detail(found)})")
-    relations = value.get("relations", value.get("links", value.get("items", [])))
-    if not isinstance(relations, list):
-        fail(f"the EVOLVES lookup for Memory {ident} returned {type(relations).__name__}, not a relation array")
-    target_keys = ("target_memory_id", "replacement_memory_id", "newer_memory_id", "to_memory_id")
-    return any(isinstance(row, dict) and any(row.get(key) == replacement for key in target_keys)
-               for row in relations)
-
-
-listed_call = nmem("memories", "list", "--space", space, "--label", label, "--limit", "1000")
-listed = object_output(listed_call) if listed_call.returncode == 0 else None
-list_available = listed is not None
-if list_available:
-    rows = listed.get("memories")
-    total = listed.get("total")
-    returned = listed.get("returned")
-    list_available = (
-        isinstance(rows, list)
-        and isinstance(total, int) and not isinstance(total, bool) and total >= 0
-        and isinstance(returned, int) and not isinstance(returned, bool) and returned >= 0
-        and returned == len(rows)
-    )
-else:
-    rows, total, returned = [], None, None
-
-if manifest_path:
-    try:
-        with open(manifest_path, encoding="utf-8") as handle:
-            manifest = json.load(handle)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        fail(f"Memory closing decisions at {manifest_path} are not a readable UTF-8 JSON object: {exc}")
-    if not isinstance(manifest, dict):
-        fail(f"Memory closing decisions at {manifest_path} are not a JSON object")
-else:
-    fail(f"Memory closing for #{spec} requires --memory-decisions <file>")
-
-status = manifest.get("status")
-if status == "unchecked":
-    required = {"status", "reason", "total", "returned", "decisions"}
-    if set(manifest) != required:
-        fail(f"the unchecked Memory closing fields are {sorted(manifest)}, not status, reason, total, returned, and decisions")
-    if not isinstance(manifest.get("reason"), str) or not manifest["reason"].strip():
-        fail(f"the unchecked Memory closing reason is {manifest.get('reason')!r}, not a non-empty string")
-    if manifest.get("decisions") != []:
-        fail(f"the unchecked Memory closing decisions value is {manifest.get('decisions')!r}, not an empty array")
-    if list_available and total > returned:
-        if manifest.get("total") != total or manifest.get("returned") != returned:
-            fail(f"the unchecked Memory totals must match the fresh truncated list ({returned}/{total})")
-    elif not list_available:
-        if manifest.get("total") is not None or manifest.get("returned") is not None:
-            fail(f"the fresh Memory list is unavailable but the unchecked totals are {manifest.get('returned')!r}/{manifest.get('total')!r}, not null/null")
-    else:
-        fail(f"the fresh Memory list is complete ({returned}/{total}), so status unchecked is not allowed")
-    line = f"Memory closing: unchecked ({' '.join(manifest['reason'].split())})"
-    print(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
-    print(line)
-    raise SystemExit(0)
-
-if status != "complete":
-    fail(f"Memory closing status is {status!r}, not complete or unchecked")
-if not list_available:
-    fail("the fresh Memory list is unavailable or unreadable; record status unchecked with null totals")
-if total != returned:
-    fail(f"the fresh Memory list is truncated ({returned}/{total}); record status unchecked with those totals")
-if set(manifest) != {"status", "total", "returned", "decisions"}:
-    fail(f"the complete Memory closing fields are {sorted(manifest)}, not status, total, returned, and decisions")
-decisions = manifest.get("decisions")
-if not isinstance(decisions, list):
-    fail(f"complete Memory closing decisions is {type(decisions).__name__}, not an array")
-
-listed_ids = []
-for index, row in enumerate(rows):
-    ident = row.get("id") if isinstance(row, dict) else None
-    if not isinstance(ident, str) or not ident:
-        fail(f"fresh Memory list row {index} has no non-empty id")
-    listed_ids.append(ident)
-if len(set(listed_ids)) != len(listed_ids):
-    fail(f"the fresh Memory list contains duplicate ids: {listed_ids}")
-
-allowed = {"retain", "propose", "deprecate", "supersede"}
-PROPOSE_EVIDENCE = re.compile(
-    r"https://github\.com/[^/\s]+/[^/\s]+/(issues/\d+#issuecomment-\d+|commit/[0-9a-f]{40})")
-seen = []
-for item in decisions:
-    if not isinstance(item, dict):
-        fail(f"Memory closing decision {len(seen)} is {type(item).__name__}, not an object")
-    decision = item.get("decision")
-    required = {"memory_id", "decision", "reason", "evidence"}
-    if decision == "supersede":
-        required.add("replacement_id")
-    if set(item) != required:
-        fail(f"Memory decision {item.get('memory_id', '<missing>')} has fields {sorted(item)}, not {sorted(required)} for {decision or '<missing>'}")
-    for field in ("memory_id", "decision", "reason", "evidence"):
-        if not isinstance(item.get(field), str) or not item[field].strip():
-            fail(f"Memory decision {item.get('memory_id', '<missing>')} requires a non-empty {field}")
-    if decision not in allowed:
-        fail(f"Memory {item['memory_id']} has unknown decision {decision}")
-    # retro counts a proposed Memory only when this string equals one event or commit
-    # source of the problem, so anything else would silently never qualify.
-    if decision == "propose" and not PROPOSE_EVIDENCE.fullmatch(item["evidence"]):
-        fail(f"Memory {item['memory_id']} is propose with evidence {item['evidence']!r}, not one event comment URL or commit URL")
-    if decision == "supersede" and (
-        not isinstance(item.get("replacement_id"), str) or not item["replacement_id"].strip()
-    ):
-        fail(f"Memory {item['memory_id']} requires a non-empty replacement_id")
-    seen.append(item["memory_id"])
-
-if len(set(seen)) != len(seen):
-    fail(f"Memory closing decisions contain duplicate memory_id values: {seen}")
-if manifest.get("total") != manifest.get("returned") or manifest.get("total") != len(decisions):
-    fail(f"complete Memory closing totals are {manifest.get('returned')!r}/{manifest.get('total')!r} for {len(decisions)} decisions")
-omitted = sorted(set(listed_ids) - set(seen))
-missing_now = sorted(set(seen) - set(listed_ids))
-if omitted:
-    fail(f"current Memory ids are omitted from the decisions: {', '.join(omitted)}")
-by_id = {item["memory_id"]: item for item in decisions}
-
-# All replacement targets are checked before the first lifecycle mutation.
-for item in decisions:
-    if item["decision"] != "supersede":
-        continue
-    if shown_memory(item["replacement_id"]) is None:
-        fail(f"replacement Memory {item['replacement_id']} for {item['memory_id']} does not exist")
-
-# Read every mutable record lifecycle state before the first lifecycle mutation. A service read
-# failure therefore cannot arrive after an earlier decision was already applied.
-active = {}
-replaced = {}
-for item in decisions:
-    ident = item["memory_id"]
-    if item["decision"] == "deprecate":
-        active[ident] = exact_active(ident)
-    elif item["decision"] == "supersede":
-        replaced[ident] = evolves_to(ident, item["replacement_id"])
-        active[ident] = False if replaced[ident] else exact_active(ident)
-
-for ident in missing_now:
-    item = by_id[ident]
-    if item["decision"] == "deprecate" and not active[ident]:
-        continue
-    if item["decision"] == "supersede" and replaced[ident]:
-        continue
-    fail(f"Memory {ident} is absent from the fresh list without already being in its requested lifecycle state")
-
-
-completed = []
-for item in decisions:
-    ident = item["memory_id"]
-    decision = item["decision"]
-    if decision in ("retain", "propose"):
-        continue
-    if decision == "deprecate":
-        if not active[ident]:
-            continue
-        changed = nmem("memories", "deprecate", ident, "--reason", item["reason"], "--space", space)
-    else:
-        replacement = item["replacement_id"]
-        if replaced[ident]:
-            continue
-        if not active[ident]:
-            fail(f"Memory closing failed after completed Memory ids: {', '.join(completed) or 'None'}; failed Memory id: {ident} (inactive without the requested replacement)")
-        changed = nmem("memories", "supersede", ident, replacement,
-                       "--reason", item["reason"], "--space", space)
-    if changed.returncode != 0:
-        detail = (changed.stderr or changed.stdout or "lifecycle command failed").strip()
-        fail(f"Memory closing failed after completed Memory ids: {', '.join(completed) or 'None'}; failed Memory id: {ident} ({detail})")
-    completed.append(ident)
-
-counts = {name: 0 for name in ("retain", "propose", "deprecate", "supersede")}
-lines = [f"Memory closing: complete ({manifest['total']})"]
-for item in decisions:
-    counts[item["decision"]] += 1
-lines.append("Memory closing counts: " + ", ".join(f"{name} {counts[name]}" for name in counts))
-for item in decisions:
-    one = lambda value: " ".join(value.split())
-    line = f"Memory: {item['memory_id']} -> {item['decision']}; reason: {one(item['reason'])}; evidence: {one(item['evidence'])}"
-    if item["decision"] == "supersede":
-        line += f"; replacement: {item['replacement_id']}"
-    lines.append(line)
-proposed = [item["memory_id"] for item in decisions if item["decision"] == "propose"]
-lines.append("Proposed Memory ids: " + (", ".join(proposed) if proposed else "None"))
-print(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
-print("\n".join(lines))
-PY
-)" || return 2
-  printf '%s\n' "$result"
-}
-
 summary_spec() {
-  local spec="$1" decisions_file="$2"
+  local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
 
-  local body extra git_dir memory_result memory_manifest memory_summary
-  local caller_root into expected marker green red checked extra_field
-  python3 "$STATUS" --closeout-ready "$spec" \
-    || refuse "#${spec} is not ready for summary; resolve every condition named above, then run summary again"
-
+  local body caller_root into expected green
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$caller_root" ] || refuse "not inside a git repository"
-  into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" \
-    || refuse "#${spec} carries no active spec.opened.into, so summary cannot verify the base branch"
+  into="$(night_into "$spec")" \
+    || refuse "the night on #${spec} is not open, so summary cannot tell which base branch was reverified"
   fetch_origin "$caller_root" \
     || refuse "origin could not be refreshed, so summary cannot prove the base branch is still the one reverified"
   expected="$(git -C "$caller_root" rev-parse "origin/$into" 2>/dev/null)" \
     || refuse "origin/$into does not resolve to a commit"
-  git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
-  case "$git_dir" in /*) ;; *) git_dir="$caller_root/$git_dir" ;; esac
-  marker="$git_dir/mmw-reverify-$spec"
-  [ -f "$marker" ] \
-    || refuse "#${spec} has no completed reverify; run reverify $spec, then summary again"
-  read -r green red checked extra_field < "$marker"
-  case "$green $red $checked $extra_field" in
-    *[!0-9a-f\ ]* | "" | *"  "*)
-      refuse "#${spec}'s reverify receipt is unreadable; run reverify $spec again" ;;
-  esac
-  case "$green" in "" | *[!0-9]*) refuse "#${spec}'s reverify receipt has no green count; run reverify $spec again" ;; esac
-  case "$red" in "" | *[!0-9]*) refuse "#${spec}'s reverify receipt has no red count; run reverify $spec again" ;; esac
-  case "$checked" in [0-9a-f][0-9a-f][0-9a-f]*) ;; *) refuse "#${spec}'s reverify receipt has no checked commit; run reverify $spec again" ;; esac
-  [ -z "$extra_field" ] || refuse "#${spec}'s reverify receipt has unexpected fields; run reverify $spec again"
-  [ "$red" -eq 0 ] \
-    || refuse "#${spec}'s latest reverify recorded $red red ticket(s); resolve them and run reverify again"
-  [ "$checked" = "$expected" ] \
-    || refuse "origin/$into advanced from reverified commit $checked to $expected; run reverify $spec again"
+  # Every landed ticket's newest reverify has to be of this very commit, and green unless
+  # it reopened the ticket in triage: a fix pushed after the reverify is named and nothing
+  # is posted.
+  green="$(python3 "$STATUS" --closeout-ready "$spec" --at "$expected")" \
+    || refuse "#${spec} is not ready for summary; resolve every condition named above (a ticket with no reverify run of origin/$into: run reverify $spec again), then run summary again"
 
   body="$(python3 "$STATUS" --summary "$spec")" \
     || refuse "could not build the summary of #$spec"
@@ -4057,22 +3194,13 @@ summary_spec() {
        esac ;;
   esac
 
-  memory_result="$(close_spec_memories "$spec" "$decisions_file")" || exit $?
-  memory_manifest="$(printf '%s\n' "$memory_result" | head -n 1)"
-  memory_summary="$(printf '%s\n' "$memory_result" | tail -n +2)"
-  body="$(printf '%s\n%s\n' "$body" "$memory_summary")"
-
-  extra="$(printf 'Reverify: %s/%s\n' "$green" "$red")"
-  if [ -n "$extra" ]; then
-    body="$(printf '%s\n%s\n' "$body" "$extra")"
-  fi
+  body="$(printf '%s\nReverify: %s green on %s\n' "$body" "$green" "$expected")"
   local first rest
   first="$(printf '%s\n' "$body" | head -n 1)"
   rest="$(printf '%s\n' "$body" | tail -n +2)"
   post_event "$spec" spec.closed --spec "$spec" --line "$first" \
       --text-file <(printf '%s\n' "$rest") \
       --field "date=$(date +%Y-%m-%d)" \
-      --json-field "memory_closing=$memory_manifest" \
     || refuse "could not post the night summary on #$spec"
   printf '%s\n' "$body"
 
@@ -4103,19 +3231,9 @@ spec_children() {
 }
 
 finish_preflight() {
-  local spec="$1" into="$2" specs children other active seen child state open="" rc retro
+  local spec="$1" into="$2" specs children other active seen child state open="" rc
   newest_field "$spec" at spec.closed spec.opened >/dev/null 2>&1 \
     || { echo "dispatch: #$spec carries no spec.closed; run summary before finish" >&2; return 2; }
-  retro="$(newest_field "$spec" result spec.retroed spec.closed)"; rc=$?
-  case "$rc" in
-    0) ;;
-    2) echo "dispatch: could not read #$spec while checking its spec.retroed event" >&2; return 2 ;;
-    3) echo "dispatch: #$spec carries no spec.retroed after its latest spec.closed; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2 ;;
-    4) echo "dispatch: #$spec's latest spec.retroed carries no result; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2 ;;
-    *) echo "dispatch: could not verify #$spec's spec.retroed event" >&2; return 2 ;;
-  esac
-  [ "$retro" = recorded ] \
-    || { echo "dispatch: #$spec's latest spec.retroed result is $retro, not recorded; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2; }
 
   specs="$(spec_numbers)" || {
     echo "dispatch: could not list specs while checking whether $into is still in use" >&2
@@ -4538,7 +3656,6 @@ tool() {
   return 1
 }
 SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
-LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/ui-acceptance/scripts/lease.py")"
 VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
 EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
 [ -f "$EVENTS" ] \
@@ -4552,10 +3669,6 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
-  board)
-    [ "$#" -eq 1 ] || usage
-    open_board
-    ;;
   check)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
@@ -4611,6 +3724,10 @@ case "${1:-}" in
     shift
     brief_command "$@"
     ;;
+  send)
+    shift
+    send_one "$@"
+    ;;
   report)
     [ "$#" -eq 3 ] || usage
     report_brief "$2" "$3"
@@ -4644,21 +3761,13 @@ case "${1:-}" in
     python3 "$STATUS" --findings "$2"
     exit $?
     ;;
-  memory-list)
-    [ "$#" -eq 2 ] || usage
-    case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
-    memory_list_spec "$2"
-    ;;
   reverify)
     [ "$#" -eq 2 ] || usage
     reverify_spec "$2"
     ;;
   summary)
-    if [ "$#" -eq 4 ] && [ "$3" = "--memory-decisions" ]; then
-      summary_spec "$2" "$4"
-    else
-      usage
-    fi
+    [ "$#" -eq 2 ] || usage
+    summary_spec "$2"
     ;;
   finish)
     [ "$#" -eq 2 ] || usage

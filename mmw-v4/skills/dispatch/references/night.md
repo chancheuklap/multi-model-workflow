@@ -2,7 +2,7 @@
 
 You are the orchestrator. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create worktrees, and start the sessions. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
 
-The night is read in the morning by the user, cold, from `NIGHT SUMMARY`, `NIGHT RETRO` and the tracker, with none of this session's context. So each decision you make leaves its reason where that reader will look: on the child, the ticket or the spec, in a comment that stands on its own. A reason that lives only in this session is lost when it ends.
+The night is read in the morning by the user, cold, from `NIGHT SUMMARY` and the tracker, with none of this session's context. So each decision you make leaves its reason where that reader will look: on the child, the ticket or the spec, in a comment that stands on its own. A reason that lives only in this session is lost when it ends.
 
 The night's output is a batch the user can accept in the morning, not a count of closed tickets. A ticket handed back with its reason on it is a good result; a criterion loosened, or a worker resumed again and again with `continue`, to make one close is a defect that lands under a green mark.
 
@@ -16,10 +16,9 @@ Find where you are by the first row whose fact holds:
 | --- | --- |
 | The user has said the night starts, and the spec carries no `spec.opened` | [1. The user says the night starts](#1-the-user-says-the-night-starts), then 1b and 2 |
 | The spec's newest night event is `spec.suspended`, or you are deciding to stop the night because the fault is in the pipeline | [Suspending the night](#suspending-the-night) |
-| A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` alerts, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
+| A wake arrived: `#<n> <event>`, `brief <batch> done`, a line of `watchdog:` alerts, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
 | `bash scripts/dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
-| The spec carries `spec.closed` and no later `spec.retroed` whose result is `recorded` | [5. The night is over](#5-the-night-is-over), from the paragraph that invokes the `retro` skill |
-| The spec carries `spec.closed` and a later `spec.retroed` whose result is `recorded`, and the user has accepted the result | [6. Merge the accepted night](#6-merge-the-accepted-night) |
+| The spec carries `spec.closed`, and the user has accepted the result | [6. Merge the accepted night](#6-merge-the-accepted-night) |
 
 ## 1. The user says the night starts
 
@@ -37,9 +36,7 @@ Then, from this session — the one the night's wakes must reach:
 bash scripts/dispatch.sh open <spec>
 ```
 
-**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>; task board <url>`, and this session is the night's orchestrator. **Exit 2:** fix stderr's named condition and run `open` again.
-
-Hand the user the task board URL from that line in your first message of the night. A board that did not start is one stderr line and holds nothing up; `bash scripts/dispatch.sh board` starts it later.
+**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>`, and this session is the night's orchestrator. **Exit 2:** fix stderr's named condition and run `open` again.
 
 ## 1b. Before the batch: what the batch cannot be run on
 
@@ -49,11 +46,7 @@ Run this once, before the first `advance`, on every spec, with the `verify-ticke
 verify-ticket.py <spec> --lint
 ```
 
-Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2: a criterion names an oracle this run cannot reach, and nothing was read.
-
-When the batch drives a screen contract, whether the consuming repository can be driven
-at all is a separate question, answered there by the `ui-acceptance` skill's `target_config.py --check`, which prints
-every `.mmw/target.json` field still to answer and exits 0 once the file is complete.
+Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2: the tracker did not answer, and nothing was read; run the same command again once it answers.
 
 ## 2. First `advance`
 
@@ -81,14 +74,12 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | A live worker should continue | `bash scripts/dispatch.sh resume <n> "<what you settled, then: continue>"`; act on exit 0, 4, 3 or 2 as [Exit codes of `resume`](#exit-codes-of-resume) below says |
 | `child.opened` of kind `fault` | Read the `verify-ticket` skill's `events.py fold <n>`. A `fault` in this repository's environment (a credential, a service, `.mmw/target.json`) you fix, then `bash scripts/dispatch.sh resume <n> "… continue"`. A `fault` in the pipeline's own scripts you do not patch while they run the night: tell the user what failed, and suspend when the rest of the batch would hit it too |
 | `child.opened` of kind `contract` | Read the child and the authority it cites. Apply the authority order below; then either correct the source the child names and every unlanded derived ticket, close the child and resume its worker, or move the affected not-yet-started tickets to `needs-triage` and leave the child open |
-| `child.opened` of kind `contract` naming a Claude Design page | The design package is written only by the `design-pages` skill's `references/pull.md`, so there is nothing to correct in this night. Move the affected not-yet-started tickets to `needs-triage`, comment on the child with the pages it names, the ticket numbers moved, and that it needs a session whose host has the Claude Design MCP tools, and leave it open for the user |
 | `child.opened` of kind `decision` | Nothing; the worker took the default |
 | `ticket.returned` | Leave its workspace for triage; step 4 continues the batch |
 | The `advance` summary has `bounced` | After the second bounce the ticket stays in `needs-triage` |
 | `ticket.refused` | Fix the event's `reason`; step 4 starts it if the frontier permits |
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
-| `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
-| A worker whose session is gone while its worktree, slot or claim still stand (`advance` says "if the worker … is gone, retract it") | `bash scripts/dispatch.sh retract <n>`; a `0` on its summary line is something it could not release, and the line above says why. Step 4 starts the replacement |
+| A worker whose session is gone while its worktree or claim still stand (`advance` says "if the worker … is gone, retract it") | `bash scripts/dispatch.sh retract <n>`; a `0` on its summary line is something it could not release, and the line above says why. Step 4 starts the replacement |
 | `watchdog: #<n> silent since …` | When `events.py fold <n>` lists an open `contract` child, the worker is waiting on you; settle that child first |
 | Any other live worker | Nothing; its result wakes you or its worker |
 | The ticket needs the other worker grade | Give it exactly one of the `junior-worker` / `senior-worker` labels; the next `start` reads it |
@@ -105,7 +96,7 @@ When you run `resume` again after exit 3, word it so a worker that receives both
 
 ## 4. The closing pass
 
-The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, close this spec's Memory records as the end of this pass says ("Once every finding has a route"), then go to step 5.
+The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go to step 5.
 
 List the open findings with `bash scripts/dispatch.sh findings <spec>` and route exactly those. A finding wakes nobody, so the ones you were woken about are no measure of what exists.
 
@@ -148,14 +139,6 @@ verify-ticket.py <n> --lint
 
 Read its exit as in 1b; fix every `ERROR` and lint again.
 
-Once every finding has a route, close this spec's Memory records before leaving the pass. These records are what this spec's workers left for the workers after them: each carries the `mmw-experience` label, so later workers in this repository see it in their start prompt and act on it before reading any code. A record that was true mid-night can be wrong once the batch has landed. Judge each against what landed: keep what still holds, deprecate or supersede what the batch made untrue, and propose to the retro what should change how the pipeline works.
-
-Run `bash scripts/dispatch.sh memory-list <spec>` and save its output to a file: it computes the repository's Space id, pulls the spec's full `mmw-spec-<spec>` record set, and writes a `--memory-decisions` file skeleton with `total` and `returned` already filled in, one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated.
-
-For each id in the file decide exactly one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is; `propose` is a candidate for the later retro and does not change the Memory here; `deprecate` is no longer valid; `supersede` names the existing `replacement_id` that replaces it. A `propose` decision's `evidence` is exactly one event comment URL (`https://github.com/<owner>/<name>/issues/<n>#issuecomment-<id>`) or commit URL (`https://github.com/<owner>/<name>/commit/<40-hex sha>`): the retro counts the proposal only when that string is one of its problem's sources, and `summary` refuses any other value.
-
-Keep the file for step 5. Done when every id in it has a decision, or it is the `unchecked` object `memory-list` wrote.
-
 Then:
 
 ```bash
@@ -170,22 +153,18 @@ Step 4 left no open finding. From any checkout in this repository:
 
 ```bash
 bash scripts/dispatch.sh reverify <spec>
-bash scripts/dispatch.sh summary <spec> --memory-decisions <file>
+bash scripts/dispatch.sh summary <spec>
 ```
 
 `reverify` exit 0: every landed ticket is green. Exit 1: each red ticket is already reopened in `needs-triage`; do not close it. Exit 2: fix stderr's named condition and run `reverify` again.
 
 To recover a reopened ticket, repair the cause on the base branch, push it, and run `reverify <spec>` again; all met, `reverify` closes it itself. Still red, `summary` refuses the night: tell the user which ticket stays red and why, and stop.
 
-When `summary` refuses the `--memory-decisions` file, list the Memory records again, rewrite the file, and run `summary` again; a rerun repeats no completed action.
-
 Tickets left for human acceptance, handed back to triage by their worker, or behind an open blocker are valid outcomes; `summary` does not require every ticket to succeed.
 
 `summary` exit 0: `NIGHT SUMMARY` is posted and the spec watch is closed. Exit 1: posted and closed, and a relay was left running; end the pid stderr names. Exit 2: nothing was posted; fix what stderr names and run `summary` again. A refusal counting findings no route reached sends you back to step 4.
 
-Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same orchestrator session for this spec; `finish` needs its `spec.retroed` event, recorded.
-
-Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the orchestrator will run `finish` to merge it into the project branch.
+Then tell the user the night finished, point them at `NIGHT SUMMARY`, and say that after they accept the result the orchestrator will run `finish` to merge it into the project branch.
 
 ## 6. Merge the accepted night
 
@@ -207,4 +186,4 @@ A suspended night wakes nobody: its watch is closed, and its workspaces, branche
 
 Workspaces and branches stay, with the interrupted tickets' commits present on origin. The same batch is taken up again with `bash scripts/dispatch.sh open <spec>` and then `bash scripts/dispatch.sh advance <spec>` once whatever stopped the night is fixed: `start` fetches origin and reuses or fast-forwards each standing ticket workspace.
 
-Exit 0: the night is stopped. Exit 1: stderr names, one line each, what was left. For a slot a process still listens on (`lease.py` names the port and the pid), stop that process where it was started and run `lease.py release <its worktree>`; tell the user every other line. Exit 2: nothing was touched; fix what stderr names and run `suspend` again. Done when `suspend` exits 0, or exits 1 and you have told the user each line stderr left.
+Exit 0: the night is stopped. Exit 1: stderr names, one line each, what was left; tell the user each line. Exit 2: nothing was touched; fix what stderr names and run `suspend` again. Done when `suspend` exits 0, or exits 1 and you have told the user each line stderr left.

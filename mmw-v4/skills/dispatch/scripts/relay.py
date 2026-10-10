@@ -1223,8 +1223,8 @@ class Relay:
     @staticmethod
     def _since_cycle(beat: dict, now: datetime) -> float | None:
         """Seconds since the relay last finished a cycle, delivery time not counted, or
-        None when the beat carries no cycle stamp — a relay older than that field, whose
-        last good poll is then the only evidence it ran.
+        None when the beat carries no cycle stamp: a relay that has finished no cycle since
+        it started, whose last good poll is then the only evidence it ran.
 
         A cycle whose reads failed counts: the process ran, marked nothing read, and reads
         the same tickets again next cycle. That is what running means, and it is a
@@ -1562,8 +1562,12 @@ def spawn(args, state: Path) -> int:
         fh.write(f"--- {iso(now_utc())} starting a relay for {args.repo}\n")
         fh.flush()
         # A session of its own: the caller's turn, shell or terminal ending does not end it.
+        # Its working directory is the state directory, never the caller's: a worktree it
+        # was started from is removed when its ticket lands, and a process whose working
+        # directory is gone fails every command it runs (2026-10-08: a watchdog sent no
+        # alert for 3.7 hours).
         child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=fh,
-                                 stderr=subprocess.STDOUT, env=quiet_env(),
+                                 stderr=subprocess.STDOUT, env=quiet_env(), cwd=state,
                                  start_new_session=True, close_fds=True)
     deadline = time.monotonic() + START_WAIT
     while time.monotonic() < deadline:

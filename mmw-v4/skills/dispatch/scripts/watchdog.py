@@ -892,8 +892,10 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
     with open(log, "a", encoding="utf-8") as fh:
         fh.write(f"--- {iso(now_utc())} arming the watchdog for {repo} ({why})\n")
         fh.flush()
+        # The state directory as working directory, as relay.py's `spawn` says why.
         child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT,
-                                 env=relay_mod.quiet_env(), start_new_session=True, close_fds=True)
+                                 env=relay_mod.quiet_env(), cwd=state, start_new_session=True,
+                                 close_fds=True)
     deadline = time.monotonic() + wait
     while time.monotonic() < deadline:
         ok, why, _ = read_health(state)

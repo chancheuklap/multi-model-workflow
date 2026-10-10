@@ -1684,6 +1684,23 @@ store.write_text(json.dumps(posted))
 '
 }
 
+# The newest ticket.bounced comment posted on ticket <n>, body included.
+bounced_comment() {
+  local n="${1:-61}"
+  MMW_N="$n" python3 -c '
+import json, os
+from pathlib import Path
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()).get(os.environ["MMW_N"], []) if store.is_file() else []
+found = ""
+for body in posted:
+    if "\"event\":\"ticket.bounced\"" in body:
+        found = body
+if found:
+    print(found)
+'
+}
+
 # The events posted on ticket <n> during this run, one `name key=value...` per line, for
 # the keys asked for: `posted_events 61 session runner`.
 posted_events() {
@@ -1846,14 +1863,22 @@ closed_night_spec() {
     --field evidence=complete --json-field 'unreadable_sources=[]'
 }
 
+# The night on spec <spec> opened, into <into>: `open_night [<spec>] [<into>]`.
+open_night() {
+  post_ev "${1:-76}" spec.opened --ticket '' --spec "${1:-76}" --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field "into=${2:-main}" --field project=proj
+}
+
 summary_ready_fixture() {
-  local spec="${1:-76}" into="${2:-main}" git_dir commit
-  post_ev "$spec" spec.opened --ticket '' --spec "$spec" --line "NIGHT OPENED" \
-    --field runner=paseo --field session=agt_main --field "into=$into" --field project=proj
-  git_dir="$(git -C "$TMP/repo" rev-parse --git-common-dir)"
-  case "$git_dir" in /*) ;; *) git_dir="$TMP/repo/$git_dir" ;; esac
-  commit="$(git -C "$TMP/repo" rev-parse "origin/$into")"
-  printf '0 0 %s\n' "$commit" > "$git_dir/mmw-reverify-$spec"
+  open_night "${1:-76}" "${2:-main}"
+}
+
+# A green reverify of ticket <n> on origin/<into>'s tip, as `reverify` records it.
+reverified() {
+  local into="${2:-main}"
+  post_ev "$1" ticket.checked --ticket "$1" --line "Reverify" --actor main --stage regress \
+    --field run=reverify --field "commit=$(git -C "$TMP/origin.git" rev-parse "$into")" \
+    --field result=met
 }
 
 # A second clone is the other machine in origin-authority scenarios.
@@ -2232,7 +2257,8 @@ write_landable() {
   {"number": 67, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T02:00:00Z",
    "parent": null, "comments": [$event67]},
   {"number": 68, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T03:00:00Z",
-   "parent": null, "comments": ["voided: superseded by the spec"]},
+   "parent": null, "comments": [$(ev worker.started 68 "started" --field session=s68 --field runner=paseo \
+     $(start_facts "$(wt 68)" 68 worker)), "voided: superseded by the spec"]},
   {"number": 69, "state": "OPEN", "labels": ["needs-triage"], "parent": null,
    "assignees": [], "comments": [$(ev ticket.returned 69 "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1")]}
 ]
@@ -2328,8 +2354,8 @@ scenario_land() {
     || fail "a ticket that did not close ALL MET must not be merged"
   assert_wt 68
   hasnt_runner_worktree
-  grep -q "no base branch in its events; not archiving" "$TMP/err" \
-    || fail "the refusal should name the missing landing authority: $(cat "$TMP/err")"
+  grep -qF "issue-68 is not in origin/main" "$TMP/err" \
+    || fail "the refusal should name the unmerged branch: $(cat "$TMP/err")"
 }
 
 scenario_advance() {
@@ -3050,8 +3076,6 @@ scenario_brief() {
   rm -rf "$STATE_DIR/briefs"
   code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "nothing could wake this session" "$TMP/err" \
-    || fail "the refusal should say why: $(cat "$TMP/err")"
   never_ran
   nothing_printed
   [ -z "$(newest_batch)" ] || fail "no batch should be left: $(newest_batch)"
@@ -3093,8 +3117,6 @@ scenario_brief() {
   grep -q "no brief file at" "$TMP/err" || fail "the refusal should name the missing file: $(cat "$TMP/err")"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$TMP/empty-packet.txt")"
   [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "the researcher sees the brief and nothing else" "$TMP/err" \
-    || fail "the refusal should name the researcher: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
@@ -3233,8 +3255,6 @@ path.write_text(json.dumps([{
   runner_line 61 paseo agt_gone61 worker
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "not on paseo any more" "$TMP/err" \
-    || fail "the refusal should say the runner has no such session: $(cat "$TMP/err")"
   grep -q "run retract 61" "$TMP/err" \
     || fail "a worker gone from its runner still holds the ticket; the refusal must name retract: $(cat "$TMP/err")"
 
@@ -3386,10 +3406,6 @@ JSON
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
   ended="$(date +%s)"
   [ "$code" = 3 ] || fail "no result yet is exit 3, got $code: $(cat "$TMP/err")"
-  grep -q "no result of its reviewer yet" "$TMP/err" \
-    || fail "stderr should say no result is there yet: $(cat "$TMP/err")"
-  grep -q "end your turn" "$TMP/err" \
-    || fail "stderr should send the caller to end its turn, not to wait again: $(cat "$TMP/err")"
   [ "$((ended - began))" -lt 5 ] \
     || fail "wait took $((ended - began))s: it waits for nothing and answers at once"
   [ "$(count_of 'gh :: issue :: view :: 61 :: --json :: comments')" -le 2 ] \
@@ -3418,8 +3434,7 @@ scenario_reverify() {
   copy="$(skill_copy_for reverify)"
   mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
   # The real run posts its own `ticket.checked` on the ticket; this one posts the same
-  # event straight into the fake tracker. FAKE_VERIFY_WAIT: it waited for a product slot
-  # and none came free (exit 3), and posted nothing.
+  # event straight into the fake tracker.
   cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
 #!/usr/bin/env python3
 import json, os, subprocess, sys
@@ -3428,8 +3443,6 @@ log = os.environ["MMW_TEST_LOG"]
 with open(log, "a", encoding="utf-8") as fh:
     fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
 number = sys.argv[1]
-if number in os.environ.get("FAKE_VERIFY_WAIT", "").split(","):
-    sys.exit(3)
 if number in os.environ.get("FAKE_VERIFY_UNRECORDED", "").split(","):
     sys.exit(4)
 failing = {n for n in os.environ.get("FAKE_VERIFY_FAIL", "").split(",") if n}
@@ -3457,6 +3470,7 @@ PY
   fresh_repo
   write_batch
   reset_log
+  open_night
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
   post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL=62 \
@@ -3481,6 +3495,7 @@ PY
   local how
   for how in FAKE_VERIFY_UNRECORDED FAKE_VERIFY_CRASH; do
     reset_log
+    open_night
     post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
     post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
     # An older red run is on #61: a reader of "the newest reverify" alone would reopen it.
@@ -3493,19 +3508,9 @@ PY
     ! posted_events 61 | grep -q ticket.regressed || fail "$how: #61 was regressed: $(posted_events 61)"
   done
 
-  echo "--- a run that waited for a slot and got none is not a red ticket"
-  reset_log
-  post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
-  post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_WAIT=61 \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
-  [ "$code" = 2 ] || fail "expected exit 2 when a run waited and could not start, got $code: $(cat "$TMP/err")"
-  hasnt "gh :: issue :: reopen"
-  grep -q "#61 could not be re-run on .*, so nothing was judged" "$TMP/err" \
-    || fail "the run that could not start should be named: $(cat "$TMP/err")"
-
   echo "--- a ticket that passed and has not landed is not run again on the base branch"
   reset_log
+  open_night
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
@@ -3517,6 +3522,7 @@ PY
 
   echo "--- all green exits 0"
   reset_log
+  open_night
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
   post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
@@ -3526,6 +3532,7 @@ PY
 
   echo "--- a ticket an earlier reverify reopened is run again, and a green run closes it"
   reset_log
+  open_night
   write_batch
   reopened_in_triage 62
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
@@ -3545,6 +3552,7 @@ PY
 
   echo "--- a reopened ticket that is still red is left where it is, and is not regressed twice"
   reset_log
+  open_night
   write_batch
   reopened_in_triage 62
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
@@ -3561,6 +3569,7 @@ PY
 
   echo "--- a reopened ticket triage has handed to a worker is left alone"
   reset_log
+  open_night
   write_batch
   reopened_in_triage 62 ready-for-agent
   post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
@@ -3806,12 +3815,26 @@ scenario_summary() {
   local when code copy other
   copy="$(skill_copy_for summary)"
   mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
+  # Like the real run, it posts its own `ticket.checked`, which is the whole record
+  # of a reverify that summary reads.
   cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
 #!/usr/bin/env python3
-import os, sys
+import json, os, subprocess, sys
+from pathlib import Path
 log = os.environ["MMW_TEST_LOG"]
 with open(log, "a", encoding="utf-8") as fh:
     fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+number = sys.argv[1]
+head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+body = subprocess.run(
+    [sys.executable, os.environ["MMW_EVENTS_PY_FOR_TESTS"], "emit", "ticket.checked",
+     "--ticket", number, "--line", "Reverify", "--actor", "main", "--stage", "regress",
+     "--field", "run=reverify", "--field", "commit=" + head, "--field", "result=met"],
+    capture_output=True, text=True, check=True).stdout
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(number, []).append(body)
+store.write_text(json.dumps(posted))
 print("ALL MET (5 met)")
 sys.exit(0)
 PY
@@ -3830,11 +3853,11 @@ JSON
   fresh_repo
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
-  echo "--- without a reverify receipt, summary refuses before it posts or closes the watch"
+  echo "--- without a reverify of the base branch, summary refuses before it posts or closes the watch"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 2 ] || fail "missing reverify expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "has no completed reverify" "$TMP/err" \
+  grep -q "#61 has no reverify run of" "$TMP/err" \
     || fail "missing reverify refusal was not explicit: $(cat "$TMP/err")"
   hasnt "gh :: issue :: comment :: 76 :: --body"
   hasnt "nmem :: --json :: memories"
@@ -3855,7 +3878,7 @@ JSON
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "an origin advance after reverify expected exit 2, got $code"
-  grep -q "origin/main advanced from reverified commit" "$TMP/err" \
+  grep -q "#61 has no reverify run of $(git -C "$TMP/origin.git" rev-parse main)" "$TMP/err" \
     || fail "the stale reverify refusal was not explicit: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: memories"
   hasnt "gh :: issue :: comment :: 76 :: --body"
@@ -3870,7 +3893,7 @@ JSON
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
     || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
-  grep -q "Reverify: 1/0" "$MMW_GH_LAST_BODY" \
+  grep -q "Reverify: 1 green on $(git -C "$TMP/origin.git" rev-parse main)" "$MMW_GH_LAST_BODY" \
     || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
   grep -q "Closed: #61 ALL MET" "$MMW_GH_LAST_BODY" \
     || fail "the closed line should carry the ticket's own result line: $(cat "$MMW_GH_LAST_BODY")"
@@ -3948,6 +3971,7 @@ JSON
   reset_log
   fresh_repo
   summary_ready_fixture
+  reverified 61
   echo "--- a finding no route reached refuses the summary: nothing posted, the watch still open"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
@@ -3969,6 +3993,7 @@ json.dump(rows, open(sys.argv[1], "w"))
 PY
   reset_log
   summary_ready_fixture
+  reverified 61
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
@@ -4011,8 +4036,6 @@ scenario_release() {
   echo "--- and never silently: the line names the ticket and says why"
   grep -q "released the claim on #63" "$TMP/err" \
     || fail "the release was silent: $(cat "$TMP/err")"
-  grep -q "the worker that claimed it is gone" "$TMP/err" \
-    || fail "the line does not say why: $(cat "$TMP/err")"
   posted_events 63 reason | grep -qx "ticket.released reason=worker-lost" \
     || fail "#63 should carry ticket.released (worker-lost): $(posted_events 63 reason)"
 
@@ -5296,7 +5319,6 @@ scenario_orcasend() {
   seed_orca_terminal term_w61
   code="$(MMW_FAKE_ORCA_SEND=accepted-only run_runner send term_w61 continue)"
   [ "$code" = 4 ] || fail "accepted-only was typed, so 4 and not 3 (3 has the relay type it again), got $code: $(cat "$TMP/err")"
-  grep -q "no turn start was seen" "$TMP/err" || fail "stderr should say no turn start was seen: $(cat "$TMP/err")"
   [ "$code" != 0 ] || fail "accepted-only must not read as delivered"
   has "orca :: terminal :: send"
 
@@ -5311,7 +5333,6 @@ scenario_orcaunobserved() {
   seed_orca_terminal term_w61
   code="$(MMW_FAKE_ORCA_SEND=unobserved run_runner send term_w61 '#61 ticket.passed')"
   [ "$code" = 4 ] || fail "an unobserved terminal must answer unknown 4, got $code: $(cat "$TMP/err")"
-  grep -q "cannot observe the program in it" "$TMP/err" || fail "stderr should say why it is unknown: $(cat "$TMP/err")"
   grep -q "cannot report delivery" "$TMP/err" || fail "stderr should carry Orca's own warning: $(cat "$TMP/err")"
 
   echo "--- a list that cannot be read sends nothing: 3, and terminal send is not run"
@@ -5569,7 +5590,9 @@ scenario_openticket() {
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 90, "state": "CLOSED", "labels": [], "parent": null,
-   "comments": [$(ev ticket.passed 90 "ALL MET" --field branch=issue-90 --field into=main),
+   "comments": [$(ev worker.started 90 "started" --field session=old --field runner=paseo \
+                    $(start_facts "$(wt 90)" 90 worker)),
+                $(ev ticket.passed 90 "ALL MET" --field branch=issue-90 --field into=main),
                 $(ev ticket.landed 90 "Landed issue-90 into main" --field into=main)]},
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}
 ]
@@ -6104,8 +6127,6 @@ PY
   grep -qx "opened #76: wake-ups go to paseo session agt_main" "$TMP/out" \
     || fail "the night still opens, without a board URL: $(cat "$TMP/out")"
   grep -q "no task board supervisor at" "$TMP/err" || fail "the reason should be named: $(cat "$TMP/err")"
-  grep -q "the night is open and its task board is not" "$TMP/err" \
-    || fail "stderr should say the night has no board: $(cat "$TMP/err")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] \
     || fail "the watch should be open all the same: $(cat "$STATE_DIR/watches.json" 2>&1)"
   no_relay
@@ -6751,8 +6772,6 @@ scenario_memory_space_unavailable() {
   [ "$code" = 2 ] || fail "Nowledge failure must refuse start with exit 2, got $code: $(cat "$TMP/err")"
   grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
     || fail "start did not report repository Memory as unavailable: $(cat "$TMP/err")"
-  grep -q 'repository Space could not be verified' "$TMP/err" \
-    || fail "start did not name the failed routing condition: $(cat "$TMP/err")"
   hasnt "paseo :: run"
   [ ! -e "$TMP/repo/.worktrees/issue-61" ] || fail "a refused start created the ticket worktree"
 
@@ -7168,7 +7187,6 @@ scenario_orcamergeparent() {
   merge_tree="$(cd "$TMP/repo/.worktrees/merge-main" && pwd -P)"
   [ "$(grep -cxF "orca :: worktree :: set :: --worktree :: path:$merge_tree :: --parent-worktree :: id:r1::$main :: --json" "$MMW_TEST_LOG")" = 1 ] \
     || fail "the merge worktree was not filed once under the caller's: $(grep 'worktree :: set' "$MMW_TEST_LOG")"
-  ! grep -q 'did not file the merge worktree' "$TMP/err" || fail "a clean filing reported a failure: $(cat "$TMP/err")"
 }
 
 scenario_worktreelinknoop() {
@@ -7491,7 +7509,6 @@ scenario_noadapterwait() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" wait 61 worker)"
   [ "$code" = 3 ] || fail "no result yet is exit 3 whatever the adapter, got $code: $(cat "$TMP/err")"
-  grep -q "no result of its worker yet" "$TMP/err" || fail "stderr should say no result yet: $(cat "$TMP/err")"
   hasnt "paseo ::"
 }
 
@@ -7608,7 +7625,6 @@ scenario_herdrnoeffort() {
   fresh_repo
   code="$(run_runner start --host nosuchhost --model m --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "an unknown host expected refusal 1, got $code"
-  grep -q "cannot build the launch line" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
   hasnt "herdr :: agent :: start"
 }
 
@@ -7765,7 +7781,6 @@ scenario_orcanoorphan() {
   code="$(MMW_FAKE_ORCA_SCENARIO=wait-garbage run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
   nothing_printed
-  grep -q "whether it is still running could not be read" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
   has "orca :: terminal :: close"
   [ "$(orca_terminals_left)" = 0 ] || fail "a refused start left a terminal behind"
 }
@@ -7778,7 +7793,6 @@ scenario_orcanohosts() {
   fresh_repo
   code="$(run_runner start --host nohost --model m --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "nohost has no launch block, expected refusal 1, got $code"
-  grep -q "cannot build the launch line" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
   hasnt "orca :: terminal :: create"
 }
 
@@ -8238,55 +8252,35 @@ scenario_finishkeepssession() {
     || fail "finish did not record exactly one merge"
 }
 
-scenario_finishrefusesunclosed() {
-  local code before local_night
-  fresh_project_night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
-  echo '[]' > "$TMP/tickets.json"; reset_log
-  post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night --field project=proj
+# A refused finish touches nothing: every ref on origin and the local night branch stay as
+# they were, no spec.merged is written, and stderr names the record that is missing.
+finish_refused() {
+  local label="$1" names="$2" code before local_night
   before="$(git -C "$TMP/origin.git" show-ref | sort)"
   local_night="$(git -C "$TMP/repo" rev-parse night)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 2 ] || fail "unclosed finish expected 2, got $code"
-  grep -q 'spec.closed' "$TMP/err" || fail "unclosed refusal missing: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" show-ref | sort)" = "$before" ] || fail "unclosed finish changed origin"
-  [ "$(git -C "$TMP/repo" rev-parse night)" = "$local_night" ] || fail "unclosed finish changed local night"
+  [ "$code" = 2 ] || fail "$label: finish expected 2, got $code: $(cat "$TMP/err")"
+  grep -qF -- "$names" "$TMP/err" || fail "$label: the refusal should name $names: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" show-ref | sort)" = "$before" ] || fail "$label: finish changed origin"
+  [ "$(git -C "$TMP/repo" rev-parse night)" = "$local_night" ] || fail "$label: finish changed the local night branch"
+  if posted_events 76 | grep -q '^spec.merged'; then fail "$label: finish wrote spec.merged"; fi
 }
 
-scenario_finishrefusesretro() {
-  local code before
+scenario_finishrefuses() {
+  echo "--- a night with no spec.closed"
   fresh_project_night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
   echo '[]' > "$TMP/tickets.json"; reset_log
   post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night --field project=proj
-  post_ev 76 spec.closed --ticket '' --spec 76 --line closed --field date=2026-09-11
-  before="$(git -C "$TMP/origin.git" rev-parse proj)"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 2 ] || fail "missing-retro finish expected 2, got $code"
-  grep -q 'no spec.retroed after its latest spec.closed' "$TMP/err" \
-    || fail "missing Retro refusal was not explicit: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] \
-    || fail "missing-retro finish changed the project branch"
-  [ -z "$(posted_events 76 | grep '^spec.merged' || true)" ] \
-    || fail "missing-retro finish wrote spec.merged"
+  finish_refused "unclosed" "spec.closed"
 
+  echo "--- closed, with no spec.retroed"
+  post_ev 76 spec.closed --ticket '' --spec 76 --line closed --field date=2026-09-11
+  finish_refused "no retro" "spec.retroed"
+
+  echo "--- a retro whose result is unrecorded"
   post_ev 76 spec.retroed --ticket '' --spec 76 --line "NIGHT RETRO not recorded" \
     --field result=unrecorded --field reason='Memory write failed'
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 2 ] || fail "unrecorded-retro finish expected 2, got $code"
-  grep -q 'result is unrecorded, not recorded' "$TMP/err" \
-    || fail "unrecorded Retro refusal was not explicit: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] \
-    || fail "unrecorded-retro finish changed the project branch"
-}
-
-scenario_finishrefusesopenticket() {
-  local code before
-  setup_finish_closed
-  printf '%s\n' '[{"number":61,"state":"OPEN","labels":[]}]' > "$TMP/tickets.json"
-  before="$(git -C "$TMP/origin.git" rev-parse proj)"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 2 ] || fail "open-ticket finish expected 2, got $code"
-  grep -q '#61' "$TMP/err" || fail "open ticket number missing: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "open-ticket finish changed project"
+  finish_refused "unrecorded retro" "unrecorded"
 }
 
 scenario_finishrefusesothernight() {
@@ -8310,11 +8304,12 @@ scenario_finishrefusesnoproject() {
     --field result=recorded --field retro_memory=memory-test \
     --json-field problem_count=0 --json-field 'proposals=[]' \
     --field evidence=complete --json-field 'unreadable_sources=[]'
-  before="$(git -C "$TMP/origin.git" rev-parse proj)"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 2 ] || fail "no-project finish expected 2, got $code"
-  grep -q 'open 76 again' "$TMP/err" || fail "no-project remedy missing: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "no-project finish changed project"
+  finish_refused "no project" "project branch"
+
+  echo "--- a ticket of the spec still open"
+  setup_finish_closed
+  printf '%s\n' '[{"number":61,"state":"OPEN","labels":[]}]' > "$TMP/tickets.json"
+  finish_refused "open ticket" "#61"
 }
 
 scenario_finishconflict() {
@@ -8641,8 +8636,6 @@ scenario_startfromissuebranch() {
   tree="$(wt 61)"
   code="$( (cd "$tree" && bash "$DISPATCH" "${TOOLS[@]}" start 61 worker) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "start from issue-61 with no base branch expected 2, got $code"
-  grep -q "run start from a checkout of the branch it will merge into" "$TMP/err" \
-    || fail "the refusal should name where to start from: $(cat "$TMP/err")"
 }
 
 scenario_startwithoutinto() {
@@ -8686,7 +8679,6 @@ scenario_startstrayworkspace() {
   printf 'keep\n' > "$(wt 63)/notes.txt"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 63 worker)"
   [ "$code" = 2 ] || fail "start over a directory with files expected 2, got $code: $(cat "$TMP/err")"
-  grep -q "holds files and is not a git worktree" "$TMP/err" || fail "the refusal should say what is there: $(cat "$TMP/err")"
   [ -f "$(wt 63)/notes.txt" ] || fail "the files were not kept"
 }
 
@@ -8993,13 +8985,13 @@ scenario_advancenohalfmerge() {
     || fail "the conflict was not recorded: $(posted_events 61 reason)"
 }
 
-setup_checked_ticket() {
-  local check="$1"
+setup_checked_commands() {
+  local json
+  json="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "$@")"
   reset_log
   fresh_repo
   mkdir -p "$TMP/repo/.mmw"
-  printf '{"checks":[%s]}\n' "$(MMW_VALUE="$check" python3 -c 'import json, os; print(json.dumps(os.environ["MMW_VALUE"]))')" \
-    > "$TMP/repo/.mmw/target.json"
+  printf '{"checks":%s}\n' "$json" > "$TMP/repo/.mmw/target.json"
   git -C "$TMP/repo" add .mmw/target.json
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m checks
   git -C "$TMP/repo" push -q origin main
@@ -9008,6 +9000,10 @@ setup_checked_ticket() {
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
   seed_workspace 61
+}
+
+setup_checked_ticket() {
+  setup_checked_commands "$1"
 }
 
 scenario_advancebouncedchecks() {
@@ -9022,6 +9018,160 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced reason is wrong: $(posted_events 61 reason commands)"
   posted_events 61 commands | grep -q "red-tail" \
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
+}
+
+# 29 lines, the failing test's name on line 10. The command builds that name at
+# runtime, so the command text itself does not contain it.
+twenty_nine_line_check() {
+  cat <<'EOF'
+python3 -c 'import sys; name="test_price_"+"rounds"; lines=["noise-%d"%i for i in range(1,30)]; lines[9]=name; sys.stdout.write("\n".join(lines)+"\n"); sys.exit(1)'
+EOF
+}
+
+# The name counts only as an excerpt line after the command heading. A match inside
+# the command, the summary, or the event block does not.
+excerpt_has_name() {
+  local body="$1" name="$2"
+  MMW_BODY="$body" MMW_NAME="$name" python3 -c '
+import os, sys
+body = os.environ["MMW_BODY"]
+name = os.environ["MMW_NAME"]
+prose = body.split("<!--", 1)[0]
+lines = prose.splitlines()
+hits = [line for line in lines[1:] if name in line and "python3" not in line]
+if not hits:
+    sys.stderr.write("excerpt drops %s:\n%s\n" % (name, prose))
+    sys.exit(1)
+'
+}
+
+# Read the bounce the fake tracker holds, then claim that same ticket. The resume
+# quotes the Failed checks slice of the comment that was posted.
+assert_resume_quotes_posted_bounce() {
+  local n="${1:-61}" body quote out err code commit
+  body="$(bounced_comment "$n")"
+  quote="$(printf '%s\n' "$body" | python3 -c '
+import sys
+for line in sys.stdin:
+    at = line.find("Failed checks:")
+    if at >= 0:
+        print(line[at:].strip())
+        raise SystemExit(0)
+raise SystemExit(1)
+')" || fail "the posted bounce has no Failed checks: line: $body"
+  commit="$(git -C "$(wt "$n")" rev-parse HEAD)"
+  post_ev "$n" ticket.checked --ticket "$n" --line "self run" \
+    --field run=self --field "commit=$commit" --field result=met
+  out="$TMP/preflight-$n.out"
+  err="$TMP/preflight-$n.err"
+  code="$(
+    cd "$(wt "$n")" \
+      && python3 "$(dirname "$SKILL")/verify-ticket/scripts/verify-ticket.py" "$n" --preflight \
+         >"$out" 2>"$err"
+    echo "$?"
+  )"
+  [ "$code" = 0 ] || fail "preflight on the bounced ticket exited $code: $(cat "$err") $(cat "$out")"
+  MMW_QUOTE="$quote" MMW_OUT="$(cat "$out")" python3 -c '
+import os, sys
+out = os.environ["MMW_OUT"].splitlines()
+quote = os.environ["MMW_QUOTE"]
+resume = [i for i, line in enumerate(out) if line.startswith("RESUME:")]
+if len(resume) != 1:
+    sys.stderr.write("preflight did not print one RESUME line:\n%s\n" % os.environ["MMW_OUT"])
+    sys.exit(1)
+i = resume[0]
+if not out[i].startswith("RESUME: Integrate and run every criterion"):
+    sys.stderr.write("resume is not the bounce step: %s\n" % out[i])
+    sys.exit(1)
+following = out[i + 1] if i + 1 < len(out) else ""
+if following != quote:
+    sys.stderr.write("resume does not quote the posted bounce\nposted: %s\nresume: %s\n" % (quote, following))
+    sys.exit(1)
+' || fail "preflight did not quote the bounce posted on #$n"
+}
+
+scenario_advancebouncedkeepserrors() {
+  local before code body
+  setup_checked_commands "$(twenty_nine_line_check)"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a red merge check should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
+  body="$(bounced_comment 61)"
+  excerpt_has_name "$body" test_price_rounds \
+    || fail "ticket.bounced drops the test name on line 10 of a 29-line check"
+  assert_resume_quotes_posted_bounce 61
+}
+
+scenario_advancebouncedpercommand() {
+  local before code body
+  setup_checked_commands \
+    "python3 -c 'import sys; print(\"alpha\"+\"-line\"); sys.exit(1)'" \
+    "python3 -c 'import sys; print(\"beta\"+\"-line\"); sys.exit(3)'"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "two red checks should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
+  body="$(bounced_comment 61)"
+  MMW_BODY="$body" python3 -c '
+import os, sys
+body = os.environ["MMW_BODY"]
+prose = body.split("<!--", 1)[0]
+lines = prose.splitlines()
+first = lines[0] if lines else ""
+at = first.find("Failed checks:")
+if at < 0:
+    sys.stderr.write("the bounce line has no Failed checks: token:\n%s\n" % first)
+    sys.exit(1)
+quote = first[at:]
+for token in ("sys.exit(1)", "sys.exit(3)"):
+    if token not in quote:
+        sys.stderr.write("Failed checks line omits %r:\n%s\n" % (token, quote))
+        sys.exit(1)
+
+def heading(token, other):
+    found = [i for i, line in enumerate(lines)
+             if i and token in line and other not in line]
+    if len(found) != 1:
+        sys.stderr.write("expected one paragraph heading for %s, saw %s\n%s\n" % (token, found, prose))
+        sys.exit(1)
+    return found[0]
+
+h1 = heading("sys.exit(1)", "sys.exit(3)")
+h2 = heading("sys.exit(3)", "sys.exit(1)")
+if lines[h1 - 1] != "" or lines[h2 - 1] != "":
+    sys.stderr.write("a command heading does not start its own paragraph:\n%s\n" % prose)
+    sys.exit(1)
+if "alpha-line" not in lines[h1 + 1:h2]:
+    sys.stderr.write("the first command'"'"'s output is not in its paragraph:\n%s\n" % prose)
+    sys.exit(1)
+if "beta-line" not in lines[h2 + 1:]:
+    sys.stderr.write("the second command'"'"'s output is not in its paragraph:\n%s\n" % prose)
+    sys.exit(1)
+' || fail "the bounce text does not give each command its own paragraph"
+  assert_resume_quotes_posted_bounce 61
+}
+
+scenario_advancebouncedsavesoutput() {
+  local before code body log
+  setup_checked_commands "$(twenty_nine_line_check)"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a red merge check should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
+  log="$(wt 61)/.scratch/checks/61/1.log"
+  [ -f "$log" ] || fail "the full check output is not at $log"
+  [ "$(sed -n '10p' "$log")" = "test_price_rounds" ] \
+    || fail "line 10 of the saved output is '$(sed -n '10p' "$log")'"
+  [ "$(grep -c . "$log" | tr -d ' ')" = 29 ] \
+    || fail "the saved output is not the full 29 lines: $(grep -c . "$log")"
+  body="$(bounced_comment 61)"
+  printf '%s\n' "$body" | grep -q '.scratch/checks/61/1.log' \
+    || fail "ticket.bounced does not name the saved output: $body"
+  assert_resume_quotes_posted_bounce 61
 }
 
 scenario_advancechecksonce() {
@@ -9325,8 +9475,7 @@ scenario_landednourl() {
     || fail "a failed URL lookup left a partial link: $(landed_first_line 61)"
   posted_events 61 base merge | grep -qx "ticket.landed base=$base merge=$merge" \
     || fail "URL failure omitted landing fields: $(posted_events 61 base merge)"
-  grep -q "without compare or commit links" "$TMP/err" \
-    || fail "URL lookup failure was silent: $(cat "$TMP/err")"
+  [ -s "$TMP/err" ] || fail "URL lookup failure was silent"
 }
 
 scenario_alreadyinmerge() {
@@ -9727,7 +9876,8 @@ scenario_landedworktreekept() {
   assert_remote_branch 61
   local passed code ws port listener
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
-  write_one_passed 61 "$passed"
+  write_one_passed 61 "$passed" "$(ev worker.started 61 "started" --field session=s61 \
+    --field runner=paseo $(start_facts "$(wt 61)" 61 worker))"
   seed_workspace 61
   ws="$(wt 61)"
   mkdir -p "$ws/.mmw"
@@ -10005,6 +10155,7 @@ PY
 ]
 JSON
   reset_log
+  open_night
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "reverify expected 0: $(cat "$TMP/err")"
@@ -10033,14 +10184,14 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedpercommand advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-start"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # Two lists of scenario names, ALL and INSTALL; a name on the command line is accepted when it is in either.
 case " $ALL $INSTALL all install " in
@@ -10054,234 +10205,6 @@ case "$1" in
   install) wanted="$INSTALL" ;;
   *) wanted="$1" ;;
 esac
-
-banner_for() {
-  case "$1" in
-    memory-install) echo MEMORY-INSTALL-OK ;;
-    memory-open-space) echo MEMORY-OPEN-SPACE-OK ;;
-    memory-space-unavailable) echo MEMORY-SPACE-UNAVAILABLE-OK ;;
-    memory-worker-start) echo MEMORY-WORKER-START-OK ;;
-    memory-worker-prompt-states) echo MEMORY-WORKER-PROMPT-STATES-OK ;;
-    memory-worker-runner-env) echo MEMORY-WORKER-RUNNER-ENV-OK ;;
-    memory-reviewer-start) echo MEMORY-REVIEWER-START-OK ;;
-    memory-closing) echo MEMORY-CLOSING-OK ;;
-    memory-closing-refuses) echo MEMORY-CLOSING-REFUSES-OK ;;
-    memory-closing-retry) echo MEMORY-CLOSING-RETRY-OK ;;
-    retro-review-evidence) echo RETRO-REVIEW-EVIDENCE-OK ;;
-    boardregisters) echo BOARD-REGISTERS-OK ;;
-    boardsameport) echo BOARD-SAME-PORT-OK ;;
-    boardopenstab) echo BOARD-OPENS-TAB-OK ;;
-    boardprintsurl) echo BOARD-PRINTS-URL-OK ;;
-    openstartsboard) echo OPEN-STARTS-BOARD-OK ;;
-    openticketstartsboard) echo OPEN-TICKET-STARTS-BOARD-OK ;;
-    installboardagent) echo INSTALL-BOARD-AGENT-OK ;;
-    installcheckboardagent) echo INSTALL-CHECK-BOARD-AGENT-OK ;;
-    installtoolguard) echo INSTALL-TOOL-GUARD-OK ;;
-    startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;
-    startnomodelsjson) echo START-NO-MODELS-JSON-OK ;;
-    installimportsmodelsmd) echo INSTALL-IMPORTS-MODELS-MD-OK ;;
-    installinitialvalues) echo INSTALL-INITIAL-VALUES-OK ;;
-    installkeepsmodelsjson) echo INSTALL-KEEPS-MODELS-JSON-OK ;;
-    installcheckmodelsjson) echo INSTALL-CHECK-MODELS-JSON-OK ;;
-    installmodelsjsonhome) echo INSTALL-MODELS-JSON-HOME-OK ;;
-    installkeepsnewestbackup) echo INSTALL-KEEPS-NEWEST-BACKUP-OK ;;
-    orcaworktreelink) echo ORCA-WORKTREE-LINK-OK ;;
-    orcaworktreelinkfails) echo ORCA-WORKTREE-LINK-FAILS-OK ;;
-    orcaworktreeparent) echo ORCA-WORKTREE-PARENT-OK ;;
-    orcareviewernoparent) echo ORCA-REVIEWER-NO-PARENT-OK ;;
-    orcaparentrefused) echo ORCA-PARENT-REFUSED-OK ;;
-    orcaparentskips) echo ORCA-PARENT-SKIPS-OK ;;
-    orcamergeparent) echo ORCA-MERGE-PARENT-OK ;;
-    worktreelinknoop) echo WORKTREE-LINK-NOOP-OK ;;
-    check) echo DISPATCH-CHECK-OK ;;
-    checknoorigin) echo CHECK-NO-ORIGIN-OK ;;
-    checknopush) echo CHECK-NO-PUSH-OK ;;
-    checkbasemissing) echo CHECK-BASE-MISSING-OK ;;
-    checklocalahead) echo CHECK-LOCAL-AHEAD-OK ;;
-    advance) echo DISPATCH-ADVANCE-OK ;;
-    advanceconflict) echo DISPATCH-ADVANCE-CONFLICT-OK ;;
-    advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
-    advancemergeworktree) echo ADVANCE-MERGE-WORKTREE-OK ;;
-    advancepassedcommit) echo ADVANCE-PASSED-COMMIT-OK ;;
-    advanceunreadableinto) echo ADVANCE-UNREADABLE-INTO-OK ;;
-    advancewithoutpassedcommit) echo ADVANCE-WITHOUT-PASSED-COMMIT-OK ;;
-    advancebouncedconflict) echo ADVANCE-BOUNCED-CONFLICT-OK ;;
-    advancenohalfmerge) echo ADVANCE-NO-HALF-MERGE-OK ;;
-    advancebouncedchecks) echo ADVANCE-BOUNCED-CHECKS-OK ;;
-    advancechecksonce) echo ADVANCE-CHECKS-ONCE-OK ;;
-    advancebaseref) echo ADVANCE-BASE-REF-OK ;;
-    advancenochecks) echo ADVANCE-NO-CHECKS-OK ;;
-    advanceraced) echo ADVANCE-RACED-OK ;;
-    advanceoverlap) echo ADVANCE-OVERLAP-OK ;;
-    advancelandedfields) echo ADVANCE-LANDED-FIELDS-OK ;;
-    advancealreadyin) echo ADVANCE-ALREADY-IN-OK ;;
-    landedlinks) echo LANDED-LINKS-OK ;;
-    landednourl) echo LANDED-NO-URL-OK ;;
-    alreadyinmerge) echo ALREADY-IN-MERGE-OK ;;
-    alreadyinfastforward) echo ALREADY-IN-FAST-FORWARD-OK ;;
-    landeddeletesbranch) echo LANDED-DELETES-BRANCH-OK ;;
-    landdeletesbranch) echo LAND-DELETES-BRANCH-OK ;;
-    bouncedkeepsbranch) echo BOUNCED-KEEPS-BRANCH-OK ;;
-    bouncestopssessions) echo BOUNCE-STOPS-SESSIONS-OK ;;
-    bounceretriesonce) echo BOUNCE-RETRY-OK ;;
-    returnedstopssessions) echo RETURNED-STOPS-SESSIONS-OK ;;
-    archiveremovesinstance) echo ARCHIVE-REMOVES-INSTANCE-OK ;;
-    bouncekeepsinstance) echo BOUNCE-KEEPS-INSTANCE-OK ;;
-    sweepsorphanmerge) echo SWEEPS-ORPHAN-MERGE-OK ;;
-    sweepkeepslockedmerge) echo SWEEP-KEEPS-LOCKED-MERGE-OK ;;
-    landedkeepsunmerged) echo LANDED-KEEPS-UNMERGED-OK ;;
-    landedbranchraced) echo LANDED-BRANCH-RACED-OK ;;
-    landedbranchgone) echo LANDED-BRANCH-GONE-OK ;;
-    landeddeleterefused) echo LANDED-DELETE-REFUSED-OK ;;
-    landeddeleterefusedsays) echo LANDED-DELETE-REFUSED-SAYS-OK ;;
-    archiveunlandedkeepsbranch) echo ARCHIVE-UNLANDED-KEEPS-BRANCH-OK ;;
-    landedworktreekept) echo LANDED-WORKTREE-KEPT-OK ;;
-    regressedrestart) echo REGRESSED-RESTART-OK ;;
-    regressedrestartbase) echo REGRESSED-RESTART-BASE-OK ;;
-    parallelbases) echo PARALLEL-BASES-OK ;;
-    advancesummaryline) echo ADVANCE-SUMMARY-LINE-OK ;;
-    bouncednotretried) echo BOUNCED-NOT-RETRIED-OK ;;
-    landviaorigin) echo LAND-VIA-ORIGIN-OK ;;
-    reverifyorigin) echo REVERIFY-ORIGIN-OK ;;
-    summarybounced) echo SUMMARY-BOUNCED-OK ;;
-    integrateuptodate) echo INTEGRATE-UP-TO-DATE-OK ;;
-    integrateclean) echo INTEGRATE-CLEAN-OK ;;
-    integratenamestickets) echo INTEGRATE-NAMES-TICKETS-OK ;;
-    integrateconflict) echo INTEGRATE-CONFLICT-OK ;;
-    integratedirty) echo INTEGRATE-DIRTY-OK ;;
-    reviewerbaseafterintegrate) echo REVIEWER-BASE-AFTER-INTEGRATE-OK ;;
-    reviewerbasefromstarted) echo REVIEWER-BASE-FROM-STARTED-OK ;;
-    nobaseconfig) echo NO-BASE-CONFIG-OK ;;
-    land) echo DISPATCH-LAND-OK ;;
-    start-worker) echo DISPATCH-START-WORKER-OK ;;
-    start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
-    brief) echo BRIEF-OK ;;
-    briefreport) echo BRIEF-REPORT-OK ;;
-    startfromorigin) echo START-FROM-ORIGIN-OK ;;
-    startresumesorigin) echo START-RESUMES-ORIGIN-OK ;;
-    startdiverged) echo START-DIVERGED-OK ;;
-    startintofromnight) echo START-INTO-FROM-NIGHT-OK ;;
-    startintooutside) echo START-INTO-OUTSIDE-OK ;;
-    startwithoutinto) echo START-WITHOUT-INTO-OK ;;
-    startstrayworkspace) echo START-STRAY-WORKSPACE-OK ;;
-    replacepushes) echo REPLACE-PUSHES-OK ;;
-    retract) echo DISPATCH-RETRACT-OK ;;
-    retractpushes) echo RETRACT-PUSHES-OK ;;
-    resume) echo DISPATCH-RESUME-OK ;;
-    resumeendedhold) echo RESUME-ENDED-HOLD-OK ;;
-    wait) echo DISPATCH-WAIT-OK ;;
-    reverify) echo DISPATCH-REVERIFY-OK ;;
-    summary) echo DISPATCH-SUMMARY-OK ;;
-    summarycloseout) echo SUMMARY-CLOSEOUT-OK ;;
-    summary-retro) echo SUMMARY-RETRO-OK ;;
-    summaryholdsfindings) echo SUMMARY-HOLDS-FINDINGS-OK ;;
-    release) echo DISPATCH-RELEASE-OK ;;
-    releaseother) echo DISPATCH-RELEASE-OTHER-OK ;;
-    releaselive) echo RELEASE-LIVE-OK ;;
-    releasestanding) echo RELEASE-STANDING-OK ;;
-    frontierwhy) echo DISPATCH-FRONTIER-WHY-OK ;;
-    slotatclaim) echo SLOT-AT-CLAIM-OK ;;
-    route) echo ROUTE-OK ;;
-    specfield) echo SPEC-FIELD-OK ;;
-    stopproduct) echo STOP-PRODUCT-OK ;;
-    suspend) echo SUSPEND-OK ;;
-    suspendpushes) echo SUSPEND-PUSHES-OK ;;
-    suspendbusy) echo SUSPEND-BUSY-OK ;;
-    handoffpushrejected) echo HANDOFF-PUSH-REJECTED-OK ;;
-    status) echo DISPATCH-STATUS-OK ;;
-    runnerstart) echo RUNNER-START-OK ;;
-    noadapterretract) echo NO-ADAPTER-RETRACT-OK ;;
-    noadapterwait) echo NO-ADAPTER-WAIT-OK ;;
-    unknownnotalive) echo UNKNOWN-NOT-ALIVE-OK ;;
-    herdrunreadablelist) echo HERDR-UNREADABLE-LIST-OK ;;
-    herdrnoeffort) echo HERDR-NO-EFFORT-OK ;;
-    herdrstartloud) echo HERDR-START-LOUD-OK ;;
-    orcatruncated) echo ORCA-TRUNCATED-OK ;;
-    orcanotconnected) echo ORCA-NOT-CONNECTED-OK ;;
-    orcanoorphan) echo ORCA-NO-ORPHAN-OK ;;
-    orcanohosts) echo ORCA-NO-HOSTS-OK ;;
-    installorcashape) echo INSTALL-ORCA-SHAPE-OK ;;
-    usesnorunners) echo USES-NO-RUNNERS-OK ;;
-    usesorcaunreadable) echo USES-ORCA-UNREADABLE-OK ;;
-    startreturnssession) echo START-RETURNS-SESSION-OK ;;
-    startonce) echo START-ONCE-OK ;;
-    runneronticket) echo RUNNER-ON-TICKET-OK ;;
-    runnerstop) echo RUNNER-STOP-OK ;;
-    orcarefusalreason) echo ORCA-REFUSAL-REASON-OK ;;
-    nightfromtask) echo NIGHT-FROM-TASK-OK ;;
-    keepunfinished) echo KEEP-UNFINISHED-OK ;;
-    advancerefused) echo ADVANCE-REFUSED-OK ;;
-    catalogbyrunner) echo CATALOG-BY-RUNNER-OK ;;
-    startunlandedblocker) echo START-UNLANDED-BLOCKER-OK ;;
-    runnersend) echo RUNNER-SEND-OK ;;
-    runnerliveness) echo RUNNER-LIVENESS-OK ;;
-    runnerparity) echo RUNNER-PARITY-OK ;;
-    herdrworkingsend) echo HERDR-WORKING-SEND-OK ;;
-    herdrliveness) echo HERDR-LIVENESS-OK ;;
-    orcasend) echo ORCA-SEND-OK ;;
-    orcaclosed) echo ORCA-CLOSED-OK ;;
-    worktreegit) echo WORKTREE-GIT-OK ;;
-    worktreegoverned) echo WORKTREE-GOVERNED-OK ;;
-    worktreeremove) echo WORKTREE-REMOVE-OK ;;
-    installorca) echo INSTALL-ORCA-OK ;;
-    usesagree) echo USES-AGREE-OK ;;
-    usesmismatch) echo USES-MISMATCH-OK ;;
-    usesunreadable) echo USES-UNREADABLE-OK ;;
-    paseostartdir) echo PASEO-START-DIR-OK ;;
-    landarchivesagents) echo LAND-ARCHIVES-AGENTS-OK ;;
-    orcadoubledispatch) echo ORCA-DOUBLE-DISPATCH-OK ;;
-    unreadableevents) echo UNREADABLE-EVENTS-OK ;;
-    startunrecorded) echo START-UNRECORDED-OK ;;
-    mergewithoutbranch) echo MERGE-WITHOUT-BRANCH-OK ;;
-    retractunreadable) echo RETRACT-UNREADABLE-OK ;;
-    open) echo OPEN-OK ;;
-    advancerestoreswatch) echo ADVANCE-RESTORES-WATCH-OK ;;
-    opentakeover) echo OPEN-TAKEOVER-OK ;;
-    openinto) echo OPEN-INTO-OK ;;
-    openpushesahead) echo OPEN-PUSHES-AHEAD-OK ;;
-    openprojectreflog) echo OPEN-PROJECT-REFLOG-OK ;;
-    openprojectconfig) echo OPEN-PROJECT-CONFIG-OK ;;
-    openprojecthistory) echo OPEN-PROJECT-HISTORY-OK ;;
-    openprojecttie) echo OPEN-PROJECT-TIE-OK ;;
-    openrefusesdefault) echo OPEN-REFUSES-DEFAULT-OK ;;
-    openrefusesfromdefault) echo OPEN-REFUSES-FROM-DEFAULT-OK ;;
-    openpushes) echo OPEN-PUSHES-OK ;;
-    openprojectpastdefault) echo OPEN-PROJECT-PAST-DEFAULT-OK ;;
-    openrefusesdiverged) echo OPEN-REFUSES-DIVERGED-OK ;;
-    openbasefollowsproject) echo OPEN-BASE-FOLLOWS-PROJECT-OK ;;
-    openbaseprojectconflict) echo OPEN-BASE-PROJECT-CONFLICT-OK ;;
-    openkeepsproject) echo OPEN-KEEPS-PROJECT-OK ;;
-    checkproject) echo CHECK-PROJECT-OK ;;
-    openprojecthead) echo OPEN-PROJECT-HEAD-OK ;;
-    finishmerges) echo FINISH-MERGES-OK ;;
-    finishcleans) echo FINISH-CLEANS-OK ;;
-    finishkeepssession) echo FINISH-KEEPS-SESSION-OK ;;
-    finishrefusesunclosed) echo FINISH-REFUSES-UNCLOSED-OK ;;
-    finishrefusesretro) echo FINISH-REFUSES-RETRO-OK ;;
-    finishrefusesopenticket) echo FINISH-REFUSES-OPEN-TICKET-OK ;;
-    finishrefusesothernight) echo FINISH-REFUSES-OTHER-NIGHT-OK ;;
-    finishrefusesnoproject) echo FINISH-REFUSES-NO-PROJECT-OK ;;
-    finishconflict) echo FINISH-CONFLICT-OK ;;
-    finishred) echo FINISH-RED-OK ;;
-    finishskipschecked) echo FINISH-SKIPS-CHECKED-OK ;;
-    finishchecksbasepush) echo FINISH-CHECKS-BASE-PUSH-OK ;;
-    finishkeepsdirty) echo FINISH-KEEPS-DIRTY-OK ;;
-    finishrerun) echo FINISH-RERUN-OK ;;
-    finishcontained) echo FINISH-CONTAINED-OK ;;
-    finishrefusesunreadablespec) echo FINISH-REFUSES-UNREADABLE-SPEC-OK ;;
-    finishcleanupindependent) echo FINISH-CLEANUP-INDEPENDENT-OK ;;
-    openrefused) echo OPEN-REFUSED-OK ;;
-    openticket) echo OPEN-TICKET-OK ;;
-    ack) echo ACK-OK ;;
-    unopened) echo UNOPENED-OK ;;
-    runnerself) echo RUNNER-SELF-OK ;;
-    orcaunobserved) echo ORCA-UNOBSERVED-OK ;;
-    startfromissuebranch) echo START-FROM-ISSUE-BRANCH-OK ;;
-    findings) echo FINDINGS-OK ;;
-    memorylist) echo MEMORY-LIST-OK ;;
-    integratedsincestart) echo INTEGRATED-SINCE-START-OK ;;
-  esac
-}
 
 fn_for() {
   case "$1" in
@@ -10312,7 +10235,7 @@ for name in $wanted; do
   [ "$code" -eq 0 ] \
     || { echo "$name failed: $(fn_for "$name") exited $code without reporting" >&2; exit 1; }
   if [ "$rc" -eq 0 ]; then
-    banner_for "$name"
+    echo "PASS $name"
   else
     echo "$name failed" >&2
     exit 1

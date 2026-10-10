@@ -40,7 +40,7 @@ def ev(name, line, ticket=61, **fields):
 
 def started(ticket, session, runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}", ticket,
-              session=session, runner=runner, machine="mac-1", host="grok", model="grok-4.6",
+              session=session, runner=runner, machine="mac-1", into="main", host="grok", model="grok-4.6",
               effort="high",
               grade="junior-worker" if kind == "worker" else kind,
               worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",
@@ -213,6 +213,58 @@ class SummaryCloseoutGate(unittest.TestCase):
         self.assertEqual(self.problems(tickets), [])
 
 
+class ReverifyGate(unittest.TestCase):
+    """Every landed ticket's newest reverify has to be green on the commit summary checks."""
+
+    TIP = "b" * 40
+
+    def landed_with(self, number, *runs):
+        return ticket(number, state="CLOSED", labels=(),
+                      comments=(passed(number), landed(number), *runs))
+
+    def reverify(self, number, commit, result="met"):
+        return ev("ticket.checked", "Reverify", number, actor="main", stage="regress",
+                  run="reverify", commit=commit, result=result,
+                  failed=["AC2"] if result == "unmet" else [])
+
+    def test_green_on_the_tip_counts_and_anything_else_is_named(self):
+        tickets = {
+            61: self.landed_with(61, self.reverify(61, self.TIP)),
+            62: self.landed_with(62, self.reverify(62, "a" * 40)),
+            63: self.landed_with(63, self.reverify(63, self.TIP, "unmet")),
+            64: self.landed_with(64),
+            65: ticket(65, labels=("ready-for-human",)),
+        }
+        green, problems = status.reverify_problems(tickets, self.TIP)
+        self.assertEqual(green, 1)
+        self.assertEqual([p.split(" ")[0] for p in problems], ["#62", "#63", "#64"])
+        self.assertIn("is red on", problems[1])
+        self.assertIn("AC2", problems[1])
+
+    def test_a_ticket_reverify_handed_back_to_triage_does_not_hold_the_night(self):
+        regressed = ev("ticket.regressed", "Reverify failed: AC2; reopened for triage", 62,
+                       commit=self.TIP)
+        tickets = {
+            61: self.landed_with(61, self.reverify(61, self.TIP)),
+            62: ticket(62, labels=("needs-triage",),
+                       comments=(passed(62), landed(62),
+                                 self.reverify(62, self.TIP, "unmet"), regressed)),
+            63: ticket(63, labels=("needs-triage",),
+                       comments=(passed(63), landed(63),
+                                 self.reverify(63, "a" * 40, "unmet"),
+                                 ev("ticket.regressed", "Reverify failed", 63,
+                                    commit="a" * 40))),
+        }
+        green, problems = status.reverify_problems(tickets, self.TIP)
+        self.assertEqual(green, 1)
+        self.assertEqual([p.split(" ")[0] for p in problems], ["#63"])
+        body = status.summary(rows_of(tickets), opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14)).splitlines()
+        handed = [l for l in body if l.startswith("Handed back to needs-triage: ")]
+        self.assertEqual(len(handed), 1)
+        self.assertIn("#62 ", handed[0])
+
+
 class NamingWhatHoldsIt(unittest.TestCase):
     """How a ticket's live sessions are named where a plan says why it cannot start.
 
@@ -365,10 +417,11 @@ class TicketReading(unittest.TestCase):
         comments = [SELF_RUN_ALL_MET, run_of("reverify", met=4, unmet=1)]
         self.assertEqual(status.counted_ac(ticket(62, comments=comments)), "4/5")
 
-    def test_the_repository_checks_are_not_criteria(self):
-        checks = ev("ticket.checked", "Repository checks: 0/3 passed", 62, run="repo-checks",
-                    commit="a" * 40, result="unmet", counts={"passed": 0, "total": 3})
-        self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_ALL_MET, checks])),
+    def test_the_claim_time_baseline_is_not_the_criteria_count(self):
+        baseline = ev("ticket.checked", "Baseline: 0/3 met", 62, run="baseline",
+                      commit="a" * 40, result="unmet",
+                      counts={"met": 0, "unmet": 3, "abandoned": 0, "total": 3})
+        self.assertEqual(status.counted_ac(ticket(62, comments=[SELF_RUN_ALL_MET, baseline])),
                          "5/5")
 
     def test_a_typed_run_comment_gives_no_counts(self):
@@ -755,8 +808,27 @@ class Summary(unittest.TestCase):
         self.assertEqual(body[4], "Bounced: None")
         self.assertEqual(body[5], "Not dispatched, a blocker stayed open: "
                                   "#63 blocked by #62")
-        self.assertEqual(body[6], "Sub-issues opened tonight: None")
-        self.assertEqual(body[7], status.routed_line((0, 0, 0, 0, 0, 0)))
+        self.assertEqual(body[6], "Ready for you to look at now: None")
+        self.assertEqual(body[7], "Sub-issues opened tonight: None")
+        self.assertEqual(body[8], status.routed_line((0, 0, 0, 0, 0, 0)))
+
+    def test_the_summary_names_the_ready_for_human_tickets_no_open_blocker_holds(self):
+        tickets = {
+            61: ticket(61, labels=("ready-for-human",), title="Try the new sheet",
+                       closed_blockers=(70,)),
+            62: ticket(62, labels=("ready-for-human",), blockers=(71,)),
+            63: ticket(63, state="CLOSED", labels=("ready-for-human",)),
+            64: ticket(64, labels=("ready-for-agent",)),
+            70: ticket(70, state="CLOSED", labels=(), comments=[passed(70), landed(70)]),
+            71: ticket(71),
+        }
+        body = status.summary(rows_of(tickets), opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14)).splitlines()
+        lines = [l for l in body if l.startswith("Ready for you to look at now: ")]
+        self.assertEqual(lines, ["Ready for you to look at now: #61 Try the new sheet"])
+        empty = status.summary(rows_of({64: tickets[64]}), opened="2026-08-30T00:00:00Z",
+                               now=datetime(2026, 8, 31, 2, 14)).splitlines()
+        self.assertIn("Ready for you to look at now: None", empty)
 
     def test_the_summary_lists_bounced_tickets_with_their_reason(self):
         tickets = {61: ticket(61, labels=("needs-triage",), comments=[bounced(61)])}
@@ -852,8 +924,8 @@ class Summary(unittest.TestCase):
                 self.assertEqual(status.main(["--summary", "76"]), 0)
             lines = out.getvalue().splitlines()
             self.assertEqual(
-                lines[6], "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
-            self.assertEqual(lines[7], status.routed_line((1, 0, 1, 0, 0, 0)))
+                lines[7], "Sub-issues opened tonight: #90 REVIEW: RUNNER is now a Path")
+            self.assertEqual(lines[8], status.routed_line((1, 0, 1, 0, 0, 0)))
             # The tickets and every ticket's children come from one read of the tree.
             self.assertEqual(read_trees, [76])
         finally:
@@ -895,7 +967,7 @@ class Summary(unittest.TestCase):
                 self.assertEqual(status.main(["--summary", "76"]), 0)
         finally:
             (status.gh_json, status.spec_tree, status.night_opened) = saved
-        self.assertEqual(out.getvalue().splitlines()[7],
+        self.assertEqual(out.getvalue().splitlines()[8],
                          status.routed_line((1, 0, 1, 0, 0, 0)))
 
     def test_a_child_the_tracker_could_not_answer_is_unread_not_omitted(self):

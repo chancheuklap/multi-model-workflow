@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Briefs: the record of sessions `dispatch.sh brief` starts without a ticket, and their results.
+"""Briefs: the record of sessions `dispatch.sh send` starts without a ticket, and their results.
 
     briefs.py new --repo O/R --role ROLE --count N --runner R --session S
+    briefs.py brief --repo O/R --brief B/N --file F --footer TEXT
     briefs.py started --repo O/R --brief B/N --runner R --session S --host H --model M --effort E
     briefs.py forget --repo O/R --batch B
     briefs.py report --repo O/R --brief B/N --file F --runner R --session S
@@ -9,10 +10,10 @@
 
 A worker hands its result back on its ticket, and the relay reads the ticket. An advisor, a
 researcher, an explainer or a synthesizer has no ticket: it answers one session, the one
-that briefed it. Its result is written here, in this machine's state directory for the
+that sent it. Its result is written here, in this machine's state directory for the
 repository (statedir.py), never in the repository and never on the tracker.
 
-**A batch** is what one `dispatch.sh brief <role> <file>...` call starts: one session per
+**A batch** is what one `dispatch.sh send <role> <file>...` call starts: one session per
 brief file, all of one role, all answering one parent session. The relay keeps a watch on
 the batch (`briefs:<batch>`, relay.py) with the parent as its orchestrator, and queues one
 wake, `brief <batch> done`, once every brief in it has reported or is lost. One wake per
@@ -23,6 +24,7 @@ Files, under `<state>/briefs/<batch>/`:
 
     batch.json        role, count, the parent's runner and session, when it was made
     batch.lock        taken for every write below it
+    <n>/brief.md      the brief the child reads: the parent's file, then how to report
     <n>/started.json  the child's runner, session, host, model, effort, when it started
     <n>/result.md     what the child reported, copied from the file it named
     <n>/reported.json when it reported; written after result.md, so a reader that sees it
@@ -180,6 +182,23 @@ def create(state: Path, role: str, count: int, runner: str, session: str) -> str
     raise Refusal(f"could not make a new batch directory under {root(state)}")
 
 
+def write_brief(state: Path, batch: str, n: int, source: Path, footer: str) -> Path:
+    """The brief child `n` is pointed at: the parent's file, then `footer`, which says how
+    to report. Kept beside the child's result, so the child reads one file."""
+    directory = batch_dir(state, batch)
+    if _read(directory / "batch.json") is None:
+        raise Refusal(f"batch {batch} is gone; nothing was written")
+    try:
+        text = Path(source).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise Refusal(f"could not read the brief file {source} ({exc}); make it a readable "
+                      f"UTF-8 file, then send again") from None
+    path = directory / str(n) / "brief.md"
+    with _lock(directory):
+        statedir.write_atomic(path, text.rstrip("\n") + "\n\n" + footer.rstrip("\n") + "\n")
+    return path
+
+
 def mark_started(state: Path, batch: str, n: int, started: dict) -> None:
     directory = batch_dir(state, batch)
     if _read(directory / "batch.json") is None:
@@ -273,6 +292,12 @@ def main(argv: list[str] | None = None) -> int:
     new.add_argument("--runner", required=True)
     new.add_argument("--session", required=True)
 
+    brief = sub.add_parser("brief")
+    brief.add_argument("--repo", required=True)
+    brief.add_argument("--brief", required=True)
+    brief.add_argument("--file", required=True)
+    brief.add_argument("--footer", required=True)
+
     started = sub.add_parser("started")
     started.add_argument("--repo", required=True)
     started.add_argument("--brief", required=True)
@@ -299,6 +324,9 @@ def main(argv: list[str] | None = None) -> int:
         state = state_for(args.repo)
         if args.command == "new":
             print(create(state, args.role, args.count, args.runner, args.session))
+        elif args.command == "brief":
+            batch, n = parse_brief(args.brief)
+            print(write_brief(state, batch, n, Path(args.file), args.footer))
         elif args.command == "started":
             batch, n = parse_brief(args.brief)
             mark_started(state, batch, n, {k: getattr(args, k) for k in
