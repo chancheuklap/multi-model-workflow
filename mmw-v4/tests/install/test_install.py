@@ -45,9 +45,15 @@ exit 0
 echo "paseo $*" >> "$MMW_TEST_LOG"
 exit 0
 """,
+    # Loaded jobs are files under $MMW_FAKE_LAUNCHD, so print answers what bootstrap did.
     "launchctl": """#!/bin/sh
 echo "launchctl $*" >> "$MMW_TEST_LOG"
-exit 1
+case "$1" in
+  bootstrap) touch "$MMW_FAKE_LAUNCHD/$(basename "$3" .plist)" ;;
+  bootout) rm -f "$MMW_FAKE_LAUNCHD/${2##*/}" ;;
+  print) [ -f "$MMW_FAKE_LAUNCHD/${2##*/}" ] || exit 1 ;;
+esac
+exit 0
 """,
 }
 
@@ -75,6 +81,8 @@ class InstallTest(unittest.TestCase):
             {"matcher": "Bash", "hooks": [{"type": "command", "command": "someone-elses-hook"}]}]}}))
         (self.home / ".mmw/models.json").write_text(json.dumps(V3_MODELS))
         self.log.write_text("")
+        self.launchd = root / "launchd"
+        self.launchd.mkdir()
         # The dispatch suite's catalog, plus the `opus` family a fresh candidate row
         # (hosts.json's default, `opus[1m]`) resolves against on a real machine.
         catalog = json.loads(FIXTURE_CATALOG.read_text())
@@ -91,7 +99,8 @@ class InstallTest(unittest.TestCase):
                if k not in ("CODEX_HOME", "PI_CODING_AGENT_DIR", "PI_HOME", "MMW_HOME",
                             "MMW_CATALOG_MODE", "MMW_RUNNER") and not k.startswith("NMEM_")}
         env.update(MMW_INSTALL_HOME=str(self.home), MMW_HOST_CATALOG=str(self.catalog),
-                   MMW_TEST_LOG=str(self.log), PATH=f"{self.bin}:{env['PATH']}")
+                   MMW_TEST_LOG=str(self.log), PATH=f"{self.bin}:{env['PATH']}",
+                   MMW_FAKE_LAUNCHD=str(self.launchd))
         return env
 
     def run_install(self, version, *args):
@@ -201,6 +210,21 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("explainer", r.stderr)
         self.assertIn("mode-hook.py", r.stderr)
+
+    @unittest.skipUnless(os.uname().sysname == "Darwin", "launchd is macOS only")
+    def test_prompt_sync_job_is_written_and_loaded_on_a_real_home(self):
+        # With HOME pointing at the throwaway home too, install takes the branch that
+        # writes the launchd job, which a test home alone skips.
+        env = self.env()
+        env["HOME"] = str(self.home)
+        r = subprocess.run(["bash", str(V4 / "install.sh")], env=env, capture_output=True, text=True)
+        self.assertNotIn("command not found", r.stderr)
+        plist = self.home / "Library/LaunchAgents/com.mmw.prompt-sync.plist"
+        self.assertIn(str(V4 / "prompt/render.py"), plist.read_text())
+        self.assertIn("launchctl bootstrap", self.log.read_text())
+        check = subprocess.run(["bash", str(V4 / "install.sh"), "--check"], env=env,
+                               capture_output=True, text=True)
+        self.assertNotIn("com.mmw.prompt-sync", check.stderr)
 
     def test_never_touches_memory_or_the_board(self):
         r = self.run_install("v4")

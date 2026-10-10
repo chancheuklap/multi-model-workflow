@@ -772,7 +772,7 @@ link_prompt() {
       */mmw-v4/prompt/* | */mmw-v3/prompt/* | */mmw-v2/prompt/*) [ "$mode" = check ] || ln -sfn "$want" "$link"
         [ "$mode" != check ] || { echo "缺    $link 指向别的 checkout，跑一次 install.sh" >&2; return 1; }
         return 0 ;;
-      *) echo "冲突  $link 是软链但不指回本仓库，跳过" >&2; return 1 ;;
+      *) echo "冲突  $link 是软链，指的不是本仓库，跳过" >&2; return 1 ;;
     esac
   fi
   if [ -e "$link" ]; then
@@ -782,6 +782,42 @@ link_prompt() {
   if [ "$mode" = check ]; then echo "缺    $link" >&2; return 1; fi
   mkdir -p "$(dirname "$link")"
   ln -sfn "$want" "$link"
+}
+
+launch_agent() {
+  local label="$1" plist="$2" want="$3" installed="$4" status=0
+  if [ "$mode" = check ]; then
+    if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
+      echo "缺    $plist 不存在或指向别的 checkout，跑一次 install.sh" >&2
+      return 1
+    fi
+    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
+       && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+      echo "缺    launchd 任务 $label 没在跑，跑一次 install.sh" >&2
+      return 1
+    fi
+    return 0
+  fi
+  if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
+    mkdir -p "$(dirname "$plist")"
+    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
+      launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+      # bootout 返回时，有进程在跑的任务还在退出，launchctl print 仍找得到它；下面据此跳过
+      # bootstrap，任务就停着没人起。等它真的不在了（最多 10 秒）再往下走。
+      for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1 || break
+        sleep 0.5
+      done
+    fi
+    printf '%s\n' "$want" > "$plist"
+  fi
+  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
+     && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+    launchctl bootstrap "gui/$(id -u)" "$plist" \
+      || { echo "缺    launchd 任务装不上：$plist" >&2; status=1; }
+  fi
+  echo "$installed"
+  return "$status"
 }
 
 if [ -f "$PROMPT_SRC/shared.md" ]; then
