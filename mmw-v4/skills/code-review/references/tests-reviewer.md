@@ -30,9 +30,9 @@ The repository's `TESTING.md` says how tests here are written: its layers, which
 
 Read the `tdd` skill's `tests.md` and `mocking.md`, from wherever your host installed that skill. Their bad tests and their rule for where mocks belong are five of the six shapes below; the sixth is this axis's own. For each case in scope, ask all six, and name each finding by its shape:
 
-- **Tautological**: `tests.md`, **Tautological tests**.
-- **Implementation-coupled**: `tests.md`, **Implementation-detail tests**: mocking internal collaborators, testing private methods, asserting on call counts or order.
-- **Verified through a side channel**: `tests.md`, the red flag "Verifying through external means instead of interface".
+- **Tautological**: `tests.md`, **Tautological tests**. (**principle-test-behavior-not-implementation**)
+- **Implementation-coupled**: `tests.md`, **Implementation-detail tests**: mocking internal collaborators, testing private methods, asserting on call counts or order. (**principle-test-behavior-not-implementation**)
+- **Verified through a side channel**: `tests.md`, the red flag "Verifying through external means instead of interface". (**principle-test-behavior-not-implementation**)
 - **Named for the how, not the what**: `tests.md`, the red flag "Test name describes HOW not WHAT".
 - **Over-mocked**: `mocking.md`, a mock of something its "Don't mock" list names.
 - **Only the happy path**: the case covers the ordinary input and nothing else, while the code it tests has an edge, a boundary, or an error path the criterion's behaviour depends on. → name the untested path and what should happen on it.

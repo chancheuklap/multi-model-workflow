@@ -14,15 +14,15 @@ Read beyond the changed lines: callers, callees, type definitions, sibling modul
 - Error handling: errors caught, propagated, or silently swallowed.
 - Off-by-one, type coercion, integer overflow, string encoding.
 - State: race conditions, stale closures, dangling references.
-- Running twice: what happens if the operation runs again, or if a previous run crashed halfway? "It depends on what state was left behind" is a missing reconciliation step.
-- Concurrency: when several actors can touch the same mutable state (files, branches, shared data), is access serialized by structure (locks, sequential phases, exclusive ownership) or by a convention that will not hold?
+- Running twice: what happens if the operation runs again, or if a previous run crashed halfway? "It depends on what state was left behind" is a missing reconciliation step. (**principle-make-operations-idempotent**)
+- Concurrency: when several actors can touch the same mutable state (files, branches, shared data), is access serialized by structure (locks, sequential phases, exclusive ownership) or by a convention that will not hold? (**principle-separate-before-serializing-shared-state**)
 
 **Root cause or symptom**: is the change fixing the problem or covering it?
 
-- A guard clause that masks a broken invariant; retry logic that hides a broken contract; a type cast that silences a modeling error.
+- A guard clause that masks a broken invariant; retry logic that hides a broken contract; a type cast that silences a modeling error. (**principle-fix-root-causes**)
 - A fix in module A that belongs in module B's contract.
 - A workaround: why is it needed, and what would the proper fix be?
-- An instruction where structure would do: a comment saying "don't do X" that could be a type constraint, a lint rule or a runtime check.
+- An instruction where structure would do: a comment saying "don't do X" that could be a type constraint, a lint rule or a runtime check. (**principle-encode-lessons-in-structure**)
 
 **Security**:
 
