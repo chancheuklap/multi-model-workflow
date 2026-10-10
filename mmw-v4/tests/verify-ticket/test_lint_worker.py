@@ -5,7 +5,9 @@ where a ticket in the agent queue carrying two is an error, and one carrying non
 it starts on the default row.
 """
 
+import io
 import unittest
+from contextlib import redirect_stdout
 
 from _load import load
 
@@ -35,6 +37,30 @@ class TestLintWorker(unittest.TestCase):
 
     def test_a_ticket_a_person_works_needs_no_worker(self):
         self.clean(["ready-for-human"])
+
+
+class TestAnAgentTicketNeedsItsCriteria(unittest.TestCase):
+    """A ticket in the agent queue with no `## Acceptance criteria` heading has nothing a
+    worker can run; a person's ticket rightly carries none."""
+
+    BODY = ("## What to build\n\nA thing.\n\n## Acceptance Criteria\n\n"
+            "- [ ] AC1: it works\n  CHECK: true\n  EXPECT: ok\n  EVIDENCE: pending\n")
+
+    def lint(self, labels):
+        with redirect_stdout(io.StringIO()) as out:
+            code = vt.lint_criteria(301, self.BODY, labels)
+        return code, out.getvalue()
+
+    def test_an_agent_ticket_without_the_section_is_an_error(self):
+        code, out = self.lint(AGENT + ["junior-worker"])
+        self.assertEqual(code, 1, out)
+        self.assertIn("ERROR", out)
+        self.assertIn("#301 LINT FINDINGS: 1 error(s)", out)
+
+    def test_a_person_ticket_without_the_section_is_clean(self):
+        code, out = self.lint(["ready-for-human"])
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("ERROR", out)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """`--lint` given a spec number lints every sub-issue, then the graph once.
 
-The night's pre-batch pass (dispatch `night.md` 1b) runs `verify-ticket.py <spec> --lint`. A spec
+Run a night's step 2 runs `verify-ticket.py <spec> --lint`. A spec
 carries no `## Acceptance criteria`, so without this it is read as a ticket with nothing
 to check and comes back 0 without reading one sub-issue. What tells a spec apart from a
 criteria-less ticket is its layer label `mmw:spec`; an issue carrying no layer label at
@@ -87,7 +87,7 @@ class TestLintOnASpec(unittest.TestCase):
         takes the 0 for a batch that was checked."""
         body = "## Parent\n\n#76\n\n## Blocked by\n\n- #96\n"
         code, printed, subs, batch, ticket_graph = lint(
-            77, {77: body}, [], parent=76)
+            77, {77: body}, [], parent=76, labels=["ready-for-human"])
         self.assertEqual(code, 0)
         self.assertIn("carries no `## Acceptance criteria`", printed)
         self.assertNotIn("is a spec", printed)
@@ -105,7 +105,8 @@ class TestLintOnASpec(unittest.TestCase):
         self.assertNotIn("layer-label", printed)
 
     def test_a_criteria_less_issue_with_no_children_is_not_a_spec(self):
-        code, printed, _, batch, ticket_graph = lint(77, {77: "## Summary\n\nx\n"}, [])
+        code, printed, _, batch, ticket_graph = lint(77, {77: "## Summary\n\nx\n"}, [],
+                                                    labels=["ready-for-human"])
         self.assertEqual(code, 0)
         self.assertNotIn("is a spec", printed)
         batch.assert_not_called()

@@ -76,6 +76,10 @@ TYPED_SELF_RUN = ("self-run\nALL MET (1)\n\n" + LEDGER
 
 REVIEW = """REVIEW abcdef0..1234567
 
+## In-ticket
+
+None
+
 ## Spec
 
 ### Decisions
@@ -267,6 +271,17 @@ class TestOnlyTheRunsEventIsRead(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: None", text)
 
+    def test_the_run_the_closeout_accepts_is_the_one_quoted(self):
+        """The worker's final run is newer than its own first run, so its evidence and
+        its Outside Owns are what the draft carries."""
+        final = checked("reverify", LEDGER.replace("output-bytes=9", "output-bytes=42"),
+                        "ALL MET (1 met)", commit=HEAD, actor="worker",
+                        outside_owns=["src/helper.py"])
+        code, err, text, _ = run_draft((MET_RUN, final))
+        self.assertEqual(code, 0, err)
+        self.assertIn("EVIDENCE: exit=0; EXPECT=matched; output-bytes=42", text)
+        self.assertIn("Outside Owns: src/helper.py", text)
+
 
 class TestFixedLines(unittest.TestCase):
     def test_draft_names_into_from_worker_started(self):
@@ -323,6 +338,10 @@ class TestFixedLines(unittest.TestCase):
     def test_a_review_that_names_no_line_for_the_file_invents_no_judgement(self):
         silent = event("reviewer.reported", """REVIEW abcdef0..1234567
 
+## In-ticket
+
+None
+
 ## Spec
 
 None
@@ -342,6 +361,10 @@ None
         `No should not.` judged the file reasonable (agentflow #1052)."""
         folded = event("reviewer.reported", """REVIEW abcdef0..1234567
 
+## In-ticket
+
+None
+
 ## Spec
 
 Decisions: every decision the worker made on its own was judged reasonable (picking the existing helper; editing src/helper.py outside Owns). No should not.
@@ -357,6 +380,10 @@ None
 
     def test_a_line_carrying_both_words_invents_no_judgement(self):
         both = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## In-ticket
+
+None
 
 ## Spec
 
@@ -375,6 +402,10 @@ None
     def test_the_line_that_starts_with_the_path_decides(self):
         """A prose line elsewhere that names the file does not override its own line."""
         review = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## In-ticket
+
+None
 
 ## Spec
 
@@ -430,9 +461,9 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
 
-    def test_no_final_worker_run_is_named_on_an_all_met_draft(self):
+    def test_a_final_run_off_head_is_named_on_an_all_met_draft(self):
         """A closing-comment draft is well formed on its face while the closeout still requires
-        the worker's final run."""
+        the worker's final run on HEAD."""
         comments = (MET_RUN,)
         code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)
@@ -441,8 +472,7 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
             problems = vt.verified_problems(filled, "", list(comments), "ALL MET")
-        self.assertTrue(any("carries no worker reverify `ticket.checked`" in p for p in problems),
-                        problems)
+        self.assertTrue(any("0" * 40 in p for p in problems), problems)
 
 
 class TestCloseoutRefusesTheUnfilledSkeleton(unittest.TestCase):
@@ -516,6 +546,14 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
         code, err, text, _ = run_draft((MET_RUN, REVIEW))
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
+
+    def test_a_report_with_no_in_ticket_section_is_refused(self):
+        failed = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
+                       "the diff is empty\n", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((MET_RUN, failed))
+        self.assertNotEqual(code, 0)
+        self.assertEqual(text, "")
+        self.assertIn("--sub-issue fault", err)
 
     def test_none_with_a_period_is_an_empty_review_not_a_worker_blocker(self):
         review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"

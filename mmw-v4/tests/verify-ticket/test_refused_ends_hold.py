@@ -52,6 +52,8 @@ class TestTheRefusalNamesItsSession(unittest.TestCase):
         self.assertNotIn("session", payload)
         self.assertNotIn("runner", payload)
 
+    @unittest.skipUnless((vt.HERE.parents[1] / "dispatch" / "scripts" / "dispatch.sh").is_file(),
+                         "needs the dispatch skill beside verify-ticket")
     def test_own_session_is_what_the_dispatch_skill_reads_from_this_process(self):
         env = {k: v for k, v in os.environ.items()
                if k not in ("ORCA_TERMINAL_HANDLE", "HERDR_ENV", "HERDR_PANE_ID", "TERM_PROGRAM")}

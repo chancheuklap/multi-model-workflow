@@ -319,24 +319,38 @@ class TestTheFinalRunSettlesAllMet(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("unmet", err)
 
-    def test_a_later_self_run_cannot_override_the_final_run(self):
-        """Only the newest worker reverify is closing proof, even if a self run follows."""
+    def test_the_newest_worker_run_is_the_proof_whichever_run_it_is(self):
+        """A self run after the worker's reverify is the newer run, so it decides."""
+        unmet_self_at_head = checked("self", [UNMET], "UNMET: 1 (met: 0)", commit=HEAD)
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(FINAL_RUN, self.UNMET_RUN, self.MET_SELF_RUN))
+                             comments=(FINAL_RUN, unmet_self_at_head))
         self.assertEqual(code, 1)
         self.assertIn("unmet", err)
 
-    def test_a_ticket_with_no_reverify_cannot_close_as_all_met(self):
+    def test_the_first_run_is_accepted_when_nothing_was_committed_after_it(self):
+        own_run_at_head = checked("self", [MET], "ALL MET (1 met)", commit=HEAD)
+        code, err, _ = check(draft(counts=counts_line()), comments=(own_run_at_head,),
+                             reverify=False)
+        self.assertEqual(code, 0, err)
+
+    def test_a_first_run_on_an_older_commit_is_not_accepted(self):
+        own_run = checked("self", [MET], "ALL MET (1 met)", commit=VERIFIED)
+        code, err, _ = check(draft(counts=counts_line()), comments=(own_run,),
+                             reverify=False)
+        self.assertEqual(code, 1)
+        self.assertIn(VERIFIED, err)
+
+    def test_a_first_run_left_unmet_cannot_close_as_all_met(self):
         code, err, _ = check(draft(counts=counts_line()), comments=NO_FINAL_RUN,
                              reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("ticket.checked", err)
+        self.assertIn("unmet", err)
 
     def test_a_reverify_typed_as_a_comment_is_not_a_reverify(self):
         """A hand-typed comment is prose, not the final run event."""
         typed = "reverify\nALL MET (1 met)\n\n" + MET
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(*NO_FINAL_RUN, typed), reverify=False)
+                             comments=(typed,), reverify=False)
         self.assertEqual(code, 1)
         self.assertIn("ticket.checked", err)
 
@@ -616,13 +630,22 @@ class TestHandingBackReleasesTheTicket(unittest.TestCase):
     by the worker that gave up is one nothing picks up again."""
 
     def test_the_label_swap_also_drops_the_assignee(self):
-        with mock.patch.object(vt.subprocess, "run") as run:
+        with mock.patch.object(vt, "ensure_label", return_value=None) as label, \
+             mock.patch.object(vt.subprocess, "run") as run:
             vt.hand_back_for_triage(77)
+        label.assert_called_once_with("needs-triage")
         args = run.call_args.args[0]
         self.assertEqual(args[:4], ["gh", "issue", "edit", "77"])
         self.assertEqual(args[args.index("--remove-assignee") + 1], "@me")
         self.assertEqual(args[args.index("--add-label") + 1], "needs-triage")
         self.assertEqual(args[args.index("--remove-label") + 1], "ready-for-agent")
+
+    def test_a_queue_label_that_cannot_be_created_edits_nothing(self):
+        with mock.patch.object(vt, "ensure_label", return_value="HTTP 403: not allowed"), \
+             mock.patch.object(vt.subprocess, "run") as run:
+            with self.assertRaisesRegex(OSError, "needs-triage.*HTTP 403"):
+                vt.hand_back_for_triage(77)
+        run.assert_not_called()
 
 
 class TestReviewFindingCompleteness(unittest.TestCase):
@@ -663,6 +686,29 @@ class TestReviewFindingCompleteness(unittest.TestCase):
         code, err, _ = check(text, comments=(review,))
         self.assertEqual(code, 1)
         self.assertIn(row, err)
+
+
+class TestAReportThatIsNoReview(unittest.TestCase):
+    """A report with no `## In-ticket` section reviewed nothing; one whose section says
+    None found nothing."""
+
+    def test_a_report_with_no_in_ticket_section_refuses_and_names_the_fault_child(self):
+        failed = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
+                       "fatal: abcdef0 does not resolve to a commit\n",
+                       base="abcdef0", head="1234567")
+        for check_only in (True, False):
+            with self.subTest(check_only=check_only):
+                code, err, seen = check(draft(counts=counts_line()), comments=(failed,),
+                                        check_only=check_only)
+                self.assertEqual(code, 1)
+                self.assertIn("--sub-issue fault", err)
+                self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
+
+    def test_a_report_whose_in_ticket_section_says_none_closes(self):
+        empty = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
+                      "None\n", base="abcdef0", head="1234567")
+        code, err, _ = check(draft(counts=counts_line()), comments=(empty,))
+        self.assertEqual(code, 0, err)
 
 
 class TestNoSideEffectOnFail(unittest.TestCase):
@@ -733,21 +779,6 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertEqual(seen["closed"], [])
         self.assertEqual(posted_as(seen["posted"][0][1]), (text, "ticket.passed"))
 
-    def test_a_hand_back_gives_the_slot_back_and_a_close_leaves_it_to_the_landing(self):
-        """A handed-back ticket's work is over for the night; kept, its slot would hold
-        the product from every other ticket until somebody landed it."""
-        handoff = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
-                        criteria=(MET, UNMET),
-                        abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
-                        counts=counts_line(met=1, abandoned=1, total=2))
-        for text, expected in ((handoff, 1), (draft(counts=counts_line()), 0)):
-            gave = []
-            with mock.patch.object(vt, "give_slot_back",
-                                   side_effect=lambda root: gave.append(root)):
-                code, err, _ = check(text, check_only=False)
-            self.assertEqual(code, 0, err)
-            self.assertEqual(len(gave), expected, text.splitlines()[0])
-
     def test_a_ticket_someone_else_holds_is_refused(self):
         code, err, seen = check(draft(counts=counts_line()), assignees=("someone-else",),
                                 check_only=False)
@@ -768,107 +799,191 @@ def write_checks(root: Path, commands):
         json.dumps({"checks": commands}), encoding="utf-8")
 
 
-def repo_checks(posted):
-    """The payload of the one `ticket.checked` (run `repo-checks`) among posted bodies."""
-    found = [vt.events.parse(b)[1] for _, b in posted]
-    found = [p for p in found if p["event"] == "ticket.checked" and p["run"] == "repo-checks"]
-    assert len(found) == 1, found
-    return found[0]
-
-
 class TestTargetJsonChecks(unittest.TestCase):
-    """After the draft is accepted and before the ticket closes, `checks` in
-    `.mmw/target.json` run at the repository root. They are the consuming repository's
-    own 'run the tests' rule, made a gate; `--reverify` and `--lint` never run them.
-    Their run is a `ticket.checked` event of its own, run `repo-checks`."""
+    """`run_target_json_checks` runs each `checks` command of `.mmw/target.json` at the
+    repository root; `dispatch.sh` calls it on the merge result of every ticket it lands
+    and on `finish`."""
 
-    def test_failing_checks_do_not_close_and_the_event_carries_each_failure(self):
+    def run_checks_in(self, commands, into="spec-337"):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_checks(root, [
-                "python3 -c \"import sys; [print(i) for i in range(1, 26)]; sys.exit(1)\"",
-                "python3 -c \"raise SystemExit(2)\"",
-            ])
-            text = draft(counts=counts_line())
-            code, err, seen = check(text, check_only=False, repo=root)
-        self.assertEqual(code, 1, err)
-        self.assertEqual(seen["closed"], [])
-        self.assertEqual(seen["handed"], [])
-        self.assertEqual(len(seen["posted"]), 1)
-        payload = repo_checks(seen["posted"])
-        self.assertEqual((payload["result"], payload["commit"]), ("unmet", HEAD))
-        self.assertEqual(payload["counts"], {"passed": 0, "total": 2})
-        commands = payload["commands"]
-        self.assertEqual(len(commands), 2)
-        self.assertIn("raise SystemExit(2)", commands[1]["command"])
-        tail = commands[0]["tail"].splitlines()
-        self.assertEqual((tail[0], tail[-1], len(tail)), ("6", "25", 20))
-        self.assertNotIn(text.strip(), seen["posted"][0][1])
-        self.assertIn("ticket.checked", err)
+            write_checks(root, commands)
+            return vt.run_target_json_checks(root, into)
 
-    def test_passing_checks_are_an_event_before_the_closing_comment(self):
+    def test_each_failure_carries_its_command_exit_and_excerpt(self):
+        result = self.run_checks_in([
+            "python3 -c \"import sys; [print(i) for i in range(1, 26)]; sys.exit(1)\"",
+            "python3 -c \"raise SystemExit(2)\"",
+            "true",
+        ])
+        self.assertEqual((result["total"], result["problem"]), (3, None))
+        self.assertEqual(len(result["failed"]), 2)
+        self.assertIn("raise SystemExit(2)", result["failed"][1]["command"])
+        tail = result["failed"][0]["tail"].splitlines()
+        self.assertEqual((tail[0], tail[-1], len(tail)), ("1", "25", 25))
+        self.assertEqual(result["failed"][0]["exit"], 1)
+        self.assertEqual(result["failed"][1]["exit"], 2)
+
+    def test_an_early_error_line_is_kept_ahead_of_the_tail(self):
+        lines = ["AssertionError: price"] + [f"noise-{i}" for i in range(1, 41)]
+        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
+        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
+        tail = result["failed"][0]["tail"].splitlines()
+        self.assertIn("AssertionError: price", tail)
+        self.assertNotIn("noise-2", tail)
+        self.assertIn("noise-40", tail)
+        self.assertNotIn("noise-10", tail)
+
+    def test_only_ten_error_lines_are_kept_before_the_tail(self):
+        lines = [f"error-{i}" for i in range(1, 13)] + [f"noise-{i}" for i in range(1, 41)]
+        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
+        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
+        tail = result["failed"][0]["tail"].splitlines()
+        self.assertIn("error-1", tail)
+        self.assertIn("error-10", tail)
+        self.assertNotIn("error-11", tail)
+        self.assertNotIn("error-12", tail)
+        self.assertNotIn("noise-1", tail)
+        self.assertIn("noise-40", tail)
+
+    def test_the_saved_log_keeps_the_markers_the_excerpt_hides(self):
+        source = "import sys; print('error STORY OK'); print('JOURNEY OK'); sys.exit(1)"
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_checks(root, ["true", "true"])
-            text = draft(counts=counts_line())
-            code, err, seen = check(text, check_only=False, repo=root)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(seen["closed"], [77])
-        payload = repo_checks(seen["posted"])
-        self.assertEqual((payload["result"], payload["counts"]),
-                         ("met", {"passed": 2, "total": 2}))
-        self.assertEqual(posted_as(seen["posted"][1][1]), (text, "ticket.passed"))
+            work = root / "wt"
+            work.mkdir()
+            write_checks(root, ["python3 -c " + json.dumps(source)])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
+        self.assertIn("STORY OK", log)
+        self.assertNotIn("STORY OK", result["failed"][0]["tail"])
+        self.assertNotIn("JOURNEY OK", result["failed"][0]["tail"])
+        self.assertIn("error", result["failed"][0]["tail"])
+        self.assertEqual(result["failed"][0]["log"], ".scratch/checks/61/1.log")
 
-    def test_repo_checks_see_mmw_base_ref(self):
+    def test_a_missing_worktree_is_not_created_for_the_log(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_checks(root, [
-                "python3 -c \"import os,sys; sys.exit(os.environ.get('MMW_BASE_REF') "
-                "!= 'origin/spec-337')\"",
-            ])
-            text = draft(counts=counts_line())
-            code, err, seen = check(text, check_only=False, repo=root)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(repo_checks(seen["posted"])["result"], "met")
+            missing = root / "absent"
+            write_checks(root, ["python3 -c \"import sys; sys.exit(1)\""])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=missing, ticket=61)
+            prose = vt.checks_bounce_prose(result["failed"])
+        self.assertFalse(missing.exists())
+        self.assertNotIn("log", result["failed"][0])
+        self.assertIn("the full output was not saved", prose["rest"])
+        self.assertIn(str(missing), prose["rest"])
+
+    def test_a_log_that_cannot_be_written_names_the_os_error(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            (work / ".scratch").write_text("not a directory", encoding="utf-8")
+            write_checks(root, ["python3 -c \"import sys; sys.exit(1)\""])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            prose = vt.checks_bounce_prose(result["failed"])
+        self.assertNotIn("log", result["failed"][0])
+        self.assertFalse((work / ".scratch" / "checks").exists())
+        self.assertIn("the full output was not saved", prose["rest"])
+        self.assertIn("Not a directory", prose["rest"])
+
+    def test_the_posted_comment_stays_inside_the_limit_events_builds(self):
+        source = "import sys; sys.stdout.write('x' * 100000); sys.exit(1)"
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            write_checks(root, ["python3 -c " + json.dumps(source)])
+            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
+        self.assertGreaterEqual(len(log), 100000)
+        self.assertGreaterEqual(len(result["failed"][0]["tail"]), 100000)
+        huge = vt.checks_bounce_prose(result["failed"], prefix_len=400)
+        huge_body = self.bounce_comment(huge, "p" * 400)
+        prose, _, _block = huge_body.partition("<!--")
+        self.assertLessEqual(len(huge_body), vt.COMMENT_BODY_LIMIT)
+        self.assertNotIn("x" * 80, prose)
+        self.assertNotIn("x" * 80, huge["commands"][0]["tail"])
+        self.assertIn(result["failed"][0]["log"], huge_body)
+
+        line = "n" * 200
+        filled = vt.checks_bounce_prose(
+            [{"command": "python3 -c 'print(1)'", "tail": "\n".join([line] * 500),
+              "exit": 1, "log": ".scratch/checks/61/1.log"}],
+            prefix_len=80,
+        )
+        filled_body = self.bounce_comment(filled, "p" * 80)
+        self.assertLessEqual(len(filled_body), vt.COMMENT_BODY_LIMIT)
+        self.assertLess(filled["rest"].count(line), 500)
+        self.assertIn(".scratch/checks/61/1.log", filled_body)
+
+    def bounce_comment(self, prose, prefix):
+        """The comment `events.build` writes for this bounce prose."""
+        return vt.events.build(
+            "ticket.bounced",
+            ticket=10**9,
+            spec=10**9,
+            actor="main",
+            stage="land",
+            at="2026-01-01T00:00:00Z",
+            line=prefix + f" Failed checks: {prose['summary']}.",
+            text=prose["rest"],
+            reason="checks",
+            commit="f" * 40,
+            into="x" * 80,
+            commands=prose["commands"],
+        )
+
+    def test_checks_see_mmw_base_ref(self):
+        result = self.run_checks_in([
+            "python3 -c \"import os,sys; sys.exit(os.environ.get('MMW_BASE_REF') "
+            "!= 'origin/spec-337')\"",
+        ])
+        self.assertEqual(result["failed"], [])
 
     def test_an_entry_with_its_own_timeout_is_held_to_it(self):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            write_checks(root, [
-                {"run": "python3 -c \"import time; time.sleep(5)\"", "timeout": 1},
-                "true",
-            ])
-            text = draft(counts=counts_line())
-            code, err, seen = check(text, check_only=False, repo=root)
-        self.assertEqual(code, 1, err)
-        self.assertEqual(seen["closed"], [])
-        payload = repo_checks(seen["posted"])
-        self.assertIn("timed out after 1s", payload["commands"][0]["tail"])
+        result = self.run_checks_in([
+            {"run": "python3 -c \"import time; time.sleep(5)\"", "timeout": 1},
+            "true",
+        ])
+        self.assertEqual(len(result["failed"]), 1)
+        self.assertIn("timed out after 1s", result["failed"][0]["tail"])
 
-    def test_an_entry_that_is_neither_string_nor_run_object_does_not_close(self):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            write_checks(root, [{"cmd": "true"}])
-            text = draft(counts=counts_line())
-            code, err, seen = check(text, check_only=False, repo=root)
-        self.assertEqual(code, 1, err)
-        self.assertEqual(seen["closed"], [])
-        payload = repo_checks(seen["posted"])
-        self.assertEqual(payload["result"], "unmet")
-        self.assertIn("neither a string", payload["problem"])
+    def test_an_entry_that_is_neither_string_nor_run_object_is_a_problem(self):
+        result = self.run_checks_in([{"cmd": "true"}])
+        self.assertIn("neither a string", result["problem"])
 
-    def test_no_checks_key_leaves_closeout_unchanged(self):
+    def test_checks_that_are_not_a_list_are_a_problem(self):
+        result = self.run_checks_in("pytest -q")
+        self.assertIn("not a list", result["problem"])
+
+    def test_no_checks_key_runs_nothing(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / ".mmw").mkdir()
             (root / ".mmw" / "target.json").write_text(
                 json.dumps({"reach": "echo"}), encoding="utf-8")
+            self.assertIsNone(vt.run_target_json_checks(root, "spec-337"))
+
+
+class TestCloseoutRunsNoRepositoryChecks(unittest.TestCase):
+    """The tree a closeout sees is not the tree that lands: `dispatch.sh` runs the
+    repository's `checks` on the merge result instead. `--closeout`, `--reverify` and
+    `--lint` never run them."""
+
+    def test_failing_checks_do_not_stop_a_passing_closeout(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            marker = root / "ran.marker"
+            write_checks(root, [f"touch '{marker}'; false"])
             text = draft(counts=counts_line())
             code, err, seen = check(text, check_only=False, repo=root)
+            ran = marker.exists()
         self.assertEqual(code, 0, err)
+        self.assertFalse(ran)
+        self.assertEqual(seen["closed"], [77])
         self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
                          [(77, (text, "ticket.passed"))])
-        self.assertEqual(seen["closed"], [77])
 
     def test_reverify_and_lint_do_not_run_the_target_json_checks(self):
         body = ("## Worker\n\njunior-worker\n\n## Acceptance criteria\n\n"
@@ -900,33 +1015,6 @@ class TestTargetJsonChecks(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual([vt.events.parse(b)[1]["run"] for b in posted], ["reverify"])
             self.assertFalse(marker.exists())
-
-    def test_malformed_checks_do_not_close(self):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / ".mmw").mkdir()
-            (root / ".mmw" / "target.json").write_text(
-                json.dumps({"checks": "pytest -q"}), encoding="utf-8")
-            text = draft(counts=counts_line())
-            code, err, seen = check(text, check_only=False, repo=root)
-        self.assertEqual(code, 1, err)
-        self.assertEqual(seen["closed"], [])
-        self.assertIn("not a list", repo_checks(seen["posted"])["problem"])
-
-    def test_handoff_does_not_run_checks(self):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            write_checks(root, ["false"])
-            text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2",
-                         criteria=(MET, UNMET),
-                         abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
-                         counts=counts_line(met=1, abandoned=1, total=2))
-            code, err, seen = check(text, check_only=False, repo=root)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(seen["closed"], [])
-        self.assertEqual(seen["handed"], [77])
-        self.assertEqual([posted_as(b) for _, b in seen["posted"]],
-                         [(text, "ticket.returned")])
 
 
 class TestCloseoutPush(unittest.TestCase):

@@ -4,7 +4,9 @@
 The ticket is the only state. Every run reads the `## Acceptance criteria` and
 `## Owns` sections fresh from the issue, writes them to a ledger, hands
 that ledger to unlazy's `gate-check`, and posts the result back as one
-`ticket.checked` event. Nothing is cached and no file is left behind.
+`ticket.checked` event. Nothing is cached. The ledger is removed when the run
+ends. Each run replaces `.scratch/criteria/<ticket>/`, and a failing criterion's
+output is `<id>.log` in that directory.
 """
 
 from __future__ import annotations
@@ -17,14 +19,11 @@ import importlib.util
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
-import time
 from collections import Counter, defaultdict, deque
-from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -64,11 +63,10 @@ CLASS_LABELS = {
 }
 # The one of them `--lint` asks after by name: which number is a batch's container.
 CLASS_SPEC = "mmw:spec"
-# The other two label sets `docs/agents/issue-tracker.md` `## Three label sets` names:
-# who a ticket is waiting on, and which `models.json` row starts its worker. Colour and
-# description are defined once, here, for all three sets; `ensure_label` and `--publish`
-# create whichever of them a repository lacks. `docs/agents/triage-labels.md` maps queue
-# labels to this repository's own roles; it does not redefine them.
+# The other two label sets the mmw-mode skill's `references/github-issues.md` names: who a
+# ticket is waiting on, and which `models.json` row starts its worker. Colour and
+# description are defined once, here, for every label the pipeline puts on an issue;
+# `ensure_label` creates whichever of them a repository lacks, the first time one is used.
 QUEUE_LABELS = {
     "needs-triage": ("F9D0C4", "还没评估过，不知道该不该做、怎么做"),
     "needs-info": ("B60205", "缺输入，等人补"),
@@ -80,22 +78,16 @@ GRADE_LABELS = {
     "junior-worker": ("C2E0C6", "worker grade: default row in models.json"),
     "senior-worker": ("E99695", "worker grade: silent-failure work"),
 }
-# The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
-# under this worktree's lease. A criterion naming one needs the product, and so a slot.
-# An oracle that starts the product, and so needs this worktree's slot. `story-parity.py`
-# is not one: it starts the story service, which has no backend behind it and takes
-# a port of its own.
-PRODUCT_JUDGES = ("journey.py", "lease.py")
-# Criteria whose CHECK names one of these are left off the claim-time baseline run:
-# they start the product or the story service. Recorded on the event as `skipped`.
-BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
-# How long a reverify waits for a product slot before it hands back exit 3, and how often
-# it asks again in between. The bound stays under the time a host lets a command run
-# before it moves it to the background; a reverify given back 3 is run again, and the wait
-# goes on. The worker's own run does not wait here: it is woken when a slot is given back.
-SLOT_WAIT_S = int(os.environ.get("MMW_SLOT_WAIT_S", "90"))
-SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
-
+# A map and the type of each decision ticket under it, as the mmw-mode skill's
+# `references/wayfinder.md` names them.
+WAYFINDER_LABELS = {
+    "wayfinder:map": ("BFDADC", "这张 issue 是一张 map，不是一件待办"),
+    "wayfinder:research": ("FEF2C0", "decision ticket，开一个 researcher 查一条事实就能解掉"),
+    "wayfinder:prototype": ("BFD4F2", "decision ticket，要先做一个粗糙版本给用户走查"),
+    "wayfinder:grilling": ("D93F0B", "decision ticket，靠跟人对谈解掉"),
+    "wayfinder:task": ("5319E7", "decision ticket，某个决定做得出来之前必须先完成的手工操作"),
+}
+LABELS = {**CLASS_LABELS, **QUEUE_LABELS, **GRADE_LABELS, **WAYFINDER_LABELS}
 # A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
 # ticket in the morning, and both hand the ticket back. `decision` needs a person to
@@ -329,6 +321,10 @@ def hand_back_for_triage(number: int) -> None:
     frontier will not dispatch again — it takes only unassigned tickets — so the
     assignee comes off in the same edit as the label.
     """
+    missing = ensure_label("needs-triage")
+    if missing:
+        raise OSError(f"the repository has no `needs-triage` label and it could not be "
+                      f"created ({missing})")
     subprocess.run(
         ["gh", "issue", "edit", str(number),
          "--remove-label", "ready-for-agent", "--add-label", "needs-triage",
@@ -616,6 +612,16 @@ def newest_run(comments: list, *runs: str, actor: str | None = None) -> dict | N
             found.append({"comment": comment["id"] if comment["id"] is not None
                           else comment["position"], "payload": payload})
     return max(found, key=lambda record: record["comment"]) if found else None
+
+
+def final_worker_run(comments: list) -> dict | None:
+    """The worker run the closeout accepts and the closing comment quotes: the newest of
+    the worker's own runs and its reverify runs. The closeout holds it to `HEAD`, so when
+    nothing was committed after the worker's first run, that run is the final one."""
+    runs = [record for record in (newest_run(comments, "self"),
+                                  newest_run(comments, "reverify", actor="worker"))
+            if record is not None]
+    return max(runs, key=lambda record: record["comment"]) if runs else None
 
 
 def ledger_with_results(lines: list[str], results: list[dict]) -> list[str]:
@@ -921,10 +927,10 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
     if first != "ALL MET":
         return problems
 
-    record = newest_run(comments, "reverify", actor="worker")
+    record = final_worker_run(comments)
     reverify = record["payload"] if record else None
     if reverify is None:
-        problems.append("the ticket carries no worker reverify `ticket.checked` event. Run "
+        problems.append("the ticket carries no `ticket.checked` event of a worker run. Run "
                         "`verify-ticket.py <n> --reverify --actor worker` after the final "
                         "commit, or close out as `HANDOFF REQUIRED`")
     else:
@@ -937,11 +943,11 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         unmet = list(reverify.get("failed") or [])
         covered = result == "unmet" and unmet and set(unmet) <= decided
         if result != "met" and not covered:
-            problems.append("the worker's final reverify still reports unmet or abandoned "
+            problems.append("the worker's final run still reports unmet or abandoned "
                             "criteria. Add the required `ABANDON:` lines and close out as "
                             "`HANDOFF REQUIRED`")
         if reverify.get("commit") != git("rev-parse", "HEAD"):
-            problems.append(f"the worker's final reverify is on {reverify.get('commit')} and "
+            problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
@@ -1317,6 +1323,20 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
     return found
 
 
+def require_in_ticket(review: str, comment: int | str | None, number: int) -> None:
+    """Refuse a review report that carries no `## In-ticket` heading: the reviewer posts
+    one whatever it found, `None` included, so a report without one stopped before any
+    axis ran (a commit that does not resolve, an empty diff) and reviewed nothing."""
+    if any(line.strip() == "## In-ticket" for line in review.splitlines()):
+        return
+    first = review.splitlines()[0] if review else "(empty)"
+    raise ValueError(
+        f"the newest review report (comment {comment}, `{first[:80]}`) has no ## In-ticket "
+        f"section, so nothing reviewed this ticket and it cannot close as reviewed; open a "
+        f"fault child with `verify-ticket.py {number} --sub-issue fault <file>`, its body "
+        f"the report, and stop")
+
+
 def review_findings_block(review: str, comment: int | str | None = None) -> str:
     items = in_ticket_findings(review, comment)
     if not items:
@@ -1443,7 +1463,8 @@ def run_review(number: int, path: Path) -> int:
 
 def run_touched(number: int) -> int:
     """Post `worker.touched` on each open sibling whose `## Owns` covers a file this
-    ticket changed outside its own, naming the files and why they were changed."""
+    ticket changed outside its own, naming the files and why they were changed. A ticket
+    outside any spec has no siblings: it posts nothing and exits 0."""
     comments = fetch_comments(number)
     review = (events.newest(comments, "reviewer.reported") or {}).get("body")
     if review is None:
@@ -1460,7 +1481,10 @@ def run_touched(number: int) -> int:
     except ParentUnreadable as exc:
         return refuse(f"#{number}: the tracker could not say which spec it sits under ({exc})")
     if spec is None:
-        return refuse(f"#{number} has no parent link and no spec in `## Parent`")
+        # A ticket outside any spec has no batch, so no other ticket owns these files.
+        sys.stderr.write(f"#{number} sits under no spec, so no other ticket owns "
+                         f"{', '.join(files)}; nothing to tell\n")
+        return 0
     try:
         siblings = open_children_owns(spec)
     except SubIssuesUnreadable as exc:
@@ -1498,9 +1522,9 @@ def default_draft_path(number: int) -> Path:
     """A file of this run's own making, in a fresh directory outside every repository.
 
     The closing-comment draft recounts the ticket, so it carries every path and file name the ticket
-    names — that is what a closing comment says. `--closeout` then runs the repository's
-    own `checks` over the working tree, and a draft written into that tree is one more
-    file those checks read. A prior ticket with every criterion met stayed open because a
+    names — that is what a closing comment says. A draft written into the working tree is
+    one more file the repository's own tools read: its guards, its hooks, a worker's run
+    of its checks. A prior ticket with every criterion met stayed open because a
     repository guard found two reference file names in the closeout draft written inside
     its working tree. Every consuming repository with a guard over its own Markdown could
     meet the same wall, so the default landing place is outside all of them.
@@ -1516,7 +1540,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
     into, problem = worker_started_field(number, comments, "into")
     if problem:
         return refuse(problem)
-    record = newest_run(comments, "self")
+    record = final_worker_run(comments)
     run = record["payload"] if record else None
     criteria = overlay_run_evidence(body, run)
     abandons = list((run or {}).get("abandons") or [])
@@ -1534,6 +1558,8 @@ def run_draft(number: int, out_file: Path | None) -> int:
     review_event = events.newest(comments, "reviewer.reported") or {}
     review = review_event.get("body") or ""
     try:
+        if review_event:
+            require_in_ticket(review, review_event.get("comment"), number)
         review_block = review_findings_block(review, review_event.get("comment"))
     except ValueError as exc:
         return refuse(str(exc))
@@ -1581,17 +1607,14 @@ def run_draft(number: int, out_file: Path | None) -> int:
 
 
 def ensure_label(name: str) -> str | None:
-    """Make sure the repository has label `name`, from any of the three sets defined
-    above (layer, queue, grade); the reason when it could not.
+    """Make sure the repository has label `name`, from `LABELS`; the reason when it
+    could not.
 
     A label the repository lacks makes `gh issue create --label` fail outright, so the
     first issue that would carry it creates it instead. One that already exists is left
     exactly as it is. Patched out in tests.
     """
-    color, description = (CLASS_LABELS.get(name) or QUEUE_LABELS.get(name)
-                          or GRADE_LABELS.get(name) or (None, None))
-    if color is None:
-        raise KeyError(name)
+    color, description = LABELS[name]
     out = subprocess.run(["gh", "label", "create", name, "--color", color,
                           "--description", description],
                          capture_output=True, text=True, env=GH_ENV)
@@ -1632,10 +1655,11 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not text.strip():
         return refuse(f"{path} is empty")
     title = text.strip().splitlines()[0].strip()
-    missing = ensure_label("mmw:child")
-    if missing:
-        return refuse(f"the repository has no `mmw:child` label and it could not be "
-                      f"created ({missing}); nothing was opened")
+    for label in ("needs-triage", "mmw:child"):
+        missing = ensure_label(label)
+        if missing:
+            return refuse(f"the repository has no `{label}` label and it could not be "
+                          f"created ({missing}); nothing was opened")
     posted = f"A `{kind}` child of #{number}.\n\n" + text
     if not posted.endswith("\n"):
         posted += "\n"
@@ -1697,7 +1721,7 @@ def add_blocking_link(child: int, blocker: int) -> str | None:
 
 def label_defined(name: str) -> bool:
     """Whether `name` is one this file knows the colour and description of."""
-    return name in CLASS_LABELS or name in QUEUE_LABELS or name in GRADE_LABELS
+    return name in LABELS
 
 
 def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int:
@@ -1747,112 +1771,61 @@ def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int
 
 # ----------------------------------------------------------------- subcommands
 
-def needs_product(body: str) -> bool:
-    """Whether a criterion of this ticket runs the product: its `CHECK:` names a script
-    that starts a command `.mmw/target.json` declares, under this worktree's lease."""
-    return any(judge in check for _, check, _ in criteria_lines(body)
-               for judge in PRODUCT_JUDGES)
+def _refusal(what: str, why: str, next_step: str) -> str:
+    """A refusal in three parts: what happened, why, and the command to run next."""
+    return f"{what.strip()} {why.strip()} {next_step.strip()}"
 
 
-def load_lease():
-    """`lease.py` of the ui-acceptance skill, from the directories in force; None when
-    none holds it."""
-    path = tool("lease.py")
-    if path is None:
-        return None
-    spec = importlib.util.spec_from_file_location("mmw_lease", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def criterion_ids_on_lines(ledger: str, line_numbers: list[int]) -> list[str]:
+    """The criterion that owns each of these 1-based ledger lines, in file order."""
+    wanted = set(line_numbers)
+    current = None
+    found = []
+    for index, line in enumerate(ledger.splitlines(), start=1):
+        match = GATE_LINE_RE.match(line)
+        if match:
+            current = match.group(2)
+        if index in wanted and current and current not in found:
+            found.append(current)
+    return found
 
 
-def hold_slot(number: int, root: Path, run: str, comments: list,
-              actor: str | None = None) -> dict | int:
-    """This worktree's product slot, acquired now when it holds none; an exit code when
-    the run cannot go on.
+def present_unrunnable(printed: str, number: int, tmp: str) -> str:
+    """gate-check exited 2. Name the ticket and the criterion, and drop the ledger path.
 
-    Writing code takes no slot. The first run of the criteria that needs the product
-    acquires one, and the worktree holds it until its ticket's work ends — landed, handed
-    back, released, suspended or retracted — so every later run, including the final
-    reverify and closeout checks, finds it already there.
-
-    When no slot is free, a `worker.queued` event goes on the ticket, once for this wait,
-    so a ticket quiet for twenty minutes reads as queued and not as dead. The worker's
-    own run then exits 3 at once with nothing judged. A slot comes back only when another
-    ticket's work ends, and the event that ends it is what the relay of the dispatch skill
-    wakes every queued worker on, with `#<n> worker.queued`; the worker runs the same
-    command again then. Waiting here instead would cost the worker a turn every
-    `SLOT_WAIT_S` for as long as the slots stay held. A reverify by the worker or the
-    orchestrator normally finds its worktree's slot already held; when it does not, it
-    asks again every `SLOT_BEAT_S` seconds and exits 3 after `SLOT_WAIT_S`, to be run again.
+    The ledger is a temporary file. Its path and its line numbers are not a place the
+    worker can edit. The criterion is the one that owns the line gate-check named.
     """
-    lease = load_lease()
-    if lease is None:
-        return refuse("a criterion runs the product and no directory in force holds "
-                      "lease.py, so no slot can be acquired for it. Nothing was run and "
-                      "nothing was written. Pass --tools <the ui-acceptance skill's scripts "
-                      "directory> and run again.")
-    worktree = lease.worktree_of(root)
-    announced = events.fold(comments)["waiting"] is not None
-    spent = 0
-    while True:
-        try:
-            return lease.try_claim(worktree)
-        except lease.CapUnreadable as exc:
-            return refuse(f"{exc}; the product's limit is unknown, so no slot was acquired "
-                          f"and nothing was run. Fix that file and run again.")
-        except lease.Full as full:
-            if not announced:
-                what = ("this product's instance.max" if full.reason == "product-full"
-                        else "every slot of this machine")
-                try:
-                    post_event(number, "worker.queued",
-                               f"Waiting for a product slot: {what} ({full.limit}) is held",
-                               "\n".join(f"- {h}" for h in full.holders),
-                               run=run, reason=full.reason, limit=full.limit,
-                               holders=full.holders, worktree=str(worktree), actor=actor)
-                except (OSError, subprocess.CalledProcessError) as exc:
-                    # A wait the ticket does not show reads as a dead worker.
-                    sys.stderr.write(f"#{number}: no product slot is free and the "
-                                     f"worker.queued event could not be written ({exc}); "
-                                     f"nothing was run. Run it again.\n")
-                    return NOT_RECORDED
-                announced = True
-            if run == "self":
-                sys.stderr.write(
-                    f"#{number}: no product slot is free — {full.reason}, "
-                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
-                    f"says it is waiting. End your turn: the relay wakes you with "
-                    f"`#{number} worker.queued` when a slot is given back. Run the same "
-                    f"command again then.\n")
-                return 3
-            if spent >= SLOT_WAIT_S:
-                sys.stderr.write(
-                    f"#{number}: no product slot came free in {spent}s — {full.reason}, "
-                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
-                    f"says it is waiting. Run the same command again to keep waiting.\n")
-                return 3
-            time.sleep(SLOT_BEAT_S)
-            spent += SLOT_BEAT_S
+    text = printed
+    line_numbers = [int(n) for n in re.findall(r"\bline (\d+):", text)]
+    ledger_file = Path(tmp) / LEDGER_NAME
+    from_ledger = (criterion_ids_on_lines(ledger_file.read_text(encoding="utf-8"), line_numbers)
+                   if ledger_file.is_file() else [])
+    variants = {str(tmp), os.path.realpath(str(tmp))}
+    variants |= ({path.removeprefix("/private") for path in variants}
+                 | {"/private" + path for path in variants})
+    for path in sorted(variants, key=len, reverse=True):
+        if path:
+            text = text.replace(path, "")
+    text = re.sub(rf"/?{re.escape(LEDGER_NAME)}:?", "", text)
+    text = re.sub(r"\bline \d+:\s*", "", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r" *\n *", "\n", text).strip()
+    from_text = re.findall(r"\bgate ([A-Za-z0-9][A-Za-z0-9._-]*)\b", text)
+    ids = list(dict.fromkeys([*from_ledger, *from_text]))
+    named = ", ".join(ids) if ids else "unknown"
+    note = _refusal(
+        f"ticket #{number} criterion {named}, gate-check exited 2",
+        "the criterion could not be run, so nothing was judged",
+        f"verify-ticket.py {number} --sub-issue contract <file>",
+    )
+    if text:
+        return text + "\n" + note + "\n"
+    return note + "\n"
 
 
 def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
-    """Run criteria under the lifetime of a non-ticket oracle lease."""
-    body = fetch_body(number)
-    require_judges(body)
-    root = repo_root()
-    lease = load_lease() if needs_product(body) else None
-    if lease is None:
-        return _run_checks(number, reverify, actor, body, root)
-    try:
-        with lease.judge_run(root, stop=True):
-            return _run_checks(number, reverify, actor, body, root)
-    except lease.StopUnreadable as exc:
-        sys.stderr.write(f"#{number}: {exc}; the oracle's product slot was kept\n")
-        return 2
-    except SystemExit as exc:
-        sys.stderr.write(f"#{number}: the oracle's product slot was not given back: {exc}\n")
-        return 2
+    return _run_checks(number, reverify, actor, fetch_body(number), repo_root())
 
 
 def _run_checks(number: int, reverify: bool,
@@ -1860,9 +1833,8 @@ def _run_checks(number: int, reverify: bool,
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
     Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
-    nothing was written), 3 no product slot was free — at once for the worker's own run,
-    after `SLOT_WAIT_S` for a reverify — 4 the criteria ran and the ticket.checked
-    recording them could not be written.
+    nothing was written), 4 the criteria ran and the ticket.checked recording them could
+    not be written.
     """
     run = "reverify" if reverify else "self"
     actor = actor or "worker"
@@ -1873,13 +1845,12 @@ def _run_checks(number: int, reverify: bool,
     comments = fetch_comments(number)
     started = events.newest(comments, "worker.started")
     started_payload = (started or {}).get("payload", {})
-    base = started_payload.get("base") if not reverify else None
+    # Every worker run can be the one the closeout accepts and quotes, so each records
+    # Outside Owns; a reverify by the main agent runs on the merged branch, where the
+    # question has no answer.
+    worker = actor == "worker"
+    base = started_payload.get("base") if worker else None
     into = started_payload.get("into")
-    slot = None
-    if needs_product(body):
-        slot = hold_slot(number, root, run, comments, actor)
-        if isinstance(slot, int):
-            return slot
     carried = carried_ledger(body, comments) if reverify else []
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp), carried or None)
@@ -1892,13 +1863,12 @@ def _run_checks(number: int, reverify: bool,
         env["MMW_TICKET"] = str(number)
         if isinstance(into, str) and into:
             env["MMW_BASE_REF"] = f"origin/{into}"
-        if TOOLS:
-            env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
-        sys.stdout.write(printed)
         if result.returncode == 2:
+            sys.stdout.write(present_unrunnable(printed, number, tmp))
             return 2
+        sys.stdout.write(printed)
         summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
 
@@ -1908,10 +1878,9 @@ def _run_checks(number: int, reverify: bool,
                 "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
                 "evidence": c["evidence"] or "pending"} for c in criteria]
     outcome = check_run_outcome(result.returncode, summary)
-    fields = ({} if reverify else
-              outside_owns_fields(number, owns_globs(body), root, base))
+    fields = (outside_owns_fields(number, owns_globs(body), root, base) if worker else {})
     prose = [updated]
-    if not reverify:
+    if worker:
         prose += ["", outside_owns_text(fields)]
     try:
         post_event(number, "ticket.checked",
@@ -1923,8 +1892,6 @@ def _run_checks(number: int, reverify: bool,
                    failed=[r["id"] for r in results if not r["met"]],
                    abandons=abandons or None,
                    shape=shape_digest(section(body, "Acceptance criteria")),
-                   slot=slot.get("slot") if slot else None,
-                   port_base=slot.get("port_base") if slot else None,
                    actor=actor, stage=events.checked_stage(run, actor),
                    **fields)
     except (OSError, subprocess.CalledProcessError) as exc:
@@ -1942,26 +1909,6 @@ def _run_checks(number: int, reverify: bool,
 # The exit of a run whose criteria ran and whose result could not be written on the
 # ticket. It is not 1: a caller reads 1 as "the criteria are red", and nothing says so.
 NOT_RECORDED = 4
-
-
-def give_slot_back(root: Path) -> str | None:
-    """Take this worktree's product down and give its slot back; the reason when that
-    could not be done, None when it was or there was no slot to give.
-
-    `lease.py` does both, as `release` with `stop`: the product's `stop` in
-    `.mmw/target.json` runs first, from the worktree, because a slot is free only once
-    nothing listens on its ports and `lease.py` rightly refuses one held by a live process.
-    """
-    lease = load_lease()
-    if lease is None:
-        return "no directory in force holds lease.py"
-    try:
-        lease.release(lease.worktree_of(root), stop=True)
-    except lease.StopUnreadable as exc:
-        return f"{exc}, so the product's stop is unknown and the slot was kept"
-    except SystemExit as exc:
-        return str(exc)
-    return None
 
 
 def blocker_fold(number: int) -> dict | None:
@@ -1991,7 +1938,7 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
 
     The sixth, the tree, is the one whose answer depends on who holds the ticket, because
     a worker comes through this run every time it enters the ticket — the turn it is
-    prompted back into after a review included (the `implement` skill's claim and resume). On that turn
+    prompted back into after a review included (Work a ticket's claim and `RESUME:`). On that turn
     the uncommitted tracked changes are its own work from an earlier turn, so the tree
     refuses only while the claim is not this account's: read as an upstream fault they
     end a live worker's hold, and the ticket then says `live: false` of a session that
@@ -2054,11 +2001,6 @@ def check_run_outcome(returncode: int, summary: str) -> str | None:
     return "unmet"
 
 
-def baseline_skipped(check: str) -> bool:
-    """Whether this CHECK is left off the claim-time baseline run."""
-    return any(name in (check or "") for name in BASELINE_SKIP_JUDGES)
-
-
 def run_baseline_if_needed(number: int, root: Path) -> None:
     """Run the baseline once for the newest `worker.started.base`, if that run is missing.
 
@@ -2089,10 +2031,10 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
 
 
 def run_baseline(number: int, body: str, base: str, root: Path) -> None:
-    """Criteria that need no product slot, at `base`, in a throwaway detached worktree."""
+    """The criteria at `base`, in a throwaway detached worktree."""
     items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
-    skipped = [c["id"] for c in items if baseline_skipped(c.get("check", ""))]
-    runnable = [c for c in items if c["id"] not in skipped]
+    skipped = []
+    runnable = items
     tmp = Path(tempfile.mkdtemp(prefix="mmw-baseline-"))
     worktree = tmp / "tree"
     try:
@@ -2124,8 +2066,6 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
                "--timeout", str(check_timeout(body)), str(ledger)]
         env = os.environ.copy()
         env["MMW_TICKET"] = str(number)
-        if TOOLS:
-            env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=worktree, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
@@ -2166,12 +2106,35 @@ def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
                actor="worker", stage=events.checked_stage("baseline", "worker"))
 
 
-def resume_at(comments: list[str], head: str) -> str | None:
-    """Where a worker re-entering this ticket picks up: the resume table in the
-    `implement` skill's `## Closing steps`, the paragraph starting "A ticket that
-    already carries a run of your own". None for a ticket that carries none of that
-    paragraph's markers — a fresh claim, not a resume.
+# The steps of mmw-mode's Work a ticket playbook a `RESUME:` line can name, by their
+# titles there; the dispatch skill's `check-interfaces.py` finds each one in that file.
+RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment",
+                "Start the reviewer", "Read the review", "Audit",
+                "Run every criterion one final time")
+
+
+def failed_checks_quote(record: dict | None) -> str | None:
+    """The `Failed checks:` slice of a bounce, quoted verbatim on the resume's next line.
+
+    The token stays on the event's first line. The quote is that line from the token
+    to its end. A conflict bounce has no such line.
     """
+    body = (record or {}).get("body") or ""
+    for line in body.splitlines():
+        at = line.find("Failed checks:")
+        if at >= 0:
+            return line[at:].strip()
+    return None
+
+
+def resume_at(comments: list[str], head: str) -> str | None:
+    """Where a worker re-entering this ticket picks up: a step of `RESUME_STEPS`, named
+    by its title, and the events that put it there. None for a ticket that carries no
+    run of the worker's own, no `worker.decided`, no review and no worker reverify — a
+    fresh claim, not a resume. A checks bounce adds a second line, the `Failed checks:`
+    quote, so the next turn sees which commands failed.
+    """
+    integrate, decisions, start_reviewer, read_review, audit, final_run = RESUME_STEPS
     self_run = newest_run(comments, "self")
     reviewed = events.newest(comments, "reviewer.reported")
     reverify = newest_run(comments, "reverify", actor="worker")
@@ -2183,22 +2146,27 @@ def resume_at(comments: list[str], head: str) -> str | None:
                      if e["event"] in ("ticket.passed", "ticket.returned", "ticket.bounced")),
                     None)
     if terminal in ("ticket.returned", "ticket.bounced"):
-        return f"step 1, then step 4 onward ({terminal})"
+        step = f"{integrate}, then {final_run} onward ({terminal})"
+        if terminal == "ticket.bounced":
+            quote = failed_checks_quote(events.newest(comments, "ticket.bounced"))
+            if quote:
+                return step + "\n" + quote
+        return step
     if self_run is None:
-        return "step 1 (no run of your own)"
+        return f"{integrate} (no run of your own)"
     if not state["decided"]:
-        return "step 2 (no worker.decided)"
+        return f"{decisions} (no worker.decided)"
     if reviewed is None:
         if events.live_of(state, "reviewer"):
-            return "step 3 (reviewer.started, no reviewer.reported yet)"
-        return "step 3 (worker.decided, no reviewer.reported)"
-    if self_run["comment"] <= reviewed["comment"]:
-        return "step 3 (reviewer.reported, no run of your own since)"
-    if reverify is None or reverify["comment"] < self_run["comment"]:
-        return "step 4 (a run of your own since reviewer.reported, no worker reverify)"
-    if reverify["payload"].get("commit") == head and (
-            not ordered or reverify["comment"] == ordered[-1]["comment"]):
-        return "step 5 (worker reverify on HEAD)"
+            return f"{read_review} (reviewer.started, no reviewer.reported yet)"
+        return f"{start_reviewer} (worker.decided, no reviewer.reported)"
+    newest = final_worker_run(comments)
+    if newest["comment"] <= reviewed["comment"]:
+        return f"{read_review} (reviewer.reported, no run of your own since)"
+    if newest["payload"].get("commit") != head:
+        return f"{audit} (a run of your own since reviewer.reported, and commits after it)"
+    if not ordered or newest["comment"] == ordered[-1]["comment"]:
+        return f"{final_run} (a run of your own on HEAD since reviewer.reported)"
     return None
 
 
@@ -2208,7 +2176,7 @@ def run_preflight(number: int) -> int:
     Either way one event lands on the ticket: `ticket.refused` with the first refusal's
     reason, or `ticket.claimed` once the claim is made. A claim whose event could not be
     written still holds — the tracker's assignee is the claim — and says so on stderr.
-    After a successful claim, criteria that need no product slot are run once at the
+    After a successful claim, the criteria are run once at the
     newest `worker.started.base` (a `ticket.checked` of run `baseline`) unless that run
     is already on the ticket; a red result does not refuse.
     """
@@ -2244,7 +2212,10 @@ def run_preflight(number: int) -> int:
         sys.stderr.write(f"#{number}: could not read where to resume ({exc}); read the "
                          f"ticket's comments by hand\n")
     if resume:
-        print(f"RESUME: {resume}")
+        head_line, _, rest = resume.partition("\n")
+        print(f"RESUME: {head_line}")
+        if rest:
+            print(rest)
     # Getting here with a dirty tree means the claim was already this account's, so the
     # changes came in under it: this is a worker back on its own work, and the only thing
     # left to say is where they have to be by the closing steps.
@@ -2256,10 +2227,7 @@ def run_preflight(number: int) -> int:
     return 0
 
 
-ROW_ID_RE = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+\b")
-
-
-def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
+def review_finding_problems(draft: str, comments: list[str], number: int) -> list[str]:
     """The newest review's In-ticket rows must each have a handled draft row.
 
     Compare the whole source-bearing row, not just its path or claim. Counting rows
@@ -2267,6 +2235,9 @@ def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
     """
     review_event = events.newest(comments, "reviewer.reported") or {}
     try:
+        if review_event:
+            require_in_ticket(review_event.get("body") or "", review_event.get("comment"),
+                              number)
         required = in_ticket_findings(review_event.get("body") or "",
                                       review_event.get("comment"))
     except ValueError as exc:
@@ -2303,7 +2274,12 @@ def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
     return problems
 
 
-CHECKS_TAIL = 20
+# A repository check's bounce keeps the first ten error or path:line lines and the
+# last thirty, then drops excerpt lines until the comment fits.
+CHECKS_ERROR_LINES = 10
+CHECKS_TAIL_LINES = 30
+COMMENT_BODY_LIMIT = 65536
+FAILURE_LINES = HERE / "gate-check" / "lib" / "failure-lines.mjs"
 
 
 class TargetJsonChecksError(Exception):
@@ -2314,10 +2290,10 @@ class TargetJsonChecksError(Exception):
 def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     """The `checks` of `.mmw/target.json` as `(command, timeout)` pairs — an entry is a
     string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` naming its own
-    bound in seconds — or None when the key is absent —
-    the closeout then behaves as it did before the key existed. `--reverify` and
-    `--lint` never read this. A file that names `checks` but is not a JSON object
-    with a list raises `TargetJsonChecksError` rather than looking like absence."""
+    bound in seconds — or None when the key is absent. `dispatch.sh` reads them through
+    `run_target_json_checks`; no mode of this script runs them. A file that names
+    `checks` but is not a JSON object with a list raises `TargetJsonChecksError` rather
+    than looking like absence."""
     if root is None:
         return None
     path = Path(root) / ".mmw" / "target.json"
@@ -2351,14 +2327,173 @@ def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     return commands
 
 
-def run_target_json_checks(root: Path | None, into: str) -> dict | None:
+def _as_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return value
+
+
+def _checks_excerpt(output: str) -> str:
+    """The check's excerpt from `failure-lines.mjs`, or a short note when it cannot be built."""
+    if not output.strip():
+        return ""
+    try:
+        proc = subprocess.run(
+            ["node", str(FAILURE_LINES), str(CHECKS_ERROR_LINES), str(CHECKS_TAIL_LINES)],
+            input=output, capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"could not build the excerpt: {exc}"
+    if proc.returncode != 0:
+        detail = (proc.stderr or "").strip() or f"node exited {proc.returncode}"
+        return f"could not build the excerpt: {detail[:500]}"
+    return proc.stdout
+
+
+def _failed_row(command: str, tail: str, exit_code: int | None = None,
+                log: str | None = None, unwritten: str | None = None) -> dict:
+    row: dict = {"command": command, "tail": tail}
+    if type(exit_code) is int:
+        row["exit"] = exit_code
+    if log:
+        row["log"] = log
+    elif unwritten:
+        row["unwritten"] = unwritten
+    return row
+
+
+def _write_check_log(worktree: Path | str | None, ticket: str | int | None, seq: int,
+                     raw: str, started: list[bool]) -> tuple[str | None, str | None]:
+    """The full output of one failed check, in the ticket worktree.
+
+    Returns the relative path, or a sentence when a log was asked for and not written.
+    The first failure of a run replaces `.scratch/checks/<ticket>/`. A missing worktree
+    is left missing. No log is asked for when the caller passes no worktree.
+    """
+    if worktree is None or ticket in (None, ""):
+        return None, None
+    root = Path(worktree)
+    if not root.is_dir():
+        return None, f"the full output was not saved: {root} is not a directory"
+    folder = root / ".scratch" / "checks" / str(ticket)
+    try:
+        if not started[0]:
+            if folder.exists():
+                shutil.rmtree(folder)
+            folder.mkdir(parents=True)
+            started[0] = True
+        (folder / f"{seq}.log").write_text(raw, encoding="utf-8")
+    except OSError as exc:
+        return None, f"the full output was not saved: {exc}"
+    return f".scratch/checks/{ticket}/{seq}.log", None
+
+
+def _check_heading(row: dict) -> str:
+    command = " ".join(str(row.get("command") or "?").split())
+    exit_code = row.get("exit")
+    if type(exit_code) is int:
+        return f"{command} exit {exit_code}"
+    return command
+
+
+def _comment_size(prefix_len: int, summary: str, rest: str, commands: list) -> int:
+    """How long the bounce comment is, using a payload no smaller than a real one."""
+    line = prefix_len + len(events.neutralise(f" Failed checks: {summary}."))
+    cleaned = events.neutralise(rest or "").strip("\n")
+    prose = line + (2 + len(cleaned) if cleaned else 0)
+    payload = {
+        "v": events.VERSION,
+        "event": "ticket.bounced",
+        "stage": "land",
+        "actor": "main",
+        "spec": 10**9,
+        "ticket": 10**9,
+        "at": "2026-01-01T00:00:00Z",
+        "reason": "checks",
+        "commit": "f" * 40,
+        "into": "x" * 80,
+        "commands": commands,
+    }
+    return prose + 2 + len(events.block(payload)) + 1
+
+
+def _summary_of(rows: list[dict]) -> str:
+    return "; ".join(_check_heading(row) for row in rows)
+
+
+def _rest_of(rows: list[dict], excerpts: list[list[str]]) -> str:
+    blocks = []
+    for row, lines in zip(rows, excerpts):
+        parts = [_check_heading(row)]
+        log = row.get("log")
+        note = row.get("unwritten")
+        if isinstance(log, str) and log:
+            parts.extend(["", log])
+        elif isinstance(note, str) and note:
+            parts.extend(["", note])
+        if lines:
+            parts.extend(["", *lines])
+        blocks.append("\n".join(parts))
+    return "\n\n".join(blocks)
+
+
+def _commands_of(rows: list[dict], excerpts: list[list[str]]) -> list[dict]:
+    commands = []
+    for row, lines in zip(rows, excerpts):
+        item = {**row, "tail": "\n".join(lines)}
+        if item.get("log") == "":
+            del item["log"]
+        commands.append(item)
+    return commands
+
+
+def checks_bounce_prose(rows: list | None, prefix_len: int = 0) -> dict:
+    """The checks bounce: one summary line, one paragraph per command, and the JSON.
+
+    `prefix_len` is the merge sentence already written before ` Failed checks:`.
+    Excerpt lines drop from the end until the comment fits. A line that by itself
+    does not fit is dropped whole; the log keeps it. A command name or a log path
+    longer than the comment is not shortened.
+    """
+    copied = [dict(row) for row in (rows or []) if isinstance(row, dict)]
+    excerpts = [(row.get("tail") or "").splitlines() for row in copied]
+    original = [len(lines) for lines in excerpts]
+
+    def over() -> bool:
+        return _comment_size(prefix_len, _summary_of(copied), _rest_of(copied, excerpts),
+                             _commands_of(copied, excerpts)) > COMMENT_BODY_LIMIT
+
+    while over():
+        index = next((i for i in range(len(excerpts) - 1, -1, -1) if excerpts[i]), None)
+        if index is None:
+            break
+        excerpts[index].pop()
+    summary = _summary_of(copied)
+    rest = _rest_of(copied, excerpts)
+    commands = _commands_of(copied, excerpts)
+    dropped = sum(max(0, original[i] - len(excerpts[i])) for i in range(len(copied)))
+    if dropped:
+        note = f"+{dropped} more"
+        candidate = rest + ("\n\n" if rest else "") + note
+        if _comment_size(prefix_len, summary, candidate, commands) <= COMMENT_BODY_LIMIT:
+            rest = candidate
+    return {"summary": summary, "rest": rest, "commands": commands}
+
+
+def run_target_json_checks(root: Path | None, into: str,
+                           worktree: Path | str | None = None,
+                           ticket: str | int | None = None) -> dict | None:
     """Run each `checks` command at the repository root, in order.
 
     None when the key is absent: nothing ran. Otherwise `{"total", "failed",
-    "problem"}`: `failed` is `{"command", "tail"}` for each command that did not exit 0,
-    with its last `CHECKS_TAIL` lines of output, and `problem` says why the file itself
-    could not be read — a malformed file is a failure, not absence. A string entry is
-    held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
+    "problem"}`. `failed` is one row per command that did not exit 0: `command`,
+    `tail` (the excerpt), `exit` when the process exited, `log` when the full
+    output was written under `worktree`, and `unwritten` when that write was asked
+    for and did not happen. `problem` says why the file itself could not be read —
+    a malformed file is a failure, not absence. A string entry is held to
+    `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
     `{"run": …, "timeout": …}` is held to its own.
     """
     try:
@@ -2367,7 +2502,9 @@ def run_target_json_checks(root: Path | None, into: str) -> dict | None:
         return {"total": 0, "failed": [], "problem": str(exc)}
     if commands is None:
         return None
-    failed: list[tuple[str, str]] = []
+    failed: list[dict] = []
+    log_started = [False]
+    seq = 0
     env = os.environ.copy()
     env["MMW_BASE_REF"] = f"origin/{into}"
     for command, bound in commands:
@@ -2375,45 +2512,24 @@ def run_target_json_checks(root: Path | None, into: str) -> dict | None:
             proc = subprocess.run(command, shell=True, cwd=root, capture_output=True,
                                   text=True, timeout=bound, env=env)
         except subprocess.TimeoutExpired as exc:
-            combined = (exc.stdout or "") + (exc.stderr or "")
-            if isinstance(combined, bytes):
-                combined = combined.decode("utf-8", "replace")
-            tail = "\n".join(str(combined).splitlines()[-CHECKS_TAIL:])
+            combined = _as_text(exc.stdout) + _as_text(exc.stderr)
+            seq += 1
+            log, unwritten = _write_check_log(worktree, ticket, seq, combined, log_started)
+            excerpt = _checks_excerpt(combined)
             note = f"timed out after {bound}s"
-            failed.append((command, f"{note}\n{tail}".strip() if tail else note))
+            tail = f"{note}\n{excerpt}" if excerpt else note
+            failed.append(_failed_row(command, tail, log=log, unwritten=unwritten))
             continue
         except OSError as exc:
-            failed.append((command, str(exc)))
+            failed.append(_failed_row(command, str(exc)))
             continue
         if proc.returncode != 0:
-            combined = (proc.stdout or "") + (proc.stderr or "")
-            tail = "\n".join(combined.splitlines()[-CHECKS_TAIL:])
-            failed.append((command, tail))
-    return {"total": len(commands),
-            "failed": [{"command": c, "tail": t} for c, t in failed], "problem": None}
-
-
-def post_repo_checks(number: int, checks: dict, spec: int | None) -> bool:
-    """Post the repository checks' run as a `ticket.checked` event; True when all passed."""
-    ok = not checks["failed"] and not checks["problem"]
-    total = checks["total"]
-    lines = []
-    if checks["problem"]:
-        lines.append(checks["problem"])
-    for failure in checks["failed"]:
-        lines += ["", failure["command"]]
-        if failure["tail"]:
-            lines.append(failure["tail"])
-    head = git("rev-parse", "HEAD")
-    post_event(number, "ticket.checked",
-               (f"Repository checks on {head[:12]}: {total - len(checks['failed'])}/{total} "
-                f"passed" if not checks["problem"] else
-                f"Repository checks on {head[:12]}: .mmw/target.json `checks` unreadable"),
-               "\n".join(lines).strip("\n"), spec=spec, run="repo-checks", commit=head,
-               result="met" if ok else "unmet", stage="close",
-               counts={"passed": total - len(checks["failed"]), "total": total},
-               commands=checks["failed"] or None, problem=checks["problem"])
-    return ok
+            combined = _as_text(proc.stdout) + _as_text(proc.stderr)
+            seq += 1
+            log, unwritten = _write_check_log(worktree, ticket, seq, combined, log_started)
+            failed.append(_failed_row(
+                command, _checks_excerpt(combined), proc.returncode, log, unwritten))
+    return {"total": len(commands), "failed": failed, "problem": None}
 
 
 def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
@@ -2529,7 +2645,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     into = (started or {}).get("into") if passed else None
     problems = draft_problems(draft, comments)
     problems += verified_problems(draft, body, comments, first)
-    problems += review_finding_problems(draft, comments)
+    problems += review_finding_problems(draft, comments, number)
     problems += event_problems(comments)
     if started_problem:
         problems.append(started_problem)
@@ -2564,15 +2680,6 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         return 0
 
     if passed and pending is None:
-        checks = run_target_json_checks(repo_root(), into)
-        if checks is not None and not post_repo_checks(number, checks, spec_field(ticket)):
-            named = ", ".join(f["command"] for f in checks["failed"]) or checks["problem"]
-            sys.stderr.write(f"closeout stopped: the repository's checks did not pass "
-                             f"({named}); the ticket.checked event on #{number} carries "
-                             f"each failed command and its last lines. Fix the code, run "
-                             f"that suite yourself, commit, run --reverify --actor worker "
-                             f"again, and run --closeout again\n")
-            return 1
         problem = push_ticket_branch(number, repo_root(), head)
         if problem:
             sys.stderr.write(f"closeout refused: {problem}\n")
@@ -2606,16 +2713,6 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                              f"{'passed' if passed else 'returned'}. Read #{number} on the "
                              f"tracker for what the edit left done, then run --closeout again\n")
             return 1
-    # A handed-back ticket's work is over for the night, and `ticket.returned` says so —
-    # its product slot free included: the relay wakes the workers queued for a slot on
-    # that event. So the slot goes back before the event, on the run that hands back and
-    # on one posting the event a previous run could not; a slot that will not come back
-    # is said on stderr, and the ticket is still announced as returned.
-    if not passed:
-        problem = give_slot_back(repo_root())
-        if problem:
-            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
-                             f"back: {problem}\n")
     try:
         post_event(number, event, first,
                    "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"), **fields)
@@ -2724,7 +2821,7 @@ def lint_expectations(body: str) -> list[str]:
     """`$` in an EXPECT regex without the `m` flag is a criterion that can never pass.
 
     gate-check hands the CHECK's whole output — stdout, then stderr — to the regex
-    (`gate-check.mjs:586`), and a command's output ends in a newline. JavaScript's `$`
+    (`runCheck` in `gate-check.mjs`), and a command's output ends in a newline. JavaScript's `$`
     does not match the position before that newline, so `/OK$/` never matches the `OK`
     a passing test run prints.
     """
@@ -2859,348 +2956,18 @@ def lint_check_effects(body: str) -> list[str]:
     return findings
 
 
-SCREEN_CONTRACT_ROWS_RE = re.compile(r"screen-contract\.yaml\s+rows?:\s*([^\n]+)")
+# A `CHECK:` that stubs the application's own network proves nothing about the product:
+# `vi.stubGlobal('fetch')`, msw, nock, fetch-mock. Mocking the product's gateway is not that.
 FETCH_STUB_RE = re.compile(
     r"stubGlobal\(\s*['\"]fetch['\"]|\bmsw\b|\bnock\b|\bfetch-mock\b",
     re.IGNORECASE,
 )
-FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
-# The scripts of this pipeline a criterion may run, and the flags each call cannot leave
-# out. `lint_pipeline_flags` reads it, so a script that takes no flags at all has nothing
-# to assert here and is left out of it, which is why this holds fewer scripts than
-# `JUDGES` below does.
-# Their addresses come from the repository's `.mmw/target.json`, never from the line.
-PIPELINE_SCRIPTS = {
-    "story-parity.py": {"required": ("--contract", "--pages")},
-    "boundary-check.py": {"required": ("--run",)},
-}
-# The oracles of the `ui-acceptance` skill: every script a `CHECK:` names by its bare name and
-# that `require_judges` refuses a run for when the shell could not find it. The default place
-# looked at is that skill's `scripts/`, resolved in `main()`; `--tools` overrides it.
-JUDGES = ("story-parity.py", "boundary-check.py", "journey.py", "harness-guard.py")
-SPEC_SECTION_SOURCE_RE = re.compile(r"^#(\d+) (Implementation Decisions|Testing Decisions)\s*(\d+)?")
-ADR_SOURCE_RE = re.compile(r"^ADR-(\d{4})")
-TICKET_SOURCE_RE = re.compile(r"^#(\d+)(?:\s|$)")
-DOC_SOURCE_RE = re.compile(r"^(docs/\S+)")
-STORY_SOURCE_RE = re.compile(r"^#\d+ story \d+")
-_HELP_FLAGS: dict[str, set[str]] = {}
-# Where the scripts other skills own are found: the `ui-acceptance` skill's `scripts/` by
-# default, or the directories `--tools` named instead. A `CHECK:` names an oracle by its bare
-# name (`story-parity.py …`), and this process puts these directories on the PATH of the
-# shell that runs it. Nothing here looks for such a script by any other route.
-TOOLS: list[Path] = []
 
 
-def tool(script: str) -> Path | None:
-    for directory in TOOLS:
-        candidate = directory / script
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-class JudgeUnreachable(RuntimeError):
-    """A `CHECK:` names one of the oracles and no directory in force holds it."""
-
-
-def require_judges(body: str) -> None:
-    """Refuse, before anything runs, when a criterion names an oracle this run cannot reach.
-
-    Without the directory, the criterion fails `command not found`, which reads exactly
-    like a criterion that ran and did not pass: gate-check records it as one more unmet
-    criterion and this run exits 1. On 2026-09-08 `dispatch.sh reverify` was found running
-    with no `--tools` at all, which would have reopened and handed back every ticket of
-    a batch whose criteria name an oracle, for a fault in the invocation. So the run
-    stops here instead, names the script, and writes nothing to the ticket.
-
-    `PATH` is the second place looked at: a directory put there by hand is a legitimate
-    way to reach the oracles, and refusing it would refuse something that works.
-    """
-    missing = sorted({judge
-                      for _, check, _ in criteria_lines(body)
-                      for judge in JUDGES
-                      if judge in check
-                      and tool(judge) is None and shutil.which(judge) is None})
-    if missing:
-        raise JudgeUnreachable(
-            ", ".join(missing) + ": named by a `CHECK:` and in none of the directories "
-            "this run searched and not on PATH. Nothing was run and nothing was written. Pass "
-            "--tools <a directory holding it> and run again.")
-
-
-RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
-JOURNEY_NAME_RE = re.compile(r"^\s*run\s+(\S+)")
-CD_PREFIX_RE = re.compile(r"^\s*cd\s+(\S+)\s*&&")
-CRITICAL_FLOWS_RE = re.compile(r"Critical flows|关键流程", re.IGNORECASE)
-JOURNEY_PATH_RE = re.compile(r"\.mmw/journeys/([a-z0-9][a-z0-9-]*)/?")
-
-
-OPERATOR_RE = re.compile(r"(?:&&|\|\||;|\|)(?:\s|$)")
-
-
-def script_segment(check: str, script: str) -> str:
-    """The part of a CHECK from the script's name to the end of that command.
-
-    An operator inside a quoted value belongs to the command that value carries, not
-    to the shell reading this line, so the end of the command is looked for outside
-    the quotes."""
-    i = check.find(script)
-    if i < 0:
-        return ""
-    rest = check[i + len(script):]
-    quote = ""
-    for j, ch in enumerate(rest):
-        if quote:
-            if ch == quote:
-                quote = ""
-        elif ch in "\"'":
-            quote = ch
-        elif OPERATOR_RE.match(rest, j):
-            return rest[:j].rstrip()
-    return rest
-
-
-def segment_flags(segment: str) -> set[str]:
-    """The flags of the oracle's own command line.
-
-    `--run` carries a whole command as its value, and that command has flags of its
-    own (`pnpm --dir desktop-chameleon exec vitest run …`). The shell hands a quoted
-    value to the oracle as one word, so the words are cut the way the shell cuts them
-    and only a word that is itself a flag is read; a line whose quotes do not balance
-    is cut on whitespace instead, which is what this did before shell words."""
-    try:
-        words = shlex.split(segment)
-    except ValueError:
-        words = segment.split()
-    out: set[str] = set()
-    for word in words:
-        m = FLAG_RE.match(word)
-        if m:
-            out.add(m.group(1))
-    return out
-
-
-PAGES_VALUE_RE = re.compile(r"""--pages(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
-
-
-def flag_values(segment: str, pattern: re.Pattern) -> list[str]:
-    """Every value `pattern` matches in `segment`, double-quoted, single-quoted or bare.
-
-    The three alternatives are one capture group each, so which one carried the value
-    is the caller's question in every flag regex here; asking it once is the point."""
-    out: list[str] = []
-    for m in pattern.finditer(segment):
-        out.append(m.group(1) if m.group(1) is not None
-                   else m.group(2) if m.group(2) is not None
-                   else m.group(3) or "")
-    return out
-
-
-def story_mounts(check: str) -> list[str]:
-    """The `--pages` mounts a story-parity.py criterion names."""
-    segment = script_segment(check, "story-parity.py")
-    out: list[str] = []
-    for raw in flag_values(segment, PAGES_VALUE_RE):
-        out.extend(x for x in raw.split(",") if x)
-    return out
-
-
-def page_mounts(doc: dict) -> dict[str, str]:
-    """`pages.<page>.mount` → the page key."""
-    out: dict[str, str] = {}
-    for name, decl in (doc.get("pages") or {}).items():
-        mount = str((decl or {}).get("mount") or "")
-        if mount:
-            out[mount] = str(name)
-    return out
-
-
-def row_mount(row: dict, doc: dict) -> str:
-    """The design-page mount this row makes the ticket claim.
-
-    Ordinary rows belong to the Component page whose declaration owns their
-    `component`. A cross-component row belongs to the App page its `app` column names.
-    """
-    pages = doc.get("pages") or {}
-    app = str(row.get("app") or "")
-    if app:
-        return str((pages.get(app) or {}).get("mount") or "")
-    for decl in pages.values():
-        decl = decl or {}
-        if str(decl.get("component") or "") == str(row.get("component") or ""):
-            return str(decl.get("mount") or "")
-    return ""
-
-
-def row_needs_boundary(row: dict) -> bool:
-    """Whether to-tickets requires a boundary criterion for this row."""
-    calls = [str(value).lower() for value in (row.get("calls") or [])]
-    return bool(row.get("app")) or calls != ["none"] or str(row.get("next") or "") != "stay"
-
-
-def run_values(check: str) -> list[str]:
-    """The `--run` values on a boundary-check.py criterion; empty when that script is absent."""
-    if "boundary-check.py" not in check:
-        return []
-    segment = script_segment(check, "boundary-check.py")
-    values = flag_values(segment, RUN_VALUE_RE)
-    if "--run" in segment and not values:
-        return [""]
-    return values
-
-
-TEST_FILE_SUFFIXES = (".py", ".sh", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx")
-
-
-# `python -m unittest discover`: the flags that take a value, and which of them name the
-# start directory and the file pattern. Its positionals are `[start] [pattern] [top]`.
-DISCOVER_VALUE_FLAGS = ("-s", "--start-directory", "-p", "--pattern", "-t",
-                        "--top-level-directory", "-k", "--durations")
-DISCOVER_START_FLAGS = ("-s", "--start-directory")
-DISCOVER_PATTERN_FLAGS = ("-p", "--pattern")
-DISCOVER_DEFAULT_PATTERN = "test*.py"
-# A runner flag whose value is the directory the rest of the command runs in, so a
-# relative test file after it is read from there: `pnpm --dir <d>`, `npm --prefix <d>`,
-# `yarn --cwd <d>`, `make -C <d>`.
-CHDIR_FLAGS = ("--dir", "--prefix", "--cwd", "-C")
-
-
-def _discover_paths(words: list[str], base: Path) -> tuple[list[Path], set[int]]:
-    """The files `unittest discover` would load, and the indices of the words that said so.
-
-    `-s <dir> -p <file>` (or `--start-directory`, `--pattern`, `=` forms, or discover's
-    positional `<dir> <pattern>`) names one file as the two joined. A pattern with
-    `*`, `?` or `[` names every file it matches in that directory; one that matches none
-    is kept as written, so the caller reports it as not written yet rather than as a
-    command that names no test."""
-    if "discover" not in words:
-        return [], set()
-    start = pattern = None
-    consumed: set[int] = set()
-    positional: list[tuple[int, str]] = []
-    j = words.index("discover") + 1
-    while j < len(words):
-        word = words[j]
-        flag, eq, value = word.partition("=")
-        if eq and flag in DISCOVER_VALUE_FLAGS:
-            index = j
-            j += 1
-        elif word in DISCOVER_VALUE_FLAGS and j + 1 < len(words):
-            flag, value, index = word, words[j + 1], j + 1
-            j += 2
-        else:
-            if not word.startswith("-"):
-                positional.append((j, word))
-            j += 1
-            continue
-        if flag in DISCOVER_START_FLAGS:
-            start = value
-            consumed.add(index)
-        elif flag in DISCOVER_PATTERN_FLAGS:
-            pattern = value
-            consumed.add(index)
-    if start is None and positional:
-        index, start = positional.pop(0)
-        consumed.add(index)
-    if pattern is None and positional:
-        index, pattern = positional.pop(0)
-        consumed.add(index)
-    directory = base / (start or ".")
-    pattern = pattern or DISCOVER_DEFAULT_PATTERN
-    if any(ch in pattern for ch in "*?["):
-        matches = sorted(path for path in directory.glob(pattern) if path.is_file())
-        return (matches or [directory / pattern]), consumed
-    return [directory / pattern], consumed
-
-
-def boundary_test_paths(command: str, root: Path) -> list[Path]:
-    """Test files named by one boundary `--run` command.
-
-    A case suffix (`file.py::Case.test`) still names `file.py`. Existing paths are
-    accepted even when their suffix is unusual; otherwise the standard script/test
-    suffixes distinguish a future file from command names and case selectors.
-
-    A runner that takes the directory and the file apart is read as the two joined:
-    `unittest discover -s <dir> -p <file>` (`_discover_paths`), and a relative file
-    after a flag that moves the command into another directory (`CHDIR_FLAGS`) is read
-    from that directory when it is there, from the repository root otherwise.
-    """
-    try:
-        words = shlex.split(command)
-    except ValueError:
-        words = command.split()
-    found: list[Path] = []
-
-    def add(candidate: Path) -> None:
-        if candidate not in found:
-            found.append(candidate)
-
-    base = root
-    for i, word in enumerate(words[:-1]):
-        flag, eq, value = word.partition("=")
-        if eq and flag in CHDIR_FLAGS:
-            base = root / value
-        elif word in CHDIR_FLAGS:
-            base = root / words[i + 1]
-    discovered, consumed = _discover_paths(words, base)
-    for path in discovered:
-        add(path)
-    after_chdir = False
-    for i, word in enumerate(words):
-        if i in consumed:
-            continue
-        flag = word.partition("=")[0]
-        if flag in CHDIR_FLAGS:
-            after_chdir = True
-        value = word.split("::", 1)[0].rstrip(",;:")
-        if value.startswith("-") or not value:
-            continue
-        candidate = Path(value)
-        if not candidate.is_absolute():
-            moved = base / candidate
-            candidate = (moved if after_chdir and (moved.is_file() or
-                                                  not (root / candidate).is_file())
-                         else root / candidate)
-        if candidate.is_file() or value.lower().endswith(TEST_FILE_SUFFIXES):
-            add(candidate)
-    return found
-
-
-def help_flags(script: str) -> set[str]:
-    """The flags the installed script actually accepts, read from its `--help` once.
-    This is the one place a criterion's reference to a capability that does not exist
-    yet is caught at the moment it is written. Looked for in the directories in force,
-    then on PATH, the same two places a `CHECK:` itself resolves the script from."""
-    if script not in _HELP_FLAGS:
-        path = tool(script) or shutil.which(script)
-        text = ""
-        if path is not None:
-            try:
-                out = subprocess.run([str(path), "--help"], capture_output=True,
-                                     text=True, timeout=60)
-                text = (out.stdout or "") + (out.stderr or "")
-            except (OSError, subprocess.TimeoutExpired):
-                text = ""
-        _HELP_FLAGS[script] = set(FLAG_RE.findall(text))
-    return _HELP_FLAGS[script]
-
-
-def lint_pipeline_flags(gate_id: str, check: str) -> list[str]:
-    findings = []
-    for script, rules in PIPELINE_SCRIPTS.items():
-        if script not in check:
-            continue
-        flags = segment_flags(script_segment(check, script))
-        for flag in rules["required"]:
-            if flag not in flags:
-                findings.append(f"{gate_id}: {script} without {flag}")
-        known = help_flags(script)
-        if known:
-            for flag in sorted(flags - known):
-                findings.append(f"{gate_id}: {script} does not accept {flag} (its --help "
-                                f"does not list it; addresses come from .mmw/target.json, "
-                                f"never from the line)")
-    return findings
+def lint_network_stubs(body: str) -> list[str]:
+    return [f"{gate_id}: CHECK stubs the application's own network; mock the product's "
+            f"gateway instead"
+            for gate_id, check, _ in criteria_lines(body) if FETCH_STUB_RE.search(check)]
 
 
 def parent_sections(parent_text: str) -> dict[int, dict]:
@@ -3242,426 +3009,6 @@ def print_uncovered_sections(spec: int, spec_body: str, named: set[int]) -> None
     print(f"sections named by a ticket: {covered}/{len(numbers)}")
 
 
-def load_yaml_file(path: str) -> dict | None:
-    """The file as a mapping. `pyyaml` when this interpreter has it; else through `uv`,
-    which every `CHECK:` of this pipeline already relies on; else `None`, and the caller
-    says so rather than passing a rule it could not run."""
-    try:
-        import yaml  # noqa: PLC0415
-        with open(path, encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except ImportError:
-        pass
-    except OSError:
-        return None
-    try:
-        out = subprocess.run(
-            ["uv", "run", "--with", "pyyaml", "python", "-c",
-             "import json,sys,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1], "
-             "encoding='utf-8')) or {}))", path],
-            capture_output=True, text=True, timeout=120, env=GH_ENV)
-        if out.returncode == 0:
-            return json.loads(out.stdout)
-    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
-        pass
-    return None
-
-
-def load_contract_doc(read_first: str) -> tuple[dict | None, str | None]:
-    m = re.search(r"([\w./-]*screen-contract\.yaml)", read_first)
-    if not m:
-        return None, None
-    return load_yaml_file(m.group(1)), m.group(1)
-
-
-def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
-                    read_first: str, parent_text: str) -> list[str]:
-    """Every baseline-class source of an owned row must be in `## Read first`; every
-    spec-section source must be named by `## Parent`. A story reaches no worker and is
-    reported as such."""
-    findings = []
-    parents = parent_sections(parent_text)
-    seen: set[str] = set()
-    for rid in row_ids:
-        row = rows_by_id.get(rid)
-        if row is None:
-            continue
-        for src in row.get("source") or []:
-            src = str(src).strip()
-            key = src
-            m = SPEC_SECTION_SOURCE_RE.match(src)
-            if m:
-                spec, kind, num = int(m.group(1)), m.group(2), m.group(3)
-                key = f"{spec} {kind} {num}"
-                if key in seen:
-                    continue
-                seen.add(key)
-                entry = parents.get(spec)
-                if kind == "Testing Decisions":
-                    if not (entry and entry["testing"]):
-                        findings.append(f"row {rid} source `{src}`: `## Parent` does not name "
-                                        f"#{spec} Testing Decisions")
-                elif num and not (entry and int(num) in entry["sections"]):
-                    findings.append(f"row {rid} source `{src}`: `## Parent` does not name "
-                                    f"#{spec} Implementation Decisions section {num}")
-                continue
-            if STORY_SOURCE_RE.match(src):
-                continue
-            m = ADR_SOURCE_RE.match(src)
-            if m:
-                num = m.group(1)
-                key = f"ADR-{num}"
-                if key in seen:
-                    continue
-                seen.add(key)
-                if f"ADR-{num}" not in read_first and f"/{num}-" not in read_first:
-                    findings.append(f"row {rid} source `{src}`: ADR-{num} is not under "
-                                    f"`## Read first`")
-                continue
-            m = TICKET_SOURCE_RE.match(src)
-            if m:
-                key = f"#{m.group(1)}"
-                if key in seen:
-                    continue
-                seen.add(key)
-                if not re.search(rf"#{m.group(1)}(?!\d)", read_first):
-                    findings.append(f"row {rid} source `{src}`: {key} is not under "
-                                    f"`## Read first`")
-                continue
-            m = DOC_SOURCE_RE.match(src)
-            if m:
-                path = m.group(1).rstrip("),;:")
-                if path in seen:
-                    continue
-                seen.add(path)
-                if path not in read_first:
-                    findings.append(f"row {rid} source `{src}`: {path} is not under "
-                                    f"`## Read first`")
-    return findings
-
-
-CRITICAL_FLOW_SHAPE = "- `<flow>`: Implementation Decisions sections <n>, <n>"
-LIST_ITEM_RE = re.compile(r"^(\s*)[-*+]\s")
-
-
-def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
-    """Flow name → Implementation Decisions sections from Testing Decisions.
-
-    The **Critical flows** bullet holds one line per flow, in the shape
-    `CRITICAL_FLOW_SHAPE`, nested under the marker or on the marker line itself: the
-    flow is the backticked name (or `.mmw/journeys/<flow>/`, or the bare first word of
-    the item), and the section numbers are the ones after the words
-    `Implementation Decisions` (`sections 2 and 3 of Implementation Decisions` reads the
-    same). The section is named by its heading in the spec, in English whatever language
-    the rest of the spec is in, because that heading is what `## Parent` names too; a
-    line without those words is returned as unreadable.
-
-    A line that says only `none` is the spec saying the product has no such flow.
-
-    The bullet ends where its own list ends: at the first non-blank line indented no
-    deeper than the marker's own list item, or at a heading. A marker that is not a list
-    item (a paragraph or a heading) owns the list items that follow it.
-    """
-    out: dict[str, set[int]] = {}
-    unreadable: list[str] = []
-    active = False
-    marker_indent: int | None = None
-    for raw in section(spec_body, "Testing Decisions"):
-        line = raw
-        marker = None if active else CRITICAL_FLOWS_RE.search(line)
-        if marker:
-            active = True
-            item = LIST_ITEM_RE.match(line)
-            marker_indent = len(item.group(1)) if item else None
-            line = re.sub(r"^\*{0,2}\s*(?:\([^)]*\))?\s*[:：]?\s*", "",
-                          line[marker.end():])
-            if not line.strip():
-                continue
-        elif active:
-            if not line.strip():
-                continue
-            if line.lstrip().startswith("#"):
-                break
-            indent = len(line) - len(line.lstrip())
-            if marker_indent is not None and indent <= marker_indent:
-                break
-            if marker_indent is None and not LIST_ITEM_RE.match(line) and indent == 0:
-                break
-        else:
-            continue
-        if re.fullmatch(r"[-*\s]*`?none`?[.。]?\s*", line, re.IGNORECASE):
-            continue
-        path = JOURNEY_PATH_RE.search(line)
-        quoted = re.search(r"`([a-z0-9][a-z0-9-]*)`", line)
-        plain = re.match(r"^\s*[-*]\s+([a-z0-9][a-z0-9-]*)\b", line)
-        name = (path.group(1) if path else quoted.group(1) if quoted else
-                plain.group(1) if plain else "")
-        after = re.search(r"Implementation Decisions\s*(.+)$", line)
-        before = re.search(r"sections?\s+(.+?)\s+of\s+Implementation Decisions", line,
-                           re.IGNORECASE)
-        decision = after.group(1) if after else before.group(1) if before else ""
-        sections = {int(value) for value in re.findall(r"\d+", decision)}
-        if name and sections:
-            out[name] = sections
-        else:
-            unreadable.append(line.strip())
-    return out, unreadable
-
-
-def acceptance_journeys(
-    parent_text: str, spec_bodies: dict[int, str]
-) -> tuple[set[str], list[tuple[int, str]]]:
-    """Critical-flow journeys whose decision sections this ticket's Parent names."""
-    parents = parent_sections(parent_text)
-    out: set[str] = set()
-    unreadable: list[tuple[int, str]] = []
-    for spec, parent in parents.items():
-        body = spec_bodies.get(spec)
-        if not body:
-            continue
-        flows, bad_lines = critical_flows(body)
-        unreadable.extend((spec, line) for line in bad_lines)
-        for name, required in flows.items():
-            if required <= set(parent.get("sections") or ()):
-                out.add(name)
-    return out, unreadable
-
-
-def lint_screen_contract(
-    body: str,
-    number: int | None = None,
-    root: Path | str | None = None,
-    spec_bodies: dict[int, str] | None = None,
-    fetch_spec_body: Callable[[int], str] | None = None,
-) -> tuple[list[str], list[str]]:
-    """The UI rules of `to-tickets`, made mechanical.
-
-    A `screen-contract.yaml rows: …` line makes this a page ticket. Its rows
-    determine the required Component or App story mounts and boundary criteria, and
-    each readable boundary test file must contain the row's trigger. A
-    `boundary-check.py --run` is a non-empty command; a `journey.py run <name>` exists
-    under `.mmw/journeys/` unless this ticket's `## Owns` covers that directory;
-    critical-flow journeys require `--break`, while a user-named journey without it is
-    a warning;
-    no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
-    nock, fetch-mock) — mocking the product's gateway is not that; the
-    pipeline scripts are given what they need and nothing they retired; every
-    baseline-class source of an owned row is under `## Read first` and every
-    spec-section source is named by `## Parent`.
-    """
-    findings: list[str] = []
-    warning_findings: list[str] = []
-    repo = Path(root) if root is not None else repo_root()
-    read_first = "\n".join(section(body, "Read first"))
-    parent_text = "\n".join(section(body, "Parent"))
-    owns = owns_globs(body)
-    checks = criteria_lines(body)
-    loaded_spec_bodies = dict(spec_bodies or {})
-    acceptance: set[str] | None = None
-    acceptance_readable: bool | None = None
-    unreadable_specs_reported: set[int] = set()
-    contract_runtime = all(
-        any(glob_covers(pattern, required) for pattern in owns)
-        for required in (".mmw/target.json", ".mmw/stories")
-    )
-
-    def load_acceptance_journeys() -> tuple[set[str], bool]:
-        """Read parent specs once; False means at least one could not be read."""
-        readable = True
-        parents = parent_sections(parent_text)
-        for spec in parents:
-            if spec not in loaded_spec_bodies and fetch_spec_body is not None:
-                loaded_spec_bodies[spec] = fetch_spec_body(spec)
-            if not loaded_spec_bodies.get(spec):
-                readable = False
-                if spec not in unreadable_specs_reported:
-                    findings.append(
-                        f"spec #{spec} could not be read, so --lint cannot decide whether "
-                        f"this journey is a Critical flow; restore tracker access and run "
-                        f"--lint again")
-                    unreadable_specs_reported.add(spec)
-        journeys, unreadable_lines = acceptance_journeys(parent_text, loaded_spec_bodies)
-        for spec, line in unreadable_lines:
-            findings.append(
-                f"spec #{spec} Critical flows line `{line}` could not be read, so --lint "
-                f"cannot decide whether this journey needs --break; write each flow as "
-                f"`{CRITICAL_FLOW_SHAPE}`, with the words Implementation Decisions in "
-                f"English, as `## Parent` names them")
-        return journeys, readable and not unreadable_lines
-
-    for gate_id, check, _ in checks:
-        findings.extend(lint_pipeline_flags(gate_id, check))
-        if FETCH_STUB_RE.search(check):
-            findings.append(f"{gate_id}: CHECK stubs the application's own network; mock "
-                            f"the product's gateway instead")
-        for value in run_values(check):
-            if not value.strip():
-                findings.append(f"{gate_id}: boundary-check.py --run is empty")
-                break
-        # `journeys` is read from where the command will run, not from the repository
-        # root: a criterion that drives journey.py against a fixture `cd`s into it first,
-        # and the journey it names is under that directory's `.mmw/`.
-        base, prefix = repo, ""
-        cdm = CD_PREFIX_RE.search(check)
-        if cdm:
-            candidate = (repo / cdm.group(1)).resolve()
-            if candidate.is_dir():
-                base = candidate
-                prefix = cdm.group(1).removeprefix("./").strip("/")
-        journey_segment = script_segment(check, "journey.py")
-        journey_has_break = "--break" in segment_flags(journey_segment)
-        for name in JOURNEY_NAME_RE.findall(journey_segment):
-            if (base / ".mmw" / "journeys" / name).exists():
-                exists_or_owned = True
-            else:
-                # A ticket whose `## Owns` covers the directory is the ticket that creates
-                # it, so it is absent until this ticket's own work lands. The rule asks
-                # after a journey someone else was to have built.
-                path = "/".join(p for p in (prefix, ".mmw", "journeys", name) if p)
-                exists_or_owned = any(glob_covers(g, path) for g in owns)
-            if not exists_or_owned:
-                findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
-                continue
-            if journey_has_break or name == "smoke" or contract_runtime:
-                continue
-            if acceptance is None:
-                acceptance, acceptance_readable = load_acceptance_journeys()
-            if not acceptance_readable:
-                continue
-            if name in acceptance:
-                findings.append(
-                    f"{gate_id}: critical-flow journey `{name}` has no --break; its Critical "
-                    f"flows entry makes a negative control mandatory; add --break "
-                    f"\"<METHOD> <route>\" for the flow's last write")
-            else:
-                warning_findings.append(
-                    f"{gate_id}: user-named journey `{name}` has no --break, so this "
-                    f"journey cannot be broken and cannot reject a script that only reads "
-                    f"a success message; add --break when the flow has a write to isolate")
-    m = SCREEN_CONTRACT_ROWS_RE.search(read_first)
-    interface_ticket = any("story-parity.py" in check for _, check, _ in checks)
-    if not m:
-        if interface_ticket:
-            findings.append("page ticket (a criterion runs story-parity.py) names no "
-                            "`screen-contract.yaml rows: <id, id>` line under `## Read first`")
-        return findings, warning_findings
-    row_ids = ROW_ID_RE.findall(m.group(1))
-    doc, contract_path = load_contract_doc(read_first)
-    if doc is None and contract_path:
-        findings.append(f"the screen contract {contract_path} could not be read from here (not in "
-                        f"the working tree, or neither pyyaml nor uv is available); the "
-                        f"source rules did not run")
-    if doc is not None:
-        mounts_of = page_mounts(doc)
-        rows_by_id = {str(row.get("id") or ""): row for row in doc.get("rows") or []
-                      if isinstance(row, dict)}
-        missing_rows = [row_id for row_id in row_ids if row_id not in rows_by_id]
-        for row_id in missing_rows:
-            findings.append(
-                f"screen-contract.yaml rows names `{row_id}`, but the screen contract has no such "
-                f"row; no page or boundary requirement can be derived; correct the row id "
-                f"under `## Read first`")
-        rows = [rows_by_id[row_id] for row_id in row_ids if row_id in rows_by_id]
-        for gate_id, check, _ in checks:
-            if "story-parity.py" not in check:
-                continue
-            for mount in story_mounts(check):
-                page = mounts_of.get(mount)
-                if page is None:
-                    findings.append(f"{gate_id}: --pages {mount} is declared by no page "
-                                    f"of the screen contract")
-        story_mount_set = {mount for _, check, _ in checks for mount in story_mounts(check)}
-        expected_pages: dict[str, list[str]] = defaultdict(list)
-        for row in rows:
-            mount = row_mount(row, doc)
-            if mount:
-                expected_pages[mount].append(str(row.get("id") or ""))
-        for mount, ids in expected_pages.items():
-            if mount not in story_mount_set:
-                findings.append(
-                    f"screen-contract rows {', '.join(ids)} claim page mount `{mount}`, but "
-                    f"no story criterion names it; those rows make this a page ticket; "
-                    f"add one story-parity.py criterion whose --pages includes `{mount}`")
-
-        boundary_present = False
-        missing_boundary_files: list[tuple[str, Path]] = []
-        readable_boundary_files: list[tuple[Path, str]] = []
-
-        def shown(path: Path) -> str:
-            try:
-                return str(path.relative_to(repo))
-            except ValueError:
-                return str(path)
-
-        for gate_id, check, _ in checks:
-            for command in run_values(check):
-                if not command.strip():
-                    continue
-                boundary_present = True
-                paths = boundary_test_paths(command, repo)
-                if not paths:
-                    findings.append(
-                        f"{gate_id}: boundary-check.py --run names no test file, so no "
-                        f"screen-contract trigger can be checked; a boundary criterion must "
-                        f"name the test it runs; add that test file path to --run")
-                    continue
-                for path in paths:
-                    if not path.exists():
-                        missing_boundary_files.append((gate_id, path))
-                        continue
-                    try:
-                        text = path.read_text(encoding="utf-8")
-                    except (OSError, UnicodeError) as exc:
-                        findings.append(
-                            f"{gate_id}: boundary test file {shown(path)} could not be read "
-                            f"({exc}); an unreadable test cannot prove which rows it covers; "
-                            f"replace it with a readable UTF-8 test file and run --lint again")
-                        continue
-                    readable_boundary_files.append((path, text))
-
-        boundary_rows: list[tuple[str, str, str]] = []
-        for row in rows:
-            if not row_needs_boundary(row):
-                continue
-            rid = str(row.get("id") or "")
-            kind = "cross-component row" if row.get("app") else "screen-contract row"
-            trigger_value = row.get("trigger")
-            if not isinstance(trigger_value, str):
-                findings.append(
-                    f"{kind} {rid} trigger is not a string, so its data-ui id cannot be "
-                    f"checked against a boundary test; the screen-contract row is unreadable to "
-                    f"this rule; write `trigger` as the closing-comment draft's data-ui id string")
-                continue
-            trigger = trigger_value
-            boundary_rows.append((kind, rid, trigger))
-            if not boundary_present:
-                findings.append(
-                    f"{kind} {rid} has no boundary criterion; its calls/next/app columns "
-                    f"require an interaction check; add boundary-check.py --run for the "
-                    f"test that exercises `{trigger}`")
-                continue
-            if any(trigger in text for _, text in readable_boundary_files):
-                continue
-            if not readable_boundary_files:
-                continue
-            named = ", ".join(shown(path) for path, _ in readable_boundary_files)
-            findings.append(
-                f"{kind} {rid} trigger `{trigger}` does not appear in the boundary test "
-                f"file(s) {named or '(none)'}; without the data-ui id no criterion is tied "
-                f"to this row; add `{trigger}` to the test named by boundary-check.py --run")
-
-        unchecked_rows = [rid for _, rid, trigger in boundary_rows
-                          if not any(trigger in text for _, text in readable_boundary_files)]
-        for gate_id, path in missing_boundary_files:
-            rows_text = ", ".join(unchecked_rows) or "none"
-            warning_findings.append(
-                f"{gate_id}: boundary test file {shown(path)} is not written yet, so rows "
-                f"{rows_text} were not checked for their data-ui ids; batch publication "
-                f"precedes implementation; write the file with each owned row's trigger")
-        findings.extend(source_findings(row_ids, rows_by_id, read_first, parent_text))
-    return findings, warning_findings
-
-
 GATE_LINT_VERDICT_RE = re.compile(
     r"^LINT (?:OK(?: \((\d+) warning\(s\)\))?|FINDINGS: (\d+) error\(s\), (\d+) warning\(s\))\s*$")
 
@@ -3671,8 +3018,7 @@ def parent_order_findings(body: str, spec: int) -> list[str]:
 
     `parent_spec` reads the first issue number there as the ticket's spec, and it is
     what `spec_of` falls back to, what `fetch_outsider` asks of a blocker in another
-    batch, and what `--drafts` has in place of a tracker link. An earlier spec whose
-    sections a screen-contract row cites as its source is named after it, in the same words."""
+    batch, and what `--drafts` has in place of a tracker link."""
     first = parent_spec(body)
     if first is None or first == spec:
         return []
@@ -3683,11 +3029,9 @@ def parent_order_findings(body: str, spec: int) -> list[str]:
 
 
 def lint_criteria(number: int, body: str, labels: list[str],
-                  spec_bodies: dict[int, str] | None = None,
-                  fetch_spec_body: Callable[[int], str] | None = None,
                   spec: int | None = None, name: str | None = None) -> int:
     """Everything `--lint` says about one ticket's own text: its worker label, how its
-    criteria are written, and their UI rules. The batch graph is not here;
+    criteria are written. The batch graph is not here;
     `run_lint` checks that once per batch.
 
     `spec`, when known, is the spec this ticket sits under, and `## Parent` must name it
@@ -3695,7 +3039,6 @@ def lint_criteria(number: int, body: str, labels: list[str],
     draft's name stands in for it. The ticket's verdict is the last line printed for it
     and counts every finding above it: gate-lint's own `LINT OK` / `LINT FINDINGS` line
     covers only gate-lint's findings, so it is taken out and this one printed instead."""
-    require_judges(body)
     who = name or f"#{number}"
     worker_errors, worker_warnings = lint_worker(labels)
     counts = {"error": 0, "warn": 0}
@@ -3729,6 +3072,12 @@ def lint_criteria(number: int, body: str, labels: list[str],
     if not section(body, "Acceptance criteria"):
         print(f"{who} carries no `## Acceptance criteria`, so only its worker label "
               f"and its place in the batch are checked")
+        if "ready-for-agent" in labels:
+            say("error", f"{who} is labelled `ready-for-agent` and has no "
+                f"`## Acceptance criteria` section, so a worker would have nothing to run "
+                f"and the night would hand it back; write the section under exactly that "
+                f"heading, or label the ticket `ready-for-human` when a person does it",
+                "no-criteria")
         if not any(label in CLASS_LABELS for label in labels):
             say("warn", f"{who} carries no layer label, so its layer was read off "
                 f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
@@ -3765,12 +3114,8 @@ def lint_criteria(number: int, body: str, labels: list[str],
         say("error", finding, "dollar-without-m")
     for finding in lint_timeouts(body):
         say("error", finding, "bad-timeout")
-    contract_findings, contract_warnings = lint_screen_contract(
-        body, number, spec_bodies=spec_bodies, fetch_spec_body=fetch_spec_body)
-    for finding in contract_findings:
-        say("error", finding, "screen-contract")
-    for finding in contract_warnings:
-        say("warn", finding, "screen-contract")
+    for finding in lint_network_stubs(body):
+        say("error", finding, "network-stub")
     for finding in lint_undecidable_checks(body):
         say("error", finding, "undecidable-check")
     for finding in lint_check_effects(body):
@@ -3830,7 +3175,7 @@ def run_lint(number: int) -> int:
         linked = fetch_parent(number)
     except ParentUnreadable:
         linked = None  # the graph step below reports it
-    ticket_rc = lint_criteria(number, body, labels, fetch_spec_body=fetch_body, spec=linked)
+    ticket_rc = lint_criteria(number, body, labels, spec=linked)
     graph = lint_ticket_graph(number, body)
     return 1 if (ticket_rc or graph) else 0
 
@@ -3851,7 +3196,7 @@ def lint_spec(spec: int) -> int:
         named |= set(parent_sections("\n".join(section(body, "Parent")))
                      .get(spec, {}).get("sections") or ())
         print(f"\n## #{child} ({state})")
-        if lint_criteria(child, body, labels_of(ticket), {spec: spec_body}, spec=spec):
+        if lint_criteria(child, body, labels_of(ticket), spec=spec):
             if state == "CLOSED":
                 print(f"  WARN  #{child} is closed, so the ERROR above does not stop the batch  [closed-ticket]")
             else:
@@ -3972,8 +3317,7 @@ def lint_drafts(spec: int, directory: Path) -> int:
                   f"ticket is published with  [layer-label]")
             bad = True
         entries.append({"id": name, "dependencies": dependencies})
-        if lint_criteria(0, body, draft["labels"], {spec: spec_body} if spec_body else {},
-                         spec=spec, name=name) or bad:
+        if lint_criteria(0, body, draft["labels"], spec=spec, name=name) or bad:
             failed.append(name)
     found: dict[int, dict] = {}
     for entry in entries:
@@ -4094,18 +3438,15 @@ EXIT_CODES = """\
 exit codes:
   a criteria run (no flag, or --reverify --actor worker|main)
     0 every criterion met; 1 something unmet or abandoned; 2 the ticket could not be
-    read or the run could not start, reason on stderr, nothing posted; 3 no product
-    slot was free, nothing run (the worker's own run at once, a --reverify after
-    MMW_SLOT_WAIT_S seconds, asking every MMW_SLOT_BEAT_S); 4 the criteria ran and
-    the ticket.checked recording them could not be written: run it again
+    read or the run could not start, reason on stderr, nothing posted; 4 the criteria
+    ran and the ticket.checked recording them could not be written: run it again
   --preflight
     0 the ticket is now yours; 2 refused, reason on stderr: a NOT_READY refusal is
     on the ticket as ticket.refused, any other posted nothing
   --lint
     0 nothing reported an ERROR; 1 a ticket or the graph has one (on a spec, any of
     its open sub-issues having one; a closed one's ERROR is printed and counts for
-    nothing); 2 a criterion names an oracle this run cannot reach, refused before
-    anything is read. No CHECK: runs and no comment is posted on any exit
+    nothing). No CHECK: runs and no comment is posted on any exit
   --decisions, --touched
     0 posted (for --touched, or nothing to post); 2 refused, nothing posted
   --draft
@@ -4127,9 +3468,8 @@ exit codes:
     before anything was created, or gh failed partway (stderr names what published)
   --closeout
     0 the ticket is closed (or handed back) and its event posted, or with
-    --check-only the draft passes; 1 refused by a draft condition, the repository's
-    checks, the push, or the tracker, stderr saying what to resolve; 2 nothing was
-    run or written
+    --check-only the draft passes; 1 refused by a draft condition, the push, or the
+    tracker, stderr saying what to resolve; 2 nothing was run or written
 """
 
 
@@ -4185,15 +3525,7 @@ def main(argv: list[str] | None = None) -> int:
                              "agent re-running a landed ticket on the base branch")
     parser.add_argument("--review", type=Path, metavar="FILE",
                         help="post the review report on the ticket")
-    parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
-                        help="a directory holding scripts of other skills (the ui-acceptance "
-                             "skill's scripts/); put on the PATH of every CHECK; repeatable")
     args = parser.parse_args(argv)
-    # The oracles live in the `ui-acceptance` skill, beside this one under `skills/`, so this
-    # file's own location answers where they are and no caller has to know. `--tools`
-    # overrides that for a run against a copy somewhere else.
-    TOOLS[:] = ([d.resolve() for d in args.tools]
-                or [HERE.parents[1] / "ui-acceptance" / "scripts"])
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
@@ -4265,9 +3597,6 @@ def main(argv: list[str] | None = None) -> int:
         return run_checks(args.ticket, args.reverify, args.actor)
     except TrackerReadError as exc:
         return refuse(f"verify-ticket: {exc}. Nothing was run or written; retry the same command")
-    except JudgeUnreachable as exc:
-        print(f"verify-ticket: {exc}", file=sys.stderr)
-        return 2
 
 
 if __name__ == "__main__":

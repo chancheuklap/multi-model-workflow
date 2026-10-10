@@ -2,14 +2,13 @@
 
 A run of the criteria is one `ticket.checked` event on the ticket: its prose is the
 updated ledger for a person, and its payload — run, commit, result, counts, each
-criterion's outcome, the files outside `## Owns`, the product slot it held — is what
+criterion's outcome, the files outside `## Owns` — is what
 every later reader decides on.
 """
 
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import io
 import json
 import subprocess
@@ -19,11 +18,10 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import SCRIPT, checked, event, load, started
+from _load import checked, load, started
 
 vt = load()
 
-UI_ACCEPTANCE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
 
 
@@ -203,7 +201,6 @@ class TestTheRunIsOneTicketCheckedEvent(LedgerRun):
         self.assertEqual(payload["outside_owns"], ["docs/stray.md"])
         self.assertEqual(payload["shape"],
                          vt.shape_digest(vt.section(self.BODY, "Acceptance criteria")))
-        self.assertNotIn("slot", payload)
         self.assertIn("Outside Owns: docs/stray.md", comment)
 
     def test_all_met_is_result_met(self):
@@ -221,6 +218,12 @@ class TestTheRunIsOneTicketCheckedEvent(LedgerRun):
                          ("reverify", "main", "regress"))
         self.assertNotIn("outside_owns", payload)
         self.assertNotIn("Outside Owns:", comment)
+
+    def test_a_worker_reverify_records_outside_owns_for_the_closing_comment(self):
+        body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
+        _, comment, _ = self.run_ticket(body, reverify=True, actor="worker",
+                                        outside=["docs/stray.md"])
+        self.assertEqual(payload_of(comment)["outside_owns"], ["docs/stray.md"])
 
     def test_a_worker_reverify_has_the_verify_stage(self):
         body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
@@ -711,195 +714,16 @@ class TestOutsideOwns(unittest.TestCase):
                              ["spec-start.txt"])
 
 
-def lease_in(home: Path):
-    """`lease.py` of the ui-acceptance skill, its registry under `home`, not ~/.mmw."""
-    spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
-                                                  UI_ACCEPTANCE / "lease.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    # `lease.py` asks `home()` for the root every time it needs a path, so the test's
-    # own root is given by replacing that one reader, not by writing paths into it.
-    module.home = lambda: home
-    return module
-
-
-PRODUCT = ticket("- [ ] AC1: the journey through the importer runs",
-                 "  CHECK: echo journey.py import",
-                 "  EXPECT: journey.py import",
-                 "  EVIDENCE: pending")
 PLAIN = ticket("- [ ] AC1: the importer writes six rows",
                "  CHECK: echo 'wrote 6 rows'",
                "  EXPECT: wrote 6 rows",
                "  EVIDENCE: pending")
-TARGET_CHECK = ticket("- [ ] AC1: the target file is complete",
-                      "  CHECK: python3 mmw-v2/skills/ui-acceptance/scripts/target_config.py --check",
-                      "  EXPECT: complete: the oracles can drive this repository",
-                      "  EVIDENCE: pending")
 
 
-class TestTargetConfigCheckNeedsNoProduct(unittest.TestCase):
-    """Checking `.mmw/target.json` does not start the product, so it takes no slot."""
-
-    def test_target_config_check_needs_no_product(self):
-        self.assertFalse(vt.needs_product(TARGET_CHECK))
-        self.assertTrue(vt.needs_product(PRODUCT))
-
-
-class TestTheProductSlot(unittest.TestCase):
-    """Writing code takes no slot. The first run of the criteria that needs the product
-    acquires one before anything runs; with none free it waits, visibly, on the ticket."""
-
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
-        self.addCleanup(subprocess.run, ["rm", "-rf", str(self.tmp)])
-        self.lease = lease_in(self.tmp / "home")
-        self.order: list[str] = []
-        real_claim = self.lease.try_claim
-
-        def claim(worktree):
-            self.order.append("claim")
-            return real_claim(worktree)
-
-        self.lease.try_claim = claim
-
-    def main_repo(self, instance_max=None):
-        """A main worktree, with `.mmw/target.json` declaring `instance.max` when given,
-        and a ticket worktree `.worktrees/issue-1` cut from it."""
-        main = self.tmp / "main"
-        main.mkdir()
-        sh = git_repo(main)
-        if instance_max is not None:
-            (main / ".mmw").mkdir()
-            (main / ".mmw" / "target.json").write_text(
-                '{"instance": {"max": %d, "why": "fixed host ports"}}' % instance_max)
-        (main / "base.txt").write_text("base\n")
-        sh("add", "-A")
-        sh("commit", "-qm", "base")
-        sh("worktree", "add", "-q", "-b", "issue-1", str(main / ".worktrees" / "issue-1"))
-        return main, (main / ".worktrees" / "issue-1").resolve()
-
-    def run_in(self, root: Path, body: str, comments=(), tools=(UI_ACCEPTANCE,), lease="patched",
-               reverify=False, actor=None, post=None, wait_s=0):
-        posted: list[str] = []
-        real_run = vt.subprocess.run
-
-        def spy(cmd, *a, **kw):
-            if any(str(x).endswith("gate-check.mjs") for x in cmd):
-                self.order.append("gate")
-            return real_run(cmd, *a, **kw)
-
-        patches = [mock.patch.object(vt, "repo_root", return_value=root),
-                   mock.patch.object(vt, "fetch_body", return_value=body),
-                   mock.patch.object(vt, "fetch_comments", return_value=[STARTED, *comments]),
-                   mock.patch.object(vt, "outside_owns", return_value=[]),
-                   mock.patch.object(vt, "post_comment",
-                                     side_effect=post or (lambda n, b: posted.append(b))),
-                   mock.patch.object(vt, "TOOLS", [Path(t) for t in tools]),
-                   mock.patch.object(vt, "SLOT_WAIT_S", wait_s),
-                   mock.patch.object(vt.subprocess, "run", side_effect=spy)]
-        if lease == "patched":
-            patches.append(mock.patch.object(vt, "load_lease", return_value=self.lease))
-        for p in patches:
-            p.start()
-        try:
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
-                code = vt.run_checks(1, reverify, actor)
-        finally:
-            for p in reversed(patches):
-                p.stop()
-        return code, posted, err.getvalue()
-
-    def test_a_ticket_whose_criteria_never_run_the_product_claims_no_slot(self):
-        _, root = self.main_repo()
-        code, posted, err = self.run_in(root, PLAIN)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(self.order, ["gate"])
-        self.assertEqual(self.lease.claimed(), [])
-        self.assertNotIn("slot", payload_of(posted[0]))
-
-    def test_the_first_run_that_needs_the_product_claims_before_anything_runs(self):
-        _, root = self.main_repo()
-        code, posted, err = self.run_in(root, PRODUCT)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(self.order, ["claim", "gate"])
-        held = self.lease.claimed()
-        self.assertEqual([r["worktree"] for r in held], [str(root)])
-        payload = payload_of(posted[-1])
-        self.assertEqual((payload["event"], payload["slot"], payload["port_base"]),
-                         ("ticket.checked", held[0]["slot"], held[0]["port_base"]))
-
-    def test_a_second_run_finds_the_slot_it_already_holds(self):
-        _, root = self.main_repo(instance_max=1)
-        self.run_in(root, PRODUCT)
-        code, posted, err = self.run_in(root, PRODUCT)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(len(self.lease.claimed()), 1)
-        self.assertEqual([payload_of(b)["event"] for b in posted], ["ticket.checked"])
-
-    def test_a_full_product_queues_the_run_on_the_ticket_and_runs_nothing(self):
-        main, root = self.main_repo(instance_max=1)
-        other = main / ".worktrees" / "issue-2"
-        other.mkdir()
-        self.lease.try_claim(other.resolve())
-        self.order.clear()
-
-        code, posted, err = self.run_in(root, PRODUCT)
-        self.assertEqual(code, 3, err)
-        self.assertNotIn("gate", self.order)
-        self.assertEqual(len(posted), 1)
-        queued = payload_of(posted[0])
-        self.assertEqual((queued["event"], queued["reason"], queued["run"], queued["limit"]),
-                         ("worker.queued", "product-full", "self", 1))
-        self.assertEqual(queued["holders"], [str(other.resolve())])
-
-        # Asked again while the wait is already on the ticket: no second event.
-        code, again, _ = self.run_in(root, PRODUCT, comments=posted)
-        self.assertEqual((code, again), (3, []))
-
-        # The other ticket lands and gives its slot back: this run claims and runs, and
-        # its ticket.checked ends the wait.
-        self.lease.slot_file(self.lease.claimed()[0]["slot"]).unlink()
-        code, done, err = self.run_in(root, PRODUCT, comments=posted)
-        self.assertEqual(code, 0, err)
-        self.assertEqual([payload_of(b)["event"] for b in done], ["ticket.checked"])
-        state = vt.events.fold(posted + done)
-        self.assertIsNone(state["waiting"])
-        self.assertIsNotNone(state["slot"])
-
-    def test_the_main_checkout_waits_for_the_limit_like_any_ticket(self):
-        """The night's reverify runs the product in the main worktree; the limit counts
-        that run as it counts a ticket's."""
-        main, _ = self.main_repo(instance_max=1)
-        other = main / ".worktrees" / "issue-2"
-        other.mkdir()
-        self.lease.try_claim(other.resolve())
-        code, posted, err = self.run_in(main.resolve(), PRODUCT, reverify=True, actor="main")
-        self.assertEqual(code, 3, err)
-        self.assertEqual(payload_of(posted[0])["event"], "worker.queued")
-        self.assertNotIn("gate", self.order)
-
-    def test_the_main_agents_reverify_gives_its_slot_back_when_it_ends(self):
-        main, _ = self.main_repo(instance_max=1)
-        stopped = self.tmp / "stopped"
-        (main / ".mmw" / "target.json").write_text(json.dumps(
-            {"instance": {"max": 1}, "stop": f"touch '{stopped}'"}))
-        code, posted, err = self.run_in(main.resolve(), PRODUCT, reverify=True, actor="main")
-        self.assertEqual(code, 0, err)
-        self.assertEqual(payload_of(posted[-1])["actor"], "main")
-        self.assertIsNotNone(payload_of(posted[-1])["slot"])
-        self.assertEqual(self.lease.claimed(), [], "the main worktree kept its slot")
-        self.assertTrue(stopped.exists(), "the product was not stopped before the release")
-
-    def test_a_workers_reverify_keeps_the_worktrees_slot(self):
-        _, root = self.main_repo(instance_max=1)
-        code, _, err = self.run_in(root, PRODUCT, reverify=True, actor="worker")
-        self.assertEqual(code, 0, err)
-        self.assertEqual([r["worktree"] for r in self.lease.claimed()], [str(root)])
-
+class TestARunNotRecorded(unittest.TestCase):
     def test_a_run_whose_result_could_not_be_written_is_not_red(self):
         """A red run and an unrecorded one must never share an exit: the night's
         reverify reopens a landed ticket on 1."""
-        _, root = self.main_repo()
 
         def tracker_down(number, body):
             raise vt.subprocess.CalledProcessError(1, ["gh", "issue", "comment"])
@@ -907,67 +731,14 @@ class TestTheProductSlot(unittest.TestCase):
         failing = ticket("- [ ] AC1: fails", "  CHECK: false", "  EXPECT: x",
                          "  EVIDENCE: pending")
         for body in (PLAIN, failing):
-            with self.subTest(body=body[:40]):
-                code, _, err = self.run_in(root, body, post=tracker_down)
-                self.assertEqual(code, vt.NOT_RECORDED, err)
-                self.assertNotIn(code, (0, 1))
-
-    def test_a_full_machine_queues_the_run_the_same_way(self):
-        _, root = self.main_repo()
-
-        def full(worktree):
-            raise self.lease.Full("machine-full", 8, ["/a", "/b"])
-
-        self.lease.try_claim = full
-        code, posted, _ = self.run_in(root, PRODUCT)
-        self.assertEqual(code, 3)
-        self.assertEqual(payload_of(posted[0])["reason"], "machine-full")
-
-    def every_slot_held(self):
-        def full(worktree):
-            raise self.lease.Full("machine-full", 8, ["/a", "/b"])
-
-        self.lease.try_claim = full
-
-    def test_a_workers_own_run_hands_back_3_at_once_and_is_woken_for_the_slot(self):
-        """A wait inside the command would cost the worker a turn every `SLOT_WAIT_S` for
-        as long as the slots stay held. It is the relay that wakes it, with
-        `#<n> worker.queued`, when a slot is given back."""
-        _, root = self.main_repo()
-        self.every_slot_held()
-        with mock.patch.object(vt.time, "sleep") as sleep:
-            code, posted, err = self.run_in(root, PRODUCT, wait_s=90)
-            self.assertEqual(code, 3, err)
-            sleep.assert_not_called()
-            self.assertEqual([payload_of(b)["event"] for b in posted], ["worker.queued"])
-            self.assertIn("`#1 worker.queued`", err)
-
-            # Woken, run again, and the slots are still held: the same wait, no second event.
-            code, again, err = self.run_in(root, PRODUCT, comments=posted, wait_s=90)
-            self.assertEqual((code, again), (3, []), err)
-            sleep.assert_not_called()
-        self.assertNotIn("gate", self.order)
-
-    def test_a_reverify_with_every_slot_held_still_waits_in_the_command(self):
-        _, root = self.main_repo()
-        self.every_slot_held()
-        with mock.patch.object(vt.time, "sleep") as sleep, \
-             mock.patch.object(vt, "SLOT_BEAT_S", 10):
-            code, posted, err = self.run_in(root, PRODUCT, reverify=True, wait_s=20)
-        self.assertEqual(code, 3, err)
-        self.assertEqual([c.args for c in sleep.call_args_list], [(10,), (10,)])
-        queued = payload_of(posted[0])
-        self.assertEqual((queued["event"], queued["run"]), ("worker.queued", "reverify"))
-
-    def test_a_product_criterion_with_no_lease_py_reachable_is_refused(self):
-        _, root = self.main_repo()
-        judges = self.tmp / "judges"
-        judges.mkdir()
-        (judges / "journey.py").write_text("")
-        code, posted, err = self.run_in(root, PRODUCT, tools=(judges,), lease="real")
-        self.assertEqual((code, posted), (2, []))
-        self.assertNotIn("gate", self.order)
-        self.assertIn("lease.py", err)
+            with self.subTest(body=body[:40]), \
+                 mock.patch.object(vt, "fetch_body", return_value=body), \
+                 mock.patch.object(vt, "fetch_comments", return_value=[STARTED]), \
+                 mock.patch.object(vt, "outside_owns", return_value=[]), \
+                 mock.patch.object(vt, "post_comment", side_effect=tracker_down), \
+                 redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+                code = vt.run_checks(1, False)
+            self.assertEqual(code, vt.NOT_RECORDED, err.getvalue())
 
 
 class TestReverifyActorIsExplicit(unittest.TestCase):

@@ -31,9 +31,12 @@ reads. The first line is never read by a program: rewording it breaks nothing. E
 event is written by a script — `verify-ticket.py` or `dispatch.sh` through `emit` — and
 never typed by a model.
 
-A comment that carries a block this module cannot read is not treated as absent: the
-fold lists it under `unreadable`, and every caller that decides something from the fold
-refuses to decide while that list is not empty (`docs/adr/0008-silence-is-never-a-pass.md`).
+A payload is checked against the table when it is written (`build`). A block is read
+when it is one JSON object of this version naming an event of the table; its fields are
+not checked again, and the fold reads every field as possibly absent. A comment that
+carries a block this module cannot read is not treated as absent: the fold lists it under
+`unreadable`, and every caller that decides something from the fold refuses to decide
+while that list is not empty (`docs/adr/0008-silence-is-never-a-pass.md`).
 
 Ordering is by comment id, which GitHub hands out in increasing order; the timestamp is
 not used, because two comments written in the same second carry the same one. A caller
@@ -86,18 +89,16 @@ CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
 # choice only a person can make; `fault`, the pipeline itself broken.
 CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
-# The four runs of a ticket's criteria and checks: the worker's own run, a second run of
-# every criterion (the worker's final run, or the orchestrator's after landing),
-# the repository's own `checks` of `.mmw/target.json` at the closeout, and the claim-time
-# run at `worker.started.base` of the criteria that need no product slot.
+# The runs of a ticket's criteria and checks: the worker's own run, a second run of
+# every criterion (the worker's final run, or the orchestrator's after landing), and the
+# claim-time run of the criteria at `worker.started.base`.
+# `repo-checks` is the repository's own `checks` of `.mmw/target.json` run at a closeout:
+# no script posts it now, and tickets closed out by MMW v2 carry it, so it stays readable.
 CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline")
 CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
 CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
                 "baseline": "claim"}
-# Why a run waits for a product slot: this product's `instance.max` is reached, or every
-# slot of this machine is taken.
-QUEUE_REASONS = ("product-full", "machine-full")
 BOUNCE_REASONS = ("conflict", "checks")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
@@ -153,13 +154,6 @@ EVENTS: dict[str, dict] = {
     "worker.replaced":   {"stage": "dispatch", "actor": "main",
                           "required": ("session", "runner")},
     "worker.decided":    {"stage": "work",     "actor": "worker"},
-    # A run of the criteria needed the product and no slot was free, so it waits for one:
-    # the one state in which a worker is neither dead nor done. It ends at the next
-    # `ticket.checked`, which names the slot the run got, or at any event that ends the
-    # worker's hold.
-    "worker.queued":     {"stage": "work",     "actor": "worker",
-                          "required": ("reason", "run"),
-                          "closed": {"reason": QUEUE_REASONS, "run": CHECK_RUNS}},
     # Files ticket `by` changed that this ticket's `## Owns` covers, posted on this ticket
     # so the worker that owns them reads what another ticket did to them.
     "worker.touched":    {"stage": "work",     "actor": "worker",
@@ -180,10 +174,9 @@ EVENTS: dict[str, dict] = {
 
     # One run of the criteria or of the repository's checks, on one commit: its result,
     # its counts, each criterion's outcome, and — for the worker's own run on its own
-    # branch — the files it changed outside `## Owns`. `repo-checks` carries each failed
-    # command with its last lines. `baseline` is the claim-time run at
-    # `worker.started.base` and carries `skipped`. `slot` is the product slot the run
-    # held, when it needed the product.
+    # branch — the files it changed outside `## Owns`. `repo-checks`, on tickets MMW v2
+    # closed out, carries each failed command with its last lines. `baseline` is the
+    # claim-time run at `worker.started.base` and carries `skipped`.
     "ticket.checked":    {"stage": "work",     "actor": "worker",
                           "required": ("run", "commit", "result"),
                           "closed": {"run": CHECK_RUNS, "result": CHECK_RESULTS},
@@ -216,12 +209,6 @@ ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced", "ticket.r
 # session of that kind — the one that was started to produce it. A finished reviewer that
 # went on holding the ticket would keep it off the frontier after its worker is gone.
 ENDS_OWN_HOLD = {"reviewer.reported": "reviewer"}
-# A worktree's product slot is held until its ticket's work ends, and given back at that
-# moment: it lands, it is handed back, its merge is bounced, its claim is released, the
-# night is suspended, or its start is retracted. A replaced or lost worker's worktree
-# keeps its slot for the worker that carries on in it.
-SLOT_ENDS = ("ticket.landed", "ticket.returned", "ticket.released", "ticket.bounced",
-             "spec.suspended", "worker.retracted")
 
 # The fields `result` and `checked` print after an event's name.
 RESULT_FIELDS = {
@@ -442,9 +429,8 @@ def parse(body: str) -> tuple[str, dict | str | None]:
     event = payload.get("event")
     if not isinstance(event, str):
         return "unreadable", "the block names no event"
-    problem = _check(event, payload)
-    if problem:
-        return "unreadable", problem
+    if event not in EVENTS:
+        return "unreadable", f"`{event}` is not an event of this pipeline"
     return "event", payload
 
 
@@ -513,10 +499,6 @@ def empty_state(issue: int | None = None) -> dict:
         "results": {kind: None for kind in AGENT_KINDS},
         # The newest `ticket.checked` of each run.
         "checks": {run: None for run in CHECK_RUNS},
-        # The `worker.queued` a run is still waiting under, or None.
-        "waiting": None,
-        # The product slot the newest run held, until an event in `SLOT_ENDS` gives it back.
-        "slot": None,
         "touched": [],
         "children": {},
         "sessions": [],
@@ -630,13 +612,8 @@ def apply(state: dict, event: dict) -> None:
         state["review"] = event
     elif name == "worker.decided":
         state["decided"] += 1
-    elif name == "worker.queued":
-        state["waiting"] = event
     elif name == "ticket.checked":
         state["checks"][payload.get("run")] = event
-        state["waiting"] = None
-        if payload.get("slot") is not None:
-            state["slot"] = payload.get("slot")
     elif name == "worker.touched":
         state["touched"].append({"by": payload.get("by"), "files": payload.get("files"),
                                  "comment": event["comment"]})
@@ -667,14 +644,6 @@ def apply(state: dict, event: dict) -> None:
                     if r["kind"] == ENDS_OWN_HOLD[name] and r["live"]]
             if mine:
                 _end(state, name, (mine[-1]["runner"], mine[-1]["session"]))
-    # A run waits only while a worker is at work on the ticket: whatever ends a worker's
-    # hold, or the worker's own result, ends the wait with it. A lost reviewer ends only
-    # its own hold; the worker's run is still waiting.
-    if name in ENDS_EVERY_HOLD or name in RESULTS["worker"] \
-            or (name in ENDS_ONE_HOLD and name != "reviewer.lost"):
-        state["waiting"] = None
-    if name in SLOT_ENDS:
-        state["slot"] = None
     for agent_kind, names in RESULTS.items():
         if name in names:
             state["results"][agent_kind] = event

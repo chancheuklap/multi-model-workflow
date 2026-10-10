@@ -18,7 +18,7 @@ def run_sub_issue(kind, text, label_problem=None):
     """Run --sub-issue; return (exit, stdout, stderr, gh argv list, posted bodies).
 
     `label_problem` is what `ensure_label` answers: None when the repository has the
-    `mmw:child` label or it was created, a reason when it could not be created.
+    label or it was created, a reason when it could not be created.
     """
     recorded = []
     posted_bodies = []
@@ -94,19 +94,20 @@ class TestCreatesForEachKind(unittest.TestCase):
 
 class TestTheLayerLabel(unittest.TestCase):
     """Every child carries `mmw:child` beside its queue label, so a board reads its layer
-    off a label rather than counting how deep it is nested."""
+    off a label rather than counting how deep it is nested. Both labels are made sure of
+    first: `gh issue create --label` fails outright on a label the repository lacks."""
 
-    def test_the_child_label_is_made_sure_of_before_anything_is_opened(self):
+    def test_both_labels_are_made_sure_of_before_anything_is_opened(self):
         code, _, err, recorded, _ = run_sub_issue("finding", "A finding\n\nbody\n")
         self.assertEqual(code, 0, err)
-        self.assertEqual(run_sub_issue.labels_asked, ["mmw:child"])
-        self.assertIn("mmw:child", labels_of(create_of(recorded)))
+        self.assertEqual(run_sub_issue.labels_asked, ["needs-triage", "mmw:child"])
+        self.assertEqual(sorted(labels_of(create_of(recorded))), ["mmw:child", "needs-triage"])
 
     def test_a_label_that_cannot_be_created_refuses_and_opens_nothing(self):
         code, _, err, recorded, bodies = run_sub_issue(
             "finding", "A finding\n\nbody\n", label_problem="HTTP 403: not allowed")
         self.assertEqual(code, 2)
-        self.assertIn("mmw:child", err)
+        self.assertIn("needs-triage", err)
         self.assertIn("HTTP 403", err)
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))

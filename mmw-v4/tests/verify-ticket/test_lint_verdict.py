@@ -1,9 +1,9 @@
 """The verdict line `--lint` prints for one ticket is its last line, and counts every
 finding above it.
 
-gate-lint prints `LINT OK` for the criteria it reads, and the screen-contract, worker and
-other rules of `verify-ticket.py` report after it. Printed as it came, a ticket read
-`LINT OK` and then an `ERROR` under it. `lint_criteria` takes gate-lint's own verdict out
+gate-lint prints `LINT OK` for the criteria it reads, and the worker and other rules of
+`verify-ticket.py` report after it. Printed as it came, a ticket read `LINT OK` and then
+an `ERROR` under it. `lint_criteria` takes gate-lint's own verdict out
 and prints one of its own after the last finding.
 """
 
