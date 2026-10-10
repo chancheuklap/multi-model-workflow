@@ -3275,7 +3275,7 @@ finish_preflight() {
     done
   done
   if [ -n "$open" ]; then
-    echo "dispatch: tickets still open on $into:${open}; close them before finish $spec" >&2
+    echo "dispatch: tickets still open on $into:${open}; finish $spec runs once each is closed" >&2
     return 2
   fi
 }
