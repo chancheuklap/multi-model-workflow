@@ -52,14 +52,6 @@ import json
 import os
 import re
 import sys
-from pathlib import Path
-
-_HERE = Path(__file__).resolve().parent
-_UI_ACCEPTANCE_SCRIPTS = _HERE.parents[1] / "ui-acceptance" / "scripts"
-if str(_UI_ACCEPTANCE_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_UI_ACCEPTANCE_SCRIPTS))
-
-from refusal import refusal  # noqa: E402
 
 HOSTS = ("claude", "codex", "grok", "cursor")
 GATES = ("pretool", "question")
@@ -233,14 +225,17 @@ def no_kill(piece: str) -> str:
 
     The way out comes last and is never trimmed: a refusal that only diagnoses invites an
     autonomous agent to improvise, and on 2026-09-05 three of them improvised three
-    different wrong answers to one correct error message.
+    different wrong answers to one correct error message. Grok Build clips a deny reason
+    at 256 characters and spends 13 on its own prefix (2026-08-29), so the command quoted
+    first is what gives way.
     """
-    return refusal(
-        f"Refused `{piece}`.",
-        "A run never ends a process it did not start.",
-        "Stop your own product with the `stop` command in .mmw/target.json; if it is "
-        "unreachable, report the ticket blocked and stop.",
-    )
+    tail = (" A run never ends a process it did not start. Stop your own product with "
+            "the `stop` command in .mmw/target.json; if it is unreachable, report the "
+            "ticket blocked and stop.")
+    room = 256 - len("Hook denied: ") - len(tail) - len("Refused ``.")
+    if len(piece) > room:
+        piece = piece[: room - 1] + "…"
+    return f"Refused `{piece}`." + tail
 
 
 def run_pretool(host: str, event: dict) -> int:

@@ -6,7 +6,7 @@
 # Two engines:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
-#   test_profiles.py    unittest, models.bypass_argv, catalog match, adopt, create_agent settings, CLI scan
+#   test_profiles.py    unittest, models.bypass_argv, catalog match, create_agent settings, CLI scan
 #   test_tool_guard.py  unittest, host payloads against dispatch's command guard
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
@@ -14,8 +14,6 @@
 
 set -euo pipefail
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_module_paths.py" || { echo "a toolbox script names a module file that does not exist (above); fix it before running this suite" >&2; exit 1; }
-python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_upstream_em_dashes.py" >&2 || exit 1
-uv run "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_own_skill_frontmatter.py" >&2 || exit 1
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 

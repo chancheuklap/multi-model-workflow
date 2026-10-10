@@ -221,7 +221,7 @@ class LocalConfigTest(unittest.TestCase):
 
     def test_install_gives_a_role_the_saved_file_lacks_its_default_and_keeps_the_rest(self):
         old = base_config()
-        del old["rows"]["synthesizer"]
+        del old["rows"]["researcher"]
         old["rows"]["reviewer"]["model"] = "sonnet 5"
         self.seed(old)
         result = models.install_local_config()
@@ -229,8 +229,8 @@ class LocalConfigTest(unittest.TestCase):
         saved = models.read_local_config()
         self.assertEqual(saved["version"], 2)
         self.assertEqual(saved["rows"]["reviewer"]["model"], "sonnet 5")
-        default = next(r for r in models.load_hosts()["defaults"] if r["agent"] == "synthesizer")
-        self.assertEqual(saved["rows"]["synthesizer"],
+        default = next(r for r in models.load_hosts()["defaults"] if r["agent"] == "researcher")
+        self.assertEqual(saved["rows"]["researcher"],
                          {k: default[k] for k in ("host", "model", "effort")})
 
     def test_install_leaves_a_complete_file_untouched(self):

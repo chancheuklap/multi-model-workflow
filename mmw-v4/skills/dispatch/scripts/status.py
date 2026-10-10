@@ -13,9 +13,8 @@ One program, six forms, reading one source, so there is never a second truth to
 reconcile. The source is the tracker (`gh`): the spec's tree of tickets and their
 children, read in one query by `issue_tree.py`, and each ticket's state, labels, assignees,
 blocking edges and comments. Where a ticket stands — which agent sessions were started
-on it and on which runner, whether its worker is still live or waiting for a product
-slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
-its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
+on it and on which runner, whether its worker is still live, how its criteria last ran,
+whether it passed, landed or came back — is the fold of its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
 (`MMW_EVENTS_PY` names `events.py` when `dispatch.sh` resolved it somewhere else, and
 `issue_tree.py` is read from beside it). Nothing here asks a runner what it is running: a
 runner answers for one machine, and the ticket answers for all of them. Nothing this
@@ -319,7 +318,6 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> 
             "held": ("live" if shown["live"] else shown.get("ended_by") or "-") if shown else "-",
             "since": (shown.get("started_at") or "-") if shown else "-",
             "phase": phase_of(ticket),
-            "slot": fold["slot"],
             "ac": counted_ac(ticket) or "-",
             "head": head_of(ticket),
             "outcome": outcome_line(ticket),
@@ -724,7 +722,7 @@ def land_plan(numbers: list[int]) -> int:
         MERGE <ticket>        closed with a pass that has not landed: its passed commit
                               belongs in `origin/<base branch>`
         RELEASE <ticket>      this pipeline still holds the claim, and the work is over
-        ARCHIVE <ticket>      its workspace, the agents inside it and its slot may all go
+        ARCHIVE <ticket>      its workspace and the agents inside it may all go     
         HOLD <ticket> <why>   still being worked, or its events cannot be read: nothing
                               may be done to it yet
         NOTHING <ticket> <why>  over, and already landed: there is nothing left to do

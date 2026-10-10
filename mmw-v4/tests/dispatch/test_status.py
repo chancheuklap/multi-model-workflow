@@ -431,17 +431,6 @@ class TicketReading(unittest.TestCase):
         self.assertEqual(status.counted_ac(ticket(62, comments=[typed])), "-")
 
 
-class Slot(unittest.TestCase):
-    """The product slot a ticket's worktree holds is the one its newest run names."""
-
-    def test_the_run_that_took_a_slot_names_it_on_the_row(self):
-        got = ev("ticket.checked", "self run", 61, run="self", commit="a" * 40,
-                 result="met", counts={"met": 1, "unmet": 0, "abandoned": 0, "total": 1},
-                 slot=2)
-        row = rows_of({61: ticket(61, comments=(started(61, "term_7"), got))})[0]
-        self.assertEqual((row["note"], row["slot"]), ("", 2))
-
-
 class PhaseFromEvents(unittest.TestCase):
     """`phase` is the newest event's name, and a first line decides nothing."""
 

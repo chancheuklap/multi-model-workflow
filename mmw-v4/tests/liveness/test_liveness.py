@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -194,6 +195,21 @@ class Health(unittest.TestCase):
         self.assertIn("HTTP 502", why)
         beat["read_at"] = stamp(T0 - timedelta(seconds=299))
         self.assertTrue(dog.health(self.HOLDER, beat, T0)[0])
+
+
+class ArmDirectory(StateCase):
+    """The watchdog runs in the state directory, as the relay does (2026-10-08)."""
+
+    def test_the_watchdog_runs_in_the_state_directory(self):
+        seen = {}
+
+        def popen(argv, **kwargs):
+            seen.update(kwargs)
+            return mock.Mock(pid=1)
+
+        with mock.patch.object(dog.subprocess, "Popen", popen):
+            dog.arm(self.state, "o/r", wait=0.01)
+        self.assertEqual(Path(seen["cwd"]), self.state)
 
 
 class LockIdentity(StateCase):

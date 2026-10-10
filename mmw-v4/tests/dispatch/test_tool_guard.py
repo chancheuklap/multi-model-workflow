@@ -20,7 +20,6 @@ from unittest import mock
 
 SKILLS = Path(__file__).resolve().parents[2] / "skills"
 DISPATCH_SCRIPTS = SKILLS / "dispatch" / "scripts"
-UI_ACCEPTANCE_SCRIPTS = SKILLS / "ui-acceptance" / "scripts"
 
 
 def load(path: Path, name: str):
@@ -31,7 +30,7 @@ def load(path: Path, name: str):
 
 
 hk = load(DISPATCH_SCRIPTS / "tool-guard.py", "tool_guard")
-rf = load(UI_ACCEPTANCE_SCRIPTS / "refusal.py", "refusal")
+REASON_LIMIT = 256  # Grok Build clips a deny reason here (2026-08-29)
 HOST_PREFIX = len("Hook denied: ")
 
 TICKET = 64
@@ -65,7 +64,7 @@ class TestRecordedRefusalsFit(unittest.TestCase):
     def test_all_of_them_fit_what_a_host_will_show(self):
         for name, text in self.texts().items():
             with self.subTest(refusal=name):
-                self.assertLessEqual(len(text), rf.REASON_LIMIT)
+                self.assertLessEqual(len(text), REASON_LIMIT)
 
     def test_all_of_them_say_what_to_do_next(self):
         ways_out = ("--closeout", "Decisions I made on my own", "stop", "ABANDON")
@@ -365,7 +364,7 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
         for number in (7, 86, 640, 6400, 99999):
             with self.subTest(ticket=number):
                 whole = HOST_PREFIX + len(hk.REFUSAL.format(n=number))
-                self.assertLessEqual(whole, rf.REASON_LIMIT)
+                self.assertLessEqual(whole, REASON_LIMIT)
 
 
 # ------------------------------------------------------------------------ AC6
@@ -441,7 +440,7 @@ class TestTheQuestionGate(unittest.TestCase):
         self.assertIn("needs-triage", reason)
 
     def test_it_arrives_whole_on_the_host_that_clips_it(self):
-        self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), rf.REASON_LIMIT)
+        self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), REASON_LIMIT)
 
 
 class TestClaudeCopyNoOpsInsideCursor(unittest.TestCase):
@@ -549,7 +548,7 @@ class EndingAProcess(unittest.TestCase):
             with self.subTest(command=command):
                 _code, answer = call("claude", with_command("claude", command))
                 reason = reason_of(answer)
-                self.assertLessEqual(len(reason), rf.REASON_LIMIT)
+                self.assertLessEqual(len(reason), REASON_LIMIT)
                 self.assertIn("blocked", reason, "the way out was trimmed away")
 
     def test_prose_and_ordinary_commands_pass(self):

@@ -46,6 +46,22 @@ class BriefCase(RelayCase):
                 if r["event"] == relay.BRIEF_DONE]
 
 
+class CopyTest(BriefCase):
+    """`briefs.py brief`: the file a child is pointed at is the brief, then how to report."""
+
+    def test_the_copy_is_the_brief_then_the_footer(self):
+        source = Path(self.tmp.name) / "brief.txt"
+        source.write_text("what to find out\n\n")
+        copy = briefs.write_brief(self.state, self.batch, 1, source, "---\nreport it\n")
+        self.assertEqual(copy, briefs.batch_dir(self.state, self.batch) / "1" / "brief.md")
+        self.assertEqual(copy.read_text(), "what to find out\n\n---\nreport it\n")
+
+    def test_nothing_is_copied_into_a_batch_that_is_gone(self):
+        briefs.remove(self.state, self.batch)
+        with self.assertRaises(briefs.Refusal):
+            briefs.write_brief(self.state, self.batch, 1, self.result, "---")
+
+
 class ReportTest(BriefCase):
     def test_the_childs_report_is_kept_in_the_batch(self):
         kept = self.report(1)

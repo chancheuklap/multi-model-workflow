@@ -1003,6 +1003,30 @@ class StateDirTest(unittest.TestCase):
         self.assertEqual(self.lock.read_text(), "", "a holder that lets go empties the record")
 
 
+class SpawnTest(RelayCase):
+    """The relay runs in the state directory, never in the worktree it was started from:
+    that worktree is removed when its ticket lands (2026-10-08)."""
+
+    def test_the_relay_runs_in_the_state_directory(self):
+        seen = {}
+
+        class Exited:
+            pid = 1
+
+            def poll(self):
+                return 1
+
+        def popen(argv, **kwargs):
+            seen.update(kwargs)
+            return Exited()
+
+        args = mock.Mock(repo="o/r", interval=60, grace=None)
+        with mock.patch.object(relay.subprocess, "Popen", popen):
+            with self.assertRaises(relay.Refusal):
+                relay.spawn(args, self.state)
+        self.assertEqual(Path(seen["cwd"]), self.state)
+
+
 class MainGoneTest(RelayCase):
     """A watch whose orchestrator's session is gone: tickets #61 and #62 opened by main-a,
     whose runner answers `stopped`, and ticket #70 opened by main-b, alive."""
