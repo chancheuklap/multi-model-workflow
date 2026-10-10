@@ -77,7 +77,7 @@ These stay, though a trimming pass reads them as noise: a sentence that prevents
 - The glossary is complete: every concept of the set's own text that an agent reasons with has one entry, and a term the text uses as a concept with no entry is a finding. A family of identifiers (the lines a script prints, the tags a lint uses, the columns of a row) is one entry naming the family, what it is for, and its `_Home_`; a term used only in its field's ordinary sense, and an upstream skill's term used in upstream's sense, get none.
 - The glossary is held to the same standard. An entry that makes a coined or vague word official, or whose `_Avoid_` line bans the established term, is a finding: the term, the entry and every skill using it change together. An entry's facts are checked against the file it cites as `_Home_`; an entry citing a file that does not hold those facts is a finding. A behaviour rule found only in the glossary is evidence of intended behaviour (see [Load and disclosure](#load-and-disclosure)).
 - A heading or step that another skill finds by position is cited by producer and reader as the same literal, by title rather than by number.
-- In MMW the glossary is the repository's, in the shape the `domain-modeling` skill gives it: `GLOSSARY.md` at the root, or `GLOSSARY-MAP.md` and the `GLOSSARY.md` of each context it lists.
+- In MMW the glossary is the repository's, in the shape the `domain-modeling` skill gives it: `CONTEXT.md` at the root, or `CONTEXT-MAP.md` and the `CONTEXT.md` of each context it lists.
 
 ### Hand-offs
 

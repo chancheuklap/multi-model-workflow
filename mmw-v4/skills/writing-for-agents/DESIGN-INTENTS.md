@@ -82,7 +82,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Takes: M7, kept; M8, adapted (tickets carry Owns, Seam and runnable criteria); M3, kept (test first is the `tdd` skill's; the red-green loop's other half is intent 27); P20, adapted (the unit of work is the ticket; the unit of delivery is one pull request for a night or for a day's change); P27, adapted (the pull request stays the unit of delivery, and the tracker is also the work queue, through specs and tickets); P41, kept (the closing is written once, as Shared closing, and named by the last step of each playbook whose session writes a change).
     Home: **To spec**; **To tickets**; **Work a ticket**; the `code-review` skill; **Run a night**; **Shared closing**. The retro has no home in the set yet.
 24. **A shared language and ADRs, and what they point to exists.**
-    Takes: M2, kept (the glossary is `GLOSSARY.md`); M31, kept in intent only (`triage` is not in the set).
+    Takes: M2, kept (the glossary is `CONTEXT.md`, or `CONTEXT-MAP.md` and the `CONTEXT.md` of each context it lists: the names the owner's repositories already use, kept by the owner's decision where upstream renamed them `GLOSSARY.md` and `GLOSSARY-MAP.md`); M31, kept in intent only (`triage` is not in the set).
     Home: the `domain-modeling` skill; `docs/adr/`.
 25. **A prototype is code that answers a question,** kept in the repository with its verdict; a code shape that reaches beyond one ticket is settled by competing sketches.
     Takes: M16, adapted (the verdict, not the code, is what the real build takes); P19, kept (options are compared in prototypes, `architect` sketches and `arena`).

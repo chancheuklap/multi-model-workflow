@@ -6,7 +6,7 @@ Read the ticket (`gh issue view <ticket>`, comments included) and the diff again
 
 ## 1. Find the repository's documented standards
 
-The repository's `CODING_STANDARDS.md` says how code here should be written, and its domain glossary (`GLOSSARY.md`, or the `GLOSSARY.md` files `GLOSSARY-MAP.md` points to) names the domain vocabulary. Read what you find before you read the diff a second time. When the repository has no `CODING_STANDARDS.md`, apply only the rules in this file and say so in one line of your report.
+The repository's `CODING_STANDARDS.md` says how code here should be written, and its domain glossary (`CONTEXT.md`, or the `CONTEXT.md` files `CONTEXT-MAP.md` points to) names the domain vocabulary. Read what you find before you read the diff a second time. When the repository has no `CODING_STANDARDS.md`, apply only the rules in this file and say so in one line of your report.
 
 ## 2. Match the diff against the standards and the smell baseline
 
