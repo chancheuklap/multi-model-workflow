@@ -1,7 +1,6 @@
 ---
 name: reflect
-description: Spawn three parallel review subagents over the active transcript, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect.
-disable-model-invocation: true
+description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
 # Reflect

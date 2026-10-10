@@ -1,7 +1,6 @@
 ---
 name: principle-laziness-protocol
-description: "Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading. Bias toward deletion and the smallest change that solves the problem."
-disable-model-invocation: true
+description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
 # Laziness Protocol

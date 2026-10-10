@@ -1,7 +1,6 @@
 ---
 name: principle-subtract-before-you-add
-description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead code, redundant validators, and stub references first, then build on the simpler base."
-disable-model-invocation: true
+description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
 # Subtract Before You Add

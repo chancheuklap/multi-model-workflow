@@ -1,7 +1,6 @@
 ---
 name: principle-first-principles-thinking
-description: "Apply when forming a recommendation on a plan, decision, or idea whose path is not already clear. Challenge the premise, reduce the requirements, keep only constraints with independent support, and rebuild the simplest solution; for a failure, separate symptom, proximate cause, and root cause."
-disable-model-invocation: true
+description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
 # First-Principles Thinking

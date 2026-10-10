@@ -1,7 +1,6 @@
 ---
 name: no-comments
-description: "Spawn Comment Sicko, fix accepted findings, and offer encodings for claimed constraints."
-disable-model-invocation: true
+description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
 # No comments

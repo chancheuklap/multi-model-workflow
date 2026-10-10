@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: Build a prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, explore what a UI should look like, or work out how a feature should be implemented before writing it for real.
+description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
 # Prototype

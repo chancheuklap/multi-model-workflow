@@ -89,7 +89,7 @@ A shared file that is one body of logic, such as a route module several tickets 
 Write the spec body and the drafted tickets to a file `mktemp` makes, and have them scanned for ambiguities before you list the breakdown: the scan's questions belong in each ticket's **Choices** when the user first sees it. When the host can run subagents, start your host's general-purpose subagent, on this session's model and thinking level and restricted to reading and searching where the host allows it, with one sentence:
 
 ```
-Read the poteto-mode skill's `references/ambiguity-scan.md` and scan spec #<spec> and the drafted tickets in <file> for ambiguities.
+Read the mmw-mode skill's `references/ambiguity-scan.md` and scan spec #<spec> and the drafted tickets in <file> for ambiguities.
 ```
 
 Hold this turn until it returns; where the host runs subagents in the background, ask for it to be waited on. When the host cannot run subagents, run the scan yourself from `../references/ambiguity-scan.md`, and write its result to a file before you list the breakdown.
