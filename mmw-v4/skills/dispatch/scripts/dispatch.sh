@@ -5,7 +5,7 @@
 #   dispatch.sh send worker|reviewer <n>
 #   dispatch.sh send <role> <brief file>...
 #   dispatch.sh report <batch>/<n> <file>
-#   dispatch.sh brief show|close|watch <batch>
+#   dispatch.sh brief show|close <batch>
 #   dispatch.sh ack <n> <event> | brief <batch>
 #   dispatch.sh check <spec>
 #   dispatch.sh open <spec>
@@ -389,7 +389,7 @@ usage() {
 usage: dispatch.sh send worker|reviewer <n>
        dispatch.sh send <role> <brief file>...
        dispatch.sh report <batch>/<n> <file>
-       dispatch.sh brief show|close|watch <batch>
+       dispatch.sh brief show|close <batch>
        dispatch.sh ack <n> <event> | brief <batch>
        dispatch.sh check <spec>
        dispatch.sh open <spec>
@@ -1546,13 +1546,12 @@ report_brief() {
 brief_command() {
   local repo
   case "${1:-}" in
-    show | close | watch)
+    show | close)
       [ "$#" -eq 2 ] || usage
       repo="$(repo_slug)" || exit 2
       case "$1" in
         show) python3 "$BRIEFS" show --repo "$repo" --batch "$2" || exit 2 ;;
         close) close_batch "$2" || exit 2 ;;
-        watch) open_relay --briefs "$2" >/dev/null || exit 2 ;;
       esac
       ;;
     *) usage ;;

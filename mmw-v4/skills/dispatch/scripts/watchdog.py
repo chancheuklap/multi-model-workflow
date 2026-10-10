@@ -147,8 +147,7 @@ Files in the state directory, beside the relay's:
                     orchestrator, why its alerts could not be sent), closed, reads (billed and
                     not-modified comment-list reads since this process started; null for a
                     `Board` that does not count them)
-    watchdog.log    what every started watchdog printed, appended; moved to watchdog.log.1
-                    at an arm once past statedir.LOG_LIMIT
+    watchdog.log    what every started watchdog printed, appended
 
 Exit codes:
 
@@ -339,8 +338,8 @@ NOT_READING = "not reading"
 # there has to be started again; one that is there and cannot read recovers by itself on
 # its next successful read, and a second `open` would put nothing new in its place.
 NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the "
-             "recorded orchestrator, `dispatch.sh open-ticket <n>` for a ticket outside "
-             "a night, or `dispatch.sh brief watch <batch>` for a batch of briefs; ",
+             "recorded orchestrator, or `dispatch.sh open-ticket <n>` for a ticket outside "
+             "a night; ",
         NOT_READING: "the process is there and cycling, and it recovers on its own with "
                      "the first read that works, so opening the night again replaces "
                      "nothing; when this repeats without clearing, the relay cannot read "
@@ -887,7 +886,6 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
         if statedir.holder(state / "watchdog.lock") is not None:
             return False, f"{why}, and it did not end on SIGTERM"
     log = state / "watchdog.log"
-    statedir.rotate(log)
     argv = [sys.executable, str(watchdog_py()), "run", "--repo", repo]
     with open(log, "a", encoding="utf-8") as fh:
         fh.write(f"--- {iso(now_utc())} arming the watchdog for {repo} ({why})\n")

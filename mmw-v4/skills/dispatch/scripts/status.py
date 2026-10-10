@@ -303,7 +303,6 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> 
         shown = fold["worker"]
         rows.append({
             "ticket": number,
-            "title": ticket.get("title") or "",
             "holder": holder_of(fold),
             "holders": fold["holders"],
             "live_workers": fold["live_workers"],
@@ -581,9 +580,6 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
                for r in rows if r.get("bounced_reason") and "needs-triage" in r["labels"]]
     waiting = [f"#{r['ticket']} blocked by " + blocking_text(r["blocking"])
                for r in rows if r["state"] == "OPEN" and r["blocking"]]
-    for_you = [f"#{r['ticket']} {r['title'][:80]}".strip()
-               for r in rows if r["state"] == "OPEN" and "ready-for-human" in r["labels"]
-               and not r["blocking"]]
     fresh = [f"#{c['number']} {(c.get('title') or '')[:80]}".strip()
              for c in kids if (c.get("created") or "") > opened]
     return "\n".join([
@@ -593,7 +589,6 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
         "Handed back to needs-triage: " + (", ".join(back) or "None"),
         "Bounced: " + (", ".join(bounced) or "None"),
         "Not dispatched, a blocker stayed open: " + (", ".join(waiting) or "None"),
-        "Ready for you to look at now: " + (", ".join(for_you) or "None"),
         "Sub-issues opened tonight: " + (", ".join(fresh) or "None"),
         routed_line(routed_counts(kids)),
     ])
@@ -722,7 +717,7 @@ def land_plan(numbers: list[int]) -> int:
         MERGE <ticket>        closed with a pass that has not landed: its passed commit
                               belongs in `origin/<base branch>`
         RELEASE <ticket>      this pipeline still holds the claim, and the work is over
-        ARCHIVE <ticket>      its workspace and the agents inside it may all go     
+        ARCHIVE <ticket>      its workspace and the agents inside it may all go
         HOLD <ticket> <why>   still being worked, or its events cannot be read: nothing
                               may be done to it yet
         NOTHING <ticket> <why>  over, and already landed: there is nothing left to do

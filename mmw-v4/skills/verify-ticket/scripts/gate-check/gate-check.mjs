@@ -398,7 +398,7 @@ function printRawTail(output) {
   if (lines.length && lines[lines.length - 1] === "") lines.pop();
   for (const line of lines.slice(-40)) {
     const kept = line.split("\t").map(terminalSafe).join("\t")
-      .replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
+      .replace(/LINT OK/g, "[redacted]");
     process.stdout.write("       " + kept + "\n");
   }
 }

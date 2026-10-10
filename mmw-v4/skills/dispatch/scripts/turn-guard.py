@@ -84,7 +84,7 @@ inside those hosts as well.
 of its own end in exit 0 (Cursor) or exit 1 with the reason on stderr — a hook error the
 host shows, which never blocks. Exit 2 means only "held tickets and no healthy watchdog".
 Each decision it makes for an orchestrator is appended to `guard.log` in that night's state
-directory, moved to `guard.log.1` once past `statedir.LOG_LIMIT`.
+directory.
 
 **Checked against the real hosts** on 2026-09-10, one short session each with the prompt
 "reply OK; if a turn guard blocks you, run nothing and reply NOTED". The registrations were
@@ -285,7 +285,6 @@ def now_iso() -> str:
 
 def log(state: Path, host: str, block: bool, held, why: str) -> None:
     try:
-        statedir.rotate(state / "guard.log")
         with open(state / "guard.log", "a", encoding="utf-8") as fh:
             fh.write(f"{now_iso()} {host} {'block' if block else 'allow'} held={held} {why}\n")
     except OSError:

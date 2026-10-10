@@ -8,10 +8,11 @@ Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet ver
 2. **Explore the codebase**, if you have not already. Ticket titles and descriptions use the project's domain glossary vocabulary and respect ADRs in the area you're touching. Look for opportunities to prefactor the code to make the implementation easier: "Make the change easy, then make the easy change." Done when you know the module or directory each ticket will write to.
 3. **Draft vertical slices**, per **Vertical slices** below. Done when the work is drafted as slices, each one vertical or one step of an expand–contract sequence.
 4. **Write each acceptance criterion**, per **Acceptance criteria** below. Done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, each `CHECK:` aimed at behaviour its ticket adds has failed on the base branch, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
-5. **Give each ticket its blocking edges**, per **Blocking edges** below. Done when every path marked `(new)` has the files that put it in service under the same ticket's **Owns**, every file a `grep` for a retired or changed form returns that still teaches or uses it is under some ticket's **Owns**, and no two tickets that can run at the same time write the same file.
-6. **Quiz the user**, per **The quiz** below, after the ambiguity scan it opens with. Iterate until the user approves the breakdown. Done when the user has approved the breakdown and every answered choice is written into a ticket's **What to build** or the spec, and step 5's Done when still holds for the approved breakdown.
-7. **Lint and publish the batch.** Write each approved ticket in the shape of `../references/ticket.md` as one draft in a directory `mktemp -d` makes, as the `verify-ticket` skill's `references/linting.md` describes a draft. Each carries `mmw:ticket`, and, for a ticket an agent works, `ready-for-agent` beside the `junior-worker` or `senior-worker` label the approved list gives it; a ticket a person must judge carries `ready-for-human` instead, and no worker label. Run `verify-ticket.py <spec> --lint --drafts <dir>` and fix every `ERROR` in the drafts; then publish them as they stand with `verify-ticket.py <spec> --publish --drafts <dir>`, which creates each as a sub-issue of the spec in dependency order with its labels and blocking edges, and ends by linting the published spec. Close no parent issue. Done when `--publish` has run and every approved ticket is a sub-issue of the spec. Each ticket is written for a worker who reads only it and what it names (**principle-write-for-where-it-is-read**).
-8. **Read every ticket back**, per **Read-back** below. Done when every check there passes.
+5. **Give each ticket its blocking edges**, per **Blocking edges** below. Done when every path marked `(new)` has the files that put it in service under the same ticket's **Owns**, and no two tickets that can run at the same time write the same file.
+6. **Write and lint the drafts.** Write each ticket in the shape of `../references/ticket.md` as one draft in a directory `mktemp -d` makes, as the `verify-ticket` skill's `references/linting.md` describes a draft. Each carries `mmw:ticket`, and, for a ticket an agent works, `ready-for-agent` beside the `junior-worker` or `senior-worker` label you propose for it; a ticket a person must judge carries `ready-for-human` instead, and no worker label. Run `verify-ticket.py <spec> --lint --drafts <dir>` and fix every `ERROR` in the drafts. Done when the lint prints no `ERROR` and every `WARN` has been read once and either fixed or kept on purpose. Each ticket is written for a worker who reads only it and what it names (**principle-write-for-where-it-is-read**).
+7. **Quiz the user** on the linted drafts, per **The quiz** below, after the ambiguity scan it opens with. Iterate until the user approves the drafts. After every change to a draft, run the lint of step 6 again and fix every `ERROR`. Done when the user has approved the drafts as the last lint left them, every answered choice is written into a draft's **What to build** or the spec, and step 5's Done when still holds for the approved drafts.
+8. **Publish the batch** as the user approved it with `verify-ticket.py <spec> --publish --drafts <dir>`, which creates each draft as a sub-issue of the spec in dependency order with its labels and blocking edges, and ends by linting the published spec. Close no parent issue. Done when `--publish` has run and every approved ticket is a sub-issue of the spec.
+9. **Read every ticket back**, per **Read-back** below. Done when every check there passes.
 
 #### Vertical slices
 
@@ -45,7 +46,7 @@ Three rules bind how each one is worded:
 4. **Could a machine decide it, if only it could reach the thing?** Two answers hide under one question, and they part on whether the reach is something you build.
    - **It is.** The state lives inside software you are about to write, and something has to put the system there: a seeded row, a stub scripted to answer in a set order. This stays a criterion. But the thing that reaches the state has to be named in the spec's Testing Decisions, under **How a test arrives at a state**, and owned under some ticket's **Owns**. That ticket builds it: a criterion that assumes a mechanism nobody builds fails on the night it first runs. Missing either, the state is out of reach for this batch, and the criterion becomes its own ticket of kind *reach* (see `../references/person-ticket.md`), whose retiring line names the mechanism that has no name yet, or the ticket that would own it.
    - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach*; see `../references/person-ticket.md`.
-5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. The user is here now, so ask them: carry the choice into the quiz of step 6, with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own.
+5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. The user is here now, so ask them: carry the choice into the quiz of step 7, with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own.
 
 If no command exists because the spec never decided how this is verified, stop and return to the To spec playbook. Do not invent it.
 
@@ -75,8 +76,6 @@ A ticket's **blocking edges** are the other tickets that must complete before it
 
 **What a ticket creates is put in service by an edit to something it did not create**: the registry, router, parent template, index, story adapter or stylesheet that has to name it. Until one does, no criterion of that ticket can see it; and when several tickets that can run at the same time each make that edit, all but the first to land bounce on a merge conflict. For each path a ticket marks `(new)`, `grep` the nearest existing file of its kind twice, once for its file name and once for the one identifier it declares for others (its root class, exported symbol or route path), and put every file that answers under this ticket's **Owns**, whoever created it. Where that sibling is still to be built in this batch, its ticket's **Owns** is the same list.
 
-**What a ticket changes is also stated in files it does not change**: a reference or playbook that teaches the old shape, a template another repository is set up from, a glossary entry. For each name, path, format or printed output a ticket retires or changes, `grep` the repository for the old form, and put every file that still teaches or uses it under the **Owns** of that ticket, or of a later ticket of the batch that rewrites it. A record of the past (an ADR, a review, a prototype's README) stays as it was written.
-
 What overlaps there now decides the shape of the batch:
 
 - **Two tickets that can run at the same time**: the **Blocked by** edge the **Owns** section already calls for.
@@ -88,10 +87,10 @@ A shared file that is one body of logic, such as a route module several tickets 
 
 #### The quiz
 
-Write the spec body and the drafted tickets to a file `mktemp` makes, and have them scanned for ambiguities before you list the breakdown: the scan's questions belong in each ticket's **Choices** when the user first sees it. When the host can run subagents, start your host's general-purpose subagent, on this session's model and thinking level and restricted to reading and searching where the host allows it, with one sentence:
+Have the spec and the drafts scanned for ambiguities before you list the breakdown: the scan's questions belong in each ticket's **Choices** when the user first sees it. When the host can run subagents, start your host's general-purpose subagent, on this session's model and thinking level and restricted to reading and searching where the host allows it, with one sentence:
 
 ```
-Read the mmw-mode skill's `references/ambiguity-scan.md` and scan spec #<spec> and the drafted tickets in <file> for ambiguities.
+Read the mmw-mode skill's `references/ambiguity-scan.md` and scan spec #<spec> and the drafts in <dir> for ambiguities.
 ```
 
 Hold this turn until it returns; where the host runs subagents in the background, ask for it to be waited on. When the host cannot run subagents, run the scan yourself from `../references/ambiguity-scan.md`, and write its result to a file before you list the breakdown.
@@ -114,11 +113,11 @@ Ask the user:
 - Is each worker grade right for what going wrong on that ticket would cost?
 - For each choice listed: which option?
 
-Write each answered choice that only changes what one ticket delivers into that ticket's **What to build** before publishing. Write each answered choice that changes a decision in a spec section back through the Revising a spec playbook (`playbooks/revising-a-spec.md`), then into the tickets.
+Write each answered choice that only changes what one ticket delivers into that draft's **What to build**. Write each answered choice that changes a decision in a spec section back through the Revising a spec playbook (`playbooks/revising-a-spec.md`), then into the drafts.
 
 #### Read-back
 
-Read the lint `--publish` ran on the published spec as the `verify-ticket` skill's `references/linting.md` says: no `ERROR`, and every `WARN` read once and either fixed or kept on purpose. The drafts run of step 7 does not stand in for it: only this run sees the tracker's labels, sub-issues and blocking edges. Fix each `ERROR` on its ticket and run `verify-ticket.py <spec> --lint` again. Then list the spec's sub-issues and fetch each ticket again, and check:
+Read the lint `--publish` ran on the published spec as the `verify-ticket` skill's `references/linting.md` says: no `ERROR`, and every `WARN` read once and either fixed or kept on purpose. The drafts runs of steps 6 and 7 do not stand in for it: only this run sees the tracker's labels, sub-issues and blocking edges. Fix each `ERROR` on its ticket and run `verify-ticket.py <spec> --lint` again. Then list the spec's sub-issues and fetch each ticket again, and check:
 
 - The spec's sub-issues are exactly the approved tickets.
 - Each ticket carries `mmw:ticket` and one queue label; each agent's ticket carries exactly one worker label, and each `ready-for-human` ticket none.

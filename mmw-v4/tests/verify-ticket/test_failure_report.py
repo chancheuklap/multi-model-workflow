@@ -156,9 +156,6 @@ class TestFailureReport(unittest.TestCase):
 
     def test_failing_criterion_prints_tail_as_a_quote(self):
         lines = [
-            "STORY OK x",
-            "JOURNEY OK y",
-            "HARNESS OK z",
             "LINT OK w",
             "HANDOFF REQUIRED: 1 abandoned",
             "ALL MET (9 met)",
@@ -173,9 +170,6 @@ class TestFailureReport(unittest.TestCase):
         self.assertEqual(code, 1, comment)
         self.assertNotRegex(printed, r"(?m)^(ALL MET|HANDOFF REQUIRED:)")
         self.assertRegex(printed, r"(?m)^UNMET:")
-        self.assertNotIn("STORY OK", printed)
-        self.assertNotIn("JOURNEY OK", printed)
-        self.assertNotIn("HARNESS OK", printed)
         self.assertNotIn("LINT OK", printed)
         self.assertIn("VISIBLE", printed)
         self.assertRegex(comment, r"Own run on [0-9a-f]+: UNMET:")

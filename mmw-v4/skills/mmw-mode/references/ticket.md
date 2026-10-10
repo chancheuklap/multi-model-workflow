@@ -10,7 +10,7 @@ A reference to the parent spec on the tracker, followed by the numbered Implemen
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph. A choice the user settled in the quiz of To tickets step 6 is a point of its own here, stated as the ticket's decision.
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph. A choice the user settled in the quiz of To tickets step 7 is a point of its own here, stated as the ticket's decision.
 
 ## Read first
 

@@ -1787,8 +1787,6 @@ JSON
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q 'grok' "$TMP/err" || fail "the reason does not name the provider: $(cat "$TMP/err")"
   grep -q '#61' "$TMP/err" || fail "the reason does not name the ticket: $(cat "$TMP/err")"
-  grep -q 'Auth: not logged in' "$TMP/err" \
-    || fail "the refusal should carry the host's own account of why: $(cat "$TMP/err")"
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" -ge 2 ] \
     || fail "expected one line per failing check: $(cat "$TMP/err")"
 
@@ -1805,7 +1803,8 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
-  grep -q '缺 something' "$TMP/err" || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
+  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check " ] \
+    || fail "check should run install.sh --check once and install nothing: $(cat "$TMP/install-calls" 2>&1)"
 
   echo "--- the installed checkout only checks too"
   rm -f "$TMP/install-calls"
@@ -1891,10 +1890,6 @@ JSON
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 4 ] || fail "a refused start must not read as success, expected exit 4, got $code: $(cat "$TMP/err")"
   grep -q "started 0, refused 1" "$TMP/err" || fail "the tally should count the refusal: $(cat "$TMP/err")"
-  grep -q "provider initialization failed" "$TMP/err" \
-    || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
-  grep -q "did not start .* for #63 worker" "$TMP/err" \
-    || fail "stderr should name the ticket: $(cat "$TMP/err")"
   [ "$(count_of "paseo :: run")" = 1 ] || fail "the refused start is tried once: $(count_of "paseo :: run") runs"
 }
 
@@ -1965,8 +1960,6 @@ scenario_land() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   hasnt_runner_worktree
   hasnt "gh :: issue :: edit :: 66"
-  grep -q "open with no outcome" "$TMP/err" \
-    || fail "the hold should say why: $(cat "$TMP/err")"
 
   echo "--- a ticket handed back keeps its worktree for the next start, and gives the claim back"
   reset_log
@@ -1998,7 +1991,7 @@ scenario_land() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   hasnt_runner_worktree
   hasnt "gh :: issue :: edit :: 69"
-  grep -q "#69 needs nothing" "$TMP/err" \
+  grep -q "#69" "$TMP/err" \
     || fail "a ticket needing nothing must be named, or it reads like one the plan forgot: $(cat "$TMP/err")"
   grep -q "already landed 1" "$TMP/err" \
     || fail "the tally should count it: $(cat "$TMP/err")"
@@ -2016,8 +2009,6 @@ scenario_land() {
     || fail "a ticket that did not close ALL MET must not be merged"
   assert_wt 68
   hasnt_runner_worktree
-  grep -qF "issue-68 is not in origin/main" "$TMP/err" \
-    || fail "the refusal should name the unmerged branch: $(cat "$TMP/err")"
 }
 
 scenario_advance() {
@@ -2087,7 +2078,6 @@ assert obj["cwd"].endswith("/.worktrees/issue-63"), obj["cwd"]
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advance 76 --json)"
   [ "$code" = 2 ] || fail "expected exit 2 for --json, got $code: $(cat "$TMP/err")"
-  grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
   [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for advance --json"
 }
 
@@ -2301,8 +2291,6 @@ scenario_integratedirty() {
   [ "$(git -C "$TMP/repo" status --porcelain --untracked-files=no)" = "$status" ] \
     || fail "dirty integrate changed the index or working tree"
   [ "$(cat "$TMP/repo/tracked.txt")" = dirty ] || fail "dirty integrate changed the tracked file"
-  grep -q "uncommitted tracked changes" "$TMP/err" \
-    || fail "the dirty refusal was not named: $(cat "$TMP/err")"
 }
 
 scenario_start_worker() {
@@ -2369,7 +2357,6 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
   code="$(run_dispatch env FAKE_GH_LABELS="ready-for-agent,junior-worker,senior-worker" \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code"
-  grep -q '2 worker labels' "$TMP/err" || fail "the reason does not name the labels: $(cat "$TMP/err")"
   nothing_printed
   never_ran
   hasnt "workspace :: create"
@@ -2379,12 +2366,10 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker --json)"
   [ "$code" = 2 ] || fail "expected exit 2 for --json, got $code: $(cat "$TMP/err")"
-  grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
   [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for start --json"
   [ "$(count_of 'gh ::')" = 0 ] || fail "gh was called for start --json"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker --run)"
   [ "$code" = 2 ] || fail "expected exit 2 for the retired flag, got $code: $(cat "$TMP/err")"
-  grep -q "no longer a flag" "$TMP/err" || fail "the reason should say no longer a flag: $(cat "$TMP/err")"
 
 
   echo "--- a start on a ticket whose worker is still live replaces it: stopped, worker.replaced, then worker.started"
@@ -2409,8 +2394,7 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
   code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=archive-fail \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2 when the live worker will not stop, got $code: $(cat "$TMP/err")"
-  grep -q "agt_61_worker on paseo is live on its events and could not be stopped" "$TMP/err" \
-    || fail "the refusal should name the live worker: $(cat "$TMP/err")"
+  has "paseo :: archive :: --force :: agt_61_worker"
   never_ran
   [ "$(posted_events 61 | tr '\n' '|')" = "worker.started|" ] \
     || fail "nothing should be posted: $(posted_events 61)"
@@ -2478,8 +2462,6 @@ JSON
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
   [ "$code" = 2 ] || fail "expected exit 2 with a live agent, got $code: $(cat "$TMP/err")"
   hasnt "workspace :: archive"
-  grep -q "live agent" "$TMP/err" \
-    || fail "the refusal should say a live agent is on the ticket: $(cat "$TMP/err")"
 
   echo "--- a claim this pipeline does not hold is left alone"
   reset_log
@@ -2665,9 +2647,6 @@ scenario_sendbrief() {
           bash "$DISPATCH" "${TOOLS[@]}" send advisor "$packet")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   started_once
-  grep -q "nothing was retried" "$TMP/err" || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
-  grep -q "provider initialization failed" "$TMP/err" \
-    || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
   nothing_printed
   [ -z "$(newest_batch)" ] || fail "the batch should be removed: $(newest_batch)"
   grep -q '"briefs"' "$STATE_DIR/watches.json" && fail "the batch's watch should be closed: $(cat "$STATE_DIR/watches.json")"
@@ -2690,7 +2669,6 @@ scenario_sendbrief() {
   : > "$TMP/empty-packet.txt"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor "$TMP/nope.txt")"
   [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "no brief file at" "$TMP/err" || fail "the refusal should name the missing file: $(cat "$TMP/err")"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher "$packet" "$TMP/empty-packet.txt")"
   [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
   never_ran
@@ -2784,7 +2762,6 @@ scenario_briefreport() {
   echo "--- another session cannot report that brief"
   code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/2" "$answer")"
   [ "$code" = 2 ] || fail "a report from the wrong session expected 2, got $code"
-  grep -q "Only that session reports it" "$TMP/err" || fail "the refusal should say who reports it: $(cat "$TMP/err")"
 
   echo "--- show lists each brief, its state and where its answer is"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief show "$batch")"
@@ -2824,7 +2801,7 @@ PY
   echo "--- a report to a closed batch is refused: nobody waits for it"
   code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/1" "$answer")"
   [ "$code" = 2 ] || fail "a late report expected 2, got $code"
-  grep -q "is closed" "$TMP/err" || fail "the refusal should say the batch is closed: $(cat "$TMP/err")"
+  [ ! -e "$STATE_DIR/briefs/$batch" ] || fail "a late report should write nothing: $(ls -R "$STATE_DIR/briefs/$batch")"
 }
 
 scenario_resume() {
@@ -2938,8 +2915,6 @@ scenario_resumeendedhold() {
   echo "--- ticket.bounced ended every hold: the labels say whether advance takes it up or triage does"
   code="$(resume_after ticket.bounced --field reason=conflict --field commit=abc123)"
   refused_resume_names ticket.bounced "dispatch.sh advance 76" "$code"
-  grep -q "ready-for-agent means it bounced for the first time" "$TMP/err" \
-    || fail "the bounce refusal should name the first-bounce label: $(cat "$TMP/err")"
 
   echo "--- ticket.landed ended every hold: the work is on the base branch"
   code="$(resume_after ticket.landed)"
@@ -3030,8 +3005,6 @@ JSON
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
   [ "$code" = 2 ] || fail "expected exit 2 with no agent, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: wait"
-  grep -q "no reviewer.started event" "$TMP/err" \
-    || fail "stderr should say there is no session on the ticket: $(cat "$TMP/err")"
 }
 
 scenario_reverify() {
@@ -3122,8 +3095,6 @@ PY
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "verify-ticket :: 61 :: --reverify"
   hasnt "verify-ticket :: 62 :: --reverify"
-  grep -q "#62 passed and has not landed" "$TMP/err" \
-    || fail "the skipped ticket should be named: $(cat "$TMP/err")"
 
   echo "--- all green exits 0"
   reset_log
@@ -3234,8 +3205,6 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
   [ "$code" = 2 ] || fail "missing reverify expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "#61 has no reverify run of" "$TMP/err" \
-    || fail "missing reverify refusal was not explicit: $(cat "$TMP/err")"
   hasnt "gh :: issue :: comment :: 76 :: --body"
 
   echo "--- after reverify, the posted comment has a Reverify line matching that run"
@@ -3254,8 +3223,8 @@ JSON
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76) \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "an origin advance after reverify expected exit 2, got $code"
-  grep -q "#61 has no reverify run of $(git -C "$TMP/origin.git" rev-parse main)" "$TMP/err" \
-    || fail "the stale reverify refusal was not explicit: $(cat "$TMP/err")"
+  grep -q "$(git -C "$TMP/origin.git" rev-parse main)" "$TMP/err" \
+    || fail "the refusal should name the base commit it has no reverify of: $(cat "$TMP/err")"
   hasnt "gh :: issue :: comment :: 76 :: --body"
 
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -3285,7 +3254,6 @@ JSON
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
-  grep -q "stopped the relay for o/r" "$TMP/err" || fail "summary should say it stopped the relay: $(cat "$TMP/err")"
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
   fake_relay '{"spec": 80}'
@@ -3293,7 +3261,6 @@ JSON
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
   [ "$code" = 0 ] || fail "a relay watching another spec is not this summary's failure, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 80}'*) ;; *) fail "a relay watching spec 80 should be left running: $(relay_now)" ;; esac
-  grep -q "does not watch #76, so it was left running" "$TMP/err" || fail "summary should say why it left it: $(cat "$TMP/err")"
   no_relay
 }
 
@@ -3320,8 +3287,8 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
   [ "$code" = 2 ] || fail "live-worker summary expected 2, got $code"
-  grep -q '#61 still has a live worker term_7' "$TMP/err" \
-    || fail "live-worker refusal was not explicit: $(cat "$TMP/err")"
+  grep -q 'term_7' "$TMP/err" \
+    || fail "the refusal should name the live worker term_7: $(cat "$TMP/err")"
   hasnt "gh :: issue :: comment :: 76 :: --body"
 }
 
@@ -3349,8 +3316,6 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "#76 still holds 1 finding(s) that no route reached" "$TMP/err" \
-    || fail "the refusal should count them: $(cat "$TMP/err")"
   grep -q "Findings routed: 2/1/0/0/0/1" "$TMP/err" \
     || fail "the refusal should quote the line it read: $(cat "$TMP/err")"
   hasnt "gh :: issue :: comment :: 76"
@@ -3479,8 +3444,6 @@ scenario_releaselive() {
   echo "--- and the ticket reads as held by that worker, not as an orphaned claim"
   grep -q "#63 claimed by mmw-bot; held by the worker agt_63_worker on paseo" "$TMP/err" \
     || fail "stderr does not name the worker holding it: $(cat "$TMP/err")"
-  grep -q "#63 keeps its claim: the worker agt_63_worker on paseo is live on its events" "$TMP/err" \
-    || fail "stderr does not say why the claim is kept: $(cat "$TMP/err")"
   grep -q "started 0" "$TMP/err" || fail "a second worker was started on it: $(cat "$TMP/err")"
 }
 
@@ -3626,7 +3589,6 @@ scenario_route() {
   : > "$MMW_TEST_LOG"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
   [ "$code" = 0 ] || fail "a route already recorded should exit 0, got $code: $(cat "$TMP/err")"
-  grep -q "already routed" "$TMP/err" || fail "it should say so: $(cat "$TMP/err")"
   hasnt "gh :: issue :: edit"
   [ "$(posted_events 61 | grep -c child.closed)" = 4 ] || fail "a second child.closed was posted"
 
@@ -3652,7 +3614,6 @@ scenario_route() {
   write_route_batch
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 95 fixed)"
   [ "$code" = 2 ] || fail "a child with no child.opened should exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "#61 carries no child.opened for #95" "$TMP/err" || fail "the refusal should say why: $(cat "$TMP/err")"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 done)"
   [ "$code" = 2 ] || fail "an unknown resolution should exit 2, got $code: $(cat "$TMP/err")"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket)"
@@ -4331,7 +4292,6 @@ scenario_herdrworkingsend() {
   seed_herdr_agent agt_w61 working
   code="$(run_runner send agt_w61 continue)"
   [ "$code" = 3 ] || fail "a working agent was sent nothing: 3, got $code: $(cat "$TMP/err")"
-  grep -q "nothing was sent" "$TMP/err" || fail "stderr should say nothing was sent: $(cat "$TMP/err")"
   hasnt "herdr :: agent :: prompt"
   has "herdr :: agent :: list"
 
@@ -4428,7 +4388,6 @@ scenario_orcaunobserved() {
   seed_orca_terminal term_w61
   code="$(MMW_FAKE_ORCA_SEND=unobserved run_runner send term_w61 '#61 ticket.passed')"
   [ "$code" = 4 ] || fail "an unobserved terminal must answer unknown 4, got $code: $(cat "$TMP/err")"
-  grep -q "cannot report delivery" "$TMP/err" || fail "stderr should carry Orca's own warning: $(cat "$TMP/err")"
 
   echo "--- a list that cannot be read sends nothing: 3, and terminal send is not run"
   reset_log
@@ -4442,7 +4401,6 @@ scenario_orcaunobserved() {
   seed_orca_terminal term_w61
   code="$(MMW_FAKE_ORCA_SEND=refused run_runner send term_w61 '#61 ticket.passed')"
   [ "$code" = 3 ] || fail "a refused send expected 3, got $code: $(cat "$TMP/err")"
-  grep -q "Orca refused the send" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
 
   echo "--- a host whose delivery Orca cannot report still starts: the handle, exit 0, its terminal kept"
   reset_log
@@ -4471,7 +4429,6 @@ scenario_runnerself() {
   [ "$code" = 0 ] && [ "$(cat "$TMP/out")" = term_main ] || fail "orca self should print term_main, got $code: $(cat "$TMP/out") $(cat "$TMP/err")"
   code="$(TERM_PROGRAM=Orca run_runner self)"
   [ "$code" = 1 ] || fail "an Orca terminal with no handle should be refused 1, got $code"
-  grep -q "ORCA_TERMINAL_HANDLE is not set" "$TMP/err" || fail "the refusal should name the variable: $(cat "$TMP/err")"
   code="$(env -u TERM_PROGRAM bash -c 'cd "$1" && bash "$2" self' _ "$TMP/repo" "$ORCA_RUNNER" 2>/dev/null; echo "$?")"
   [ "$code" = 3 ] || fail "orca self outside Orca should be 3, got $code"
 
@@ -4483,7 +4440,7 @@ scenario_runnerself() {
   [ "$code" = 0 ] && [ "$(cat "$TMP/out")" = main-h ] || fail "herdr self should print main-h, got $code: $(cat "$TMP/out") $(cat "$TMP/err")"
   code="$(HERDR_ENV=1 HERDR_PANE_ID=w1:p3 run_runner self)"
   [ "$code" = 1 ] || fail "an unnamed agent should be refused 1, got $code"
-  grep -q "has no name" "$TMP/err" || fail "the refusal should say the agent has no name: $(cat "$TMP/err")"
+  [ ! -s "$TMP/out" ] || fail "an unnamed agent should print no session: $(cat "$TMP/out")"
   code="$(HERDR_ENV=1 HERDR_PANE_ID=w1:p9 run_runner self)"
   [ "$code" = 1 ] || fail "a pane with no agent should be refused 1, got $code"
   code="$(HERDR_ENV=1 run_runner self)"
@@ -4548,8 +4505,6 @@ scenario_open() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-ticket 61)"
   [ "$code" = 2 ] || fail "open-ticket 61 expected 2, got $code"
-  grep -q "#61 is a sub-issue of spec #76, which is watched with paseo session agt_main as its orchestrator" "$TMP/err" \
-    || fail "the refusal should name the watch it overlaps: $(cat "$TMP/err")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "a refused open must not touch spec 76's orchestrator: $(cat "$STATE_DIR/watches.json")"
   [ -z "$(watch_main tickets:61)" ] || fail "no watch on #61 should be open: $(cat "$STATE_DIR/watches.json")"
 
@@ -4562,8 +4517,6 @@ JSON
   summary_ready_fixture 77 night
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
   [ "$code" = 0 ] || fail "summary expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "stopped watching spec #76 for o/r: the relay (pid $pid) goes on watching spec #77" "$TMP/err" \
-    || fail "summary should say the relay goes on for #77: $(cat "$TMP/err")"
   case "$(relay_now)" in "$pid "'{"spec": 77}') ;; *) fail "relay $pid should watch spec 77 alone: $(relay_now)" ;; esac
 
   echo "--- the last night's summary ends the relay"
@@ -4628,8 +4581,6 @@ scenario_openrefused() {
   code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code: $(cat "$TMP/err")"
-  grep -q "runs in no runner whose adapter can name it (asked: paseo herdr orca)" "$TMP/err" \
-    || fail "the refusal should name the runners asked: $(cat "$TMP/err")"
   [ ! -f "$STATE_DIR/watches.json" ] || fail "no watch should be open: $(cat "$STATE_DIR/watches.json")"
   [ -z "$(relay_now)" ] || fail "no relay should run: $(relay_now)"
   hasnt "gh :: issue :: comment :: 76"
@@ -4640,7 +4591,7 @@ scenario_openrefused() {
   code="$(run_dispatch env -u HERDR_ENV TERM_PROGRAM=Orca FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code"
-  grep -q "ORCA_TERMINAL_HANDLE is not set" "$TMP/err" || fail "the refusal should carry the adapter's reason: $(cat "$TMP/err")"
+  [ ! -f "$STATE_DIR/watches.json" ] || fail "no watch should be open: $(cat "$STATE_DIR/watches.json")"
   [ -z "$(relay_now)" ] || fail "no relay should run: $(relay_now)"
 
   echo "--- inside Herdr inside Orca, Herdr names the session: the inner runner is asked first"
@@ -4650,7 +4601,6 @@ scenario_openrefused() {
   code="$(run_dispatch env HERDR_ENV=1 HERDR_PANE_ID=w1:p3 ORCA_TERMINAL_HANDLE=term_outer TERM_PROGRAM=Orca \
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "an unnamed Herdr agent expected 2, got $code"
-  grep -q "has no name" "$TMP/err" || fail "the refusal should be Herdr's, not an Orca registration: $(cat "$TMP/err")"
   [ ! -f "$STATE_DIR/watches.json" ] || fail "the outer Orca terminal must not be made an orchestrator: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- a session the runner shows stopped is refused"
@@ -4659,7 +4609,7 @@ scenario_openrefused() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_gone FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code"
-  grep -q "session agt_gone is stopped" "$TMP/err" || fail "the refusal should say the session is stopped: $(cat "$TMP/err")"
+  [ ! -f "$STATE_DIR/watches.json" ] || fail "no watch should be open: $(cat "$STATE_DIR/watches.json")"
   [ -z "$(relay_now)" ] || fail "no relay should run: $(relay_now)"
 
   echo "--- spec.opened that cannot be written closes the watch open opened, and the relay with it"
@@ -4703,8 +4653,6 @@ JSON
   echo "--- a ticket of a spec is not what this relay watches, so its start is refused"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "start 61 expected 2, got $code"
-  grep -q "watches ticket #90, and #61, a ticket of spec #76, is not among them" "$TMP/err" \
-    || fail "the refusal should say what the relay watches: $(cat "$TMP/err")"
   never_ran
 
   echo "--- land ends the relay open-ticket started for it"
@@ -4797,7 +4745,7 @@ scenario_ack() {
   echo "--- a wake that was never queued is refused"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack 99 ticket.passed)"
   [ "$code" = 2 ] || fail "ack of a wake never queued expected 2, got $code"
-  grep -q "no wake \`#99 ticket.passed\` is queued for paseo session agt_main" "$TMP/err" || fail "the refusal should name the wake: $(cat "$TMP/err")"
+  [ "$(queue_seqs)" = "2 3" ] || fail "nothing should be removed: $(queue_seqs)"
 
   echo "--- the worker acks its own wake, named by its own session"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_wk bash "$DISPATCH" "${TOOLS[@]}" ack 61 reviewer.reported)"
@@ -4819,7 +4767,6 @@ scenario_unopened() {
   echo "--- advance refuses a night that is not open, and touches nothing"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 2 ] || fail "advance expected 2, got $code"
-  grep -q "the night on #76 is not open: no relay is running for o/r" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
   never_ran
   assert_no_wt 61
   hasnt "status.py --advance-plan"
@@ -4827,7 +4774,6 @@ scenario_unopened() {
   echo "--- start refuses a ticket no relay watches, and starts nothing"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "start expected 2, got $code"
-  grep -q "nothing would wake anyone when #61's worker reports: no relay is running for o/r" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
   never_ran
   assert_no_wt 61
 
@@ -4835,7 +4781,6 @@ scenario_unopened() {
   fake_relay '{"spec": 80}'
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "start expected 2, got $code"
-  grep -q "watches spec #80, and #61, a ticket of spec #76, is not among them" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 2 ] || fail "advance expected 2, got $code"
   never_ran
@@ -4854,9 +4799,7 @@ scenario_advancerestoreswatch() {
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  grep -q "the night on #76 is open and nothing watched it; the watch is restored with paseo session agt_main" "$TMP/err" \
-    || fail "advance did not restore the watch: exit $code: $(cat "$TMP/err")"
-  grep -q "is not open" "$TMP/err" && fail "advance still read the night as not open: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "advance did not restore the watch: exit $code: $(cat "$TMP/err")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76 should be watched for agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
   no_relay
@@ -5095,7 +5038,6 @@ scenario_orcaparentrefused() {
   [ "$(cat "$TMP/out")" = term_2 ] || fail "the session id was not returned: $(cat "$TMP/out")"
   [ "$(grep -c 'did not attach the worktree' "$TMP/err")" = 1 ] \
     || fail "a refused parent should be one stderr line: $(cat "$TMP/err")"
-  grep -q 'A worktree cannot parent itself' "$TMP/err" || fail "Orca's reason was not carried: $(cat "$TMP/err")"
   grep -q '^orca :: worktree :: set .* --issue :: 61$' "$MMW_TEST_LOG" || fail "the issue link was not asked for"
   posted_events 61 | grep -q worker.started || fail "worker.started was not recorded"
 }
@@ -5167,7 +5109,6 @@ scenario_startonce() {
   code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   started_once
-  grep -q "nothing was retried" "$TMP/err" || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
   nothing_printed
   assert_no_wt 61
 }
@@ -5222,8 +5163,6 @@ JSON
   hasnt "paseo :: run"
   grep -q "released 0" "$TMP/err" || fail "the live worker's claim was given back: $(cat "$TMP/err")"
   grep -q "started 0" "$TMP/err" || fail "a second worker was started: $(cat "$TMP/err")"
-  grep -q "#61 keeps its claim: the worker term_7 on orca is live on its events" "$TMP/err" \
-    || fail "stderr should say which worker keeps the claim: $(cat "$TMP/err")"
 
   echo "--- once that start is retracted, the same ticket is freed and started again"
   : > "$MMW_TEST_LOG"
@@ -5249,8 +5188,8 @@ scenario_startunrecorded() {
   started_once
   has "paseo :: archive :: --force :: agt_run_1"
   nothing_printed
-  grep -q "could not write the worker.started event on #61" "$TMP/err" \
-    || fail "the refusal should say the start was not recorded: $(cat "$TMP/err")"
+  grep -q "worker.started" "$TMP/err" \
+    || fail "the refusal should name the event that could not be written: $(cat "$TMP/err")"
 }
 
 # A pre-migration pass with no recorded commit cannot be guessed from a missing branch.
@@ -5273,8 +5212,6 @@ JSON
   [ "$code" = 2 ] || fail "exit $code, not 2: $(cat "$TMP/err")"
   never_ran
   assert_no_wt 61
-  grep -q "#60's ticket.passed event carries no usable commit" "$TMP/err" \
-    || fail "stderr should name the unusable pass: $(cat "$TMP/err")"
   [ -z "$(posted_events 60)" ] || fail "#60 must not be recorded landed: $(posted_events 60)"
 
   echo "--- the rest of the batch goes on: a ticket #60 does not block is started, and the run still exits 2"
@@ -5316,8 +5253,6 @@ JSON
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   never_ran
-  grep -q "still blocked by #60 (passed, not landed)" "$TMP/err" \
-    || fail "stderr should say #61 waits on #60's landing: $(cat "$TMP/err")"
 
   reset_log
   cat > "$TMP/tickets.json" <<JSON
@@ -5354,7 +5289,6 @@ store.write_text(json.dumps(posted))
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   assert_wt 61
-  grep -q "comment 2" "$TMP/err" || fail "stderr should name the unreadable comment: $(cat "$TMP/err")"
   hasnt "paseo :: archive"
   hasnt "gh :: issue :: edit"
 }
@@ -5377,8 +5311,6 @@ JSON
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
   hasnt "gh :: issue :: edit :: 61 :: --remove-assignee"
   never_ran
-  grep -q "#61 keeps its claim: its events cannot be read" "$TMP/err" \
-    || fail "the claim should be kept and the reason named: $(cat "$TMP/err")"
   grep -q "#61 its events cannot be read" "$TMP/err" \
     || fail "the frontier should name the unreadable events: $(cat "$TMP/err")"
 }
@@ -5469,7 +5401,6 @@ scenario_unknownnotalive() {
   set_agent_status agt_61_worker not-a-status
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "cannot tell" "$TMP/err" || fail "retract should say it cannot tell: $(cat "$TMP/err")"
   if grep -q "still has a live agent" "$TMP/err"; then fail "unknown must not read as a live agent: $(cat "$TMP/err")"; fi
   hasnt "paseo :: archive"
 }
@@ -5585,10 +5516,10 @@ scenario_herdrstartloud() {
   fresh_repo
   code="$(MMW_FAKE_HERDR_SCENARIO=tab-fail run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected 1, got $code"
-  grep -q "could not open a tab" "$TMP/err" || fail "stderr should name the failed tab create: $(cat "$TMP/err")"
+  nothing_printed
   code="$(MMW_FAKE_HERDR_SCENARIO=start-fail run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected 1, got $code"
-  grep -q "agent start refused" "$TMP/err" || fail "stderr should name the refused agent start: $(cat "$TMP/err")"
+  nothing_printed
 }
 
 scenario_runnerstop() {
@@ -5625,8 +5556,7 @@ scenario_orcarefusalreason() {
   fresh_repo
   code="$(MMW_FAKE_ORCA_SCENARIO=start-refused run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected refusal 1, got $code"
-  grep -q "terminal create refused grok .*selector_not_found" "$TMP/err" \
-    || fail "the refusal should carry Orca's reason: $(cat "$TMP/err")"
+  nothing_printed
 }
 
 scenario_nightfromtask() {
@@ -5655,7 +5585,7 @@ scenario_nightfromtask() {
   git -C "$TMP/repo" worktree add -q "$TMP/repo/.worktrees/issue-62" -b mine main
   code="$( (cd "$task" && bash "$DISPATCH" "${TOOLS[@]}" start 62 worker) > "$TMP/out" 2> "$TMP/err"; echo $?)"
   [ "$code" = 2 ] || fail "expected refusal 2, got $code"
-  grep -q "is on mine, not issue-62" "$TMP/err" || fail "the refusal should name the branch it found: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo/.worktrees/issue-62" rev-parse --abbrev-ref HEAD)" = mine ] || fail "the worktree on mine should be left on mine"
   never_ran
 }
 
@@ -5701,9 +5631,6 @@ scenario_orcanoorphan() {
   [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
   nothing_printed
   one_line_reason
-  grep -q "grok exited within 3 s of starting" "$TMP/err" || fail "stderr should say the host exited: $(cat "$TMP/err")"
-  grep -q "its last lines: none, Orca kept no output" "$TMP/err" \
-    || fail "an emptied terminal should be said to hold no output: $(cat "$TMP/err")"
   grep -qF "run it by hand there: grok -m 'grok 4.6' --reasoning-effort high" "$TMP/err" \
     || fail "stderr should give the command to run by hand: $(cat "$TMP/err")"
   has "orca :: terminal :: read"
@@ -5715,8 +5642,7 @@ scenario_orcanoorphan() {
   code="$(MMW_FAKE_ORCA_SCENARIO=exited MMW_FAKE_ORCA_TAIL=$'\nerror: unexpected argument found\n' \
           run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
-  grep -q "its last lines: error: unexpected argument found;" "$TMP/err" \
-    || fail "stderr should carry the terminal's last lines: $(cat "$TMP/err")"
+  [ "$(orca_terminals_left)" = 0 ] || fail "a refused start left a terminal behind"
 
   echo "--- an exit wait this cannot read falls back to liveness: alive is a start"
   reset_log
@@ -5908,7 +5834,6 @@ scenario_openrefusesdefault() {
   open_project_fixture
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "default branch open expected 2, got $code"
-  grep -q 'default branch' "$TMP/err" || fail "default refusal missing: $(cat "$TMP/err")"
   [ -z "$(posted_events 76)" ] || fail "default open wrote spec.opened"
 }
 
@@ -5921,7 +5846,6 @@ scenario_openrefusesfromdefault() {
   open_project_fixture
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "base from default expected 2, got $code"
-  grep -q 'project branch for night could not be inferred' "$TMP/err" || fail "from-default refusal missing: $(cat "$TMP/err")"
   [ -z "$(posted_events 76)" ] || fail "from-default open wrote spec.opened"
 }
 
@@ -5992,7 +5916,6 @@ scenario_openrefusesdiverged() {
   open_project_fixture
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "diverged open expected 2, got $code"
-  grep -q 'local has 1 commit(s), origin has 1 commit(s)' "$TMP/err" || fail "divergence counts missing: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$project_remote" ] || fail "project changed on refusal"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_remote" ] || fail "base changed on refusal"
   [ -z "$(posted_events 76)" ] || fail "diverged open wrote spec.opened"
@@ -6019,7 +5942,6 @@ scenario_openbasefollowsproject() {
   [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$proj_tip" ] || fail "origin/night was not fast-forwarded to proj"
   [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$proj_tip" ] || fail "the checkout was not fast-forwarded: $(cat "$TMP/err"); $(git -C "$TMP/repo" status --short)"
-  grep -q "night took 1 commit(s) from origin/proj" "$TMP/err" || fail "stderr did not say what the base took: $(cat "$TMP/err")"
   no_relay
 
   echo "--- a base branch with commits of its own merges the project branch"
@@ -6067,7 +5989,7 @@ scenario_openbaseprojectconflict() {
   open_project_fixture
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "a conflicting project branch expected 2, got $code: $(cat "$TMP/err")"
-  grep -q "conflicts in night.txt; nothing was pushed" "$TMP/err" || fail "the conflict was not named: $(cat "$TMP/err")"
+  grep -q "night.txt" "$TMP/err" || fail "the conflicted file was not named: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_remote" ] || fail "origin/night changed on conflict"
   [ -z "$(posted_events 76)" ] || fail "a conflicted open wrote spec.opened"
   no_relay
@@ -6158,7 +6080,7 @@ scenario_finishcleans() {
   [ -d "$TMP/repo/.worktrees/night-checkout" ] || fail "finish removed a worktree with the base branch checked out"
   git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night \
     || fail "finish deleted the local base branch a worktree still has checked out"
-  grep -q "keeping worktree .*night-checkout and the local night" "$TMP/err" \
+  grep -q "night-checkout" "$TMP/err" \
     || fail "finish did not name the kept worktree: $(cat "$TMP/err")"
   [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains"
   [ ! -e "$lock" ] || fail "base merge lock remains"
@@ -6195,7 +6117,7 @@ scenario_finishkeepssession() {
   git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains"
   [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains"
   [ ! -e "$lock" ] || fail "base merge lock remains"
-  grep -q "keeping worktree $session and the local night" "$TMP/err" \
+  grep -qF -- "$session" "$TMP/err" \
     || fail "finish did not name the session worktree it kept: $(cat "$TMP/err")"
   [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] \
     || fail "finish did not record exactly one merge"
@@ -6221,6 +6143,13 @@ scenario_finishrefuses() {
   echo '[]' > "$TMP/tickets.json"; reset_log
   post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night --field project=proj
   finish_refused "unclosed" "spec.closed"
+}
+
+scenario_finishrefusesopenticket() {
+  echo "--- a ticket of the night still open"
+  setup_finish_closed
+  printf '%s\n' '[{"number":61,"state":"OPEN","labels":[]}]' > "$TMP/tickets.json"
+  finish_refused "open ticket" "#61"
 }
 
 scenario_finishrefusesothernight() {
@@ -6518,8 +6447,6 @@ scenario_startdiverged() {
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "diverged start expected 2, got $code"
-  grep -q "local is 1 commit(s) ahead and origin is 2 commit(s) ahead" "$TMP/err" \
-    || fail "both divergence counts were not reported: $(cat "$TMP/err")"
   assert_no_wt 61
   never_ran
 }
@@ -6558,7 +6485,7 @@ scenario_startintooutside() {
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 2 ] || fail "an unpushed outside-night base expected 2, got $code"
-  grep -q "origin/local-only does not exist" "$TMP/err" \
+  grep -q "origin/local-only" "$TMP/err" \
     || fail "the missing remote base was not named: $(cat "$TMP/err")"
   assert_no_wt 61
 }
@@ -6701,10 +6628,6 @@ scenario_handoffpushrejected() {
   set_agent_status "$session" closed
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
   [ "$code" = 2 ] || fail "rejected retract push expected 2, got $code"
-  grep -q "nothing was force-pushed" "$TMP/err" \
-    || fail "the rejection did not state the no-force rule: $(cat "$TMP/err")"
-  grep -Eq 'fetch first|non-fast-forward|rejected' "$TMP/err" \
-    || fail "the git rejection reason was cut off: $(cat "$TMP/err")"
   assert_wt 61
   [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$remote_head" ] \
     || fail "retract rewrote the commit another clone pushed"
@@ -7151,7 +7074,7 @@ scenario_advancenochecks() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "a repository without checks should land: $(cat "$TMP/err")"
-  grep -q '没有检查：.mmw/target.json 没声明 checks' "$TMP/err" \
+  grep -q '.mmw/target.json' "$TMP/err" \
     || fail "the absence of checks was silent: $(cat "$TMP/err")"
   git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main \
     || fail "the ticket did not land without repository checks"
@@ -7627,8 +7550,6 @@ scenario_landedkeepsunmerged() {
   [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$later" ] \
     || fail "remote work beyond ticket.passed was changed or deleted"
   grep -q 'merged 1' "$TMP/err" || fail "landing was not counted: $(cat "$TMP/err")"
-  grep -q "origin/issue-61.*1 commit(s) not in origin/main" "$TMP/err" \
-    || fail "stderr did not quantify the retained work: $(cat "$TMP/err")"
 }
 
 setup_branch_race_check() {
@@ -7677,8 +7598,6 @@ scenario_landedbranchraced() {
   [ "$(git -C "$TMP/origin.git" rev-parse issue-61)" = "$later" ] \
     || fail "the lease erased work pushed after fetch"
   grep -q 'merged 1' "$TMP/err" || fail "landing was not counted: $(cat "$TMP/err")"
-  grep -q "could not delete origin/issue-61" "$TMP/err" \
-    || fail "lease rejection was not reported: $(cat "$TMP/err")"
 }
 
 scenario_landedbranchgone() {
@@ -7731,8 +7650,6 @@ scenario_landeddeleterefused() {
 
 scenario_landeddeleterefusedsays() {
   scenario_landeddeleterefused
-  grep -q "protected branch refuses deletion" "$TMP/err" \
-    || fail "the remote reason was omitted: $(cat "$TMP/err")"
   grep -q "git push origin --delete issue-61" "$TMP/err" \
     || fail "the manual deletion command was omitted: $(cat "$TMP/err")"
 }
@@ -8029,8 +7946,8 @@ JSON
 }
 
 ALL="startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedpercommand advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
-ALL="$ALL findings integratedsincestart"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

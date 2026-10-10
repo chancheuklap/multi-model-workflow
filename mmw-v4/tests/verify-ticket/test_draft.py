@@ -513,9 +513,9 @@ BASELINE_GREEN = checked(
   CHECK: pytest -q tests/test_import.py
   EXPECT: 1 passed
   EVIDENCE: exit=0; EXPECT=matched; output-bytes=9
-- [ ] AC2: a journey
-  CHECK: journey.py run import
-  EXPECT: JOURNEY OK import
+- [ ] AC2: the exporter writes six rows
+  CHECK: pytest -q tests/test_export.py
+  EXPECT: 1 passed
   EVIDENCE: skipped""",
     "UNMET: 1 (met: 1)",
     commit="0" * 40,

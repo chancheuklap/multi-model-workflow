@@ -169,8 +169,7 @@ Files in the state directory:
                     process: a relay that died leaves its watches open
     relay.json      the running relay's pid, process identity, interval, grace, start
                     time, and `ending` once it has no watch left and is on its way out
-    relay.log       what every started relay printed, appended; moved to relay.log.1 at a
-                    start once past statedir.LOG_LIMIT
+    relay.log       what every started relay printed, appended
     beat.json       the last good poll (`at`), the end of the last cycle whether its reads
                     worked or not (`cycle_at`), seconds spent delivering since the last good
                     poll, the pass under way, the last failed poll and why, the run's
@@ -185,9 +184,11 @@ Exit codes:
 
     start     0 the watch is recorded and a relay runs (started now, or already); 1
               refused (no adapter, the runner says the session is stopped, the watch
-              overlaps another, the tracker could not be read to check that, a state file
-              unreadable, the relay exited or did not take its lock: its log's last lines
-              are on stderr, and a watch this call opened was closed again)
+              overlaps another, the tracker could not be read to check that, the relay
+              running is one whose `relay.json` names a single `watch` and reads no
+              watches.json, a state file unreadable, the relay exited or did not take its
+              lock: its log's last lines are on stderr, and a watch this call opened was
+              closed again)
     add       0 recorded; 1 refused, as for start
     stop      0 done: that watch is closed, and the process ended with the last watch (or
               nothing was watched); 1 the process did not end; 3 that watch is not open,
@@ -1486,6 +1487,15 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
     if answer != "alive":
         sys.stderr.write(f"relay: {args.runner} could not say whether session {args.session} is "
                          f"alive; the watch is opened all the same, and the first delivery will tell\n")
+    found = running(state)
+    if found is not None and "watch" in found[1]:
+        # A record that names a `watch` was written by a relay that serves that one watch,
+        # takes its orchestrator from recipient.json and never reads watches.json.
+        raise Refusal(f"the relay running for {args.repo} (pid {found[0].get('pid')}) serves one "
+                      f"watch, {describe_watch(found[1]['watch'])}, and would never read this one. "
+                      f"End it with `relay.py stop --repo {args.repo}`, open its night again "
+                      f"(dispatch.sh open or open-ticket), then open this watch. Nothing was "
+                      f"recorded.")
     relay = Relay(state, Board(args.repo))
     want = watch_of(args)
     previous, record = relay.open_watch(want, args.runner, args.session)
@@ -1553,7 +1563,6 @@ def cmd_start(args) -> int:
 def spawn(args, state: Path) -> int:
     """Start `run` as a process of its own session; its pid once it holds the lock."""
     log = state / "relay.log"
-    statedir.rotate(log)
     argv = [sys.executable, str(Path(__file__).resolve()), "run", "--repo", args.repo,
             "--interval", str(args.interval)]
     if args.grace is not None:
