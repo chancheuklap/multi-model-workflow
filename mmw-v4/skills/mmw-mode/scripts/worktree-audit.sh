@@ -79,12 +79,14 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 
 	# Most recent session of any host that ran in this worktree or a directory
 	# under it. Match the path followed by "/" or its end, so glint-482 does not
-	# match glint-482-r37.
+	# match glint-482-r37. Claude Code's folder name turns "/" into "-", so a
+	# subdirectory cannot be told from a sibling there: only the worktree's own
+	# folder counts.
 	last="-"
 	cslug=$(printf '%s' "$wt" | sed 's#[/.]#-#g')
 	gslug=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$wt")
 	last_ts=$( {
-		find "$HOME/.claude/projects" -maxdepth 2 -name '*.jsonl' \( -path "*/projects/$cslug/*" -o -path "*/projects/$cslug-*/*" \) 2>/dev/null | newest
+		find "$HOME/.claude/projects" -maxdepth 2 -name '*.jsonl' -path "*/projects/$cslug/*" 2>/dev/null | newest
 		find "$HOME/.grok/sessions" -mindepth 2 -maxdepth 2 \( -path "*/sessions/$gslug/*" -o -path "*/sessions/$gslug%2F*/*" \) 2>/dev/null | newest
 		awk -v wt="$wt" '$2 == wt || index($2, wt "/") == 1 {print $1}' "$codex"
 		[ -d "$transcripts" ] && rg -l -e "${wt}/" -e "${wt}\"" "$transcripts" 2>/dev/null | newest
