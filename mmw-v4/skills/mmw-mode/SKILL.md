@@ -129,7 +129,7 @@ Write the reply clean as you draft it. A cleanup pass after drafting does not re
 - **Every claim carries its evidence or its label in the same sentence.** Measured, inferred, or guess. A prediction or an unseen cause is a guess. A cause is something you found, not something you guessed: when the numbers do not add up, say you do not know yet. Never hand the owner a check you could run.
 - **Say what you did not touch.** What you did not touch and did not check matters as much as what you did, because the owner cannot open the diff to see it.
 
-Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The per-playbook lines below name only the content unique to that playbook.
+Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The `**Reply:**` line that closes each playbook names only the content unique to it.
 
 **When it is working.** The owner finishes the report without asking "so what?", and either decides or puts it down. Every term you used, they can look up. When something broke, the first thing they see is the effect, and the cause or the fact that it is not yet known, not the stack trace. Every next step you hand them is one that only they can do.
 
@@ -167,7 +167,7 @@ A ticket with acceptance criteria is worked only by a worker the dispatch skill 
 - **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move). The user said what to change, and this session writes it and closes with Shared closing. `playbooks/refactoring.md`.
 - **Prototype.** A prototype kept in the repo to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). The **prototype** skill.
 - **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. The user said what to change, and this session writes it and closes with Shared closing. `playbooks/visual-parity.md`.
-- **Authoring or modifying a skill.** Writing or editing a SKILL.md. `playbooks/authoring-a-skill.md`.
+- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a reference or a principle. `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
 - **Session pickup.** Resuming or taking over a prior agent's in-flight work from a transcript or pushed branch. `playbooks/session-pickup.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a host restart, or imminent context compaction. The complement to Session pickup. Full steps: `playbooks/pause-safely.md`.

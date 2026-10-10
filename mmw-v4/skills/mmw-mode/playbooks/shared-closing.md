@@ -12,6 +12,8 @@ Invoked at the end of a playbook whose session wrote a change itself, in a sessi
 6. **Open one pull request.** Push the branch and open one pull request to the project branch, written as **The pull request** below says. One change, one pull request: never a stack. Done when it is open.
 7. **Hand it over.** Give the owner the link. When the owner says yes, `gh pr merge <pr> --merge --delete-branch`. Done when it is merged, or the owner has the link and has not said yes.
 
+**Reply:** each review finding, with the commit that fixed it or what refuted it; whether step 5 ran the repository's checks or `.mmw/target.json` names none; that the merge waits for the owner's yes. It goes into the reply of the playbook that invoked this one.
+
 #### The pull request
 
 The same rules write every pull request MMW opens: this one, a night's (the Run a night playbook) and one ticket's.
