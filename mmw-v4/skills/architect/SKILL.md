@@ -5,7 +5,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Architect
 
-Design before implementing. Sketch types, function signatures, class shapes, and seams with `not implemented` bodies and pseudocode. Synthesize across multiple model perspectives.
+Design before implementing. Sketch types, function signatures, class shapes, and seams with `not implemented` bodies and pseudocode. Synthesize across several design angles.
 
 ## Start
 
@@ -27,18 +27,16 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt, and fill in the variable inputs around it: the task, the Phase A grounding artifacts, the runner's technical brief and constraint, its isolated working directory, and the path to write its outputs. The working directory is a git worktree when available, otherwise a per-runner subdirectory under the sketch dir. What matters is independence between candidates. Each candidate produces a design package shaped per `references/rationale-template.md`. The synthesized sketch goes where the caller says; under the **prototype** skill that is the leaf `SKETCH/` directory, with the rationale as its `README.md`.
-
-Take the runners' models from the `architect runners` line in the `pstack-models.mdc` rule, in place of the `arena runners` line. If the rule or that line is missing, use `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. The constraints below set how many runners run; deal the line's models out to them in turn, starting again from the first when the line runs out. Alias and rejected entries follow the runner rules in the **arena** skill's Phase A.
+Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Each candidate reads `references/runner-prompt.md` itself, since mmw-mode routes a candidate-design brief there, and produces a design package shaped per `references/rationale-template.md`. The synthesized sketch goes where the caller says; under the **prototype** skill that is the leaf `SKETCH/` directory, with the rationale as its `README.md`.
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 
-Give each runner a separate technical brief (file paths, coupling details, the dependency category of each dependency, what sits behind the seam) and a different design constraint. Run three, and the fourth when it applies:
+Give each candidate its technical facts (file paths, coupling details, the dependency category of each dependency, what sits behind the seam) and a different design constraint. Run three, and the fourth when it applies:
 
-- Runner 1: "Minimize the interface: aim for 1–3 entry points max. Maximise leverage per entry point."
-- Runner 2: "Maximise flexibility: support many use cases and extension."
-- Runner 3: "Optimise for the most common caller: make the default case trivial."
-- Runner 4 (if applicable): "Design around ports & adapters for cross-seam dependencies."
+- Candidate 1: "Minimize the interface: aim for 1–3 entry points max. Maximise leverage per entry point."
+- Candidate 2: "Maximise flexibility: support many use cases and extension."
+- Candidate 3: "Optimise for the most common caller: make the default case trivial."
+- Candidate 4 (if applicable): "Design around ports & adapters for cross-seam dependencies."
 
 Screen every candidate against [`references/design-red-flags.md`](references/design-red-flags.md) before synthesis. Assume the next contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Prefer the design where a change that looks right from one file is right for the whole repo.
 

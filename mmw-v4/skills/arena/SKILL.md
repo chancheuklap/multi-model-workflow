@@ -5,7 +5,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Arena
 
-Fan out N parallel attempts at the same task. Read every candidate end to end. Pick the strongest as the base. Graft the best ideas from the others into it. Verify the synthesized result.
+Fan out N parallel designs of the same task, each from its own angle. Read every candidate end to end. Pick the strongest as the base. Graft the best ideas from the others into it. Verify the synthesized result.
 
 ## Start
 
@@ -20,24 +20,22 @@ Open a todolist with one entry per phase before launching anything.
 
 ## Phase A: Frame
 
-The N candidates will receive the same prompt, so the prompt is the contract. When the caller gives each candidate its own constraint, pass that constraint with the task to that candidate alone.
+The N candidates receive the same task, so the task is the contract. Each candidate is a session of the dispatch skill's `candidate` role, all on one model, so their differences come from their angles, not from their models.
 
 1. State the artifact each candidate is producing.
 2. Derive the rubric. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. The rubric is the picker's tool in Phase D. Candidates only see the task.
-3. Pick the runners. Use the `arena runners` line in `~/.cursor/rules/pstack-models.mdc`. If the rule or that line is missing, default to one each on `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. An `auto` or `inherit-parent` entry in this line or the cross-judge line means the parent model, so omit `model` for it. If the Task tool rejects a configured entry, run that seat on its family's default and say so. Families go by prefix: `claude-*` and `grok-*`. With no family match, use `claude-opus-5-5-xhigh`. If it rejects a default, use the closest valid slug of the same family from its error message. Spawn more when the arena covers multiple design directions. Same model N times when the work is generation-bound rather than judgment-sensitive.
-4. Assign output paths. Each candidate writes to its own location (where the caller says, when it says; otherwise a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`), per the **separate-before-serializing-shared-state** principle skill.
+3. Give each candidate its angle. When the caller gives constraints, each candidate takes one. Otherwise set N angles yourself, each a different shape of the whole design, not a point fix inside one shape. N is the number of angles.
+4. Assign output paths. Each candidate writes only its own directory `candidates/<n>/`, under where the caller keeps the result (under the **prototype** skill, the leaf `SKETCH/`), per the **separate-before-serializing-shared-state** principle skill.
 
 ## Phase B: Fan out
 
-Spawn all N subagents in one message with `run_in_background: true`, each with the task, the path to the shared grounding, its own output path, and instructions to produce both the artifact and a short rationale.
+Write one brief per candidate: `## Task` the task and this candidate's angle, with the artifact and a short rationale to produce, the rationale naming the alternatives it considered and what it rejected; `## Known` the path to the shared grounding and its output directory; `## For` N designs compared against each other, where the differences are the signal. The rubric stays out of every brief. Send them all with one `dispatch.sh send candidate <brief>...` of the **dispatch** skill and end your turn. Woken by `brief <batch> done`, follow the dispatch skill's `## On waking`.
 
-Each rationale names the alternatives the candidate considered and what it rejected.
-
-If a candidate fails to produce output, proceed with N-1 and note the dropout in the synthesis record.
+If a candidate is lost or produces no output, proceed with N-1 and note the dropout in the synthesis record.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, choose one model from the `arena cross-judge pool` line in `~/.cursor/rules/pstack-models.mdc`. If the rule or that line is missing, choose from `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. Prefer a different model family from the parent's. Spawn one readonly judge subagent on that model. It sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with the parent's reading in Phase D, not with the candidates themselves. Don't spawn the judge while candidates are still writing.
+After every candidate has reported, send one judge: a subagent, as mmw-mode's `## Subagents` says, on this session's model, which only reads. Its prompt is this step, the rubric, and the candidates by directory. It scores each criterion and recommends a base with rationale. It runs in parallel with your reading in Phase D, never while candidates are still writing. Its worth is that it has not seen the reasoning that framed the task.
 
 ## Phase D: Pick a base
 
@@ -67,4 +65,4 @@ If verification surfaces a problem the arena did not catch, either Phase A was w
 
 ## Outputs
 
-One synthesized artifact. One short synthesis note alongside, naming the base, the grafts (with source candidate), the rejections, the dropouts if any, and the verification result.
+One synthesized artifact. One short synthesis note alongside, naming the base, the grafts (with source candidate), the rejections, the dropouts if any, and the verification result. Then remove `candidates/`: what was taken and what was rejected lives in the note.

@@ -16,7 +16,7 @@ Remaining triggers:
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing. Prototype code under the **prototype** skill's logic, UI and experiment branches is the exception: speed over polish, no planning.
-- Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
+- Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design bakeoffs with base selection and grafting.
 - Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**.
@@ -95,15 +95,21 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" → keep going.
 
+**Unattended.** A session whose start prompt is a `Dispatched:` line was started by the dispatch skill, and nobody is watching it: ask nobody, since a question on the screen blocks the work until someone reads it. A call only the owner makes goes into a child issue of the ticket, as the **verify-ticket** skill's `references/sub-issues.md` says. A session sent a brief writes what it could not answer into its answer and reports as usual.
+
 **No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Form it per **principle-first-principles-thinking**. Agreement is not the default, candor over sycophancy. Disagreement is owed, and never manufactured: agreement the owner did not earn is worth nothing, because they decide a product on your judgement, and a "yes" that hides a flaw leaves them deciding on nothing. When you think the owner's plan has a flaw, say so, with the reason and an alternative. On product, priority and taste, once the owner has decided, do it their way and note the residual risk once; do not reopen it. When the owner pushes back, they are asking you to recheck the evidence and report what you find, whichever way it goes, not asking you to agree. When you have no objection, do not invent one to look thorough.
 
 ## Subagents
 
-**Use `subagent_type: "poteto-agent"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). `/mmw-mode` and `poteto-agent` route through the same wrapper. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, don't override to `poteto-agent`. Write each brief for an agent that sees none of this conversation (**principle-write-for-where-it-is-read**).
+**Send a session with the dispatch skill:** `dispatch.sh send <role> <ticket number or brief file>...`; the roles are its `roles.json`, each on the model `~/.mmw/models.json` gives it. A brief is a file with `## Task`, `## Known` and `## For`, written for a reader that sees none of this conversation (**principle-write-for-where-it-is-read**); the step that sends it says what goes in each. End your turn after sending. When the relay wakes you, follow the dispatch skill's `## On waking` first, then the step that sent it.
 
-**Defaults for every `Task` call.** `run_in_background: true`, agent mode (readonly strips MCP), file pointers not inlined context, explicit model per role (configurable via `/setup-pstack`. Defaults `grok-4.7-xhigh-fast` for code, `claude-opus-5-5-xhigh` for prose and judgment). Code delegates tier by difficulty. The hardest changes (cross-cutting design, gnarly concurrency, subtle algorithms) go to your strongest judgment model (`claude-opus-5-5-xhigh`), whether the task needs judgment on vague intent or is a precisely specified sequence of steps to execute to the letter. Trivial mechanical edits go to your fast code model. Per-role lines in the `/setup-pstack` rule override these defaults and the model choices in the routed skills (`how`, `why`, `arena`, `swarm`, `architect`, `interrogate`, `reflect`). A role with no line keeps its default, and a role line of `inherit-parent` or `auto` runs that role on the parent chat model (omit Task `model`). Each code playbook's configured model comes from its line (`feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`), and the hardest changes read `hardest tasks`. Prose and judgment read `judgment and prose`.
+**Send a subagent with your host's general-purpose subagent, and name no model:** its prompt is what the step that sends it says, plus its own piece. Hold your turn until every subagent you sent has returned. On a host that cannot run subagents, do the pieces yourself, one after another.
 
-You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. A second opinion is the same prompt against a different model. Agreement is high-signal.
+**A subagent sends nothing further.** A session sent a brief works that brief and reports. A session sent to a ticket sends only what its playbook's steps send.
+
+**A second opinion is a session: `send advisor <brief>`.** Ask for one before an architecture choice, a data migration, a big refactor or an API shape is committed, when one problem has resisted two attempts, or before a disputed reading of the task is treated as settled; not for what reading the code can settle. The brief carries the decision, not a narrowed question: the recent exchange quoted, your understanding, the constraints, the options and which way you lean, the paths you think matter. Leave out what to check and the conclusion you expect. The answer is advice: take it, or set it aside with a reason; one that changes what the owner decides goes to the owner.
+
+You own every subagent's work. Review the diff and write your own summary, don't pass through what it said.
 
 **Fresh subagents by default.** Give new work to a fresh subagent with consolidated scope, meaning the original brief, every later directive, and the prior agent's report and branch. This holds for a fix round, a follow-up, a retry, and the next queue item. Resume, message, or queue a follow-up on an existing subagent only when the new work strictly needs state that lives in that agent and is costly to move: its local checkout, its uncommitted changes, or a process it still runs, such as a dev server, a simulator, or a babysit watcher. A stop or hold order to a running agent is not reuse. A role such as a PR owner outlives its agent. Once that agent returns, a fresh agent takes the role's next round. Interrupt-chained resumes silently drop directives, so fire a fresh subagent with consolidated scope rather than trusting a "done" summary.
 
@@ -137,8 +143,13 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 
 Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim.
 
-Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead. figure-it-out designs one bespoke run, orchestrate runs the program.
+Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
 
+A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one anywhere else, run `dispatch.sh send worker <n>` and tell the owner.
+
+- **Research for a caller.** Sent by the dispatch skill with a research brief: find the facts it asks, report them, recommend nothing. Distinct from Investigation, where this session answers the owner itself and may recommend. The **research** skill.
+- **Design candidate.** Sent by the dispatch skill with a candidate-design brief: one design from the one angle the brief gives, reported. Distinct from Prototype and the **architect** skill, where one session compares several. The **architect** skill's `references/runner-prompt.md`.
+- **Second opinion.** Sent by the dispatch skill with an advice brief: a judgement on a decision already framed, changing nothing, reported. Distinct from wanting a second opinion yourself, which sends an advisor (see Subagents), and from reviewing a change. The **advisor** skill.
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y. `playbooks/investigation.md`.
 - **Chart the map.** A loose idea too big for one agent session, with the way to the destination not yet visible ("wayfinder"). Charts it as a shared map of decision tickets on GitHub issues. `playbooks/chart-the-map.md`.
 - **Work through the map.** An existing wayfinder map, given by URL or number, with or without a ticket. Resolves its next decision ticket, one per session. `playbooks/work-through-the-map.md`.

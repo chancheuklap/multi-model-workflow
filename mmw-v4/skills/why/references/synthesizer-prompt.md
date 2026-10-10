@@ -1,28 +1,6 @@
-# Synthesizer Prompt Template
-
-Build the synthesizer's prompt from this template. Fill in the placeholders.
-
----
+# Writing the answer
 
 You are answering a "why" question about a piece of code by synthesizing findings from multiple investigators who searched different historical sources (source control, issue / ticket tracker, long-form documents, real-time team chat, infrastructure observability, error / exception tracking, product analytics warehouse, and code comments). Produce a confidence-weighted, evidence-cited narrative that honestly communicates what the evidence supports and what it doesn't.
-
-## The Question
-
-> {QUESTION}
-
-## The Code Anchor
-
-**Target files:** {FILES_WITH_LINE_RANGES}
-
-**Key symbols:** {SYMBOLS}
-
-## Investigator Findings
-
-{ALL_INVESTIGATOR_FINDINGS}
-
-## Sources That Weren't Searched
-
-{SKIPPED_SOURCES_WITH_REASONS}
 
 ## Epistemics Framework
 
