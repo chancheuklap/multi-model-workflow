@@ -8,12 +8,15 @@
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
 #   test_profiles.py    unittest, models.bypass_argv, catalog match, create_agent settings, CLI scan
 #   test_tool_guard.py  unittest, host payloads against dispatch's command guard
+#   test_check_interfaces.py  unittest, check-interfaces.py on the set as it is and broken one way per case
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
 # None needs the tracker, a terminal or a browser.
 
 set -euo pipefail
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_module_paths.py" || { echo "a toolbox script names a module file that does not exist (above); fix it before running this suite" >&2; exit 1; }
+python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_wiring.py" || { echo "the skill set names a playbook, principle, skill, file or dispatch.sh command that is not there (above); fix it before running this suite" >&2; exit 1; }
+uv run -q "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_skill_frontmatter.py" >&2 || exit 1
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 

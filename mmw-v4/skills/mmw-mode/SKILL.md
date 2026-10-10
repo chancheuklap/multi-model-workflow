@@ -17,16 +17,14 @@ Remaining triggers:
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing. Prototype code under the **prototype** skill's logic, UI and experiment branches is the exception: speed over polish, no planning.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design bakeoffs with base selection and grafting.
-- Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
+- Contested design → the **code-review** skill before shipping.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Before review → the **no-comments** skill (`/no-comments`).
 - Shipping UI / IDE / CLI → the matching control skill. `cursor-team-kit` publishes `control-cli` (CLIs and TUIs) and `control-ui` (browser / Electron / web UIs). For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow Bug fix step 1 exception.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
-- Any PR-status request → the **Babysit** playbook (`playbooks/babysit.md`), and not Cursor's built-in babysit skill, whose description matches the same words. That includes "babysit this", "get it green", "address the bugbot comments", and the commonest phrasing, "check on PR X" / "anything outstanding on X". Never triggered by merely opening a PR. Declare its mode before polling. The playbook's step 1 owns the request-to-mode mapping. Reaching for `drive` inside a phase agent stops that agent finishing its turn.
-- Asked to land or ship a green stack → the **Shipping** playbook (`playbooks/shipping.md`). Green is not safe. Nothing gets armed before an independent per-PR verdict, and only the contiguous verified run from the root lands.
-- Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`.
+- Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a night's pull request, Run a night's step 7 carries it out.
 - Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
 - Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "run until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record. Keep it local otherwise. Work on a wayfinder map is the exception: the map and its tickets are the record.
 
@@ -38,7 +36,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 - **Laziness Protocol** (**principle-laziness-protocol**). Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
 - **Foundational Thinking** (**principle-foundational-thinking**). Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
-- **Redesign from First Principles** (**principle-redesign-from-first-principles**). Integrating a new requirement into an existing design, or code written against an architect sketch keeps failing to fit it. Redesign as if it had been foundational from day one.
+- **Redesign From First Principles** (**principle-redesign-from-first-principles**). Integrating a new requirement into an existing design, or code written against an architect sketch keeps failing to fit it. Redesign as if it had been foundational from day one.
 - **Attack the Premise** (**principle-attack-the-premise**). Two or more fixes that share one premise have failed the same gate. Take a census of which actors hold the imbalance before the next fix, then question the premise instead of writing another fix that assumes it.
 - **Subtract Before You Add** (**principle-subtract-before-you-add**). Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
 - **Minimize Reader Load** (**principle-minimize-reader-load**). Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
@@ -46,7 +44,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **Experience First** (**principle-experience-first**). Product, UX, or feature-scope tradeoffs. Choose user delight over implementation convenience.
 - **Exhaust the Design Space** (**principle-exhaust-the-design-space**). A novel interaction or architectural decision with no precedent. Build 2-3 competing prototypes and compare before committing.
 - **First-Principles Thinking** (**principle-first-principles-thinking**). Forming a recommendation on a plan, decision, or idea whose path is not already clear. Challenge the premise, reduce the requirements, keep only constraints with independent support, rebuild the simplest solution.
-- **Start from What Exists** (**principle-start-from-what-exists**). Before proposing an approach or writing non-trivial code. Search this repository, then GitHub and the package registries, read an implementation file of each serious candidate, and decide to use, extend or build; the reply records the search.
+- **Start From What Exists** (**principle-start-from-what-exists**). Before proposing an approach or writing non-trivial code. Search this repository, then GitHub and the package registries, read an implementation file of each serious candidate, and decide to use, extend or build; the reply records the search.
 - **Read Before You Conclude** (**principle-read-before-you-conclude**). Saying anything about a file, or changing one. Read it before you change it, read whole what you edit or reason about in detail, and label a conclusion that rests on an unread part as inferred.
 - **Build the Lever** (**principle-build-the-lever**). Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns.
 
@@ -63,7 +61,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 - **Prove It Works** (**principle-prove-it-works**). After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
 - **Fix Root Causes** (**principle-fix-root-causes**). Debugging, or a check that will not pass. Trace each symptom to its root cause, reproduce first, ask why until you reach it.
-- **Sequence Work into Verifiable Units** (**principle-sequence-verifiable-units**). Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
+- **Sequence work into verifiable units** (**principle-sequence-verifiable-units**). Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
 - **Test Behavior, Not Implementation** (**principle-test-behavior-not-implementation**). Writing, changing, or keeping a test. Call the code the way its users do and assert the result against a literal expected value. If the test would still pass when every imported function returns `undefined`, rewrite the assertion or delete the test.
 - **The Baseline Is the Contract** (**principle-baseline-is-the-contract**). Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
 - **Run the Smallest Test Set** (**principle-run-the-smallest-test-set**). Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first.
@@ -111,7 +109,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 You own every subagent's work. Review the diff and write your own summary, don't pass through what it said.
 
-**Fresh subagents by default.** Give new work to a fresh subagent with consolidated scope, meaning the original brief, every later directive, and the prior agent's report and branch. This holds for a fix round, a follow-up, a retry, and the next queue item. Resume, message, or queue a follow-up on an existing subagent only when the new work strictly needs state that lives in that agent and is costly to move: its local checkout, its uncommitted changes, or a process it still runs, such as a dev server, a simulator, or a babysit watcher. A stop or hold order to a running agent is not reuse. A role such as a PR owner outlives its agent. Once that agent returns, a fresh agent takes the role's next round. Interrupt-chained resumes silently drop directives, so fire a fresh subagent with consolidated scope rather than trusting a "done" summary.
+**Fresh subagents by default.** Give new work to a fresh subagent with consolidated scope, meaning the original brief, every later directive, and the prior agent's report and branch. This holds for a fix round, a follow-up, a retry, and the next queue item. Resume, message, or queue a follow-up on an existing subagent only when the new work strictly needs state that lives in that agent and is costly to move: its local checkout, its uncommitted changes, or a process it still runs, such as a dev server or a simulator. A stop or hold order to a running agent is not reuse. A role such as a PR owner outlives its agent. Once that agent returns, a fresh agent takes the role's next round. Interrupt-chained resumes silently drop directives, so fire a fresh subagent with consolidated scope rather than trusting a "done" summary.
 
 ## Writing the reply
 
@@ -147,6 +145,8 @@ Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, r
 
 A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one anywhere else, run `dispatch.sh send worker <n>` and tell the owner.
 
+- **Work a ticket.** Sent by the dispatch skill to a ticket with acceptance criteria: claim it, build it until its criteria pass and it is reviewed, close it. Distinct from Feature, Bug fix, Perf issue and Hillclimb, which take a problem still open and decide how to build. `playbooks/work-a-ticket.md`.
+- **Code review.** A change someone else finished, to judge whether it can merge: sent as a ticket's reviewer, or asked to review a change. Distinct from Work a ticket's step that sends the reviewer, and from Investigation, where there is no change to judge. The **code-review** skill.
 - **Research for a caller.** Sent by the dispatch skill with a research brief: find the facts it asks, report them, recommend nothing. Distinct from Investigation, where this session answers the owner itself and may recommend. The **research** skill.
 - **Design candidate.** Sent by the dispatch skill with a candidate-design brief: one design from the one angle the brief gives, reported. Distinct from Prototype and the **architect** skill, where one session compares several. The **architect** skill's `references/runner-prompt.md`.
 - **Second opinion.** Sent by the dispatch skill with an advice brief: a judgement on a decision already framed, changing nothing, reported. Distinct from wanting a second opinion yourself, which sends an advisor (see Subagents), and from reviewing a change. The **advisor** skill.
@@ -157,6 +157,7 @@ A ticket with acceptance criteria is worked only by a worker the dispatch skill 
 - **To spec.** Turn the current conversation, or a cleared wayfinder map, into a spec published as a GitHub issue, when the change takes more than one session to build. No interview, only a record of what was already decided. Work already settled that one session can build goes to Feature instead. `playbooks/to-spec.md`.
 - **Revising a spec.** A section of a published spec has to change: the user asks, or To tickets sends a choice back to a spec decision. Edits the spec in place, never publishes a new one. `playbooks/revising-a-spec.md`.
 - **To tickets.** Break a spec, plan, or conversation into tracer-bullet tickets with blocking edges, published as GitHub issues. `playbooks/to-tickets.md`.
+- **Run a night.** A spec's published tickets to run unattended under one orchestrator, through to one pull request; or one ticket a step has written, sent to a worker and delivered as one pull request. `playbooks/run-a-night.md`.
 - **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence. `playbooks/bug-fix.md`.
 - **Perf issue.** A measured slowness to trace and improve against a baseline. `playbooks/perf-issue.md`.
 - **Hillclimb.** Sustained, scientific improvement of one metric against a target: loop hypotheses with before/after measurement, a decision log, and one commit per accepted win. Distinct from Perf issue, which is a one-off fix. `playbooks/hillclimb.md`.
@@ -168,14 +169,7 @@ A ticket with acceptance criteria is worked only by a worker the dispatch skill 
 - **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. `playbooks/visual-parity.md`.
 - **Authoring or modifying a skill.** Writing or editing a SKILL.md. `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
-- **Babysit.** Driving a PR or a stack to merge-ready: conflicts, review threads, CI. `playbooks/babysit.md`.
-- **Shipping.** The half after Babysit. Independently verifying a green stack, then landing the contiguous verified run bottom-up through `gh` by default or Origin when its CLI is available. `playbooks/shipping.md`.
-- **Autonomous run.** A long task to drive to completion without stopping ("run until done", "/loop until X"). `playbooks/autonomous-run.md`.
-- **Orchestrate.** A standing project handed to one coordinator chat: multi-day, many stacked PRs, dozens to hundreds of subagents, minimal human turns ("run this whole project", "own this migration until it lands"). Distinct from Autonomous run, which drives one task to a predicate. Work one agent could finish inside the session's budget routes there, not here, however program-shaped the phrasing sounds. `playbooks/orchestrate.md`.
-- **Autopilot-full.** A queue of independent PRs run to merged with full autonomy. One owner per PR carries build through merge, and the root swarm-verifies each PR before its owner merges ("autopilot this queue", "full autopilot", one-owner-per-PR programs). `playbooks/autopilot-full.md`.
-- **Autopilot-stack.** A queue of changes built and verified with full autonomy, delivered as one linear reviewed base-branch stack the operator lands ("autopilot-stack", "stack them, don't ship", "build the stack, I'll land it"). `playbooks/autopilot-stack.md`.
 - **Session pickup.** Resuming or taking over a prior agent's in-flight work from a transcript or pushed branch. `playbooks/session-pickup.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a host restart, or imminent context compaction. The complement to Session pickup. Full steps: `playbooks/pause-safely.md`.
-- **Multi-phase or multi-PR plan.** A per-PR execution checklist for work that spans phases or stacked PRs. A record of the decisions made goes to To spec instead. `playbooks/multi-phase-plan.md`.
 - **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). `playbooks/worktree-cleanup.md`.
-- **Opening a PR.** Invoked at the end of every other playbook. `playbooks/opening-a-pr.md`.
+- **Shared closing.** Invoked at the end of a playbook whose session wrote a change itself: prove it, have it read, deliver one pull request. A ticket's closing is Work a ticket's. `playbooks/shared-closing.md`.

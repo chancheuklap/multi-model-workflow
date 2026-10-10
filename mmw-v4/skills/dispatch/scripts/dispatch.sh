@@ -3189,7 +3189,7 @@ summary_spec() {
          "" | *[!0-9]*)
            echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
          0) ;;
-         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed\`, \`dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh route <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed\`, \`dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh route <ticket> <child> became-ticket <new ticket>\` as the closing pass of the mmw-mode skill's Run a night playbook says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
        esac ;;
   esac
 
@@ -3374,6 +3374,43 @@ finish_cleanup() {
     || echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
 }
 
+# The night is delivered as one pull request from the night's branch to the project branch,
+# opened by the orchestrator after `summary` (the Run a night playbook). finish merges only
+# what that pull request shows clean: no check red or still running, no review thread left
+# open. Each one is named on stderr, and nothing is merged.
+pr_gate() {
+  local into="$1" project="$2" slug pr out err rc problems=""
+  pr="$(gh_ pr list --head "$into" --base "$project" --state open --json number --jq '.[0].number // empty' 2>&1)" || {
+    echo "dispatch: could not list the pull requests from $into to $project: $(printf '%s' "$pr" | tr '\n' ' '); run finish again once GitHub answers" >&2
+    return 2
+  }
+  if [ -z "$pr" ]; then
+    echo "dispatch: no open pull request from $into to $project; open it as the Run a night playbook says, then run finish again" >&2
+    return 2
+  fi
+  err="$(mktemp)"
+  out="$(gh_ pr checks "$pr" --json name,bucket --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "\(.name) \(.bucket)"' 2>"$err")"; rc=$?
+  if [ "$rc" -ne 0 ] && [ -z "$out" ] && ! grep -q "no checks reported" "$err"; then
+    echo "dispatch: could not read the checks of pull request #$pr: $(tr '\n' ' ' < "$err"); run finish again once GitHub answers" >&2
+    rm -f "$err"
+    return 2
+  fi
+  rm -f "$err"
+  [ -n "$out" ] && problems="$problems; checks not green: $(printf '%s' "$out" | paste -sd, -)"
+  slug="$(repo_slug)" || return 2
+  out="$(gh_ api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved path line}}}}}' \
+    -F owner="${slug%%/*}" -F name="${slug#*/}" -F number="$pr" \
+    --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not) | "\(.path):\(.line)"' 2>&1)" || {
+    echo "dispatch: could not read the review threads of pull request #$pr: $(printf '%s' "$out" | tr '\n' ' '); run finish again once GitHub answers" >&2
+    return 2
+  }
+  [ -n "$out" ] && problems="$problems; review threads still open: $(printf '%s' "$out" | paste -sd, -)"
+  if [ -n "$problems" ]; then
+    echo "dispatch: pull request #$pr from $into to $project is not ready to merge: ${problems#; }; settle each as the Run a night playbook says, then run finish again; nothing was merged" >&2
+    return 2
+  fi
+}
+
 finish_spec() {
   local spec="$1" root into project merged merge base attempt rc out files failed checked_by
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
@@ -3421,6 +3458,10 @@ finish_spec() {
       echo "finish #$spec: origin/$project already contained $into; cleanup checked"
       return 0
     else
+      if ! pr_gate "$into" "$project"; then
+        release_merge_lock
+        exit 2
+      fi
       if ! git -C "$MERGE_ROOT" merge --no-ff -m "Merge branch '$into'" "origin/$into" >/dev/null 2>&1; then
         files="$(git -C "$MERGE_ROOT" diff --name-only --diff-filter=U | paste -sd, -)"
         git -C "$MERGE_ROOT" merge --abort >/dev/null 2>&1 || true

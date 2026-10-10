@@ -620,7 +620,7 @@ class Rounds(StateCase):
         """2026-09-12 (#406): one round's `net/http: TLS handshake timeout` left the last
         good poll standing still, and the watchdog called the relay down — five times in
         one night, while the process was there, cycling, and healthy again next round.
-        `night.md` answers `relay down` with a reopened night, so each one cost a needless
+        The Run a night playbook answers `relay down` with a reopened night, so each one cost a needless
         `open`."""
         self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=91)),
                                  "cycle_at": stamp(T0 - timedelta(seconds=5)),

@@ -893,6 +893,12 @@ print(json.dumps({
                if os.environ.get("FAKE_GH_PARENT", "76") else None),
 }))
 ' ;;
+  "pr list --head "*)
+    [ "${FAKE_GH_PR-7}" = none ] || printf '%s\n' "${FAKE_GH_PR-7}" ;;
+  "pr checks "*)
+    [ -z "${FAKE_GH_PR_CHECKS:-}" ] || printf '%s\n' "$FAKE_GH_PR_CHECKS" ;;
+  "api graphql "*reviewThreads*)
+    [ -z "${FAKE_GH_PR_THREADS:-}" ] || printf '%s\n' "$FAKE_GH_PR_THREADS" ;;
   "api graphql "*)
     # The tree of issues under `root=<n>`, the way `issue_tree.py` asks for it: any number that
     # is not one of the fixture tickets is the spec, whose children are every ticket; a
@@ -6145,6 +6151,20 @@ scenario_finishrefuses() {
   finish_refused "unclosed" "spec.closed"
 }
 
+scenario_finishrefusesnopr() {
+  echo "--- a night with no open pull request to the project branch"
+  setup_finish_closed
+  FAKE_GH_PR=none finish_refused "no pull request" "pull request"
+}
+
+scenario_finishrefusesredpr() {
+  echo "--- a pull request whose checks are red or still running, or whose review threads are open"
+  setup_finish_closed
+  FAKE_GH_PR_CHECKS="build fail" finish_refused "red check" "build fail"
+  FAKE_GH_PR_CHECKS="test pending" finish_refused "pending check" "test pending"
+  FAKE_GH_PR_THREADS="src/app.py:12" finish_refused "open thread" "src/app.py:12"
+}
+
 scenario_finishrefusesopenticket() {
   echo "--- a ticket of the night still open"
   setup_finish_closed
@@ -7947,7 +7967,7 @@ JSON
 
 ALL="startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedpercommand advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

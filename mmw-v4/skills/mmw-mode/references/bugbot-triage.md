@@ -1,12 +1,12 @@
 # Bugbot triage
 
-Use this reference when the Babysit playbook (`../playbooks/babysit.md`) handles Bugbot or review-automation comments. The goal is not to ignore Bugbot by default. The goal is to stop treating every comment as a required code change.
+Use this reference when a pull request's review comments are triaged: Run a night's step 7 before `finish`, or when the owner asks. The goal is not to ignore Bugbot by default. The goal is to stop treating every comment as a required code change.
 
 ## Decision rubric
 
 Classify each Bugbot thread before acting:
 
-- `fix`: The comment identifies a plausible correctness, security, privacy, data loss, auth, billing, migration, idempotency, race, or shipped-behavior issue. Fix it in the lowest owning PR, then reply with the commit SHA and resolve the thread.
+- `fix`: The comment identifies a plausible correctness, security, privacy, data loss, auth, billing, migration, idempotency, race, or shipped-behavior issue. Fix it on the pull request's branch, then reply with the commit SHA and resolve the thread.
 - `dismiss`: The comment matches a documented low-risk noisy pattern, and the current code/context proves the concern does not need a code change. Reply with a short reason and resolve the thread.
 - `ask`: The comment is novel, high-severity, security/privacy/data-related, or ambiguous. Ask the user instead of guessing.
 
@@ -36,13 +36,6 @@ Use `candidate` for one or two examples. Use `recurring` after multiple real dis
 - Skip when: The PR description, screenshots, design review, or nearby code makes the visual change explicit, and the Bugbot comment is only restating that a shared visual default changed.
 - Do not skip when: The comment points to accessibility, focus visibility, keyboard navigation, color contrast, or a component API contract that the PR did not intentionally change.
 - Example signal: Comments about focus outlines, button sizes, spacing, or shared component visual defaults where the owner replies "intentional" or "intended".
-
-### Upstack or stack-local usage Bugbot cannot see
-
-- Confidence: candidate
-- Skip when: Bugbot flags an export, component, helper, or file as unused, and the PR list in `gh` and diffs, upper-stack diffs, or PR context show it is used by a later PR in the stack.
-- Do not skip when: The current PR is not part of a stack, the symbol is public API, or the supposed upstack use cannot be verified.
-- Example signal: "Exported component is never used" with a human reply like "used upstack".
 
 ### Temporary duplication during parallel implementation
 
@@ -83,9 +76,9 @@ Do not auto-skip these categories, even if a previous PR dismissed something sim
 
 Historical data showed humans sometimes dismiss security/data-flow comments. Treat those as owner judgment calls, not team-wide skip rules.
 
-## Candidate learnings from recent babysits
+## Candidate learnings from recent triage
 
-Append new candidate learnings here during or after babysitting when they look team-useful but not yet mature. Prefer promoting recurring candidates into the section above once several PRs confirm the pattern.
+Append new candidate learnings here during or after a triage when they look team-useful but not yet mature. Prefer promoting recurring candidates into the section above once several PRs confirm the pattern.
 
 ### Manual reimplementations of native browser behavior
 

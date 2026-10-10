@@ -97,6 +97,15 @@ class TestPostsTheReport(unittest.TestCase):
         self.assertEqual((what, payload["event"], payload["base"], payload["head"]),
                          ("event", "reviewer.reported", "abcdef0", "1234567"))
 
+    def test_a_correctness_row_in_ticket_is_posted(self):
+        row = ("- Correctness [security] src/api.py:12 — the name reaches the shell unquoted"
+               " — source: src/api.py:12")
+        report = REPORT.replace("## Tests\n\nNone", "## Tests\n\nNone\n\n## Correctness\n\n" + row)
+        report = report.replace("## In-ticket\n\nNone", "## In-ticket\n\n" + row)
+        code, err, fake = run_review(report)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(len(fake.posted), 1)
+
     def test_a_file_with_no_trailing_newline_still_posts_one(self):
         code, err, fake = run_review(REPORT.rstrip("\n"))
         self.assertEqual(code, 0, err)

@@ -46,7 +46,7 @@ Arena returns one synthesized design package. The synthesis decision populates t
 
 ## Phase C: Hand back
 
-Hand the synthesized sketch and its rationale back to the caller. For adversarial pressure on the design, run the **interrogate** skill on the synthesized sketch.
+Hand the synthesized sketch and its rationale back to the caller.
 
 If the human pushes back on the shape, treat that as Phase A evidence. Re-ground and re-run Phase B.
 
