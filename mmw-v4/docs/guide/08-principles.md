@@ -1,12 +1,12 @@
 # Steer with principle names
 
-pstack ships 25 principles as individual skills. `/poteto-mode` reads their index at the start of every multi-step task, applies the ones the task triggers, and names each applied principle in its reply along with the decision it changed.
+The skill set has 33 principles, each a skill of its own under `skills/principle-<slug>/`. The `## Principles` section of the `mmw-mode` skill ([mmw-mode](../../skills/mmw-mode/SKILL.md)) indexes them: one line per principle, naming when it applies and the rule. Every session reads that index with the mode. A session reads a principle's own file in full when it applies it, and its reply names each principle that shaped a decision and the choice it changed. The mode allows a session to cite only a principle whose file it read in that session.
 
-You don't invoke principles. You use their names to steer. Each name points at a complete rule the agent has already read, so one phrase redirects the work more precisely than a paragraph of instructions.
+You do not invoke principles. Their names are for steering. Each name points at a complete rule the session already has an index line for, so one phrase redirects the work more precisely than a paragraph of instructions.
 
 ## Steering in practice
 
-Say the agent is about to bolt a new adapter onto three existing ones:
+Say the session is about to add a new adapter beside three old ones:
 
 ```text
 use subtract before you add. delete the obsolete adapters first, then design what's left.
@@ -24,50 +24,73 @@ Say two parallel attempts are about to write to the same branch:
 separate before serializing shared state. give each attempt its own worktree, no locks.
 ```
 
-Each phrase lands because the rule behind it is specific. The agent still has to say, in its reply, which decision the rule changed. A principle citation with no decision behind it is the tell that it name-dropped instead of applying.
+Each phrase works because the rule behind it is specific. The session still has to say, in its reply, which decision the rule changed. A principle cited with no decision behind it was named, not applied.
 
-## The 24, briefly
+## The 33, by the mode's groups
 
-The core principles decide how much to build and when to rethink the design:
+Each line below gives the rule as the mode's index and the principle's own file state it. The frontmatter `description` of every principle is the same sentence (`Run only when the user, mmw-mode or another skill names it`), because a principle is reached through its index line, not by its description.
 
-- [Laziness Protocol](../../skills/principle-laziness-protocol/SKILL.md) prefers deletion and the smallest change that solves the problem.
-- [Foundational Thinking](../../skills/principle-foundational-thinking/SKILL.md) chooses the core data structures before writing logic.
-- [Redesign from First Principles](../../skills/principle-redesign-from-first-principles/SKILL.md) integrates a new requirement as if it had been there from day one.
-- [Attack the Premise](../../skills/principle-attack-the-premise/SKILL.md) questions the premise that two or more failed fixes shared, after a census of which actors hold the imbalance.
-- [Subtract Before You Add](../../skills/principle-subtract-before-you-add/SKILL.md) removes dead weight before building on top of it.
-- [Minimize Reader Load](../../skills/principle-minimize-reader-load/SKILL.md) collapses layers and hidden state a reader must hold in their head.
-- [Outcome-Oriented Execution](../../skills/principle-outcome-oriented-execution/SKILL.md) converges rewrites on the target design instead of preserving throwaway compatibility states.
-- [Experience First](../../skills/principle-experience-first/SKILL.md) chooses the user's result over implementation convenience.
-- [Exhaust the Design Space](../../skills/principle-exhaust-the-design-space/SKILL.md) builds two or three competing prototypes when there's no precedent.
-- [First-Principles Thinking](../../skills/principle-first-principles-thinking/SKILL.md) questions whether a plan should exist and rebuilds it from the constraints that have independent support, before recommending it.
-- [Build the Lever](../../skills/principle-build-the-lever/SKILL.md) builds the script that does or proves the work, so a reviewer can rerun it. When an agent keeps doing the same thing by hand, have it write the tool or skill it wishes it had. If a script can do a step the same way every time, use the script, and save agents for the judgment calls.
+### Core
 
-The architecture principles decide where state, validation, and compatibility live:
+How much to build, and when to rethink the design.
 
-- [Model the Domain](../../skills/principle-model-the-domain/SKILL.md) encodes repeated rules in one structure, not scattered conditionals.
-- [Boundary Discipline](../../skills/principle-boundary-discipline/SKILL.md) validates at the boundary and trusts internal types.
-- [Type System Discipline](../../skills/principle-type-system-discipline/SKILL.md) makes illegal states unrepresentable.
-- [Make Operations Idempotent](../../skills/principle-make-operations-idempotent/SKILL.md) converges retries on the same end state.
-- [Migrate Callers Then Delete Legacy APIs](../../skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md) migrates and deletes in one wave.
-- [Separate Before Serializing Shared State](../../skills/principle-separate-before-serializing-shared-state/SKILL.md) removes the sharing before adding coordination.
+- [Laziness Protocol](../../skills/principle-laziness-protocol/SKILL.md). Aim for the most result with the least code and complexity; prefer deletion and the smallest change that solves the problem.
+- [Foundational Thinking](../../skills/principle-foundational-thinking/SKILL.md). Get the core types and data structures right before writing logic.
+- [Redesign From First Principles](../../skills/principle-redesign-from-first-principles/SKILL.md). Integrate a new requirement as if it had been there from the start, instead of bolting it on.
+- [Attack the Premise](../../skills/principle-attack-the-premise/SKILL.md). When two or more fixes that share one premise have failed the same gate, question the premise, not the fixes.
+- [Subtract Before You Add](../../skills/principle-subtract-before-you-add/SKILL.md). Remove dead weight first, then build on the simpler base.
+- [Minimize Reader Load](../../skills/principle-minimize-reader-load/SKILL.md). Count the layers and hidden state a reader must trace, and reduce them.
+- [Outcome-Oriented Execution](../../skills/principle-outcome-oriented-execution/SKILL.md). Converge on the target design; do not keep throwaway compatibility states.
+- [Experience First](../../skills/principle-experience-first/SKILL.md). When implementation convenience conflicts with the user's experience, choose the user's experience.
+- [Exhaust the Design Space](../../skills/principle-exhaust-the-design-space/SKILL.md). For a decision with no precedent, build two or three competing prototypes and compare them before committing.
+- [First-Principles Thinking](../../skills/principle-first-principles-thinking/SKILL.md). Before refining a plan, ask whether it should exist; keep only the constraints with independent support and rebuild the simplest solution.
+- [Start From What Exists](../../skills/principle-start-from-what-exists/SKILL.md). Search this repository, then GitHub and the package registries, before building; the reply records the search.
+- [Read Before You Conclude](../../skills/principle-read-before-you-conclude/SKILL.md). Read a file before saying anything about it or changing it, and label a conclusion that rests on an unread part as inferred.
+- [Build the Lever](../../skills/principle-build-the-lever/SKILL.md). For non-trivial work, build the tool that does or proves it (a codemod, a script, a generator), so a reviewer can rerun it.
 
-The verification principles define what counts as proof:
+### Architecture
 
-- [Prove It Works](../../skills/principle-prove-it-works/SKILL.md) verifies the real artifact, not a proxy.
-- [Fix Root Causes](../../skills/principle-fix-root-causes/SKILL.md) reproduces and traces to the cause before changing code.
-- [Sequence Work into Verifiable Units](../../skills/principle-sequence-verifiable-units/SKILL.md) ends each small unit in a check before starting the next.
-- [Test Behavior, Not Implementation](../../skills/principle-test-behavior-not-implementation/SKILL.md) calls the code the way its users do and asserts a literal expected value, and deletes a test that would still pass if every imported function returned `undefined`.
-- [Explain the Number](../../skills/principle-explain-the-number/SKILL.md) names what limits a measured number and rules out that it measured something else, before anyone trusts or reports it. [`/benchmark-checklist`](../../skills/benchmark-checklist/SKILL.md) turns it into seven questions you answer from real runs.
+Where state, validation and compatibility live.
 
-The delegation principles keep parallel work sane:
+- [Model the Domain](../../skills/principle-model-the-domain/SKILL.md). Encode the domain in one structure (a state machine, a typed model, a table) instead of scattered conditionals.
+- [Boundary Discipline](../../skills/principle-boundary-discipline/SKILL.md). Validate and handle errors at system boundaries, trust internal types, and keep business logic in pure functions.
+- [Type System Discipline](../../skills/principle-type-system-discipline/SKILL.md). Make illegal states unrepresentable, and parse external data at the boundary.
+- [Make Operations Idempotent](../../skills/principle-make-operations-idempotent/SKILL.md). An operation that runs twice, or after a crash halfway, converges to the same end state.
+- [Migrate Callers Then Delete Legacy APIs](../../skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md). When a new internal API replaces an old one, migrate every caller and delete the old API in one wave.
+- [Separate Before Serializing Shared State](../../skills/principle-separate-before-serializing-shared-state/SKILL.md). When concurrent actors might write the same file, branch, key or object, remove the sharing first; add locking only when the sharing is real.
 
-- [Guard the Context Window](../../skills/principle-guard-the-context-window/SKILL.md) routes bulk reading to subagents and keeps findings in the main chat.
-- [Never Block on the Human](../../skills/principle-never-block-on-the-human/SKILL.md) proceeds on reversible work and presents the result.
+### Verification
 
-And one meta principle:
+What counts as proof.
 
-- [Encode Lessons in Structure](../../skills/principle-encode-lessons-in-structure/SKILL.md) turns advice you've repeated twice into a lint, check, or script. [`/correct`](../../skills/correct/SKILL.md) applies it to a whole repo, as shown in [Make it yours](./09-make-it-yours.md#fix-the-environment-with-correct).
+- [Prove It Works](../../skills/principle-prove-it-works/SKILL.md). Check the real artifact directly, not a proxy, a self-report or "it compiles".
+- [Fix Root Causes](../../skills/principle-fix-root-causes/SKILL.md). Reproduce first, then trace each symptom to its root cause and fix it there.
+- [Sequence Work into Verifiable Units](../../skills/principle-sequence-verifiable-units/SKILL.md). Break work into small units that each end in a check, and verify each before starting the next.
+- [Test Behavior, Not Implementation](../../skills/principle-test-behavior-not-implementation/SKILL.md). Call the code the way its users do and assert a literal expected value; a test that would still pass if every imported function returned `undefined` is rewritten or deleted.
+- [The Baseline Is the Contract](../../skills/principle-baseline-is-the-contract/SKILL.md). A settled conclusion (an answer, a winning prototype, a signed-off page) is copied, never improved from memory; a gap goes to whoever owns it.
+- [Run the Smallest Test Set](../../skills/principle-run-the-smallest-test-set/SKILL.md). Run the smallest set of tests that proves the change; a full suite only when a gate requires it or a named risk does.
+- [Explain the Number](../../skills/principle-explain-the-number/SKILL.md). Before trusting or reporting a measured number, find what limits it and rule out that it measured something else. The [benchmark-checklist](../../skills/benchmark-checklist/SKILL.md) skill applies it to a benchmark.
 
-Don't memorize the list. Skim it now, then come back when you catch the agent doing something a name here would have prevented. That's how the vocabulary sticks.
+### Delegation
+
+How work is shared between sessions.
+
+- [Guard the Context Window](../../skills/principle-guard-the-context-window/SKILL.md). Send bulk reading to subagents and keep summaries in the main session.
+- [Never Block on the Human](../../skills/principle-never-block-on-the-human/SKILL.md). Proceed on reversible work and present the result; ask only for a decision that is the owner's.
+- [Progress Is What the Record Says](../../skills/principle-progress-is-what-the-record-says/SKILL.md). Where the work stands is what the ticket, the branch, the map or the resume note says, not what the session remembers.
+
+### Writing
+
+How anything another reader picks up is written.
+
+- [Write for Where It Is Read](../../skills/principle-write-for-where-it-is-read/SKILL.md). Before writing a brief, a spec, a ticket, a document or a script's output, name who reads it, what they are doing then, and what they can see.
+- [Anchor Every Reference](../../skills/principle-anchor-every-reference/SKILL.md). Name every file, section, rule or event by its path plus heading, identifier or rule number, the same way each time.
+- [Files Describe the Present](../../skills/principle-files-describe-the-present/SKILL.md). A file says only what is true now; what changed and why goes in the commit message and the reply.
+
+### Meta
+
+- [Encode Lessons in Structure](../../skills/principle-encode-lessons-in-structure/SKILL.md). An instruction written a second time becomes a lint, a metadata flag, a runtime check or a script instead. The [correct](../../skills/correct/SKILL.md) skill applies it to a whole repository, as [Make it yours](./09-make-it-yours.md) shows.
+
+Do not memorize the list. Skim it now, and come back when a session does something a name here would have prevented.
 
 Next: [Make it yours](./09-make-it-yours.md).

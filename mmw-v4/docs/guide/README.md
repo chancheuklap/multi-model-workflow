@@ -1,38 +1,38 @@
-# The pstack guide
+# The MMW v4 guide
 
-pstack works best when you stop micromanaging the agent. You describe what you want and how you'll know it's done. `/poteto-mode` picks the playbook, runs the other skills as the steps need them, and shows you the evidence. This guide teaches that habit with realistic prompts.
+MMW v4 works best when you stop managing each step of the agent. You say what you want and how you will know it is done. [`mmw-mode`](../../skills/mmw-mode/SKILL.md) picks the playbook, runs the other skills as the steps need them, and shows you the evidence. This guide teaches that habit with realistic prompts.
 
-Here's what you'll learn:
+The chapters:
 
-1. [Set up pstack](./01-setup.md). Install the plugin and pick your models.
-2. [Route work through `/poteto-mode`](./02-poteto-mode.md). Give it a goal and watch it pick a playbook.
-3. [Understand the code](./03-understand.md). A read-only investigation, then `/how`, `/why`, `/teach`, and `/recall` before you edit anything.
-4. [Design the change](./04-design.md). `/architect`, `/arena`, `/swarm`, `/interrogate`, prototypes, and plans before code locks in a shape.
-5. [Build and clean the change](./05-build-and-clean.md). The build playbooks, `/tdd`, `/unslop`, and `/no-comments`.
-6. [Verify and ship](./06-verify-and-ship.md). Prove behavior on the real app, vet numbers with `/benchmark-checklist`, then open a focused PR and drive it to merged.
-7. [Run work while you sleep](./07-overnight.md). Trust before loops, an overnight contract, a decision log you can audit, and Projects and automations that scale past one agent.
-8. [Steer with principle names](./08-principles.md). The 24 names that redirect an agent mid-task.
-9. [Make it yours](./09-make-it-yours.md). Your own mode, `/correct` for repeated mistakes, and how to test a skill change.
+1. [Set up MMW v4](./01-setup.md). Install the skills, check the install, go back to v3, and choose a model for each role.
+2. [Route work through `mmw-mode`](./02-mmw-mode.md). How every session enters it, how it picks a playbook, and how to prompt it.
+3. [Understand the code](./03-understand.md). The Investigation playbook, then `how`, `why`, `teach` and `recall`, before anything changes.
+4. [Design the change](./04-design.md). `architect`, `arena`, `swarm`, prototypes and `code-review`, and the planning playbooks: Grill with docs, To spec and To tickets.
+5. [Build and clean the change](./05-build-and-clean.md). Feature, Refactoring and Visual parity, which the session writes itself. Bug fix, Perf issue and Hillclimb, which each send one ticket to a worker. Then `tdd`, `unslop` and `no-comments`.
+6. [Verify and ship](./06-verify-and-ship.md). Prove the change on the real product with `control-cli`, `control-ui` and a verification skill, vet numbers with `benchmark-checklist`, and deliver one pull request through Shared closing or a night's `finish`.
+7. [Run a night](./07-overnight.md). A spec's tickets worked unattended by dispatched workers, delivered as one pull request in the morning.
+8. [Steer with principle names](./08-principles.md). The 33 principles, and how naming one redirects an agent mid-task.
+9. [Make it yours](./09-make-it-yours.md). Author a skill, test it with Eval, and capture lessons with `reflect`, `correct` and `automate-me`.
 10. [Recipes and pitfalls](./10-recipes-and-pitfalls.md). Prompts to copy and mistakes to skip.
 
-Read the pages in order the first time. After that, each page stands alone.
+Read the chapters in order the first time. After that, each chapter stands alone.
 
-When you're stuck, or can't tell which skill fits, type [`/poteto-help`](../../skills/poteto-help/SKILL.md) with your question:
+When you are stuck, or cannot tell which skill fits, type [`/mmw-help`](../../skills/mmw-help/SKILL.md) with your question:
 
 ```text
-/poteto-help which skill should i use to review this branch?
+/mmw-help which skill should i use to review this branch?
 ```
 
-It answers, hands you a prompt to send, and links the skill or guide page the answer came from. It doesn't start the work, because a pstack run spends real tokens, so you send the prompt when you're ready. It runs only when you type it.
+It answers, hands you a prompt to send, and links the skill or chapter the answer came from. It does not start the work. You send the prompt when you are ready.
 
 ## If you only remember one thing
 
-Give the agent a goal and a way to check it, in your own words:
+Give the agent a goal and a check that can pass or fail, in your own words:
 
 ```text
-/poteto-mode the export writes duplicate rows when a retry lands mid-run. repro first, then fix and verify.
+the export writes duplicate rows when a retry lands mid-run. repro first, then fix and verify.
 ```
 
-You don't need to name a playbook or list skills. "repro first" and a checkable outcome are all the routing signal `/poteto-mode` needs. It matches the Bug fix playbook, copies the steps into a todo list, and calls the right skills as each step fires.
+You do not name a playbook or list skills. The session has already read `mmw-mode`, because every session reads it first. "repro first" and a checkable outcome are all the routing signal it needs. It matches the Bug fix playbook and copies the steps into a todo list. It reproduces the defect and finds the cause. Then it writes one ticket, sends a worker to fix it, checks the fix on the original reproduction, and gives you one pull request to merge.
 
-Next: [Set up pstack](./01-setup.md).
+Next: [Set up MMW v4](./01-setup.md).

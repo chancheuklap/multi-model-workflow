@@ -1,62 +1,95 @@
-# Set up pstack
+# Set up MMW v4
 
-In this page you install the plugin, pick which models pstack uses, and run your first task. Setup is one command plus a short conversation.
+In this chapter you install MMW v4 on a machine, check the install, learn how to go back to v3, choose a model for each role, and run a first task.
 
-## Install the plugin
+Installing is the owner's decision. Run every command below from the root of a checkout of this repository.
 
-In a Cursor chat, run:
-
-```text
-/add-plugin pstack
-```
-
-Cursor confirms the plugin is installed.
-
-## Pick your models
+## Install the skills
 
 Run:
 
-```text
-/setup-pstack
+```bash
+bash mmw-v4/install.sh
 ```
 
-[`/setup-pstack`](../../skills/setup-pstack/SKILL.md) detects the models you have access to, asks for a reasoning budget, shows you each role (code delegates, judgment, the review panels), and asks what you want. Answer the questions. It writes `~/.cursor/rules/pstack-models.mdc`, a small rule every pstack skill reads.
+The script points every host on the machine at this checkout's `mmw-v4/`. The hosts are Claude Code, Codex, Cursor and Grok. Install puts these on the machine:
 
-The defaults run at `xhigh` reasoning, the same as the `large` budget. `unlimited` lifts each model to its highest tier, up to `max`. Opus goes to `max`. Grok tops out at `xhigh`, so it stays there. `medium` and `small` lower the reasoning and spend fewer tokens.
+- **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex, Cursor and Grok read the first directory. Claude Code reads only the second.
+- **Hooks.** The `dispatch` skill's `tool-guard.py` runs before each host calls a tool. In a session that works a ticket, which runs in the ticket's `issue-<n>` worktree with nobody at the screen, it refuses three things: closing the ticket by hand, putting a question on the screen, and ending a process. `turn-guard.py` runs each time a night's orchestrator ends its turn. It restarts the night's watchdog when the watchdog has stopped, so the night does not die quietly.
+- **The user-level prompt.** `mmw-v4/prompt/shared.md` holds the facts about the owner that every session in every host reads. Claude Code reads it as `~/.claude/CLAUDE.md`, a link to the file. Codex and Grok read an `AGENTS.md` that `prompt/render.py` writes. Cursor's user-level prompt is pasted into the app by hand, and install reminds you of that.
+- **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex and Grok copies again after each change.
+- **Paseo and Orca settings.** Paseo gets its command link, two providers and its worktree root. When Orca is present, it puts its worktrees under each repository's `.worktrees/`.
+- **`~/.mmw/models.json`.** Install writes the default file when none exists. In an existing file it changes only the role rows. It removes a row that no role uses any more, and keeps a `.bak-` copy first.
 
-You only override what you care about. A role with no line in the rule keeps the skill's default. To restore a default, delete that role's line. A rerun of `/setup-pstack` keeps any role whose model differs from the default. When a default changes, a rule written before the change still pins the old default, so delete those role lines, or delete the file, then run `/setup-pstack` again.
+Last, install records this checkout's `mmw-v4/` in `~/.mmw/installed-root`.
 
-You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` and pstack omits the subagent `model` field, so the subagent inherits your parent chat model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. `architect runners` is the exception: architect runs one runner per design constraint, three or four, and deals the list's models out to them in turn. Setup also configures `swarm workers`, the default model for every `/swarm` worker unless a race names a model for each arm.
+If `render.py` refuses to overwrite a Codex or Grok `AGENTS.md`, the file is not one it wrote. This happens on the first install on a machine. Run `python3 mmw-v4/prompt/render.py --adopt` once. [`prompt/README.md`](../../prompt/README.md) explains the generated file.
 
-## Accept the verification offer, or don't
+A skill is a link, not a copy, so an edit to a `SKILL.md` reaches every host at its next call. Only the `description` in a skill's frontmatter needs a new session, because a host reads descriptions when it starts.
 
-At the end of setup, `/setup-pstack` looks for a way to prove app behavior in your project, either a `verify-*` skill or an existing harness. If it finds neither, it offers once to generate one with [`/create-verification-skill`](../../skills/create-verification-skill/SKILL.md).
+The header comment of [`install.sh`](../../install.sh) lists every item, and the items install leaves as v3 installed them.
 
-Say yes and it writes `.cursor/skills/verify-<app>/`, a project-local skill that teaches agents to drive your app the way a user does. It proves the skill works once before handing it over. Say no and setup moves on. You can run `/create-verification-skill` yourself any time. [Verify and ship](./06-verify-and-ship.md#create-a-project-verification-skill) covers it in depth.
+## Check the install
 
-If you're new to pstack, say yes. An agent that can check its own work keeps going until the check passes. An agent that can't hands every result back to you to check by hand. Of everything in this guide, the verification skill pays off the most.
+Run:
 
-After setup, start a new chat. The model rule applies to new sessions.
+```bash
+bash mmw-v4/install.sh --check
+```
 
-## Keep the cost in check
+The check changes nothing on disk. It exits with 0 when every item is in place, and with 1 when an item is missing or a leftover from an earlier install remains. When every hook is in place, it prints `HOOKS-INSTALLED`.
 
-pstack spends extra tokens on subagents and review panels. That's the price of the rigor. To spend fewer:
+Run from a checkout other than the installed one, `--check` hands the check to the installed checkout's own `install.sh` and only reports. One frozen checkout serves the hosts, and work on MMW itself happens in other checkouts without touching it.
 
-- Rerun `/setup-pstack` and pick a smaller reasoning budget or cheaper models. A strong model in the main chat with cheaper, faster models in the code roles is a good split.
-- Set a role to `auto` or `inherit-parent` so it runs on the chat's own model.
-- Shorten a panel list. Each entry runs one subagent.
-- Save `/poteto-mode` for work that needs rigor. A small, obvious edit doesn't.
+## Go back to v3
+
+Run:
+
+```bash
+bash mmw-v4/install.sh --back
+```
+
+`--back` first removes or restores the items that v3 cannot recognise. For example, it brings back the `models.json` rows that v4 removed, from the `.bak-` copy. Then it runs `mmw-v3/install.sh` from the same checkout. The exit code is v3's.
+
+Moving from v3 to v4 is the plain install, run once in the installed checkout. Skill links that v3 and v4 share move to `mmw-v4/`. A skill that only v3 has keeps its link, and `--check` lists it.
+
+## Choose a model for each role
+
+The `dispatch` skill starts sessions in six roles, listed in [`roles.json`](../../skills/dispatch/roles.json):
+
+| Role | Sent with | Does |
+| --- | --- | --- |
+| `junior-worker` | a ticket | Works one ticket to closed: writes the code, runs the criteria, starts its reviewer. |
+| `senior-worker` | a ticket | Works a ticket labelled `senior-worker`. |
+| `reviewer` | a ticket | Reviews one ticket's diff on the `code-review` axes. |
+| `researcher` | a brief | Reads one source or one angle of the code and hands back cited findings. |
+| `candidate` | a brief | Designs one of several candidate answers to the same brief. |
+| `advisor` | a brief | Gives a second opinion on one decision, on a stronger model. |
+
+Each role is one row of `~/.mmw/models.json`. The row names the host (`claude`, `codex`, `cursor` or `grok`), the model and the reasoning effort. The same file names the runner that starts the sessions.
+
+Change the file only with `models.py config`:
+
+```bash
+python3 mmw-v4/skills/dispatch/scripts/models.py config show
+python3 mmw-v4/skills/dispatch/scripts/models.py config set reviewer claude <model> high
+python3 mmw-v4/skills/dispatch/scripts/models.py config runner auto
+```
+
+`config set` takes the role, the host, the model and the effort. `config runner` takes `orca`, `herdr`, `paseo` or `auto`. A change takes effect at the next session start, with no restart and no reinstall. [`editing-models.md`](../../skills/dispatch/references/editing-models.md) explains each command, how a host that puts the effort inside the model name works, and what each runner can observe.
+
+Every role costs tokens. To spend fewer, put the roles that write code on a cheaper, faster model, and keep a strong model for `reviewer` and `advisor`.
+
+The main session, the one you type into, is not a row. It runs on whatever model you chose in that host.
 
 ## Run your first task
 
-Pick something real but small, and describe it the way you'd describe it to a colleague:
+Open a new session in a repository, after the install. Pick something real but small, and describe it the way you would to a colleague:
 
 ```text
-/poteto-mode add a --json flag to this command. text output stays byte-identical. verify both.
+add a --json flag to this command. text output stays byte-identical. verify both.
 ```
 
-Watch the todo list. Its first items are the matched playbook's steps copied in, the Feature playbook for this prompt. If `/poteto-mode` skips a step, the step stays in the list with `skip: <reason>`, so you can see what it chose not to do.
+The session reads `mmw-mode` before anything else. Watch its todo list. Its first items are the steps of the matched playbook, copied in word for word, here the Feature playbook. A step the session chooses not to do stays in the list with `skip: <reason>`, so you can see what it left out and why.
 
-From here you can type normal follow-ups. To keep `/poteto-mode` on for the whole chat, pick it from the `/` menu with Option+Enter (Mac) or Alt+Enter (Windows) instead of Enter. That makes it a [Custom Mode](https://cursor.com/docs/skills), which stays in context on every turn until you exit it. Custom Modes are available in the Agents Window and the CLI. Plain Enter attaches the skill to one message, and it fades as the chat moves on.
-
-Next: [Route work through `/poteto-mode`](./02-poteto-mode.md).
+Next: [Route work through `mmw-mode`](./02-mmw-mode.md).

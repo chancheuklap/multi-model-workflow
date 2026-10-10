@@ -1,120 +1,96 @@
 # Run work while you sleep
 
-This is the payoff for everything before it. An agent you can trust to verify its own work is an agent you can leave alone with a hard task. What makes that safe isn't hope. It's a checkable finish condition, an isolated worktree or cloud agent, and a decision log you audit in the morning.
+A night runs a spec's published tickets while nobody watches. One session, the orchestrator, sends a worker to each ticket that is ready, lands each ticket that passes, fixes or files what the reviewers found, and delivers the whole batch as one pull request. You read that pull request in the morning, with none of the night's context.
 
-![She waves goodnight from the door while robots keep the factory running, one updating a DECISION LOG wall board under a BUILD LOOP ACTIVE sign.](./images/overnight.jpg)
+The playbook is [Run a night](../../skills/mmw-mode/playbooks/run-a-night.md). The same file holds One ticket, the shorter path a day ticket takes. Every command below is the `dispatch` skill's `scripts/dispatch.sh` ([dispatch](../../skills/dispatch/SKILL.md)), unless it names the `verify-ticket` skill ([verify-ticket](../../skills/verify-ticket/SKILL.md)).
 
-## Earn the trust before the loop
 
-A loop you don't trust just produces unchecked work faster, and the mess compounds with every iteration. Before you leave one running, check that it has earned it:
+## What a night needs before it starts
 
-- You've done the task once by hand, or watched an agent do it, so you know what good looks like.
-- The agent has the tools and signals you'd use yourself: the verification skill, the profiler, the logs.
-- Every stage proves its work and can stop the line when the work misses the bar.
-- You've read a few transcripts and turned the repeated failures into tools, skills, or checks.
+A night runs only on work that is already decided. The planning playbooks produce it:
 
-Make the loop autonomous only after all four hold. Until then, run it while you watch.
+1. Grill with docs, or a wayfinder map (Chart the map, then Work through the map), settles the decisions.
+2. To spec records them in a spec, published as a GitHub issue.
+3. To tickets cuts the spec into tickets with acceptance criteria and blocking edges, published as sub-issues of the spec.
 
-## The overnight contract
+Each acceptance criterion carries a `CHECK:` command and the output it must show under `EXPECT:`. That pair is what lets a worker prove its ticket without you, so a criterion that cannot fail proves nothing. Before the first worker starts, the night lints every ticket for what the batch cannot be run on.
 
-A good handoff has the goal, the finish condition, permissions, and an escape hatch. It doesn't need to be long:
+The night's base branch is cut from a project branch. A night never lands on the repository's default branch; merging the project branch into the default branch stays your release decision.
 
-```text
-/poteto-mode im going to bed. migrate every caller to the new parser in a fresh worktree off <base>.
-done means zero old callers, all parser fixtures pass, old api deleted.
-keep a decision log. don't ask me before committing.
-/loop until done. if you're truly stuck after a few hours, stop and write up why.
-```
+## Who does the work
 
-Walk through what each line buys you:
+The orchestrator is the session you tell that the night starts. It decides; the scripts merge, archive, create worktrees and start sessions. Every decision it makes leaves its reason on the ticket, the child issue or the spec, where the morning reader looks.
 
-- "im going to bed" is a session override. The agent stops asking and keeps going.
-- "done means..." turns the goal into checks every iteration can run.
-- "fresh worktree off `<base>`" keeps the run from colliding with anything else you have open.
-- "don't ask me before committing" pre-answers the permission the agent would otherwise block on.
-- `/loop` is Cursor's built-in wake mechanism, not a pstack skill. The [Autonomous run playbook](../../skills/poteto-mode/playbooks/autonomous-run.md) uses it to re-check the finish condition on events or a heartbeat.
-- The escape hatch lets it stop at a genuine dead end and write up why, which beats eight hours of creative goal reinterpretation.
+The dispatched roles are the rows of [`roles.json`](../../skills/dispatch/roles.json):
 
-Because you'll review this work after stepping away, `/poteto-mode` keeps a [`/show-me-your-work`](../../skills/show-me-your-work/SKILL.md) decision log of it.
+| Role | Sent with | What it does |
+| --- | --- | --- |
+| `junior-worker` | a ticket | Works one ticket to closed: writes the code, runs the criteria, starts its reviewer |
+| `senior-worker` | a ticket | The worker of a ticket labelled `senior-worker` |
+| `reviewer` | a ticket | Reviews one ticket's diff on the four axes of the `code-review` skill |
+| `researcher` | a brief | Reads one source or angle and hands back cited findings |
+| `candidate` | a brief | Designs one of several candidate answers to the same brief |
+| `advisor` | a brief | Gives a second opinion on one decision |
 
-To stop a run on purpose, tell the agent to pause, or that you're about to go offline or restart Cursor. The [Pause safely playbook](../../skills/poteto-mode/playbooks/pause-safely.md) finishes or backs out of the current step, commits a work-in-progress checkpoint, and writes a resume note. A fresh chat picks the work up from that note through the Session pickup playbook. Saying "keep going" never triggers a pause.
+Each role's host, model and reasoning effort is a row of `~/.mmw/models.json`. Change a row with `python3 mmw-v4/skills/dispatch/scripts/models.py config set <role> <host> <model> <level>`; [editing-models.md](../../skills/dispatch/references/editing-models.md) has the details and the runner choice.
 
-## What the loop does all night
+A worker follows the Work a ticket playbook ([work-a-ticket.md](../../skills/mmw-mode/playbooks/work-a-ticket.md)). It claims the ticket, writes the code test-first, merges the base branch in, runs every criterion, posts its decisions, sends a reviewer, fixes what the review found inside the ticket, runs the criteria a final time and closes the ticket with `verify-ticket.py --closeout`. It asks nobody: a question only you can answer becomes a child issue of the ticket, and the worker takes a written default and carries on. A worker never opens a pull request; the orchestrator lands its ticket.
 
-```mermaid
-flowchart TD
-    A[Check the finish condition] --> B[Make the smallest justified change]
-    B --> C[Verify against the real artifact]
-    C --> D{Progress?}
-    D -->|Yes| E[Commit]
-    D -->|No| F[Discard]
-    E --> G[Log one decision row]
-    F --> G
-    G --> A
-```
+## How the orchestrator is woken
 
-One change, one check, one log row, every iteration. Changes that didn't help get discarded, not left to ride. A plateau means pivot, not stop, and the finish condition never quietly relaxes to declare victory.
+Between steps the orchestrator ends its turn. Nothing polls. Three processes bring it back:
 
-## The morning audit
+- **The relay** (`relay.py`) watches the tracker. When a watched ticket gets an event that needs someone, it wakes the waiting session through its runner. `ticket.passed`, `ticket.returned`, `ticket.refused`, `worker.lost`, and a `child.opened` of kind `contract`, `fault` or `decision` wake the orchestrator. `reviewer.reported` and `reviewer.lost` wake the ticket's worker. The relay never writes to GitHub and decides nothing.
+- **The watchdog** (`watchdog.py`) notices silence. A worker that dies writes nothing, and on the tracker that looks like work in progress. The watchdog asks the runner whether a silent ticket's worker is still there, and sends a `watchdog:` line when it is not.
+- **The turn guard** (`turn-guard.py`) is a hook on the orchestrator's own turn end. It re-arms the watchdog and will not let the turn end while tickets are held and the watchdog is unhealthy.
 
-[`/show-me-your-work`](../../skills/show-me-your-work/SKILL.md) is what makes the run reviewable. Each row records the time, phase, decision, reason, an evidence pointer, and the result, in a TSV at `decisions.tsv` (or `.audit/<task-slug>.tsv` when several runs share a directory). It stays local by default. Commit it when the work is ambitious enough that a reviewer needs the trail to trust the result.
+A woken session first follows the dispatch skill's `## On waking`: it reads what the wake names on the ticket, then acknowledges it with `dispatch.sh ack <n> <event>`, so the relay stops sending the same wake.
 
-When you're back, ask for the run in review form:
+## The night, step by step
 
-```text
-/show-me-your-work catch me up on what you did last night
-```
+The orchestrator finds its place from the record, not from memory: the first row of the playbook's table whose fact holds on the tracker says which step comes next.
 
-Before the skill hands back its summary, it spawns a reviewer on a different model family to read the trail and the transcript, and the reply ends with an Attention section listing what deserves your scrutiny. Read that section first, then the log rows it points at. You're auditing decisions, not re-reading the whole night.
+1. **`check` and `open`.** `dispatch.sh check <spec>` confirms the machine is ready, including `install.sh --check`. `dispatch.sh open <spec>` opens the night's watch on the relay and makes this session the orchestrator.
+2. **Lint the batch.** `verify-ticket.py <spec> --lint` reports every ticket the night cannot run on. Each `ERROR` is fixed on its ticket before any worker starts.
+3. **`advance`.** `dispatch.sh advance <spec>` lands every passed ticket and starts a worker on every ticket whose blockers are cleared. The orchestrator then ends its turn.
+4. **Each wake.** The orchestrator runs `dispatch.sh status <spec>`, handles every row the table matches, then runs `advance` once. It can tell a live worker to continue with `dispatch.sh resume <n> "<text>"`, release a worker whose session is gone with `dispatch.sh retract <n>`, fix a `fault` in this repository's environment, or settle a `contract` child by the authority order the playbook gives: decision tickets and ADRs, then the spec, then the design package, then domain documents, then the ticket body. A correction no written authority settles goes back to you, and the tickets that depend on it move to `needs-triage`.
+5. **The closing pass.** When no ticket is left to start and no agent is live, `dispatch.sh findings <spec>` lists the open findings the reviewers filed. Each one leaves through `dispatch.sh route`: `fixed`, `stale invalid`, `stale fixed-elsewhere`, or `became-ticket`. The default is to fix it on the night's branch; it becomes a ticket only when another open ticket owns its files, when it shows a gap in the criteria, or when the fix couples two or more files by design.
+6. **`reverify` and `summary`.** `dispatch.sh reverify <spec>` runs every landed ticket's criteria again on the base branch and reopens any that went red. `dispatch.sh summary <spec>` posts the `NIGHT SUMMARY` on the spec and closes the watch.
+7. **The pull request.** The orchestrator opens one pull request from the night's branch to the project branch, titled `Night #<spec>: <the spec's title>`. Its top half is for you: what each closed ticket now does for the people who use the product, every decision left to you with a recommendation, and what was not done. Then the `NIGHT SUMMARY`, verbatim. Then one line per landed ticket for code readers.
+8. **`finish`.** Only after you accept the pull request, `dispatch.sh finish <spec>` merges it into the project branch. It refuses while a check is red or still running, or while a review thread is open; the orchestrator settles each and runs `finish` again.
 
-## When the night holds a queue, not a task
+A ticket handed back to triage with its reason, or one waiting on your decision, is a valid outcome of the night. A criterion loosened to make a ticket close is a defect, because it lands broken behaviour under a green mark.
 
-The contract above drives one task to one finish condition. Some nights hold more, a queue of independent changes or a whole program. Three playbooks scale the same trust up.
+### Suspending a night
 
-[Autopilot-full](../../skills/poteto-mode/playbooks/autopilot-full.md) runs a queue of independent PRs to merged. Each PR gets one owner agent that carries it from build through merge, and no owner merges on its own verdict. A swarm of fresh verifiers starts a round at the owner's code-ready head and again at every later push that changes the patch. Only a clean verdict on the patch that merges authorizes the merge:
+When the fault is in the pipeline rather than in a ticket, workers left running only produce failures that say nothing about the work. `dispatch.sh suspend <spec>` stops the night: it closes the watch and leaves the workspaces, branches and pushed commits in place. Once the cause is fixed, `dispatch.sh open <spec>` and then `dispatch.sh advance <spec>` take the same batch up again.
 
-```text
-/poteto-mode full autopilot on this queue. each item is independent. i want them merged by morning.
-```
+## One ticket: a day ticket
 
-[Autopilot-stack](../../skills/poteto-mode/playbooks/autopilot-stack.md) runs the same owner loop but ships nothing. You wake up to one linear base-branch stack with a verifier's verdict on every link, and you review and land it yourself. Pick it over Autopilot-full when the changes are coupled, or when you want your own eyes on the work before anything merges:
+Bug fix, Perf issue and Hillclimb each write one ticket and send it through One ticket, the last section of [run-a-night.md](../../skills/mmw-mode/playbooks/run-a-night.md). There is no spec and no batch, so no `advance` ever collects the ticket.
 
-```text
-/poteto-mode autopilot these five changes but stack them, don't ship. i'll land the stack in the morning.
-```
+1. From a checkout of the project branch, cut `fix-<n>`, commit whatever the ticket's `CHECK:` needs that the project branch lacks (a reproduction script, a frozen benchmark harness), and push it.
+2. `dispatch.sh send worker <n>` starts the worker and makes this session the ticket's orchestrator.
+3. Each wake is read, acknowledged and acted on, and the session tells you what happened, because you are there.
+4. Once the ticket passes, the session checks it the way the step that wrote it says, such as the original reproduction for a bug, then runs `dispatch.sh land <n>`.
+5. It opens one pull request from `fix-<n>` to the project branch and gives you the link. When you say yes, it merges with `gh pr merge`.
 
-[Orchestrate](../../skills/poteto-mode/playbooks/orchestrate.md) is for a program that outlives any single agent: multi-day, many stacked PRs, fleets of subagents under one standing coordinator chat. The coordinator authors briefs, collects what its subagents finish, keeps the lowest unmerged PR green, and never writes code itself. It's deliberately heavy machinery. If one agent could finish the work in a session, the playbook itself routes you back to the overnight contract above:
+## What to say
+
+To start a night, name the spec and say it starts:
 
 ```text
-/poteto-mode orchestrate the store migration. own it until every package is converted and merged. i'll check in twice a day.
+the tickets of spec #212 are published and linted. run the night on them. i'm going to bed.
 ```
 
-## Run many projects in parallel
+"I'm going to bed" is a session override in the mode's `## Autonomy`: the session keeps going and asks nothing it can decide itself. The pull request link is what you get in the morning.
 
-A [Cursor Project](https://cursor.com/blog/projects) gives one coordinator agent a persistent thread. The coordinator doesn't write code. It directs subagents, which run in the cloud by default, so the work continues when your laptop is closed. That's the shape the Orchestrate playbook expects. Start your prompts to the coordinator with `/poteto-mode`, and the subagents it spawns follow the playbooks.
-
-A few habits help:
-
-- Give each body of work its own Project, such as a feature, a migration, a perf push, or a tech-debt cleanup. Several can run side by side.
-- Drag related chats into the Project, finished ones included. They become context for every agent in it.
-- Give each PR a verification swarm before it merges, and let Autopilot-stack or Autopilot-full carry the queue.
-- Ask the coordinator for a plan backed by data, and have it answer open questions with prototypes before it asks you.
-
-One prompt can carry a whole Project, from research through execution:
+To stop a night on purpose:
 
 ```text
-/poteto-mode refactor this repo so its architecture is more agent friendly. use /correct and /architect on past commits and review comments to find the mistakes agents make most here. use /recall for context from past chats. answer open questions with prototypes instead of asking me. come back with a plan backed by real data. once i approve it, run it with autopilot-stack or autopilot-full, and ask me which.
+the relay keeps failing on every wake. suspend the night on #212.
 ```
 
-## Let loops start themselves
-
-Every loop above still waits for you to start it. A scheduled or event-driven automation removes that step. Software maintenance splits into stages that suit this well: triage a report, reproduce it, fix it, verify the fix. Two rules keep such a line trustworthy:
-
-- Every stage can stop the line. Triage can decide the report is expected behavior, repro can fail to reproduce it, and the fixer can judge the change too risky. Each of those outcomes is useful, because it keeps bad work from reaching the next stage, where it costs more to undo.
-- Every stage hands over evidence. Repro attaches screenshots and video of the broken state, and the fix attaches before-and-after proof. A human can then check that the agent fixed the right thing before reading a line of code.
-
-pstack ships this as a dormant [automation pack](../../automations/benny/README.md) for Slack issue reports. One automation triages each report. The other reproduces confirmed bugs and may prepare a small draft fix. Point an agent at its [`FOR_AGENTS.md`](../../automations/benny/FOR_AGENTS.md) and name the target repository to set it up.
-
-**Pitfall:** a duration is not a finish condition. "work on this for 4 hours" gives the agent nothing to check, and you'll wake up to four hours of motion instead of a result. Give `/loop` a predicate that can pass or fail.
+**Pitfall:** a night is not a way to make decisions. A spec with open questions produces tickets whose workers each guess the answer differently. Settle the decisions first with Grill with docs or a wayfinder map, then publish.
 
 Next: [Steer with principle names](./08-principles.md).

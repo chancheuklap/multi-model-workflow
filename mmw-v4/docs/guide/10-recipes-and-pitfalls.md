@@ -1,48 +1,93 @@
 # Recipes and pitfalls
 
-Prompts worth copying, then the mistakes everyone makes once. Swap in your own paths and finish conditions. The recipes are deliberately informal. That's how they get typed in practice, and the skills read intent fine.
+Prompts worth copying, then the mistakes everyone makes once. Swap in your own paths, issue numbers and checks. The prompts are informal on purpose: that is how they get typed, and `mmw-mode` reads the intent and picks the playbook. A slash command names a skill only where you want that skill and no other.
 
-![She tastes a finished dish while robots cook from a recipe box, with pinned cards reading /how, /tdd, and /loop above the counter.](./images/recipes.jpg)
 
 ## Understand an unfamiliar subsystem
 
 ```text
-use /how first to understand how this initialization works. then use /why to figure out why it broke recently.
+use /how first to understand how this initialization works. then use /why to find out why it broke recently.
 ```
 
-Mechanics first, history second. Each skill's report tells you which sources it searched, so you know what the answer is grounded in.
+Mechanics first, history second. The [how](../../skills/how/SKILL.md) skill explains how the code works; the [why](../../skills/why/SKILL.md) skill investigates what led to its shape and says which parts it knows and which it infers.
 
 ## Restate a noisy report before touching code
 
 ```text
-/poteto-mode read this thread. restate the underlying issue in your own words, in plain english. don't change any code yet.
+read this thread. restate the underlying issue in your own words, in plain english. don't change any code yet.
 ```
 
-A misreading shows up in the restatement, where it costs one message to correct. Keep your own theory to yourself until the agent has stated its own.
+"Don't change any code yet" keeps the session in the Investigation playbook. A misreading shows up in the restatement, where it costs one message to correct. Keep your own theory back until the session has stated its own.
 
 ## Prototype before you pick
 
 ```text
-/poteto-mode prototype a few options for the settings layout. put them behind a switcher and send me screenshots of each.
+prototype a few options for the settings layout. put them behind a switcher and send me screenshots of each.
 ```
 
-You pick from things that run, not from descriptions. The agent answers its own layout and timing questions along the way.
+You pick from things that run, not from descriptions. The [prototype](../../skills/prototype/SKILL.md) skill also settles layout and timing questions by observing them instead of asking you.
 
-## Turn a settled design into a plan
+## Sharpen a plan, then record it
 
 ```text
-/poteto-mode turn this design into a plan. small verifiable PRs, each with its own proof.
+grill me on this plan for the export retry. write the glossary and the ADRs as we go.
 ```
-
-Ask only after the design settles. The plan is the deliverable, and it names the playbook that will execute it.
-
-## Get a second opinion on a design
 
 ```text
-ask /arena for a second opinion on this thread and our approach
+turn what we decided into a spec.
 ```
 
-Your current design becomes one candidate among several, and the synthesis tells you whether the panel found something better or confirmed what you had. Cheap insurance before a costly commitment.
+```text
+cut spec #212 into tickets.
+```
+
+Grill with docs settles the decisions in one session. To spec records them as a GitHub issue, with no new interview. To tickets cuts the spec into tickets with acceptance criteria and blocking edges and shows you the breakdown before it publishes. For an idea too large for one session, start with Chart the map instead:
+
+```text
+we want offline mode for the mobile app, and i don't know yet what that takes. chart it as a map.
+```
+
+## Run the night
+
+```text
+spec #212's tickets are published. run the night on them. i'm going to bed.
+```
+
+In the morning you get one pull request whose top half is written for you. When you accept it:
+
+```text
+i accept the night's pull request for #212. finish it.
+```
+
+[Run work while you sleep](./07-overnight.md) explains each step.
+
+## Fix a bug with proof
+
+```text
+the export writes duplicate rows when a retry lands mid-run. repro first, then fix and verify.
+```
+
+The Bug fix playbook reproduces the bug on the same surface a user meets it, finds the cause with runtime evidence, writes one ticket whose first criterion is a regression test that fails today, and sends a worker to it. It then runs the original reproduction again and delivers one pull request.
+
+```text
+repro this with /verify-<app>. if it repros on the project branch, fix it and show me a video as proof.
+```
+
+`/verify-<app>` stands for the project's own verification skill, which the `create-verification-skill` skill generates. "If it repros" lets the run stop early when the bug is already gone.
+
+## Get a second opinion on a decision
+
+```text
+before we commit to this schema, get the advisor's opinion on it.
+```
+
+The session sends an `advisor` session a brief carrying the decision, the options, the constraints and which way it leans. The answer is advice: the session takes it or sets it aside with a reason, and one that changes a decision of yours comes to you.
+
+To compare whole designs rather than judge one:
+
+```text
+ask /arena for three designs of the sync engine, then graft the best parts onto the strongest.
+```
 
 ## Check independent slices in parallel
 
@@ -50,36 +95,20 @@ Your current design becomes one candidate among several, and the synthesis tells
 /swarm check every package under packages/ against its check.sh. one worker per package. one report.
 ```
 
-Each worker owns one package. The parent waits for every slice and returns one `PASS`, `ISSUES`, or `BLOCKED` report instead of raw worker dumps.
+Each worker owns one package. The [swarm](../../skills/swarm/SKILL.md) skill waits for every slice and returns one report instead of raw worker output.
 
-## Review a branch skeptically
-
-```text
-/interrogate the whole branch, but skeptically. don't change anything yet. no nitpicks unless it's an actual bug or regression in behavior.
-```
-
-The qualifiers do real work. "don't change anything yet" keeps it read-only, and the nitpick rule pre-filters the noise so `Act on` findings are worth your time.
-
-## Fix a bug through a failing test
+## Review a change before it merges
 
 ```text
-/poteto-mode repro the duplicate write first. if there's a cheap test path, /tdd it. then fix and rerun.
+review this branch with /code-review. don't change anything. no nitpicks unless it's a real bug or a regression.
 ```
 
-"if there's a cheap test path" matters. Forcing a test through brittle mocks proves less than running the real command, and the playbook is allowed to say so.
-
-## Repro and fix a report with proof
-
-```text
-/poteto-mode repro this with /verify-<app>. if it repros on main, fix it and show me a video as proof.
-```
-
-"if it repros on main" lets the run stop early when the bug is already gone. The video lets you check the fix before you read the diff.
+The [code-review](../../skills/code-review/SKILL.md) skill reads the diff on four axes (Standards, Spec, Tests, Correctness), checks each finding against the code before reporting it, and sorts out the ones that do not hold.
 
 ## Vet a number before you post it
 
 ```text
-/benchmark-checklist vet this 40% speedup before it goes in the pr description
+/benchmark-checklist vet this 40% speedup before it goes in the pull request description
 ```
 
 You get faster, slower, no measurable difference, or inconclusive, with the run count, the range, and what limits the number.
@@ -90,23 +119,35 @@ You get faster, slower, no measurable difference, or inconclusive, with the run 
 /correct agents keep adding new config flags without registering them in the schema
 ```
 
-The fix lands in the repo as architecture, a type, a lint, or a test, so the next agent can't make the mistake.
+The fix lands in the repository as architecture, a type, a lint or a test, so the next session cannot make the mistake.
+
+## Change which model a role runs on
+
+```text
+run the reviewer on a stronger model from now on.
+```
+
+The [dispatch](../../skills/dispatch/SKILL.md) skill changes the role's row of `~/.mmw/models.json` through `models.py config set`. The next session it starts uses the new row; nothing needs a restart.
 
 ## Ask how without starting the work
 
 ```text
-/poteto-help how do i get poteto-mode to stay on every turn?
+/mmw-help how do i run one ticket without a whole night?
 ```
 
-You get an answer, a prompt to send, and a link to the source. Nothing runs until you send that prompt.
+The [mmw-help](../../skills/mmw-help/SKILL.md) skill answers, hands you a prompt to send, and links the file the answer came from. Nothing runs until you send that prompt.
 
-## Keep a run honest while you're away
+## Stop cleanly and pick up later
 
 ```text
-im going to bed, keep going autonomously until every fixture passes. do not stop. keep a decision log i can audit in the morning.
+pause here. i'm restarting the machine.
 ```
 
-The full contract is on the [overnight page](./07-overnight.md). The short form works once the task and finish condition are already in the conversation.
+```text
+pick up the work on branch fix-export-retry. read the resume note, find what's done, and continue.
+```
+
+Pause safely finishes or backs out of the current step, commits a `wip:` checkpoint and writes a resume note. Session pickup resumes from the note and the commits, not from anyone's memory. "Keep going" never triggers a pause.
 
 ## Redirect a drifting run
 
@@ -121,10 +162,10 @@ apply prove it works. show me the real output, not the build log.
 ```
 
 ```text
-/unslop that, no emdashes
+/unslop that, no long dashes
 ```
 
-You rarely need more words. You need the right name, and [the principles page](./08-principles.md) is the vocabulary.
+You rarely need more words; you need the right name. [Steer with principle names](./08-principles.md) is the vocabulary.
 
 ## Get the reply in plain words
 
@@ -132,24 +173,25 @@ You rarely need more words. You need the right name, and [the principles page](.
 /bro
 ```
 
-That's the whole prompt. [`/bro`](../../skills/bro/SKILL.md) restates the last message like one human talking to another, no jargon, shorter. Use it when a reply is technically thorough and you still don't know what it said.
+That is the whole prompt. The [bro](../../skills/bro/SKILL.md) skill restates the last message more simply and shortly, like one person talking to another. Use it when a reply is thorough and you still cannot tell what it said.
 
 ## The pitfalls
 
-- **Enumerating skills in the prompt.** "use /how then /architect then /arena" reorders steps the playbook already sequences. State the goal and constraints. Name a skill only to override a default.
-- **A vague finish condition.** "make it better" gives `/loop` nothing to check. Give a command or artifact that can pass or fail.
-- **Leading with your theory of the cause.** The agent searches wherever you pointed. Ask it to restate the problem first, then share your hunch.
-- **Taking the first design.** One attempt locks in the first shape the model thought of. Ask for prototypes or `/architect` and pick from evidence.
-- **Polishing an abstract plan.** Adversarial review of a plan with no code behind it invents risks that will never happen. Settle the open questions with prototypes, then review what got built.
-- **Parallel agents in one worktree.** They overwrite each other and the diff becomes archaeology. Run them as cloud agents, or say "own worktree per attempt".
-- **Looping before you trust the loop.** A loop that can't verify its own work only makes unchecked work faster. Get the verification skill working first.
+- **Listing skills in the prompt.** "Use /how then /architect then /arena" reorders steps the playbook already sequences. State the goal and the check; name a skill only to override a default.
+- **A finish condition that cannot fail.** "Make it better" gives nothing to check. A ticket's `CHECK:` that passes on a broken product is the same mistake in a ticket; To tickets and `verify-ticket.py --lint` exist to catch it.
+- **Leading with your theory of the cause.** The session searches where you pointed. Ask it to restate the problem first, then share your hunch.
+- **Taking the first design.** One attempt locks in the first shape the model thought of. Ask for prototypes or the `architect` skill and pick from evidence.
+- **Polishing an abstract plan.** Adversarial review of a plan with no code behind it invents risks that never happen. Settle open questions with prototypes, then review what got built.
+- **Running a night on undecided work.** Each worker guesses an open question differently. Settle it with Grill with docs or a map, then publish the tickets.
+- **Handing a ticket to a session to build by hand.** A ticket with acceptance criteria is worked only by a dispatched worker. Given one anywhere else, the session runs One ticket on it.
+- **Parallel sessions in one worktree.** They overwrite each other. The pipeline gives each ticket its own worktree under `.worktrees/issue-<n>`; for work of your own, say "own worktree per attempt".
 - **Trusting an unvetted number.** A warm cache or a skipped code path can fake a speedup. Run `/benchmark-checklist` before the number goes anywhere.
-- **Correcting the same mistake by hand.** A correction in chat helps one run. `/correct` fixes the repo so no later run repeats it.
-- **Using `/arena` for coverage.** `/arena` repeats one design or code brief, then picks a base and grafts the best parts. `/swarm` partitions slices or declared race arms and aggregates one report.
-- **Accepting every review comment.** Bots and humans both file real catches and noise in one list. `/interrogate` sorts findings into act-on and dismissed buckets with reasons, and you can override either way.
-- **Treating `auto` as a model slug.** `auto` and `inherit-parent` mean "omit the model field so the subagent inherits the parent chat model." [Setup](./01-setup.md) covers the roles.
-- **Reporting success off a green build.** A build proves it compiles. Ask for the real command, flow, stored value, or profile, and expect the evidence in the reply.
-- **Writing a `SKILL.md` freehand.** Route it through the [Authoring or modifying a skill playbook](../../skills/poteto-mode/playbooks/authoring-a-skill.md) so validation and review happen.
+- **Correcting the same mistake by hand.** A correction in chat helps one run. `/correct` fixes the repository so no later run repeats it.
+- **Using `/arena` for coverage.** `/arena` runs one design brief several times, then picks a base and grafts the best parts onto it. `/swarm` splits work into slices and returns one report.
+- **Accepting every review comment.** Bots and people both file real catches and noise in one list. The mode's `references/bugbot-triage.md` sorts each into fix, dismiss with a reason, or ask you.
+- **Editing `~/.mmw/models.json` by hand.** Change a role's host, model or effort only through `models.py config`, which checks the row against what the host offers.
+- **Reporting success off a green build.** A build proves it compiles. Ask for the real command, flow, stored value or profile, and expect the evidence in the reply.
+- **Writing a `SKILL.md` freehand.** Route it through the Authoring or modifying a skill playbook ([Make it yours](./09-make-it-yours.md)) so the standards and the checks apply.
 
 That's the guide. If you skipped ahead, go back to [setup](./01-setup.md) and run one real task. The habits stick from use, not from reading.
 

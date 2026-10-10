@@ -1,100 +1,123 @@
 # Make it yours
 
-poteto-mode is one person's style. The machinery underneath, playbooks, routing, model roles, works just as well wearing yours. This page covers generating a personal mode, capturing lessons from a session, fixing the repo so agents stop repeating mistakes, authoring a focused skill, and testing a skill change before you trust it.
+The skill set is the owner's own: `mmw-mode` is one owner's way of working, and every skill under `mmw-v4/skills/` can be changed to fit how you work. This page covers changing a skill the way the set expects, the standards the change is held to, testing a change before you trust it, capturing what a session taught, and fixing a repository so agents stop repeating a mistake.
 
-Start smaller than you think. You don't need many skills on day one, or even this whole plugin. Prompt plainly, watch where agents fail, and add a skill or a check when the same failure shows up twice.
+Start smaller than you think. Prompt plainly, watch where sessions go wrong, and change a skill or add a check when the same failure shows up twice.
 
-## Generate your own mode with `/automate-me`
+## Change a skill through its playbook
 
-```text
-/automate-me
-```
-
-You don't describe your style, because [`/automate-me`](../../skills/automate-me/SKILL.md) reads it out of your history. It mines your recent transcripts in the active workspace for repeated preferences, in how you like replies, delegation, verification, code, prose, and process, then asks you which patterns are really you. It drafts `.cursor/skills/<your-name>-mode/SKILL.md` through Cursor's built-in `create-skill` flow, runs the draft through [`/unslop`](../../skills/unslop/SKILL.md), and opens a PR from a worktree so you review it like any other change.
-
-Run it again whenever your habits drift:
+Writing or editing a skill, a playbook, a reference or a principle matches the Authoring or modifying a skill playbook ([authoring-a-skill.md](../../skills/mmw-mode/playbooks/authoring-a-skill.md)):
 
 ```text
-/automate-me update my mode skill with everything since its last edit
+the bug fix playbook should tell the session to save the original repro command in the ticket. change it.
 ```
 
-Update mode mines only the history since the skill last changed. It keeps rules you haven't contradicted, revises the ones with new evidence, and adds sections only for genuinely new patterns.
+The playbook has four steps:
 
-## Capture a session's lessons with `/reflect`
+1. **Read the standards.** The session first searches the set for the meaning you asked for. If the text already says it, the session tells you where, and stops. Otherwise it names the design intent the change serves, decides which component and which file each passage belongs in, and reads how text is written. All three come from the `writing-for-agents` skill, below.
+2. **Write it, by size.** A change one session can write is written and committed there. A larger one goes through To spec and To tickets and runs as a night ([Run work while you sleep](./07-overnight.md)).
+3. **Prove it, once.** The session runs the checks that apply: the test suites a changed script needs, `uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py`, `python3 mmw-v4/tests/lib/check_wiring.py` (prints `WIRING OK`), the host-neutrality `grep`, and `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` (prints `INTERFACES OK`) when a dispatched session's prompts or wakes changed. Then one fresh agent walks one real task the change touches. Each place where that agent ended wrong, stopped short or guessed at a sentence the change wrote gets fixed; every other guess goes into the reply as a finding for later.
+4. **Deliver it.** A change written in the session closes with Shared closing: review on four axes, commit, one pull request, merged on your yes.
 
-Right after a task that taught you something, run:
+The playbook's bias is to delete: every sentence in a skill costs attention on every run that loads it, so answering each slip with one more sentence makes the skill worse.
 
-```text
-/reflect that took way too long. capture what we learned so the next run doesn't repeat it.
-```
+A skill's body is live on the next call, because install links each skill directory rather than copying it. A changed frontmatter `description` is read when a host starts, so it takes effect in a new session.
 
-[`/reflect`](../../skills/reflect/SKILL.md) sends the transcript to three parallel reviewers, then a synthesizer sorts the proposals into `Accepted`, `Rejected`, and `Backlog` and waits for your approval before any skill changes. Approve a proposal only if it would change a future decision. One weird session is an anecdote, not a rule.
+## The standards: `writing-for-agents`
 
-## Fix the environment with `/correct`
+The [writing-for-agents](../../skills/writing-for-agents/SKILL.md) skill holds every standard a text in the set is written to. Its `SKILL.md` names the levers that make an agent take the same path every run:
 
-When you correct agents for the same mistake again and again, the fix belongs in the repo, not in your next prompt. Rank the options by how well they hold:
+- **Context pointers.** A skill's description, or a line naming a document, decides when an agent reaches the material behind it. Its wording, not its target, decides how reliably.
+- **The two loads.** Context load is what always-loaded text costs the agent on every turn. Cognitive load is what the set costs the person who has to know which document exists.
+- **Information hierarchy.** Steps the agent performs come first; reference it consults on demand sits below; reference only some branches need moves to a separate file behind a pointer.
+- **Completion criteria.** Every step ends on a condition that tells done from not done, and the stronger the demand, the more thorough the work.
+- **Leading words.** One familiar word, repeated, anchors a whole behaviour in fewer tokens than a sentence. State the behaviour you want, not the one you forbid.
+- **Pruning.** One meaning lives in one place; a line that no longer changes behaviour goes.
 
-1. Make the mistake impossible with architecture or a better data structure.
-2. Block it with types, or with a lint or CI check whose error names the fix.
-3. Catch it with a test.
-4. Write it down as a doc or agent rule. Nothing fails when an agent skips a rule, so this comes last.
+Its other files apply those levers to this set:
 
-Human review isn't on the list. A reviewer who must catch the same mistake on every PR is the problem this fixes. [`/correct`](../../skills/correct/SKILL.md) does the work:
+| File | What it answers |
+| --- | --- |
+| [`SKILL-SET-RULES.md`](../../skills/writing-for-agents/SKILL-SET-RULES.md) | The checks every passage in the set is held to, and how to edit without breaking them |
+| [`SKILL-SET-COMPONENTS.md`](../../skills/writing-for-agents/SKILL-SET-COMPONENTS.md) | Which component a text belongs in (the mode, a playbook, a principle, a skill, a reference, a script, the configuration, the user-level prompt), when a new one is warranted, and the shape of each |
+| [`DESIGN-INTENTS.md`](../../skills/writing-for-agents/DESIGN-INTENTS.md) | What the set is built to keep true, and the deliberate departures from its upstreams. A change that breaks an intent waits for the owner's word |
+| [`WALKING-A-SKILL-SET.md`](../../skills/writing-for-agents/WALKING-A-SKILL-SET.md) | How a fresh agent walks a real task to prove a change |
+| [`SKILL-MECHANICS.md`](../../skills/writing-for-agents/SKILL-MECHANICS.md) | Frontmatter, invocation, and the mode as the router |
+| [`UPSTREAM-INTENTS.md`](../../skills/writing-for-agents/UPSTREAM-INTENTS.md) | What Matt Pocock's skills and pstack each set out to do, for comparing the set with them |
 
-```text
-/correct agents keep calling the database client directly instead of going through the repository layer
-```
+A skill that drives your app to prove behaviour is a verification skill. The `create-verification-skill` and `maintain-verification-skill` skills generate and keep it; [Verify and ship](./06-verify-and-ship.md) covers both.
 
-It reads recent commits, reverts, review comments, and comments that explain workarounds, then groups the mistakes into classes. A class counts once it has happened twice. It fixes the most frequent classes one commit each, at the highest level that works, and proves each new check fails on a real past mistake. It also keeps a table in the agent instruction file that pairs each rule with what enforces it, so a rule that nothing enforces shows up as a repeat. The reply lists each class with its evidence, the level chosen, and why a higher level didn't work.
+## Write docs to a standard with `technical-writing`
 
-Run it with no argument and it finds the classes from history on its own. `/reflect` and `/correct` split the work. `/reflect` improves skills from one session. `/correct` changes the repo so a mistake class can't come back. Pair it with `/architect` when the fix is a new boundary. [Run many projects in parallel](./07-overnight.md#run-many-projects-in-parallel) has a prompt that does both across a whole repo.
-
-## Author a focused skill
-
-When you already know the workflow you want to capture:
-
-```text
-/poteto-mode write a skill for verifying database migrations in this repo
-```
-
-Writing a skill matches the [Authoring or modifying a skill playbook](../../skills/poteto-mode/playbooks/authoring-a-skill.md), which routes through Cursor's built-in `create-skill`, validates the frontmatter and links, and ships the result through the Opening a PR playbook. Agent-facing prose has a higher bar than human prose, because an unhelpful sentence becomes an instruction some future agent follows. Let the playbook hold that bar rather than writing a `SKILL.md` freehand.
-
-One special case has its own generator. A skill that must drive your app and prove behavior is a verification skill, so use [`/create-verification-skill`](../../skills/create-verification-skill/SKILL.md) and [`/maintain-verification-skill`](../../skills/maintain-verification-skill/SKILL.md) instead. [Verify and ship](./06-verify-and-ship.md#create-a-project-verification-skill) covers both.
-
-## Write docs to a standard with `/technical-writing`
-
-Skills aren't the only prose you ship. For docs, RFCs, readmes, PR descriptions, and commit messages:
+Skills are not the only prose that ships. Docs, readmes, pull request descriptions and commit messages go through the [technical-writing](../../skills/technical-writing/SKILL.md) skill, then the [unslop](../../skills/unslop/SKILL.md) skill:
 
 ```text
 /technical-writing review the readme changes
 ```
 
-[`/technical-writing`](../../skills/technical-writing/SKILL.md) applies a layered standard with one goal, prose a tired engineer understands on the first read. It picks the document's mode first (tutorial, how-to, reference, or explanation), then works sentence by sentence: who does what, one thought per sentence, nothing readable two ways. Use it to review what you or an agent just wrote, or name it up front when you ask for a doc.
+Its goal is prose a tired engineer understands on the first read. It cuts words that do no work, prefers the short everyday word, writes the real file or command name instead of a description of it, and reads each sentence for a second meaning. Shared closing's `#### The pull request` applies it to every pull request MMW opens, with every layer except Diátaxis.
 
-## Test a skill change blind
+## Test a skill change blind with the Eval playbook
 
-A skill edit affects every future session, so test it like the experiment it is. The same goes for adopting someone else's skill. Check that it makes the agent better on your work before you keep it.
-
-```text
-/poteto-mode run the eval playbook on this skill change. same task for both variants, candidates stay blind.
-```
-
-When a skill keeps missing and you know what it should do, change and test it in one task:
+A skill edit affects every later session, so test it as an experiment. The same holds before you adopt someone else's skill.
 
 ```text
-/poteto-mode update the review skill so it flags missing migrations, and eval the change.
+run the eval playbook on this change to the bug fix playbook. same task for both variants, candidates stay blind.
 ```
 
-Asking for the eval up front keeps the edit honest. A fix written from one bad session tends to overfit that session, and over many edits the skill drifts. The eval catches the drift before it ships.
+The [Eval playbook](../../skills/mmw-mode/playbooks/eval.md) is built around one failure: an agent that knows it is being tested behaves differently. So candidates get an ordinary-looking task in directories with ordinary project names. No file or prompt they see says "eval", "candidate", "rubric" or "benchmark", and no candidate knows the others exist. The rubric of three to six criteria goes to the judge only. One judge, on a different model family, scores every output under neutral labels in one pass. Whether a candidate followed the chain of skills is graded from the files its transcript shows it opened and from the shape of its code, never from what it says it did.
 
-The [Eval playbook](../../skills/poteto-mode/playbooks/eval.md) is built around one failure mode, the observer effect. An agent that knows it's being evaluated behaves differently. So candidate agents get an organic-looking task in sanitized directories, never the words "eval" or "candidate", and never each other's existence. One judge scores all outputs under neutral labels, and chain-following gets graded from which files each candidate actually read, not from what it claims.
+Read every output yourself before accepting the verdict. If you disagree with the judge, suspect the rubric first.
 
-Read every output yourself before accepting the verdict. If you disagree with the judge, suspect the rubric before you suspect your judgment.
+Asking for the eval in the same request as the edit keeps the edit honest:
 
-## Build a bot UI with `/make-bot-ui`
+```text
+change the code-review skill so its tests axis flags a test with no assertion, and eval the change.
+```
 
-One situational skill is for Grok Bot users. [`/make-bot-ui`](../../skills/make-bot-ui/SKILL.md) builds a small page whose buttons wake a bot over a webhook routine. For example, you could swipe through a review queue and have each swipe ask the bot to act on that item. A server on your machine holds the webhook's sender key, so the key never reaches the browser or the chat. The skill also covers exposing the page on Tailscale.
+A fix written from one bad session tends to fit that session only, and over many edits the skill drifts. The eval catches the drift before it ships.
 
-**Pitfall:** don't edit a skill mid-task because it's misbehaving. Fix it in its own PR and keep the task moving. A skill edit that ships tangled into feature work is invisible to review and impossible to evaluate.
+## Capture a session's lessons with `reflect`
+
+Right after a task that taught you something:
+
+```text
+/reflect that took far too long. capture what we learned so the next run doesn't repeat it.
+```
+
+The [reflect](../../skills/reflect/SKILL.md) skill sends the session's transcript to three reviewers in parallel (judgment, tooling, and a divergent reader), then a synthesizer sorts their proposals into `Accepted`, `Rejected` and `Backlog`. A proposal a lint, a script or a check would enforce better moves to `Backlog`. Nothing is changed until you approve which `Accepted` items to apply. Approve one only if it would change a future decision; one odd session is an anecdote, not a rule.
+
+## Fix the repository with `correct`
+
+When you correct sessions for the same mistake again and again, the fix belongs in the repository, not in your next prompt:
+
+```text
+/correct agents keep calling the database client directly instead of going through the repository layer
+```
+
+The [correct](../../skills/correct/SKILL.md) skill reads recent commits, reverts, review comments and comments that explain workarounds, and groups the mistakes into classes. A class counts once it has happened twice. It fixes each class at the highest level that works:
+
+1. Make the mistake impossible with architecture: one owner per piece of state, one supported way per task.
+2. Block it with types, or with a lint or check whose error names the fix.
+3. Catch it with a test.
+4. Write a doc or an agent rule, last, and only for a judgement call, because nothing fails when an agent skips a rule.
+
+It fixes the most frequent classes one commit each, and proves each new check fails on a real past mistake. It keeps a table in the repository's agent instruction file that pairs each rule with what enforces it, so a rule nothing enforces shows up as a repeat. Run with no argument, it finds the classes from history on its own.
+
+`reflect` improves skills from one session; `correct` changes a repository so a class of mistake cannot come back.
+
+## Draft a mode of your own with `automate-me`
+
+```text
+/automate-me
+```
+
+The [automate-me](../../skills/automate-me/SKILL.md) skill reads your style out of your history rather than asking you to describe it. It mines recent transcripts of the current workspace for repeated preferences (how you like replies, delegation, verification, code, prose and process), asks you which patterns are really yours, drafts a `<handle>-mode` skill, runs the draft through `unslop`, and opens a pull request from a worktree. Run again, it updates the existing mode skill with only what changed since its last edit.
+
+## Where these skills still show their origin
+
+`reflect`, `automate-me`, `create-verification-skill` and the Eval playbook keep text written for Cursor. `reflect` and `automate-me` name Cursor's `create-skill` skill for drafting. `reflect` names a `pstack-models.mdc` rule for its reviewers' models and falls back to the defaults its table gives when the rule is missing. `automate-me` and `create-verification-skill` write the new skill under `.cursor/skills/`, a directory install does not link into `~/.agents/skills` or `~/.claude/skills`. The Eval playbook and `reflect` look for transcripts in the workspace's `agent-transcripts/` directory, a path Cursor's system prompt names. These are the places to look first when one of them stalls on another host.
+
+**Pitfall:** do not edit a skill mid-task because it misbehaves. The mode's Non-negotiables say to fix a broken skill in its own pull request and keep the task moving. A skill edit tangled into feature work is invisible to review and cannot be evaluated.
 
 Next: [Recipes and pitfalls](./10-recipes-and-pitfalls.md).
