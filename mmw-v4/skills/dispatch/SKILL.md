@@ -12,6 +12,6 @@ To change which host, model or reasoning effort (`effort` in `models.json`) an a
 ## On waking
 
 1. A wake can cut short a command you were running. Run that command again first.
-2. Read what the wake names on the ticket; the wake carries nothing the tracker does not. For `brief <batch> done`, `bash scripts/dispatch.sh brief show <batch>` lists each brief, its state, and the file its answer is in; read those files.
+2. Read what the wake names on the ticket; the wake carries nothing the tracker does not (**principle-progress-is-what-the-record-says**). For `brief <batch> done`, `bash scripts/dispatch.sh brief show <batch>` lists each brief, its state, and the file its answer is in; read those files.
 3. `bash scripts/dispatch.sh ack <n> <event>` with the ticket and the event the wake named (`bash scripts/dispatch.sh ack brief <batch>` for `brief <batch> done`), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts. A `watchdog:` or `MMW turn guard:` line is not acked.
 4. Act on it, as the playbook or step that started you says. A batch's answers stay readable until `bash scripts/dispatch.sh brief close <batch>`; close it once nothing you still start needs them.
