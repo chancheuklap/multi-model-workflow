@@ -37,7 +37,7 @@ A layer label puts an issue in no queue. The colour and description of every lab
 
 Create a GitHub issue.
 
-- **A spec**: `verify-ticket.py --publish --spec-body <file> --title "<title>"` of the `verify-ticket` skill, with `--map <map>` when the spec comes from a wayfinder map. It gives the spec `mmw:spec`, and from a map it confirms the spec is among the map's sub-issues; it prints the spec's number.
+- **A spec**: `verify-ticket.py --publish --spec-body <file> --title "<title>"` of the `verify-ticket` skill, with `--map <map>` when the spec comes from a wayfinder map. It gives the spec `mmw:spec`, and with `--map` it publishes the spec as a sub-issue of the map; it prints the spec's number.
 - **The tickets of a spec**: drafts, linted, then `verify-ticket.py <spec> --publish --drafts <dir>`, as the To tickets playbook (`../playbooks/to-tickets.md`) says.
 
 ## When a playbook says "fetch the relevant ticket"
