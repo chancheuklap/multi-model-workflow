@@ -12,7 +12,7 @@ Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet ver
 6. **Write and lint the drafts.** Write each ticket in the shape of `../references/ticket.md` as one draft in a directory `mktemp -d` makes, as the `verify-ticket` skill's `references/linting.md` describes a draft. Each carries `mmw:ticket`, and, for a ticket an agent works, `ready-for-agent` beside the `junior-worker` or `senior-worker` label you propose for it; a ticket a person must judge carries `ready-for-human` instead, and no worker label. Run `verify-ticket.py <spec> --lint --drafts <dir>` and fix every `ERROR` in the drafts. Done when the lint prints no `ERROR` and every `WARN` has been read once and either fixed or kept on purpose. Each ticket is written for a worker who reads only it and what it names (**principle-write-for-where-it-is-read**).
 7. **Quiz the user** on the linted drafts, per **The quiz** below, after the ambiguity scan it opens with. Iterate until the user approves the drafts. After every change to a draft, run the lint of step 6 again and fix every `ERROR`. Done when the user has approved the drafts as the last lint left them, every answered choice is written into a draft's **What to build** or the spec, and step 5's Done when still holds for the approved drafts.
 8. **Publish the batch** as the user approved it with `verify-ticket.py <spec> --publish --drafts <dir>`, which creates each draft as a sub-issue of the spec in dependency order with its labels and blocking edges, and ends by linting the published spec. Close no parent issue. Done when `--publish` has run and every approved ticket is a sub-issue of the spec.
-9. **Read every ticket back**, per **Read-back** below. Done when every check there passes.
+9. **Read every ticket back**, per **Read-back** below. Done when the lint has no `ERROR` and every `ready-for-human` ticket holds the five things.
 
 #### Vertical slices
 
@@ -117,11 +117,6 @@ Write each answered choice that only changes what one ticket delivers into that 
 
 #### Read-back
 
-Read the lint `--publish` ran on the published spec as the `verify-ticket` skill's `references/linting.md` says: no `ERROR`, and every `WARN` read once and either fixed or kept on purpose. The drafts runs of steps 6 and 7 do not stand in for it: only this run sees the tracker's labels, sub-issues and blocking edges. Fix each `ERROR` on its ticket and run `verify-ticket.py <spec> --lint` again. Then list the spec's sub-issues and fetch each ticket again, and check:
+Read the lint `--publish` ran on the published spec as the `verify-ticket` skill's `references/linting.md` says: no `ERROR`, and every `WARN` read once and either fixed or kept on purpose. The drafts runs of steps 6 and 7 do not stand in for it: only this run sees the tracker's labels, sub-issues and blocking edges. Fix each `ERROR` on its ticket and run `verify-ticket.py <spec> --lint` again. Then fetch each `ready-for-human` ticket again and check it holds all of **the five things** in `../references/person-ticket.md`, because no agent can repair one. Checking sub-issues, labels and blockers by hand again found nothing across 158 published tickets; the publish command and this lint hold them.
 
-- The spec's sub-issues are exactly the approved tickets.
-- Each ticket carries `mmw:ticket` and one queue label; each agent's ticket carries exactly one worker label, and each `ready-for-human` ticket none.
-- Each ticket's blockers are the ones the approved breakdown gives it.
-- Each `ready-for-human` ticket holds all of **the five things** in `../references/person-ticket.md`, because no agent can repair one.
-
-**Reply:** each ticket by name with its link, its blocking edges and its worker grade, in dependency order; the `ready-for-human` tickets with their kind; and each choice the user answered, with where it was written.
+**Reply:** each ticket by name with its link, its blocking edges and its worker grade, in dependency order; the `ready-for-human` tickets with their kind; each choice the user answered, with where it was written; and that the batch runs when the user tells a session to start the night on this spec (Run a night, `playbooks/run-a-night.md`).

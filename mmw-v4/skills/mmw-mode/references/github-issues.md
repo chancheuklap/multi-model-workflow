@@ -27,8 +27,8 @@ Three sets, each answering one question, none standing in for another:
 
 | Set | Answers | Labels |
 | --- | --- | --- |
-| Layer | which layer of the tree this issue is | `mmw:map` · `mmw:spec` · `mmw:ticket` |
-| Queue | who it is waiting on | `ready-for-agent` · `ready-for-human` |
+| Layer | which layer of the tree this issue is | `mmw:map` · `mmw:spec` · `mmw:ticket` · `mmw:child` |
+| Queue | who it is waiting on | `ready-for-agent` · `ready-for-human` · `needs-triage` · `needs-info` · `wontfix` |
 | Grade | which worker starts it | `junior-worker` · `senior-worker` |
 
 A layer label puts an issue in no queue. The colour and description of every label are `LABELS` in the `verify-ticket` skill's `scripts/verify-ticket.py`, which creates a label the repository lacks the first time it puts one on. Before a `gh issue create --label` of your own, create a missing label from that table with `gh label create <name> --color <colour> --description "<description>"`: `gh issue create` fails outright on a missing label. Leave a label that already exists as it is.
