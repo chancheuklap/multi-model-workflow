@@ -77,7 +77,7 @@ def root(state: Path) -> Path:
 def batch_dir(state: Path, batch: str) -> Path:
     if not BATCH_RE.match(batch or ""):
         raise Refusal(f"{batch!r} is not a batch name; a batch is named the way "
-                      f"`dispatch.sh brief` printed it, e.g. 20261005-142233-a1f3")
+                      f"`dispatch.sh send` printed it, e.g. 20261005-142233-a1f3")
     return root(state) / batch
 
 
