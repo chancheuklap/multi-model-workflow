@@ -1554,7 +1554,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
         first = "ALL MET"
     head = git("rev-parse", "HEAD")
     branch_line = (f"Branch: issue-{number} Commit: {head} PR: none — will be merged into "
-                   f"{into} by dispatch.sh advance")
+                   f"{into} by dispatch.sh")
     review_event = events.newest(comments, "reviewer.reported") or {}
     review = review_event.get("body") or ""
     try:
@@ -3342,8 +3342,8 @@ def lint_drafts(spec: int, directory: Path) -> int:
         spec_body = fetch_body(spec)
     except TrackerReadError as exc:
         spec_body = ""
-        print(f"  WARN  spec #{spec} could not be read ({exc.detail}), so the Critical "
-              f"flows rule and the section count below did not run; restore tracker "
+        print(f"  WARN  spec #{spec} could not be read ({exc.detail}), so the section "
+              f"count below did not run; restore tracker "
               f"access and run --drafts again  [spec-unreadable]")
     names = {d["name"] for d in drafts}
     print(f"#{spec}: {len(drafts)} drafts in {directory}; linting each, then the graph "

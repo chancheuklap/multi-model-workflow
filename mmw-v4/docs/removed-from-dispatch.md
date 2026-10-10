@@ -10,7 +10,7 @@ v4's dispatch started as a copy of v2's (`mmw-v2/skills/dispatch/`). Block 4 too
 | Memory: the worker's Memory packet in its start prompt, the repository Memory check, `memory-list`, closing a spec's Memory records, the `--memory-decisions` argument of `summary`, the suite's fake `nmem` | `scripts/dispatch.sh`: `worker_memory_packet`, `ensure_repository_memory`, `memory_list_spec`, `close_spec_memories`; `tests/dispatch/test_dispatch.sh` | With the Memory block |
 | The reviewer's Rules packet, read from Memory | `scripts/dispatch.sh`, `reviewer_rules_packet` | With the Memory block |
 | The task board: `open` and `open-ticket` registered and opened it | `scripts/dispatch.sh`: `ensure_board`, `open_board`; the board scenarios and their fakes in `tests/dispatch/test_dispatch.sh` | With the board block, before v4 is installed |
-| The install scenarios (`install*`, `uses*`), the Orca folder test, the `models.json` import | `tests/dispatch/test_dispatch.sh`, `tests/dispatch/test_install_orca_folder.py` | With v4's `install.sh` |
+| The install scenarios (`install*`, `uses*`), the Orca folder test, the `models.json` import | `tests/dispatch/test_dispatch.sh`, `tests/dispatch/test_install_orca_folder.py` | v4's `install.sh` has its own suite, `tests/install/` (takeover from v3, `--back`, the `--check` handover, Orca, the `models.json` rows); the `uses*` checks did not come back |
 
 ## Removed for good
 

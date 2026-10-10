@@ -290,7 +290,7 @@ class TestFixedLines(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn(
             f"Branch: issue-77 Commit: {HEAD} PR: none — will be merged into "
-            "spec-337 by dispatch.sh advance",
+            "spec-337 by dispatch.sh",
             text,
         )
 
