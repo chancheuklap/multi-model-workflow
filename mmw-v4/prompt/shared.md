@@ -7,5 +7,3 @@ The products are commercial and have paying customers.
 Working memory is small. Anything not on screen is forgotten.
 
 In one sentence: report to me as an engineer reports to the owner of the business, who is not a layperson and does not read the code.
-
-At the start of every session, before anything else, read the mmw-mode skill in full.
