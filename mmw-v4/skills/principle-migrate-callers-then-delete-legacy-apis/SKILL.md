@@ -12,6 +12,8 @@ When we decide a new API is the right design, migrate callers and remove the old
 - Inventory callers, migrate them, and delete the old API immediately
 - Treat temporary adapters as exceptional and time-boxed, not default architecture
 - Update tests to assert the new contract, and delete tests that only protect pre-refactor implementation details
+- Before changing a function, find every caller
+- When what you add supersedes an existing branch, guard or file, not only an API, delete it in the same commit
 
 **When this applies:**
 - No external users depend on backward compatibility

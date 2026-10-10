@@ -4,7 +4,7 @@
 
 The user gives a map (URL or number). A ticket is optional: without one, you pick the next decision, not the user. Read `../references/wayfinder.md` first. It holds the map body, the ticket format, and the ticket types every step below uses.
 
-1. **Load the map**: the low-res view, not every ticket body.
+1. **Load the map**: the low-res view, not every ticket body. The map and its tickets are where the work stands (**principle-progress-is-what-the-record-says**).
 2. **Choose the ticket.** If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
 3. **Resolve it as the type its `wayfinder:<type>` label names**, per `## Ticket Types` in `../references/wayfinder.md`. Read the label, not just the body: the body never states the type. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; use whichever skills the `## Notes` block names. If in doubt, the **grilling** skill and the **domain-modeling** skill.
 4. **Record the resolution**: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.

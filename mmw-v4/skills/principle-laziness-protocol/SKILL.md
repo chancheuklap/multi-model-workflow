@@ -15,3 +15,5 @@ Aim for the most result with the least code and complexity.
 - **Sweat the small leaks.** Remove tiny pass-throughs, representation leaks, and duplicated choices before they spread. Small leaks compound into permanent coordination costs.
 
 **The test:** If a human developer would find the code exhausting to maintain, it is a bad solution.
+
+**Keep intact.** Whatever you simplify, keep security, error handling that prevents data loss, accessibility, and anything the task explicitly asks for.

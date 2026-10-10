@@ -18,3 +18,5 @@ Make simplification a continual investment. Leave the design slightly simpler an
 - No speculative validators, parsers, or guards beyond what the spec demands
 - Simplify prompts (remove redundant instructions, excessive templates)
 - When a reference has no novel content, delete it rather than leaving a stub
+- Before adding a file, a dependency or a configuration entry, write down why the existing one is not enough
+- A fix that adds a mechanism (a check, a field, an exit code, a guarding sentence) names the run in which the failure occurred: a run the mechanism would have prevented, not a nearby incident that shares a word with it

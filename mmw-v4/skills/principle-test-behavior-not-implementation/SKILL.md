@@ -22,3 +22,9 @@ The check: before you keep a test, ask whether it would still pass if every func
 **The fix:** call the subject inside the test body with one concrete input and assert the literal output or the observable effect, `expect(slugify("Hello, World!")).toBe("hello-world")`. For an absence, assert the presence on the other input in the same test. For a constant, test the mechanism that reads it with one input instead of restating the value. For a mock, assert the payload it received or the state after the call, not that it was called. When no such assertion exists, delete the test.
 
 **Keep** a test of a relation across a table's rows (a key present in two tables, a parent that exists), and a compile-time check in a `*.test-d.ts` file.
+
+**Red for the right reason.** Run a new test before the code it covers exists, and read why it fails. Red from a missing file, an import error or a typo in a case name proves nothing; the test counts as red only when it fails because the behavior is absent.
+
+**Pin behavior that must not change.** A change that keeps a behavior as it is (a restructuring, a move, a dependency swapped for another) has no red to see. Pin the behavior first with a characterization test, a snapshot, or a comparison of old and new output, run it green before the structure moves and green again after. It counts as able to fail once you have broken that behavior by hand and watched the pin go red. A type check or a lint is not a pin.
+
+**Name the object a check checks.** A check that finds its object by searching and taking the first hit checks whatever the search happens to return, and often cannot fail at all.

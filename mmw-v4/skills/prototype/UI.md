@@ -49,7 +49,7 @@ This works whether the user is here to push back or not.
 
 ### 2. Generate radically different variants
 
-Draft each variant. Hold each one to:
+Build several genuinely different variants and compare them before committing to one (**principle-exhaust-the-design-space**). Draft each variant. Hold each one to:
 
 - The page's purpose and the data it has access to.
 - The project's component library / styling system (TailwindCSS, shadcn, MUI, plain CSS, whatever).
