@@ -18,4 +18,4 @@ Without the product slot, two tickets that start the app at the same time can ta
 | Bug | What it does |
 | --- | --- |
 | #786 | `--lint` does not report a `CHECK:` that reads a file another ticket of the same batch owns |
-| #871 | After a pytest run over 60 seconds the success line carries its duration, and an `EXPECT:` copied from a shorter run no longer matches |
+| #871 | `--lint` does not test an `EXPECT:` against the runner's other success summaries (pytest's duration suffix after 60 s, Vitest's skipped count), so one copied from a single run can reject a passing run |

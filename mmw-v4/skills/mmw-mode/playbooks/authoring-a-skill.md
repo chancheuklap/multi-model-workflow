@@ -12,7 +12,7 @@ A skill change is a project like any other, with its own standards and its own p
    Done when the intent the change serves is named and every passage you will write has one component and one file, or the owner has heard that the text already states the change.
 2. **Write it, by size.** Text and scripts take the same flow.
    - A change one session can write: write it here, committing each verifiable unit.
-   - A larger one: run the To spec playbook (`playbooks/to-spec.md`), which hands on to To tickets. Each Implementation Decisions subsection that changes the skill set cites the standards of step 1, so To tickets copies them into its tickets' **Read first**, and Testing Decisions makes each check of step 3 that a command decides a criterion of the tickets whose files it reads. The spec states decisions; the night's tickets write the text, from the files as they stand.
+   - A larger one: run the To spec playbook (`playbooks/to-spec.md`), which hands on to To tickets. Each Implementation Decisions subsection that changes the skill set cites the standards of step 1, so To tickets copies them into its tickets' **Read first**, and Testing Decisions turns each check of step 3 that a command decides into an acceptance criterion of every ticket that changes a file the check reads. The spec states decisions; the night's tickets write the text, from the files as they stand.
 
    Done when the change is committed, or To tickets has published the batch.
 3. **Prove it, once.** A change written here runs this step now; a larger one once the owner has accepted the night and `finish` has run. From the repository root, run each check that applies, and rerun it after each fix:

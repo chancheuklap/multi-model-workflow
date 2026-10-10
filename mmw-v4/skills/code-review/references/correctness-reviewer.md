@@ -35,7 +35,7 @@ For each finding, trace the path: the call chain that makes the value nil, or th
 
 ## 2. Report
 
-One entry per review finding: the file and line, its lens (`correctness`, `root-cause` or `security`), the hunk quoted, and the traced path. Under 400 words: the worker reads all of it before fixing anything.
+One entry per review finding: the file and line, its lens (`correctness`, `root-cause` or `security`), the hunk quoted, and the traced path. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## What is not yours
 

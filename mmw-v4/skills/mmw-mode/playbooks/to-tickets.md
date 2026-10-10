@@ -48,7 +48,7 @@ Three rules bind how each one is worded:
    - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach*; see `../references/person-ticket.md`.
 5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. The user is here now, so ask them: carry the choice into the quiz of step 7, with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own.
 
-If no command exists because the spec never decided how this is verified, stop and return to the To spec playbook. Do not invent it.
+If no command exists because the spec never decided how this is verified, settle it in the spec's Testing Decisions through the Revising a spec playbook (`playbooks/revising-a-spec.md`) first. Do not invent it.
 
 Every criterion is four lines, and carries a number you assign as you write it and never renumber.
 
@@ -100,7 +100,7 @@ Present the proposed breakdown as a numbered list. For each ticket an agent work
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Worker**: `junior` or `senior`, and the one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
+- **Worker**: `junior-worker` or `senior-worker`, and the one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
 - **Choices**: every choice question 5 sent here, and every question the ambiguity scan returned, one line each: the options, and the one you would take. Omit the line when there are none.
 
 Then the `ready-for-human` tickets, in the same list, each with its **Title**, **Blocked by**, its kind (*reaction* or *reach*) and what is to be looked at.

@@ -25,6 +25,7 @@ Find where you are by the first row whose fact holds; the record says where you 
 | `dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
 | The spec carries `spec.closed`, and no open pull request runs from the night's branch to the project branch | [6. Open the pull request](#6-open-the-pull-request) |
 | The pull request is open, and the user has accepted it | [7. Merge the accepted night](#7-merge-the-accepted-night) |
+| The pull request is open, and the user has not accepted it | Nothing: wait for the user |
 
 #### 1. The user says the night starts
 
@@ -98,7 +99,7 @@ When no authority settles the correction, or the proposed correction would overt
 
 ##### Exit codes of `resume`
 
-When you run `resume` again after exit 3, word it so a worker that receives both messages reads them as one instruction. A worker that `start <n> worker` puts in place of the old one has none of the instructions given only inside the old session; send them again with `resume`.
+Exits 4 and 2 name their next step on stderr. When you run `resume` again after exit 3, word it so a worker that receives both messages reads them as one instruction. A worker that `start <n> worker` puts in place of the old one has none of the instructions given only inside the old session; send them again with `resume`.
 
 #### 4. The closing pass
 
@@ -174,7 +175,7 @@ Then go to step 6.
 
 #### 6. Open the pull request
 
-The night is delivered as one pull request from the night's branch to the project branch: `into` and `project` of the spec's `spec.opened`, which `events.py fold <spec>` shows. The user reads it in the morning, and it is the only place they need to look.
+The night is delivered as one pull request from the night's branch to the project branch: the `into` and `project` fields of the spec's `spec.opened` comment. The user reads it in the morning, and it is the only place they need to look.
 
 Write it as the Shared closing playbook's **The pull request** says (`playbooks/shared-closing.md`). Title it `Night #<spec>: <the spec's title>`. Its body, in this order:
 
@@ -198,7 +199,7 @@ dispatch.sh finish <spec>
 
 A worktree that has the base branch checked out, usually the one this session runs in, is kept: stderr gives the commands that remove it, for the user to run once this session is done, and `finish` needs no second run.
 
-Exit 0: the merge is recorded, and GitHub shows the pull request merged. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as **A red check** below says, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
+Exit 0: the merge is recorded, and GitHub shows the pull request merged. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as **A red check** below says for a project branch that moved on or this night's change, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
 
 Exit 2 naming the pull request: a check is red or still running, or a review thread is open, and nothing was merged. A check still running: wait for it with `gh pr checks <pr> --watch`, then run `finish` again. Settle each of the rest, then run `finish` again:
 
@@ -223,7 +224,7 @@ Exit 0: the night is stopped. Exit 1: stderr names, one line each, what was left
 
 #### One ticket
 
-You are starting one worker on one ticket, with no batch behind it: a step that wrote the ticket sends you here. A ticket outside a night belongs to no spec, so no `advance` will ever collect it: `land <n>` is its whole ending. What you do on a wake is the dispatch skill's `## On waking`.
+You are starting one worker on one ticket, with no batch behind it: a step that wrote the ticket, or a ticket given to this session, sends you here. A ticket outside a night belongs to no spec, so no `advance` will ever collect it: `land <n>` is its whole ending. What you do on a wake is the dispatch skill's `## On waking`.
 
 Five steps:
 
@@ -236,7 +237,7 @@ Five steps:
    - `#<n> child.opened` of kind `contract`, a `watchdog:` line, or an `MMW turn guard:` line: act as **3. Each time something wakes you** above says for it, reading `events.py fold <n>` where it says `status`.
 
    Tell the user what woke you and what you did; they are here. Done when the wake is `ticket.passed` or `ticket.returned`.
-4. Once the ticket passed, check it the way the step that wrote it says (for a bug, the original reproduction in the ticket's worktree; a ticket no step of this session wrote has no further check); when that check fails, land nothing, tell the user that `fix-<n>` and `.worktrees/issue-<n>` stay, and go back to that playbook, which says what comes next. Then run `dispatch.sh land <n>` from any checkout of this repository. A ticket that came back is landed the same way and goes to triage. It lands the ticket, closes the watch and prints what it did; stderr names anything it left standing. Exit 1: tell the user each line stderr names. Done when `land` exits 0, or the user has its lines. A merge conflict or red repository checks count as `bounced` on its summary line, and without an open night `land` leaves that ticket in `needs-triage`: tell the user which ticket and what the `ticket.bounced` event names.
+4. Once the ticket passed, check it the way the playbook that wrote it says (for a bug, the original reproduction in the ticket's worktree; a ticket no step of this session wrote has no further check); when that check fails, land nothing, tell the user that `fix-<n>` and `.worktrees/issue-<n>` stay, and go back to that playbook, which says what comes next. Then run `dispatch.sh land <n>` from any checkout of this repository. A ticket that came back is landed the same way and goes to triage. It lands the ticket, closes the watch and prints what it did; stderr names anything it left standing. Exit 1: tell the user each line stderr names. Done when `land` exits 0, or the user has its lines. A merge conflict or red repository checks count as `bounced` on its summary line, and without an open night `land` leaves that ticket in `needs-triage`: tell the user which ticket and what the `ticket.bounced` event names.
 5. Only for a ticket `land` merged: open one pull request from `fix-<n>` to the project branch, written as the Shared closing playbook's **The pull request** says (`playbooks/shared-closing.md`), with each open child of the ticket (`events.py fold <n>`) listed in its top half, give the user its link, and merge it as that playbook's step 7 says. A ticket that came back or bounced opens none: tell the user what it tried and where its commits are, and go back to the playbook that wrote it. Done when the pull request is merged, or the user has its link and has not said yes, or the user knows the ticket came back or bounced.
 
 **Reply:** for a night, the pull request's link once it is open, each decision it leaves to the user, and after `finish` the commands its stderr gave for the user to run; for one ticket, the pull request's link or what came back, and each line `land` left on stderr.

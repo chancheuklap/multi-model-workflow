@@ -20,7 +20,7 @@ A test file in the diff that no `CHECK:` names is still worth a review finding; 
 
 With a request file in place of a ticket, every test file in the diff is your scope.
 
-When no `CHECK:` names a test file, report one line, `no test-backed criteria in this ticket`, and stop. There is nothing here for this axis.
+When your scope is empty, report one line, `no test-backed criteria in this change`, and stop. There is nothing here for this axis.
 
 ## 2. Find the repository's documented test rules
 
@@ -28,7 +28,7 @@ The repository's `TESTING.md` says how tests here are written: its layers, which
 
 ## 3. The test smell baseline
 
-Read the `tdd` skill's `tests.md` and `mocking.md`, from wherever your host installed that skill. Their bad tests and their rule for where mocks belong are five of the six shapes below; the sixth is this axis's own. For each case in scope, ask all six, and name each finding by its shape:
+Read the `tdd` skill's `tests.md` and `mocking.md`. Their bad tests and their rule for where mocks belong are five of the six shapes below; the sixth is this axis's own. For each case in scope, ask all six, and name each finding by its shape:
 
 - **Tautological**: `tests.md`, **Tautological tests**. (**principle-test-behavior-not-implementation**)
 - **Implementation-coupled**: `tests.md`, **Implementation-detail tests**: mocking internal collaborators, testing private methods, asserting on call counts or order. (**principle-test-behavior-not-implementation**)
@@ -41,7 +41,7 @@ Each is a judgement call, and each review finding quotes the assertion it is abo
 
 ## 4. Report
 
-One entry per review finding: the file, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: the worker reads all of it before fixing anything.
+One entry per review finding: the file, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## Two things this axis never reports
 

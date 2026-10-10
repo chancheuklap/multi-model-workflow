@@ -85,8 +85,8 @@ def parse_brief(text: str) -> tuple[str, int]:
     """`<batch>/<n>` as (batch, n)."""
     batch, _, number = (text or "").partition("/")
     if not number.isdigit() or int(number) < 1:
-        raise Refusal(f"{text!r} names no brief; a brief is `<batch>/<n>`, as the end of its "
-                      f"prompt wrote it")
+        raise Refusal(f"{text!r} names no brief; a brief is `<batch>/<n>`, as the end of your "
+                      f"brief wrote it")
     batch_dir(Path("."), batch)
     return batch, int(number)
 
@@ -214,7 +214,7 @@ def report(state: Path, batch: str, n: int, source: Path, runner: str, session: 
     record = _read(directory / "batch.json")
     if record is None:
         raise Refusal(f"batch {batch} is closed: the session that briefed you closed it, or "
-                      f"it was gone for an hour. Nobody is waiting for this result; end your "
+                      f"that session was gone for an hour. Nobody is waiting for this result; end your "
                       f"turn.")
     if n > int(record.get("count") or 0):
         raise Refusal(f"batch {batch} has {record.get('count')} briefs, and no brief {n}")

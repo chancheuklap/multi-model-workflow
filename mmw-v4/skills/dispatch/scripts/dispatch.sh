@@ -1525,7 +1525,7 @@ brief_many() {
          --session "$session" --host "$host" --model "$model" --effort "${effort:-—}"; then
       runner stop "$session" >/dev/null 2>&1
       close_batch "$batch"
-      refuse "could not record session $session as brief $batch/$n, so it was stopped and batch $batch closed; brief again"
+      refuse "could not record session $session as brief $batch/$n, so it was stopped and batch $batch closed; send again"
     fi
     started+=("$batch/$n"$'\t'"$session")
   done
