@@ -10,8 +10,7 @@
       {"id": "claude-sonnet-5", "name": "Sonnet 5", "thinkingOptionIds": ["high"]},
       {"id": "claude-fable-5-1", "name": "Fable 5.1", "thinkingOptionIds": ["medium"]}
     ]},
-    "codex": {"offerings": [{"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["high"]}]},
-    "pi": {"offerings": [{"id": "xai/grok-4.6", "name": "grok-4.6", "thinkingOptionIds": ["high"]}]}
+    "codex": {"offerings": [{"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["high"]}]}
   },
   "paseo": {
     "cursor": {"offerings": [{"id": "grok-4.6", "name": "Grok 4.6", "thinkingOptionIds": ["high"]}]},
@@ -21,7 +20,6 @@
       {"id": "claude-sonnet-5", "name": "Sonnet 5", "thinkingOptionIds": ["high"]},
       {"id": "claude-fable-5-1", "name": "Fable 5.1", "thinkingOptionIds": ["medium"]}
     ]},
-    "codex": {"offerings": [{"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["high"]}]},
-    "pi": {"offerings": [{"id": "xai/grok-4.6", "name": "grok-4.6", "thinkingOptionIds": ["high"]}]}
+    "codex": {"offerings": [{"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["high"]}]}
   }
 }

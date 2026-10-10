@@ -438,6 +438,18 @@ class WorkerRecipientTest(RelayCase):
         self.assertEqual([(r["seq"], bool(r["delivered"])) for r in self.rows()],
                          [(1, False), (2, False), (3, True)])
 
+    def test_a_session_gets_one_wake_a_pass_even_when_each_send_is_taken(self):
+        # Paseo's send answers 0 as soon as it has handed the text over; a second wake typed
+        # into the same session in that pass lands inside the turn the first one started.
+        self.board[61] += [comment(102, "ticket.refused", 61), comment(103, "ticket.passed", 61)]
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.refused")])
+        self.assertEqual([(r["seq"], bool(r["delivered"])) for r in self.rows()], [(1, True), (2, False)])
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.refused"),
+                                          ("paseo", "main-a", "#61 ticket.passed")])
+
     def test_a_recipient_is_its_runner_and_session_together(self):
         self.relay.open_watch({"tickets": [61, 62]}, "paseo", "s-1")
         self.board[61] += [started(101, 61, "s-1", runner="orca"), comment(102, "ticket.passed", 61),
@@ -499,12 +511,6 @@ class AckByWakeTest(RelayCase):
         self.assertIsNone(self.relay.ack_wake(MAIN_A, 61, "ticket.passed"))
         self.assertEqual(len(self.rows()), 2)
 
-    def test_the_recovered_announcement_is_acked_by_its_name(self):
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.assertEqual([r["event"] for r in self.rows()], ["relay.recovered"])
-        self.assertEqual(self.relay.ack_wake(MAIN_A, None, "relay.recovered"), (1, 1, 0))
 
 
 class ReadEventTest(unittest.TestCase):
@@ -542,6 +548,7 @@ class DeliveryTest(RelayCase):
     def test_send_carries_the_ticket_and_the_event_name_only(self):
         self.queue_two()
         self.relay.deliver()
+        self.relay.deliver()
         self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.passed"),
                                           ("paseo", "main-a", "#62 ticket.returned")])
 
@@ -549,11 +556,13 @@ class DeliveryTest(RelayCase):
         self.queue_two()
         self.relay.deliver()
         self.relay.deliver()
+        self.relay.deliver()
         self.assertEqual(len(self.send.sent), 2)
         self.assertEqual([r["seq"] for r in self.rows()], [1, 2])
         self.assertTrue(all(r["delivered"] for r in self.rows()))
         self.relay = self.fresh()
         self.relay.forget_deliveries()
+        self.relay.deliver()
         self.relay.deliver()
         self.assertEqual([t for _, _, t in self.send.sent[2:]], ["#61 ticket.passed", "#62 ticket.returned"])
         self.relay.ack(MAIN_A, 2)
@@ -566,6 +575,7 @@ class DeliveryTest(RelayCase):
         self.assertEqual(len(self.send.sent), 1, "a pass stops at the first row that stays")
         self.assertEqual([(r["seq"], r["delivered"]) for r in self.rows()], [(1, None), (2, None)])
         self.send.code = 0
+        self.relay.deliver()
         self.relay.deliver()
         self.assertEqual([t for _, _, t in self.send.sent[1:]], ["#61 ticket.passed", "#62 ticket.returned"])
 
@@ -750,61 +760,8 @@ class PollingTest(RelayCase):
         self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
 
 
-class RecoveryTest(RelayCase):
-    def recovered_rows(self):
-        return [r for r in self.rows() if r["event"] == relay.RECOVERED]
-
-    def test_an_unattended_stretch_is_announced_once_ahead_of_the_events_it_recovered(self):
-        self.poll()
-        self.board[61].append(comment(101, "ticket.passed", 61))
-        self.board[62].append(comment(102, "ticket.passed", 62))
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.relay = self.fresh()
-        self.poll()
-        self.assertEqual([r["event"] for r in self.rows()],
-                         [relay.RECOVERED, "ticket.passed", "ticket.passed"])
-        self.assertEqual(self.recovered_rows()[0]["since"], stamp(T0))
-        gap = json.loads((self.state / "gap.json").read_text())
-        self.assertEqual((gap["generation"], gap["since"], gap["seq"]), (1, stamp(T0), 1))
-        self.relay.deliver()
-        self.assertEqual(self.send.sent[0][2], f"relay.recovered since {stamp(T0)}")
-
-    def test_a_stretch_already_announced_is_not_announced_again(self):
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.relay.ack(MAIN_A, 1)
-        # The good poll's beat is lost (a crash before it was written): same stretch again.
-        (self.state / "beat.json").write_text(json.dumps({"at": stamp(T0), "grace": 90, "interval": 30}))
-        self.clock.moment = T0 + timedelta(hours=2)
-        self.relay = self.fresh()
-        self.poll()
-        self.assertEqual(self.recovered_rows(), [])
-
-    def test_a_preset_marker_for_the_stretch_means_no_announcement(self):
-        (self.state / "beat.json").write_text(json.dumps({"at": stamp(T0)}))
-        (self.state / "gap.json").write_text(json.dumps({"generation": 4, "since": stamp(T0), "seq": 9}))
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.assertEqual(self.recovered_rows(), [])
-
-    def test_a_new_stretch_after_a_good_poll_is_a_new_generation(self):
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1, seconds=30)
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=3)
-        self.poll()
-        self.assertEqual([r["since"] for r in self.recovered_rows()],
-                         [stamp(T0), stamp(T0 + timedelta(hours=1, seconds=30))])
-        self.assertEqual(json.loads((self.state / "gap.json").read_text())["generation"], 2)
-
-    def test_polls_within_grace_announce_nothing(self):
-        for step in range(4):
-            self.clock.moment = T0 + timedelta(seconds=30 * step)
-            self.poll()
-        self.assertEqual(self.recovered_rows(), [])
+class UnattendedTest(RelayCase):
+    """Time spent delivering is not time unattended: `health` counts only the rest."""
 
     def test_time_spent_delivering_is_not_an_unattended_stretch(self):
         def slow(runner, session, text):
@@ -819,8 +776,6 @@ class RecoveryTest(RelayCase):
         self.clock.moment += timedelta(seconds=30)
         with statedir.locked(self.state / "relay.lock", wait=0, purpose="test"):
             self.assertIsNone(self.relay.health(), "230s since the good poll, 200 of them delivering")
-        self.poll()
-        self.assertEqual(self.recovered_rows(), [])
 
     def test_a_delivery_pass_under_way_is_not_past_grace(self):
         self.poll()
@@ -838,16 +793,13 @@ class RecoveryTest(RelayCase):
             self.relay.deliver()
         self.assertEqual(seen, [None])
 
-    def test_a_failing_poll_does_not_end_the_stretch(self):
+    def test_a_restart_after_an_unattended_stretch_queues_only_the_events_it_finds(self):
         self.poll()
-        self.gh.failing.add(62)
+        self.board[61].append(comment(101, "ticket.passed", 61))
         self.clock.moment = T0 + timedelta(hours=1)
+        self.relay = self.fresh()
         self.poll()
-        self.assertEqual(self.recovered_rows(), [])
-        self.gh.failing.clear()
-        self.clock.moment = T0 + timedelta(hours=2)
-        self.poll()
-        self.assertEqual([r["since"] for r in self.recovered_rows()], [stamp(T0)])
+        self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
 
 
 class WatchesTest(RelayCase):
@@ -946,148 +898,113 @@ class WatchesTest(RelayCase):
                           "the last watch closed forgets the last good poll")
         self.assertTrue(json.loads((self.state / "relay.json").read_text())["ending"])
 
-    def test_the_recovered_stretch_goes_once_to_each_main_agent(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
-        self.relay.open_watch({"tickets": [7]}, "paseo", "main-b")
-        self.poll()
-        self.clock.moment = T0 + timedelta(hours=1)
-        self.poll()
-        self.assertEqual(sorted(r["session"] for r in self.rows() if r["event"] == relay.RECOVERED),
-                         ["main-a", "main-b"])
-        self.clock.moment = T0 + timedelta(hours=1, seconds=30)
-        self.poll()
-        self.assertEqual(len([r for r in self.rows() if r["event"] == relay.RECOVERED]), 2)
 
 
-class SlotWakeTest(RelayCase):
-    """A run that found no free product slot waits under a `worker.queued`, and a slot
-    given back on any watched ticket wakes its worker."""
+class HealthTest(RelayCase):
+    def test_an_empty_queue_with_no_relay_running_says_so(self):
+        self.assertIn("never", self.relay.health())
 
+    def test_a_running_relay_that_polled_within_grace_is_healthy(self):
+        self.poll()
+        with statedir.locked(self.state / "relay.lock", wait=0, purpose="test"):
+            self.assertIsNone(self.relay.health())
+            self.clock.moment = T0 + timedelta(seconds=91)
+            self.assertIn("90s", self.relay.health())
+
+
+class StateDirTest(unittest.TestCase):
     def setUp(self):
-        super().setUp()
-        self.board[61].append(started(100, 61, "wk-61"))
-        self.board[62].append(started(101, 62, "wk-62"))
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.lock = Path(self.tmp.name) / "x.lock"
 
-    @staticmethod
-    def queued(cid: int, ticket: int = 62, updated: datetime = T0) -> dict:
-        return comment(cid, "worker.queued", ticket, updated=updated, reason="machine-full", run="self")
+    def test_one_directory_per_repository_under_mmw_home(self):
+        old = os.environ.get("MMW_HOME")
+        os.environ["MMW_HOME"] = self.tmp.name
+        try:
+            path = statedir.state_dir("Chancheuklap/Multi-Model-Workflow")
+        finally:
+            if old is None:
+                os.environ.pop("MMW_HOME", None)
+            else:
+                os.environ["MMW_HOME"] = old
+        self.assertEqual(path, Path(self.tmp.name) / "state" / "chancheuklap__multi-model-workflow")
+        self.assertTrue(path.is_dir())
+        with self.assertRaises(ValueError):
+            statedir.slug("not a repo")
 
-    def woken(self):
-        return [(r["ticket"], r["session"]) for r in self.rows() if r["event"] == "worker.queued"]
+    def test_a_log_past_its_limit_is_moved_aside_once_and_a_small_one_stays(self):
+        log = Path(self.tmp.name) / "relay.log"
+        log.write_text("old line\n" * 20)
+        statedir.rotate(log, limit=1000)
+        self.assertEqual(log.read_text(), "old line\n" * 20, "a log under the limit stays")
+        statedir.rotate(log, limit=100)
+        self.assertFalse(log.exists())
+        self.assertEqual((Path(self.tmp.name) / "relay.log.1").read_text(), "old line\n" * 20)
+        log.write_text("new line\n" * 20)
+        statedir.rotate(log, limit=100)
+        self.assertEqual((Path(self.tmp.name) / "relay.log.1").read_text(), "new line\n" * 20,
+                         "the older copy is replaced, so a log holds at most twice its limit")
+        statedir.rotate(Path(self.tmp.name) / "absent.log")
 
-    def test_a_slot_given_back_wakes_the_worker_waiting_for_one(self):
-        self.board[62].append(self.queued(110))
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
-        self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
-        # Read again, and read in full by a restarted relay: queued no second time.
-        self.poll()
-        self.relay = self.fresh()
-        self.poll()
-        self.assertEqual(len(self.rows()), 1)
-        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 0))
+    def test_a_record_whose_pid_is_dead_names_nobody_and_the_lock_is_taken(self):
+        child = subprocess.Popen(["sleep", "30"])
+        identity = statedir.process_identity(child.pid)
+        self.assertTrue(identity)
+        child.kill()
+        child.wait()
+        self.lock.write_text(json.dumps({"pid": child.pid, "identity": identity}))
+        self.assertIsNone(statedir.holder(self.lock))
+        with statedir.locked(self.lock, wait=0, purpose="test"):
+            self.assertEqual(statedir.holder(self.lock)["pid"], os.getpid())
 
-    def test_bounced_wakes_the_worker_waiting_for_a_slot(self):
-        self.board[62].append(self.queued(110))
-        self.board[61].append(comment(120, "ticket.bounced", 61, into="main",
-                                      files=["src/app.py"]))
-        self.poll()
-        self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
+    def test_a_record_whose_pid_now_belongs_to_another_process_names_nobody(self):
+        self.lock.write_text(json.dumps({"pid": os.getpid(), "identity": "Mon Jan 1 00:00:00 2001"}))
+        self.assertIsNone(statedir.holder(self.lock))
+        with statedir.locked(self.lock, wait=0, purpose="test"):
+            record = statedir.holder(self.lock)
+        self.assertEqual(record["identity"], statedir.process_identity(os.getpid()))
 
-    def test_the_run_that_got_a_slot_ends_the_wait_and_the_next_release_wakes_nobody(self):
-        self.board[62] += [self.queued(110),
-                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.woken(), [])
+    def test_a_holder_in_one_time_zone_is_live_to_a_reader_in_another(self):
+        code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import statedir\n"
+                "with statedir.locked(sys.argv[2], wait=0, purpose='held under Tokyo time'):\n"
+                "    print('held', flush=True); time.sleep(60)\n")
+        child = subprocess.Popen([sys.executable, "-c", code, str(SCRIPTS), str(self.lock)],
+                                 stdout=subprocess.PIPE, text=True,
+                                 env=dict(os.environ, TZ="Asia/Tokyo"))
+        self.addCleanup(lambda: (child.kill(), child.wait(), child.stdout.close()))
+        self.assertEqual(child.stdout.readline().strip(), "held")
+        old = os.environ.get("TZ")
+        os.environ["TZ"] = "America/New_York"
+        try:
+            record = statedir.holder(self.lock)
+        finally:
+            if old is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = old
+        self.assertIsNotNone(record)
+        self.assertEqual(record["pid"], child.pid)
 
-    def test_a_release_older_than_the_wait_wakes_nobody(self):
-        self.board[61].append(comment(105, "ticket.released", 61))
-        self.board[62].append(self.queued(110))
-        self.poll()
-        self.assertEqual(self.woken(), [])
-
-    def test_a_release_read_again_after_a_newer_wait_wakes_nobody(self):
-        self.board[61].append(comment(105, "ticket.released", 61))
-        self.board[62].append(self.queued(110))
-        self.poll()
-        # The next read takes the release again, in its two minutes of overlap, and the
-        # wait recorded since is newer than it.
-        self.clock.moment = T0 + timedelta(seconds=30)
-        self.poll()
-        self.assertEqual(self.woken(), [])
-
-    def test_a_wait_and_a_later_release_meet_across_polls(self):
-        self.board[62].append(self.queued(110))
-        self.poll()
-        self.assertEqual(self.woken(), [])
-        later = T0 + timedelta(seconds=30)
-        self.clock.moment = later
-        self.board[61].append(comment(120, "worker.retracted", 61, updated=later))
-        self.poll()
-        self.assertEqual(self.woken(), [(62, "wk-62")])
-
-    def test_an_ended_wait_read_again_in_the_overlap_stays_ended(self):
-        self.board[62] += [self.queued(110),
-                           comment(115, "ticket.checked", 62, run="self", commit="a" * 40, result="met")]
-        self.poll()
-        later = T0 + timedelta(seconds=30)
-        self.clock.moment = later
-        self.board[61].append(comment(120, "ticket.landed", 61, updated=later))
-        self.poll()
-        self.assertEqual(self.woken(), [])
-
-    def test_a_slot_wake_not_yet_sent_when_the_wait_ends_is_dropped(self):
-        """A slot given back queues the wake; the runner takes it and cannot show a turn
-        starting (4), so it is delivered and stays. A second slot given back queues a
-        second wake — the first has been sent, so nothing folds into it — and the run that
-        got a slot ends the wait before that second wake is sent."""
-        self.board[62].append(self.queued(110))
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.woken(), [(62, "wk-62")])
-        self.send.code = 4
-        self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
-        second = T0 + timedelta(seconds=30)
-        self.clock.moment = second
-        self.board[61].append(comment(121, "ticket.released", 61, updated=second))
-        self.poll()
-        self.assertEqual(self.woken(), [(62, "wk-62"), (62, "wk-62")])
-        later = T0 + timedelta(seconds=60)
-        self.clock.moment = later
-        self.board[62].append(comment(130, "ticket.checked", 62, updated=later, run="self",
-                                      commit="a" * 40, result="met"))
-        self.poll()
-        # Acked through the first row; the second is still queued for it.
-        self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 1))
-        self.relay.deliver()
-        self.assertEqual(len(self.send.sent), 1, "the second wake was sent after the wait ended")
-        self.assertEqual(self.woken(), [])
-
-    def test_a_lost_reviewer_does_not_end_the_wait(self):
-        self.board[62] += [self.queued(110),
-                           comment(112, "reviewer.lost", 62, session="rv-1", runner="paseo")]
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.addressed(), [(1, "reviewer.lost", "worker", "wk-62"),
-                                            (2, "worker.queued", "worker", "wk-62")])
-
-    def test_a_waiting_ticket_of_another_watch_is_woken(self):
-        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
-        self.board[70] = [started(102, 70, "wk-70"), self.queued(110, 70)]
-        self.board[61].append(comment(120, "ticket.landed", 61))
-        self.poll()
-        self.assertEqual(self.woken(), [(70, "wk-70")])
-        self.assertEqual(self.rows()[0]["watch"], "tickets:70")
-
-    def test_the_wait_is_kept_where_a_restart_reads_it(self):
-        self.board[62].append(self.queued(110))
-        self.poll()
-        seen = json.loads((self.state / "seen.json").read_text())
-        self.assertEqual((seen["tickets"]["62"]["waiting"], seen["tickets"]["61"]["waiting"]), (110, None))
+    def test_a_live_holder_is_named_excludes_others_and_frees_the_lock_when_killed(self):
+        code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import statedir\n"
+                "with statedir.locked(sys.argv[2], wait=0, purpose='held by a test child'):\n"
+                "    print('held', flush=True); time.sleep(60)\n")
+        child = subprocess.Popen([sys.executable, "-c", code, str(SCRIPTS), str(self.lock)],
+                                 stdout=subprocess.PIPE, text=True)
+        self.addCleanup(lambda: (child.kill(), child.wait(), child.stdout.close()))
+        self.assertEqual(child.stdout.readline().strip(), "held")
+        self.assertEqual(statedir.holder(self.lock)["pid"], child.pid)
+        with self.assertRaises(statedir.LockHeld) as caught:
+            with statedir.locked(self.lock, wait=0.2):
+                pass
+        self.assertEqual(caught.exception.record["pid"], child.pid)
+        child.kill()
+        child.wait()
+        self.assertIsNone(statedir.holder(self.lock))
+        with statedir.locked(self.lock, wait=2):
+            self.assertEqual(statedir.holder(self.lock)["pid"], os.getpid())
+        self.assertEqual(self.lock.read_text(), "", "a holder that lets go empties the record")
 
 
 class MainGoneTest(RelayCase):
@@ -1155,99 +1072,6 @@ class MainGoneTest(RelayCase):
         self.assertIsNone(json.loads((self.state / "beat.json").read_text())["at"])
         self.assertTrue(json.loads((self.state / "relay.json").read_text())["ending"])
         self.assertTrue(self.relay.leave_if_unwatched())
-
-
-class HealthTest(RelayCase):
-    def test_an_empty_queue_with_no_relay_running_says_so(self):
-        self.assertIn("never", self.relay.health())
-
-    def test_a_running_relay_that_polled_within_grace_is_healthy(self):
-        self.poll()
-        with statedir.locked(self.state / "relay.lock", wait=0, purpose="test"):
-            self.assertIsNone(self.relay.health())
-            self.clock.moment = T0 + timedelta(seconds=91)
-            self.assertIn("90s", self.relay.health())
-
-
-class StateDirTest(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.lock = Path(self.tmp.name) / "x.lock"
-
-    def test_one_directory_per_repository_under_mmw_home(self):
-        old = os.environ.get("MMW_HOME")
-        os.environ["MMW_HOME"] = self.tmp.name
-        try:
-            path = statedir.state_dir("Chancheuklap/Multi-Model-Workflow")
-        finally:
-            if old is None:
-                os.environ.pop("MMW_HOME", None)
-            else:
-                os.environ["MMW_HOME"] = old
-        self.assertEqual(path, Path(self.tmp.name) / "state" / "chancheuklap__multi-model-workflow")
-        self.assertTrue(path.is_dir())
-        with self.assertRaises(ValueError):
-            statedir.slug("not a repo")
-
-    def test_a_record_whose_pid_is_dead_names_nobody_and_the_lock_is_taken(self):
-        child = subprocess.Popen(["sleep", "30"])
-        identity = statedir.process_identity(child.pid)
-        self.assertTrue(identity)
-        child.kill()
-        child.wait()
-        self.lock.write_text(json.dumps({"pid": child.pid, "identity": identity}))
-        self.assertIsNone(statedir.holder(self.lock))
-        with statedir.locked(self.lock, wait=0, purpose="test"):
-            self.assertEqual(statedir.holder(self.lock)["pid"], os.getpid())
-
-    def test_a_record_whose_pid_now_belongs_to_another_process_names_nobody(self):
-        self.lock.write_text(json.dumps({"pid": os.getpid(), "identity": "Mon Jan 1 00:00:00 2001"}))
-        self.assertIsNone(statedir.holder(self.lock))
-        with statedir.locked(self.lock, wait=0, purpose="test"):
-            record = statedir.holder(self.lock)
-        self.assertEqual(record["identity"], statedir.process_identity(os.getpid()))
-
-    def test_a_holder_in_one_time_zone_is_live_to_a_reader_in_another(self):
-        code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import statedir\n"
-                "with statedir.locked(sys.argv[2], wait=0, purpose='held under Tokyo time'):\n"
-                "    print('held', flush=True); time.sleep(60)\n")
-        child = subprocess.Popen([sys.executable, "-c", code, str(SCRIPTS), str(self.lock)],
-                                 stdout=subprocess.PIPE, text=True,
-                                 env=dict(os.environ, TZ="Asia/Tokyo"))
-        self.addCleanup(lambda: (child.kill(), child.wait(), child.stdout.close()))
-        self.assertEqual(child.stdout.readline().strip(), "held")
-        old = os.environ.get("TZ")
-        os.environ["TZ"] = "America/New_York"
-        try:
-            record = statedir.holder(self.lock)
-        finally:
-            if old is None:
-                os.environ.pop("TZ", None)
-            else:
-                os.environ["TZ"] = old
-        self.assertIsNotNone(record)
-        self.assertEqual(record["pid"], child.pid)
-
-    def test_a_live_holder_is_named_excludes_others_and_frees_the_lock_when_killed(self):
-        code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import statedir\n"
-                "with statedir.locked(sys.argv[2], wait=0, purpose='held by a test child'):\n"
-                "    print('held', flush=True); time.sleep(60)\n")
-        child = subprocess.Popen([sys.executable, "-c", code, str(SCRIPTS), str(self.lock)],
-                                 stdout=subprocess.PIPE, text=True)
-        self.addCleanup(lambda: (child.kill(), child.wait(), child.stdout.close()))
-        self.assertEqual(child.stdout.readline().strip(), "held")
-        self.assertEqual(statedir.holder(self.lock)["pid"], child.pid)
-        with self.assertRaises(statedir.LockHeld) as caught:
-            with statedir.locked(self.lock, wait=0.2):
-                pass
-        self.assertEqual(caught.exception.record["pid"], child.pid)
-        child.kill()
-        child.wait()
-        self.assertIsNone(statedir.holder(self.lock))
-        with statedir.locked(self.lock, wait=2):
-            self.assertEqual(statedir.holder(self.lock)["pid"], os.getpid())
-        self.assertEqual(self.lock.read_text(), "", "a holder that lets go empties the record")
 
 
 if __name__ == "__main__":

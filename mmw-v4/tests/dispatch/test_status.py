@@ -105,11 +105,6 @@ def run_of(run, met, unmet=0, abandoned=0, result=None, ticket=61):
               failed=[f"AC{i}" for i in range(met + 1, total + 1)])
 
 
-def queued(ticket, reason="product-full", limit=1, holders=("/repo/.worktrees/issue-60",)):
-    return ev("worker.queued", "Waiting for a product slot", ticket, run="self",
-              reason=reason, limit=limit, holders=list(holders))
-
-
 SELF_RUN_UNMET = run_of("self", met=3, unmet=2)
 SELF_RUN_ALL_MET = run_of("self", met=5)
 SELF_RUN_HANDOFF = run_of("self", met=3, unmet=1, abandoned=1, result="handoff")
@@ -383,31 +378,15 @@ class TicketReading(unittest.TestCase):
         self.assertEqual(status.counted_ac(ticket(62, comments=[typed])), "-")
 
 
-class Waiting(unittest.TestCase):
-    """A run queued for a product slot is visible on the ticket's row, and only while
-    it waits: the run that gets the slot, or anything that ends the worker's hold, ends
-    the wait."""
+class Slot(unittest.TestCase):
+    """The product slot a ticket's worktree holds is the one its newest run names."""
 
-    def row(self, *comments):
-        return rows_of({61: ticket(61, comments=comments)})[0]
-
-    def test_a_queued_run_names_the_wait_on_the_note(self):
-        row = self.row(started(61, "term_7"), queued(61))
-        self.assertTrue(row["note"].startswith("waiting for a product slot since "), row)
-        self.assertIn("product-full, 1 of 1 held", row["note"])
-
-    def test_the_run_that_got_the_slot_ends_the_wait(self):
+    def test_the_run_that_took_a_slot_names_it_on_the_row(self):
         got = ev("ticket.checked", "self run", 61, run="self", commit="a" * 40,
                  result="met", counts={"met": 1, "unmet": 0, "abandoned": 0, "total": 1},
                  slot=2)
-        row = self.row(started(61, "term_7"), queued(61), got)
-        self.assertIsNone(row["waiting"])
+        row = rows_of({61: ticket(61, comments=(started(61, "term_7"), got))})[0]
         self.assertEqual((row["note"], row["slot"]), ("", 2))
-
-    def test_a_lost_worker_is_not_waiting(self):
-        row = self.row(started(61, "term_7"), queued(61), lost(61, "term_7"))
-        self.assertIsNone(row["waiting"])
-        self.assertNotIn("waiting for a product slot", row["note"])
 
 
 class PhaseFromEvents(unittest.TestCase):

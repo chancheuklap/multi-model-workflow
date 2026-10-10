@@ -19,17 +19,25 @@ models = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(models)
 
 
+def without_launch_block(host, block="cli"):
+    """hosts.json as it is, except that `host` has no `block`: a host that runner cannot start."""
+    data = models.load_hosts()
+    data["hosts"][host].pop(block)
+    return mock.patch.object(models, "load_hosts", return_value=data)
+
+
 def base_config(version=1, runner="orca"):
-    return {
-        "version": version,
-        "runner": runner,
-        "rows": {
-            "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
-            "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
-            "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
-            "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
-        },
+    """The four rows the cases change by name; every other role of roles.json on one row the
+    test catalog offers, so a role added to the table needs no change here."""
+    rows = {
+        "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
+        "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
+        "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
+        "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
     }
+    for role in models.ALLOWED_AGENTS:
+        rows.setdefault(role, {"host": "claude", "model": "opus 5", "effort": "high"})
+    return {"version": version, "runner": runner, "rows": rows}
 
 
 class LocalConfigTest(unittest.TestCase):
@@ -63,8 +71,7 @@ class LocalConfigTest(unittest.TestCase):
         written = models.write_local_config(proposed, old["version"], scan)
         self.assertEqual(written["version"], 2)
         self.assertEqual(set(written), {"version", "runner", "rows"})
-        self.assertEqual(set(written["rows"]), {
-            "junior-worker", "senior-worker", "reviewer", "advisor"})
+        self.assertEqual(set(written["rows"]), set(models.ALLOWED_AGENTS))
         on_disk = json.loads(models.models_json_path().read_text(encoding="utf-8"))
         self.assertEqual(on_disk, written)
         self.assertEqual(on_disk["rows"]["reviewer"]["model"], "sonnet 5")
@@ -72,9 +79,10 @@ class LocalConfigTest(unittest.TestCase):
     def test_refuses_a_host_the_runner_cannot_start(self):
         old = self.seed()
         proposed = json.loads(json.dumps(old))
-        proposed["rows"]["senior-worker"]["host"] = "pi"
+        proposed["rows"]["reviewer"]["model"] = "sonnet 5"
         before = models.models_json_path().read_bytes()
-        with self.assertRaisesRegex(models.InvalidConfig, "senior-worker.host.*orca.*pi"):
+        with without_launch_block("codex"), \
+                self.assertRaisesRegex(models.InvalidConfig, "senior-worker.host.*orca.*codex"):
             models.write_local_config(proposed, 1, self.scan())
         self.assertEqual(models.models_json_path().read_bytes(), before)
 
@@ -190,10 +198,9 @@ class LocalConfigTest(unittest.TestCase):
         self.assertEqual(scan["hosts"]["claude"]["offered"], [{"model": "opus 5", "efforts": ["high"]}])
 
     def test_unlaunchable_comes_before_the_scan(self):
-        scan = self.scan("orca")
-        self.assertEqual(scan["hosts"]["pi"]["state"], "unlaunchable")
-        scan = self.scan("herdr")
-        self.assertEqual(scan["hosts"]["pi"]["state"], "unlaunchable")
+        with without_launch_block("codex"):
+            for runner in ("orca", "herdr"):
+                self.assertEqual(self.scan(runner)["hosts"]["codex"]["state"], "unlaunchable")
 
     def test_paseo_down_marks_every_host(self):
         os.environ["MMW_HOST_CATALOG"] = str(STATE_CATALOG)
@@ -207,22 +214,30 @@ class LocalConfigTest(unittest.TestCase):
             models.write_local_config(base_config(), 1, self.scan())
         self.assertFalse(models.models_json_path().exists())
 
-    def test_install_imports_a_legacy_file_without_runner_as_auto(self):
-        legacy = self.home / "models.md"
-        rows = base_config()["rows"]
-        legacy.write_text(
-            "| agent | host | model | effort |\n"
-            + "".join(
-                f"| {role} | {row['host']} | {row['model']} | {row['effort']} |\n"
-                for role, row in rows.items()
-            ),
-            encoding="utf-8",
-        )
-        result = models.install_local_config(legacy)
-        self.assertEqual((result.created, result.imported), (True, True))
-        self.assertEqual(result.config["runner"], "auto")
-        self.assertFalse(legacy.exists())
+    def test_install_writes_the_defaults_when_there_is_no_file(self):
+        result = models.install_local_config()
+        self.assertTrue(result.created)
         self.assertEqual(models.read_local_config(), result.config)
+
+    def test_install_gives_a_role_the_saved_file_lacks_its_default_and_keeps_the_rest(self):
+        old = base_config()
+        del old["rows"]["synthesizer"]
+        old["rows"]["reviewer"]["model"] = "sonnet 5"
+        self.seed(old)
+        result = models.install_local_config()
+        self.assertFalse(result.created)
+        saved = models.read_local_config()
+        self.assertEqual(saved["version"], 2)
+        self.assertEqual(saved["rows"]["reviewer"]["model"], "sonnet 5")
+        default = next(r for r in models.load_hosts()["defaults"] if r["agent"] == "synthesizer")
+        self.assertEqual(saved["rows"]["synthesizer"],
+                         {k: default[k] for k in ("host", "model", "effort")})
+
+    def test_install_leaves_a_complete_file_untouched(self):
+        self.seed()
+        before = models.models_json_path().read_bytes()
+        models.install_local_config()
+        self.assertEqual(models.models_json_path().read_bytes(), before)
 
     def test_a_malformed_role_is_reported_once(self):
         config = base_config()

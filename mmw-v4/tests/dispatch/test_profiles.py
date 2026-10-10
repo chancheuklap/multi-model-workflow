@@ -55,8 +55,11 @@ class BypassArgvTest(unittest.TestCase):
         ])
 
     def test_a_host_without_a_cli_block_is_refused(self):
-        with self.assertRaisesRegex(ValueError, "no bypass argv for host pi: .*`cli` block"):
-            models.bypass_argv("pi", "x", "low", "issue-1")
+        data = models.load_hosts()
+        data["hosts"]["grok"].pop("cli")
+        with mock.patch.object(models, "load_hosts", return_value=data), \
+                self.assertRaisesRegex(ValueError, "no bypass argv for host grok: .*`cli` block"):
+            models.bypass_argv("grok", "x", "low", "issue-1")
 
     def test_the_command_line_block_is_named_cli(self):
         hosts = models.load_hosts()["hosts"]
@@ -128,9 +131,8 @@ class SessionRowsTest(unittest.TestCase):
         config = models.default_local_config()
         shuffled = {role: config["rows"][role] for role in reversed(models.ALLOWED_AGENTS)}
         rows = rows_from(shuffled)
-        self.assertEqual(
-            [r.agent for r in rows],
-            ["junior-worker", "senior-worker", "reviewer", "advisor"])
+        self.assertEqual([r.agent for r in rows], list(models.ALLOWED_AGENTS))
+        self.assertEqual(list(models.ALLOWED_AGENTS)[:3], ["junior-worker", "senior-worker", "reviewer"])
 
     def test_an_unknown_agent_is_refused(self):
         config = models.default_local_config()["rows"]
@@ -199,7 +201,7 @@ class PaseoSettingsTest(unittest.TestCase):
 
 
 class DefaultsTest(unittest.TestCase):
-    def test_defaults_include_the_five_roles(self):
+    def test_defaults_include_every_session_role(self):
         config = models.default_local_config()
         self.assertEqual(config["version"], 1)
         self.assertEqual(config["runner"], "orca")
@@ -285,14 +287,6 @@ class CliCatalogParseTest(unittest.TestCase):
         rows = models._parse_codex_debug_models(raw)
         self.assertEqual(rows[0]["id"], "gpt-5.6-sol")
         self.assertEqual(rows[0]["thinkingOptionIds"], ["low", "high"])
-
-    def test_pi_list_models_uses_provider_slash_model(self):
-        rows = models._parse_pi_models(
-            "provider      model                         context  max-out  thinking  images\n"
-            "xai           grok-4.6                      500K     500K     yes       yes   \n"
-        )
-        self.assertEqual(rows[0]["id"], "xai/grok-4.6")
-        self.assertIn("high", rows[0]["thinkingOptionIds"])
 
     def test_fillable_rows_are_the_cells_to_copy(self):
         rows = models.fillable_rows("cursor", [

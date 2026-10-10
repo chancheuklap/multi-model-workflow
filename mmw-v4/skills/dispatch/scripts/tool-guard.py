@@ -22,8 +22,8 @@ reports the ticket blocked rather than clearing the way to it.
     tool-guard.py pretool <host>    the host is about to run a shell command
     tool-guard.py question <host>   the host is about to ask the user a question
 
-`<host>` is one of claude, codex, grok, cursor, pi. It decides only the shape of the
-answer; the decision and the sentence are the same for all five.
+`<host>` is one of claude, codex, grok, cursor. It decides only the shape of the
+answer; the decision and the sentence are the same for all four.
 
 It refuses rather than checks. A worker typing `gh issue close` has by definition not
 been through `--closeout`, so there is no draft of its to check; a hook that guessed
@@ -61,7 +61,7 @@ if str(_UI_ACCEPTANCE_SCRIPTS) not in sys.path:
 
 from refusal import refusal  # noqa: E402
 
-HOSTS = ("claude", "codex", "grok", "cursor", "pi")
+HOSTS = ("claude", "codex", "grok", "cursor")
 GATES = ("pretool", "question")
 TICKET_DIR = re.compile(r"^issue-(\d+)$")
 
@@ -85,7 +85,6 @@ QUESTION_TOOLS = {
     "codex": ("request_user_input",),
     "grok": ("ask_user_question",),
     "cursor": ("AskQuestion",),
-    "pi": ("ask_user_question",),
 }
 
 
@@ -111,7 +110,7 @@ def read_event() -> dict:
 def command_of(event: dict) -> str | None:
     """The shell command this event is about, in whichever way its host spelled it.
 
-    Claude Code, Codex and the JSON pi's extension builds nest it under `tool_input`,
+    Claude Code and Codex nest it under `tool_input`,
     Grok Build under `toolInput`, Cursor puts it at the top level. This is the only
     place those three spellings meet.
     """
@@ -222,12 +221,10 @@ def refuse(host: str, reason: str) -> None:
                                          "permissionDecisionReason": reason}}
     elif host == "grok":
         answer = {"decision": "deny", "reason": reason}
-    elif host == "cursor":
+    else:
         # `user_message` is what the client shows; `agent_message` is what the model
         # reads, and the model is the one that has to do something about it.
         answer = {"permission": "deny", "user_message": reason, "agent_message": reason}
-    else:
-        answer = {"block": True, "reason": reason}
     print(json.dumps(answer, ensure_ascii=False))
 
 

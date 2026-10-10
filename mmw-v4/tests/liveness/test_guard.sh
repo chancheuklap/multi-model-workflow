@@ -111,14 +111,12 @@ CLAUDE='{"session_id":"c1","transcript_path":"/t","cwd":"/repo","hook_event_name
 CODEX='{"session_id":"x1","turn_id":"t1","cwd":"/repo","hook_event_name":"Stop","model":"gpt","stop_hook_active":false}'
 GROK='{"hookEventName":"stop","hook_event_name":"Stop","sessionId":"g1","cwd":"/repo","workspaceRoot":"/repo","stopHookActive":false,"reason":"end_turn"}'
 CURSOR='{"conversation_id":"k1","generation_id":"g","hook_event_name":"stop","status":"completed","loop_count":0,"cursor_version":"2026.09.08-6caf4ff","workspace_roots":["/repo"]}'
-PI='{"hook_event_name":"agent_settled","cwd":"/repo"}'
 
 echo "### each host blocks, in its own terms, while tickets may be held and no watchdog runs"
 hook claude "$CLAUDE";  check "claude Stop: exit 2 with the reason on stderr" 2 "MMW turn guard:"
 hook codex "$CODEX";    check "codex Stop: exit 2 with the reason on stderr" 2 "MMW turn guard:"
 hook grok "$GROK" GROK_HOOK_EVENT=stop GROK_SESSION_ID=g1
                         check "grok Stop: its own registration blocks despite its own markers" 2 "MMW turn guard"
-hook pi "$PI";          check "pi agent_settled: exit 2, the extension sends it as a follow-up" 2 "MMW turn guard"
 hook cursor "$CURSOR"
 if [ "$RC" = 0 ] && printf '%s' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "MMW turn guard" in d["followup_message"]' 2>/dev/null; then
   pass=$((pass + 1)); echo "ok   cursor stop: exit 0 with one followup_message on stdout"

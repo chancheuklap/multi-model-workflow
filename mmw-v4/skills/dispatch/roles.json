@@ -1,0 +1,82 @@
+{
+  "roles": [
+    {
+      "name": "junior-worker",
+      "kind": "session",
+      "command": "start",
+      "what": "works one ticket to closed: writes the code, runs the criteria, starts its reviewer",
+      "returns": "events on its ticket, which the relay turns into wakes for the orchestrator"
+    },
+    {
+      "name": "senior-worker",
+      "kind": "session",
+      "command": "start",
+      "what": "the worker of a ticket graded senior",
+      "returns": "events on its ticket, which the relay turns into wakes for the orchestrator"
+    },
+    {
+      "name": "reviewer",
+      "kind": "session",
+      "command": "start",
+      "what": "reviews one ticket's diff, sending the code-review axes",
+      "returns": "reviewer.reported on the ticket, which the relay turns into a wake for its worker"
+    },
+    {
+      "name": "advisor",
+      "kind": "session",
+      "command": "brief",
+      "lead": {"file": "advisor/references/advising.md"},
+      "sent_by": ["advisor"],
+      "what": "a second opinion on one decision, on a stronger model",
+      "returns": "its answer, reported to the session that briefed it"
+    },
+    {
+      "name": "researcher",
+      "kind": "session",
+      "command": "brief",
+      "lead": {"skill": "research"},
+      "sent_by": ["how", "why"],
+      "brief": ["how/references/explorer-prompt.md", "why/references/investigator-prompt.md"],
+      "what": "reads one source, an angle of the code or one kind of evidence, and hands back cited findings",
+      "returns": "its findings, reported to the session that briefed it"
+    },
+    {
+      "name": "explainer",
+      "kind": "session",
+      "command": "brief",
+      "sent_by": ["how"],
+      "brief": ["how/references/explainer-prompt.md"],
+      "what": "turns findings into one explanation of how something works, or explores and explains a simple question itself",
+      "returns": "the five-section explanation, reported to the session that briefed it"
+    },
+    {
+      "name": "synthesizer",
+      "kind": "session",
+      "command": "brief",
+      "sent_by": ["why"],
+      "brief": ["why/references/synthesizer-prompt.md"],
+      "what": "sorts findings into what was found, what is inferred and what is not known, and spot-checks citations",
+      "returns": "the answer in the synthesizer prompt's sections, reported to the session that briefed it"
+    },
+    {
+      "name": "code-review axis",
+      "kind": "subagent",
+      "sent_by": ["code-review"],
+      "prompt": [
+        "code-review/references/spec-reviewer.md",
+        "code-review/references/standards-reviewer.md",
+        "code-review/references/tests-reviewer.md",
+        "code-review/references/ui-reviewer.md"
+      ],
+      "what": "reviews one ticket's diff along one axis",
+      "returns": "that axis's report, to the reviewer that sent it, in the same turn"
+    },
+    {
+      "name": "grilling fact-finder",
+      "kind": "subagent",
+      "sent_by": ["grilling"],
+      "what": "looks up one fact a question needs, in the files or with the tools, while the session asks the rest",
+      "returns": "the fact, to the session grilling the user, in the same turn"
+    }
+  ]
+}

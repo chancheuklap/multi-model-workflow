@@ -5,7 +5,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|advise|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|brief|briefreport|retract
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh slotatclaim|route|specfield|stopproduct|suspend|suspendbusy|status
@@ -19,9 +19,9 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved|adopt
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -282,76 +282,6 @@ args = sys.argv[1:]
 state = Path(os.environ["MMW_FAKE_PASEO_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_PASEO_SCENARIO", "")
-uses = os.environ.get("MMW_FAKE_USES", "agree")
-
-PASEO_HELP_TOP = """Usage: paseo [options] [command]
-
-Paseo CLI - control your AI coding agents from the command line
-
-Options:
-  --json                        output in JSON format
-  -h, --help                    display help for command
-"""
-
-PASEO_HELP = {
-    ("provider", "ls"): """Usage: paseo provider ls [options]
-
-Options:
-  --json                Output in JSON format
-""",
-    ("provider", "models"): """Usage: paseo provider models [options] <provider>
-
-Options:
-  --json                Output in JSON format
-""",
-    ("provider", "diagnostic"): """Usage: paseo provider diagnostic [options] <provider>
-
-Options:
-  --json                Output in JSON format
-""",
-    ("run",): """Usage: paseo run [options] <prompt>
-
-Create and start an agent with a task
-
-Options:
-  -d, --background                  Run in background
-  --title <title>                   Assign a title to the agent
-  --provider <provider>             Agent provider, or provider/model
-  --mode <mode>                     Provider-specific mode
-  --thinking <id>                   Thinking option ID to use for this run
-  --cwd <path>                      Working directory (default: current)
-  --env <key=value>                 Set environment variable(s) for the agent
-  --label <key=value>               Add label(s) to the agent (default: [])
-  --json                            Output in JSON format
-  -h, --help                        display help for command
-""",
-    ("archive",): """Usage: paseo archive [options] <id>
-
-Archive an agent (soft-delete)
-
-Options:
-  --force               Interrupt the agent if it is running, then archive
-  -h, --help            display help for command
-""",
-    ("send",): """Usage: paseo send [options] <id> [prompt]
-
-Send a message/task to an existing agent
-
-Options:
-  --no-wait             Return immediately without waiting for completion
-  --json                Output in JSON format
-  -h, --help            display help for command
-""",
-    ("ls",): """Usage: paseo ls [options]
-
-List agents. By default excludes archived agents.
-
-Options:
-  -g, --global         List agents across all directories
-  --json               Output in JSON format
-  -h, --help            display help for command
-""",
-}
 
 
 def load(name):
@@ -388,18 +318,6 @@ def labels_from_args():
         i += 1
     return wanted
 
-
-if "-h" in args or "--help" in args:
-    cmd = tuple(a for a in args if a not in ("-h", "--help"))
-    if not cmd:
-        print(PASEO_HELP_TOP)
-        sys.exit(0)
-    page = PASEO_HELP.get(cmd)
-    if page is None:
-        print(PASEO_HELP_TOP)
-        sys.exit(0)
-    print(page)
-    sys.exit(0)
 
 if args[:2] == ["provider", "ls"]:
     grok = "unavailable" if scenario == "provider-down" else "available"
@@ -523,7 +441,7 @@ if args[:1] == ["ls"]:
 # `paseo run -d --json … -- <prompt>`: records the request in the shape the checks read
 # (runs.jsonl, newest last), lists the agent with its labels, answers with its id.
 if args[:1] == ["run"]:
-    if scenario == "run-fail":
+    if scenario == "run-fail" or (scenario == "run-fail-after-one" and (state / "runs.jsonl").exists()):
         print("Error: Failed to create agent: provider initialization failed", file=sys.stderr)
         sys.exit(1)
     rest = args[1:]
@@ -630,62 +548,6 @@ args = sys.argv[1:]
 state = Path(os.environ["MMW_FAKE_HERDR_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_HERDR_SCENARIO", "")
-uses = os.environ.get("MMW_FAKE_USES", "agree")
-
-HERDR_HELP_TOP = """herdr — terminal workspace manager for AI coding agents
-
-Usage: herdr [options]
-       herdr --session <name> [options]
-       herdr agent start
-       herdr tab create
-
-Options:
-  -h, --help
-      --timeout <MS>
-      --kind <KIND>
-      --pane <ID>
-      --wait
-      --until <STATUS>
-      --cwd <PATH>
-"""
-
-HERDR_HELP = {
-    ("pane", "close"): """Close a pane
-
-Usage: herdr pane close <pane_id>
-""",
-    ("tab", "create"): """Create a tab
-
-Usage: herdr tab create [OPTIONS]
-
-Options:
-      --cwd <PATH>
-      --no-focus
-      --env <KEY=VALUE>
-""",
-    ("agent", "start"): """Start a supported interactive agent in an existing pane
-
-Usage: herdr agent start <NAME> --kind <KIND> --pane <ID> [OPTIONS]
-
-Options:
-      --kind <KIND>
-      --pane <ID>
-      --timeout <MS>
-""",
-    ("agent", "prompt"): """Submit a prompt to an agent
-
-Usage: herdr agent prompt <TARGET> <TEXT> [OPTIONS]
-
-Options:
-      --wait
-      --until <STATUS>
-      --timeout <MS>
-""",
-    ("agent", "list"): """List agents
-
-Usage: herdr agent list
-""",
-}
 
 
 def load_agents():
@@ -710,23 +572,6 @@ def opt(flag):
             return args[i + 1]
     return ""
 
-
-if "-h" in args or "--help" in args:
-    cmd = tuple(a for a in args if a not in ("-h", "--help"))
-    if uses == "unreadable" and cmd:
-        print(HERDR_HELP_TOP)
-        sys.exit(0)
-    if not cmd:
-        print(HERDR_HELP_TOP)
-        sys.exit(0)
-    page = HERDR_HELP.get(cmd)
-    if page is None:
-        print(HERDR_HELP_TOP)
-        sys.exit(0)
-    if uses == "mismatch" and cmd == ("tab", "create"):
-        page = page.replace("      --no-focus\n", "")
-    print(page)
-    sys.exit(0)
 
 if args[:2] == ["pane", "close"]:
     pane = args[2] if len(args) > 2 else ""
@@ -828,7 +673,6 @@ state = Path(os.environ["MMW_FAKE_ORCA_STATE"])
 state.mkdir(parents=True, exist_ok=True)
 scenario = os.environ.get("MMW_FAKE_ORCA_SCENARIO", "")
 send_mode = os.environ.get("MMW_FAKE_ORCA_SEND", "") or scenario
-uses = os.environ.get("MMW_FAKE_USES", "agree")
 
 
 def load_terminals():
@@ -853,37 +697,6 @@ def opt(flag):
             return args[i + 1]
     return ""
 
-
-if args[:1] == ["agent-context"]:
-    wait_flags = ["help", "json", "pairing-code", "environment",
-                  "terminal", "for", "timeout-ms"]
-    if uses == "mismatch":
-        wait_flags = [f for f in wait_flags if f != "for"]
-    if uses == "orca-unreadable":
-        wait_flags = "terminal for timeout-ms"
-    print(json.dumps({
-        "schemaVersion": 1,
-        "commandCount": 8,
-        "commands": [
-            {"command": "tab create",
-             "flags": ["help", "json", "url", "worktree"]},
-            {"command": "terminal create",
-             "flags": ["help", "json", "worktree", "command", "title"]},
-            {"command": "terminal send",
-             "flags": ["help", "json", "terminal", "text", "enter",
-                       "wait-submit"]},
-            {"command": "terminal wait", "flags": wait_flags},
-            {"command": "terminal read",
-             "flags": ["help", "json", "terminal", "cursor", "limit", "screen"]},
-            {"command": "terminal list",
-             "flags": ["help", "json", "worktree"]},
-            {"command": "terminal close",
-             "flags": ["help", "json", "terminal"]},
-            {"command": "worktree set",
-             "flags": ["help", "json", "worktree", "issue", "parent-worktree"]},
-        ],
-    }))
-    sys.exit(0)
 
 if args[:2] == ["project", "setups"]:
     path = state / "setups.json"
@@ -1383,13 +1196,6 @@ found = next((t for t in rows if t.get("number") == want), {})
 for name in found.get("labels", []):
     print(name)
 ' ;;
-  "label create "*)
-    # FAKE_GH_LABEL_EXISTS: the repository already has it, which `gh` reports as a failure.
-    if [ -n "${FAKE_GH_LABEL_EXISTS:-}" ]; then
-      echo "label with name \"$3\" already exists; use \`--force\` to update its color and description" >&2
-      exit 1
-    fi
-    echo "✓ Label \"$3\" created" ;;
   "issue reopen "*)
     if [ -n "${FAKE_GH_MUTATES_ISSUES:-}" ]; then
       "$MMW_FAKE_GH_STATE_HELPER" ticket-reopen "$FAKE_GH_TICKETS_FILE" "$3"
@@ -1574,8 +1380,18 @@ mkdir -p "$MMW_HOME"
 # the scenarios exercise (a Cursor junior row with its effort inside the model id, a Grok
 # senior row at xhigh).
 cat > "$MMW_HOME/models.json" <<'JSON'
-{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}
+{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"},"researcher":{"host":"claude","model":"opus 5","effort":"high"},"explainer":{"host":"claude","model":"opus 5","effort":"xhigh"}}}
 JSON
+# Every other session role of roles.json gets one row the fixture catalog offers, so a role
+# added to the table needs no change here.
+python3 - "$SKILL/roles.json" "$MMW_HOME/models.json" <<'PY'
+import json, sys
+roles = [r["name"] for r in json.load(open(sys.argv[1]))["roles"] if r.get("kind") == "session"]
+config = json.load(open(sys.argv[2]))
+for role in roles:
+    config["rows"].setdefault(role, {"host": "claude", "model": "opus 5", "effort": "high"})
+json.dump(config, open(sys.argv[2], "w"))
+PY
 
 git init -q --bare -b main "$TMP/origin.git"
 git init -q -b main "$TMP/repo"
@@ -1707,7 +1523,7 @@ reset_log() {
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/repos.json"
   unset MMW_FAKE_HERDR_SCENARIO MMW_FAKE_HERDR_PROMPT MMW_FAKE_SEND_FAILS
-  unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND MMW_FAKE_USES
+  unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND
   unset MMW_FAKE_NMEM_SCENARIO
   printf '%s\n' '{"spaces":{},"agents":{}}' > "$MMW_FAKE_NMEM_STATE"
   printf '%s\n' '{"status":"complete","total":0,"returned":0,"decisions":[]}' > "$MMW_EMPTY_MEMORY_DECISIONS"
@@ -2233,7 +2049,7 @@ skill_copy_for() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
   mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/ui-acceptance/scripts"
-  cp -R "$SKILL/hosts.json" "$SKILL/scripts" "$SKILL/references" "$copy/"
+  cp -R "$SKILL/hosts.json" "$SKILL/roles.json" "$SKILL/scripts" "$SKILL/references" "$copy/"
   cp "$(dirname "$SKILL")/ui-acceptance/scripts/lease.py" \
      "$(dirname "$SKILL")/ui-acceptance/scripts/refusal.py" \
      "$TMP/fake/skills/ui-acceptance/scripts/"
@@ -2289,7 +2105,7 @@ JSON
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" -ge 2 ] \
     || fail "expected one line per failing check: $(cat "$TMP/err")"
 
-  echo "--- install.sh --check failing is a warning, not a refusal, and a checkout that is not the installed one is not installed from"
+  echo "--- install.sh --check failing is a warning, not a refusal, and nothing is installed"
   copy="$(skill_copy_for check 1)"
   reset_log
   cat > "$TMP/tickets.json" <<'JSON'
@@ -2302,23 +2118,18 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
-  grep -q 'install.sh --check still finds this' "$TMP/err" && grep -q '缺 something' "$TMP/err" \
-    || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
-  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check --check " ] \
-    || fail "a checkout that is not the installed one should only check: $(cat "$TMP/install-calls")"
+  grep -q '缺 something' "$TMP/err" || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
 
-  echo "--- the installed checkout repairs itself with install.sh before it warns"
-  printf '#!/usr/bin/env bash\necho "run ${1:-install}" >> "%s/install-calls"\n[ "${1:-}" = --check ] && [ ! -f "%s/installed" ] && exit 1\ntouch "%s/installed"\nexit 0\n' "$TMP" "$TMP" "$TMP" > "$TMP/fake/install.sh"
-  rm -f "$TMP/install-calls" "$TMP/installed"
+  echo "--- the installed checkout only checks too"
+  rm -f "$TMP/install-calls"
   mkdir -p "$MMW_HOME"
   printf '%s\n' "$TMP/fake" > "$MMW_HOME/installed-root"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   rm -f "$MMW_HOME/installed-root"
-  [ "$code" = 0 ] || fail "expected exit 0 after the repair, got $code: $(cat "$TMP/err")"
-  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "run --check run install run --check " ] \
-    || fail "expected check, install, check: $(cat "$TMP/install-calls")"
-  grep -q 'still finds' "$TMP/err" && fail "a repaired install should not warn: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check " ] \
+    || fail "check should run install.sh --check once and never install: $(cat "$TMP/install-calls")"
 
   echo "--- a row that does not resolve on tonight's runner is refused in the resolver's words, whatever the tickets carry"
   copy="$(skill_copy_for check)"
@@ -2897,7 +2708,7 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
   [ "$code" = 0 ] || fail "a full machine must not stop a worker from starting, got $code: $(cat "$TMP/err")"
   started_once
   assert_wt 61
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
     || fail "start took a slot: $(python3 "$LEASE_PY" list)"
   posted_events 61 slot port_base | grep -qx "worker.started slot=None port_base=None" \
     || fail "worker.started should carry no slot: $(posted_events 61 slot port_base)"
@@ -2964,8 +2775,8 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "start should hold no slot, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "start should hold no slot, it holds $(lease_count "$TMP/repo/.worktrees")"
   # The worker's first run of a criterion that needs the product acquires it.
   MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 61)" >/dev/null
   set_agent_status "$(cat "$TMP/out")" closed
@@ -2977,8 +2788,8 @@ JSON
   assert_no_wt 61
   assert_branch 61
   hasnt_runner_worktree
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the slot should be free after retract, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the slot should be free after retract, count is $(lease_count "$TMP/repo/.worktrees")"
   grep -q "retract #61: archived 1, slot given back 1, claim given back 1" "$TMP/err" \
     || fail "the counters should match what was undone: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 61 :: --remove-assignee :: @me"
@@ -3001,8 +2812,8 @@ JSON
   assert_wt 62
   MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 62)" >/dev/null \
     || fail "the slot retract gave back should be free for the next claim: $(python3 "$LEASE_PY" list)"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "the next claim should take the freed slot, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "the next claim should take the freed slot, count is $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- a live agent on the ticket is refused, and the workspace stays"
   reset_log
@@ -3015,8 +2826,8 @@ JSON
   hasnt "workspace :: archive"
   grep -q "live agent" "$TMP/err" \
     || fail "the refusal should say a live agent is on the ticket: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "a refused retract must not give the slot back, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "a refused retract must not give the slot back, count is $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- a claim this pipeline does not hold is left alone"
   reset_log
@@ -3036,8 +2847,8 @@ JSON
   hasnt "gh :: issue :: edit"
   grep -q "claim given back 0" "$TMP/err" \
     || fail "someone else's claim must stay: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the slot should still be given back: $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the slot should still be given back: $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- with no lease.py to be found at all, retract refuses and the slot stays held"
   reset_log
@@ -3057,8 +2868,8 @@ JSON
   grep -q "lease.py" "$TMP/err" \
     || fail "the refusal should name lease.py: $(cat "$TMP/err")"
   hasnt "workspace :: archive"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "the slot must stay held when retract cannot see lease.py, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
+    || fail "the slot must stay held when retract cannot see lease.py, count is $(lease_count "$TMP/repo/.worktrees")"
 
   echo "--- and with the ui-acceptance skill next door, no --tools is needed to find it"
   : > "$MMW_TEST_LOG"
@@ -3066,8 +2877,8 @@ JSON
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$copy/scripts/dispatch.sh" retract 61)"
   [ "$code" = 0 ] || fail "expected exit 0 with lease.py next door, got $code: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the slot should be given back, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees"); retract said: $(cat "$TMP/err")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the slot should be given back, count is $(lease_count "$TMP/repo/.worktrees"); retract said: $(cat "$TMP/err")"
 }
 
 scenario_start_reviewer() {
@@ -3146,94 +2957,160 @@ scenario_nobaseconfig() {
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "reviewer without base config expected 0, got $code: $(cat "$TMP/err")"
   started_once
-
-  fresh_repo
-  reset_log
-  no_relay
-  seed_main_agent agt_self
-  self_picked_worktree
-  tree="$(wt 61)"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo $?)"
-  [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
-  assert_no_retired_base_config "$TMP/repo" 61 adopt
-  no_relay
 }
 
-scenario_advise() {
-  local code packet dest
-  packet="$TMP/packet.txt"
-  printf '%s\n' 'the brief body' > "$packet"
+# The batch directory of the newest batch `brief` made, or nothing.
+newest_batch() {
+  ls -1 "$STATE_DIR/briefs" 2>/dev/null | tail -n 1
+}
 
-  echo "--- advise starts the advisor row in the current worktree and prints the session id"
+# What the relay keeps for the watch <key>: "runner session", or nothing.
+brief_watch() { watch_main "$1"; }
+
+scenario_brief() {
+  local code packet second batch dest
+  packet="$TMP/packet.txt"
+  second="$TMP/second.txt"
+  printf '%s\n' 'the brief body' > "$packet"
+  printf '%s\n' 'the second brief' > "$second"
+
+  echo "--- brief advisor starts the advisor row in the current worktree, as a batch this session is woken for"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief advisor "$packet")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   started_once
-  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
+  batch="$(newest_batch)"
+  [ -n "$batch" ] || fail "no batch directory was made under $STATE_DIR/briefs"
+  [ "$(cat "$TMP/out")" = "$batch/1"$'\t'"$(out_json id)" ] \
+    || fail "stdout should be <batch>/1<TAB><session>: $(cat "$TMP/out")"
   [ "$(out_json provider)" = "claude/claude-fable-5-1" ] \
-    || fail "advise did not start the advisor row: $(out_json provider)"
+    || fail "brief advisor did not start the advisor row: $(out_json provider)"
   [ "$(out_json settings.thinkingOptionId)" = medium ] \
     || fail "effort: $(out_json settings.thinkingOptionId)"
   case "$(out_json initialPrompt)" in
-    "Use the advisor skill."*) ;;
-    *) fail "the advisor dispatch line is missing: $(out_json initialPrompt)" ;;
-  esac
-  case "$(out_json initialPrompt)" in
-    *"the brief body"*) ;;
-    *) fail "the brief is missing from the prompt: $(out_json initialPrompt)" ;;
+    "# Advising"*"You are the advisor"*"the brief body"*"report $batch/1 <file>"*) ;;
+    *) fail "the advisor's prompt should be advising.md, then the brief, then how to report: $(out_json initialPrompt)" ;;
   esac
   dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)"
   [ "$(out_json cwd)" = "$dest" ] || fail "cwd: $(out_json cwd), want $dest"
+  [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] \
+    || fail "the batch's watch should wake paseo agt_main: $(brief_watch "briefs:$batch")"
+  grep -q "\"session\": \"$(out_json id)\"" "$STATE_DIR/briefs/$batch/1/started.json" \
+    || fail "the brief's session is not recorded: $(cat "$STATE_DIR/briefs/$batch/1/started.json")"
   hasnt "gh :: issue :: comment"
   hasnt_runner_worktree
 
-  echo "--- advise does not need a relay"
+  echo "--- brief researcher with two files starts two sessions of one batch, each told its own brief"
   reset_log
   fresh_repo
-  no_relay
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
-  [ "$code" = 0 ] || fail "advise without a relay expected 0, got $code: $(cat "$TMP/err")"
-  started_once
-  [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
-  hasnt "gh :: issue :: comment"
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$second")"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(count_of "paseo :: run")" = 2 ] || fail "expected two paseo runs, got $(count_of "paseo :: run")"
+  batch="$(newest_batch)"
+  [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] \
+    || fail "stdout should name both briefs of one batch: $(cat "$TMP/out")"
+  case "$(out_json initialPrompt)" in
+    "Use the research skill."*"the second brief"*"report $batch/2 <file>"*) ;;
+    *) fail "the second researcher's prompt is wrong: $(out_json initialPrompt)" ;;
+  esac
+  [ "$(out_json provider)" = "claude/claude-opus-5" ] \
+    || fail "brief researcher did not start the researcher row: $(out_json provider)"
 
-  echo "--- a start the runner refuses is refused once: one paseo run, no second host"
+  echo "--- brief explainer has no lead: the brief is the whole prompt before how to report"
   reset_log
   fresh_repo
-  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail \
-          bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief explainer "$packet")"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  case "$(out_json initialPrompt)" in
+    "the brief body"*"report "*) ;;
+    *) fail "the explainer's prompt should open with the brief: $(out_json initialPrompt)" ;;
+  esac
+  [ "$(out_json settings.thinkingOptionId)" = xhigh ] \
+    || fail "the explainer row's effort: $(out_json settings.thinkingOptionId)"
+
+  echo "--- a role brief does not start is refused with the roles it does start, and nothing is started"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief reviewer "$packet")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "advisor, researcher, explainer, synthesizer" "$TMP/err" \
+    || fail "the refusal should list the brief roles: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+
+  echo "--- a session no runner can name is refused before anything starts: nothing could wake it"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "nothing could wake this session" "$TMP/err" \
+    || fail "the refusal should say why: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+  [ -z "$(newest_batch)" ] || fail "no batch should be left: $(newest_batch)"
+
+  echo "--- a start the runner refuses closes the batch: no batch, no watch, the reason kept"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail \
+          bash "$DISPATCH" "${TOOLS[@]}" brief advisor "$packet")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   started_once
-  grep -q "nothing was retried" "$TMP/err" \
-    || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
+  grep -q "nothing was retried" "$TMP/err" || fail "the refusal should say it was not retried: $(cat "$TMP/err")"
   grep -q "provider initialization failed" "$TMP/err" \
     || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
   nothing_printed
+  [ -z "$(newest_batch)" ] || fail "the batch should be removed: $(newest_batch)"
+  grep -q '"briefs"' "$STATE_DIR/watches.json" && fail "the batch's watch should be closed: $(cat "$STATE_DIR/watches.json")"
 
-  echo "--- a missing brief file is refused, and nothing is started"
+  echo "--- the second of two starts refused stops the first session and closes the batch"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/nope.txt")"
-  [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "no brief file at" "$TMP/err" \
-    || fail "the refusal should name the missing file: $(cat "$TMP/err")"
-  never_ran
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail-after-one \
+          bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$second")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  has "paseo :: archive :: --force :: $(out_json id)"
+  [ -z "$(newest_batch)" ] || fail "the batch should be removed: $(newest_batch)"
   nothing_printed
 
-  echo "--- an empty brief file is refused, and nothing is started"
+  echo "--- a missing or empty brief file is refused, and nothing is started"
   reset_log
   fresh_repo
   : > "$TMP/empty-packet.txt"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/empty-packet.txt")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief advisor "$TMP/nope.txt")"
+  [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "no brief file at" "$TMP/err" || fail "the refusal should name the missing file: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$TMP/empty-packet.txt")"
   [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "is empty" "$TMP/err" \
-    || fail "the refusal should say the brief is empty: $(cat "$TMP/err")"
+  grep -q "the researcher sees the brief and nothing else" "$TMP/err" \
+    || fail "the refusal should name the researcher: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
-  echo "--- a missing advisor row is refused, and nothing is started"
+  echo "--- a dispatch skill with no advisor skill beside it refuses, and nothing is started"
+  local copy
+  copy="$(skill_copy_for dispatch)"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" brief advisor "$packet")"
+  [ "$code" = 2 ] || fail "no advising.md expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "no advisor's text at" "$TMP/err" \
+    || fail "the refusal should name the missing advising.md: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+
+  echo "--- a missing row is refused, and nothing is started"
   reset_log
   fresh_repo
   local saved="$TMP/models.saved"
@@ -3242,16 +3119,85 @@ scenario_advise() {
 import json, sys
 path = sys.argv[1]
 data = json.load(open(path))
-del data["rows"]["advisor"]
+del data["rows"]["synthesizer"]
 json.dump(data, open(path, "w"))
 PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$packet")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief synthesizer "$packet")"
   mv "$saved" "$MMW_HOME/models.json"
-  [ "$code" = 2 ] || fail "missing advisor row expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "missing advisor" "$TMP/err" \
+  [ "$code" = 2 ] || fail "missing synthesizer row expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "missing synthesizer" "$TMP/err" \
     || fail "the refusal should name the missing row: $(cat "$TMP/err")"
   never_ran
   nothing_printed
+}
+
+scenario_briefreport() {
+  local code packet batch answer
+  packet="$TMP/packet.txt"
+  answer="$TMP/answer.md"
+  printf '%s\n' 'the question' > "$packet"
+  printf '%s\n' 'the cited findings' > "$answer"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief researcher "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "brief expected exit 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  local one two
+  one="$(sed -n 1p "$TMP/out" | cut -f2)"
+  two="$(sed -n 2p "$TMP/out" | cut -f2)"
+
+  echo "--- the brief's own session reports, and the answer is kept in the batch"
+  code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/1" "$answer")"
+  [ "$code" = 0 ] || fail "report expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$STATE_DIR/briefs/$batch/1/result.md")" = "the cited findings" ] \
+    || fail "the result should be kept as written"
+
+  echo "--- another session cannot report that brief"
+  code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/2" "$answer")"
+  [ "$code" = 2 ] || fail "a report from the wrong session expected 2, got $code"
+  grep -q "Only that session reports it" "$TMP/err" || fail "the refusal should say who reports it: $(cat "$TMP/err")"
+
+  echo "--- show lists each brief, its state and where its answer is"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief show "$batch")"
+  [ "$code" = 0 ] || fail "show expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "^$batch/1"$'\t'"reported"$'\t'"researcher"$'\t'"paseo"$'\t'"$one"$'\t'".*/1/result.md$" "$TMP/out" \
+    || fail "show should list brief 1 as reported with its result: $(cat "$TMP/out")"
+  grep -q "^$batch/2"$'\t'"open" "$TMP/out" || fail "show should list brief 2 as open: $(cat "$TMP/out")"
+
+  echo "--- no wake is queued while a brief is open, so an ack of the batch is refused"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack brief "$batch")"
+  [ "$code" = 2 ] || fail "an early ack expected 2, got $code"
+
+  echo "--- once both have reported, one relay cycle queues one wake, and the parent acks it by its batch"
+  code="$(run_dispatch env PASEO_AGENT_ID="$two" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/2" "$answer")"
+  [ "$code" = 0 ] || fail "the second report expected 0, got $code: $(cat "$TMP/err")"
+  python3 - "$SKILL/scripts" "$STATE_DIR" <<'PY' || fail "the relay did not queue the batch's wake"
+import sys
+sys.path.insert(0, sys.argv[1])
+import relay
+r = relay.Relay(__import__("pathlib").Path(sys.argv[2]))
+r.poll_briefs()
+r.poll_briefs()
+rows = [w for w in r.rows() if w["event"] == relay.BRIEF_DONE]
+assert len(rows) == 1 and rows[0]["session"] == "agt_main", rows
+PY
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack brief "$batch")"
+  [ "$code" = 0 ] || fail "the ack expected 0, got $code: $(cat "$TMP/err")"
+
+  echo "--- close stops every session of the batch, closes its watch and removes it"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "close expected 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: archive :: --force :: $one"
+  has "paseo :: archive :: --force :: $two"
+  [ ! -d "$STATE_DIR/briefs/$batch" ] || fail "the batch directory should be gone"
+  [ -z "$(brief_watch "briefs:$batch")" ] || fail "the batch's watch should be closed"
+
+  echo "--- a report to a closed batch is refused: nobody waits for it"
+  code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/1" "$answer")"
+  [ "$code" = 2 ] || fail "a late report expected 2, got $code"
+  grep -q "is closed" "$TMP/err" || fail "the refusal should say the batch is closed: $(cat "$TMP/err")"
 }
 
 scenario_resume() {
@@ -4091,7 +4037,7 @@ scenario_release() {
   [ "$code" = 0 ] || fail "exit $code, not 0: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 63 :: --remove-assignee :: @me"
   echo "--- the release ends the lost worker's work, so the slot its worktree held goes back with the claim"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "#63's slot outlived its released claim: $(python3 "$LEASE_PY" list)"
   grep -q "released 1" "$TMP/err" \
     || fail "the claim should have been given back: $(cat "$TMP/err")"
@@ -4218,28 +4164,33 @@ JSON
     || fail "a finished batch should not explain the frontier: $(cat "$TMP/err")"
 }
 
-# ------------------------------------------------------------------ instance gate / suspend
+# ------------------------------------------------------------------ product slots / suspend
 
 LEASE_PY="$(dirname "$SKILL")/ui-acceptance/scripts/lease.py"
 
+# How many leases are held under a directory.
+lease_count() {
+  python3 "$LEASE_PY" list | python3 -c '
+import json, os, sys
+under = os.path.realpath(sys.argv[1]) + "/"
+print(sum(r["worktree"].startswith(under) for r in json.load(sys.stdin)))
+' "$1"
+}
+
 scenario_slotatclaim() {
   rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
-  echo "--- a product capped at one run still has every frontier ticket started: code takes no slot"
+  echo "--- every frontier ticket is started while slots are held: code takes no slot"
   reset_log
   fresh_repo
   make_branch issue-61 one.txt "from 61"
   make_branch issue-62 two.txt "from 62"
   write_batch
-  mkdir -p "$TMP/repo/.mmw"
-  printf '%s\n' '{"start":"true","discover":"true","reach":"true","instance":{"max":1,"why":"fixed host ports"}}' \
-    > "$TMP/repo/.mmw/target.json"
   seed_workspace 61
   seed_workspace 62
   seed_workspace 99
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-99" >/dev/null
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-62" >/dev/null
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 2 ] \
-    || fail "setup should hold two slots, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 2 ] || fail "setup should hold two slots, it holds $(lease_count "$TMP/repo/.worktrees")"
 
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -4249,34 +4200,29 @@ scenario_slotatclaim() {
   git -C "$TMP/repo" show origin/main:two.txt >/dev/null 2>&1 || fail "issue-62 was not merged"
 
   echo "--- a merged ticket's slot is given back before its worktree is removed: held until landing"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "issue-62's lease should be gone after archive, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] || fail "issue-62's lease should be gone after archive, count is $(lease_count "$TMP/repo/.worktrees")"
   assert_no_wt 62
   assert_no_branch 62
   hasnt_runner_worktree
 
-  echo "--- the frontier ticket starts although the product's one slot is held, and takes none"
+  echo "--- the frontier ticket starts and takes no slot"
   assert_wt 63
   grep -q "started 1" "$TMP/err" || fail "the frontier ticket was not started: $(cat "$TMP/err")"
   ! grep -q "held" "$TMP/err" || fail "advance still holds tickets back: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
-    || fail "the start took a slot: $(python3 "$LEASE_PY" list)"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] || fail "the start took a slot: $(python3 "$LEASE_PY" list)"
 
-  echo "--- its first run that needs the product is the one told to wait: lease.py answers 4, full"
-  cp "$TMP/repo/.mmw/target.json" "$(wt 63)/.mmw/target.json" 2>/dev/null \
-    || { mkdir -p "$(wt 63)/.mmw" && cp "$TMP/repo/.mmw/target.json" "$(wt 63)/.mmw/target.json"; }
+  echo "--- a claim on a full machine answers 4 and names who holds the slots"
   local answer
-  answer="$(python3 "$LEASE_PY" claim "$(wt 63)")"
+  answer="$(MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 63)")"
   code=$?
-  [ "$code" = 4 ] || fail "the claim past instance.max should exit 4, got $code: $answer"
+  [ "$code" = 4 ] || fail "the claim on a full machine should exit 4, got $code: $answer"
   printf '%s' "$answer" | python3 -c '
 import json, sys
 got = json.load(sys.stdin)
-assert got["claimed"] is False and got["reason"] == "product-full" and got["limit"] == 1, got
+assert got["claimed"] is False and got["limit"] == 1, got
 assert [h.endswith("issue-99") for h in got["holders"]] == [True], got
 ' || fail "the full answer should name the limit and who holds it: $answer"
 
-  rm -f "$TMP/repo/.mmw/target.json"
   python3 "$LEASE_PY" release "$TMP/repo/.worktrees/issue-99" >/dev/null
 }
 
@@ -4325,14 +4271,14 @@ scenario_route() {
   echo "--- became-ticket as itself: relabelled mmw:ticket, left open, under the spec its child.opened names — never the map the tree would give"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
   [ "$code" = 0 ] || fail "route became-ticket expected exit 0, got $code: $(cat "$TMP/err")"
-  has "gh :: label :: create :: mmw:ticket"
+  hasnt "gh :: label :: create"
   has "gh :: issue :: edit :: 92 :: --add-label :: mmw:ticket :: --remove-label :: mmw:child"
   hasnt ":: --parent :: 18"
   hasnt "gh :: issue :: close :: 92"
 
   echo "--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate"
-  code="$(route_in env FAKE_GH_LABEL_EXISTS=1 bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
-  [ "$code" = 0 ] || fail "a label that already exists should not stop the route, got $code: $(cat "$TMP/err")"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
+  [ "$code" = 0 ] || fail "route became-ticket to another ticket expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket"
   hasnt "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --parent"
   has "gh :: issue :: close :: 93 :: --duplicate-of :: 80"
@@ -4529,14 +4475,14 @@ scenario_suspend() {
   [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the night did not open a worktree for #61"
   [ -d "$TMP/repo/.worktrees/issue-63" ] || fail "the night did not open a worktree for #63"
   # The starts took no slot; each worker's first run that needs the product acquires one.
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "the starts should hold no slot, they hold $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
+    || fail "the starts should hold no slot, they hold $(lease_count "$TMP/repo/.worktrees")"
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-61" >/dev/null
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-63" >/dev/null
   seed_workspace 65
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-65" >/dev/null
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 3 ] \
-    || fail "the night should hold three slots, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 3 ] \
+    || fail "the night should hold three slots, it holds $(lease_count "$TMP/repo/.worktrees")"
 
   seed_agent 61 worker
   seed_agent 99 worker 99
@@ -4593,9 +4539,9 @@ scenario_suspend() {
   hasnt "gh :: issue :: comment :: 65"
 
   echo "--- the slots the night held are back"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "slots are still held: $(python3 "$LEASE_PY" list)"
-  [ "$(python3 "$LEASE_PY" count "$TMP/other-repo")" = 1 ] \
+  [ "$(lease_count "$TMP/other-repo")" = 1 ] \
     || fail "a lease from another checkout was released: $(python3 "$LEASE_PY" list)"
   grep -q 'suspend #76: stopped 1, commented 2, slots given back 3, claims given back 2' "$TMP/out" \
     || fail "the summary line is wrong: $(cat "$TMP/out")"
@@ -4647,7 +4593,7 @@ JSON
   assert_no_wt 61
   assert_branch 61
   hasnt_runner_worktree
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "the slot should be free once the product is stopped"
 
   echo "--- a repository that declares no stop is not a failure"
@@ -4764,7 +4710,7 @@ sys.stdin.read()
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
   grep -q 'lease not released' "$TMP/err" || fail "the refusal is not on stderr: $(cat "$TMP/err")"
   grep -q "port $port" "$TMP/err" || fail "the reason does not name the port: $(cat "$TMP/err")"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
+  [ "$(lease_count "$TMP/repo/.worktrees")" = 1 ] \
     || fail "a slot with a live listener was taken anyway: $(python3 "$LEASE_PY" list)"
 
   echo "--- and the rest of the night is still suspended: workers archived, tickets told"
@@ -5512,6 +5458,49 @@ JSON
   no_relay
 }
 
+scenario_opentakeover() {
+  local code
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+
+  echo "--- status on an open night says whom its wakes go to, and that it is the session asking"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  [ "$code" = 0 ] || fail "status expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "orchestrator: wake-ups go to paseo session agt_main, this session" "$TMP/out" \
+    || fail "status should name agt_main as this session: $(tail -2 "$TMP/out")"
+
+  echo "--- asked from another session, status says the wakes are not its own and names open"
+  seed_main_agent agt_new
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_new FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  [ "$code" = 0 ] || fail "status expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "orchestrator: wake-ups go to paseo session agt_main, not this session (paseo session agt_new); run \`dispatch.sh open 76\` from this session to take the night over" "$TMP/out" \
+    || fail "status should say the wakes go elsewhere: $(tail -2 "$TMP/out")"
+
+  echo "--- open from the new session takes the night's wakes"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_new FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "a second open of #76 from agt_new expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx "opened #76: wake-ups go to paseo session agt_new" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  [ "$(watch_main spec:76)" = "paseo agt_new" ] \
+    || fail "spec 76's orchestrator should now be agt_new: $(cat "$STATE_DIR/watches.json" 2>&1)"
+  [ "$(posted_events 76 runner session | tail -1)" = "spec.opened runner=paseo session=agt_new" ] \
+    || fail "#76's newest spec.opened should name agt_new: $(posted_events 76 runner session)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_new FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  grep -qx "orchestrator: wake-ups go to paseo session agt_new, this session" "$TMP/out" \
+    || fail "status from agt_new should now say this session: $(tail -2 "$TMP/out")"
+  no_relay
+}
+
 scenario_openrefused() {
   local code
   fresh_project_night
@@ -5625,107 +5614,13 @@ JSON
   no_relay
 }
 
-# A worktree on issue-61 that a session picked up itself, with no `start` behind it.
+# A worktree on issue-61 with a commit of its own, and no `start` behind it.
 self_picked_worktree() {
   mkdir -p "$(trees)"
   git -C "$TMP/repo" worktree add --quiet -b issue-61 "$(wt 61)" main
   printf 'work\n' > "$(wt 61)/work.txt"
   git -C "$(wt 61)" add work.txt
   git -C "$(wt 61)" -c user.email=t@t -c user.name=t commit -q -m work
-}
-
-scenario_adopt() {
-  local code tree
-  fresh_repo
-  reset_log
-  no_relay
-  seed_main_agent agt_self
-  cat > "$TMP/tickets.json" <<'JSON'
-[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "senior-worker"], "parent": null}]
-JSON
-  self_picked_worktree
-  tree="$(cd "$(wt 61)" && pwd -P)"
-
-  echo "--- outside a night with no prior worker, adopt asks for --into rather than guessing"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 2 ] || fail "adopt without a base branch expected 2, got $code"
-  grep -q "pass --into <base branch>" "$TMP/err" \
-    || fail "the refusal should ask for --into: $(cat "$TMP/err")"
-
-  echo "--- a session that picked #61 up itself becomes its worker, and a relay watches #61"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/out")" = agt_self ] || fail "adopt should print the session: $(cat "$TMP/out")"
-  MMW_TREE="$tree" MMW_BASE="$(git -C "$TMP/repo" rev-parse main)" python3 -c '
-import importlib.util, json, os, sys
-from pathlib import Path
-spec = importlib.util.spec_from_file_location("ev", os.environ["MMW_EVENTS_PY_FOR_TESTS"])
-ev = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ev)
-posted = json.loads((Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json").read_text()).get("61", [])
-state = ev.fold(posted)
-w = ev.session_of(state, "worker")
-want = {"runner": "paseo", "session": "agt_self", "grade": "senior-worker",
-        "worktree": os.environ["MMW_TREE"], "branch": "issue-61", "base": os.environ["MMW_BASE"]}
-bad = {k: (w or {}).get(k) for k in want if (w or {}).get(k) != want[k]}
-assert not bad, bad
-assert w["host"] and w["model"] and w["live"], w
-assert w.get("slot") is None, w
-' || fail "worker.started should name this session with the grade row and this worktree, and no slot: $(posted_events 61 session runner grade slot)"
-  posted_events 61 machine | grep -qx "worker.started machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-    || fail "the adopted worker.started should name this machine: $(posted_events 61 machine)"
-  posted_events 61 into | grep -qx "worker.started into=main" \
-    || fail "the adopted worker.started should name main as into: $(posted_events 61 into)"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "adopt took a slot; the first run that needs the product acquires it: $(python3 "$LEASE_PY" list)"
-  case "$(relay_now)" in *'{"tickets": [61]}'*) ;; *) fail "a relay should watch #61: $(relay_now)" ;; esac
-  [ "$(watch_main tickets:61)" = "paseo agt_self" ] \
-    || fail "the adopting session is the orchestrator of #61's watch: $(cat "$STATE_DIR/watches.json")"
-
-  echo "--- and from there its reviewer can be started: the ticket can finish"
-  code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "start 61 reviewer after adopt expected 0, got $code: $(cat "$TMP/err")"
-
-  echo "--- adopting again from the same session writes no second worker.started"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "a second adopt expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(posted_events 61 | grep -c '^worker.started')" = 1 ] || fail "one worker.started: $(posted_events 61)"
-
-  echo "--- another session cannot adopt a ticket a live worker holds"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 2 ] || fail "adopt over a live worker expected 2, got $code"
-  grep -q "is held by worker agt_self on paseo" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
-  no_relay
-
-  echo "--- adopt from a checkout not on issue-61 is refused, and nothing is written"
-  reset_log
-  no_relay
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61)"
-  [ "$code" = 2 ] || fail "adopt on main expected 2, got $code"
-  grep -q "is worked on branch issue-61" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
-  [ -z "$(posted_events 61)" ] || fail "nothing should be posted: $(posted_events 61)"
-  [ -z "$(relay_now)" ] || fail "no relay should be started: $(relay_now)"
-
-  echo "--- inside a night, adopt keeps the night's relay and starts none"
-  reset_log
-  seed_main_agent agt_self
-  post_ev 76 spec.opened --spec 76 --line "NIGHT OPENED #76" --field into=main
-  cat > "$TMP/tickets.json" <<'JSON'
-[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}]
-JSON
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt in a night expected 0, got $code: $(cat "$TMP/err")"
-  case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "the night's relay should be the one: $(relay_now)" ;; esac
-  [ "$(watch_main spec:76)" = "paseo agt_main" ] && [ -z "$(watch_main tickets:61)" ] \
-    || fail "the night's orchestrator is not this session's to take: $(cat "$STATE_DIR/watches.json")"
-  no_relay
 }
 
 # Rows in the queue the way the relay writes them, for `ack` to act on.
@@ -5785,8 +5680,6 @@ scenario_ack() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack 99 ticket.passed)"
   [ "$code" = 2 ] || fail "ack of a wake never queued expected 2, got $code"
   grep -q "no wake \`#99 ticket.passed\` is queued for paseo session agt_main" "$TMP/err" || fail "the refusal should name the wake: $(cat "$TMP/err")"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack relay.recovered)"
-  [ "$code" = 2 ] || fail "ack of a relay.recovered never announced expected 2, got $code"
 
   echo "--- the worker acks its own wake, named by its own session"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_wk bash "$DISPATCH" "${TOOLS[@]}" ack 61 reviewer.reported)"
@@ -6312,8 +6205,7 @@ scenario_installtoolguard() {
   local home="$TMP/install-home" retired_skill retired_script retired_path config
   echo "--- install moves every host to dispatch's tool guard and sweeps the retired registration"
   rm -rf "$home"
-  mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" \
-    "$home/.grok/hooks" "$home/.pi/agent"
+  mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" "$home/.grok/hooks"
   retired_skill="drive""-target"
   retired_script="hook"".py"
   retired_path="$home/.agents/skills/$retired_skill/scripts/$retired_script"
@@ -6328,8 +6220,7 @@ JSON
     "$home/.claude/settings.json" \
     "$home/.codex/hooks.json" \
     "$home/.cursor/hooks.json" \
-    "$home/.grok/hooks/mmw-verify-ticket.json" \
-    "$home/.pi/agent/extensions/mmw-verify-ticket.ts"
+    "$home/.grok/hooks/mmw-verify-ticket.json"
   do
     [ -f "$config" ] || { fail "install did not write $config"; continue; }
     grep -qF "/dispatch/scripts/tool-guard.py" "$config" \
@@ -6658,12 +6549,10 @@ scenario_installkeepsmodelsjson() {
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["version"]=41; json.dump(d, open(p,"w"), separators=(",",":"))
 PY
-  printf '%s\n' '| junior-worker | claude | opus 5 | max |' > "$home/.mmw/models.md"
   before="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
   MMW_V2_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
   after="$(shasum -a 256 "$home/.mmw/models.json" | cut -d' ' -f1)"
   [ "$before" = "$after" ] || fail "install rewrote an existing models.json"
-  [ -f "$home/.mmw/models.md" ] || fail "install imported models.md beside existing JSON"
 }
 
 scenario_installcheckmodelsjson() {
@@ -6719,7 +6608,6 @@ PY
   [ "$(cat "$TMP/code")" = 0 ] || fail "second install expected 0: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: agents :: enroll"
-  hasnt "nmem :: --json :: agents :: set"
 
   echo "--- --check reads all three objects and writes none"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
@@ -6730,42 +6618,20 @@ PY
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: agents :: enroll"
 
-  echo "--- --check fails explicitly on a wrong object and performs no repair"
+  echo "--- --check names a missing object and creates nothing; install creates only that one"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
-p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["mmw-toolbox"]["defaultRetrievalMode"]="shared"; json.dump(d,open(p,"w"))
-PY
-  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 1 ] || fail "wrong-object check expected 1, got $(cat "$TMP/code")"
-  grep -q '^缺    Nowledge Mem Space mmw-toolbox' "$TMP/err" || fail "wrong object was not named: $(cat "$TMP/err")"
-  hasnt "nmem :: --json :: spaces :: update"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["mmw-toolbox"]["defaultRetrievalMode"]="strict"; del d["agents"]["mmw-reviewer"]; json.dump(d,open(p,"w"))
+p=sys.argv[1]; d=json.load(open(p)); del d["agents"]["mmw-reviewer"]; json.dump(d,open(p,"w"))
 PY
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "missing-object check expected 1, got $(cat "$TMP/code")"
-  grep -q '^缺    Nowledge Mem Identity mmw-reviewer 不存在' "$TMP/err" || fail "missing object was not named: $(cat "$TMP/err")"
-
-  echo "--- normal install repairs an existing Toolbox Space and Identity to their exact safe shape"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-p=sys.argv[1]; d=json.load(open(p))
-d["spaces"]["mmw-toolbox"]={"id":"mmw-toolbox","name":"wrong","defaultRetrievalMode":"shared","sharedSpaceIds":["default"]}
-d["agents"]["mmw-reviewer"]={"id":"mmw-reviewer","displayName":"wrong","role":"general","defaultSpaceId":"default","origin":"claimed"}
-json.dump(d,open(p,"w"))
-PY
+  grep -q '^缺    Nowledge Mem Identity mmw-reviewer' "$TMP/err" || fail "missing object was not named: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: agents :: enroll"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
-  [ "$(cat "$TMP/code")" = 0 ] || fail "repairing install expected 0: $(cat "$TMP/err")"
-  has "nmem :: --json :: spaces :: update :: mmw-toolbox :: --name :: MMW Toolbox :: --retrieval-mode :: strict :: --clear-shared"
-  has "nmem :: --json :: agents :: set :: mmw-reviewer :: --name :: MMW Reviewer :: --role :: reviewer :: --default-space :: mmw-toolbox"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "normal install did not repair the live object shapes"
-import json, sys
-d=json.load(open(sys.argv[1]))
-assert d["spaces"]["mmw-toolbox"] == {"id":"mmw-toolbox","name":"MMW Toolbox","defaultRetrievalMode":"strict","sharedSpaceIds":[]}, d
-r=d["agents"]["mmw-reviewer"]
-assert {k:r[k] for k in ("id","displayName","role","defaultSpaceId")} == {"id":"mmw-reviewer","displayName":"MMW Reviewer","role":"reviewer","defaultSpaceId":"mmw-toolbox"}, d
-PY
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: agents :: enroll :: mmw-reviewer"
+  hasnt "nmem :: --json :: agents :: enroll :: mmw-worker"
+  hasnt "nmem :: --json :: spaces :: create"
 
   echo "--- a machine without nmem says the objects were not checked, without changing check's exit"
   rm -rf "$no_nmem"; mkdir -p "$no_nmem"
@@ -7149,51 +7015,14 @@ scenario_memory_worker_runner_env() {
   done
 }
 
-seed_reviewer_rules() {
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["context"] = {
-    "schema_version": 1,
-    "bundle_kind": "context_bundle",
-    "active_space": {"primary_space_id": "o__r"},
-    "warnings": [],
-    "working_memory": {"content": "MUST NOT APPEAR IN PROMPT"},
-    "owner_profile": {"name": "must-not-appear"},
-    "rule_stack": {
-        "global": [{"id": "g1", "title": "Global title", "body": "Global body",
-                    "scope": "global", "source": "src-g", "extra": "drop-me"},
-                   {"id": "g2", "title": "Global title two", "body": "Global body two",
-                    "scope": "global", "source": "src-g2"}],
-        "owner": [{"id": "o1", "title": "Owner title", "body": "Owner body",
-                   "scope": "owner", "source": "src-o"}],
-        "space": [{"id": "s1", "title": "Space title", "body": "Space body",
-                   "scope": "space", "source": "src-s"}],
-        "agent": [{"id": "a1", "title": "Agent title", "body": "Agent body",
-                   "scope": "agent", "source": "src-a"}],
-        "shadowed": [{"id": "shadow", "title": "Shadowed title", "body": "Must lose",
-                      "scope": "global", "source": "src-x"}],
-    },
-}
-json.dump(data, open(path, "w"), sort_keys=True)
-PY
-}
-
-reviewer_rule_lines() {
-  printf '%s\n' \
-    '{"id":"g1","title":"Global title","body":"Global body","scope":"global","source":"src-g"}' \
-    '{"id":"g2","title":"Global title two","body":"Global body two","scope":"global","source":"src-g2"}' \
-    '{"id":"o1","title":"Owner title","body":"Owner body","scope":"owner","source":"src-o"}' \
-    '{"id":"s1","title":"Space title","body":"Space body","scope":"space","source":"src-s"}' \
-    '{"id":"a1","title":"Agent title","body":"Agent body","scope":"agent","source":"src-a"}'
-}
-
-assert_complete_reviewer_prompt() {
-  local rules="$1" base
+scenario_memory_reviewer_start() {
+  local code runner base
+  echo "--- a reviewer starts on its route line alone, with the reviewer Identity, reading no Memory"
+  reset_log; fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "reviewer start expected 0: $(cat "$TMP/err")"
   base="$(git -C "$TMP/repo" merge-base origin/main HEAD 2>/dev/null || git -C "$TMP/repo" rev-parse origin/main)"
-  MMW_EXPECT_BASE="$base" MMW_EXPECT_RULES="$rules" \
-  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the reviewer prompt lost its base commit or its reviewer Rules"
+  MMW_EXPECT_BASE="$base" python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the reviewer prompt is not its route line"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
 assert actual.startswith("Use the code-review skill to review ticket #61 from base commit " + os.environ["MMW_EXPECT_BASE"] + "."), actual
@@ -7201,192 +7030,27 @@ packet = f"""Active reviewer Rules approved for this review:
 {os.environ['MMW_EXPECT_RULES']}"""
 assert packet in actual, actual
 PY
-}
-
-assert_reviewer_context_call() {
-  python3 - "$MMW_FAKE_NMEM_CALLS" <<'PY' || fail "reviewer nmem argv was not exact"
+  python3 - "$MMW_FAKE_NMEM_CALLS" <<'PY' || fail "a reviewer start read Memory"
 import json, sys
 calls = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
-expected = [["--json", "context", "read", "--space", "o__r",
-             "--agent-id", "mmw-reviewer", "--no-working-memory"]]
-expected = [
-    ["--json", "spaces", "show", "o__r"],
-    ["--json", "spaces", "create", "o/r", "--id", "o__r", "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"],
-    ["--json", "spaces", "show", "o__r"],
-] + expected
-assert calls == expected, (calls, expected)
+assert calls == [["--json", "spaces", "show", "o__r"]], calls
 PY
-}
-
-scenario_memory_reviewer_rules() {
-  local code prompt runner
-  echo "--- reviewer start injects active Rules in global-owner-space-agent order and the reviewer Identity"
-  reset_log; fresh_repo; seed_reviewer_rules
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "reviewer rules start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "code-review dispatch line missing: $prompt" ;; esac
   has "NMEM_SPACE=o__r"
   has "NMEM_AGENT_ID=mmw-reviewer"
   hasnt "NMEM_AGENT_ID=mmw-worker"
   hasnt "MMW_TASK_SCOPE="
   hasnt "MMW_SPEC="
   hasnt "MMW_TICKET="
-  hasnt "nmem :: --json :: memories :: list"
-  hasnt "nmem :: --json :: memories :: search"
-  hasnt "MUST NOT APPEAR IN PROMPT"
-  hasnt "must-not-appear"
-  hasnt "drop-me"
-  hasnt "Shadowed title"
-  hasnt "Must lose"
-  python3 -c '
-import sys
-prompt = sys.argv[1]
-order = [prompt.find(token) for token in (
-    "\"id\":\"g1\"", "\"id\":\"g2\"", "\"id\":\"o1\"", "\"id\":\"s1\"", "\"id\":\"a1\"")]
-assert all(i >= 0 for i in order), prompt
-assert order == sorted(order), order
-' "$prompt" || fail "Rules were not injected in global-owner-space-agent order: $prompt"
-  assert_complete_reviewer_prompt "$(reviewer_rule_lines)"
-  assert_reviewer_context_call
 
   for runner in paseo herdr orca; do
     echo "--- $runner receives the reviewer Identity through its adapter"
-    reset_log; fresh_repo; seed_reviewer_rules
+    reset_log; fresh_repo
     code="$(run_dispatch env MMW_RUNNER="$runner" bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
     [ "$code" = 0 ] || fail "$runner reviewer env start expected 0: $(cat "$TMP/err")"
     has "NMEM_SPACE=o__r"
     has "NMEM_AGENT_ID=mmw-reviewer"
     hasnt "NMEM_AGENT_ID=mmw-worker"
   done
-}
-
-scenario_memory_reviewer_prompt_states() {
-  local code prompt
-  echo "--- no active Rules is none and still starts from current evidence"
-  reset_log; fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "none reviewer start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "none prompt dropped the code-review line: $prompt" ;; esac
-  [ "$(printf '%s' "$prompt" | grep -c '^none$')" = 1 ] || fail "none state is missing or duplicated: $prompt"
-  assert_complete_reviewer_prompt "none"
-  assert_reviewer_context_call
-
-  echo "--- an unavailable Context Bundle is named and still starts from current evidence"
-  reset_log; fresh_repo
-  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "unavailable Context Bundle should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "unavailable prompt dropped the code-review line: $prompt" ;; esac
-  [ "$(printf '%s' "$prompt" | grep -c '^unavailable: Nowledge Mem unavailable$')" = 1 ] \
-    || fail "unavailable state is missing or duplicated: $prompt"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "unavailable prompt also rendered none: $prompt" ;; esac
-  assert_complete_reviewer_prompt "unavailable: Nowledge Mem unavailable"
-  assert_reviewer_context_call
-
-  echo "--- an unreadable Context Bundle is unavailable, not none"
-  reset_log; fresh_repo
-  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-invalid-json bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "unreadable Context Bundle should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "unreadable prompt rendered none: $prompt" ;; esac
-  case "$prompt" in *"unavailable: nmem did not return readable JSON"*) ;; *) fail "unreadable JSON was silent: $prompt" ;; esac
-  assert_complete_reviewer_prompt "unavailable: nmem did not return readable JSON"
-  assert_reviewer_context_call
-
-  echo "--- an unknown repository Space is unavailable, not none"
-  reset_log; fresh_repo
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["context"] = {
-    "active_space": {"primary_space_id": "default"},
-    "warnings": ["Unknown space: o__r"],
-    "rule_stack": {"global": [], "owner": [], "space": [], "agent": []},
-}
-json.dump(data, open(path, "w"), sort_keys=True)
-PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "unknown Space should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "unknown Space rendered none: $prompt" ;; esac
-  assert_complete_reviewer_prompt "unavailable: Unknown space: o__r"
-  assert_reviewer_context_call
-
-  echo "--- a Context Bundle whose active Space is not the requested repository Space is unavailable"
-  reset_log; fresh_repo
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["context"] = {
-    "active_space": {"primary_space_id": "default"},
-    "warnings": [],
-    "rule_stack": {"global": [], "owner": [], "space": [], "agent": []},
-}
-json.dump(data, open(path, "w"), sort_keys=True)
-PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "mismatched Space should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "mismatched Space rendered none: $prompt" ;; esac
-  assert_complete_reviewer_prompt "unavailable: active space is default, not o__r"
-  assert_reviewer_context_call
-
-  echo "--- a missing rule_stack scope is unavailable, not an empty Rule set"
-  reset_log; fresh_repo
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["context"] = {
-    "active_space": {"primary_space_id": "o__r"},
-    "warnings": [],
-    "rule_stack": {"owner": [], "space": [], "agent": []},
-}
-json.dump(data, open(path, "w"), sort_keys=True)
-PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "missing scope should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "missing scope rendered none: $prompt" ;; esac
-  assert_complete_reviewer_prompt "unavailable: nmem did not return rule_stack.global"
-  assert_reviewer_context_call
-
-  echo "--- a malformed Rule entry is unavailable, not invented null fields"
-  reset_log; fresh_repo
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["context"] = {
-    "active_space": {"primary_space_id": "o__r"},
-    "warnings": [],
-    "rule_stack": {
-        "global": [{"title": "No id", "body": "b", "scope": "global", "source": "s"}],
-        "owner": [], "space": [], "agent": [],
-    },
-}
-json.dump(data, open(path, "w"), sort_keys=True)
-PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "malformed Rule should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *'"id":null'*) fail "malformed Rule invented a null id: $prompt" ;; esac
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "malformed Rule rendered none: $prompt" ;; esac
-  assert_complete_reviewer_prompt "unavailable: nmem returned a rule_stack.global entry without id"
-  assert_reviewer_context_call
-}
-
-scenario_memory_reviewer_contract() {
-  local code
-  echo "--- the launched prompt keeps the code-review dispatch line and the Rule rows"
-  reset_log; fresh_repo; seed_reviewer_rules
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 0 ] || fail "contract reviewer start expected 0: $(cat "$TMP/err")"
-  assert_complete_reviewer_prompt "$(reviewer_rule_lines)"
 }
 
 scenario_orcaworktreelink() {
@@ -8112,8 +7776,8 @@ scenario_orcanohosts() {
   echo "--- a host with no launch block refuses before any terminal is created"
   reset_log
   fresh_repo
-  code="$(run_runner start --host pi --model m --effort high --cwd "$TMP/repo" --prompt go)"
-  [ "$code" = 1 ] || fail "pi has no launch block, expected refusal 1, got $code"
+  code="$(run_runner start --host nohost --model m --effort high --cwd "$TMP/repo" --prompt go)"
+  [ "$code" = 1 ] || fail "nohost has no launch block, expected refusal 1, got $code"
   grep -q "cannot build the launch line" "$TMP/err" || fail "stderr should say why: $(cat "$TMP/err")"
   hasnt "orca :: terminal :: create"
 }
@@ -8686,6 +8350,58 @@ scenario_finishred() {
   return 0
 }
 
+# The project branch is inside the base branch, and the base branch's tip is the merge
+# commit `land` recorded for #61: the tree finish would merge is the one land checked.
+setup_finish_over_landing() {
+  local passed tip
+  fresh_repo
+  rm -f "$TMP/check-runs"
+  git -C "$TMP/repo" checkout -q -b proj main
+  mkdir -p "$TMP/repo/.mmw"
+  printf '{"checks":["printf x >> %s; false"]}\n' "'$TMP/check-runs'" > "$TMP/repo/.mmw/target.json"
+  git -C "$TMP/repo" add .mmw/target.json; git -C "$TMP/repo" commit -q -m checks
+  git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night proj
+  git -C "$TMP/repo" checkout -q -b issue-61 night
+  commit_file "$TMP/repo" ticket.txt ticket ticket
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  git -C "$TMP/repo" checkout -q night
+  git -C "$TMP/repo" merge -q --no-ff -m "Merge branch 'issue-61'" issue-61
+  tip="$(git -C "$TMP/repo" rev-parse night)"
+  git -C "$TMP/repo" push -q -u origin night
+  git -C "$TMP/repo" checkout -q proj
+  echo '[{"number":61,"state":"CLOSED","labels":[]}]' > "$TMP/tickets.json"
+  reset_log
+  closed_night_spec
+  post_ev 61 ticket.landed --ticket 61 --spec 76 --line "Landed issue-61 into night" \
+    --field branch=issue-61 --field into=night --field "commit=$passed" --field "merge=$tip" \
+    --field "base=$(git -C "$TMP/repo" rev-parse proj)"
+}
+
+scenario_finishskipschecked() {
+  local code
+  setup_finish_over_landing
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish over a checked landing failed: $(cat "$TMP/err")"
+  [ ! -e "$TMP/check-runs" ] || fail "finish ran the checks on a tree land had checked"
+  grep -q 'checked when #61 landed' "$TMP/out" || fail "finish did not say why it ran no checks: $(cat "$TMP/out")"
+  [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] || fail "finish did not record the merge"
+}
+
+scenario_finishchecksbasepush() {
+  local code before
+  setup_finish_over_landing
+  git -C "$TMP/repo" checkout -q night
+  commit_file "$TMP/repo" fix.txt fix "closing-pass fix"
+  git -C "$TMP/repo" push -q origin night
+  git -C "$TMP/repo" checkout -q proj
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 1 ] || fail "a base pushed to after its last landing was not checked: $code $(cat "$TMP/err")"
+  [ "$(cat "$TMP/check-runs" 2>/dev/null)" = x ] || fail "finish did not run the checks once"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "red finish changed project"
+}
+
 scenario_finishkeepsdirty() {
   local code dirty
   setup_finish_closed
@@ -8916,27 +8632,17 @@ scenario_startintooutside() {
   assert_no_wt 61
 }
 
-scenario_adoptinto() {
+scenario_startfromissuebranch() {
   local code tree
+  echo "--- outside a night with no earlier worker, start from an issue branch names the branch to start from"
   fresh_repo
-  git -C "$TMP/repo" checkout -q -b adopted-base
-  git -C "$TMP/repo" push -q -u origin adopted-base
-  git -C "$TMP/repo" checkout -q main
   reset_log
-  no_relay
-  seed_main_agent agt_self
   self_picked_worktree
   tree="$(wt 61)"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 2 ] || fail "adopt without --into expected 2, got $code"
-  grep -q "pass --into <base branch>" "$TMP/err" \
-    || fail "adopt did not ask for --into: $(cat "$TMP/err")"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into adopted-base) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt --into expected 0, got $code: $(cat "$TMP/err")"
-  posted_events 61 into | grep -qx "worker.started into=adopted-base" \
-    || fail "adopt did not record into=adopted-base: $(posted_events 61 into)"
-  assert_no_retired_base_config "$TMP/repo" 61 adopt
-  no_relay
+  code="$( (cd "$tree" && bash "$DISPATCH" "${TOOLS[@]}" start 61 worker) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 2 ] || fail "start from issue-61 with no base branch expected 2, got $code"
+  grep -q "run start from a checkout of the branch it will merge into" "$TMP/err" \
+    || fail "the refusal should name where to start from: $(cat "$TMP/err")"
 }
 
 scenario_startwithoutinto() {
@@ -9318,32 +9024,20 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
 }
 
-scenario_advanceskipsecondcheck() {
-  setup_checked_ticket "echo ran > '$TMP/check-ran'; exit 1"
-  local passed checked code
+scenario_advancechecksonce() {
+  rm -f "$TMP/check-runs"
+  setup_checked_ticket "printf 'x\\n' >> '$TMP/check-runs'"
+  local passed code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
-  checked="$(ev ticket.checked 61 "Repository checks passed" --field run=repo-checks \
-    --field "commit=$passed" --field result=met)"
-  write_one_passed 61 "$passed" "$checked"
+  git -C "$TMP/repo" merge-base --is-ancestor origin/main "$passed" \
+    || fail "the fixture's ticket does not contain origin/main"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "the proven tree should land without a second check: $(cat "$TMP/err")"
-  [ ! -e "$TMP/check-ran" ] || fail "the repository check ran a second time"
-
-  setup_checked_ticket "printf 'reran\\n' > '$TMP/check-ran'"
-  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
-  checked="$(ev ticket.checked 61 "Repository checks passed" --field run=repo-checks \
-    --field "commit=$passed" --field result=met)"
-  write_one_passed 61 "$passed" "$checked"
-  local other
-  other="$(other_clone)"
-  commit_file "$other" sibling.txt sibling sibling
-  git -C "$other" push -q origin main
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "a changed origin base should be rechecked: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/check-ran" 2>/dev/null)" = reran ] \
-    || fail "the repository check was reused after origin/main advanced"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main \
+    || fail "the ticket did not land"
+  [ "$(wc -l < "$TMP/check-runs" 2>/dev/null | tr -d ' ')" = 1 ] \
+    || fail "the merge result of a ticket on an unmoved base was not checked exactly once"
 }
 
 scenario_advancebaseref() {
@@ -10339,23 +10033,27 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer brief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
-ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
+ALL="$ALL memory-reviewer-start"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
-# One list of scenario names, ALL; a name on the command line is accepted when it is in it.
-case " $ALL all " in
+# Two lists of scenario names, ALL and INSTALL; a name on the command line is accepted when it is in either.
+case " $ALL $INSTALL all install " in
   *" ${1:-} "*) ;;
   *)
-    echo "usage: test_dispatch.sh $(echo "$ALL" | tr ' ' '|')|all" >&2
+    echo "usage: test_dispatch.sh $(echo "$ALL $INSTALL" | tr ' ' '|')|all|install" >&2
     exit 2 ;;
 esac
-if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
+case "$1" in
+  all) wanted="$ALL" ;;
+  install) wanted="$INSTALL" ;;
+  *) wanted="$1" ;;
+esac
 
 banner_for() {
   case "$1" in
@@ -10365,9 +10063,7 @@ banner_for() {
     memory-worker-start) echo MEMORY-WORKER-START-OK ;;
     memory-worker-prompt-states) echo MEMORY-WORKER-PROMPT-STATES-OK ;;
     memory-worker-runner-env) echo MEMORY-WORKER-RUNNER-ENV-OK ;;
-    memory-reviewer-rules) echo MEMORY-REVIEWER-RULES-OK ;;
-    memory-reviewer-prompt-states) echo MEMORY-REVIEWER-PROMPT-STATES-OK ;;
-    memory-reviewer-contract) echo MEMORY-REVIEWER-CONTRACT-OK ;;
+    memory-reviewer-start) echo MEMORY-REVIEWER-START-OK ;;
     memory-closing) echo MEMORY-CLOSING-OK ;;
     memory-closing-refuses) echo MEMORY-CLOSING-REFUSES-OK ;;
     memory-closing-retry) echo MEMORY-CLOSING-RETRY-OK ;;
@@ -10412,7 +10108,7 @@ banner_for() {
     advancebouncedconflict) echo ADVANCE-BOUNCED-CONFLICT-OK ;;
     advancenohalfmerge) echo ADVANCE-NO-HALF-MERGE-OK ;;
     advancebouncedchecks) echo ADVANCE-BOUNCED-CHECKS-OK ;;
-    advanceskipsecondcheck) echo ADVANCE-SKIP-SECOND-CHECK-OK ;;
+    advancechecksonce) echo ADVANCE-CHECKS-ONCE-OK ;;
     advancebaseref) echo ADVANCE-BASE-REF-OK ;;
     advancenochecks) echo ADVANCE-NO-CHECKS-OK ;;
     advanceraced) echo ADVANCE-RACED-OK ;;
@@ -10459,7 +10155,8 @@ banner_for() {
     land) echo DISPATCH-LAND-OK ;;
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
-    advise) echo ADVISE-OK ;;
+    brief) echo BRIEF-OK ;;
+    briefreport) echo BRIEF-REPORT-OK ;;
     startfromorigin) echo START-FROM-ORIGIN-OK ;;
     startresumesorigin) echo START-RESUMES-ORIGIN-OK ;;
     startdiverged) echo START-DIVERGED-OK ;;
@@ -10539,6 +10236,7 @@ banner_for() {
     retractunreadable) echo RETRACT-UNREADABLE-OK ;;
     open) echo OPEN-OK ;;
     advancerestoreswatch) echo ADVANCE-RESTORES-WATCH-OK ;;
+    opentakeover) echo OPEN-TAKEOVER-OK ;;
     openinto) echo OPEN-INTO-OK ;;
     openpushesahead) echo OPEN-PUSHES-AHEAD-OK ;;
     openprojectreflog) echo OPEN-PROJECT-REFLOG-OK ;;
@@ -10565,6 +10263,8 @@ banner_for() {
     finishrefusesnoproject) echo FINISH-REFUSES-NO-PROJECT-OK ;;
     finishconflict) echo FINISH-CONFLICT-OK ;;
     finishred) echo FINISH-RED-OK ;;
+    finishskipschecked) echo FINISH-SKIPS-CHECKED-OK ;;
+    finishchecksbasepush) echo FINISH-CHECKS-BASE-PUSH-OK ;;
     finishkeepsdirty) echo FINISH-KEEPS-DIRTY-OK ;;
     finishrerun) echo FINISH-RERUN-OK ;;
     finishcontained) echo FINISH-CONTAINED-OK ;;
@@ -10576,8 +10276,7 @@ banner_for() {
     unopened) echo UNOPENED-OK ;;
     runnerself) echo RUNNER-SELF-OK ;;
     orcaunobserved) echo ORCA-UNOBSERVED-OK ;;
-    adopt) echo ADOPT-OK ;;
-    adoptinto) echo ADOPT-INTO-OK ;;
+    startfromissuebranch) echo START-FROM-ISSUE-BRANCH-OK ;;
     findings) echo FINDINGS-OK ;;
     memorylist) echo MEMORY-LIST-OK ;;
     integratedsincestart) echo INTEGRATED-SINCE-START-OK ;;
@@ -10592,9 +10291,7 @@ fn_for() {
     memory-worker-start) echo scenario_memory_worker_start ;;
     memory-worker-prompt-states) echo scenario_memory_worker_prompt_states ;;
     memory-worker-runner-env) echo scenario_memory_worker_runner_env ;;
-    memory-reviewer-rules) echo scenario_memory_reviewer_rules ;;
-    memory-reviewer-prompt-states) echo scenario_memory_reviewer_prompt_states ;;
-    memory-reviewer-contract) echo scenario_memory_reviewer_contract ;;
+    memory-reviewer-start) echo scenario_memory_reviewer_start ;;
     memory-closing) echo scenario_memory_closing ;;
     memory-closing-refuses) echo scenario_memory_closing_refuses ;;
     memory-closing-retry) echo scenario_memory_closing_retry ;;

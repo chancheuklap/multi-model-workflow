@@ -318,7 +318,6 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> 
             "held": ("live" if shown["live"] else shown.get("ended_by") or "-") if shown else "-",
             "since": (shown.get("started_at") or "-") if shown else "-",
             "phase": phase_of(ticket),
-            "waiting": fold["waiting"],
             "slot": fold["slot"],
             "ac": counted_ac(ticket) or "-",
             "head": head_of(ticket),
@@ -338,9 +337,7 @@ def blocking_text(blocking: list[tuple[int, str]]) -> str:
 def note_of(ticket: dict, row: dict) -> str:
     """One short phrase saying where this ticket stands, in the pipeline's own words.
 
-    Blank means a worker is live on a ticket still in flight: nothing to say. A worker
-    whose run is queued for a product slot says so, and since when, because a ticket
-    quiet for twenty minutes is otherwise the same row whether it is queued or dead.
+    Blank means a worker is live on a ticket still in flight: nothing to say.
     """
     head = row["head"]
     if row["unreadable"]:
@@ -350,11 +347,6 @@ def note_of(ticket: dict, row: dict) -> str:
                 + ", ".join(r.get("session") or "?" for r in row["live_workers"]))
     if row["holder"] and row["holder"].get("claim"):
         return "claimed, no session started yet"
-    if row["waiting"]:
-        payload = row["waiting"]["payload"]
-        return (f"waiting for a product slot since {row['waiting'].get('at') or '?'} "
-                f"({payload.get('reason')}, {len(payload.get('holders') or [])} of "
-                f"{payload.get('limit')} held)")
     if row["holder"]:
         return ""
     if ticket.get("state") == "CLOSED":

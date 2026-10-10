@@ -27,9 +27,17 @@ import statedir  # noqa: E402
 
 SKILL_DIR = SCRIPTS_DIR.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
+ROLES_JSON = SKILL_DIR / "roles.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
-ALLOWED_AGENTS = (
-    "junior-worker", "senior-worker", "reviewer", "advisor")
+
+
+def session_roles() -> tuple[str, ...]:
+    """The roles dispatch.sh starts as sessions, in roles.json's order: one models.json row each."""
+    data = json.loads(ROLES_JSON.read_text(encoding="utf-8"))
+    return tuple(r["name"] for r in data["roles"] if r.get("kind") == "session")
+
+
+ALLOWED_AGENTS = session_roles()
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
@@ -37,7 +45,7 @@ DEFAULT_RUNNER = "orca"
 # CLI (a runner that runs the CLI in a terminal starts it with those ids). dispatch.sh
 # sets MMW_CATALOG_MODE from tonight's runner; tests set it or MMW_HOST_CATALOG.
 DEFAULT_CATALOG_MODE = "cli"
-CLI_HOSTS = ("cursor", "grok", "claude", "codex", "pi")
+CLI_HOSTS = ("cursor", "grok", "claude", "codex")
 _CURSOR_EFFORT_IN_ID = re.compile(
     r"-(none|low|medium|high|xhigh|max)(?:-fast)?$", re.I)
 
@@ -136,11 +144,11 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
         errors.append({"cell": "runner", "reason": "is required"})
     rows = config.get("rows")
     if not isinstance(rows, dict):
-        return errors + [{"cell": "rows", "reason": "four role rows are required"}]
+        return errors + [{"cell": "rows", "reason": "one row per role is required: " + ", ".join(ALLOWED_AGENTS)}]
     missing = [role for role in ALLOWED_AGENTS if role not in rows]
     extra = [role for role in rows if role not in ALLOWED_AGENTS]
     if missing or extra:
-        reason = "four role rows are required"
+        reason = "one row per role is required"
         if missing:
             reason += "; missing " + ", ".join(missing)
         if extra:
@@ -158,44 +166,6 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
     return errors
 
 
-def parse_legacy_rows(source: Path) -> list[tuple[str, str, str, str]]:
-    """Read the retired Markdown table during the installer's one-time migration."""
-    rows: list[tuple[str, str, str, str]] = []
-    text = source.read_text(encoding="utf-8")
-    for line in text.splitlines():
-        if not line.lstrip().startswith("|"):
-            continue
-        cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
-        if cells and cells[0].lower() == "runner":
-            continue
-        if len(cells) == 5:
-            cells = cells[:4]
-        if len(cells) != 4:
-            continue
-        agent, host, model, effort = cells
-        if agent == "agent" or set(agent) <= set("- "):
-            continue
-        if agent not in ALLOWED_AGENTS:
-            raise ValueError(f"{source}: {agent} is not a dispatched role")
-        if not host or not model:
-            raise ValueError(f"{source}: {agent} lacks host or model")
-        rows.append((agent, host, model, effort))
-    if not rows:
-        raise ValueError(f"{source} has no agent row")
-    return rows
-
-
-def parse_legacy_runner(source: Path) -> str | None:
-    """Read the retired Markdown runner cell during one-time migration."""
-    for line in source.read_text(encoding="utf-8").splitlines():
-        if not line.lstrip().startswith("|"):
-            continue
-        cells = [c.strip().strip("`").strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 2 and cells[0].lower() == "runner":
-            return _spoken_runner(cells[1])
-    return None
-
-
 class SessionRow(NamedTuple):
     agent: str
     host: str
@@ -206,33 +176,34 @@ class SessionRow(NamedTuple):
 class InstallResult(NamedTuple):
     config: dict
     created: bool
-    imported: bool
 
 
-def install_local_config(legacy_path: Path) -> InstallResult:
-    """Create models.json once, importing legacy_path when present."""
+def install_local_config() -> InstallResult:
+    """Create models.json once from the hosts.json defaults. An existing file is kept as
+    it is, except that a role it has no row for gets its default: a role added to
+    roles.json reaches a machine configured before it."""
     path = models_json_path()
     with config_lock(purpose="install models.json"):
         if path.is_file():
-            return InstallResult(read_local_config(), False, False)
+            config = read_local_config()
+            rows = config.get("rows")
+            missing = [role for role in ALLOWED_AGENTS
+                       if isinstance(rows, dict) and role not in rows]
+            if missing:
+                defaults = default_local_config()["rows"]
+                for role in missing:
+                    rows[role] = defaults[role]
+                config["version"] = int(config.get("version") or 0) + 1
+                statedir.write_atomic(
+                    path, json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+            return InstallResult(config, False)
         config = default_local_config()
-        imported = legacy_path.is_file()
-        if imported:
-            rows = {}
-            for agent, host, model, effort in parse_legacy_rows(legacy_path):
-                if agent in rows:
-                    raise ValueError(f"{legacy_path}: {agent} has two rows")
-                rows[agent] = {"host": host, "model": model, "effort": effort}
-            config["rows"] = rows
-            config["runner"] = parse_legacy_runner(legacy_path) or "auto"
         errors = _validate_config_shape(config)
         if errors:
             raise InvalidConfig(errors)
         statedir.write_atomic(
             path, json.dumps(config, ensure_ascii=False, indent=2) + "\n")
-        if imported:
-            legacy_path.unlink()
-        return InstallResult(config, True, imported)
+        return InstallResult(config, True)
 
 
 def session_rows() -> list[SessionRow]:
@@ -567,27 +538,6 @@ def _parse_codex_debug_models(text: str) -> list[dict]:
     return out
 
 
-def _parse_pi_models(text: str) -> list[dict]:
-    out = []
-    for line in text.splitlines():
-        if not line.strip() or line.lower().startswith("provider"):
-            continue
-        m = re.match(r"^(\S+)\s+(\S+)\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s*$", line)
-        if not m:
-            continue
-        provider, model, thinking, _images = m.groups()
-        ident = f"{provider}/{model}"
-        out.append({
-            "id": ident,
-            "name": model,
-            "thinkingOptionIds": (
-                ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
-                if thinking.lower() == "yes" else []
-            ),
-        })
-    return out
-
-
 def _paseo_models(host: str) -> list[dict]:
     raw = _runner_call("paseo", "catalog-models", host)
     if not raw.strip():
@@ -632,13 +582,6 @@ def fetch_cli_offerings(host: str) -> list[dict]:
             _run(CLAUDE_LIST_MODELS_ARGS, timeout=60, stdin=CLAUDE_LIST_MODELS_STDIN))
     if host == "codex":
         return _parse_codex_debug_models(_run(["codex", "debug", "models"], timeout=45))
-    if host == "pi":
-        rows = _parse_pi_models(_run(["pi", "--list-models"]))
-        fallback = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
-        for row in rows:
-            if not row.get("thinkingOptionIds"):
-                row["thinkingOptionIds"] = list(fallback)
-        return rows
     return []
 
 
@@ -739,9 +682,7 @@ def fillable_rows(host: str, offerings: list[dict]) -> list[tuple[str, str]]:
     for offering in offerings:
         ident = str(offering.get("id") or "")
         name = str(offering.get("name") or ident)
-        if host == "pi":
-            model = ident.split("/", 1)[-1] if ident else name
-        elif name and name.lower() != ident.lower() and not re.search(r"\d", name):
+        if name and name.lower() != ident.lower() and not re.search(r"\d", name):
             model = name.lower().strip()
         else:
             model = _slug_everyday(name if re.search(r"\d", name) else ident)
