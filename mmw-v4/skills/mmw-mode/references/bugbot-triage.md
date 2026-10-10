@@ -1,6 +1,6 @@
 # Bugbot triage
 
-Use this reference when a pull request's review comments are triaged: Run a night's step 7 before `finish`, Shared closing step 7 before a merge, or when the owner asks. The goal is not to ignore Bugbot by default. The goal is to stop treating every comment as a required code change.
+Use this reference when a pull request's review comments are triaged: Run a night's step 7 before `finish`, or when the owner asks. The goal is not to ignore Bugbot by default. The goal is to stop treating every comment as a required code change.
 
 ## Decision rubric
 
