@@ -24,6 +24,7 @@ Find where you are by the first row whose fact holds; the record says where you 
 | `dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
 | The spec carries `spec.closed`, and no open pull request runs from the night's branch to the project branch | [6. Open the pull request](#6-open-the-pull-request) |
 | The pull request is open, and the user has accepted it | [7. Merge the accepted night](#7-merge-the-accepted-night) |
+| The spec carries `spec.merged` | Nothing: the night is merged; tell the user so |
 
 #### 1. The user says the night starts
 
@@ -51,7 +52,7 @@ Run this once, before the first `advance`, on every spec, with the `verify-ticke
 verify-ticket.py <spec> --lint
 ```
 
-Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2: the tracker did not answer, and nothing was read; run the same command again once it answers.
+Read its exit as the **verify-ticket** skill's `references/linting.md` says, and fix each `ERROR` on its ticket.
 
 #### 2. First `advance`
 
@@ -96,6 +97,8 @@ For a `contract` child, use this authority order exactly: **decision tickets and
 When no authority settles the correction, or the proposed correction would overturn the user's decision or expand the spec, leave the choice to the user. Find every not-yet-started ticket derived from the same Parent decision, move each from `ready-for-agent` to `needs-triage`, and comment on the child with the unresolved options, your recommendation, and the ticket numbers moved. Leave the child open for the user. A ticket already being worked stays held at the contract question; do not rewrite its delivery while the authority is unresolved.
 
 ##### Exit codes of `resume`
+
+Exit 0: the worker took the message. Exit 4: the message is in its session, though the runner shows no turn starting; do not send it again. Exit 3: the worker is most likely in a turn and took nothing; end your turn and run `resume` again on the next wake or watchdog alert, and when that exits 3 again with no ticket event in between, `start <n> worker` replaces the worker. Exit 2: nothing was sent; do what stderr names.
 
 When you run `resume` again after exit 3, word it so a worker that receives both messages reads them as one instruction. A worker that `start <n> worker` puts in place of the old one has none of the instructions given only inside the old session; send them again with `resume`.
 
@@ -163,7 +166,7 @@ dispatch.sh summary <spec>
 
 `reverify` exit 0: every landed ticket is green. Exit 1: each red ticket is already reopened in `needs-triage`; do not close it. Exit 2: fix stderr's named condition and run `reverify` again.
 
-To recover a reopened ticket, repair the cause on the base branch, push it, and run `reverify <spec>` again; all met, `reverify` closes it itself. Still red, `summary` refuses the night: tell the user which ticket stays red and why, and stop.
+To recover a reopened ticket, repair the cause on the base branch, push it, and run `reverify <spec>` again; all met, `reverify` closes it itself. Still red, it stays reopened in `needs-triage`, and `summary` lists it as handed back.
 
 Tickets left for human acceptance, handed back to triage by their worker, or behind an open blocker are valid outcomes; `summary` does not require every ticket to succeed.
 
@@ -197,14 +200,16 @@ dispatch.sh finish <spec>
 
 A worktree that has the base branch checked out, usually the one this session runs in, is kept: stderr gives the commands that remove it, for the user to run once this session is done, and `finish` needs no second run.
 
-Exit 0: the merge is recorded, and GitHub shows the pull request merged. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
+Exit 0: the merge is recorded, and GitHub shows the pull request merged. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as **A red check** below says, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
 
-Exit 2 naming the pull request: a check is red or still running, or a review thread is open, and nothing was merged. A check still running: wait for it and run `finish` again. Settle each of the rest, then run `finish` again:
+Exit 2 naming the pull request: a check is red or still running, or a review thread is open, and nothing was merged. A check still running: wait for it with `gh pr checks <pr> --watch`, then run `finish` again. Settle each of the rest, then run `finish` again:
 
-- **A red check.** Tell first whether it is a flake, a project branch that moved on, or this night's change. A flake fails on a commit where the same check passed before, or passes when run again once. A project branch that moved on: `git merge-base --is-ancestor origin/<project> origin/<into>` fails; merge `origin/<project>` into the night's branch as the **resolving-merge-conflicts** skill says and push it. This night's change: fix it as the closing pass fixes a finding (step 4), and push it to `origin/<into>`; the pull request shows the new commit.
+- **A red check.** Tell first whether it is a flake, a project branch that moved on, or this night's change. A flake fails on a commit where the same check passed before, or passes when run again once: run the failed job again (`gh run rerun <run> --failed`). A project branch that moved on: `git merge-base --is-ancestor origin/<project> origin/<into>` fails; merge `origin/<project>` into the night's branch as the **resolving-merge-conflicts** skill says and push it. This night's change: fix it as the closing pass fixes a finding (step 4), and push it to `origin/<into>`; the pull request shows the new commit. A fix the closing pass would make a ticket goes to the user instead, who decides whether this night waits for it.
 - **A review thread or a comment.** Check its claim against the code first, as `../references/bugbot-triage.md` sorts it. One that holds you fix as the closing pass fixes a finding, then reply with the commit and resolve the thread. One that does not hold you answer with the specific evidence that disproves it, and resolve the thread. One the reference sends to the user you put to the user, who is here now.
 
 When the user asks to take back a merged night, use the Revert button on its merged pull request; do it only when they ask.
+
+Exit 2 naming tickets still open on the night's branch: each is the user's to settle, by a later night or by closing it as not wanted; close none yourself. Tell the user which, and run `finish` again once they have settled them.
 
 Other exits 2: fix what stderr names and run `finish` again.
 
@@ -224,14 +229,14 @@ You are starting one worker on one ticket, with no batch behind it: a step that 
 
 Five steps:
 
-1. From a checkout of the project branch, make a branch of its own for this ticket: `git switch -c fix-<n>`. Commit on it whatever a `CHECK:` of the ticket runs that the project branch does not have yet (a reproduction script, a frozen benchmark harness, a decision log), then `git push -u origin fix-<n>`. The ticket lands there, and the pull request runs from there.
-2. `dispatch.sh send worker <n>` from that checkout: this session becomes the ticket's orchestrator, and the worker starts. Then end your turn.
+1. From a checkout of the project branch, make a branch of its own for this ticket: `git switch -c fix-<n>`. Commit on it whatever a `CHECK:` of the ticket runs that the project branch does not have yet (a reproduction script, a frozen benchmark harness, a decision log), then `git push -u origin fix-<n>`. The ticket lands there, and the pull request runs from there. Done when `fix-<n>` is on origin.
+2. `dispatch.sh send worker <n>` from that checkout: this session becomes the ticket's orchestrator, and the worker starts. Then end your turn. Done when `send` exits 0.
 3. You are woken with `#<n> ticket.passed` or `#<n> ticket.returned`, or with one of the four below. Read that event on the ticket and `dispatch.sh ack <n> <that event>`, then act on it.
    - `#<n> worker.lost`: the worker's session stopped. `dispatch.sh send worker <n>` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.
    - `#<n> ticket.refused`: the worker refused to claim the ticket, and the event's `reason` says why. Fix that, then `dispatch.sh send worker <n>` again.
    - `#<n> child.opened`: a `fault` stopped the worker — fix what the child names, then `dispatch.sh resume <n> "<what you fixed>, then: continue"`; a `decision` is for the user, and the worker carries on.
    - `#<n> child.opened` of kind `contract`, a `watchdog:` line, or an `MMW turn guard:` line: act as **3. Each time something wakes you** above says for it, reading `events.py fold <n>` where it says `status`.
 
-   Tell the user what woke you and what you did; they are here.
-4. Once the ticket passed, check it the way the step that wrote it says (for a bug, the original reproduction in the ticket's worktree); when that check fails, land nothing and go back to that playbook, which says what comes next. Then run `dispatch.sh land <n>` from any checkout of this repository. A ticket that came back is landed the same way and goes to triage. It lands the ticket, closes the watch and prints what it did; stderr names anything it left standing. Done when `land` exits 0. A merge conflict or red repository checks count as `bounced` on its summary line, and without an open night `land` leaves that ticket in `needs-triage`: tell the user which ticket and what the `ticket.bounced` event names.
-5. Open one pull request from `fix-<n>` to the project branch, written as the Shared closing playbook's **The pull request** says (`playbooks/shared-closing.md`), and give the user its link. When the user says yes, `gh pr merge <pr> --merge --delete-branch`. Done when the pull request is merged, or the user has its link and has not said yes.
+   Tell the user what woke you and what you did; they are here. Done when the wake is `ticket.passed` or `ticket.returned`.
+4. Once the ticket passed, check it the way the step that wrote it says (for a bug, the original reproduction in the ticket's worktree; for a ticket handed to you from anywhere else, its closing comment's criteria); when that check fails, land nothing, tell the user that `fix-<n>` and `.worktrees/issue-<n>` stay, and go back to that playbook, which says what comes next. Read the ticket's children in `events.py fold <n>`: fix a small `finding` on `fix-<n>`, and list each other open child in the pull request's top half. Then run `dispatch.sh land <n>` from any checkout of this repository. A ticket that came back is landed the same way: `land` gives back its claim and closes the watch, and it goes to triage. It lands a passed ticket, closes the watch and prints what it did; stderr names anything it left standing. Exit 1: tell the user each line stderr names. Done when `land` exits 0, or the user has its lines. A merge conflict or red repository checks count as `bounced` on its summary line, and without an open night `land` leaves that ticket in `needs-triage`: tell the user which ticket and what the `ticket.bounced` event names.
+5. Only for a ticket `land` merged: open one pull request from `fix-<n>` to the project branch, written as the Shared closing playbook's **The pull request** says (`playbooks/shared-closing.md`), give the user its link, and merge it as that playbook's step 7 says. A ticket that came back or bounced opens none: tell the user what it tried and where its commits are, and go back to the playbook that wrote it. Done when the pull request is merged, or the user has its link and has not said yes, or the user knows the ticket came back.

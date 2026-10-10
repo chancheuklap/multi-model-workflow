@@ -103,7 +103,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Send a subagent with your host's general-purpose subagent, and name no model:** its prompt is what the step that sends it says, plus its own piece. Hold your turn until every subagent you sent has returned. On a host that cannot run subagents, do the pieces yourself, one after another.
 
-**A subagent sends nothing further.** A session sent a brief works that brief and reports. A session sent to a ticket sends only what its playbook's steps send.
+**A subagent sends nothing further.** A session sent a brief works that brief and reports. A session sent to a ticket sends only what its playbook's steps and its ticket's **What to build** send.
 
 **A second opinion is a session: `send advisor <brief>`.** Ask for one before an architecture choice, a data migration, a big refactor or an API shape is committed, when one problem has resisted two attempts, or before a disputed reading of the task is treated as settled; not for what reading the code can settle. The brief carries the decision, not a narrowed question: the recent exchange quoted, your understanding, the constraints, the options and which way you lean, the paths you think matter. Leave out what to check and the conclusion you expect. The answer is advice: take it, or set it aside with a reason; one that changes what the owner decides goes to the owner.
 
