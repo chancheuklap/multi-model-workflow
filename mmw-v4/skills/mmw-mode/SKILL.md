@@ -143,7 +143,7 @@ Open a todolist whose first items are the matched playbook's steps, copied in ve
 
 Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
 
-A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one anywhere else, run `dispatch.sh send worker <n>` and tell the owner.
+A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one anywhere else, run **One ticket** of the Run a night playbook on it and tell the owner.
 
 - **Work a ticket.** Sent by the dispatch skill to a ticket with acceptance criteria: claim it, build it until its criteria pass and it is reviewed, close it. Distinct from Feature, Bug fix, Perf issue and Hillclimb, which take a problem still open and decide how to build. `playbooks/work-a-ticket.md`.
 - **Code review.** A change someone else finished, to judge whether it can merge: sent as a ticket's reviewer, or asked to review a change. Distinct from Work a ticket's step that sends the reviewer, and from Investigation, where there is no change to judge. The **code-review** skill.
@@ -158,15 +158,15 @@ A ticket with acceptance criteria is worked only by a worker the dispatch skill 
 - **Revising a spec.** A section of a published spec has to change: the user asks, or To tickets sends a choice back to a spec decision. Edits the spec in place, never publishes a new one. `playbooks/revising-a-spec.md`.
 - **To tickets.** Break a spec, plan, or conversation into tracer-bullet tickets with blocking edges, published as GitHub issues. `playbooks/to-tickets.md`.
 - **Run a night.** A spec's published tickets to run unattended under one orchestrator, through to one pull request; or one ticket a step has written, sent to a worker and delivered as one pull request. `playbooks/run-a-night.md`.
-- **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence. `playbooks/bug-fix.md`.
-- **Perf issue.** A measured slowness to trace and improve against a baseline. `playbooks/perf-issue.md`.
-- **Hillclimb.** Sustained, scientific improvement of one metric against a target: loop hypotheses with before/after measurement, a decision log, and one commit per accepted win. Distinct from Perf issue, which is a one-off fix. `playbooks/hillclimb.md`.
+- **Bug fix.** A reported defect to reproduce and root-cause with runtime evidence; the fix goes to a worker on one ticket, and you prove it on the same surface. `playbooks/bug-fix.md`.
+- **Perf issue.** A measured slowness to trace against a baseline; the change goes to a worker on one ticket, and you measure it again. `playbooks/perf-issue.md`.
+- **Hillclimb.** Sustained, scientific improvement of one metric against a target: loop hypotheses with before/after measurement, a decision log, and one commit per accepted win, run by a worker on one ticket that carries the frozen harness and the target. Distinct from Perf issue, which is a one-off fix. `playbooks/hillclimb.md`.
 - **Runtime forensics.** Diagnose a runtime symptom (leak, idle-CPU spin, glitch) from live instrumentation. The deliverable is a diagnosis, not a fix. `playbooks/runtime-forensics.md`.
 - **Trace forensics.** Diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot) handed to you after the fact. The deliverable is a diagnosis, not a fix. `playbooks/trace-forensics.md`.
-- **Feature.** New or changed behavior, built from a named data shape. `playbooks/feature.md`.
-- **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move). `playbooks/refactoring.md`.
+- **Feature.** New or changed behavior, built from a named data shape. The user said what to change, and this session writes it and closes with Shared closing. `playbooks/feature.md`.
+- **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move). The user said what to change, and this session writes it and closes with Shared closing. `playbooks/refactoring.md`.
 - **Prototype.** A prototype kept in the repo to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). The **prototype** skill.
-- **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. `playbooks/visual-parity.md`.
+- **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. The user said what to change, and this session writes it and closes with Shared closing. `playbooks/visual-parity.md`.
 - **Authoring or modifying a skill.** Writing or editing a SKILL.md. `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
 - **Session pickup.** Resuming or taking over a prior agent's in-flight work from a transcript or pushed branch. `playbooks/session-pickup.md`.

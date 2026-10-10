@@ -6,7 +6,7 @@ The body of each GitHub issue the To tickets playbook (`../playbooks/to-tickets.
 
 ## Parent
 
-A reference to the parent spec on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). The first issue here is read as the ticket's spec.
+A reference to the parent spec on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). The first issue here is read as the ticket's spec. A ticket a playbook writes outside any spec (Bug fix, Perf issue, Hillclimb) writes "None".
 
 ## What to build
 

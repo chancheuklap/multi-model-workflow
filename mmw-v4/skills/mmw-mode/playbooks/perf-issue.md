@@ -14,11 +14,10 @@
    7. Do it cheaper.
 
    When an earlier mantra meets the target, stop.
-3. Plan the fix from the trace. If it crosses a function boundary, `architect` first. Delegate implementation to a subagent using your configured perf-issue model (default `grok-4.7-xhigh-fast`). Review the diff. Capture a post-fix trace.
-   Apply the **sequence-verifiable-units** principle skill, verifying each attempt before trying the next.
-4. Parse and compare the artifacts (JSON to sqlite, diff). "Inconclusive" or wrong-surface is not a pass. Flag it. A target the numbers miss is reported as missed, never met by changing the benchmark (**principle-fix-root-causes**).
-5. Cite the measurement in the PR.
-6. Run **Shared closing** (`playbooks/shared-closing.md`).
+3. Plan the fix from the trace. If it crosses a function boundary, `architect` first.
+4. Write the ticket and send it. Write one ticket in the shape of `../references/ticket.md`, with `None` under **Parent**. **What to build** states the baseline number, the trace evidence, the planned change and the target, and asks for one attempt at a time, each verified before the next (the **sequence-verifiable-units** principle skill). The first acceptance criterion is the benchmark command, vetted with the **benchmark-checklist** skill, printing a line only a run that meets the target prints; the second, the tests the change must keep green. Publish it with `gh issue create`, with the labels `mmw:ticket`, `ready-for-agent` and one worker label (`junior-worker`, or `senior-worker` for silent-failure work), then run `verify-ticket.py <n> --lint` of the **verify-ticket** skill and fix every `ERROR`. Then run **One ticket** of the Run a night playbook (`playbooks/run-a-night.md`) on it: it cuts the ticket's own branch, sends the worker, and ends your turn.
+5. Measure it again. Woken by `#<n> ticket.passed`, capture a post-fix trace in the ticket's worktree (`.worktrees/issue-<n>`) the way step 1 captured the baseline, then parse and compare the artifacts (JSON to sqlite, diff). "Inconclusive" or wrong-surface is not a pass. Flag it. A target the numbers miss is reported as missed, never met by changing the benchmark (**principle-fix-root-causes**): land nothing, and tell the user.
+6. Deliver it as **One ticket** steps 4 and 5 say: `land`, then one pull request citing the measurement, merged on the user's yes.
 
 For sustained improvement against a metric rather than a one-off fix, use the Hillclimb playbook (`playbooks/hillclimb.md`).
 
