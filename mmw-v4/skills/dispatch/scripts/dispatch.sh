@@ -10,6 +10,7 @@
 #   dispatch.sh check <spec>
 #   dispatch.sh open <spec>
 #   dispatch.sh open-ticket <n>
+#   dispatch.sh board
 #   dispatch.sh self
 #   dispatch.sh advance <spec>
 #   dispatch.sh start <n> worker|reviewer
@@ -106,6 +107,7 @@ REPO_URL=""
 # their own skill one directory over. A `--tools` directory given on the command line
 # is searched before those.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
 # `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
@@ -401,6 +403,7 @@ usage: dispatch.sh send worker|reviewer <n>
        dispatch.sh check <spec>
        dispatch.sh open <spec>
        dispatch.sh open-ticket <n>
+       dispatch.sh board
        dispatch.sh self
        dispatch.sh advance <spec>
        dispatch.sh start <n> worker|reviewer
@@ -421,6 +424,46 @@ usage: dispatch.sh send worker|reviewer <n>
        dispatch.sh route <ticket> <child> became-ticket <new ticket>
 USAGE
   exit 2
+}
+
+# ------------------------------------------------------------------ task board
+
+# Register this repository's task board and make sure it answers, without opening it
+# anywhere. Prints its URL. Non-zero, with the reason on stderr, when it could not be
+# registered or started; the caller decides what that means to it. The board is a
+# read-only view of the tracker, so making sure one runs takes nothing away from a
+# command that fails to do it.
+ensure_board() {
+  local repository port
+  if [ ! -f "$BOARD_SUPERVISOR" ]; then
+    echo "dispatch: no task board supervisor at $BOARD_SUPERVISOR" >&2
+    return 2
+  fi
+  repository="$(main_checkout)"
+  if [ -z "$repository" ]; then
+    echo "dispatch: not inside a git repository, so there is no main worktree to register a task board for" >&2
+    return 2
+  fi
+  if ! port="$(python3 "$BOARD_SUPERVISOR" --ensure "$repository")"; then
+    echo "dispatch: could not register and start the task board for $repository" >&2
+    return 2
+  fi
+  printf 'http://127.0.0.1:%s\n' "$port"
+}
+
+open_board() {
+  local current url answer rc
+  current="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$current" ] || refuse "not inside a git repository, so there is no checkout for the task board tab"
+  url="$(ensure_board)" || exit 2
+  use_runner "$(tonight_runner)"
+  answer="$(runner open-url --cwd "$current" --url "$url" 2>&1)"
+  rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    3) printf '%s\n' "$url"; return 0 ;;
+    *) refuse "$RUNNER_NAME could not open $url in $current: ${answer:-the adapter gave no reason}" ;;
+  esac
 }
 
 # ------------------------------------------------------------------ the relay
@@ -779,7 +822,7 @@ sync_base_with_project() {
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
-  local spec="$1" root into opened runner session how rows project
+  local spec="$1" root into opened runner session how rows project board
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
@@ -800,17 +843,36 @@ open_night() {
   fi
   # Every other process a night needs starts itself: `open` starts the relay, and the
   # turn guard arms the watchdog.
-  echo "opened #$spec: wake-ups go to $runner session $session"
+  # Every other process a night needs starts itself: `open` starts the relay, and the
+  # turn guard arms the watchdog. The task board was the one thing somebody had to
+  # remember, and it is the only one of the three whose output is for a person — the
+  # relay's and the watchdog's are for the orchestrator. A board that will not start is
+  # said so on stderr and takes nothing else with it: the night is open either way.
+  if board="$(ensure_board)"; then
+    echo "opened #$spec: wake-ups go to $runner session $session; task board $board"
+  else
+    echo "opened #$spec: wake-ups go to $runner session $session"
+    echo "dispatch: the night is open and its task board is not, so the night's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
+  fi
 }
 
 # `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
 # session as its orchestrator; `land <n>` closes the watch. `send worker <n>` opens it
 # first; alone, it hands the watch of a ticket whose session is gone to this one.
 open_ticket() {
-  local number="$1" opened runner session how
+  local number="$1" opened runner session how board
   opened="$(open_relay --tickets "$number")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
-  echo "opened #$number: wake-ups go to $runner session $session"
+  # The task board is made sure of the way `open` makes sure of it, for the same reason:
+  # the relay and the watchdog start themselves, and the board is the one view of the
+  # ticket for a person. A board that will not start is said on stderr and leaves the
+  # watch open.
+  if board="$(ensure_board)"; then
+    echo "opened #$number: wake-ups go to $runner session $session; task board $board"
+  else
+    echo "opened #$number: wake-ups go to $runner session $session"
+    echo "dispatch: the watch on #$number is open and its task board is not, so the ticket's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
+  fi
 }
 
 # `ack <n> <event>` or `ack brief <batch>`: the wake this session
@@ -3736,6 +3798,10 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
+  board)
+    [ "$#" -eq 1 ] || usage
+    open_board
+    ;;
   check)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac

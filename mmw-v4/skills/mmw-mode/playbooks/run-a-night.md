@@ -43,7 +43,7 @@ Then, from this session — the one the night's wakes must reach:
 dispatch.sh open <spec>
 ```
 
-**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>`, and this session is the night's orchestrator. **Exit 2:** fix stderr's named condition and run `open` again.
+**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>`, and this session is the night's orchestrator; when the line goes on to name a task board, hand its URL to the owner. **Exit 2:** fix stderr's named condition and run `open` again.
 
 #### 1b. Before the batch: what the batch cannot be run on
 
