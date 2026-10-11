@@ -23,7 +23,7 @@ List the release manifests:
 git ls-files '*.release-adapter.json'
 ```
 
-Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repository default branch when you have nothing better). When the checkout is on the default branch itself, there is no task branch: take instead the paths changed since each product last shipped, `git diff --name-only <source_commit>..HEAD`, with `source_commit` from that product's `.release/delivered/<product>.json` in the main checkout, which `close` writes; a product with no such record you include, as below. Match them against the paths each release manifest names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
+Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repository default branch when you have nothing better). Match them against the paths each release manifest names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
 
 The paths are evidence, not the rule. What decides is whether the change reaches what this product's customer installs: a package the product lists in `python_backend.include_packages` that lives outside its own directory, a dependency lock, a hook script, or the release manifest itself all change the package. Leaving out a product the change reached ships it stale; including one it did not costs one build.
 
