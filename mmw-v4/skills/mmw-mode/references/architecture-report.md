@@ -1,6 +1,6 @@
 # Architecture report
 
-The page Improve the architecture step 3 draws with the `diagram-design` skill. Its reader is the owner, who does not read code: no file, function or code is on it, and each part of the product is under the name the project's glossary (`CONTEXT.md`) gives it. This file sets what goes on the page, top to bottom: the header, one card per candidate, then the top recommendation.
+The page Improve the architecture step 3 draws with the `diagram-design` skill. Its reader is the owner, who does not read code: no file, function or code is on it, and each part of the product is under the name the project's glossary gives it, and every word on it, the badges included, is in the owner's language. This file sets what goes on the page, top to bottom: the header, one card per candidate, then the top recommendation.
 
 ## Header
 

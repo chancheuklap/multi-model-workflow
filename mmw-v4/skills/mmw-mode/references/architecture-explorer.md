@@ -2,7 +2,7 @@
 
 Improve the architecture step 2 sends you with the paths to walk and why those. You change nothing; you report where the code is hard to understand, change or test.
 
-Walk those paths first, and wider where they lead. Read the `codebase-design` skill's `SKILL.md` for the vocabulary (module, interface, depth, seam, adapter, leverage, locality) and use those terms exactly. Read `CONTEXT.md` for the domain's names.
+Walk those paths first, and wider where they lead. Read the `codebase-design` skill's `SKILL.md` for the vocabulary (module, interface, depth, seam, adapter, leverage, locality) and use those terms exactly. Read the glossary your prompt names for the domain's names.
 
 Don't follow rigid heuristics; explore organically and note where you experience friction:
 
