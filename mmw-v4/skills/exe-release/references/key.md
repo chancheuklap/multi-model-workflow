@@ -1,0 +1,229 @@
+# Write a release manifest
+
+A product ships by declaring one release manifest: `<product>.release-adapter.json`, one file, JSON only.
+
+The filename and the `--adapter` flag every script below takes say `adapter`: both are literals the scripts read. Prose calls this file the release manifest.
+
+**Adding a product means writing a release manifest. It does not mean writing Python.** When something cannot be said in the release manifest, the answer is a new field in it or a new capability in the skill — never a script in the product repository. A script there is a copy of packaging knowledge that the next product will have to write again.
+
+`scripts/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
+
+## What belongs where
+
+Ask one question about any piece of the build:
+
+> **Move to a different app — does this have to be rewritten?**
+
+| Answer | Goes | Shape |
+| --- | --- | --- |
+| No, only the values differ | **the release manifest** | JSON |
+| No, it is the same action | **the skill** | code, written once |
+| Yes, it is this app's own business | **the product repository** | code, and keep it thin |
+
+Two things are genuinely the product's own and stay in its repository: fetching an embedded runtime, and a delivery format the app invented (a self-update feed, a hand-written installer with its own install semantics). Everything else about producing a Windows package is the skill's.
+
+Applied to checks, the same question reads: **a check every product needs is the skill's job and is never optional; a check that exists only because of how one repository is built is the product's, and is.** When you are about to require a new field, ask which side it falls on. If every product would have to write the same thing, the skill should be writing it instead.
+
+## The shape
+
+```jsonc
+{
+  "schema_version": "2",
+  "product": "<name>",                 // one word, used in fingerprints and delivery paths
+
+  "toolchain": [],                     // extra tools only — see below
+
+  "build_target": {
+    "desktop_dir": "<electron app dir>",
+    "installer_brand": "…",
+    "installer_glob": "…/*-setup.exe",     // where the finished installer lands
+    "package_tree": null,                  // only when it is not the electron unpacked dir
+    "asset_roots": ["src/…/assets/**"]     // which paths mean "this product changed"
+  },
+
+  "python_backend": { /* below */ },
+  "electron": { /* below */ }
+}
+```
+
+That is a complete release manifest. The release engine supplies the build pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release manifest adds `stages` for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. `post_build_stages` run on the repository machine after the successful remote build. Both fields contain the same stage declarations; the engine puts its three between them.
+
+`build_target.return_artifacts` maps repository-relative build files to filenames in `${RELEASE_LOOP_DIR}`. The engine copies these non-customer artifacts back before deleting the successful remote build tree, so a `post_build_stages` command can read the exact build's files. A failed transfer fails `build`, preserves its remote tree and blocks the later stages. Use this for separately retained diagnostic assets, not for customer resources or the installer delivery path.
+
+If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
+
+Paths in the release manifest are repository-relative POSIX paths, and two templates are available: `${DESKTOP_DIR}` and `${BUILD_ROOT}`. Absolute paths are refused: the release manifest is written on one machine and executed on another. `${RELEASE_PLUGIN_DIR}` expands to the skill's own `scripts/` directory — use it for anything the skill provides, since where the skill is installed is the host's business.
+
+**`toolchain` is extras only.** Step 1 of the build checks every command the generated script actually invokes — the compile runner, the package manager, the build-machine setup script — all derived from what this release manifest already says. List a tool here only when the product needs one beyond those. Restating the derived ones is how a release manifest ends up demanding a tool the build does not use, and turning a working build machine away at step 1.
+
+### `vendor_artifacts` — a binary the package ships but git cannot hold
+
+ffmpeg, an embedded interpreter, anything too large to commit. Put the files on the build machine under `<cache_root>/vendor/<name>/`, and the release manifest says which ones to copy in and where:
+
+```jsonc
+"vendor_artifacts": [{
+  "name": "ffmpeg",
+  "lock": "resources/ffmpeg/.ffmpeg-version-lock-win64.json",
+  "members": [
+    {"file": "ffmpeg.exe",  "dest": "resources/ffmpeg/bin/ffmpeg.exe",  "sha256_key": "ffmpeg_exe_sha256"},
+    {"file": "ffprobe.exe", "dest": "resources/ffmpeg/bin/ffprobe.exe", "sha256_key": "ffprobe_exe_sha256"}
+  ]
+}]
+```
+
+**Nothing is downloaded.** Upstream retention is not yours to control: a locked download address can go dead, and those exact bytes with it. A file on a machine you own does not rot.
+
+**The hashes are the point.** `lock` is a JSON file in the repository recording each file's sha256, and a copy that does not match stops the release. The same tool built from a different source is not the same file, and the difference does not announce itself: the build succeeds, the app runs, and on a customer machine it quietly does the slow thing (a different ffmpeg build can require a newer GPU driver, and customers without it lose GPU encoding with no error).
+
+Keep the hashes in the lock file rather than in the release manifest when the repository already reads them -- one place, or they drift.
+
+**A copyleft binary travels with its licence.** Mark the upstream licence file `"license": true`, and list the notices your repository writes itself -- the offer of source a GPL binary obliges you to make:
+
+```jsonc
+{"file": "LICENSE.txt", "dest": "resources/ffmpeg/LICENSE.txt",
+ "sha256_key": "license_sha256", "license": true}
+// and on the artifact, beside `members`:
+"notices": ["resources/ffmpeg/NOTICE-ffmpeg.txt"]
+```
+
+Both then face one gate, once the installer is built: the bytes of each file must appear somewhere inside the finished package tree. Staging a licence into the repository is not shipping it -- a packaging filter sits in between, and when it drops the licence every build log stays green while the installer goes out in breach. The gate holds no path inside the package, because where a staged file lands there is the packaging config's business.
+
+The tree it reads is the electron unpacked directory. When a product's unpacked directory is only a shell and its own installer step assembles the tree that reaches the customer somewhere else, name that one in `build_target.package_tree` -- a repository-relative path, wildcards allowed, because such a tree often carries the version in its name. It must resolve to exactly one directory.
+
+### `runtime_assets` — data that ships beside the exe instead of inside it
+
+A compiled backend has two places its data can live, and they are not interchangeable:
+
+- **Inside the executable** — `python_backend.include_data_dirs`. Nuitka unpacks it to a temporary directory at run time.
+- **Beside the executable** — this field. Ordinary files in the installed tree, read by path.
+
+Three reasons a file has to take the second road. **Some packages cannot be embedded at all**: the build log shows `included data file` records for every other package and none for this one, and the compiled exe still reports the file missing. **Some are too large to unpack on every launch.** **Some have to stay replaceable** after the app is installed.
+
+```jsonc
+"runtime_assets": {
+  "root": "${DESKTOP_DIR}/python-runtime/runtime-assets",   // the default; write it only to override
+  "entries": [
+    {"source": "src/<pkg>/assets", "dest": "<pkg>/assets"},
+    {"source_package": "<the installed package>", "members": ["config.yaml", "models"],
+     "dest": "<pkg>/<name>"}
+  ]
+}
+```
+
+An entry names **exactly one** source. `source` is a repository-relative path. `source_package` resolves the package directory **through the interpreter that runs the compile** — the same one the abi3 DLLs come from; resolved through any other python, the bytes copied into the package could belong to a different install. It must name its `members`: pointing at a whole package would ship that package's code as data, which is what compiling exists to prevent.
+
+**The default `root` is not arbitrary.** It sits beside the compiled backend because that is where the running app looks — the exe's own directory, then one level up. Change it and the files are all present in the installed package while the program cannot find any of them, with every build step green.
+
+Staging does not clear the destination, so a `runtime_prepare` hook may fill the same tree.
+
+### `python_backend` — compiling the backend
+
+One Nuitka invocation per entry in `targets`. The skill renders the command; the release manifest supplies every value in it.
+
+```jsonc
+"python_backend": {
+  "runner": ["uv", "run", "--extra", "<runtime extra>", "python"],  // up to `python`
+  "output_dir": "${DESKTOP_DIR}/python-runtime/backend",
+  "jobs": {"default": 10, "env": "…_NUITKA_JOBS"},
+  "console": false,                    // false ⇒ --windows-console-mode=disable
+  "icon": "src/…/tray.ico",
+  "include_packages": [],              // code
+  "include_package_data": [],          // data files inside those packages
+  "include_distribution_metadata": [], // packages that read their own version at runtime
+  "include_modules": [],
+  "nofollow_imports": [],
+  "include_data_dirs": [{"source": "src/…/assets", "dest": "…/assets"}],
+  "extra_flags": [],                   // escape hatch, not the front door
+  "env": {"CCACHE_BASEDIR": "${REPO_ROOT}"},
+  "isolate_dirs": ["${DESKTOP_DIR}/node_modules"],
+  "targets": [{"name": "…", "exe": "….exe", "entrypoint": "src/…/__main__.py"}],
+  "smoke": {"exe": "….exe", "args": ["--run-module", "…._build_smoke"], "modules": [...]},
+  "required_modules_file": "scripts/release/derived/…-required-modules.txt"
+}
+```
+
+What each field prevents:
+
+- **`include_packages` brings the code; the data files inside it do not come with it.** Miss the data and the app raises FileNotFound on a customer machine, not on the build machine. Name the directories you need in `include_data_dirs`. Reach for `include_package_data` only when you cannot name them, because it sweeps the *whole* package: every non-code file that happens to sit there, including the `CLAUDE.md` and `AGENTS.override.md` written for people inside your company, shipped silently inside the customer's exe. When both fields cover the same file, Nuitka prints `Duplicate data file ... ignored` -- that line is telling you `include_package_data` is doing nothing you asked for and something you did not. And when neither field works, the package cannot be embedded at all (the symptom is under `runtime_assets`): ship it beside the exe with `runtime_assets` instead of trying more flags.
+- **`include_modules` for anything imported inside a function body.** The compiler traces imports statically; a C extension imported lazily is invisible to it and simply will not be in the package. The customer finds out when they reach that feature.
+- **`required_modules_file` catches what neither the compiler nor a hand-written list sees.** A library can import a submodule while one of its functions runs: `sqlite3` loads `sqlite3.dump` inside `iterdump()`, and `sentry_sdk` loads its integrations inside `init()`. The compiler cannot see such imports, so the standalone package lacks them; the customer meets `No module named …` the first time that function runs. Point this field at a list of the modules the product loads in a source run, one name per line (`#` starts a comment), recorded by running the product's own tests. Every target is then compiled with `--report` (the report goes under `runtime/.mmw-nuitka-reports/`, outside `output_dir`, which ships whole), and right after the compile the build compares the report with the list. A listed module the compile interpreter can find on the build machine but the package lacks stops the build and is named; a module the build machine cannot find belongs to another platform and is skipped, and a module built into the compile interpreter (on Windows, `mmap` and `winreg` among others) is in every compiled program and counts as present. The list must not name a module `nofollow_imports` keeps out; that is caught before the compile.
+- **`smoke.modules` is also the guard on `nofollow_imports`.** A nofollow pattern can block a module the built exe needs. The skill checks this at assemble time, because finding out after the compile costs tens of minutes.
+- **`console: false` for a GUI app**, or every customer gets a black console window.
+- **`env` values may use `${REPO_ROOT}`.** The build machine's repository path changes every commit (the directory is named after the commit), so anything that has to name that path -- a compile cache's base directory, for one -- can only be computed there.
+- **`isolate_dirs` moves directories out of the way during the compile.** When the Electron app's `node_modules` sits inside the Python package scan path, the compiler scans it: compile time explodes and front-end files can end up in the package. They are moved back afterwards, and a failed restore stops the build — an Electron build against a missing `node_modules` fails in a way nobody can trace back to here.
+
+Native extensions that need a DLL the compiler does not carry go in `build_target.native_ext_dll`:
+
+```jsonc
+{"reason": "…", "dll_names": ["python3.dll"], "dll_source": "compile_interpreter",
+ "dest": "pyd_package_dir", "pyd_package": "<the package holding the .pyd>"}
+```
+
+`dest` matters more than it looks. Windows loads a `.pyd` looking for its dependencies **only in the `.pyd`'s own directory**, so a DLL dropped at the dist root is not found. `dll_source` decides where the build machine looks: `compile_interpreter` (an abi3 forwarder like `python3.dll`, which must match the interpreter the compiler ran under) or `system32` (the MSVC C++ runtime).
+
+### `electron` — the shell and the installer
+
+```jsonc
+"electron": {
+  "dist_dir": "dist",
+  "unpacked_dir": "dist/win-unpacked",
+  "compression": "maximum",
+  "compression_env": "MMW_ELECTRON_BUILDER_COMPRESSION",
+  "installer": "electron_builder"      // or "repo_hook"
+}
+```
+
+Every field has a default that fits the common case; `"electron": {}` is a complete declaration. The front end is installed and built with pnpm and a `build` script — one set of commands in the skill, not a field each release manifest restates.
+
+`"installer": "repo_hook"` is for a product whose delivery format is its own — a self-update feed, or a hand-written installer whose semantics (carrying the VC++ runtime, stamping an app id, keeping user data on uninstall) the generic installer cannot reproduce. That release manifest must also declare `build_hooks.installer`. Leave a product on `electron_builder` unless it truly has its own format.
+
+### `build_hooks` — where the product gets called back
+
+Hooks hang on phases, not on step numbers: which steps exist depends on what the release manifest declares, so the numbers move; the phases do not.
+
+| Phase | Hook | What the product does here |
+| --- | --- | --- |
+| `runtime_ready` | `runtime_prepare` | fetch the embedded runtime, media assets |
+| `runtime_ready` | `asset_parity`, `credential_proof` | check assets, emit proofs — these run **after** the skill stages `runtime_assets`, so they can check what it put there |
+| `backend_ready` | `backend_verify` | the compiled exe just landed — prove it starts |
+| `artifact_ready` | `artifact_scan` | scan the packed output |
+| `installer_ready` | `installer` | only with `"installer": "repo_hook"` |
+| `release_ready` | `package_integrity` | the installer exists — verify it |
+
+**`build_hooks` is optional as a whole, and a first release manifest omits it.** Add one when the product has a check of its own to run at that moment. Declaring a hook with an empty argv is refused: that reads as configured but does nothing.
+
+**A hook's own logging has to survive the build machine's codepage.** A Windows build machine outside an English locale runs Python with a legacy codepage on both ends, and a hook that moves subprocess output around crashes on it while the check it ran was passing. Both directions need saying, once, in the hook: read with `subprocess.run(..., encoding="utf-8", errors="replace")`, and at start-up `sys.stdout.reconfigure(errors="replace")` for what the hook prints itself. Without the first, the reader thread dies and `result.stdout` is `None`; without the second, one Chinese character or one replacement character raises on the way out.
+
+A hook is an addition, never a substitute. On every build the skill already checks that no business source ships (the packages in `python_backend.include_packages`). Compiling the backend exists so that no business source ships; a package that leaks it still installs and runs, so nothing but this check ever notices. The same build also removes Nuitka's `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` leftovers, and checks that an installer landed at `installer_glob`. Keep `--remove-output` out of `extra_flags`: it deletes those directories during the compile and downgrades the payload check to comparing exe tails. `installer_glob` may point at a delivery directory the `package_integrity` hook fills, since the check runs after that hook.
+
+### What is genuinely optional
+
+`derive` and `event_sink` are the self-heal and observability mechanisms. These are optional because each one only exists once the product has grown the thing it guards — a derived artifact to regenerate, a log system to feed. A product with none of them still ships a correct package; the release engine skips what the release manifest does not declare, and says so rather than pretending it ran.
+
+### `diagnose_rules` — this product's own log patterns
+
+Patterns only this product's build produces, matched **before** the skill's general table. A rule's `fingerprint` prefix decides what the release engine does with it: `transient:` means there is no code to fix and the stage is simply re-run. Get that prefix wrong and a network blip is dispatched to a code fix, or a real defect is retried until the budget runs out.
+
+## Prove it without building
+
+Check the release manifest against the repository first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile.
+
+```bash
+uv run --with 'pydantic>=2' python scripts/verify_key.py --adapter <manifest> --repo-root <repo>
+```
+
+Then assemble and read the script:
+
+```bash
+out="$(mktemp -d)"
+script="$out/release.ps1"
+context="$out/ctx.json"
+uv run --with 'pydantic>=2' python scripts/release_script_assembler.py assemble \
+  --adapter <manifest> --repo-root <repo> --output "$script" --context-output "$context"
+```
+
+`$out` is this run's own directory. A fixed name under `/tmp` is shared: two runs at once overwrite each other's assembled script.
+
+Read the generated script. Every step it prints is a step the release manifest asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repository does not have.
+
+Then commit the release manifest and the repository changes (the build ships `git archive HEAD`), ship it once from `SKILL.md` step 3, and read what the build machine says. A release manifest is proven by a package that installs, not by a script that assembles.

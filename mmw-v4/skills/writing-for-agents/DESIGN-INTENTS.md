@@ -166,7 +166,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P38 (the rest) | The mode kept in effect by a host's reminder field | The mode's own description asks for the read, on every host (5, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
 | M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
-| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30) |
+| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30); a fix a release's build needs is the one exception, committed by the session driving the release (`exe-release`) |
 | M17 (the rest) | The person confirms the seams | A seam is an engineering decision (3, 21) |
 | M21 | No runtime; the person triggers every step | Mechanical rules are enforced by scripts, and the night is driven by the machine (36) |
 | M22 | Very short skills that leave the how to the model | Copied skills keep upstream's text; a playbook must finish at night with nobody to ask, so each step states its criterion (22, 17) |
