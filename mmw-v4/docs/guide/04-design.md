@@ -76,7 +76,7 @@ The code-review skill reads a finished change on four axes, each a separate suba
 
 The axes never see each other's findings, so a change that passes one axis cannot cover for a failure on another. The session then checks every finding at the cited line. A finding either holds, is refuted with the evidence that disproves it, or is marked as one it could not settle. Refuted findings are listed with their refutation, not dropped.
 
-The skill runs in three places. A ticket's worker sends a `reviewer` session to its diff. [Shared closing](../../skills/mmw-mode/playbooks/shared-closing.md) step 3 runs the four axes on a change with no ticket, with a file holding your request word for word in place of the ticket. And the `mmw-mode` skill routes "review this change" to it, and sends a contested design to it before shipping.
+The skill runs in three places. A ticket's worker sends a `reviewer` session to its diff. Asked to review a pull request someone else opened, the session runs the four axes with the pull request's description in a file in place of a ticket. And the `mmw-mode` skill routes "review this change" to it, and sends a contested design to it before shipping.
 
 Spend a review on code, not on an abstract plan. Point a reviewer at a plan with no code behind it and it invents risks that will never happen. Let prototypes settle the questions, then review what got built.
 
@@ -145,7 +145,7 @@ Most changes need none of this. A rough ladder:
 - A coverage matrix, a set of parallel checks, or a race with a declared rule goes to the swarm skill.
 - An open question you could answer by running something, such as a layout, a timing, or an approach, gets a prototype, not a debate.
 - A contested design that is expensive to reverse gets the architect skill, then the code-review skill before shipping.
-- Work that takes more than one session gets Grill with docs or a map, then To spec and To tickets.
+- Work one ticket cannot carry gets Grill with docs or a map, then To spec and To tickets.
 
 The `mmw-mode` skill already applies this ladder. Name these skills yourself when you want more or less scrutiny than its default.
 

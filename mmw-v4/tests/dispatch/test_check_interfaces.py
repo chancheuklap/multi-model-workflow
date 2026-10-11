@@ -3,7 +3,7 @@
     python3 -m unittest discover -s mmw-v4/tests/dispatch -p test_check_interfaces.py
 
 The check reads the relay's WAKES, events.py's EVENTS, verify-ticket.py's RESUME_STEPS,
-the mode's route lines and playbooks, the role table and hosts.json, every skill's
+the route lines of the mode's references/owning-a-task.md and its playbooks, the role table and hosts.json, every skill's
 SKILL.md, and the playbooks and references that send a brief role. Each case copies the skills tree into a temporary directory, makes one change
 a later edit could make, and runs the copied script there.
 """
@@ -57,6 +57,12 @@ class CheckInterfaces(unittest.TestCase):
         code, out = self.run_check()
         self.assertEqual(code, 1)
         self.finding(out, "run-a-night.md", "worker.lost")
+
+    def test_a_wake_one_ticket_has_no_step_for_is_found(self):
+        self.edit("mmw-mode/playbooks/one-ticket.md", "`#<n> worker.lost`", "`a lost worker`")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "one-ticket.md", "worker.lost")
 
     def test_a_step_waiting_for_a_wake_nobody_sends_is_found(self):
         self.append("mmw-mode/playbooks/work-a-ticket.md", "When `#<n> reviewer.started` wakes you, stop.")

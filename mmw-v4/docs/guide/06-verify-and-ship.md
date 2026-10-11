@@ -92,21 +92,11 @@ Apps change and feature maps go stale. The [maintain-verification-skill skill](.
 
 Every delivery path in MMW ends in exactly one pull request. A change is never split into a stack of dependent pull requests. Which path runs depends on who wrote the code.
 
-**A change the session wrote itself.** Feature, Refactoring, and Visual parity end with [Shared closing](../../skills/mmw-mode/playbooks/shared-closing.md):
-
-1. Prove the change on the product, then run the smallest set of tests that proves it.
-2. Run the [no-comments skill](../../skills/no-comments/SKILL.md) on the diff.
-3. Have it read on the four axes of the [code-review skill](../../skills/code-review/SKILL.md), one fresh subagent per axis, with your request copied word for word into a file. Fix every finding that holds, or note what refutes it.
-4. Commit one cause per commit. Each message quotes the line the test run printed, not "the tests pass".
-5. Merge the latest project branch and run the repository's checks, named by `checks` in `.mmw/target.json`.
-6. Open one pull request to the project branch.
-7. Give you the link, and merge with `gh pr merge` only when you say yes.
-
-**A ticket a worker wrote by day.** Bug fix, Perf issue, and Hillclimb end with **One ticket** of the [Run a night playbook](../../skills/mmw-mode/playbooks/run-a-night.md). The session checks the result the way its playbook says, for a bug the original reproduction. It runs `dispatch.sh land <n>`, opens one pull request from `fix-<n>` to the project branch, and merges it when you say yes.
+**One ticket.** Every change outside a night goes through a ticket a worker builds, and ends with the [One ticket playbook](../../skills/mmw-mode/playbooks/one-ticket.md). The session checks the result the way the playbook that wrote the ticket says, for a bug the original reproduction. It merges the latest project branch into `fix-<n>`, runs `dispatch.sh land <n>`, and runs [Opening a PR](../../skills/mmw-mode/playbooks/opening-a-pr.md): one pull request from `fix-<n>` to the project branch, its checks and comments settled, merged with `gh pr merge --merge` when you say yes.
 
 **A night's batch.** A night ends in one pull request from the night's branch to the project branch, titled `Night #<spec>: <the spec's title>`. Its body starts with what each closed ticket now does for users and every decision left to you. After you accept it, `dispatch.sh finish <spec>` merges it. `finish` refuses while any check is red or still running, or any review thread is unresolved, and nothing merges until those are settled. Merging the project branch into the repository's default branch stays your release decision. [Run work while you sleep](./07-overnight.md) covers the night.
 
-One set of rules writes every pull request: **The pull request** in Shared closing. The title follows Conventional Commits, such as `fix(dispatch): refuse a finish whose pull request has an open thread`. The top of the description is for you, in plain words: what changes for the people who use the product, what you must decide with a recommendation for each, what was not done and why, and what changes once it merges. The rest is for a code reader, under the headings `## Why`, `## What changed`, `## Scope`, `## Tradeoffs`, `## Blast Radius`, and `## Verification`. Every pull request opens ready for review, never as a draft.
+One playbook writes every pull request: [Opening a PR](../../skills/mmw-mode/playbooks/opening-a-pr.md). The title follows Conventional Commits, such as `fix(dispatch): refuse a finish whose pull request has an open thread`. The top of the description is for you, in plain words: what changes for the people who use the product, what you must decide with a recommendation for each, what was not done and why, what changes once it merges, and, only when there is one, a consequence that cannot be undone. A night's pull request carries its `NIGHT SUMMARY` in the middle. The rest is for a code reader, under the headings `## Why`, `## What changed`, `## Scope`, `## Tradeoffs`, `## Blast Radius`, and `## Verification`. Every pull request opens ready for review, never as a draft.
 
 When an automated reviewer, such as Bugbot or a security review, comments on a pull request, the session treats each comment skeptically. [`references/bugbot-triage.md`](../../skills/mmw-mode/references/bugbot-triage.md) sorts each thread into one of three actions. `fix` covers a plausible correctness, security, data, or billing problem, fixed on the branch with the commit named in the reply. `dismiss` covers a known noisy pattern that the current code disproves, answered with the reason. `ask` covers anything novel, severe, or unclear, put to you.
 

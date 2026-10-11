@@ -31,15 +31,14 @@ A skill is a link, not a copy, so an edit to a `SKILL.md` reaches every host at 
 
 `--back` removes what v3 cannot recognise and then runs `mmw-v3/install.sh` from the same checkout. Its exit code is v3's. The header comment of [`install.sh`](./install.sh) lists every item and what install leaves untouched.
 
-## Three ways a change reaches the product
+## Two ways a change reaches the product
 
-Each path ends in one pull request to the project branch. The owner reads its top half, and the owner's yes merges it.
+Each path ends in one pull request to the project branch, opened by the [Opening a PR](./skills/mmw-mode/playbooks/opening-a-pr.md) playbook. The owner reads its top half, and the owner's yes merges it.
 
 1. **A night.** A spec's published tickets run unattended. The [Run a night](./skills/mmw-mode/playbooks/run-a-night.md) playbook sends a worker to each ticket, lands each ticket that passes, and opens one pull request for the owner to read in the morning. After the owner accepts it, `dispatch.sh finish` merges it. `finish` refuses while a check is red or still running, or a review thread is open.
-2. **A day ticket.** [Bug fix](./skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](./skills/mmw-mode/playbooks/perf-issue.md) and [Hillclimb](./skills/mmw-mode/playbooks/hillclimb.md) diagnose the problem and write one ticket. Run a night's **One ticket** section then cuts a `fix-<n>` branch, sends a worker with `dispatch.sh send`, checks the result on the original reproduction, lands it, and opens the pull request.
-3. **A day change with no ticket.** In [Feature](./skills/mmw-mode/playbooks/feature.md), [Refactoring](./skills/mmw-mode/playbooks/refactoring.md) and [Visual parity](./skills/mmw-mode/playbooks/visual-parity.md), the session writes the change itself. [Shared closing](./skills/mmw-mode/playbooks/shared-closing.md) then proves it on the product, cleans the comments, has it reviewed on the four axes of `code-review`, commits it, merges the latest project branch, and opens the pull request.
+2. **One ticket.** Every other change, code, scripts and skill text alike. The playbook of its kind ([Bug fix](./skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](./skills/mmw-mode/playbooks/perf-issue.md), [Hillclimb](./skills/mmw-mode/playbooks/hillclimb.md), [Feature](./skills/mmw-mode/playbooks/feature.md), [Refactoring](./skills/mmw-mode/playbooks/refactoring.md), [Visual parity](./skills/mmw-mode/playbooks/visual-parity.md), [Authoring or modifying a skill](./skills/mmw-mode/playbooks/authoring-a-skill.md)) opens a ticket and its `fix-<n>` branch, writes the plan into the ticket, and hands it back to the owner. On the owner's go, the [One ticket](./skills/mmw-mode/playbooks/one-ticket.md) playbook sends a worker with `dispatch.sh send`, checks the result the way that playbook says, lands it, and opens the pull request.
 
-The full list of playbooks is the `## Playbooks` section of [`mmw-mode`'s `references/owning-a-task.md`](./skills/mmw-mode/references/owning-a-task.md). The Babysit, Shipping, Opening a PR, Autonomous run, Orchestrate, Autopilot-full, Autopilot-stack and Multi-phase plan playbooks are retired. [`docs/retired-playbooks/README.md`](./docs/retired-playbooks/README.md) says what replaced each one.
+The full list of playbooks is the `## Playbooks` section of [`mmw-mode`'s `references/owning-a-task.md`](./skills/mmw-mode/references/owning-a-task.md). The Babysit, Shipping, Shared closing, Autonomous run, Orchestrate, Autopilot-full, Autopilot-stack and Multi-phase plan playbooks are retired. [`docs/retired-playbooks/README.md`](./docs/retired-playbooks/README.md) says what replaced each one.
 
 ## Why there are planning playbooks
 

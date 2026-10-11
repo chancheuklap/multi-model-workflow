@@ -79,8 +79,8 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Takes: P13, adapted (the unattended contract became the ticket and its criteria; an owner's decision met at night is recorded with its options and default); M9, adapted (decisions live in the spec and tickets on the tracker).
     Home: `mmw-mode` `## Autonomy` (**Unattended**); **To spec**; **To tickets**; `principle-baseline-is-the-contract`.
 23. **The trunk: write a spec, cut it into narrow tickets through every layer (a task graph), implement, review once, deliver one pull request, retro.** A written plan is kept.
-    Takes: M7, kept; M8, adapted (tickets carry Owns, Seam and runnable criteria); M3, kept (test first is the `tdd` skill's; the red-green loop's other half is intent 27); P20, adapted (the unit of work is the ticket; the unit of delivery is one pull request for a night or for a day's change); P27, adapted (the pull request stays the unit of delivery, and the tracker is also the work queue, through specs and tickets); P41, kept (the closing is written once, as Shared closing, and named by the last step of each playbook whose session writes a change).
-    Home: **To spec**; **To tickets**; **Work a ticket**; the `code-review` skill; **Run a night**; **Shared closing**. The retro has no home in the set yet.
+    Takes: M7, kept; M8, adapted (tickets carry Owns, Seam and runnable criteria); M3, kept (test first is the `tdd` skill's; the red-green loop's other half is intent 27); P20, adapted (the unit of work is the ticket; the unit of delivery is one pull request for a night or for a day's change); P27, adapted (the pull request stays the unit of delivery, and the tracker is also the work queue, through specs and tickets); P41, adapted (Opening a PR is written once, and run by One ticket and Run a night step 6; the last step of each playbook that opens a ticket is the hand-back to the owner).
+    Home: **To spec**; **To tickets**; **Work a ticket**; the `code-review` skill; **Run a night**; **One ticket**; **Opening a PR**. The retro has no home in the set yet.
 24. **A shared language and ADRs, and what they point to exists.**
     Takes: M2, kept (the glossary is `CONTEXT.md`, or `CONTEXT-MAP.md` and the `CONTEXT.md` of each context it lists: the names the owner's repositories already use, kept by the owner's decision where upstream renamed them `GLOSSARY.md` and `GLOSSARY-MAP.md`); M31, kept in intent only (`triage` is not in the set).
     Home: the `domain-modeling` skill; `docs/adr/`.
@@ -89,7 +89,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: the `prototype` skill; the `architect` and `arena` skills. Where a product's signed-off screens live has no home in the set.
 26. **Each repository is set up once and skills only read the setup;** the repository's files are placed by how long they stay true.
     Takes: M19, adapted (`setup-mmw` also writes `.mmw/` and the standing files).
-    Home: none in the set (`setup-mmw` is not carried); **Shared closing** reads `.mmw/target.json` when it is there.
+    Home: none in the set (`setup-mmw` is not carried); `dispatch.sh land` runs the `checks` of `.mmw/target.json` when it is there.
 
 ## Proof
 
@@ -97,21 +97,21 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Takes: M3, adapted (the red-green loop became a ticket's criteria, run by a script); P7, adapted (the decidable condition is `CHECK:` and `EXPECT:`); P11, adapted (build the tool to reach it); P13, kept (never relax the condition to pass).
     Home: the `mmw-mode` skill's `references/ticket.md`; the `verify-ticket` skill; **Work a ticket** step **Read yourself in and write the code** (red counts only when the behaviour is absent; a check that will not pass is answered in the code).
 28. **A bug fix starts from a reproduction that goes red, every line of the ticket traces to runtime evidence, the fix lands as one ticket, and the reproduction is run again on the same surface.**
-    Takes: M12, kept; P18, adapted (the fix goes to a worker through **Run a night**'s **One ticket**; edits a refuted hypothesis motivated are reverted).
+    Takes: M12, kept (matt's `diagnosing-bugs` is folded into **Bug fix**: the loop that goes red, the minimised repro, ranked hypotheses with predictions, tagged instrumentation, the missing seam opened as a Refactoring ticket); P18, adapted (the fix goes to a worker through **One ticket**; edits a refuted hypothesis motivated are reverted).
     Home: **Bug fix**; the `tdd` skill.
 29. **Proof happens on the real product, from every entry of the feature.** Every product can be started, health-checked, driven and captured, and the knowledge of driving it lives in the product's repository.
     Takes: P7, kept; P9, adapted (`control-ui` and `control-cli` taken from `cursor-team-kit`); M3, kept (the browser is a feedback loop).
     Home: `principle-prove-it-works`; the `control-cli` and `control-ui` skills; the `create-verification-skill` skill.
 30. **The writer is not the judge, and a conclusion is judged once.** The worker runs the criteria, another session reviews once, the worker fixes once, and closing only checks the record; a later step reads that record and never judges the same conclusion again. A review finding is fixed by default or refuted with evidence. The worker runs the final criteria itself, a trade ADR 0026 accepted.
     Takes: M10, adapted (four axes: Standards, Spec, Tests and Correctness); P8, adapted (only the independent review and the doubt toward review comments); P16, adapted (the orchestrator writes no code).
-    Home: **Work a ticket**; the `code-review` skill; **Shared closing**; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Editing`.
+    Home: **Work a ticket**; the `code-review` skill; **One ticket**; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Editing`.
 31. **Start from what exists, then decide whether to write;** less code, deep modules, delete before changing, no defence for what has not happened; the weight of the process follows the size of the task.
-    Takes: P1, kept (`principle-laziness-protocol`); M4, kept; P21, adapted (a small change takes no spec and no ticket); P37, kept (when in doubt, delete).
-    Home: `principle-start-from-what-exists`; `principle-laziness-protocol`; the `codebase-design` skill; **Feature** and **Shared closing**.
+    Takes: P1, kept (`principle-laziness-protocol`); M4, kept; P21, adapted (a change one ticket can carry takes no spec); P37, kept (when in doubt, delete).
+    Home: `principle-start-from-what-exists`; `principle-laziness-protocol`; the `codebase-design` skill; **Feature**.
 
 ## The night's machinery
 
-32. **Code a worker writes lands only through its ticket.** Parallel work rests on one writer per file; merging follows the remote; a ticket bounces once, and the second time goes to the morning's triage.
+32. **Code a worker writes lands only through its ticket.** Parallel work rests on one writer per file; merging follows the remote; a ticket bounces once, and the second time goes to the morning's triage; outside a night, the first bounce goes there.
     Takes: P2, adapted (one workspace per ticket rather than per agent); P22, adapted (one writer per file, written in the ticket's Owns); M8, kept (blocking edges between tickets); M23, adapted (the machine merges into the night's branch; the default branch stays the owner's).
     Home: the `mmw-mode` skill's `references/ticket.md` (Owns); the `dispatch` skill's `dispatch.sh land`.
 33. **A ticket's state is a fold of its events; each fact has one record, written by the step that changes it.** Standing files are updated in the flow; the tracker and the repository's files each hold their own facts.
@@ -165,7 +165,8 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P36 (the rest) | The model configuration as a host's standing rule | Configuration lives only in `~/.mmw/models.json`, changed through `models.py` (14) |
 | P38 (the rest) | The mode kept in effect by a host's reminder field | The mode's own description asks for the read, on every host (5, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
-| M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, Bug fix runs **Run a night**'s **One ticket** (23) |
+| M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
+| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30) |
 | M17 (the rest) | The person confirms the seams | A seam is an engineering decision (3, 21) |
 | M21 | No runtime; the person triggers every step | Mechanical rules are enforced by scripts, and the night is driven by the machine (36) |
 | M22 | Very short skills that leave the how to the model | Copied skills keep upstream's text; a playbook must finish at night with nobody to ask, so each step states its criterion (22, 17) |

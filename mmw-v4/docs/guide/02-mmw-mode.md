@@ -30,13 +30,13 @@ flowchart TD
     D -->|A plan to sharpen| P[Grill with docs]
     D -->|No match| J[figure-it-out]
     E --> R[A cited answer, no pull request]
-    F --> T[One ticket, fixed by a worker]
-    I --> T
-    G --> S[Shared closing]
-    H --> S
+    F --> B[A ticket with the plan, handed back to you]
+    I --> B
+    G --> B
+    H --> B
+    B -->|You say go| T[One ticket, built by a worker]
     P --> N[To spec, To tickets, Run a night]
     T --> PR[One pull request]
-    S --> PR
     N --> PR
     J --> K[A playbook designed for this task]
 ```
@@ -53,7 +53,9 @@ The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s 
 
 A session that the `dispatch` skill started matches nothing: its start prompt tells it to read `mmw-mode`, names the file it works by, and says that file is its whole task. Because a file is named, it reads only `SKILL.md`, so it neither picks a playbook, nor redoes what its sender did, nor sends anyone that file does not name. It works a ticket, reviews one, answers a research brief, designs one candidate, or gives a second opinion. You do not prompt those sessions.
 
-One rule overrides the matching. A ticket with acceptance criteria is worked only by a worker that `dispatch` sends. Give a session such a ticket and it runs the **One ticket** section of [Run a night](../../skills/mmw-mode/playbooks/run-a-night.md): it cuts a `fix-<n>` branch, sends a worker, and tells you.
+Every playbook that changes the repository ends the same way. Its first step opens a ticket and a `fix-<n>` branch, and its last step hands the ticket, with the plan written in, back to you. Nothing is built until you say go; then [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) sends a worker, checks what it built, and opens the pull request.
+
+One rule overrides the matching. A ticket with acceptance criteria is worked only by a worker that `dispatch` sends. Give a session such a ticket of your own and it runs One ticket on it: it cuts a `fix-<n>` branch, sends a worker, and tells you.
 
 ## Say the goal, not the ceremony
 
@@ -63,7 +65,7 @@ You do not write a spec. Say what is wrong or what you want, plus anything you a
 users get two notifications after a retry. repro first, then fix and verify.
 ```
 
-That is a Bug fix prompt. "repro first" is a real constraint, and the playbook keeps it. The session reproduces the defect, finds the cause, and writes one ticket that carries the cause and, as its first criterion, a regression test that must fail on the project branch. A worker writes the fix. The session then runs the original reproduction again before it opens the pull request.
+That is a Bug fix prompt. "repro first" is a real constraint, and the playbook keeps it. The session opens a ticket, reproduces the defect, finds the cause, and writes into the ticket the cause and, as its first criterion, a regression test that must fail on the project branch. It hands the ticket back to you. On your go, a worker writes the fix, and the session runs the original reproduction again before it opens the pull request.
 
 ## What goes in a prompt
 

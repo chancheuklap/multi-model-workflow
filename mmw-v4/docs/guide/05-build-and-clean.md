@@ -4,19 +4,17 @@ The build playbooks share one discipline. You say what you observed, and the pla
 
 ## Know who writes the code
 
-The `## Playbooks` list in the `mmw-mode` skill's `references/owning-a-task.md` splits the build playbooks into two groups.
+A worker the `dispatch` skill sends writes every change, and the session you opened never does. The session's part is to find the plan and write it into a ticket. [Bug fix](../../skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](../../skills/mmw-mode/playbooks/perf-issue.md), [Hillclimb](../../skills/mmw-mode/playbooks/hillclimb.md), [Feature](../../skills/mmw-mode/playbooks/feature.md), [Refactoring](../../skills/mmw-mode/playbooks/refactoring.md), [Visual parity](../../skills/mmw-mode/playbooks/visual-parity.md) and [Authoring or modifying a skill](../../skills/mmw-mode/playbooks/authoring-a-skill.md) all run the same way:
 
-**The session you opened writes the change.** [Feature](../../skills/mmw-mode/playbooks/feature.md), [Refactoring](../../skills/mmw-mode/playbooks/refactoring.md), and [Visual parity](../../skills/mmw-mode/playbooks/visual-parity.md) are for a change you have already described. The session writes it on a branch. When its plan finds slices that share no file, it can give each slice to a native subagent of the host, in its own git worktree. The session reads each subagent's diff before it merges the slice back. All three close with [Shared closing](../../skills/mmw-mode/playbooks/shared-closing.md), which proves the change, has it reviewed, and opens one pull request. [Verify and ship](./06-verify-and-ship.md) covers that closing.
+1. The first step opens a GitHub issue for the ticket, holding only `## Problem`: which playbook it needs, and what was seen, in your words. It also cuts a worktree `.worktrees/fix-<n>` on a branch `fix-<n>`. Whatever the session writes while it finds the plan (a reproduction, a benchmark harness, a sketch, a glossary entry) is committed there.
+2. The middle steps are the playbook's own: a bug is reproduced and diagnosed, a slowness measured, a feature designed.
+3. The plan is written into the same ticket: what to build, what to read first, where to test, and acceptance criteria that are commands.
+4. The last step hands the ticket back to you. You can ask for changes, put it off (it gets `needs-triage`), turn it down, or say go.
+5. On your go, the [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) playbook labels the ticket ready, sends a worker with `dispatch.sh send worker <n>`, and ends its turn. The ticket's `junior-worker` or `senior-worker` label picks the role, and `~/.mmw/models.json` picks that role's host and model.
+6. The worker writes the code until the ticket's criteria pass and its reviewer has read it, then closes the ticket. The relay wakes the session with `#<n> ticket.passed`.
+7. The session runs the playbook's own check in `.worktrees/issue-<n>`, such as the original reproduction for a bug. It merges the latest project branch into `fix-<n>`, runs `dispatch.sh land <n>`, and opens one pull request, which merges when you say yes.
 
-**A dispatched worker writes the fix.** [Bug fix](../../skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](../../skills/mmw-mode/playbooks/perf-issue.md), and [Hillclimb](../../skills/mmw-mode/playbooks/hillclimb.md) start from a problem that is still open. The session you opened does the diagnosis or the measurement itself, then writes one ticket with acceptance criteria and publishes it as a GitHub issue. It then runs **One ticket** of the [Run a night playbook](../../skills/mmw-mode/playbooks/run-a-night.md):
-
-1. It makes a branch `fix-<n>` for the ticket and pushes it.
-2. It sends a worker with `dispatch.sh send worker <n>` and ends its turn. The ticket's `junior-worker` or `senior-worker` label picks the role, and `~/.mmw/models.json` picks that role's host and model.
-3. The worker writes the code until the ticket's criteria pass and its reviewer has read it, then closes the ticket. The relay wakes the session with `#<n> ticket.passed`.
-4. The session checks the result the way the playbook says, in the ticket's worktree `.worktrees/issue-<n>`. It then runs `dispatch.sh land <n>`.
-5. It opens one pull request from `fix-<n>` to the project branch and merges it when you say yes.
-
-The `mmw-mode` skill holds a rule behind this split. A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. The criteria are commands, so a ticket passes on a machine's verdict, not on the word of the agent that wrote the code.
+The `mmw-mode` skill holds a rule behind this. A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. The criteria are commands, so a ticket passes on a machine's verdict, not on the word of the agent that wrote the code.
 
 ## Prompt each build playbook with what you know
 
@@ -99,7 +97,7 @@ Comments need their own pass, and not from the agent that wrote them, because an
 
 Everything else goes. A comment that explains a surprise in your own code comes back as a `MUST KILL` flag on the symbol, and the skill fixes the code so the comment is no longer needed. When a comment claims a constraint, such as "do not remove", the skill offers to encode the claim as a type, a test, or a lint before it deletes the comment.
 
-Shared closing runs the no-comments skill on every day change before review, and the `mmw-mode` skill's Non-negotiables require it before any review. To run it yourself:
+A worker runs the no-comments skill on its branch before it sends its reviewer, and the `mmw-mode` skill's Non-negotiables require it before any review. To run it yourself:
 
 ```text
 /no-comments the diff
@@ -107,7 +105,7 @@ Shared closing runs the no-comments skill on every day change before review, and
 
 ## Clean the prose with the unslop skill
 
-The [unslop skill](../../skills/unslop/SKILL.md) removes the patterns that make text read machine-written: filler, hedging, inflated vocabulary, long dashes, and colons used as connectors. The `mmw-mode` skill applies it to every prose surface, the reply included. PR titles, PR descriptions, and commit messages also go through the [technical-writing skill](../../skills/technical-writing/SKILL.md) first, as Shared closing's **The pull request** says. To run it on a file yourself:
+The [unslop skill](../../skills/unslop/SKILL.md) removes the patterns that make text read machine-written: filler, hedging, inflated vocabulary, long dashes, and colons used as connectors. The `mmw-mode` skill applies it to every prose surface, the reply included. PR titles, PR descriptions, and commit messages also go through the [technical-writing skill](../../skills/technical-writing/SKILL.md) first, as the Opening a PR playbook says. To run it on a file yourself:
 
 ```text
 /unslop the readme changes

@@ -183,7 +183,7 @@ That is the whole prompt. The [bro](../../skills/bro/SKILL.md) skill restates th
 - **Taking the first design.** One attempt locks in the first shape the model thought of. Ask for prototypes or the `architect` skill and pick from evidence.
 - **Polishing an abstract plan.** Adversarial review of a plan with no code behind it invents risks that never happen. Settle open questions with prototypes, then review what got built.
 - **Running a night on undecided work.** Each worker guesses an open question differently. Settle it with Grill with docs or a map, then publish the tickets.
-- **Handing a ticket to a session to build by hand.** A ticket with acceptance criteria is worked only by a dispatched worker. Given one anywhere else, the session runs One ticket on it.
+- **Handing a ticket to a session to build by hand.** A ticket with acceptance criteria is worked only by a dispatched worker. Given one anywhere else, the session runs the One ticket playbook on it.
 - **Parallel sessions in one worktree.** They overwrite each other. The pipeline gives each ticket its own worktree under `.worktrees/issue-<n>`; for work of your own, say "own worktree per attempt".
 - **Trusting an unvetted number.** A warm cache or a skipped code path can fake a speedup. Run `/benchmark-checklist` before the number goes anywhere.
 - **Correcting the same mistake by hand.** A correction in chat helps one run. `/correct` fixes the repository so no later run repeats it.

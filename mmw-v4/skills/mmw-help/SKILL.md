@@ -34,7 +34,7 @@ Check the state that changes the answer, and mention it only when it does:
 
 Guide page 1 (`mmw-v4/docs/guide/01-setup.md`) has the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
 
-If cost is the worry, say where the tokens go: dispatched workers and reviewers, the four review subagents of **Shared closing**, and the candidates of `arena`. A cheaper model or a lower effort on a role's row of `~/.mmw/models.json` spends fewer.
+If cost is the worry, say where the tokens go: dispatched workers and reviewers, the four review subagents each reviewer sends, and the candidates of `arena`. A cheaper model or a lower effort on a role's row of `~/.mmw/models.json` spends fewer.
 
 ## Start a task
 

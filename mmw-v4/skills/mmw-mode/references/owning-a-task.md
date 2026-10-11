@@ -13,10 +13,11 @@ Triggers for the task as a whole:
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing. Prototype code under the **prototype** skill's logic, UI and experiment branches is the exception: speed over polish, no planning.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design bakeoffs with base selection and grafting.
 - Contested design → the **code-review** skill before shipping.
-- Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
+- Nontrivial multi-step → write the throughput checkpoint (Feature step 4).
 - Before review → the **no-comments** skill (`/no-comments`).
-- Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a night's pull request, Run a night's **7. Merge the accepted night** carries it out.
-- Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
+- Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a pull request MMW opened, Opening a PR step 3 carries it out.
+- Broken skill mid-task → don't block, and don't silently work around it: it is a problem you ran into, as the next line says, needing Authoring or modifying a skill.
+- Ran into a problem that needs a change while working on something else → open a ticket with only its `## Problem`, as `references/ticket.md` `## Opening a ticket` says for a problem nobody is working on, label it `needs-triage`, tell the owner, and go on with the task in hand.
 - Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "run until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record. Keep it local otherwise. Work on a wayfinder map is the exception: the map and its tickets are the record.
 
 ## Autonomy
@@ -61,7 +62,9 @@ Match the task to a playbook below, open its file, and copy its steps into the t
 
 Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
 
-A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one anywhere else, run **One ticket** of the Run a night playbook on it and tell the owner.
+A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one with no `Playbook:` line under its `## Problem`, run One ticket (`playbooks/one-ticket.md`) on it and tell the owner. An open ticket of ours given to this session, one whose `## Problem` has a `Playbook:` line, is picked up as Session pickup says.
+
+Every change outside a night lands one way, code, scripts and skill text alike: the playbook of its kind opens a ticket and its `fix-<n>`, writes the plan into the ticket, and hands it back to the owner; on the owner's go, One ticket sends a worker, checks the result, lands it, and runs Opening a PR.
 
 - **Work a ticket.** Sent by the dispatch skill to a ticket with acceptance criteria: claim it, build it until its criteria pass and it is reviewed, close it. Distinct from Feature, Bug fix, Perf issue and Hillclimb, which take a problem still open and decide how to build. `playbooks/work-a-ticket.md`.
 - **Code review.** Asked to review a change someone else finished, to judge whether it can merge. Distinct from Work a ticket's step that sends the reviewer, and from Investigation, where there is no change to judge. The **code-review** skill.
@@ -69,22 +72,23 @@ A ticket with acceptance criteria is worked only by a worker the dispatch skill 
 - **Chart the map.** A loose idea too big for one agent session, with the way to the destination not yet visible ("wayfinder"). Charts it as a shared map of decision tickets on GitHub issues. `playbooks/chart-the-map.md`.
 - **Work through the map.** An existing wayfinder map, given by URL or number, with or without a ticket. Resolves its next decision ticket, one per session. `playbooks/work-through-the-map.md`.
 - **Grill with docs.** A plan or design to sharpen in one session, through a relentless interview that writes the glossary and ADRs as it goes. Distinct from Chart the map, which takes an idea too big for one session. `playbooks/grill-with-docs.md`.
-- **To spec.** Turn the current conversation, or a cleared wayfinder map, into a spec published as a GitHub issue, when the change takes more than one session to build. No interview, only a record of what was already decided. Work already settled that one session can build goes to Feature instead. `playbooks/to-spec.md`.
+- **To spec.** Turn the current conversation, or a cleared wayfinder map, into a spec published as a GitHub issue, when one ticket cannot carry the change. No interview, only a record of what was already decided. Work already settled that one ticket can carry goes to Feature instead. `playbooks/to-spec.md`.
 - **Revising a spec.** A section of a published spec has to change: the user asks, or To tickets sends a choice back to a spec decision. Edits the spec in place, never publishes a new one. `playbooks/revising-a-spec.md`.
 - **To tickets.** Break a spec, plan, or conversation into tracer-bullet tickets with blocking edges, published as GitHub issues. `playbooks/to-tickets.md`.
-- **Run a night.** A spec's published tickets to run unattended under one orchestrator, through to one pull request; or one ticket a step has written, sent to a worker and delivered as one pull request. `playbooks/run-a-night.md`.
+- **Run a night.** A spec's published tickets to run unattended under one orchestrator, through to one pull request. Distinct from One ticket, a ticket outside any spec. `playbooks/run-a-night.md`.
+- **One ticket.** A ticket outside any spec that the owner said go on, or handed in with acceptance criteria: send its worker, check what it built, land it, and open its pull request. `playbooks/one-ticket.md`.
+- **Opening a PR.** Run by One ticket and Run a night once their change has landed: write one pull request, open it, settle its checks and comments, and merge it on the owner's yes. `playbooks/opening-a-pr.md`.
 - **Bug fix.** A reported defect to reproduce and root-cause with runtime evidence; the fix goes to a worker on one ticket, and you prove it on the same surface. `playbooks/bug-fix.md`.
 - **Perf issue.** A measured slowness to trace against a baseline; the change goes to a worker on one ticket, and you measure it again. `playbooks/perf-issue.md`.
 - **Hillclimb.** Sustained, scientific improvement of one metric against a target: loop hypotheses with before/after measurement, a decision log, and one commit per accepted win, run by a worker on one ticket that carries the frozen harness and the target. Distinct from Perf issue, which is a one-off fix. `playbooks/hillclimb.md`.
 - **Runtime forensics.** Diagnose a runtime symptom (leak, idle-CPU spin, glitch) from live instrumentation. The deliverable is a diagnosis, not a fix. `playbooks/runtime-forensics.md`.
 - **Trace forensics.** Diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot) handed to you after the fact. The deliverable is a diagnosis, not a fix. `playbooks/trace-forensics.md`.
-- **Feature.** New or changed behavior, built from a named data shape. The user said what to change, and this session writes it and closes with Shared closing. `playbooks/feature.md`.
-- **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move). The user said what to change, and this session writes it and closes with Shared closing. `playbooks/refactoring.md`.
+- **Feature.** New or changed behavior, built from a named data shape. This session designs it into one ticket and hands it back; a worker builds it. `playbooks/feature.md`.
+- **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move). This session pins the contract and plans the target shape into one ticket; a worker moves the code. `playbooks/refactoring.md`.
 - **Prototype.** A prototype kept in the repo to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). The **prototype** skill.
-- **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. The user said what to change, and this session writes it and closes with Shared closing. `playbooks/visual-parity.md`.
-- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a reference or a principle. `playbooks/authoring-a-skill.md`.
+- **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system. This session builds the baseline harness and writes one ticket; a worker migrates to a zero image diff. `playbooks/visual-parity.md`.
+- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a reference or a principle. The text goes to a worker on one ticket, or to To spec when one ticket cannot carry it. `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
-- **Session pickup.** Resuming or taking over a prior agent's in-flight work from a transcript or pushed branch. `playbooks/session-pickup.md`.
+- **Session pickup.** Resuming or taking over a prior agent's in-flight work from a transcript, a pushed branch, or an open ticket of ours. `playbooks/session-pickup.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a host restart, or imminent context compaction. The complement to Session pickup. Full steps: `playbooks/pause-safely.md`.
 - **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). `playbooks/worktree-cleanup.md`.
-- **Shared closing.** Invoked at the end of a playbook whose session wrote a change itself: prove it, have it read, deliver one pull request. A ticket's closing is Work a ticket's. `playbooks/shared-closing.md`.

@@ -1,12 +1,16 @@
 # Ticket template
 
-The body of each GitHub issue the To tickets playbook (`../playbooks/to-tickets.md`) publishes. Replace each section's guidance with the content.
+The body of each GitHub issue the To tickets playbook (`../playbooks/to-tickets.md`) publishes, and of each ticket a playbook opens outside any spec: Bug fix, Perf issue, Hillclimb, Feature, Refactoring, Visual parity, and Authoring or modifying a skill. Replace each section's guidance with the content.
 
 <issue-template>
 
+## Problem
+
+Only on a ticket a playbook opens outside any spec. Its first line is `Playbook: <the playbook it needs>`, by the title on that playbook's route line. Then what was seen, where, and by whom, with the owner's words quoted as they said them. Written when the ticket is opened, and never edited after, but for a `Playbook:` line not yet known then, which is written once when it is.
+
 ## Parent
 
-A reference to the parent spec on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). The first issue here is read as the ticket's spec. A ticket a playbook writes outside any spec (Bug fix, Perf issue, Hillclimb) writes "None".
+A reference to the parent spec on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). The first issue here is read as the ticket's spec. A ticket a playbook opens outside any spec writes "None".
 
 ## What to build
 
@@ -42,6 +46,29 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
   EVIDENCE: pending
 
 </issue-template>
+
+## Opening a ticket
+
+A playbook outside any spec opens its ticket at its first step, before the plan is known:
+
+1. Write the body with `## Problem` alone, then `gh issue create --title "<what is wrong or wanted, in a few words>" --label mmw:ticket --body-file <file>`. `mmw:ticket` is its only label: `verify-ticket.py --lint` passes it, no worker can claim it without `ready-for-agent`, and no `advance` reaches it, since it sits under no spec.
+2. From a checkout of the project branch, `git fetch origin`, then `git worktree add .worktrees/fix-<n> -b fix-<n> origin/<project branch>` and `git -C .worktrees/fix-<n> push -u origin fix-<n>`. When `fix-<n>` already exists, use it.
+
+Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a decision log, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`.
+
+A problem nobody is working on now, one a session ran into while doing something else, gets step 1 only and the label `needs-triage`; its `Playbook:` line is written when the kind is plain, and otherwise when the owner picks it. Its `fix-<n>` is opened when the owner picks it, at that playbook's first step.
+
+An issue someone else opened, or a child of a night's ticket, is not worked as it stands: open a ticket of our own whose `## Problem` quotes it with its link, and leave the original as it is. Opening a PR closes it once the pull request merges.
+
+## Handing it back
+
+The last step of every playbook that opens a ticket. Tell the owner what that playbook's `**Reply:**` line names: the problem, its cause or its baseline, the plan, the criteria, and what the ticket leaves out. Then wait for their word.
+
+- **Change it.** Edit the ticket, and hand it back again.
+- **Not yet.** `gh issue edit <n> --add-label needs-triage`.
+- **No.** `gh issue edit <n> --add-label wontfix`, then `gh issue close <n> --reason "not planned"`.
+- **Go.** Run One ticket (`../playbooks/one-ticket.md`) on it.
+- **Too big for one ticket.** Run To spec (`../playbooks/to-spec.md`), then close the ticket with a comment linking the spec. `fix-<n>` stays.
 
 A criterion may carry a fifth line, `TIMEOUT: <seconds>`, when its `CHECK:` needs longer than the 600 seconds every `CHECK:` gets by default. The largest `TIMEOUT:` on a ticket applies to all its criteria, in every run. A `CHECK:` runs with `$MMW_TICKET` set to the ticket's number and, once a worker has started on the ticket, `$MMW_BASE_REF` set to `origin/<the branch the ticket merges into>`, so a command can name either without writing it in.
 

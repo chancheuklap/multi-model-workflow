@@ -2,7 +2,7 @@
 
 A night runs a spec's published tickets while nobody watches. One session, the orchestrator, sends a worker to each ticket that is ready, lands each ticket that passes, fixes or files what the reviewers found, and delivers the whole batch as one pull request. You read that pull request in the morning, with none of the night's context.
 
-The playbook is [Run a night](../../skills/mmw-mode/playbooks/run-a-night.md). The same file holds One ticket, the shorter path a day ticket takes. Every command below is the `dispatch` skill's `scripts/dispatch.sh` ([dispatch](../../skills/dispatch/SKILL.md)), unless it names the `verify-ticket` skill ([verify-ticket](../../skills/verify-ticket/SKILL.md)).
+The playbook is [Run a night](../../skills/mmw-mode/playbooks/run-a-night.md). A day ticket takes the shorter path of the [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) playbook. Every command below is the `dispatch` skill's `scripts/dispatch.sh` ([dispatch](../../skills/dispatch/SKILL.md)), unless it names the `verify-ticket` skill ([verify-ticket](../../skills/verify-ticket/SKILL.md)).
 
 
 ## What a night needs before it starts
@@ -67,13 +67,14 @@ When the fault is in the pipeline rather than in a ticket, workers left running 
 
 ## One ticket: a day ticket
 
-Bug fix, Perf issue and Hillclimb each write one ticket and send it through One ticket, the last section of [run-a-night.md](../../skills/mmw-mode/playbooks/run-a-night.md). There is no spec and no batch, so no `advance` ever collects the ticket.
+Every change outside a night is one ticket. The playbook of its kind opens the ticket and its `fix-<n>`, writes the plan into it and hands it back to you; on your go, [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) runs. There is no spec and no batch, so no `advance` ever collects the ticket.
 
-1. From a checkout of the project branch, cut `fix-<n>`, commit whatever the ticket's `CHECK:` needs that the project branch lacks (a reproduction script, a frozen benchmark harness), and push it.
-2. `dispatch.sh send worker <n>` starts the worker and makes this session the ticket's orchestrator.
+1. The ticket gets `ready-for-agent` and a worker label, and passes `verify-ticket.py --lint`.
+2. `dispatch.sh send worker <n>`, run from `fix-<n>`, starts the worker and makes this session the ticket's orchestrator.
 3. Each wake is read, acknowledged and acted on, and the session tells you what happened, because you are there.
-4. Once the ticket passes, the session checks it the way the step that wrote it says, such as the original reproduction for a bug, then runs `dispatch.sh land <n>`.
-5. It opens one pull request from `fix-<n>` to the project branch and gives you the link. When you say yes, it merges with `gh pr merge`.
+4. Once the ticket passes, the session checks it the way the playbook that wrote it says, such as the original reproduction for a bug.
+5. It merges the latest project branch into `fix-<n>` and runs `dispatch.sh land <n>`. A ticket that cannot merge goes to `needs-triage` and is sent again from step 1 when you pick it.
+6. It runs [Opening a PR](../../skills/mmw-mode/playbooks/opening-a-pr.md): one pull request from `fix-<n>` to the project branch, merged with `gh pr merge` when you say yes.
 
 ## What to say
 

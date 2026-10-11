@@ -10,8 +10,9 @@ places have to agree, and nothing else notices when one of them moves:
    `EVENTS` of the verify-ticket skill's `events.py`, the one table of what a ticket can
    carry.
 2. **The session an event wakes has a step for it.** Each event `WAKES` sends to `main` is
-   named as `#<n> <event>` in the orchestrator's playbook (Run a night); each it sends to
-   `worker`, in the worker's (Work a ticket). And every `#<n> <event>` a playbook waits for
+   named in both orchestrators' playbooks: as `#<n> <event>` in One ticket, which handles one
+   wake at a time, and as `` `<event>` `` in the wake table of Run a night. Each it sends to
+   `worker` is named as `#<n> <event>` in the worker's (Work a ticket). And every `#<n> <event>` a playbook waits for
    is one the relay sends: a step that waits for anything else waits for ever.
 3. **A worker put back on its ticket finds its step.** Each title in `RESUME_STEPS` of
    `verify-ticket.py`, which a `RESUME:` line names, is the bold title of a step in the
@@ -59,9 +60,10 @@ VERIFY_PY = SKILLS / "verify-ticket" / "scripts" / "verify-ticket.py"
 MODE = SKILLS / "mmw-mode" / "SKILL.md"
 ROUTES = SKILLS / "mmw-mode" / "references" / "owning-a-task.md"
 
-# The orchestrator's playbook, which the owner's session routes to itself. The worker's
-# is the file its role follows in roles.json, which its start prompt names.
-ORCHESTRATOR_PLAYBOOK = "Run a night"
+# The orchestrators' playbooks, which the owner's session routes to itself, each with how it
+# names an event it is woken with. The worker's is the file its role follows in roles.json,
+# which its start prompt names.
+ORCHESTRATOR_PLAYBOOKS = {"Run a night": "`{event}`", "One ticket": "#<n> {event}"}
 
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`\.?\s*$", re.M)
 WAITED = re.compile(r"#<n> ([a-z]+\.[a-z]+)")
@@ -202,7 +204,8 @@ def main() -> int:
         return path
 
     files = {"worker": worker_playbook_file(findings)}
-    orchestrators = [playbook(ORCHESTRATOR_PLAYBOOK, "the orchestrator routes to")]
+    orchestrators = [(playbook(name, "the orchestrator routes to"), form)
+                     for name, form in ORCHESTRATOR_PLAYBOOKS.items()]
 
     relay = module_constants(RELAY_PY)
     wakes = relay.get("WAKES")
@@ -220,19 +223,19 @@ def main() -> int:
             findings.append(f"{RELAY_PY.relative_to(SKILLS)}: {event} wakes a session, and "
                             f"{EVENTS_PY.relative_to(SKILLS)} EVENTS has no such event")
 
-    def must_name(path: Path | None, events: list[str]) -> None:
+    def must_name(path: Path | None, events: list[str], form: str = "#<n> {event}") -> None:
         if path is None:
             return
         text = path.read_text(encoding="utf-8")
         for event in events:
-            if f"#<n> {event}" not in text:
+            if form.format(event=event) not in text:
                 findings.append(f"{path.relative_to(SKILLS)}: the relay wakes this playbook's session "
-                                f"with #<n> {event}, and no step names it")
+                                f"with #<n> {event}, and no step names it as {form.format(event=event)}")
 
     to_main = [e for e, rule in wakes.items() if rule.get("to") == main_role]
     to_worker = [e for e, rule in wakes.items() if rule.get("to") == worker_role]
-    for path in orchestrators:
-        must_name(path, to_main)
+    for path, form in orchestrators:
+        must_name(path, to_main, form)
     must_name(files.get("worker"), to_worker)
 
     steps = module_constants(VERIFY_PY).get("RESUME_STEPS")

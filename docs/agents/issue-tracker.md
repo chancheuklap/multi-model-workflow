@@ -45,7 +45,7 @@ The layer labels, put on by:
 | --- | --- |
 | `mmw:map` | the wayfinder skill, creating the map |
 | `mmw:spec` | the to-spec skill, publishing the spec |
-| `mmw:ticket` | the to-tickets skill, publishing each ticket; `dispatch.sh route … became-ticket` |
+| `mmw:ticket` | the to-tickets skill, publishing each ticket; `dispatch.sh route … became-ticket`; under mmw-v4, the first step of each playbook that opens a ticket outside a spec (Bug fix, Perf issue, Hillclimb, Feature, Refactoring, Visual parity, Authoring or modifying a skill) |
 | `mmw:child` | `verify-ticket.py --sub-issue` |
 
 A repository missing one of the labels above, or a queue or grade label, has it created the first time the `verify-ticket` skill's `--publish` or `--sub-issue` needs it; the colour and description for all three sets are defined once, in `verify-ticket.py`.

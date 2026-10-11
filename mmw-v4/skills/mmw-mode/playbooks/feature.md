@@ -1,20 +1,24 @@
 ### Feature
 
-**You own the design and the code. Plan, write, verify.**
+**You own the design and the ticket that carries it. A worker writes the code, and you verify it on the product.**
 
-1. `how` over the affected subsystem. Read the files the change touches before concluding anything about them (**principle-read-before-you-conclude**), and look for what already does the job before designing one (**principle-start-from-what-exists**).
-2. `architect` for parallel design exploration.
-3. Write the throughput checkpoint as four todo items. A dimension that genuinely does not apply (single file, no fan-out) keeps its item with `n/a: <reason>` rather than being dropped:
+1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Feature` and the owner's words under `## Problem`. A ticket that already has its `fix-<n>`, such as one Grill with docs opened, keeps them. Done when the ticket is open and `fix-<n>` is on origin.
+2. `how` over the affected subsystem. Read the files the change touches before concluding anything about them (**principle-read-before-you-conclude**), and look for what already does the job before designing one (**principle-start-from-what-exists**).
+3. `architect` for parallel design exploration. Commit the synthesized sketch on `fix-<n>`.
+4. Write the throughput checkpoint as four todo items. A dimension that genuinely does not apply (single file, no fan-out) keeps its item with `n/a: <reason>` rather than being dropped:
    - **Blocking first steps.** Gates run before fan-out.
    - **Independent workstreams.** Disjoint files, services, or layers parallelize. Shared writes serialize.
    - **Shared mutable state.** Default to splitting the target (the **separate-before-serializing-shared-state** principle skill). Serialize only for real invariants.
-   - **Smallest safe decomposition.** If writing it alone is best, name why.
-4. Write the code yourself, to a specific scope set first (file paths, named data shape and its organizing structure per **principle-model-the-domain**, a state machine over scattered booleans, a table/registry over branching, a typed model over repeated shape assumptions, chosen before any logic is written, and success criteria). Comments per **Comments**. Surgical edits, re-ground against the source for upstream-derived files. Port shared-primitive improvements to all consumers and verify each. Commit liberally. The scope names the baselines the code must follow, copied, not restated from memory (**principle-baseline-is-the-contract**). When `architect` produced a sketch, the synthesized sketch is the contract: its `not implemented` bodies become code and its pseudocode becomes logic, and a deviation from it is surfaced, not absorbed silently. A parameter the sketch did not anticipate asks whether the sketch was wrong, the requirement was missed, or the implementation is overreaching. The synthesized sketch can land as its own commit first (the **foundational-thinking** principle skill), and breakage that is planned and scoped while its bodies are filled in is fine (the **outcome-oriented-execution** principle skill). While writing, run typechecking and single test files regularly.
-5. Verify on the matching surface. "Inconclusive" or wrong-surface is not a pass. Flag it. Run the smallest test set that proves the change (**principle-run-the-smallest-test-set**).
-6. Rebase into small, ordered commits.
-   Use the **sequence-verifiable-units** principle skill, building, verifying, and committing each small unit before the next.
-7. Run **Shared closing** (`playbooks/shared-closing.md`).
+   - **Smallest safe decomposition.** If one ticket can carry it, name why.
 
-Work one session can write stays with you, written in order, with the checkpoint inline. Work too big for one session, or whose independent workstreams should run in parallel, goes through To spec and To tickets instead: each ticket gets its worktree from the dispatch skill, and `land` merges it back. Parent-level fan-out is for slices that produce independent artifacts (audits, cross-subsystem investigations, competing experiments). Rewrite the checkpoint at phase boundaries.
+   The checkpoint decides the size. One ticket can carry the change: go on to step 5. It cannot, or its independent workstreams should run in parallel: go to step 6 now and say so, and the owner's word sends it to To spec, as `../references/ticket.md` `## Handing it back` says for a change too big for one ticket. Done when the checkpoint names one ticket or To spec.
+5. **Write the ticket.** Fill it in as `../references/ticket.md` `## Opening a ticket` says. **What to build** sets the scope the worker writes to: the named data shape and its organizing structure per **principle-model-the-domain** (a state machine over scattered booleans, a table or registry over branching, a typed model over repeated shape assumptions), chosen before any logic is written; surgical edits, re-grounded against the source for upstream-derived files; a shared-primitive improvement ported to every consumer and verified in each. When `architect` produced a sketch, it is a baseline under **Read first**, and **What to build** says the sketch is the contract: its `not implemented` bodies become code and its pseudocode becomes logic, a deviation from it is surfaced as a `contract` child rather than absorbed, and it can land as its own commit first (the **foundational-thinking** principle skill), with planned and scoped breakage while its bodies are filled in (the **outcome-oriented-execution** principle skill). Every other baseline the code must follow is under **Read first** too, copied, not restated from memory (**principle-baseline-is-the-contract**). The acceptance criteria are tests of the behavior the sketch and the owner's words describe, at the ticket's **Seam**. Done when every section below `## Problem` is filled.
+6. **Hand it back.** As `../references/ticket.md` `## Handing it back` says. Done when the owner has said go and One ticket runs, or the ticket is in `needs-triage` or closed.
 
-**Reply:** what you built, what you chose and why, the throughput checkpoint, open decisions. Tables for design alternatives.
+Parent-level fan-out is for slices that produce independent artifacts (audits, cross-subsystem investigations, competing experiments), not for writing the change.
+
+**Verify on the matching surface.** One ticket step 4 runs this once the ticket passed: drive the new behavior in `.worktrees/issue-<n>` the way its user meets it, through the matching control skill. "Inconclusive" or wrong-surface is not a pass. Flag it. Run the smallest test set that proves the change (**principle-run-the-smallest-test-set**).
+
+**A ticket that came back.** When the owner picks it from `needs-triage`, read why on the ticket and go back to step 3 with that evidence.
+
+**Reply:** what the change does for its users, the design chosen and why (tables for design alternatives), the throughput checkpoint, the criteria, what the ticket leaves out, open decisions.

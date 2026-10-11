@@ -100,7 +100,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 - **Content:** in `SKILL.md`, the to-do list rule (the steps of the file the prompt names, or else of the matched playbook, copied in verbatim), and the sentence that sends an agent whose first message names no file to `references/owning-a-task.md`. In `references/owning-a-task.md`, in this order:
   1. Usage: match the task to a route line and open its playbook.
   2. One sentence for a task no route line matches: it goes to `figure-it-out`, as in poteto-mode.
-  3. One sentence that sends a ticket with acceptance criteria, given anywhere but to a worker, to **One ticket** of Run a night.
+  3. One sentence that sends a ticket with acceptance criteria and no `Playbook:` line, given anywhere but to a worker, to One ticket, and one with that line to Session pickup; then one sentence on the one way every change outside a night lands.
   4. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.`` A playbook only a sent agent follows keeps its line, which says who sends it (Work a ticket: "Sent by the dispatch skill to a ticket"); the sent agent itself reaches it through the file its start prompt names.
 - **When to add a line:** in the same change that adds the playbook file. Whether a playbook is warranted is in `## playbook` below.
 
@@ -128,6 +128,8 @@ In the same change as the new file: add its route line to the `mmw-mode` skill's
 4. Numbered steps, one action each. Each step names the skill, principle, reference or script it uses, by name or path. A principle is named on the step where it applies, including a step every run takes.
 5. Optionally one paragraph of rules that hold across all the steps.
 6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in the `mmw-mode` skill's `references/owning-a-task.md` `## Writing the reply` and are not repeated here.
+
+A playbook that changes the repository outside a night opens its ticket and `fix-<n>` at step 1 and ends with the hand-back to the owner, both as the `mmw-mode` skill's `references/ticket.md` says; the change itself goes to a worker through One ticket. Its verification step follows the numbered steps as a section opened by its title in bold, which One ticket step 4 runs, and a section **A ticket that came back** names the step to resume at. Its `**Reply:**` names what the hand-back tells the owner, since the result comes after it.
 
 A judgement several steps point to may follow the steps as a section of its own, opened by its name in bold (To spec's **Seams**); the two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections instead. A playbook may name a step of another playbook ("Run **Authoring or modifying a skill** on the findings").
 

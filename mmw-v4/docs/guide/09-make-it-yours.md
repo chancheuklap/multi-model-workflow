@@ -12,12 +12,12 @@ Writing or editing a skill, a playbook, a reference or a principle matches the A
 the bug fix playbook should tell the session to save the original repro command in the ticket. change it.
 ```
 
-The playbook has four steps:
+The playbook opens a ticket for the change first, then:
 
-1. **Read the standards.** The session first searches the set for the meaning you asked for. If the text already says it, the session tells you where, and stops. Otherwise it names the design intent the change serves, decides which component and which file each passage belongs in, and reads how text is written. All three come from the `writing-for-agents` skill, below.
-2. **Write it, by size.** A change one session can write is written and committed there. A larger one goes through To spec and To tickets and runs as a night ([Run work while you sleep](./07-overnight.md)).
-3. **Prove it, once.** The session runs the checks that apply: the test suites a changed script needs, `uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py`, `python3 mmw-v4/tests/lib/check_wiring.py` (prints `WIRING OK`), the host-neutrality `grep`, and `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` (prints `INTERFACES OK`) when a dispatched session's prompts or wakes changed. Then one fresh agent walks one real task the change touches. Each place where that agent ended wrong, stopped short or guessed at a sentence the change wrote gets fixed; every other guess goes into the reply as a finding for later.
-4. **Deliver it.** A change written in the session closes with Shared closing: review on four axes, commit, one pull request, merged on your yes.
+1. **Read the standards.** The session first searches the set for the meaning you asked for. If the text already says it, the session tells you where, closes the ticket, and stops. Otherwise it names the design intent the change serves, decides which component and which file each passage belongs in, and reads how text is written. All three come from the `writing-for-agents` skill, below.
+2. **Write the ticket, by size.** A change one ticket can carry is written into the ticket and handed back to you; on your go, a worker writes the text. A larger one goes through To spec and To tickets and runs as a night ([Run work while you sleep](./07-overnight.md)).
+3. **Prove it, once.** Once the worker's ticket passes, or after the night, the session runs the checks that apply: the test suites a changed script needs, `uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py`, `python3 mmw-v4/tests/lib/check_wiring.py` (prints `WIRING OK`), the host-neutrality `grep`, and `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` (prints `INTERFACES OK`) when a dispatched session's prompts or wakes changed. Then one fresh agent walks one real task the change touches. A place where that agent ended wrong, stopped short or guessed at a sentence the change wrote fails the check, and the change does not land; every other guess goes into the reply as a finding for later.
+4. **Deliver it.** One ticket lands the change and opens one pull request, merged on your yes.
 
 The playbook's bias is to delete: every sentence in a skill costs attention on every run that loads it, so answering each slip with one more sentence makes the skill worse.
 
@@ -55,7 +55,7 @@ Skills are not the only prose that ships. Docs, readmes, pull request descriptio
 /technical-writing review the readme changes
 ```
 
-Its goal is prose a tired engineer understands on the first read. It cuts words that do no work, prefers the short everyday word, writes the real file or command name instead of a description of it, and reads each sentence for a second meaning. Shared closing's `#### The pull request` applies it to every pull request MMW opens, with every layer except Diátaxis.
+Its goal is prose a tired engineer understands on the first read. It cuts words that do no work, prefers the short everyday word, writes the real file or command name instead of a description of it, and reads each sentence for a second meaning. The Opening a PR playbook applies it to every pull request MMW opens, with every layer except Diátaxis.
 
 ## Test a skill change blind with the Eval playbook
 
