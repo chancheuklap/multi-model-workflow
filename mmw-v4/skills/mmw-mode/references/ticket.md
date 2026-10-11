@@ -6,7 +6,7 @@ The body of each GitHub issue the To tickets playbook (`../playbooks/to-tickets.
 
 ## Problem
 
-Only on a ticket a playbook opens outside any spec. Its first line is `Playbook: <the playbook it needs>`, by the title on that playbook's route line. Then what was seen, where, and by whom, with the owner's words quoted as they said them. Written when the ticket is opened, and never edited after, but for a `Playbook:` line not yet known then, which is written once when it is.
+Only on a ticket a playbook opens outside any spec. Its first line is `Playbook: <the playbook it needs>`, by the title on that playbook's route line. Then what was seen, where, and by whom: the owner's words quoted as they said them, or, for a problem a session found itself, what it saw and where, marked as its own observation. Written when the ticket is opened, and never edited after, but for a `Playbook:` line not yet known then, which is written once when it is.
 
 ## Parent
 
@@ -51,10 +51,12 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
 
 A playbook outside any spec opens its ticket at its first step, before the plan is known:
 
-1. Write the body with `## Problem` alone, then `gh issue create --title "<what is wrong or wanted, in a few words>" --label mmw:ticket --body-file <file>`. `mmw:ticket` is its only label: `verify-ticket.py --lint` passes it, no worker can claim it without `ready-for-agent`, and no `advance` reaches it, since it sits under no spec.
-2. From a checkout of the project branch, `git fetch origin`, then `git worktree add .worktrees/fix-<n> -b fix-<n> origin/<project branch>` and `git -C .worktrees/fix-<n> push -u origin fix-<n>`. When `fix-<n>` already exists, use it.
+1. Write the body with `## Problem` alone, then `gh issue create --title "<what is wrong or wanted, in a few words>" --label mmw:ticket --body-file <file>`, creating the label first when the repository lacks it, as `github-issues.md` `## Three label sets` says. `mmw:ticket` is its only label until One ticket readies it, but for `needs-triage` on a problem nobody is working on now: `verify-ticket.py --lint` passes it, no worker can claim it without `ready-for-agent`, and no `advance` reaches it, since it sits under no spec.
+2. From a checkout of the project branch, `git fetch origin`, then `git worktree add .worktrees/fix-<n> -b fix-<n> origin/<project branch>` and `git -C .worktrees/fix-<n> push -u origin fix-<n>`. The project branch is the branch the owner's work merges into: the one this checkout is on, unless that is the repository's default branch, which takes no work directly; then ask the owner which branch it is. When `fix-<n>` already exists, use it.
 
-Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a decision log, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`.
+A ticket already open keeps its number and its body: its playbook's first step opens only the `fix-<n>` it lacks.
+
+Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a decision log, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`. With no spec, **Read first** lists what the playbook's steps produced (a reproduction, a harness, a sketch, a log), each by its path on `fix-<n>`; **Seam** is chosen from the repository's own tests (its `TESTING.md` when it has one); and **What to build**, beside the behaviour, carries the rules the worker writes by that the playbook names.
 
 A problem nobody is working on now, one a session ran into while doing something else, gets step 1 only and the label `needs-triage`; its `Playbook:` line is written when the kind is plain, and otherwise when the owner picks it. Its `fix-<n>` is opened when the owner picks it, at that playbook's first step.
 

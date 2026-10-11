@@ -8,6 +8,8 @@
    - With `ready-for-agent` and a worker on it: One ticket is waiting for its wake.
    - Otherwise, that playbook is part way through: carry on in the ticket's `fix-<n>`, from the first step its record does not show done, or from that playbook's first step when the ticket has no `fix-<n>`.
 
+   Taking up a ticket from `needs-triage` takes it out of the queue: `gh issue edit <n> --remove-label needs-triage`.
+
    For any other trail, find this host's transcripts of the prior session (where each host keeps them is listed at the head of `scripts/worktree-audit.sh`), for this repository only (do not search the transcripts of other projects, that reads private chats from unrelated work), or a pushed branch. Read the metadata overview and last messages first, then scan back for the decision points. Parse a long transcript in a subagent and keep the reduced timeline in the main thread (the **principle-guard-the-context-window** skill). Its piece names the transcript and what it hands back: a timeline, one line per decision, with its time, the decision, and the line of the transcript that shows it.
 2. Reconstruct operational state. The branch and worktree, what already landed (`git log`, `git diff` against the base), the open todos, the decisions made. The prior trail is authoritative input. Resist the bias to re-derive it. Where the work stands is what the branch, its commits and its tickets say (**principle-progress-is-what-the-record-says**).
 3. Diff done vs pending. Compare what shipped against what was planned, name the resume point, do not re-run the prior repro or redo completed work. A "let me verify from scratch" pass means you're treating the trail as untrustworthy when it's authoritative.

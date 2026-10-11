@@ -2,9 +2,9 @@
 
 **You own the design and the ticket that carries it. A worker writes the code, and you verify it on the product.**
 
-1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Feature` and the owner's words under `## Problem`. A ticket that already has its `fix-<n>`, such as one Grill with docs opened, keeps them. Done when the ticket is open and `fix-<n>` is on origin.
+1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Feature` and the owner's words under `## Problem`. A ticket already open, such as one Grill with docs opened, keeps its number and opens only the `fix-<n>` it lacks. Done when the ticket is open and `fix-<n>` is on origin.
 2. `how` over the affected subsystem. Read the files the change touches before concluding anything about them (**principle-read-before-you-conclude**), and look for what already does the job before designing one (**principle-start-from-what-exists**).
-3. `architect` for parallel design exploration. Commit the synthesized sketch on `fix-<n>`.
+3. `architect` for parallel design exploration. Its synthesized sketch goes in `efforts/<effort>/prototypes/<n>/SKETCH/`, named as the **prototype** skill's rule 1 names them, committed on `fix-<n>`.
 4. Write the throughput checkpoint as four todo items. A dimension that genuinely does not apply (single file, no fan-out) keeps its item with `n/a: <reason>` rather than being dropped:
    - **Blocking first steps.** Gates run before fan-out.
    - **Independent workstreams.** Disjoint files, services, or layers parallelize. Shared writes serialize.
@@ -19,6 +19,6 @@ Parent-level fan-out is for slices that produce independent artifacts (audits, c
 
 **Verify on the matching surface.** One ticket step 4 runs this once the ticket passed: drive the new behavior in `.worktrees/issue-<n>` the way its user meets it, through the matching control skill. "Inconclusive" or wrong-surface is not a pass. Flag it. Run the smallest test set that proves the change (**principle-run-the-smallest-test-set**).
 
-**A ticket that came back.** When the owner picks it from `needs-triage`, read why on the ticket and go back to step 3 with that evidence.
+**A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 3 with that evidence.
 
 **Reply:** what the change does for its users, the design chosen and why (tables for design alternatives), the throughput checkpoint, the criteria, what the ticket leaves out, open decisions.

@@ -4,7 +4,7 @@
 
 A skill change is a project like any other, with its own standards and its own proof: it runs the general flow for its size, held to the skill set's standards, and is proven once. Every agent that loads the changed text acts on it in cases its writer did not foresee, with no one to ask: a rule written in a second place drifts from the first, and a rule without its reason fails in the case nobody listed. The temptation is to answer each slip with one more sentence; every sentence costs attention on every run that loads the file, so the change deletes before it adds.
 
-1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Authoring or modifying a skill` and the owner's words under `## Problem`. A ticket that already has its `fix-<n>` keeps them. Done when the ticket is open and `fix-<n>` is on origin.
+1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Authoring or modifying a skill` and the owner's words under `## Problem`. A ticket already open keeps its number and opens only the `fix-<n>` it lacks. Done when the ticket is open and `fix-<n>` is on origin.
 2. **Read the standards.** Search the skill set for the meaning first. A meaning the text already states as asked needs no change: tell the owner where it says so and whether the installed checkout (the one `~/.mmw/installed-root` names) carries it yet, close the ticket with that answer, and stop. Otherwise everything this change writes, text and scripts alike, keeps to these standards:
    - The entry in the `writing-for-agents` skill's `DESIGN-INTENTS.md` for the intent the change serves. A change that would break an intent, or bring back one of its departures, is not made: tell the owner which intent and why, and wait for their word.
    - Which component, and so which file, each passage belongs in: the `writing-for-agents` skill's `SKILL-SET-COMPONENTS.md`.
@@ -27,7 +27,7 @@ A skill change is a project like any other, with its own standards and its own p
 
 Then have one fresh agent walk one real task the change touches, on the changed text read from that checkout, as the `writing-for-agents` skill's `WALKING-A-SKILL-SET.md` `### List the tasks` and `### A fresh agent's walk` say. Its record of the walk is the task's load. A place where the agent ended wrong, stopped short of the completion criterion, or guessed at a sentence this change wrote fails the check: the change does not land. Every other guess goes into the Reply as a finding for a later change: each fresh agent finds a new guess somewhere, and fixing each one adds a sentence that raises the next.
 
-**A ticket that came back.** When the owner picks it from `needs-triage`, read why on the ticket and go back to step 2 with that evidence.
+**A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 2 with that evidence.
 
 When in doubt, delete. Keep only prose that changes a decision. Match tone to scope. Point at structural sources (types, READMEs, config) per the **encode-lessons-in-structure** principle skill. Delegate to other skills by name. Don't restate. A workflow you keep hitting but isn't captured → propose a new skill. A skill describes what is true now, with no history of its own edits (**principle-files-describe-the-present**).
 

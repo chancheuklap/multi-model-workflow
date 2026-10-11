@@ -5,7 +5,7 @@ description: Send a session to work a ticket, review one or answer a brief, run 
 
 # Dispatch
 
-`bash scripts/dispatch.sh` finds the scripts of the skills it calls into by itself, so no path is ever passed to it. Where you are is what the ticket's events say, not what this session remembers. The mmw-mode skill's playbooks say when to run each command: Work a ticket for the worker sent to a ticket, including when it sends its reviewer, Run a night for a night's orchestrator and for one ticket outside a night. `bash scripts/dispatch.sh send <role> --follow "<what>" <brief file>...` starts one session per file for a role `roles.json` sends with a brief, each told to read the mmw-mode skill and then follow <what>, the file the sending step names; the step that sends it says what to do when `brief <batch> done` wakes you.
+`bash scripts/dispatch.sh` finds the scripts of the skills it calls into by itself, so no path is ever passed to it. Where you are is what the ticket's events say, not what this session remembers. The mmw-mode skill's playbooks say when to run each command: Work a ticket for the worker sent to a ticket, including when it sends its reviewer, Run a night for a night's orchestrator, and One ticket for one ticket outside a night. `bash scripts/dispatch.sh send <role> --follow "<what>" <brief file>...` starts one session per file for a role `roles.json` sends with a brief, each told to read the mmw-mode skill and then follow <what>, the file the sending step names; the step that sends it says what to do when `brief <batch> done` wakes you.
 
 To change which host, model or reasoning effort (`effort` in `models.json`) an agent runs on, or which runner the night runs on, read [references/editing-models.md](references/editing-models.md).
 

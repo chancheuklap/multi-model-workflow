@@ -62,7 +62,7 @@ Match the task to a playbook below, open its file, and copy its steps into the t
 
 Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
 
-A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one with no `Playbook:` line under its `## Problem`, run One ticket (`playbooks/one-ticket.md`) on it and tell the owner. An open ticket of ours given to this session, one whose `## Problem` has a `Playbook:` line, is picked up as Session pickup says.
+A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one with no `Playbook:` line under its `## Problem`, run One ticket (`playbooks/one-ticket.md`) on it and tell the owner. An open ticket of ours given to this session, one whose `## Problem` has a `Playbook:` line, is picked up as Session pickup says. Asked what is waiting, list the `needs-triage` queue and the tickets waiting for the owner's go, both as `references/github-issues.md` `## When a playbook says "publish"` and `## Three label sets` give them.
 
 Every change outside a night lands one way, code, scripts and skill text alike: the playbook of its kind opens a ticket and its `fix-<n>`, writes the plan into the ticket, and hands it back to the owner; on the owner's go, One ticket sends a worker, checks the result, lands it, and runs Opening a PR.
 

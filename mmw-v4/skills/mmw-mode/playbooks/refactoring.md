@@ -4,7 +4,7 @@
 
 If the cleanup reveals a missing feature or a real bug, split it out and ship the structural change first against the pinned contract. A redesign is allowed, but name it and route to Feature. Large or cross-cutting structural work belongs to the **figure-it-out** skill. This playbook is the focused-to-medium change.
 
-1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Refactoring` and the owner's words under `## Problem`. A ticket that already has its `fix-<n>`, such as one Grill with docs or Bug fix opened, keeps them. Done when the ticket is open and `fix-<n>` is on origin.
+1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Refactoring` and the owner's words under `## Problem`. A ticket already open, such as one Grill with docs or Bug fix opened, keeps its number and opens only the `fix-<n>` it lacks. Done when the ticket is open and `fix-<n>` is on origin.
 2. **Learn the contract and choose the pin.** Run the **how** skill over the affected subsystem to learn the contract, then choose the characterization test, snapshot, or equivalence harness that will capture current behavior before any structure moves. Where the area has no coverage, the pin is new. Type check and lint are not a pin. Read every file the move touches before deciding the contract (**principle-read-before-you-conclude**). Done when the contract and its pin are named.
 3. **Name the structure the code is missing** per **principle-model-the-domain**. Boring code stays when the shape is already clear and local. The reshape must delete branches or invalid states, not add indirection. Done when the missing structure is named, or you have found the shape already clear.
 4. **Name the target shape.** State what the module layout, types, and call graph should be if built today (**principle-foundational-thinking**, **principle-redesign-from-first-principles**). If the target crosses a function boundary, run the **architect** skill for parallel design exploration of the shape before the move, and commit its sketch on `fix-<n>`. Reuse a helper or pattern the repository already has before writing one (**principle-start-from-what-exists**). Done when the target shape is stated.
@@ -21,6 +21,6 @@ If the cleanup reveals a missing feature or a real bug, split it out and ship th
 
 **Confirm the change is worth keeping.** The success measure is reduced reader load (**principle-minimize-reader-load**). If the diff does not lower reader load somewhere, it does not land.
 
-**A ticket that came back.** When the owner picks it from `needs-triage`, read why on the ticket and go back to step 4 with that evidence.
+**A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 4 with that evidence.
 
 **Reply:** the contract and the pin it is held against, the missing structure and the target shape, the equivalence check, the criteria, what the ticket leaves out. No new behavior.
