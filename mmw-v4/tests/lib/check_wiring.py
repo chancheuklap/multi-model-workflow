@@ -135,9 +135,12 @@ def dispatch_commands() -> set[str]:
 
 
 def upstream_roots(skill: str) -> list[Path]:
-    """The root of each vendored upstream tree that carries this skill under its skills/."""
-    return [skills.parent for skills in SKILLS.parent.glob("upstream-*/skills")
-            if (skills / skill).is_dir()]
+    """The root of each vendored upstream tree that carries this skill under its skills/,
+    and the tree its own `repo-root` link names, where it has one."""
+    roots = [skills.parent for skills in SKILLS.parent.glob("upstream-*/skills")
+             if (skills / skill).is_dir()]
+    link = SKILLS / skill / "repo-root"
+    return roots + ([link] if link.is_dir() else [])
 
 
 def check_names(path: Path, commands: set[str]) -> list[str]:

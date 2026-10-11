@@ -35,7 +35,7 @@ Pick whichever shape best fits the question being asked, *not* whichever is easi
 
 One file, plain HTML/CSS/JS: no framework, no bundler, no server, everything inline so it opens by double-click and survives being emailed around. Anyone should be able to run it by opening it.
 
-Write the file into the leaf directory. If the host can publish a file as a live interactive page (an artifact, a site, a canvas, whatever it calls it), publish it from there and hand over the link: the file in the repo stays the source, the page is how it's viewed. Otherwise the file itself is what you hand over.
+Write the file into the leaf directory, and show it where the **diagram-design** skill says a page goes: the file in the repo stays the source, the page is how it's viewed.
 
 Write it for a non-developer. Every label is in **domain language**, not code: buttons and state read like the business, not the reducer. Explain in plain words what's happening.
 
@@ -48,7 +48,7 @@ Lay it out with a clean hierarchy, top to bottom:
 
 Choose scenarios that demonstrate the awkward cases, the ones hard to reason about on paper: the happy path, a tricky edge case, an attempt at something that should be illegal.
 
-Keep it beautiful but restrained: clean typography, generous spacing, one accent colour. No animations, no gimmicks: nothing that competes with the state and the buttons.
+Its colours, type and spacing are the **diagram-design** skill's, and any picture on it is drawn as that skill says. No animations, no gimmicks: nothing that competes with the state and the buttons.
 
 ### 4. Hand it over
 

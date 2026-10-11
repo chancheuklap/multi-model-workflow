@@ -22,7 +22,7 @@ A section may open with a one-line *what to look for* note. It points the eye; i
 ## Presentation
 
 - One file plus its media directory. Plain HTML and CSS, inlined; no framework, no external requests. Media referenced by relative path so the output directory can be zipped or moved whole.
-- Dark ground, one accent colour: outlines and overlays read better against it, and the page is obviously not the product.
+- The **diagram-design** skill's dark tokens (its `references/style-guide.md`), one accent: outlines and overlays read better against a dark ground, and the page is obviously not the product. The skeleton's `:root` slots take them.
 - Every media cell is captioned: sample, approach, time point.
 - Video: `controls preload="none"`; a row fits on one screen, so three to five columns at most.
 - Long sample names are kept, not truncated: they are how the user recognises the sample.
@@ -36,23 +36,24 @@ Embed in the generator and fill the slots; the rest of the page is rows of `.row
 <meta charset="utf-8">
 <title>{{issue}} · {{round}} · evidence</title>
 <style>
-  body{margin:24px;background:#121416;color:#e6e6e3;font:14px/1.6 system-ui,sans-serif}
+  :root{--paper:{{paper}};--ink:{{ink}};--muted:{{muted}};--rule:{{rule}};--accent:{{accent}};--link:{{link}}}
+  body{margin:24px;background:var(--paper);color:var(--ink);font:14px/1.6 system-ui,sans-serif}
   h1{font-size:20px;margin:0 0 4px}
-  .meta{color:#9a9fa4;font-size:12px;margin-bottom:20px}
-  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 20px;padding:10px 12px;border:1px solid #2b2f33;border-radius:6px}
+  .meta{color:var(--muted);font-size:12px;margin-bottom:20px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 20px;padding:10px 12px;border:1px solid var(--rule);border-radius:6px}
   .legend i{display:inline-block;width:14px;height:14px;border:2px solid currentColor;margin-right:6px;vertical-align:-2px}
   table{border-collapse:collapse;margin:0 0 24px}
-  th,td{padding:4px 10px;border-bottom:1px solid #2b2f33;text-align:left}
+  th,td{padding:4px 10px;border-bottom:1px solid var(--rule);text-align:left}
   td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   .sample{margin:28px 0 8px}
   .sample h2{font-size:15px;margin:0}
-  .stat{color:#9a9fa4;font-size:12px;margin:2px 0 8px}
-  .look{color:#c8b458;font-size:12px;margin:0 0 8px}
+  .stat{color:var(--muted);font-size:12px;margin:2px 0 8px}
+  .look{color:var(--accent);font-size:12px;margin:0 0 8px}
   .row{display:grid;grid-template-columns:repeat({{columns}},1fr);gap:10px;margin-bottom:12px}
   img,video{width:100%;background:#000;border-radius:4px}
-  .cap{color:#8fb8d8;font-size:12px;margin-top:4px}
+  .cap{color:var(--link);font-size:12px;margin-top:4px}
   .rules li{margin:2px 0}
-  code{font:12px ui-monospace,monospace;color:#c9d1d9}
+  code{font:12px ui-monospace,monospace;color:var(--ink)}
 </style>
 <h1>{{issue}} · {{round}}</h1>
 <p class="meta">{{question}} · bar: {{bar}} · params: {{params}} · run: {{run_time}} · commit: {{commit}}</p>

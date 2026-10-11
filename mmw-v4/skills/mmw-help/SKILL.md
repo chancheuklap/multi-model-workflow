@@ -72,6 +72,9 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Clean AI tells out of prose | `unslop` |
 | Write docs, a README, a PR description, or a commit message to a standard | `technical-writing` |
 | Hear the last reply again in plain words | `bro` |
+| Have the last reply re-pitched, in words or with `visual` as one page | `wait-what` |
+| Draw a diagram or a page that explains something | `diagram-design` |
+| Build an install package from the current branch | `exe-release` |
 | Drive and inspect a CLI or TUI to prove a change | `control-cli` |
 | Drive and inspect a browser, Electron or web UI to prove a change | `control-ui` |
 | Give agents a scripted way to drive the app and prove behavior | `create-verification-skill` |

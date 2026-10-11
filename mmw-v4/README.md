@@ -78,6 +78,9 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`technical-writing`](./skills/technical-writing/SKILL.md) | Write docs, readmes, PR descriptions and commit messages to a layered standard. |
 | [`writing-for-agents`](./skills/writing-for-agents/SKILL.md) | Write a skill, an `AGENTS.md` or any document an agent reads. |
 | [`bro`](./skills/bro/SKILL.md) | Have the last message restated in plain language, without jargon. |
+| [`wait-what`](./skills/wait-what/SKILL.md) | Have the last message re-pitched in plain words, or with `visual` as one HTML page. |
+| [`diagram-design`](./skills/diagram-design/SKILL.md) | Draw a diagram or an HTML page that explains something to a person, in one house style; the skill that makes the page says what goes on it. |
+| [`exe-release`](./skills/exe-release/SKILL.md) | Build an install package from the code on the current branch. |
 | [`typescript-best-practices`](./skills/typescript-best-practices/SKILL.md) | Apply type-system discipline when reading or editing TypeScript. |
 | [`control-cli`](./skills/control-cli/SKILL.md) | Drive, inspect and profile a CLI or terminal UI through a repeatable local harness. |
 | [`control-ui`](./skills/control-ui/SKILL.md) | Drive and inspect a web, IDE or Electron UI through a local browser harness. |

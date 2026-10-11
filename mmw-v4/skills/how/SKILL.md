@@ -30,7 +30,7 @@ Write one explanation yourself from the researchers' answers, as `references/exp
 
 ## Step 4. Present
 
-Check the explanation against the code before you use it, then present it to the user. Close the researchers' batch once nothing you still do needs their answers.
+Check the explanation against the code before you use it, then present it to the user. Asked by the person rather than by another skill, present it as one page drawn with the **diagram-design** skill: the parts it names and how they connect, and one run through them from start to end, each part under the name the person uses for it, the sections below as the words beside the pictures. Handed back to another skill, it stays text. Close the researchers' batch once nothing you still do needs their answers.
 
 ## Output Format
 
