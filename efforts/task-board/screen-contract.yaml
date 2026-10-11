@@ -12,25 +12,25 @@ pages:
     mount: topbar
     viewports:
     - 1440x52
-    component: mmw-v3/board/page/topbar.mjs
+    component: mmw-v4/board/page/topbar.mjs
   Component · 任务列表.dc.html:
     mount: tasks
     viewports:
     - 236x848
-    component: mmw-v3/board/page/tasks.mjs
+    component: mmw-v4/board/page/tasks.mjs
   Component · 画布.dc.html:
     mount: canvas
     viewports:
     - 864x848
-    component: mmw-v3/board/page/canvas.mjs
+    component: mmw-v4/board/page/canvas.mjs
   Component · 详情.dc.html:
     mount: detail
     viewports:
     - 340x848
-    component: mmw-v3/board/page/detail.mjs
+    component: mmw-v4/board/page/detail.mjs
   Component · 本机配置.dc.html:
     mount: settings
-    component: mmw-v3/board/page/settings.mjs
+    component: mmw-v4/board/page/settings.mjs
 scenes:
   App · 任务板.morning:
     page: App · 任务板.dc.html
@@ -281,7 +281,7 @@ backend_without_ui:
 - 'no-ui: models.json lives at MMW_HOME/models.json, shape {version, runner, rows}; defaults are written only on first install (#549)'
 rows:
 - id: topbar.refresh
-  component: mmw-v3/board/page/topbar.mjs
+  component: mmw-v4/board/page/topbar.mjs
   trigger: 顶栏.refresh
   precondition: {}
   scenes:
@@ -307,7 +307,7 @@ rows:
   - conversation 2026-09-21 — 读失败时的时间：今天写 HH:MM、非今天写 M 月 D 日 HH:MM，一小时内写 N 分钟前、以上写 N 小时前；从未读成功时只写「读 GitHub 失败」
   gap: aligned
 - id: topbar.needs-you-none
-  component: mmw-v3/board/page/topbar.mjs
+  component: mmw-v4/board/page/topbar.mjs
   trigger: 顶栏.needs-you
   precondition:
     needs_you: none
@@ -323,7 +323,7 @@ rows:
   - '#547 — 顶栏是四盏灯各自的计数；需要你可点，跳到下一张橙灯的票'
   gap: aligned
 - id: topbar.needs-you-jump
-  component: mmw-v3/board/page/topbar.mjs
+  component: mmw-v4/board/page/topbar.mjs
   trigger: 顶栏.needs-you
   precondition:
     needs_you: some
@@ -340,7 +340,7 @@ rows:
   - '#547 — 需要你可点，跳到下一张橙灯的票'
   gap: aligned
 - id: topbar.open-settings
-  component: mmw-v3/board/page/topbar.mjs
+  component: mmw-v4/board/page/topbar.mjs
   trigger: 顶栏.settings
   precondition: {}
   scenes:
@@ -356,13 +356,13 @@ rows:
     scan: scan.source, scan.scanned_at, scan.scanning, scan.hosts@GET /api/settings
   next: Component · 本机配置.mine
   on_failure:
-    config_missing_503: stay — the sheet does not open; the page shows no message (code:mmw-v3/board/page/topbar.mjs notify)
+    config_missing_503: stay — the sheet does not open; the page shows no message (code:mmw-v4/board/page/topbar.mjs notify)
   source:
   - '#551 — 入口是顶栏最右端的齿轮，点开是一个居中弹窗；每次打开都重新读一次保存着的配置'
   - '#552 — GET /api/settings 打开本机配置'
   gap: aligned
 - id: tasks.pick
-  component: mmw-v3/board/page/tasks.mjs
+  component: mmw-v4/board/page/tasks.mjs
   trigger: 任务列表.task
   precondition: {}
   scenes:
@@ -382,7 +382,7 @@ rows:
   - '#547 — 容器的灯取它下面全部 ticket 的灯'
   gap: aligned
 - id: canvas.open-ticket
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.ticket-card.open
   precondition: {}
   scenes:
@@ -407,7 +407,7 @@ rows:
   - '#547 — 灯说要不要理它；药丸说卡在哪一步'
   gap: aligned
 - id: canvas.open-container
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.container-card.open
   precondition: {}
   scenes:
@@ -428,7 +428,7 @@ rows:
   - '#548 — 点 map 或 spec，右栏是汇总'
   gap: aligned
 - id: canvas.expand-container
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.container-card.expand
   precondition:
     container: collapsed
@@ -446,7 +446,7 @@ rows:
   - '#546 — 容器向右展开成它自己的 issue；按最长阻塞链分列'
   gap: aligned
 - id: canvas.collapse-container
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.container-card.expand
   precondition:
     container: expanded
@@ -463,7 +463,7 @@ rows:
   - '#546 — 竖干挂容器，容器向右展开成它自己的 issue'
   gap: aligned
 - id: canvas.open-decision
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.decision-card.open
   precondition: {}
   scenes:
@@ -483,7 +483,7 @@ rows:
   - '#547 — 决策票关着是墨、开着是空心'
   gap: aligned
 - id: canvas.zoom-in
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.zoom.in
   precondition: {}
   scenes:
@@ -499,7 +499,7 @@ rows:
   - '#546 — 拖动平移，⌘ + 滚轮缩放 30%–160%'
   gap: aligned
 - id: canvas.zoom-out
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.zoom.out
   precondition: {}
   scenes:
@@ -515,7 +515,7 @@ rows:
   - '#546 — 拖动平移，⌘ + 滚轮缩放 30%–160%'
   gap: aligned
 - id: canvas.fit
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   trigger: 画布.zoom.fit
   precondition: {}
   scenes:
@@ -531,7 +531,7 @@ rows:
   - '#546 — 适配与键盘 F 装进整棵树'
   gap: aligned
 - id: detail.close
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.head.close
   precondition: {}
   scenes:
@@ -558,7 +558,7 @@ rows:
   - '#548 — 右栏头一行：关闭；Esc 关掉右栏'
   gap: aligned
 - id: detail.open-github
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.head.github
   precondition: {}
   scenes:
@@ -584,7 +584,7 @@ rows:
   - '#318 Implementation Decisions 7 — GitHub ↗ 在新标签页打开那张 issue'
   gap: aligned
 - id: detail.open-github-summary
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.github
   precondition: {}
   scenes:
@@ -601,7 +601,7 @@ rows:
   - '#318 Implementation Decisions 7 — 所有 issue 的右栏都在这一处放这一个链接'
   gap: aligned
 - id: detail.goto-origin-spec
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.origin.link
   precondition:
     target: spec
@@ -628,7 +628,7 @@ rows:
   - '#318 Implementation Decisions 3 — 点右栏里任何一个票号，画布平移到那张卡并选中它'
   gap: aligned
 - id: detail.goto-origin-map
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.origin.link
   precondition:
     target: map
@@ -657,7 +657,7 @@ rows:
   - '#318 Implementation Decisions 3 — 点右栏里任何一个票号，画布平移到那张卡并选中它'
   gap: aligned
 - id: detail.goto-blocker
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.blocker
   precondition:
     target: ticket-in-tree
@@ -680,7 +680,7 @@ rows:
   - '#548 — 前置与后续；右栏里的票号都能点'
   gap: aligned
 - id: detail.goto-decision-blocker
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.blocker
   precondition:
     target: decision
@@ -695,7 +695,7 @@ rows:
   - '#548 — 点决策票，右栏是种类、开着还是已定、阻塞关系；右栏里的票号都能点'
   gap: aligned
 - id: detail.blocker-unknown
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.blocker
   precondition:
     target: not-in-tree
@@ -710,7 +710,7 @@ rows:
   - '#318 Implementation Decisions 7 — 前置不在这棵树里、读不到状态的，写 unknown，点了不跳'
   gap: aligned
 - id: detail.goto-blocked
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.blocks
   precondition: {}
   scenes:
@@ -728,7 +728,7 @@ rows:
   - '#548 — 前置与后续；右栏里的票号都能点'
   gap: aligned
 - id: detail.goto-spec-row
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.spec-row
   precondition: {}
   scenes:
@@ -742,7 +742,7 @@ rows:
   - '#548 — 点 map 或 spec，右栏是汇总；右栏里的票号都能点'
   gap: aligned
 - id: detail.goto-decision-row
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.decision-row
   precondition: {}
   scenes:
@@ -756,7 +756,7 @@ rows:
   - '#548 — 点 map 或 spec，右栏是汇总；右栏里的票号都能点'
   gap: aligned
 - id: detail.goto-ticket-row
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.ticket-row
   precondition: {}
   scenes:
@@ -770,7 +770,7 @@ rows:
   - '#548 — 点 map 或 spec，右栏是汇总；右栏里的票号都能点'
   gap: aligned
 - id: detail.open-event-block
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.event-block.toggle
   precondition:
     block: closed
@@ -793,7 +793,7 @@ rows:
   - '#548 — 事件历史（每个步骤一块，只展开最后一块和出过问题的块）'
   gap: aligned
 - id: detail.close-event-block
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.event-block.toggle
   precondition:
     block: open
@@ -815,7 +815,7 @@ rows:
   - '#548 — 事件历史（每个步骤一块，只展开最后一块和出过问题的块）'
   gap: aligned
 - id: detail.open-event
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.event
   precondition:
     event: closed
@@ -839,7 +839,7 @@ rows:
   - '#318 Implementation Decisions 7 — 点一行，在原处展开它的全部字段与评论第一行'
   gap: aligned
 - id: detail.close-event
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   trigger: 详情.event
   precondition:
     event: open
@@ -862,7 +862,7 @@ rows:
   - '#318 Implementation Decisions 7 — 点一行，在原处展开它的全部字段与评论第一行'
   gap: aligned
 - id: settings.rescan
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.scan.rescan
   precondition: {}
   scenes:
@@ -883,7 +883,7 @@ rows:
     source: source@POST /api/settings/scan
   next: Component · 本机配置.scanning
   on_failure: &id002
-    scan_failed: stay — the spinner stops and the previous host states stay; no message (code:mmw-v3/board/page/settings.mjs rescan)
+    scan_failed: stay — the spinner stops and the previous host states stay; no message (code:mmw-v4/board/page/settings.mjs rescan)
     gate_403: stay — gates.py answers 403 and nothing changes; the page shows no message
   source:
   - '#551 — 本机的 host（状态、扫描时间、问的是 CLI 还是 Paseo、重新扫描）'
@@ -891,7 +891,7 @@ rows:
   - '#552 — POST /api/settings/scan 重新扫描'
   gap: aligned
 - id: settings.runner-pick
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.runner.select
   precondition:
     scan: done
@@ -917,7 +917,7 @@ rows:
   - '#551 — runner 下拉'
   gap: aligned
 - id: settings.runner-rescan
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.runner.select
   precondition:
     scan: done
@@ -942,7 +942,7 @@ rows:
   - '#552 — POST /api/settings/scan runner 跨过 paseo 时'
   gap: aligned
 - id: settings.runner-locked
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.runner.select
   precondition:
     scan: running
@@ -957,7 +957,7 @@ rows:
   - '#318 Implementation Decisions 14 — 保存只在不在扫描中时可点'
   gap: aligned
 - id: settings.host-pick-keeps-model
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.host
   precondition:
     scan: done
@@ -983,7 +983,7 @@ rows:
   - '#550 — host 取自 hosts.json 的五个；只有答出了几个 model 的能选'
   gap: aligned
 - id: settings.host-pick-clears-model
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.host
   precondition:
     scan: done
@@ -1008,7 +1008,7 @@ rows:
   - '#318 Implementation Decisions 14 — 新 host 也有原来的 model 就保留，否则空着等选'
   gap: aligned
 - id: settings.host-locked
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.host
   precondition:
     scan: running
@@ -1022,7 +1022,7 @@ rows:
   - '#318 Implementation Decisions 14 — 扫描中不能改'
   gap: aligned
 - id: settings.model-pick
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.model
   precondition:
     scan: done
@@ -1045,7 +1045,7 @@ rows:
   - '#550 — 名字经 fillable_rows 换成日常叫法'
   gap: aligned
 - id: settings.model-locked
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.model
   precondition:
     host: not-answering
@@ -1061,7 +1061,7 @@ rows:
   - '#551 — 保存着的值本机已不提供时照样显示，格子画斜线并写明怎么改'
   gap: aligned
 - id: settings.model-locked-scanning
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.model
   precondition:
     scan: running
@@ -1075,7 +1075,7 @@ rows:
   - '#318 Implementation Decisions 14 — 扫描中不能改'
   gap: aligned
 - id: settings.effort-pick
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.effort
   precondition:
     scan: done
@@ -1097,7 +1097,7 @@ rows:
   - '#550 — Cursor 的 effort 烧在 model 名字里；— 是一个合法的 effort'
   gap: aligned
 - id: settings.effort-locked
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.effort
   precondition:
     model: not-offered
@@ -1115,7 +1115,7 @@ rows:
   - '#551 — 保存着的值本机已不提供时照样显示，格子画斜线'
   gap: aligned
 - id: settings.effort-locked-scanning
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.role.effort
   precondition:
     scan: running
@@ -1129,7 +1129,7 @@ rows:
   - '#318 Implementation Decisions 14 — 扫描中不能改'
   gap: aligned
 - id: settings.save
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.save
   precondition:
     draft: changed-and-valid
@@ -1152,7 +1152,7 @@ rows:
   - '#552 — PUT /api/settings：200 新 version；409 带改动时间；422 列出 start 会拒绝的格子；423 锁被别人拿着'
   gap: aligned
 - id: settings.save-unchanged
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.save
   precondition:
     draft: unchanged
@@ -1171,7 +1171,7 @@ rows:
   - '#318 Implementation Decisions 14 — 保存只在有改动、没有标出的格子、也不在扫描中时可点'
   gap: aligned
 - id: settings.save-blocked
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.save
   precondition:
     draft: has-flagged-cells
@@ -1186,7 +1186,7 @@ rows:
   - '#551 — 有这样的格子就不能保存'
   gap: aligned
 - id: settings.save-scanning
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.save
   precondition:
     scan: running
@@ -1200,7 +1200,7 @@ rows:
   - '#318 Implementation Decisions 14 — 也不在扫描中时可点'
   gap: aligned
 - id: settings.save-refused
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.save
   precondition:
     refused: version-conflict
@@ -1214,7 +1214,7 @@ rows:
   - '#551 — 保存被拒（版本核对不过）时弹窗顶上给重新读取'
   gap: aligned
 - id: settings.reread
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.refused.reread
   precondition: {}
   scenes:
@@ -1226,13 +1226,13 @@ rows:
     scan: scan@GET /api/settings
   next: Component · 本机配置.mine
   on_failure:
-    read_failed: stay — the banner stays; no message (code:mmw-v3/board/page/settings.mjs reread)
+    read_failed: stay — the banner stays; no message (code:mmw-v4/board/page/settings.mjs reread)
   source:
   - '#551 — 保存被拒（版本核对不过）时弹窗顶上给重新读取'
   - '#552 — GET /api/settings 保存被拒后的重新读取'
   gap: aligned
 - id: settings.close
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.close
   precondition: {}
   scenes:
@@ -1254,7 +1254,7 @@ rows:
   - '#551 — Esc、关闭或取消关掉；每次打开都重新读一次保存着的配置'
   gap: aligned
 - id: settings.close-unchanged
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.cancel
   precondition:
     draft: unchanged
@@ -1273,7 +1273,7 @@ rows:
   - '#551 — Esc、关闭或取消关掉'
   gap: aligned
 - id: settings.cancel
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   trigger: 本机配置.sheet.cancel
   precondition:
     draft: changed
@@ -1290,7 +1290,7 @@ rows:
   - '#551 — Esc、关闭或取消关掉；每次打开都重新读一次保存着的配置'
   gap: aligned
 - id: board.jump-needs-you
-  component: mmw-v3/board/page/topbar.mjs
+  component: mmw-v4/board/page/topbar.mjs
   app: App · 任务板.dc.html
   trigger: 顶栏.needs-you
   precondition:
@@ -1309,7 +1309,7 @@ rows:
   - '#547 — 需要你可点，跳到下一张橙灯的票'
   gap: aligned
 - id: board.open-settings
-  component: mmw-v3/board/page/topbar.mjs
+  component: mmw-v4/board/page/topbar.mjs
   app: App · 任务板.dc.html
   trigger: 顶栏.settings
   precondition: &id003
@@ -1325,13 +1325,13 @@ rows:
     config: version, runner, rows@GET /api/settings
   next: Component · 本机配置.mine
   on_failure:
-    config_missing_503: stay — the sheet does not open; the page shows no message (code:mmw-v3/board/page/topbar.mjs notify)
+    config_missing_503: stay — the sheet does not open; the page shows no message (code:mmw-v4/board/page/topbar.mjs notify)
   source:
   - '#551 — 入口是顶栏最右端的齿轮，点开是一个居中弹窗；每次打开都重新读一次'
   - '#552 — GET /api/settings 打开本机配置'
   gap: aligned
 - id: board.refresh-all
-  component: mmw-v3/board/page/topbar.mjs
+  component: mmw-v4/board/page/topbar.mjs
   app: App · 任务板.dc.html
   trigger: 顶栏.refresh
   precondition: *id003
@@ -1354,7 +1354,7 @@ rows:
   - conversation 2026-09-21 — 刷新按生产版：点了立刻重读并重画整页；设计稿整页没反应只因它是静态示例
   gap: aligned
 - id: board.pick-task
-  component: mmw-v3/board/page/tasks.mjs
+  component: mmw-v4/board/page/tasks.mjs
   app: App · 任务板.dc.html
   trigger: 任务列表.task
   precondition: *id003
@@ -1372,7 +1372,7 @@ rows:
   - '#546 — 画布画一个任务的四层'
   gap: aligned
 - id: board.open-ticket
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   app: App · 任务板.dc.html
   trigger: 画布.ticket-card.open
   precondition: *id003
@@ -1396,7 +1396,7 @@ rows:
   - '#548 — 整张卡片是一个按钮，点它就选中并在右栏打开'
   gap: aligned
 - id: board.open-map
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   app: App · 任务板.dc.html
   trigger: 画布.container-card.open
   precondition:
@@ -1415,7 +1415,7 @@ rows:
   - '#548 — 点 map 或 spec，右栏是汇总'
   gap: aligned
 - id: board.open-spec
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   app: App · 任务板.dc.html
   trigger: 画布.container-card.open
   precondition:
@@ -1434,7 +1434,7 @@ rows:
   - '#548 — 点 map 或 spec，右栏是汇总'
   gap: aligned
 - id: board.open-decision
-  component: mmw-v3/board/page/canvas.mjs
+  component: mmw-v4/board/page/canvas.mjs
   app: App · 任务板.dc.html
   trigger: 画布.decision-card.open
   precondition: *id003
@@ -1450,7 +1450,7 @@ rows:
   - '#548 — 点决策票，右栏是种类、开着还是已定、阻塞关系'
   gap: aligned
 - id: board.goto-origin
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   app: App · 任务板.dc.html
   trigger: 详情.origin.link
   precondition: *id003
@@ -1468,7 +1468,7 @@ rows:
   - '#318 Implementation Decisions 3 — 点右栏里任何一个票号，画布平移到那张卡并选中它'
   gap: aligned
 - id: board.goto-blocker
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   app: App · 任务板.dc.html
   trigger: 详情.blocker
   precondition:
@@ -1485,7 +1485,7 @@ rows:
   source: *id004
   gap: aligned
 - id: board.goto-blocked
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   app: App · 任务板.dc.html
   trigger: 详情.blocks
   precondition: *id003
@@ -1500,7 +1500,7 @@ rows:
   source: *id004
   gap: aligned
 - id: board.goto-spec-row
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   app: App · 任务板.dc.html
   trigger: 详情.spec-row
   precondition: *id003
@@ -1513,7 +1513,7 @@ rows:
   source: *id004
   gap: aligned
 - id: board.goto-decision-row
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   app: App · 任务板.dc.html
   trigger: 详情.decision-row
   precondition: *id003
@@ -1526,7 +1526,7 @@ rows:
   source: *id004
   gap: aligned
 - id: board.goto-ticket-row
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   app: App · 任务板.dc.html
   trigger: 详情.ticket-row
   precondition: *id003
@@ -1539,7 +1539,7 @@ rows:
   source: *id004
   gap: aligned
 - id: board.close-detail
-  component: mmw-v3/board/page/detail.mjs
+  component: mmw-v4/board/page/detail.mjs
   app: App · 任务板.dc.html
   trigger: 详情.head.close
   precondition: *id003
@@ -1555,7 +1555,7 @@ rows:
   - '#548 — 右栏头一行：关闭；Esc 关掉右栏'
   gap: aligned
 - id: board.close-settings
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   app: App · 任务板.dc.html
   trigger: 本机配置.sheet.close
   precondition: *id003
@@ -1569,7 +1569,7 @@ rows:
   - '#551 — Esc、关闭或取消关掉'
   gap: aligned
 - id: board.cancel-settings
-  component: mmw-v3/board/page/settings.mjs
+  component: mmw-v4/board/page/settings.mjs
   app: App · 任务板.dc.html
   trigger: 本机配置.sheet.cancel
   precondition: *id003

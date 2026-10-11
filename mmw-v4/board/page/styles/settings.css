@@ -1,0 +1,84 @@
+/* The settings sheet: which host, model and effort each agent runs on, and the
+   runner, chosen on this machine. Shared parts (type, buttons, pills, hatches)
+   come from board.css. What is only this sheet — its frame, its columns, its
+   dropdown — stays here. Nothing on it is state of a ticket, so no lamp colour
+   appears. A cell `start` would refuse is hatched ink. */
+
+.settings-root {
+  position: absolute; inset: 0;
+  background: var(--desk);
+}
+.settings-root.transparent { background: transparent; }
+.scrim {
+  position: absolute; inset: 0; z-index: 25; display: grid; place-items: center;
+  padding: var(--sp-24) var(--sp-16); background: var(--scrim);
+}
+.sheet {
+  width: min(800px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+}
+.sheet-head {
+  display: flex; align-items: flex-start; gap: var(--sp-16);
+  padding: var(--sp-16) var(--sp-24); border-bottom: 1px solid var(--rule);
+}
+.sheet-head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-6); }
+.sheet-intro {
+  margin: 0; max-width: 64ch; font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--soft);
+}
+.sheet-body { overflow-y: auto; padding-inline: var(--sp-24); display: flex; flex-direction: column; }
+.set-block { display: flex; flex-direction: column; gap: var(--sp-8); padding-block: var(--sp-16); }
+.set-block.ruled { border-top: 1px solid var(--rule-2); }
+.set-block-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-6) var(--sp-16); flex-wrap: wrap;
+}
+.set-note { margin: 0; max-width: 66ch; font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--soft); }
+.hostscan { display: flex; flex-wrap: wrap; gap: var(--sp-6); }
+
+.roles { --cols: 150px 100px minmax(0, 1fr) 104px; display: flex; flex-direction: column; }
+.roles-head, .role {
+  display: grid; grid-template-columns: var(--cols); column-gap: var(--sp-8);
+}
+.roles-head { padding-bottom: var(--sp-6); }
+.role {
+  row-gap: var(--sp-6); padding-block: var(--sp-12);
+  border-top: 1px solid var(--rule-2); align-items: center;
+}
+.role-name { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.role-agent { font: var(--w-bold) var(--t-meta) var(--mono); color: var(--ink); }
+.role-what { font-size: var(--t-meta); color: var(--soft); }
+.role-foot { grid-column: 2 / -1; display: flex; flex-direction: column; gap: var(--sp-4); }
+.runner-row {
+  display: grid; grid-template-columns: 150px 220px minmax(0, 1fr);
+  column-gap: var(--sp-8); row-gap: var(--sp-6); align-items: center;
+}
+
+.sel {
+  appearance: none; -webkit-appearance: none; width: 100%; height: 32px; padding: 0 26px 0 var(--sp-8);
+  font: var(--t-meta) var(--mono); color: var(--ink); text-overflow: ellipsis; cursor: pointer;
+  background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237a8399' stroke-width='1.4'/%3E%3C/svg%3E") no-repeat right var(--sp-8) center;
+  border: 1px solid var(--rule); border-radius: var(--r-md);
+}
+.sel:hover { border-color: var(--rule-strong); }
+.sel:disabled { cursor: default; color: var(--faint); }
+.sel.changed, .sel.bad {
+  border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-weight: var(--w-bold);
+}
+.sel.bad {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%232d3142' stroke-width='1.4'/%3E%3C/svg%3E"), var(--hatch);
+  background-repeat: no-repeat, repeat; background-position: right var(--sp-8) center, 0 0;
+}
+
+.sheet-foot {
+  display: flex; align-items: center; gap: var(--sp-12) var(--sp-16); flex-wrap: wrap;
+  padding: var(--sp-12) var(--sp-24); border-top: 1px solid var(--rule); background: var(--panel-2);
+}
+.foot-status { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.foot-strong {
+  display: flex; align-items: center; gap: var(--sp-6);
+  font-size: var(--t-body); font-weight: var(--w-bold); color: var(--ink);
+}
+.foot-quiet { font-size: var(--t-meta); color: var(--soft); }
+.foot-actions { display: flex; gap: var(--sp-8); margin-left: auto; }
+.refused-banner { margin-top: var(--sp-16); }
+.refused-banner p { margin: 0; max-width: 60ch; }

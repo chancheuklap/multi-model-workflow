@@ -22,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-PAGE = ROOT / "mmw-v3" / "board" / "page"
+PAGE = ROOT / "mmw-v4" / "board" / "page"
 HANDOFF = Path(os.environ.get(
     "MMW_STORY_HANDOFF",
     ROOT / "efforts" / "task-board" / "claude-design",

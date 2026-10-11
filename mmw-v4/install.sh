@@ -11,10 +11,11 @@
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
 #   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees
 #   子代理层数        Claude Code、Codex、Grok 的子代理层数上限都设为 2
+#   task board        一个 com.mmw.board LaunchAgent，按 ~/.mmw/boards.json 为每个仓库守住本机服务
 #
 # 装完把本 checkout 的 mmw-v4 目录记进 ~/.mmw/installed-root。
 #
-# 不碰的：task board 的 com.mmw.board、Nowledge Mem 的 Space 与 Identity、~/.cursor/mcp.json、
+# 不碰的：Nowledge Mem 的 Space 与 Identity、~/.cursor/mcp.json、
 # ~/.zshrc 里加载 nmem-space.zsh 的一段。它们留在 mmw-v3/install.sh 装的样子，指着同一个
 # checkout 的 mmw-v3/。
 #
@@ -871,6 +872,49 @@ XML
   fi
   [ "$prompt_rc" -eq 0 ] || rc=1
 fi
+
+# ---------------- task board LaunchAgent ----------------
+#
+# MMW_INSTALL_HOME 下只写或核 plist，绝不调用 launchctl；这让测试能验证同一份定义而不改变本机服务。
+# 真家目录下由 launchd 守住 supervisor.py，后者再按 MMW_HOME/boards.json 守住各仓库的 board。
+
+BOARD_PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.board.plist"
+BOARD_SUPERVISOR="$ROOT/board/supervisor.py"
+BOARD_PATH="$HOME_DIR/.local/bin:$HOME_DIR/.grok/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+board_gh="$(command -v gh 2>/dev/null || true)"
+if [ -n "$board_gh" ]; then
+  board_gh_dir="$(dirname "$board_gh")"
+  case ":$BOARD_PATH:" in
+    *":$board_gh_dir:"*) ;;
+    *) BOARD_PATH="$board_gh_dir:$BOARD_PATH" ;;
+  esac
+fi
+board_plist="$(cat <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.mmw.board</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$(command -v python3)</string>
+    <string>$BOARD_SUPERVISOR</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>$BOARD_PATH</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$HOME_DIR/Library/Logs/mmw-board.log</string>
+  <key>StandardErrorPath</key><string>$HOME_DIR/Library/Logs/mmw-board.log</string>
+</dict>
+</plist>
+XML
+)"
+
+launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
+  "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR" || rc=1
 
 # ---------------- Paseo 侧配置 ----------------
 #

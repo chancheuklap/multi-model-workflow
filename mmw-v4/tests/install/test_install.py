@@ -120,9 +120,11 @@ class InstallTest(unittest.TestCase):
     def test_takes_over_a_v3_machine(self):
         self.install_v3()
         board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
-        untouched = {p: p.read_bytes() for p in (board, self.home / ".zshrc", self.home / ".cursor/mcp.json")}
+        self.assertIn(str(V3 / "board/supervisor.py"), board.read_text())
+        untouched = {p: p.read_bytes() for p in (self.home / ".zshrc", self.home / ".cursor/mcp.json")}
         r = self.run_install("v4")
         self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(str(V4 / "board/supervisor.py"), board.read_text())
 
         for where in (".agents/skills", ".claude/skills"):
             self.assertEqual(self.link("dispatch", where), str(V4 / "skills/dispatch"))
@@ -183,6 +185,8 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(models["rows"], V3_MODELS["rows"])
         self.assertTrue([c for c in hook_commands(self.home / ".claude/settings.json") if "mode-hook.py" in c])
         self.assertEqual((self.home / ".mmw/installed-root").read_text().strip(), str(V3))
+        board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
+        self.assertIn(str(V3 / "board/supervisor.py"), board.read_text())
 
         check = self.run_install("v3", "--check")
         self.assertEqual(check.returncode, 0, check.stderr)
@@ -254,12 +258,13 @@ class InstallTest(unittest.TestCase):
                                capture_output=True, text=True)
         self.assertNotIn("com.mmw.prompt-sync", check.stderr)
 
-    def test_never_touches_memory_or_the_board(self):
+    def test_never_touches_memory_and_writes_the_board_job(self):
         r = self.run_install("v4")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("nmem", self.log.read_text())
         self.assertNotIn("launchctl", self.log.read_text())
-        self.assertFalse((self.home / "Library/LaunchAgents/com.mmw.board.plist").exists())
+        board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
+        self.assertIn(str(V4 / "board/supervisor.py"), board.read_text())
         self.assertFalse((self.home / ".zshrc").exists())
         self.assertFalse((self.home / ".cursor/mcp.json").exists())
 

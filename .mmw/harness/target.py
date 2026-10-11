@@ -161,7 +161,7 @@ def seed_mmw_home() -> Path:
     home.mkdir(parents=True, exist_ok=True, mode=0o700)
     config_path = home / "models.json"
     hosts = json.loads(
-        (ROOT / "mmw-v3" / "skills" / "dispatch" / "hosts.json").read_text(encoding="utf-8")
+        (ROOT / "mmw-v4" / "skills" / "dispatch" / "hosts.json").read_text(encoding="utf-8")
     )
     rows = {
         row["agent"]: {

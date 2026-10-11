@@ -11,7 +11,7 @@ import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-BOARD = ROOT / "mmw-v3" / "board"
+BOARD = ROOT / "mmw-v4" / "board"
 if str(BOARD) not in sys.path:
     sys.path.insert(0, str(BOARD))
 
