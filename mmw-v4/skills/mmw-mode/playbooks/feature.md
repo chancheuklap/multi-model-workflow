@@ -15,6 +15,6 @@
    Use the **sequence-verifiable-units** principle skill, building, verifying, and committing each small unit before the next.
 7. Run **Shared closing** (`playbooks/shared-closing.md`).
 
-Code-coupled work (one feature, one migration) stays with you, with the checkpoint inline. Workstreams the checkpoint found independent can go to general-purpose subagents of your host, each in its own git worktree, its prompt the step 4 scope of that slice; a subagent sends out no other, and you read each one's diff before merging it back. Parent-level fan-out is for slices that produce independent artifacts (audits, cross-subsystem investigations, competing experiments). Rewrite the checkpoint at phase boundaries. Start a fresh subagent rather than chaining interrupts to one.
+Work one session can write stays with you, written in order, with the checkpoint inline. Work too big for one session, or whose independent workstreams should run in parallel, goes through To spec and To tickets instead: each ticket gets its worktree from the dispatch skill, and `land` merges it back. Parent-level fan-out is for slices that produce independent artifacts (audits, cross-subsystem investigations, competing experiments). Rewrite the checkpoint at phase boundaries.
 
 **Reply:** what you built, what you chose and why, the throughput checkpoint, open decisions. Tables for design alternatives.

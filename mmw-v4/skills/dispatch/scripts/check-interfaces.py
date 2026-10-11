@@ -17,15 +17,16 @@ places have to agree, and nothing else notices when one of them moves:
    `verify-ticket.py`, which a `RESUME:` line names, is the bold title of a step in the
    worker's playbook.
 4. **Only mmw-mode routes to a playbook.** Which playbook a task runs is written once: in
-   the route lines of the mmw-mode skill's `## Playbooks`. A `SKILL.md` of any other skill
+   the route lines of `## Playbooks` in the mmw-mode skill's `references/owning-a-task.md`. A `SKILL.md` of any other skill
    whose `## Find your moment`, `## Reached from here` or `## Next` section names a
    `playbooks/` file routes a second time, and the second statement drifts from the first.
    A moment table that sends its reader to the skill's own references is not a route.
 5. **Every role has a row in each table, and every role sent is a role.** Each role of the
    dispatch skill's `roles.json` has a default row in `hosts.json` (`defaults`), and each
-   default row is a role. Every `dispatch.sh send <role>` (or `send <role>`) a `SKILL.md` or
-   playbook writes names a role, or `worker`, which `send` resolves to the junior or senior worker by the
-   ticket's grade. A role sent with a brief is sent by some `SKILL.md` or playbook.
+   default row is a role. Every `dispatch.sh send <role>` (or `send <role>`) a `SKILL.md`, a
+   playbook or the mmw-mode skill's `references/owning-a-task.md` writes names a role, or
+   `worker`, which `send` resolves to the junior or senior worker by the ticket's grade. A
+   role sent with a brief is sent by one of those files.
 6. **Every session is told what it works by, and that file is there.** A start prompt
    carries `Read the mmw-mode skill in full, then follow <what>.`: for a role sent with a
    ticket, <what> is its `follows` in `roles.json`; for a role sent with a brief, the
@@ -56,6 +57,7 @@ RELAY_PY = HERE / "relay.py"
 EVENTS_PY = SKILLS / "verify-ticket" / "scripts" / "events.py"
 VERIFY_PY = SKILLS / "verify-ticket" / "scripts" / "verify-ticket.py"
 MODE = SKILLS / "mmw-mode" / "SKILL.md"
+ROUTES = SKILLS / "mmw-mode" / "references" / "owning-a-task.md"
 
 # The orchestrator's playbook, which the owner's session routes to itself. The worker's
 # is the file its role follows in roles.json, which its start prompt names.
@@ -121,7 +123,7 @@ def check_roles() -> list[str]:
                    f"is no role in {where}")
     sent: set[str] = set()
     texts = sorted(SKILLS.glob("*/SKILL.md")) + sorted((MODE.parent / "playbooks").glob("*.md"))
-    for path in texts:
+    for path in texts + [ROUTES]:
         for name in sorted(set(SENT.findall(path.read_text(encoding="utf-8")))):
             sent.add(name)
             if name not in names | {"worker"}:
@@ -147,7 +149,7 @@ def check_roles() -> list[str]:
                 out.append(f"{path.relative_to(SKILLS)}: `send {name} --follow`: {why}")
     for role in roles:
         if role.get("sent_with") == "brief" and role["name"] not in sent:
-            out.append(f"{where}: {role['name']} is sent with a brief, and no SKILL.md or playbook "
+            out.append(f"{where}: {role['name']} is sent with a brief, and no SKILL.md, playbook or owning-a-task.md "
                        f"writes `dispatch.sh send {role['name']}`")
     return out
 
@@ -183,18 +185,18 @@ def worker_playbook_file(findings: list[str]) -> Path | None:
 
 def main() -> int:
     findings: list[str] = []
-    mode = MODE.read_text(encoding="utf-8")
-    routes = {name: rel for name, rel in ROUTE_LINE.findall(section(mode, "Playbooks"))}
+    owning = ROUTES.read_text(encoding="utf-8")
+    routes = {name: rel for name, rel in ROUTE_LINE.findall(section(owning, "Playbooks"))}
 
     def playbook(name: str, why: str) -> Path | None:
         rel = routes.get(name)
         if rel is None:
-            findings.append(f"{MODE.relative_to(SKILLS)}: `## Playbooks` has no route line for "
+            findings.append(f"{ROUTES.relative_to(SKILLS)}: `## Playbooks` has no route line for "
                             f"**{name}.**, which {why}; add one, or change what names it")
             return None
         path = MODE.parent / rel
         if not path.is_file():
-            findings.append(f"{MODE.relative_to(SKILLS)}: the route line for **{name}.** names "
+            findings.append(f"{ROUTES.relative_to(SKILLS)}: the route line for **{name}.** names "
                             f"{rel}, which does not exist")
             return None
         return path

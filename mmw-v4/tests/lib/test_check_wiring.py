@@ -32,6 +32,7 @@ class WiringTest(unittest.TestCase):
             (root / upstream.name).symlink_to(upstream)
         self.skills = root / "skills"
         self.mode = self.skills / "mmw-mode" / "SKILL.md"
+        self.routes = self.skills / "mmw-mode" / "references" / "owning-a-task.md"
 
     def run_check(self):
         return subprocess.run([sys.executable, str(CHECK), str(self.skills)],
@@ -65,7 +66,7 @@ class WiringTest(unittest.TestCase):
 
     def test_a_route_name_that_is_not_the_title(self):
         (self.skills / "mmw-mode/playbooks/new-thing.md").write_text("# New thing\n")
-        self.edit(self.mode, "## Playbooks\n",
+        self.edit(self.routes, "## Playbooks\n",
                   "## Playbooks\n\n- **Something else.** Read `playbooks/new-thing.md`.\n")
         self.assertFinds("'New thing'")
 

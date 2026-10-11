@@ -23,7 +23,7 @@ You rarely need to type it. The `mmw-mode` skill's Non-negotiables send any code
 
 The sketch is not sacred once code starts. If implementation needs the same workaround in unrelated places, or types that compile only with forced casts, the [Redesign From First Principles principle](../../skills/principle-redesign-from-first-principles/SKILL.md) treats that as proof the sketch is wrong. Re-run the architect skill instead of patching around it.
 
-For a second opinion on a design before it is committed, the session sends an `advisor`, as the `mmw-mode` skill's `## Subagents` section says. The [advisor skill](../../skills/advisor/SKILL.md) judges a decision already framed and changes nothing.
+For a second opinion on a design before it is committed, the session sends an `advisor`, as the `## Subagents` section of the `mmw-mode` skill's `references/owning-a-task.md` says. The [advisor skill](../../skills/advisor/SKILL.md) judges a decision already framed and changes nothing.
 
 ## Fan out attempts with the arena skill
 

@@ -6,7 +6,7 @@ It is very likely that important decisions are missing or ambiguous, even if the
 
 ## Scan
 
-Load the spec and the drafted tickets. Walk every category below.
+Load the spec with `gh issue view <spec> --json number,title,body,comments`, and the drafted tickets from the directory your prompt names. Walk every category below.
 
 Functional Scope & Behavior:
 - Core user goals & success criteria
@@ -73,6 +73,7 @@ Each question carries:
 - Use everyday wording; introduce jargon only if defined in the same sentence. A reader who has not read this file must be able to answer from the Question line alone.
 - One plain-language "Why it matters" sentence (the stake for what a ticket delivers or what its criteria check).
 - The spec sentence it cites, quoted.
+- The drafts it touches, each by its file name.
 - 2–5 distinct, mutually exclusive options.
 - `Recommended: Option X, because <1–2 sentences of reasoning>`, chosen from best practices for the project type, common patterns in similar implementations, risk reduction, and alignment with explicit project goals or constraints visible in the spec. Present the recommendation first.
 

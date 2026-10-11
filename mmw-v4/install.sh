@@ -1069,7 +1069,7 @@ fi
 
 # ---------------- 子代理层数 ----------------
 #
-# 被派的 agent 该不该再派人，由开场提示末尾那一句管（mmw-mode 的 Non-negotiables）；这里给三家
+# 被派的 agent 该不该再派人，由开场提示末尾那一句管（It is your whole task …）；这里给三家
 # host 的子代理层数定同一个上限 2，作兜底：主会话的子代理还能再派一层，再往下派不出来。
 # dispatch 起的会话在它的 host 上也是主会话。三家默认各不相同：Claude Code 3（官方文档），
 # Codex 1（codex-rs core/src/config/mod.rs 的 DEFAULT_AGENT_MAX_DEPTH），Grok 1（它自带文档

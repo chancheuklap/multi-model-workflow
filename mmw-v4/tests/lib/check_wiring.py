@@ -10,8 +10,9 @@ pointer are checked, in the text of every `.md` under `mmw-v4/skills/` (HTML com
 and fenced code left out):
 
 1. **Routes.** Each file in the mmw-mode skill's `playbooks/` has
-   exactly one route line in `## Playbooks` of its `SKILL.md`, every route line names
-   a file that exists, and the bold name of the line is the file's `# ` title.
+   exactly one route line in `## Playbooks` of its `references/owning-a-task.md`, every
+   route line names a file that exists, and the bold name of the line is the file's `# `
+   title.
 2. **Principles.** Each `principle-*` skill has exactly one index line in `## Principles`,
    every index line names one that exists, and the bold name is that skill's `# ` title.
 3. **Skills and files named.** A skill named as "the `x` skill", "the **x** skill",
@@ -43,6 +44,7 @@ from pathlib import Path
 SKILLS = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "skills"
 MODE_DIR = SKILLS / "mmw-mode"
 MODE = MODE_DIR / "SKILL.md"
+ROUTES = MODE_DIR / "references" / "owning-a-task.md"
 DISPATCH_SH = SKILLS / "dispatch" / "scripts" / "dispatch.sh"
 
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`", re.M)
@@ -84,11 +86,11 @@ def where(path: Path, text: str, offset: int) -> str:
     return f"{path.relative_to(SKILLS.parent.parent)}:{text[:offset].count(chr(10)) + 1}"
 
 
-def check_routes(mode: str) -> list[str]:
-    body, first = section(mode, "Playbooks")
+def check_routes(routes: str) -> list[str]:
+    body, first = section(routes, "Playbooks")
     found, named = [], {}
     for m in ROUTE_LINE.finditer(body):
-        line = f"{MODE.relative_to(SKILLS.parent.parent)}:{first + body[:m.start()].count(chr(10)) + 1}"
+        line = f"{ROUTES.relative_to(SKILLS.parent.parent)}:{first + body[:m.start()].count(chr(10)) + 1}"
         name, rel = m.group(1), m.group(2)
         named.setdefault(rel, []).append(line)
         path = MODE_DIR / rel
@@ -99,7 +101,7 @@ def check_routes(mode: str) -> list[str]:
     for path in sorted((MODE_DIR / "playbooks").glob("*.md")):
         rel = f"playbooks/{path.name}"
         if rel not in named:
-            found.append(f"{MODE.relative_to(SKILLS.parent.parent)}: `## Playbooks` has no route line for {rel}")
+            found.append(f"{ROUTES.relative_to(SKILLS.parent.parent)}: `## Playbooks` has no route line for {rel}")
         elif len(named[rel]) > 1:
             found.append(f"{', '.join(named[rel])}: {rel} has {len(named[rel])} route lines")
     return found
@@ -169,7 +171,7 @@ def check_names(path: Path, commands: set[str]) -> list[str]:
 
 def main() -> int:
     mode = readable(MODE)
-    findings = check_routes(mode) + check_principles(mode)
+    findings = check_routes(readable(ROUTES)) + check_principles(mode)
     commands = dispatch_commands()
     for path in sorted(SKILLS.rglob("*.md")):
         if "__pycache__" not in path.parts:

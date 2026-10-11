@@ -43,7 +43,7 @@ Quote the requirement for each review finding. A review finding with no quoted l
 
 ## 3. Report
 
-Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its quoted line; nothing that is not a finding. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its `path:line` and its quoted line; nothing that is not a finding. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## What is not yours
 

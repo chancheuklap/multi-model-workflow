@@ -2911,20 +2911,25 @@ scenario_resumeendedhold() {
 scenario_wait() {
   local code
 
-  echo "--- a result already on the ticket is printed and wait is not called"
+  echo "--- a result already on the ticket is printed with the report's text, and wait is not called"
   reset_log
+  printf '### Correctness\n- In-ticket: src/a.ts:12 drops the last row\n' > "$TMP/report.md"
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"],
-   "comments": [$(ev reviewer.reported 61 "REVIEW abcdef0123456789abcdef0123456789abcdef01..fedcba9876543210fedcba9876543210fedcba98" --field base=abcdef0123456789abcdef0123456789abcdef01)]}
+   "comments": [$(ev reviewer.reported 61 "REVIEW abcdef0123456789abcdef0123456789abcdef01..fedcba9876543210fedcba9876543210fedcba98" --field base=abcdef0123456789abcdef0123456789abcdef01 --text-file "$TMP/report.md")]}
 ]
 JSON
   seed_agent 61 reviewer
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0 when the result is already there, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/out")" = "reviewer.reported base=abcdef0123456789abcdef0123456789abcdef01" ] \
-    || fail "stdout should be the event and its key fields: $(cat "$TMP/out")"
+  [ "$(cat "$TMP/out")" = "reviewer.reported base=abcdef0123456789abcdef0123456789abcdef01
+REVIEW abcdef0123456789abcdef0123456789abcdef01..fedcba9876543210fedcba9876543210fedcba98
+
+### Correctness
+- In-ticket: src/a.ts:12 drops the last row" ] \
+    || fail "stdout should be the event, its key fields, then the report's text: $(cat "$TMP/out")"
   hasnt "paseo :: wait"
   hasnt "gh :: issue :: comment"
   hasnt "paseo :: archive"

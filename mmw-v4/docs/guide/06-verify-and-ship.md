@@ -14,7 +14,7 @@ Put what done means in the first request, in whatever words fit:
 add json output to this command. text output stays byte-identical, the json parses, both run against the sample project. show me the evidence.
 ```
 
-Now the agent has three checks it can run, not a mood to satisfy. The reply should carry the commands it ran and what they printed. If a check could not run, a good reply says "inconclusive". Treat a confident reply without evidence as a warning sign. The `mmw-mode` skill's `## Writing the reply` section requires every claim to carry its evidence or a label in the same sentence: measured, inferred, or guess.
+Now the agent has three checks it can run, not a mood to satisfy. The reply should carry the commands it ran and what they printed. If a check could not run, a good reply says "inconclusive". Treat a confident reply without evidence as a warning sign. The `## Writing the reply` section of the `mmw-mode` skill's `references/owning-a-task.md` requires every claim to carry its evidence or a label in the same sentence: measured, inferred, or guess.
 
 Match the check to the change:
 

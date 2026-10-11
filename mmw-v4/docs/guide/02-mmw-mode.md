@@ -8,13 +8,13 @@ You do not type a command to turn `mmw-mode` on. Its `description` tells every s
 
 Most of the other skills carry the description "Run only when the user, mmw-mode or another skill names it". They do not start on their own. `mmw-mode` and its playbooks name them at the step that needs them, and you can name one yourself in a prompt.
 
-The skill holds seven sections. These five shape what you see:
+The skill is read in two layers. Its `SKILL.md` is what every agent judges with, the session you talk to and every agent it sends. Its [`references/owning-a-task.md`](../../skills/mmw-mode/references/owning-a-task.md) is read only by the session that owns the task, the one you opened, because its first message names no file to follow. Between them they hold seven sections. These five shape what you see:
 
-- **Non-negotiables.** Triggers that apply to any task. For example, a nontrivial change runs `how` first, any prose runs `unslop`, and a contested design gets `code-review`.
-- **Principles.** An index of the 33 principle skills, each with when it applies. The reply names each principle that changed a decision. [Steer with principle names](./08-principles.md) covers them.
-- **Autonomy.** What the session does without asking, and what it always pauses for: irreversible writes such as a force-push, a deploy, a data deletion or a customer message.
-- **Writing the reply.** How the report to the owner reads: effects and reasons, not code, with evidence the owner can check.
-- **Playbooks.** The list that routes a task to one playbook file.
+- **Non-negotiables.** Triggers. Those for an agent's own work are in `SKILL.md`: any prose runs `unslop`, any `.ts` file runs `typescript-best-practices`. Those for the task as a whole are in `owning-a-task.md`: a nontrivial change runs `how` first, and a contested design gets `code-review`.
+- **Principles.** An index of the 33 principle skills, each with when it applies, in `SKILL.md`. The reply names each principle that changed a decision. [Steer with principle names](./08-principles.md) covers them.
+- **Autonomy.** What an agent does without asking, and what it always pauses for: irreversible writes such as a force-push, a deploy, a data deletion or a customer message.
+- **Writing the reply.** How the report to the owner reads: effects and reasons, not code, with evidence the owner can check. It is in `owning-a-task.md`.
+- **Playbooks.** The list that routes a task to one playbook file, in `owning-a-task.md`.
 
 ## How a task becomes a playbook
 
@@ -43,7 +43,7 @@ flowchart TD
 
 The session opens a todo list whose first items are the matched playbook's steps, copied in word for word. A step it chooses not to do stays in the list with `skip: <reason>`. When no playbook fits, the [`figure-it-out`](../../skills/figure-it-out/SKILL.md) skill designs one for the task.
 
-The diagram shows the common routes. The `## Playbooks` section of `mmw-mode` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
+The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s `references/owning-a-task.md` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
 
 - Planning. Chart the map, Work through the map, To spec, Revising a spec and To tickets.
 - Measurement and diagnosis. Hillclimb, Runtime forensics and Trace forensics.
@@ -51,7 +51,7 @@ The diagram shows the common routes. The `## Playbooks` section of `mmw-mode` li
 - The skill set itself. Authoring or modifying a skill, and Eval.
 - The session itself. Session pickup, Pause safely, and Worktree and simulator cleanup.
 
-A session that the `dispatch` skill started matches nothing: its start prompt tells it to read `mmw-mode`, names the file it works by, and says that file is its whole task, so it neither redoes what its sender did nor sends anyone that file does not name. It works a ticket, reviews one, answers a research brief, designs one candidate, or gives a second opinion. You do not prompt those sessions.
+A session that the `dispatch` skill started matches nothing: its start prompt tells it to read `mmw-mode`, names the file it works by, and says that file is its whole task. Because a file is named, it reads only `SKILL.md`, so it neither picks a playbook, nor redoes what its sender did, nor sends anyone that file does not name. It works a ticket, reviews one, answers a research brief, designs one candidate, or gives a second opinion. You do not prompt those sessions.
 
 One rule overrides the matching. A ticket with acceptance criteria is worked only by a worker that `dispatch` sends. Give a session such a ticket and it runs the **One ticket** section of [Run a night](../../skills/mmw-mode/playbooks/run-a-night.md): it cuts a `fix-<n>` branch, sends a worker, and tells you.
 
@@ -160,6 +160,6 @@ To stop a session cleanly, ask it to pause. The [Pause safely](../../skills/mmw-
 
 **Pitfall.** Do not list skills in your prompt ("use how, then architect, then arena..."). The playbook already orders them, and a hand-written order usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
 
-Read [`mmw-mode`](../../skills/mmw-mode/SKILL.md) itself for the full routing rules.
+Read [`owning-a-task.md`](../../skills/mmw-mode/references/owning-a-task.md) itself for the full routing rules.
 
 Next: [Understand the code](./03-understand.md).

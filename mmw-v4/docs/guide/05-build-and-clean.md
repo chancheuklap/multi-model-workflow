@@ -4,7 +4,7 @@ The build playbooks share one discipline. You say what you observed, and the pla
 
 ## Know who writes the code
 
-The `mmw-mode` skill's `## Playbooks` list splits the build playbooks into two groups.
+The `## Playbooks` list in the `mmw-mode` skill's `references/owning-a-task.md` splits the build playbooks into two groups.
 
 **The session you opened writes the change.** [Feature](../../skills/mmw-mode/playbooks/feature.md), [Refactoring](../../skills/mmw-mode/playbooks/refactoring.md), and [Visual parity](../../skills/mmw-mode/playbooks/visual-parity.md) are for a change you have already described. The session writes it on a branch. When its plan finds slices that share no file, it can give each slice to a native subagent of the host, in its own git worktree. The session reads each subagent's diff before it merges the slice back. All three close with [Shared closing](../../skills/mmw-mode/playbooks/shared-closing.md), which proves the change, has it reviewed, and opens one pull request. [Verify and ship](./06-verify-and-ship.md) covers that closing.
 

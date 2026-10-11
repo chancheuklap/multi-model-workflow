@@ -93,8 +93,9 @@ STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 BRIEFS="$SKILL_ROOT/scripts/briefs.py"
 ROLES_JSON="$SKILL_ROOT/roles.json"
 # Every start prompt carries both: the mode first, then the file the session works by,
-# then that this file is all of its work. The mmw-mode skill's `## Non-negotiables` ranks
-# the last sentence above its triggers, and its `## Subagents` ends a subagent's prompt with it.
+# then that this file is all of its work. Naming a file is what keeps the session out of
+# the mmw-mode skill's `references/owning-a-task.md`, and its `## Subagents` ends a
+# subagent's prompt with the same last sentence.
 READ_MODE="Read the mmw-mode skill in full, then follow"
 WHOLE_TASK="It is your whole task: what came before it is done, and you start no agent it does not name."
 RUNNER=""
@@ -1457,7 +1458,7 @@ start_one() {
 # session already started for the batch is stopped and the batch removed.
 brief_footer() {
   printf '%s\n' "---" \
-    "This brief is $1. The session that sent you waits for your answer and sees nothing else of yours. When you are done, write your whole answer to one file and run:" \
+    "This brief is $1. \`## Task\` is the question you answer; \`## Known\` is what the session that sent you already has, so start from it and do not redo it; \`## For\` is what your answer will be used for. The session that sent you waits for your answer and sees nothing else of yours. When you are done, write your whole answer to one file and run:" \
     "" \
     "bash $SELF report $1 <file>" \
     "" \
@@ -1810,11 +1811,11 @@ PY
 # reviewer `reviewer.reported` as its name and key fields. Nothing when there is
 # none; non-zero when the ticket could not be read or carries an event nobody can read.
 result_event() {
-  ticket_events "$1" result --kind "$2"
+  ticket_events "$1" result --kind "$2" "${@:3}"
 }
 
-# Print the newest result event of this kind on ticket <n>, by name and key fields: a
-# read of the ticket, and nothing else. A caller runs it after the relay woke it with that
+# Print the newest result event of this kind on ticket <n>, by name and key fields, and
+# for a reviewer the report's text after that line: a read of the ticket, and nothing else. A caller runs it after the relay woke it with that
 # event, so the result is there. It waits for nothing and asks no runner: a session that
 # has not reported yet is heard from when its result lands, and one that died is the
 # watchdog's to find. Writes nothing.
@@ -1825,8 +1826,9 @@ wait_one() {
     *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
 
-  local head
-  head="$(result_event "$number" "$kind")" \
+  local head prose=""
+  [ "$kind" = reviewer ] && prose="--prose"
+  head="$(result_event "$number" "$kind" $prose)" \
     || refuse "could not read #$number's events, so what its $kind reported is unknown"
   if [ -n "$head" ]; then
     printf '%s\n' "$head"

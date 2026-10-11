@@ -55,7 +55,7 @@ Per file and hunk where it helps:
 - Every module the deletion test calls a pass-through: name it and the callers that would carry the complexity back. (**principle-minimize-reader-load**)
 - Every structural question that holds: name it, quote the hunk, and write the cleaner form.
 
-Mark each review finding as a hard violation or a judgement call. One entry per review finding; nothing that is not a finding. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+Mark each review finding as a hard violation or a judgement call, and give its `path:line`. One entry per review finding; nothing that is not a finding. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## What is not yours
 

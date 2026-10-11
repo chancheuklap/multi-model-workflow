@@ -7,7 +7,7 @@ comments into its state.
     events.py fold [<issue>] [--comments-file F|-]
     events.py session [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py sessions [<issue>] [--comments-file F|-]
-    events.py result [<issue>] --kind worker|reviewer [--comments-file F|-]
+    events.py result [<issue>] --kind worker|reviewer [--prose] [--comments-file F|-]
     events.py checked [<issue>] [--run self|reverify|repo-checks|baseline] [--comments-file F|-]
     events.py live [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py child [<issue>] --child N [--comments-file F|-]
@@ -48,7 +48,8 @@ already fetched them: a JSON object with a `comments` list, a list of comment ob
 or a list of bodies. Exit 0 answered, 2 the comments could not be read, 3 (every reader
 but `fold`) a comment carries an event block nobody can read, named on stderr.
 `result` prints the event's name and its key fields (`reviewer.reported base=… head=…`),
-never its prose. `checked` prints the newest `ticket.checked` the same way, of one run
+and, with `--prose`, the comment's prose after it, the event block left out (a review
+report's text lives there). `checked` prints the newest `ticket.checked` the same way, of one run
 when `--run` names it. `live` prints "runner<TAB>session" for every session of that kind
 whose hold no event has ended, oldest first. `child` prints, for a child this issue's
 `child.opened` names, "kind<TAB>spec<TAB>resolution<TAB>ticket<TAB>reason" (`-` for none
@@ -859,6 +860,8 @@ def main(argv: list[str] | None = None) -> int:
         reader.add_argument("--comments-file")
         if name in ("session", "result", "live"):
             reader.add_argument("--kind", choices=AGENT_KINDS, required=(name == "result"))
+        if name == "result":
+            reader.add_argument("--prose", action="store_true")
         if name == "checked":
             reader.add_argument("--run", choices=CHECK_RUNS)
         if name == "child":
@@ -917,6 +920,8 @@ def main(argv: list[str] | None = None) -> int:
     record = state["results"].get(args.kind)
     if record:
         print(describe(record))
+        if args.prose:
+            print(BLOCK_RE.sub("", record["body"]).strip())
     return 0
 
 
