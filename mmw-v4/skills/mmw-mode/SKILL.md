@@ -7,28 +7,33 @@ description: MMW's way of working, which tells you how to pick the playbook for 
 
 ## Non-negotiables
 
-**An agent that was sent.** A session the dispatch skill started, or a subagent, has a prompt that ends `It is your whole task: what came before it is done, and you start no agent it does not name.` That sentence outranks the triggers below, the principles that send work out (**principle-guard-the-context-window**, **principle-exhaust-the-design-space**), and `## Playbooks`. The task its prompt names is its playbook: its todolist's first items are that task's steps, and what it hands back is what that task says, in place of a reply to the owner. The triggers that understand, design, review or record a task as a whole came before it, unless a step of its task runs one: how, prototype, architect, swarm and arena, code-review, the throughput checkpoint, no-comments, show-me-your-work, and a second opinion. From the other triggers and from the principles it takes what shapes its own work, such as how it writes code and prose; where its task and a trigger differ, its task wins. It starts no agent its task, or, for a worker, its ticket's **What to build**, does not name.
+**An agent that was sent.** A session the dispatch skill started, or a subagent, has a prompt that ends `It is your whole task: what came before it is done, and you start no agent it does not name.` That sentence outranks `## Playbooks`, the triggers under **The task as a whole** below, and every principle that sends work to another agent: those belong to whoever owns the whole task, the one who sent it, and a sent agent runs one only when a step of its task does. The task its prompt names is its playbook: its todolist's first items are that task's steps, and what it hands back is what that task says, in place of a reply to the owner, with anything it found broken on the way. The triggers under **Your own code and prose** and the other principles shape its own work as they shape anyone's. It starts no agent its task, or, for a worker, its ticket's **What to build**, does not name.
 
 The Principles section below grounds every trigger. In your reply to the owner, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
-Remaining triggers:
+Remaining triggers, in two groups:
+
+**The task as a whole**
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - About to ask the user on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the **prototype** skill and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a decision only the owner makes (**principle-never-block-on-the-human**) that no experiment can settle. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the owner can make. Report the default with a full explanation, and say in plain words what the owner could tell you to do instead. The owner answers in their own words. Never give a shorthand token to type back. Gates that the owner named and the Always-pause list in Autonomy still need the owner.
-- Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
-- Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing. Prototype code under the **prototype** skill's logic, UI and experiment branches is the exception: speed over polish, no planning.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design bakeoffs with base selection and grafting.
 - Contested design → the **code-review** skill before shipping.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
-- Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**.
-- Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Before review → the **no-comments** skill (`/no-comments`).
-- Shipping UI / IDE / CLI → the matching control skill: the **control-cli** skill for CLIs and TUIs, the **control-ui** skill for browser, Electron and web UIs. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow Bug fix step 1 exception.
-- Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a night's pull request, Run a night's **7. Merge the accepted night** carries it out.
 - Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
 - Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "run until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record. Keep it local otherwise. Work on a wayfinder map is the exception: the map and its tickets are the record.
+
+**Your own code and prose**
+
+- Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
+- Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
+- Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**.
+- Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
+- Shipping UI / IDE / CLI → the matching control skill: the **control-cli** skill for CLIs and TUIs, the **control-ui** skill for browser, Electron and web UIs. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow Bug fix step 1 exception.
+- Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 
 ## Principles
 
