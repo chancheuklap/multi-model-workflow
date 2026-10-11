@@ -9,7 +9,7 @@
     briefs.py show --repo O/R --batch B
 
 A worker hands its result back on its ticket, and the relay reads the ticket. An advisor, a
-researcher, an explainer or a synthesizer has no ticket: it answers one session, the one
+researcher or a candidate has no ticket: it answers one session, the one
 that sent it. Its result is written here, in this machine's state directory for the
 repository (statedir.py), never in the repository and never on the tracker.
 
