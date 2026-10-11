@@ -13,7 +13,7 @@ Triggers for the task as a whole:
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing. Prototype code under the **prototype** skill's logic, UI and experiment branches is the exception: speed over polish, no planning.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design bakeoffs with base selection and grafting.
 - Contested design → the **code-review** skill before shipping.
-- Nontrivial multi-step → write the throughput checkpoint's four items as Feature step 4 lists them, then go on with your own playbook.
+- Nontrivial multi-step → write the throughput checkpoint's four items as Feature step 3 lists them, then go on with your own playbook.
 - Before review → the **no-comments** skill (`/no-comments`).
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a pull request MMW opened, Opening a PR step 3 carries it out.
 - Broken skill mid-task → don't block, and don't silently work around it: it is a problem you ran into, as the next line says, needing Authoring or modifying a skill.
