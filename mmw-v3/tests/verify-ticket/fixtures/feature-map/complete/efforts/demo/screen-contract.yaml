@@ -1,0 +1,4 @@
+effort: demo
+rows:
+- id: demo.open
+  component: fixture

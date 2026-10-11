@@ -12,8 +12,10 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import socket
+import subprocess
 import sys
 import tempfile
 import time
@@ -90,6 +92,220 @@ class Base(unittest.TestCase):
         return sock
 
 
+class Products(Base):
+    def setUp(self):
+        super().setUp()
+        self.lease, patcher = load(self.home, port_base=22400)
+        self.addCleanup(patcher.stop)
+        self.root = self.tree("products")
+        mmw = self.root / ".mmw"
+        mmw.mkdir()
+        (mmw / "target.json").write_text(json.dumps({
+            "checks": [], "products": ["gateway", "parrot"],
+            "needs": {"parrot": ["gateway"]},
+        }))
+        for name, ports in (("gateway", 2), ("parrot", 3)):
+            base = mmw / name
+            base.mkdir()
+            (base / "target.json").write_text(json.dumps({
+                "ports": ports, "start": "true", "stop": "true",
+                "discover": "echo '{}'",
+            }))
+
+    def cli(self, *args):
+        return subprocess.run([sys.executable, str(SCRIPT), *args], cwd=self.root,
+                              env=dict(os.environ), capture_output=True, text=True)
+
+    def stack(self):
+        fixture = Path(__file__).resolve().parent / "fixtures" / "products" / "repo"
+        shutil.copytree(fixture, self.root, dirs_exist_ok=True)
+        self.addCleanup(self.cli, "release", "--stop")
+
+    def events(self):
+        return [json.loads(line) for line in
+                (self.root / ".mmw" / "events.jsonl").read_text().splitlines()]
+
+    def test_lease_run_with_product_starts_its_needs(self):
+        self.stack()
+        proc = self.cli("run", "--product", "parrot", "--", sys.executable,
+                        ".mmw/product.py", "command")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(json.loads(proc.stdout)["started"], ["gateway", "parrot"])
+        events = self.events()
+        self.assertEqual([(e["product"], e["verb"]) for e in events],
+                         [("gateway", "start"), ("gateway", "discover"), ("parrot", "command")])
+        self.assertEqual(events[-1]["env"]["GATEWAY_ORIGIN"],
+                         "http://127.0.0.1:22400/discovered")
+
+    def test_release_stops_products_in_reverse_order(self):
+        self.stack()
+        proc = self.cli("run", "--product", "parrot", "--", sys.executable,
+                        ".mmw/product.py", "start")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        record = json.loads(self.cli("list").stdout)[0]
+        self.assertEqual(record["started"], ["gateway", "parrot"])
+        proc = self.cli("release", "--stop")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue(json.loads(proc.stdout)["released"])
+        self.assertEqual([e["product"] for e in self.events() if e["verb"] == "stop"],
+                         ["parrot", "gateway"])
+        self.assertEqual(json.loads(self.cli("list").stdout), [])
+        for port in range(22400, 22405):
+            self.assertIsNone(self.lease.listener(port))
+
+    def test_a_product_still_listening_is_named_on_release(self):
+        self.stack()
+        marker = self.root / ".mmw/leave-gateway"
+        marker.touch()
+        self.addCleanup(marker.unlink, missing_ok=True)
+        proc = self.cli("run", "--product", "parrot", "--", sys.executable,
+                        ".mmw/product.py", "start")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        gateway = next(e for e in self.events() if e["product"] == "gateway")
+        pid = Path(gateway["env"]["MMW_DATA_DIR"], "pid").read_text()
+        proc = self.cli("release", "--stop")
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        for fact in ("gateway", "22400", pid):
+            self.assertIn(fact, proc.stderr)
+        record = json.loads(self.cli("list").stdout)[0]
+        self.assertEqual(record["started"], ["gateway"])
+        self.assertEqual(record["busy"]["port"], 22400)
+
+    def test_recursive_shared_needs_start_once_and_hyphens_are_prefixed(self):
+        self.stack()
+        mmw = self.root / ".mmw"
+        (mmw / "gateway").rename(mmw / "api-gateway")
+        for name in ("cache", "aux"):
+            shutil.copytree(mmw / "api-gateway", mmw / name)
+        (mmw / "target.json").write_text(json.dumps({
+            "checks": [], "products": ["parrot", "api-gateway", "cache", "aux"],
+            "needs": {"cache": ["api-gateway"], "aux": ["api-gateway"],
+                      "parrot": ["cache", "aux"]},
+        }))
+        for name in ("parrot", "api-gateway", "cache", "aux"):
+            path = mmw / name / "target.json"
+            cfg = json.loads(path.read_text())
+            cfg["ports"] = 1
+            path.write_text(json.dumps(cfg))
+        proc = self.cli("run", "--product", "parrot", "--", sys.executable,
+                        ".mmw/product.py", "command")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(json.loads(proc.stdout)["started"],
+                         ["api-gateway", "cache", "aux", "parrot"])
+        starts = [e for e in self.events() if e["verb"] == "start"]
+        self.assertEqual([e["product"] for e in starts], ["api-gateway", "cache", "aux"])
+        command = self.events()[-1]["env"]
+        self.assertEqual(command["MMW_PORT_BASE"], "22400")
+        self.assertEqual(command["API_GATEWAY_ORIGIN"], "http://127.0.0.1:22401/discovered")
+        self.assertEqual(json.loads(command["API_GATEWAY_METADATA"]), {"product": "api-gateway"})
+        self.assertEqual(command["CACHE_ORIGIN"], "http://127.0.0.1:22402/discovered")
+        self.assertEqual(command["AUX_ORIGIN"], "http://127.0.0.1:22403/discovered")
+
+    def test_ports_that_exceed_the_slot_are_refused_without_a_registration(self):
+        path = self.root / ".mmw/parrot/target.json"
+        cfg = json.loads(path.read_text())
+        cfg["ports"] = 4
+        path.write_text(json.dumps(cfg))
+        proc = self.cli("run", "--product", "parrot", "--", "true")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("6", proc.stderr)
+        self.assertEqual(json.loads(self.cli("list").stdout), [])
+
+    def test_a_failed_product_command_stops_the_dependencies_it_started(self):
+        self.stack()
+        proc = self.cli("run", "--product", "parrot", "--", sys.executable,
+                        "-c", "raise SystemExit(7)")
+        self.assertEqual(proc.returncode, 7, proc.stdout + proc.stderr)
+        self.assertEqual([e["product"] for e in self.events() if e["verb"] == "stop"],
+                         ["parrot", "gateway"])
+        record = json.loads(self.cli("list").stdout)[0]
+        self.assertEqual(record["started"], [])
+        self.assertIsNone(record["busy"])
+
+    def test_a_new_layout_without_ports_is_refused_before_claiming(self):
+        path = self.root / ".mmw/parrot/target.json"
+        cfg = json.loads(path.read_text())
+        del cfg["ports"]
+        path.write_text(json.dumps(cfg))
+        proc = self.cli("run", "--product", "parrot", "--", "true")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn(".mmw/parrot/target.json", proc.stderr)
+        self.assertEqual(json.loads(self.cli("list").stdout), [])
+
+    def test_a_checks_only_root_runs_a_generic_command_under_its_lease(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({"checks": ["true"]}))
+        proc = self.cli("run", "--", sys.executable, "-c",
+                        "import os; print(os.environ['MMW_SLOT'])")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        records = json.loads(self.cli("list").stdout)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(proc.stdout.strip(), str(records[0]["slot"]))
+        self.assertEqual(records[0]["started"], [])
+
+    def test_an_old_layout_run_refuses_before_commands_or_claiming(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({"stop": "true"}))
+        marker = self.root / "command-ran"
+        proc = self.cli("run", "--", "touch", str(marker))
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("migrate_products.py", proc.stderr)
+        self.assertFalse(marker.exists())
+        self.assertEqual(json.loads(self.cli("list").stdout), [])
+
+    def test_each_product_gets_its_own_segment(self):
+        (self.root / ".mmw/target.json").write_text(json.dumps({
+            "products": ["parrot", "gateway"], "needs": {"parrot": ["gateway"]},
+        }))
+        seen = []
+        for name in ("gateway", "parrot"):
+            proc = self.cli("run", "--product", name, "--", sys.executable, "-c",
+                            "import os,json; print(json.dumps(dict(os.environ)))")
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            seen.append(json.loads(proc.stdout))
+        gateway, parrot = seen
+        self.assertEqual((gateway["MMW_PORT_BASE"], gateway["MMW_PORT_COUNT"]),
+                         ("22403", "2"))
+        self.assertEqual((parrot["MMW_PORT_BASE"], parrot["MMW_PORT_COUNT"]),
+                         ("22400", "3"))
+        for name, env in zip(("gateway", "parrot"), seen):
+            self.assertEqual(Path(env["MMW_DATA_DIR"]).name, name)
+            self.assertEqual(env["MMW_PRODUCT"], name)
+            self.assertTrue(Path(env["MMW_DATA_DIR"]).is_dir())
+            self.assertEqual(env["MMW_AUTOMATION"], "1")
+        self.assertEqual(gateway["MMW_SLOT"], parrot["MMW_SLOT"])
+        self.assertEqual(gateway["MMW_INSTANCE"], parrot["MMW_INSTANCE"])
+
+    def test_a_product_whose_ports_are_free_when_the_command_returns_is_not_left_started(self):
+        self.addCleanup(self.cli, "release", "--stop")
+        proc = self.cli("run", "--product", "parrot", "--", "true")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        record = json.loads(self.cli("list").stdout)[0]
+        self.assertNotIn("parrot", record["started"])
+
+    def test_a_product_command_gets_the_worktree_commit(self):
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q",
+                        "--allow-empty", "-m", "one"], cwd=self.root, check=True)
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.root, check=True,
+                              capture_output=True, text=True).stdout.strip()
+        self.addCleanup(self.cli, "release", "--stop")
+        proc = self.cli("run", "--product", "parrot", "--", sys.executable, "-c",
+                        "import os; print(os.environ.get('MMW_WORKTREE_COMMIT', ''))")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(proc.stdout.strip(), head)
+
+    def test_a_single_product_run_keeps_the_callers_working_directory(self):
+        (self.root / ".mmw/target.json").write_text('{"products": ["parrot"]}')
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        subdir = self.root / "subdir"
+        subdir.mkdir()
+        self.addCleanup(self.cli, "release", "--stop")
+        proc = subprocess.run([sys.executable, str(SCRIPT), "run", "--", sys.executable,
+                               "-c", "import os; print(os.getcwd())"], cwd=subdir,
+                              env=dict(os.environ), capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(Path(proc.stdout.strip()).resolve(), subdir.resolve())
+
+
 class SeeingWhatListens(Base):
     """Whether a port is held is asked of the port, not of one address on it.
 
@@ -136,6 +352,18 @@ class SeeingWhatListens(Base):
 
 
 class Claiming(Base):
+    def test_a_slot_with_a_foreign_listener_is_skipped(self):
+        """One port of the first slot is listened on by this process, which the
+        registry does not name. The port is not the first of the block. The lease
+        issues the next slot."""
+        occupied = self.lease.PORT_BASE + 2
+        self.bind(occupied)
+        record = self.lease.claim(self.tree("issue-640"))
+        issued = range(record["port_base"], record["port_base"] + record["port_count"])
+        self.assertEqual(record["slot"], 1)
+        self.assertNotIn(occupied, issued)
+        self.assertFalse(self.lease.slot_file(0).exists())
+
     def test_a_worktree_keeps_the_slot_it_was_given(self):
         """Re-acquiring is a lookup. Every command of a run has to agree on the ports
         without a file they all have to keep in step."""
@@ -256,7 +484,10 @@ class Releasing(Base):
         (tree / ".mmw").mkdir(exist_ok=True)
         stopped = self.trees / "stopped"
         (tree / ".mmw" / "target.json").write_text(
-            json.dumps({"stop": f"touch '{stopped}'"}), encoding="utf-8")
+            json.dumps({"products": ["notes"]}), encoding="utf-8")
+        (tree / ".mmw/notes").mkdir()
+        (tree / ".mmw/notes/target.json").write_text(
+            json.dumps({"ports": 1, "stop": f"touch '{stopped}'"}))
         self.lease.claim(self.lease.worktree_of(tree))
         with self.lease.judge_run(tree, stop=True):
             self.lease.leased_environment(tree)
@@ -279,8 +510,16 @@ class StoppingBeforeReleasing(Base):
 
     def declare(self, tree: Path, stop: str = "", text: str | None = None) -> None:
         (tree / ".mmw").mkdir(exist_ok=True)
-        (tree / ".mmw" / "target.json").write_text(
-            text if text is not None else json.dumps({"stop": stop}), encoding="utf-8")
+        if text is not None:
+            (tree / ".mmw/target.json").write_text(text)
+            return
+        (tree / ".mmw/target.json").write_text('{"products": ["notes"]}')
+        (tree / ".mmw/notes").mkdir(exist_ok=True)
+        (tree / ".mmw/notes/target.json").write_text(json.dumps({"ports": 5, "stop": stop}))
+        # A product `run` started and that is still up is recorded as started; these
+        # cases are about what `release --stop` does with one, so the record is made here.
+        if self.lease.registered(tree.resolve()) is not None:
+            self.lease.update_started(tree.resolve(), "notes")
 
     def run_cli(self, *argv) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()
@@ -515,6 +754,71 @@ class AFullMachine(Base):
         for tree in trees:
             self.lease.try_claim(tree)
         return [str(tree) for tree in trees]
+
+    def test_a_full_machine_names_every_holder(self):
+        """Every slot's first port is listened on by this process, which the registry
+        does not name. Nothing is issued, and the refusal names each listener."""
+        pid = os.getpid()
+        for slot in range(self.lease.SLOTS):
+            self.bind(self.lease.ports_of(slot).start)
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.claim(self.tree("issue-one-too-many"))
+        reason = str(caught.exception)
+        for slot in range(self.lease.SLOTS):
+            self.assertIn(f"slot {slot} pid {pid}", reason)
+        self.assertIn(self.lease.REPORT_BLOCKED, reason)
+        self.assertNotIn("…", reason)
+        self.assertEqual(self.lease.claimed(), [])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.lease.main(["claim", str(self.tree("issue-cli"))])
+        self.assertEqual(code, 4)
+        holders = json.loads(out.getvalue())["holders"]
+        for slot in range(self.lease.SLOTS):
+            self.assertIn(f"slot {slot} pid {pid}", holders)
+
+    def test_eight_listeners_are_all_named(self):
+        """The default machine has eight slots. Short `slot N pid P` lines still
+        overflow the refusal once the blocked-ticket sentence is kept, and a cut
+        list drops the last slots."""
+        self.lease, extra = load(self.home, slots=8, port_base=22100)
+        self.addCleanup(extra.stop)
+        pid = os.getpid()
+        for slot in range(self.lease.SLOTS):
+            self.bind(self.lease.ports_of(slot).start)
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.claim(self.tree("issue-one-too-many"))
+        reason = str(caught.exception)
+        self.assertIn(self.lease.REPORT_BLOCKED, reason)
+        self.assertNotIn("…", reason)
+        for slot in range(self.lease.SLOTS):
+            self.assertIn(f"{slot}:p{pid}", reason)
+
+    def test_a_full_registry_names_every_worktree(self):
+        """Registered holders are worktree paths. Four of them do not fit in the
+        refusal whole, and the last paths are the ones a cut list drops."""
+        holders = self.full()
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.claim(self.tree("issue-5"))
+        reason = str(caught.exception)
+        self.assertIn(self.lease.REPORT_BLOCKED, reason)
+        self.assertNotIn("…", reason)
+        for path in holders:
+            self.assertIn(Path(path).name, reason)
+
+    def test_an_unreadable_slot_record_names_the_slot(self):
+        """A slot file left empty between create and write has no worktree to name.
+        The holder is still a fact a reader can check."""
+        self.lease.registry().mkdir(parents=True, exist_ok=True)
+        for slot in range(self.lease.SLOTS):
+            self.lease.slot_file(slot).write_text("", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.lease.main(["claim", str(self.tree("issue-cli"))])
+        self.assertEqual(code, 4)
+        holders = json.loads(out.getvalue())["holders"]
+        for slot in range(self.lease.SLOTS):
+            self.assertEqual(holders[slot], f"slot {slot} record unreadable")
 
     def test_a_fifth_worktree_is_told_the_machine_is_full(self):
         holders = self.full()

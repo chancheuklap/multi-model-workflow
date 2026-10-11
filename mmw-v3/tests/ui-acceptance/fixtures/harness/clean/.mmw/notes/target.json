@@ -1,0 +1,10 @@
+{
+  "start": ".mmw/notes/harness/start.sh",
+  "stop": ".mmw/notes/harness/stop.sh",
+  "discover": ".mmw/notes/harness/discover.sh",
+  "stories": "true",
+  "leaves_machine": [],
+  "harness_markers": [],
+  "ports": 1,
+  "doctor": ".mmw/notes/harness/doctor.sh"
+}

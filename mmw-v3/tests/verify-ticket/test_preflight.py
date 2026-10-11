@@ -193,8 +193,8 @@ class TestBaselineRun(unittest.TestCase):
   EXPECT: PARITY OK
   EVIDENCE: pending
 - [ ] AC4: a journey
-  CHECK: journey.py run unused
-  EXPECT: JOURNEY OK unused
+  CHECK: journey.py run notes/unused
+  EXPECT: JOURNEY OK notes/unused
   EVIDENCE: pending
 """
 
@@ -343,8 +343,8 @@ class TestBaselineRun(unittest.TestCase):
         body = """## Acceptance criteria
 
 - [ ] AC1: a journey
-  CHECK: journey.py run unused
-  EXPECT: JOURNEY OK unused
+  CHECK: journey.py run notes/unused
+  EXPECT: JOURNEY OK notes/unused
   EVIDENCE: pending
 """
         root, base, _ = self.repo()
@@ -395,15 +395,14 @@ class TestResume(unittest.TestCase):
         ])
         self.assertIn("RESUME: Read the review (reviewer.started, no reviewer.reported yet)", out)
 
-    def test_a_report_older_than_your_own_run_resumes_at_step_4(self):
+    def test_commits_after_your_run_since_the_report_resume_at_the_audit(self):
         out = self.resume([
             event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
                   ticket=77, base="a" * 7, head="b" * 7),
             checked("self", SELF_LEDGER, ticket=77),
             event("worker.decided", "DECISIONS", ticket=77),
         ])
-        self.assertIn("RESUME: Run every criterion one final time "
-                      "(a run of your own since reviewer.reported, no worker reverify)", out)
+        self.assertIn("RESUME: Audit (", out)
 
     def test_a_report_newer_than_your_own_run_resumes_at_its_fix_round(self):
         out = self.resume([
@@ -422,7 +421,7 @@ class TestResume(unittest.TestCase):
             checked("self", SELF_LEDGER, ticket=77),
             checked("reverify", SELF_LEDGER, ticket=77, actor="worker", commit=HEAD),
         ])
-        self.assertIn("RESUME: Audit (worker reverify on HEAD)", out)
+        self.assertIn("RESUME: Run every criterion one final time (", out)
 
     def test_a_returned_ticket_resumes_at_step_1_then_4(self):
         out = self.resume([
@@ -434,6 +433,37 @@ class TestResume(unittest.TestCase):
             event("ticket.returned", "HANDOFF REQUIRED", ticket=77),
         ])
         self.assertIn("RESUME: Integrate and run every criterion, then Run every criterion one final time onward (ticket.returned)", out)
+
+    def test_resume_quotes_failed_checks(self):
+        failed = "Failed checks: python3 -c 'import sys; sys.exit(1)' exit 1."
+        line = ("Tried to merge issue-77 into origin/main at " + "a" * 40
+                + " and handed it to triage. No sibling landing after this ticket "
+                + "started was found. " + failed)
+        out = self.resume([
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("ticket.bounced", line, ticket=77, reason="checks", commit="b" * 40),
+        ])
+        lines = out.splitlines()
+        resume = next(i for i, row in enumerate(lines) if row.startswith("RESUME:"))
+        self.assertEqual(
+            lines[resume],
+            "RESUME: Integrate and run every criterion, then Run every criterion one final time onward (ticket.bounced)",
+        )
+        following = lines[resume + 1] if resume + 1 < len(lines) else ""
+        self.assertEqual(following, failed)
+
+    def test_a_conflict_bounce_adds_no_failed_checks_line(self):
+        out = self.resume([
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("ticket.bounced", "Tried to merge and handed it to triage. Conflicted files: shared.txt.",
+                  ticket=77, reason="conflict", commit="b" * 40),
+        ])
+        lines = out.splitlines()
+        resume = next(i for i, row in enumerate(lines) if row.startswith("RESUME:"))
+        self.assertTrue(lines[resume].endswith("(ticket.bounced)"))
+        self.assertFalse(any(row.startswith("Failed checks:") for row in lines))
 
 
 if __name__ == "__main__":

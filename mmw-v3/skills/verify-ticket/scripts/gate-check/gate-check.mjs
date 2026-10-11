@@ -5,16 +5,19 @@
 //
 // The ledgers are files verify-ticket writes into a directory of its own for one
 // run, so one process reads and writes each of them and nothing else does.
+// When MMW_TICKET is set, each run replaces `.scratch/criteria/<ticket>/`.
+// PATH is written there, and a failing criterion's stdout and stderr go to `<id>.log`.
 
-import { statSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { Worker } from "node:worker_threads";
-import { delimiter, dirname, basename, resolve } from "node:path";
+import { delimiter, dirname, basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   MAX_AUTOMATIC_EVIDENCE_CHARS, MAX_CHECK_OUTPUT_BYTES, automaticEvidencePrefix,
   formatDocument, gateDefinitionDigest, gateState, parseGates, qualify, readLedger, sha256,
 } from "./lib/gates.mjs";
+import { failureOutput } from "./lib/failure-lines.mjs";
 import { terminateProcessTree } from "./lib/process-tree.mjs";
 
 const HELP = `usage: gate-check.mjs [--reverify] [--timeout S] [--cwd DIR] file ...
@@ -141,7 +144,29 @@ let ledgers = files.map(loadLedger);
 const pathValue = String(process.env.PATH || "");
 const pathEvidence = sha256(pathValue).slice(0, 12) + "/" +
   (pathValue ? pathValue.split(delimiter).length : 0) + " entries";
-const pathTranscript = pathValue.replace(/[\r\n]/g, " ").slice(0, 800) + (pathValue.length > 800 ? "..." : "");
+const TICKET_RE = /^[0-9]+$/;
+const GATE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+function criterionFolder() {
+  const ticket = String(process.env.MMW_TICKET || "");
+  if (!TICKET_RE.test(ticket)) return null;
+  return ".scratch/criteria/" + ticket;
+}
+
+// The path a worker can open. Relative to the worktree gate-check was started in.
+function relativeCriterionLog(id) {
+  const folder = criterionFolder();
+  if (!folder || !GATE_ID_RE.test(String(id))) return null;
+  return folder + "/" + id + ".log";
+}
+
+function prepareCriterionDir() {
+  const folder = criterionFolder();
+  if (!folder) return;
+  const dir = join(process.cwd(), folder);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "PATH"), pathValue, "utf8");
+}
 
 function resolvedGateCwd(gate, file) {
   const base = defaultCwd || dirname(file);
@@ -238,7 +263,7 @@ function runCheck(task) {
           : spawnError ? spawnError.message
             : match.error || null;
       done({
-        ...task, output, outputFingerprint: fingerprint,
+        ...task, output, stdout, stderr, outputFingerprint: fingerprint,
         exitCode, signal, matched: Boolean(match.matched), error,
         ok: !error && exitCode === 0 && Boolean(match.matched),
       });
@@ -284,7 +309,8 @@ function runCheck(task) {
       });
     } catch (error) {
       done({
-        ...task, ok: false, output: "", outputFingerprint: outputFingerprint(""),
+        ...task, ok: false, output: "", stdout: "", stderr: "",
+        outputFingerprint: outputFingerprint(""),
         exitCode: null, signal: null, matched: false, error: error.message,
       });
       return;
@@ -323,19 +349,21 @@ for (const ledger of ledgers) {
   }
 }
 
+prepareCriterionDir();
 for (const task of pending) {
-  console.log("  RUN  " + qualify(task.file, task.gate.id) + " shell=" + SHELL + " cwd=" + task.cwd + " PATH=" + pathTranscript);
+  console.log("  RUN  " + qualify(task.file, task.gate.id) + " shell=" + SHELL + " cwd=" + task.cwd);
 }
 const results = [];
 for (const task of pending) results.push(await runCheck(task));
 for (const result of results) {
   const fingerprint = result.outputFingerprint;
+  const logPath = result.ok ? null : saveFailureLog(result);
   const outputSummary = result.ok
     ? "sha256=" + fingerprint.sha256 + "; bytes=" + fingerprint.bytes
-    : failureOutput(result.output);
+    : failureOutput(result.output, 480, logPath);
   const outcome = "exit=" + (result.exitCode === null ? "none" : result.exitCode) +
     (result.signal ? " signal=" + result.signal : "") +
-    "; EXPECT=" + (result.matched ? "matched" : "not matched") +
+    "; " + expectClause(result) +
     "; output=" + outputSummary;
   if (result.ok) {
     console.log("  PASS " + qualify(result.file, result.gate.id) + ": " + result.gate.title);
@@ -343,14 +371,36 @@ for (const result of results) {
   } else {
     console.log("  FAIL " + qualify(result.file, result.gate.id) + ": " + result.gate.title);
     console.log("       " + (result.error ? result.error + "; " : "") + outcome);
+    if (logPath) console.log("       " + logPath);
+    printRawTail(result.output);
   }
 }
 
-function failureOutput(output, max = 480) {
-  const lines = String(output).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (lines.length <= 8) return (lines.join(" | ") || "(no output)").slice(0, max);
-  const summary = [...lines.slice(0, 6), "...", ...lines.slice(-2)].join(" | ");
-  return summary.slice(0, max);
+function expectClause(result) {
+  if (result.matched) return "EXPECT=matched";
+  return "EXPECT=not matched; expected=" + terminalSafe(result.gate.expect ?? "");
+}
+
+function saveFailureLog(result) {
+  const rel = relativeCriterionLog(result.gate.id);
+  if (!rel) return null;
+  const abs = join(process.cwd(), rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, String(result.stdout || "") + String(result.stderr || ""));
+  return rel;
+}
+
+// Quoted under the FAIL line, so a line of the criterion cannot be read as this run's
+// summary. Tabs stay. Every other control becomes a space. A success marker is removed
+// so a failing run cannot satisfy an EXPECT that looks for one.
+function printRawTail(output) {
+  const lines = String(output).split(/\r?\n/);
+  if (lines.length && lines[lines.length - 1] === "") lines.pop();
+  for (const line of lines.slice(-40)) {
+    const kept = line.split("\t").map(terminalSafe).join("\t")
+      .replace(/STORY OK|JOURNEY OK|HARNESS OK|LINT OK/g, "[redacted]");
+    process.stdout.write("       " + kept + "\n");
+  }
 }
 
 function evidenceFor(result) {
@@ -374,13 +424,16 @@ function evidenceFor(result) {
 function failureEvidenceFor(result) {
   const clean = (value) => terminalSafe(value).replace(/[\r\n\t]+/g, " ");
   const fingerprint = result.outputFingerprint;
-  return ("exit=" + (result.exitCode === null ? "none" : result.exitCode) +
+  const head = "exit=" + (result.exitCode === null ? "none" : result.exitCode) +
     (result.signal ? "; signal=" + clean(result.signal) : "") +
     (result.error ? "; error=" + clean(result.error) : "") +
-    "; EXPECT=" + (result.matched ? "matched" : "not matched") +
+    "; " + expectClause(result) +
     "; output-sha256=" + fingerprint.sha256 + "; output-bytes=" + fingerprint.bytes +
     "; shell=" + SHELL + "; cwd=" + clean(result.cwd) + "; path=" + pathEvidence +
-    "; output=" + clean(failureOutput(result.output))).slice(0, MAX_AUTOMATIC_EVIDENCE_CHARS);
+    "; output=";
+  const room = Math.max(0, MAX_AUTOMATIC_EVIDENCE_CHARS - head.length);
+  const summary = clean(failureOutput(result.output, room, relativeCriterionLog(result.gate.id)));
+  return (head + summary).slice(0, MAX_AUTOMATIC_EVIDENCE_CHARS);
 }
 
 function insertOrUpdateEvidence(doc, gate, value) {

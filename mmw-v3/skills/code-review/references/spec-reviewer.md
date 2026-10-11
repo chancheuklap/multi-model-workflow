@@ -14,6 +14,7 @@ The newest comment whose first line is `DECISIONS`, posted by the worker before 
 - The spec's `## Testing Decisions`.
 - The spec's `## Out of Scope`, and the map's **Out of scope** when it links one.
 - Every item under `## Read first` whose line marks it as a baseline, each read to its conclusion.
+- Each feature file under `## Owns`, as the diff leaves it: what it says a user can do answers to the spec's `## Feature map changes`, and its entries and steps answer to the code.
 
 The rest of the spec covers other tickets. Reading it makes you flag work that was never this ticket's to do. A baseline records a settled decision, so the diff answers to it exactly as it answers to those spec sections.
 

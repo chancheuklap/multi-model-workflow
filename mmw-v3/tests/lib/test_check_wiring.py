@@ -94,6 +94,14 @@ class WiringTest(unittest.TestCase):
                   "`references/pipeline.md`")
         self.assertFinds("names references/pipeline.md, which is not there")
 
+    def test_a_mode_reference_no_text_names(self):
+        for path in self.skills.rglob("*.md"):
+            text = path.read_text(encoding="utf-8")
+            if "references/feature-map.md" in text:
+                path.write_text(text.replace("references/feature-map.md", "feature map reference"),
+                                encoding="utf-8")
+        self.assertFinds("references/feature-map.md")
+
     def test_a_bare_skill_file_that_is_not_there(self):
         path = self.skills / "mmw-mode/playbooks/authoring-or-modifying-a-skill.md"
         text = path.read_text(encoding="utf-8")

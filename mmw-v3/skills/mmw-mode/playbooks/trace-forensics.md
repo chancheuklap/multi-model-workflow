@@ -15,5 +15,6 @@ Distinct from **Runtime forensics**, which instruments the live process. Here th
 5. **Confirm against a paired capture** when you have one. Diff a before and after artifact. Without one, mark the finding as the strongest hypothesis the artifact supports, not a confirmed cause.
    Done when the finding is marked confirmed or hypothesis.
 6. **Hand back a cited diagnosis,** no fix unless asked. Once the cause is known, a fix runs the Bug fix playbook from its step **Write the ticket**.
+   Done when the diagnosis, each claim cited to the artifact, is in the reply, or Bug fix has been run from **Write the ticket**.
 
 **Reply:** the artifact, its format and build, the reduced finding, the source location, the artifact paths, and whether a paired capture confirmed it.

@@ -1,0 +1,5 @@
+{
+  "stories": "python3 -u stories/serve.py",
+  "ports": 1,
+  "doctor": "true"
+}

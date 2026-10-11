@@ -61,7 +61,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 ## Triage a specific issue
 
-An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro #<spec>: …`), came from this repository's own pipeline: read [references/pipeline-issues.md](references/pipeline-issues.md) first; it replaces step 1's reproduction and adds step 5's destinations.
+An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro #<spec>: …`), came from this repository's own pipeline: read [references/pipeline-issues.md](references/pipeline-issues.md) first; it replaces step 3's reproduction and adds step 5's destinations.
 
 1. **Gather context.** Read the full issue (body, comments, labels, author, dates). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Run two checks against the codebase: (a) **redundancy**: search for an existing implementation of the requested behavior by domain concept (not just the request's wording), and report where you looked. If found, it's an already-implemented `wontfix` (step 5). (b) **prior rejection**: read `.out-of-scope/*.md` and surface any that resembles this request.
 

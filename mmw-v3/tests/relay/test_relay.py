@@ -56,7 +56,7 @@ def started(cid: int, ticket: int, session: str, runner: str = "paseo") -> dict:
 # What each event must carry to be an event at all (`events.EVENTS`), for the fixtures
 # below that do not care about those fields.
 REQUIRED = {
-    "ticket.refused": {"reason": "blocked"},
+    "ticket.refused": {"reason": "dirty-tree"},
     "ticket.released": {"reason": "worker-lost"},
     "ticket.bounced": {"reason": "conflict", "commit": "a" * 40},
     "child.opened": {"child": 90, "kind": "review"},

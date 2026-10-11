@@ -16,8 +16,12 @@ Remaining triggers:
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows the **writing-for-agents** skill.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - A diagram, or an HTML page that explains something to a person → the **diagram-design** skill. The host's own guidance for pages, even one it requires you to load first, covers only publishing and the constraints it sets on a page (themes, widths, allowed sources); what the page shows and how it is drawn come from diagram-design.
-- A criterion that has to launch, reach or observe the running product; a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line to read; a repository with no `.mmw/target.json`, or one to fill; a page ticket's code about to be written; a process or a port about to be touched → the **ui-acceptance** skill. Its **Five rules while the product is running** bind every run, before the first command.
+- A criterion that has to launch, reach or observe the running product; a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line to read; a page ticket's code about to be written; a process or a port about to be touched → the **ui-acceptance** skill. Its **Five rules while the product is running** bind every run, before the first command.
 - A repository not set up for the pipeline (a `docs/agents/` file, a label or the Memory Space missing, or effort files still under `docs/specs/` or `prototypes/`), or the owner asks to set one up or check it → the **setup-mmw** skill.
+- A product with no `.mmw/<product>/` yet, or the owner asks to onboard one to verification → the **create-verification-skill** skill.
+- A skill's, playbook's or reference's text found wrong in the middle of another task → in a day session, finish the task, then fix the text as its own change through the **Authoring or modifying a skill** playbook; in a scripted session, leave the text and record a `deferred` child naming the file, the sentence and what it got wrong.
+- The owner asks to review a product's feature map, or to operate every feature → the **maintain-verification-skill** skill.
+- The owner says "verify this", or asks whether a change took effect or whether a bug is fixed → the **verify-this** skill.
 
 ## Principles
 
@@ -116,7 +120,7 @@ When no route below matches, say which comes closest and what does not fit, then
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y, or what does the world outside the repository say (a library, a standard, a service's API). A fact you could observe by running something is found by running it (see Autonomy). `playbooks/investigation.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a restart of the host, or imminent context compaction. Full steps: `playbooks/pause-safely.md`.
-- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode, whatever its size. Distinct from Write a spec, which this playbook runs for a change one session cannot finish. `playbooks/authoring-or-modifying-a-skill.md`.
+- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode, whatever its size. Distinct from Make a small change and Write a spec, which this playbook runs by the change's size. `playbooks/authoring-or-modifying-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
 - **Chart a map.** A loose idea too big for one session, whose way to the destination is not visible yet, charted as a map of decision tickets on the tracker ("chart a map", "wayfinder", a greenfield product, a feature too big for one session). Distinct from Write a spec, which starts from decisions already made. `playbooks/chart-a-map.md`.
 - **Resolve a map ticket.** Resolving one decision ticket of an existing map in one session, the owner's named one or the frontier's first ("work the map", "next map ticket", a map's link or number). Distinct from Chart a map, which creates the map, and from Work a ticket, which builds a ticket of a spec. `playbooks/resolve-a-map-ticket.md`.

@@ -7,6 +7,7 @@ How the skills and playbooks should consume this repo's domain documentation whe
 - **`CONTEXT.md`** at the repo root, or
 - **`CONTEXT-MAP.md`** at the repo root if it exists: it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
 - **`docs/adr/`**: read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
+- **`docs/features/`**: one directory per product, `docs/features/<product>/`, holding its feature map. Read that product's directory before its code.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `domain-modeling` skill (reached from the `wayfinder` and `triage` skills, and from the Chart a map and Improve the architecture playbooks) creates them lazily when terms or decisions actually get resolved.
 

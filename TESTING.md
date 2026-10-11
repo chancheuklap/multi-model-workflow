@@ -8,13 +8,12 @@ A test proves what a script does, never what a piece of text says. Pinning the w
 
 ## Layout
 
-- A skill's tests live in `mmw-v3/tests/<name>/`, which exists only in a checkout and climbs two levels to `mmw-v3/` and down into `skills/<name>/scripts/` to reach the script under test. gate-check's own tests are in `mmw-v3/tests/verify-ticket/gate-check/`, and the `verify-ticket` suite runs them.
-- The install scenarios live in the dispatch suite's `test_dispatch.sh`, which owns the fakes; `mmw-v3/tests/install/run.sh` runs its `INSTALL` list. A change to those fakes is a change to both suites.
+- A skill's tests live in `mmw-v4/tests/<name>/`, which exists only in a checkout and climbs two levels to `mmw-v4/` and down into `skills/<name>/scripts/` to reach the script under test. gate-check's own tests are in `mmw-v4/tests/verify-ticket/gate-check/`, and the `verify-ticket` suite runs them.
+- The install tests live in `mmw-v4/tests/install/test_install.py`, with fake `orca`, `nmem`, `paseo` and `launchctl` on `PATH`; they need `mmw-v3/` beside `mmw-v4/`, because `--back` and the takeover of a v3 machine run its `install.sh`.
 - `MMW_INSTALL_HOME` is a test seam for `install.sh` only: it moves the whole install target to a throwaway directory and skips `launchctl` and `paseo reload`. Runtime configuration goes through `MMW_HOME`.
-- `mmw-v3/tests/lib/` holds the three checks every suite runs first, and its own `run.sh` tests `check_wiring.py` on copies of `mmw-v3/skills/` broken one way per case.
+- `mmw-v4/tests/lib/` holds the three checks every suite runs first, and its own `run.sh` tests `check_wiring.py` on copies of `mmw-v4/skills/` broken one way per case.
 
 ## Which suites a change needs
 
-- The task board loads verify-ticket's `events.py` and `issue_tree.py` and dispatch's `ghlist.py`, `models.py`, `statedir.py` and `roles.json` by file path (`mmw-v3/board/codeversion.py` lists them), and `retro.py` loads `events.py`, `issue_tree.py` and ui-acceptance's `refusal.py` the same way; a change to them is a change to the board and the retro. Run `mmw-v3/tests/board/run.sh` together with the `relay` and `retro` suites.
+- The task board loads verify-ticket's `events.py` and `issue_tree.py` and dispatch's `ghlist.py`, `models.py`, `statedir.py` and `roles.json` by file path (`mmw-v4/board/codeversion.py` lists them); a change to them is a change to the board. Run `mmw-v4/tests/board/run.sh` together with the `relay` suite.
 - A change to `roles.json`, `hosts.json`, a playbook's route or steps, the relay's wakes or `RESUME_STEPS` runs `check-interfaces.py`; the dispatch suite's `test_check_interfaces.py` covers the checker itself.
-- A change under `mmw-v3/skills/` that adds, moves or edits a copied file runs `check_imports.py`.

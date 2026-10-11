@@ -4,7 +4,9 @@
 The ticket is the only state. Every run reads the `## Acceptance criteria` and
 `## Owns` sections fresh from the issue, writes them to a ledger, hands
 that ledger to unlazy's `gate-check`, and posts the result back as one
-`ticket.checked` event. Nothing is cached and no file is left behind.
+`ticket.checked` event. Nothing is cached. The ledger is removed when the run
+ends. Each run replaces `.scratch/criteria/<ticket>/`, and a failing criterion's
+output is `<id>.log` in that directory.
 """
 
 from __future__ import annotations
@@ -43,6 +45,7 @@ def _load(name: str, filename: str):
 # under a spec, read with one query.
 events = _load("mmw_events", "events.py")
 tree = _load("mmw_tree", "issue_tree.py")
+feature_map = _load("mmw_feature_map", "feature_map.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
 LEDGER_NAME = "AC.md"
@@ -601,6 +604,16 @@ def newest_run(comments: list, *runs: str, actor: str | None = None) -> dict | N
     return max(found, key=lambda record: record["comment"]) if found else None
 
 
+def final_worker_run(comments: list) -> dict | None:
+    """The worker run the closeout accepts and the closing comment quotes: the newest of
+    the worker's own runs and its reverify runs. The closeout holds it to `HEAD`, so when
+    nothing was committed after the worker's first run, that run is the final one."""
+    runs = [record for record in (newest_run(comments, "self"),
+                                  newest_run(comments, "reverify", actor="worker"))
+            if record is not None]
+    return max(runs, key=lambda record: record["comment"]) if runs else None
+
+
 def ledger_with_results(lines: list[str], results: list[dict]) -> list[str]:
     """The ledger `lines` with each criterion ticked and its `EVIDENCE:` written the way
     one run left it: `results` is that run's `criteria`, `{id, met, evidence}` each.
@@ -904,10 +917,10 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
     if first != "ALL MET":
         return problems
 
-    record = newest_run(comments, "reverify", actor="worker")
+    record = final_worker_run(comments)
     reverify = record["payload"] if record else None
     if reverify is None:
-        problems.append("the ticket carries no worker reverify `ticket.checked` event. Run "
+        problems.append("the ticket carries no `ticket.checked` event of a worker run. Run "
                         "`verify-ticket.py <n> --reverify --actor worker` after the final "
                         "commit, or close out as `HANDOFF REQUIRED`")
     else:
@@ -920,11 +933,11 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         unmet = list(reverify.get("failed") or [])
         covered = result == "unmet" and unmet and set(unmet) <= decided
         if result != "met" and not covered:
-            problems.append("the worker's final reverify still reports unmet or abandoned "
+            problems.append("the worker's final run still reports unmet or abandoned "
                             "criteria. Add the required `ABANDON:` lines and close out as "
                             "`HANDOFF REQUIRED`")
         if reverify.get("commit") != git("rev-parse", "HEAD"):
-            problems.append(f"the worker's final reverify is on {reverify.get('commit')} and "
+            problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
@@ -1300,6 +1313,20 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
     return found
 
 
+def require_in_ticket(review: str, comment: int | str | None, number: int) -> None:
+    """Refuse a review report that carries no `## In-ticket` heading: the reviewer posts
+    one whatever it found, `None` included, so a report without one stopped before any
+    axis ran (a commit that does not resolve, an empty diff) and reviewed nothing."""
+    if any(line.strip() == "## In-ticket" for line in review.splitlines()):
+        return
+    first = review.splitlines()[0] if review else "(empty)"
+    raise ValueError(
+        f"the newest review report (comment {comment}, `{first[:80]}`) has no ## In-ticket "
+        f"section, so nothing reviewed this ticket and it cannot close as reviewed; open a "
+        f"fault child with `verify-ticket.py {number} --sub-issue fault <file>`, its body "
+        f"the report, and stop")
+
+
 def review_findings_block(review: str, comment: int | str | None = None) -> str:
     items = in_ticket_findings(review, comment)
     if not items:
@@ -1503,7 +1530,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
     into, problem = worker_started_field(number, comments, "into")
     if problem:
         return refuse(problem)
-    record = newest_run(comments, "self")
+    record = final_worker_run(comments)
     run = record["payload"] if record else None
     criteria = overlay_run_evidence(body, run)
     abandons = list((run or {}).get("abandons") or [])
@@ -1521,6 +1548,8 @@ def run_draft(number: int, out_file: Path | None) -> int:
     review_event = events.newest(comments, "reviewer.reported") or {}
     review = review_event.get("body") or ""
     try:
+        if review_event:
+            require_in_ticket(review, review_event.get("comment"), number)
         review_block = review_findings_block(review, review_event.get("comment"))
     except ValueError as exc:
         return refuse(str(exc))
@@ -1742,10 +1771,16 @@ def needs_product(body: str) -> bool:
 
 
 def load_lease():
-    """`lease.py` of the ui-acceptance skill, from the directories in force; None when
-    none holds it."""
+    """`lease.py` of the ui-acceptance skill, from the directories in force.
+
+    None when those directories do not hold it. `TOOLS` is empty until `main`
+    sets it, and a caller that imports this module still finds the sibling.
+    `--tools` that names other directories and leaves `lease.py` out stays None.
+    """
     path = tool("lease.py")
-    if path is None:
+    if path is None and not TOOLS:
+        path = HERE.parents[1] / "ui-acceptance" / "scripts" / "lease.py"
+    if path is None or not path.is_file():
         return None
     spec = importlib.util.spec_from_file_location("mmw_lease", path)
     module = importlib.util.module_from_spec(spec)
@@ -1775,6 +1810,60 @@ def hold_slot(root: Path) -> dict | int:
                       f"{', '.join(full.holders)}), so nothing was run and nothing was "
                       f"written. Report the ticket blocked, as the ui-acceptance skill's "
                       f"rule 4 says.")
+
+
+def _refusal(what: str, why: str, next_step: str) -> str:
+    """One refusal in `refusal.py`'s three parts, from the ui-acceptance skill."""
+    return _load("mmw_refusal", "../../ui-acceptance/scripts/refusal.py").refusal(
+        what, why, next_step)
+
+
+def criterion_ids_on_lines(ledger: str, line_numbers: list[int]) -> list[str]:
+    """The criterion that owns each of these 1-based ledger lines, in file order."""
+    wanted = set(line_numbers)
+    current = None
+    found = []
+    for index, line in enumerate(ledger.splitlines(), start=1):
+        match = GATE_LINE_RE.match(line)
+        if match:
+            current = match.group(2)
+        if index in wanted and current and current not in found:
+            found.append(current)
+    return found
+
+
+def present_unrunnable(printed: str, number: int, tmp: str) -> str:
+    """gate-check exited 2. Name the ticket and the criterion, and drop the ledger path.
+
+    The ledger is a temporary file. Its path and its line numbers are not a place the
+    worker can edit. The criterion is the one that owns the line gate-check named.
+    """
+    text = printed
+    line_numbers = [int(n) for n in re.findall(r"\bline (\d+):", text)]
+    ledger_file = Path(tmp) / LEDGER_NAME
+    from_ledger = (criterion_ids_on_lines(ledger_file.read_text(encoding="utf-8"), line_numbers)
+                   if ledger_file.is_file() else [])
+    variants = {str(tmp), os.path.realpath(str(tmp))}
+    variants |= ({path.removeprefix("/private") for path in variants}
+                 | {"/private" + path for path in variants})
+    for path in sorted(variants, key=len, reverse=True):
+        if path:
+            text = text.replace(path, "")
+    text = re.sub(rf"/?{re.escape(LEDGER_NAME)}:?", "", text)
+    text = re.sub(r"\bline \d+:\s*", "", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r" *\n *", "\n", text).strip()
+    from_text = re.findall(r"\bgate ([A-Za-z0-9][A-Za-z0-9._-]*)\b", text)
+    ids = list(dict.fromkeys([*from_ledger, *from_text]))
+    named = ", ".join(ids) if ids else "unknown"
+    note = _refusal(
+        f"ticket #{number} criterion {named}, gate-check exited 2",
+        "the criterion could not be run, so nothing was judged",
+        f"verify-ticket.py {number} --sub-issue contract <file>",
+    )
+    if text:
+        return text + "\n" + note + "\n"
+    return note + "\n"
 
 
 def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
@@ -1813,7 +1902,11 @@ def _run_checks(number: int, reverify: bool,
     comments = fetch_comments(number)
     started = events.newest(comments, "worker.started")
     started_payload = (started or {}).get("payload", {})
-    base = started_payload.get("base") if not reverify else None
+    # Every worker run can be the one the closeout accepts and quotes, so each records
+    # Outside Owns; a reverify by the main agent runs on the merged branch, where the
+    # question has no answer.
+    worker = actor == "worker"
+    base = started_payload.get("base") if worker else None
     into = started_payload.get("into")
     slot = None
     if needs_product(body):
@@ -1836,9 +1929,10 @@ def _run_checks(number: int, reverify: bool,
             env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
-        sys.stdout.write(printed)
         if result.returncode == 2:
+            sys.stdout.write(present_unrunnable(printed, number, tmp))
             return 2
+        sys.stdout.write(printed)
         summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
 
@@ -1848,10 +1942,9 @@ def _run_checks(number: int, reverify: bool,
                 "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
                 "evidence": c["evidence"] or "pending"} for c in criteria]
     outcome = check_run_outcome(result.returncode, summary)
-    fields = ({} if reverify else
-              outside_owns_fields(number, owns_globs(body), root, base))
+    fields = (outside_owns_fields(number, owns_globs(body), root, base) if worker else {})
     prose = [updated]
-    if not reverify:
+    if worker:
         prose += ["", outside_owns_text(fields)]
     try:
         post_event(number, "ticket.checked",
@@ -2058,17 +2151,32 @@ def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
 # The steps of mmw-mode's Work a ticket playbook a `RESUME:` line can name, by their
 # titles there; the dispatch skill's `check-interfaces.py` finds each one in that file.
 RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment",
-                "Start the reviewer", "Read the review", "Run every criterion one final time",
-                "Audit")
+                "Start the reviewer", "Read the review", "Audit",
+                "Run every criterion one final time")
+
+
+def failed_checks_quote(record: dict | None) -> str | None:
+    """The `Failed checks:` slice of a bounce, quoted verbatim on the resume's next line.
+
+    The token stays on the event's first line. The quote is that line from the token
+    to its end. A conflict bounce has no such line.
+    """
+    body = (record or {}).get("body") or ""
+    for line in body.splitlines():
+        at = line.find("Failed checks:")
+        if at >= 0:
+            return line[at:].strip()
+    return None
 
 
 def resume_at(comments: list[str], head: str) -> str | None:
     """Where a worker re-entering this ticket picks up: a step of `RESUME_STEPS`, named
     by its title, and the events that put it there. None for a ticket that carries no
     run of the worker's own, no `worker.decided`, no review and no worker reverify — a
-    fresh claim, not a resume.
+    fresh claim, not a resume. A checks bounce adds a second line, the `Failed checks:`
+    quote, so the next turn sees which commands failed.
     """
-    integrate, decisions, start_reviewer, read_review, final_run, audit = RESUME_STEPS
+    integrate, decisions, start_reviewer, read_review, audit, final_run = RESUME_STEPS
     self_run = newest_run(comments, "self")
     reviewed = events.newest(comments, "reviewer.reported")
     reverify = newest_run(comments, "reverify", actor="worker")
@@ -2080,7 +2188,12 @@ def resume_at(comments: list[str], head: str) -> str | None:
                      if e["event"] in ("ticket.passed", "ticket.returned", "ticket.bounced")),
                     None)
     if terminal in ("ticket.returned", "ticket.bounced"):
-        return f"{integrate}, then {final_run} onward ({terminal})"
+        step = f"{integrate}, then {final_run} onward ({terminal})"
+        if terminal == "ticket.bounced":
+            quote = failed_checks_quote(events.newest(comments, "ticket.bounced"))
+            if quote:
+                return step + "\n" + quote
+        return step
     if self_run is None:
         return f"{integrate} (no run of your own)"
     if not state["decided"]:
@@ -2089,13 +2202,13 @@ def resume_at(comments: list[str], head: str) -> str | None:
         if events.live_of(state, "reviewer"):
             return f"{read_review} (reviewer.started, no reviewer.reported yet)"
         return f"{start_reviewer} (worker.decided, no reviewer.reported)"
-    if self_run["comment"] <= reviewed["comment"]:
+    newest = final_worker_run(comments)
+    if newest["comment"] <= reviewed["comment"]:
         return f"{read_review} (reviewer.reported, no run of your own since)"
-    if reverify is None or reverify["comment"] < self_run["comment"]:
-        return f"{final_run} (a run of your own since reviewer.reported, no worker reverify)"
-    if reverify["payload"].get("commit") == head and (
-            not ordered or reverify["comment"] == ordered[-1]["comment"]):
-        return f"{audit} (worker reverify on HEAD)"
+    if newest["payload"].get("commit") != head:
+        return f"{audit} (a run of your own since reviewer.reported, and commits after it)"
+    if not ordered or newest["comment"] == ordered[-1]["comment"]:
+        return f"{final_run} (a run of your own on HEAD since reviewer.reported)"
     return None
 
 
@@ -2141,7 +2254,10 @@ def run_preflight(number: int) -> int:
         sys.stderr.write(f"#{number}: could not read where to resume ({exc}); read the "
                          f"ticket's comments by hand\n")
     if resume:
-        print(f"RESUME: {resume}")
+        head_line, _, rest = resume.partition("\n")
+        print(f"RESUME: {head_line}")
+        if rest:
+            print(rest)
     # Getting here with a dirty tree means the claim was already this account's, so the
     # changes came in under it: this is a worker back on its own work, and the only thing
     # left to say is where they have to be by the closing steps.
@@ -2156,7 +2272,7 @@ def run_preflight(number: int) -> int:
 ROW_ID_RE = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+\b")
 
 
-def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
+def review_finding_problems(draft: str, comments: list[str], number: int) -> list[str]:
     """The newest review's In-ticket rows must each have a handled draft row.
 
     Compare the whole source-bearing row, not just its path or claim. Counting rows
@@ -2164,6 +2280,9 @@ def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
     """
     review_event = events.newest(comments, "reviewer.reported") or {}
     try:
+        if review_event:
+            require_in_ticket(review_event.get("body") or "", review_event.get("comment"),
+                              number)
         required = in_ticket_findings(review_event.get("body") or "",
                                       review_event.get("comment"))
     except ValueError as exc:
@@ -2200,7 +2319,12 @@ def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
     return problems
 
 
-CHECKS_TAIL = 20
+# A repository check's bounce keeps the first ten error or path:line lines and the
+# last thirty, then drops excerpt lines until the comment fits.
+CHECKS_ERROR_LINES = 10
+CHECKS_TAIL_LINES = 30
+COMMENT_BODY_LIMIT = 65536
+FAILURE_LINES = HERE / "gate-check" / "lib" / "failure-lines.mjs"
 
 
 class TargetJsonChecksError(Exception):
@@ -2214,18 +2338,33 @@ def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     bound in seconds — or None when the key is absent. `dispatch.sh` reads them through
     `run_target_json_checks`; no mode of this script runs them. A file that names
     `checks` but is not a JSON object with a list raises `TargetJsonChecksError` rather
-    than looking like absence."""
+    than looking like absence.
+
+    The list comes from the root object. A product file's own `checks`
+    is not this list. `lease.read_target_json` parses the file, and it is the one
+    read point.
+    """
     if root is None:
         return None
     path = Path(root) / ".mmw" / "target.json"
     if not path.is_file():
         return None
+    lease = load_lease()
+    if lease is None:
+        raise TargetJsonChecksError(
+            "lease.py is not beside this skill, so .mmw/target.json cannot be read")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise TargetJsonChecksError(f"{path} is not JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise TargetJsonChecksError(f"{path} is not an object")
+        read = lease.read_target_json(Path(root))
+    except lease.LegacyLayoutError as exc:
+        raise TargetJsonChecksError(str(exc)) from None
+    except lease.TargetJSONError as exc:
+        text = str(exc)
+        if "must hold one JSON object" in text:
+            raise TargetJsonChecksError(f"{path} is not an object") from None
+        raise TargetJsonChecksError(f"{path} is not JSON: {text}") from None
+    if read is None:
+        return None
+    data = read.root
     if "checks" not in data:
         return None
     raw = data["checks"]
@@ -2248,14 +2387,173 @@ def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
     return commands
 
 
-def run_target_json_checks(root: Path | None, into: str) -> dict | None:
+def _as_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return value
+
+
+def _checks_excerpt(output: str) -> str:
+    """The check's excerpt from `failure-lines.mjs`, or a short note when it cannot be built."""
+    if not output.strip():
+        return ""
+    try:
+        proc = subprocess.run(
+            ["node", str(FAILURE_LINES), str(CHECKS_ERROR_LINES), str(CHECKS_TAIL_LINES)],
+            input=output, capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"could not build the excerpt: {exc}"
+    if proc.returncode != 0:
+        detail = (proc.stderr or "").strip() or f"node exited {proc.returncode}"
+        return f"could not build the excerpt: {detail[:500]}"
+    return proc.stdout
+
+
+def _failed_row(command: str, tail: str, exit_code: int | None = None,
+                log: str | None = None, unwritten: str | None = None) -> dict:
+    row: dict = {"command": command, "tail": tail}
+    if type(exit_code) is int:
+        row["exit"] = exit_code
+    if log:
+        row["log"] = log
+    elif unwritten:
+        row["unwritten"] = unwritten
+    return row
+
+
+def _write_check_log(worktree: Path | str | None, ticket: str | int | None, seq: int,
+                     raw: str, started: list[bool]) -> tuple[str | None, str | None]:
+    """The full output of one failed check, in the ticket worktree.
+
+    Returns the relative path, or a sentence when a log was asked for and not written.
+    The first failure of a run replaces `.scratch/checks/<ticket>/`. A missing worktree
+    is left missing. No log is asked for when the caller passes no worktree.
+    """
+    if worktree is None or ticket in (None, ""):
+        return None, None
+    root = Path(worktree)
+    if not root.is_dir():
+        return None, f"the full output was not saved: {root} is not a directory"
+    folder = root / ".scratch" / "checks" / str(ticket)
+    try:
+        if not started[0]:
+            if folder.exists():
+                shutil.rmtree(folder)
+            folder.mkdir(parents=True)
+            started[0] = True
+        (folder / f"{seq}.log").write_text(raw, encoding="utf-8")
+    except OSError as exc:
+        return None, f"the full output was not saved: {exc}"
+    return f".scratch/checks/{ticket}/{seq}.log", None
+
+
+def _check_heading(row: dict) -> str:
+    command = " ".join(str(row.get("command") or "?").split())
+    exit_code = row.get("exit")
+    if type(exit_code) is int:
+        return f"{command} exit {exit_code}"
+    return command
+
+
+def _comment_size(prefix_len: int, summary: str, rest: str, commands: list) -> int:
+    """How long the bounce comment is, using a payload no smaller than a real one."""
+    line = prefix_len + len(events.neutralise(f" Failed checks: {summary}."))
+    cleaned = events.neutralise(rest or "").strip("\n")
+    prose = line + (2 + len(cleaned) if cleaned else 0)
+    payload = {
+        "v": events.VERSION,
+        "event": "ticket.bounced",
+        "stage": "land",
+        "actor": "main",
+        "spec": 10**9,
+        "ticket": 10**9,
+        "at": "2026-01-01T00:00:00Z",
+        "reason": "checks",
+        "commit": "f" * 40,
+        "into": "x" * 80,
+        "commands": commands,
+    }
+    return prose + 2 + len(events.block(payload)) + 1
+
+
+def _summary_of(rows: list[dict]) -> str:
+    return "; ".join(_check_heading(row) for row in rows)
+
+
+def _rest_of(rows: list[dict], excerpts: list[list[str]]) -> str:
+    blocks = []
+    for row, lines in zip(rows, excerpts):
+        parts = [_check_heading(row)]
+        log = row.get("log")
+        note = row.get("unwritten")
+        if isinstance(log, str) and log:
+            parts.extend(["", log])
+        elif isinstance(note, str) and note:
+            parts.extend(["", note])
+        if lines:
+            parts.extend(["", *lines])
+        blocks.append("\n".join(parts))
+    return "\n\n".join(blocks)
+
+
+def _commands_of(rows: list[dict], excerpts: list[list[str]]) -> list[dict]:
+    commands = []
+    for row, lines in zip(rows, excerpts):
+        item = {**row, "tail": "\n".join(lines)}
+        if item.get("log") == "":
+            del item["log"]
+        commands.append(item)
+    return commands
+
+
+def checks_bounce_prose(rows: list | None, prefix_len: int = 0) -> dict:
+    """The checks bounce: one summary line, one paragraph per command, and the JSON.
+
+    `prefix_len` is the merge sentence already written before ` Failed checks:`.
+    Excerpt lines drop from the end until the comment fits. A line that by itself
+    does not fit is dropped whole; the log keeps it. A command name or a log path
+    longer than the comment is not shortened.
+    """
+    copied = [dict(row) for row in (rows or []) if isinstance(row, dict)]
+    excerpts = [(row.get("tail") or "").splitlines() for row in copied]
+    original = [len(lines) for lines in excerpts]
+
+    def over() -> bool:
+        return _comment_size(prefix_len, _summary_of(copied), _rest_of(copied, excerpts),
+                             _commands_of(copied, excerpts)) > COMMENT_BODY_LIMIT
+
+    while over():
+        index = next((i for i in range(len(excerpts) - 1, -1, -1) if excerpts[i]), None)
+        if index is None:
+            break
+        excerpts[index].pop()
+    summary = _summary_of(copied)
+    rest = _rest_of(copied, excerpts)
+    commands = _commands_of(copied, excerpts)
+    dropped = sum(max(0, original[i] - len(excerpts[i])) for i in range(len(copied)))
+    if dropped:
+        note = f"+{dropped} more"
+        candidate = rest + ("\n\n" if rest else "") + note
+        if _comment_size(prefix_len, summary, candidate, commands) <= COMMENT_BODY_LIMIT:
+            rest = candidate
+    return {"summary": summary, "rest": rest, "commands": commands}
+
+
+def run_target_json_checks(root: Path | None, into: str,
+                           worktree: Path | str | None = None,
+                           ticket: str | int | None = None) -> dict | None:
     """Run each `checks` command at the repository root, in order.
 
     None when the key is absent: nothing ran. Otherwise `{"total", "failed",
-    "problem"}`: `failed` is `{"command", "tail"}` for each command that did not exit 0,
-    with its last `CHECKS_TAIL` lines of output, and `problem` says why the file itself
-    could not be read — a malformed file is a failure, not absence. A string entry is
-    held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
+    "problem"}`. `failed` is one row per command that did not exit 0: `command`,
+    `tail` (the excerpt), `exit` when the process exited, `log` when the full
+    output was written under `worktree`, and `unwritten` when that write was asked
+    for and did not happen. `problem` says why the file itself could not be read —
+    a malformed file is a failure, not absence. A string entry is held to
+    `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
     `{"run": …, "timeout": …}` is held to its own.
     """
     try:
@@ -2264,7 +2562,9 @@ def run_target_json_checks(root: Path | None, into: str) -> dict | None:
         return {"total": 0, "failed": [], "problem": str(exc)}
     if commands is None:
         return None
-    failed: list[tuple[str, str]] = []
+    failed: list[dict] = []
+    log_started = [False]
+    seq = 0
     env = os.environ.copy()
     env["MMW_BASE_REF"] = f"origin/{into}"
     for command, bound in commands:
@@ -2272,22 +2572,24 @@ def run_target_json_checks(root: Path | None, into: str) -> dict | None:
             proc = subprocess.run(command, shell=True, cwd=root, capture_output=True,
                                   text=True, timeout=bound, env=env)
         except subprocess.TimeoutExpired as exc:
-            combined = (exc.stdout or "") + (exc.stderr or "")
-            if isinstance(combined, bytes):
-                combined = combined.decode("utf-8", "replace")
-            tail = "\n".join(str(combined).splitlines()[-CHECKS_TAIL:])
+            combined = _as_text(exc.stdout) + _as_text(exc.stderr)
+            seq += 1
+            log, unwritten = _write_check_log(worktree, ticket, seq, combined, log_started)
+            excerpt = _checks_excerpt(combined)
             note = f"timed out after {bound}s"
-            failed.append((command, f"{note}\n{tail}".strip() if tail else note))
+            tail = f"{note}\n{excerpt}" if excerpt else note
+            failed.append(_failed_row(command, tail, log=log, unwritten=unwritten))
             continue
         except OSError as exc:
-            failed.append((command, str(exc)))
+            failed.append(_failed_row(command, str(exc)))
             continue
         if proc.returncode != 0:
-            combined = (proc.stdout or "") + (proc.stderr or "")
-            tail = "\n".join(combined.splitlines()[-CHECKS_TAIL:])
-            failed.append((command, tail))
-    return {"total": len(commands),
-            "failed": [{"command": c, "tail": t} for c, t in failed], "problem": None}
+            combined = _as_text(proc.stdout) + _as_text(proc.stderr)
+            seq += 1
+            log, unwritten = _write_check_log(worktree, ticket, seq, combined, log_started)
+            failed.append(_failed_row(
+                command, _checks_excerpt(combined), proc.returncode, log, unwritten))
+    return {"total": len(commands), "failed": failed, "problem": None}
 
 
 def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
@@ -2403,7 +2705,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     into = (started or {}).get("into") if passed else None
     problems = draft_problems(draft, comments)
     problems += verified_problems(draft, body, comments, first)
-    problems += review_finding_problems(draft, comments)
+    problems += review_finding_problems(draft, comments, number)
     problems += event_problems(comments)
     if started_problem:
         problems.append(started_problem)
@@ -2519,18 +2821,27 @@ def lint_ticket_graph(number: int, body: str) -> int:
     return lint_batch_graph(spec, numbers)
 
 
+# The edges `lint_batch_graph` just read. `lint_spec` hands them to the feature-map
+# rules so the tracker is asked once. None until that read happens.
+_graph_entries: list[dict] | None = None
+
+
 def lint_batch_graph(spec: int, numbers: list[int],
                      entries: list[dict] | None = None) -> int:
     """Check that `numbers`, the sub-issues of `spec`, form a startable graph.
 
     `entries` replaces the tracker's blocking edges with ones read elsewhere: the
-    `BLOCKED BY:` headers of a directory of drafts, whose ids are draft names."""
+    `BLOCKED BY:` headers of a directory of drafts, whose ids are draft names.
+    The edges this call read are left on `_graph_entries` for the feature-map rules.
+    """
+    global _graph_entries
     if not numbers and not entries:
         print(f"  ERROR #{spec} has no sub-issues — publish tickets as sub-issues of the "
               f"spec, or the graph cannot be checked  [no-sub-issues]")
         return 1
     if entries is None:
         entries = ticket_entries(numbers)
+    _graph_entries = entries
     # Printed before the errors, because an error returns here and a disagreement about
     # an edge is often what the error is: a cycle, or a blocker that is no ticket.
     for finding in cross_batch_findings(entries):
@@ -2795,10 +3106,70 @@ RUN_VALUE_RE = re.compile(r"""--run(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))""")
 JOURNEY_NAME_RE = re.compile(r"^\s*run\s+(\S+)")
 CD_PREFIX_RE = re.compile(r"^\s*cd\s+(\S+)\s*&&")
 CRITICAL_FLOWS_RE = re.compile(r"Critical flows|关键流程", re.IGNORECASE)
-JOURNEY_PATH_RE = re.compile(r"\.mmw/journeys/([a-z0-9][a-z0-9-]*)/?")
-
-
+JOURNEY_PATH_RE = re.compile(
+    r"\.mmw/([a-z0-9][a-z0-9-]*)/journeys/([a-z0-9][a-z0-9-]*)/?"
+)
 OPERATOR_RE = re.compile(r"(?:&&|\|\||;|\|)(?:\s|$)")
+
+
+def journey_path_name(match: re.Match[str]) -> str:
+    """The product and flow named by a product-scoped journey path."""
+    product, flow = match.group(1), match.group(2)
+    return f"{product}/{flow}"
+
+
+def _journeys_value(read, default: str) -> str:
+    if read is None:
+        return default
+    custom = read.get("journeys")
+    if isinstance(custom, str) and custom.strip():
+        return custom
+    return default
+
+
+def journey_directory(base: Path, name: str) -> Path:
+    """The directory `journey.py run <name>` is looked up in, from `base`.
+
+    The product's `journeys` key defaults to `.mmw/<product>/journeys`.
+    A missing or unreadable file keeps that default for tickets creating it.
+    """
+    lease = load_lease()
+    parts = lease.product_journey(name) if lease is not None else None
+
+    def read(product: str | None):
+        if lease is None:
+            return None
+        try:
+            return lease.read_target_json(base, product)
+        except lease.LegacyLayoutError as exc:
+            raise ValueError(str(exc)) from None
+        except lease.TargetJSONError:
+            return None
+
+    if parts is not None:
+        product, flow = parts
+        default = f".mmw/{product}/journeys"
+        loaded = read(product)
+        journeys = default
+        if loaded is not None and loaded.present:
+            journeys = _journeys_value(loaded, default)
+        return base / journeys / flow
+    raise ValueError(f"journey name {name!r} must be <product>/<flow>")
+
+
+def contract_runtime_for(name: str, owns) -> bool:
+    """Owning these paths excuses `--break` for `name`.
+
+    The journey's product owns `.mmw/<product>/target.json` and
+    `.mmw/<product>/stories`.
+    """
+    lease = load_lease()
+    parts = lease.product_journey(name) if lease is not None else None
+    if parts is None:
+        return False
+    product, _flow = parts
+    required = (f".mmw/{product}/target.json", f".mmw/{product}/stories")
+    return all(any(glob_covers(pattern, path) for pattern in owns) for path in required)
 
 
 def script_segment(check: str, script: str) -> str:
@@ -3105,6 +3476,34 @@ def print_uncovered_sections(spec: int, spec_body: str, named: set[int]) -> None
     print(f"sections named by a ticket: {covered}/{len(numbers)}")
 
 
+def load_yaml_text(text: str) -> dict | None:
+    """A mapping parsed from YAML text. None when the text does not parse.
+
+    The same pyyaml-or-uv read as `load_yaml_file`, from the text itself.
+    """
+    try:
+        import yaml  # noqa: PLC0415
+    except ImportError:
+        yaml = None
+    if yaml is not None:
+        try:
+            loaded = yaml.safe_load(text) or {}
+        except yaml.YAMLError:
+            return None
+        return loaded if isinstance(loaded, dict) else {}
+    try:
+        out = subprocess.run(
+            ["uv", "run", "--with", "pyyaml", "python", "-c",
+             "import json,sys,yaml; print(json.dumps(yaml.safe_load(sys.stdin.read()) or {}))"],
+            input=text, capture_output=True, text=True, timeout=120, env=GH_ENV)
+        if out.returncode == 0:
+            loaded = json.loads(out.stdout)
+            return loaded if isinstance(loaded, dict) else {}
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+    return None
+
+
 def load_yaml_file(path: str) -> dict | None:
     """The file as a mapping. `pyyaml` when this interpreter has it; else through `uv`,
     which every `CHECK:` of this pipeline already relies on; else `None`, and the caller
@@ -3203,7 +3602,7 @@ def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
     return findings
 
 
-CRITICAL_FLOW_SHAPE = "- `<flow>`: Implementation Decisions sections <n>, <n>"
+CRITICAL_FLOW_SHAPE = "- `<product>/<flow>`: Implementation Decisions sections <n>, <n>"
 LIST_ITEM_RE = re.compile(r"^(\s*)[-*+]\s")
 
 
@@ -3212,8 +3611,9 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
 
     The **Critical flows** bullet holds one line per flow, in the shape
     `CRITICAL_FLOW_SHAPE`, nested under the marker or on the marker line itself: the
-    flow is the backticked name (or `.mmw/journeys/<flow>/`, or the bare first word of
-    the item), and the section numbers are the ones after the words
+    flow is the backticked `<product>/<flow>`, a
+    `.mmw/<product>/journeys/<flow>/` path, or the unquoted `<product>/<flow>`
+    at the start of the item, and the section numbers are the ones after the words
     `Implementation Decisions` (`sections 2 and 3 of Implementation Decisions` reads the
     same). The section is named by its heading in the spec, in English whatever language
     the rest of the spec is in, because that heading is what `## Parent` names too; a
@@ -3255,16 +3655,17 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
         if re.fullmatch(r"[-*\s]*`?none`?[.。]?\s*", line, re.IGNORECASE):
             continue
         path = JOURNEY_PATH_RE.search(line)
-        quoted = re.search(r"`([a-z0-9][a-z0-9-]*)`", line)
-        plain = re.match(r"^\s*[-*]\s+([a-z0-9][a-z0-9-]*)\b", line)
-        name = (path.group(1) if path else quoted.group(1) if quoted else
+        quoted = re.search(r"`([a-z0-9][a-z0-9-]*(?:/[a-z0-9][a-z0-9-]*)?)`", line)
+        plain = re.match(r"^\s*[-*]\s+([a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*)\b", line)
+        name = (journey_path_name(path) if path else quoted.group(1) if quoted else
                 plain.group(1) if plain else "")
         after = re.search(r"Implementation Decisions\s*(.+)$", line)
         before = re.search(r"sections?\s+(.+?)\s+of\s+Implementation Decisions", line,
                            re.IGNORECASE)
         decision = after.group(1) if after else before.group(1) if before else ""
         sections = {int(value) for value in re.findall(r"\d+", decision)}
-        if name and sections:
+        lease = load_lease()
+        if lease is not None and lease.product_journey(name) is not None and sections:
             out[name] = sections
         else:
             unreadable.append(line.strip())
@@ -3303,7 +3704,8 @@ def lint_screen_contract(
     determine the required Component or App story mounts and boundary criteria, and
     each readable boundary test file must contain the row's trigger. A
     `boundary-check.py --run` is a non-empty command; a `journey.py run <name>` exists
-    under `.mmw/journeys/` unless this ticket's `## Owns` covers that directory;
+    under that product's journeys directory (default `.mmw/<product>/journeys/<flow>`)
+    unless this ticket's `## Owns` covers that directory;
     critical-flow journeys require `--break`, while a user-named journey without it is
     a warning;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
@@ -3323,11 +3725,6 @@ def lint_screen_contract(
     acceptance: set[str] | None = None
     acceptance_readable: bool | None = None
     unreadable_specs_reported: set[int] = set()
-    contract_runtime = all(
-        any(glob_covers(pattern, required) for pattern in owns)
-        for required in (".mmw/target.json", ".mmw/stories")
-    )
-
     def load_acceptance_journeys() -> tuple[set[str], bool]:
         """Read parent specs once; False means at least one could not be read."""
         readable = True
@@ -3364,28 +3761,42 @@ def lint_screen_contract(
         # `journeys` is read from where the command will run, not from the repository
         # root: a criterion that drives journey.py against a fixture `cd`s into it first,
         # and the journey it names is under that directory's `.mmw/`.
-        base, prefix = repo, ""
+        base = repo
         cdm = CD_PREFIX_RE.search(check)
         if cdm:
             candidate = (repo / cdm.group(1)).resolve()
             if candidate.is_dir():
                 base = candidate
-                prefix = cdm.group(1).removeprefix("./").strip("/")
         journey_segment = script_segment(check, "journey.py")
         journey_has_break = "--break" in segment_flags(journey_segment)
+        repo_path = Path(repo).resolve()
         for name in JOURNEY_NAME_RE.findall(journey_segment):
-            if (base / ".mmw" / "journeys" / name).exists():
+            lease = load_lease()
+            parts = lease.product_journey(name) if lease is not None else None
+            if parts is None:
+                findings.append(f"{gate_id}: journey name {name!r} must be <product>/<flow>")
+                continue
+            try:
+                dest = journey_directory(base, name)
+            except ValueError as exc:
+                findings.append(f"{gate_id}: {exc}")
+                continue
+            try:
+                rel = dest.resolve().relative_to(repo_path).as_posix()
+            except ValueError:
+                rel = dest.as_posix()
+            if dest.exists():
                 exists_or_owned = True
             else:
                 # A ticket whose `## Owns` covers the directory is the ticket that creates
                 # it, so it is absent until this ticket's own work lands. The rule asks
                 # after a journey someone else was to have built.
-                path = "/".join(p for p in (prefix, ".mmw", "journeys", name) if p)
-                exists_or_owned = any(glob_covers(g, path) for g in owns)
+                exists_or_owned = any(glob_covers(g, rel) for g in owns)
             if not exists_or_owned:
-                findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
+                findings.append(f"{gate_id}: journey.py run {name} is not under {rel}/")
                 continue
-            if journey_has_break or name == "smoke" or contract_runtime:
+            if (journey_has_break or parts[1] == "smoke"
+                    or contract_runtime_for(name, owns)):
                 continue
             if acceptance is None:
                 acceptance, acceptance_readable = load_acceptance_journeys()
@@ -3572,6 +3983,12 @@ def lint_criteria(number: int, body: str, labels: list[str],
     if not section(body, "Acceptance criteria"):
         print(f"{who} carries no `## Acceptance criteria`, so only its worker label "
               f"and its place in the batch are checked")
+        if "ready-for-agent" in labels:
+            say("error", f"{who} is labelled `ready-for-agent` and has no "
+                f"`## Acceptance criteria` section, so a worker would have nothing to run "
+                f"and the night would hand it back; write the section under exactly that "
+                f"heading, or label the ticket `ready-for-human` when a person does it",
+                "no-criteria")
         if not any(label in CLASS_LABELS for label in labels):
             say("warn", f"{who} carries no layer label, so its layer was read off "
                 f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
@@ -3678,19 +4095,313 @@ def run_lint(number: int) -> int:
     return 1 if (ticket_rc or graph) else 0
 
 
+FILE_CHANGE_RE = re.compile(r"^- `([^`]+)` \((new|changed)\)\s*$")
+SUB_CHANGE_RE = re.compile(
+    r"^- (added|changed|removed) `([^`]+)`(?:\s+source:\s*(.*?))?\s*$")
+CONTRACT_PATH_RE = re.compile(r"efforts/([A-Za-z0-9._-]+)/screen-contract\.yaml")
+
+
+def git_text(root: Path, path: str) -> str | None:
+    """The file at `HEAD:path`, or None when that path is not on the base branch."""
+    result = subprocess.run(
+        ["git", "show", f"HEAD:{path}"],
+        cwd=root, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def git_paths(root: Path, prefix: str) -> list[str] | None:
+    """Paths under `prefix` at HEAD. None when this checkout's git cannot be read."""
+    result = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "HEAD", "--", prefix],
+        cwd=root, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def is_feature_file(path: str) -> bool:
+    """A feature file is `docs/features/<product>/<feature>.md`, not the product README."""
+    parts = path.split("/")
+    return (len(parts) == 4 and parts[0] == "docs" and parts[1] == "features"
+            and parts[3].endswith(".md") and parts[3] != "README.md")
+
+
+def feature_map_changes(body: str) -> dict | None:
+    """`## Feature map changes` parsed in the shape `references/feature-map.md` gives.
+
+    None when the heading is absent. `rows` is every `row:<id>` source under it.
+    A section whose only line is `none` has no files.
+    """
+    if not any(line.strip() == "## Feature map changes" for line in body.splitlines()):
+        return None
+    content = [line.strip() for line in section(body, "Feature map changes") if line.strip()]
+    if content == ["none"]:
+        content = []
+    files: list[dict] = []
+    rows: set[str] = set()
+    current: dict | None = None
+    for line in content:
+        found = FILE_CHANGE_RE.match(line)
+        if found:
+            current = {"path": found.group(1), "changed": set(), "removed": set()}
+            files.append(current)
+            continue
+        found = SUB_CHANGE_RE.match(line)
+        if found is None or current is None:
+            continue
+        kind, identity, source = found.group(1), found.group(2), found.group(3)
+        if kind == "changed":
+            current["changed"].add(identity)
+        elif kind == "removed":
+            current["removed"].add(identity)
+        if not source:
+            continue
+        parsed, row_id = feature_map.source_kind(source.strip())
+        if parsed == "row" and row_id:
+            rows.add(row_id)
+    return {"files": files, "rows": rows}
+
+
+def contract_row_ids(text: str) -> set[str] | None:
+    """Row ids in one screen contract's text. None when the text does not parse."""
+    document = load_yaml_text(text)
+    if document is None:
+        return None
+    return feature_map.ids_in(document)
+
+
+def effort_contracts(body: str, changes: dict, root: Path) -> dict[str, str]:
+    """Screen contracts of this spec's effort that exist on the base branch, text included.
+
+    The effort is a contract path the spec names, or the product a Feature map
+    changes path names when `efforts/<product>/screen-contract.yaml` is on the base.
+    """
+    names = set(CONTRACT_PATH_RE.findall(body))
+    for entry in changes["files"]:
+        parts = entry["path"].split("/")
+        if len(parts) >= 3 and parts[0] == "docs" and parts[1] == "features":
+            names.add(parts[2])
+    found = {}
+    for name in sorted(names):
+        path = f"efforts/{name}/screen-contract.yaml"
+        text = git_text(root, path)
+        if text is not None:
+            found[path] = text
+    return found
+
+
+def homed_rows(root: Path, paths: list[str]) -> set[str]:
+    """Row ids named by a feature file on the base branch."""
+    found: set[str] = set()
+    for path in paths:
+        if not path.endswith(".md"):
+            continue
+        text = git_text(root, path)
+        if text is None:
+            continue
+        for item in feature_map.read_subfeatures(text):
+            source = item.get("source")
+            if not source:
+                continue
+            kind, row_id = feature_map.source_kind(source[1])
+            if kind == "row" and row_id:
+                found.add(row_id)
+    return found
+
+
+def pin_candidates(text: str, excluded: set[str]) -> list[str]:
+    """`check:` commands still able to pin the file. `changed` and `removed` ids are out."""
+    commands = []
+    for item in feature_map.read_subfeatures(text):
+        if item.get("id") in excluded:
+            continue
+        check = item.get("check")
+        if not check:
+            continue
+        value = check[1].strip()
+        if not value or value.startswith("none:"):
+            continue
+        commands.append(value)
+    return commands
+
+
+def feature_paths(changes: dict, tickets: list[dict], on_base: list[str]) -> list[str]:
+    """Feature files the section lists, or an Owns glob names, base files included."""
+    found: list[str] = []
+
+    def add(path: str) -> None:
+        if is_feature_file(path) and path not in found:
+            found.append(path)
+
+    for entry in changes["files"]:
+        add(entry["path"])
+    for ticket in tickets:
+        for pattern in owns_globs(ticket["body"]):
+            if is_feature_file(pattern):
+                add(pattern)
+            for path in on_base:
+                if is_feature_file(path) and glob_covers(pattern, path):
+                    add(path)
+    return found
+
+
+def owners_of(path: str, tickets: list[dict]) -> list[dict]:
+    return [ticket for ticket in tickets
+            if any(glob_covers(pattern, path) for pattern in owns_globs(ticket["body"]))]
+
+
+def waits_on(entries: list[dict]) -> dict:
+    """Each ticket's blockers, walked out through the batch. A cycle stops the walk."""
+    deps = {entry["id"]: list(entry.get("dependencies") or []) for entry in entries}
+    closure: dict = {}
+
+    def walk(node, stack: set) -> set:
+        if node in closure:
+            return closure[node]
+        if node in stack:
+            return set()
+        stack.add(node)
+        found: set = set()
+        for dep in deps.get(node, ()):
+            found.add(dep)
+            found |= walk(dep, stack)
+        stack.remove(node)
+        closure[node] = found
+        return found
+
+    for node in deps:
+        walk(node, set())
+    return closure
+
+
+def lint_feature_map_batch(spec: int, spec_body: str, tickets: list[dict],
+                           entries: list[dict] | None) -> int:
+    """Publish-time rules for `## Feature map changes`. 1 when one is an ERROR.
+
+    A missing section is a warning and the three rules do not run: a spec published
+    before the section existed has nothing for them to read. `entries` are the
+    blocking edges the graph check recorded. When that check did not record them,
+    they are read once here, and only if the section is present. HEAD of the
+    checkout is the base branch. A closed ticket still counts as an owner. Its
+    missing pin is printed and does not stop the batch. Only open tickets can run
+    at the same time.
+    """
+    if not spec_body:
+        return 0
+    print("\n## feature map changes")
+    changes = feature_map_changes(spec_body)
+    if changes is None:
+        print(f"  WARN  #{spec} has no ## Feature map changes  [no-feature-map-changes]")
+        return 0
+    root = repo_root()
+    on_base = git_paths(root, "docs/features")
+    if on_base is None:
+        print(f"  ERROR #{spec} base branch: expected a git checkout to read "
+              f"docs/features/; actual git could not read HEAD; evidence {root}  "
+              f"[base-unreadable]")
+        return 1
+    errors = 0
+    listed = changes["rows"]
+    homed = homed_rows(root, on_base)
+    for path, text in effort_contracts(spec_body, changes, root).items():
+        row_ids = contract_row_ids(text)
+        if row_ids is None:
+            print(f"  ERROR #{spec} `{path}`: expected a screen contract; actual the "
+                  f"file on the base branch did not parse; evidence {path}  "
+                  f"[contract-unreadable]")
+            errors += 1
+            continue
+        for row_id in sorted(row_ids - homed - listed):
+            print(f"  ERROR #{spec} row `{row_id}`: expected the row in "
+                  f"## Feature map changes; actual absent from ## Feature map changes "
+                  f"and from every feature file on the base branch; evidence spec "
+                  f"#{spec} ## Feature map changes  [unhomed-row]")
+            errors += 1
+    by_path = {entry["path"]: entry for entry in changes["files"]}
+    paths = feature_paths(changes, tickets, on_base)
+    open_tickets = [ticket for ticket in tickets
+                    if (ticket.get("state") or "").upper() != "CLOSED"]
+    for path in paths:
+        owners = owners_of(path, tickets)
+        if path in by_path and not owners:
+            print(f"  ERROR #{spec} `{path}`: expected the file in one ticket's "
+                  f"## Owns; actual no ticket owns it; evidence spec #{spec} "
+                  f"## Feature map changes  [unowned-feature]")
+            errors += 1
+    for ticket in tickets:
+        closed = (ticket.get("state") or "").upper() == "CLOSED"
+        checks = [command for _, command, _ in criteria_lines(ticket["body"])]
+        missed = False
+        for path in paths:
+            if path not in on_base or ticket not in owners_of(path, tickets):
+                continue
+            entry = by_path.get(path) or {}
+            excluded = set(entry.get("changed") or ()) | set(entry.get("removed") or ())
+            text = git_text(root, path)
+            if text is None:
+                continue
+            candidates = pin_candidates(text, excluded)
+            if not candidates:
+                continue
+            if any(command in check for command in candidates for check in checks):
+                continue
+            shown = ", ".join(f"`{command}`" for command in candidates)
+            print(f"  ERROR {ref(ticket['id'])} `{path}`: expected a CHECK containing "
+                  f"one of {shown}; actual no CHECK contains one; evidence "
+                  f"{ref(ticket['id'])} ## Acceptance criteria  [missing-pin]")
+            if closed:
+                missed = True
+            else:
+                errors += 1
+        if missed:
+            print(f"  WARN  {ref(ticket['id'])} is closed, so the ERROR above does not "
+                  f"stop the batch  [closed-ticket]")
+    if entries is None:
+        entries = ticket_entries([ticket["id"] for ticket in tickets])
+    waiting = waits_on(entries)
+    seen: set[tuple] = set()
+    for path in paths:
+        running = owners_of(path, open_tickets)
+        for left in running:
+            for right in running:
+                if left["id"] == right["id"]:
+                    continue
+                if (left["id"] in waiting.get(right["id"], ())
+                        or right["id"] in waiting.get(left["id"], ())):
+                    continue
+                pair = tuple(sorted((left["id"], right["id"]), key=str))
+                key = (pair, path)
+                if key in seen:
+                    continue
+                seen.add(key)
+                print(f"  ERROR {ref(pair[0])} and {ref(pair[1])} both own `{path}`: "
+                      f"expected one to wait on the other; actual the two can run at "
+                      f"the same time; evidence {ref(pair[0])} ## Owns and "
+                      f"{ref(pair[1])} ## Owns  [concurrent-owners]")
+                errors += 1
+    return 1 if errors else 0
+
+
 def lint_spec(spec: int) -> int:
     """Every sub-issue of the spec through `lint_criteria`, each under a line naming
-    it, then the batch graph once. Exit 1 if an open ticket or the graph has an ERROR: a
-    closed ticket is never started again, so its findings are printed and count for nothing."""
+    it, then the batch graph once, then the feature-map rules. Exit 1 if an open
+    ticket, the graph, or a feature-map rule has an ERROR: a closed ticket is never
+    started again, so its own findings are printed and count for nothing."""
     numbers = fetch_sub_issues(spec)
     spec_body = fetch_body(spec)
     print(f"#{spec} is a spec with {len(numbers)} sub-issues; linting each, then the graph")
     failed: list[int] = []
     named: set[int] = set()
+    tickets: list[dict] = []
     for child in numbers:
         ticket = fetch_ticket(child)
         state = ticket.get('state') or 'state unknown'
         body = fetch_body(child)
+        tickets.append({"id": child, "body": body, "state": state})
         named |= set(parent_sections("\n".join(section(body, "Parent")))
                      .get(spec, {}).get("sections") or ())
         print(f"\n## #{child} ({state})")
@@ -3700,11 +4411,14 @@ def lint_spec(spec: int) -> int:
             else:
                 failed.append(child)
     print("\n## ticket graph")
+    global _graph_entries
+    _graph_entries = None
     graph = lint_batch_graph(spec, numbers)
     print_uncovered_sections(spec, spec_body, named)
+    feature = lint_feature_map_batch(spec, spec_body, tickets, _graph_entries)
     if failed:
         print("  ERROR tickets with findings: " + ", ".join(f"#{n}" for n in failed))
-    return 1 if (failed or graph) else 0
+    return 1 if (failed or graph or feature) else 0
 
 
 DRAFT_HEADER_RE = re.compile(r"^([A-Z][A-Z ]*[A-Z]):\s*(.*)$")
@@ -3828,12 +4542,16 @@ def lint_drafts(spec: int, directory: Path) -> int:
     graph = lint_batch_graph(spec, [], entries) if entries else 1
     if spec_body:
         print_uncovered_sections(spec, spec_body, named)
+    draft_tickets = [{"id": draft["name"], "body": draft["body"], "state": "OPEN"}
+                     for draft in drafts]
+    feature = (lint_feature_map_batch(spec, spec_body, draft_tickets, entries)
+               if spec_body else 0)
     print("\nnot checked on drafts; run --lint on the published spec for these:")
     for line in DRAFTS_NOT_CHECKED:
         print("  - " + line)
     if failed:
         print("  ERROR drafts with findings: " + ", ".join(failed))
-    return 1 if (failed or graph) else 0
+    return 1 if (failed or graph or feature) else 0
 
 
 def _draft_dependencies(draft: dict, names: set[str], directory: Path) -> list[int | str]:

@@ -304,6 +304,7 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> 
         shown = fold["worker"]
         rows.append({
             "ticket": number,
+            "title": ticket.get("title") or "",
             "holder": holder_of(fold),
             "holders": fold["holders"],
             "live_workers": fold["live_workers"],
@@ -582,6 +583,9 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
                for r in rows if r.get("bounced_reason") and "needs-triage" in r["labels"]]
     waiting = [f"#{r['ticket']} blocked by " + blocking_text(r["blocking"])
                for r in rows if r["state"] == "OPEN" and r["blocking"]]
+    for_you = [f"#{r['ticket']} {r['title'][:80]}".strip()
+               for r in rows if r["state"] == "OPEN" and "ready-for-human" in r["labels"]
+               and not r["blocking"]]
     fresh = [f"#{c['number']} {(c.get('title') or '')[:80]}".strip()
              for c in kids if (c.get("created") or "") > opened]
     return "\n".join([
@@ -591,6 +595,7 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
         "Handed back to needs-triage: " + (", ".join(back) or "None"),
         "Bounced: " + (", ".join(bounced) or "None"),
         "Not dispatched, a blocker stayed open: " + (", ".join(waiting) or "None"),
+        "Ready for you to look at now: " + (", ".join(for_you) or "None"),
         "Sub-issues opened tonight: " + (", ".join(fresh) or "None"),
         routed_line(routed_counts(kids)),
     ])
@@ -858,7 +863,8 @@ def print_findings(spec: int) -> int:
 def reverify_problems(tickets: dict[int, dict], at: str) -> tuple[int, list[str]]:
     """(green, problems) of the reverify on commit `at`: every ticket `reverify` runs again
     (landed, or reopened by an earlier reverify) needs its newest reverify run to be of
-    `at` and met. That run's `ticket.checked` is the record; nothing else is kept."""
+    `at`, and met unless that run left it reopened in triage. That run's `ticket.checked`
+    is the record; nothing else is kept."""
     green, problems = 0, []
     for number in sorted(tickets):
         ticket = tickets[number]
@@ -868,6 +874,10 @@ def reverify_problems(tickets: dict[int, dict], at: str) -> tuple[int, list[str]
         payload = (record or {}).get("payload") or {}
         if payload.get("commit") != at:
             problems.append(f"#{number} has no reverify run of {at}; run reverify again")
+        elif regressed_in_triage(ticket):
+            # Reverify handed it back to triage, which judges it in the morning; the
+            # night closes around it, and the summary lists it as handed back.
+            continue
         elif payload.get("result") != "met":
             problems.append(f"#{number} is red on {at}: {', '.join(payload.get('failed') or [])}")
         else:

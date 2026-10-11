@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[3]
 PAGE_MODULES = ROOT / "mmw-v3" / "board" / "page"
 CONTRACT = ROOT / "efforts" / "task-board" / "screen-contract.yaml"
 HANDOFF = ROOT / "efforts" / "task-board" / "claude-design"
-STORY_SERVER = ROOT / ".mmw" / "stories" / "serve.py"
+STORY_SERVER = ROOT / ".mmw" / "task-board" / "stories" / "serve.py"
 VIEWPORTS = {
     "board": (1440, 900),
     "topbar": (1440, 52),

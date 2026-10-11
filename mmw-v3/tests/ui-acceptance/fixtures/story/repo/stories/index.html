@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <style>
@@ -120,6 +120,9 @@
         }
         if (mutate === "hidden-parent") {
           root.querySelector('[data-ui="group"]').style.visibility = "hidden";
+        }
+        if (mutate === "display-none") {
+          root.querySelector('[data-ui="metric"]').style.display = "none";
         }
         if (mutate === "other-parent") {
           const group = root.querySelector('[data-ui="group"]');

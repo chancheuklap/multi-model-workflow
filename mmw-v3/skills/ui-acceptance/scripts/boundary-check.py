@@ -112,7 +112,9 @@ def check_one(command: str) -> int:
         )
     if first.returncode != 0:
         print(f"MISS {command} — {tail(first.stdout)}")
-        print("Fix the product's test; the negative control was not reached.")
+        print("The first pass is red, so the negative control was not reached. Make the "
+              "product meet this row first; change the test only when it asserts "
+              "something the row does not say.")
         return 1
     negative = dict(env)
     negative["MMW_NEGATIVE"] = "1"

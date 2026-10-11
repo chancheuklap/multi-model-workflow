@@ -1,0 +1,1 @@
+{"ports": 3, "start": "python3 .mmw/product.py start", "stop": "python3 .mmw/product.py stop", "discover": "python3 .mmw/product.py discover", "doctor": "python3 .mmw/product.py doctor", "stories": "none", "leaves_machine": [], "harness_markers": []}
