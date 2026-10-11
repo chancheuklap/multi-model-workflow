@@ -4,9 +4,10 @@ Maps, specs and tickets live as GitHub issues. Use the `gh` CLI for all operatio
 
 ## Conventions
 
+- **Every list read is a whole list.** `gh issue list` stops at 30 without `--limit`, and a `gh api` list endpoint returns only its first page without `--paginate`. Both truncate in silence: the output carries no marker, so a half-read set reads exactly like a complete one. A spec's tickets, a map's children, a frontier and the `needs-triage` queue are sets, and an agent that cannot see a ticket treats it as absent. Pass `--limit 1000` to every `gh issue list`, and `--paginate` with `?per_page=100` to every `gh api` list.
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
+- **List issues**: `gh issue list --state open --limit 1000 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below).
 - **Blocking**: GitHub's **native issue dependencies**, the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only, the live gate). An issue is unblocked when every blocker is closed.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
@@ -19,7 +20,7 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 - **Rewrite an issue body**: `gh issue edit <number> --body-file <file>`.
 - **List a parent's sub-issues**: `gh api --paginate "repos/<owner>/<repo>/issues/<parent>/sub_issues?per_page=100" --jq '.[] | {number, title, labels: [.labels[].name]}'`.
-- **List an issue's open blockers**: `gh api "repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by" --jq '.[] | select(.state == "open") | .number'`.
+- **List an issue's open blockers**: `gh api --paginate "repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by?per_page=100" --jq '.[] | select(.state == "open") | .number'`.
 
 ## Three label sets
 
@@ -51,6 +52,6 @@ The **map** is a single issue with **child** issues as tickets.
 - **Map**: a single issue labelled `wayfinder:map` and `mmw:map`, its body in the shape of **The map body** in `wayfinder.md`. `gh issue create --label wayfinder:map --label mmw:map`.
 - **Child ticket**: an issue linked to the map as a GitHub sub-issue (see **Make an issue a sub-issue of a parent**). Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
 - **Blocking**: as in **Blocking** above. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues), drop any carrying `mmw:spec`, any with an open blocker (`issue_dependencies_summary.blocked_by > 0`) or an assignee; first in map order wins.
+- **Frontier query**: list the map's open children (**List a parent's sub-issues**, open only), drop any carrying `mmw:spec`, any with an open blocker (`issue_dependencies_summary.blocked_by > 0`) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
