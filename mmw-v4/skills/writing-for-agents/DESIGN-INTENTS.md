@@ -107,7 +107,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: **Work a ticket**; the `code-review` skill; **One ticket**; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Editing`.
 31. **Start from what exists, then decide whether to write;** less code, deep modules, delete before changing, no defence for what has not happened; the weight of the process follows the size of the task.
     Takes: P1, kept (`principle-laziness-protocol`); M4, kept; P21, adapted (a change one ticket can carry takes no spec); P37, kept (when in doubt, delete).
-    Home: `principle-start-from-what-exists`; `principle-laziness-protocol`; the `codebase-design` skill; **Feature**.
+    Home: `principle-start-from-what-exists`; `principle-laziness-protocol`; the `codebase-design` skill; **Feature**; **Improve the architecture** (M4's survey for deepening).
 
 ## The night's machinery
 
