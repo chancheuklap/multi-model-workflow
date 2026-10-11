@@ -7,13 +7,11 @@ description: MMW's way of working, which tells you how to pick the playbook for 
 
 ## Non-negotiables
 
-**An agent that was sent.** A session the dispatch skill started, or a subagent, has a prompt that ends `It is your whole task: what came before it is done, and you start no agent it does not name.` That sentence outranks `## Playbooks`, the triggers under **The task as a whole** below, and every principle that sends work to another agent: those belong to whoever owns the whole task, the one who sent it, and a sent agent runs one only when a step of its task does. The task its prompt names is its playbook: its todolist's first items are that task's steps, and what it hands back is what that task says, in place of a reply to the owner, with anything it found broken on the way. The triggers under **Your own code and prose** and the other principles shape its own work as they shape anyone's. It starts no agent its task, or, for a worker, its ticket's **What to build**, does not name.
+The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
-The Principles section below grounds every trigger. In your reply to the owner, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
+Remaining triggers:
 
-Remaining triggers, in two groups:
-
-**The task as a whole**
+**The task as a whole.** An agent whose prompt says its task is its whole task leaves these to its sender.
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - About to ask the user on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the **prototype** skill and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a decision only the owner makes (**principle-never-block-on-the-human**) that no experiment can settle. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the owner can make. Report the default with a full explanation, and say in plain words what the owner could tell you to do instead. The owner answers in their own words. Never give a shorthand token to type back. Gates that the owner named and the Always-pause list in Autonomy still need the owner.
@@ -100,13 +98,13 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" → keep going.
 
-**Unattended.** A session whose start prompt is a `Dispatched:` line was started by the dispatch skill, and nobody is watching it. Its start prompt names the file it works by. Ask nobody, since a question on the screen blocks the work until someone reads it. A call only the owner makes goes into a child issue of the ticket, as the **verify-ticket** skill's `references/sub-issues.md` says. A session sent a brief writes what it could not answer into its answer and reports as usual.
+**Unattended.** A session whose start prompt is a `Dispatched:` line was started by the dispatch skill, and nobody is watching it: ask nobody, since a question on the screen blocks the work until someone reads it. A call only the owner makes goes into a child issue of the ticket, as the **verify-ticket** skill's `references/sub-issues.md` says. A session sent a brief writes what it could not answer into its answer and reports as usual.
 
 **No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Form it per **principle-first-principles-thinking**. Agreement is not the default, candor over sycophancy. Disagreement is owed, and never manufactured: agreement the owner did not earn is worth nothing, because they decide a product on your judgement, and a "yes" that hides a flaw leaves them deciding on nothing. When you think the owner's plan has a flaw, say so, with the reason and an alternative. On product, priority and taste, once the owner has decided, do it their way and note the residual risk once; do not reopen it. When the owner pushes back, they are asking you to recheck the evidence and report what you find, whichever way it goes, not asking you to agree. When you have no objection, do not invent one to look thorough.
 
 ## Subagents
 
-**Send a session with the dispatch skill:** `dispatch.sh send worker|reviewer <ticket number>`, or `dispatch.sh send <role> --follow "<what>" <brief file>...` for a role its `roles.json` sends with a brief, <what> being the file the session works by (`the research skill`, `the research skill's references/explorer.md`, `the brief`); each runs on the model `~/.mmw/models.json` gives its role. A brief is a file with `## Task`, `## Known` and `## For`, written for a reader that sees none of this conversation (**principle-write-for-where-it-is-read**); the step that sends it says what goes in each. End your turn after sending. When the relay wakes you, follow the dispatch skill's `## On waking` first, then the step that sent it.
+**Send a session with the dispatch skill:** `dispatch.sh send worker|reviewer <ticket number>`, or `dispatch.sh send <role> --follow "<the file it works by>" <brief file>...` for a role its `roles.json` sends with a brief; each runs on the model `~/.mmw/models.json` gives its role. A brief is a file with `## Task`, `## Known` and `## For`, written for a reader that sees none of this conversation (**principle-write-for-where-it-is-read**); the step that sends it says what goes in each. End your turn after sending. When the relay wakes you, follow the dispatch skill's `## On waking` first, then the step that sent it.
 
 **Send a subagent with your host's general-purpose subagent, and name no model:** its prompt opens with `Read the mmw-mode skill in full, then`, goes on with what the step that sends it says, plus its own piece, and ends with `It is your whole task: what came before it is done, and you start no agent it does not name.` Hold your turn until every subagent you sent has returned; what a subagent hands back is its last message. On a host that cannot run subagents, do the pieces yourself, one after another.
 
@@ -144,7 +142,7 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 
 ## Playbooks
 
-Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim.
+Open a todolist whose first items are the steps of the file your prompt says to follow, or else of the matched playbook, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim.
 
 Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
 
