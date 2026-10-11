@@ -110,7 +110,7 @@ class TestLintOnASpec(unittest.TestCase):
 
     def test_a_labelled_spec_attached_to_its_map_is_still_a_spec(self):
         """The layer label says which layer the issue is, so attaching the spec under
-        its wayfinder map — which `docs/agents/issue-tracker.md` asks for — does not
+        its wayfinder map — which the mmw-mode skill's `references/github-issues.md` asks for — does not
         turn the pre-batch pass into a quiet 0 over the map's own children."""
         code, printed, _, batch, ticket_graph = lint(
             SPEC, {SPEC: SPEC_BODY, 301: CLEAN, 302: CLEAN}, [301, 302],

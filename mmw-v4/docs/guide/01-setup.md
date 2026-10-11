@@ -82,6 +82,10 @@ Every role costs tokens. To spend fewer, put the roles that write code on a chea
 
 The main session, the one you type into, is not a row. It runs on whatever model you chose in that host.
 
+## Set up each repository
+
+Install sets up the machine. Each repository MMW works in is set up once more, by the [setup-mmw](../../skills/setup-mmw/SKILL.md) skill. Ask a session in that repository to set it up. The skill checks the repository first and writes nothing for that check. Then it creates the pipeline's labels on GitHub, adds `.worktrees/` and `.scratch/` to `.gitignore`, records the commands that check the code in `.mmw/target.json`, writes `TESTING.md` from the tests the repository has, commits and pushes. It stops before any of that when the repository's issues are not on GitHub. Run it again at any time as a check-up; it keeps what is already there.
+
 ## Run your first task
 
 Open a new session in a repository, after the install. Pick something real but small, and describe it the way you would to a colleague:

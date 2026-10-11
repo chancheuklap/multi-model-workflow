@@ -1702,7 +1702,7 @@ def issue_db_id(number: int) -> int:
 
 def add_blocking_link(child: int, blocker: int) -> str | None:
     """Record `child` as blocked by `blocker` in the tracker's native issue dependencies,
-    the same edge `docs/agents/issue-tracker.md` `## Wayfinding operations` adds by hand.
+    the same edge the mmw-mode skill's `references/github-issues.md` adds by hand.
     The reason when it could not be recorded, None when it was. Patched out in tests."""
     try:
         blocker_id = issue_db_id(blocker)
@@ -3195,8 +3195,8 @@ def reads_as_spec(number: int, labels: list[str]) -> bool:
     than as a ticket that carries nothing to check.
 
     The layer label answers it, and its answer does not move when the spec is attached
-    to its wayfinder map as a sub-issue, which is what `docs/agents/issue-tracker.md`
-    asks for. Only an issue carrying no layer label at all falls back to the shape of
+    to its wayfinder map as a sub-issue, which is what the mmw-mode skill's
+    `references/github-issues.md` asks for. Only an issue carrying no layer label at all falls back to the shape of
     the tree — no parent, and children of its own — which is what an issue opened
     before the layer labels existed is. That fallback cannot tell such a spec, once it is
     attached to a map, from a criteria-less ticket; `lint_criteria` names the missing

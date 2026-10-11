@@ -88,8 +88,8 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Takes: M16, adapted (the verdict, not the code, is what the real build takes); P19, kept (options are compared in prototypes, `architect` sketches and `arena`).
     Home: the `prototype` skill; the `architect` and `arena` skills. Where a product's signed-off screens live has no home in the set.
 26. **Each repository is set up once and skills only read the setup;** the repository's files are placed by how long they stay true.
-    Takes: M19, adapted (`setup-mmw` also writes `.mmw/` and the standing files).
-    Home: none in the set (`setup-mmw` is not carried); `dispatch.sh land` runs the `checks` of `.mmw/target.json` when it is there.
+    Takes: M19, adapted (`setup-mmw` also writes `.mmw/target.json` and `TESTING.md`).
+    Home: the `setup-mmw` skill; `dispatch.sh land` and `advance` run the `checks` of `.mmw/target.json` when it is there.
 
 ## Proof
 
