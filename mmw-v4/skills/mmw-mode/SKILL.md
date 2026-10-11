@@ -7,7 +7,9 @@ description: MMW's way of working, which tells you how to pick the playbook for 
 
 ## Non-negotiables
 
-The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
+**An agent that was sent.** A session the dispatch skill started, or a subagent, has a prompt that ends `It is your whole task: what came before it is done, and you start no agent it does not name.` That sentence outranks the triggers below, the principles that send work out (**principle-guard-the-context-window**, **principle-exhaust-the-design-space**), and `## Playbooks`. The task its prompt names is its playbook: its todolist's first items are that task's steps, and what it hands back is what that task says, in place of a reply to the owner. The triggers that understand, design, review or record a task as a whole came before it, unless a step of its task runs one: how, prototype, architect, swarm and arena, code-review, the throughput checkpoint, no-comments, show-me-your-work, and a second opinion. From the other triggers and from the principles it takes what shapes its own work, such as how it writes code and prose; where its task and a trigger differ, its task wins. It starts no agent its task, or, for a worker, its ticket's **What to build**, does not name.
+
+The Principles section below grounds every trigger. In your reply to the owner, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
 Remaining triggers:
 
@@ -93,7 +95,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" → keep going.
 
-**Unattended.** A session whose start prompt is a `Dispatched:` line was started by the dispatch skill, and nobody is watching it. Its start prompt names the file it works by (`## Playbooks` says what that changes). Ask nobody, since a question on the screen blocks the work until someone reads it. A call only the owner makes goes into a child issue of the ticket, as the **verify-ticket** skill's `references/sub-issues.md` says. A session sent a brief writes what it could not answer into its answer and reports as usual.
+**Unattended.** A session whose start prompt is a `Dispatched:` line was started by the dispatch skill, and nobody is watching it. Its start prompt names the file it works by. Ask nobody, since a question on the screen blocks the work until someone reads it. A call only the owner makes goes into a child issue of the ticket, as the **verify-ticket** skill's `references/sub-issues.md` says. A session sent a brief writes what it could not answer into its answer and reports as usual.
 
 **No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Form it per **principle-first-principles-thinking**. Agreement is not the default, candor over sycophancy. Disagreement is owed, and never manufactured: agreement the owner did not earn is worth nothing, because they decide a product on your judgement, and a "yes" that hides a flaw leaves them deciding on nothing. When you think the owner's plan has a flaw, say so, with the reason and an alternative. On product, priority and taste, once the owner has decided, do it their way and note the residual risk once; do not reopen it. When the owner pushes back, they are asking you to recheck the evidence and report what you find, whichever way it goes, not asking you to agree. When you have no objection, do not invent one to look thorough.
 
@@ -101,9 +103,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Send a session with the dispatch skill:** `dispatch.sh send worker|reviewer <ticket number>`, or `dispatch.sh send <role> --follow "<what>" <brief file>...` for a role its `roles.json` sends with a brief, <what> being the file the session works by (`the research skill`, `the research skill's references/explorer.md`, `the brief`); each runs on the model `~/.mmw/models.json` gives its role. A brief is a file with `## Task`, `## Known` and `## For`, written for a reader that sees none of this conversation (**principle-write-for-where-it-is-read**); the step that sends it says what goes in each. End your turn after sending. When the relay wakes you, follow the dispatch skill's `## On waking` first, then the step that sent it.
 
-**Send a subagent with your host's general-purpose subagent, and name no model:** its prompt opens with `Read the mmw-mode skill in full, then`, and goes on with what the step that sends it says, plus its own piece. Hold your turn until every subagent you sent has returned; what a subagent hands back is its last message. On a host that cannot run subagents, do the pieces yourself, one after another.
-
-**A subagent sends nothing further.** A session sent a brief works that brief and reports. A session sent to a ticket sends only what its playbook's steps and its ticket's **What to build** send.
+**Send a subagent with your host's general-purpose subagent, and name no model:** its prompt opens with `Read the mmw-mode skill in full, then`, goes on with what the step that sends it says, plus its own piece, and ends with `It is your whole task: what came before it is done, and you start no agent it does not name.` Hold your turn until every subagent you sent has returned; what a subagent hands back is its last message. On a host that cannot run subagents, do the pieces yourself, one after another.
 
 **A second opinion is a session: `send advisor --follow "the advisor skill" <brief>`.** Ask for one before an architecture choice, a data migration, a big refactor or an API shape is committed, when one problem has resisted two attempts, or before a disputed reading of the task is treated as settled; not for what reading the code can settle. The brief carries the decision, not a narrowed question: the recent exchange quoted, your understanding, the constraints, the options and which way you lean, the paths you think matter. Leave out what to check and the conclusion you expect. For a problem that resisted two attempts, each attempt and what it produced is the core of the evidence. A choice you could reverse in minutes is not worth a session. The answer is advice: take it, or set it aside with a reason; one that changes what the owner decides goes to the owner. Do not ask again to get a different answer. A second consultation is for a new decision, or for the evidence the advisor said would change its answer.
 
@@ -129,7 +129,7 @@ Write the reply clean as you draft it. A cleanup pass after drafting does not re
 - **Every claim carries its evidence or its label in the same sentence.** Measured, inferred, or guess. A prediction or an unseen cause is a guess. A cause is something you found, not something you guessed: when the numbers do not add up, say you do not know yet. Never hand the owner a check you could run.
 - **Say what you did not touch.** What you did not touch and did not check matters as much as what you did, because the owner cannot open the diff to see it.
 
-Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The `**Reply:**` line that closes each playbook names only the content unique to it. Work a ticket has none: its worker runs unattended, and its closing comment on the ticket is its report. No agent that was sent writes one (`## Playbooks`).
+Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The `**Reply:**` line that closes each playbook names only the content unique to it. Work a ticket has none: its worker runs unattended, and its closing comment on the ticket is its report.
 
 **When it is working.** The owner finishes the report without asking "so what?", and either decides or puts it down. Every term you used, they can look up. When something broke, the first thing they see is the effect, and the cause or the fact that it is not yet known, not the stack trace. Every next step you hand them is one that only they can do.
 
@@ -138,8 +138,6 @@ Every playbook ends with a reply written this way, PR link as `https://github.co
 Comments follow the same rule as the reply. Write them clean as you go. Keep a comment only for a non-obvious *why* the code can't show. A verify or test script gets no phase-narrating comments such as `// Phase 1: add cards`. The assertion or log string documents the step, as in `assert(ok, 'persisted across restart')`. This applies to every file you produce, including the delegate's diff. A file, comments included, says what is true now and nothing of its history (**principle-files-describe-the-present**).
 
 ## Playbooks
-
-An agent that was sent, a session the dispatch skill started or a subagent, matches no route line below: the file its prompt has it follow is its playbook. Its todolist's first items are that file's steps, and what it hands back is what that file says, in place of a reply to the owner.
 
 Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim.
 

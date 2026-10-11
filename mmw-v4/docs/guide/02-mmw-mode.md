@@ -51,7 +51,7 @@ The diagram shows the common routes. The `## Playbooks` section of `mmw-mode` li
 - The skill set itself. Authoring or modifying a skill, and Eval.
 - The session itself. Session pickup, Pause safely, and Worktree and simulator cleanup.
 
-A session that the `dispatch` skill started matches nothing: its start prompt tells it to read `mmw-mode` and names the file it works by. It works a ticket, reviews one, answers a research brief, designs one candidate, or gives a second opinion. You do not prompt those sessions.
+A session that the `dispatch` skill started matches nothing: its start prompt tells it to read `mmw-mode`, names the file it works by, and says that file is its whole task. It does not redo the understanding, design or review that the session which sent it already did, and it sends nobody that file does not name. It works a ticket, reviews one, answers a research brief, designs one candidate, or gives a second opinion. You do not prompt those sessions.
 
 One rule overrides the matching. A ticket with acceptance criteria is worked only by a worker that `dispatch` sends. Give a session such a ticket and it runs the **One ticket** section of [Run a night](../../skills/mmw-mode/playbooks/run-a-night.md): it cuts a `fix-<n>` branch, sends a worker, and tells you.
 

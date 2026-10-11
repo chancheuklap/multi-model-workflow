@@ -10,6 +10,7 @@
 #                     worktrees.root。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
 #   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees
+#   子代理层数        Claude Code、Codex、Grok 的子代理层数上限都设为 2
 #
 # 装完把本 checkout 的 mmw-v4 目录记进 ~/.mmw/installed-root。
 #
@@ -1065,6 +1066,123 @@ if paths:
     echo "注意  paseo reload 没跑成：${reload_out:-exit $?}"
   fi
 fi
+
+# ---------------- 子代理层数 ----------------
+#
+# 被派的 agent 该不该再派人，由开场提示末尾那一句管（mmw-mode 的 Non-negotiables）；这里给三家
+# host 的子代理层数定同一个上限 2，作兜底：主会话的子代理还能再派一层，再往下派不出来。
+# dispatch 起的会话在它的 host 上也是主会话。三家默认各不相同：Claude Code 3（官方文档），
+# Codex 1（codex-rs core/src/config/mod.rs 的 DEFAULT_AGENT_MAX_DEPTH），Grok 1（它自带文档
+# user-guide/16-subagents.md；配置参考 26-config-reference.md 写 [subagents] max_depth 可调）。
+# host 没装（目录不在）就跳过。--back 不还原它。
+
+MMW_DEPTH_MODE="$mode" \
+MMW_DEPTH_HOME="$HOME_DIR" \
+MMW_DEPTH_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
+python3 - <<'PY' || rc=1
+import json
+import os
+import re
+import shutil
+import sys
+import tomllib
+from datetime import datetime
+from pathlib import Path
+
+DEPTH = 2
+mode = os.environ["MMW_DEPTH_MODE"]
+home = Path(os.environ["MMW_DEPTH_HOME"])
+codex_home = Path(os.environ["MMW_DEPTH_CODEX"])
+failed = False
+
+
+def backup_latest(path):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = path.with_name(path.name + ".bak-" + stamp)
+    shutil.copy2(path, backup)
+    for old in path.parent.glob(path.name + ".bak-*"):
+        if old != backup and (old.is_file() or old.is_symlink()):
+            old.unlink()
+
+
+def replace_file(path, text):
+    if path.is_file():
+        if path.read_text(encoding="utf-8") == text:
+            return
+        backup_latest(path)
+    scratch = path.with_name(path.name + ".mmw-tmp")
+    scratch.write_text(text, encoding="utf-8")
+    scratch.replace(path)
+
+
+def claude(path):
+    """settings.json 的 env 里 CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH。返回现在的值，装的时候先写上。"""
+    key = "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except Exception as exc:
+        sys.stderr.write(f"读不懂  {path}：{exc}\n")
+        return None
+    if mode != "check" and (data.get("env") or {}).get(key) != str(DEPTH):
+        data.setdefault("env", {})[key] = str(DEPTH)
+        replace_file(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    return (data.get("env") or {}).get(key)
+
+
+def toml_value(text, table, key):
+    return (tomllib.loads(text).get(table) or {}).get(key)
+
+
+def toml(path, table, key):
+    """config.toml 的 [table] 里 key。别的行一个字不动；写坏了 host 起不来，所以写前先读回一遍。"""
+    try:
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        now = toml_value(text, table, key)
+    except Exception as exc:
+        sys.stderr.write(f"读不懂  {path}：{exc}\n")
+        return None
+    if mode == "check" or now == DEPTH:
+        return now
+    line = f"{key} = {DEPTH}"
+    header = re.search(rf"^\[{re.escape(table)}\][ \t]*$", text, re.M)
+    if header and header.end() == len(text):
+        text += "\n"
+    if header:
+        start = header.end() + 1
+        nxt = re.search(r"^\[", text[start:], re.M)
+        end = start + nxt.start() if nxt else len(text)
+        body, n = re.subn(rf"^{re.escape(key)}\s*=.*$", line, text[start:end], flags=re.M)
+        text = text[:start] + (body if n else line + "\n" + body) + text[end:]
+    else:
+        text = text.rstrip("\n") + ("\n\n" if text.strip() else "") + f"[{table}]\n{line}\n"
+    try:
+        written = toml_value(text, table, key)
+    except Exception as exc:
+        sys.stderr.write(f"没写  {path}：改完读不回来（{exc}），原文件没动\n")
+        return now
+    if written != DEPTH:
+        sys.stderr.write(f"没写  {path}：[{table}] {key} 别处另有写法，改完仍是 {written}，原文件没动\n")
+        return now
+    path.parent.mkdir(parents=True, exist_ok=True)
+    replace_file(path, text)
+    return written
+
+
+for host, where, got in (
+    ("claude", home / ".claude", lambda: claude(home / ".claude/settings.json")),
+    ("codex", codex_home, lambda: toml(codex_home / "config.toml", "agents", "max_depth")),
+    ("grok", home / ".grok", lambda: toml(home / ".grok/config.toml", "subagents", "max_depth")),
+):
+    if not where.is_dir():
+        continue
+    value = got()
+    if str(value) == str(DEPTH):
+        print(f"已装  {host} 子代理层数 {DEPTH}")
+    else:
+        sys.stderr.write(f"缺    {host} 子代理层数是 {value if value is not None else '默认'}，要 {DEPTH}：跑一次 install.sh\n")
+        failed = True
+sys.exit(1 if failed else 0)
+PY
 
 # ---------------- Orca 侧工作树配置 ----------------
 #

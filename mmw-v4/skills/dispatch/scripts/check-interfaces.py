@@ -27,7 +27,7 @@ places have to agree, and nothing else notices when one of them moves:
    playbook writes names a role, or `worker`, which `send` resolves to the junior or senior worker by the
    ticket's grade. A role sent with a brief is sent by some `SKILL.md` or playbook.
 6. **Every session is told what it works by, and that file is there.** A start prompt
-   ends `Read the mmw-mode skill in full, then follow <what>.`: for a role sent with a
+   carries `Read the mmw-mode skill in full, then follow <what>.`: for a role sent with a
    ticket, <what> is its `follows` in `roles.json`; for a role sent with a brief, the
    `--follow "<what>"` the sending step writes after `send <role>`. <what> is
    `the <skill> skill`, `the <skill> skill's <path>` or `the brief`, and the skill and the

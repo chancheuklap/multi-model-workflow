@@ -2288,7 +2288,7 @@ assert obj["settings"].get("thinkingOptionId") == "true", obj["settings"]
 assert obj["settings"].get("modeId") == "agent", obj["settings"]
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "paseo run settings changed: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
-    "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md.") ;;
+    "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md. It is your whole task: what came before it is done, and you start no agent it does not name.") ;;
     *) fail "the worker's prompt should be its dispatch line and what it follows: $(out_json initialPrompt)" ;;
   esac
   assert_wt 61
@@ -2476,7 +2476,7 @@ obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert obj["provider"] == "claude/claude-opus-5", obj["provider"]
 assert obj["settings"].get("thinkingOptionId") == "high"
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "reviewer payload: $(cat "$TMP/out")"
-  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $base. Read the mmw-mode skill in full, then follow the code-review skill's references/session.md." ] \
+  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $base. Read the mmw-mode skill in full, then follow the code-review skill's references/session.md. It is your whole task: what came before it is done, and you start no agent it does not name." ] \
     || fail "the reviewer dispatch line did not carry the recorded base commit: $(out_json initialPrompt)"
 }
 
@@ -2507,7 +2507,7 @@ scenario_reviewerbaseafterintegrate() {
   code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer) > "$TMP/out" 2> "$TMP/err"; echo $?)"
   [ "$code" = 0 ] || fail "reviewer after integrate expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $integrated. Read the mmw-mode skill in full, then follow the code-review skill's references/session.md." ] \
+  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $integrated. Read the mmw-mode skill in full, then follow the code-review skill's references/session.md. It is your whole task: what came before it is done, and you start no agent it does not name." ] \
     || fail "reviewer did not use the integrated origin/main tip: $(out_json initialPrompt)"
 }
 
@@ -2543,7 +2543,7 @@ scenario_sendbrief() {
   [ "$(out_json settings.thinkingOptionId)" = medium ] \
     || fail "effort: $(out_json settings.thinkingOptionId)"
   copy="$STATE_DIR/briefs/$batch/1/brief.md"
-  [ "$(out_json initialPrompt)" = "Dispatched: advisor, brief $copy. Read the mmw-mode skill in full, then follow the advisor skill." ] \
+  [ "$(out_json initialPrompt)" = "Dispatched: advisor, brief $copy. Read the mmw-mode skill in full, then follow the advisor skill. It is your whole task: what came before it is done, and you start no agent it does not name." ] \
     || fail "the prompt should name the role, the brief's copy and what it follows: $(out_json initialPrompt)"
   [ "$(head -1 "$copy")" = "the brief body" ] || fail "the copy should open with the brief: $(cat "$copy")"
   grep -q "report $batch/1 <file>" "$copy" || fail "the copy should end with how to report: $(cat "$copy")"
@@ -2567,7 +2567,7 @@ scenario_sendbrief() {
   batch="$(newest_batch)"
   [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] \
     || fail "stdout should name both briefs of one batch: $(cat "$TMP/out")"
-  [ "$(out_json initialPrompt)" = "Dispatched: researcher, brief $STATE_DIR/briefs/$batch/2/brief.md. Read the mmw-mode skill in full, then follow the research skill." ] \
+  [ "$(out_json initialPrompt)" = "Dispatched: researcher, brief $STATE_DIR/briefs/$batch/2/brief.md. Read the mmw-mode skill in full, then follow the research skill. It is your whole task: what came before it is done, and you start no agent it does not name." ] \
     || fail "the second researcher's prompt is wrong: $(out_json initialPrompt)"
   grep -q "report $batch/2 <file>" "$STATE_DIR/briefs/$batch/2/brief.md" \
     || fail "the second copy should say how to report brief 2: $(cat "$STATE_DIR/briefs/$batch/2/brief.md")"
@@ -2676,7 +2676,7 @@ scenario_send() {
   started_once
   [ "$(out_json title)" = "#61 worker" ] || fail "title: $(out_json title)"
   case "$(out_json initialPrompt)" in
-    "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md.") ;;
+    "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md. It is your whole task: what came before it is done, and you start no agent it does not name.") ;;
     *) fail "the worker's prompt should be its dispatch line and what it follows: $(out_json initialPrompt)" ;;
   esac
 
@@ -2690,7 +2690,7 @@ scenario_send() {
   started_once
   [ "$(out_json title)" = "#61 reviewer" ] || fail "title: $(out_json title)"
   case "$(out_json initialPrompt)" in
-    "Dispatched: reviewer, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the code-review skill's references/session.md.") ;;
+    "Dispatched: reviewer, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the code-review skill's references/session.md. It is your whole task: what came before it is done, and you start no agent it does not name.") ;;
     *) fail "the reviewer's prompt should be its dispatch line and what it follows: $(out_json initialPrompt)" ;;
   esac
 

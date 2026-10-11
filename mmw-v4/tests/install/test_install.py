@@ -3,6 +3,7 @@ launchctl first on PATH. The v3 machine each case starts from is made by running
 mmw-v3/install.sh into the same home, so the takeover and the way back meet what v3 really
 writes."""
 import json
+import tomllib
 import os
 import shutil
 import subprocess
@@ -210,6 +211,33 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("explainer", r.stderr)
         self.assertIn("mode-hook.py", r.stderr)
+
+    def test_every_host_gets_subagent_depth_two_and_keeps_its_other_settings(self):
+        self.install_v3()
+        (self.home / ".grok").mkdir()
+        grok = self.home / ".grok/config.toml"
+        grok.write_text("[compat.claude]\nagents = false\n")
+        codex = self.home / ".codex/config.toml"
+        codex.write_text(codex.read_text() + '\n[agents]\nmax_threads = 12\nmax_depth = 1\n')
+        (self.home / ".mmw/installed-root").write_text(f"{V4}\n")
+        before = self.run_install("v4", "--check")
+        self.assertEqual(before.returncode, 1)
+        for host in ("claude", "codex", "grok"):
+            self.assertIn(f"缺    {host} 子代理层数", before.stderr)
+
+        r = self.run_install("v4")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        settings = json.loads((self.home / ".claude/settings.json").read_text())
+        self.assertEqual(settings["env"]["CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH"], "2")
+        self.assertIn("someone-elses-hook", hook_commands(self.home / ".claude/settings.json"))
+        agents = tomllib.loads(codex.read_text())["agents"]
+        self.assertEqual(agents, {"max_threads": 12, "max_depth": 2})
+        self.assertEqual(tomllib.loads(grok.read_text()),
+                         {"compat": {"claude": {"agents": False}}, "subagents": {"max_depth": 2}})
+
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertIn("已装  grok 子代理层数 2", check.stdout)
 
     @unittest.skipUnless(os.uname().sysname == "Darwin", "launchd is macOS only")
     def test_prompt_sync_job_is_written_and_loaded_on_a_real_home(self):

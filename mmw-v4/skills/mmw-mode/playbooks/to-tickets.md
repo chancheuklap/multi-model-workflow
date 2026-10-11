@@ -87,10 +87,10 @@ A shared file that is one body of logic, such as a route module several tickets 
 
 #### The quiz
 
-Have the spec and the drafts scanned for ambiguities before you list the breakdown: the scan's questions belong in each ticket's **Choices** when the user first sees it. When the host can run subagents, start your host's general-purpose subagent, on this session's model and thinking level and restricted to reading and searching where the host allows it, with one sentence:
+Have the spec and the drafts scanned for ambiguities before you list the breakdown: the scan's questions belong in each ticket's **Choices** when the user first sees it. When the host can run subagents, start your host's general-purpose subagent, on this session's model and thinking level and restricted to reading and searching where the host allows it, with one sentence and the closing one:
 
 ```
-Read the mmw-mode skill in full, then read its `references/ambiguity-scan.md` and scan spec #<spec> and the drafts in <dir> for ambiguities.
+Read the mmw-mode skill in full, then read its `references/ambiguity-scan.md` and scan spec #<spec> and the drafts in <dir> for ambiguities. It is your whole task: what came before it is done, and you start no agent it does not name.
 ```
 
 Hold this turn until it returns; where the host runs subagents in the background, ask for it to be waited on. When the host cannot run subagents, run the scan yourself from `../references/ambiguity-scan.md`, and write its result to a file before you list the breakdown.

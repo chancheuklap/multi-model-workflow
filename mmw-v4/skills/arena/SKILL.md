@@ -35,7 +35,7 @@ If a candidate is lost or produces no output, proceed with N-1 and note the drop
 
 ## Phase C: Cross-judge
 
-After every candidate has reported, send one judge: a subagent, as mmw-mode's `## Subagents` says, on this session's model, which only reads. Its prompt is this step, the rubric, and the candidates by directory. It scores each criterion and recommends a base with rationale. It runs in parallel with your reading in Phase D, never while candidates are still writing. Its worth is that it has not seen the reasoning that framed the task.
+After every candidate has reported, send one judge: a subagent, as mmw-mode's `## Subagents` says, on this session's model, which only reads. Its piece: score each candidate in <directories> against <rubric>, criterion by criterion, and recommend a base with your reasons. It runs in parallel with your reading in Phase D, never while candidates are still writing. Its worth is that it has not seen the reasoning that framed the task.
 
 ## Phase D: Pick a base
 

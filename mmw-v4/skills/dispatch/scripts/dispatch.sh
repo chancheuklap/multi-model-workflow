@@ -56,7 +56,8 @@
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
 # path, branch and base commit — and prints the session id. Its prompt is one line,
 # `Dispatched: <role>, ticket #<n>, base <commit>. Read the mmw-mode skill in full, then
-# follow <what>.`, <what> being the role's `follows` in roles.json. A start the
+# follow <what>. It is your whole task: …`, <what> being the role's `follows` in
+# roles.json and the last sentence WHOLE_TASK below. A start the
 # adapter refuses is refused once: no retry, no other host, no other runner. A worker
 # started on a ticket whose events still show a live worker replaces that one: the old
 # session is stopped through its own runner and a `worker.replaced` naming it goes on
@@ -91,8 +92,11 @@ RELAY="$SKILL_ROOT/scripts/relay.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 BRIEFS="$SKILL_ROOT/scripts/briefs.py"
 ROLES_JSON="$SKILL_ROOT/roles.json"
-# Every start prompt carries it: the mode first, then the file the session works by.
+# Every start prompt carries both: the mode first, then the file the session works by,
+# then that this file is all of its work. The mmw-mode skill's `## Non-negotiables` ranks
+# the last sentence above its triggers, and its `## Subagents` ends a subagent's prompt with it.
 READ_MODE="Read the mmw-mode skill in full, then follow"
+WHOLE_TASK="It is your whole task: what came before it is done, and you start no agent it does not name."
 RUNNER=""
 RUNNER_NAME=""
 REPO_URL=""
@@ -1338,8 +1342,9 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  # The start prompt is one line: as which role, on what, and what to follow. The session
-  # reads the mmw-mode skill first, then works by the file its role follows in roles.json.
+  # The start prompt is one line: as which role, on what, what to follow, and that this is
+  # all of it. The session reads the mmw-mode skill first, then works by the file its role
+  # follows in roles.json.
   local base="" prompt follows
   follows="$(role_follows "$profile")" \
     || refuse "could not read what the $profile role follows in $ROLES_JSON; nothing was started"
@@ -1351,7 +1356,7 @@ start_one() {
       base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
-      prompt="Dispatched: worker, ticket #$number, base $base. $READ_MODE $follows."
+      prompt="Dispatched: worker, ticket #$number, base $base. $READ_MODE $follows. $WHOLE_TASK"
       session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number") ;;
     reviewer)
       base="$(base_commit "$root" "$into" "issue-$number")"
@@ -1360,7 +1365,7 @@ start_one() {
       fi
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
-      prompt="Dispatched: reviewer, ticket #$number, base $base. $READ_MODE $follows." ;;
+      prompt="Dispatched: reviewer, ticket #$number, base $base. $READ_MODE $follows. $WHOLE_TASK" ;;
   esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
@@ -1520,7 +1525,7 @@ brief_many() {
     copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
             --footer "$(brief_footer "$batch/$n")")" \
       || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
-    prompt="Dispatched: $role, brief $copy. $READ_MODE $follows."
+    prompt="Dispatched: $role, brief $copy. $READ_MODE $follows. $WHOLE_TASK"
     # Herdr's session id is basename(cwd) plus the title's last word, so the last word
     # carries the batch and the brief.
     if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n")"; then
