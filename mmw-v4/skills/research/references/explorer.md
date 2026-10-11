@@ -21,7 +21,7 @@ Keep exploring until you can describe the full picture without hand-waving. If y
 
 ## Output
 
-Return your findings in this structure, through the research skill's steps after its table. Be factual and specific. Reference exact file paths, function names, type names, and line numbers where relevant.
+Return your findings in this structure, through the research skill's steps after its table, opened by one line stating the question you answered, from your brief's `## Task`. Be factual and specific. Reference exact file paths, function names, type names, and line numbers where relevant.
 
 ### Components Found
 The key types, services, classes, and abstractions. For each: name, file path, and a one-sentence description of what it does.

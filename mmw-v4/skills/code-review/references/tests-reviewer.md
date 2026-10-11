@@ -41,7 +41,7 @@ Each is a judgement call, and each review finding quotes the assertion it is abo
 
 ## 4. Report
 
-One entry per review finding: the file, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+One entry per review finding: the file and its `path:line`, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## Two things this axis never reports
 
