@@ -285,7 +285,7 @@ _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:
 Setting the ticket's assignee to oneself, followed by a `ticket.claimed` event. The frontier takes only unassigned tickets, so a claim keeps a second worker off the ticket.
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **hand back**:
 Swapping `ready-for-agent` for `needs-triage`, taking the claim off and leaving the ticket open: what `--closeout` does with a `HANDOFF REQUIRED` closing-comment draft.

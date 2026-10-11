@@ -40,7 +40,7 @@ This repository is multi-context, and its context files sit apart from the code 
 │       ├── night/CONTEXT.md           ← dispatching sessions onto tickets
 │       ├── ui-acceptance/CONTEXT.md   ← design side, screen contract, oracles
 │       └── task-board/CONTEXT.md      ← the local browser board
-└── mmw-v2/
+└── mmw-v4/
 ```
 
 The contexts live under `docs/contexts/` rather than beside their code because the code of most of them is a skill directory, and a skill directory is symlinked whole into every host: it holds only what the agent holding the skill reads or runs. A `CONTEXT.md` placed beside that code would ship to every host with the skill and be read by agents who never asked for it.

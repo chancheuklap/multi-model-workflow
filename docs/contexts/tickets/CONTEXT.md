@@ -8,7 +8,7 @@ The written half of the landing pipeline: what a spec and a ticket are, the sect
 
 **worker grade**:
 Which of the two workers a ticket goes to: at once a ticket label and a `models.json` row. `dispatch.sh` reads the label afresh each time the ticket is started.
-_Home_: `docs/agents/issue-tracker.md`, `mmw-v3/skills/dispatch/scripts/dispatch.sh`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`, `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`junior-worker`**:
 The default worker grade (`DEFAULT_WORKER` in `dispatch.sh`).
@@ -22,7 +22,7 @@ _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **issue**:
 A GitHub issue, the tracker's unit: a map, a spec, a ticket, a ticket's child, a decision ticket, or an issue from outside that triage handles.
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **spec**:
 A container for a batch of tickets, not a piece of work: an issue labelled `mmw:spec`, in the shape of **The spec template** of the `Write a spec` playbook, which writes it and publishes it with `verify-ticket.py --publish --spec-body`. A spec published from a wayfinder map is a native sub-issue of that map.
@@ -252,7 +252,7 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/work-a-ticket.md`
 **blocking edge**:
 The tracker's native issue dependency between two tickets, the copy every script reads. A blocker is a ticket that must land before the ticket it blocks is started.
 _Avoid_: blocking link; native issue dependencies as this concept's name (it names GitHub's mechanism)
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **frontier**:
 The tickets `advance` may start now, as `status.py` computes them from the tracker. Distinct from wayfinder's frontier, a map's open, unblocked, unclaimed children.
@@ -260,25 +260,25 @@ _Home_: `mmw-v3/skills/dispatch/scripts/status.py`
 
 **sub-issue**:
 The tracker's native parent–child relation. A map's children are its decision tickets and specs, a spec's direct children are its tickets, and a ticket's direct children are the issues a worker opens under it with `--sub-issue <kind>`.
-_Home_: `docs/agents/issue-tracker.md`, `mmw-v3/skills/verify-ticket/references/sub-issues.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`, `mmw-v3/skills/verify-ticket/references/sub-issues.md`
 
 ### Labels and queues
 
 **label**:
 A GitHub label on an issue. This repository's own labels come from three sets that never stand in for each other: a **layer label** says which layer of the tree the issue is, a triage label which queue it is in, a worker-grade label which worker row starts it. Triage's `bug` and `enhancement` and wayfinder's `wayfinder:<type>` labels sit outside the three.
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **layer label**:
 One of `mmw:map`, `mmw:spec`, `mmw:ticket`, `mmw:child`, saying which layer of the tree an issue is. It puts an issue in no queue.
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **queue**:
 What a triage label expresses: `ready-for-agent` is the agent queue, `needs-triage` holds what nobody has judged, `ready-for-human` is the user's queue.
-_Home_: `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **triage role**:
-A canonical label name the upstream skills use: five state roles, which `docs/agents/triage-labels.md` maps to this repository's label strings, and two category roles, `bug` and `enhancement`, used as named.
-_Home_: `docs/agents/triage-labels.md`, `mmw-v3/skills/triage/SKILL.md`
+A canonical label name the upstream skills use: five state roles, which `mmw-v4/skills/mmw-mode/references/github-issues.md` lists with this repository's label strings, and two category roles, `bug` and `enhancement`, used as named.
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`, `mmw-v3/skills/triage/SKILL.md`
 
 **`needs-triage`**:
 The label of an issue nobody has judged yet: an issue from outside, a ticket its worker handed back or that bounced twice, a landed ticket `reverify` reopened, or a child a worker opened. The triage skill reads this queue.
@@ -286,7 +286,7 @@ _Home_: `mmw-v3/skills/triage/SKILL.md`, `mmw-v3/skills/triage/references/pipeli
 
 **`needs-info`**:
 Waiting on the user for more information; one of triage's four outcomes.
-_Home_: `docs/agents/triage-labels.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **`ready-for-agent`**:
 The agent-queue label, which the ticket format puts on every agent ticket beside a worker-grade label. It never goes on a spec.
@@ -314,7 +314,7 @@ _Home_: `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 **`wontfix`**:
 Will not be done; one of triage's four outcomes.
-_Home_: `docs/agents/triage-labels.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **`bug`, `enhancement`**:
 The two category roles, for work arriving from outside; a ticket this repository plans for itself carries neither.

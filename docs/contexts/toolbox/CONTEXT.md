@@ -14,7 +14,7 @@ _Home_: `mmw-v3/skills/dispatch/hosts.json`
 
 **user**:
 The person who owns the products and works with the orchestrator on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` and `needs-info` wait on the user.
-_Home_: `docs/agents/triage-labels.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **subagent**:
 An agent started inside another agent's session, holding its own context and answering back into that session; a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no `models.json` row. Distinct from a session a runner starts with `dispatch.sh start` or `dispatch.sh brief`, which reports outside the session that started it; a code-review axis runs as a subagent of the reviewer where the host can run one.
@@ -61,15 +61,15 @@ _Home_: `mmw-v3/install.sh`
 **issue tracker**:
 GitHub Issues for this repository (the tracker), every operation through `gh`: it holds the specs, tickets and children, their parent–child relations and blocking edges, the claims and the events.
 _Avoid_: board (for the tracker; the task board is the local web page)
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **Memory record**:
 One memory in Nowledge Mem, kept in the **repository Space** and found by its labels: a worker's saved fact carries `mmw-experience`, `mmw-spec-<n>`, `mmw-ticket-<n>` and, for a map task, `mmw-map-<n>`; the night's **Retro Memory** carries `mmw-retro`.
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
 **`docs/agents/`**:
-The three files the `setup-mmw` skill writes when it onboards a repository — `issue-tracker.md`, `triage-labels.md`, `domain.md` — from which the skills read this repository's tracker commands, labels and domain docs.
-_Home_: `mmw-v3/skills/setup-mmw/SKILL.md`
+This repository's `domain.md`: how to read its contexts, ADRs and feature maps before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
+_Home_: `docs/agents/domain.md`
 
 **`CONTEXT.md`**:
 The glossary of one bounded context, at `docs/contexts/<name>/CONTEXT.md`; the root `CONTEXT-MAP.md` lists the contexts and how they relate. `mmw-v3/upstream-mattpocock/CONTEXT.md` is upstream's own vocabulary and not part of it.
@@ -192,7 +192,7 @@ _Home_: `mmw-v3/skills/verify-ticket/SKILL.md`
 
 **`issue_tree.py`**:
 The verify-ticket skill's script that reads the tree under a map, a spec or a ticket in GraphQL and refuses rather than return a list shorter than GitHub's count. `status.py` and `--lint` read a spec's batch through it.
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **ADR**:
 An architecture decision record in `docs/adr/`, named `0001-slug.md`. `docs/adr/README.md` gives its shape and is the index.
