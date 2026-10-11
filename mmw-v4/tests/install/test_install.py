@@ -129,8 +129,8 @@ class InstallTest(unittest.TestCase):
         for where in (".agents/skills", ".claude/skills"):
             self.assertEqual(self.link("dispatch", where), str(V4 / "skills/dispatch"))
             self.assertEqual(self.link("mmw-mode", where), str(V4 / "skills/mmw-mode"))
-            # A skill only v3 has stays, pointing where v3 put it.
-            self.assertEqual(self.link("retro", where), str(V3 / "skills/retro"))
+            # A skill only v3 has is removed: the two versions are never installed together.
+            self.assertFalse((self.home / where / "retro").is_symlink(), where)
         self.assertEqual(os.readlink(self.home / ".claude/CLAUDE.md"), str(V4 / "prompt/shared.md"))
         self.assertIn("generated from mmw-v4/prompt/shared.md",
                       (self.home / ".codex/AGENTS.md").read_text().splitlines()[0])
@@ -157,7 +157,7 @@ class InstallTest(unittest.TestCase):
         check = self.run_install("v4", "--check")
         self.assertEqual(check.returncode, 0, check.stderr)
         self.assertIn("HOOKS-INSTALLED", check.stdout.splitlines())
-        self.assertIn(str(self.home / ".agents/skills/retro"), check.stdout)
+        self.assertNotIn("retro", check.stdout + check.stderr)
 
     def test_a_second_install_changes_nothing(self):
         self.install_v3()

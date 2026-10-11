@@ -20,7 +20,7 @@
 # checkout 的 mmw-v3/。
 #
 # 从 v3 换到 v4：在装着的 checkout 里跑一次本脚本。同名的 v3、v2 技能软链原地换成指向 mmw-v4；
-# 只有 v3 有的技能软链留着不摘，--check 列出来；v3 的 mode-hook.py 登记摘掉（v4 由 mmw-mode 的
+# 只有 v3 有的技能软链摘掉，两版不混装；v3 的 mode-hook.py 登记摘掉（v4 由 mmw-mode 的
 # description 让会话先读它）。退回 v3：install.sh --back，见下面 --back 一段。
 #
 # 本机装的是哪一份，只由这一次显式的安装决定。别的 checkout 跑 --check 只核对（见下面
@@ -54,20 +54,10 @@ ours_skill_target() {
   return 1
 }
 
-# skills/ 下没有、该摘掉的：指向 mmw-v4 或 mmw-v2 的。指向 mmw-v3 的是只有 v3 有的技能，
-# 留着给退回 v3 时用，不摘。
+# skills/ 下没有、该摘掉的：指回本仓库任何一版的技能软链。只有 v3 有的也摘，两版不混装；
+# 退回 v3 时 mmw-v3/install.sh 会把它们装回来。
 retired_skill_target() {
-  case "$1" in
-    */mmw-v3/skills/*) return 1 ;;
-  esac
   ours_skill_target "$1"
-}
-
-v3_only_target() {
-  case "$1" in
-    */mmw-v3/skills/*) return 0 ;;
-  esac
-  return 1
 }
 
 # 一个安装目录里所有指回本仓库的软链。别人放在同一个目录里的东西不在其中。
@@ -243,16 +233,12 @@ for dest in "${HOST_DIRS[@]}"; do
       echo "残留  $stale 指回本仓库，skills/ 下却没有它，跑一次 install.sh 摘掉" >&2
       rc=1
     done < <(stale_links "$dest" retired_skill_target "${wanted_names[@]}")
-    while IFS= read -r kept; do
-      [ -n "$kept" ] || continue
-      echo "留着  $kept 指向 mmw-v3，只有 v3 有这个技能，v4 不装也不摘"
-    done < <(stale_links "$dest" v3_only_target "${wanted_names[@]}")
     continue
   fi
 
   mkdir -p "$dest"
 
-  # 先清理：这个目录里指向 mmw-v4、mmw-v2，skills/ 下却没有的软链，摘掉。
+  # 先清理：这个目录里指回本仓库（mmw-v4、mmw-v3、mmw-v2），skills/ 下却没有的软链，摘掉。
   # 目标不指回本仓库的一律不碰，宁可留着也不误删。
   while IFS= read -r stale; do
     [ -n "$stale" ] || continue

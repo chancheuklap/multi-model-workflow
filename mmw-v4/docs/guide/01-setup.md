@@ -51,7 +51,7 @@ bash mmw-v4/install.sh --back
 
 `--back` first removes or restores the items that v3 cannot recognise. For example, it brings back the `models.json` rows that v4 removed, from the `.bak-` copy. Then it runs `mmw-v3/install.sh` from the same checkout. The exit code is v3's.
 
-Moving from v3 to v4 is the plain install, run once in the installed checkout. Skill links that v3 and v4 share move to `mmw-v4/`. A skill that only v3 has keeps its link, and `--check` lists it.
+Moving from v3 to v4 is the plain install, run once in the installed checkout. Skill links that v3 and v4 share move to `mmw-v4/`. A skill that only v3 has loses its link, so the two versions are never installed together; `--back` puts it back.
 
 ## Choose a model for each role
 
