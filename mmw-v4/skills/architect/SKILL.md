@@ -17,7 +17,7 @@ Open a todolist with one entry per phase before starting.
 
 ## Phase A: Ground the problem
 
-Build a real mental model of every system the new code touches. Run the **how** skill over the relevant subsystems. Look for what already solves the problem, in the repository and outside it, before sketching (**principle-start-from-what-exists**).
+Build a real mental model of every system the new code touches. Run the **how** skill over the relevant subsystems, unless the caller already ran it over them; then use its traced model. Look for what already solves the problem, in the repository and outside it, before sketching (**principle-start-from-what-exists**).
 
 Naming a file isn't grounding. Produce the traced model `how` prescribes. If the design redefines ownership or layering, also run the **why** skill on the existing shape so the rationale becomes a constraint, not a guess.
 
@@ -27,7 +27,9 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Each candidate reads `references/runner-prompt.md` itself, since arena's send has it follow that file, and produces a design package shaped per `references/rationale-template.md`. The synthesized sketch goes where the caller says; under the **prototype** skill that is the leaf `SKETCH/` directory, with the rationale as its `README.md`.
+Several candidates are for a change that adds or changes an interface other code calls, a data shape, or more than one module. A smaller change gets one sketch you write from the Phase A grounding, screened against [`references/design-red-flags.md`](references/design-red-flags.md), with no arena.
+
+Otherwise, run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Each candidate reads `references/runner-prompt.md` itself, since arena's send has it follow that file, and produces a design package shaped per `references/rationale-template.md`. The synthesized sketch goes where the caller says; under the **prototype** skill that is the leaf `SKETCH/` directory, with the rationale as its `README.md`.
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 

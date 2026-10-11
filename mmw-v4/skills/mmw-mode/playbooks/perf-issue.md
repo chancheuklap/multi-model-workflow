@@ -21,7 +21,7 @@
 
 **Measure it again.** One ticket step 4 runs this once the ticket passed: capture a post-fix trace in `.worktrees/issue-<n>` the way step 2 captured the baseline, then parse and compare the artifacts (JSON to sqlite, diff). "Inconclusive" or wrong-surface is not a pass. Flag it. A target the numbers miss is reported as missed, never met by changing the benchmark (**principle-fix-root-causes**).
 
-**A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 4 with that evidence.
+**A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 3 with that evidence.
 
 For sustained improvement against a metric rather than a one-off fix, use the Hillclimb playbook (`playbooks/hillclimb.md`).
 

@@ -10,7 +10,7 @@ The two most common design mistakes are taking the agent's first design and deba
 /architect design the import pipeline before writing any code. i care most about how callers use it.
 ```
 
-The architect skill works in three phases. First it grounds itself. It runs the how skill over the code the design touches, adds the why skill when the design moves ownership or layers, and looks for what already solves the problem (**principle-start-from-what-exists**). Then it runs the arena skill with at least two structurally different candidates. Each candidate gets one constraint:
+The architect skill works in three phases. First it grounds itself. It runs the how skill over the code the design touches, unless its caller already did, adds the why skill when the design moves ownership or layers, and looks for what already solves the problem (**principle-start-from-what-exists**). A change that touches no interface other code calls, no data shape and only one module gets a single sketch. A larger one goes to the arena skill with at least two structurally different candidates. Each candidate gets one constraint:
 
 - Minimize the interface, with one to three entry points.
 - Maximize flexibility for many uses.
