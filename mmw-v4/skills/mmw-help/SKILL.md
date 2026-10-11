@@ -71,7 +71,6 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Strip comments before review, using a reviewer that didn't write them | `no-comments` |
 | Clean AI tells out of prose | `unslop` |
 | Write docs, a README, a PR description, or a commit message to a standard | `technical-writing` |
-| Hear the last reply again in plain words | `bro` |
 | Have the last reply re-pitched, in words or with `visual` as one page | `wait-what` |
 | Draw a diagram or a page that explains something | `diagram-design` |
 | Build an install package from the current branch | `exe-release` |

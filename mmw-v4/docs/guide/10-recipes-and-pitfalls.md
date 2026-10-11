@@ -170,10 +170,10 @@ You rarely need more words; you need the right name. [Steer with principle names
 ## Get the reply in plain words
 
 ```text
-/bro
+/wait-what
 ```
 
-That is the whole prompt. The [bro](../../skills/bro/SKILL.md) skill restates the last message more simply and shortly, like one person talking to another. Use it when a reply is thorough and you still cannot tell what it said.
+That is the whole prompt. The [wait-what](../../skills/wait-what/SKILL.md) skill re-pitches the last message with the context it skipped, in short sentences and the project's own names. Use it when a reply is thorough and you still cannot tell what it said. `/wait-what visual` makes the same re-pitch one page of pictures.
 
 ## The pitfalls
 

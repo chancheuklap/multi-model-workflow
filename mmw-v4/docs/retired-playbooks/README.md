@@ -10,4 +10,5 @@ Block 6 of the v4 design (page 11) took these out of the mmw-mode skill, and pag
 | `autonomous-run.md`, `orchestrate.md`, `autopilot-full.md`, `autopilot-stack.md`, `multi-phase-plan.md` | Autonomous run, Orchestrate, Autopilot-full, Autopilot-stack, Multi-phase plan | The pipeline: To spec, To tickets, then Run a night |
 | `scripts/orch/`, `scripts/watch-pr/`, `scripts/package.json`, `scripts/bun.lock`, `scripts/bootstrap.ts` | The tools of Orchestrate, Babysit and Shipping, and the installer of their packages | Nothing; their playbooks are gone |
 | `scripts/check-plan.mjs` | Multi-phase plan's plan check | Nothing; its playbook is gone |
+| `../retired-skills/bro/` | The bro skill, which restated the last message more simply and shortly | The wait-what skill: it adds the context the message skipped and keeps the project's names, where shortening could drop a qualifier; `visual` makes it a page |
 | `../retired-skills/interrogate/` | The interrogate skill | The code-review skill: its Correctness axis carries interrogate's correctness, root-cause and security questions, and its Standards axis the four structural ones |
