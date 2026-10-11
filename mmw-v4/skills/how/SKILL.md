@@ -18,7 +18,7 @@ When in doubt, take the simple path.
 
 ## Step 2a. Explore (complex questions only)
 
-Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem. Write one brief per angle: `## Task` the question and this angle; `## Known` what you have read so far; `## For` one explanation you write from every angle. Send them all with one `dispatch.sh send researcher <brief>...` of the **dispatch** skill and end your turn. Woken by `brief <batch> done`, follow the dispatch skill's `## On waking`, then go to Step 3.
+Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem. Write one brief per angle: `## Task` the question and this angle; `## Known` what you have read so far; `## For` one explanation you write from every angle. Send them all with one `dispatch.sh send researcher --follow "the research skill's references/explorer.md" <brief>...` of the **dispatch** skill and end your turn. Woken by `brief <batch> done`, follow the dispatch skill's `## On waking`, then go to Step 3.
 
 ## Step 2b. Direct Explain (simple questions)
 

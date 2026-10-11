@@ -13,7 +13,7 @@ researcher, an explainer or a synthesizer has no ticket: it answers one session,
 that sent it. Its result is written here, in this machine's state directory for the
 repository (statedir.py), never in the repository and never on the tracker.
 
-**A batch** is what one `dispatch.sh send <role> <file>...` call starts: one session per
+**A batch** is what one `dispatch.sh send <role> --follow <what> <file>...` call starts: one session per
 brief file, all of one role, all answering one parent session. The relay keeps a watch on
 the batch (`briefs:<batch>`, relay.py) with the parent as its orchestrator, and queues one
 wake, `brief <batch> done`, once every brief in it has reported or is lost. One wake per

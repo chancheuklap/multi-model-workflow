@@ -26,7 +26,7 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
 **Watches.** What the relay reads is the union of its watches. A watch is what one
 `dispatch.sh open` or `open-ticket` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
-night — or `{"briefs": B}`, the batch of sessions one `dispatch.sh brief` started (below).
+night — or `{"briefs": B}`, the batch of sessions one `dispatch.sh send` of a brief role started (below).
 Each watch has its own orchestrator, a (runner, session) pair: the session that
 opened it. Nothing names an orchestrator but the watch it opened; there is no registration
 apart from a watch. A repository has one relay process and one state directory however many
@@ -51,7 +51,7 @@ A worker needs no registration: the ticket says who it is. Each row is written w
 recipient's runner and session, and only that recipient — the pair, never the session
 id alone — consumes it.
 
-**Briefs.** A session `dispatch.sh brief` starts has no ticket: it reports by writing
+**Briefs.** A session a brief `dispatch.sh send` starts has no ticket: it reports by writing
 its result into the batch's directory in this state directory (`briefs.py`, beside this
 file). Each cycle the relay looks at every batch it watches, and when every brief of one
 has reported or been marked lost, it queues one row, `brief <batch> done`, to the session

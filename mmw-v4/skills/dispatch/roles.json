@@ -3,18 +3,21 @@
     {
       "name": "junior-worker",
       "sent_with": "ticket",
+      "follows": "the mmw-mode skill's playbooks/work-a-ticket.md",
       "what": "works one ticket to closed: writes the code, runs the criteria, starts its reviewer",
       "returns": "events on its ticket, which the relay turns into wakes for the session that sent it"
     },
     {
       "name": "senior-worker",
       "sent_with": "ticket",
+      "follows": "the mmw-mode skill's playbooks/work-a-ticket.md",
       "what": "the worker of a ticket graded senior",
       "returns": "events on its ticket, which the relay turns into wakes for the session that sent it"
     },
     {
       "name": "reviewer",
       "sent_with": "ticket",
+      "follows": "the code-review skill's references/session.md",
       "what": "reviews one ticket's diff, sending the code-review axes",
       "returns": "reviewer.reported on the ticket, which the relay turns into a wake for its worker"
     },

@@ -26,6 +26,13 @@ places have to agree, and nothing else notices when one of them moves:
    default row is a role. Every `dispatch.sh send <role>` (or `send <role>`) a `SKILL.md` or
    playbook writes names a role, or `worker`, which `send` resolves to the junior or senior worker by the
    ticket's grade. A role sent with a brief is sent by some `SKILL.md` or playbook.
+6. **Every session is told what it works by, and that file is there.** A start prompt
+   ends `Read the mmw-mode skill in full, then follow <what>.`: for a role sent with a
+   ticket, <what> is its `follows` in `roles.json`; for a role sent with a brief, the
+   `--follow "<what>"` the sending step writes after `send <role>`. <what> is
+   `the <skill> skill`, `the <skill> skill's <path>` or `the brief`, and the skill and the
+   file must exist. A send of a brief role without `--follow` would start a session that
+   has to guess its job.
 
 It reads the files and parses Python with `ast`; it imports nothing it checks and writes
 nothing. Exit 0 prints `INTERFACES OK`; exit 1 prints one finding per line, each naming
@@ -50,14 +57,15 @@ EVENTS_PY = SKILLS / "verify-ticket" / "scripts" / "events.py"
 VERIFY_PY = SKILLS / "verify-ticket" / "scripts" / "verify-ticket.py"
 MODE = SKILLS / "mmw-mode" / "SKILL.md"
 
-# The orchestrator's playbook, which the owner's session routes to itself, and the
-# worker's, which its start prompt sends it to through the mmw-mode skill.
+# The orchestrator's playbook, which the owner's session routes to itself. The worker's
+# is the file its role follows in roles.json, which its start prompt names.
 ORCHESTRATOR_PLAYBOOK = "Run a night"
-WORKER_PLAYBOOK = "Work a ticket"
 
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`\.?\s*$", re.M)
 WAITED = re.compile(r"#<n> ([a-z]+\.[a-z]+)")
 SENT = re.compile(r"`(?:[^`\n]*dispatch\.sh )?send ([a-z][a-z-]*)")
+FOLLOWED = re.compile(r'`(?:[^`\n]*dispatch\.sh )?send ([a-z][a-z-]*)( --follow "([^"`]+)")?')
+FOLLOWS = re.compile(r"^the ([a-z0-9-]+) skill(?:'s (\S+?))?\.?$")
 ROUTING = re.compile(r"^## (?:Find your moment|Reached from here|Next)\n(.*?)(?=^## |\Z)", re.M | re.S)
 
 
@@ -120,10 +128,57 @@ def check_roles() -> list[str]:
                 out.append(f"{path.relative_to(SKILLS)}: `dispatch.sh send {name}` names no role "
                            f"in {where}")
     for role in roles:
+        if role.get("sent_with") == "ticket":
+            what = role.get("follows", "")
+            why = resolve_follows(what) if what else "it has no `follows`"
+            if why:
+                out.append(f"{where}: the {role['name']} role's start prompt says what to follow, "
+                           f"and {why}")
+    brief_roles = {r["name"] for r in roles if r.get("sent_with") == "brief"}
+    for path in sorted(SKILLS.glob("*/SKILL.md")) + sorted(SKILLS.glob("*/playbooks/*.md")) \
+            + sorted(SKILLS.glob("*/references/*.md")):
+        for name, flag, what in FOLLOWED.findall(path.read_text(encoding="utf-8")):
+            if name not in brief_roles:
+                continue
+            if not flag:
+                out.append(f"{path.relative_to(SKILLS)}: `send {name}` has no `--follow \"<what>\"`, "
+                           f"so its session would have to guess what it works by")
+            elif why := resolve_follows(what):
+                out.append(f"{path.relative_to(SKILLS)}: `send {name} --follow`: {why}")
+    for role in roles:
         if role.get("sent_with") == "brief" and role["name"] not in sent:
             out.append(f"{where}: {role['name']} is sent with a brief, and no SKILL.md or playbook "
                        f"writes `dispatch.sh send {role['name']}`")
     return out
+
+
+def resolve_follows(what: str) -> str | None:
+    """Why <what> does not name a file that exists, or None when it does."""
+    if what.rstrip(".") == "the brief":
+        return None
+    m = FOLLOWS.match(what)
+    if not m:
+        return (f'"{what}" is not `the <skill> skill`, `the <skill> skill\'s <path>` or '
+                f'`the brief`')
+    skill, rel = m.group(1), m.group(2)
+    if not (SKILLS / skill / "SKILL.md").is_file():
+        return f'"{what}" names the {skill} skill, which does not exist'
+    if rel and not (SKILLS / skill / rel).is_file():
+        return f'"{what}" names {rel} of the {skill} skill, which does not exist'
+    return None
+
+
+def worker_playbook_file(findings: list[str]) -> Path | None:
+    """The file the worker roles follow, from roles.json, for the wake and RESUME checks."""
+    try:
+        roles = json.loads(ROLES_JSON.read_text(encoding="utf-8"))["roles"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    what = next((r.get("follows", "") for r in roles if r.get("name") == "junior-worker"), "")
+    m = FOLLOWS.match(what)
+    if not m or not m.group(2) or resolve_follows(what):
+        return None
+    return SKILLS / m.group(1) / m.group(2)
 
 
 def main() -> int:
@@ -144,7 +199,7 @@ def main() -> int:
             return None
         return path
 
-    files = {"worker": playbook(WORKER_PLAYBOOK, "the worker's start prompt sends it to")}
+    files = {"worker": worker_playbook_file(findings)}
     orchestrators = [playbook(ORCHESTRATOR_PLAYBOOK, "the orchestrator routes to")]
 
     relay = module_constants(RELAY_PY)

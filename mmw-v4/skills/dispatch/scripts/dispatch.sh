@@ -3,7 +3,7 @@
 # Send a session to work, move a spec's batch forward, or report on one.
 #
 #   dispatch.sh send worker|reviewer <n>
-#   dispatch.sh send <role> <brief file>...
+#   dispatch.sh send <role> --follow "<what it follows>" <brief file>...
 #   dispatch.sh report <batch>/<n> <file>
 #   dispatch.sh brief show|close <batch>
 #   dispatch.sh ack <n> <event> | brief <batch>
@@ -55,8 +55,8 @@
 # session, writes a `worker.started` or `reviewer.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
 # path, branch and base commit — and prints the session id. Its prompt is one line,
-# `Dispatched: <role>, ticket #<n>, base <commit>`; everything else the session reads
-# from the mmw-mode skill. A start the
+# `Dispatched: <role>, ticket #<n>, base <commit>. Read the mmw-mode skill in full, then
+# follow <what>.`, <what> being the role's `follows` in roles.json. A start the
 # adapter refuses is refused once: no retry, no other host, no other runner. A worker
 # started on a ticket whose events still show a live worker replaces that one: the old
 # session is stopped through its own runner and a `worker.replaced` naming it goes on
@@ -91,6 +91,8 @@ RELAY="$SKILL_ROOT/scripts/relay.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 BRIEFS="$SKILL_ROOT/scripts/briefs.py"
 ROLES_JSON="$SKILL_ROOT/roles.json"
+# Every start prompt carries it: the mode first, then the file the session works by.
+READ_MODE="Read the mmw-mode skill in full, then follow"
 RUNNER=""
 RUNNER_NAME=""
 REPO_URL=""
@@ -387,7 +389,7 @@ post_event() {
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh send worker|reviewer <n>
-       dispatch.sh send <role> <brief file>...
+       dispatch.sh send <role> --follow "<what it follows>" <brief file>...
        dispatch.sh report <batch>/<n> <file>
        dispatch.sh brief show|close <batch>
        dispatch.sh ack <n> <event> | brief <batch>
@@ -1336,16 +1338,20 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  # The start prompt is one line: who sent this session, as which role, on what. Everything
-  # the session does next it reads from the mmw-mode skill, which routes it by that role.
-  local base="" prompt
+  # The start prompt is one line: as which role, on what, and what to follow. The session
+  # reads the mmw-mode skill first, then works by the file its role follows in roles.json.
+  local base="" prompt follows
+  follows="$(role_follows "$profile")" \
+    || refuse "could not read what the $profile role follows in $ROLES_JSON; nothing was started"
+  [ -n "$follows" ] \
+    || refuse "$ROLES_JSON gives the $profile role nothing to follow, so its session would not know its job; add its follows, then start again"
   local -a session_environment=()
   case "$kind" in
     worker)
       base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
-      prompt="Dispatched: worker, ticket #$number, base $base"
+      prompt="Dispatched: worker, ticket #$number, base $base. $READ_MODE $follows."
       session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number") ;;
     reviewer)
       base="$(base_commit "$root" "$into" "issue-$number")"
@@ -1354,7 +1360,7 @@ start_one() {
       fi
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
-      prompt="Dispatched: reviewer, ticket #$number, base $base" ;;
+      prompt="Dispatched: reviewer, ticket #$number, base $base. $READ_MODE $follows." ;;
   esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
@@ -1435,11 +1441,11 @@ start_one() {
 
 # ------------------------------------------------------------------ briefs
 
-# `send <role> <file>...` for a role that takes a brief: one session of <role> per brief
+# `send <role> --follow "<what>" <file>...` for a role that takes a brief: one session of <role> per brief
 # file, all in the current worktree, all answering this session; together they are one
 # batch (briefs.py). Each brief is copied into the batch with the lines that say how to
-# report under it, and the session's whole prompt is one line naming its role and that
-# copy. This session must run in a runner whose adapter can name it: the relay opens a
+# report under it, and the session's whole prompt is one line naming its role, that copy
+# and what it follows. This session must run in a runner whose adapter can name it: the relay opens a
 # watch on the batch with it as the orchestrator, and wakes it once, `brief <batch> done`,
 # when every brief has reported or been found lost. Prints one line per brief,
 # `<batch>/<n><TAB><session>`. A start the runner refuses is refused once, and every
@@ -1477,8 +1483,8 @@ close_batch() {
 }
 
 brief_many() {
-  local role="$1"
-  shift
+  local role="$1" follows="$2"
+  shift 2
   [ "$#" -ge 1 ] || usage
   local file
   for file in "$@"; do
@@ -1514,7 +1520,7 @@ brief_many() {
     copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
             --footer "$(brief_footer "$batch/$n")")" \
       || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
-    prompt="Dispatched: $role, brief $copy"
+    prompt="Dispatched: $role, brief $copy. $READ_MODE $follows."
     # Herdr's session id is basename(cwd) plus the title's last word, so the last word
     # carries the batch and the brief.
     if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n")"; then
@@ -1558,6 +1564,15 @@ brief_command() {
   esac
 }
 
+# What a ticket role's session works by: its `follows` in roles.json, empty when it has none.
+role_follows() {
+  MMW_ROLES="$ROLES_JSON" MMW_ROLE="$1" python3 -c '
+import json, os
+roles = json.load(open(os.environ["MMW_ROLES"], encoding="utf-8"))["roles"]
+print(next((r.get("follows", "") for r in roles if r["name"] == os.environ["MMW_ROLE"]), ""))
+'
+}
+
 # The roles `send` takes a brief file for: the rows of roles.json sent with a brief.
 brief_roles() {
   MMW_ROLES="$ROLES_JSON" python3 -c '
@@ -1571,7 +1586,9 @@ print(" ".join(r["name"] for r in roles if r.get("sent_with") == "brief"))
 #   send worker <n>     open the watch on ticket <n> for this session, then start its worker
 #   send reviewer <n>   start ticket <n>'s reviewer; the watch is left as it is, so the
 #                       reviewer's result wakes the worker that sent it, never re-owned
-#   send <role> <file>  one session per brief file, for a role sent with a brief
+#   send <role> --follow "<what>" <file>...
+#                       one session per brief file, for a role sent with a brief; <what> is
+#                       the file the sending step has it work by, written into its prompt
 # A night's workers are started by `advance`, on the night's own watch.
 send_one() {
   local role="${1:-}" roles
@@ -1587,7 +1604,10 @@ send_one() {
     *)
       roles="$(brief_roles)" || refuse "could not read the roles at $ROLES_JSON"
       case " $roles " in
-        *" $role "*) brief_many "$role" "$@" ;;
+        *" $role "*)
+          [ "${1:-}" = --follow ] && [ -n "${2:-}" ] && [ "$#" -ge 3 ] \
+            || refuse "send $role takes --follow \"<what it follows>\" before its brief files, the file the sending step has it work by, such as \"the research skill\"; nothing was started"
+          brief_many "$role" "$2" "${@:3}" ;;
         *) refuse "$role is not a role send starts; the roles are worker, reviewer and $roles (roles.json)" ;;
       esac
       ;;

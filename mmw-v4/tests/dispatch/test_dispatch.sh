@@ -2288,8 +2288,8 @@ assert obj["settings"].get("thinkingOptionId") == "true", obj["settings"]
 assert obj["settings"].get("modeId") == "agent", obj["settings"]
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "paseo run settings changed: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
-    "Dispatched: worker, ticket #61, base "????????????????????????????????????????) ;;
-    *) fail "the worker's prompt should be its one dispatch line: $(out_json initialPrompt)" ;;
+    "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md.") ;;
+    *) fail "the worker's prompt should be its dispatch line and what it follows: $(out_json initialPrompt)" ;;
   esac
   assert_wt 61
   [ "$(git -C "$(wt 61)" rev-parse --abbrev-ref HEAD)" = issue-61 ] \
@@ -2476,7 +2476,7 @@ obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert obj["provider"] == "claude/claude-opus-5", obj["provider"]
 assert obj["settings"].get("thinkingOptionId") == "high"
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "reviewer payload: $(cat "$TMP/out")"
-  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $base" ] \
+  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $base. Read the mmw-mode skill in full, then follow the code-review skill's references/session.md." ] \
     || fail "the reviewer dispatch line did not carry the recorded base commit: $(out_json initialPrompt)"
 }
 
@@ -2507,7 +2507,7 @@ scenario_reviewerbaseafterintegrate() {
   code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer) > "$TMP/out" 2> "$TMP/err"; echo $?)"
   [ "$code" = 0 ] || fail "reviewer after integrate expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $integrated" ] \
+  [ "$(out_json initialPrompt)" = "Dispatched: reviewer, ticket #61, base $integrated. Read the mmw-mode skill in full, then follow the code-review skill's references/session.md." ] \
     || fail "reviewer did not use the integrated origin/main tip: $(out_json initialPrompt)"
 }
 
@@ -2531,7 +2531,7 @@ scenario_sendbrief() {
   fresh_repo
   rm -rf "$STATE_DIR/briefs"
   seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor "$packet")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   started_once
   batch="$(newest_batch)"
@@ -2543,8 +2543,8 @@ scenario_sendbrief() {
   [ "$(out_json settings.thinkingOptionId)" = medium ] \
     || fail "effort: $(out_json settings.thinkingOptionId)"
   copy="$STATE_DIR/briefs/$batch/1/brief.md"
-  [ "$(out_json initialPrompt)" = "Dispatched: advisor, brief $copy" ] \
-    || fail "the prompt should be one line naming the role and the brief's copy: $(out_json initialPrompt)"
+  [ "$(out_json initialPrompt)" = "Dispatched: advisor, brief $copy. Read the mmw-mode skill in full, then follow the advisor skill." ] \
+    || fail "the prompt should name the role, the brief's copy and what it follows: $(out_json initialPrompt)"
   [ "$(head -1 "$copy")" = "the brief body" ] || fail "the copy should open with the brief: $(cat "$copy")"
   grep -q "report $batch/1 <file>" "$copy" || fail "the copy should end with how to report: $(cat "$copy")"
   dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)"
@@ -2561,23 +2561,34 @@ scenario_sendbrief() {
   fresh_repo
   rm -rf "$STATE_DIR/briefs"
   seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher "$packet" "$second")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$second")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   [ "$(count_of "paseo :: run")" = 2 ] || fail "expected two paseo runs, got $(count_of "paseo :: run")"
   batch="$(newest_batch)"
   [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] \
     || fail "stdout should name both briefs of one batch: $(cat "$TMP/out")"
-  [ "$(out_json initialPrompt)" = "Dispatched: researcher, brief $STATE_DIR/briefs/$batch/2/brief.md" ] \
+  [ "$(out_json initialPrompt)" = "Dispatched: researcher, brief $STATE_DIR/briefs/$batch/2/brief.md. Read the mmw-mode skill in full, then follow the research skill." ] \
     || fail "the second researcher's prompt is wrong: $(out_json initialPrompt)"
   grep -q "report $batch/2 <file>" "$STATE_DIR/briefs/$batch/2/brief.md" \
     || fail "the second copy should say how to report brief 2: $(cat "$STATE_DIR/briefs/$batch/2/brief.md")"
   [ "$(out_json provider)" = "claude/claude-opus-5" ] \
     || fail "send researcher did not start the researcher row: $(out_json provider)"
 
+  echo "--- a brief send without --follow is refused, and nothing is started: the session would not know what it works by"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher "$packet")"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q -- '--follow' "$TMP/err" || fail "the refusal should name --follow: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+  [ -z "$(newest_batch)" ] || fail "no batch should be left: $(newest_batch)"
+
   echo "--- a role send does not know is refused, and nothing is started"
   reset_log
   fresh_repo
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send explainer "$packet")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send explainer --follow "the research skill" "$packet")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   never_ran
   nothing_printed
@@ -2586,7 +2597,7 @@ scenario_sendbrief() {
   reset_log
   fresh_repo
   rm -rf "$STATE_DIR/briefs"
-  code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV bash "$DISPATCH" "${TOOLS[@]}" send researcher "$packet")"
+  code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   never_ran
   nothing_printed
@@ -2598,7 +2609,7 @@ scenario_sendbrief() {
   rm -rf "$STATE_DIR/briefs"
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail \
-          bash "$DISPATCH" "${TOOLS[@]}" send advisor "$packet")"
+          bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   started_once
   nothing_printed
@@ -2611,7 +2622,7 @@ scenario_sendbrief() {
   rm -rf "$STATE_DIR/briefs"
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail-after-one \
-          bash "$DISPATCH" "${TOOLS[@]}" send researcher "$packet" "$second")"
+          bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$second")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   has "paseo :: archive :: --force :: $(out_json id)"
   [ -z "$(newest_batch)" ] || fail "the batch should be removed: $(newest_batch)"
@@ -2621,9 +2632,9 @@ scenario_sendbrief() {
   reset_log
   fresh_repo
   : > "$TMP/empty-packet.txt"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor "$TMP/nope.txt")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$TMP/nope.txt")"
   [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher "$packet" "$TMP/empty-packet.txt")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$TMP/empty-packet.txt")"
   [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
   never_ran
   nothing_printed
@@ -2640,7 +2651,7 @@ data = json.load(open(path))
 del data["rows"]["candidate"]
 json.dump(data, open(path, "w"))
 PY
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send candidate "$packet")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send candidate --follow "the brief" "$packet")"
   mv "$saved" "$MMW_HOME/models.json"
   [ "$code" = 2 ] || fail "missing candidate row expected exit 2, got $code: $(cat "$TMP/err")"
   never_ran
@@ -2665,8 +2676,8 @@ scenario_send() {
   started_once
   [ "$(out_json title)" = "#61 worker" ] || fail "title: $(out_json title)"
   case "$(out_json initialPrompt)" in
-    "Dispatched: worker, ticket #61, base "????????????????????????????????????????) ;;
-    *) fail "the worker's prompt should be its one dispatch line: $(out_json initialPrompt)" ;;
+    "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md.") ;;
+    *) fail "the worker's prompt should be its dispatch line and what it follows: $(out_json initialPrompt)" ;;
   esac
 
   echo "--- send reviewer starts the reviewer and leaves the watch with the session that opened it"
@@ -2679,8 +2690,8 @@ scenario_send() {
   started_once
   [ "$(out_json title)" = "#61 reviewer" ] || fail "title: $(out_json title)"
   case "$(out_json initialPrompt)" in
-    "Dispatched: reviewer, ticket #61, base "????????????????????????????????????????) ;;
-    *) fail "the reviewer's prompt should be its one dispatch line: $(out_json initialPrompt)" ;;
+    "Dispatched: reviewer, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the code-review skill's references/session.md.") ;;
+    *) fail "the reviewer's prompt should be its dispatch line and what it follows: $(out_json initialPrompt)" ;;
   esac
 
   echo "--- a ticket number that is not digits is refused, and nothing is started"
@@ -2700,7 +2711,7 @@ scenario_briefreport() {
   fresh_repo
   rm -rf "$STATE_DIR/briefs"
   seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher "$packet" "$packet")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
   [ "$code" = 0 ] || fail "brief expected exit 0, got $code: $(cat "$TMP/err")"
   batch="$(newest_batch)"
   local one two

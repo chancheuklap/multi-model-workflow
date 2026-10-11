@@ -14,7 +14,7 @@ runs every time the orchestrator's turn ends, and:
 2. keeps the turn from ending when tickets are held, or briefs it started are open, and the
    watchdog is still not healthy.
 
-It does one more thing, for a session `dispatch.sh brief` started (briefs.py): when this
+It does one more thing, for a session a brief `dispatch.sh send` started (briefs.py): when this
 process is such a session and its brief is still open, neither reported nor lost, the turn
 end is blocked once with the one command that reports it. A brief's session that ends its
 turn without reporting would otherwise leave the session that briefed it waiting until the

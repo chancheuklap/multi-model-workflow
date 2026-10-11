@@ -36,7 +36,7 @@ The model to imitate, in content as well as shape, is `mmw-v3/upstream-pstack/sk
 
 ### What the mode is for
 
-The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the one entry: its description, which every host scans at start, says to read it in full at the start of every session. Nothing else tells a session to read it: no hook, no line in the user-level prompt, and a start prompt `dispatch.sh` writes is one line of data (`Dispatched: <role>, ticket #<n>, base <commit>`, or `Dispatched: <role>, brief <file>`).
+The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the entry: its description, which every host scans at start, says to read it in full at the start of every session. An agent that is sent is also told so in its first words: a start prompt `dispatch.sh` writes is its data, then `Read the mmw-mode skill in full, then follow <what>.` (`Dispatched: <role>, ticket #<n>, base <commit>. Read …`, or `Dispatched: <role>, brief <file>. Read …`), and a subagent's prompt opens with `Read the mmw-mode skill in full, then`. No hook and no line in the user-level prompt tells a session to read it.
 
 ### Frontmatter
 
@@ -74,7 +74,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
   - **Two kinds of moment.** A question asked in discussion is answered, not acted on; an instruction to act is carried out.
   - **Always pause** for irreversible writes, and on correctness, security and money.
   - **Session overrides:** what the owner's words change ("going to bed"; an approved plan or ticket is the go signal).
-  - **Unattended.** How a session whose start prompt is a `Dispatched:` line works with nobody to ask, and what replaces asking. It is the only text such a session relies on for working unwatched; the start prompt itself carries no rule.
+  - **Unattended.** How a session whose start prompt is a `Dispatched:` line works with nobody to ask: by the file its start prompt names, and what replaces asking. It is the only text such a session relies on for working unwatched; the start prompt itself carries no rule, only that pointer.
   - **No is an acceptable answer.** Disagreement is owed when there is a flaw, never manufactured.
 
 #### `## Subagents`
@@ -166,7 +166,7 @@ A reference belongs to one skill and sits under it. There is no directory of ref
 
 ### When a new reference is warranted
 
-- **The material is used only on one branch, or only by one subagent.** `research` opens `references/explorer.md` or `references/investigator.md` only on the branch its brief calls for, and an investigator reads only the `references/sources/<source>.md` of its category.
+- **The material is used only on one branch, or only by one subagent.** `research` opens `references/explorer.md` or `references/investigator.md` only when its start prompt has it follow that file, and an investigator reads only the `references/sources/<source>.md` of its category.
 - **Several playbooks or triggers open the same material.** That is still a reference. `bugbot-triage.md` is opened by a playbook and a `## Non-negotiables` line.
 - **Not for material every invocation uses.** That goes in the skill file itself: "Templates and references used on every invocation belong in the skill file, not in separate files that cost a read each time."
 
@@ -202,10 +202,10 @@ In the same change: the step or trigger that runs it gives the exact command.
 
 ## subagent
 
-- **What there is:** MMW ships no subagent definitions (ADR 0015). A skill that needs one sends out its host's general-purpose subagent, on the session's own model, and writes its whole prompt, usually from a template in the skill's `references/` (each `code-review` axis is its axis file with the ticket and base commit written in). Such a subagent does not load `mmw-mode`; it reads only what the skill gives it. The rules every such dispatch follows are `mmw-mode/SKILL.md` `## Subagents`.
-- **Not a subagent:** a session a script starts. Every one is started by the `dispatch` skill's `dispatch.sh send <role> <ticket number or brief file>`, as a session of its own on the row `~/.mmw/models.json` gives its role: a worker or reviewer with a ticket number, a researcher, candidate or advisor with a brief. Its start prompt is one line of data; the session invokes `mmw-mode` and finds its route line from that line. A briefed session reports its answer with `dispatch.sh report`, and the relay wakes the session that sent the brief once the whole batch has reported.
+- **What there is:** MMW ships no subagent definitions (ADR 0015). A skill that needs one sends out its host's general-purpose subagent, on the session's own model, and writes its whole prompt, usually from a template in the skill's `references/` (each `code-review` axis is its axis file with the ticket and base commit written in). Its prompt opens with `Read the mmw-mode skill in full, then`, so it works under the same rules as the session that sent it; past the mode, it reads only what the skill gives it. The rules every such dispatch follows are `mmw-mode/SKILL.md` `## Subagents`.
+- **Not a subagent:** a session a script starts. Every one is started by the `dispatch` skill's `dispatch.sh send <role> <ticket number>` or `dispatch.sh send <role> --follow "<what>" <brief file>`, as a session of its own on the row `~/.mmw/models.json` gives its role: a worker or reviewer with a ticket number, a researcher, candidate or advisor with a brief. Its start prompt is one line: its data, then `Read the mmw-mode skill in full, then follow <what>.`, <what> being its role's `follows` in `roles.json` for a ticket, or the `--follow` the sending step writes for a brief. It matches no route line. A briefed session reports its answer with `dispatch.sh report`, and the relay wakes the session that sent the brief once the whole batch has reported.
 - **Which kind a new agent is:** three questions, in order. Can the session do the work itself in this turn, where its own reading is good enough: then no agent. Does the work need a model of its own, or to run outside this turn, or is it a different job from the sender's: then a session role. Otherwise (several pieces of the same job at once, or a context the session's own reasoning has not touched): a subagent. Every session role has a row in the `dispatch` skill's `roles.json` and a default row in `hosts.json`; `check-interfaces.py` beside `dispatch.sh` refuses a role without both rows, a `send` of a role `roles.json` does not have, and a brief role nothing sends. A subagent has no row: it is the prompt the sending step writes, in the text of that step or, when it is long, in the sending skill's `references/`.
-- pstack's `poteto-agent` exists because a general subagent skips reading the mode: "Substituting `generalPurpose` skips that read and drifts." In MMW no subagent needs the mode, since its prompt holds all it does; a session a script starts invokes the mode itself, so no definition file is needed for it.
+- pstack's `poteto-agent` exists because a general subagent skips reading the mode: "Substituting `generalPurpose` skips that read and drifts." MMW has no definition file for it: every prompt that starts an agent, subagent or session, opens with reading the mode, on any host.
 
 ## configuration
 

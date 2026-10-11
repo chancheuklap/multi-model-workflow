@@ -74,7 +74,7 @@ Source control is always available through git and `gh`. For the other six, clas
 
 Aim for a complete **coverage map**, not a minimal one. Document the null, don't skip the search.
 
-Write one brief per matching category: `## Task` the user's original question, and its evidence category with the MCP server to search (for source control, git and `gh`); `## Known` the code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs); `## For` one answer you write from every category. Send them all with one `dispatch.sh send researcher <brief>...` of the **dispatch** skill, so they run concurrently and you are woken once, and end your turn. Don't ask one investigator to cover multiple MCPs.
+Write one brief per matching category: `## Task` the user's original question, and its evidence category with the MCP server to search (for source control, git and `gh`); `## Known` the code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs); `## For` one answer you write from every category. Send them all with one `dispatch.sh send researcher --follow "the research skill's references/investigator.md" <brief>...` of the **dispatch** skill, so they run concurrently and you are woken once, and end your turn. Don't ask one investigator to cover multiple MCPs.
 
 ### Investigator roster. One per available evidence category
 

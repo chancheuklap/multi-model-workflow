@@ -57,7 +57,7 @@ Don't synthesize or form a final opinion on "the why." Collect the raw material 
 
 ## Output Format
 
-Return your findings in this structure. The synthesizer will read it directly.
+Return your findings in this structure, through the research skill's steps after its table. The synthesizer will read it directly.
 
 ### Source
 Which source you investigated (source control, issue / ticket tracker, long-form documents, real-time team chat, infrastructure observability, error / exception tracking, product analytics warehouse, code comments, etc.).

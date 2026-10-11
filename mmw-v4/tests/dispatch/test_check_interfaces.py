@@ -3,8 +3,8 @@
     python3 -m unittest discover -s mmw-v4/tests/dispatch -p test_check_interfaces.py
 
 The check reads the relay's WAKES, events.py's EVENTS, verify-ticket.py's RESUME_STEPS,
-the mode's route lines and playbooks, the role table and hosts.json, and every skill's
-SKILL.md. Each case copies the skills tree into a temporary directory, makes one change
+the mode's route lines and playbooks, the role table and hosts.json, every skill's
+SKILL.md, and the playbooks and references that send a brief role. Each case copies the skills tree into a temporary directory, makes one change
 a later edit could make, and runs the copied script there.
 """
 
@@ -119,6 +119,30 @@ class CheckInterfaces(unittest.TestCase):
         self.assertEqual(code, 1)
         self.finding(out, "synthetic-brief")
 
+
+    def test_a_brief_send_without_follow_is_found(self):
+        self.append("how/SKILL.md", "Send it with `dispatch.sh send researcher <brief>`.")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "how/SKILL.md", "send researcher", "--follow")
+
+    def test_a_follow_naming_a_missing_file_is_found(self):
+        self.append("how/SKILL.md",
+                    "Send it with `dispatch.sh send researcher --follow \"the research skill's references/gone.md\" <brief>`.")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "how/SKILL.md", "send researcher --follow")
+
+    def test_a_ticket_role_with_nothing_to_follow_is_found(self):
+        path = self.tmp / "dispatch" / "roles.json"
+        roles = json.loads(path.read_text(encoding="utf-8"))
+        for role in roles["roles"]:
+            if role["name"] == "reviewer":
+                del role["follows"]
+        path.write_text(json.dumps(roles), encoding="utf-8")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "reviewer", "start prompt")
 
 if __name__ == "__main__":
     unittest.main()

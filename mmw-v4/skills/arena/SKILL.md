@@ -29,7 +29,7 @@ The N candidates receive the same task, so the task is the contract. Each candid
 
 ## Phase B: Fan out
 
-Write one brief per candidate: `## Task` the task and this candidate's angle, with the artifact and a short rationale to produce, the rationale naming the alternatives it considered and what it rejected; `## Known` the path to the shared grounding and its output directory; `## For` N designs compared against each other, where the differences are the signal. The rubric stays out of every brief. Send them all with one `dispatch.sh send candidate <brief>...` of the **dispatch** skill and end your turn. Woken by `brief <batch> done`, follow the dispatch skill's `## On waking`.
+Write one brief per candidate: `## Task` the task and this candidate's angle, with the artifact and a short rationale to produce, the rationale naming the alternatives it considered and what it rejected; `## Known` the path to the shared grounding and its output directory; `## For` N designs compared against each other, where the differences are the signal. The rubric stays out of every brief. Send them all with one `dispatch.sh send candidate --follow "the brief" <brief>...` of the **dispatch** skill, or, when the **architect** skill sent you here, with `dispatch.sh send candidate --follow "the architect skill's references/runner-prompt.md" <brief>...`, and end your turn. Woken by `brief <batch> done`, follow the dispatch skill's `## On waking`.
 
 If a candidate is lost or produces no output, proceed with N-1 and note the dropout in the synthesis record.
 

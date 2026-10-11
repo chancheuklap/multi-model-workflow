@@ -11,6 +11,6 @@ The session that wrote this diff wrote the tests that prove it and watched them 
 
 | You are | Read |
 | --- | --- |
-| The reviewer of a ticket: your start prompt is `Dispatched: reviewer, ticket #<n>, base <commit>` | [Running the session](references/session.md): pin the diff, start the axes, verify the findings, sort them, write the report on the ticket |
+| The reviewer of a ticket: your start prompt begins `Dispatched: reviewer, ticket #<n>, base <commit>` | [Running the session](references/session.md): pin the diff, start the axes, verify the findings, sort them, write the report on the ticket |
 | Asked to review a change that has no ticket | The **Have it read** step of the **mmw-mode** skill's Shared closing playbook, through verifying each finding; fix nothing, and report each finding with its conclusion to whoever asked |
 | One axis: your prompt names one of these files | [Standards](references/standards-reviewer.md), [Spec](references/spec-reviewer.md), [Tests](references/tests-reviewer.md) or [Correctness](references/correctness-reviewer.md) |
