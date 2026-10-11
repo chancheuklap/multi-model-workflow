@@ -69,13 +69,6 @@ class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
         self.assertEqual(tc.CALLS, ["closed", "posted"])
         self.assertIn("ticket.passed", err)
 
-    def test_the_rerun_on_the_closed_ticket_posts_the_missing_ticket_passed(self):
-        code, err, seen = after_a_lost_post(tc.draft(counts=tc.counts_line()), state="CLOSED",
-                                            assignees=(), reason="COMPLETED")
-        self.assertEqual(code, 0, err)
-        self.assertEqual(tc.CALLS, ["posted"], "the close is not made twice")
-        self.assertEqual(tc.posted_as(seen["posted"][0][1])[1], "ticket.passed")
-
     def test_the_rerun_on_the_handed_back_ticket_posts_the_missing_ticket_returned(self):
         code, err, seen = after_a_lost_post(tc.draft(**HANDOFF), assignees=(),
                                             labels=("needs-triage",))

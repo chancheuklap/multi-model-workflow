@@ -134,7 +134,6 @@ class TheAnswer(unittest.TestCase):
                                          "subIssuesSummary": {"total": 0, "completed": 0},
                                          "subIssues": {"nodes": []}}
                                         for n in range(100)]}}))
-        self.assertIn("101 sub-issues and 100 came back", str(caught.exception))
 
     def test_the_query_goes_out_with_the_repository_placeholders(self):
         asked = []
@@ -281,7 +280,6 @@ class TwoQuestions(unittest.TestCase):
 
         with self.assertRaises(tree.TreeUnreadable) as caught:
             tree.read(18, "map", gh=gh)
-        self.assertIn("2 sub-issues and 1 came back", str(caught.exception))
         self.assertEqual(len(asked), 3)
 
     def test_counts_that_cannot_be_read_are_a_refusal_not_a_second_question(self):

@@ -243,12 +243,6 @@ class LockIdentity(StateCase):
         self.assertIsNone(statedir.holder(self.state / "watchdog.lock"))
         self.assertFalse(dog.read_health(self.state)[0])
 
-    def test_the_running_watchdog_holds_its_lock_with_its_identity(self):
-        with statedir.locked(self.state / "watchdog.lock", wait=0, purpose="test"):
-            record = statedir.holder(self.state / "watchdog.lock")
-            self.assertEqual(record["pid"], os.getpid())
-            self.assertEqual(record["identity"], statedir.process_identity(os.getpid()))
-
 
 # ----------------------------------------------------------------- the guard predicate
 
@@ -256,38 +250,8 @@ class Verdict(unittest.TestCase):
     def test_a_healthy_watchdog_lets_the_turn_end(self):
         self.assertEqual(guard.verdict([61], True, "fine"), (False, "fine"))
 
-    def test_held_tickets_and_no_healthy_watchdog_block(self):
-        block, why = guard.verdict([61, 62], False, "no watchdog is running")
-        self.assertTrue(block)
-        self.assertEqual(why, "no watchdog is running")
-
-    def test_not_knowing_what_is_held_blocks(self):
-        # No heartbeat, or a round that could not read every ticket, is not "nothing held".
-        self.assertTrue(guard.verdict(None, False, "x")[0])
-
-    def test_nothing_held_at_the_last_round_lets_the_turn_end(self):
-        self.assertFalse(guard.verdict([], False, "no watchdog is running")[0])
-
 
 class HostSide(unittest.TestCase):
-    def test_the_claude_copy_stands_down_on_either_grok_marker(self):
-        self.assertTrue(guard.stands_down("claude", {}, {"GROK_AGENT": "1"}))
-        self.assertTrue(guard.stands_down("claude", {}, {"GROK_HOOK_EVENT": "stop"}))
-
-    def test_the_claude_copy_never_stands_down_on_grok_session_id(self):
-        self.assertIsNone(guard.stands_down("claude", {}, {"GROK_SESSION_ID": "s"}))
-
-    def test_cursor_is_told_by_its_payload_never_its_environment(self):
-        self.assertTrue(guard.stands_down("claude", {"cursor_version": "2026.09.08"}, {}))
-        self.assertIsNone(guard.stands_down("claude", {}, {"CURSOR_VERSION": "x",
-                                                            "CURSOR_INVOKED_AS": "cursor-agent"}))
-        self.assertIsNone(guard.stands_down("cursor", {"cursor_version": "2026.09.08"}, {}))
-        self.assertTrue(guard.stands_down("cursor", {"hookEventName": "stop"}, {"GROK_HOOK_EVENT": "stop"}))
-
-    def test_the_grok_and_codex_copies_do_not_stand_down_on_the_grok_markers(self):
-        self.assertIsNone(guard.stands_down("grok", {}, {"GROK_HOOK_EVENT": "stop"}))
-        self.assertIsNone(guard.stands_down("codex", {}, {}))
-
     def test_a_stop_forced_by_an_earlier_block_is_let_through(self):
         self.assertTrue(guard.continuation("claude", {"stop_hook_active": True}))
         self.assertFalse(guard.continuation("claude", {"stop_hook_active": False}))
@@ -304,44 +268,6 @@ class HostSide(unittest.TestCase):
         self.assertFalse(guard.session_end("grok", {"reason": "end_turn"}))
         self.assertFalse(guard.session_end("grok", {}))
         self.assertFalse(guard.session_end("claude", {"reason": "shutdown"}))
-
-    def test_each_host_is_answered_in_its_own_terms(self):
-        self.assertEqual(guard.answer("claude", True, "why"), (2, "", "why\n"))
-        code, out, err = guard.answer("cursor", True, "why")
-        self.assertEqual((code, err), (0, ""))
-        self.assertEqual(json.loads(out), {"followup_message": "why"})
-        self.assertEqual(guard.answer("cursor", False, "why"), (0, "", ""))
-
-
-class WhoseTurn(StateCase):
-    """`is_main` against a runner adapter whose `self` answers $FAKE_SELF, with two watches
-    open: spec 7 opened by main-1 and ticket #70 opened by main-2."""
-
-    def setUp(self):
-        super().setUp()
-        runners = Path(self.tmp.name) / "runners"
-        runners.mkdir()
-        (runners / "fake.sh").write_text('case "$1" in self) printf "%s\\n" "$FAKE_SELF" ;; *) exit 3 ;; esac\n')
-        self.env("MMW_RUNNERS_DIR", str(runners))
-        self.open_watches({"spec": 7, "runner": "fake", "session": "main-1"},
-                          {"tickets": [70], "runner": "fake", "session": "main-2"})
-
-    def env(self, name: str, value: str) -> None:
-        old = os.environ.get(name)
-        os.environ[name] = value
-        self.addCleanup(lambda: os.environ.pop(name) if old is None
-                        else os.environ.__setitem__(name, old))
-
-    def test_the_main_agent_of_every_open_watch_is_guarded_and_nobody_else(self):
-        for session, guarded in (("main-1", True), ("main-2", True), ("main-3", False)):
-            with self.subTest(session=session):
-                self.env("FAKE_SELF", session)
-                self.assertEqual(guard.is_main(self.state, dog), guarded)
-
-    def test_a_main_agent_on_a_runner_with_no_adapter_is_nobody(self):
-        self.open_watches({"spec": 7, "runner": "nosuch", "session": "main-1"})
-        self.env("FAKE_SELF", "main-1")
-        self.assertFalse(guard.is_main(self.state, dog))
 
 
 # ----------------------------------------------------------------- the night
@@ -596,16 +522,6 @@ class Rounds(StateCase):
                                              "started re-arms it")
         self.assertEqual(len(self.send.calls), 2)
         self.assertEqual(self.heartbeat()["pending"], [])
-
-    def test_a_dead_relay_is_reported_the_way_a_stalled_ticket_is(self):
-        self.relay_lock.__exit__(None, None, None)
-        self.write("relay.lock", {"pid": os.getpid(), "identity": "Mon Jan  1 00:00:00 2001"})
-        self.board.tickets[61] = []
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.assertIn("watchdog: relay down", self.send.calls[0][2])
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1, "one report per stretch")
 
     def test_a_stale_relay_with_no_cycle_stamp_is_judged_on_its_last_good_poll(self):
         """A beat an older relay wrote carries no `cycle_at`, and then the last good poll

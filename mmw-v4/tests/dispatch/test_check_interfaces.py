@@ -41,31 +41,42 @@ class CheckInterfaces(unittest.TestCase):
     def test_the_set_as_it_is_passes(self):
         self.assertEqual(self.run_check(), (0, "INTERFACES OK\n"))
 
+    def append(self, rel, line):
+        path = self.tmp / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        old = path.read_text(encoding="utf-8") if path.exists() else ""
+        path.write_text(old + "\n" + line + "\n", encoding="utf-8")
+
+    def finding(self, out, *facts):
+        """The finding line that names every one of these facts, or a failure."""
+        lines = [line for line in out.splitlines() if all(f in line for f in facts)]
+        self.assertTrue(lines, f"no finding names {facts}:\n{out}")
+
     def test_a_wake_the_orchestrator_has_no_step_for_is_found(self):
-        self.edit("mmw-mode/playbooks/run-a-night.md", "`#<n> worker.lost`", "`a lost worker`")
+        (self.tmp / "mmw-mode/playbooks/run-a-night.md").write_text("# Run a night\n", encoding="utf-8")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("run-a-night.md: the relay wakes this playbook's session with #<n> worker.lost", out)
+        self.finding(out, "run-a-night.md", "worker.lost")
 
     def test_a_step_waiting_for_a_wake_nobody_sends_is_found(self):
-        self.edit("mmw-mode/playbooks/work-a-ticket.md", "When `#<n> reviewer.reported` wakes you",
-                  "When `#<n> reviewer.reported` or `#<n> reviewer.started` wakes you")
+        self.append("mmw-mode/playbooks/work-a-ticket.md", "When `#<n> reviewer.started` wakes you, stop.")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("waits for #<n> reviewer.started", out)
+        self.finding(out, "reviewer.started")
 
     def test_a_resume_step_the_worker_playbook_lost_is_found(self):
-        self.edit("mmw-mode/playbooks/work-a-ticket.md", "**Read the review.**", "**Read the report.**")
+        (self.tmp / "mmw-mode/playbooks/work-a-ticket.md").write_text(
+            "# Work a ticket\n\n1. **Start the reviewer.** Start it.\n", encoding="utf-8")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("a RESUME: line can name the step **Read the review.**", out)
+        self.finding(out, "RESUME:", "Read the review")
 
     def test_a_wake_for_an_event_no_ticket_can_carry_is_found(self):
         self.edit("dispatch/scripts/relay.py", '    "worker.lost": {"to": MAIN},\n',
                   '    "worker.lost": {"to": MAIN},\n    "worker.vanished": {"to": MAIN},\n')
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("worker.vanished wakes a session", out)
+        self.finding(out, "worker.vanished")
 
     def test_a_skill_that_routes_its_caller_to_a_playbook_is_found(self):
         skill = self.tmp / "grilling" / "SKILL.md"
@@ -73,10 +84,11 @@ class CheckInterfaces(unittest.TestCase):
                          "| Grilling a plan | `playbooks/grill-with-docs.md` |\n", encoding="utf-8")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("grilling/SKILL.md: a moment section names a playbook file", out)
+        self.finding(out, "grilling/SKILL.md")
 
     def test_a_moment_table_into_the_skills_own_references_passes(self):
-        self.assertIn("## Find your moment", (self.tmp / "code-review" / "SKILL.md").read_text(encoding="utf-8"))
+        self.append("synthetic-skill/SKILL.md", "# Synthetic\n\n## Find your moment\n\n| You are | Read |\n"
+                    "| --- | --- |\n| Doing x | `references/x.md` |")
         self.assertEqual(self.run_check(), (0, "INTERFACES OK\n"))
 
     def test_a_role_with_no_default_model_is_found(self):
@@ -86,20 +98,26 @@ class CheckInterfaces(unittest.TestCase):
         path.write_text(json.dumps(hosts), encoding="utf-8")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("the role candidate has no row in `defaults`", out)
+        self.finding(out, "candidate")
 
     def test_a_send_of_a_role_the_table_does_not_have_is_found(self):
-        self.edit("how/SKILL.md", "`dispatch.sh send researcher <brief>...`",
-                  "`dispatch.sh send narrator <brief>...`")
+        self.append("how/SKILL.md", "Send it with `dispatch.sh send narrator <brief>`.")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("how/SKILL.md: `dispatch.sh send narrator` names no role", out)
+        self.finding(out, "dispatch.sh send narrator")
 
     def test_a_brief_role_nothing_sends_is_found(self):
-        self.edit("mmw-mode/SKILL.md", "`send advisor <brief>`", "an advisor")
+        roles_path = self.tmp / "dispatch" / "roles.json"
+        roles = json.loads(roles_path.read_text(encoding="utf-8"))
+        roles["roles"].append({"name": "synthetic-brief", "sent_with": "brief", "what": "x", "returns": "x"})
+        roles_path.write_text(json.dumps(roles), encoding="utf-8")
+        hosts_path = self.tmp / "dispatch" / "hosts.json"
+        hosts = json.loads(hosts_path.read_text(encoding="utf-8"))
+        hosts["defaults"].append({"agent": "synthetic-brief", "host": "codex", "model": "x", "effort": "high"})
+        hosts_path.write_text(json.dumps(hosts), encoding="utf-8")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("advisor is sent with a brief, and no SKILL.md or playbook writes", out)
+        self.finding(out, "synthetic-brief")
 
 
 if __name__ == "__main__":

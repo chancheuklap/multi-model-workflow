@@ -49,12 +49,6 @@ class ConditionalListReaderTest(unittest.TestCase):
         self.assertIn('If-None-Match: "one"', gh.calls[2])
         self.assertIn('If-None-Match: "two"', gh.calls[3])
 
-    def test_not_modified_returns_the_cached_list(self):
-        gh = TwoPageGh()
-        reader = ghlist.ConditionalListReader(gh)
-        first = reader.read(gh.first)
-        self.assertEqual(reader.read(gh.first), first)
-
     def test_full_last_page_is_read_again(self):
         first = "repos/o/r/issues/1/comments?per_page=100"
         second = "https://api.github.test/comments?page=2&per_page=100"

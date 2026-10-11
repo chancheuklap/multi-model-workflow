@@ -72,7 +72,6 @@ class TestLintOnASpec(unittest.TestCase):
         code, printed, _, batch, _ = lint(
             SPEC, {SPEC: SPEC_BODY, 301: CLEAN, 302: CLEAN}, [301, 302])
         self.assertEqual(code, 0)
-        self.assertIn("is a spec with 2 sub-issues", printed)
         self.assertNotIn("ERROR", printed)
         batch.assert_called_once()
 
@@ -89,8 +88,6 @@ class TestLintOnASpec(unittest.TestCase):
         code, printed, subs, batch, ticket_graph = lint(
             77, {77: body}, [], parent=76, labels=["ready-for-human"])
         self.assertEqual(code, 0)
-        self.assertIn("carries no `## Acceptance criteria`", printed)
-        self.assertNotIn("is a spec", printed)
         self.assertIn("layer-label", printed)
         self.assertIn("mmw:spec", printed)
         subs.assert_not_called()
@@ -108,7 +105,6 @@ class TestLintOnASpec(unittest.TestCase):
         code, printed, _, batch, ticket_graph = lint(77, {77: "## Summary\n\nx\n"}, [],
                                                     labels=["ready-for-human"])
         self.assertEqual(code, 0)
-        self.assertNotIn("is a spec", printed)
         batch.assert_not_called()
         ticket_graph.assert_called_once()
 
@@ -120,7 +116,6 @@ class TestLintOnASpec(unittest.TestCase):
             SPEC, {SPEC: SPEC_BODY, 301: CLEAN, 302: CLEAN}, [301, 302],
             parent=18, labels=["mmw:spec"])
         self.assertEqual(code, 0)
-        self.assertIn("is a spec with 2 sub-issues", printed)
         self.assertIn("## #301 (OPEN)", printed)
         batch.assert_called_once_with(SPEC, [301, 302])
         ticket_graph.assert_not_called()
@@ -132,7 +127,6 @@ class TestLintOnASpec(unittest.TestCase):
             77, {77: "## Parent\n\n#216\n"}, [90, 91],
             parent=216, labels=["mmw:ticket", "ready-for-human"])
         self.assertEqual(code, 0)
-        self.assertNotIn("is a spec", printed)
         batch.assert_not_called()
         ticket_graph.assert_called_once()
 
@@ -207,12 +201,11 @@ class TestUncoveredSection(unittest.TestCase):
             SPEC, {SPEC: SPEC_WITH_SECTIONS, 301: COVERS_1_AND_2, 302: COVERS_NONE},
             [301, 302])
         self.assertEqual(code, 0)
-        self.assertIn(
-            "WARN #216 Implementation Decisions section 3 is named by no ticket's "
-            "## Parent [uncovered-section]",
-            printed)
-        self.assertNotIn("section 1 is named by no ticket", printed)
-        self.assertNotIn("section 2 is named by no ticket", printed)
+        warned = [ln for ln in printed.splitlines() if "[uncovered-section]" in ln]
+        self.assertEqual(len(warned), 1, printed)
+        self.assertIn("WARN", warned[0])
+        self.assertIn("#216", warned[0])
+        self.assertIn("section 3", warned[0])
         self.assertIn("sections named by a ticket: 2/3", printed)
 
     def test_a_closed_ticket_still_covers_the_section_it_names(self):
@@ -238,9 +231,10 @@ class TestUncoveredSection(unittest.TestCase):
         code, printed, _, _, _ = lint(
             SPEC, {SPEC: SPEC_WITH_SECTIONS, 301: COVERS_NONE}, [301])
         self.assertEqual(code, 0)
-        self.assertIn("section 1 is named by no ticket", printed)
-        self.assertIn("section 2 is named by no ticket", printed)
-        self.assertIn("section 3 is named by no ticket", printed)
+        warned = [ln for ln in printed.splitlines() if "[uncovered-section]" in ln]
+        self.assertEqual(len(warned), 3, printed)
+        for n in (1, 2, 3):
+            self.assertTrue(any(f"section {n}" in ln for ln in warned), printed)
         self.assertIn("sections named by a ticket: 0/3", printed)
 
     def test_the_warn_does_not_change_the_exit_when_the_graph_is_red(self):

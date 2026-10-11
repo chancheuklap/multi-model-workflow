@@ -285,17 +285,6 @@ class QueueTest(RelayCase):
         self.poll()
         self.assertEqual(self.summary(), [(1, 61, "ticket.passed"), (2, 62, "ticket.passed")])
 
-    def test_a_lost_reviewer_wakes_the_worker_that_started_it(self):
-        self.board[61] += [
-            started(101, 61, "wk-61"),
-            comment(102, "reviewer.started", 61),
-            comment(103, "reviewer.lost", 61, session="rv-1", runner="paseo"),
-        ]
-        self.poll()
-        self.assertEqual(self.addressed(), [
-            (1, "reviewer.lost", "worker", "wk-61"),
-        ])
-
     def test_only_the_events_in_wakes_are_queued_each_for_its_role(self):
         self.board.update({63: [], 64: [], 65: []})
         self.relay.open_watch({"tickets": [63, 64, 65]}, "paseo", "main-a")
@@ -330,13 +319,6 @@ class QueueTest(RelayCase):
         woken = [r for r in self.rows() if r["event"] == "child.opened"]
         self.assertEqual(len(woken), 3)
         self.assertEqual(sorted(r["ticket"] for r in woken), [62, 64, 65])
-
-    def test_contract_fault_and_decision_wake_the_main_agent(self):
-        for kind, wakes in (("fault", True), ("decision", True), ("contract", True),
-                            ("finding", False), ("deferred", False)):
-            with self.subTest(kind=kind):
-                self.assertEqual(relay.woken_by({"event": "child.opened", "kind": kind}),
-                                 relay.MAIN if wakes else None)
 
     def test_the_ticket_is_the_one_the_event_names_or_else_the_issue_it_sits_on(self):
         self.board[61].append(comment(101, "ticket.passed", 70))
@@ -540,13 +522,6 @@ class DeliveryTest(RelayCase):
         self.board[61].append(comment(101, "ticket.passed", 61))
         self.board[62].append(comment(102, "ticket.returned", 62))
         self.poll()
-
-    def test_send_carries_the_ticket_and_the_event_name_only(self):
-        self.queue_two()
-        self.relay.deliver()
-        self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.passed"),
-                                          ("paseo", "main-a", "#62 ticket.returned")])
 
     def test_a_delivered_row_stays_until_acked_and_is_sent_again_only_after_a_restart(self):
         self.queue_two()

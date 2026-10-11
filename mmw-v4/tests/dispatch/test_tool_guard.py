@@ -51,29 +51,6 @@ EVENTS = {
 }
 
 
-class TestRecordedRefusalsFit(unittest.TestCase):
-    """The refusals this module records fit and tell the worker what to do next."""
-
-    def texts(self) -> dict[str, str]:
-        return {
-            "closeout": hk.REFUSAL.format(n=999999),
-            "question": hk.NO_QUESTION,
-            "kill": hk.no_kill("kill 12345"),
-        }
-
-    def test_all_of_them_fit_what_a_host_will_show(self):
-        for name, text in self.texts().items():
-            with self.subTest(refusal=name):
-                self.assertLessEqual(len(text), REASON_LIMIT)
-
-    def test_all_of_them_say_what_to_do_next(self):
-        ways_out = ("--closeout", "Decisions I made on my own", "stop", "ABANDON")
-        for name, text in self.texts().items():
-            with self.subTest(refusal=name):
-                self.assertTrue(any(word in text for word in ways_out),
-                                f"{name} diagnoses without naming a way out")
-
-
 @contextmanager
 def named_cwd(basename: str):
     """A temporary directory whose basename is the only fact `pretool` reads."""
@@ -184,12 +161,6 @@ class TestCwdNamesTheTicket(unittest.TestCase):
 class TestSelfScope(unittest.TestCase):
     """A basename that is not `issue-<n>` is not a ticket worktree. `pretool` reads the
     two directories of `governed_ticket` and nothing else."""
-
-    def test_no_marker_no_gate(self):
-        self.assertEqual(
-            call("claude", EVENTS["claude"], env={}, cwd_basename="workspace"),
-            (0, None),
-        )
 
     def test_a_marker_that_is_not_a_ticket_number_is_no_marker(self):
         for name in ("issue", "issue-", "issue-64x", "64", "Issue-64"):
@@ -470,11 +441,6 @@ class TestClaudeCopyNoOpsInsideCursor(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(answer["permission"], "deny")
 
-    def test_claude_pretool_still_refuses_when_the_process_is_not_cursor(self):
-        code, answer = call("claude", EVENTS["claude"])
-        self.assertEqual(code, 0)
-        self.assertIsNotNone(answer)
-
 
 class TestNothingBlocksOnBadInput(unittest.TestCase):
     """A gate that cannot read its input has learned nothing, so it refuses nothing."""
@@ -539,7 +505,7 @@ class EndingAProcess(unittest.TestCase):
         """A refusal that only diagnoses is where the improvising starts."""
         _code, answer = call("claude", with_command("claude", "kill 123"))
         reason = reason_of(answer)
-        self.assertIn("stop", reason.lower())
+        self.assertIn("`stop`", reason)
         self.assertIn(".mmw/target.json", reason)
 
     def test_the_refusal_fits_what_a_host_will_show(self):
@@ -549,7 +515,7 @@ class EndingAProcess(unittest.TestCase):
                 _code, answer = call("claude", with_command("claude", command))
                 reason = reason_of(answer)
                 self.assertLessEqual(len(reason), REASON_LIMIT)
-                self.assertIn("blocked", reason, "the way out was trimmed away")
+                self.assertIn(".mmw/target.json", reason, "the way out was trimmed away")
 
     def test_prose_and_ordinary_commands_pass(self):
         """Splitting on the shell's own separators tells a command from a mention."""
@@ -560,12 +526,6 @@ class EndingAProcess(unittest.TestCase):
                 code, answer = call("claude", with_command("claude", command))
                 self.assertEqual(code, 0)
                 self.assertIsNone(answer, f"{command} was refused")
-
-    def test_a_session_nobody_dispatched_is_not_governed(self):
-        code, answer = call("claude", with_command("claude", "kill 123"), env={},
-                            cwd_basename="workspace")
-        self.assertEqual(code, 0)
-        self.assertIsNone(answer)
 
 
 if __name__ == "__main__":

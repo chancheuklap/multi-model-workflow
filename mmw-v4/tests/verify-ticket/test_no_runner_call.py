@@ -6,11 +6,14 @@ refuses it, or posts a review calls no runner binary, even inside a runner's ses
 where the old runs sent the session that started them a message.
 """
 
-import re
+import io
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import SCRIPT, load
+from _load import load
 
 import test_closeout
 import test_preflight
@@ -76,15 +79,20 @@ class TestNoRunnerIsCalled(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual({c[0] for c in fake.recorded}, {"gh"})
 
-    def test_the_script_names_no_runner_binary_and_no_runner_session_variable(self):
-        """The sub-issue path posts through `gh issue create`, which the fixtures here do
-        not reach; the source is where every path of the script can be read at once."""
-        source = SCRIPT.read_text(encoding="utf-8")
-        for name in RUNNERS:
-            self.assertIsNone(re.search(r"[\[(,]\s*[\"']" + name + r"[\"']", source),
-                              f"verify-ticket.py runs {name}")
-        for variable in ("PASEO_AGENT_ID", "ORCA_TERMINAL_HANDLE", "HERDR_PANE_ID"):
-            self.assertNotIn(variable, source)
+    def test_an_opened_sub_issue_calls_no_runner(self):
+        calls = RunnerCalls()
+        calls.real = lambda argv, *args, **kwargs: mock.Mock(
+            returncode=0, stdout="https://github.com/o/r/issues/99\n", stderr="")
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "body.md"
+            path.write_text("A finding\n\nbody\n", encoding="utf-8")
+            with mock.patch.dict(vt.os.environ, INSIDE), \
+                 mock.patch.object(vt.subprocess, "run", side_effect=calls), \
+                 mock.patch.object(vt, "ensure_label", return_value=None), \
+                 redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+                code = vt.run_sub_issue(77, "finding", path)
+        self.assertEqual(code, 0, err.getvalue())
+        self.assertEqual(calls.calls, [])
 
 
 if __name__ == "__main__":

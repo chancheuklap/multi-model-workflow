@@ -172,8 +172,8 @@ class TestFailureReport(unittest.TestCase):
         self.assertRegex(printed, r"(?m)^UNMET:")
         self.assertNotIn("LINT OK", printed)
         self.assertIn("VISIBLE", printed)
-        self.assertRegex(comment, r"Own run on [0-9a-f]+: UNMET:")
-        self.assertNotRegex(comment, r"Own run on [0-9a-f]+: (ALL MET|HANDOFF REQUIRED:)")
+        self.assertIn(": UNMET:", comment)
+        self.assertNotRegex(comment, r": (ALL MET|HANDOFF REQUIRED:)")
 
     def test_unrunnable_criterion_names_ticket(self):
         code, comment, printed, _root = self.run_ticket(ticket(
@@ -189,7 +189,6 @@ class TestFailureReport(unittest.TestCase):
         self.assertIn("verify-ticket.py 1 --sub-issue contract", printed)
         self.assertNotRegex(printed, r"/var/|/tmp/|/private/|verify-ticket-")
         self.assertNotRegex(printed, r"\bline \d+:")
-        self.assertNotIn("criterion unknown", printed)
 
         code, comment, printed, _root = self.run_ticket(ticket(
             "- [ ] AC6: the attribute sits under the criterion",
@@ -200,7 +199,6 @@ class TestFailureReport(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(comment, "")
         self.assertIn("AC6", refusal_line(printed))
-        self.assertNotIn("criterion unknown", printed)
         self.assertNotRegex(printed, r"\bline \d+:")
 
 

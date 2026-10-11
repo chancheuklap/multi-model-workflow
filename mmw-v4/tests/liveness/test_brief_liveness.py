@@ -1,5 +1,5 @@
-"""The watchdog and the turn guard for briefs: a session `dispatch.sh brief` started that dies,
-or ends its turn, without reporting.
+"""The watchdog and the turn guard for briefs: a session `dispatch.sh send <role> <brief file>`
+started that dies, or ends its turn, without reporting.
 
     python3 -m unittest discover -s mmw-v4/tests/liveness -p test_brief_liveness.py
 """

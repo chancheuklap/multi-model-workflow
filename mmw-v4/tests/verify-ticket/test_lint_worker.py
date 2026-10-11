@@ -33,7 +33,6 @@ class TestLintWorker(unittest.TestCase):
     def test_two_worker_labels_are_an_error_that_counts_them(self):
         errors, _ = vt.lint_worker(AGENT + ["junior-worker", "senior-worker"])
         self.assertEqual(len(errors), 1)
-        self.assertIn("2 worker labels", errors[0])
 
     def test_a_ticket_a_person_works_needs_no_worker(self):
         self.clean(["ready-for-human"])

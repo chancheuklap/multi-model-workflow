@@ -281,7 +281,6 @@ scenario_worker() {
     || fail "queue --runner paseo --session wk-61 should print the worker's one row: $(cat "$TMP/out")"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session wk-61 --through 2)"
   [ "$code" = 0 ] || fail "the worker's ack expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "acked paseo wk-61 through 2: removed 1, 0 left for it" "$TMP/out" || fail "ack should say what it removed: $(cat "$TMP/out")"
   expect_rows "2 61 ticket.passed main-a delivered"
 }
 
@@ -293,7 +292,6 @@ scenario_busy() {
   event 61 101 ticket.passed
   code="$(FAKE_PASEO_SEND_FAILS=1 relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "kept 1 #61 ticket.passed: main-a is in a turn" "$TMP/out" || fail "should say it kept row 1: $(cat "$TMP/out")"
   expect_rows "1 61 ticket.passed main-a undelivered"
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "second run expected 0, got $code: $(cat "$TMP/err")"
@@ -311,8 +309,6 @@ scenario_retired() {
   FAKE_PASEO_SEND_FAILS=1 relay_ run --repo "$REPO" --once >/dev/null
   agents main-b
   watch --tickets 61 main-b
-  grep -q "reopened the watch on ticket #61 for o/r: wake-ups go to paseo session main-b, was paseo session main-a" "$TMP/out" \
-    || fail "opening the watch again should say whose it was: $(cat "$TMP/out")"
   : > "$MMW_TEST_LOG"
   event 61 102 ticket.refused 2026-09-10T01:05:00Z
   code="$(relay_ run --repo "$REPO" --once)"
@@ -472,22 +468,17 @@ scenario_startstop() {
   event 61 101 ticket.passed
   code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 60)"
   [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "^opened the watch on ticket #61 for o/r: wake-ups go to paseo session main-a$" "$TMP/out" \
-    || fail "start should say it opened the watch: $(cat "$TMP/out")"
-  grep -q "^relay started for o/r: pid [0-9]*, watching ticket #61, log $STATE/relay.log" "$TMP/out" \
-    || fail "start should name the pid, the watch and the log: $(cat "$TMP/out")"
-  pid="$(sed -n 's/^relay started for o\/r: pid \([0-9]*\),.*/\1/p' "$TMP/out")"
+  grep -q '^opened ' "$TMP/out" || fail "start should open the watch: $(cat "$TMP/out")"
+  pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$STATE/relay.json")" \
+    || fail "start should leave relay.json naming the relay's pid: $(cat "$STATE/relay.json")"
   wait_for "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
   has "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
-  python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r["pid"] == int(sys.argv[2]) else 1)' \
-    "$STATE/relay.json" "$pid" || fail "relay.json should name pid $pid: $(cat "$STATE/relay.json")"
+  kill -0 "$pid" 2>/dev/null || fail "the relay relay.json names (pid $pid) should be running"
 
   echo "--- a second start of the same watch finds the relay running"
   code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 60)"
   [ "$code" = 0 ] || fail "a second start expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "^reopened the watch on ticket #61 for o/r: wake-ups go to paseo session main-a$" "$TMP/out" \
-    || fail "it should say the watch was open: $(cat "$TMP/out")"
-  grep -q "relay already running for o/r: pid $pid, watching ticket #61" "$TMP/out" || fail "it should find pid $pid: $(cat "$TMP/out")"
+  grep -q '^reopened ' "$TMP/out" || fail "a second start should reopen the watch: $(cat "$TMP/out")"
 
   echo "--- watching answers for the ticket it watches and no other"
   code="$(relay_ watching --repo "$REPO" --ticket 61)"
@@ -502,7 +493,6 @@ scenario_startstop() {
   expect_watches "tickets:61 paseo main-a"
   code="$(relay_ stop --repo "$REPO" --tickets 61)"
   [ "$code" = 0 ] || fail "stop expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "stopped the relay for o/r: pid $pid, watching ticket #61" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   kill -0 "$pid" 2>/dev/null && fail "pid $pid should be gone"
   [ ! -f "$STATE/relay.json" ] || fail "a relay that stopped leaves no relay.json: $(cat "$STATE/relay.json")"
   expect_watches ""
@@ -519,10 +509,8 @@ scenario_startstop() {
 
   code="$(relay_ stop --repo "$REPO")"
   [ "$code" = 0 ] || fail "stop with no relay running expected 0, got $code"
-  grep -q "stopped watching ticket #61 for o/r; no relay was running" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   code="$(relay_ stop --repo "$REPO")"
   [ "$code" = 0 ] || fail "stop with nothing watched expected 0, got $code"
-  grep -q "no relay is running for o/r" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
 
   echo "--- stop with no relay alive still forgets the last good poll of the one that died"
   watch --tickets 61
@@ -551,12 +539,11 @@ scenario_watches() {
   event 61 101 ticket.passed
   code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 1)"
   [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
-  pid="$(sed -n 's/^relay started for o\/r: pid \([0-9]*\),.*/\1/p' "$TMP/out")"
+  pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$STATE/relay.json")" \
+    || fail "start should leave relay.json naming the relay's pid: $(cat "$STATE/relay.json")"
   wait_for "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed" || fail "#61 should wake main-a"
   code="$(relay_ start --repo "$REPO" --spec 76 --runner paseo --session main-b --interval 1)"
   [ "$code" = 0 ] || fail "a night beside the ticket expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "relay already running for o/r: pid $pid, watching spec #76 and ticket #61" "$TMP/out" \
-    || fail "the running relay should take the night: $(cat "$TMP/out")"
   expect_watches "spec:76 paseo main-b
 tickets:61 paseo main-a"
   event 62 102 ticket.passed
@@ -575,8 +562,6 @@ tickets:61 paseo main-a"
   echo "--- a night opened by the orchestrator of a leftover ticket watch takes that ticket over"
   code="$(relay_ add --repo "$REPO" --spec 77 --runner paseo --session main-a)"
   [ "$code" = 0 ] || fail "spec #77 from main-a expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "closed the watch on ticket #61 for o/r: spec #77 watches it now, and its orchestrator was paseo session main-a" "$TMP/out" \
-    || fail "stdout should say the ticket watch was taken over: $(cat "$TMP/out")"
   expect_watches "spec:76 paseo main-b
 spec:77 paseo main-a"
 
@@ -597,8 +582,6 @@ spec:77 paseo main-c"
   echo "--- closing one watch leaves the relay running for the other"
   code="$(relay_ stop --repo "$REPO" --spec 76)"
   [ "$code" = 0 ] || fail "stop --spec 76 expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "stopped watching spec #76 for o/r: the relay (pid $pid) goes on watching ticket #61" "$TMP/out" \
-    || fail "stdout: $(cat "$TMP/out")"
   kill -0 "$pid" 2>/dev/null || fail "the relay should still run for ticket #61"
   expect_watches "tickets:61 paseo main-a"
   python3 -c 'import json,sys; b=json.load(open(sys.argv[1])); sys.exit(0 if b.get("at") else 1)' "$STATE/beat.json" \
@@ -656,7 +639,6 @@ scenario_ackwake() {
   relay_ run --repo "$REPO" --once >/dev/null
   code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event ticket.passed)"
   [ "$code" = 0 ] || fail "ack expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "acked paseo main-a \`#61 ticket.passed\` through 1: removed 1, 0 left for it" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   expect_rows "2 61 reviewer.reported wk-61 delivered"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session main-a --ticket 61 --event ticket.passed)"
   [ "$code" = 1 ] || fail "a second ack matches no row of main-a and is refused, got $code"

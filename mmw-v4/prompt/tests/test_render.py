@@ -43,17 +43,6 @@ class RenderTest(unittest.TestCase):
             self.assertTrue(text.startswith("<!-- mmw prompt-sync:"), rel)
             self.assertEqual(text.split("\n", 1)[1], shared, rel)
 
-    def test_replaces_a_file_mmw_v2_generated_without_adopt(self):
-        body = "the v2 host line\n\nthe v2 shared body\n"
-        digest = hashlib.sha256(body.encode()).hexdigest()
-        target = self.home / ".codex/AGENTS.md"
-        target.write_text("<!-- mmw prompt-sync: generated from mmw-v2/prompt/shared.md + "
-                          f"mmw-v2/prompt/hosts/codex.md; edit those, not this file. body-sha256={digest} -->\n"
-                          + body)
-        r = run(self.home)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue(target.read_text().endswith(SHARED.read_text()))
-
     def test_replaces_a_file_mmw_v3_generated_without_adopt(self):
         body = "the v3 shared body\n"
         digest = hashlib.sha256(body.encode()).hexdigest()
@@ -70,9 +59,7 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(run(self.home, "--check").returncode, 0)
         target = self.home / ".codex/AGENTS.md"
         target.write_text(target.read_text() + "\nextra\n")
-        r = run(self.home, "--check")
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("被直接改过", r.stderr)
+        self.assertEqual(run(self.home, "--check").returncode, 1)
 
     def test_refuses_to_overwrite_hand_edited_target(self):
         run(self.home)

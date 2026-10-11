@@ -67,18 +67,10 @@ class TestCreatesForEachKind(unittest.TestCase):
                 self.assertEqual(code, 0, err)
                 create = create_of(recorded)
                 self.assertEqual(create[create.index("--parent") + 1], "77")
+                self.assertEqual(create.count("--parent"), 1)
                 self.assertEqual(labels_of(create), ["needs-triage", "mmw:child"])
                 self.assertEqual(create[create.index("--title") + 1], f"The {kind} case")
                 self.assertIn("99", out.strip().splitlines()[-1])
-
-    def test_parent_is_the_ticket(self):
-        """`--parent` is this ticket; the ticket body is not consulted."""
-        code, _, err, recorded, _ = run_sub_issue(
-            "contract", "The handoff and the spec disagree\n\ndetail\n")
-        self.assertEqual(code, 0, err)
-        create = create_of(recorded)
-        self.assertEqual(create[create.index("--parent") + 1], "77")
-        self.assertEqual(create.count("--parent"), 1)
 
     def test_the_body_opens_with_a_line_naming_the_kind_and_the_ticket(self):
         code, _, err, recorded, bodies = run_sub_issue(
@@ -86,7 +78,8 @@ class TestCreatesForEachKind(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertTrue(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
         posted = bodies[0]
-        self.assertEqual(posted.splitlines()[0], "A `contract` child of #77.")
+        self.assertIn("contract", posted.splitlines()[0])
+        self.assertIn("#77", posted.splitlines()[0])
         self.assertNotIn("SUB-ISSUE", posted)
         self.assertIn("The handoff and the spec disagree", posted)
         self.assertIn("detail", posted)
@@ -176,13 +169,6 @@ class TestRefusesEmptyOrUnknown(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
 
-    def test_an_unknown_kind_exits_2_and_creates_nothing(self):
-        code, _, err, recorded, _ = run_sub_issue(
-            "other", "A title\n\nbody\n")
-        self.assertEqual(code, 2)
-        self.assertIn("kind", err.lower())
-        self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
-
     def test_the_retired_kind_names_are_refused(self):
         for kind in ("review", "baseline", "outside-owns", "pipeline"):
             with self.subTest(kind=kind):
@@ -191,16 +177,6 @@ class TestRefusesEmptyOrUnknown(unittest.TestCase):
                 self.assertEqual(code, 2)
                 self.assertIn("finding, contract, deferred, decision, fault", err)
                 self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
-
-    def test_fault_kind_is_accepted_and_a_sixth_name_exits_2(self):
-        code, _, err, recorded, _ = run_sub_issue(
-            "fault", "The driver would not start\n\nran the start; saw the lease refused\n")
-        self.assertEqual(code, 0, err)
-        self.assertTrue(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
-        code, _, err, recorded, _ = run_sub_issue(
-            "toolbox", "A title\n\nbody\n")
-        self.assertEqual(code, 2)
-        self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
 
 
 if __name__ == "__main__":

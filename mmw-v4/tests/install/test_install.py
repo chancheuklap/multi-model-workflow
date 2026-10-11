@@ -218,7 +218,7 @@ class InstallTest(unittest.TestCase):
         env = self.env()
         env["HOME"] = str(self.home)
         r = subprocess.run(["bash", str(V4 / "install.sh")], env=env, capture_output=True, text=True)
-        self.assertNotIn("command not found", r.stderr)
+        self.assertEqual(r.returncode, 0, r.stderr)
         plist = self.home / "Library/LaunchAgents/com.mmw.prompt-sync.plist"
         self.assertIn(str(V4 / "prompt/render.py"), plist.read_text())
         self.assertIn("launchctl bootstrap", self.log.read_text())

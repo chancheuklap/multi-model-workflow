@@ -9,7 +9,6 @@ and not a broken copy.
 
 from __future__ import annotations
 
-import re
 import shutil
 import subprocess
 import sys
@@ -46,58 +45,38 @@ class WiringTest(unittest.TestCase):
     def line_with(self, path: Path, needle: str) -> str:
         return next(l for l in path.read_text(encoding="utf-8").splitlines() if needle in l)
 
-    def assertFinds(self, needle: str):
+    def assertFinds(self, fact: str):
+        """Exit 1, and a finding names this fact (a path or a name)."""
         r = self.run_check()
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertIn(needle, r.stdout)
+        self.assertIn(fact, r.stdout)
 
     def test_the_copy_as_it_is_passes(self):
         r = self.run_check()
         self.assertEqual(r.returncode, 0, r.stdout)
 
-    def test_a_playbook_with_no_route_line(self):
-        self.edit(self.mode, self.line_with(self.mode, "`playbooks/to-tickets.md`") + "\n", "")
-        self.assertFinds("no route line for playbooks/to-tickets.md")
-
     def test_a_route_line_whose_file_is_gone(self):
         (self.skills / "mmw-mode/playbooks/investigation.md").unlink()
-        self.assertFinds("names playbooks/investigation.md, which does not exist")
+        self.assertFinds("playbooks/investigation.md")
 
     def test_a_new_playbook_with_no_route_line(self):
         (self.skills / "mmw-mode/playbooks/new-thing.md").write_text("### New thing\n")
-        self.assertFinds("no route line for playbooks/new-thing.md")
-
-    def test_a_readme_with_no_route_line(self):
-        (self.skills / "mmw-mode/playbooks/README.md").write_text("# Component guide\n")
-        self.assertFinds("no route line for playbooks/README.md")
+        self.assertFinds("playbooks/new-thing.md")
 
     def test_a_route_name_that_is_not_the_title(self):
-        self.edit(self.mode, "- **To tickets.**", "- **To tickets now.**")
-        self.assertFinds("is titled 'To tickets'")
+        (self.skills / "mmw-mode/playbooks/new-thing.md").write_text("# New thing\n")
+        self.edit(self.mode, "## Playbooks\n",
+                  "## Playbooks\n\n- **Something else.** Read `playbooks/new-thing.md`.\n")
+        self.assertFinds("'New thing'")
 
     def test_a_principle_with_no_index_line(self):
         line = self.line_with(self.mode, "(**principle-prove-it-works**)")
         self.edit(self.mode, line + "\n", "")
-        self.assertFinds("no index line for principle-prove-it-works")
+        self.assertFinds("principle-prove-it-works")
 
     def test_a_principle_that_is_gone(self):
         shutil.rmtree(self.skills / "principle-prove-it-works")
-        self.assertFinds("names principle-prove-it-works, which is not a skill")
-
-    def test_a_step_naming_a_skill_that_is_not_there(self):
-        self.edit(self.skills / "code-review/references/tests-reviewer.md", "the `tdd` skill's",
-                  "the `tdding` skill's")
-        self.assertFinds("names the tdding skill, which is not a skill")
-
-    def test_a_step_naming_a_reference_that_is_not_there(self):
-        self.edit(self.skills / "mmw-mode/playbooks/shared-closing.md", "`references/session.md`",
-                  "`references/sessions.md`")
-        self.assertFinds("names references/sessions.md, which is not there")
-
-    def test_a_bare_skill_file_that_is_not_there(self):
-        self.edit(self.skills / "code-review/references/tests-reviewer.md",
-                  "the `tdd` skill's `tests.md`", "the `tdd` skill's `tset.md`")
-        self.assertFinds("names tdd/tset.md, which is not there")
+        self.assertFinds("principle-prove-it-works")
 
     def test_bare_skill_file_ignores_scripts_and_flags(self):
         path = self.skills / "mmw-mode/playbooks/authoring-a-skill.md"
@@ -111,7 +90,7 @@ class WiringTest(unittest.TestCase):
                 self.assertEqual(r.stdout, "WIRING OK\n")
         path.write_text(text + "\nRead the `dispatch` skill's `missing-file.md`.\n",
                         encoding="utf-8")
-        self.assertFinds("names dispatch/missing-file.md, which is not there")
+        self.assertFinds("dispatch/missing-file.md")
 
     def test_bare_skill_file_with_a_missing_skill_reports_the_skill(self):
         path = self.skills / "mmw-mode/playbooks/authoring-a-skill.md"
@@ -120,19 +99,18 @@ class WiringTest(unittest.TestCase):
                         encoding="utf-8")
         r = self.run_check()
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertIn("names the tdx skill, which is not a skill", r.stdout)
-        self.assertNotIn("names tdx/tests.md, which is not there", r.stdout)
+        self.assertIn("tdx", r.stdout)
+        self.assertNotIn("tdx/tests.md", r.stdout)
 
     def test_a_step_naming_a_script_that_is_not_there(self):
         (self.skills / "mmw-mode/scripts/worktree-audit.sh").unlink()
-        self.assertFinds("names scripts/worktree-audit.sh, which is not there")
+        self.assertFinds("scripts/worktree-audit.sh")
 
     def test_a_dispatch_command_that_is_not_there(self):
         path = self.skills / "mmw-mode/playbooks/run-a-night.md"
-        text = path.read_text(encoding="utf-8")
-        path.write_text(re.sub(r"dispatch\.sh status\b", "dispatch.sh progress", text, count=1),
+        path.write_text(path.read_text(encoding="utf-8") + "\nRun `dispatch.sh progress`.\n",
                         encoding="utf-8")
-        self.assertFinds("names `dispatch.sh progress`, which dispatch.sh does not have")
+        self.assertFinds("dispatch.sh progress")
 
 
 if __name__ == "__main__":

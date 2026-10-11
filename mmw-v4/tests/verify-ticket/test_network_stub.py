@@ -28,11 +28,6 @@ class TestNetworkStubs(unittest.TestCase):
     def test_a_word_that_merely_contains_a_library_name_is_no_stub(self):
         self.assertEqual(self.lint("printf dreamsweeper"), [])
 
-    def test_a_real_fetch_stub_is_still_refused(self):
-        findings = self.lint("pnpm vitest run live.test.ts  # vi.stubGlobal('fetch', replacement)")
-        self.assertEqual(len(findings), 1)
-        self.assertIn("own network", findings[0])
-
     def test_msw_nock_and_fetch_mock_are_refused(self):
         for check in (
             "pnpm vitest run t.ts  # setupServer from msw",

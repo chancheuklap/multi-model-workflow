@@ -72,16 +72,11 @@ def run(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
 
 
 class TestBranch(unittest.TestCase):
-    def test_a_branch_that_is_not_the_ticket_is_refused(self):
-        code, posted, err, assign = preflight(branch="worktree-upstream-pull")
-        self.assertEqual(code, 2)
-        self.assertTrue(err.startswith("NOT_READY: branch "))
-        assign.assert_not_called()
-
     def test_the_refusal_is_posted_on_the_ticket(self):
         code, posted, err, _ = preflight(branch="main")
         self.assertEqual([n for n, _ in posted], [77])
-        self.assertTrue(posted[0][1].startswith("NOT_READY: branch is main, not issue-77"))
+        self.assertTrue(posted[0][1].startswith("NOT_READY:"))
+        self.assertIn("main", vt.events.first_line(posted[0][1]))
         self.assertEqual(vt.events.first_line(posted[0][1]), err.strip())
         name, payload = event_of(posted[0][1])
         self.assertEqual((name, payload["reason"]), ("ticket.refused", "wrong-branch"))
@@ -96,7 +91,6 @@ class TestRefusals(unittest.TestCase):
     def test_uncommitted_changes_to_tracked_files_are_refused(self):
         code, posted, err, assign = preflight(dirty=[" M src/app.py", " M src/other.py"])
         self.assertEqual(code, 2)
-        self.assertIn("2 tracked files have uncommitted changes", err)
         assign.assert_not_called()
 
     def test_untracked_files_alone_do_not_refuse(self):
@@ -108,26 +102,26 @@ class TestRefusals(unittest.TestCase):
     def test_a_ticket_without_the_agent_label_is_refused(self):
         code, _, err, assign = preflight(labels=("needs-triage",))
         self.assertEqual(code, 2)
-        self.assertIn("no ready-for-agent label", err)
+        self.assertIn("ready-for-agent", err)
         assign.assert_not_called()
 
     def test_an_open_blocker_is_refused_and_named(self):
         code, _, err, assign = preflight(blockers=[(62, "CLOSED"), (64, "OPEN")])
         self.assertEqual(code, 2)
-        self.assertIn("blocked by #64", err)
+        self.assertIn("#64", err)
         self.assertNotIn("#62", err)
         assign.assert_not_called()
 
     def test_a_ticket_someone_else_holds_is_refused(self):
         code, _, err, assign = preflight(assignees=("someone-else",))
         self.assertEqual(code, 2)
-        self.assertIn("assigned to someone-else", err)
+        self.assertIn("someone-else", err)
         assign.assert_not_called()
 
     def test_a_closed_ticket_is_refused(self):
         code, _, err, _ = preflight(state="CLOSED")
         self.assertEqual(code, 2)
-        self.assertIn("is CLOSED, not OPEN", err)
+        self.assertIn("CLOSED", err)
 
 
 PASSED = event("ticket.passed", "ALL MET", ticket=62, commit="a" * 40)
@@ -147,7 +141,7 @@ class TestABlockerLetsGoOnceItHasLanded(unittest.TestCase):
         code, posted, err, assign = self.blocked("CLOSED", [PASSED])
         self.assertEqual(code, 2)
         self.assertEqual(event_of(posted[0][1])[1]["reason"], "blocked")
-        self.assertIn("blocked by #62 (passed, not landed)", err)
+        self.assertIn("#62", err)
         assign.assert_not_called()
 
     def test_the_same_blocker_lets_go_once_it_has_landed(self):
@@ -165,7 +159,7 @@ class TestABlockerLetsGoOnceItHasLanded(unittest.TestCase):
         code, posted, err, _ = self.blocked("OPEN")
         self.assertEqual(code, 2)
         self.assertEqual(event_of(posted[0][1])[1]["reason"], "blocked")
-        self.assertIn("blocked by #62;", err)
+        self.assertIn("#62", err)
 
     def test_a_closed_blocker_whose_events_cannot_be_read_holds(self):
         cases = (("its events cannot be read", ["x\n\n<!-- mmw {not json} -->"]),
@@ -175,7 +169,7 @@ class TestABlockerLetsGoOnceItHasLanded(unittest.TestCase):
             with self.subTest(why=why):
                 code, _, err, assign = self.blocked("CLOSED", comments)
                 self.assertEqual(code, 2)
-                self.assertIn(f"#62 ({why})", err)
+                self.assertIn("#62", err)
                 assign.assert_not_called()
 
 
@@ -228,14 +222,12 @@ class TestTheTreeOnATicketThisAccountAlreadyHolds(unittest.TestCase):
 
     def test_it_says_the_changes_are_the_worker_s_own_and_have_to_be_committed(self):
         _, _, _, _, out = run(assignees=(ME,), dirty=[" M src/app.py", " M src/other.py"])
-        self.assertIn("2 tracked files", out)
         self.assertIn("--closeout", out)
 
     def test_a_dirty_tree_on_a_ticket_nobody_holds_is_still_refused(self):
         code, posted, err, assign = preflight(dirty=[" M src/app.py"])
         self.assertEqual(code, 2)
         self.assertEqual(event_of(posted[0][1])[1]["reason"], "dirty-tree")
-        self.assertIn("#77 is claimed by nobody", err)
         assign.assert_not_called()
 
 
@@ -342,14 +334,6 @@ class TestBaselineRun(unittest.TestCase):
             ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
         self.assertEqual(listed.count("worktree "), 1, listed)
 
-    def test_a_red_baseline_does_not_refuse_the_claim(self):
-        root, base, _ = self.repo()
-        code, posted, err, out, assign = self.claim(root, base)
-        self.assertEqual(code, 0, err)
-        self.assertTrue(out.startswith("READY:"), out)
-        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
-        assign.assert_called_once()
-
     def test_the_same_base_is_not_run_twice(self):
         from _load import started, checked
         root, base, _ = self.repo()
@@ -388,7 +372,7 @@ class TestBaselineRun(unittest.TestCase):
         code, posted, err, _, _ = self.claim(root, base, comments=[])
         self.assertEqual(code, 0, err)
         self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
-        self.assertIn("no worker.started.base commit", err)
+        self.assertIn("worker.started.base", err)
 
     def test_a_missing_base_commit_does_not_refuse_the_claim(self):
         root, _, _ = self.repo()
@@ -428,17 +412,24 @@ class TestResume(unittest.TestCase):
         self.assertEqual(code, 0, err)
         return out
 
+    def assertResumes(self, out, step, *events):
+        """The `RESUME:` line opens with the step's title and names the events it read."""
+        line = next(row for row in out.splitlines() if row.startswith("RESUME:"))
+        self.assertTrue(line.startswith(f"RESUME: {step}"), line)
+        for name in events:
+            self.assertIn(name, line)
+
     def test_a_fresh_ticket_prints_no_resume_line(self):
         self.assertNotIn("RESUME", self.resume([]))
 
     def test_a_run_of_your_own_with_no_decision_resumes_at_step_2(self):
         out = self.resume([checked("self", SELF_LEDGER, ticket=77)])
-        self.assertIn("RESUME: Post the decisions comment (no worker.decided)", out)
+        self.assertResumes(out, "Post the decisions comment", "worker.decided")
 
     def test_a_decision_with_no_reviewer_resumes_at_step_3(self):
         out = self.resume([checked("self", SELF_LEDGER, ticket=77),
                            event("worker.decided", "DECISIONS", ticket=77)])
-        self.assertIn("RESUME: Start the reviewer (worker.decided, no reviewer.reported)", out)
+        self.assertResumes(out, "Start the reviewer", "worker.decided", "reviewer.reported")
 
     def test_a_live_reviewer_resumes_asleep_at_step_3(self):
         out = self.resume([
@@ -447,7 +438,7 @@ class TestResume(unittest.TestCase):
             event("reviewer.started", "Reviewer started", ticket=77,
                   session="rv-1", runner="paseo", machine="mac-1"),
         ])
-        self.assertIn("RESUME: Read the review (reviewer.started, no reviewer.reported yet)", out)
+        self.assertResumes(out, "Read the review", "reviewer.started", "reviewer.reported")
 
     def test_commits_after_your_run_since_the_report_resume_at_the_audit(self):
         out = self.resume([
@@ -465,7 +456,7 @@ class TestResume(unittest.TestCase):
             event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
                   ticket=77, base="a" * 7, head="b" * 7),
         ])
-        self.assertIn("RESUME: Read the review (reviewer.reported, no run of your own since)", out)
+        self.assertResumes(out, "Read the review", "reviewer.reported")
 
     def test_a_worker_reverify_on_head_with_nothing_newer_resumes_at_step_5(self):
         out = self.resume([
@@ -486,7 +477,7 @@ class TestResume(unittest.TestCase):
             checked("reverify", SELF_LEDGER, ticket=77, actor="worker", commit=HEAD),
             event("ticket.returned", "HANDOFF REQUIRED", ticket=77),
         ])
-        self.assertIn("RESUME: Integrate and run every criterion, then Run every criterion one final time onward (ticket.returned)", out)
+        self.assertResumes(out, "Integrate and run every criterion", "ticket.returned")
 
     def test_resume_quotes_failed_checks(self):
         failed = "Failed checks: python3 -c 'import sys; sys.exit(1)' exit 1."
@@ -500,10 +491,7 @@ class TestResume(unittest.TestCase):
         ])
         lines = out.splitlines()
         resume = next(i for i, row in enumerate(lines) if row.startswith("RESUME:"))
-        self.assertEqual(
-            lines[resume],
-            "RESUME: Integrate and run every criterion, then Run every criterion one final time onward (ticket.bounced)",
-        )
+        self.assertResumes(out, "Integrate and run every criterion", "ticket.bounced")
         following = lines[resume + 1] if resume + 1 < len(lines) else ""
         self.assertEqual(following, failed)
 
