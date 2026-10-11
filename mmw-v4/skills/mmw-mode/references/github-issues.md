@@ -48,7 +48,7 @@ Read it as in **Read an issue** above.
 
 The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map` and `mmw:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map --label mmw:map`.
+- **Map**: a single issue labelled `wayfinder:map` and `mmw:map`, its body in the shape of **The map body** in `wayfinder.md`. `gh issue create --label wayfinder:map --label mmw:map`.
 - **Child ticket**: an issue linked to the map as a GitHub sub-issue (see **Make an issue a sub-issue of a parent**). Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
 - **Blocking**: as in **Blocking** above. A ticket is unblocked when every blocker is closed.
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues), drop any carrying `mmw:spec`, any with an open blocker (`issue_dependencies_summary.blocked_by > 0`) or an assignee; first in map order wins.
