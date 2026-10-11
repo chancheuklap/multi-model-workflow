@@ -95,7 +95,7 @@ Read the mmw-mode skill in full, then read its `references/ambiguity-scan.md` an
 
 Hold this turn until it returns; where the host runs subagents in the background, ask for it to be waited on. When the host cannot run subagents, run the scan yourself from `../references/ambiguity-scan.md`, and write its result to a file before you list the breakdown.
 
-Present the proposed breakdown as a numbered list, and as one page drawn with the **diagram-design** skill: every ticket, which waits for which, and what each delivers in the words a user would use. For each ticket an agent works, the list shows:
+Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
 
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
