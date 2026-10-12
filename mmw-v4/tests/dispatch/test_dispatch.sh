@@ -3651,6 +3651,44 @@ JSON
 
 route_in() { run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" "$@"; }
 
+scenario_routenospec() {
+  local code
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "CLOSED", "labels": ["mmw:ticket"], "parent": null,
+   "comments": [$(ev child.opened 61 "Opened #90 (finding)" --field child=90 --field kind=finding),
+                $(ev child.opened 61 "Opened #91 (finding)" --field child=91 --field kind=finding)]},
+  {"number": 90, "state": "OPEN", "labels": ["mmw:child"], "parent": {"number": 61}},
+  {"number": 91, "state": "OPEN", "labels": ["mmw:child"], "parent": {"number": 61}},
+  {"number": 80, "state": "OPEN", "labels": ["ready-for-agent", "mmw:ticket"], "parent": {"number": 76}}
+]
+JSON
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 90)"
+  [ "$code" = 0 ] || fail "a standalone finding should become a ticket, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 90 :: --add-label :: mmw:ticket :: --remove-parent :: --remove-label :: mmw:child"
+  hasnt "gh :: issue :: close :: 90"
+  hasnt ":: --parent ::"
+
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 became-ticket 80)"
+  [ "$code" = 0 ] || fail "a standalone finding should close as a duplicate, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: close :: 91 :: --duplicate-of :: 80"
+  hasnt "gh :: issue :: edit :: 80"
+  [ "$(posted_events 61 child resolution became spec | tr '\n' '|')" = \
+    "child.closed child=90 resolution=became-ticket became=90 spec=None|child.closed child=91 resolution=became-ticket became=80 spec=None|" ] \
+    || fail "standalone routes should record no spec: $(posted_events 61 child resolution became spec)"
+
+  : > "$MMW_TEST_LOG"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 90)"
+  [ "$code" = 0 ] || fail "repeated standalone conversion should exit 0, got $code"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 became-ticket 80)"
+  [ "$code" = 0 ] || fail "repeated duplicate routing should exit 0, got $code"
+  hasnt "gh :: issue :: edit"
+  hasnt "gh :: issue :: close"
+  [ "$(posted_events 61 | grep -c child.closed)" = 2 ] || fail "a repeated route posted another child.closed"
+}
+
 scenario_route() {
   local code
   reset_log
@@ -8079,6 +8117,7 @@ PY
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancelegacychecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL routenospec"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
