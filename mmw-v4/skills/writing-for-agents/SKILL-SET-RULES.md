@@ -59,6 +59,7 @@ These stay, though a trimming pass reads them as noise: a sentence that prevents
 - A rule a script could check exactly becomes a check (a lint, a refusal, a test), not a sentence. A numeric limit a program depends on is enforced by that program.
 - A check or completion criterion that cannot fail proves nothing: it is fixed or removed.
 - Programs branch on exit codes and fields; the refusal's wording is for the agent. Rewording a message changes no behaviour.
+- A script header that records how a host or a runner behaves (a hook payload, a liveness tolerance) records a measurement from a real run, with its date and the version measured. Behaviour read in documentation is not written there as fact: it is what the measurement checks.
 
 ### Descriptions
 
@@ -113,6 +114,7 @@ The upstream trees are read-only, under `mmw-v3/upstream-mattpocock/`, `mmw-v3/u
 ### Paths and host neutrality
 
 - MMW is itself a skill collection loaded into the agent's runtime: naming another skill (`` the `X` skill ``) hands off the work, and a skill's own references and scripts are named by their path inside the skill (`references/x.md`, `scripts/y.py`), resolved by the agent already holding it. Skill text carries no absolute path and no explanation that a script's location differs by machine or by host: the agent knows where a loaded skill lives.
+- A script finds a neighbour (a sibling script, its skill's `roles.json`, another skill's `scripts/`) from its own resolved location, never from the working directory. The only absolute paths it names are the fixed user-level locations (`~/.mmw`, read as `MMW_HOME` when that is set; `~/.agents/skills`; `~/.claude/skills`) and paths the run made with `mktemp`. A fixed name under `/tmp` is a finding: two runs at once share it.
 - A ticket's `CHECK:` line names no path into a skill: a shell runs it with no agent in between, so it runs only what the repository holds or the shell's `PATH` finds.
 - One text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability ("a host that cannot hold a turn open", "a host that can run subagents"). The runner is the one `models.py runner` selects; the text states that and assumes nothing past it. A skill is named by its name, as `/X` or `the X skill`; a host's tool for invoking skills is not named (`the Skill tool` exists on one host only). A session command (emptying a session's context, compressing it into a summary) is written as the action, and the file that names one carries this sentence once: `Emptying a session's context and compressing it into a summary both exist on every host, under a different name on each; use the one your host gives you.`
 
@@ -130,7 +132,7 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 
 ### Refusals and output an agent reads
 
-- A refusal follows `CODING_STANDARDS.md`, and its next step fits the skill that receives it.
+- A refusal has three parts (**principle-fail-loudly**): what happened, with one fact the reader can check (a path, a pid, a count, a ticket number); why; and the one next step the reader can take, fitting the skill that receives it. A refusal (exit 2) changes nothing before it refuses. A script whose sibling script is missing reports an incomplete checkout; no flag passes over it.
 - Hosts cut long output before the agent sees it, so the next step sits in the first lines.
 - The suggested next step is safe to run as written.
 

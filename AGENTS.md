@@ -49,8 +49,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | Every skill and principle, one line each | `mmw-v4/README.md` `## Skills` and `## Principles` |
 | The intents the skill set is held to; read before changing what a skill does | `mmw-v4/skills/writing-for-agents/DESIGN-INTENTS.md` |
 | Every rule for the text of a skill, playbook or reference, which component a text goes in and the shape of each, and how a copy is compared with a newer upstream; read before writing, editing or reviewing one | `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` and `SKILL-SET-COMPONENTS.md` |
-| How code in this repository is written; the reviewer's Standards axis applies it | `CODING_STANDARDS.md` |
-| Where the tests live, how they are isolated, which suites a change needs; the reviewer's Tests axis applies it | `TESTING.md` |
+| The facts of how this repository's tests run: where they live, how to run them, what is stubbed, how a test reaches a state, traps; the reviewer's Tests axis reads it. Which suites a change needs is the map in `scripts/check` | `TESTING.md` |
 
 ## Key Conventions
 

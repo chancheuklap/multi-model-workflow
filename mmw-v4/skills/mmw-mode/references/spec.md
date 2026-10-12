@@ -48,7 +48,7 @@ The implementation decisions that were made, grouped into numbered subsections (
 
 Each subsection is read on its own: a worker opens only the subsections its ticket names, so a subsection that depends on another names it.
 
-**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, a research or prototype path. A decision with no source is written as "this spec's decision", citing what it rests on (and, where the user confirmed it, say so). A rule of the repository's `CODING_STANDARDS.md` that shapes a decision is stated in the subsection it shapes, citing its section: the worker reads the spec, not that file.
+**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, a research or prototype path. A decision with no source is written as "this spec's decision", citing what it rests on (and, where the user confirmed it, say so). What an ADR decides that shapes a decision is written into the subsection it shapes, citing the ADR: the worker reads the spec, not the ADR.
 
 **A user story's conclusion is folded into the subsection that implements it.** A worker reads the Implementation Decisions subsections its ticket names and never a story, so a behaviour that is settled only in a story reaches nobody. Whatever a story decides about a value, a transition or a failure is stated here, in the subsection that implements it, with the story number as its source.
 
@@ -81,7 +81,7 @@ Links to the first-hand material this spec was built from, one line per kind. Wr
 - Prototype directories
 - Domain docs
 - Evidence (measurements, cost runs, real-call records)
-- Repository rules: `CODING_STANDARDS.md`, `TESTING.md`, the sections this spec relies on
+- `TESTING.md`: the sections this spec relies on
 
 ## Further Notes
 

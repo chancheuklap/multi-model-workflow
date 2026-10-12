@@ -25,7 +25,7 @@ _Avoid_: host (for this; the host is the agent program the runner starts)
 _Home_: `mmw-v3/skills/dispatch/scripts/runners/`
 
 **runner adapter**:
-The dispatch skill's `scripts/runners/<runner>.sh`, the one way `dispatch.sh`, the relay and the watchdog reach a **runner**: the verbs `start`, `send` and `liveness` (which answers `alive`, `stopped` or `unknown`), with `stop`, `self`, `attach` and the `catalog-*` reads, each answering with the same exit codes on every runner.
+The dispatch skill's `scripts/runners/<runner>.sh`, the one way `dispatch.sh`, the relay and the watchdog reach a **runner**: the verbs `start`, `send` and `liveness` (which answers `alive`, `stopped` or `unknown`), with `stop`, `self`, `attach` and the `catalog-*` reads, each answering with the same exit codes on every runner. Only the adapter runs a runner's own commands; every other script reaches the runner through it.
 _Home_: `mmw-v3/skills/dispatch/scripts/runners/`
 
 ### Places

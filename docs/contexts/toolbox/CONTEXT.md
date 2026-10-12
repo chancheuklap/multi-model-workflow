@@ -121,6 +121,10 @@ _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per session role `roles.json` lists (`junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`), with its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
 _Home_: `mmw-v3/skills/dispatch/references/editing-models.md`
 
+**`MMW_HOME`**:
+The machine's MMW directory, `~/.mmw` unless the variable names another, as `home()` in the dispatch skill's `statedir.py` resolves it. It holds `models.json` and its lock `models.lock`, the task board's `boards.json` and `board.log`, and `state/<owner>__<name>/`, one 0700 **state directory** per repository; `install.sh` also writes `installed-root` under `~/.mmw` itself. Not one byte of ticket state lives there: a ticket's state is its events.
+_Home_: `mmw-v4/skills/dispatch/scripts/statedir.py`, `mmw-v4/skills/dispatch/scripts/models.py`, `mmw-v4/board/supervisor.py`, `mmw-v4/install.sh`
+
 **`effort`**:
 The `effort` field of a `models.json` row: the reasoning effort the host is started with (`high`, `xhigh`, `medium`, …). How each host takes it is in `hosts.json`. Distinct from ui-acceptance's **effort** (`<effort>`), a development effort's directory name.
 _Home_: `mmw-v3/skills/dispatch/hosts.json`
@@ -204,7 +208,7 @@ _Home_: `mmw-v3/skills/research/SKILL.md`
 
 **refusal**:
 The fixed three-part shape every script refusal in this repository takes: what happened, with one checkable fact; why; what to do next. A check that can verify nothing says so rather than reading like a pass.
-_Home_: `CODING_STANDARDS.md`, `mmw-v3/skills/ui-acceptance/scripts/refusal.py`
+_Home_: `mmw-v4/skills/principle-fail-loudly/SKILL.md`, `mmw-v3/skills/ui-acceptance/scripts/refusal.py`
 
 **shared checks**:
 The three checks in `mmw-v3/tests/lib/` that every `mmw-v3/tests/<name>/run.sh` runs before its own: `check_module_paths.py` (a script names a module file that no longer exists), `check_wiring.py` (a route, a principle line, or a skill, file, script or `dispatch.sh` command a step names is missing), `check_skill_frontmatter.py` (invalid YAML, or a key beyond those `SKILL-SET-RULES.md` allows, on one of this repository's skills).

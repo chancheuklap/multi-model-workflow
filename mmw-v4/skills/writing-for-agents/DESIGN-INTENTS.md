@@ -122,7 +122,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: the `dispatch` skill's `scripts/relay.py` and `scripts/watchdog.py`; **Run a night**.
 35. **No gate is silent:** a check that ran and did nothing is found.
     Takes: P7, adapted (inconclusive is not a pass, extended to every gate).
-    Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Scripts and judgement`; **Work a ticket** step **Read yourself in and write the code**.
+    Home: `principle-fail-loudly`; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Scripts and judgement`; **Work a ticket** step **Read yourself in and write the code**.
 36. **A script is a tool and judgement is the agent's;** a rule a script enforces is not written again as prose.
     Takes: P10, adapted (lessons go into structure, enforced by scripts); P11, adapted (the tool is the agent's lever; judgement is not handed to it); M21, adapted (Matt has no runtime; MMW's mechanical rules are enforced by scripts).
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) fact 2, `### Scripts and judgement`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` item 5.
@@ -132,9 +132,9 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
 
 ## Learning and rules
 
-38. **A lesson goes into a mechanism first:** a mechanical mistake becomes a check, a judgement call goes into `CODING_STANDARDS.md`, prose comes last; a rule changes with the owner's approval. The default is to edit what exists or delete, not to add a component.
-    Takes: M11, adapted (the retro runs when the night closes, and its proposals have fixed destinations the owner approves); P10, kept; P28, adapted (skill text found wrong mid-task is fixed as its own change after the task in the day, and recorded as a `deferred` child at night).
-    Home: the `reflect` and `correct` skills; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` items 4 and 5; `mmw-mode` `references/owning-a-task.md` `## Non-negotiables` (skill text found wrong). The retro has no home in the set yet.
+38. **A lesson goes where it is enforced or read, a mechanism first:** a mistake a script can catch becomes a check in the repository's `scripts/check`; a judgement that holds in every repository goes into a principle; a fact of one repository goes into its `TESTING.md`, its glossary, an ADR or its `AGENTS.md`. A repository keeps no coding standard of its own. A rule changes with the owner's approval. The default is to edit what exists or delete, not to add a component.
+    Takes: M11, adapted (the retro runs when the night closes, and its proposals have fixed destinations the owner approves; a judgement call goes into a principle, not into a standards file of the repository); P10, kept; P28, adapted (skill text found wrong mid-task is fixed as its own change after the task in the day, and recorded as a `deferred` child at night).
+    Home: the `correct` skill; the principles, indexed in `mmw-mode` `## Principles`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` items 4 and 5; `mmw-mode` `references/owning-a-task.md` `## Non-negotiables` (skill text found wrong). The retro has no home in the set yet.
 
 ## The toolbox
 
@@ -167,7 +167,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P38 (the rest) | The mode kept in effect by a host's reminder field | The mode's own description asks for the read, on every host (5, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
 | M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
-| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30); a fix a release's build needs is the one exception, committed by the session driving the release (`exe-release`) |
+| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30); two exceptions: a fix a release's build needs, committed by the session driving the release (`exe-release`), and a repository's `scripts/check`, which Set up code checkers commits itself, as `setup-mmw` does, since `open-ticket` and `land` refuse a repository without one |
 | M17 (the rest) | The person confirms the seams | A seam is an engineering decision (3, 21) |
 | M21 | No runtime; the person triggers every step | Mechanical rules are enforced by scripts, and the night is driven by the machine (36) |
 | M22 | Very short skills that leave the how to the model | Copied skills keep upstream's text; a playbook must finish at night with nobody to ask, so each step states its criterion (22, 17) |

@@ -242,8 +242,8 @@ The one conclusion the reviewer renders on each axis finding by rereading the ci
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **review category**:
-The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: the rule of a `CODING_STANDARDS.md` it breaks, its Spec or UI kind, `documented-standard` for a breach of what `TESTING.md` or the domain glossary states, or else `less-code` or `pass-through` for a Standards finding. Distinct from the retro's categories (`retro.py` `CATEGORIES`).
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
+The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: the principle it applies, without the `principle-` prefix (`fail-loudly`); the bug from the Correctness axis's checklist; its Spec kind; or `documented-standard` for a breach of a decision, term, rule or fact the repository documents (an ADR, the glossary, `CONTRIBUTING.md`, `TESTING.md`). Distinct from the retro's categories (`retro.py` `CATEGORIES`).
+_Home_: `mmw-v4/skills/code-review/references/session.md`
 
 **review finding**:
 One item an axis reports, quoting the requirement it fails, and sorted at the review session's own step into in-ticket or out-of-ticket: in-ticket when it touches this ticket's acceptance criteria, a decision in its named spec section, a baseline under its `## Read first`, the spec's `## Out of Scope` or `## Testing Decisions`, or a file inside this ticket's own `## Owns`; otherwise out-of-ticket, opened by the worker as a `finding` child.
@@ -264,10 +264,6 @@ _Home_: `mmw-v3/skills/code-review/references/spec-reviewer.md`
 **`unpaired-decoration` / `overall-look` / `design-page-wrong`**:
 The UI axis's three kinds of review finding, each about what its story screenshots show that element parity does not already cover: **`unpaired-decoration`** (a design-page decoration with no `data-ui` id, so element parity cannot pair it, missing, extra or misplaced in the submitted story), **`overall-look`** (the submitted story's overall look against the design page, not named by any `DIFF` line), and **`design-page-wrong`** (the design page itself is drawn wrong; the repair is not a product change).
 _Home_: `mmw-v3/skills/code-review/references/ui-reviewer.md`
-
-**Only the happy path**:
-A rule under `## Tests` in a repository's `CODING_STANDARDS.md`, which the Tests axis applies: a case in scope covers only the ordinary input while the code it tests has an edge, a boundary, or an error path the requested behaviour depends on, left untested.
-_Home_: `mmw-v3/skills/setup-mmw/CODING_STANDARDS.md`
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.

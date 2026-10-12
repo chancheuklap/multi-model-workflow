@@ -16,6 +16,8 @@ Which kind of component a text in the skill set belongs in, when a new one is wa
 | configuration | outside the skills (`~/.mmw/models.json`) | Which model each role runs on |
 | user-level prompt | `mmw-v4/prompt/shared.md` | Who reads every reply: the facts about the owner; every session carries it, with or without the mode |
 
+A skill's directory is symlinked whole into every host, so it holds only what the agent holding the skill, or one of its scripts, reads or runs: `SKILL.md`, its references, playbooks and assets, its scripts and the data they read, and the `agents/` file `SKILL-SET-RULES.md` `### Descriptions` allows. A test, a design note or a maintainer's record lives outside `mmw-v4/skills/`.
+
 ## The method
 
 These hold for every component. They come from how pstack itself adds and changes components (course lesson 2) and from what went wrong in the two earlier attempts.
@@ -131,6 +133,8 @@ In the same change as the new file: add its route line to the `mmw-mode` skill's
 
 A playbook that changes the repository outside a night opens its ticket and `fix-<n>` at step 1 and ends with the hand-back to the owner, both as the `mmw-mode` skill's `references/ticket.md` says; the change itself goes to a worker through One ticket. Its verification step follows the numbered steps as a section opened by its title in bold, which One ticket step 4 runs, and a section **A ticket that came back** names the step to resume at. Its `**Reply:**` names what the hand-back tells the owner, since the result comes after it.
 
+Set up code checkers is the one such playbook that commits its own change, as the `setup-mmw` skill does: `dispatch.sh open-ticket` and `land` refuse a repository without `scripts/check`, so the change that gives a repository one cannot land through a ticket.
+
 A judgement several steps point to may follow the steps as a section of its own, opened by its name in bold (To spec's **Seams**); the two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections instead. A playbook may name a step of another playbook ("Run **Authoring or modifying a skill** on the findings").
 
 ## principle
@@ -202,7 +206,7 @@ In the same change: the step or trigger that runs it gives the exact command.
 ### The shape of the file
 
 - A header comment: what the program does, and what it never does ("Never deletes anything; deletion stays a human-gated step in the playbook").
-- Ordinary code under `CODING_STANDARDS.md` at the repository root.
+- Ordinary code, written by the principles (`mmw-mode` `## Principles`) and checked by the repository's `scripts/check`.
 - Tests beside the larger programs.
 
 ## subagent

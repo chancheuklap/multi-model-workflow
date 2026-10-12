@@ -18,11 +18,11 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, the sections of `CODING_STANDARDS.md` and `TESTING.md` the spec relies on, copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, the sections of `TESTING.md` the spec relies on, copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing.
 
 ## Seam
 
-Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy. Then, from the same section's **How a test arrives at a state**, what puts the system into the states the criteria below name; when this ticket is the one that builds that, say so here as well as under **Owns**.
+Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy. Then, from the same section's **How a test arrives at a state**, what puts the system into the states the criteria below name; when this ticket is the one that builds that, say so here as well as under **Owns**. A ticket with no spec takes its test layer and directory from the repository's `TESTING.md` (from its own tests when it has none), and lists the sections of `TESTING.md` it used under **Read first**.
 
 ## Owns
 
@@ -56,7 +56,7 @@ A playbook outside any spec opens its ticket at its first step, before the plan 
 
 A ticket already open keeps its number and its body: its playbook's first step opens only the `fix-<n>` it lacks.
 
-Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a decision log, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`. With no spec, **Read first** lists what the playbook's steps produced (a reproduction, a harness, a sketch, a log), each by its path on `fix-<n>`; **Seam** is chosen from the repository's own tests (its `TESTING.md` when it has one); and **What to build**, beside the behaviour, carries the rules the worker writes by that the playbook names.
+Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a decision log, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`. With no spec, **Read first** lists what the playbook's steps produced (a reproduction, a harness, a sketch, a log), each by its path on `fix-<n>`, and **What to build**, beside the behaviour, carries the rules the worker writes by that the playbook names.
 
 A problem nobody is working on now, one a session ran into while doing something else, gets step 1 only and the label `needs-triage`; its `Playbook:` line is written when the kind is plain, and otherwise when the owner picks it. Its `fix-<n>` is opened when the owner picks it, at that playbook's first step.
 
