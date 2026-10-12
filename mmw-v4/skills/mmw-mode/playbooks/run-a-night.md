@@ -35,7 +35,9 @@ Run `check` and `open` from a checkout on the night's base branch: the current c
 dispatch.sh check <spec>
 ```
 
-**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; an invalid agent row is reported to the user.
+`check` also needs an executable `scripts/check` at the repository root, and runs its default tier once in this checkout, against the base branch, with uncommitted changes counted: there is no merge worktree yet. A night does not open on a red baseline, since every ticket would bounce on it.
+
+**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; an invalid agent row is reported to the user. A red step of `scripts/check` is fixed in the product, an exit 2 of it in the environment stderr names (a tool, a service, a dependency); a missing `scripts/check` is made by Set up code checkers (`playbooks/set-up-code-checkers.md`).
 
 Then, from this session — the one the night's wakes must reach:
 
@@ -79,7 +81,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | --- | --- |
 | `ticket.passed`, or a `ready` frontier row | Step 4's `advance` handles it |
 | A live worker should continue | `dispatch.sh resume <n> "<what you settled, then: continue>"`; act on exit 0, 4, 3 or 2 as [Exit codes of `resume`](#exit-codes-of-resume) below says |
-| `child.opened` of kind `fault` | Read `events.py fold <n>`. A `fault` in this repository's environment (a credential, a service, `.mmw/target.json`) you fix, then `dispatch.sh resume <n> "… continue"`. A `fault` in the pipeline's own scripts you do not patch while they run the night: tell the user what failed, and suspend when the rest of the batch would hit it too |
+| `child.opened` of kind `fault` | Read `events.py fold <n>`. A `fault` in this repository's environment (a credential, a service, a `scripts/check` that exits 2) you fix, then `dispatch.sh resume <n> "… continue"`. A `fault` in the pipeline's own scripts you do not patch while they run the night: tell the user what failed, and suspend when the rest of the batch would hit it too |
 | `child.opened` of kind `contract` | Read the child and the authority it cites. Apply the authority order below; then either correct the source the child names and every unlanded derived ticket, close the child and resume its worker, or move the affected not-yet-started tickets to `needs-triage` and leave the child open |
 | `child.opened` of kind `decision` | Nothing; the worker took the default |
 | `ticket.returned` | Leave its workspace for triage; step 4 continues the batch |
@@ -103,7 +105,7 @@ Exits 4 and 2 name their next step on stderr. When you run `resume` again after 
 
 #### 4. The closing pass
 
-The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go to step 5.
+The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go straight to the run of `scripts/check --all` at the end of this step.
 
 List the open findings with `dispatch.sh findings <spec>` and route exactly those. A finding wakes nobody, so the ones you were woken about are no measure of what exists.
 
@@ -152,7 +154,9 @@ Then:
 dispatch.sh advance <spec>
 ```
 
-Loop: each `ticket.passed` wakes you at step 3; when the frontier is empty again, this pass runs again. Continue until no open finding survives. Then go to step 5.
+Loop: each `ticket.passed` wakes you at step 3; when the frontier is empty again, this pass runs again. Continue until no open finding survives.
+
+Then, in a checkout at `origin/<into>` with the last fix pushed, run `scripts/check --all` once: it is the night's one run of every test. Red: fix each red step as you fix a finding above, push, and run it again. Exit 2: fix the environment stderr names and run it again. Its summary line goes into the pull request description at step 6. Then go to step 5.
 
 #### 5. The night is over
 
@@ -177,7 +181,7 @@ Then go to step 6.
 
 The night is delivered as one pull request from the night's branch to the project branch: the `into` and `project` fields of the spec's `spec.opened` comment. The user reads it in the morning, and it is the only place they need to look.
 
-Run Opening a PR (`playbooks/opening-a-pr.md`) from the night's branch, through its step 3. Then tell the user the night finished and give them the pull request's link; say that once they accept it, `finish` merges it into the project branch. Done when the pull request is open and the user has its link.
+Run Opening a PR (`playbooks/opening-a-pr.md`) from the night's branch, through its step 3, with the summary line of step 4's `scripts/check --all` run in the description. Then tell the user the night finished and give them the pull request's link; say that once they accept it, `finish` merges it into the project branch. Done when the pull request is open and the user has its link.
 
 #### 7. Merge the accepted night
 
@@ -189,7 +193,7 @@ dispatch.sh finish <spec>
 
 A worktree that has the base branch checked out, usually the one this session runs in, is kept: stderr gives the commands that remove it, for the user to run once this session is done, and `finish` needs no second run.
 
-Exit 0: the merge is recorded, and GitHub shows the pull request merged. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as Opening a PR step 3 says, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
+Exit 0: the merge is recorded, and GitHub shows the pull request merged. Exit 1: the merge conflicted or `scripts/check` was red, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as Opening a PR step 3 says, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
 
 Exit 2 naming the pull request: a check is red or still running, or a review thread is open, and nothing was merged. Settle each as Opening a PR step 3 says (`playbooks/opening-a-pr.md`), then run `finish` again. A fix this night's change needs is made as the closing pass fixes a finding (step 4) and pushed to `origin/<into>`; the pull request shows the new commit. A fix the closing pass would turn into a ticket goes to the user instead, who decides whether this night waits for it.
 

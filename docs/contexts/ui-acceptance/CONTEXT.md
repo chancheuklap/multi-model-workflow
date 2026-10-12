@@ -385,7 +385,7 @@ The read-only command on `.mmw/<product>/target.json` that answers whether this 
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **`checks`**:
-The optional `.mmw/target.json` key listing the repository's own commands, which `dispatch.sh` runs on each ticket's merge result before it pushes. A failing one bounces the ticket with a `Failed checks:` line naming it.
+The optional `.mmw/target.json` key listing the repository's own commands, which v3's `dispatch.sh` runs on each ticket's merge result before it pushes. v4 reads the repository's `scripts/check` instead (`docs/contexts/toolbox/CONTEXT.md`), and setup-mmw reports a remaining key as missing, to be turned into one.
 _Home_: `mmw-v3/skills/ui-acceptance/references/product-answers.md`
 
 **`needs`**:

@@ -73,7 +73,7 @@ The branch a night's base branch was cut from and into which `finish` merges the
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`MMW_BASE_REF`**:
-The variable a repository's own commands receive as `origin/<base branch>` — every `CHECK:` shell and every `.mmw/target.json` `checks` run — so a check compares against the same base in any worktree or clone.
+The variable a repository's own commands receive as `origin/<base branch>` — every `CHECK:` shell and every run of the repository's `scripts/check` — so a check compares against the same base in any worktree or clone.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`dispatch.sh integrate`**:
@@ -135,7 +135,7 @@ _Home_: `mmw-v3/skills/dispatch/references/editing-models.md`, `mmw-v3/skills/di
 ### The night's commands
 
 **check**:
-`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows and the worker-grade labels.
+`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows, the worker-grade labels, and one run of `scripts/check`'s default tier in the calling checkout.
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **repository Space**:
@@ -147,7 +147,7 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **`dispatch.sh finish`**:
-`dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, checks and pushes the result, posts `spec.merged`, and removes the base branch.
+`dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, runs `scripts/check`'s default tier on the result unless its tip is a ticket's landing merge, pushes it, posts `spec.merged`, and removes the base branch.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **open-ticket**:

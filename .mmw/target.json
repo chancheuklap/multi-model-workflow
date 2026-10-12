@@ -1,7 +1,4 @@
 {
-  "checks": [
-    "python3 mmw-v3/skills/verify-ticket/scripts/feature_map.py lint"
-  ],
   "products": [
     "task-board"
   ]

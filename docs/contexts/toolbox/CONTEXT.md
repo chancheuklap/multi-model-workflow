@@ -318,40 +318,49 @@ _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **checker**:
 A repository's linter, formatter or type checker: the class of tool the `Set up code checkers` playbook installs, versioned with the repository rather than the machine, so checking out a branch checks out the checkers it was written against.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md`
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 **checker baseline**:
 A file recording a tool's existing errors so only new ones are reported from day one, committed like the tool's own config.
 _Avoid_: baseline (bare; reserved for the configuration-management sense, `docs/contexts/tickets/CONTEXT.md`)
-_Home_: `mmw-v3/skills/mmw-mode/references/checkers-python.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/checkers-python.md`
 
 **changed-lines filter**:
 The fallback for a checker with no baseline mechanism: intersect its JSON output's line numbers with `git diff --unified=0`, after normalising both sides to the same path form.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md`
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
-**checker command**:
-The single command a repository's `AGENTS.md` names that runs every installed checker, reporting only, with a flag for the fixes safe to apply automatically; in a consuming repository this is what `.mmw/target.json`'s `checks` runs.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md`
+**`scripts/check`**:
+The one executable at a consuming repository's root, named in its `AGENTS.md` `## Commands`, that runs its checkers and tests in three tiers: `--staged`, a one-line hand-over to the commit-hook tool; the default tier, the dependency install, lint and type checks on the changed files, the **always-run group** and the groups the **test group map** selects; `--all`, everything runnable on the machine. It compares against `MMW_BASE_REF`, prints one `PASS|FAIL <step> <seconds>s` line per step, a `not run here:` line and a summary line, and exits 0 on a pass, 1 when the product is red, 2 when the environment cannot run it. Dispatch runs the default tier on every ticket's merge result and before a night opens; a night runs `--all` once before its pull request. It replaces the `checks` key of `.mmw/target.json`.
+_Avoid_: checker command, repository checks (as the name of the command)
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
+
+**test group map**:
+The table inside `scripts/check` from changed paths to the test groups they can break, from which the default tier picks what to run. Every directory under a test root is in it or listed as excluded, and a self-check exits 1 otherwise, so a change adding a test directory, language or sub-project edits it in the same commit.
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
+
+**always-run group**:
+The few seconds of checks the default tier of `scripts/check` runs on every change, whatever paths changed: the ones every change can break, such as the repository's shared checks and its wiring.
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 **prek**:
 The single-binary `pre-commit` reimplementation the `Set up code checkers` playbook wires as the commit-time git hook, reading the repository's own `.pre-commit-config.yaml`.
-_Home_: `mmw-v3/skills/mmw-mode/references/checkers-git-hooks.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 
 **git hook**:
 The commit-time hook `prek` runs. Distinct from a **host hook** (above) and a build hook (`docs/contexts/release/CONTEXT.md`): the three share the bare word "hook" but run at different events for different reasons.
-_Home_: `mmw-v3/skills/mmw-mode/references/checkers-git-hooks.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 
 **`language: system`**:
 The prek hook configuration telling it to run a command as-is instead of building an environment of its own for it; without it, a checker runs a second, independently versioned copy of itself inside the hook.
-_Home_: `mmw-v3/skills/mmw-mode/references/checkers-git-hooks.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 
 **`core.hooksPath` trap**:
 A repository whose git config sets `core.hooksPath` never executes `.git/hooks/`, so `prek install` reports success there while the hook silently never fires; the fix is to write the hook by hand into the configured path instead.
-_Home_: `mmw-v3/skills/mmw-mode/references/checkers-git-hooks.md`
+_Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 
 **probe**:
 A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits. Distinct from an oracle's **negative control** (ui-acceptance), a pass built into the oracle itself.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/set-up-code-checkers.md`
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 ### Managing AGENTS.md
 

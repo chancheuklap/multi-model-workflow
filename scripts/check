@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""This repository's one check: the syntax of the changed files, the shared checks and the
+test suites, in three tiers.
+
+    scripts/check            the default tier: syntax of the files changed against the base,
+                             the always-run group, then the suites MAP selects for the changed paths
+    scripts/check --all      every step runnable on this machine
+    scripts/check --staged   the syntax of the staged files; no commit-hook tool is configured here
+
+The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
+Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
+untracked files. There is no dependency install: the repository has no package manager, and
+the suites that run under `uv run` resolve their own dependencies.
+
+Each step prints `PASS|FAIL <step> <seconds>s`; a failing step adds its last lines and the path
+of its full log under .scratch/check/. The last line is the summary.
+
+Exit 0: every step passed. Exit 1: a step is red, or the self-check found a test directory MAP
+does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check (a tool
+missing from PATH, a base ref git does not know); nothing was run.
+
+Python standard library only.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_BASE = "origin/dev"
+STEP_TIMEOUT = 1800
+TAIL = 20
+
+SHARED = (
+    "python3 mmw-v4/tests/lib/check_module_paths.py"
+    " && python3 mmw-v4/tests/lib/check_wiring.py"
+    " && uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py"
+)
+
+# step: (command, tools it needs on PATH)
+STEPS = {
+    "shared-checks": (SHARED, ["python3", "uv"]),
+    "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
+    "feature-map": ("python3 mmw-v3/skills/verify-ticket/scripts/feature_map.py lint", ["python3"]),
+    "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
+    "board": ("bash mmw-v4/tests/board/run.sh", ["bash", "python3", "uv", "node"]),
+    "diagram-design": ("bash mmw-v4/tests/diagram-design/run.sh", ["bash", "python3", "uv"]),
+    "dispatch": ("bash mmw-v4/tests/dispatch/run.sh", ["bash", "python3", "uv", "git"]),
+    "exe-release": ("bash mmw-v4/tests/exe-release/run.sh", ["bash", "python3", "uv"]),
+    "install": ("bash mmw-v4/tests/install/run.sh", ["bash", "python3", "uv"]),
+    "liveness": ("bash mmw-v4/tests/liveness/run.sh", ["bash", "python3", "uv"]),
+    "relay": ("bash mmw-v4/tests/relay/run.sh", ["bash", "python3", "uv"]),
+    "setup-mmw": ("bash mmw-v4/tests/setup-mmw/run.sh", ["bash", "python3", "uv", "git"]),
+    "verify-ticket": ("bash mmw-v4/tests/verify-ticket/run.sh", ["bash", "python3", "uv", "node"]),
+    "prompt": ("bash mmw-v4/prompt/tests/run.sh", ["bash", "python3"]),
+}
+
+ALWAYS = ["shared-checks", "lib", "feature-map"]
+
+# A changed path starting with the prefix selects the suites; root TESTING.md points here.
+DISPATCH = "mmw-v4/skills/dispatch/"
+VERIFY = "mmw-v4/skills/verify-ticket/"
+MAP = [
+    ("mmw-v4/skills/", ["check-interfaces"]),
+    (DISPATCH, ["dispatch"]),
+    (DISPATCH + "scripts/relay.py", ["relay"]),
+    (DISPATCH + "scripts/briefs.py", ["relay"]),
+    (DISPATCH + "scripts/runners/paseo.sh", ["relay"]),
+    (DISPATCH + "scripts/statedir.py", ["relay", "liveness", "board"]),
+    (DISPATCH + "scripts/turn-guard.py", ["liveness", "install"]),
+    (DISPATCH + "scripts/watchdog.py", ["liveness"]),
+    (DISPATCH + "scripts/tool-guard.py", ["install"]),
+    (DISPATCH + "scripts/ghlist.py", ["board", "relay"]),
+    (DISPATCH + "scripts/models.py", ["board", "relay"]),
+    (DISPATCH + "roles.json", ["board", "relay"]),
+    (VERIFY, ["verify-ticket"]),
+    (VERIFY + "scripts/events.py", ["board", "relay"]),
+    (VERIFY + "scripts/issue_tree.py", ["board", "relay"]),
+    (VERIFY + "scripts/verify-ticket.py", ["setup-mmw"]),
+    ("mmw-v4/skills/setup-mmw/", ["setup-mmw"]),
+    ("mmw-v4/skills/diagram-design/", ["diagram-design"]),
+    ("mmw-v4/skills/exe-release/", ["exe-release"]),
+    ("mmw-v4/board/", ["board"]),
+    ("efforts/task-board/", ["board"]),
+    (".mmw/task-board/", ["board"]),
+    ("mmw-v3/skills/ui-acceptance/", ["board"]),
+    ("mmw-v4/install.sh", ["install"]),
+    ("mmw-v3/install.sh", ["install"]),
+    ("mmw-v4/prompt/", ["prompt", "install"]),
+    *[(f"mmw-v4/tests/{name}/", [name]) for name in STEPS if (ROOT / "mmw-v4/tests" / name).is_dir()],
+]
+
+# Test roots: every directory directly under each must be a suite above or listed here.
+TEST_ROOTS = ["mmw-v4/tests", "mmw-v4/prompt/tests"]
+# Trees whose test directories are history or third-party snapshots, never run.
+NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "mmw-v4/docs/retired-")
+EXCLUDED = {
+    "efforts/code-landing/prototypes/fixture/tests": "a prototype's fixture repository, test data rather than a suite",
+}
+NOT_RUN_HERE = ("exe-release's PowerShell checks (mmw-v4/tests/exe-release/check-generated-powershell.sh,"
+                " check-template-behaviour.sh): they need a Windows build machine")
+
+
+def git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+
+
+def changed_paths(base: str) -> list[str]:
+    committed = git("diff", "--name-only", f"{base}...HEAD")
+    if committed.returncode != 0:
+        raise EnvironmentError(f"git cannot diff against {base}: {(committed.stderr.strip().splitlines() or [''])[0]}; "
+                               "set MMW_BASE_REF to a ref this clone has, or run `git fetch origin`")
+    paths = set(committed.stdout.split())
+    paths |= set(git("diff", "--name-only", "HEAD").stdout.split())
+    paths |= set(git("ls-files", "--others", "--exclude-standard").stdout.split())
+    return sorted(paths)
+
+
+def staged_paths() -> list[str]:
+    return sorted(git("diff", "--cached", "--name-only", "--diff-filter=ACMR").stdout.split())
+
+
+def selected(paths: list[str]) -> list[str]:
+    picked = {name for path in paths for prefix, names in MAP if path.startswith(prefix) for name in names}
+    return [name for name in STEPS if name in picked and name not in ALWAYS]
+
+
+def self_check() -> list[str]:
+    found = []
+    for root in TEST_ROOTS:
+        for child in sorted((ROOT / root).iterdir()):
+            if child.is_dir() and child.name != "__pycache__" and not child.name.startswith("."):
+                rel = f"{root}/{child.name}"
+                if root == "mmw-v4/tests" and child.name in STEPS:
+                    continue
+                if rel not in EXCLUDED:
+                    found.append(f"{rel} is a test directory STEPS and MAP in scripts/check do not name; "
+                                 "add its suite there, or list it in EXCLUDED with the reason")
+    roots = set()
+    for path in git("ls-files").stdout.splitlines():
+        if path.startswith(NOT_OURS) or path.startswith('"'):
+            continue
+        parts = path.split("/")
+        for i, part in enumerate(parts[:-1]):
+            if part in ("tests", "test", "__tests__"):
+                roots.add("/".join(parts[:i + 1]))
+                break
+    for root in sorted(roots):
+        if root not in TEST_ROOTS and root not in EXCLUDED:
+            found.append(f"{root} holds tests that scripts/check does not know; "
+                         "add it to TEST_ROOTS with its suites, or list it in EXCLUDED with the reason")
+    return found
+
+
+def syntax_errors(paths: list[str]) -> list[str]:
+    errors = []
+    for rel in paths:
+        path = ROOT / rel
+        if not path.is_file() or rel.startswith("docs/research/"):
+            continue
+        if rel.endswith(".py"):
+            try:
+                compile(path.read_bytes(), rel, "exec")
+            except (SyntaxError, ValueError) as err:
+                errors.append(f"{rel}: {err}")
+        elif rel.endswith(".sh") or (path.read_bytes()[:64].startswith(b"#!/usr/bin/env bash")):
+            r = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+            if r.returncode != 0:
+                errors.append(r.stderr.strip())
+    return errors
+
+
+class Run:
+    def __init__(self) -> None:
+        self.logs = ROOT / ".scratch" / "check" / time.strftime("%Y%m%d-%H%M%S")
+        self.failed: list[str] = []
+        self.count = 0
+
+    def report(self, name: str, ok: bool, seconds: float, lines: list[str], log: Path | None) -> None:
+        self.count += 1
+        print(f"{'PASS' if ok else 'FAIL'} {name} {seconds:.0f}s", flush=True)
+        if not ok:
+            self.failed.append(name)
+            for line in lines[-TAIL:]:
+                print(f"    {line}")
+            if log:
+                print(f"    full log: {log}")
+
+    def step(self, name: str) -> None:
+        command = STEPS[name][0]
+        self.logs.mkdir(parents=True, exist_ok=True)
+        log = self.logs / f"{name}.log"
+        start = time.monotonic()
+        with log.open("w") as out:
+            try:
+                rc = subprocess.run(["bash", "-c", command], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT,
+                                    timeout=STEP_TIMEOUT).returncode
+            except subprocess.TimeoutExpired:
+                out.write(f"\nscripts/check stopped this step after {STEP_TIMEOUT}s\n")
+                rc = 124
+        lines = log.read_text(errors="replace").splitlines()
+        self.report(name, rc == 0, time.monotonic() - start, lines, log)
+
+    def syntax(self, paths: list[str]) -> None:
+        start = time.monotonic()
+        errors = syntax_errors(paths)
+        self.report(f"syntax ({len(paths)} files)", not errors, time.monotonic() - start, errors, None)
+
+
+def missing_tools(names: list[str]) -> list[str]:
+    needed = {tool for name in names for tool in STEPS[name][1]} | {"git"}
+    return sorted(tool for tool in needed if shutil.which(tool) is None)
+
+
+def cannot_run(reason: str) -> int:
+    print(f"CHECK CANNOT RUN: {reason}")
+    return 2
+
+
+def main(argv: list[str]) -> int:
+    tier = {"--staged": "staged", "--all": "all"}.get(argv[0], None) if argv else "default"
+    if tier is None or len(argv) > 1:
+        print("usage: scripts/check [--staged | --all]", file=sys.stderr)
+        return 2
+    started = time.monotonic()
+    run = Run()
+
+    if tier == "staged":
+        if shutil.which("git") is None:
+            return cannot_run("git is not on PATH")
+        print("no commit-hook tool is configured in this repository; checking the syntax of the staged files")
+        run.syntax(staged_paths())
+    else:
+        if tier == "all":
+            names = list(STEPS)
+            paths = git("ls-files", "mmw-v4", "scripts").stdout.split()
+            print("tier --all: every step")
+        else:
+            base = os.environ.get("MMW_BASE_REF") or DEFAULT_BASE
+            if shutil.which("git") is None:
+                return cannot_run("git is not on PATH")
+            try:
+                paths = changed_paths(base)
+            except EnvironmentError as err:
+                return cannot_run(str(err))
+            names = ALWAYS + selected(paths)
+            print(f"tier default, base {base}: {len(paths)} changed paths; steps {', '.join(names)}")
+        missing = missing_tools(names)
+        if missing:
+            return cannot_run(f"{', '.join(missing)} not on PATH, needed by "
+                              + ", ".join(n for n in names if set(STEPS[n][1]) & set(missing))
+                              + "; install it, or run from a shell whose PATH has it")
+        problems = self_check()
+        run.report("self-check", not problems, 0, problems, None)
+        run.syntax(paths)
+        for name in names:
+            run.step(name)
+        print(f"not run here: {NOT_RUN_HERE}")
+
+    total = time.monotonic() - started
+    if run.failed:
+        print(f"CHECK FAIL {tier}: {len(run.failed)} of {run.count} steps red ({', '.join(run.failed)}) in {total:.0f}s")
+        return 1
+    print(f"CHECK PASS {tier}: {run.count} steps in {total:.0f}s")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
