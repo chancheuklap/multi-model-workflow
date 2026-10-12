@@ -3198,7 +3198,7 @@ recover_ticket() {
 reverify_spec() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-  [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
+  [ -f "$VERIFY" ] || refuse "no verify-ticket.py at $VERIFY; this toolbox checkout is missing part of the verify-ticket skill; report that to the owner"
 
   local caller_root root commit plan number rc printed ids login into
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -3666,7 +3666,7 @@ print(number if isinstance(number, int) else "")
 '
 }
 
-# Route one child of a ticket, the closing pass's decision carried out: the child is
+# Route one child of a ticket, the merging session's decision carried out: the child is
 # closed (or, having become a ticket, moved), and a `child.closed` event naming how goes
 # on the ticket it came from. That event is the one record of where the child went;
 # the night summary counts findings by it.
@@ -3678,16 +3678,19 @@ print(number if isinstance(number, int) else "")
 #                       closed as not planned
 #   became-ticket <m>   it is now ticket #<m>. When <m> is the child itself it stays open,
 #                       its layer label goes from mmw:child to mmw:ticket, and its parent
-#                       moves from the ticket to the spec — `verify-ticket.py` finds a
+#                       moves from the ticket to the spec, or is removed when there is
+#                       no spec — `verify-ticket.py` finds a
 #                       ticket's spec through its direct parent alone, so a ticket left
 #                       under a ticket would name that ticket as its spec. When <m> is
 #                       another issue, the child is closed as a duplicate of it and #<m>
-#                       gets the same label and the same parent.
+#                       gets the same label and the same parent only when there is a spec.
 #
 # The ticket the child came from is named on the command line and must carry the
 # `child.opened` for it; the spec is that event's `spec`. Both are facts fixed when the
-# child was opened, and never read off the tree, which a became-ticket route itself
-# changes — so a route cut short is run again as it was, and does only the steps not yet
+# child was opened. An absent spec is used only when the original ticket has no parent;
+# otherwise its spec could have been unreadable when the event was written. The spec
+# is never inferred from the tree, which a became-ticket route itself changes — so a
+# route cut short is run again as it was, and does only the steps not yet
 # done: a child already closed is not closed twice, an issue already under the spec is
 # not moved, and a child whose `child.closed` is on the ticket is routed already.
 #
@@ -3730,9 +3733,12 @@ route_child() {
     refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
   fi
   if [ "$resolution" = became-ticket ] && [ -z "$spec" ]; then
-    refuse "#$ticket's child.opened for #$child names no spec, so there is no spec for #$became to move under; nothing was done"
+    local origin_parent
+    origin_parent="$(parent_of "$ticket")" \
+      || refuse "could not ask the tracker where #$ticket sits; nothing was done"
+    [ -z "$origin_parent" ] \
+      || refuse "#$ticket sits under #$origin_parent but its child.opened for #$child names no spec; the event is incomplete, so nothing was done"
   fi
-
   local state
   state="$(gh_ issue view "$child" --json state --jq .state 2>/dev/null)" \
     || refuse "could not read #$child's state; nothing was done"
@@ -3751,34 +3757,41 @@ route_child() {
         fixed-elsewhere) line="Closed #$child: the finding was fixed elsewhere" ;;
       esac ;;
     became-ticket)
-      local current labels
-      current="$(parent_of "$became")" || refuse "could not ask the tracker where #$became sits; nothing was done"
-      labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
-        || refuse "could not read #$became's labels; nothing was done"
-      local -a edit=()
-      printf '%s\n' "$labels" | grep -qx 'mmw:ticket' || edit+=(--add-label mmw:ticket)
-      [ "$current" = "$spec" ] || edit+=(--parent "$spec")
-      if printf '%s\n' "$labels" | grep -qx 'mmw:child'; then
-        edit+=(--remove-label mmw:child)
-      fi
-      if [ "${#edit[@]}" -gt 0 ]; then
-        gh_ issue edit "$became" "${edit[@]}" >/dev/null 2>&1 \
-          || refuse "could not make #$became a ticket under #$spec; nothing was recorded"
+      if [ -n "$spec" ] || [ "$became" = "$child" ]; then
+        local current labels
+        current="$(parent_of "$became")" || refuse "could not ask the tracker where #$became sits; nothing was done"
+        labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
+          || refuse "could not read #$became's labels; nothing was done"
+        local -a edit=()
+        printf '%s\n' "$labels" | grep -qx 'mmw:ticket' || edit+=(--add-label mmw:ticket)
+        if [ -n "$spec" ]; then
+          [ "$current" = "$spec" ] || edit+=(--parent "$spec")
+        elif [ -n "$current" ]; then
+          edit+=(--remove-parent)
+        fi
+        if printf '%s\n' "$labels" | grep -qx 'mmw:child'; then
+          edit+=(--remove-label mmw:child)
+        fi
+        if [ "${#edit[@]}" -gt 0 ]; then
+          gh_ issue edit "$became" "${edit[@]}" >/dev/null 2>&1 \
+            || refuse "could not make #$became a ticket${spec:+ under #$spec}; nothing was recorded"
+        fi
       fi
       if [ "$became" != "$child" ] && [ "$state" != CLOSED ]; then
         if ! gh_ issue close "$child" --duplicate-of "$became" >/dev/null 2>&1; then
-          echo "dispatch: #$became is a ticket under #$spec, but #$child could not be closed as its duplicate and no child.closed was written; run this again" >&2
+          echo "dispatch: #$became is a ticket${spec:+ under #$spec}, but #$child could not be closed as its duplicate and no child.closed was written; run this again" >&2
           exit 1
         fi
       fi
-      line="#$child became ticket #$became under #$spec" ;;
+      line="#$child became ticket #$became${spec:+ under #$spec}" ;;
   esac
 
   local -a fields=(--field "child=$child" --field "resolution=$resolution")
+  [ -z "$spec" ] || fields+=(--spec "$spec")
   [ -z "$reason" ] || fields+=(--field "reason=$reason")
   [ -z "$became" ] || fields+=(--json-field "became=$became")
   [ "$resolution" != fixed ] || fields+=(--field "commit=$(git rev-parse HEAD 2>/dev/null)")
-  if ! post_event "$ticket" child.closed --ticket "$ticket" --spec "$spec" --line "$line" \
+  if ! post_event "$ticket" child.closed --ticket "$ticket" --line "$line" \
        "${fields[@]}"; then
     echo "dispatch: #$child is routed ($resolution) but the child.closed event on #$ticket was not written, so the night summary counts it unread; run this again" >&2
     exit 1
@@ -3836,7 +3849,7 @@ SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
 VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
 EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
 [ -f "$EVENTS" ] \
-  || refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
+  || refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; this toolbox checkout is missing part of the verify-ticket skill; report that to the owner"
 # `status.py` folds the same events, and reads them through the same file.
 export MMW_EVENTS_PY="$EVENTS"
 # `advance` runs `start` through this same script; the directories travel with it.
