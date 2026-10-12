@@ -1,5 +1,3 @@
-"""Incomplete worker dispatch records direct the worker to report a pipeline fault."""
-
 import unittest
 
 from _load import started
