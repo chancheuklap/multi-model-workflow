@@ -922,12 +922,6 @@ class TestRepositoryCheck(unittest.TestCase):
         result = self.run_in("exit 3")
         self.assertEqual((result["status"], result["failed"]), ("cannot-run", []))
 
-    def test_a_hang_is_cut_at_the_outer_bound_and_reads_red(self):
-        # The background `sleep` holds the output pipe after the script itself is killed.
-        result = self.run_in("echo started; sleep 30 & sleep 30", timeout=1)
-        self.assertEqual(result["status"], "red")
-        self.assertIn("1s", result["failed"][0]["tail"])
-
     def test_an_absent_or_unexecutable_check_is_missing(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

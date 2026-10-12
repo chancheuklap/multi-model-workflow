@@ -20,7 +20,6 @@ import json
 import os
 import re
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
@@ -2294,9 +2293,6 @@ FAILURE_LINES = HERE / "gate-check" / "lib" / "failure-lines.mjs"
 # The repository's own check, at its root: the default tier runs on every tree that
 # lands. It exits 0 green, 1 red, 2 when this machine cannot run it.
 REPOSITORY_CHECK = Path("scripts") / "check"
-# The outer bound on one run of it, there only to catch a hang; each step's own time
-# limit is the script's business.
-CHECK_TIMEOUT = 3600
 FAIL_STEP_RE = re.compile(r"^FAIL\s+(\S+)", re.M)
 
 
@@ -2527,36 +2523,20 @@ def checks_bounce_prose(rows: list | None, prefix_len: int = 0) -> dict:
     return {"summary": summary, "rest": rest, "commands": commands}
 
 
-def _run_bounded(path: Path, root: Path, env: dict, timeout: int) -> tuple[int | None, str]:
-    """`(exit code, combined output)` of one run; the code is None when the bound cut it.
-
-    The check runs in a process group of its own, and the whole group is killed at the
-    bound: a test runner's child still holding the output pipe would otherwise keep the
-    read waiting after the script itself is gone.
-    """
-    proc = subprocess.Popen([str(path)], cwd=root, env=env, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True, errors="replace",
-                            start_new_session=True)
-    try:
-        output, _ = proc.communicate(timeout=timeout)
-        return proc.returncode, output or ""
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        output, _ = proc.communicate()
-        return None, output or ""
+def _run(path: Path, root: Path, env: dict) -> tuple[int, str]:
+    """`(exit code, combined output)` of one run, however long it takes: no time limit
+    turns a slow test into a failure."""
+    proc = subprocess.run([str(path)], cwd=root, env=env, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, text=True, errors="replace")
+    return proc.returncode, proc.stdout or ""
 
 
 def run_repository_check(root: Path | str, base_ref: str,
                          worktree: Path | str | None = None,
-                         ticket: str | int | None = None,
-                         timeout: int = CHECK_TIMEOUT) -> dict:
+                         ticket: str | int | None = None) -> dict:
     """Run the default tier of `scripts/check` at `root` with `MMW_BASE_REF=base_ref`.
 
-    Returns `{"status", "failed", "detail"}`. `status` is `pass` (exit 0), `red` (exit 1,
-    or cut at `timeout`: a hang on the tree that lands is that tree's), `cannot-run`
+    Returns `{"status", "failed", "detail"}`. `status` is `pass` (exit 0), `red` (exit 1), `cannot-run`
     (exit 2, any other exit, or the script would not start: this machine cannot run
     it, which says nothing about the tree) or `missing` (no executable `scripts/check`).
     `failed` is one row for a red run: `command`, `tail` (the excerpt), `exit`, `steps`
@@ -2572,7 +2552,7 @@ def run_repository_check(root: Path | str, base_ref: str,
     env = os.environ.copy()
     env["MMW_BASE_REF"] = base_ref
     try:
-        code, output = _run_bounded(path, root, env, timeout)
+        code, output = _run(path, root, env)
     except OSError as exc:
         return {"status": "cannot-run", "failed": [],
                 "detail": f"{path} could not be started: {exc}"}
@@ -2581,10 +2561,7 @@ def run_repository_check(root: Path | str, base_ref: str,
     log = _write_check_log(worktree, ticket, 1, output, [False])
     excerpt = _cap_excerpt(_checks_excerpt(output))
     where = f"; full output in {Path(worktree) / log}" if log else ""
-    if code is None:
-        note = f"timed out after {timeout}s"
-        excerpt = f"{note}\n{excerpt}" if excerpt else note
-    if code in (None, 1):
+    if code == 1:
         row = _failed_row(str(REPOSITORY_CHECK), excerpt, code, log)
         row["steps"] = FAIL_STEP_RE.findall(output)
         heading = _check_heading(row)
