@@ -301,7 +301,7 @@ class TestFixedLines(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertEqual(text, "")
         self.assertIn("newest worker.started carries no `into`", err)
-        self.assertIn("dispatch.sh start 77 worker", err)
+        self.assertIn("verify-ticket.py 77 --sub-issue fault <file>", err)
 
     def test_the_draft_carries_no_line_about_commits_after_the_final_run(self):
         """A worker's account of its own commits settled nothing, so the closing-comment draft
