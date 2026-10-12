@@ -3666,7 +3666,7 @@ print(number if isinstance(number, int) else "")
 '
 }
 
-# Route one child of a ticket, the closing pass's decision carried out: the child is
+# Route one child of a ticket, the merging session's decision carried out: the child is
 # closed (or, having become a ticket, moved), and a `child.closed` event naming how goes
 # on the ticket it came from. That event is the one record of where the child went;
 # the night summary counts findings by it.
@@ -3687,8 +3687,10 @@ print(number if isinstance(number, int) else "")
 #
 # The ticket the child came from is named on the command line and must carry the
 # `child.opened` for it; the spec is that event's `spec`. Both are facts fixed when the
-# child was opened, and never read off the tree, which a became-ticket route itself
-# changes — so a route cut short is run again as it was, and does only the steps not yet
+# child was opened. An absent spec is used only when the original ticket has no parent;
+# otherwise its spec could have been unreadable when the event was written. The spec
+# is never inferred from the tree, which a became-ticket route itself changes — so a
+# route cut short is run again as it was, and does only the steps not yet
 # done: a child already closed is not closed twice, an issue already under the spec is
 # not moved, and a child whose `child.closed` is on the ticket is routed already.
 #
@@ -3729,6 +3731,13 @@ route_child() {
       return 0
     fi
     refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
+  fi
+  if [ "$resolution" = became-ticket ] && [ -z "$spec" ]; then
+    local origin_parent
+    origin_parent="$(parent_of "$ticket")" \
+      || refuse "could not ask the tracker where #$ticket sits; nothing was done"
+    [ -z "$origin_parent" ] \
+      || refuse "#$ticket sits under #$origin_parent but its child.opened for #$child names no spec; the event is incomplete, so nothing was done"
   fi
   local state
   state="$(gh_ issue view "$child" --json state --jq .state 2>/dev/null)" \

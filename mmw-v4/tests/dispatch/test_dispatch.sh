@@ -3687,6 +3687,25 @@ JSON
   hasnt "gh :: issue :: edit"
   hasnt "gh :: issue :: close"
   [ "$(posted_events 61 | grep -c child.closed)" = 2 ] || fail "a repeated route posted another child.closed"
+
+  reset_log
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "CLOSED", "labels": ["mmw:ticket"], "parent": {"number": 76},
+   "comments": [$(ev child.opened 61 "Opened #90 (finding)" --field child=90 --field kind=finding),
+                $(ev child.opened 61 "Opened #91 (finding)" --field child=91 --field kind=finding)]},
+  {"number": 90, "state": "OPEN", "labels": ["mmw:child"], "parent": {"number": 61}},
+  {"number": 91, "state": "OPEN", "labels": ["mmw:child"], "parent": {"number": 61}},
+  {"number": 80, "state": "OPEN", "labels": ["mmw:ticket"], "parent": {"number": 76}}
+]
+JSON
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 90)"
+  [ "$code" = 2 ] || fail "a missing event spec on a spec-backed ticket should refuse, got $code"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 became-ticket 80)"
+  [ "$code" = 2 ] || fail "a duplicate with a missing event spec should refuse, got $code"
+  hasnt "gh :: issue :: edit"
+  hasnt "gh :: issue :: close"
+  hasnt "gh :: issue :: comment"
 }
 
 scenario_missingverifyticket() {
