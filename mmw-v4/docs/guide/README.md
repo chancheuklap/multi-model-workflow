@@ -33,6 +33,6 @@ Give the agent a goal and a check that can pass or fail, in your own words:
 the export writes duplicate rows when a retry lands mid-run. repro first, then fix and verify.
 ```
 
-You do not name a playbook or list skills. The session has already read `mmw-mode`, because every session reads it first. "repro first" and a checkable outcome are all the routing signal it needs. It matches the Bug fix playbook and copies the steps into a todo list. It reproduces the defect and finds the cause. Then it writes one ticket, sends a worker to fix it, checks the fix on the original reproduction, and gives you one pull request to merge.
+You do not name a playbook or list skills. The session has already read `mmw-mode`, because every session reads it first. "repro first" and a checkable outcome are all the routing signal it needs. It matches the Bug fix playbook. It reproduces the defect and finds the cause. Then it writes one ticket, sends a worker to fix it, checks the fix on the original reproduction, and gives you one pull request to merge.
 
 Next: [Set up MMW v4](./01-setup.md).

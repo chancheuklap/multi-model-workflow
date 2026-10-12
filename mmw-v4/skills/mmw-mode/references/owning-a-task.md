@@ -58,7 +58,7 @@ Every playbook ends with a reply written this way, PR link as `https://github.co
 
 ## Playbooks
 
-Match the task to a playbook below, open its file, and copy its steps into the todolist verbatim, as the mode's `## Playbooks` says.
+Match the task to a playbook below and open its file.
 
 Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
 

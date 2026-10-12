@@ -1,6 +1,6 @@
 # Route work through `mmw-mode`
 
-[`mmw-mode`](../../skills/mmw-mode/SKILL.md) is the one entry to MMW v4. You give a session a goal. The session matches it to a playbook, copies that playbook's steps into its todo list, and runs the other skills as the steps name them. In this chapter you learn how a session enters `mmw-mode`, how it picks a playbook, and what a good prompt carries.
+[`mmw-mode`](../../skills/mmw-mode/SKILL.md) is the one entry to MMW v4. You give a session a goal. The session matches it to a playbook, works through that playbook's steps, and runs the other skills as the steps name them. In this chapter you learn how a session enters `mmw-mode`, how it picks a playbook, and what a good prompt carries.
 
 ## Every session reads it first
 
@@ -41,7 +41,7 @@ flowchart TD
     J --> K[A playbook designed for this task]
 ```
 
-The session opens a todo list whose first items are the matched playbook's steps, copied in word for word. A step it chooses not to do stays in the list with `skip: <reason>`. When no playbook fits, the [`figure-it-out`](../../skills/figure-it-out/SKILL.md) skill designs one for the task.
+The session works through the matched playbook's steps. When no playbook fits, the [`figure-it-out`](../../skills/figure-it-out/SKILL.md) skill designs one for the task.
 
 The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s `references/owning-a-task.md` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
 

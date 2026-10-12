@@ -4,7 +4,7 @@
 
 1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Feature` and the owner's words under `## Problem`. A ticket already open, such as one Grill with docs opened, keeps its number and opens only the `fix-<n>` it lacks. Done when the ticket is open and `fix-<n>` is on origin.
 2. `how` over the affected subsystem. Read the files the change touches before concluding anything about them (**principle-read-before-you-conclude**), and look for what already does the job before designing one (**principle-start-from-what-exists**).
-3. Write the throughput checkpoint as four todo items. A dimension that genuinely does not apply (single file, no fan-out) keeps its item with `n/a: <reason>` rather than being dropped:
+3. Settle the throughput checkpoint, one answer per dimension. A dimension that genuinely does not apply (single file, no fan-out) is answered `n/a: <reason>` rather than dropped:
    - **Blocking first steps.** Gates run before fan-out.
    - **Independent workstreams.** Disjoint files, services, or layers parallelize. Shared writes serialize.
    - **Shared mutable state.** Default to splitting the target (the **separate-before-serializing-shared-state** principle skill). Serialize only for real invariants.

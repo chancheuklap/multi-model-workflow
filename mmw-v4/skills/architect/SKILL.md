@@ -7,14 +7,6 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 Design before implementing. Sketch types, function signatures, class shapes, and seams with `not implemented` bodies and pseudocode. Synthesize across several design angles.
 
-## Start
-
-Open a todolist with one entry per phase before starting.
-
-1. Ground
-2. Sketch
-3. Hand back
-
 ## Phase A: Ground the problem
 
 Build a real mental model of every system the new code touches. Run the **how** skill over the relevant subsystems, and look for what already solves the problem, in the repository and outside it, before sketching (**principle-start-from-what-exists**). What the caller already traced or found, you take from it rather than doing again.

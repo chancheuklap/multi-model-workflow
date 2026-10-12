@@ -94,6 +94,6 @@ Open a new session in a repository, after the install. Pick something real but s
 add a --json flag to this command. text output stays byte-identical. verify both.
 ```
 
-The session reads `mmw-mode` before anything else. Watch its todo list. Its first items are the steps of the matched playbook, copied in word for word, here the Feature playbook. A step the session chooses not to do stays in the list with `skip: <reason>`, so you can see what it left out and why.
+The session reads `mmw-mode` before anything else, matches the request to a playbook, here the Feature playbook, and works through its steps.
 
 Next: [Route work through `mmw-mode`](./02-mmw-mode.md).

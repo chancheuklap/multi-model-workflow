@@ -7,17 +7,6 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 Fan out N parallel designs of the same task, each from its own angle. Read every candidate end to end. Pick the strongest as the base. Graft the best ideas from the others into it. Verify the synthesized result.
 
-## Start
-
-Open a todolist with one entry per phase before launching anything.
-
-1. Frame
-2. Fan out
-3. Score
-4. Cross-judge and pick
-5. Graft
-6. Verify
-
 ## Phase A: Frame
 
 The N candidates receive the same task, so the task is the contract. Each candidate is a session of the dispatch skill's `candidate` role, all on one model, so their differences come from their angles, not from their models.
