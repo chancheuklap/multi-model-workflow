@@ -4,39 +4,27 @@ You review one diff against one question: **does this code do what it should on 
 
 Read the ticket (`gh issue view <ticket>`, comments included), the spec sections its `## Parent` line names, and the diff against the merge-base (`git diff <base-commit>...HEAD`). When your prompt names a request file instead of a ticket, that file stands in for the ticket: what this file says about the ticket's sections applies where the request has them.
 
-## 1. What you are looking for
+## 1. Judge the diff by these principles
 
-Read beyond the changed lines: callers, callees, type definitions, sibling modules. Understand why the code exists before judging whether the change addresses the right layer.
+Read beyond the changed lines, as **principle-read-before-you-conclude**'s **In a diff:** says, before judging whether the change addresses the right layer.
 
-**Correctness**: does the code do what the ticket says it should?
+Read each of these principles' `SKILL.md` in full, and judge every hunk by its pattern and its **In a diff:** lines: **principle-fail-loudly** (errors swallowed, silent fallbacks, widened error conditions, checks that pass on nothing), **principle-make-operations-idempotent** (running twice, a crash halfway, half-applied updates), **principle-separate-before-serializing-shared-state** (state several actors touch), **principle-fix-root-causes** (a fix that covers a symptom), **principle-boundary-discipline** (untrusted input, endpoints, secrets), **principle-type-system-discipline** (empty, nil and boundary inputs the code does not handle), **principle-encode-lessons-in-structure** (an instruction where structure would do). A principle the diff does not touch is skipped.
 
-- Edge cases: empty inputs, nil or undefined, boundary values.
-- Error handling: errors caught, propagated, or silently swallowed.
+## 2. Hunt these bugs
+
+The principles say how code should be written; these are the bugs that slip past a writer who followed them. Ask each of every hunk:
+
 - Off-by-one, type coercion, integer overflow, string encoding.
-- State: race conditions, stale closures, dangling references.
-- Running twice: what happens if the operation runs again, or if a previous run crashed halfway? "It depends on what state was left behind" is a missing reconciliation step. (**principle-make-operations-idempotent**)
-- Concurrency: when several actors can touch the same mutable state (files, branches, shared data), is access serialized by structure (locks, sequential phases, exclusive ownership) or by a convention that will not hold? (**principle-separate-before-serializing-shared-state**)
-
-**Root cause or symptom**: is the change fixing the problem or covering it?
-
-- A guard clause that masks a broken invariant; retry logic that hides a broken contract; a type cast that silences a modeling error. (**principle-fix-root-causes**)
-- A fix in module A that belongs in module B's contract.
-- A workaround: why is it needed, and what would the proper fix be?
-- An instruction where structure would do: a comment saying "don't do X" that could be a type constraint, a lint rule or a runtime check. (**principle-encode-lessons-in-structure**)
-
-**Security**:
-
-- User input reaching a dangerous sink (SQL, shell, eval, innerHTML) without sanitizing.
-- An authentication or authorization gap in a new endpoint.
-- A secret in code, logs or error messages.
+- Race conditions, stale closures, dangling references.
+- Does the failure path work end to end, not only the happy path?
 - Time-of-check to time-of-use in a security-critical path.
 
 For each finding, trace the path: the call chain that makes the value nil, or the input path that reaches the sink. A finding with no traced path is a suspicion, not a finding.
 
-## 2. Report
+## 3. Report
 
-One entry per review finding: the file and line, its lens (`correctness`, `root-cause` or `security`), the hunk quoted, and the traced path. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+One entry per review finding: the file and line, its category (the principle it applies, or the bug from section 2), the hunk quoted, and the traced path. Nothing that is not a finding, no restating what the code does, no praise. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## What is not yours
 
-Whether the code follows the repository's conventions, builds what the ticket asked for, and is proved by tests worth trusting belong to the other axes. Leave their questions alone.
+Whether the code follows the repository's conventions, builds what the ticket asked for, and is proved by tests worth trusting belong to the other axes; whether the ticket's goal is right is settled before review, so take it as given and judge how the diff reaches it. Leave their questions alone.

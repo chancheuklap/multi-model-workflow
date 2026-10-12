@@ -1,6 +1,6 @@
 # Steer with principle names
 
-The skill set has 33 principles, each a skill of its own under `skills/principle-<slug>/`. The `## Principles` section of the `mmw-mode` skill ([mmw-mode](../../skills/mmw-mode/SKILL.md)) indexes them: one line per principle, naming when it applies and the rule. Every session reads that index with the mode. A session reads a principle's own file in full when it applies it, and its reply names each principle that shaped a decision and the choice it changed. The mode allows a session to cite only a principle whose file it read in that session.
+The skill set has 34 principles, each a skill of its own under `skills/principle-<slug>/`. The `## Principles` section of the `mmw-mode` skill ([mmw-mode](../../skills/mmw-mode/SKILL.md)) indexes them: one line per principle, naming when it applies and the rule. Every session reads that index with the mode. A session reads a principle's own file in full when it applies it, and its reply names each principle that shaped a decision and the choice it changed. The mode allows a session to cite only a principle whose file it read in that session.
 
 You do not invoke principles. Their names are for steering. Each name points at a complete rule the session already has an index line for, so one phrase redirects the work more precisely than a paragraph of instructions.
 
@@ -70,6 +70,7 @@ What counts as proof.
 - [The Baseline Is the Contract](../../skills/principle-baseline-is-the-contract/SKILL.md). A settled conclusion (an answer, a winning prototype, a signed-off page) is copied, never improved from memory; a gap goes to whoever owns it.
 - [Run the Smallest Test Set](../../skills/principle-run-the-smallest-test-set/SKILL.md). Run the smallest set of tests that proves the change; a full suite only when a gate requires it or a named risk does.
 - [Explain the Number](../../skills/principle-explain-the-number/SKILL.md). Before trusting or reporting a measured number, find what limits it and rule out that it measured something else. The [benchmark-checklist](../../skills/benchmark-checklist/SKILL.md) skill applies it to a benchmark.
+- [Fail Loudly](../../skills/principle-fail-loudly/SKILL.md). A check, guard or refusal that cannot do its job says what failed, what was expected and where to change it; one that checked nothing never reports a pass. The review's Standards and Correctness axes judge a diff by it.
 
 ### Delegation
 

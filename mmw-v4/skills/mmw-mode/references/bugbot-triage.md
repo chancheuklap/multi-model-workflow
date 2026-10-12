@@ -26,6 +26,8 @@ Add future patterns in this shape:
 - Source: <PR/comment URL or short historical note>
 ```
 
+When a principle already holds the judgement, in its pattern or its **In a diff:** lines, a pattern names it on a `Judge by:` line in place of `Skip when` and `Do not skip when`, and keeps its confidence, signal and source.
+
 Use `candidate` for one or two examples. Use `recurring` after multiple real dismissals. Use `strong` only when the pattern is narrow, repeatedly verified, and low-risk.
 
 ## Recurring skip candidates
@@ -33,22 +35,19 @@ Use `candidate` for one or two examples. Use `recurring` after multiple real dis
 ### Intentional UI or design-system visual changes
 
 - Confidence: candidate
-- Skip when: The PR description, screenshots, design review, or nearby code makes the visual change explicit, and the Bugbot comment is only restating that a shared visual default changed.
-- Do not skip when: The comment points to accessibility, focus visibility, keyboard navigation, color contrast, or a component API contract that the PR did not intentionally change.
+- Judge by: **principle-experience-first**. The PR description, screenshots, design review, or nearby code shows whether the visual change is intended.
 - Example signal: Comments about focus outlines, button sizes, spacing, or shared component visual defaults where the owner replies "intentional" or "intended".
 
 ### Temporary duplication during parallel implementation
 
 - Confidence: candidate
-- Skip when: The PR intentionally duplicates a small amount of code to keep a new path parallel to an old path that is being deleted, replaced, or proven out.
-- Do not skip when: The duplicated code changes security, billing, data access, API behavior, or a long-lived shared abstraction would clearly reduce risk.
+- Judge by: **principle-outcome-oriented-execution**.
 - Example signal: "Significant duplication" or "duplicated validation logic" where the owner explains the old path will be deleted or the duplicate logic is intentionally local.
 
 ### Existing framework or component invariant covers the warning
 
 - Confidence: candidate
-- Skip when: The concern is already guaranteed by a shared component, framework contract, type invariant, or single source of truth visible in the current diff or nearby code.
-- Do not skip when: The invariant is assumed but not enforced, depends on timing, or crosses async/state boundaries where values can diverge.
+- Judge by: **principle-boundary-discipline**. The enforcing component, contract, type or source of truth must be visible in the current diff or nearby code.
 - Example signal: Comments about missing max-height on an inner popover when the shared popover enforces viewport bounds, or nullable values where the local checked value and passed value share the same source.
 
 ### Owner-declared follow-up or deferred cleanup
@@ -83,8 +82,7 @@ Append new candidate learnings here during or after a triage when they look team
 ### Manual reimplementations of native browser behavior
 
 - Confidence: candidate
-- Skip when: Practically never. When a diff replaces native browser behavior with a manual equivalent (native sticky → JS-positioned clones, native scroll targeting → forwarded wheel/touch events, paint-order occlusion → masks/clip-path), Bugbot's logic-bug findings against that code have been consistently legitimate.
-- Do not skip when: The finding concerns event-forwarding gaps (wheel deltaMode, touch pans, scroll-chaining at edges, tap slop), mask/clip hit-testing divergence, or observer-vs-React state timing races in such code. Default to fix.
+- Judge by: **principle-start-from-what-exists**. Bugbot's logic-bug findings against such code (native sticky → JS-positioned clones, native scroll targeting → forwarded wheel/touch events, paint-order occlusion → masks/clip-path) have been consistently legitimate: event-forwarding gaps (wheel deltaMode, touch pans, scroll-chaining at edges, tap slop), mask/clip hit-testing divergence, observer-vs-React state timing races. Default to fix.
 - Example signal: "masks do not affect hit-testing", "overlay blocks wheel scroll", "ignores deltaMode", "runs in the IntersectionObserver callback before React applies state".
 - Source: one sticky-occlusion PR: six Bugbot passes, roughly eighteen findings, every one fixed rather than dismissed.
 
@@ -117,17 +115,7 @@ Append new candidate learnings here during or after a triage when they look team
 ### Widening a deliberately narrow error condition would mask the real error
 
 - Confidence: candidate
-- Skip when: The finding asks to broaden a narrow error condition (a specific
-  `errno`, error code, or status class) into a catch-all, and that narrowness
-  encodes a real distinction. The canonical shape is a dependency fallback
-  gated on `ENOENT`: "binary is not installed" is a different situation from
-  "the command ran and failed". Retrying on any non-zero exit would re-run a
-  legitimate failure (not found, expired auth, network) against the fallback
-  and then report the fallback's error, hiding the true one.
-- Do not skip when: The narrow condition misses a case in the SAME category
-  (another "binary unusable" errno such as `EACCES`, another transport-level
-  failure), the unhandled path loses data or leaves partial state, or the retry
-  is idempotent AND the original error is still surfaced.
+- Judge by: **principle-fail-loudly**, its pattern line **A narrow error stays narrow.** The canonical shape is a dependency fallback gated on `ENOENT`.
 - Example signal: "only retries when X fails with ENOENT … never tries the
   fallback even when a working Y exists", pointing at code whose fallback
   exists for a missing dependency rather than a failed operation.

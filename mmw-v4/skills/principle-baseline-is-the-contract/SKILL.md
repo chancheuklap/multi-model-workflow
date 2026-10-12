@@ -15,4 +15,10 @@ A baseline is a decision someone already paid for: a user's answer, a prototype 
 - When something you were told to follow does not hold (it lacks a state, field, interaction or case, or contradicts another source), keep going on what still holds and raise the gap where whoever owns the baseline sees it. Quote what does not hold, and state what in that same source still holds and must be preserved.
 - Never quietly change a baseline, never quietly add around one.
 
+**In a diff:**
+
+- Behavior no line of the ticket, the named spec sections or a baseline asked for, above all something the spec's `## Out of Scope` lists: remove it, or raise the gap to whoever owns the baseline.
+- Something that looks implemented but does not match what was asked (the wrong value, state name, order or error): copy it from the source.
+- A baseline the ticket names under `## Read first` holds the diff exactly as the spec does.
+
 Distinct from **principle-redesign-from-first-principles**, which redesigns around a new requirement. A baseline belongs to whoever decided it: when it looks wrong, take it back to them instead of redesigning it yourself.

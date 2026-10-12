@@ -18,3 +18,7 @@ Optimize for the intended, verifiable end state rather than preserving smooth in
 - Declare where temporary breakage is acceptable
 - Keep high-signal checks for actively touched areas while migrating
 - Require full static and runtime verification at plan completion
+
+**In a diff:**
+
+- A small deliberate duplicate that keeps a new path parallel to one the plan deletes is not a finding, unless it touches security, billing, data access or API behavior, or a long-lived shared abstraction would clearly reduce the risk.

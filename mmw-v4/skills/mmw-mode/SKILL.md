@@ -57,6 +57,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **The Baseline Is the Contract** (**principle-baseline-is-the-contract**). Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
 - **Run the Smallest Test Set** (**principle-run-the-smallest-test-set**). Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first.
 - **Explain the Number** (**principle-explain-the-number**). Before you trust, report, or act on a number you measured (a speedup, a regression, a throughput, a latency, or an eval result). Find what limits it, and rule out that it measured something other than the work you think.
+- **Fail Loudly** (**principle-fail-loudly**). Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently.
 
 **Delegation**
 

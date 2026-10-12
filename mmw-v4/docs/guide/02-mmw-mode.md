@@ -11,7 +11,7 @@ Most of the other skills carry the description "Run only when the user, mmw-mode
 The skill is read in two layers. Its `SKILL.md` is what every agent judges with, the session you talk to and every agent it sends. Its [`references/owning-a-task.md`](../../skills/mmw-mode/references/owning-a-task.md) is read only by the session that owns the task, the one you opened, because its first message names no file to follow. Between them they hold seven sections. These five shape what you see:
 
 - **Non-negotiables.** Triggers. Those for an agent's own work are in `SKILL.md`: any prose runs `unslop`, any `.ts` file runs `typescript-best-practices`. Those for the task as a whole are in `owning-a-task.md`: a nontrivial change runs `how` first, and a contested design gets `code-review`.
-- **Principles.** An index of the 33 principle skills, each with when it applies, in `SKILL.md`. The reply names each principle that changed a decision. [Steer with principle names](./08-principles.md) covers them.
+- **Principles.** An index of the 34 principle skills, each with when it applies, in `SKILL.md`. The reply names each principle that changed a decision. [Steer with principle names](./08-principles.md) covers them.
 - **Autonomy.** What an agent does without asking, and what it always pauses for: irreversible writes such as a force-push, a deploy, a data deletion or a customer message.
 - **Writing the reply.** How the report to the owner reads: effects and reasons, not code, with evidence the owner can check. It is in `owning-a-task.md`.
 - **Playbooks.** The list that routes a task to one playbook file, in `owning-a-task.md`.

@@ -14,6 +14,12 @@ Check the real thing, not a proxy:
 - Read the actual value, not a cached or derived representation
 - When verification fails, suspect the observation method before suspecting the system
 
+**In a diff:**
+
+- Code that checks liveness by a file's mtime or cached state instead of the actual value, or trusts a delegate's self-report instead of its output artifact: read the real thing.
+- Something the ticket, a named spec section or a baseline asked for that the diff does not do, or does only in part, is not done (**Done means done** below).
+- A claim about a host's or a tool's behavior recorded from documentation: record it from a dated, version-pinned measurement of a real run.
+
 ## Script the check when you can
 
 The strongest proof is a deterministic script that re-runs the same comparison, not a one-time eyeball. Write the script, run it, and keep its output as an artifact a reviewer can re-run instead of trusting your word.

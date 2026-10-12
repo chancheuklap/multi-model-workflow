@@ -28,3 +28,11 @@ Applies to any typed language. Skills like `typescript-best-practices` ground it
 - "If a new variant is added next month, will the compiler tell the next agent where to add a case?" If no, the match isn't exhaustive.
 - "Is this type duplicating a shape another file owns?" Derive instead.
 - "Am I strengthening this type to keep an operation total, or just to be more precise?" If nothing would otherwise panic, keep the plain type.
+
+**In a diff:**
+
+- An input the type admits and the code does not handle (empty, nil or undefined, a boundary value): narrow the type so it cannot arrive, or handle it.
+- Unnecessary optionality, `unknown`, `any`, or cast-heavy code where a clearer type boundary could exist, or a loosely shaped ad-hoc object: write the typed model.
+- Primitive Obsession, a primitive or string standing for a domain concept: give the concept its own small type.
+- An invariant the change relies on that no type holds and no assertion checks, so a regression would pass unseen: put it in the type, or assert it at the boundary.
+- A suppression (`eslint-disable`, `@ts-ignore`, `@ts-expect-error`) of a rule that catches real bugs: remove it and fix what it hid.

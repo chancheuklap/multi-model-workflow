@@ -14,6 +14,10 @@ When integrating a change, don't bolt it onto the existing design. Redesign as i
 
 This is the method for preserving option value when integrating changes into an existing design.
 
+**In a diff:**
+
+- A change patched onto the design rather than read as if the design always held it: ask whether the code would look like this had the requirement been known from the start, and write that form. One that reaches beyond the ticket's files is a finding outside the ticket.
+
 ## When code keeps fighting its sketch
 
 When the code written against an **architect** sketch keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design, per the **fix-root-causes** principle skill.

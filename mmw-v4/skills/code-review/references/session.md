@@ -10,7 +10,7 @@ git diff <base-commit>...HEAD --stat
 git log <base-commit>..HEAD --oneline
 ```
 
-Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before the axis subagents spend a context each on nothing. Post it as the review (step 5): the first line with the refs as given, then one line naming the failure; then stop.
+Three dots, so the comparison runs against the merge-base; it holds only committed work, so a change still uncommitted in the working tree is not reviewed. A ref that does not resolve or an empty diff is a failure here, before the axis subagents spend a context each on nothing. Post it as the review (step 5): the first line with the refs as given, then one line naming the failure; then stop.
 
 Done when both commits resolve and the diff is not empty, or that failure is on the ticket.
 
@@ -38,6 +38,13 @@ The axes read the code in slices, and some of what they report is wrong. The wor
 
 At the cited file and line, does the bad outcome the axis describes actually occur? Read beyond the changed lines (follow callers, guards upstream, etc.) until you can answer yes or no (**principle-read-before-you-conclude**). A different finding about nearby code does not settle this one. Judge whether the problem is real, not whether the proposed fix is plausible. Code that loudly fails on a situation you never showed the program can reach is correct behavior, not a defect.
 
+Four filters apply while you judge:
+
+- A finding that amounts to "I would have written it differently" is `refuted` unless it shows a concrete problem with the code as written; say that it is a preference.
+- A pattern consistent with the rest of the codebase is not a defect of this diff: `refuted`, citing where the codebase does the same.
+- An axis whose every finding is a nitpick or a style preference has found the code fine on its question; its line at the end of the report says so (step 5). Its findings are still judged and sorted like any other.
+- Before you refute a security or correctness finding, look again: follow its traced path to the end yourself. A finding with a concrete execution path, or one that shows you something you had wrong about the code, is refuted only on evidence, never because it seems unlikely.
+
 Render exactly one conclusion:
 
 - Holds: the bad outcome does occur at the cited location.
@@ -60,7 +67,9 @@ A line the Spec axis marks `should not` under its `Decisions` heading is **in-ti
 
 For a finding about a ticket merged into the base branch, apply the same ownership boundary explicitly: a repair target inside this ticket's `## Owns` is in-ticket; one that lies only inside that other ticket's `## Owns` is out-of-ticket and becomes a `finding` child.
 
-In-ticket findings get one round of fixes on this ticket; out-of-ticket findings become `finding` children the worker opens, and block nothing.
+A finding whose fix reaches beyond this ticket's `## Owns` (a restructuring of code the ticket does not own) is **out-of-ticket**, even when the hunk that shows it is inside.
+
+In-ticket findings get one round of fixes on this ticket, because a review never comes back clean: each run finds new judgement calls; out-of-ticket findings become `finding` children the worker opens, and block nothing.
 
 ## 5. Write one review report on the ticket
 
@@ -82,13 +91,13 @@ Then the axis reports under `## Standards`, `## Spec`, `## Tests` and `## Correc
 - <Standards|Spec|Tests|Correctness> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>
 ```
 
-The category is the name the axis gave the finding: its smell, its Tests shape, its Spec kind, its Correctness lens, or `documented-standard` for a breach of a rule the repository documents; a Standards finding that is none of these is `less-code`, `pass-through`, or the bold name of the structural question it answers.
+The category is the name the axis gave the finding: the principle it applies, without the `principle-` prefix (`fail-loudly`); the bug from the Correctness axis's checklist; the Spec kind; or `documented-standard` for a breach of a decision, term, rule or fact the repository documents.
 
 A finding with no code location of its own (a `Missing`, a `should not` on a line of `Decisions I made on my own`) cites the `## Owns` file its fix would land in, as `<path>:1`.
 
 The source is the current URL, `path:line`, or `CHECK` evidence that proves the finding; never the worker's reasoning or its self-assessment. When you could not tell, append `unverified: <what would settle it>` at the end of the same line. An empty list says `None`.
 
-End with one line per axis: how many review findings it raised and the worst one within that axis. Rank nothing across axes and merge nothing between them: the separation is what keeps a passing axis from covering a failing one. One change can pass one axis and fail another:
+End with one line per axis: how many review findings it raised and the worst one within that axis, or that the code is fine on its question when every finding was a nitpick or a style preference. Rank nothing across axes and merge nothing between them: the separation is what keeps a passing axis from covering a failing one. One change can pass one axis and fail another:
 
 - Follows every convention, builds the wrong thing → **Standards pass, Spec fail.**
 - Builds exactly what was asked, breaks the repository's conventions → **Spec pass, Standards fail.**

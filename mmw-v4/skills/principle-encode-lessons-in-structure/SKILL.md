@@ -17,6 +17,10 @@ When you catch yourself writing the same instruction a second time:
 
 **Pick the strongest mechanism.** When more than one mechanism would work, choose the strongest the situation allows (an unrepresentable state that cannot compile, then a lint or banned API that fails CI, then a canonical helper, then a runtime check), because agents copy whatever the surrounding code already does and a weaker guard becomes the next template.
 
+**In a diff:**
+
+- A comment or convention saying "don't do X" that a type, a lint or a runtime check could enforce: offer that mechanism (**Pick the strongest mechanism**), and delete the instruction once it exists.
+
 **Corollary:** If the fix is structural, only use the structural fix. The instruction is the symptom.
 
 **Feedback loop:**

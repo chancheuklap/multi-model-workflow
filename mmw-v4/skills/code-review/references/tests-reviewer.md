@@ -16,32 +16,23 @@ git diff <base-commit>...HEAD
 
 Read the diff for the source under test and for the test files in your scope.
 
-A test file in the diff that no `CHECK:` names is still worth a review finding; say that no `CHECK:` names it.
+A test file in the diff that no `CHECK:` names is in scope too: whether it belongs in the change at all is decided by the **In a diff:** line of **principle-test-behavior-not-implementation** on a committed test no criterion names.
 
 With a request file in place of a ticket, every test file in the diff is your scope.
 
 When your scope is empty, report one line, `no test-backed criteria in this change`, and stop. There is nothing here for this axis.
 
-## 2. Find the repository's documented test rules
+## 2. Read the repository's `TESTING.md` as facts
 
-The repository's `TESTING.md` says how tests here are written: its layers, which external boundaries may be stubbed, how to run them. Read it before you read the cases in scope. A case in scope that breaks one of its rules is a finding named `documented-standard`: cite the file and the rule. A documented rule always wins: where it endorses something a shape below would flag, that shape is silent. When the repository has no `TESTING.md`, apply the shapes below alone and say so in one line of your report.
+`TESTING.md` at the repository root says how tests run here: where they live and in which layers, how one is run, which external boundaries are stood in for and how, how a test puts the system into the state it needs. Read it before you read the cases in scope, as facts to judge them by. A case that contradicts it (a stand-in for a boundary it says runs for real, a case in a layer it does not name) is a finding named `documented-standard`: cite the file and the line. The tests it lists as written that way on purpose are not reported, whatever a principle says of them. When the repository has no `TESTING.md`, judge by the principles alone and say so in one line of your report.
 
-## 3. The test smell baseline
+## 3. Judge each case by these principles
 
-Read the `tdd` skill's `tests.md` and `mocking.md`. Their bad tests and their rule for where mocks belong are five of the six shapes below; the sixth is this axis's own. For each case in scope, ask all six, and name each finding by its shape:
-
-- **Tautological**: `tests.md`, **Tautological tests**. (**principle-test-behavior-not-implementation**)
-- **Implementation-coupled**: `tests.md`, **Implementation-detail tests**: mocking internal collaborators, testing private methods, asserting on call counts or order. (**principle-test-behavior-not-implementation**)
-- **Verified through a side channel**: `tests.md`, the red flag "Verifying through external means instead of interface". (**principle-test-behavior-not-implementation**)
-- **Named for the how, not the what**: `tests.md`, the red flag "Test name describes HOW not WHAT".
-- **Over-mocked**: `mocking.md`, a mock of something its "Don't mock" list names.
-- **Only the happy path**: the case covers the ordinary input and nothing else, while the code it tests has an edge, a boundary, or an error path the criterion's behaviour depends on. → name the untested path and what should happen on it.
-
-Each is a judgement call, and each review finding quotes the assertion it is about.
+Read **principle-test-behavior-not-implementation** in full and ask its **In a diff:** lines of every case in scope, the first one first: a case that cannot fail is the finding whatever else it is. Read **principle-fix-root-causes** for a change that loosens or bends an existing check, and **principle-boundary-discipline** for where a stand-in sits and what it stands in for. Each finding is a judgement call, names the principle and the line it matches, and quotes the assertion it is about.
 
 ## 4. Report
 
-One entry per review finding: the file and its `path:line`, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+One entry per review finding: the file and its `path:line`, the case name, which principle line or which line of `TESTING.md`, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## Two things this axis never reports
 

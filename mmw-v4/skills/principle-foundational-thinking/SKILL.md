@@ -18,3 +18,9 @@ At code level, DRY the structure, not every line. Types and data models should c
 Each increment should land a coherent abstraction or deepen one that exists. Do not spread a new capability across callers as special-case coordination.
 
 Subtraction comes before scaffolding. Remove dead code first, then lay foundations.
+
+**In a diff:**
+
+- The same logic shape in more than one hunk or file is extracted when a change to one copy would have to change the other. Simple code is not a finding for lacking abstraction: an abstraction is premature until the code must change in a second way.
+- A new dependency that will make future changes harder: name what it ties together, and cut the tie.
+- A data structure that does not match the access patterns the code actually uses: choose the one that fits the dominant path.

@@ -15,4 +15,9 @@ When implementation convenience conflicts with user delight, choose delight.
 
 The user is whoever consumes the work. For a UI that is the end user. For a library or an internal API it is the colleague who imports it. The engineer who maintains the code next is a user too. Weigh their experience the same way, and explain impact from their perspective.
 
+**In a diff:**
+
+- A feature, control or option the experience does not justify, or one shipped half-finished: cut it or finish it. A half-finished feature is worse than a missing one.
+- A visual change made on purpose is not a defect. One that costs accessibility (focus visibility, keyboard navigation, color contrast) or changes a component's API contract is, however intentional.
+
 Foundations should serve the experience. Foundational thinking governs the *sequence* of work. This principle governs the *target*.

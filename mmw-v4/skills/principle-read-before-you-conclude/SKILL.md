@@ -13,4 +13,8 @@ Read enough of a file to be sure of what you say about it, and read it before yo
 - A file you consult for one fact, or a generated, vendored, or log file, is read as far as the question needs.
 - When your conclusion depends on a part you did not read, say so in the reply. A conclusion drawn from an unread part is inferred, not verified, and is labelled `inferred` in the same sentence.
 
+**In a diff:**
+
+- Before judging a hunk, read beyond it: callers, callees, type definitions, sibling modules, and why the code exists, until you can say whether the change addresses the right layer. A finding that rests on code you did not read is labelled `inferred`.
+
 Distinct from **principle-prove-it-works**, which checks an output against the real thing. This governs what you read before you speak about a file. A subagent can read a large file whole and report, per **principle-guard-the-context-window**; the rule binds whoever states the conclusion.

@@ -51,7 +51,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 ## Skills
 
-`mmw-mode` runs most of these when a step names them. You can also name one in a prompt, such as `/how do we cancel runs?`. The 33 principle skills are in the next section.
+`mmw-mode` runs most of these when a step names them. You can also name one in a prompt, such as `/how do we cancel runs?`. The 34 principle skills are in the next section.
 
 | Skill | Use it to |
 | --- | --- |
@@ -98,7 +98,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 ## Principles
 
-Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes all 33 and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle, and its reply names each principle that changed a decision. The rule below is a summary of that index entry.
+Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes all 34 and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle, and its reply names each principle that changed a decision. The rule below is a summary of that index entry.
 
 | Group | Principle | Rule |
 | --- | --- | --- |
@@ -128,6 +128,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 | Verification | [The Baseline Is the Contract](./skills/principle-baseline-is-the-contract/SKILL.md) | Copy a settled answer, prototype or signed-off page exactly, and raise a gap to whoever owns it. |
 | Verification | [Run the Smallest Test Set](./skills/principle-run-the-smallest-test-set/SKILL.md) | Run the smallest test set that proves the change, and a full suite only for a gate or a named risk. |
 | Verification | [Explain the Number](./skills/principle-explain-the-number/SKILL.md) | Before you trust a measured number, find what limits it and rule out that it measured something else. |
+| Verification | [Fail Loudly](./skills/principle-fail-loudly/SKILL.md) | A failure names what failed, what was expected and where to change it; nothing passes silently. |
 | Delegation | [Guard the Context Window](./skills/principle-guard-the-context-window/SKILL.md) | Send bulk work to subagents and keep summaries in the main thread. |
 | Delegation | [Never Block on the Human](./skills/principle-never-block-on-the-human/SKILL.md) | Do reversible work and show the result, and ask only about a decision that belongs to the owner. |
 | Delegation | [Progress Is What the Record Says](./skills/principle-progress-is-what-the-record-says/SKILL.md) | Where work stands is what the ticket, branch, map or resume note says, not what the session remembers. |
