@@ -833,8 +833,9 @@ def newest_worker_started(number: int, comments: list) -> tuple[dict | None, str
     record = events.newest(comments, "worker.started")
     if record:
         return record["payload"], None
-    return None, (f"#{number} carries no readable worker.started event; run "
-                  f"`dispatch.sh start {number} worker` so the ticket records one")
+    return None, (f"#{number} carries no readable worker.started event. Only worker "
+                  f"dispatch writes this record, so its absence is a pipeline fault. "
+                  f"Run `verify-ticket.py {number} --sub-issue fault <file>`, then stop.")
 
 
 def worker_started_field(number: int, comments: list,
@@ -846,8 +847,9 @@ def worker_started_field(number: int, comments: list,
     value = started.get(field)
     if isinstance(value, str) and value:
         return value, None
-    return None, (f"#{number}'s newest worker.started carries no `{field}`; run "
-                  f"`dispatch.sh start {number} worker` again so it records one")
+    return None, (f"#{number}'s newest worker.started carries no `{field}`. Only worker "
+                  f"dispatch writes this field, so its absence is a pipeline fault. "
+                  f"Run `verify-ticket.py {number} --sub-issue fault <file>`, then stop.")
 
 
 def draft_summary(draft: str) -> tuple[str, dict]:
@@ -2691,8 +2693,9 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if started_problem:
         problems.append(started_problem)
     elif passed and not into:
-        problems.append(f"#{number}'s newest worker.started carries no `into`; run "
-                        f"`dispatch.sh start {number} worker` again so it records one")
+        problems.append(f"#{number}'s newest worker.started carries no `into`. Only worker "
+                        f"dispatch writes this field, so its absence is a pipeline fault. "
+                        f"Run `verify-ticket.py {number} --sub-issue fault <file>`, then stop.")
     if base:
         problems += git_problems(base, repo_root())
     me = gh_login()
