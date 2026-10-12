@@ -3198,7 +3198,7 @@ recover_ticket() {
 reverify_spec() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-  [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
+  [ -f "$VERIFY" ] || refuse "no verify-ticket.py at $VERIFY; this toolbox checkout is missing part of the verify-ticket skill; report that to the owner"
 
   local caller_root root commit plan number rc printed ids login into
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -3840,7 +3840,7 @@ SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
 VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
 EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
 [ -f "$EVENTS" ] \
-  || refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
+  || refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; this toolbox checkout is missing part of the verify-ticket skill; report that to the owner"
 # `status.py` folds the same events, and reads them through the same file.
 export MMW_EVENTS_PY="$EVENTS"
 # `advance` runs `start` through this same script; the directories travel with it.

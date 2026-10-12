@@ -3689,6 +3689,22 @@ JSON
   [ "$(posted_events 61 | grep -c child.closed)" = 2 ] || fail "a repeated route posted another child.closed"
 }
 
+scenario_missingverifyticket() {
+  local code copy expected
+  reset_log
+  fresh_repo
+  copy="$(skill_copy_for missing-verify-ticket)"
+  expected="$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" reverify 76)"
+  [ "$code" = 2 ] || fail "a missing verify-ticket.py should exit 2, got $code: $(cat "$TMP/err")"
+  grep -Fq "$expected" "$TMP/err" || fail "the refusal omits the searched path: $(cat "$TMP/err")"
+  grep -Fq 'report that to the owner' "$TMP/err" || fail "the refusal omits the next step: $(cat "$TMP/err")"
+  ! grep -Fq 'pass --tools' "$TMP/err" || fail "the refusal tells the caller to use a test override"
+  hasnt "gh :: issue :: edit"
+  hasnt "gh :: issue :: close"
+  hasnt "gh :: issue :: comment"
+}
+
 scenario_route() {
   local code
   reset_log
@@ -8117,7 +8133,7 @@ PY
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancelegacychecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
-ALL="$ALL routenospec"
+ALL="$ALL routenospec missingverifyticket"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
