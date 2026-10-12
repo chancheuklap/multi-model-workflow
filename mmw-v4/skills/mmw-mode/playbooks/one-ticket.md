@@ -24,4 +24,4 @@ A ticket the owner handed in has no `fix-<n>` yet: open it first as `../referenc
 
    Then run Opening a PR (`playbooks/opening-a-pr.md`) from `fix-<n>`, listing each open child of the ticket in its top half, including the tickets the findings became that wait for the owner's go. A ticket that came back or bounced opens none: tell the owner what it tried, where its commits are, and that it waits in `needs-triage`. Done when every finding has a route and Opening a PR is done, or the owner knows the ticket came back or bounced.
 
-**Reply:** the pull request's link, or what came back and why; the check of step 4 with its output; each line `land` left on stderr.
+**Reply:** the pull request's link, or what came back and why; the check of step 4 with its output; each finding and where `route` sent it; each line `land` left on stderr.
