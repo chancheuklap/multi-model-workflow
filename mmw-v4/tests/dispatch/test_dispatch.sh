@@ -1170,8 +1170,18 @@ for role in roles:
 json.dump(config, open(sys.argv[2], "w"))
 PY
 
+# The repository's own check, `scripts/check`, with <body> after its shebang: written
+# executable into <repo> and staged. Every fixture repository starts with a green one.
+put_check() {
+  mkdir -p "$1/scripts"
+  printf '#!/usr/bin/env bash\n%s\n' "$2" > "$1/scripts/check"
+  chmod +x "$1/scripts/check"
+  git -C "$1" add scripts/check
+}
+
 git init -q --bare -b main "$TMP/origin.git"
 git init -q -b main "$TMP/repo"
+put_check "$TMP/repo" 'exit 0'
 git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
 git -C "$TMP/repo" remote add origin "$TMP/origin.git"
 git -C "$TMP/repo" push -q -u origin main
@@ -1610,6 +1620,7 @@ fresh_repo() {
   rm -rf "$TMP/repo" "$TMP/origin.git" "$TMP/other-clone"
   git init -q --bare -b main "$TMP/origin.git"
   git init -q -b main "$TMP/repo"
+  put_check "$TMP/repo" 'exit 0'
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m fixture
   git -C "$TMP/repo" remote add origin "$TMP/origin.git"
   git -C "$TMP/repo" push -q -u origin main
@@ -1949,6 +1960,53 @@ json.dump(catalog, open(sys.argv[2], "w"))
   [ "$code" = 2 ] || fail "a runner with no adapter is exit 2, got $code: $(cat "$TMP/err")"
   grep -qw "tmux" "$TMP/err" \
     || fail "the refusal should name the runner: $(cat "$TMP/err")"
+}
+
+scenario_checkrepositorycheck() {
+  local copy code
+  copy="$(skill_copy_for check)"
+  fresh_project_night
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"]}
+]
+JSON
+
+  echo "--- check runs scripts/check once in this checkout, uncommitted, with MMW_BASE_REF the base branch"
+  rm -f "$TMP/check-base"
+  put_check "$TMP/repo" "printf '%s\\n' \"\$MMW_BASE_REF\" >> '$TMP/check-base'"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 0 ] || fail "a green scripts/check expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/check-base" 2>/dev/null)" = night ] \
+    || fail "scripts/check should run once with MMW_BASE_REF=night: $(cat "$TMP/check-base" 2>&1)"
+
+  echo "--- a red base refuses the night and carries the check's last lines"
+  put_check "$TMP/repo" 'echo "FAIL unit 0s"; echo BASE-RED; exit 1'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 2 ] || fail "a red base expected 2, got $code: $(cat "$TMP/err")"
+  grep -q 'BASE-RED' "$TMP/err" || fail "the refusal omits the check's output: $(cat "$TMP/err")"
+
+  echo "--- a check this machine cannot run refuses the night"
+  put_check "$TMP/repo" 'echo "no-uv-here" >&2; exit 2'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 2 ] || fail "exit 2 from scripts/check expected 2, got $code: $(cat "$TMP/err")"
+  grep -q 'no-uv-here' "$TMP/err" || fail "the refusal omits the check's output: $(cat "$TMP/err")"
+
+  echo "--- a scripts/check that is not executable, or absent, refuses the night"
+  chmod -x "$TMP/repo/scripts/check"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 2 ] || fail "an unexecutable scripts/check expected 2, got $code: $(cat "$TMP/err")"
+  grep -q 'scripts/check' "$TMP/err" || fail "the refusal does not name scripts/check: $(cat "$TMP/err")"
+  git -C "$TMP/repo" rm -q -f scripts/check
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  [ "$code" = 2 ] || fail "no scripts/check expected 2, got $code: $(cat "$TMP/err")"
+  grep -q 'scripts/check' "$TMP/err" || fail "the refusal does not name scripts/check: $(cat "$TMP/err")"
 }
 
 # A row resolves against the catalog of the runner that starts the session: Orca runs the
@@ -4428,6 +4486,30 @@ JSON
   no_relay
 }
 
+scenario_openticketnocheck() {
+  local code
+  fresh_repo
+  reset_log
+  no_relay
+  seed_main_agent agt_main
+  git -C "$TMP/repo" rm -q scripts/check
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m "no check"
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}]
+JSON
+  echo "--- open-ticket refuses a repository with no scripts/check, and opens no watch"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 61)"
+  [ "$code" = 2 ] || fail "open-ticket expected 2, got $code: $(cat "$TMP/err")"
+  grep -q 'scripts/check' "$TMP/err" || fail "the refusal does not name scripts/check: $(cat "$TMP/err")"
+  [ -z "$(relay_now)" ] || fail "open-ticket started a relay: $(relay_now)"
+  echo "--- so does send worker, before anything starts"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" send worker 61)"
+  [ "$code" = 2 ] || fail "send worker expected 2, got $code: $(cat "$TMP/err")"
+  never_ran
+}
+
 scenario_opentakeover() {
   local code
   fresh_project_night
@@ -6039,17 +6121,28 @@ scenario_finishred() {
   local code before
   fresh_repo
   git -C "$TMP/repo" checkout -q -b proj main
-  mkdir -p "$TMP/repo/.mmw"; printf '%s\n' '{"checks":["echo RED-CHECK >&2; false"]}' > "$TMP/repo/.mmw/target.json"
-  git -C "$TMP/repo" add .mmw/target.json; git -C "$TMP/repo" commit -q -m checks; git -C "$TMP/repo" push -q -u origin proj
+  put_check "$TMP/repo" 'echo RED-CHECK >&2; echo "FAIL unit 0s"; exit 1'
+  git -C "$TMP/repo" commit -q -m checks; git -C "$TMP/repo" push -q -u origin proj
   git -C "$TMP/repo" checkout -q -b night; commit_file "$TMP/repo" night.txt night night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
   echo '[]' > "$TMP/tickets.json"; reset_log; closed_night_spec
   before="$(git -C "$TMP/origin.git" rev-parse proj)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 1 ] || fail "red finish expected 1, got $code: $(cat "$TMP/err")"
-  grep -q 'echo RED-CHECK' "$TMP/err" || fail "failed command missing: $(cat "$TMP/err")"
+  grep -q 'RED-CHECK' "$TMP/err" || fail "the check's last lines are missing: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "red finish changed project"
   posted_events 76 | grep -q spec.merged && fail "red finish wrote spec.merged"
   return 0
+}
+
+scenario_finishnocheck() {
+  echo "--- a merge result with no scripts/check is not pushed"
+  setup_finish_closed
+  git -C "$TMP/repo" checkout -q night
+  git -C "$TMP/repo" rm -q scripts/check
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m "drop check"
+  git -C "$TMP/repo" push -q origin night
+  git -C "$TMP/repo" checkout -q proj
+  finish_refused "no scripts/check" "scripts/check"
 }
 
 # The project branch is inside the base branch, and the base branch's tip is the merge
@@ -6059,9 +6152,8 @@ setup_finish_over_landing() {
   fresh_repo
   rm -f "$TMP/check-runs"
   git -C "$TMP/repo" checkout -q -b proj main
-  mkdir -p "$TMP/repo/.mmw"
-  printf '{"checks":["printf x >> %s; false"]}\n' "'$TMP/check-runs'" > "$TMP/repo/.mmw/target.json"
-  git -C "$TMP/repo" add .mmw/target.json; git -C "$TMP/repo" commit -q -m checks
+  put_check "$TMP/repo" "printf x >> '$TMP/check-runs'; exit 1"
+  git -C "$TMP/repo" commit -q -m checks
   git -C "$TMP/repo" push -q -u origin proj
   git -C "$TMP/repo" checkout -q -b night proj
   git -C "$TMP/repo" checkout -q -b issue-61 night
@@ -6677,14 +6769,11 @@ scenario_advancenohalfmerge() {
     || fail "the conflict was not recorded: $(posted_events 61 reason)"
 }
 
-setup_checked_commands() {
-  local json
-  json="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "$@")"
+# Ticket #61 passed, with a repository whose scripts/check runs <body>.
+setup_checked_ticket() {
   reset_log
   fresh_repo
-  mkdir -p "$TMP/repo/.mmw"
-  printf '{"checks":%s}\n' "$json" > "$TMP/repo/.mmw/target.json"
-  git -C "$TMP/repo" add .mmw/target.json
+  put_check "$TMP/repo" "$1"
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m checks
   git -C "$TMP/repo" push -q origin main
   make_branch issue-61 ticket.txt ticket
@@ -6692,10 +6781,6 @@ setup_checked_commands() {
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
   seed_workspace 61
-}
-
-setup_checked_ticket() {
-  setup_checked_commands "$1"
 }
 
 scenario_advancebouncedchecks() {
@@ -6784,7 +6869,7 @@ if following != quote:
 
 scenario_advancebouncedkeepserrors() {
   local before code body
-  setup_checked_commands "$(twenty_nine_line_check)"
+  setup_checked_ticket "$(twenty_nine_line_check)"
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
@@ -6795,59 +6880,41 @@ scenario_advancebouncedkeepserrors() {
     || fail "ticket.bounced drops the test name on line 10 of a 29-line check"
 }
 
-scenario_advancebouncedpercommand() {
+scenario_advancebouncedsteps() {
   local before code body
-  setup_checked_commands \
-    "python3 -c 'import sys; print(\"alpha\"+\"-line\"); sys.exit(1)'" \
-    "python3 -c 'import sys; print(\"beta\"+\"-line\"); sys.exit(3)'"
+  setup_checked_ticket 'echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "two red checks should bounce and continue: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "a red scripts/check should bounce and continue: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
   body="$(bounced_comment 61)"
   MMW_BODY="$body" python3 -c '
 import os, sys
-body = os.environ["MMW_BODY"]
-prose = body.split("<!--", 1)[0]
-lines = prose.splitlines()
-first = lines[0] if lines else ""
+prose = os.environ["MMW_BODY"].split("<!--", 1)[0]
+first = prose.splitlines()[0] if prose else ""
 at = first.find("Failed checks:")
 if at < 0:
     sys.stderr.write("the bounce line has no Failed checks: token:\n%s\n" % first)
     sys.exit(1)
 quote = first[at:]
-for token in ("sys.exit(1)", "sys.exit(3)"):
+for token in ("scripts/check", "unit", "e2e"):
     if token not in quote:
         sys.stderr.write("Failed checks line omits %r:\n%s\n" % (token, quote))
         sys.exit(1)
-
-def heading(token, other):
-    found = [i for i, line in enumerate(lines)
-             if i and token in line and other not in line]
-    if len(found) != 1:
-        sys.stderr.write("expected one paragraph heading for %s, saw %s\n%s\n" % (token, found, prose))
-        sys.exit(1)
-    return found[0]
-
-h1 = heading("sys.exit(1)", "sys.exit(3)")
-h2 = heading("sys.exit(3)", "sys.exit(1)")
-if lines[h1 - 1] != "" or lines[h2 - 1] != "":
-    sys.stderr.write("a command heading does not start its own paragraph:\n%s\n" % prose)
+if "lint" in quote:
+    sys.stderr.write("Failed checks line names a step that passed:\n%s\n" % quote)
     sys.exit(1)
-if "alpha-line" not in lines[h1 + 1:h2]:
-    sys.stderr.write("the first command'"'"'s output is not in its paragraph:\n%s\n" % prose)
+if "alpha-line" not in prose or ".scratch/checks/61/1.log" not in prose:
+    sys.stderr.write("the bounce omits the last lines or the log path:\n%s\n" % prose)
     sys.exit(1)
-if "beta-line" not in lines[h2 + 1:]:
-    sys.stderr.write("the second command'"'"'s output is not in its paragraph:\n%s\n" % prose)
-    sys.exit(1)
-' || fail "the bounce text does not give each command its own paragraph"
+' || fail "the bounce does not name the failing steps, their last lines and the log"
   assert_resume_quotes_posted_bounce 61
 }
 
 scenario_advancebouncedsavesoutput() {
   local before code body log
-  setup_checked_commands "$(twenty_nine_line_check)"
+  setup_checked_ticket "$(twenty_nine_line_check)"
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
@@ -6895,46 +6962,95 @@ scenario_advancebaseref() {
     || fail "the green base-ref check bounced the ticket"
 }
 
-scenario_advancenochecks() {
-  reset_log
-  fresh_repo
-  make_branch issue-61 ticket.txt ticket
-  local passed code
-  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
-  write_one_passed 61 "$passed"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "a repository without checks should land: $(cat "$TMP/err")"
-  grep -q '.mmw/target.json' "$TMP/err" \
-    || fail "the absence of checks was silent: $(cat "$TMP/err")"
-  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main \
-    || fail "the ticket did not land without repository checks"
+# A ticket whose merge cannot be checked stays passed: not landed, not bounced, the
+# merge worktree back on origin/<into>, and advance exits 2.
+assert_held_not_bounced() {
+  local label="$1" before="$2" code="$3"
+  [ "$code" = 2 ] || fail "$label: advance expected 2, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "$label: origin/main moved"
+  [ -z "$(posted_events 61 | grep -E '^ticket\.(bounced|landed)')" ] \
+    || fail "$label: the ticket was bounced or landed: $(posted_events 61)"
+  hasnt "gh :: issue :: reopen :: 61"
+  [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD)" = "$before" ] \
+    || fail "$label: the merge worktree was not reset to origin/main"
+}
 
+# Ticket #61 passed on a repository whose base has no scripts/check.
+setup_unchecked_ticket() {
   reset_log
   fresh_repo
-  mkdir -p "$TMP/repo/.mmw"
-  printf '%s\n' '[]' > "$TMP/repo/.mmw/target.json"
-  git -C "$TMP/repo" add .mmw/target.json
-  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m malformed-target
+  git -C "$TMP/repo" rm -q scripts/check
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m "no check"
   git -C "$TMP/repo" push -q origin main
   make_branch issue-61 ticket.txt ticket
-  local before
-  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+  seed_workspace 61
+}
+
+scenario_advancenochecks() {
+  local before code
+  echo "--- no scripts/check refuses the landing: advance exits 2, the ticket is not bounced"
+  setup_unchecked_ticket
   before="$(git -C "$TMP/origin.git" rev-parse main)"
-  write_one_passed 61 "$passed"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  [ "$code" = 0 ] || fail "an unreadable checks declaration should bounce: $(cat "$TMP/err")"
-  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] \
-    || fail "a top-level non-object target.json moved origin/main"
-  posted_events 61 reason commands | grep -q 'ticket.bounced reason=checks' \
-    || fail "the malformed target.json was treated as no checks"
+  assert_held_not_bounced "no scripts/check" "$before" "$code"
+  grep -q 'scripts/check' "$TMP/err" || fail "the refusal does not name scripts/check: $(cat "$TMP/err")"
+
+  echo "--- land <n> refuses it the same way"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" != 0 ] || fail "land without scripts/check exited 0: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "land moved origin/main"
+  [ -z "$(posted_events 61 | grep -E '^ticket\.(bounced|landed)')" ] \
+    || fail "land bounced or landed the ticket: $(posted_events 61)"
+  grep -q 'scripts/check' "$TMP/err" || fail "land's refusal does not name scripts/check: $(cat "$TMP/err")"
+}
+
+scenario_advancelegacychecks() {
+  local before code
+  echo "--- .mmw/target.json checks with no scripts/check: refused, and the refusal names the migration"
+  setup_unchecked_ticket
+  mkdir -p "$TMP/repo/.mmw"
+  printf '%s\n' '{"checks":["make check"]}' > "$TMP/repo/.mmw/target.json"
+  git -C "$TMP/repo" add .mmw/target.json
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m "legacy checks"
+  git -C "$TMP/repo" push -q origin main
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  assert_held_not_bounced "legacy checks" "$before" "$code"
+  grep -q '.mmw/target.json' "$TMP/err" && grep -q 'setup-mmw' "$TMP/err" \
+    || fail "the refusal does not name .mmw/target.json and setup-mmw: $(cat "$TMP/err")"
+}
+
+scenario_advancecheckcannotrun() {
+  local before code
+  echo "--- scripts/check exit 2 on the merge: the ticket stays passed, advance stops with exit 2"
+  setup_checked_ticket 'echo "uv: command not found" >&2; exit 2'
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  assert_held_not_bounced "exit 2" "$before" "$code"
+  grep -q 'uv: command not found' "$TMP/err" \
+    || fail "stderr does not carry what the check said: $(cat "$TMP/err")"
+  grep -q '.scratch/checks/61/1.log' "$TMP/err" \
+    || fail "stderr does not name the full output: $(cat "$TMP/err")"
+  echo "--- once the machine is fixed, advance lands it"
+  reset_log
+  put_check "$TMP/repo" 'exit 0'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m "fixed check"
+  git -C "$TMP/repo" push -q origin main
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance after the fix expected 0, got $code: $(cat "$TMP/err")"
+  posted_events 61 | grep -q '^ticket.landed' || fail "the ticket did not land after the fix"
 }
 
 scenario_advanceraced() {
   reset_log
   fresh_repo
-  mkdir -p "$TMP/repo/.mmw"
   cat > "$TMP/repo/race-check.sh" <<'SH'
 #!/usr/bin/env bash
 set -e
@@ -6947,8 +7063,8 @@ if [ ! -e "$MMW_RACE_MARKER" ]; then
   : > "$MMW_RACE_MARKER"
 fi
 SH
-  printf '{"checks":["bash race-check.sh"]}\n' > "$TMP/repo/.mmw/target.json"
-  git -C "$TMP/repo" add .mmw/target.json race-check.sh
+  put_check "$TMP/repo" 'exec bash race-check.sh'
+  git -C "$TMP/repo" add race-check.sh
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m checks
   git -C "$TMP/repo" push -q origin main
   local other passed code
@@ -7042,15 +7158,14 @@ watches = json.load(open(sys.argv[1]))
 watches["spec:77"] = {**watches["spec:76"], "spec": 77}
 json.dump(watches, open(sys.argv[1], "w"))
 PY
-  mkdir -p "$TMP/repo/.mmw"
   cat > "$TMP/repo/slow-check.sh" <<'SH'
 #!/usr/bin/env bash
 echo "start $MMW_BASE_REF" >> "$MMW_OVERLAP_LOG"
 sleep 3
 echo "end $MMW_BASE_REF" >> "$MMW_OVERLAP_LOG"
 SH
-  printf '{"checks":["bash slow-check.sh"]}\n' > "$TMP/repo/.mmw/target.json"
-  git -C "$TMP/repo" add .mmw/target.json slow-check.sh
+  put_check "$TMP/repo" 'exec bash slow-check.sh'
+  git -C "$TMP/repo" add slow-check.sh
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m checks
   git -C "$TMP/repo" push -q origin main
   git -C "$TMP/repo" checkout -q -b feature main
@@ -7370,7 +7485,6 @@ scenario_landedkeepsunmerged() {
 
 setup_branch_race_check() {
   fresh_repo
-  mkdir -p "$TMP/repo/.mmw"
   cat > "$TMP/repo/branch-race.sh" <<'SH'
 #!/usr/bin/env bash
 set -e
@@ -7388,8 +7502,8 @@ else
 fi
 : > "$MMW_RACE_MARKER"
 SH
-  printf '{"checks":["bash branch-race.sh"]}\n' > "$TMP/repo/.mmw/target.json"
-  git -C "$TMP/repo" add .mmw/target.json branch-race.sh
+  put_check "$TMP/repo" 'exec bash branch-race.sh'
+  git -C "$TMP/repo" add branch-race.sh
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m checks
   git -C "$TMP/repo" push -q origin main
   make_branch issue-61 ticket.txt ticket
@@ -7962,9 +8076,9 @@ PY
   no_relay
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedpercommand advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancelegacychecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

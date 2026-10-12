@@ -57,6 +57,8 @@ SKILL_NAMED = [
     re.compile(r"(?<!pstack's )(?<!pstack )(?<![`*])[`*]+(principle-[a-z0-9-]+)[`*]"),
 ]
 PATH_NAMED = re.compile(r"`((?:references|scripts|playbooks|agents)/[A-Za-z0-9_./-]+)`")
+# The consuming repository's own check command, which a skill names but no skill carries.
+REPO_CHECK = "scripts/check"
 BARE_SKILL_FILE = re.compile(r"(?<!pstack's )the `([a-z0-9-]+)` skill's `([A-Za-z0-9_.-]+\.md)`")
 NAME_BEFORE = re.compile(r"[`*]([a-z0-9-]+)[`*]")
 DISPATCH_CMD = re.compile(r"dispatch\.sh ([a-z][a-z-]+)")
@@ -157,7 +159,7 @@ def check_names(path: Path, commands: set[str]) -> list[str]:
             found.append(f"{where(path, text, m.start())}: names {skill}/{filename}, which is not there")
     for m in PATH_NAMED.finditer(text):
         rel = m.group(1).split("#")[0].rstrip(".,;:)")
-        if rel.endswith("/") or len(Path(rel).stem) == 1:
+        if rel == REPO_CHECK or rel.endswith("/") or len(Path(rel).stem) == 1:
             continue
         paragraph = text[text.rfind("\n\n", 0, m.start()) + 1:m.start()]
         places = [SKILLS / name for name in NAME_BEFORE.findall(paragraph)

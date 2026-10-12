@@ -109,6 +109,10 @@ if (!files.length) {
 // with `echo` can still chain a real verifier, and argv containing EXPECT says
 // nothing about what the called program prints or whether it exits zero.
 const FIXED_OUTPUT_COMMAND = /^\s*(?:(?:echo|printf)(?:\s+[^&|;]*)?|true|:|exit\s+0)\s*$/i;
+// The repository's own check, which dispatch runs on the merge result of every ticket
+// it lands: a criterion whose whole command is that, with any tier flag or environment
+// assignment, repeats it rather than observing the ticket's outcome.
+const REPOSITORY_CHECK_COMMAND = /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:(?:bash|sh)\s+)?(?:\.\/)?scripts\/check(?:\s+--?[A-Za-z-]+)*\s*$/;
 // Tokens that appear in failure output as readily as in success output.
 const WEAK_EXPECT = new Set([
   "ok", "okay", "done", "pass", "passed", "success", "successful", "succeeded",
@@ -166,6 +170,12 @@ for (const file of files) {
     if (commands.length && commands.every((row) => FIXED_OUTPUT_COMMAND.test(row))) {
       add(file, "warn", id, "tautological-check",
         'CHECK looks like a fixed-output command: "' + check + '"; use an oracle that observes the named outcome');
+    }
+
+    if (commands.length && commands.every((row) => REPOSITORY_CHECK_COMMAND.test(row))) {
+      add(file, "error", id, "repeats-repository-check",
+        'CHECK only runs scripts/check, which dispatch already runs on the merge of every ticket: "' +
+        check + '"; name the tests or command that observe this criterion\'s own outcome');
     }
 
     if (expect && WEAK_EXPECT.has(expect.trim().toLowerCase())) {

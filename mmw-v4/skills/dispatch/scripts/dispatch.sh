@@ -860,7 +860,14 @@ open_night() {
 # session as its orchestrator; `land <n>` closes the watch. `send worker <n>` opens it
 # first; alone, it hands the watch of a ticket whose session is gone to this one.
 open_ticket() {
-  local number="$1" opened runner session how board
+  local number="$1" opened runner session how board root missing
+  # A ticket lands only through its repository's scripts/check, so a watch opened where
+  # there is none would end at a landing that is refused.
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so #$number has nothing to land into; nothing was opened"
+  missing="$(repository_check_missing "$root")" \
+    || refuse "could not read whether $root/scripts/check can run (the reason is above); nothing was opened"
+  [ -z "$missing" ] || refuse "#$number would not land: $missing. Nothing was opened; commit scripts/check, then open the ticket again"
   opened="$(open_relay --tickets "$number")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   # The task board is made sure of the way `open` makes sure of it, for the same reason:
@@ -1935,6 +1942,19 @@ check_machine() {
     fi
   fi
 
+  # Every tree the night lands is checked by the repository's scripts/check, so a base it
+  # finds red, or cannot run on, would bounce or stop every ticket; it runs once here, on
+  # this checkout as it stands, uncommitted changes included.
+  if [ -n "$root" ]; then
+    run_merge_checks "$root" "${into:-HEAD}" "$root" "spec-$spec"
+    case "$?" in
+      0) echo "scripts/check: green on this checkout" ;;
+      1) printf 'dispatch: scripts/check is red on this checkout, so every ticket the night lands would bounce: %s\n' "$MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
+      3) echo "dispatch: no ticket of the night could land: $MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
+      *) printf 'dispatch: scripts/check cannot run on this machine, so every landing would stop: %s\n' "$MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
+    esac
+  fi
+
   # What install.sh checks is this machine's whole toolbox, most of it nothing the night
   # uses, and what the night does use is checked below by what reads it. So an incomplete
   # install does not stop the night: what --check finds is said and left. Only the owner
@@ -2355,29 +2375,59 @@ landed_tip_ticket() {
   printf '%s\n' "$number"
 }
 
-MERGE_CHECKS_JSON=""
+# Runs the default tier of the repository's own `scripts/check` at <root> with
+# MMW_BASE_REF=<base ref>, through verify-ticket.py's `run_repository_check`: 0 green,
+# 1 red, 2 this machine cannot run it, 3 there is no executable scripts/check. A red
+# run's rows for the bounce are left in MERGE_CHECKS_FAILED; for every exit but 0,
+# MERGE_CHECKS_DETAIL says what happened, with the check's last lines and its log.
+MERGE_CHECKS_FAILED="[]"
+MERGE_CHECKS_DETAIL=""
 run_merge_checks() {
-  local root="$1" into="$2" worktree="${3:-}" ticket="${4:-}"
-  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" "$worktree" "$ticket" <<'PY'
+  local root="$1" base_ref="$2" worktree="${3:-}" ticket="${4:-}" out status
+  MERGE_CHECKS_FAILED="[]"
+  MERGE_CHECKS_DETAIL=""
+  out="$(python3 - "$VERIFY" "$root" "$base_ref" "$worktree" "$ticket" <<'PY'
 import importlib.util, json, sys
 from pathlib import Path
 
-script, root, into, worktree, ticket = sys.argv[1:6]
+script, root, base_ref, worktree, ticket = sys.argv[1:6]
 sys.path.insert(0, str(Path(script).resolve().parent))
 spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
-print(json.dumps(mod.run_target_json_checks(
-    Path(root), into, worktree or None, ticket or None), separators=(",", ":")))
+result = mod.run_repository_check(Path(root), base_ref, worktree or None, ticket or None)
+print(result["status"])
+print(json.dumps(result["failed"], separators=(",", ":")))
+print(result["detail"])
 PY
-)" || return 2
-  [ "$MERGE_CHECKS_JSON" != null ] || return 3
-  MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c '
-import json, os, sys
-value = json.loads(os.environ["MMW_CHECKS_JSON"])
-sys.exit(0 if not value.get("failed") and not value.get("problem") else 1)
-'
+)" || { MERGE_CHECKS_DETAIL="$VERIFY could not run $root/scripts/check (the reason is above)"; return 2; }
+  status="$(printf '%s\n' "$out" | sed -n 1p)"
+  MERGE_CHECKS_FAILED="$(printf '%s\n' "$out" | sed -n 2p)"
+  MERGE_CHECKS_DETAIL="$(printf '%s\n' "$out" | sed -n '3,$p')"
+  case "$status" in
+    pass) return 0 ;;
+    red) return 1 ;;
+    missing) return 3 ;;
+    *) return 2 ;;
+  esac
+}
+
+# Prints why scripts/check at <root> cannot be run, or nothing when it is an executable
+# file: the same reading `run_repository_check` makes before it runs it.
+repository_check_missing() {
+  python3 - "$VERIFY" "$1" <<'PY'
+import importlib.util, sys
+from pathlib import Path
+
+script, root = sys.argv[1:3]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+print(mod.repository_check_missing(Path(root)) or "")
+PY
 }
 
 # 0 means this bounce goes to triage; 1 means this open night has one retry left;
@@ -2609,7 +2659,7 @@ finish_landing() {
 # 0 merged, 1 bounced, 2 could not complete, 3 was already in origin.
 land_one_via_origin() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5" mode="${6:-advance}"
-  local attempt merge_root base merge_commit landed_base rc files failed push_error=""
+  local attempt merge_root base merge_commit landed_base rc files push_error=""
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
     prepare_merge_worktree "$root" "$into" || return 2
     merge_root="$MERGE_ROOT"
@@ -2644,30 +2694,27 @@ land_one_via_origin() {
     fi
     merge_commit="$(git -C "$merge_root" rev-parse HEAD)"
 
-    # The merge result is the tree that lands, so the repository's checks run on it, once
-    # per ticket, whatever ran on the ticket's branch.
-    run_merge_checks "$merge_root" "$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
-    if [ "$rc" -eq 3 ]; then
-      echo "dispatch: 没有检查：.mmw/target.json 没声明 checks" >&2
-    elif [ "$rc" -eq 1 ]; then
-      failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c '
-import json, os
-value = json.loads(os.environ["MMW_CHECKS_JSON"])
-rows = value.get("failed") or []
-if value.get("problem"):
-    rows.append({"command": ".mmw/target.json", "tail": value["problem"]})
-print(json.dumps(rows, separators=(",", ":")))
-')"
+    # The merge result is the tree that lands, so the repository's check runs on it, once
+    # per ticket, whatever ran on the ticket's branch. Only a red tree is the ticket's to
+    # fix; a check that is absent or cannot run here leaves the ticket passed, unbounced.
+    run_merge_checks "$merge_root" "origin/$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
+    if [ "$rc" -eq 1 ]; then
       git -C "$merge_root" reset --hard "origin/$into" >/dev/null
-      if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$failed"; then
+      if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$MERGE_CHECKS_FAILED"; then
         release_merge_lock
         return 2
       fi
       release_merge_lock
       return 1
     elif [ "$rc" -ne 0 ]; then
-      echo "dispatch: could not run repository checks for #$number" >&2
+      git -C "$merge_root" reset --hard "origin/$into" >/dev/null
       release_merge_lock
+      if [ "$rc" -eq 3 ]; then
+        echo "dispatch: #$number is not landed, and stays passed rather than bounced: the merge with origin/$into has no check to run: $MERGE_CHECKS_DETAIL. Commit an executable scripts/check to origin/$into" >&2
+      else
+        printf 'dispatch: #%s is not landed, and stays passed rather than bounced: %s\nFix that on this machine; the ticket needs nothing\n' \
+          "$number" "$MERGE_CHECKS_DETAIL" >&2
+      fi
       return 2
     fi
 
@@ -3501,7 +3548,7 @@ pr_gate() {
 }
 
 finish_spec() {
-  local spec="$1" root into project merged merge base attempt rc out files failed checked_by
+  local spec="$1" root into project merged merge base attempt rc out files checked_by
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository"
@@ -3567,19 +3614,20 @@ finish_spec() {
          && checked_by="$(landed_tip_ticket "$MERGE_ROOT" "$into")"; then
         echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into, checked when #$checked_by landed"
       else
-        run_merge_checks "$MERGE_ROOT" "$project"; rc=$?
+        run_merge_checks "$MERGE_ROOT" "origin/$project" "$root" "spec-$spec"; rc=$?
       fi
-      if [ "$rc" -eq 1 ]; then
-        failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c 'import json,os; v=json.loads(os.environ["MMW_CHECKS_JSON"]); print(" | ".join((r.get("command") or ".mmw/target.json") + ": " + (r.get("tail") or v.get("problem") or "failed") for r in (v.get("failed") or [{}] if v.get("problem") else v.get("failed") or [])))')"
+      if [ "$rc" -ne 0 ]; then
         git -C "$MERGE_ROOT" reset --hard "origin/$project" >/dev/null
         release_merge_lock
-        echo "dispatch: finish #$spec repository checks failed: $failed; nothing was pushed or deleted" >&2
+      fi
+      if [ "$rc" -eq 1 ]; then
+        printf 'dispatch: finish #%s: the merge of %s into %s is red, so nothing was pushed or deleted: %s\n' \
+          "$spec" "$into" "$project" "$MERGE_CHECKS_DETAIL" >&2
         exit 1
-      elif [ "$rc" -eq 3 ]; then
-        echo "dispatch: 没有检查：.mmw/target.json 没声明 checks" >&2
       elif [ "$rc" -ne 0 ]; then
-        release_merge_lock
-        refuse "could not run repository checks for finish #$spec"
+        printf 'dispatch: finish #%s: the merge of %s into %s was not checked, so nothing was pushed or deleted: %s\nFix that, then run finish %s again\n' \
+          "$spec" "$into" "$project" "$MERGE_CHECKS_DETAIL" "$spec" >&2
+        exit 2
       fi
       out="$(git -C "$MERGE_ROOT" push origin "HEAD:$project" 2>&1)"
       if [ "$?" -ne 0 ]; then

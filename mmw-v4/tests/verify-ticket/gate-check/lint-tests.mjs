@@ -149,6 +149,25 @@ test("lint: a chained verifier is not classified as a tautology", () => {
   assert.doesNotMatch(lint(chained).out, /tautological-check/);
 });
 
+test("lint: a CHECK that only runs scripts/check is an error; one that runs more is not", () => {
+  const repeats = write("repeats-check.md", SOUND_BODY + `
+- [ ] G6: the repository check is green
+  CHECK: MMW_BASE_REF=origin/main ./scripts/check --all
+  EXPECT: /PASS/
+  EVIDENCE: pending
+`);
+  const { out, code } = lint(repeats);
+  assert.match(out, /ERROR G6:.*\[repeats-repository-check\]/);
+  assert.equal(code, 1);
+  const more = write("more-than-check.md", SOUND_BODY + `
+- [ ] G6: the importer test passes after the check
+  CHECK: scripts/check && node --test test/import.test.mjs
+  EXPECT: /# fail 0/
+  EVIDENCE: pending
+`);
+  assert.doesNotMatch(lint(more).out, /repeats-repository-check/);
+});
+
 test("lint: an expectation shared with failure output is warned", () => {
   assert.match(lint(WEAK).out, /G1:.*\[weak-expect\]/);
 });

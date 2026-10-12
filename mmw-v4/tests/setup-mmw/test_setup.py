@@ -154,8 +154,9 @@ class TestCheck(unittest.TestCase):
         self.tmp.cleanup()
 
     def set_up_repository(self):
-        (self.root / ".mmw").mkdir()
-        (self.root / ".mmw" / "target.json").write_text(json.dumps({"checks": ["make check"]}))
+        (self.root / "scripts").mkdir()
+        (self.root / "scripts" / "check").write_text("#!/usr/bin/env bash\nexit 0\n")
+        (self.root / "scripts" / "check").chmod(0o755)
         (self.root / "TESTING.md").write_text("# Testing\n")
 
     def run_check(self, fake):
@@ -179,22 +180,34 @@ class TestCheck(unittest.TestCase):
         fake = Fake(root=self.root, labels_have={}, ignored=())
         code, out = self.run_check(fake)
         self.assertEqual(code, 1)
-        for item in ("labels", ".gitignore", "TESTING.md"):
+        for item in ("labels", ".gitignore", "scripts/check", "TESTING.md"):
             self.assertRegex(out, rf"(?m)^missing +repository +{item}:", item)
-        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 3 missing"), out)
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 4 missing"), out)
         self.assertEqual(fake.writes(), [])
         self.assertEqual(fake.labels_have, {})
 
-    def test_no_repository_check_is_only_a_note(self):
+    def test_a_check_that_cannot_be_run_is_missing(self):
         self.set_up_repository()
-        (self.root / ".mmw" / "target.json").write_text("{}")
+        (self.root / "scripts" / "check").chmod(0o644)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +scripts/check:")
+        (self.root / "scripts" / "check").unlink()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +scripts/check:")
+
+    def test_legacy_target_json_checks_are_missing_and_name_the_migration(self):
+        self.set_up_repository()
+        (self.root / ".mmw").mkdir()
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({"checks": ["make check"]}))
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +\.mmw/target\.json checks: .*setup-mmw")
+        (self.root / ".mmw" / "target.json").write_text(json.dumps({"products": []}))
         code, out = self.run_check(Fake(root=self.root))
         self.assertEqual(code, 0, out)
-        self.assertRegex(out, r"(?m)^note +repository +\.mmw/target\.json checks: no `checks`")
-        (self.root / ".mmw" / "target.json").unlink()
-        code, out = self.run_check(Fake(root=self.root))
-        self.assertEqual(code, 0, out)
-        self.assertRegex(out, r"(?m)^note +repository +\.mmw/target\.json checks: no \.mmw/target\.json")
+        self.assertNotIn("target.json", out)
 
     def test_issues_off_is_missing_and_a_protected_branch_is_only_a_note(self):
         self.set_up_repository()

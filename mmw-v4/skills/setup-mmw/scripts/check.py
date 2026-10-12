@@ -7,8 +7,7 @@ Run from inside a clone. Writes nothing: not to the repository, the tracker or t
 
     ok         the item is in place
     missing    the pipeline cannot use this repository until it is; the detail says what fixes it
-    note       usable as it is, with something for the owner to look at (a protected branch,
-               no repository check)
+    note       usable as it is, with something for the owner to look at (a protected branch)
     unchecked  could not be asked (no issue to probe with, no `gh`); not counted as missing
 
 The summary is `SETUP OK` when nothing is missing, else `SETUP INCOMPLETE <n> missing`.
@@ -166,24 +165,27 @@ def check_labels(report: Report):
 
 
 
-def check_checks(report: Report, root: Path):
-    path = root / ".mmw" / "target.json"
+def check_repository_check(report: Report, root: Path):
+    """`scripts/check`, which every landing runs on the merged tree and refuses to land
+    without; and a `checks` key of `.mmw/target.json`, which the pipeline does not read."""
+    path = root / "scripts" / "check"
     if not path.is_file():
-        report.add("note", "repository", ".mmw/target.json checks",
-                   "no .mmw/target.json; a ticket lands with no repository check run")
-        return
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except ValueError as exc:
-        report.add("missing", "repository", ".mmw/target.json checks", f"not JSON ({exc})")
-        return
-    checks = data.get("checks") if isinstance(data, dict) else None
-    if isinstance(checks, list) and checks:
-        report.add("ok", "repository", ".mmw/target.json checks", f"{len(checks)} command(s)")
+        report.add("missing", "repository", "scripts/check",
+                   "absent; no ticket lands without it. The Set up code checkers playbook writes it")
+    elif not os.access(path, os.X_OK):
+        report.add("missing", "repository", "scripts/check",
+                   "not executable; no ticket lands until it is: chmod +x scripts/check and commit the mode")
     else:
-        report.add("note", "repository", ".mmw/target.json checks",
-                   "no `checks`; a ticket lands with no repository check run")
-
+        report.add("ok", "repository", "scripts/check", "present and executable")
+    target = root / ".mmw" / "target.json"
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if isinstance(data, dict) and "checks" in data:
+        report.add("missing", "repository", ".mmw/target.json checks",
+                   "still listed, and MMW v4 no longer reads them; the setup-mmw skill turns them "
+                   "into scripts/check and removes the key")
 
 
 def check_testing(report: Report, root: Path):
@@ -236,7 +238,7 @@ def main() -> int:
         check_protection(report, slug)
     check_ignored(report, root)
     check_labels(report)
-    check_checks(report, root)
+    check_repository_check(report, root)
     check_testing(report, root)
     check_layout(report, root)
     check_machine(report)

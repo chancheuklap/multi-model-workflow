@@ -784,43 +784,49 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertIn("CLOSED", err)
 
 
-def write_checks(root: Path, commands):
-    """A consuming repository's `.mmw/target.json` with only the `checks` key."""
-    (root / ".mmw").mkdir(parents=True, exist_ok=True)
-    (root / ".mmw" / "target.json").write_text(
-        json.dumps({"checks": commands}), encoding="utf-8")
+def write_check(root: Path, body: str, executable: bool = True) -> Path:
+    """A consuming repository's `scripts/check`: a bash script with `body`."""
+    path = root / "scripts" / "check"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/usr/bin/env bash\n" + body + "\n", encoding="utf-8")
+    path.chmod(0o755 if executable else 0o644)
+    return path
 
 
-class TestTargetJsonChecks(unittest.TestCase):
-    """`run_target_json_checks` runs each `checks` command of `.mmw/target.json` at the
-    repository root; `dispatch.sh` calls it on the merge result of every ticket it lands
-    and on `finish`."""
+def python_lines(lines, code):
+    """A script body that prints `lines` and exits `code`."""
+    source = ("import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n")
+              + f"); sys.exit({code})")
+    return "python3 -c " + json.dumps(source)
 
-    def run_checks_in(self, commands, into="spec-337"):
+
+class TestRepositoryCheck(unittest.TestCase):
+    """`run_repository_check` runs the repository's `scripts/check` (its default tier) at
+    a given root with `MMW_BASE_REF`; `dispatch.sh` calls it on the merge result of every
+    ticket it lands, on `finish`, and on the base before a night opens."""
+
+    def run_in(self, body, base="origin/spec-337", executable=True, **kwargs):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_checks(root, commands)
-            return vt.run_target_json_checks(root, into)
+            write_check(root, body, executable)
+            return vt.run_repository_check(root, base, **kwargs)
 
-    def test_each_failure_carries_its_command_exit_and_excerpt(self):
-        result = self.run_checks_in([
-            "python3 -c \"import sys; [print(i) for i in range(1, 26)]; sys.exit(1)\"",
-            "python3 -c \"raise SystemExit(2)\"",
-            "true",
-        ])
-        self.assertEqual((result["total"], result["problem"]), (3, None))
-        self.assertEqual(len(result["failed"]), 2)
-        self.assertIn("raise SystemExit(2)", result["failed"][1]["command"])
-        tail = result["failed"][0]["tail"].splitlines()
-        self.assertEqual((tail[0], tail[-1], len(tail)), ("1", "25", 25))
-        self.assertEqual(result["failed"][0]["exit"], 1)
-        self.assertEqual(result["failed"][1]["exit"], 2)
+    def test_a_red_check_names_the_failing_step_and_keeps_its_last_lines(self):
+        lines = [str(i) for i in range(1, 26)] + ["PASS lint 1s", "FAIL unit 2s"]
+        result = self.run_in(python_lines(lines, 1))
+        self.assertEqual(result["status"], "red")
+        self.assertEqual(len(result["failed"]), 1)
+        row = result["failed"][0]
+        self.assertEqual((row["command"], row["exit"], row["steps"]),
+                         ("scripts/check", 1, ["unit"]))
+        tail = row["tail"].splitlines()
+        self.assertEqual((tail[0], tail[-1]), ("1", "FAIL unit 2s"))
+        prose = vt.checks_bounce_prose(result["failed"], prefix_len=80)
+        self.assertIn("unit", prose["summary"])
 
     def test_an_early_error_line_is_kept_ahead_of_the_tail(self):
         lines = ["AssertionError: price"] + [f"noise-{i}" for i in range(1, 41)]
-        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
-        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
-        tail = result["failed"][0]["tail"].splitlines()
+        tail = self.run_in(python_lines(lines, 1))["failed"][0]["tail"].splitlines()
         self.assertIn("AssertionError: price", tail)
         self.assertNotIn("noise-2", tail)
         self.assertIn("noise-40", tail)
@@ -828,9 +834,7 @@ class TestTargetJsonChecks(unittest.TestCase):
 
     def test_only_ten_error_lines_are_kept_before_the_tail(self):
         lines = [f"error-{i}" for i in range(1, 13)] + [f"noise-{i}" for i in range(1, 41)]
-        source = "import sys; sys.stdout.write(" + json.dumps("\n".join(lines) + "\n") + "); sys.exit(1)"
-        result = self.run_checks_in(["python3 -c " + json.dumps(source)])
-        tail = result["failed"][0]["tail"].splitlines()
+        tail = self.run_in(python_lines(lines, 1))["failed"][0]["tail"].splitlines()
         self.assertIn("error-1", tail)
         self.assertIn("error-10", tail)
         self.assertNotIn("error-11", tail)
@@ -839,13 +843,12 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertIn("noise-40", tail)
 
     def test_the_saved_log_keeps_the_markers_the_excerpt_hides(self):
-        source = "import sys; print('error LINT OK'); sys.exit(1)"
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             work = root / "wt"
             work.mkdir()
-            write_checks(root, ["python3 -c " + json.dumps(source)])
-            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            write_check(root, python_lines(["error LINT OK"], 1))
+            result = vt.run_repository_check(root, "origin/spec-337", worktree=work, ticket=61)
             log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
         self.assertIn("LINT OK", log)
         self.assertNotIn("LINT OK", result["failed"][0]["tail"])
@@ -856,8 +859,8 @@ class TestTargetJsonChecks(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             missing = root / "absent"
-            write_checks(root, ["python3 -c \"import sys; sys.exit(1)\""])
-            result = vt.run_target_json_checks(root, "spec-337", worktree=missing, ticket=61)
+            write_check(root, "exit 1")
+            result = vt.run_repository_check(root, "origin/spec-337", worktree=missing, ticket=61)
         self.assertFalse(missing.exists())
         self.assertNotIn("log", result["failed"][0])
 
@@ -884,8 +887,8 @@ class TestTargetJsonChecks(unittest.TestCase):
             root = Path(tmp)
             work = root / "wt"
             work.mkdir()
-            write_checks(root, ["python3 -c " + json.dumps(source)])
-            result = vt.run_target_json_checks(root, "spec-337", worktree=work, ticket=61)
+            write_check(root, "python3 -c " + json.dumps(source))
+            result = vt.run_repository_check(root, "origin/spec-337", worktree=work, ticket=61)
             log = (work / ".scratch" / "checks" / "61" / "1.log").read_text(encoding="utf-8")
         self.assertGreaterEqual(len(log), 100000)
         prose = vt.checks_bounce_prose(
@@ -898,48 +901,68 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertLess(len(rendered), 65536)
         self.assertLess(len(result["failed"][0]["tail"]), 65536)
 
-    def test_checks_see_mmw_base_ref(self):
-        result = self.run_checks_in([
-            "python3 -c \"import os,sys; sys.exit(os.environ.get('MMW_BASE_REF') "
-            "!= 'origin/spec-337')\"",
-        ])
-        self.assertEqual(result["failed"], [])
+    def test_the_check_sees_mmw_base_ref_and_a_green_run_passes(self):
+        result = self.run_in('[ "$MMW_BASE_REF" = origin/spec-337 ]')
+        self.assertEqual((result["status"], result["failed"]), ("pass", []))
 
-    def test_an_entry_with_its_own_timeout_is_held_to_it(self):
-        result = self.run_checks_in([
-            {"run": "python3 -c \"import time; time.sleep(5)\"", "timeout": 1},
-            "true",
-        ])
-        self.assertEqual(len(result["failed"]), 1)
+    def test_exit_2_cannot_run_and_names_what_the_script_said(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "wt"
+            work.mkdir()
+            write_check(root, "echo 'uv: command not found' >&2; exit 2")
+            result = vt.run_repository_check(root, "origin/spec-337", worktree=work, ticket=61)
+            log = work / ".scratch" / "checks" / "61" / "1.log"
+            self.assertTrue(log.is_file())
+        self.assertEqual((result["status"], result["failed"]), ("cannot-run", []))
+        self.assertIn("uv: command not found", result["detail"])
+        self.assertIn(str(log), result["detail"])
+
+    def test_an_exit_outside_0_1_2_cannot_run_rather_than_passing_or_bouncing(self):
+        result = self.run_in("exit 3")
+        self.assertEqual((result["status"], result["failed"]), ("cannot-run", []))
+
+    def test_a_hang_is_cut_at_the_outer_bound_and_reads_red(self):
+        # The background `sleep` holds the output pipe after the script itself is killed.
+        result = self.run_in("echo started; sleep 30 & sleep 30", timeout=1)
+        self.assertEqual(result["status"], "red")
         self.assertIn("1s", result["failed"][0]["tail"])
 
-    def test_an_entry_that_is_neither_string_nor_run_object_is_a_problem(self):
-        result = self.run_checks_in([{"cmd": "true"}])
-        self.assertIsNotNone(result["problem"])
+    def test_an_absent_or_unexecutable_check_is_missing(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = vt.run_repository_check(root, "origin/spec-337")
+            self.assertEqual(result["status"], "missing")
+            self.assertIn(str(root / "scripts" / "check"), result["detail"])
+            write_check(root, "exit 0", executable=False)
+            result = vt.run_repository_check(root, "origin/spec-337")
+            self.assertEqual(result["status"], "missing")
+            self.assertIn(str(root / "scripts" / "check"), result["detail"])
 
-    def test_checks_that_are_not_a_list_are_a_problem(self):
-        result = self.run_checks_in("pytest -q")
-        self.assertIsNotNone(result["problem"])
-
-    def test_no_checks_key_runs_nothing(self):
+    def test_legacy_target_json_checks_are_named_when_the_check_is_missing(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / ".mmw").mkdir()
             (root / ".mmw" / "target.json").write_text(
-                json.dumps({"reach": "echo"}), encoding="utf-8")
-            self.assertIsNone(vt.run_target_json_checks(root, "spec-337"))
+                json.dumps({"checks": ["make check"]}), encoding="utf-8")
+            result = vt.run_repository_check(root, "origin/spec-337")
+            plain = vt.run_repository_check(root / ".mmw", "origin/spec-337")
+        self.assertEqual(result["status"], "missing")
+        self.assertIn(".mmw/target.json", result["detail"])
+        self.assertIn("setup-mmw", result["detail"])
+        self.assertNotIn("target.json", plain["detail"])
 
 
 class TestCloseoutRunsNoRepositoryChecks(unittest.TestCase):
     """The tree a closeout sees is not the tree that lands: `dispatch.sh` runs the
-    repository's `checks` on the merge result instead. `--closeout`, `--reverify` and
-    `--lint` never run them."""
+    repository's `scripts/check` on the merge result instead. `--closeout`, `--reverify`
+    and `--lint` never run it."""
 
-    def test_failing_checks_do_not_stop_a_passing_closeout(self):
+    def test_a_failing_check_does_not_stop_a_passing_closeout(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             marker = root / "ran.marker"
-            write_checks(root, [f"touch '{marker}'; false"])
+            write_check(root, f"touch '{marker}'; exit 1")
             text = draft(counts=counts_line())
             code, err, seen = check(text, check_only=False, repo=root)
             ran = marker.exists()
@@ -949,7 +972,7 @@ class TestCloseoutRunsNoRepositoryChecks(unittest.TestCase):
         self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
                          [(77, (text, "ticket.passed"))])
 
-    def test_reverify_and_lint_do_not_run_the_target_json_checks(self):
+    def test_reverify_and_lint_do_not_run_the_repository_check(self):
         body = ("## Worker\n\njunior-worker\n\n## Acceptance criteria\n\n"
                 "- [ ] AC1: something a stranger could judge\n"
                 "  CHECK: python3 -c \"print('ok')\"\n"
@@ -961,7 +984,7 @@ class TestCloseoutRunsNoRepositoryChecks(unittest.TestCase):
                             "user.name=t", "commit", "-q", "--allow-empty", "-m", "base"],
                            check=True)
             marker = root / "ran.marker"
-            write_checks(root, [f"touch '{marker}'"])
+            write_check(root, f"touch '{marker}'")
             posted = []
             with mock.patch.object(vt, "repo_root", return_value=root), \
                  mock.patch.object(vt, "fetch_body", return_value=body), \

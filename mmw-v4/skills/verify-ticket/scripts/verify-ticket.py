@@ -20,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -2290,57 +2291,38 @@ EXCERPT_BUDGET = 48000
 FAILURE_LINES = HERE / "gate-check" / "lib" / "failure-lines.mjs"
 
 
-class TargetJsonChecksError(Exception):
-    """`.mmw/target.json` is present and names `checks`, but the file cannot be read
-    as the list of commands the gate expects."""
+# The repository's own check, at its root: the default tier runs on every tree that
+# lands. It exits 0 green, 1 red, 2 when this machine cannot run it.
+REPOSITORY_CHECK = Path("scripts") / "check"
+# The outer bound on one run of it, there only to catch a hang; each step's own time
+# limit is the script's business.
+CHECK_TIMEOUT = 3600
+FAIL_STEP_RE = re.compile(r"^FAIL\s+(\S+)", re.M)
 
 
-def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
-    """The `checks` of `.mmw/target.json` as `(command, timeout)` pairs — an entry is a
-    string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` naming its own
-    bound in seconds — or None when the key is absent. `dispatch.sh` reads them through
-    `run_target_json_checks`; no mode of this script runs them. A file that names
-    `checks` but is not a JSON object with a list raises `TargetJsonChecksError` rather
-    than looking like absence."""
-    if root is None:
-        return None
+def legacy_target_json_checks(root: Path) -> bool:
+    """Whether `.mmw/target.json` at `root` carries a `checks` key, which MMW v4 does
+    not read: the repository's commands there are not yet in `scripts/check`."""
     path = Path(root) / ".mmw" / "target.json"
-    if not path.is_file():
-        return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise TargetJsonChecksError(f"{path} is not JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise TargetJsonChecksError(f"{path} is not an object")
-    if "checks" not in data:
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and "checks" in data
+
+
+def repository_check_missing(root: Path) -> str | None:
+    """Why `scripts/check` at `root` cannot be run, or None when it is an executable file."""
+    path = Path(root) / REPOSITORY_CHECK
+    if path.is_file() and os.access(path, os.X_OK):
         return None
-    raw = data["checks"]
-    if not isinstance(raw, list):
-        raise TargetJsonChecksError(f"{path} `checks` is not a list")
-    commands: list[tuple[str, int]] = []
-    for entry in raw:
-        if isinstance(entry, str):
-            commands.append((entry, DEFAULT_TIMEOUT))
-            continue
-        if isinstance(entry, dict) and isinstance(entry.get("run"), str):
-            timeout = entry.get("timeout", DEFAULT_TIMEOUT)
-            if not isinstance(timeout, int) or timeout <= 0:
-                raise TargetJsonChecksError(
-                    f"{path} `checks` entry {entry['run']!r}: `timeout` must be a positive integer")
-            commands.append((entry["run"], timeout))
-            continue
-        raise TargetJsonChecksError(
-            f"{path} `checks` entry {entry!r} is neither a string nor {{\"run\": …, \"timeout\": …}}")
-    return commands
-
-
-def _as_text(value: str | bytes | None) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", "replace")
-    return value
+    what = f"{path} is not executable" if path.exists() else f"{path} does not exist"
+    if legacy_target_json_checks(root):
+        return (f"{what}, and {Path(root) / '.mmw' / 'target.json'} still lists `checks`, "
+                "which MMW v4 no longer reads; run the setup-mmw skill to turn them into "
+                "scripts/check")
+    return (f"{what}; write it with the Set up code checkers playbook, which the setup-mmw "
+            "skill runs")
 
 
 def _checks_excerpt(output: str) -> str:
@@ -2408,7 +2390,10 @@ def _check_heading(row: dict) -> str:
     command = " ".join(str(row.get("command") or "?").split())
     exit_code = row.get("exit")
     if type(exit_code) is int:
-        return f"{command} exit {exit_code}"
+        command = f"{command} exit {exit_code}"
+    steps = [str(step) for step in row.get("steps") or []]
+    if steps:
+        command = f"{command} (failed steps: {', '.join(steps)})"
     return command
 
 
@@ -2458,6 +2443,8 @@ def _commands_of(rows: list[dict], excerpts: list[list[str]]) -> list[dict]:
             item["exit"] = row["exit"]
         if row.get("log"):
             item["log"] = row["log"]
+        if row.get("steps"):
+            item["steps"] = list(row["steps"])
         commands.append(item)
     return commands
 
@@ -2540,53 +2527,73 @@ def checks_bounce_prose(rows: list | None, prefix_len: int = 0) -> dict:
     return {"summary": summary, "rest": rest, "commands": commands}
 
 
-def run_target_json_checks(root: Path | None, into: str,
-                           worktree: Path | str | None = None,
-                           ticket: str | int | None = None) -> dict | None:
-    """Run each `checks` command at the repository root, in order.
+def _run_bounded(path: Path, root: Path, env: dict, timeout: int) -> tuple[int | None, str]:
+    """`(exit code, combined output)` of one run; the code is None when the bound cut it.
 
-    None when the key is absent: nothing ran. Otherwise `{"total", "failed",
-    "problem"}`. `failed` is one row per command that did not exit 0: `command`,
-    `tail` (the excerpt), `exit` when the process exited, and `log` when the full
-    output was written under `worktree`. `problem` says why the file itself could
-    not be read — a malformed file is a failure, not absence. A string entry is
-    held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
-    `{"run": …, "timeout": …}` is held to its own.
+    The check runs in a process group of its own, and the whole group is killed at the
+    bound: a test runner's child still holding the output pipe would otherwise keep the
+    read waiting after the script itself is gone.
     """
+    proc = subprocess.Popen([str(path)], cwd=root, env=env, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, errors="replace",
+                            start_new_session=True)
     try:
-        commands = target_json_checks(root)
-    except TargetJsonChecksError as exc:
-        return {"total": 0, "failed": [], "problem": str(exc)}
-    if commands is None:
-        return None
-    failed: list[dict] = []
-    log_started = [False]
-    seq = 0
-    env = os.environ.copy()
-    env["MMW_BASE_REF"] = f"origin/{into}"
-    for command, bound in commands:
+        output, _ = proc.communicate(timeout=timeout)
+        return proc.returncode, output or ""
+    except subprocess.TimeoutExpired:
         try:
-            proc = subprocess.run(command, shell=True, cwd=root, capture_output=True,
-                                  text=True, timeout=bound, env=env)
-        except subprocess.TimeoutExpired as exc:
-            combined = _as_text(exc.stdout) + _as_text(exc.stderr)
-            seq += 1
-            log = _write_check_log(worktree, ticket, seq, combined, log_started)
-            excerpt = _cap_excerpt(_checks_excerpt(combined))
-            note = f"timed out after {bound}s"
-            tail = f"{note}\n{excerpt}" if excerpt else note
-            failed.append(_failed_row(command, tail, log=log))
-            continue
-        except OSError as exc:
-            failed.append(_failed_row(command, str(exc)))
-            continue
-        if proc.returncode != 0:
-            combined = _as_text(proc.stdout) + _as_text(proc.stderr)
-            seq += 1
-            log = _write_check_log(worktree, ticket, seq, combined, log_started)
-            failed.append(_failed_row(
-                command, _cap_excerpt(_checks_excerpt(combined)), proc.returncode, log))
-    return {"total": len(commands), "failed": failed, "problem": None}
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        output, _ = proc.communicate()
+        return None, output or ""
+
+
+def run_repository_check(root: Path | str, base_ref: str,
+                         worktree: Path | str | None = None,
+                         ticket: str | int | None = None,
+                         timeout: int = CHECK_TIMEOUT) -> dict:
+    """Run the default tier of `scripts/check` at `root` with `MMW_BASE_REF=base_ref`.
+
+    Returns `{"status", "failed", "detail"}`. `status` is `pass` (exit 0), `red` (exit 1,
+    or cut at `timeout`: a hang on the tree that lands is that tree's), `cannot-run`
+    (exit 2, any other exit, or the script would not start: this machine cannot run
+    it, which says nothing about the tree) or `missing` (no executable `scripts/check`).
+    `failed` is one row for a red run: `command`, `tail` (the excerpt), `exit`, `steps`
+    (the `FAIL <step>` lines it printed), and `log` when the full output was written
+    under `worktree`'s `.scratch/checks/<ticket>/`. `detail` says what happened, with
+    the last lines and the log's path, for every status but `pass`.
+    """
+    root = Path(root)
+    missing = repository_check_missing(root)
+    if missing:
+        return {"status": "missing", "failed": [], "detail": missing}
+    path = root / REPOSITORY_CHECK
+    env = os.environ.copy()
+    env["MMW_BASE_REF"] = base_ref
+    try:
+        code, output = _run_bounded(path, root, env, timeout)
+    except OSError as exc:
+        return {"status": "cannot-run", "failed": [],
+                "detail": f"{path} could not be started: {exc}"}
+    if code == 0:
+        return {"status": "pass", "failed": [], "detail": ""}
+    log = _write_check_log(worktree, ticket, 1, output, [False])
+    excerpt = _cap_excerpt(_checks_excerpt(output))
+    where = f"; full output in {Path(worktree) / log}" if log else ""
+    if code is None:
+        note = f"timed out after {timeout}s"
+        excerpt = f"{note}\n{excerpt}" if excerpt else note
+    if code in (None, 1):
+        row = _failed_row(str(REPOSITORY_CHECK), excerpt, code, log)
+        row["steps"] = FAIL_STEP_RE.findall(output)
+        heading = _check_heading(row)
+        return {"status": "red", "failed": [row],
+                "detail": f"{heading} in {root}{where}:\n{excerpt}".rstrip()}
+    what = ("exited 2: this machine cannot run it" if code == 2 else
+            f"exited {code}, which is none of 0 (green), 1 (red) and 2 (cannot run)")
+    return {"status": "cannot-run", "failed": [],
+            "detail": f"{path} {what}{where}:\n{excerpt}".rstrip()}
 
 
 def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
