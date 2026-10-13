@@ -22,7 +22,7 @@ The source material behind the sections named under **Parent**: decision tickets
 
 ## Seam
 
-Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy. Include only the repository's existing tests here, not e2e tests. Then, from the same section's **How a test arrives at a state**, what puts the system into the states the criteria below name; when this ticket is the one that builds that, say so here as well as under **Owns**. A ticket with no spec takes its test layer and directory from the repository's `TESTING.md` (from its own tests when it has none), and lists the sections of `TESTING.md` it used under **Read first**.
+Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy. Include only the repository's own tests here, not e2e tests. Then, from the same section's **How a test arrives at a state**, what puts the system into the states the criteria below name; when this ticket is the one that builds that, say so here as well as under **Owns**. A ticket with no spec takes its test layer and directory from the repository's `TESTING.md` (from its own tests when it has none), and lists the sections of `TESTING.md` it used under **Read first**.
 
 ## Owns
 
@@ -38,7 +38,7 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
 
 ## Acceptance criteria
 
-For a UI acceptance criterion, copy the whole `CHECK:` line and any `TIMEOUT:` from the `verify-<product>` skill's Launch. The CHECK runs only this ticket's own new test file under `tests/e2e/<product>/`, registered on the affected feature file's `Tests:` line. Copy `EXPECT:` from the passing e2e summary line, for example `Tests  2 passed (2)`. Keep `EVIDENCE: pending`; `verify-ticket.py --closeout` replaces it. The test file itself has no evidence label.
+For a UI acceptance criterion, copy the whole `CHECK:` line and any `TIMEOUT:` from the `verify-<product>` skill's Launch. The acceptance CHECK runs only this ticket's own new test file under `tests/e2e/<product>/`, registered on the affected feature file's `Tests:` line. Copy `EXPECT:` from the passing e2e summary line, for example `Tests  2 passed (2)`. Keep `EVIDENCE: pending`; `verify-ticket.py --closeout` replaces it. The test file itself has no evidence label. For a UI pin, use Launch's CHECK line aimed at the existing test file registered in the feature map.
 
 - [ ] AC1: <what must be true, in the spec's exact values>
   CHECK: <the command that decides it>
