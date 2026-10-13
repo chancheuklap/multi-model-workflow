@@ -61,6 +61,134 @@ class LocalConfigTest(unittest.TestCase):
     def scan(self, runner="orca"):
         return models.scan_host_catalogs(runner)
 
+    def test_a_write_refuses_an_invalid_max_workers(self):
+        for value in (0, -1, True, False, "3", 1.5):
+            with self.subTest(value=value):
+                old = self.seed()
+                before = models.models_json_path().read_bytes()
+                proposed = {**old, "max_workers": value}
+                with self.assertRaises(models.InvalidConfig) as caught:
+                    models.write_local_config(proposed, 1, self.scan())
+                self.assertEqual(caught.exception.errors, [{
+                    "cell": "max_workers", "reason": "must be a whole number of at least 1"}])
+                self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_the_default_configuration_sets_max_workers_to_3(self):
+        models.install_local_config()
+        self.assertEqual(models.read_local_config()["max_workers"], 3)
+
+    def test_max_workers_reads_3_when_models_json_does_not_set_it(self):
+        self.seed()
+        before = models.models_json_path().read_bytes()
+        self.assertEqual(models.max_workers(), 3)
+        self.assertEqual(models.models_json_path().read_bytes(), before)
+        self.seed({"max_workers": 2, "rows": None})
+        self.assertEqual(models.max_workers(), 2)
+        models.models_json_path().write_text("{", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "cannot read"):
+            models.max_workers()
+        models.models_json_path().unlink()
+        with self.assertRaises(models.ConfigMissing):
+            models.max_workers()
+
+    def test_max_workers_refuses_an_invalid_saved_value(self):
+        for value in (0, True):
+            with self.subTest(value=value):
+                self.seed({**base_config(), "max_workers": value})
+                with self.assertRaises(models.InvalidConfig) as caught:
+                    models.max_workers()
+                self.assertEqual(caught.exception.errors, [{
+                    "cell": "max_workers", "reason": "must be a whole number of at least 1"}])
+
+    def test_a_write_without_max_workers_keeps_the_saved_value(self):
+        self.seed({**base_config(), "max_workers": 2})
+        written = models.write_local_config(base_config(), 1, self.scan())
+        self.assertEqual(written.get("max_workers"), 2)
+        self.assertEqual(models.read_local_config()["max_workers"], 2)
+        proposed = {**base_config(version=2), "max_workers": 1}
+        written = models.write_local_config(proposed, 2, self.scan())
+        self.assertEqual(written["max_workers"], 1)
+        self.assertEqual(models.read_local_config()["max_workers"], 1)
+        self.seed({**base_config(), "max_workers": 0})
+        before = models.models_json_path().read_bytes()
+        with self.assertRaises(models.InvalidConfig) as caught:
+            models.write_local_config(base_config(), 1, self.scan())
+        self.assertEqual(caught.exception.errors[0]["cell"], "max_workers")
+        self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_cli_sets_max_workers(self):
+        self.seed()
+        out, err = StringIO(), StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = models.main(["config", "set", "max_workers", "2"])
+        self.assertEqual((code, err.getvalue()), (0, ""))
+        expected = {**base_config(version=2), "max_workers": 2}
+        self.assertEqual(json.loads(out.getvalue()), expected)
+        self.assertEqual(models.read_local_config(), expected)
+        for value in ("1", "4"):
+            with redirect_stdout(out := StringIO()):
+                self.assertEqual(models.main(["config", "set", "max_workers", value]), 0)
+            self.assertEqual(json.loads(out.getvalue())["max_workers"], int(value))
+        before = models.models_json_path().read_bytes()
+        with self.assertRaises(models.VersionConflict):
+            models.write_local_config({"max_workers": 2}, 1, None)
+        with models.config_lock(purpose="cap test holder"):
+            with redirect_stdout(StringIO()), redirect_stderr(err := StringIO()):
+                self.assertEqual(models.main(["config", "set", "max_workers", "2"]), 2)
+            self.assertIn("cap test holder", err.getvalue())
+        self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_cli_refuses_a_max_workers_that_is_not_a_whole_number_of_at_least_1(self):
+        self.seed()
+        before = models.models_json_path().read_bytes()
+        for value in ("0", "-1", "true", "1.5", "x"):
+            with self.subTest(value=value):
+                out, err = StringIO(), StringIO()
+                with redirect_stdout(out), redirect_stderr(err):
+                    code = models.main(["config", "set", "max_workers", value])
+                self.assertEqual((code, out.getvalue()), (2, ""))
+                self.assertTrue(err.getvalue().startswith("models.py: max_workers: "))
+                self.assertIn("whole number of at least 1", err.getvalue())
+                self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_setting_a_role_keeps_max_workers(self):
+        self.seed({**base_config(), "max_workers": 2})
+        with redirect_stdout(out := StringIO()):
+            self.assertEqual(models.main(
+                ["config", "set", "reviewer", "claude", "sonnet 5", "high"]), 0)
+        self.assertEqual(json.loads(out.getvalue())["max_workers"], 2)
+        self.assertEqual(models.read_local_config()["max_workers"], 2)
+
+    def test_setting_the_runner_keeps_max_workers(self):
+        self.seed({**base_config(), "max_workers": 2})
+        with redirect_stdout(out := StringIO()):
+            self.assertEqual(models.main(["config", "runner", "herdr"]), 0)
+        self.assertEqual(json.loads(out.getvalue())["max_workers"], 2)
+        self.assertEqual(models.read_local_config()["max_workers"], 2)
+
+    def test_setting_max_workers_scans_no_catalog(self):
+        os.environ["MMW_HOST_CATALOG"] = str(STATE_CATALOG)
+        old = self.seed({**base_config(), "rows": None, "runner": "unavailable"})
+        with redirect_stdout(out := StringIO()):
+            self.assertEqual(models.main(["config", "set", "max_workers", "2"]), 0)
+        expected = {**old, "version": 2, "max_workers": 2}
+        self.assertEqual(json.loads(out.getvalue()), expected)
+        self.assertEqual(models.read_local_config(), expected)
+        os.environ["MMW_HOST_CATALOG"] = str(self.home / "missing-catalog.json")
+        with redirect_stdout(out := StringIO()):
+            self.assertEqual(models.main(["config", "set", "max_workers", "1"]), 0)
+        self.assertEqual(json.loads(out.getvalue())["max_workers"], 1)
+        self.assertEqual(models.read_local_config()["max_workers"], 1)
+
+    def test_an_invalid_max_workers_does_not_stop_a_session_start(self):
+        self.seed({**base_config(), "max_workers": 0})
+        rows = models.session_rows()
+        self.assertEqual([tuple(row) for row in rows], [
+            (role, "grok", "grok 4.7", "high") if role == "junior-worker" else
+            (role, "codex", "gpt 5.6 sol", "high") if role == "senior-worker" else
+            (role, "claude", "fable 5.1", "medium") if role == "advisor" else
+            (role, "claude", "opus 5", "high") for role in models.ALLOWED_AGENTS])
+
     def test_write_raises_the_version_by_one(self):
         old = self.seed()
         proposed = json.loads(json.dumps(old))

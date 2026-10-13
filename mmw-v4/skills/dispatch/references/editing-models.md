@@ -1,6 +1,6 @@
-# Changing host, model, or which runner this machine uses
+# Changing host, model, which runner this machine uses, or how many tickets a night runs at once
 
-Read this only when the user has told you to change which host, model or reasoning effort (`effort` in `models.json`) a dispatched session uses, or which runner the machine uses. Change it only through the commands below.
+Read this only when the user has told you to change which host, model or reasoning effort (`effort` in `models.json`) a dispatched session uses, which runner the machine uses, or how many tickets a night runs at once. Change it only through the commands below.
 
 ## Change one role
 
@@ -27,3 +27,13 @@ python3 scripts/models.py config runner <runner>
 Use `python3 scripts/models.py config show` to read the current saved object. The next `start` reads it again; no daemon restart or install is required.
 
 One difference between runners outlives the command; tell the user of it when the runner changes. A runner that cannot observe the program running inside its session answers exit 4 to every `resume` and every relay wake it delivers: the text went in, whether a turn started is not known. A night runs normally on it, since every result is an event on the ticket, but nobody can tell a silent worker that read its message from one that did not. Each adapter's header records what its runner can observe.
+
+## Change how many tickets a night runs at once
+
+`max_workers` caps how many of one night's tickets are held at once; `advance` starts no more than that, and names each ticket left waiting. It is 3 when `models.json` does not set it. Run:
+
+```bash
+python3 scripts/models.py config set max_workers <n>
+```
+
+`<n>` is a whole number of at least 1. A session the owner starts in the day, and a ticket run outside a night, do not count against it.

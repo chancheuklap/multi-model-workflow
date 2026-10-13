@@ -131,7 +131,7 @@ def default_local_config() -> dict:
     rows = {}
     for row in load_hosts().get("defaults") or []:
         rows[row["agent"]] = {key: row[key] for key in ("host", "model", "effort")}
-    return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows}
+    return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows, "max_workers": 3}
 
 
 def _validate_config_shape(config: dict) -> list[dict[str, str]]:
@@ -888,13 +888,35 @@ def check_local_config(config: dict | None = None) -> tuple[dict, dict, list[dic
     return current, scan, _validate_local_config(current, scan)
 
 
-def write_local_config(config: dict, expected_version: int, scan: dict,
+def max_workers() -> int:
+    """max_workers() reads the saved night cap, or 3 when absent, without checking roles."""
+    value = read_local_config().get("max_workers", 3)
+    _validate_max_workers(value)
+    return value
+
+
+def _validate_max_workers(value: object) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise InvalidConfig([{"cell": "max_workers",
+                              "reason": "must be a whole number of at least 1"}])
+
+
+def write_local_config(config: dict, expected_version: int, scan: dict | None,
                        *, validate_roles: Sequence[str] | None = None) -> dict:
-    """Validate, lock, version-check, and atomically replace models.json."""
+    """Validate, lock, version-check, and atomically replace models.json.
+
+    With scan=None, update only max_workers and keep the saved runner and rows unchecked.
+    """
     path = models_json_path()
     if not path.is_file():
         raise ConfigMissing(f"no models.json at {path}; run install.sh first")
-    errors = _validate_local_config(config, scan, validate_roles)
+    if "max_workers" in config:
+        _validate_max_workers(config["max_workers"])
+    if scan is None:
+        _validate_max_workers(config.get("max_workers"))
+        errors = []
+    else:
+        errors = _validate_local_config(config, scan, validate_roles)
     if errors:
         raise InvalidConfig(errors)
     try:
@@ -903,15 +925,22 @@ def write_local_config(config: dict, expected_version: int, scan: dict,
             found_version = current.get("version")
             if found_version != expected_version:
                 raise VersionConflict(expected_version, found_version, _modified_at(path))
-            written = {
-                "version": expected_version + 1,
-                "runner": config["runner"],
-                "rows": {
-                    role: {key: config["rows"][role][key]
-                           for key in ("host", "model", "effort")}
-                    for role in ALLOWED_AGENTS
-                },
-            }
+            if scan is None:
+                written = {**current, "version": expected_version + 1}
+            else:
+                written = {
+                    "version": expected_version + 1,
+                    "runner": config["runner"],
+                    "rows": {
+                        role: {key: config["rows"][role][key]
+                               for key in ("host", "model", "effort")}
+                        for role in ALLOWED_AGENTS
+                    },
+                }
+            cap_config = config if "max_workers" in config else current
+            if "max_workers" in cap_config:
+                _validate_max_workers(cap_config["max_workers"])
+                written["max_workers"] = cap_config["max_workers"]
             statedir.write_atomic(path, json.dumps(written, ensure_ascii=False, indent=2) + "\n")
             return written
     except statedir.LockHeld as exc:
@@ -1091,6 +1120,7 @@ def launch_line(host: str, model: str, effort: str, name: str,
 USAGE = ("usage: models.py config show\n"
          "       models.py config runner <runner>\n"
          "       models.py config set <role> <host> <model> <level>\n"
+         "       models.py config set max_workers <n>\n"
          "       models.py runner\n"
          "       models.py paseo-args <host> <model> <level>\n"
          "       models.py row <role>\n"
@@ -1104,6 +1134,17 @@ def main(argv: list[str] | None = None) -> int:
         try:
             if args == ["config", "show"]:
                 print(json.dumps(read_local_config(), ensure_ascii=False, indent=2))
+                return 0
+            if len(args) == 4 and args[1:3] == ["set", "max_workers"]:
+                try:
+                    value = int(args[3])
+                except ValueError:
+                    raise InvalidConfig([{"cell": "max_workers",
+                                          "reason": "must be a whole number of at least 1"}]) from None
+                current = read_local_config()
+                written = write_local_config(
+                    {"max_workers": value}, current["version"], None)
+                print(json.dumps(written, ensure_ascii=False))
                 return 0
             if len(args) == 3 and args[1] == "runner":
                 current = read_local_config()
