@@ -15,7 +15,7 @@ The Principles section below grounds every trigger. Cite only principles whose l
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Any prose surface → the **unslop** skill. A reply or comment the owner reads is written per `references/owning-a-task.md` `## Writing the reply`.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
-- Shipping UI / IDE / CLI → the matching control skill: the **control-cli** skill for CLIs and TUIs, the **control-ui** skill for browser, Electron and web UIs. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow exception of Bug fix step 2.
+- Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow exception of Bug fix step 2.
 - Posting to a ticket, a comment or a pull request, or showing a person a command or its output → write `<REDACTED>` in place of every secret, and keep a credential in an environment variable rather than in the command.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 
