@@ -1,0 +1,32 @@
+
+ RUN  e2e v0.20.0 /private/tmp/claude-501/-Users-cheuklapchan-multi-model-workflow--worktrees-matt-2-pstack/30796c5f-516e-499b-a353-980aaeace408/scratchpad/x4b
+      run 01a133aa-6c9d-7831-a307-4f40398bf537 · targets: product
+
+ ✓ target "product" command ready 90ms
+ ✓ |product| tests/dub.e2e.ts (1 test) 919ms
+ ❯ |product| tests/activation.e2e.ts (2 tests | 1 failed) 6.33s
+   ✓ activated screen from design data 905ms
+   × without the route the backend is unreachable 5.42s
+     → expect.toContainText failed
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |product| tests/activation.e2e.ts > without the route the backend is unreachable
+ASSERTION_FAILED: expect.toContainText failed
+locator: getByRole("status")
+expected: text containing "后台不可用"
+observed: text "需要激活" (match count 1)
+ ❯ at http://127.0.0.1:53292/activation.html
+ ❯ app 2 warnings logged
+ ❯ trace .e2e/results/activation-without-the-route-the-backend-is-8003cc1780c412e1/trace.md
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 2 passed (3)
+   Start at  13:09:29
+   Duration  6.74s (startup 90ms)
+     Traces  .e2e/results/ (1 page, trace.md in each test's directory)
+
+exit=1
