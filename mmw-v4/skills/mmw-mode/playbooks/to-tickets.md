@@ -76,7 +76,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 #### Blocking edges
 
-A ticket's **blocking edges** are the other tickets that must complete before it can start. The edges are the night's schedule: every ticket whose blockers have landed starts at once, so a missing edge sends two workers into one file or onto work not built yet, and an edge that gates nothing makes the night wait for no reason.
+A ticket's **blocking edges** are the other tickets that must complete before it can start. The edges are the night's schedule: every ticket whose blockers have landed may start at once, as many as `max_workers` leaves room for, so a missing edge sends two workers into one file or onto work not built yet, and an edge that gates nothing makes the night wait for no reason.
 
 **What a ticket creates is put in service by an edit to something it did not create**: the registry, router, parent template, index, story adapter or stylesheet that has to name it. Until one does, no criterion of that ticket can see it; and when several tickets that can run at the same time each make that edit, all but the first to land bounce on a merge conflict. For each path a ticket marks `(new)`, `grep` the nearest existing file of its kind twice, once for its file name and once for the one identifier it declares for others (its root class, exported symbol or route path), and put every file that answers under this ticket's **Owns**, whoever created it. Where that sibling is still to be built in this batch, its ticket's **Owns** is the same list.
 
