@@ -131,8 +131,7 @@ The HTML page around a logic prototype's pure module, or the harness around an e
 _Home_: `mmw-v4/skills/prototype/LOGIC.md`, `mmw-v4/skills/prototype/EXP.md`
 
 **experiment round**:
-One run or batch of runs answering an experiment's question under one parameter set. The leaf `README.md` records each round under `Rounds`, newest first.
-_Avoid_: round (bare for this; the tickets context's round is a different unit of work)
+One run or batch of runs answering an experiment's question under one parameter set, distinct from the tickets context's round. The leaf `README.md` records each round under `Rounds`, newest first.
 _Home_: `mmw-v4/skills/prototype/EXP.md`
 
 **evidence page**:

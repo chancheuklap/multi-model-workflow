@@ -231,7 +231,7 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **axis**:
 One dimension of a code review: Standards, Spec, Tests, or Correctness. The reviewer runs each as a subagent where the host can run one, and otherwise runs them itself in turn.
-_Home_: `mmw-v4/skills/code-review/SKILL.md`
+_Home_: `mmw-v4/skills/code-review/SKILL.md`, `mmw-v4/skills/code-review/references/session.md`
 
 **Holds / `refuted` / Could not tell**:
 The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or **Could not tell** (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across the `Review a ticket` and `Work a ticket` playbooks.

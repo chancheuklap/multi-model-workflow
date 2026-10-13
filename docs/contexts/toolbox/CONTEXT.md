@@ -27,7 +27,7 @@ This toolbox (the toolbox): the skills the user shares across hosts, repositorie
 _Home_: `AGENTS.md`
 
 **consuming repository**:
-A repository whose real tickets run through the pipeline and which holds its **product answers** in `.mmw/` and each development effort's files in `efforts/<effort>/`. This repository is one too, for its own task board tickets.
+A repository whose real tickets run through the pipeline and which holds its product answers in `.mmw/` and each development effort's files in `efforts/<effort>/`. This repository is one too, for its own task board tickets.
 _Home_: `AGENTS.md`
 
 **repository root**:
@@ -363,7 +363,7 @@ A repository whose git config sets `core.hooksPath` never executes `.git/hooks/`
 _Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 
 **probe**:
-A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits. Distinct from an oracle's **negative control** (ui-acceptance), a pass built into the oracle itself.
+A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits.
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 ### Managing AGENTS.md
