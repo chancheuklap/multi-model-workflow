@@ -34,7 +34,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 ## How a test puts the system into a state
 
 - **Machine state.** Every suite that touches it points `MMW_HOME` at a temporary directory (`mmw-v4/tests/board/run.sh`, the relay and liveness suites, `test_dispatch.sh`'s `$TMP/mmw-home`); none touches `~/.mmw`. `MMW_INSTALL_HOME` is a test seam for `install.sh` and `render.py` only: it moves the whole install target to a throwaway directory and skips `launchctl` and `paseo reload`.
-- **A repository.** `test_dispatch.sh` makes a bare `origin.git` and a clone under `mktemp -d`, and remakes them for a scenario that needs a fresh pair. `test_setup.py` moves an effort's files in a temporary git repository.
+- **A repository.** `test_dispatch.sh` makes a bare `origin.git` and a clone under `mktemp -d`, and remakes them for a scenario that needs a fresh pair.
 - **A ticket's history.** `_load.py`'s `event` writes a comment the way the pipeline's scripts post one, and `checked` writes one `ticket.checked` event; the fake `gh` serves ticket rows from `FAKE_GH_TICKETS_FILE`.
 - **An open night.** Every `test_dispatch.sh` scenario runs with the night on spec 76 open: a stand-in process holds the relay's lock in the run's state directory and records that it watches spec 76. A scenario about opening, acking or refusing clears it first (`no_relay`).
 - **A broken skill set.** `test_check_wiring.py` and `test_check_interfaces.py` run on a copy of `mmw-v4/skills/` broken one way per case; the `diagram-design` suite edits the skill's shipped example pages one way per case.
