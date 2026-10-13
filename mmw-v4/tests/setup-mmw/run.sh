@@ -6,8 +6,7 @@
 #
 # test_setup.py, unittest: labels.py creates only the labels a repository lacks and keeps the
 # ones it has; check.py reports a set-up repository as SETUP OK and a bare one item by item,
-# writing nothing either way; migrate_layout.py moves an effort's files from docs/specs/ and
-# prototypes/ into efforts/<effort>/ in a temporary git repository.
+# writing nothing either way.
 #
 # Needs python3 and git. Every gh command, and every git command of labels.py and check.py,
 # is answered by a fake inside the test, so nothing reaches GitHub or a real repository.
