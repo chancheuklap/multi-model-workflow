@@ -6,7 +6,7 @@ A prompt states the intent and the check for done. The playbook supplies the ste
 
 - The goal. Say what is wrong or what the user wants.
 - The done check. It can pass or fail. "Make it better" and a duration are not checks.
-- The proof to show. Ask for the real command output, a video of the flow, the stored value, or a before and after number.
+- The proof to show. Ask for the real command output, screenshots or the e2e `trace.md`, the stored value, or a before and after number.
 - What the user already knows. A symptom, a repro step, a log, or a link saves the agent a search.
 - The real constraints. "repro first", "don't change any code yet", "zero behavior change", and "let me review before proceeding" each change what the agent does.
 

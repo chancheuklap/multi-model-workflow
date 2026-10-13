@@ -15,8 +15,8 @@ recorded, or `ABANDON: AC<n> decision` with a sub-issue.
 Ending a process is never this session's to do. Several runs share one machine, and
 another run's application is indistinguishable from a stuck one, so a session that is
 free to end what looks stuck is free to end a neighbour's work one second before it
-finished. A run stops its own product through the `stop` command its repository
-declares; everything else is somebody else's, and a run that cannot reach its product
+finished. A run stops its own product as its `verify-<product>` skill says;
+everything else is somebody else's, and a run that cannot reach its product
 reports the ticket blocked rather than clearing the way to it.
 
     tool-guard.py pretool <host>    the host is about to run a shell command
@@ -229,8 +229,8 @@ def no_kill(piece: str) -> str:
     at 256 characters and spends 13 on its own prefix (2026-08-29), so the command quoted
     first is what gives way.
     """
-    tail = (" A run never ends a process it did not start. Stop your own product with "
-            "the `stop` command in .mmw/target.json; if it is unreachable, report the "
+    tail = (" A run never ends a process it did not start. Stop your own product as "
+            "its verify-<product> skill says; if it is unreachable, report the "
             "ticket blocked and stop.")
     room = 256 - len("Hook denied: ") - len(tail) - len("Refused ``.")
     if len(piece) > room:

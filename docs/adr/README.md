@@ -47,8 +47,8 @@
 | [0026](0026-no-verifier.md) | 取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria | 2026-09-14 | 0018、0019、0020、0021、0022、0023、0024 | 0045 |
 | [0027](0027-a-bounce-returns-once.md) | 同一夜第一次 landing conflict 把 ticket 交回 worker 队列，第二次才交 triage | 2026-09-14 | 0023 | 无 |
 | [0028](0028-element-parity-invariant-answers.md) | 外观按 data-ui id 做 element parity，App 页纳入 story；boundary test 断言四列；product answers 只写不变要求；judge 不遮不藏；journey 第二遍弄坏一个接口 | 2026-09-20 | 0011 | 无 |
-| [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 0030 |
-| [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 无 |
+| [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 0030、0048 |
+| [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 0048 |
 | [0031](0031-worker-start-memory-is-a-searched-index.md) | worker 开工时拿到两份有上限的 Memory 索引：相关经验用本票 `## Owns` 路径和各级标题的短查询搜出，不用 spec 或 map 正文 | 2026-09-18 | 无 | 无 |
 | [0032](0032-v3-is-built-on-pstacks-shape.md) | MMW v3 按 pstack 的形状重建：一份 mode 按任务选 playbook，规则写成原则技能，上游拷进 `skills/` 由 `imports.tsv` 逐行记账 | 2026-10-06 | 0003 | 0036、0040 |
 | [0033](0033-a-full-machine-is-a-blocked-ticket.md) | 机器的产品槽位全被占时，worker 这次运行什么都不跑、退 2，票报受阻；不排队，也没有人为槽位叫醒它 | 2026-10-06 | 0022 | 无 |
@@ -59,12 +59,14 @@
 | [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 无 |
 | [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 无 |
 | [0040](0040-writing-rules-live-in-writing-for-agents.md) | 技能文字的写作规则都在 `writing-for-agents` 技能里；改技能一律从 Authoring or modifying a skill 开始，一个会话做不完的由它交给 Write a spec | 2026-10-08 | 0032 | 0046 |
-| [0041](0041-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 0044 |
-| [0042](0042-several-products-in-one-repository.md) | 一个仓库里每个产品占 `.mmw/<产品>/`，一次运行仍只租一个按产品分段的 lease，control-ui 与 control-cli 是 ui-acceptance 的 reference 而不是 skill | 2026-10-08 | 无 | 无 |
+| [0041](0041-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 0044、0048 |
+| [0042](0042-several-products-in-one-repository.md) | 一个仓库里每个产品占 `.mmw/<产品>/`，一次运行仍只租一个按产品分段的 lease，control-ui 与 control-cli 是 ui-acceptance 的 reference 而不是 skill | 2026-10-08 | 无 | 0048 |
 | [0043](0043-design-intents-are-the-standard.md) | 改技能以 `writing-for-agents` 的 `DESIGN-INTENTS.md` 为标准：每次改动先说出它服务哪条意图，审查逐条意图追踪落地，一个结论只判一次 | 2026-10-09 | 无 | 0046 |
-| [0044](0044-feature-map-kept-true-in-the-flow.md) | feature map 靠流程里的环节保持为真：lint、同一提交、Spec 轴读 Owns 里的功能文件、读到不对当场处理、retro 的 `feature-fact`，改「产品能做什么」之前先经主人确认；复核只在主人要求时做 | 2026-10-09 | 0041 | 无 |
+| [0044](0044-feature-map-kept-true-in-the-flow.md) | feature map 靠流程里的环节保持为真：lint、同一提交、Spec 轴读 Owns 里的功能文件、读到不对当场处理、retro 的 `feature-fact`，改「产品能做什么」之前先经主人确认；复核只在主人要求时做 | 2026-10-09 | 0041 | 0048 |
 | [0045](0045-the-final-proof-is-the-newest-worker-run-at-head.md) | 关票的最终证明是 `HEAD` 上最新的一次 worker 运行：关票接受的和关票评论引用的是同一次；第一次运行之后没有新提交时，就是第一次运行 | 2026-10-09 | 0026 | 无 |
 | [0046](0046-a-skill-change-runs-the-general-flow.md) | 一次技能改动和别的项目一样走通用流程：先读技能集的标准，按大小走 Make a small change 或 Write a spec，最后证明一次 | 2026-10-09 | 0040、0043 | 无 |
+| [0047](0047-a-night-dispatches-only-into-free-places.md) | 一夜同时被持有的票数以 `models.json` 的 `max_workers` 为上限（默认 3），`advance` 只派出上限剩下的空位 | 2026-10-13 | 无 | 无 |
+| [0048](0048-verification-assets-written-in-the-day.md) | feature map 放在产品仓库的 `.agents/skills/verify-<product>/features/`，和 e2e test 一起白天写、主人要求时维护复核，夜里只读 | 2026-10-13 | 0029、0030、0041、0042、0044 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

@@ -14,6 +14,10 @@ import importlib.util
 import io
 import json
 import os
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
@@ -511,6 +515,17 @@ class Plans(unittest.TestCase):
 
     def setUp(self):
         self.saved = (status.sub_issues, status.read_ticket, status.own_login)
+        self.home = tempfile.TemporaryDirectory()
+        self.saved_home = os.environ.get("MMW_HOME")
+        os.environ["MMW_HOME"] = self.home.name
+        self.models_path = Path(self.home.name) / "models.json"
+        self.models_path.write_text(json.dumps({
+            "version": 1, "runner": "orca", "rows": {
+                role: {"host": "claude", "model": "opus 5", "effort": "high"}
+                for role in [row["name"] for row in json.loads(
+                    (STATUS_PATH.parent.parent / "roles.json").read_text())["roles"]]
+            },
+        }))
         self.tickets = {}
         status.sub_issues = lambda spec: list(self.tickets)
         status.read_ticket = lambda n: self.tickets[n]
@@ -518,24 +533,170 @@ class Plans(unittest.TestCase):
 
     def tearDown(self):
         (status.sub_issues, status.read_ticket, status.own_login) = self.saved
+        if self.saved_home is None:
+            os.environ.pop("MMW_HOME", None)
+        else:
+            os.environ["MMW_HOME"] = self.saved_home
+        self.home.cleanup()
 
     def closed(self, number, at, *comments):
         t = ticket(number, state="CLOSED", labels=(), comments=comments)
         t["closed_at"] = at
         return t
 
-    def run_form(self, form, *args):
+    def run_form(self, form, *args, exit_code=0):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            self.assertEqual(form(*args), 0)
+            self.assertEqual(form(*args), exit_code)
         return out.getvalue().splitlines(), err.getvalue().splitlines()
 
 
 class AdvancePlan(Plans):
     """The three kinds of line `--advance-plan` prints, and what it says when it prints none."""
 
-    def plan(self, spec=76):
-        return self.run_form(status.advance_plan, spec)
+    def plan(self, spec=76, *, exit_code=0):
+        return self.run_form(status.advance_plan, spec, exit_code=exit_code)
+
+    def test_without_max_workers_three_tickets_are_dispatched(self):
+        self.tickets = {n: ticket(n) for n in (65, 63, 61, 64, 62)}
+        self.assertEqual(self.plan()[0], ["DISPATCH 61", "DISPATCH 62", "DISPATCH 63"])
+
+    def test_a_full_night_dispatches_nothing_and_names_each_waiting_ticket(self):
+        self.tickets = {
+            60: ticket(60, comments=(started(60, "w60"),)),
+            61: ticket(61, comments=(started(61, "w61"),)),
+            62: ticket(62, comments=(started(62, "w62"),)),
+            63: ticket(63), 64: ticket(64),
+        }
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertEqual(len(err), 2)
+        for number, line in zip((63, 64), err):
+            with self.subTest(ticket=number):
+                self.assertIn(f"#{number}", line)
+                self.assertIn("max_workers", line)
+                self.assertRegex(line, r"\b3\b")
+                for held_number in (60, 61, 62):
+                    self.assertIn(f"#{held_number}", line)
+
+    def test_a_passed_unlanded_ticket_holds_a_place(self):
+        self.tickets = {
+            60: self.closed(60, AT, started(60, "w60"), passed(60)),
+            61: ticket(61), 62: ticket(62), 63: ticket(63),
+        }
+        self.assertEqual(self.plan()[0], ["MERGE 60", "DISPATCH 61", "DISPATCH 62"])
+
+    def test_a_claim_no_session_has_taken_over_holds_a_place(self):
+        self.tickets = {
+            60: ticket(60, comments=(claimed(60),)),
+            61: ticket(61), 62: ticket(62), 63: ticket(63),
+        }
+        self.assertEqual(self.plan()[0], ["DISPATCH 61", "DISPATCH 62"])
+
+    def test_a_ticket_under_review_holds_one_place(self):
+        self.tickets = {
+            60: ticket(60, comments=(started(60, "w60"),
+                                     started(60, "r60", kind="reviewer"))),
+            61: ticket(61), 62: ticket(62), 63: ticket(63),
+        }
+        self.assertEqual(self.plan()[0], ["DISPATCH 61", "DISPATCH 62"])
+
+    def test_merge_and_release_are_not_capped(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {
+            60: self.closed(60, AT, started(60, "w60"), passed(60)),
+            61: ticket(61, comments=(started(61, "w61"),)),
+            62: ticket(62, comments=(started(62, "w62"),)),
+            63: ticket(63, assignees=(self.LOGIN,),
+                       comments=(started(63, "w63"), lost(63, "w63"))),
+        }
+        self.assertEqual(self.plan()[0], ["MERGE 60", "RELEASE 63"])
+
+    def test_an_invalid_max_workers_dispatches_nothing_and_still_merges(self):
+        self.tickets = {60: self.closed(60, AT, passed(60)), 61: ticket(61)}
+        config = json.loads(self.models_path.read_text())
+        for value in (0, -1, True, "3", 2.5, None):
+            with self.subTest(max_workers=value):
+                self.models_path.write_text(json.dumps({**config, "max_workers": value}))
+                out, err = self.plan(exit_code=3)
+                self.assertEqual(out, ["MERGE 60"])
+                self.assertEqual(len(err), 1)
+                self.assertIn(str(self.models_path), err[0])
+                self.assertIn("max_workers", err[0])
+                self.assertIn("models.py config set max_workers <n>", err[0])
+
+    def test_an_unreadable_models_json_dispatches_nothing_and_still_merges(self):
+        self.tickets = {60: self.closed(60, AT, passed(60)), 61: ticket(61)}
+        for contents in (None, "{broken", "[]"):
+            with self.subTest(contents=contents):
+                if contents is None:
+                    self.models_path.unlink()
+                else:
+                    self.models_path.write_text(contents)
+                out, err = self.plan(exit_code=3)
+                self.assertEqual(out, ["MERGE 60"])
+                self.assertEqual(len(err), 1)
+                self.assertIn(str(self.models_path), err[0])
+
+    def test_unreadable_occupancy_withholds_dispatch_but_still_merges_and_releases(self):
+        status.own_login = lambda: self.LOGIN
+        config = json.loads(self.models_path.read_text())
+        self.models_path.write_text(json.dumps({**config, "max_workers": 2}))
+        self.tickets = {
+            60: self.closed(60, AT, passed(60)),
+            62: ticket(62), 63: ticket(63),
+            64: ticket(64, assignees=(self.LOGIN,),
+                       comments=(started(64, "w64"), lost(64, "w64"))),
+        }
+        for unread in (status.normalise_ticket(61, {}),
+                       ticket(61, comments=(UnreadableEvents.BROKEN,))):
+            with self.subTest(reason=status.unreadable_reason(unread)):
+                self.tickets[61] = unread
+                out, err = self.plan()
+                self.assertEqual(out, ["MERGE 60", "RELEASE 64"])
+                for number in (62, 63):
+                    line = next(line for line in err if f"#{number}" in line)
+                    self.assertIn("#61", line)
+                    self.assertIn("max_workers", line)
+                    self.assertRegex(line, r"\b2\b")
+        self.tickets[61] = ticket(61, comments=(started(61, "w61"),))
+        self.assertEqual(self.plan()[0], ["MERGE 60", "RELEASE 64", "DISPATCH 62"])
+
+    def test_broken_roles_only_prevents_dispatch_not_other_plan_forms(self):
+        scripts = Path(self.home.name) / "skills" / "dispatch" / "scripts"
+        shutil.copytree(STATUS_PATH.parent, scripts)
+        shutil.copytree(STATUS_PATH.parents[2] / "verify-ticket" / "scripts",
+                        scripts.parents[1] / "verify-ticket" / "scripts")
+        roles_path = scripts.parent / "roles.json"
+        program = '''
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("isolated_status", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.sub_issues = lambda spec: [60, 61]
+module.own_login = lambda: ""
+module.read_ticket = lambda n: module.normalise_ticket(n, {
+    "state": "CLOSED" if n == 60 else "OPEN",
+    "labels": [{"name": "ready-for-agent"}],
+    "comments": [{"body": module.events.build("ticket.passed", ticket=60,
+                  line="ALL MET")}] if n == 60 else []})
+sys.exit(module.main([sys.argv[2], "76" if sys.argv[2] == "--advance-plan" else "61"]))
+'''
+        for contents in (None, "{broken"):
+            with self.subTest(roles=contents):
+                if contents is None:
+                    roles_path.unlink(missing_ok=True)
+                else:
+                    roles_path.write_text(contents)
+                for form, expected in (("--land-plan", "HOLD 61 it is open with no outcome on it\n"),
+                                       ("--advance-plan", "MERGE 60\n")):
+                    run = subprocess.run(
+                        [sys.executable, "-c", program, str(scripts / "status.py"), form],
+                        capture_output=True, text=True)
+                    self.assertEqual(run.returncode, 3 if form == "--advance-plan" else 0, run.stderr)
+                    self.assertEqual(run.stdout, expected)
+                    if form == "--advance-plan":
+                        self.assertIn(str((scripts / "models.py").resolve()), run.stderr)
 
     def test_merges_passed_tickets_in_closing_order_then_dispatches_the_frontier(self):
         self.tickets = {

@@ -70,10 +70,10 @@ the export writes duplicate rows when a retry lands mid-run. repro first, then f
 The Bug fix playbook reproduces the bug on the same surface a user meets it, finds the cause with runtime evidence, writes one ticket whose first criterion is a regression test that fails today, and sends a worker to it. It then runs the original reproduction again and delivers one pull request.
 
 ```text
-repro this with /verify-<app>. if it repros on the project branch, fix it and show me a video as proof.
+repro this with /verify-<product>. if it repros on the project branch, fix it and show me screenshots or the e2e `trace.md` as proof.
 ```
 
-`/verify-<app>` stands for the project's own verification skill, which the `create-verification-skill` skill generates. "If it repros" lets the run stop early when the bug is already gone.
+`/verify-<product>` stands for the project's own verification skill, which the `create-verification-skill` skill generates. "If it repros" lets the run stop early when the bug is already gone.
 
 ## Get a second opinion on a decision
 

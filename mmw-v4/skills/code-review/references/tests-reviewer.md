@@ -8,7 +8,7 @@ Read the ticket (`gh issue view <ticket>`, comments included) and the diff again
 
 ## 1. Build your scope from the ticket's acceptance criteria
 
-Under `## Acceptance criteria`, every criterion carries a `CHECK:` line. Some of those commands name a test file and a case name: `pnpm vitest run tests/api/projects.create.test.ts -t "duplicate name returns 409"`, `uv run pytest tests/test_queue.py::test_empty_state -q`. Collect every file and case name they name. **That list is your scope.**
+Under `## Acceptance criteria`, every criterion carries a `CHECK:` line. Some of those commands name a test file and a case name: `pnpm vitest run tests/api/projects.create.test.ts -t "duplicate name returns 409"`, `uv run pytest tests/test_queue.py::test_empty_state -q`. Collect every file and case name they name. **That list is your scope.** Exclude an e2e test named by a CHECK but untouched in this diff: it was written before the ticket and proved red against the product.
 
 ```sh
 git diff <base-commit>...HEAD

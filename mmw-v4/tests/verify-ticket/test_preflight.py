@@ -334,6 +334,56 @@ class TestBaselineRun(unittest.TestCase):
             ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
         self.assertEqual(listed.count("worktree "), 1, listed)
 
+    def test_the_baseline_checkout_is_baseline_n_under_the_main_checkout(self):
+        root, base, _ = self.repo()
+        ticket_root = root / ".worktrees" / "issue-77"
+        subprocess.run(["git", "worktree", "add", "--detach", str(ticket_root), base],
+                       cwd=root, check=True, capture_output=True)
+        body = """## Acceptance criteria
+
+- [ ] AC1: the baseline checkout is under the main checkout
+  CHECK: pwd
+  EXPECT: .worktrees/baseline-77
+  EVIDENCE: pending
+"""
+        code, posted, err, _, _ = self.claim(ticket_root, base, body=body)
+        self.assertEqual(code, 0, err)
+        name, payload = event_of(posted[1][1])
+        self.assertEqual(name, "ticket.checked")
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["result"], "met")
+        self.assertTrue(payload["criteria"][0]["met"], payload)
+        self.assertIn(f"cwd={root.resolve()}/.worktrees/baseline-77;",
+                      payload["criteria"][0]["evidence"])
+        subprocess.run(["git", "worktree", "remove", "--force", str(ticket_root)],
+                       cwd=root, check=True, capture_output=True)
+        listed = subprocess.check_output(
+            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
+        self.assertEqual(listed.count("worktree "), 1, listed)
+        self.assertFalse((root / ".worktrees" / "baseline-77").exists())
+
+    def test_a_baseline_checkout_left_by_a_crash_is_removed_first(self):
+        root, base, _ = self.repo()
+        worktree = root / ".worktrees" / "baseline-77"
+        subprocess.run(["git", "worktree", "add", "--detach", str(worktree), base],
+                       cwd=root, check=True, capture_output=True)
+        (worktree / "later.txt").write_text("later\n", encoding="utf-8")
+        subprocess.run(["git", "worktree", "lock", "--reason", "initializing",
+                        str(worktree)], cwd=root, check=True, capture_output=True)
+        code, posted, err, _, _ = self.claim(root, base)
+        self.assertEqual(code, 0, err)
+        name, payload = event_of(posted[1][1])
+        self.assertEqual(name, "ticket.checked")
+        self.assertEqual(payload["run"], "baseline")
+        by_id = {c["id"]: c for c in payload["criteria"]}
+        self.assertIn("AC1", by_id, payload)
+        self.assertTrue(by_id["AC1"]["met"], payload)
+        self.assertFalse(by_id["AC2"]["met"], payload)
+        listed = subprocess.check_output(
+            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
+        self.assertEqual(listed.count("worktree "), 1, listed)
+        self.assertFalse(worktree.exists())
+
     def test_the_same_base_is_not_run_twice(self):
         from _load import started, checked
         root, base, _ = self.repo()

@@ -27,7 +27,7 @@ This toolbox (the toolbox): the skills the user shares across hosts, repositorie
 _Home_: `AGENTS.md`
 
 **consuming repository**:
-A repository whose real tickets run through the pipeline and which holds its **product answers** in `.mmw/` and each development effort's files in `efforts/<effort>/`. This repository is one too, for its own task board tickets.
+A repository whose real tickets run through the pipeline. This repository is one too, for one product, the task board, whose code is `mmw-v4/board/`.
 _Home_: `AGENTS.md`
 
 **repository root**:
@@ -68,7 +68,7 @@ One memory in Nowledge Mem, kept in the **repository Space** and found by its la
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
 **`docs/agents/`**:
-This repository's `domain.md`: how to read its contexts, ADRs and feature maps before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
+This repository's `domain.md`: how to read its contexts and ADRs before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
 _Home_: `docs/agents/domain.md`
 
 **`CONTEXT.md`**:
@@ -118,8 +118,8 @@ The rule that a skill's frontmatter `disable-model-invocation: true` (read by Cl
 _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **`models.json`**:
-The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per session role `roles.json` lists (`junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`), with its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
-_Home_: `mmw-v3/skills/dispatch/references/editing-models.md`
+The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per session role `roles.json` lists (`junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`), with its host, model and `effort`, and `max_workers`, how many of one night's tickets may be held at once. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
+_Home_: `mmw-v4/skills/dispatch/scripts/models.py`
 
 **`MMW_HOME`**:
 The machine's MMW directory, `~/.mmw` unless the variable names another, as `home()` in the dispatch skill's `statedir.py` resolves it. It holds `models.json` and its lock `models.lock`, the task board's `boards.json` and `board.log`, and `state/<owner>__<name>/`, one 0700 **state directory** per repository; `install.sh` also writes `installed-root` under `~/.mmw` itself. Not one byte of ticket state lives there: a ticket's state is its events.
@@ -219,8 +219,8 @@ The skill that proves or disproves one claim and returns exactly one of `VERIFIE
 _Home_: `mmw-v3/skills/verify-this/SKILL.md`
 
 **feature map review**:
-One run of the `maintain-verification-skill` skill over one product's feature map. It ends as exactly one of **clean**, **changed**, or **blocked**. Distinct from a feature map (`docs/contexts/tickets/CONTEXT.md`) and from **verify-this**.
-_Home_: `mmw-v3/skills/maintain-verification-skill/SKILL.md`
+One owner-requested run of `maintain-verification-skill` over one product's feature map, distinct from the map itself (`docs/contexts/ui-acceptance/CONTEXT.md`) and from **verify-this**. Its outcome is **clean** when source and live coverage found nothing to ship, **changed** when proven corrections are committed and pushed, or **blocked** when coverage or safe shipping could not finish.
+_Home_: `mmw-v4/skills/maintain-verification-skill/SKILL.md`
 
 ### Skill-set review
 
@@ -334,7 +334,7 @@ The fallback for a checker with no baseline mechanism: intersect its JSON output
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 **`scripts/check`**:
-The one executable at a consuming repository's root, named in its `AGENTS.md` `## Commands`, that runs its checkers and tests in three tiers: `--staged`, a one-line hand-over to the commit-hook tool; the default tier, the dependency install, lint and type checks on the changed files, the **always-run group** and the groups the **test group map** selects; `--all`, everything runnable on the machine. It compares against `MMW_BASE_REF`, prints one `PASS|FAIL <step> <seconds>s` line per step, a `not run here:` line and a summary line, and exits 0 on a pass, 1 when the product is red, 2 when the environment cannot run it. Dispatch runs the default tier on every ticket's merge result and before a night opens; a night runs `--all` once before its pull request. It replaces the `checks` key of `.mmw/target.json`.
+The one executable at a consuming repository's root, named in its `AGENTS.md` `## Commands`, that runs its checkers and tests in three tiers: `--staged`, a one-line hand-over to the commit-hook tool; the default tier, the dependency install, lint and type checks on the changed files, the **always-run group** and the groups the **test group map** selects; `--all`, everything runnable on the machine. It compares against `MMW_BASE_REF`, prints one `PASS|FAIL <step> <seconds>s` line per step, a `not run here:` line and a summary line, and exits 0 on a pass, 1 when the product is red, 2 when the environment cannot run it. Dispatch runs the default tier on every ticket's merge result and before a night opens; a night runs `--all` once before its pull request.
 _Avoid_: checker command, repository checks (as the name of the command)
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
@@ -363,7 +363,7 @@ A repository whose git config sets `core.hooksPath` never executes `.git/hooks/`
 _Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 
 **probe**:
-A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits. Distinct from an oracle's **negative control** (ui-acceptance), a pass built into the oracle itself.
+A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits.
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 ### Managing AGENTS.md

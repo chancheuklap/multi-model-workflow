@@ -2032,18 +2032,40 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
     run_baseline(number, body, base, root)
 
 
+def _remove_baseline_checkout(root: Path, worktree: Path) -> None:
+    subprocess.run(["git", "worktree", "remove", "--force", "--force", str(worktree)],
+                   cwd=root, capture_output=True, text=True)
+    shutil.rmtree(worktree, ignore_errors=True)
+    subprocess.run(["git", "worktree", "prune"],
+                   cwd=root, capture_output=True, text=True)
+
+
 def run_baseline(number: int, body: str, base: str, root: Path) -> None:
-    """The criteria at `base`, in a throwaway detached worktree."""
+    """The criteria at `base`, in the main checkout's `.worktrees/baseline-<n>`."""
     items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
     skipped = []
     runnable = items
     tmp = Path(tempfile.mkdtemp(prefix="mmw-baseline-"))
-    worktree = tmp / "tree"
+    worktree = None
     try:
+        listed = subprocess.run(["git", "worktree", "list", "--porcelain"],
+                                cwd=root, capture_output=True, text=True)
+        main = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines()
+                     if line.startswith("worktree ")), "")
+        short = base[:12]
+        if listed.returncode != 0 or not main:
+            why = (listed.stderr or listed.stdout or
+                   "git worktree list returned no main checkout").strip()
+            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+                           outcome="unmet",
+                           line=f"Baseline run on {short}: unmet ({why})")
+            return
+        worktree = Path(main) / ".worktrees" / f"baseline-{number}"
+        worktree.parent.mkdir(parents=True, exist_ok=True)
+        _remove_baseline_checkout(root, worktree)
         added = subprocess.run(
             ["git", "worktree", "add", "--detach", str(worktree), base],
             cwd=root, capture_output=True, text=True)
-        short = base[:12]
         if added.returncode != 0 or not worktree.is_dir():
             why = (added.stderr or added.stdout or "git worktree add failed").strip()
             _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
@@ -2085,8 +2107,8 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
     except (OSError, subprocess.CalledProcessError, events.EventError) as exc:
         sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
     finally:
-        subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
-                       cwd=root, capture_output=True, text=True)
+        if worktree is not None:
+            _remove_baseline_checkout(root, worktree)
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -2298,27 +2320,12 @@ REPOSITORY_CHECK = Path("scripts") / "check"
 FAIL_STEP_RE = re.compile(r"^FAIL\s+(\S+)", re.M)
 
 
-def legacy_target_json_checks(root: Path) -> bool:
-    """Whether `.mmw/target.json` at `root` carries a `checks` key, which MMW v4 does
-    not read: the repository's commands there are not yet in `scripts/check`."""
-    path = Path(root) / ".mmw" / "target.json"
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    return isinstance(data, dict) and "checks" in data
-
-
 def repository_check_missing(root: Path) -> str | None:
     """Why `scripts/check` at `root` cannot be run, or None when it is an executable file."""
     path = Path(root) / REPOSITORY_CHECK
     if path.is_file() and os.access(path, os.X_OK):
         return None
     what = f"{path} is not executable" if path.exists() else f"{path} does not exist"
-    if legacy_target_json_checks(root):
-        return (f"{what}, and {Path(root) / '.mmw' / 'target.json'} still lists `checks`, "
-                "which MMW v4 no longer reads; run the setup-mmw skill to turn them into "
-                "scripts/check")
     return (f"{what}; write it with the Set up code checkers playbook, which the setup-mmw "
             "skill runs")
 

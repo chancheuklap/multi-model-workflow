@@ -45,9 +45,9 @@ SHARED = (
 STEPS = {
     "shared-checks": (SHARED, ["python3", "uv"]),
     "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
-    "feature-map": ("python3 mmw-v3/skills/verify-ticket/scripts/feature_map.py lint", ["python3"]),
     "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
     "board": ("bash mmw-v4/tests/board/run.sh", ["bash", "python3", "uv", "node"]),
+    "design-pages": ("bash mmw-v4/tests/design-pages/run.sh", ["bash", "python3", "uv"]),
     "diagram-design": ("bash mmw-v4/tests/diagram-design/run.sh", ["bash", "python3", "uv"]),
     "dispatch": ("bash mmw-v4/tests/dispatch/run.sh", ["bash", "python3", "uv", "git"]),
     "exe-release": ("bash mmw-v4/tests/exe-release/run.sh", ["bash", "python3", "uv"]),
@@ -59,7 +59,7 @@ STEPS = {
     "prompt": ("bash mmw-v4/prompt/tests/run.sh", ["bash", "python3"]),
 }
 
-ALWAYS = ["shared-checks", "lib", "feature-map"]
+ALWAYS = ["shared-checks", "lib"]
 
 # A changed path starting with the prefix selects the suites; root TESTING.md points here.
 DISPATCH = "mmw-v4/skills/dispatch/"
@@ -82,12 +82,10 @@ MAP = [
     (VERIFY + "scripts/issue_tree.py", ["board", "relay"]),
     (VERIFY + "scripts/verify-ticket.py", ["setup-mmw"]),
     ("mmw-v4/skills/setup-mmw/", ["setup-mmw"]),
+    ("mmw-v4/skills/design-pages/", ["design-pages"]),
     ("mmw-v4/skills/diagram-design/", ["diagram-design"]),
     ("mmw-v4/skills/exe-release/", ["exe-release"]),
     ("mmw-v4/board/", ["board"]),
-    ("efforts/task-board/", ["board"]),
-    (".mmw/task-board/", ["board"]),
-    ("mmw-v3/skills/ui-acceptance/", ["board"]),
     ("mmw-v4/install.sh", ["install"]),
     ("mmw-v3/install.sh", ["install"]),
     ("mmw-v4/prompt/", ["prompt", "install"]),
