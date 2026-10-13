@@ -19,16 +19,16 @@ Now the agent has three checks it can run, not a mood to satisfy. The reply shou
 Match the check to the change:
 
 - A CLI change runs the real command.
-- A UI change walks the changed flow in the running app. When it must match a reference pixel for pixel, the [Visual parity playbook](../../skills/mmw-mode/playbooks/visual-parity.md) diffs screenshots against a frozen baseline instead of judging by eye.
+- A UI change walks the changed flow in the running app. When it must match a reference pixel for pixel, a `toHaveScreenshot` test in `tests/e2e/<product>/` compares the screenshots.
 - A parser or migration replays a saved input.
 - A perf change compares before and after profiles.
 - A storage change reads back the written value.
 
-Ask for the proof as something you can inspect yourself: the failing test and then the passing one, a before-and-after video, the trace, the screenshot. An artifact beats a plausible explanation, because you can challenge it without replaying the whole run.
+Ask for the proof as something you can inspect yourself: the failing test and then the passing one, the trace, the screenshot. An artifact beats a plausible explanation, because you can challenge it without replaying the whole run.
 
 ## Drive the product with the control skills
 
-The `mmw-mode` skill's Non-negotiables send any change to a UI or a CLI to the matching control skill. A bug fix reproduces the bug on that same surface before anything else.
+The `mmw-mode` skill's `## Non-negotiables` sends product driving to its `verify-<product>` skill, or to control-cli or control-ui when the product has none. Profiles, heaps, CDP traces, and screenshots still use control-ui or control-cli. A bug fix reproduces the bug on that same surface before anything else.
 
 The [control-cli skill](../../skills/control-cli/SKILL.md) drives an interactive command-line program or terminal UI. It reuses the repository's own test or demo harness when one exists. Otherwise it starts the program in an isolated `tmux` session or a short pseudo-terminal script, sends one keystroke or line at a time, and waits for a concrete prompt before the next. It saves the transcript, and it captures CPU profiles, heap snapshots, and startup timings for performance work.
 
@@ -66,12 +66,12 @@ The control skills are generic. To verify a feature, an agent needs to know how 
 
 The [create-verification-skill skill](../../skills/create-verification-skill/SKILL.md) interviews the repository, not you. It works out what a user touches, how the app starts locally, what can drive it, what evidence proves behavior, and whether two instances can run side by side. It asks you only what the code cannot answer.
 
-It writes a project skill `verify-<app>`, at `.cursor/skills/verify-<app>/` as the skill's text names the path, with six sections: Launch, Doctor, Drive, Evidence, Cleanup, and Helpers. Beside it goes a feature map under `features/`, one file per user-facing feature, saying how to reach the feature and what end state proves it works. The skill ships a [worked feature-map example](../../skills/create-verification-skill/references/feature-map-example/). Before it hands the skill over, the generator runs it once end to end: launch, doctor check, drive one feature, capture evidence, clean up. A generated skill that never ran is a draft.
+It builds on tester-army/e2e and writes `verify-<product>` in the product repository's `.agents/skills/verify-<product>/`, with Read first, Launch, Doctor, Drive, Evidence, Cleanup, Rules, and Helpers sections. Its feature map lives under `features/`, one file per user-facing feature, saying how to reach it, which tests cover it, and what end state proves it works. The tests and config live in `tests/e2e/<product>/`. Before handing it over, the generator runs its instructions once end to end and checks that cleanup preserves the evidence. A generated skill that never ran is a draft. It commits and pushes the generated skill, map, tests, config, and required setup changes directly, without a ticket.
 
 From then on, "verify it in the app" is a step any agent can run in this repository with no setup conversation:
 
 ```text
-build the bulk-archive action. use /verify-<app> to verify it and show me screenshots as proof.
+build the bulk-archive action. use /verify-<product> to verify it and show me screenshots as proof.
 ```
 
 Once the verification skill works, the [swarm skill](../../skills/swarm/SKILL.md) can split a full pass by feature-map entry and gather the results into one report.
@@ -84,9 +84,9 @@ Treat the verification skill as infrastructure. Commit it, so every person and e
 - Full `--help` text.
 - Machine-readable output, such as JSON.
 
-Make the development setup repeatable too: seeded data, test users, and one command that starts the environment the same way every time.
+Make the development setup repeatable too: test users and one command that starts the environment the same way every time. Launch starts from an empty data directory; tests create their data through the product's own entry points.
 
-Apps change and feature maps go stale. The [maintain-verification-skill skill](../../skills/maintain-verification-skill/SKILL.md) audits a generated verification skill. It reads every feature from source in parallel, then drives every mapped feature live. It ends in one of three outcomes. `clean` means full coverage and nothing to change. `changed` means one pull request of proven corrections, confined to the verification skill's own directory. `blocked` names what stopped it. It never edits product code. A product regression it finds is reported, not hidden by a doc edit.
+Apps change and feature maps go stale. Run the [maintain-verification-skill skill](../../skills/maintain-verification-skill/SKILL.md) only when you want that review. It reads every feature from source in parallel, then follows `verify-<product>` for its live pass. For a feature with tests, running them is the live pass; for one without tests, it uses control-ui. It ends in one of three outcomes. `clean` means full coverage and nothing to change. `changed` means it commits and pushes proven corrections directly to the current branch, within the verification skill's own directory and `tests/e2e/<product>/`. `blocked` names what stopped it. It never edits product code. A product regression it finds is reported, not hidden by a doc edit.
 
 ## Ship each change as one pull request
 
