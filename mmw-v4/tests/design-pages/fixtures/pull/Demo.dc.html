@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="./support.js"></script>
+    <link rel="stylesheet" href="./styles/app.css" />
+    <link rel="icon" href="./assets/logo.png" />
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <style>
+          html, body { margin: 0; }
+          #dc-root { width: 320px; height: 200px; }
+          .old-value { display: block; }
+          .new-value { display: none; }
+        </style>
+        <style id="__om-edit-overrides">
+          .old-value { display: none !important; }
+          .new-value { display: block !important; }
+        </style>
+      </helmet>
+      <main>
+        Root copy
+        <h1>Demo</h1>
+        <section>
+          Group copy
+          <span>Nested</span>
+        </section>
+        <span>First</span>
+        <span>Second</span>
+        <span class="old-value">Before override</span>
+        <span class="new-value">After override</span>
+      </main>
+    </x-dc>
+    
+  </body>
+</html>
