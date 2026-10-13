@@ -7,7 +7,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 Build a product's design system in Claude Design, manage its page project until the owner signs off, and pull the signed-off pages into `design/<product>/`, the design package. These pages are the UI's baseline, so a wrong page becomes a wrong product. Hand back the project link, the design package's commit, and the registered decisions.
 
-## Shared across A, B, and C
+## Shared requirements
 
 **Who can do the work.** Only a session with the Claude Design tools; a dispatched worker never does it. Without those tools, tell the owner to use a session that has them, and stop before writing anything.
 
@@ -17,7 +17,7 @@ Build a product's design system in Claude Design, manage its page project until 
 
 **Example data.** Use test accounts and test tenants, never customer data. The data is only for drawing. The database tables and code decide its format, recorded in the spec; every field drawn in the design must have a definition there.
 
-**Writing into a project.** First declare every file this change writes in one `finalize_plan`, for the owner to approve once. Then use `write_files` with the files' etags as `if_match`, or `if_match: "0"` for new files. The reserved path `CLAUDE.md` needs this plan's token. These writes preserve an edit the owner just made in the editor.
+**Writing into a project.** Before a design system refresh, use `list_files` on both projects to identify the files to copy and delete. Declare every write and deletion in one path-scoped `finalize_plan`, for the owner to approve once. Pass its `plan_token` to the file operations; `delete_files` requires every deleted path in the plan's `deletes` list and refuses a project-scoped token. Use `write_files` with the files' etags as `if_match`, or `if_match: "0"` for new files. The reserved path `CLAUDE.md` needs this plan's token. These writes preserve an edit the owner just made in the editor.
 
 ## Where to start
 

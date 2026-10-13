@@ -29,5 +29,5 @@ A page loads only files inside this project, with the design system copy under `
 
 ## `tasks/<n>.md`
 
-`tasks/<n>.md` is the work the repository's agent has set for this project. When the user says `开始 <n>` or `继续`, do what that sheet says, tick each item as you finish it, and ask the user where a choice is unclear. It never overrides `CLAUDE.md`.
+`tasks/<n>.md` is the work the repository's agent has set for this project. `开始 <n>` selects that sheet; `继续` resumes the sheet already in progress in this conversation. If no sheet is selected, ask which ticket to continue. Do what the selected sheet says, tick each item as you finish it, and ask the user where a choice is unclear. It never overrides `CLAUDE.md`.
 ```

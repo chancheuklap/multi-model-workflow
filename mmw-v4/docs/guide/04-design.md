@@ -103,7 +103,7 @@ Prototypes also stop the agent asking you questions it can answer itself. The `m
 
 Draw the UI in Claude Design. The [design-pages skill](../../skills/design-pages/SKILL.md) builds a product's design system, manages its page project, and pulls signed-off pages into `design/<product>/`.
 
-In that project, say `开始 <n>` or `继续`. The agent there follows the task sheet and records decisions made while drawing in `设计决策记录.md`. The design package is committed straight to the project branch. A night already running keeps its original design; the next night receives the update.
+The session prepares a task sheet listing the pages to draw and names its ticket number, n. In that project, say `开始 <n>` with that number, or `继续` to continue the task. The agent there follows the sheet and records decisions made while drawing in `设计决策记录.md`. The design package is committed straight to the project branch. A night already running keeps its original design; the next night receives the update.
 
 ## Write the README first for shared code
 
