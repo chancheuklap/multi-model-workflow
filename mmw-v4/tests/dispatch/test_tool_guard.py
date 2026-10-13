@@ -505,8 +505,7 @@ class EndingAProcess(unittest.TestCase):
         """A refusal that only diagnoses is where the improvising starts."""
         _code, answer = call("claude", with_command("claude", "kill 123"))
         reason = reason_of(answer)
-        self.assertIn("`stop`", reason)
-        self.assertIn(".mmw/target.json", reason)
+        self.assertIn("verify-<product>", reason)
 
     def test_the_refusal_fits_what_a_host_will_show(self):
         """Grok Build clips at 256; the way out is the part that must survive."""
@@ -515,7 +514,7 @@ class EndingAProcess(unittest.TestCase):
                 _code, answer = call("claude", with_command("claude", command))
                 reason = reason_of(answer)
                 self.assertLessEqual(len(reason), REASON_LIMIT)
-                self.assertIn(".mmw/target.json", reason, "the way out was trimmed away")
+                self.assertIn("verify-<product>", reason, "the way out was trimmed away")
 
     def test_prose_and_ordinary_commands_pass(self):
         """Splitting on the shell's own separators tells a command from a mention."""
