@@ -134,10 +134,14 @@ def default_local_config() -> dict:
     return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows, "max_workers": 3}
 
 
+def _version_errors(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, int) or value < 1:
+        return [{"cell": "version", "reason": "must be a positive integer"}]
+    return []
+
+
 def _validate_config_shape(config: dict) -> list[dict[str, str]]:
-    errors: list[dict[str, str]] = []
-    if not isinstance(config.get("version"), int) or config.get("version", 0) < 1:
-        errors.append({"cell": "version", "reason": "must be a positive integer"})
+    errors = _version_errors(config.get("version"))
     runner = config.get("runner")
     if not isinstance(runner, str) or not runner.strip():
         errors.append({"cell": "runner", "reason": "is required"})
@@ -910,11 +914,10 @@ def write_local_config(config: dict, expected_version: int, scan: dict | None,
     path = models_json_path()
     if not path.is_file():
         raise ConfigMissing(f"no models.json at {path}; run install.sh first")
-    if "max_workers" in config:
-        _validate_max_workers(config["max_workers"])
-    if scan is None:
+    if "max_workers" in config or scan is None:
         _validate_max_workers(config.get("max_workers"))
-        errors = []
+    if scan is None:
+        errors = _version_errors(expected_version)
     else:
         errors = _validate_local_config(config, scan, validate_roles)
     if errors:
@@ -939,7 +942,6 @@ def write_local_config(config: dict, expected_version: int, scan: dict | None,
                 }
             cap_config = config if "max_workers" in config else current
             if "max_workers" in cap_config:
-                _validate_max_workers(cap_config["max_workers"])
                 written["max_workers"] = cap_config["max_workers"]
             statedir.write_atomic(path, json.dumps(written, ensure_ascii=False, indent=2) + "\n")
             return written
@@ -1143,12 +1145,13 @@ def main(argv: list[str] | None = None) -> int:
                                           "reason": "must be a whole number of at least 1"}]) from None
                 current = read_local_config()
                 written = write_local_config(
-                    {"max_workers": value}, current["version"], None)
+                    {"max_workers": value}, current.get("version"), None)
                 print(json.dumps(written, ensure_ascii=False))
                 return 0
             if len(args) == 3 and args[1] == "runner":
                 current = read_local_config()
                 proposed = json.loads(json.dumps(current))
+                proposed.pop("max_workers", None)
                 proposed["runner"] = args[2]
                 scan = scan_host_catalogs(args[2])
                 written = write_local_config(proposed, current["version"], scan)
@@ -1160,6 +1163,7 @@ def main(argv: list[str] | None = None) -> int:
                 if role not in ALLOWED_AGENTS:
                     raise InvalidConfig([{"cell": "role", "reason": f"unknown role {role!r}"}])
                 proposed = json.loads(json.dumps(current))
+                proposed.pop("max_workers", None)
                 proposed["rows"][role] = {"host": host, "model": model, "effort": effort}
                 scan = scan_host_catalogs(current["runner"], [host])
                 written = write_local_config(

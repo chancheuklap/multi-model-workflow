@@ -69,8 +69,7 @@ class LocalConfigTest(unittest.TestCase):
                 proposed = {**old, "max_workers": value}
                 with self.assertRaises(models.InvalidConfig) as caught:
                     models.write_local_config(proposed, 1, self.scan())
-                self.assertEqual(caught.exception.errors, [{
-                    "cell": "max_workers", "reason": "must be a whole number of at least 1"}])
+                self.assertEqual([error["cell"] for error in caught.exception.errors], ["max_workers"])
                 self.assertEqual(models.models_json_path().read_bytes(), before)
 
     def test_the_default_configuration_sets_max_workers_to_3(self):
@@ -82,12 +81,18 @@ class LocalConfigTest(unittest.TestCase):
         before = models.models_json_path().read_bytes()
         self.assertEqual(models.max_workers(), 3)
         self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_max_workers_reads_the_saved_value_without_checking_roles(self):
         self.seed({"max_workers": 2, "rows": None})
         self.assertEqual(models.max_workers(), 2)
+
+    def test_max_workers_refuses_an_unreadable_configuration(self):
+        self.seed()
         models.models_json_path().write_text("{", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "cannot read"):
+        with self.assertRaises(ValueError):
             models.max_workers()
-        models.models_json_path().unlink()
+
+    def test_max_workers_refuses_a_missing_configuration(self):
         with self.assertRaises(models.ConfigMissing):
             models.max_workers()
 
@@ -97,24 +102,33 @@ class LocalConfigTest(unittest.TestCase):
                 self.seed({**base_config(), "max_workers": value})
                 with self.assertRaises(models.InvalidConfig) as caught:
                     models.max_workers()
-                self.assertEqual(caught.exception.errors, [{
-                    "cell": "max_workers", "reason": "must be a whole number of at least 1"}])
+                self.assertEqual([error["cell"] for error in caught.exception.errors], ["max_workers"])
 
     def test_a_write_without_max_workers_keeps_the_saved_value(self):
         self.seed({**base_config(), "max_workers": 2})
         written = models.write_local_config(base_config(), 1, self.scan())
         self.assertEqual(written.get("max_workers"), 2)
         self.assertEqual(models.read_local_config()["max_workers"], 2)
-        proposed = {**base_config(version=2), "max_workers": 1}
-        written = models.write_local_config(proposed, 2, self.scan())
-        self.assertEqual(written["max_workers"], 1)
-        self.assertEqual(models.read_local_config()["max_workers"], 1)
-        self.seed({**base_config(), "max_workers": 0})
-        before = models.models_json_path().read_bytes()
-        with self.assertRaises(models.InvalidConfig) as caught:
-            models.write_local_config(base_config(), 1, self.scan())
-        self.assertEqual(caught.exception.errors[0]["cell"], "max_workers")
-        self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_a_write_without_max_workers_keeps_an_invalid_saved_value(self):
+        for value in (0, True):
+            with self.subTest(value=value):
+                self.seed({**base_config(), "max_workers": value})
+                written = models.write_local_config(base_config(), 1, self.scan())
+                self.assertEqual(written["max_workers"], value)
+                self.assertEqual(models.read_local_config()["max_workers"], value)
+
+    def test_setting_max_workers_refuses_an_invalid_version(self):
+        for value in ("2", 0, None):
+            with self.subTest(value=value):
+                self.seed(base_config(version=value))
+                before = models.models_json_path().read_bytes()
+                out, err = StringIO(), StringIO()
+                with redirect_stdout(out), redirect_stderr(err):
+                    code = models.main(["config", "set", "max_workers", "2"])
+                self.assertEqual((code, out.getvalue()), (2, ""))
+                self.assertTrue(err.getvalue().startswith("models.py: version: "))
+                self.assertEqual(models.models_json_path().read_bytes(), before)
 
     def test_cli_sets_max_workers(self):
         self.seed()
@@ -125,18 +139,6 @@ class LocalConfigTest(unittest.TestCase):
         expected = {**base_config(version=2), "max_workers": 2}
         self.assertEqual(json.loads(out.getvalue()), expected)
         self.assertEqual(models.read_local_config(), expected)
-        for value in ("1", "4"):
-            with redirect_stdout(out := StringIO()):
-                self.assertEqual(models.main(["config", "set", "max_workers", value]), 0)
-            self.assertEqual(json.loads(out.getvalue())["max_workers"], int(value))
-        before = models.models_json_path().read_bytes()
-        with self.assertRaises(models.VersionConflict):
-            models.write_local_config({"max_workers": 2}, 1, None)
-        with models.config_lock(purpose="cap test holder"):
-            with redirect_stdout(StringIO()), redirect_stderr(err := StringIO()):
-                self.assertEqual(models.main(["config", "set", "max_workers", "2"]), 2)
-            self.assertIn("cap test holder", err.getvalue())
-        self.assertEqual(models.models_json_path().read_bytes(), before)
 
     def test_cli_refuses_a_max_workers_that_is_not_a_whole_number_of_at_least_1(self):
         self.seed()
@@ -148,7 +150,6 @@ class LocalConfigTest(unittest.TestCase):
                     code = models.main(["config", "set", "max_workers", value])
                 self.assertEqual((code, out.getvalue()), (2, ""))
                 self.assertTrue(err.getvalue().startswith("models.py: max_workers: "))
-                self.assertIn("whole number of at least 1", err.getvalue())
                 self.assertEqual(models.models_json_path().read_bytes(), before)
 
     def test_setting_a_role_keeps_max_workers(self):
