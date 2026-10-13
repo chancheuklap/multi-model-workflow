@@ -2032,6 +2032,14 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
     run_baseline(number, body, base, root)
 
 
+def _remove_baseline_checkout(root: Path, worktree: Path) -> None:
+    subprocess.run(["git", "worktree", "remove", "--force", "--force", str(worktree)],
+                   cwd=root, capture_output=True, text=True)
+    shutil.rmtree(worktree, ignore_errors=True)
+    subprocess.run(["git", "worktree", "prune"],
+                   cwd=root, capture_output=True, text=True)
+
+
 def run_baseline(number: int, body: str, base: str, root: Path) -> None:
     """The criteria at `base`, in the main checkout's `.worktrees/baseline-<n>`."""
     items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
@@ -2054,11 +2062,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
             return
         worktree = Path(main) / ".worktrees" / f"baseline-{number}"
         worktree.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
-                       cwd=root, capture_output=True, text=True)
-        shutil.rmtree(worktree, ignore_errors=True)
-        subprocess.run(["git", "worktree", "prune"],
-                       cwd=root, capture_output=True, text=True)
+        _remove_baseline_checkout(root, worktree)
         added = subprocess.run(
             ["git", "worktree", "add", "--detach", str(worktree), base],
             cwd=root, capture_output=True, text=True)
@@ -2104,8 +2108,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
         sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
     finally:
         if worktree is not None:
-            subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
-                           cwd=root, capture_output=True, text=True)
+            _remove_baseline_checkout(root, worktree)
         shutil.rmtree(tmp, ignore_errors=True)
 
 

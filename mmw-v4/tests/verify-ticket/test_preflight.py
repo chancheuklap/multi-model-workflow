@@ -360,6 +360,9 @@ class TestBaselineRun(unittest.TestCase):
         worktree = root / ".worktrees" / "baseline-77"
         subprocess.run(["git", "worktree", "add", "--detach", str(worktree), base],
                        cwd=root, check=True, capture_output=True)
+        (worktree / "later.txt").write_text("later\n", encoding="utf-8")
+        subprocess.run(["git", "worktree", "lock", "--reason", "initializing",
+                        str(worktree)], cwd=root, check=True, capture_output=True)
         code, posted, err, _, _ = self.claim(root, base)
         self.assertEqual(code, 0, err)
         name, payload = event_of(posted[1][1])
@@ -368,6 +371,7 @@ class TestBaselineRun(unittest.TestCase):
         by_id = {c["id"]: c for c in payload["criteria"]}
         self.assertIn("AC1", by_id, payload)
         self.assertTrue(by_id["AC1"]["met"], payload)
+        self.assertFalse(by_id["AC2"]["met"], payload)
         listed = subprocess.check_output(
             ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
         self.assertEqual(listed.count("worktree "), 1, listed)
