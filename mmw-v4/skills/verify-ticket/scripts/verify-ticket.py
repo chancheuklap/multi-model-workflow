@@ -2298,27 +2298,12 @@ REPOSITORY_CHECK = Path("scripts") / "check"
 FAIL_STEP_RE = re.compile(r"^FAIL\s+(\S+)", re.M)
 
 
-def legacy_target_json_checks(root: Path) -> bool:
-    """Whether `.mmw/target.json` at `root` carries a `checks` key, which MMW v4 does
-    not read: the repository's commands there are not yet in `scripts/check`."""
-    path = Path(root) / ".mmw" / "target.json"
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    return isinstance(data, dict) and "checks" in data
-
-
 def repository_check_missing(root: Path) -> str | None:
     """Why `scripts/check` at `root` cannot be run, or None when it is an executable file."""
     path = Path(root) / REPOSITORY_CHECK
     if path.is_file() and os.access(path, os.X_OK):
         return None
     what = f"{path} is not executable" if path.exists() else f"{path} does not exist"
-    if legacy_target_json_checks(root):
-        return (f"{what}, and {Path(root) / '.mmw' / 'target.json'} still lists `checks`, "
-                "which MMW v4 no longer reads; run the setup-mmw skill to turn them into "
-                "scripts/check")
     return (f"{what}; write it with the Set up code checkers playbook, which the setup-mmw "
             "skill runs")
 
