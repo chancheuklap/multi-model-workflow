@@ -4,7 +4,7 @@
 #
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh check|advance|advancedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce|advancecapbadconfig
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefreport|retract
@@ -2302,6 +2302,46 @@ PY
   [ "$(out_json title)" = '#63 worker' ] || fail "the next ticket did not start after landing"
   grep -q 'started 1' "$TMP/err" || fail "advance after landing did not report one start"
   assert_no_wt 64
+  cp "$TMP/models-before-cap.json" "$MMW_HOME/models.json"
+}
+
+scenario_advancecapbadconfig() {
+  reset_log
+  fresh_repo
+  make_branch issue-61 capped-pass.txt passed
+  local code passed_event claim_event released_event
+  passed_event="$(ev ticket.passed 61 'ALL MET' --field branch=issue-61 \
+    --field "commit=$(git -C "$TMP/repo" rev-parse issue-61)" --field into=main)"
+  claim_event="$(ev ticket.claimed 62 'Claimed #62' --field login=mmw-bot)"
+  released_event="$(ev ticket.released 62 'Released #62' --field reason=worker-lost)"
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number":61,"state":"CLOSED","labels":[],"closedAt":"2026-09-11T01:00:00Z","comments":[$passed_event]},
+  {"number":62,"state":"OPEN","labels":["ready-for-agent"],"assignees":["mmw-bot"],"comments":[$claim_event,$released_event],"body":"## Parent\n\n#76\n"},
+  {"number":63,"state":"OPEN","labels":["ready-for-agent"],"body":"## Parent\n\n#76\n"}
+]
+JSON
+  cp "$MMW_HOME/models.json" "$TMP/models-before-cap.json"
+  python3 - "$MMW_HOME/models.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+config = json.loads(path.read_text())
+config["max_workers"] = 0
+path.write_text(json.dumps(config))
+PY
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 2 ] || fail "advance with bad max_workers expected 2, got $code: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" show main:capped-pass.txt >/dev/null || fail "passed #61 did not land"
+  posted_events 61 | grep -q '^ticket.landed' || fail "#61 has no landed event"
+  posted_events 62 | grep -q '^ticket.released' || fail "#62's ended claim was not given back"
+  never_ran
+  assert_no_wt 62
+  assert_no_wt 63
+  grep -q 'started 0' "$TMP/err" || fail "advance did not report no starts"
+  grep -q -F 'models.py config set max_workers <n>' "$TMP/err" \
+    || fail "advance did not carry the plan's correction command"
   cp "$TMP/models-before-cap.json" "$MMW_HOME/models.json"
 }
 
@@ -8272,7 +8312,7 @@ ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard o
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routenospec missingverifyticket"
-ALL="$ALL advancecap advancecapbounce"
+ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

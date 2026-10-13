@@ -633,7 +633,9 @@ def advance_plan(spec: int) -> int:
 
     max_workers is read through models.py. Each held row counts once, including a
     passed ticket that has not landed. An unreadable cap prevents only dispatch, not
-    merges or releases. Unreadable ticket events prevent dispatch because occupancy
+    merges or releases, and returns 3 after printing those lines. dispatch.sh carries
+    them out and reports the cap failure after its other work.
+    Unreadable ticket events prevent dispatch because occupancy
     cannot be established, without changing the definition of a holder.
     Every frontier ticket waiting for room is named on stderr,
     with the cap and the held ticket numbers. An empty frontier with tickets still in
@@ -684,6 +686,7 @@ def advance_plan(spec: int) -> int:
     holders = [row["ticket"] for row in held(rows)]
     models = None
     models_path = Path(__file__).resolve().with_name("models.py")
+    plan_exit = 0
     try:
         models_spec = importlib.util.spec_from_file_location("mmw_status_models", models_path)
         module = importlib.util.module_from_spec(models_spec)
@@ -691,6 +694,7 @@ def advance_plan(spec: int) -> int:
         models = module
         cap = models.max_workers()
     except (ValueError, OSError) as exc:
+        plan_exit = 3
         source = models.models_json_path() if models is not None else models_path
         reason = str(exc)
         if models is None:
@@ -719,7 +723,7 @@ def advance_plan(spec: int) -> int:
                   file=sys.stderr)
     if not ready:
         explain_empty_frontier(rows, spec)
-    return 0
+    return plan_exit
 
 
 def reverify_plan(spec: int) -> int:

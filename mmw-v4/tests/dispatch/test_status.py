@@ -544,18 +544,18 @@ class Plans(unittest.TestCase):
         t["closed_at"] = at
         return t
 
-    def run_form(self, form, *args):
+    def run_form(self, form, *args, exit_code=0):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            self.assertEqual(form(*args), 0)
+            self.assertEqual(form(*args), exit_code)
         return out.getvalue().splitlines(), err.getvalue().splitlines()
 
 
 class AdvancePlan(Plans):
     """The three kinds of line `--advance-plan` prints, and what it says when it prints none."""
 
-    def plan(self, spec=76):
-        return self.run_form(status.advance_plan, spec)
+    def plan(self, spec=76, *, exit_code=0):
+        return self.run_form(status.advance_plan, spec, exit_code=exit_code)
 
     def test_without_max_workers_three_tickets_are_dispatched(self):
         self.tickets = {n: ticket(n) for n in (65, 63, 61, 64, 62)}
@@ -618,7 +618,7 @@ class AdvancePlan(Plans):
         for value in (0, -1, True, "3", 2.5, None):
             with self.subTest(max_workers=value):
                 self.models_path.write_text(json.dumps({**config, "max_workers": value}))
-                out, err = self.plan()
+                out, err = self.plan(exit_code=3)
                 self.assertEqual(out, ["MERGE 60"])
                 self.assertEqual(len(err), 1)
                 self.assertIn(str(self.models_path), err[0])
@@ -633,7 +633,7 @@ class AdvancePlan(Plans):
                     self.models_path.unlink()
                 else:
                     self.models_path.write_text(contents)
-                out, err = self.plan()
+                out, err = self.plan(exit_code=3)
                 self.assertEqual(out, ["MERGE 60"])
                 self.assertEqual(len(err), 1)
                 self.assertIn(str(self.models_path), err[0])
@@ -693,7 +693,7 @@ sys.exit(module.main([sys.argv[2], "76" if sys.argv[2] == "--advance-plan" else 
                     run = subprocess.run(
                         [sys.executable, "-c", program, str(scripts / "status.py"), form],
                         capture_output=True, text=True)
-                    self.assertEqual(run.returncode, 0, run.stderr)
+                    self.assertEqual(run.returncode, 3 if form == "--advance-plan" else 0, run.stderr)
                     self.assertEqual(run.stdout, expected)
                     if form == "--advance-plan":
                         self.assertIn(str((scripts / "models.py").resolve()), run.stderr)

@@ -23,5 +23,5 @@ amends: []
 
 - 一个很大的 frontier 不会在同一夜启动超过上限容得下的票。持有数高于新上限时不再派新票，不停止已有会话。
 - 每张等待的票在 stderr 点名上限和占着空位的票。stdout 仍只有 `MERGE`、`RELEASE`、`DISPATCH` 三种 plan line。
-- `MERGE` 和 `RELEASE` 不受上限影响。配置读不了或上限不合法时，plan 退出 0，只停派新票，并点名配置路径、错误和修正命令。
+- `MERGE` 和 `RELEASE` 不受上限影响。配置读不了或上限不合法时，plan 打印完这些行后退出 3，只停派新票，并点名配置路径、错误和修正命令。`advance` 照常执行这些行，处理落地失败和启动拒绝后，以退出 2 报告上限错误，避免没有活着的 agent 时整夜无声停住。
 - `models.py config set max_workers <n>` 的改动在下一次 `advance` 生效，不需要重启或重装。读上限不另造校验。
