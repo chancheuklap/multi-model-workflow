@@ -336,6 +336,9 @@ class TestBaselineRun(unittest.TestCase):
 
     def test_the_baseline_checkout_is_baseline_n_under_the_main_checkout(self):
         root, base, _ = self.repo()
+        ticket_root = root / ".worktrees" / "issue-77"
+        subprocess.run(["git", "worktree", "add", "--detach", str(ticket_root), base],
+                       cwd=root, check=True, capture_output=True)
         body = """## Acceptance criteria
 
 - [ ] AC1: the baseline checkout is under the main checkout
@@ -343,13 +346,17 @@ class TestBaselineRun(unittest.TestCase):
   EXPECT: .worktrees/baseline-77
   EVIDENCE: pending
 """
-        code, posted, err, _, _ = self.claim(root, base, body=body)
+        code, posted, err, _, _ = self.claim(ticket_root, base, body=body)
         self.assertEqual(code, 0, err)
         name, payload = event_of(posted[1][1])
         self.assertEqual(name, "ticket.checked")
         self.assertEqual(payload["run"], "baseline")
         self.assertEqual(payload["result"], "met")
         self.assertTrue(payload["criteria"][0]["met"], payload)
+        self.assertIn(f"cwd={root.resolve()}/.worktrees/baseline-77;",
+                      payload["criteria"][0]["evidence"])
+        subprocess.run(["git", "worktree", "remove", "--force", str(ticket_root)],
+                       cwd=root, check=True, capture_output=True)
         listed = subprocess.check_output(
             ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
         self.assertEqual(listed.count("worktree "), 1, listed)
