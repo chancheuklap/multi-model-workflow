@@ -188,6 +188,20 @@ def check_testing(report: Report, root: Path):
                    "and the reviewer's Tests axis reads none")
 
 
+def check_verification_skills(report: Report, root: Path):
+    for design in sorted((root / "design").glob("*")):
+        if not design.is_dir():
+            continue
+        name = f"verify-{design.name}"
+        skill = Path(".agents") / "skills" / name / "SKILL.md"
+        if (root / skill).is_file():
+            report.add("ok", "repository", name, f"{skill} present for design/{design.name}/")
+        else:
+            report.add("missing", "repository", name,
+                       f"no {skill} for design/{design.name}/; "
+                       "the owner names the create-verification-skill skill to generate it")
+
+
 def check_machine(report: Report):
     auth = run(["gh", "auth", "status"])
     report.add("ok" if auth.returncode == 0 else "missing", "machine", "gh login",
@@ -219,6 +233,7 @@ def main() -> int:
     check_labels(report)
     check_repository_check(report, root)
     check_testing(report, root)
+    check_verification_skills(report, root)
     check_machine(report)
     report.print()
     return 0 if report.missing() == 0 else 1

@@ -195,6 +195,47 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"(?m)^missing +repository +scripts/check:")
 
+    def test_a_design_package_without_its_verify_skill_is_missing(self):
+        self.set_up_repository()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertTrue(out.rstrip().endswith("SETUP OK"), out)
+        self.assertNotRegex(out, r"(?m)^\S+ +repository +verify-")
+
+        (self.root / "design" / "notes").mkdir(parents=True)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +verify-notes: .*create-verification-skill")
+
+        skill = self.root / ".agents" / "skills" / "verify-notes" / "SKILL.md"
+        skill.parent.mkdir(parents=True)
+        skill.write_text("# Verify notes\n")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +verify-notes:")
+        self.assertTrue(out.rstrip().endswith("SETUP OK"), out)
+
+    def test_design_directories_are_reported_in_name_order_and_files_are_ignored(self):
+        self.set_up_repository()
+        design = self.root / "design"
+        design.mkdir()
+        (design / "README.md").write_text("# Design\n")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertNotRegex(out, r"(?m)^\S+ +repository +verify-")
+
+        (design / "zebra").mkdir()
+        (design / "alpha").mkdir()
+        skill = self.root / ".agents" / "skills" / "verify-alpha" / "SKILL.md"
+        skill.mkdir(parents=True)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        rows = [line.split(":", 1)[0].split() for line in out.splitlines()
+                if "repository" in line and "verify-" in line]
+        self.assertEqual(rows, [["missing", "repository", "verify-alpha"],
+                                ["missing", "repository", "verify-zebra"]])
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 2 missing"), out)
+
     def test_target_json_checks_are_not_read(self):
         self.set_up_repository()
         (self.root / ".mmw").mkdir()
