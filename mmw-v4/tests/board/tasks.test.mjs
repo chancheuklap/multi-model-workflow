@@ -1,31 +1,54 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import test from "node:test";
-import vm from "node:vm";
 
 import {render, taskListView} from "../../board/page/tasks.mjs";
 import {installDom} from "./fake-dom.mjs";
 
-function exampleScene(name) {
-  const context = {window: {}};
-  const source = fs.readFileSync(
-    new URL(`../../../efforts/task-board/example-data/board-${name}.js`, import.meta.url),
-    "utf8",
-  );
-  vm.runInNewContext(source, context);
-  return context.window.BOARD_SCENES[name];
-}
-
 test("the selected task is marked on and the others are not", () => {
-  const scene = exampleScene("morning");
-  const rows = taskListView(scene.payload.tasks, scene.select.task).rows;
+  const tasks = [
+    {n: 98, specs: []},
+    {n: 99, specs: []},
+    {n: 100, specs: []},
+  ];
+  const rows = taskListView(tasks, 98).rows;
   assert.equal(rows[0].cls, "task on");
   assert.equal(rows[1].cls, "task");
 });
 
 test("the lamp and progress follow the task's tickets", () => {
-  const scene = exampleScene("morning");
-  const view = taskListView(scene.payload.tasks, scene.select.task);
+  const tasks = [
+    {n: 98, kind: "map", specs: [{tickets: [
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {1: {kind: "decision"}}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+    ]}]},
+    {n: 99, kind: "map", specs: [{tickets: [
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+      {blocker_hold: "", events: [], fold: {children: {}, sessions: []}},
+    ]}]},
+    {n: 100, kind: "map", specs: [{tickets: [
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+      {events: [], fold: {children: {}, sessions: []}},
+    ]}]},
+  ];
+  const view = taskListView(tasks, 98);
   assert.equal(view.count, 3);
   assert.equal(view.empty, false);
   assert.equal(view.rows[0].lampCls, "lamp orange");

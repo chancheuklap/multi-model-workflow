@@ -24,7 +24,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 
 ## Stubbed boundaries
 
-- **The tracker.** No test reaches GitHub. `test_dispatch.sh` and `test_relay.sh` put a fake `gh` on `PATH` that logs every call, one per line with fields joined by ` :: `; `test_dispatch.sh`'s answers from environment variables and a JSON file of ticket rows (`FAKE_GH_TICKETS_FILE`). The board suite has its own fake under `mmw-v4/tests/board/github/`; the task board's harness answers each exact call from `.mmw/task-board/harness/github/responses.json`. `mmw-v4/tests/setup-mmw/test_setup.py` answers every `gh` command, and every `git` command of `labels.py` and `check.py`, with a fake inside the test. The verify-ticket suite runs against fixed ticket bodies, and `_load.py` makes `ticket_spec` answer `None`, so no module it loads asks the tracker which spec a ticket sits under.
+- **The tracker.** No test reaches GitHub. `test_dispatch.sh` and `test_relay.sh` put a fake `gh` on `PATH` that logs every call, one per line with fields joined by ` :: `; `test_dispatch.sh`'s answers from environment variables and a JSON file of ticket rows (`FAKE_GH_TICKETS_FILE`). The board suite has its own fake under `mmw-v4/tests/board/github/`. `mmw-v4/tests/setup-mmw/test_setup.py` answers every `gh` command, and every `git` command of `labels.py` and `check.py`, with a fake inside the test. The verify-ticket suite runs against fixed ticket bodies, and `_load.py` makes `ticket_spec` answer `None`, so no module it loads asks the tracker which spec a ticket sits under.
 - **Claude Design's preview server.** `mmw-v4/tests/design-pages/test_pull_design.py` starts a local fake that serves project files and the three runtime scripts.
 - **The runners.** `test_dispatch.sh` puts fake `paseo`, `herdr` and `orca` on `PATH`, each logging every call. `test_relay.sh` delivers through the real `runners/paseo.sh` adapter to a fake `paseo`. The liveness unit tests use a fake board and fake runner verbs. `mmw-v4/tests/dispatch/test_status.py` reads a fixed `paseo ls`/`inspect` snapshot.
 - **The hosts' model catalogs.** `mmw-v4/tests/dispatch/catalog.json` and `catalogs/` stand in for each host's catalog.
@@ -38,14 +38,13 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 - **A ticket's history.** `_load.py`'s `event` writes a comment the way the pipeline's scripts post one, and `checked` writes one `ticket.checked` event; the fake `gh` serves ticket rows from `FAKE_GH_TICKETS_FILE`.
 - **An open night.** Every `test_dispatch.sh` scenario runs with the night on spec 76 open: a stand-in process holds the relay's lock in the run's state directory and records that it watches spec 76. A scenario about opening, acking or refusing clears it first (`no_relay`).
 - **A broken skill set.** `test_check_wiring.py` and `test_check_interfaces.py` run on a copy of `mmw-v4/skills/` broken one way per case. `test_status.py` copies the dispatch and verify-ticket scripts to a temporary skill tree with a missing or corrupt `roles.json`. The `diagram-design` suite edits the skill's shipped example pages one way per case.
-- **The board's data.** The board suite reads the design package's example data under `efforts/task-board/example-data/`; the task board's harness (`.mmw/task-board/harness/target.py`) starts the real board under a lease, with a private `MMW_HOME` seeded from `hosts.json`.
+- **The board's data.** The board suite starts the real `mmw-v4/board/server.py` through `mmw-v4/tests/board/board_process.py`, its fake `gh` answering from the test's fixture; a node test writes a page module's input inside the test.
 
 ## Traps
 
 - A suite runs from inside a runner's session as easily as from a terminal. `test_dispatch.sh` and the board suite unset `PASEO_AGENT_ID`, `ORCA_TERMINAL_HANDLE`, `HERDR_PANE_ID` and every `NMEM_*` variable first: a scenario says which session it stands in, and nothing else may answer `self`.
 - A skip is a failure. `mmw-v4/tests/lib/run_unittests.py` exits 1 on a skip count other than 0 or a run count of 0, and the suite then withholds `all passed`; the `verify-ticket` suite fails without `node` rather than passing on half its tests.
 - The task board loads verify-ticket's `events.py` and `issue_tree.py` and dispatch's `ghlist.py`, `models.py`, `statedir.py` and `roles.json` by file path (`mmw-v4/board/codeversion.py` lists them): a change to one of them is a change to the board.
-- The board suite and `.mmw/task-board/harness/` read two scripts of `mmw-v3/skills/ui-acceptance/`, which v4 does not carry.
 - The design-pages offline check waits up to 15 seconds for visible content, then observes another 3 seconds for asynchronous console errors, exceptions and requests. It cannot establish what happens after that observation window.
 - The board and design-pages suites need Playwright's browsers. With Playwright cached, the board suite runs `uv` offline.
 
