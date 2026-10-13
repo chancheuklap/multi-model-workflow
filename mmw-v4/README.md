@@ -41,7 +41,7 @@ Each path ends in one pull request to the project branch, opened by the [Opening
 
 Several kinds of work commit directly without a ticket. The exception list is in [`mmw-mode`'s `references/owning-a-task.md` `## Playbooks`](./skills/mmw-mode/references/owning-a-task.md#playbooks). The [`exe-release`](./skills/exe-release/SKILL.md) skill packages the current branch as it stands, and a fix its build needs is committed there by the session driving the release and listed in its report.
 
-The full list of playbooks is the `## Playbooks` section of [`mmw-mode`'s `references/owning-a-task.md`](./skills/mmw-mode/references/owning-a-task.md). The Babysit, Shipping, Shared closing, Autonomous run, Orchestrate, Autopilot-full, Autopilot-stack, Multi-phase plan and Visual parity playbooks are retired. [`docs/retired-playbooks/README.md`](./docs/retired-playbooks/README.md) says what replaced each one.
+The full list of playbooks is the `## Playbooks` section of [`mmw-mode`'s `references/owning-a-task.md`](./skills/mmw-mode/references/owning-a-task.md). [`docs/retired-playbooks/README.md`](./docs/retired-playbooks/README.md) lists the retired playbooks and what replaced each one.
 
 ## Why there are planning playbooks
 
