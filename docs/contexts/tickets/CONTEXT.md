@@ -32,47 +32,12 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 The spec section of decisions made, in numbered subsections `### 1.` … that a ticket's `## Parent` points at. Each decision names its source, or carries the marker "this spec's decision" when no source settles it.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
-**API contract**:
-The Implementation Decisions subsection an effort with a screen contract always has, one entry per operation the screen contract's `calls` column names — its request fields, response fields and failure cases — which a new project's OpenAPI document starts from.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
-
-**cross-component composition**:
-The Implementation Decisions subsection an effort with a screen contract always has, one entry per **cross-component row**, naming the request fields that row's action carries and the state the other region enters.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
-
-**visual acceptance**:
-The Implementation Decisions paragraph, written only with a screen contract, stating that appearance is decided by **element parity**, citing the screen contract's pages (`App · ` pages included), with each design page's `mount` as the story page id.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
-
-**feature map**:
-One product's standing account of what a user can do now, where they enter, and which check guards each behaviour. Distinct from a screen contract, which records each control, and from a context glossary, which is not split by product.
-_Avoid_: verification map
-_Home_: `mmw-v3/skills/mmw-mode/references/feature-map.md`
-
-**sub-feature**:
-One observable behaviour inside a feature file, the unit a `source` and a `check` attach to. Distinct from a feature, which is one thing a user finishes from one entry.
-_Avoid_: test case
-_Home_: `mmw-v3/skills/mmw-mode/references/feature-map.md`
-
-**`existing` source**:
-The `source` written `existing <YYYY-MM-DD>` for a behaviour that was already in the product and that no decision record names. The date is the day it was written into the feature map. Distinct from a decision ticket, a spec subsection, a screen-contract row and an ADR.
-_Avoid_: legacy
-_Home_: `mmw-v3/skills/mmw-mode/references/feature-map.md`
-
-**`## Feature map changes`**:
-The spec section between `## Implementation Decisions` and `## Testing Decisions` that lists each feature file this spec adds or changes, or `none` when no behaviour a user can observe changes. The owner confirms that division.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
-
 **`## Testing Decisions`**:
 The spec section that says where a test observes the result, the seam and what is real on each side of it, each test layer's directory and precedent, how a test arrives at each state, and the commands to run before committing. A ticket's `## Seam` points into it, and its `CHECK:` and `EXPECT:` come from the precedent it names.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **How a test arrives at a state**:
 The Testing Decisions item naming, per test layer, what a test can and cannot write to reach a state, and the mechanism that reaches what a test cannot write through the seam. A ticket's `## Seam` names the mechanism it uses, and a state it names with no mechanism yet becomes a `reach` ticket.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
-
-**Critical flows**:
-The bullet of `## Testing Decisions`, written only in a spec with a screen contract, naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/<product>/journeys/` each one runs from and the Implementation Decisions section numbers it involves, which `--lint` reads to decide which journeys need `--break`.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **`## Out of Scope`**:
@@ -130,40 +95,8 @@ The final ticket of an expand-contract sequence whose migrate batches cannot eac
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
 **prefactor ticket**:
-The ticket cut ahead of several tickets that would otherwise all edit the same registration files: it owns those files and lands in one pass the entries they need, each naming a placeholder the ticket behind it fills, so each of those tickets is blocked by it alone. Where the spec has a screen contract, it is also the **contract ticket**.
+The ticket cut ahead of several tickets that would otherwise all edit the same registration files: it owns those files and lands in one pass the entries they need, each naming a placeholder the ticket behind it fills, so each of those tickets is blocked by it alone.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
-
-**design-system ticket**:
-The ticket that copies a design system's variables, fonts and part stylesheets from the design package's `_ds/` into the product, cut when the product lacks them and ahead of the **contract ticket**.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
-
-**contract ticket**:
-The ticket that lands or completes `.mmw/` so later tickets have a precedent to copy. Distinct from a **component page ticket**, which builds the product code of design pages, and from a **design-system ticket**, which does not depend on `.mmw/`.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
-
-**page ticket**:
-A ticket whose **Read first** carries a `screen-contract.yaml rows:` line: a component page or app page ticket. The contract, design-system and critical-flow tickets a screen contract also produces are not page tickets.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
-
-**component page ticket**:
-The ticket that takes one or more `Component · ` design pages and builds the product components they show. Distinct from the **app page ticket**, which takes an `App · ` page.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
-
-**app page ticket**:
-The ticket that takes one `App · ` page and builds the product's composition module for it, blocked by the **component page ticket** of every `Component · ` page it composes.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
-
-**critical-flow ticket**:
-The ticket for one **Critical flows** line, whose journey criterion runs with `--break`. Distinct from the **contract ticket**, whose smoke journey has no `--break`.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
-
-**static guards**:
-The contract ticket's repository-wide deliverables that every later page ticket adds to rather than owns alone: the UI takes no fake data, a `mount` is unique in one render, and a `data-ui` id repeats only on the repeating part of a list. Their criteria sit on the batch's last ticket.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
-
-**Shared journey helper**:
-The module under `.mmw/<product>/harness/`, built once by the contract ticket or the first journey ticket that needs it, for product access several journey tickets share (bringing the stack up, a health check, sign-in, a top-up). Later journey tickets import it.
-_Home_: `mmw-v3/skills/mmw-mode/references/cutting-interface-tickets.md`
 
 **ticket format**:
 The `verify-ticket` skill's `references/ticket-format.md`: a ticket's sections, `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`, how each criterion is written, and its labels. `verify-ticket.py` runs what it describes, so the Cut tickets and Bug fix playbooks write every ticket in it.
@@ -182,7 +115,7 @@ The sources the ticket's spec subsections cite, each read to its conclusion befo
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **baseline**:
-An item under `## Read first` that records a settled conclusion — a decision ticket's resolution, an ADR's decision, a research file's conclusion, a design package, a prototype's chosen artifact — which the worker follows rather than consults. The screen contract's `baselines.look` names the design package directory. In the configuration-management sense (IEEE Std 610.12), it is a reviewed and agreed item that further work builds on and that changes only through change control, which here is a `contract` child.
+An item under `## Read first` that records a settled conclusion — a decision ticket's resolution, an ADR's decision, a research file's conclusion, a design package, a prototype's chosen artifact — which the worker follows rather than consults. In the configuration-management sense (IEEE Std 610.12), it is a reviewed and agreed item that further work builds on and that changes only through change control, which here is a `contract` child.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Seam`**:
@@ -309,7 +242,7 @@ The fixed, minimal content of a `ready-for-human` ticket, the whole of it: **Par
 _Home_: `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 **retiring line**:
-The line a `reach` ticket adds naming what would retire it, that is, make the ticket no longer needed: a test account, a spare device, a CI runner, a mechanism under **How a test arrives at a state** nobody owns yet, or a `TESTING.md` rule that gives a test no exit. Distinct from the screen contract's `retired_ids`, where the same verb means withdrawn from use.
+The line a `reach` ticket adds naming what would retire it, that is, make the ticket no longer needed: a test account, a spare device, a CI runner, a mechanism under **How a test arrives at a state** nobody owns yet, or a `TESTING.md` rule that gives a test no exit.
 _Home_: `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 **`wontfix`**:
@@ -331,10 +264,6 @@ _Home_: `mmw-v3/skills/triage/OUT-OF-SCOPE.md`
 **decision ticket**:
 A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. It carries no state role and is not triaged. Its resolution comment is a baseline source.
 _Home_: `mmw-v3/skills/wayfinder/SKILL.md`
-
-**selection list**:
-The decision ticket a remake destination opens: the user picks, item by item, what from the old product to keep, each item naming its source path and which entry it feeds. The old design package, screen contract, boundary tests and journeys sit outside that choice; the remake produces its own.
-_Home_: `mmw-v3/skills/mmw-mode/references/interface-and-remake.md`
 
 **map**:
 Wayfinder's single issue labelled `wayfinder:map` and `mmw:map`, the index of an effort too large for one session. Its children are decision tickets and the specs published from it.
@@ -363,11 +292,11 @@ _Home_: `mmw-v3/skills/verify-ticket/references/linting.md`
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`, `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **lint**:
-`verify-ticket.py <n> --lint`: gate-lint plus the ticket-graph, worker-label and screen-contract checks, run on one ticket, on a spec's batch, or on the batch's drafts before publishing.
+`verify-ticket.py <n> --lint`: gate-lint plus the ticket-graph and worker-label checks, run on one ticket, on a spec's batch, or on the batch's drafts before publishing.
 _Home_: `mmw-v3/skills/verify-ticket/references/linting.md`
 
 **lint rule ID**:
-The string in `[brackets]` at the end of a lint finding's line, naming the check that reported it, as ESLint's and SARIF's `ruleId` does: a cycle in the batch's blocking edges, a worker-grade or layer label out of place, an unreadable `screen-contract.yaml rows:` line, a weak `EXPECT:`, and others. Always qualified: `retro`'s Rule id names a Nowledge Mem Rule.
+The string in `[brackets]` at the end of a lint finding's line, naming the check that reported it, as ESLint's and SARIF's `ruleId` does: a cycle in the batch's blocking edges, a worker-grade or layer label out of place, a weak `EXPECT:`, and others. Always qualified: `retro`'s Rule id names a Nowledge Mem Rule.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`, `mmw-v3/skills/verify-ticket/scripts/gate-check/gate-lint.mjs`
 
 **`ERROR`, `WARN`**:

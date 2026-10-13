@@ -148,6 +148,12 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Takes: no upstream intent.
     Home: none in the set yet; Memory returns with its own block.
 
+## UI acceptance
+
+42. **The design package is the UI's standard answer; e2e tests are written in the day and read-only at night.**
+    Takes: P9, adapted (verification skills are generated per product; tests are written in the day and read-only at night, rather than kept current by review).
+    Home: **To tickets** step **Write each acceptance criterion**; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `mmw-mode` skill's `references/ticket.md`.
+
 ## Departures
 
 What an upstream does and MMW deliberately does not, with the intents that decide it. A finding that proposes one of these back names what changed about the reason.

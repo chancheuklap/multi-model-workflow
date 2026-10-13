@@ -27,7 +27,7 @@ This toolbox (the toolbox): the skills the user shares across hosts, repositorie
 _Home_: `AGENTS.md`
 
 **consuming repository**:
-A repository whose real tickets run through the pipeline and which holds its **product answers** in `.mmw/` and each development effort's files in `efforts/<effort>/`. This repository is one too, for its own task board tickets.
+A repository whose real tickets run through the pipeline and which holds its product answers in `.mmw/` and each development effort's files in `efforts/<effort>/`. This repository is one too, for its own task board tickets.
 _Home_: `AGENTS.md`
 
 **repository root**:
@@ -68,7 +68,7 @@ One memory in Nowledge Mem, kept in the **repository Space** and found by its la
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
 **`docs/agents/`**:
-This repository's `domain.md`: how to read its contexts, ADRs and feature maps before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
+This repository's `domain.md`: how to read its contexts and ADRs before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
 _Home_: `docs/agents/domain.md`
 
 **`CONTEXT.md`**:
@@ -219,8 +219,8 @@ The skill that proves or disproves one claim and returns exactly one of `VERIFIE
 _Home_: `mmw-v3/skills/verify-this/SKILL.md`
 
 **feature map review**:
-One run of the `maintain-verification-skill` skill over one product's feature map. It ends as exactly one of **clean**, **changed**, or **blocked**. Distinct from a feature map (`docs/contexts/tickets/CONTEXT.md`) and from **verify-this**.
-_Home_: `mmw-v3/skills/maintain-verification-skill/SKILL.md`
+One owner-requested run of `maintain-verification-skill` over one product's feature map, distinct from the map itself (`docs/contexts/ui-acceptance/CONTEXT.md`) and from **verify-this**. Its outcome is **clean** when source and live coverage found nothing to ship, **changed** when proven corrections are committed and pushed, or **blocked** when coverage or safe shipping could not finish.
+_Home_: `mmw-v4/skills/maintain-verification-skill/SKILL.md`
 
 ### Skill-set review
 
@@ -363,7 +363,7 @@ A repository whose git config sets `core.hooksPath` never executes `.git/hooks/`
 _Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 
 **probe**:
-A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits. Distinct from an oracle's **negative control** (ui-acceptance), a pass built into the oracle itself.
+A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits.
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 ### Managing AGENTS.md
