@@ -47,7 +47,7 @@ The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s 
 
 - Planning. Chart the map, Work through the map, To spec, Revising a spec and To tickets.
 - Measurement and diagnosis. Hillclimb, Runtime forensics and Trace forensics.
-- Interfaces. Prototype, which is the `prototype` skill, and Visual parity.
+- Interfaces. Prototype, which is the `prototype` skill.
 - The skill set itself. Authoring or modifying a skill, and Eval.
 - The session itself. Session pickup, Pause safely, and Worktree and simulator cleanup.
 

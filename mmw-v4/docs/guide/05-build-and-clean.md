@@ -4,7 +4,7 @@ The build playbooks share one discipline. You say what you observed, and the pla
 
 ## Know who writes the code
 
-A worker the `dispatch` skill sends writes every change, and the session you opened never does. The session's part is to find the plan and write it into a ticket. [Bug fix](../../skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](../../skills/mmw-mode/playbooks/perf-issue.md), [Hillclimb](../../skills/mmw-mode/playbooks/hillclimb.md), [Feature](../../skills/mmw-mode/playbooks/feature.md), [Refactoring](../../skills/mmw-mode/playbooks/refactoring.md), [Visual parity](../../skills/mmw-mode/playbooks/visual-parity.md) and [Authoring or modifying a skill](../../skills/mmw-mode/playbooks/authoring-a-skill.md) all run the same way:
+A worker the `dispatch` skill sends writes every change, and the session you opened never does. The session's part is to find the plan and write it into a ticket. [Bug fix](../../skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](../../skills/mmw-mode/playbooks/perf-issue.md), [Hillclimb](../../skills/mmw-mode/playbooks/hillclimb.md), [Feature](../../skills/mmw-mode/playbooks/feature.md), [Refactoring](../../skills/mmw-mode/playbooks/refactoring.md) and [Authoring or modifying a skill](../../skills/mmw-mode/playbooks/authoring-a-skill.md) all run the same way:
 
 1. The first step opens a GitHub issue for the ticket, holding only `## Problem`: which playbook it needs, and what was seen, in your words. It also cuts a worktree `.worktrees/fix-<n>` on a branch `fix-<n>`. Whatever the session writes while it finds the plan (a reproduction, a benchmark harness, a sketch, a glossary entry) is committed there.
 2. The middle steps are the playbook's own: a bug is reproduced and diagnosed, a slowness measured, a feature designed.
@@ -58,13 +58,7 @@ hillclimb the search p50 on the 60k-row fixture. at least 40% better than baseli
 
 The session builds a measurement harness, proves it can tell a slow case from a fast one, vets it with the benchmark-checklist skill, and freezes it. It opens a decision log `decision.tsv` under `efforts/<effort>/` whose first row is the baseline. The ticket carries the loop, and the worker runs it: one hypothesis per attempt, measured before and after, kept only when the number moves past noise and the regression tests stay green, otherwise reverted in full. Every attempt gets a row, kept or reverted. The session then runs the frozen harness itself and checks that each kept row has its commit and each reverted row left nothing behind.
 
-For pixel-exact UI work, use **Visual parity**:
-
-```text
-migrate the settings panel to the new styling system. it must match the current screenshots pixel for pixel.
-```
-
-It builds the screenshot baseline before any change. It never edits the harness or the baseline to make a diff pass. It migrates one component at a time until the image diff is zero.
+To match a design pixel for pixel, write a `toHaveScreenshot` test in `tests/e2e/<product>/` when preparing the ticket, following `verify-<product>`. To align two implementations pixel for pixel, use Refactoring with the screenshot test as its pin.
 
 Sometimes you want the cause before any fix. For a live symptom, such as a leak, an idle CPU spin, or a visual glitch, the [Runtime forensics playbook](../../skills/mmw-mode/playbooks/runtime-forensics.md) instruments the running process. For a profile you already captured, the [Trace forensics playbook](../../skills/mmw-mode/playbooks/trace-forensics.md) reads the file and maps the hot frame to source. Both return a diagnosis, not a fix:
 

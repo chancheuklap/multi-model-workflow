@@ -1,6 +1,6 @@
 # Ticket template
 
-The body of each GitHub issue the To tickets playbook (`../playbooks/to-tickets.md`) publishes, and of each ticket a playbook opens outside any spec: Bug fix, Perf issue, Hillclimb, Feature, Refactoring, Visual parity, and Authoring or modifying a skill. Replace each section's guidance with the content.
+The body of each GitHub issue the To tickets playbook (`../playbooks/to-tickets.md`) publishes, and of each ticket a playbook opens outside any spec: Bug fix, Perf issue, Hillclimb, Feature, Refactoring, and Authoring or modifying a skill. Replace each section's guidance with the content.
 
 <issue-template>
 
