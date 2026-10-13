@@ -142,27 +142,19 @@ def fetch(url: str, attempts: int = FETCH_ATTEMPTS, pause: float = 1.0) -> bytes
 
 
 def strip_injected_head(raw: bytes) -> bytes:
-    """Remove the preview server's injected `<style>`/`<script>` right after `<head>`.
-
-    Measured 2026-09-21 on a live project, the injection is `\\n<style …></style><script
-    …></script>\\n`, both newlines its own: that exact shape is removed whole. Any other
-    run of injected tags after `<head>`, with whitespace between them, is removed up to
-    the end of its last tag; whitespace the injection brought and that removal leaves
-    behind is not an error.
-    """
     head = HEAD.search(raw)
     if head is None:
         return raw
     cursor = head.end()
     if raw[cursor:cursor + 1] == b"\n":
-        end = cursor + 1
-        tags = 0
-        while (tag := INJECTED_TAG.match(raw, end)) is not None:
-            end = tag.end()
-            tags += 1
-        if tags and raw[end:end + 1] == b"\n":
-            return raw[:cursor] + raw[end + 1:]
-    removed_to = cursor
+        injected_end = cursor + 1
+        injected_count = 0
+        while (tag := INJECTED_TAG.match(raw, injected_end)) is not None:
+            injected_end = tag.end()
+            injected_count += 1
+        if injected_count and raw[injected_end:injected_end + 1] == b"\n":
+            return raw[:cursor] + raw[injected_end + 1:]
+    whitespace_tolerant_end = cursor
     while True:
         start = cursor
         while start < len(raw) and raw[start:start + 1].isspace():
@@ -170,11 +162,11 @@ def strip_injected_head(raw: bytes) -> bytes:
         tag = INJECTED_TAG.match(raw, start)
         if tag is None:
             break
-        removed_to = tag.end()
+        whitespace_tolerant_end = tag.end()
         cursor = tag.end()
-    if removed_to == head.end():
+    if whitespace_tolerant_end == head.end():
         return raw
-    return raw[:head.end()] + raw[removed_to:]
+    return raw[:head.end()] + raw[whitespace_tolerant_end:]
 
 
 def css_references(text: str) -> list[str]:
@@ -185,9 +177,6 @@ def css_references(text: str) -> list[str]:
 
 
 class _ReferenceParser(HTMLParser):
-    """Relative references a page loads: resource attributes, `srcset`, inline and
-    `<style>` CSS, and the page each `dc-import`/`x-import` names."""
-
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.refs: list[str] = []
@@ -220,8 +209,6 @@ class _ReferenceParser(HTMLParser):
 
 
 def resolve_reference(base: str, raw: str) -> str | None:
-    """The project path a reference in `base` points to, or None when it leaves the
-    project (another origin, a scheme, a fragment, a template expression)."""
     raw = raw.strip()
     if not raw or raw.startswith("#") or "{{" in raw:
         return None
@@ -255,7 +242,6 @@ def file_references(path: str, body: bytes) -> list[str]:
 
 @dataclass
 class Inventory:
-    """The project files pulled so far, found from the pages outward."""
     preview: str
     staged: Path
     pulled: set[str] = field(default_factory=set)
@@ -277,7 +263,6 @@ class Inventory:
         return body
 
     def pull(self, paths: list[str], referrer: str | None, missing_ok: bool = False) -> None:
-        """Download paths and their references; only an optional root may answer 404."""
         queue = [(path, referrer) for path in paths]
         while queue:
             path, source = queue.pop(0)

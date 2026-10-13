@@ -1,10 +1,3 @@
-"""pull_design.py: a project's pages become one complete design package.
-
-The command is the seam. A local preview server supplies the project files and the
-three vendor scripts; assertions observe only its exit, output, the target tree, and
-which paths the server was asked for.
-"""
-
 from __future__ import annotations
 
 import os
@@ -29,8 +22,6 @@ INJECTED = (
     b'\n    <style data-omelette-injected>body{outline:0}</style>\n    '
     b'<script data-omelette-injected>window.__preview=true</script>'
 )
-# The shape measured on a live project on 2026-09-21: tags back to back, wrapped in
-# newlines.
 INJECTED_LIVE = (
     b'\n<style data-omelette-injected>html,body{background:transparent}</style>'
     b'<script data-omelette-injected>(()=>{})();</script>\n'
@@ -46,8 +37,6 @@ class Preview:
             "styles/app.css": (FIXTURE / "styles" / "app.css").read_bytes(),
             "assets/logo.png": b"fixture-png-with-source-metadata",
         }
-        # Paths under this prefix answer 200 with any name, for a page that asks for a
-        # new file on every render.
         self.any_name_prefix: str | None = None
         self.vendors = {
             "react.production.min.js": b"window.__reactVendor = true;\n",
