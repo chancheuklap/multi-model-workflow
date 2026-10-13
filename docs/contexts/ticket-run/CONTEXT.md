@@ -72,7 +72,7 @@ What a `ticket.claimed` or any `*.started` begins on a ticket, and what the even
 _Home_: `mmw-v3/skills/verify-ticket/scripts/events.py`
 
 **held**:
-What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. Distinct from a product **slot**, which a worktree keeps until its ticket's work ends, and from **`blocker_hold`**, the wait on a blocker that has not landed.
+What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. Distinct from **`blocker_hold`**, the wait on a blocker that has not landed.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/events.py`
 
 **`blocker_hold`**:
@@ -230,12 +230,8 @@ One review of a ticket's diff by the reviewer, ending with one **review report**
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **axis**:
-One dimension of a code review — Standards, Spec, Tests, and UI when the ticket has a story criterion — run as a subagent of the reviewer where the host can run one, and by the reviewer itself in turn where it cannot.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
-
-**story criterion**:
-A `CHECK:` that names `story-parity.py`: what tells the reviewer to run a fourth axis, UI. The `ui-acceptance` skill's `references/writing-interface-code.md` is read when **Read first** lists a screen contract, not because of this criterion.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
+One dimension of a code review: Standards, Spec, Tests, or Correctness. The reviewer runs each as a subagent where the host can run one, and otherwise runs them itself in turn.
+_Home_: `mmw-v4/skills/code-review/SKILL.md`
 
 **Holds / `refuted` / Could not tell**:
 The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or **Could not tell** (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across the `Review a ticket` and `Work a ticket` playbooks.
@@ -260,10 +256,6 @@ _Home_: `mmw-v3/skills/code-review/references/spec-reviewer.md`
 **semantic-conflict angles**:
 The Spec axis's review of this ticket together with every ticket `dispatch.sh integrated <ticket>` lists as already integrated into the base branch, for semantic conflicts (Martin Fowler, SemanticConflict: changes that merge cleanly as text but make the program behave differently), from four angles: **Combination behavior** (behaviours that pass alone still work together), **Contract consistency** (data models, interfaces, schemas and registries agree across tickets), **Migration completeness** (migrations run in the right order with every companion present), and **Shared-state ownership** (both tickets agree on ownership, ordering and lifecycle of shared state). Another ticket's own passed verdict is evidence of what ran, not proof the combination is correct.
 _Home_: `mmw-v3/skills/code-review/references/spec-reviewer.md`
-
-**`unpaired-decoration` / `overall-look` / `design-page-wrong`**:
-The UI axis's three kinds of review finding, each about what its story screenshots show that element parity does not already cover: **`unpaired-decoration`** (a design-page decoration with no `data-ui` id, so element parity cannot pair it, missing, extra or misplaced in the submitted story), **`overall-look`** (the submitted story's overall look against the design page, not named by any `DIFF` line), and **`design-page-wrong`** (the design page itself is drawn wrong; the repair is not a product change).
-_Home_: `mmw-v3/skills/code-review/references/ui-reviewer.md`
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.

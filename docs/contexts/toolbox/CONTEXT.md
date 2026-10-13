@@ -68,7 +68,7 @@ One memory in Nowledge Mem, kept in the **repository Space** and found by its la
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
 **`docs/agents/`**:
-This repository's `domain.md`: how to read its contexts, ADRs and feature maps before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
+This repository's `domain.md`: how to read its contexts and ADRs before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
 _Home_: `docs/agents/domain.md`
 
 **`CONTEXT.md`**:
@@ -219,8 +219,8 @@ The skill that proves or disproves one claim and returns exactly one of `VERIFIE
 _Home_: `mmw-v3/skills/verify-this/SKILL.md`
 
 **feature map review**:
-One run of the `maintain-verification-skill` skill over one product's feature map. It ends as exactly one of **clean**, **changed**, or **blocked**. Distinct from a feature map (`docs/contexts/tickets/CONTEXT.md`) and from **verify-this**.
-_Home_: `mmw-v3/skills/maintain-verification-skill/SKILL.md`
+One owner-requested run of `maintain-verification-skill` over one product's feature map, distinct from the map itself (`docs/contexts/ui-acceptance/CONTEXT.md`) and from **verify-this**. Its outcome is **clean** when source and live coverage found nothing to ship, **changed** when proven corrections are committed and pushed, or **blocked** when coverage or safe shipping could not finish.
+_Home_: `mmw-v4/skills/maintain-verification-skill/SKILL.md`
 
 ### Skill-set review
 
