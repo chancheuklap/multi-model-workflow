@@ -5,7 +5,7 @@ import { designPage } from './helpers/design.ts';
 
 test('pins a note and keeps it pinned after refresh', async ({ app, screen, browser }) => {
 	if (app.baseUrl === undefined) throw new Error('Notes targets require app.url');
-	const isDesign = new URL(app.baseUrl).pathname === '/design/notes/';
+	const isDesign = new URL(app.baseUrl).pathname === '/notes/';
 
 	if (isDesign) {
 		await app.open(designPage({ route: '/notes', state: 'pinned' }));

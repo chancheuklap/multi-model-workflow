@@ -26,8 +26,11 @@ The spec's interface contracts and schema changes define the data shape.
 The test creates its data through the UI or the API the page itself calls.
 Copy expected values from the design page as literals in the test. Put repeated
 login or activation steps in `tests/e2e/<product>/helpers/`, using the test
-accounts named in Rules. Each run starts its own fresh local back end or data
-directory, not pre-existing records. Design-package data is for drawing only;
+accounts named in Rules. Each product run starts its own fresh local back end and empty data
+directory, not pre-existing records. A dependency stack follows Launch's
+per-checkout isolation; sharing that stack does not mean sharing product
+records. If it stores product records, give each run its own data through the
+product's existing isolation support. Design-package data is for drawing only;
 the product target reads none of it.
 
 Turn the feature file's stored half of `Proof` into an assertion: after the
@@ -65,9 +68,11 @@ feature. Its `start` package command accepts `--port` and `--temporary-data`,
 creates an empty temporary data directory, runs migrations, and removes its
 own instance and scratch data on exit. A Notes app with an external back-end
 stack calls its ensure script from that command. The design target serves the
-repository root, so its base URL path `/design/notes/` identifies that target
+design directory only, so its base URL path `/notes/` identifies that target
 to the test without a model or an invented e2e fixture. The page
 `design/notes/notes-pinned.html` draws the `Release checklist` note with status
 `Pinned` and the `Unpin Release checklist` button. The product preparation
-creates and pins the same note; both targets use the same visible assertions
+creates and pins the same note. The example disables retries because the
+product data directory is fresh per run, not per attempt; rerun the CHECK for
+a fresh directory after a failure. Both targets use the same visible assertions
 before and after refresh.

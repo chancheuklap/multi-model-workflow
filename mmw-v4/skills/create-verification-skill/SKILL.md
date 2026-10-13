@@ -35,6 +35,10 @@ observe.
 | Isolate | Can each run have its own port and data directory, and each checkout its own back-end stack? | Both layers are required in Launch, as below. If either cannot hold, open a prerequisite ticket before this product gets UI tickets |
 | Name | The package name or the repo name; if `design/<x>/` or `verify-<x>` exists, use x | `<product>` in `verify-<product>`, lowercase, no scope. A name mismatch makes setup-mmw report a missing `verify-<x>` |
 
+For a new project without code, use the design-package branch below; the
+product launch is proved by the first night's smoke ticket. For an existing
+product:
+
 If the checkout does not build or start as-is, fix that first or report it
 precisely before generating. A skill written against a broken base teaches
 wrong steps. An irrelevant missing asset (a static dir the API never
@@ -47,11 +51,17 @@ existing file only where the app contradicts it.
 
 ## 2. Generate the skill
 
-Install `e2e` and `@e2e-dev/web` in the product repository's `devDependencies`
+Before writing, record the checkout's existing changes with `git status` and
+`git diff`. Preserve those changes throughout generation and commit only this
+run's changes, using selective staging when a file already had edits.
+
+Install any missing `e2e` and `@e2e-dev/web` packages in the product repository's `devDependencies`
 with its package manager. The CHECK installs dependencies in an empty checkout;
 the repository's lockfile pins the versions, and collaborators without MMW can
 run them. The packages have no post-install script. Write
-`tests/e2e/<product>/e2e.config.ts` yourself, add `.e2e/` to the root `.gitignore`
+`tests/e2e/<product>/e2e.config.ts` yourself when absent; read an existing
+config and change only what the product or these requirements contradict.
+Add `.e2e/` to the root `.gitignore` only when missing,
 without a leading slash so it covers every depth, and run
 `npx @e2e-dev/web install chromium` once per machine. Otherwise the first test
 run downloads the browser and spends the check's time on it.
@@ -74,9 +84,10 @@ the design instead of the product.
 
 Write `.agents/skills/verify-<product>/SKILL.md` with YAML frontmatter.
 `name: verify-<product>` and `description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.`
-Without frontmatter the skill never registers. When the project has
-`.claude/skills/`, link it with a relative symlink `.claude/skills/verify-<product>`
-to `../../.agents/skills/verify-<product>`. Every section says what the interview
+Without frontmatter the skill never registers. When
+the project has `.claude/skills/`, link it the way `e2e init` does, a
+relative symlink `.claude/skills/verify-<product>` to
+`../../.agents/skills/verify-<product>`. Every section says what the interview
 found, no placeholders.
 
 When the design package has a feature the product does not yet have, including
@@ -86,11 +97,11 @@ all features of a new project without code, open
 | Section | Holds |
 | --- | --- |
 | Read first | One line naming `npx e2e guide <topic>`, config `tests/e2e/<product>/e2e.config.ts`, and test directory `tests/e2e/<product>/` |
-| Launch | The exact command that starts the app for verification and how readiness shows. Launch must reach a usable state from an empty data dir, including any migrations. Ready means usable, not just that a process answers. The product target uses the real local back end. Include both isolation layers and the complete CHECK line described below |
-| Doctor | One read-only check that answers "is this instance worth driving?". For a Docker Compose back end, first check that Docker is running and the stack is reachable. `npx e2e list --config tests/e2e/<product>/e2e.config.ts` loads the config and prints every test-target pair without starting anything, so a config error or unsupported Node version shows here first. Then run the smoke test on `--target product` with the same config. Exit `0` means the app starts, the engine runs, and the landmark renders. No smoke test in the project: write `tests/e2e/<product>/smoke.e2e.ts` now. A signed-in app's auth doctor is its session setup test. Run Doctor only to investigate a failure |
+| Launch | The exact command that starts the app for verification and how readiness shows. Launch must reach a usable state from an empty data dir, including any migrations. Ready means usable, not just that a process answers. Say which ports and env the command needs. The product target uses the real local back end. Include both isolation layers and the complete CHECK line described below |
+| Doctor | One read-only check that answers "is this instance worth driving?". For a Docker Compose back end, first check that Docker is running and the stack is reachable. `npx e2e list --config tests/e2e/<product>/e2e.config.ts` loads the config and prints every test-target pair without starting anything, so a config error or unsupported Node version shows here first. Then run the smoke test, a model-free test that opens the app and pins one landmark, on `--target product` with the same config. Exit `0` means the app starts, the engine runs, and the landmark renders. No smoke test in the project: write `tests/e2e/<product>/smoke.e2e.ts` now. A signed-in app's auth doctor is its session setup test. Run Doctor only to investigate a failure |
 | Drive | Scripted: a test under `tests/e2e/<product>/`, using `screen` to find elements by roles, visible names, and labels (topic `writing-tests`). Name the credentials and sessions a signed-in drive starts from. Check locators by running the smoke test or this test and reading its `trace.md`; test against `design` when writing in the day. During maintenance, walk a feature without tests with the control-ui skill |
 | Evidence | What a proof keeps and where. Every run writes `.e2e/report.json`; a failed test gets `.e2e/results/<test>/trace.md`, `--trace on` gives one to passing tests too (topic `running`), `app.screenshot('<name>')` saves a named frame (topic `writing-tests`). The next run clears `.e2e/results/`, Doctor included, so a proof that must outlive it runs with `--output .e2e/proof/<name>` or its attempt directory is copied out before anything else runs. State the proof standards (below) |
-| Cleanup | What to tear down. The runner stops the app it started. Never kill by process name; stop what you started. Cleanup removes instances and scratch state (test accounts, scaffolding), never the evidence; name where the evidence is |
+| Cleanup | What to tear down. The runner stops the app it started; a server the user started stays theirs. Never kill by process name; stop what you started. Cleanup removes instances and scratch state (test accounts, scaffolding), never the evidence; name where the evidence is |
 | Rules | Do not connect to production servers, including SSH just to read files. Do not change main-branch code. Use test accounts, test licenses, local test servers and databases, and PC test machines wherever needed. Name credentials here, never passwords. External paid APIs are tested features too; call them. For desktop products set `workers: 1` |
 | Helpers | Any script the skill ships is executable and its invocation is in the skill body. A helper the reader has to reverse-engineer is not a helper. Most projects need none; the e2e CLI is the helper |
 
@@ -102,7 +113,10 @@ checkout's stack, reuse it when reachable, and start it only when unreachable.
 Runs in the same checkout share that stack; the next ensure call from any
 checkout collects stacks of deleted checkouts. This is not a registry or a
 lease, just separate stacks per checkout. Show the ensure script's invocation
-in Launch and ship it as a Helper.
+in Launch and ship it as a Helper. Use the stack's existing idempotent
+lifecycle command so overlapping ensure calls converge on that checkout's
+one stack. If the stack runs checkout code, its readiness check must establish
+that the running code is current, not just that a port answers.
 
 If ports or data directories are fixed, or the stack cannot be separated by
 checkout, open a prerequisite ticket with only `## Problem`, labelled
@@ -140,9 +154,11 @@ A ticket's acceptance tests go in a new test file of their own under tests/e2e/<
 Register it on the feature file's `Tests:` line. Sharing another ticket's pin
 file makes that pin fail for an unrelated reason; two criteria running the
 same file overwrite its output. Keep one CHECK for that acceptance file.
-Write `TIMEOUT: <seconds>` from the measured cold-start time, in the format of
-the mmw-mode skill's `references/ticket.md`: preflight starts a cold back-end
-stack in a new checkout.
+Measure the entire CHECK line in a fresh checkout: dependency install,
+preparation, cold back-end startup, and the test run together. Only when it
+exceeds 600 seconds, write `TIMEOUT: <seconds>` from that measured time, in
+the format of the mmw-mode skill's `references/ticket.md`. TIMEOUT governs
+the whole CHECK; preflight's back-end stack is cold in its new checkout.
 
 Proof standards, for the Evidence section: exercise the real user path,
 not internal setters or test-only endpoints; capture the action and the
@@ -156,7 +172,8 @@ skips by watching files, network, and refs rather than trusting its name.
 
 Create one file per user-facing feature under
 `.agents/skills/verify-<product>/features/`, the top three to five first, from
-routes, navigation, commands, or docs. Each file starts with these three lines:
+routes, navigation, commands, or docs. Follow
+`references/example/pin-note.md` for the feature file. Each file starts with these three lines:
 
 ```text
 # <feature name>
@@ -192,15 +209,19 @@ Run its own instructions end to end once, from a shell in the project.
 
 1. Install the browser, then Doctor: the `npx e2e list` call the skill names,
    then the smoke test; both include the product's config and exit `0`.
-   For a new project without code, record the first night's smoke ticket as
-   the pending proof of the product launch.
+   For a new project without code, run list and smoke against `design`;
+   record the first night's smoke ticket as the pending proof of the product
+   launch.
 2. Drive one mapped feature through its test file. One is enough; the map
    exists so later runs cover the rest. A missing test: write it now from
    the feature file, checking locators by running it and reading `trace.md`.
    For the design-package branch, run the same test against both targets:
-   design passes and product fails for the missing feature.
-3. Measure cold startup for `TIMEOUT:` and run the entire Launch CHECK line
-   once, including its dependency install and preparation.
+   design passes and product fails for the missing feature. Without product
+   code, prove this feature on design and record the pending product proof.
+3. Run and measure the entire Launch CHECK line once in a fresh checkout,
+   including dependency install, preparation, cold back-end startup, and tests.
+   Write `TIMEOUT:` only when that total exceeds 600 seconds. Without product
+   code, measure the design CHECK and leave the product CHECK to the smoke ticket.
 4. Cleanup, then confirm the evidence still exists at the named location.
    A cleanup that eats the proof fails this step.
 
@@ -212,7 +233,8 @@ fresh VM, a local stack in place of a remote one, Mac development mode in place
 of the shipped app), list every setup step the stand-in did that the target
 will not. Those steps stay unverified until a run on the real target covers them.
 
-Commit the generated skill, feature map, root `.gitignore` line, tests and
+Commit the generated skill, feature map, the relative
+`.claude/skills/verify-<product>` link when created, root `.gitignore` line, tests and
 config under `tests/e2e/`, and `package.json` and lockfile changes directly on
 the current checkout's project branch, without a ticket. Commit and push before the next
 `dispatch.sh open`: ticket checkouts start from `origin`, so local-only files

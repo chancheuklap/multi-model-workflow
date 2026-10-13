@@ -1,16 +1,13 @@
 // tests/e2e/notes/helpers/design.ts
 const pages = {
 	'/notes': {
-		unpinned: '/design/notes/notes-unpinned.html',
-		pinned: '/design/notes/notes-pinned.html',
+		unpinned: '/notes/notes-unpinned.html',
+		pinned: '/notes/notes-pinned.html',
 	},
 };
 
-type NotesPage = {
-	route: keyof typeof pages;
-	state: keyof (typeof pages)['/notes'];
-};
-
-export function designPage({ route, state }: NotesPage): string {
+export function designPage<Route extends keyof typeof pages>(
+	{ route, state }: { route: Route; state: keyof (typeof pages)[Route] },
+) {
 	return pages[route][state];
 }
