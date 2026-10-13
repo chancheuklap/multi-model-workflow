@@ -2777,13 +2777,17 @@ advance() {
   stop_returned_ticket_agents "$spec" \
     || echo "dispatch: could not finish checking returned tickets under #$spec" >&2
 
-  # The first plan says what to merge and which claims to give back. Its stderr repeats
-  # in the second plan, which is the one read for what to start, so it is shown only
-  # when the plan could not be made at all.
-  local plan plan_err
+  # Ordinary frontier notes repeat in the second plan. A cap failure in either read
+  # must stay visible even if the configuration is repaired before the second read.
+  local plan plan_err plan_status cap_failed=0
   plan_err="$(mktemp)"
-  plan="$(python3 "$STATUS" --advance-plan "$spec" 2>"$plan_err")" \
-    || { cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec"; }
+  plan="$(python3 "$STATUS" --advance-plan "$spec" 2>"$plan_err")"
+  plan_status=$?
+  case "$plan_status" in
+    0) ;;
+    3) cap_failed=1; cat "$plan_err" >&2 ;;
+    *) cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec" ;;
+  esac
   rm -f "$plan_err"
 
   # One failed landing does not stop the rest of the batch; bounced tickets are tracked
@@ -2842,11 +2846,16 @@ advance() {
   # What to start is read again, now that the merges above are recorded as landed and
   # the claims given back: a merge that could not happen and wrote no `ticket.landed`
   # left no `ticket.landed`, so the tickets it blocks stay blocked.
-  plan="$(python3 "$STATUS" --advance-plan "$spec")" \
-    || refuse "could not read the batch under #$spec again after its merges, so nothing was started"
+  plan="$(python3 "$STATUS" --advance-plan "$spec")"
+  plan_status=$?
+  case "$plan_status" in
+    0) ;;
+    3) cap_failed=1 ;;
+    *) refuse "could not read the batch under #$spec again after its merges, so nothing was started" ;;
+  esac
 
-  # Every ticket on the frontier is started: how many work at once is the frontier's
-  # answer alone.
+  # Start every DISPATCH line; the plan limits the frontier to the room left under
+  # models.json's max_workers, so this loop does not count concurrent tickets itself.
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     case " $bounced_this_advance " in *" $number "*) continue ;; esac
@@ -2863,8 +2872,13 @@ advance() {
   # first round's starts are all on the tracker, and touching only the tickets this
   # call itself just bounced.
   if [ -n "$bounced_this_advance" ]; then
-    plan="$(python3 "$STATUS" --advance-plan "$spec")" \
-      || refuse "could not read the batch under #$spec a third time, after its bounces, so the returned tickets were not restarted"
+    plan="$(python3 "$STATUS" --advance-plan "$spec")"
+    plan_status=$?
+    case "$plan_status" in
+      0) ;;
+      3) cap_failed=1 ;;
+      *) refuse "could not read the batch under #$spec a third time, after its bounces, so the returned tickets were not restarted" ;;
+    esac
     for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
       case " $bounced_this_advance " in *" $number "*) ;; *) continue ;; esac
       if bash "$SELF" ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} start "$number" worker; then
@@ -2885,6 +2899,7 @@ advance() {
   # what it names is fixed and advance is run again.
   [ "$failed" -eq 0 ] || exit 2
   [ "$refused" -eq 0 ] || exit 4
+  [ "$cap_failed" -eq 0 ] || exit 2
 }
 
 # ------------------------------------------------------------------ landing

@@ -19,7 +19,8 @@ whether it passed, landed or came back — is the fold of its comments' events, 
 `issue_tree.py` is read from beside it). Nothing here asks a runner what it is running: a
 runner answers for one machine, and the ticket answers for all of them. Nothing this
 program does needs a model, and nothing it does writes to the tracker. Each invocation is
-a full re-read.
+a full re-read. The dispatch cap is read from models.json through the models.py beside
+this file; it is a machine setting, not a second source of ticket state.
 """
 
 from __future__ import annotations
@@ -612,7 +613,8 @@ def advance_plan(spec: int) -> int:
                             closed first at the top
         RELEASE <ticket>    in the agent queue and claimed by this pipeline, and an
                             event has ended every hold on it: the worker is gone
-        DISPATCH <ticket>   on the frontier as the tracker stands now, in ticket order
+        DISPATCH <ticket>   on the frontier as the tracker stands now, in ticket order,
+                            as many as max_workers leaves room for
 
     The frontier reads the tracker as it stands: a merge this plan asks for unblocks
     nothing until its `ticket.landed` is on the ticket. `dispatch.sh` therefore asks for
@@ -629,7 +631,14 @@ def advance_plan(spec: int) -> int:
     Whether a commit exists and whether it is already in `origin/<base branch>` are git's
     questions, and git is not this program's source. `dispatch.sh` asks them.
 
-    What no line accounts for goes to stderr: an empty frontier with tickets still in
+    max_workers is read through models.py. Each held row counts once, including a
+    passed ticket that has not landed. An unreadable cap prevents only dispatch, not
+    merges or releases, and returns 3 after printing those lines. dispatch.sh carries
+    them out and reports the cap failure after its other work.
+    Unreadable ticket events prevent dispatch because occupancy
+    cannot be established, without changing the definition of a holder.
+    Every frontier ticket waiting for room is named on stderr,
+    with the cap and the held ticket numbers. An empty frontier with tickets still in
     the agent queue names every one of them and the condition holding it.
     """
     numbers = sub_issues(spec)
@@ -674,11 +683,47 @@ def advance_plan(spec: int) -> int:
         print(f"RELEASE {row['ticket']}")
         row["assignees"] = [a for a in row["assignees"] if a != login]
     ready = frontier(rows)
-    for row in ready:
-        print(f"DISPATCH {row['ticket']}")
+    holders = [row["ticket"] for row in held(rows)]
+    models = None
+    models_path = Path(__file__).resolve().with_name("models.py")
+    plan_exit = 0
+    try:
+        models_spec = importlib.util.spec_from_file_location("mmw_status_models", models_path)
+        module = importlib.util.module_from_spec(models_spec)
+        models_spec.loader.exec_module(module)
+        models = module
+        cap = models.max_workers()
+    except (ValueError, OSError) as exc:
+        plan_exit = 3
+        source = models.models_json_path() if models is not None else models_path
+        reason = str(exc)
+        if models is None:
+            remedy = f"repair {models_path} and its role configuration"
+        elif isinstance(exc, models.InvalidConfig):
+            remedy = "fix the configuration with models.py config set max_workers <n>"
+        else:
+            if isinstance(exc, models.ConfigMissing):
+                reason = f"no models.json at {source}"
+            remedy = (f"restore a readable configuration object at {source}, "
+                      "then run models.py config set max_workers <n>")
+        print(f"dispatch: no DISPATCH from {source}; "
+              f"cannot read max_workers: {reason}; {remedy}",
+              file=sys.stderr)
+    else:
+        unread = [row for row in rows if row["unreadable"]]
+        places = 0 if unread else max(0, cap - len(holders))
+        for row in ready[:places]:
+            print(f"DISPATCH {row['ticket']}")
+        for row in ready[places:]:
+            print(f"dispatch: #{row['ticket']} waits for room; max_workers={cap}; "
+                  f"held tickets: {', '.join(f'#{n}' for n in holders) or 'None'}"
+                  + ("; cannot determine occupancy: " + ", ".join(
+                      f"#{item['ticket']} ({item['unreadable']})" for item in unread)
+                      + "; retry advance when these tickets can be read" if unread else ""),
+                  file=sys.stderr)
     if not ready:
         explain_empty_frontier(rows, spec)
-    return 0
+    return plan_exit
 
 
 def reverify_plan(spec: int) -> int:

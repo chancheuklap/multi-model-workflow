@@ -65,6 +65,7 @@
 | [0044](0044-feature-map-kept-true-in-the-flow.md) | feature map 靠流程里的环节保持为真：lint、同一提交、Spec 轴读 Owns 里的功能文件、读到不对当场处理、retro 的 `feature-fact`，改「产品能做什么」之前先经主人确认；复核只在主人要求时做 | 2026-10-09 | 0041 | 无 |
 | [0045](0045-the-final-proof-is-the-newest-worker-run-at-head.md) | 关票的最终证明是 `HEAD` 上最新的一次 worker 运行：关票接受的和关票评论引用的是同一次；第一次运行之后没有新提交时，就是第一次运行 | 2026-10-09 | 0026 | 无 |
 | [0046](0046-a-skill-change-runs-the-general-flow.md) | 一次技能改动和别的项目一样走通用流程：先读技能集的标准，按大小走 Make a small change 或 Write a spec，最后证明一次 | 2026-10-09 | 0040、0043 | 无 |
+| [0047](0047-a-night-dispatches-only-into-free-places.md) | 一夜同时被持有的票数以 `models.json` 的 `max_workers` 为上限（默认 3），`advance` 只派出上限剩下的空位 | 2026-10-13 | 无 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

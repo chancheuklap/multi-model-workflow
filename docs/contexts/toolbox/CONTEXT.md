@@ -118,8 +118,8 @@ The rule that a skill's frontmatter `disable-model-invocation: true` (read by Cl
 _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **`models.json`**:
-The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per session role `roles.json` lists (`junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`), with its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
-_Home_: `mmw-v3/skills/dispatch/references/editing-models.md`
+The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per session role `roles.json` lists (`junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`), with its host, model and `effort`, and `max_workers`, how many of one night's tickets may be held at once. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
+_Home_: `mmw-v4/skills/dispatch/scripts/models.py`
 
 **`MMW_HOME`**:
 The machine's MMW directory, `~/.mmw` unless the variable names another, as `home()` in the dispatch skill's `statedir.py` resolves it. It holds `models.json` and its lock `models.lock`, the task board's `boards.json` and `board.log`, and `state/<owner>__<name>/`, one 0700 **state directory** per repository; `install.sh` also writes `installed-root` under `~/.mmw` itself. Not one byte of ticket state lives there: a ticket's state is its events.
