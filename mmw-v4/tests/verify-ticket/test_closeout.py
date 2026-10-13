@@ -933,18 +933,16 @@ class TestRepositoryCheck(unittest.TestCase):
             self.assertEqual(result["status"], "missing")
             self.assertIn(str(root / "scripts" / "check"), result["detail"])
 
-    def test_legacy_target_json_checks_are_named_when_the_check_is_missing(self):
+    def test_a_missing_check_names_set_up_code_checkers_and_not_target_json(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / ".mmw").mkdir()
             (root / ".mmw" / "target.json").write_text(
                 json.dumps({"checks": ["make check"]}), encoding="utf-8")
             result = vt.run_repository_check(root, "origin/spec-337")
-            plain = vt.run_repository_check(root / ".mmw", "origin/spec-337")
         self.assertEqual(result["status"], "missing")
-        self.assertIn(".mmw/target.json", result["detail"])
-        self.assertIn("setup-mmw", result["detail"])
-        self.assertNotIn("target.json", plain["detail"])
+        self.assertIn("Set up code checkers", result["detail"])
+        self.assertNotIn("target.json", result["detail"])
 
 
 class TestCloseoutRunsNoRepositoryChecks(unittest.TestCase):
