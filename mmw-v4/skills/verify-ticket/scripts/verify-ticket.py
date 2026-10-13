@@ -2033,17 +2033,35 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
 
 
 def run_baseline(number: int, body: str, base: str, root: Path) -> None:
-    """The criteria at `base`, in a throwaway detached worktree."""
+    """The criteria at `base`, in the main checkout's `.worktrees/baseline-<n>`."""
     items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
     skipped = []
     runnable = items
     tmp = Path(tempfile.mkdtemp(prefix="mmw-baseline-"))
-    worktree = tmp / "tree"
+    worktree = None
     try:
+        listed = subprocess.run(["git", "worktree", "list", "--porcelain"],
+                                cwd=root, capture_output=True, text=True)
+        main = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines()
+                     if line.startswith("worktree ")), "")
+        short = base[:12]
+        if listed.returncode != 0 or not main:
+            why = (listed.stderr or listed.stdout or
+                   "git worktree list returned no main checkout").strip()
+            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+                           outcome="unmet",
+                           line=f"Baseline run on {short}: unmet ({why})")
+            return
+        worktree = Path(main) / ".worktrees" / f"baseline-{number}"
+        worktree.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
+                       cwd=root, capture_output=True, text=True)
+        shutil.rmtree(worktree, ignore_errors=True)
+        subprocess.run(["git", "worktree", "prune"],
+                       cwd=root, capture_output=True, text=True)
         added = subprocess.run(
             ["git", "worktree", "add", "--detach", str(worktree), base],
             cwd=root, capture_output=True, text=True)
-        short = base[:12]
         if added.returncode != 0 or not worktree.is_dir():
             why = (added.stderr or added.stdout or "git worktree add failed").strip()
             _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
@@ -2085,8 +2103,9 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
     except (OSError, subprocess.CalledProcessError, events.EventError) as exc:
         sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
     finally:
-        subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
-                       cwd=root, capture_output=True, text=True)
+        if worktree is not None:
+            subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
+                           cwd=root, capture_output=True, text=True)
         shutil.rmtree(tmp, ignore_errors=True)
 
 
