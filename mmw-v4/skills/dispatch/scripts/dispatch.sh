@@ -2845,8 +2845,8 @@ advance() {
   plan="$(python3 "$STATUS" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec again after its merges, so nothing was started"
 
-  # Every ticket on the frontier is started: how many work at once is the frontier's
-  # answer alone.
+  # Start every DISPATCH line; the plan limits the frontier to the room left under
+  # models.json's max_workers, so this loop does not count concurrent tickets itself.
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
     case " $bounced_this_advance " in *" $number "*) continue ;; esac

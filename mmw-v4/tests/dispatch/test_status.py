@@ -14,6 +14,7 @@ import importlib.util
 import io
 import json
 import os
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
@@ -511,6 +512,17 @@ class Plans(unittest.TestCase):
 
     def setUp(self):
         self.saved = (status.sub_issues, status.read_ticket, status.own_login)
+        self.home = tempfile.TemporaryDirectory()
+        self.saved_home = os.environ.get("MMW_HOME")
+        os.environ["MMW_HOME"] = self.home.name
+        self.models_path = Path(self.home.name) / "models.json"
+        self.models_path.write_text(json.dumps({
+            "version": 1, "runner": "orca", "rows": {
+                role: {"host": "claude", "model": "opus 5", "effort": "high"}
+                for role in [row["name"] for row in json.loads(
+                    (STATUS_PATH.parent.parent / "roles.json").read_text())["roles"]]
+            },
+        }))
         self.tickets = {}
         status.sub_issues = lambda spec: list(self.tickets)
         status.read_ticket = lambda n: self.tickets[n]
@@ -518,6 +530,11 @@ class Plans(unittest.TestCase):
 
     def tearDown(self):
         (status.sub_issues, status.read_ticket, status.own_login) = self.saved
+        if self.saved_home is None:
+            os.environ.pop("MMW_HOME", None)
+        else:
+            os.environ["MMW_HOME"] = self.saved_home
+        self.home.cleanup()
 
     def closed(self, number, at, *comments):
         t = ticket(number, state="CLOSED", labels=(), comments=comments)
@@ -536,6 +553,87 @@ class AdvancePlan(Plans):
 
     def plan(self, spec=76):
         return self.run_form(status.advance_plan, spec)
+
+    def test_without_max_workers_three_tickets_are_dispatched(self):
+        self.tickets = {n: ticket(n) for n in (65, 63, 61, 64, 62)}
+        self.assertEqual(self.plan()[0], ["DISPATCH 61", "DISPATCH 62", "DISPATCH 63"])
+
+    def test_a_full_night_dispatches_nothing_and_names_each_waiting_ticket(self):
+        self.tickets = {
+            60: ticket(60, comments=(started(60, "w60"),)),
+            61: ticket(61, comments=(started(61, "w61"),)),
+            62: ticket(62, comments=(started(62, "w62"),)),
+            63: ticket(63), 64: ticket(64),
+        }
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertEqual(len(err), 2)
+        for number, line in zip((63, 64), err):
+            with self.subTest(ticket=number):
+                self.assertIn(f"#{number}", line)
+                self.assertIn("max_workers", line)
+                self.assertRegex(line, r"\b3\b")
+                for held_number in (60, 61, 62):
+                    self.assertIn(f"#{held_number}", line)
+
+    def test_a_passed_unlanded_ticket_holds_a_place(self):
+        self.tickets = {
+            60: self.closed(60, AT, started(60, "w60"), passed(60)),
+            61: ticket(61), 62: ticket(62), 63: ticket(63),
+        }
+        self.assertEqual(self.plan()[0], ["MERGE 60", "DISPATCH 61", "DISPATCH 62"])
+
+    def test_a_claim_no_session_has_taken_over_holds_a_place(self):
+        self.tickets = {
+            60: ticket(60, comments=(claimed(60),)),
+            61: ticket(61), 62: ticket(62), 63: ticket(63),
+        }
+        self.assertEqual(self.plan()[0], ["DISPATCH 61", "DISPATCH 62"])
+
+    def test_a_ticket_under_review_holds_one_place(self):
+        self.tickets = {
+            60: ticket(60, comments=(started(60, "w60"),
+                                     started(60, "r60", kind="reviewer"))),
+            61: ticket(61), 62: ticket(62), 63: ticket(63),
+        }
+        self.assertEqual(self.plan()[0], ["DISPATCH 61", "DISPATCH 62"])
+
+    def test_merge_and_release_are_not_capped(self):
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {
+            60: self.closed(60, AT, started(60, "w60"), passed(60)),
+            61: ticket(61, comments=(started(61, "w61"),)),
+            62: ticket(62, comments=(started(62, "w62"),)),
+            63: ticket(63, assignees=(self.LOGIN,),
+                       comments=(started(63, "w63"), lost(63, "w63"))),
+        }
+        self.assertEqual(self.plan()[0], ["MERGE 60", "RELEASE 63"])
+
+    def test_an_invalid_max_workers_dispatches_nothing_and_still_merges(self):
+        self.tickets = {60: self.closed(60, AT, passed(60)), 61: ticket(61)}
+        config = json.loads(self.models_path.read_text())
+        for value in (0, -1, True, "3", 2.5, None):
+            with self.subTest(max_workers=value):
+                self.models_path.write_text(json.dumps({**config, "max_workers": value}))
+                out, err = self.plan()
+                self.assertEqual(out, ["MERGE 60"])
+                self.assertEqual(len(err), 1)
+                self.assertIn(str(self.models_path), err[0])
+                self.assertIn("max_workers", err[0])
+                self.assertIn("models.py config set max_workers <n>", err[0])
+
+    def test_an_unreadable_models_json_dispatches_nothing_and_still_merges(self):
+        self.tickets = {60: self.closed(60, AT, passed(60)), 61: ticket(61)}
+        for contents in (None, "{broken", "[]"):
+            with self.subTest(contents=contents):
+                if contents is None:
+                    self.models_path.unlink()
+                else:
+                    self.models_path.write_text(contents)
+                out, err = self.plan()
+                self.assertEqual(out, ["MERGE 60"])
+                self.assertEqual(len(err), 1)
+                self.assertIn(str(self.models_path), err[0])
 
     def test_merges_passed_tickets_in_closing_order_then_dispatches_the_frontier(self):
         self.tickets = {

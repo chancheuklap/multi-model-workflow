@@ -4,6 +4,7 @@
 #
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh check|advance|advancedirty
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefreport|retract
@@ -2231,6 +2232,71 @@ assert obj["cwd"].endswith("/.worktrees/issue-63"), obj["cwd"]
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advance 76 --json)"
   [ "$code" = 2 ] || fail "expected exit 2 for --json, got $code: $(cat "$TMP/err")"
   [ "$(count_of 'paseo ::')" = 0 ] || fail "paseo was called for advance --json"
+}
+
+scenario_advancecap() {
+  reset_log
+  fresh_repo
+  make_branch issue-61 held.txt held
+  seed_workspace 61
+  local code base held_event passed_event
+  base="$(git -C "$TMP/repo" rev-parse main)"
+  held_event="$(ev worker.started 61 'worker started' --field session=agt_61 --field runner=paseo \
+    $(start_facts "$(wt 61)" 61 worker) --field "base=$base" --field into=main)"
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number":61,"state":"OPEN","labels":["ready-for-agent"],"comments":[$held_event]},
+  {"number":64,"state":"OPEN","labels":["ready-for-agent"],"body":"## Parent\n\n#76\n"},
+  {"number":62,"state":"OPEN","labels":["ready-for-agent"],"body":"## Parent\n\n#76\n"},
+  {"number":63,"state":"OPEN","labels":["ready-for-agent"],"body":"## Parent\n\n#76\n"}
+]
+JSON
+  cp "$MMW_HOME/models.json" "$TMP/models-before-cap.json"
+  python3 - "$MMW_HOME/models.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+config = json.loads(path.read_text())
+config["max_workers"] = 2
+path.write_text(json.dumps(config))
+PY
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "capped advance expected 0, got $code: $(cat "$TMP/err")"
+  started_once
+  [ "$(out_json title)" = '#62 worker' ] || fail "the smallest ready ticket did not start"
+  grep -q 'started 1' "$TMP/err" || fail "advance did not report one start"
+  for number in 63 64; do
+    grep "#$number .*max_workers=2" "$TMP/err" | grep -q '#61' \
+      || fail "waiting #$number does not name the cap and held #61: $(cat "$TMP/err")"
+  done
+  assert_no_wt 63
+  assert_no_wt 64
+
+  passed_event="$(ev ticket.passed 61 'ALL MET' --field branch=issue-61 \
+    --field "commit=$(git -C "$TMP/repo" rev-parse issue-61)" --field into=main)"
+  MMW_PASS_EVENT="$passed_event" python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+rows = json.loads(path.read_text())
+for row in rows:
+    if row["number"] == 61:
+        row.update(state="CLOSED", labels=[], closedAt="2026-09-11T01:00:00Z")
+        row["comments"].append(json.loads(os.environ["MMW_PASS_EVENT"]))
+path.write_text(json.dumps(rows))
+PY
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance after a pass expected 0, got $code: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" show main:held.txt >/dev/null || fail "held #61 did not land"
+  posted_events 61 | grep -q '^ticket.landed' || fail "#61 has no landed event"
+  started_once
+  [ "$(out_json title)" = '#63 worker' ] || fail "the next ticket did not start after landing"
+  grep -q 'started 1' "$TMP/err" || fail "advance after landing did not report one start"
+  assert_no_wt 64
+  cp "$TMP/models-before-cap.json" "$MMW_HOME/models.json"
 }
 
 scenario_advancedirty() {
@@ -6755,6 +6821,47 @@ PY
   seed_workspace 61
 }
 
+scenario_advancecapbounce() {
+  setup_bounced_conflict first
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+rows = json.loads(path.read_text())
+rows.extend({"number": number, "state": "OPEN", "labels": ["ready-for-agent"],
+             "body": "## Parent\n\n#76\n"} for number in (60, 59))
+path.write_text(json.dumps(rows))
+PY
+  cp "$MMW_HOME/models.json" "$TMP/models-before-cap.json"
+  python3 - "$MMW_HOME/models.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+config = json.loads(path.read_text())
+config["max_workers"] = 2
+path.write_text(json.dumps(config))
+PY
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "capped bounce expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(count_of 'paseo :: run')" = 2 ] || fail "the bounce advance did not start exactly two workers"
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY'
+import json, sys
+from pathlib import Path
+runs = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
+assert [run["title"] for run in runs] == ["#59 worker", "#60 worker"], runs
+PY
+  [ "$?" = 0 ] || fail "advance restarted the bounce instead of the two smaller tickets"
+  grep -q 'started 2' "$TMP/err" || fail "advance did not report two starts"
+  grep '#61 .*max_workers=2' "$TMP/err" | grep '#59' | grep -q '#60' \
+    || fail "the bounce does not name the cap and both new holders: $(cat "$TMP/err")"
+  posted_events 61 reason | grep -q '^ticket.bounced reason=conflict$' \
+    || fail "#61 was not bounced"
+  assert_wt 61
+  cp "$TMP/models-before-cap.json" "$MMW_HOME/models.json"
+}
+
 scenario_bounceretriesonce() {
   setup_bounced_conflict first
   local code
@@ -8153,6 +8260,7 @@ ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard o
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routenospec missingverifyticket"
+ALL="$ALL advancecap advancecapbounce"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

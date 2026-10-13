@@ -239,8 +239,8 @@ The newest `ticket.checked` with `run=reverify` on a landed or reopened ticket, 
 _Home_: `mmw-v3/skills/dispatch/scripts/status.py`
 
 **advance**:
-`dispatch.sh advance <spec>`: lands the batch's passed tickets on origin, gives back claims whose holds ended, then starts the frontier.
-_Home_: `docs/contexts/night/how-it-works.md`
+`dispatch.sh advance <spec>`: lands the batch's passed tickets on origin, gives back claims whose holds ended, then starts the frontier, as many tickets as `max_workers` leaves room for.
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`advance`), `mmw-v4/skills/dispatch/scripts/status.py` (`advance_plan`)
 
 **land**:
 `dispatch.sh land <n>`: the one-ticket form of **advance**, which lands the ticket's passed commit, releases its resources and closes its watch.
