@@ -80,6 +80,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`writing-for-agents`](./skills/writing-for-agents/SKILL.md) | Write a skill, an `AGENTS.md` or any document an agent reads. |
 | [`wait-what`](./skills/wait-what/SKILL.md) | Have the last message re-pitched in plain words, or with `visual` as one HTML page. |
 | [`diagram-design`](./skills/diagram-design/SKILL.md) | Draw a diagram or an HTML page that explains something to a person, in one house style; the skill that makes the page says what goes on it. |
+| [`design-pages`](./skills/design-pages/SKILL.md) | Build a product's design system and draw pages in Claude Design, then pull signed-off pages into `design/<product>/`. |
 | [`exe-release`](./skills/exe-release/SKILL.md) | Build an install package from the code on the current branch. |
 | [`typescript-best-practices`](./skills/typescript-best-practices/SKILL.md) | Apply type-system discipline when reading or editing TypeScript. |
 | [`control-cli`](./skills/control-cli/SKILL.md) | Drive, inspect and profile a CLI or terminal UI through a repeatable local harness. |

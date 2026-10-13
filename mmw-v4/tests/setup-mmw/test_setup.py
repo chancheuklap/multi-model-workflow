@@ -1,15 +1,13 @@
 """The setup-mmw skill's scripts: `labels.py` and `check.py` against a fake `gh` and
-`git`, and `migrate_layout.py` against a real `git` repository made in a temporary
-directory.
+`git`.
 
-Nothing here reaches GitHub or a real repository: every subprocess the first two start
+Nothing here reaches GitHub or a real repository: every subprocess `labels.py` and `check.py` start
 is answered by `Fake`, which records the command, and the files `check.py` reads sit in
 a temporary directory.
 """
 import importlib.util
 import io
 import json
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -197,16 +195,54 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"(?m)^missing +repository +scripts/check:")
 
-    def test_legacy_target_json_checks_are_missing_and_name_the_migration(self):
+    def test_a_design_package_without_its_verify_skill_is_missing(self):
+        self.set_up_repository()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertTrue(out.rstrip().endswith("SETUP OK"), out)
+        self.assertNotRegex(out, r"(?m)^\S+ +repository +verify-")
+
+        (self.root / "design" / "notes").mkdir(parents=True)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +verify-notes: .*create-verification-skill")
+
+        skill = self.root / ".agents" / "skills" / "verify-notes" / "SKILL.md"
+        skill.parent.mkdir(parents=True)
+        skill.write_text("# Verify notes\n")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +verify-notes:")
+        self.assertTrue(out.rstrip().endswith("SETUP OK"), out)
+
+    def test_design_directories_are_reported_in_name_order_and_files_are_ignored(self):
+        self.set_up_repository()
+        design = self.root / "design"
+        design.mkdir()
+        (design / "README.md").write_text("# Design\n")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertNotRegex(out, r"(?m)^\S+ +repository +verify-")
+
+        (design / "zebra").mkdir()
+        (design / "alpha").mkdir()
+        skill = self.root / ".agents" / "skills" / "verify-alpha" / "SKILL.md"
+        skill.mkdir(parents=True)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        rows = [line.split(":", 1)[0].split() for line in out.splitlines()
+                if "repository" in line and "verify-" in line]
+        self.assertEqual(rows, [["missing", "repository", "verify-alpha"],
+                                ["missing", "repository", "verify-zebra"]])
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 2 missing"), out)
+
+    def test_target_json_checks_are_not_read(self):
         self.set_up_repository()
         (self.root / ".mmw").mkdir()
         (self.root / ".mmw" / "target.json").write_text(json.dumps({"checks": ["make check"]}))
         code, out = self.run_check(Fake(root=self.root))
-        self.assertEqual(code, 1, out)
-        self.assertRegex(out, r"(?m)^missing +repository +\.mmw/target\.json checks: .*setup-mmw")
-        (self.root / ".mmw" / "target.json").write_text(json.dumps({"products": []}))
-        code, out = self.run_check(Fake(root=self.root))
         self.assertEqual(code, 0, out)
+        self.assertTrue(out.rstrip().endswith("SETUP OK"), out)
         self.assertNotIn("target.json", out)
 
     def test_issues_off_is_missing_and_a_protected_branch_is_only_a_note(self):
@@ -216,95 +252,13 @@ class TestCheck(unittest.TestCase):
         self.assertRegex(out, r"(?m)^missing +repository +tracker: o/r has Issues turned off")
         self.assertRegex(out, r"(?m)^note +repository +branch rules: protected branches main")
 
-    def test_the_earlier_effort_layout_is_missing_and_names_the_migration(self):
+    def test_an_earlier_effort_layout_is_not_reported(self):
         self.set_up_repository()
         (self.root / "docs" / "specs" / "notes").mkdir(parents=True)
         code, out = self.run_check(Fake(root=self.root))
-        self.assertEqual(code, 1)
-        self.assertRegex(out, r"(?m)^missing +repository +effort layout: docs/specs hold .*migrate_layout.py")
-
-
-class TestMigrateLayout(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.root = Path(self.tmp.name)
-        self.git("init", "-q")
-        self.write("docs/specs/notes/screen-contract.yaml",
-                   "effort: notes\nbaselines:\n  look: prototypes/notes/claude-design\n")
-        self.write("docs/specs/notes/targets/App.aria", "old snapshot\n")
-        self.write("prototypes/notes/claude-design/App.dc.html", "<p>data in prototypes/notes/example-data</p>\n")
-        self.write("prototypes/notes/example-data/board.js", "x\n")
-        self.write("prototypes/notes/claude-design/_ds/kit/readme.md", "data in prototypes/notes/example-data\n")
-        self.write("prototypes/notes/12/UI/README.md", "# variant\n\nState list: prototypes/notes/README.md\n")
-        self.write("prototypes/notes/12/UI/serve.py", "ROOT = HERE.parents[3]\n")
-        self.write("prototypes/other/7/claude-design/App.dc.html", "<p>page</p>\n")
-        self.write("docs/specs/reuse/screen-contract.yaml",
-                   "effort: reuse\nbaselines:\n  look: prototypes/other/7/claude-design\n")
-        self.write("docs/prototypes/older/issue-3/README.md", "# older\n")
-        self.write("docs/research/older/issue-4/note.md", "# note\n")
-        self.write("docs/research/shared/note.md", "# not an effort\n")
-        self.write("AGENTS.md", "the contract is docs/specs/notes/screen-contract.yaml\n")
-        self.git("add", "-A")
-        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "earlier layout")
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def git(self, *args):
-        return subprocess.run(["git", "-C", str(self.root), *args], capture_output=True, text=True, check=True)
-
-    def write(self, rel, text):
-        (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
-        (self.root / rel).write_text(text)
-
-    def migrate(self):
-        out = subprocess.run([sys.executable, str(SCRIPTS / "migrate_layout.py")], cwd=self.root,
-                             capture_output=True, text=True)
-        return out.returncode, out.stdout + out.stderr
-
-    def test_moves_each_effort_into_one_directory_and_rewrites_the_baseline(self):
-        code, out = self.migrate()
         self.assertEqual(code, 0, out)
-        for rel in ("efforts/notes/screen-contract.yaml", "efforts/notes/claude-design/App.dc.html",
-                    "efforts/notes/example-data/board.js", "efforts/notes/prototypes/12/UI/README.md",
-                    "efforts/reuse/claude-design/App.dc.html", "efforts/notes/targets/App.aria",
-                    "efforts/older/prototypes/issue-3/README.md", "efforts/older/research/issue-4/note.md",
-                    "docs/research/shared/note.md"):
-            self.assertTrue((self.root / rel).is_file(), rel)
-        for rel in ("docs/specs", "prototypes", "docs/prototypes", "docs/research/older", "efforts/other"):
-            self.assertFalse((self.root / rel).exists(), rel)
-        self.assertIn("look: efforts/notes/claude-design\n",
-                      (self.root / "efforts/notes/screen-contract.yaml").read_text())
-        self.assertIn("look: efforts/reuse/claude-design\n",
-                      (self.root / "efforts/reuse/screen-contract.yaml").read_text())
-        self.assertRegex(out, r"STILL NAMED 2:")
-        self.assertRegex(out, r"CLIMBS 1:")
-        self.assertTrue(out.rstrip().endswith("LAYOUT MIGRATED 9 changes"), out)
-        unstaged = [line for line in self.git("status", "--porcelain").stdout.splitlines() if line[1] != " "]
-        self.assertEqual(unstaged, [])
-        self.assertIn("efforts/notes/claude-design/App.dc.html", self.git("ls-files").stdout)
-        self.assertNotIn("docs/specs/", self.git("ls-files").stdout)
-
-    def test_two_sources_for_one_destination_refuse(self):
-        self.write("docs/prototypes/notes/12/UI/README.md", "# same leaf, older tree\n")
-        code, out = self.migrate()
-        self.assertEqual(code, 1)
-        self.assertIn("two sources would move to efforts/notes/prototypes/12", out)
-        self.assertTrue((self.root / "prototypes/notes/12/UI/README.md").is_file())
-        self.assertEqual(self.git("log", "--oneline").stdout.count("\n"), 1)
-
-    def test_a_second_run_moves_nothing(self):
-        self.migrate()
-        code, out = self.migrate()
-        self.assertEqual((code, out.strip()), (0, "LAYOUT OK"))
-
-    def test_an_existing_destination_refuses_and_changes_nothing(self):
-        self.write("efforts/notes/screen-contract.yaml", "already here\n")
-        code, out = self.migrate()
-        self.assertEqual(code, 1)
-        self.assertIn("efforts/notes/screen-contract.yaml already exists", out)
-        self.assertTrue((self.root / "docs/specs/notes/screen-contract.yaml").is_file())
-        self.assertTrue((self.root / "prototypes/notes/claude-design/App.dc.html").is_file())
+        self.assertTrue(out.rstrip().endswith("SETUP OK"), out)
+        self.assertNotIn("effort layout", out)
 
 
 if __name__ == "__main__":

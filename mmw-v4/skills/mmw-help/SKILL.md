@@ -74,6 +74,7 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Write docs, a README, a PR description, or a commit message to a standard | `technical-writing` |
 | Have the last reply re-pitched, in words or with `visual` as one page | `wait-what` |
 | Draw a diagram or a page that explains something | `diagram-design` |
+| Draw a product's UI in Claude Design and pull signed-off pages into the repository | `design-pages` |
 | Build an install package from the current branch | `exe-release` |
 | Drive and inspect a CLI or TUI to prove a change | `control-cli` |
 | Drive and inspect a browser, Electron or web UI to prove a change | `control-ui` |

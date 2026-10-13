@@ -167,7 +167,7 @@ def check_labels(report: Report):
 
 def check_repository_check(report: Report, root: Path):
     """`scripts/check`, which every landing runs on the merged tree and refuses to land
-    without; and a `checks` key of `.mmw/target.json`, which the pipeline does not read."""
+    without."""
     path = root / "scripts" / "check"
     if not path.is_file():
         report.add("missing", "repository", "scripts/check",
@@ -177,15 +177,6 @@ def check_repository_check(report: Report, root: Path):
                    "not executable; no ticket lands until it is: chmod +x scripts/check and commit the mode")
     else:
         report.add("ok", "repository", "scripts/check", "present and executable")
-    target = root / ".mmw" / "target.json"
-    try:
-        data = json.loads(target.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return
-    if isinstance(data, dict) and "checks" in data:
-        report.add("missing", "repository", ".mmw/target.json checks",
-                   "still listed, and MMW v4 no longer reads them; the setup-mmw skill turns them "
-                   "into scripts/check and removes the key")
 
 
 def check_testing(report: Report, root: Path):
@@ -197,16 +188,18 @@ def check_testing(report: Report, root: Path):
                    "and the reviewer's Tests axis reads none")
 
 
-def check_layout(report: Report, root: Path):
-    earlier = [rel for rel in ("docs/specs", "prototypes", "docs/prototypes")
-               if (root / rel).is_dir() and any(p.is_dir() for p in (root / rel).iterdir())]
-    if earlier:
-        report.add("missing", "repository", "effort layout",
-                   f"{', '.join(earlier)} hold effort files in the earlier layout, where no "
-                   "playbook reads them; run python3 scripts/migrate_layout.py of the "
-                   "setup-mmw skill on this branch")
-    else:
-        report.add("ok", "repository", "effort layout", "each effort's files under efforts/<effort>/")
+def check_verification_skills(report: Report, root: Path):
+    for design in sorted((root / "design").glob("*")):
+        if not design.is_dir():
+            continue
+        name = f"verify-{design.name}"
+        skill = Path(".agents") / "skills" / name / "SKILL.md"
+        if (root / skill).is_file():
+            report.add("ok", "repository", name, f"{skill} present for design/{design.name}/")
+        else:
+            report.add("missing", "repository", name,
+                       f"no {skill} for design/{design.name}/; "
+                       "the owner names the create-verification-skill skill to generate it")
 
 
 def check_machine(report: Report):
@@ -240,7 +233,7 @@ def main() -> int:
     check_labels(report)
     check_repository_check(report, root)
     check_testing(report, root)
-    check_layout(report, root)
+    check_verification_skills(report, root)
     check_machine(report)
     report.print()
     return 0 if report.missing() == 0 else 1
