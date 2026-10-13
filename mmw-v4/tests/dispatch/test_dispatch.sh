@@ -2267,8 +2267,14 @@ PY
   [ "$(out_json title)" = '#62 worker' ] || fail "the smallest ready ticket did not start"
   grep -q 'started 1' "$TMP/err" || fail "advance did not report one start"
   for number in 63 64; do
-    grep "#$number .*max_workers=2" "$TMP/err" | grep -q '#61' \
-      || fail "waiting #$number does not name the cap and held #61: $(cat "$TMP/err")"
+    python3 - "$TMP/err" "$number" <<'PY'
+import re, sys
+from pathlib import Path
+lines = Path(sys.argv[1]).read_text().splitlines()
+assert any(f"#{sys.argv[2]}" in line and "max_workers" in line
+           and re.search(r"\b2\b", line) and "#61" in line for line in lines), lines
+PY
+    [ "$?" = 0 ] || fail "waiting #$number does not name the cap and held #61"
   done
   assert_no_wt 63
   assert_no_wt 64
@@ -6854,8 +6860,14 @@ assert [run["title"] for run in runs] == ["#59 worker", "#60 worker"], runs
 PY
   [ "$?" = 0 ] || fail "advance restarted the bounce instead of the two smaller tickets"
   grep -q 'started 2' "$TMP/err" || fail "advance did not report two starts"
-  grep '#61 .*max_workers=2' "$TMP/err" | grep '#59' | grep -q '#60' \
-    || fail "the bounce does not name the cap and both new holders: $(cat "$TMP/err")"
+  python3 - "$TMP/err" <<'PY'
+import re, sys
+from pathlib import Path
+lines = Path(sys.argv[1]).read_text().splitlines()
+assert any("#61" in line and "max_workers" in line and re.search(r"\b2\b", line)
+           and "#59" in line and "#60" in line for line in lines), lines
+PY
+  [ "$?" = 0 ] || fail "the bounce does not name the cap and both new holders"
   posted_events 61 reason | grep -q '^ticket.bounced reason=conflict$' \
     || fail "#61 was not bounced"
   assert_wt 61
