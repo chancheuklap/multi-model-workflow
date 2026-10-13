@@ -14,6 +14,9 @@ import importlib.util
 import io
 import json
 import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -634,6 +637,66 @@ class AdvancePlan(Plans):
                 self.assertEqual(out, ["MERGE 60"])
                 self.assertEqual(len(err), 1)
                 self.assertIn(str(self.models_path), err[0])
+
+    def test_unreadable_occupancy_withholds_dispatch_but_still_merges_and_releases(self):
+        status.own_login = lambda: self.LOGIN
+        config = json.loads(self.models_path.read_text())
+        self.models_path.write_text(json.dumps({**config, "max_workers": 2}))
+        self.tickets = {
+            60: self.closed(60, AT, passed(60)),
+            62: ticket(62), 63: ticket(63),
+            64: ticket(64, assignees=(self.LOGIN,),
+                       comments=(started(64, "w64"), lost(64, "w64"))),
+        }
+        for unread in (status.normalise_ticket(61, {}),
+                       ticket(61, comments=(UnreadableEvents.BROKEN,))):
+            with self.subTest(reason=status.unreadable_reason(unread)):
+                self.tickets[61] = unread
+                out, err = self.plan()
+                self.assertEqual(out, ["MERGE 60", "RELEASE 64"])
+                for number in (62, 63):
+                    line = next(line for line in err if f"#{number}" in line)
+                    self.assertIn("#61", line)
+                    self.assertIn("max_workers", line)
+                    self.assertRegex(line, r"\b2\b")
+        self.tickets[61] = ticket(61, comments=(started(61, "w61"),))
+        self.assertEqual(self.plan()[0], ["MERGE 60", "RELEASE 64", "DISPATCH 62"])
+
+    def test_broken_roles_only_prevents_dispatch_not_other_plan_forms(self):
+        scripts = Path(self.home.name) / "skills" / "dispatch" / "scripts"
+        shutil.copytree(STATUS_PATH.parent, scripts)
+        shutil.copytree(STATUS_PATH.parents[2] / "verify-ticket" / "scripts",
+                        scripts.parents[1] / "verify-ticket" / "scripts")
+        roles_path = scripts.parent / "roles.json"
+        program = '''
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("isolated_status", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.sub_issues = lambda spec: [60, 61]
+module.own_login = lambda: ""
+module.read_ticket = lambda n: module.normalise_ticket(n, {
+    "state": "CLOSED" if n == 60 else "OPEN",
+    "labels": [{"name": "ready-for-agent"}],
+    "comments": [{"body": module.events.build("ticket.passed", ticket=60,
+                  line="ALL MET")}] if n == 60 else []})
+sys.exit(module.main([sys.argv[2], "76" if sys.argv[2] == "--advance-plan" else "61"]))
+'''
+        for contents in (None, "{broken"):
+            with self.subTest(roles=contents):
+                if contents is None:
+                    roles_path.unlink(missing_ok=True)
+                else:
+                    roles_path.write_text(contents)
+                for form, expected in (("--land-plan", "HOLD 61 it is open with no outcome on it\n"),
+                                       ("--advance-plan", "MERGE 60\n")):
+                    run = subprocess.run(
+                        [sys.executable, "-c", program, str(scripts / "status.py"), form],
+                        capture_output=True, text=True)
+                    self.assertEqual(run.returncode, 0, run.stderr)
+                    self.assertEqual(run.stdout, expected)
+                    if form == "--advance-plan":
+                        self.assertIn(str((scripts / "models.py").resolve()), run.stderr)
 
     def test_merges_passed_tickets_in_closing_order_then_dispatches_the_frontier(self):
         self.tickets = {

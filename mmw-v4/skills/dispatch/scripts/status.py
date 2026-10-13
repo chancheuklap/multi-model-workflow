@@ -52,10 +52,6 @@ def _load(name: str, filename: str):
 
 events = _load("mmw_events", "events.py")
 tree = _load("mmw_tree", "issue_tree.py")
-_models_spec = importlib.util.spec_from_file_location(
-    "mmw_status_models", Path(__file__).resolve().with_name("models.py"))
-models = importlib.util.module_from_spec(_models_spec)
-_models_spec.loader.exec_module(models)
 
 # --------------------------------------------------------------------- reading
 
@@ -637,7 +633,9 @@ def advance_plan(spec: int) -> int:
 
     max_workers is read through models.py. Each held row counts once, including a
     passed ticket that has not landed. An unreadable cap prevents only dispatch, not
-    merges or releases. Every frontier ticket waiting for room is named on stderr,
+    merges or releases. Unreadable ticket events prevent dispatch because occupancy
+    cannot be established, without changing the definition of a holder.
+    Every frontier ticket waiting for room is named on stderr,
     with the cap and the held ticket numbers. An empty frontier with tickets still in
     the agent queue names every one of them and the condition holding it.
     """
@@ -684,20 +682,40 @@ def advance_plan(spec: int) -> int:
         row["assignees"] = [a for a in row["assignees"] if a != login]
     ready = frontier(rows)
     holders = [row["ticket"] for row in held(rows)]
+    models = None
+    models_path = Path(__file__).resolve().with_name("models.py")
     try:
+        models_spec = importlib.util.spec_from_file_location("mmw_status_models", models_path)
+        module = importlib.util.module_from_spec(models_spec)
+        models_spec.loader.exec_module(module)
+        models = module
         cap = models.max_workers()
     except (ValueError, OSError) as exc:
-        print(f"dispatch: no DISPATCH from {models.models_json_path()}; "
-              f"cannot read max_workers: {exc}; "
-              "fix the configuration with models.py config set max_workers <n>",
+        source = models.models_json_path() if models is not None else models_path
+        reason = str(exc)
+        if models is None:
+            remedy = f"repair {models_path} and its role configuration"
+        elif isinstance(exc, models.InvalidConfig):
+            remedy = "fix the configuration with models.py config set max_workers <n>"
+        else:
+            if isinstance(exc, models.ConfigMissing):
+                reason = f"no models.json at {source}"
+            remedy = (f"restore a readable configuration object at {source}, "
+                      "then run models.py config set max_workers <n>")
+        print(f"dispatch: no DISPATCH from {source}; "
+              f"cannot read max_workers: {reason}; {remedy}",
               file=sys.stderr)
     else:
-        places = max(0, cap - len(holders))
+        unread = [row for row in rows if row["unreadable"]]
+        places = 0 if unread else max(0, cap - len(holders))
         for row in ready[:places]:
             print(f"DISPATCH {row['ticket']}")
         for row in ready[places:]:
             print(f"dispatch: #{row['ticket']} waits for room; max_workers={cap}; "
-                  f"held tickets: {', '.join(f'#{n}' for n in holders) or 'None'}",
+                  f"held tickets: {', '.join(f'#{n}' for n in holders) or 'None'}"
+                  + ("; cannot determine occupancy: " + ", ".join(
+                      f"#{item['ticket']} ({item['unreadable']})" for item in unread)
+                      + "; retry advance when these tickets can be read" if unread else ""),
                   file=sys.stderr)
     if not ready:
         explain_empty_frontier(rows, spec)
