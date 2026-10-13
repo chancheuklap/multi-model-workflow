@@ -86,7 +86,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: the `domain-modeling` skill; `docs/adr/`.
 25. **A prototype is code that answers a question,** kept in the repository with its verdict; a code shape that reaches beyond one ticket is settled by competing sketches.
     Takes: M16, adapted (the verdict, not the code, is what the real build takes); P19, kept (options are compared in prototypes, `architect` sketches and `arena`).
-    Home: the `prototype` skill; the `architect` and `arena` skills. Where a product's signed-off screens live has no home in the set.
+    Home: the `prototype` skill; the `architect` and `arena` skills. A product's signed-off screens live in `design/<product>/`, written by the `design-pages` skill.
 26. **Each repository is set up once and skills only read the setup;** the repository's files are placed by how long they stay true.
     Takes: M19, adapted (`setup-mmw` also writes `TESTING.md` and has Set up code checkers write the repository's `scripts/check`).
     Home: the `setup-mmw` skill; **Set up code checkers**; the repository's `scripts/check`, whose default tier `dispatch.sh land` and `advance` run on each merge result.
@@ -167,7 +167,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P38 (the rest) | The mode kept in effect by a host's reminder field | The mode's own description asks for the read, on every host (5, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
 | M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
-| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30); two exceptions: a fix a release's build needs, committed by the session driving the release (`exe-release`), and a repository's `scripts/check`, which Set up code checkers commits itself, as `setup-mmw` does, since `open-ticket` and `land` refuse a repository without one |
+| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30); direct-commit exceptions are listed only in the `mmw-mode` skill's `references/owning-a-task.md` `## Playbooks` |
 | M17 (the rest) | The person confirms the seams | A seam is an engineering decision (3, 21) |
 | M21 | No runtime; the person triggers every step | Mechanical rules are enforced by scripts, and the night is driven by the machine (36) |
 | M22 | Very short skills that leave the how to the model | Copied skills keep upstream's text; a playbook must finish at night with nobody to ask, so each step states its criterion (22, 17) |

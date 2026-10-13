@@ -99,6 +99,12 @@ Each prototype lives in a leaf directory `efforts/<effort>/prototypes/<issue>/<U
 
 Prototypes also stop the agent asking you questions it can answer itself. The `mmw-mode` skill's Non-negotiables say that a fork whose answer you could observe by running something is not yours to answer. The session sketches it with the prototype skill and lets the result decide. You are asked only the calls that are yours: what the user sees, what happens to money, and what is in scope.
 
+## Draw the screens in Claude Design
+
+Draw the UI in Claude Design. The [design-pages skill](../../skills/design-pages/SKILL.md) builds a product's design system, manages its page project, and pulls signed-off pages into `design/<product>/`.
+
+In that project, say `开始 <n>` or `继续`. The agent there follows the task sheet and records decisions made while drawing in `设计决策记录.md`. The design package is committed straight to the project branch. A night already running keeps its original design; the next night receives the update.
+
 ## Write the README first for shared code
 
 For a package or API that other code will use, start with the document a user would read:
