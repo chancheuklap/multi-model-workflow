@@ -124,7 +124,7 @@ class PullDesign(unittest.TestCase):
         self.preview = Preview()
         self.addCleanup(self.preview.close)
         self.work = Path(self.tmp.name)
-        self.target = self.work / "handoff"
+        self.target = self.work / "design-package"
 
     def root_pages(self) -> list[str]:
         return sorted(
@@ -268,10 +268,11 @@ class PullDesign(unittest.TestCase):
         self.assertEqual(refused.returncode, 2, refused.stdout + refused.stderr)
         self.assertNotIn(secret.decode(), refused.stdout + refused.stderr)
 
-        self.refer_from_demo(('<script>console.error("' + self.preview.preview_url + '")</script>').encode())
+        self.refer_from_demo(b"<script>console.error(['secret', 'preview', 'token'].join('-'))</script>")
         logged = self.pull()
         self.assertEqual(logged.returncode, 2, logged.stderr)
         self.assertNotIn(secret.decode(), logged.stdout + logged.stderr)
+        self.assertIn('<REDACTED>', logged.stderr)
 
     def test_a_bound_design_system_brings_its_readme(self):
         self.preview.files["_ds/kit-1/components/x.css"] = b".x { color: red; }\n"
@@ -291,6 +292,8 @@ class PullDesign(unittest.TestCase):
     def test_executable_loads_its_pep_723_dependencies(self):
         env = os.environ.copy()
         env['MMW_DESIGN_PREVIEW_URL'] = self.preview.preview_url
+        env.pop('VIRTUAL_ENV', None)
+        env.pop('PYTHONPATH', None)
         result = subprocess.run([str(SCRIPT), str(self.target), '--pages', 'Demo.dc.html'],
                                 capture_output=True, text=True, env=env)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -363,6 +366,8 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertIn('lib/gone.js', result.stderr.splitlines())
+        self.assertIn('Demo.dc.html', result.stderr)
+        self.assertNotIn('page lib/gone.js', result.stderr)
         self.assertEqual(self.snapshot(), before)
 
     def test_a_file_requested_only_by_a_script_at_render_time_is_pulled(self):
@@ -378,7 +383,8 @@ class PullDesign(unittest.TestCase):
         self.refer_from_demo(b"<script>fetch('./data/r-' + Math.random() + '.json')</script>")
         result = self.pull()
         self.assertEqual(result.returncode, 2, result.stderr)
-        self.assertIn('5', result.stderr)
+        self.assertEqual(sum(count for path, count in self.preview.requests.items()
+                             if path.startswith(SERVE_PREFIX + 'data/r-')), 5)
         self.assertTrue(any(line.startswith('data/r-') for line in result.stderr.splitlines()))
         self.assertEqual(self.snapshot(), before)
 
@@ -460,3 +466,61 @@ class PullDesign(unittest.TestCase):
                 result = self.pull(option, str(self.work))
                 self.assertEqual(result.returncode, 2, result.stderr)
                 self.assertEqual(self.snapshot(), before)
+
+    def test_review_delayed_content_is_allowed_to_mount(self):
+        self.add_page('Slow.dc.html', """
+            <html><head></head><body><main id="root"></main>
+            <script>setTimeout(() => root.textContent='late content', 900)</script>
+            </body></html>
+        """)
+        result = self.pull(pages=['Slow.dc.html'])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.target / 'Slow.dc.html').read_bytes(), self.preview.files['Slow.dc.html'])
+
+    def test_review_delayed_console_error_refuses_without_writing(self):
+        before = self.seed_package()
+        self.refer_from_demo(b"<script>setTimeout(() => console.error('delayed boom'), 2000)</script>")
+        result = self.pull(pages=['Demo.dc.html'])
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn('delayed boom', result.stderr)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_review_delayed_uncaught_exception_refuses_without_writing(self):
+        before = self.seed_package()
+        self.refer_from_demo(b"<script>setTimeout(() => {throw new Error('delayed throw')}, 2000)</script>")
+        result = self.pull(pages=['Demo.dc.html'])
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn('delayed throw', result.stderr)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_review_written_files_preserve_permissions(self):
+        self.target.mkdir()
+        page = self.target / 'Demo.dc.html'
+        page.write_bytes(b'old')
+        page.chmod(0o755)
+        result = self.pull(pages=['Demo.dc.html'])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(page.stat().st_mode & 0o777, 0o755)
+        self.assertEqual((self.target / 'styles/app.css').stat().st_mode & 0o777, 0o644)
+
+    def test_review_unwritable_directory_names_path_and_rolls_back(self):
+        before = self.seed_package()
+        styles = self.target / 'styles'
+        styles.mkdir()
+        styles.chmod(0o500)
+        self.addCleanup(styles.chmod, 0o700)
+        result = self.pull(pages=['Demo.dc.html'])
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn(str(styles), result.stderr)
+        self.assertIn('PermissionError', result.stderr)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_review_missing_design_system_readme_explains_requirement(self):
+        before = self.seed_package()
+        self.preview.files['_ds/kit-1/components/x.css'] = b'.x {color:red}'
+        self.refer_from_demo(b'<link rel="stylesheet" href="_ds/kit-1/components/x.css">')
+        result = self.pull(pages=['Demo.dc.html'])
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn('_ds/kit-1/readme.md', result.stderr)
+        self.assertIn('bound design system', result.stderr)
+        self.assertEqual(self.snapshot(), before)

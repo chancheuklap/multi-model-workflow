@@ -46,6 +46,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 - A skip is a failure. `mmw-v4/tests/lib/run_unittests.py` exits 1 on a skip count other than 0 or a run count of 0, and the suite then withholds `all passed`; the `verify-ticket` suite fails without `node` rather than passing on half its tests.
 - The task board loads verify-ticket's `events.py` and `issue_tree.py` and dispatch's `ghlist.py`, `models.py`, `statedir.py` and `roles.json` by file path (`mmw-v4/board/codeversion.py` lists them): a change to one of them is a change to the board.
 - The board suite and `.mmw/task-board/harness/` read two scripts of `mmw-v3/skills/ui-acceptance/`, which v4 does not carry.
+- The design-pages offline check waits up to 15 seconds for visible content, then observes another 3 seconds for asynchronous console errors, exceptions and requests. It cannot establish what happens after that observation window.
 - The board and design-pages suites need Playwright's browsers. With Playwright cached, the board suite runs `uv` offline.
 
 ## Which suites a change needs
@@ -57,3 +58,5 @@ The map from a changed path to the suites it needs is `MAP` in `scripts/check`, 
 - No test asserts the wording of a skill's `SKILL.md`, a playbook, a reference, a refusal, or a start prompt's standing sentences. Tests assert exit codes, the strings a program reads (event names and fields, labels, output tokens), the facts a behaviour produces (a number, a path, an issue number, a session id, the data rows of a prompt), and the effect on files, the tracker fake or git; a refusal is checked by its exit code, by what it did not do, and by the fact it names.
 - The liveness suite does not prove that a real host calls the turn guard with the payloads it feeds, or honours its answer: that is checked by hand against each host and recorded in `turn-guard.py`'s header (`mmw-v4/tests/liveness/run.sh`).
 - `exe-release`'s two PowerShell checks (`check-generated-powershell.sh`, `check-template-behaviour.sh`) are in no suite and no tier of `scripts/check`: they need a Windows build machine, and `scripts/check` names them on its `not run here:` line.
+
+The design-pages `INJECTED_LIVE` fixture records the head injection measured on a real Claude Design project on 2026-09-21. `strip_injected_head` keeps that exact newline shape as well as whitespace-tolerant removal. A changed live injection shape must be measured again on a real project; the fake preview cannot establish it.

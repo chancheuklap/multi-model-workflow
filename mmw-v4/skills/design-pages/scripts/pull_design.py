@@ -25,6 +25,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -273,18 +274,22 @@ class Inventory:
             except DownloadFailed as exc:
                 if exc.http_code == 404 and missing_ok and source is None:
                     continue
-                what = (
-                    f"page {path} is not in the project (HTTP 404)."
-                    if exc.http_code == 404 else
-                    f"download failed for {path} ({exc.status})."
-                )
-                raise PullRefused(
-                    what,
-                    "The design package would be incomplete.",
-                    "Check the page name against list_files, or restore the preview "
-                    "download, then re-run; the target was not changed.",
-                    paths=[path],
-                ) from exc
+                if exc.http_code == 404:
+                    if source and source.startswith("bound design system "):
+                        why = f"The {source} must include its readme."
+                        next_step = f"Restore {path} in that design system and re-run."
+                    elif source:
+                        why = f"{source} requires this file; the design package would be incomplete."
+                        next_step = f"Restore {path} in the project and re-run."
+                    else:
+                        why = "The listed page cannot be downloaded."
+                        next_step = f"Check {path} against list_files and re-run."
+                    what = f"Project file {path} is missing (HTTP 404)."
+                else:
+                    what = f"Download failed for {path} ({exc.status})."
+                    why = f"{source or 'The listed page'} could not be included in the design package."
+                    next_step = "Restore the preview download and re-run."
+                raise PullRefused(what, why, next_step, paths=[path]) from exc
             dest = self.staged.joinpath(*PurePosixPath(path).parts)
             if dest.is_dir():
                 shutil.rmtree(dest)
@@ -295,7 +300,7 @@ class Inventory:
             if len(parts) > 2 and parts[0] == "_ds":
                 readme = "/".join(parts[:2]) + "/readme.md"
                 if readme not in self.pulled:
-                    queue.append((readme, path))
+                    queue.append((readme, "bound design system " + "/".join(parts[:2])))
             for ref in file_references(path, body):
                 if ref not in self.pulled:
                     queue.append((ref, path))
@@ -360,6 +365,7 @@ def pull_vendor(staged: Path) -> dict[str, Path]:
 @dataclass
 class RenderAudit:
     requested: set[str] = field(default_factory=set)
+    referrers: dict[str, str] = field(default_factory=dict)
     errors: list[tuple[str, str]] = field(default_factory=list)
     empty: list[str] = field(default_factory=list)
     blocked: set[str] = field(default_factory=set)
@@ -383,16 +389,17 @@ def serve_package(root: Path):
 
 
 def render_pages(inventory: Inventory, pages: list[str], vendor: dict[str, Path]) -> RenderAudit:
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import TimeoutError as RenderTimeout, sync_playwright
     audit = RenderAudit()
     server = serve_package(inventory.staged)
     origin = f"http://127.0.0.1:{server.server_port}"
 
-    def route_offline(route, request):
+    def route_offline(route, request, name):
         if urllib.parse.urlsplit(request.url).netloc == urllib.parse.urlsplit(origin).netloc:
             path = resolve_reference("", urllib.parse.urlsplit(request.url).path)
             if path:
                 audit.requested.add(path)
+                audit.referrers.setdefault(path, name)
             route.continue_()
         elif request.url in vendor:
             route.fulfill(path=str(vendor[request.url]), content_type="application/javascript")
@@ -411,7 +418,7 @@ def render_pages(inventory: Inventory, pages: list[str], vendor: dict[str, Path]
             try:
                 for name in pages:
                     context = browser.new_context(service_workers="block")
-                    context.route("**/*", route_offline)
+                    context.route("**/*", lambda route, request, name=name: route_offline(route, request, name))
                     page = context.new_page()
                     def console_message(message, name=name):
                         if message.type != "error":
@@ -425,7 +432,7 @@ def render_pages(inventory: Inventory, pages: list[str], vendor: dict[str, Path]
                     page.on("pageerror", lambda error, name=name: audit.errors.append((name, str(error))))
                     try:
                         page.goto(origin + "/" + urllib.parse.quote(name), wait_until="networkidle", timeout=15000)
-                        visible = page.evaluate("""() => {
+                        visible_content = """() => {
                             const root = document.body;
                             if (!root) return false;
                             const range = document.createRange();
@@ -444,8 +451,13 @@ def render_pages(inventory: Inventory, pages: list[str], vendor: dict[str, Path]
                                   || s.backgroundImage !== 'none'
                                   || (s.backgroundColor !== 'transparent' && s.backgroundColor !== 'rgba(0, 0, 0, 0)');
                             });
-                        }""")
-                        if not visible:
+                        }"""
+                        try:
+                            page.wait_for_function(visible_content, timeout=15000)
+                        except RenderTimeout:
+                            pass
+                        page.wait_for_timeout(3000)
+                        if not page.evaluate(visible_content):
                             audit.empty.append(name)
                     except Exception as exc:
                         raise PullRefused(f"Offline page could not open: {name}.",
@@ -477,7 +489,8 @@ def render_until_settled(inventory: Inventory, pages: list[str], vendor: dict[st
             for url in sorted(blocked):
                 print(redact(f"External load blocked: {url}"), file=sys.stderr)
             return audit
-        inventory.pull(new, "offline page")
+        for path in new:
+            inventory.pull([path], audit.referrers[path])
         if "support.js" in new:
             vendor.update(pull_vendor(inventory.staged))
     raise PullRefused("Offline pages still requested new files after 5 renders.",
@@ -521,6 +534,7 @@ def install(staged: Path, target: Path) -> None:
                     try:
                         out.write(source.read_bytes())
                         out.close()
+                        os.chmod(pending, (dest.stat().st_mode if backup else source.stat().st_mode) & 0o7777)
                         os.replace(pending, dest)
                     finally:
                         pending.unlink(missing_ok=True)
@@ -577,7 +591,11 @@ def main():
             print(redact(path), file=sys.stderr)
         return 2
     except Exception as exc:
-        print(f"Pull failed ({type(exc).__name__}). The package could not be completed. Restore the preview or fix the local failure and re-run.", file=sys.stderr)
+        location = traceback.extract_tb(exc.__traceback__)[-1]
+        print(redact(f"Pull failed ({type(exc).__name__}): {exc} "
+                     f"at {location.filename}:{location.lineno}. "
+                     "The design package could not be completed. "
+                     "Fix the reported failure and re-run."), file=sys.stderr)
         return 2
 
 
