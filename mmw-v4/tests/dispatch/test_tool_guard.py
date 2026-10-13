@@ -513,7 +513,7 @@ class EndingAProcess(unittest.TestCase):
             with self.subTest(command=command):
                 _code, answer = call("claude", with_command("claude", command))
                 reason = reason_of(answer)
-                self.assertLessEqual(len(reason), REASON_LIMIT)
+                self.assertLessEqual(HOST_PREFIX + len(reason), REASON_LIMIT)
                 self.assertIn("verify-<product>", reason, "the way out was trimmed away")
 
     def test_prose_and_ordinary_commands_pass(self):
