@@ -35,7 +35,7 @@ Split where the parts can run at the same time, or where one part's criteria can
 Three rules bind how each one is worded:
 
 1. Observable external behaviour, from the spec's seam or a user-visible UI. Not internals.
-2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected". The spec and the chosen artifact are the baseline (**principle-baseline-is-the-contract**).
+2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. For a screen's appearance, text and interactions, copy the signed-off design page instead of the UI prototype. No "appropriate", "correct", or "as expected". These sources are the baseline (**principle-baseline-is-the-contract**).
 3. One behaviour per criterion, independently true or false. Split compounds.
 
 **A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. Most of what you want to say about the work does not belong there. Ask **the five questions** in order and stop at the first yes:

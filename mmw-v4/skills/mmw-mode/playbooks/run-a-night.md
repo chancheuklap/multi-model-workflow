@@ -82,7 +82,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `ticket.passed`, or a `ready` frontier row | Step 4's `advance` handles it |
 | A live worker should continue | `dispatch.sh resume <n> "<what you settled, then: continue>"`; act on exit 0, 4, 3 or 2 as [Exit codes of `resume`](#exit-codes-of-resume) below says |
 | `child.opened` of kind `fault` | Read `events.py fold <n>`. A `fault` in this repository's environment (a credential, a service, a `scripts/check` that exits 2) you fix, then `dispatch.sh resume <n> "… continue"`. A `fault` in the pipeline's own scripts you do not patch while they run the night: tell the user what failed, and suspend when the rest of the batch would hit it too |
-| `child.opened` of kind `contract` | Read the child and the authority it cites. Apply the authority order below; then either correct the source the child names and every unlanded derived ticket, close the child and resume its worker, or move the affected not-yet-started tickets to `needs-triage` and leave the child open |
+| `child.opened` of kind `contract` | Read the child and the authority it cites. Follow the authority order and the no-authority branch below |
 | `child.opened` of kind `decision` | Nothing; the worker took the default |
 | `ticket.returned` | Leave its workspace for triage; step 4 continues the batch |
 | The `advance` summary has `bounced` | After the second bounce the ticket stays in `needs-triage` |

@@ -103,12 +103,14 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer and clean up
 
-Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Use the `design-pages` skill to draw the winner as signed-off pages and pull them into the design package. Remove the scaffolding:
+Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Remove the scaffolding:
 
 - **Sub-shape A**: remove the mount point and the switcher from the route.
 - **Sub-shape B**: remove the prototype route.
 
 The variants, the winner included, stay in the leaf directory as reference, so the next round of the same question iterates them instead of starting over. Nothing outside the leaf directory imports them once the mount point is gone.
+
+Use the `design-pages` skill to draw the winner as signed-off pages and pull them into the design package.
 
 ## Anti-patterns
 
