@@ -47,8 +47,8 @@ What the relay sends a session when an event it waits on lands on a ticket, `#<n
 _Home_: `mmw-v3/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work, or a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time.
-_Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
+A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work; a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time; `fix-<n>` for a ticket a playbook opens outside a spec, where the daytime session commits its records and pushes `fix-<n>`; or the detached `baseline-<n>`, where `verify-ticket.py --preflight` runs the ticket's criteria once at its worker's base commit, removed after that run.
+_Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`, `mmw-v4/skills/mmw-mode/references/ticket.md` (`## Opening a ticket`), `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` (`run_baseline`)
 
 **ticket branch**:
 The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked, and deleted after it lands.
