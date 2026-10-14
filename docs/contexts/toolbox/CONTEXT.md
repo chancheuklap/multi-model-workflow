@@ -17,8 +17,8 @@ The person who owns the products and works with the orchestrator on specs and ti
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **subagent**:
-An agent started inside another agent's session, holding its own context and answering back into that session; a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no `models.json` row. Distinct from a session a runner starts with `dispatch.sh start` or `dispatch.sh brief`, which reports outside the session that started it; a code-review axis runs as a subagent of the reviewer where the host can run one.
-_Home_: `docs/adr/0015-no-custom-subagents.md`
+An agent started inside another agent's session, holding its own context and answering back into that session; a skill sends one only at a step that names one, as the host's own general-purpose subagent, on the subagent row that step names (`default` when it names none): the row's `models.json` value for that host gives the model and effort, and `inherit`, or no saved value, keeps the sending session's. Distinct from a session a runner starts with `dispatch.sh start` or `dispatch.sh brief`, which reports outside the session that started it; a code-review axis runs as a subagent of the reviewer where the host can run one.
+_Home_: `docs/adr/0015-no-custom-subagents.md`, amended by `docs/adr/0050-native-subagent-model-rows.md`; the rows in `roles.json`'s `subagents` section
 
 ### Places
 
@@ -114,7 +114,7 @@ The rule that a skill's frontmatter `disable-model-invocation: true` (read by Cl
 _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **`models.json`**:
-The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per session role `roles.json` lists (`junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`), with its host, model and `effort`, and `max_workers`, how many of one night's tickets may be held at once. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
+The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per session role `roles.json` lists (`junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`), with its host, model and `effort`; `subagents`, each subagent row's model and `effort` per host, missing or `inherit` where the sending session's apply; and `max_workers`, how many of one night's tickets may be held at once. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
 _Home_: `mmw-v4/skills/dispatch/scripts/models.py`
 
 **`MMW_HOME`**:
