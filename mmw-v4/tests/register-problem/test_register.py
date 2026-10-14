@@ -1,0 +1,369 @@
+"""The registration CLI against fake GitHub and real temporary git repositories."""
+
+import importlib.util
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from contextlib import chdir, redirect_stderr, redirect_stdout
+from pathlib import Path
+from unittest import mock
+
+SCRIPTS = Path(__file__).resolve().parents[2] / "skills"
+SCRIPT = SCRIPTS / "register-problem" / "scripts" / "register.py"
+VERIFY_TESTS = Path(__file__).resolve().parents[1] / "verify-ticket"
+sys.path.insert(0, str(VERIFY_TESTS))
+from _load import event, load_events
+
+
+def load():
+    spec = importlib.util.spec_from_file_location("register", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+register = load()
+events = load_events()
+REAL_RUN = subprocess.run
+
+
+def problem(code="test-compares-empty-lists", angle="判断"):
+    return (f"## Problem\n\n问题代号：{code}\n角度：{angle}\n发生了什么：测试比较空列表\n"
+            "证据：tests/test_board.py:193\n代价：看板漏角色仍然通过\n该谁修：MMW 仓库\n")
+
+
+def issue(number=10, state="open", reason=None, labels=("mmw:lesson",), body=None):
+    return dict(number=number, title="测试比较空列表", body=body or problem(), state=state,
+                state_reason=reason, labels=[{"name": n} for n in labels], comments=[],
+                parent=None, closer=None, html_url=f"https://github.com/o/r/issues/{number}")
+
+
+class Fake:
+    def __init__(self):
+        self.repos = {"o/r": [], "acme/toolbox": []}
+        self.labels = {"o/r": {}, "acme/toolbox": {}}
+        self.calls = []
+        self.fail = None
+        self.session = None
+
+    def __call__(self, cmd, **kwargs):
+        if cmd[0] in ("git", "ps"):
+            return REAL_RUN(cmd, **kwargs)
+        if cmd[0] == "bash" and cmd[-1] == "self":
+            out = "\t".join(self.session) if self.session else ""
+            return subprocess.CompletedProcess(cmd, 0 if out else 2, out, "")
+        if cmd[0] != "gh":
+            raise AssertionError(cmd)
+        self.calls.append(cmd)
+        if self.fail and self.fail(cmd):
+            return subprocess.CompletedProcess(cmd, 1, "", "HTTP 503 unavailable")
+        args = cmd[1:]
+        def flag(name):
+            return args[args.index(name) + 1]
+        if args[:2] == ["repo", "view"]:
+            data = {"nameWithOwner": "o/r"}
+        elif args[:2] == ["label", "create"]:
+            repo, name = flag("--repo"), args[2]
+            if name in self.labels[repo]:
+                return subprocess.CompletedProcess(cmd, 1, "", "already exists")
+            self.labels[repo][name] = (flag("--color"), flag("--description"))
+            data = {}
+        elif args[:2] == ["issue", "create"]:
+            repo = flag("--repo")
+            row = issue(number=100, body=Path(flag("--body-file")).read_text(), labels=())
+            row["title"] = flag("--title")
+            row["labels"] = [{"name": args[i + 1]} for i, a in enumerate(args) if a == "--label"]
+            self.repos[repo].append(row)
+            return subprocess.CompletedProcess(cmd, 0, f"https://github.com/{repo}/issues/100\n", "")
+        elif args[:2] == ["issue", "view"]:
+            data = self.row(flag("--repo"), int(args[2]))
+        elif args[:2] == ["issue", "reopen"]:
+            data = self.row(flag("--repo"), int(args[2]))
+            data["state"], data["state_reason"] = "open", "reopened"
+        elif args[:2] == ["issue", "edit"]:
+            data = self.row(flag("--repo"), int(args[2]))
+            name = flag("--add-label")
+            if {"name": name} not in data["labels"]:
+                data["labels"].append({"name": name})
+        elif args[:2] == ["issue", "comment"]:
+            row = self.row(flag("--repo"), int(args[2]))
+            body = Path(flag("--body-file")).read_text()
+            data = {"id": len(row["comments"]) + 1, "body": body}
+            row["comments"].append(data)
+        elif args[0] == "api":
+            endpoint = args[1]
+            if endpoint == "graphql":
+                variables = dict(a.split("=", 1) for i, a in enumerate(args) if args[i-1] in ("-F", "-f"))
+                row = self.row(variables["o"] + "/" + variables["r"], int(variables["n"]))
+                data = {"data": {"repository": {"issue": {
+                    "timelineItems": {"nodes": [{"closer": row["closer"]}]}}}}}
+            else:
+                parts = endpoint.split("?")[0].split("/")
+                repo = "/".join(parts[1:3])
+                if len(parts) == 4:
+                    self.assert_paginated(args)
+                    rows = [{k: v for k, v in r.items() if k not in ("comments", "parent", "closer")}
+                            for r in self.repos[repo]]
+                    data = [rows[:1], rows[1:]]
+                elif parts[-1] == "comments":
+                    self.assert_paginated(args)
+                    data = [self.row(repo, int(parts[4]))["comments"]]
+                else:
+                    data = self.row(repo, int(parts[4]))
+        else:
+            raise AssertionError(cmd)
+        return subprocess.CompletedProcess(cmd, 0, json.dumps(data, ensure_ascii=False), "")
+
+    def assert_paginated(self, args):
+        if "--paginate" not in args or "--slurp" not in args or "per_page=100" not in args[1]:
+            raise AssertionError(f"incomplete list read: {args}")
+
+    def row(self, repo, number):
+        return next(r for r in self.repos[repo] if r["number"] == number)
+
+
+class Registration(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.home = self.root / "mmw"
+        self.home.mkdir()
+        self.toolbox = self.root / "toolbox"
+        self.toolbox.mkdir()
+        REAL_RUN(["git", "init", "-q", str(self.toolbox)], check=True)
+        REAL_RUN(["git", "-C", str(self.toolbox), "remote", "add", "origin", "git@github.com:acme/toolbox.git"], check=True)
+        (self.home / "installed-root").write_text(str(self.toolbox))
+        self.product = self.root / "product"
+        REAL_RUN(["git", "init", "-q", "-b", "main", str(self.product)], check=True)
+        self.path = self.root / "problem.md"
+        self.path.write_text(problem())
+        self.fake = Fake()
+
+    def run_register(self, *args, env=None):
+        clean = {k: v for k, v in os.environ.items() if not k.startswith("MMW_")}
+        clean["MMW_HOME"] = str(self.home)
+        clean.update(env or {})
+        with chdir(self.product), mock.patch.dict(os.environ, clean, clear=True), \
+             mock.patch.object(register.subprocess, "run", side_effect=self.fake), \
+             redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+            rc = register.main(list(args))
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_find_lists_open_and_closed_matches(self):
+        self.fake.repos["o/r"] = [issue(), issue(11, "closed", "not_planned")]
+        self.fake.repos["acme/toolbox"] = [issue(12)]
+        rc, out, err = self.run_register("find", "空列表")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(out.splitlines(), [
+            "#10\to/r\topen\tmmw:lesson\ttest-compares-empty-lists\t测试比较空列表",
+            "#11\to/r\tclosed\tmmw:lesson\ttest-compares-empty-lists\t测试比较空列表",
+            "#12\tacme/toolbox\topen\tmmw:lesson\ttest-compares-empty-lists\t测试比较空列表",
+        ])
+
+    def test_a_new_lesson_is_opened_with_only_its_kind(self):
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(len(self.fake.repos["o/r"]), 1)
+        row = self.fake.repos["o/r"][0]
+        self.assertEqual(row["labels"], [{"name": "mmw:lesson"}])
+        self.assertEqual(row["body"], problem())
+        self.assertEqual(events.fold(row["comments"])["occurrences"][0]["source"], "noticed")
+        self.assertIn("#100", out)
+
+    def test_a_new_product_problem_is_opened_awaiting_the_owner(self):
+        self.path.write_text(problem(angle="产品"))
+        rc, out, err = self.run_register("add", str(self.path), "--source", "owner-correction")
+        self.assertEqual(rc, 0, err)
+        row = self.fake.repos["o/r"][0]
+        self.assertEqual(row["labels"], [{"name": "mmw:problem"}, {"name": "needs-triage"}])
+        self.assertEqual(events.fold(row["comments"])["occurrences"][0]["source"], "owner-correction")
+
+    def existing(self, **kwargs):
+        row = issue(**kwargs)
+        row["comments"] = [{"id": 1, "body": event("lesson.seen", "Seen #10", ticket=61,
+                            lesson=row["number"], seen_in="o/r", source="noticed", session="none")}]
+        self.fake.repos["acme/toolbox"] = [row]
+        return row
+
+    def test_an_open_match_gets_one_more_occurrence(self):
+        row = self.existing()
+        self.fake.repos["o/r"] = [issue(20, body=problem("test-compares-empty-lists-other"))]
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual([r["number"] for r in self.fake.repos["o/r"]], [20])
+        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
+        self.assertEqual(row["state"], "open")
+
+    def test_an_expired_lesson_is_reopened_as_pending(self):
+        for labels, expected in ((("mmw:lesson",), [{"name": "mmw:lesson"}]),
+                                 (("mmw:problem",), [{"name": "mmw:problem"}, {"name": "needs-triage"}])):
+            with self.subTest(labels=labels):
+                row = self.existing(state="closed", reason="not_planned", labels=labels)
+                rc, out, err = self.run_register("add", str(self.path))
+                self.assertEqual(rc, 0, err)
+                self.assertEqual((row["state"], row["labels"]), ("open", expected))
+                self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
+
+    def test_a_fixed_problem_that_recurs_is_reopened_for_the_owner(self):
+        for closed_by_pr in (True, False):
+            with self.subTest(closed_by_pr=closed_by_pr):
+                row = self.existing(state="closed", reason="completed")
+                if closed_by_pr:
+                    row["closer"] = {"url": "https://github.com/acme/toolbox/pull/9"}
+                    expected = "https://github.com/acme/toolbox/pull/9"
+                else:
+                    row["comments"].append({"id": 2, "body": event("ticket.passed", "ALL MET", ticket=10, commit="a"*40)})
+                    expected = "https://github.com/acme/toolbox/commit/" + "a"*40
+                rc, out, err = self.run_register("add", str(self.path))
+                self.assertEqual(rc, 0, err)
+                self.assertEqual((row["state"], row["labels"]),
+                                 ("open", [{"name": "mmw:lesson"}, {"name": "needs-triage"}]))
+                self.assertIn("修了又犯", row["comments"][-1]["body"])
+                self.assertIn(expected, row["comments"][-1]["body"])
+
+    def test_a_ticket_of_an_unfinished_spec_is_not_reopened(self):
+        for finished in (False, True):
+            with self.subTest(finished=finished):
+                row = self.existing(state="closed", reason="completed", labels=("mmw:ticket",))
+                row["parent"] = {"number": 76}
+                spec = issue(76, labels=("mmw:spec",), body="A batch")
+                if finished:
+                    spec["comments"] = [{"id": 1, "body": event("spec.merged", "Merged", ticket=None,
+                                         spec=76, into="night", project="dev", merge="a"*40, base="b"*40)}]
+                self.fake.repos["acme/toolbox"].append(spec)
+                rc, out, err = self.run_register("add", str(self.path))
+                self.assertEqual(rc, 0, err)
+                self.assertEqual(row["state"], "open" if finished else "closed")
+                self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
+                if not finished:
+                    self.assertIn("NOT REOPENED: #10 sits under spec #76, which has not finished", out)
+
+    def test_a_refused_problem_stays_closed_and_is_counted(self):
+        row = self.existing(state="closed", reason="completed", labels=("mmw:lesson", "wontfix"))
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(row["state"], "closed")
+        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
+
+    def test_a_half_written_registration_is_finished_by_running_again(self):
+        for failure in ("comment", "edit", "lost-comment-response"):
+            with self.subTest(failure=failure):
+                self.fake = Fake()
+                if failure == "edit":
+                    row = self.existing(state="closed", reason="completed")
+                    row["closer"] = {"url": "https://github.com/acme/toolbox/pull/9"}
+                self.fake.fail = lambda c: c[1:3] == ["issue", "edit" if failure == "edit" else "comment"]
+                if failure == "lost-comment-response":
+                    self.fake.fail = None
+                    original = self.fake
+                    def lost(cmd, **kwargs):
+                        result = original(cmd, **kwargs)
+                        if cmd[1:3] == ["issue", "comment"]:
+                            return subprocess.CompletedProcess(cmd, 1, "", "connection lost after acceptance")
+                        return result
+                    self.fake = lost
+                rc, out, err = self.run_register("add", str(self.path))
+                self.assertEqual(rc, 1, err)
+                self.assertIn("#10" if failure == "edit" else "#100", err)
+                if failure == "lost-comment-response":
+                    self.fake = original
+                self.fake.fail = None
+                rc, out, err = self.run_register("add", str(self.path))
+                self.assertEqual(rc, 0, err)
+                repo = "acme/toolbox" if failure == "edit" else "o/r"
+                row = self.fake.repos[repo][0]
+                self.assertEqual(len(self.fake.repos[repo]), 1)
+                self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2 if failure == "edit" else 1)
+                if failure == "edit":
+                    self.assertIn({"name": "needs-triage"}, row["labels"])
+                    self.assertIn("修了又犯", row["comments"][-1]["body"])
+                    self.assertIn("https://github.com/acme/toolbox/pull/9", row["comments"][-1]["body"])
+
+    def test_the_toolbox_repository_comes_from_the_installed_checkout(self):
+        row = self.existing()
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual([r["number"] for r in self.fake.repos["acme/toolbox"]], [10])
+        self.assertEqual(self.fake.repos["o/r"], [])
+        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
+        (self.home / "installed-root").unlink()
+        before = len(self.fake.calls)
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual((rc, out), (2, ""))
+        self.assertIn("installed-root", err)
+        self.assertEqual(len(self.fake.calls), before)
+
+    def test_occurrence_carries_the_active_ticket_spec_runner_and_role(self):
+        ticket = issue(61, body="Active ticket", labels=("mmw:ticket",))
+        ticket["parent"] = {"number": 76}
+        ticket["comments"] = [{"id": 1, "body": event("worker.started", "Started", ticket=61,
+                               spec=76, session="t1", runner="orca", machine="test", host="codex",
+                               model="test", effort="high", grade="senior-worker",
+                               worktree=str(self.product), branch="issue-61", base="a"*40)}]
+        self.fake.repos["o/r"] = [ticket, issue(76, body="Batch", labels=("mmw:spec",))]
+        self.fake.session = ("orca", "t1")
+        rc, out, err = self.run_register("add", str(self.path), env={"MMW_TICKET": "61"})
+        self.assertEqual(rc, 0, err)
+        payload = events.parse(self.fake.repos["o/r"][-1]["comments"][0]["body"])[1]
+        self.assertEqual((payload["seen_in"], payload["ticket"], payload["spec"], payload["session"], payload["actor"]),
+                         ("o/r", 61, 76, "orca:t1", "senior-worker"))
+
+    def test_bad_input_and_failed_reads_leave_github_unchanged(self):
+        self.path.write_text(problem().replace("证据：tests/test_board.py:193\n", ""))
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 2, err)
+        self.assertEqual(self.fake.repos, {"o/r": [], "acme/toolbox": []})
+        self.path.write_text(problem())
+        self.fake.fail = lambda c: c[1] == "api"
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 2, err)
+        self.assertIn("503", err)
+        self.assertEqual(self.fake.repos, {"o/r": [], "acme/toolbox": []})
+
+    def test_the_cli_process_registers_and_finds_against_fake_github(self):
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        store = self.root / "github.json"
+        store.write_text(json.dumps({"repos": self.fake.repos, "labels": self.fake.labels}))
+        gh = bin_dir / "gh"
+        gh.write_text(f"#!{sys.executable}\nimport sys\nsys.path.insert(0, {str(Path(__file__).parent)!r})\n"
+                      "from test_register import fake_server\nfake_server()\n")
+        gh.chmod(0o755)
+        bash = bin_dir / "bash"
+        bash.write_text("#!/bin/sh\nif [ \"$2\" = self ]; then exit 2; fi\nexec /bin/bash \"$@\"\n")
+        bash.chmod(0o755)
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("MMW_", "NMEM_"))}
+        env.update(MMW_HOME=str(self.home), PATH=str(bin_dir) + os.pathsep + env["PATH"],
+                   FAKE_REGISTER_STORE=str(store))
+        run = REAL_RUN([sys.executable, str(SCRIPT), "add", str(self.path)], cwd=self.product,
+                       env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        data = json.loads(store.read_text())
+        self.assertEqual(data["repos"]["o/r"][0]["labels"], [{"name": "mmw:lesson"}])
+        self.assertEqual(len(events.fold(data["repos"]["o/r"][0]["comments"])["occurrences"]), 1)
+        run = REAL_RUN([sys.executable, str(SCRIPT), "find", "空列表"], cwd=self.product,
+                       env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn("#100\to/r\topen\tmmw:lesson\ttest-compares-empty-lists", run.stdout)
+
+
+def fake_server():
+    path = Path(os.environ["FAKE_REGISTER_STORE"])
+    data = json.loads(path.read_text())
+    fake = Fake()
+    fake.repos, fake.labels = data["repos"], data["labels"]
+    result = fake(["gh", *sys.argv[1:]])
+    path.write_text(json.dumps({"repos": fake.repos, "labels": fake.labels}))
+    sys.stdout.write(result.stdout)
+    sys.stderr.write(result.stderr)
+    sys.exit(result.returncode)
+
+
+if __name__ == "__main__":
+    unittest.main()
