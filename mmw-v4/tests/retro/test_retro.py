@@ -1,4 +1,3 @@
-"""Retrospective commands against paginated tracker fixtures and real temporary git."""
 import importlib.util
 import io
 import json
