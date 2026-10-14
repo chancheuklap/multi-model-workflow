@@ -6,7 +6,7 @@ The body of each GitHub issue the To tickets playbook (`../playbooks/to-tickets.
 
 ## Problem
 
-Only on a ticket a playbook opens outside any spec. Its first line is `Playbook: <the playbook it needs>`, by the title on that playbook's route line. Then what was seen, where, and by whom: the owner's words quoted as they said them, or, for a problem a session found itself, what it saw and where, marked as its own observation. Written when the ticket is opened, and never edited after, but for a `Playbook:` line not yet known then, which is written once when it is.
+Only on a ticket a playbook opens outside any spec. Its first line is `Playbook: <the playbook it needs>`, by the title on that playbook's route line. Then what was seen, where, and by whom: the owner's words quoted as they said them, or, for a problem a session found itself, what it saw and where, marked as its own observation. Written when the ticket is opened, and never edited after.
 
 ## Parent
 
