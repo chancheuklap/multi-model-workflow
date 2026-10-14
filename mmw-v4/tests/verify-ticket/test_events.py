@@ -38,8 +38,6 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """The live events have one shape and closed sets."""
-
     def test_there_are_twenty_eight_events(self):
         self.assertEqual(len(events.EVENTS), 28)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",

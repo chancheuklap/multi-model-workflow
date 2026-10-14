@@ -1,5 +1,3 @@
-"""The registration CLI against fake GitHub and real temporary git repositories."""
-
 import importlib.util
 import io
 import json
