@@ -35,8 +35,8 @@
 #
 # 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
-# 技能装两处，不按 host 分。~/.agents/skills 不属于任何一个 host，Codex、Cursor、Grok
-# 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。
+# 技能装两处，不按 host 分。~/.agents/skills 不属于任何一个 host，Codex 原生扫它；
+# Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。
 
 set -euo pipefail
 
@@ -811,7 +811,7 @@ fi
 
 BOARD_PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.board.plist"
 BOARD_SUPERVISOR="$ROOT/board/supervisor.py"
-BOARD_PATH="$HOME_DIR/.local/bin:$HOME_DIR/.grok/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+BOARD_PATH="$HOME_DIR/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 board_gh="$(command -v gh 2>/dev/null || true)"
 if [ -n "$board_gh" ]; then
   board_gh_dir="$(dirname "$board_gh")"

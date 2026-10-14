@@ -12,9 +12,9 @@ Run:
 bash mmw-v4/install.sh
 ```
 
-The script points every host on the machine at this checkout's `mmw-v4/`. The hosts are Claude Code, Codex, Cursor and Grok. Install puts these on the machine:
+The script points every host on the machine at this checkout's `mmw-v4/`. The hosts are Claude Code and Codex. Install puts these on the machine:
 
-- **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex, Cursor and Grok read the first directory. Claude Code reads only the second.
+- **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex reads the first directory. Claude Code reads only the second.
 - **Hooks.** The `dispatch` skill's `tool-guard.py` runs before each host calls a tool. In a session that works a ticket, which runs in the ticket's `issue-<n>` worktree with nobody at the screen, it refuses three things: closing the ticket by hand, putting a question on the screen, and ending a process. `turn-guard.py` runs each time a night's orchestrator ends its turn. It restarts the night's watchdog when the watchdog has stopped, so the night does not die quietly.
 - **The user-level prompt.** `mmw-v4/prompt/shared.md` holds the facts about the owner that every session in every host reads. Claude Code reads it as `~/.claude/CLAUDE.md`, a link to the file. Codex reads an `AGENTS.md` that `prompt/render.py` writes.
 - **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex copy again after each change.
@@ -66,7 +66,7 @@ The `dispatch` skill starts sessions in six roles, listed in [`roles.json`](../.
 | `candidate` | a brief | Designs one of several candidate answers to the same brief. |
 | `advisor` | a brief | Gives a second opinion on one decision, on a stronger model. |
 
-Each role is one row of `~/.mmw/models.json`. The row names the host (`claude`, `codex`, `cursor` or `grok`), the model and the reasoning effort. The same file names the runner that starts the sessions.
+Each role is one row of `~/.mmw/models.json`. The row names the host (`claude` or `codex`), the model and the reasoning effort. The same file names the runner that starts the sessions.
 
 Change the file only with `models.py config`:
 

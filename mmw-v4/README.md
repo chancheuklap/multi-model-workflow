@@ -1,6 +1,6 @@
 # MMW v4
 
-MMW v4 is a toolbox of agent skills for working on a product with coding agents. It runs on four hosts: Claude Code, Codex, Cursor and Grok. Every session in every host reads one skill first, [`mmw-mode`](./skills/mmw-mode/SKILL.md). That skill matches the task to a playbook, names the skills each step runs, and holds the principles behind each decision. Every change to the product ends in one pull request that the owner can read without reading code.
+MMW v4 is a toolbox of agent skills for working on a product with coding agents. It runs on two hosts: Claude Code and Codex. Every session in every host reads one skill first, [`mmw-mode`](./skills/mmw-mode/SKILL.md). That skill matches the task to a playbook, names the skills each step runs, and holds the principles behind each decision. Every change to the product ends in one pull request that the owner can read without reading code.
 
 The layout started from pstack, a public Cursor plugin. The skills, the playbooks and the pipeline that sends sessions to tickets are MMW's own.
 
@@ -18,7 +18,7 @@ bash mmw-v4/install.sh --back     # go back to v3
 
 `install.sh` points each host at this checkout's `mmw-v4/`:
 
-- **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex, Cursor and Grok read the first directory. Claude Code reads only the second.
+- **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex reads the first directory. Claude Code reads only the second.
 - **Hooks.** The `dispatch` skill's `tool-guard.py` and `turn-guard.py` go into each host's own hook configuration.
 - **The user-level prompt.** `prompt/shared.md` reaches Claude Code as `~/.claude/CLAUDE.md`, and Codex as an `AGENTS.md` that `prompt/render.py` writes. [`prompt/README.md`](./prompt/README.md) has the details.
 - **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex copy again after each change.

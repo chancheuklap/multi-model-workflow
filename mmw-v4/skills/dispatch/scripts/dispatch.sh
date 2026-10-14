@@ -118,8 +118,8 @@ DEFAULT_WORKER=junior-worker
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 
-# Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
-# --json output under it, which no JSON reader can parse.
+# A shell that exports CLICOLOR_FORCE=1 makes `gh` write ANSI escapes into --json
+# output, which no JSON reader can parse.
 gh_() {
   env -u CLICOLOR_FORCE -u CLICOLOR gh "$@"
 }

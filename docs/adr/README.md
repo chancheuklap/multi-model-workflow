@@ -67,6 +67,7 @@
 | [0046](0046-a-skill-change-runs-the-general-flow.md) | 一次技能改动和别的项目一样走通用流程：先读技能集的标准，按大小走 Make a small change 或 Write a spec，最后证明一次 | 2026-10-09 | 0040、0043 | 无 |
 | [0047](0047-a-night-dispatches-only-into-free-places.md) | 一夜同时被持有的票数以 `models.json` 的 `max_workers` 为上限（默认 3），`advance` 只派出上限剩下的空位 | 2026-10-13 | 无 | 无 |
 | [0048](0048-verification-assets-written-in-the-day.md) | feature map 放在产品仓库的 `.agents/skills/verify-<product>/features/`，和 e2e test 一起白天写、主人要求时维护复核，夜里只读 | 2026-10-13 | 0029、0030、0041、0042、0044 | 无 |
+| [0049](0049-v4-serves-claude-code-and-codex.md) | MMW v4 只服务 Claude Code 与 Codex 两个 host，Grok 与 Cursor 退出 | 2026-10-14 | 0003、0006、0007、0021 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

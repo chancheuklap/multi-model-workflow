@@ -131,8 +131,8 @@ ECHOED_EXIT_RE = re.compile(r"^(?:echo|printf)\b.*\$\?")
 
 # ----------------------------------------------------------------- ticket text
 
-# Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into --json
-# output under it, which json.loads cannot read. Every gh call here runs without it.
+# Under an exported CLICOLOR_FORCE=1, `gh` writes ANSI escapes into --json output, which
+# json.loads cannot read. Every gh call here runs without it.
 # `events.py`, loaded above, computes the same filter; this file shares its value rather
 # than filtering `os.environ` a second time.
 GH_ENV = events.GH_ENV
