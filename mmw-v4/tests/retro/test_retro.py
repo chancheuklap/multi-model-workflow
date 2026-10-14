@@ -368,6 +368,26 @@ class Commands(unittest.TestCase):
         self.assertEqual(len([a for a in self.fake.calls if a[:3] == ['gh','issue','reopen']]),1)
         self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
 
+    def test_two_merges_reopen_the_same_target_once(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91,state='closed')
+        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
+        self.fake.rows[92] = issue(92,bodies=[seen(ticket=62)])
+        path = self.answer('merge:91')
+        Path(path).write_text(Path(path).read_text().replace(
+            '## Problems','| 92 | merge:91 | 同一个问题 | README.md:1 | |\n\n## Problems'))
+        for _ in range(2):
+            rc,out,err = self.run_command('apply',path)
+            self.assertEqual(rc,0,err)
+        target = self.fake.rows[91]
+        self.assertEqual(target['state'],'open')
+        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'needs-triage'}])
+        self.assertEqual(len([c for c in target['comments'] if '修了又犯' in c['body']]),1)
+        moved = events.fold(target['comments'],issue=91)['occurrences']
+        self.assertEqual([o['ticket'] for o in moved],[61,62])
+        self.assertEqual(len([a for a in self.fake.calls if a[:3] == ['gh','issue','reopen']]),1)
+        self.assertEqual([self.fake.rows[n]['state_reason'] for n in (90,92)],['duplicate','duplicate'])
+
     def test_a_rejected_lesson_is_closed_with_its_reason(self):
         self.start_run()
         rc,out,err = self.run_command('apply',self.answer('reject'))
