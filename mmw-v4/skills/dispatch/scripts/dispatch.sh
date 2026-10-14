@@ -3488,6 +3488,7 @@ delete_origin_base_branch() {
   rc=$?
   [ "$rc" -eq 2 ] && return 0
   echo "dispatch: could not delete origin/$into: $(printf '%s' "$out" | tr '\n' ' '); run git push origin --delete $into" >&2
+  return 2
 }
 
 retain_local_base_branch() {
@@ -3527,30 +3528,39 @@ retain_local_base_branch() {
 }
 
 clean_base_merge_worktree() {
-  local root="$1" into="$2" main dest state
+  local root="$1" into="$2" main dest state failed=0
   main="$(main_checkout)" || return 0
   dest="$main/.worktrees/merge-$(merge_slug "$into")"
   if [ -e "$dest" ]; then
-    git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 \
-      || echo "dispatch: could not remove $dest; run git worktree remove --force $dest" >&2
+    git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 || {
+      echo "dispatch: could not remove $dest; run git worktree remove --force $dest" >&2
+      failed=2
+    }
   fi
-  state="$(repository_state_dir)" || return 0
-  rm -f "$state/merge-$(merge_slug "$into").lock"
+  state="$(repository_state_dir)" || return 2
+  rm -f "$state/merge-$(merge_slug "$into").lock" || return 2
+  return "$failed"
 }
 
 finish_cleanup() {
-  local root="$1" into="$2" project="$3"
-  fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 0; }
+  local root="$1" into="$2" project="$3" failed=0
+  fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 2; }
   if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" \
      && ! git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project" 2>/dev/null; then
     echo "dispatch: keeping $into because origin/$project does not contain origin/$into; run finish again after reconciling the branches" >&2
-  else
-    retain_local_base_branch "$root" "$into" "$project" \
-      && delete_origin_base_branch "$root" "$into" "$project"
+  elif ! retain_local_base_branch "$root" "$into" "$project" \
+       || ! delete_origin_base_branch "$root" "$into" "$project"; then
+    failed=2
   fi
-  clean_base_merge_worktree "$root" "$into"
-  sweep_orphan_merge_worktrees "$root" \
-    || echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
+  clean_base_merge_worktree "$root" "$into" || failed=2
+  sweep_orphan_merge_worktrees "$root" || {
+    echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
+    failed=2
+  }
+  if [ "$failed" -ne 0 ]; then
+    echo "dispatch: cleanup of $into is incomplete; run finish again" >&2
+  fi
+  return "$failed"
 }
 
 # The night is delivered as one pull request from the night's branch to the project branch,
@@ -3621,7 +3631,7 @@ finish_spec() {
 
   merged="$(newest_field "$spec" merge spec.merged 2>/dev/null)" || merged=""
   if [ -n "$merged" ]; then
-    finish_cleanup "$root" "$into" "$project"
+    finish_cleanup "$root" "$into" "$project" || return 2
     close_finished_spec "$spec" || return 2
     echo "finish #$spec: merge $merged was already recorded; cleanup checked"
     return 0
@@ -3637,7 +3647,7 @@ finish_spec() {
         refuse "origin/$into is absent and the local $into is not contained in origin/$project; nothing was deleted"
       fi
       release_merge_lock
-      finish_cleanup "$root" "$into" "$project"
+      finish_cleanup "$root" "$into" "$project" || return 2
       close_finished_spec "$spec" || return 2
       echo "finish #$spec: origin/$into was already absent; cleanup checked"
       return 0
@@ -3652,7 +3662,7 @@ finish_spec() {
         fi
       fi
       release_merge_lock
-      finish_cleanup "$root" "$into" "$project"
+      finish_cleanup "$root" "$into" "$project" || return 2
       close_finished_spec "$spec" || return 2
       echo "finish #$spec: origin/$project already contained $into; cleanup checked"
       return 0
@@ -3705,7 +3715,7 @@ finish_spec() {
       refuse "origin/$project contains $into, but the spec.merged event on #$spec was not written; run finish again"
     fi
     release_merge_lock
-    finish_cleanup "$root" "$into" "$project"
+    finish_cleanup "$root" "$into" "$project" || return 2
     close_finished_spec "$spec" || return 2
     echo "finish #$spec: merged $into into origin/$project at $merge; cleanup checked"
     return 0
