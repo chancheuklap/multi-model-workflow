@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,8 @@ CATALOG = ROOT / "mmw-v4" / "tests" / "dispatch" / "catalogs" / "all.json"
 sys.path.insert(0, str(SERVER.parent))
 import settings_api  # noqa: E402
 from board_process import RunningBoard  # noqa: E402
+sys.path.insert(0, str(ROOT / "mmw-v4" / "tests" / "dispatch"))
+from test_catalog import fake_host  # noqa: E402
 
 
 def config(version=1):
@@ -41,7 +44,7 @@ class SettingsApiTest(unittest.TestCase):
         self.home = Path(self.tmp.name); (self.home / "models.json").write_text(json.dumps(config()) + "\n")
 
     def test_get_settings_answers_config_and_scan(self):
-        catalog = self.home / "catalog.json"
+        catalog = self.home / "fixture-catalog.json"
         catalog.write_bytes(CATALOG.read_bytes())
         with running_board(self.home, catalog) as board:
             catalog.write_text(json.dumps({"cli": {}}))
@@ -129,6 +132,100 @@ class SettingsApiTest(unittest.TestCase):
             release.set()
             worker.join(timeout=2)
         self.assertFalse(worker.is_alive())
+
+
+
+class StoredCatalogApiTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name)
+        (self.home / "models.json").write_text(json.dumps(config()))
+        for host in ("claude", "codex"):
+            fake_host(self.home, host)
+        self.seed = {"offerings": [{"id": "stored-sol", "name": "Stored Sol",
+                                  "thinkingOptionIds": ["high"], "isDefault": True}],
+                     "read_at": "2026-10-14T00:00:00Z", "version": "codex old"}
+        (self.home / "catalog.json").write_text(json.dumps({"cli": {"codex": self.seed}}))
+
+    def board(self):
+        return RunningBoard(environment={"HOME": str(self.home), "MMW_HOME": str(self.home),
+                                         "MMW_HOST_CATALOG": ""})
+
+    def test_the_first_get_answers_the_stored_catalog(self):
+        (self.home / "codex.mode").write_text("slow")
+        with self.board() as board:
+            status, raw = board.request("GET", "/api/settings")
+            host = json.loads(raw)["scan"]["hosts"]["codex"]
+            self.wait_for(lambda: self.calls() >= 1)
+            self.wait_for(self.finished)
+        self.assertEqual(status, 200)
+        self.assertEqual(host["offered"], [{"model": "stored sol", "efforts": ["high"]}])
+        self.assertEqual(host["read_at"], "2026-10-14T00:00:00Z")
+        self.assertIn("app-server", (self.home / "codex.log").read_text())
+
+    def calls(self):
+        path = self.home / "codex.log"
+        return path.read_text().splitlines().count("app-server") if path.exists() else 0
+
+    def wait_for(self, predicate):
+        deadline = time.monotonic() + 4
+        while time.monotonic() < deadline:
+            if predicate():
+                return
+            time.sleep(0.02)
+        self.fail("background catalog read did not reach the expected state")
+
+    def finished(self):
+        return json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]["version"] == "codex 1.0"
+
+    def test_a_failed_rescan_keeps_the_stored_catalog_and_says_why(self):
+        with self.board() as board:
+            self.wait_for(self.finished)
+            before = json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]
+            count = self.calls()
+            (self.home / "codex.mode").write_text("exit")
+            status, raw = board.request("POST", "/api/settings/scan", {"source": "cli"}, board.write_headers)
+            host = json.loads(raw)["hosts"]["codex"]
+            self.assertEqual(self.calls(), count + 1)
+        self.assertEqual(status, 200)
+        self.assertEqual(host["offered"], [{"model": "gpt 6 sol", "efforts": ["low", "high"]}])
+        self.assertEqual(host["read_at"], before["read_at"])
+        self.assertEqual(host["failure"]["kind"], "exit")
+        self.assertIn("boom", host["failure"]["detail"])
+
+    def test_each_get_starts_one_background_read_at_a_time(self):
+        with self.board() as board:
+            self.wait_for(self.finished)
+            status, _ = board.request("POST", "/api/settings/scan", {"source": "cli"}, board.write_headers)
+            self.assertEqual(status, 200)
+            (self.home / "codex.mode").write_text("slow")
+            before = self.calls()
+            read_at = json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]["read_at"]
+            status, raw = board.request("GET", "/api/settings")
+            self.assertEqual(status, 200)
+            self.assertFalse(json.loads(raw)["scan"]["scanning"])
+            self.wait_for(lambda: self.calls() == before + 1)
+            second_status, raw = board.request("GET", "/api/settings")
+            self.assertEqual(second_status, 200)
+            self.assertFalse(json.loads(raw)["scan"]["scanning"])
+            self.wait_for(lambda: json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]["read_at"] != read_at)
+            self.assertEqual(self.calls(), before + 1)
+
+    def test_the_first_save_waits_for_the_initial_read_without_starting_another(self):
+        saved = config()
+        for row in saved["rows"].values():
+            row.update(host="codex", model="gpt 6 sol", effort="high")
+        (self.home / "models.json").write_text(json.dumps(saved))
+        (self.home / "catalog.json").unlink()
+        (self.home / "codex.mode").write_text("slow")
+        with self.board() as board:
+            self.wait_for(lambda: self.calls() == 1)
+            status, raw = board.request("PUT", "/api/settings", saved, board.write_headers)
+            self.assertEqual(status, 200, raw)
+            self.assertEqual(json.loads(raw)["version"], 2)
+            self.assertEqual(self.calls(), 1)
+
 
 
 if __name__ == "__main__": unittest.main()
