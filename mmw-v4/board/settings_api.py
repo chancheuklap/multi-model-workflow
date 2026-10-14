@@ -68,6 +68,16 @@ def _cached_scan(runner: str) -> dict:
         return dict(_scan)
 
 
+def _ready_scan(runner: str) -> dict:
+    source = models.catalog_source(runner)
+    with _state_lock:
+        while _scan_active:
+            _state_lock.wait()
+        if _scan is not None and _scan["source"] == source:
+            return dict(_scan)
+        return models.cached_host_catalogs(runner)
+
+
 def _replace_scan(source: str) -> dict:
     if source not in ("cli", "paseo"):
         raise ValueError(f"source must be cli or paseo, got {source!r}")
@@ -104,7 +114,15 @@ def _options() -> dict:
 
 def _get() -> tuple[int, dict[str, str], bytes]:
     config = models.read_local_config()
-    return _json(200, {**config, **_options(), "scan": _cached_scan(config["runner"])})
+    runner = config["runner"]
+    scan = _cached_scan(runner)
+    if scan["source"] != models.catalog_source(runner):
+        scan = models.cached_host_catalogs(runner)
+    if not scan["scanned_at"]:
+        scan = _ready_scan(runner)
+        if not scan["scanned_at"]:
+            scan = _replace_scan(models.catalog_source(runner))
+    return _json(200, {**config, **_options(), "scan": {**scan, "scanning": False}})
 
 
 def _put(request) -> tuple[int, dict[str, str], bytes]:
@@ -114,7 +132,7 @@ def _put(request) -> tuple[int, dict[str, str], bytes]:
         return _json(422, {"errors": [{"cell": "version", "reason": "version must be an integer"}]})
     try:
         written = models.write_local_config(proposed, expected,
-                                            _cached_scan(str(proposed.get("runner"))))
+                                            _ready_scan(str(proposed.get("runner"))))
     except models.VersionConflict as exc:
         return _json(409, {"error": str(exc), "modified_at": exc.modified_at})
     except models.InvalidConfig as exc:

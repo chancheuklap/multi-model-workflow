@@ -180,16 +180,19 @@ class StoredCatalogApiTest(unittest.TestCase):
         return json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]["version"] == "codex 1.0"
 
     def test_a_failed_rescan_keeps_the_stored_catalog_and_says_why(self):
-        (self.home / "codex.mode").write_text("exit")
         with self.board() as board:
+            self.wait_for(self.finished)
+            before = json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]
+            count = self.calls()
+            (self.home / "codex.mode").write_text("exit")
             status, raw = board.request("POST", "/api/settings/scan", {"source": "cli"}, board.write_headers)
             host = json.loads(raw)["hosts"]["codex"]
+            self.assertEqual(self.calls(), count + 1)
         self.assertEqual(status, 200)
-        self.assertEqual(host["offered"], [{"model": "stored sol", "efforts": ["high"]}])
-        self.assertEqual(host["read_at"], "2026-10-14T00:00:00Z")
+        self.assertEqual(host["offered"], [{"model": "gpt 6 sol", "efforts": ["low", "high"]}])
+        self.assertEqual(host["read_at"], before["read_at"])
         self.assertEqual(host["failure"]["kind"], "exit")
         self.assertIn("boom", host["failure"]["detail"])
-        self.assertIn("app-server", (self.home / "codex.log").read_text())
 
     def test_each_get_starts_one_background_read_at_a_time(self):
         with self.board() as board:
@@ -201,13 +204,28 @@ class StoredCatalogApiTest(unittest.TestCase):
             read_at = json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]["read_at"]
             status, raw = board.request("GET", "/api/settings")
             self.assertEqual(status, 200)
-            self.assertTrue(json.loads(raw)["scan"]["scanning"])
+            self.assertFalse(json.loads(raw)["scan"]["scanning"])
             self.wait_for(lambda: self.calls() == before + 1)
             second_status, raw = board.request("GET", "/api/settings")
             self.assertEqual(second_status, 200)
-            self.assertTrue(json.loads(raw)["scan"]["scanning"])
+            self.assertFalse(json.loads(raw)["scan"]["scanning"])
             self.wait_for(lambda: json.loads((self.home / "catalog.json").read_text())["cli"]["codex"]["read_at"] != read_at)
             self.assertEqual(self.calls(), before + 1)
+
+    def test_the_first_save_waits_for_the_initial_read_without_starting_another(self):
+        saved = config()
+        for row in saved["rows"].values():
+            row.update(host="codex", model="gpt 6 sol", effort="high")
+        (self.home / "models.json").write_text(json.dumps(saved))
+        (self.home / "catalog.json").unlink()
+        (self.home / "codex.mode").write_text("slow")
+        with self.board() as board:
+            self.wait_for(lambda: self.calls() == 1)
+            status, raw = board.request("PUT", "/api/settings", saved, board.write_headers)
+            self.assertEqual(status, 200, raw)
+            self.assertEqual(json.loads(raw)["version"], 2)
+            self.assertEqual(self.calls(), 1)
+
 
 
 if __name__ == "__main__": unittest.main()
