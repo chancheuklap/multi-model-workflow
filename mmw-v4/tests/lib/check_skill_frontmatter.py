@@ -19,7 +19,8 @@ an argument the person types, and `disable-model-invocation: true` on a skill on
 person starts. Claude Code reads that key and Codex reads only
 `policy.allow_implicit_invocation: false` in the skill's `agents/openai.yaml`, so the
 two are held to agree: one without the other leaves the skill model-invoked on half
-the hosts.
+the hosts. That `policy` is the only key `agents/openai.yaml` may hold: a skill has no
+host-side manifest repeating its name and description.
 
 It reads every mmw-v4/skills/<name>/SKILL.md and parses the text between its first
 two `---` lines with PyYAML. Every suite's run.sh runs this after
@@ -67,6 +68,9 @@ def implicit_off(skill: Path) -> tuple[bool, str | None]:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         return False, f"agents/openai.yaml is not valid YAML ({exc})"
+    extra = sorted(set(data) - {"policy"}) if isinstance(data, dict) else []
+    if extra:
+        return False, f"agents/openai.yaml has a key beside `policy`: {', '.join(extra)}"
     policy = data.get("policy") if isinstance(data, dict) else None
     return isinstance(policy, dict) and policy.get("allow_implicit_invocation") is False, None
 
@@ -121,7 +125,8 @@ def main() -> int:
           "person has to say so to Claude Code and to Codex alike.")
     print("Next: quote any value holding a colon followed by a space; keep only the keys "
           "the writing-for-agents skill's SKILL-SET-RULES.md `### Descriptions` allows; set or remove "
-          "`disable-model-invocation: true` and agents/openai.yaml's policy together.")
+          "`disable-model-invocation: true` and agents/openai.yaml's policy together; keep nothing "
+          "but `policy` in agents/openai.yaml.")
     return 1
 
 
