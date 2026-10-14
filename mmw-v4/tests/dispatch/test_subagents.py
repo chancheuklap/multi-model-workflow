@@ -145,17 +145,6 @@ class SubagentsTest(unittest.TestCase):
         self.assertEqual(self.command("subagent", "reader", "claude"),
                          (0, "model=haiku effort=medium\n", ""))
 
-    def test_other_configuration_commands_keep_the_subagent_rows(self):
-        for args in (("config", "runner", "herdr"), ("config", "set", "max_workers", "2")):
-            with self.subTest(args=args):
-                self.seed({**base_config(), "subagents": {"reader": {"claude": {
-                    "model": "haiku", "effort": "medium"}}}})
-                code, out, err = self.command(*args)
-                self.assertEqual((code, err), (0, ""))
-                self.assertEqual(json.loads(out)["version"], 2)
-                self.assertEqual(json.loads(out)["subagents"], {"reader": {"claude": {
-                    "model": "haiku", "effort": "medium"}}})
-
     def test_other_configuration_commands_keep_codex_settings_without_a_catalog(self):
         for args in (("config", "set", "reviewer", "claude", "sonnet 5", "high"),
                      ("config", "runner", "herdr"), ("config", "set", "max_workers", "2")):
@@ -218,14 +207,43 @@ class SubagentsTest(unittest.TestCase):
                        "codex": {"model": "gpt-6-luna", "effort": "high"}},
             "default": {"claude": {"model": "opus", "effort": "high"}}})
 
-    def test_a_malformed_saved_subagent_setting_is_refused_without_writing(self):
+    def test_a_query_refuses_a_malformed_saved_subagent_setting_without_writing(self):
         for value in (None, [], {"reader": None}, {"reader": {"claude": "haiku"}},
                       {"reader": {"claude": {"model": False, "effort": "high"}}}):
             with self.subTest(value=value):
                 self.seed({**base_config(), "subagents": value})
-                for args in (("subagent", "reader", "claude"),
-                             ("config", "subagent", "reader", "claude", "haiku", "medium")):
-                    self.assertIn("subagents", self.refused(*args))
+                self.assertIn("subagents", self.refused("subagent", "reader", "claude"))
+
+    def test_a_subagent_write_keeps_unrelated_stale_codex_cells(self):
+        for cache in (False, True):
+            with self.subTest(cache=cache):
+                self.seed({**base_config(), "subagents": {
+                    "default": {"codex": {"model": "retired-model", "effort": "high"}},
+                    "reader": {"codex": {"model": "retired-model", "effort": "high"}}}})
+                if cache:
+                    self.catalog()
+                code, out, err = self.command("config", "subagent", "reader", "claude", "haiku", "medium")
+                self.assertEqual((code, err), (0, ""))
+                self.assertEqual(json.loads(out)["subagents"], {
+                    "default": {"codex": {"model": "retired-model", "effort": "high"}},
+                    "reader": {"codex": {"model": "retired-model", "effort": "high"},
+                               "claude": {"model": "haiku", "effort": "medium"}}})
+                code, out, err = self.command("config", "subagent", "default", "codex", "inherit", "inherit")
+                self.assertEqual((code, err), (0, ""))
+                self.assertEqual(json.loads(out)["subagents"], {
+                    "default": {"codex": {"model": "inherit", "effort": "inherit"}},
+                    "reader": {"codex": {"model": "retired-model", "effort": "high"},
+                               "claude": {"model": "haiku", "effort": "medium"}}})
+
+    def test_a_damaged_subagent_cell_can_be_repaired(self):
+        for value in ("haiku", {"model": 5, "effort": "high"}):
+            with self.subTest(value=value):
+                self.seed({**base_config(), "subagents": {"reader": {"claude": value}}})
+                code, out, err = self.command("config", "subagent", "reader", "claude", "haiku", "medium")
+                self.assertEqual((code, err), (0, ""))
+                self.assertEqual(json.loads(out)["version"], 2)
+                self.assertEqual(self.command("subagent", "reader", "claude"),
+                                 (0, "model=haiku effort=medium\n", ""))
 
 
 if __name__ == "__main__":

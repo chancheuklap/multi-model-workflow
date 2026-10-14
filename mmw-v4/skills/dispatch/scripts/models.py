@@ -1024,10 +1024,12 @@ def _validate_subagents(value: object) -> list[dict[str, str]]:
 
 
 def write_local_config(config: dict, expected_version: int, scan: dict | None,
-                       *, validate_roles: Sequence[str] | None = None) -> dict:
+                       *, validate_roles: Sequence[str] | None = None,
+                       merge_subagents: bool = False) -> dict:
     """Validate, lock, version-check, and atomically replace models.json.
 
     With scan=None, update max_workers or subagents and keep runner and rows unchecked.
+    With merge_subagents=True, validate supplied cells and merge them into the saved table.
     """
     path = models_json_path()
     if not path.is_file():
@@ -1065,7 +1067,19 @@ def write_local_config(config: dict, expected_version: int, scan: dict | None,
                 written["max_workers"] = cap_config["max_workers"]
             subagents_config = config if "subagents" in config else current
             if "subagents" in subagents_config:
-                written["subagents"] = subagents_config["subagents"]
+                subagents = subagents_config["subagents"]
+                if merge_subagents:
+                    saved = current.get("subagents", {})
+                    if not isinstance(saved, dict):
+                        raise InvalidConfig([{"cell": "subagents", "reason": "must be a settings object"}])
+                    subagents = dict(saved)
+                    for name, patch in config["subagents"].items():
+                        hosts = saved.get(name, {})
+                        if not isinstance(hosts, dict):
+                            raise InvalidConfig([{"cell": f"subagents.{name}",
+                                                  "reason": "must map hosts to model and effort"}])
+                        subagents[name] = {**hosts, **patch}
+                written["subagents"] = subagents
             statedir.write_atomic(path, json.dumps(written, ensure_ascii=False, indent=2) + "\n")
             return written
     except statedir.LockHeld as exc:
@@ -1276,11 +1290,10 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             if len(args) == 6 and args[1] == "subagent":
                 name, host, model, effort = args[2:]
-                subagent_row(name, host)
                 current = read_local_config()
-                subagents = json.loads(json.dumps(current.get("subagents", {})))
-                subagents.setdefault(name, {})[host] = {"model": model, "effort": effort}
-                written = write_local_config({"subagents": subagents}, current.get("version"), None)
+                subagents = {name: {host: {"model": model, "effort": effort}}}
+                written = write_local_config({"subagents": subagents}, current.get("version"), None,
+                                             merge_subagents=True)
                 print(json.dumps(written, ensure_ascii=False))
                 return 0
             if len(args) == 4 and args[1:3] == ["set", "max_workers"]:

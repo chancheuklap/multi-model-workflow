@@ -83,23 +83,26 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(json.loads((self.home / "models.json").read_text())["subagents"],
                          {"reader": {"claude": {"model": "haiku", "effort": "medium"}}})
 
-    def test_a_put_with_subagents_validates_and_saves_them(self):
+    def test_a_put_with_subagents_saves_them(self):
         proposed = {**config(), "subagents": {"reader": {"claude": {
             "model": "haiku", "effort": "medium"}}}}
         with running_board(self.home) as board:
             status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
             self.assertEqual(status, 200, raw)
-            proposed["version"] = 2
-            proposed["subagents"]["reader"]["claude"]["model"] = "opus[1m]"
-            before = (self.home / "models.json").read_bytes()
-            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
-            self.assertEqual(status, 422)
-            self.assertEqual(json.loads(raw)["errors"][0]["cell"], "subagents.reader.claude.model")
-            self.assertEqual((self.home / "models.json").read_bytes(), before)
             status, raw = board.request("GET", "/api/settings")
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(raw)["subagents"], {"reader": {"claude": {
             "model": "haiku", "effort": "medium"}}})
+
+    def test_a_put_with_invalid_subagents_refuses_without_writing(self):
+        proposed = {**config(), "subagents": {"reader": {"claude": {
+            "model": "opus[1m]", "effort": "medium"}}}}
+        before = (self.home / "models.json").read_bytes()
+        with running_board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+        self.assertEqual(status, 422)
+        self.assertEqual(json.loads(raw)["errors"][0]["cell"], "subagents.reader.claude.model")
+        self.assertEqual((self.home / "models.json").read_bytes(), before)
 
     def test_put_after_a_change_elsewhere_is_409(self):
         with running_board(self.home) as board:
