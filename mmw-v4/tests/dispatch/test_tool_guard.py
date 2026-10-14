@@ -30,24 +30,16 @@ def load(path: Path, name: str):
 
 
 hk = load(DISPATCH_SCRIPTS / "tool-guard.py", "tool_guard")
-REASON_LIMIT = 256  # Grok Build clips a deny reason here (2026-08-29)
-HOST_PREFIX = len("Hook denied: ")
 
 TICKET = 64
 CLOSE = f"gh issue close {TICKET} --reason completed"
 
-# One event per host, in the shape that host actually sends. Cursor's is the payload
-# captured 2026-08-29 from cursor-agent 2026.08.25: the command at the top level, and
-# `"cwd": ""` because a Cursor session can hold several checkouts at once.
+# One event per host, in the shape that host actually sends.
 EVENTS = {
     "claude": {"hook_event_name": "PreToolUse", "cwd": "/w", "tool_name": "Bash",
                "tool_input": {"command": CLOSE}},
     "codex": {"hook_event_name": "PreToolUse", "cwd": "/w", "tool_name": "Bash",
               "tool_input": {"command": CLOSE}},
-    "grok": {"hookEventName": "pre_tool_use", "cwd": "/w",
-             "toolName": "run_terminal_command", "toolInput": {"command": CLOSE}},
-    "cursor": {"hook_event_name": "beforeShellExecution", "cwd": "", "sandbox": False,
-               "command": CLOSE, "workspace_roots": ["/w"]},
 }
 
 
@@ -84,10 +76,6 @@ def call(host: str, event: dict, env: dict | None = None,
             merged.update(env)
         if not env or "PASEO_AGENT_CWD" not in env:
             merged["PASEO_AGENT_CWD"] = path
-        if not env or "CURSOR_AGENT" not in env:
-            merged.pop("CURSOR_AGENT", None)
-        if not env or "CURSOR_VERSION" not in env:
-            merged.pop("CURSOR_VERSION", None)
         with mock.patch.dict(os.environ, merged, clear=True), \
              mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
              redirect_stdout(out), redirect_stderr(io.StringIO()):
@@ -97,27 +85,19 @@ def call(host: str, event: dict, env: dict | None = None,
 
 
 def reason_of(answer: dict) -> str:
-    """The one sentence the model reads, wherever this host keeps it."""
-    if "hookSpecificOutput" in answer:
-        return answer["hookSpecificOutput"]["permissionDecisionReason"]
-    for key in ("reason", "agent_message"):
-        if key in answer:
-            return answer[key]
-    raise AssertionError(f"no reason in {answer}")
+    """The one sentence the model reads."""
+    return answer["hookSpecificOutput"]["permissionDecisionReason"]
 
 
 def with_command(host: str, command: str) -> dict:
     """The host's event, carrying a different command."""
     event = json.loads(json.dumps(EVENTS[host]))
-    for holder in (event.get("tool_input"), event.get("toolInput")):
-        if isinstance(holder, dict):
-            holder["command"] = command
-            return event
-    event["command"] = command
+    event["tool_input"]["command"] = command
     return event
 
 
 # ------------------------------------------------------------------------ cwd names the ticket
+
 
 class TestCwdNamesTheTicket(unittest.TestCase):
     """`pretool` reads a directory basename, never a ticket number handed to it.
@@ -139,21 +119,20 @@ class TestCwdNamesTheTicket(unittest.TestCase):
             (0, None),
         )
 
-    def test_a_host_that_runs_hooks_elsewhere_is_governed_by_the_session_directory(self):
-        """Cursor runs this file from `~/.cursor` and sends an empty `cwd`, so the
-        process directory names no ticket however deep in the worktree the command is.
-        Paseo says where the session was opened, and that is what governs."""
-        code, answer = call("cursor", EVENTS["cursor"],
+    def test_a_hook_run_from_elsewhere_is_governed_by_the_session_directory(self):
+        """The process directory names no ticket; Paseo says where the session was
+        opened, and that is what governs."""
+        code, answer = call("claude", EVENTS["claude"],
                             env={"PASEO_AGENT_CWD": f"/w/issue-{TICKET}"},
-                            cwd_basename="dot-cursor")
+                            cwd_basename="elsewhere")
         self.assertEqual(code, 0)
-        self.assertEqual(answer["permission"], "deny")
+        self.assertEqual(answer["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_neither_directory_naming_a_ticket_governs_nothing(self):
         self.assertEqual(
-            call("cursor", EVENTS["cursor"],
+            call("claude", EVENTS["claude"],
                  env={"PASEO_AGENT_CWD": "/w/multi-model-workflow"},
-                 cwd_basename="dot-cursor"),
+                 cwd_basename="elsewhere"),
             (0, None),
         )
 
@@ -188,6 +167,7 @@ class TestSelfScope(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------ AC2
+
 
 class TestWhatItStops(unittest.TestCase):
     """Two commands finish a ticket. Everything else is the worker's own business."""
@@ -244,8 +224,9 @@ class TestWhatItStops(unittest.TestCase):
 
 # ------------------------------------------------------------------------ AC3
 
+
 class TestRefusalShape(unittest.TestCase):
-    """Each host is refused in the vocabulary it understands."""
+    """Both hosts read one refusal shape."""
 
     def test_claude_and_codex(self):
         for host in ("claude", "codex"):
@@ -256,17 +237,8 @@ class TestRefusalShape(unittest.TestCase):
                 self.assertEqual(inner["permissionDecision"], "deny")
                 self.assertEqual(code, 0)
 
-    def test_grok(self):
-        _, answer = call("grok", EVENTS["grok"])
-        self.assertEqual(answer["decision"], "deny")
-
-    def test_cursor(self):
-        _, answer = call("cursor", EVENTS["cursor"])
-        self.assertEqual(answer["permission"], "deny")
-        self.assertEqual(answer["user_message"], answer["agent_message"])
-
     def test_the_answer_is_on_stdout_and_the_exit_code_stays_zero(self):
-        """Every one of the four honours a deny on stdout whatever the exit code is;
+        """Both hosts honour a deny on stdout whatever the exit code is;
         exiting non-zero as well would only make a failure look like a refusal."""
         for host in hk.HOSTS:
             with self.subTest(host=host):
@@ -277,8 +249,9 @@ class TestRefusalShape(unittest.TestCase):
 
 # ------------------------------------------------------------------------ AC4
 
+
 class TestInputShapes(unittest.TestCase):
-    """Three spellings of one event, one decision, one sentence."""
+    """One event shape, one decision, one sentence."""
 
     def test_every_host_reads_the_command_out_of_its_own_event(self):
         for host, event in EVENTS.items():
@@ -290,11 +263,11 @@ class TestInputShapes(unittest.TestCase):
             with self.subTest(event=event):
                 self.assertIsNone(hk.command_of(event))
 
-    def test_the_same_command_is_refused_on_all_four_with_the_same_words(self):
+    def test_the_same_command_is_refused_on_both_with_the_same_words(self):
         reasons = {host: reason_of(call(host, EVENTS[host])[1]) for host in hk.HOSTS}
         self.assertEqual(len(set(reasons.values())), 1, reasons)
 
-    def test_the_same_harmless_command_goes_through_on_all_four(self):
+    def test_the_same_harmless_command_goes_through_on_both(self):
         for host in hk.HOSTS:
             with self.subTest(host=host):
                 event = with_command(host, f"gh issue comment {TICKET} --body ok")
@@ -302,6 +275,7 @@ class TestInputShapes(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------ AC5
+
 
 class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
     """Read it as the agent that just hit the closed door reads it."""
@@ -326,19 +300,9 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
     def test_no_placeholder_survives_into_what_the_model_reads(self):
         self.assertNotIn("{", self.reason())
 
-    def test_it_arrives_whole_on_the_host_that_clips_it(self):
-        """Grok Build clips a deny reason at 256 characters and hides the rest.
-
-        A sentence that runs past that loses its tail, and the tail is where the way
-        out lives. Five digits is more ticket numbers than this tracker will ever hold.
-        """
-        for number in (7, 86, 640, 6400, 99999):
-            with self.subTest(ticket=number):
-                whole = HOST_PREFIX + len(hk.REFUSAL.format(n=number))
-                self.assertLessEqual(whole, REASON_LIMIT)
-
 
 # ------------------------------------------------------------------------ AC6
+
 
 class TestTheQuestionGate(unittest.TestCase):
     """A session in a ticket worktree may not put a question on the screen, on any runner."""
@@ -348,8 +312,6 @@ class TestTheQuestionGate(unittest.TestCase):
                    "tool_input": {"questions": []}},
         "codex": {"hook_event_name": "PreToolUse", "tool_name": "request_user_input",
                   "tool_input": {}},
-        "grok": {"hookEventName": "pre_tool_use", "toolName": "ask_user_question",
-                 "toolInput": {"questions": []}},
     }
 
     def ask(self, host: str, cwd_basename: str = f"issue-{TICKET}", env: dict | None = None,
@@ -357,7 +319,7 @@ class TestTheQuestionGate(unittest.TestCase):
         out = io.StringIO()
         with named_cwd(cwd_basename):
             merged = {k: v for k, v in os.environ.items()
-                      if not k.startswith(("PASEO_", "CURSOR_"))}
+                      if not k.startswith("PASEO_")}
             merged.update(env or {})
             with mock.patch.dict(os.environ, merged, clear=True), \
                  mock.patch.object(hk.sys, "stdin",
@@ -382,7 +344,7 @@ class TestTheQuestionGate(unittest.TestCase):
 
     def test_the_question_gate_asks_no_runner(self):
         with mock.patch("subprocess.run") as run, mock.patch("subprocess.Popen") as popen:
-            _, answer = self.ask("grok")
+            _, answer = self.ask("codex")
         self.assertIsNotNone(answer)
         run.assert_not_called()
         popen.assert_not_called()
@@ -392,54 +354,12 @@ class TestTheQuestionGate(unittest.TestCase):
                  "tool_input": {"command": "ls"}}
         self.assertEqual(self.ask("claude", event=event), (0, None))
 
-    def test_claude_question_is_silent_inside_cursor(self):
-        event = dict(self.ASKS["claude"], cursor_version="2026.09.08")
-        self.assertEqual(self.ask("claude", event=event), (0, None))
-
-    def test_claude_question_still_refuses_in_a_claude_started_from_a_cursor_pane(self):
-        # Cursor's environment reaches every child; only its payload says Cursor sent it.
-        code, answer = self.ask("claude", env={"CURSOR_AGENT": "1", "CURSOR_VERSION": "2026.09.08",
-                                               "CURSOR_INVOKED_AS": "cursor-agent"})
-        self.assertEqual(code, 0)
-        self.assertIsNotNone(answer)
-
     def test_the_reason_says_where_the_question_goes(self):
-        _, answer = self.ask("grok")
+        _, answer = self.ask("codex")
         reason = reason_of(answer)
         self.assertIn("Decisions I made on my own", reason)
         self.assertIn("ABANDON: AC<n> decision", reason)
         self.assertIn("needs-triage", reason)
-
-    def test_it_arrives_whole_on_the_host_that_clips_it(self):
-        self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), REASON_LIMIT)
-
-
-class TestClaudeCopyNoOpsInsideCursor(unittest.TestCase):
-    """Cursor CLI imports Claude Code hooks and has no off switch.
-
-    The Claude-registered copy would refuse in Claude's JSON; Cursor may not
-    honour that, and the gate would run twice. The Cursor-registered
-    invocation stays. Which host sent the event is read off its payload, never
-    off the environment, which Cursor hands to every child process.
-    """
-
-    def test_claude_pretool_still_refuses_in_a_claude_started_from_a_cursor_pane(self):
-        # A Claude session started by hand from a Cursor pane inherits CURSOR_AGENT and
-        # CURSOR_VERSION; its own events carry no cursor_version, and its gate stays on.
-        code, answer = call("claude", EVENTS["claude"],
-                            env={"CURSOR_AGENT": "1", "CURSOR_VERSION": "2026.09.08"})
-        self.assertEqual(code, 0)
-        self.assertIsNotNone(answer)
-
-    def test_claude_pretool_is_silent_when_the_event_names_cursor(self):
-        event = dict(EVENTS["claude"])
-        event["cursor_version"] = "2026.09.08"
-        self.assertEqual(call("claude", event), (0, None))
-
-    def test_cursor_pretool_still_refuses_inside_cursor(self):
-        code, answer = call("cursor", EVENTS["cursor"], env={"CURSOR_AGENT": "1"})
-        self.assertEqual(code, 0)
-        self.assertEqual(answer["permission"], "deny")
 
 
 class TestNothingBlocksOnBadInput(unittest.TestCase):
@@ -460,7 +380,9 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
         self.assertEqual(self.quiet(["pretool", "claude"], '["ls"]'), (0, ""))
 
     def test_a_host_it_does_not_know(self):
-        self.assertEqual(self.quiet(["pretool", "emacs"]), (0, ""))
+        for host in ("emacs", "grok", "cursor"):
+            with self.subTest(host=host):
+                self.assertEqual(self.quiet(["pretool", host]), (0, ""))
 
     def test_a_gate_it_does_not_know(self):
         self.assertEqual(self.quiet(["stop", "claude"]), (0, ""))
@@ -469,7 +391,7 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
         with named_cwd(f"issue-{TICKET}"), \
              mock.patch.object(hk.sys, "stdin", io.StringIO("not json")), \
              redirect_stdout(io.StringIO()) as out:
-            self.assertEqual(hk.main(["question", "grok"]), 0)
+            self.assertEqual(hk.main(["question", "codex"]), 0)
         self.assertEqual(out.getvalue(), "")
 
     def test_no_arguments_at_all(self):
@@ -495,7 +417,7 @@ class EndingAProcess(unittest.TestCase):
                 self.assertEqual(code, 0)
                 self.assertIsNotNone(answer, f"{command} was allowed through")
 
-    def test_every_host_is_told_in_its_own_vocabulary(self):
+    def test_every_host_is_told(self):
         for host in EVENTS:
             with self.subTest(host=host):
                 _code, answer = call(host, with_command(host, "kill 123"))
@@ -506,15 +428,6 @@ class EndingAProcess(unittest.TestCase):
         _code, answer = call("claude", with_command("claude", "kill 123"))
         reason = reason_of(answer)
         self.assertIn("verify-<product>", reason)
-
-    def test_the_refusal_fits_what_a_host_will_show(self):
-        """Grok Build clips at 256; the way out is the part that must survive."""
-        for command in ("kill 123", "pkill -f " + "x" * 300):
-            with self.subTest(command=command):
-                _code, answer = call("claude", with_command("claude", command))
-                reason = reason_of(answer)
-                self.assertLessEqual(HOST_PREFIX + len(reason), REASON_LIMIT)
-                self.assertIn("verify-<product>", reason, "the way out was trimmed away")
 
     def test_prose_and_ordinary_commands_pass(self):
         """Splitting on the shell's own separators tells a command from a mention."""

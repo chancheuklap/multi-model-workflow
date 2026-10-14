@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The turn guard: the first layer of liveness, a hook on the orchestrator's own turn end.
 
-    turn-guard.py stop <host>      <host> is claude, codex, grok or cursor;
+    turn-guard.py stop <host>      <host> is claude or codex;
                                    the host's turn-end payload is on stdin
 
 The worst way a night dies is the orchestrator stopping by itself: its turn ends and nothing
@@ -46,44 +46,16 @@ documents promise):
     host     event            can it keep the turn from ending?     how this file answers
     claude   Stop             yes: exit 2, stderr to the model       exit 2 + stderr
     codex    Stop             yes: exit 2, stderr to the model       exit 2 + stderr
-    grok     Stop             yes: exit 2, stderr to the model,      exit 2 + stderr
-                              another round in the same process
-    cursor   stop             no; exit 2 is ignored. One             exit 0, `{"followup_message":
-                              `followup_message` on stdout starts    ...}` on stdout
-                              another turn
 
 A block is asked for once per turn end: a stop that is already the continuation a block
-forced (`stop_hook_active` for Claude and Codex, `stopHookActive` — or `stop_hook_active`
-when the camel-case field is absent — for Grok, `loop_count` 1 or more for Cursor) re-arms
-and is recorded like any other, and is let through; Grok's observe-only session-end fire
-(`reason` other than `end_turn`) is not a turn and is not looked at.
+forced (`stop_hook_active`) re-arms and is recorded like any other, and is let through.
 The block itself re-armed the watchdog, and the text tells the agent the one
 command to run when it did not come up.
 
-**Three lessons about hooks that fire in the wrong host**, copied from firstmate
-(`docs/turnend-guard.md`, `bin/fm-hook-host-lib.sh`), because each is a direct hit here:
-Cursor and Grok both load `~/.claude/settings.json`, and Grok's own documents say it loads
-`~/.cursor/hooks.json` too, so the copies registered for Claude and for Cursor can run
-inside those hosts as well.
-
-1. The Claude-registered copy stands down when `GROK_AGENT` or `GROK_HOOK_EVENT` is set —
-   both, because Grok 0.2.73 injects only the first and 1.0.0 only the second, so a guard
-   on one of them stops working at an upgrade.
-2. What that costs when it goes wrong is on record: with the guard failing, firstmate's
-   Claude auto-arm ran synchronously under Grok, waited out its declared 28800 seconds, and
-   that Grok turn never ended.
-3. It never stands down on `GROK_SESSION_ID`: Grok injects that into every child process,
-   so it survives into a Claude session Grok started and would switch off that Claude
-   session's own guard. For the same reason the Cursor tests read the payload, never the
-   environment: the Claude-registered copy stands down when the payload carries Cursor's
-   own `cursor_version`, and the Cursor-registered copy acts only when it does — Cursor
-   exports `CURSOR_VERSION` and friends into every child, so an environment test would
-   also switch off a Claude session started by hand from a Cursor pane.
-
-**It never breaks a host.** Arguments it does not know, an unreadable payload, or an error
-of its own end in exit 0 (Cursor) or exit 1 with the reason on stderr — a hook error the
-host shows, which never blocks. Exit 2 means only "held tickets and no healthy watchdog".
-Each decision it makes for an orchestrator is appended to `guard.log` in that night's state
+**It never breaks a host.** Arguments it does not know end in exit 0 with the usage on
+stderr; an unreadable payload is read as an empty one; an error of its own ends in exit 1
+with the reason on stderr — a hook error the host shows, which never blocks. Exit 2 means
+only "held tickets and no healthy watchdog". Each decision it makes for an orchestrator is appended to `guard.log` in that night's state
 directory.
 
 **Checked against the real hosts** on 2026-09-10, one short session each with the prompt
@@ -105,20 +77,6 @@ every host upgrade.
                           --dangerously-bypass-hook-trust). "hook: Stop Blocked", reply
                           NOTED, the next Stop let through ("hook: Stop Completed"). With
                           that config.toml moved aside the hook did not run at all.
-    grok 1.0.27           grok -p, HOME=<throwaway>. Its own Stop fired, blocked (exit 2),
-                          reply NOTED in the same process, the next Stop (stopHookActive) let
-                          through. Grok also ran the Claude-registered copy, three times, each
-                          with GROK_HOOK_EVENT and GROK_SESSION_ID set and GROK_AGENT unset;
-                          that copy stood down every time (guard.log holds only grok lines).
-                          The Cursor-registered stop copy did not fire at all.
-    cursor 2026.09.08     cursor-agent -p: the stop hook does not fire (a probe showed
-                          sessionStart firing and stop, beforeSubmitPrompt and
-                          afterAgentResponse not), so headless proves nothing. Interactive,
-                          in a pane of a throwaway Herdr session, real HOME (its login is not
-                          found under another), registrations in the throwaway workspace
-                          loaded with --trust: stop fired, the followup_message started a
-                          second turn that replied NOTED, the next stop (loop_count 1) was
-                          let through.
 """
 
 from __future__ import annotations
@@ -137,12 +95,9 @@ if str(HERE) not in sys.path:
 import statedir  # noqa: E402
 import briefs  # noqa: E402
 
-HOSTS = ("claude", "codex", "grok", "cursor")
+HOSTS = ("claude", "codex")
 ARM_WAIT = 5.0
 SELF_TIMEOUT = 10
-# Cursor's `loop_count` is 0 on the first stop after a real message and one more per
-# follow-up-driven stop; a follow-up is asked for only on the first.
-CURSOR_FOLLOWUPS = 1
 
 
 # ----------------------------------------------------------------- the host's side (pure)
@@ -155,43 +110,9 @@ def read_payload(text: str) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def stands_down(host: str, payload: dict, env) -> str | None:
-    """Why this copy of the hook must do nothing in this process, or None.
-
-    The Claude-registered copy runs inside Grok and inside Cursor as well; the Cursor one
-    runs inside Grok. Each stands down where another host's own registration owns the turn.
-    """
-    has_cursor_version = isinstance(payload.get("cursor_version"), str)
-    if host == "claude":
-        # Both Grok markers, and never GROK_SESSION_ID (see the header).
-        if env.get("GROK_AGENT") or env.get("GROK_HOOK_EVENT"):
-            return "Grok runs this Claude-registered copy; Grok's own registration owns its turns"
-        if has_cursor_version:
-            return "Cursor runs this Claude-registered copy; Cursor's own registration owns its turns"
-    if host == "cursor" and not has_cursor_version:
-        return "the payload carries no cursor_version, so Cursor did not send it"
-    return None
-
-
-def continuation(host: str, payload: dict) -> bool:
+def continuation(payload: dict) -> bool:
     """True when this stop is already the continuation that an earlier block forced."""
-    if host in ("claude", "codex"):
-        return payload.get("stop_hook_active") is True
-    if host == "grok":
-        if "stopHookActive" in payload:
-            return payload.get("stopHookActive") is True
-        return payload.get("stop_hook_active") is True
-    if host == "cursor":
-        try:
-            return int(payload.get("loop_count") or 0) >= CURSOR_FOLLOWUPS
-        except (TypeError, ValueError):
-            return False
-    return False
-
-
-def session_end(host: str, payload: dict) -> bool:
-    """Grok's observe-only `Stop` at session end: there is no turn left to keep."""
-    return host == "grok" and payload.get("reason") not in (None, "end_turn")
+    return payload.get("stop_hook_active") is True
 
 
 def verdict(held, healthy: bool, why: str) -> tuple[bool, str]:
@@ -204,12 +125,10 @@ def verdict(held, healthy: bool, why: str) -> tuple[bool, str]:
     return True, why
 
 
-def answer(host: str, block: bool, text: str) -> tuple[int, str, str]:
-    """(exit code, stdout, stderr) in the host's own terms."""
+def answer(block: bool, text: str) -> tuple[int, str, str]:
+    """(exit code, stdout, stderr): both hosts keep a turn going on exit 2 with stderr."""
     if not block:
         return 0, "", ""
-    if host == "cursor":
-        return 0, json.dumps({"followup_message": text}) + "\n", ""
     return 2, "", text + "\n"
 
 
@@ -355,14 +274,12 @@ def main(argv: list[str] | None = None) -> int:
         payload = read_payload(sys.stdin.read())
     except (OSError, UnicodeDecodeError):
         payload = {}
-    if stands_down(host, payload, os.environ) or session_end(host, payload):
-        return 0
     try:
-        blocks = guard(host, forced=continuation(host, payload))
+        blocks = guard(host, forced=continuation(payload))
     except BaseException as exc:  # noqa: BLE001 — an import's SystemExit(2) must not block
         sys.stderr.write(f"turn-guard: could not judge this turn end: {exc!r}\n")
-        return 0 if host == "cursor" else 1
-    code, out, err = answer(host, bool(blocks), "\n\n".join(blocks))
+        return 1
+    code, out, err = answer(bool(blocks), "\n\n".join(blocks))
     sys.stdout.write(out)
     sys.stderr.write(err)
     return code

@@ -270,17 +270,11 @@ done
 
 # ---------------- hook ----------------
 
-# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。三样：
-# dispatch 的 tool-guard.py 的 pretool gate（四个 host）与 question gate（起 session 的三个 host），
-# 同一技能的 turn-guard.py 挂在四个 host 的回合结束事件上（claude、codex、grok 的 Stop，cursor 的
-# stop）。每一处都写进 host 的 JSON 配置，指向 ~/.agents/skills 下的脚本：那已经是指回仓库的软链，
-# 所以改脚本不用重装。v3 挂在 SessionStart 上的 mode-hook.py 不再装，下面的清扫把它摘掉。
-#
-# Cursor 与 Grok 都读 ~/.claude/settings.json，Grok 还读 ~/.cursor/hooks.json，所以写给 claude
-# 的每一条命令前面都带同一个环境变量守卫：GROK_AGENT 或 GROK_HOOK_EVENT 有值就退出——两个都判，
-# Grok 0.2.73 只设前一个、1.0 只设后一个；GROK_SESSION_ID 不能判，Grok 把它传进每个子进程，
-# 会一路带进 Grok 起的 Claude 会话，把那个会话自己的 hook 也关掉。Cursor 那一侧由脚本读它 payload
-# 里的 cursor_version 分辨，不读环境变量（turn-guard.py 头部有全文）。
+# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。三样，
+# claude 与 codex 各装一份：dispatch 的 tool-guard.py 的 pretool gate 与 question gate，同一技能的
+# turn-guard.py 挂在回合结束的 Stop 上。每一处都写进 host 的 JSON 配置，指向 ~/.agents/skills
+# 下的脚本：那已经是指回仓库的软链，所以改脚本不用重装。v3 挂在 SessionStart 上的 mode-hook.py
+# 不再装，下面的清扫把它摘掉；本仓库从前写进 ~/.cursor、~/.grok 的处理器也由它摘掉。
 #
 # 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
@@ -320,21 +314,15 @@ guard = os.environ["MMW_GUARD"]
 # 所以给它比 tool-guard.py 长的超时。
 GUARD_TIMEOUT = 30
 STOP = f"python3 '{guard}' stop "
-# 写给 claude 的每一条命令前面都带它（见本段开头）。
-GROK_GUARD = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec '
-# Cursor 自己的回合上限：turn-guard.py 只在 loop_count 为 0 时要一次 follow-up，这个数是
-# 脚本失灵时 Cursor 那一侧仍然成立的外层边界。
-CURSOR_LOOP_LIMIT = 3
 
 
 def for_host(host, command):
-    return GROK_GUARD + command + host if host == "claude" else command + host
+    return command + host
 
 
 # The tool each host calls to put a question on the screen: the matcher of its
-# question gate. Only hosts that expose a supported question tool carry one.
-QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
-                  "codex": "request_user_input"}
+# question gate.
+QUESTION_TOOLS = {"claude": "AskUserQuestion", "codex": "request_user_input"}
 
 
 def load(path):
@@ -377,7 +365,7 @@ def ours(handler, command):
 
 
 def grouped(path, event, matcher, command, timeout=TIMEOUT):
-    """Claude Code、Codex、Grok Build 都把处理器按 matcher 分组。
+    """Claude Code、Codex 都把处理器按 matcher 分组。
 
     `command` 是完整的一条：脚本路径、gate 与 host。同一个文件里的同一个事件可以带两条我们
     的处理器（pretool 与 question），靠脚本名加 gate 名认出各自的那条。
@@ -419,31 +407,6 @@ def grouped(path, event, matcher, command, timeout=TIMEOUT):
     return install, installed
 
 
-def cursor(path, event, command, timeout=TIMEOUT, extra=None):
-    """Cursor 把处理器直接列在事件下面。`extra` 是这一条另带的字段（stop 的 loop_limit）。"""
-
-    def install():
-        data = load(path)
-        data.setdefault("version", 1)
-        entries = data.setdefault("hooks", {}).setdefault(event, [])
-        handler = {"command": command, "timeout": timeout, **(extra or {})}
-        for index, existing in enumerate(entries):
-            if ours(existing, command):
-                entries[index] = handler
-                break
-        else:
-            entries.append(handler)
-        save(path, data)
-
-    def installed():
-        entries = (load(path).get("hooks") or {}).get(event) or []
-        return any(isinstance(e, dict) and e.get("command") == command
-                   and all(e.get(k) == v for k, v in (extra or {}).items())
-                   for e in entries)
-
-    return install, installed
-
-
 # ---- 本仓库装过、这次不再装的 hook ----
 #
 # 技能软链那一段靠扫目录认领本仓库的残留（stale_links）；hook 这一侧是同一个机制。
@@ -454,12 +417,13 @@ def cursor(path, event, command, timeout=TIMEOUT, extra=None):
 # （Herdr、Paseo、Nowledge Mem）的处理器指向自己的目录，一条都不碰。
 #
 # 扫哪几个文件是下面这份显式清单：「这次装什么」认不出本仓库曾写在哪个文件里，只有人手
-# 记着。不再往某个文件写的时候，把它留在清单里。
+# 记着。不再往某个文件写的时候，把它留在清单里：~/.cursor 与 ~/.grok 的三行就是这样留下的，
+# v4 不再给这两个 host 装 hook，留着它们是为了把从前装的那几条摘干净。
 MARK = f"'{neutral}/"
 
 # 一行一处：文件、它的格式、整个文件是不是只有本仓库写。
 # 只有本仓库写的那种，条目清空之后连文件一起删——grok 把 hooks/*.json 全部合并读入，
-# 空壳留着不报错也不提示。
+# 空壳留着不报错也不提示。cursor 格式的文件把处理器直接列在事件下面，不按 matcher 分组。
 SWEPT = [
     (home / ".claude/settings.json", "grouped", False),
     (codex_home / "hooks.json", "grouped", False),
@@ -513,11 +477,9 @@ def sweep(path, fmt, keep):
 
 
 # 一行一个安装点：host 根、配置文件、事件名（只出现在输出里）、装与查两个动作。
-# grok 把 hooks/*.json 全部合并读入，所以 tool-guard.py 独占一个文件；claude 与 codex 只有一份
-# 配置，几条都写进去。
+# claude 与 codex 各只有一份配置，几条都写进去。
 grouped_hosts = [
     ("claude", home / ".claude", home / ".claude/settings.json"),
-    ("grok", home / ".grok", home / ".grok/hooks/mmw-verify-ticket.json"),
     ("codex", codex_home, codex_home / "hooks.json"),
 ]
 points = []
@@ -537,23 +499,11 @@ for host, host_home, path in grouped_hosts:
     point(host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
           grouped(path, "PreToolUse", QUESTION_TOOLS[host], for_host(host, QUESTION)),
           for_host(host, QUESTION))
-point(home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
-      cursor(home / ".cursor/hooks.json", "beforeShellExecution", COMMAND + "cursor"),
-      COMMAND + "cursor")
 
-# turn-guard.py 挂在主 agent 的回合结束事件上。grok 那一条独占一个文件，理由同上。
-stop_hosts = [
-    ("claude", home / ".claude", home / ".claude/settings.json"),
-    ("grok", home / ".grok", home / ".grok/hooks/mmw-turn-guard.json"),
-    ("codex", codex_home, codex_home / "hooks.json"),
-]
-for host, host_home, path in stop_hosts:
+# turn-guard.py 挂在主 agent 的回合结束事件上。
+for host, host_home, path in grouped_hosts:
     point(host_home, path, "Stop",
           grouped(path, "Stop", None, for_host(host, STOP), GUARD_TIMEOUT), for_host(host, STOP))
-point(home / ".cursor", home / ".cursor/hooks.json", "stop",
-      cursor(home / ".cursor/hooks.json", "stop", STOP + "cursor", GUARD_TIMEOUT,
-             {"loop_limit": CURSOR_LOOP_LIMIT}),
-      STOP + "cursor")
 
 failed = False
 count = 0

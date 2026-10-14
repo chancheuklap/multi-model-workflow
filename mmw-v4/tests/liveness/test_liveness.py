@@ -253,21 +253,9 @@ class Verdict(unittest.TestCase):
 
 class HostSide(unittest.TestCase):
     def test_a_stop_forced_by_an_earlier_block_is_let_through(self):
-        self.assertTrue(guard.continuation("claude", {"stop_hook_active": True}))
-        self.assertFalse(guard.continuation("claude", {"stop_hook_active": False}))
-        self.assertTrue(guard.continuation("codex", {"stop_hook_active": True}))
-        self.assertTrue(guard.continuation("grok", {"stopHookActive": True}))
-        # The camel-case field wins when both are there.
-        self.assertFalse(guard.continuation("grok", {"stopHookActive": False, "stop_hook_active": True}))
-        self.assertTrue(guard.continuation("grok", {"stop_hook_active": True}))
-        self.assertFalse(guard.continuation("cursor", {"loop_count": 0}))
-        self.assertTrue(guard.continuation("cursor", {"loop_count": 1}))
-
-    def test_groks_session_end_fire_is_not_a_turn(self):
-        self.assertTrue(guard.session_end("grok", {"reason": "shutdown"}))
-        self.assertFalse(guard.session_end("grok", {"reason": "end_turn"}))
-        self.assertFalse(guard.session_end("grok", {}))
-        self.assertFalse(guard.session_end("claude", {"reason": "shutdown"}))
+        self.assertTrue(guard.continuation({"stop_hook_active": True}))
+        self.assertFalse(guard.continuation({"stop_hook_active": False}))
+        self.assertFalse(guard.continuation({}))
 
 
 # ----------------------------------------------------------------- the night

@@ -191,6 +191,36 @@ class InstallTest(unittest.TestCase):
         check = self.run_install("v3", "--check")
         self.assertEqual(check.returncode, 0, check.stderr)
 
+    def test_hooks_left_in_cursor_and_grok_are_reported_then_removed(self):
+        self.assertEqual(self.run_install("v4").returncode, 0)
+        scripts = self.home / ".agents/skills/dispatch/scripts"
+        cursor_hooks = self.home / ".cursor/hooks.json"
+        cursor_hooks.write_text(json.dumps({"version": 1, "hooks": {
+            "beforeShellExecution": [
+                {"command": "orca-hook", "timeout": 5},
+                {"command": f"python3 '{scripts}/tool-guard.py' pretool cursor", "timeout": 10}],
+            "stop": [{"command": f"python3 '{scripts}/turn-guard.py' stop cursor",
+                      "timeout": 30, "loop_limit": 3}]}}))
+        grok_hooks = self.home / ".grok/hooks/mmw-turn-guard.json"
+        grok_hooks.parent.mkdir(parents=True)
+        (self.home / ".grok/config.toml").write_text("[compat.claude]\nagents = false\n")
+        grok_hooks.write_text(json.dumps({"hooks": {"Stop": [{"hooks": [
+            {"type": "command", "command": f"python3 '{scripts}/turn-guard.py' stop grok",
+             "timeout": 30}]}]}}))
+
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 1)
+        self.assertIn(f"残留  {cursor_hooks}  beforeShellExecution", check.stderr)
+        self.assertIn(f"残留  {cursor_hooks}  stop", check.stderr)
+        self.assertIn(f"残留  {grok_hooks}  Stop", check.stderr)
+
+        r = self.run_install("v4")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(cursor_hooks.read_text()), {"version": 1, "hooks": {
+            "beforeShellExecution": [{"command": "orca-hook", "timeout": 5}]}})
+        self.assertFalse(grok_hooks.exists())
+        self.assertEqual(self.run_install("v4", "--check").returncode, 0)
+
     def test_check_from_another_checkout_hands_over(self):
         other = Path(self.tmp.name) / "installed/mmw-v4"
         other.mkdir(parents=True)
