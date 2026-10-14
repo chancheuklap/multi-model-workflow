@@ -79,7 +79,6 @@ def _replace_scan(source: str) -> dict:
 
 
 def initialize() -> None:
-    """Load saved catalogs and refresh in the background before serving settings."""
     try:
         config = models.read_local_config()
     except models.ConfigMissing:

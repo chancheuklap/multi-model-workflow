@@ -1,4 +1,3 @@
-"""Host catalog reads against executable fakes in an isolated home."""
 from __future__ import annotations
 
 import json
