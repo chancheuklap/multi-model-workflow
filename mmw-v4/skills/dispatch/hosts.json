@@ -1,10 +1,10 @@
 {
   "defaults": [
-    {"agent": "junior-worker", "host": "grok", "model": "grok 4.7", "effort": "high"},
-    {"agent": "senior-worker", "host": "codex", "model": "gpt 6 sol", "effort": "high"},
+    {"agent": "junior-worker", "host": "codex", "model": "gpt 6.1 sol", "effort": "medium"},
+    {"agent": "senior-worker", "host": "codex", "model": "gpt 6.1 sol", "effort": "high"},
     {"agent": "reviewer", "host": "claude", "model": "opus[1m]", "effort": "high"},
     {"agent": "advisor", "host": "claude", "model": "fable[1m]", "effort": "medium"},
-    {"agent": "researcher", "host": "grok", "model": "grok 4.7", "effort": "high"},
+    {"agent": "researcher", "host": "codex", "model": "gpt 6.1 sol", "effort": "medium"},
     {"agent": "candidate", "host": "claude", "model": "opus[1m]", "effort": "xhigh"}
   ],
   "hosts": {
