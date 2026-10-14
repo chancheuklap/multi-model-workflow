@@ -23,7 +23,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh landedkeepslocalbranch|landedrestoreslocalbranch|landedfastforwardslocalbranch|landedkeepsunmergedlocalbranch|regressedrestart
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsunmergedlocalnight
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsmainworktree|finishkeepsunmergedlocalnight
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
 #
@@ -6316,6 +6316,27 @@ scenario_finishleavescheckedoutnight() {
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$first_merge" ] || fail "rerun merged again"
 }
 
+scenario_finishkeepsmainworktree() {
+  local code main_path tip hint
+  setup_finish_closed
+  git -C "$TMP/repo" checkout -q night
+  main_path="$(CDPATH='' cd -- "$TMP/repo" && pwd -P)"
+  tip="$(git -C "$TMP/repo" rev-parse night)"
+  printf 'unfinished\n' > "$TMP/repo/untracked.txt"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish from the main worktree failed: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$tip" ] || fail "finish moved the main worktree"
+  [ "$(git -C "$TMP/repo" branch --show-current)" = night ] || fail "finish switched the main worktree branch"
+  [ "$(cat "$TMP/repo/untracked.txt")" = unfinished ] || fail "finish disturbed main worktree files"
+  ! grep -qF "git worktree remove $main_path" "$TMP/err" || fail "finish suggested removing the main worktree"
+  hint="git -C \"$main_path\" switch --detach"
+  grep -qF "$hint" "$TMP/err" || fail "finish omitted a usable main worktree instruction"
+  bash -c "$hint" >/dev/null 2>&1 || fail "the main worktree instruction failed"
+  [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$tip" ] || fail "the instruction moved HEAD"
+  [ "$(git -C "$TMP/repo" rev-parse night)" = "$tip" ] || fail "the instruction changed the retained night branch"
+  [ -z "$(git -C "$TMP/repo" branch --show-current)" ] || fail "the instruction did not release the checked-out branch"
+}
+
 scenario_finishkeepsunmergedlocalnight() {
   local code tip
   setup_finish_closed
@@ -8643,7 +8664,7 @@ PY
 
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landedkeepslocalbranch landedrestoreslocalbranch landedfastforwardslocalbranch landedkeepsunmergedlocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishclosesspec finishclosespecfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishclosesspec finishclosespecfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems"
