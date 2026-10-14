@@ -38,8 +38,8 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    def test_there_are_twenty_eight_events(self):
-        self.assertEqual(len(events.EVENTS), 28)
+    def test_there_are_twenty_nine_events(self):
+        self.assertEqual(len(events.EVENTS), 29)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",
                      "ticket.bounced", "ticket.recovered", "spec.retroed"):
             with self.subTest(name=name):
@@ -202,8 +202,24 @@ class TheVocabulary(unittest.TestCase):
                 with self.assertRaises(events.EventError):
                     events.build("child.closed", ticket=61, line="Closed #90", **fields)
 
+    def test_retroed_events_carry_counts_not_memory(self):
+        full = dict(result='recorded',registered=2,merged=1,rejected=0,candidates=3,
+                    proposals=[90],recurred_after_wontfix=[91],landed_since_last=1,
+                    evidence='complete',unreadable_sources=[])
+        for name,context in [('spec.retroed',dict(ticket=None,spec=76)),
+                             ('ticket.retroed',dict(ticket=61,spec=None))]:
+            body = events.build(name,line='Retro recorded',**context,**full)
+            self.assertEqual(events.parse(body)[1]['registered'],2)
+            self.assertEqual(events.parse(body)[1]['proposals'],[90])
+            with self.assertRaises(events.EventError):
+                events.build(name,line='Legacy memory',retro_memory='old',**context,**full)
+            for key in ('registered','merged','rejected','candidates','landed_since_last'):
+                for bad in (-1,True,'2'):
+                    with self.subTest(name=name,key=key,bad=bad), self.assertRaises(events.EventError):
+                        events.build(name,line='Invalid count',**context,**{**full,key:bad})
+
     def test_recorded_retro_receipts_require_the_complete_typed_shape(self):
-        full = dict(result="recorded", retro_memory="retro-76", problem_count=2,
+        full = dict(result="recorded", registered=2, merged=0, rejected=0, candidates=0, landed_since_last=0, recurred_after_wontfix=[],
                     proposals=[431, 432], evidence="complete", unreadable_sources=[])
         body = events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO", **full)
         what, payload = events.parse(body)
@@ -219,9 +235,9 @@ class TheVocabulary(unittest.TestCase):
                                  **{name: value for name, value in full.items() if name != key})
 
         invalid = [
-            {**full, "retro_memory": ""},
-            {**full, "problem_count": "2"},
-            {**full, "problem_count": True},
+            {**full, "registered": -1},
+            {**full, "registered": "2"},
+            {**full, "registered": True},
             {**full, "proposals": [431, "432"]},
             {**full, "proposals": [True]},
             {**full, "proposals": "431"},
@@ -499,7 +515,7 @@ class Replays(unittest.TestCase):
         first = ev("spec.retroed", "NIGHT RETRO", ticket=None, spec=76,
                    result="unrecorded", reason="Nowledge Mem write failed")
         latest = ev("spec.retroed", "NIGHT RETRO", ticket=None, spec=76,
-                    result="recorded", retro_memory="retro-76", problem_count=1,
+                    result="recorded", registered=1, merged=0, rejected=0, candidates=0, landed_since_last=0, recurred_after_wontfix=[],
                     proposals=[431], evidence="partial",
                     unreadable_sources=["ticket #61"])
         prior = [
@@ -516,8 +532,8 @@ class Replays(unittest.TestCase):
         self.assertEqual(events.newest([comment(20, latest), comment(10, first)],
                                        "spec.retroed")["comment"], 20)
         self.assertEqual(events.describe(state["spec_retroed"]),
-                         "spec.retroed result=recorded retro_memory=retro-76 "
-                         "problem_count=1 proposals=431 evidence=partial "
+                         "spec.retroed result=recorded registered=1 merged=0 rejected=0 candidates=0 "
+                         "proposals=431 recurred_after_wontfix=- landed_since_last=0 evidence=partial "
                          "unreadable_sources=ticket #61")
         for key in ("held", "hold_ended", "passed", "returned",
                     "landed", "regressed", "bounced", "outcome", "review", "results",
