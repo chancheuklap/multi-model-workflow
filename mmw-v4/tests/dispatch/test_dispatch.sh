@@ -23,6 +23,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh landedkeepslocalbranch|landedrestoreslocalbranch|landedfastforwardslocalbranch|regressedrestart
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsunmergedlocalnight
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -6257,6 +6258,70 @@ JSON
   closed_night_spec
 }
 
+scenario_finishkeepslocalnight() {
+  local code tip
+  setup_finish_closed
+  tip="$(git -C "$TMP/repo" rev-parse origin/night)"
+  git -C "$TMP/repo" branch -f night "$tip^"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains"
+  [ "$(git -C "$TMP/repo" rev-parse --verify refs/heads/night)" = "$tip" ] \
+    || fail "local night was not fast-forwarded to the merged night tip"
+}
+
+scenario_finishrestoreslocalnight() {
+  local code tip
+  setup_finish_closed
+  tip="$(git -C "$TMP/repo" rev-parse origin/night)"
+  git -C "$TMP/repo" branch -D night >/dev/null
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains"
+  [ "$(git -C "$TMP/repo" rev-parse --verify refs/heads/night)" = "$tip" ] \
+    || fail "local night was not restored at the merged night tip"
+}
+
+scenario_finishleavescheckedoutnight() {
+  local code session tip first_merge
+  setup_finish_closed
+  tip="$(git -C "$TMP/repo" rev-parse origin/night)"
+  git -C "$TMP/repo" branch -f night "$tip^"
+  tip="$(git -C "$TMP/repo" rev-parse night)"
+  session="$TMP/repo/.worktrees/night-session"
+  git -C "$TMP/repo" worktree add -q "$session" night
+  session="$(CDPATH='' cd -- "$session" && pwd -P)"
+  printf 'unfinished\n' > "$session/untracked.txt"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish failed: $(cat "$TMP/err")"
+  [ "$(git -C "$session" rev-parse HEAD)" = "$tip" ] || fail "finish moved the checked-out night"
+  [ "$(cat "$session/untracked.txt")" = unfinished ] || fail "finish disturbed the session worktree"
+  grep -qF "git worktree remove $session" "$TMP/err" || fail "finish omitted the kept worktree removal command"
+  ! grep -qF 'git branch -D' "$TMP/err" || fail "finish suggested deleting the local branch"
+  first_merge="$(git -C "$TMP/origin.git" rev-parse proj)"
+  git -C "$TMP/repo" worktree remove --force "$session"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish rerun failed: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" rev-parse --verify refs/heads/night)" = "$tip" ] || fail "rerun moved or deleted the retained night"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$first_merge" ] || fail "rerun merged again"
+}
+
+scenario_finishkeepsunmergedlocalnight() {
+  local code tip
+  setup_finish_closed
+  git -C "$TMP/repo" checkout -q night
+  commit_file "$TMP/repo" local.txt unmerged local-only
+  tip="$(git -C "$TMP/repo" rev-parse night)"
+  git -C "$TMP/repo" checkout -q proj
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish with local-only work failed: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/repo" rev-parse night)" = "$tip" ] || fail "finish lost the local-only work"
+  grep -q 'local night' "$TMP/err" || fail "finish did not explain the retained local work"
+  ! grep -qF 'git branch -D' "$TMP/err" || fail "finish suggested deleting local-only work"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "contained origin night remains"
+  return 0
+}
+
 scenario_finishmerges() {
   local code merge base
   setup_finish_closed
@@ -6505,7 +6570,7 @@ scenario_finishrerun() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "finish rerun failed: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$first_merge" ] || fail "rerun made a second merge"
-  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "rerun left local night"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night || fail "rerun deleted local night"
   [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] || fail "rerun wrote another spec.merged"
 }
 
@@ -6523,7 +6588,7 @@ scenario_finishcontained() {
   closed_night_spec
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "already-contained finish failed: $(cat "$TMP/err")"
-  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "contained local night remains"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night || fail "contained local night was deleted"
   git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "contained origin night remains"
   return 0
 }
@@ -7689,10 +7754,12 @@ scenario_landedrestoreslocalbranch() {
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
   git -C "$TMP/repo" branch -D issue-61 >/dev/null
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json"           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "remote-only landing failed: $(cat "$TMP/err")"
   assert_kept_branch 61
-  [ "$(git -C "$TMP/repo" rev-parse issue-61)" = "$passed" ]     || fail "the restored local branch is not at the fetched remote tip"
+  [ "$(git -C "$TMP/repo" rev-parse issue-61)" = "$passed" ] \
+    || fail "the restored local branch is not at the fetched remote tip"
 }
 
 scenario_landedfastforwardslocalbranch() {
@@ -7704,10 +7771,12 @@ scenario_landedfastforwardslocalbranch() {
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   write_one_passed 61 "$passed"
   git -C "$TMP/repo" branch -f issue-61 main
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json"           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "behind-local landing failed: $(cat "$TMP/err")"
   assert_kept_branch 61
-  [ "$(git -C "$TMP/repo" rev-parse issue-61)" = "$passed" ]     || fail "the local ticket branch was not fast-forwarded to the fetched remote tip"
+  [ "$(git -C "$TMP/repo" rev-parse issue-61)" = "$passed" ] \
+    || fail "the local ticket branch was not fast-forwarded to the fetched remote tip"
 }
 
 scenario_bouncedkeepsbranch() {
@@ -8486,7 +8555,7 @@ PY
 
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landedkeepslocalbranch landedrestoreslocalbranch landedfastforwardslocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems"
