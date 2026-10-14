@@ -72,6 +72,10 @@ class Fake:
                 n = int(endpoint.rsplit('/',1)[1])
                 out = json.dumps(next(c for r in self.rows.values() for c in r['comments'] if c['id'] == n))
                 rows = None
+            elif '/issues/' in endpoint:
+                n = int(endpoint.rsplit('/',1)[1])
+                out = json.dumps(self.rows[n])
+                rows = None
             else:
                 raise AssertionError(args)
             if rows is not None:
@@ -79,7 +83,10 @@ class Fake:
                 out = json.dumps([rows[:1], rows[1:]])
         elif a[:2] == ['issue', 'view']:
             r = self.rows[int(a[2])]
-            out = json.dumps({k: r.get(k) for k in a[a.index('--json')+1].split(',')})
+            result = {k: r.get(k) for k in a[a.index('--json')+1].split(',')}
+            if 'state' in result:
+                result['state'] = result['state'].upper()
+            out = json.dumps(result)
         elif a[:2] == ['label','create']:
             out = ''
         elif a[:2] == ['issue','create']:
@@ -98,6 +105,9 @@ class Fake:
             r['state_reason'] = a[a.index('--reason')+1]
             if '--duplicate-of' in a:
                 r['duplicate_of'] = a[a.index('--duplicate-of')+1]
+        elif a[:2] == ['issue', 'reopen']:
+            self.rows[int(a[2])]['state'] = 'open'
+            self.rows[int(a[2])]['state_reason'] = None
         elif a[:2] == ['issue','transfer']:
             r = self.rows.pop(int(a[2]))
             r['number'] = 99
@@ -273,6 +283,111 @@ class Commands(unittest.TestCase):
         self.assertEqual([r['ticket'] for r in moved],[61,62])
         self.assertEqual([r['lesson'] for r in moved],[91,91])
 
+    def test_a_merge_after_the_fix_reopens_the_target(self):
+        self.start_run()
+        self.fake.rows[90] = issue(bodies=[seen(at='2026-09-11T00:00:00Z'),
+                                         seen(ticket=62,at='2026-09-13T00:00:00Z')])
+        self.fake.rows[91] = issue(91,state='closed')
+        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
+        rc,out,err = self.run_process('apply',self.answer('merge:91'))
+        self.assertEqual(rc,0,err)
+        target = self.fake.rows[91]
+        self.assertEqual(target['state'],'open')
+        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'needs-triage'}])
+        self.assertEqual(len([c for c in target['comments'] if '修了又犯' in c['body']]),1)
+        moved = events.fold(target['comments'],issue=91)['occurrences']
+        self.assertEqual([o['at'] for o in moved],['2026-09-11T00:00:00Z','2026-09-13T00:00:00Z'])
+        self.assertEqual(self.fake.rows[90]['duplicate_of'],'https://github.com/o/r/issues/91')
+
+    def test_a_merge_into_a_refused_lesson_keeps_it_closed(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91,state='closed',labels=('mmw:lesson','wontfix'))
+        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
+        rc,out,err = self.run_command('apply',self.answer('merge:91'))
+        self.assertEqual(rc,0,err)
+        target = self.fake.rows[91]
+        self.assertEqual(target['state'],'closed')
+        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'wontfix'}])
+        moved = events.fold(target['comments'],issue=91)['occurrences']
+        self.assertEqual([o['at'] for o in moved],['2026-09-13T00:00:00Z'])
+        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
+
+    def test_a_merge_into_a_ticket_of_an_unfinished_spec_does_not_reopen(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91,state='closed',parent=dict(number=76))
+        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
+        rc,out,err = self.run_command('apply',self.answer('merge:91'))
+        self.assertEqual(rc,0,err)
+        target = self.fake.rows[91]
+        self.assertEqual(target['state'],'closed')
+        self.assertEqual(target['labels'],[{'name':'mmw:lesson'}])
+        moved = events.fold(target['comments'],issue=91)['occurrences']
+        self.assertEqual([o['at'] for o in moved],['2026-09-13T00:00:00Z'])
+        self.assertIn('#76, which has not finished',out)
+        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
+
+    def test_a_merge_of_older_occurrences_only_adds_history(self):
+        self.start_run()
+        self.fake.rows[90] = issue(bodies=[seen(at='2026-09-11T00:00:00Z'),
+                                         seen(ticket=62,at='2026-09-12T00:00:00Z')])
+        self.fake.rows[91] = issue(91,state='closed')
+        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-13T00:00:00Z')
+        rc,out,err = self.run_command('apply',self.answer('merge:91'))
+        self.assertEqual(rc,0,err)
+        target = self.fake.rows[91]
+        self.assertEqual(target['state'],'closed')
+        self.assertEqual(target['labels'],[{'name':'mmw:lesson'}])
+        moved = events.fold(target['comments'],issue=91)['occurrences']
+        self.assertEqual([o['at'] for o in moved],['2026-09-11T00:00:00Z','2026-09-12T00:00:00Z'])
+        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
+
+    def test_a_reopening_merge_applied_twice_reopens_once(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91,state='closed')
+        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
+        path = self.answer('merge:91')
+        original = self.fake
+        def lose_reopen_response(args,**kwargs):
+            result = original(args,**kwargs)
+            if args[:3] == ['gh','issue','reopen']:
+                return subprocess.CompletedProcess(args,1,'','reopen response lost')
+            return result
+        self.fake = lose_reopen_response
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,1,err)
+        self.fake = original
+        for _ in range(2):
+            rc,out,err = self.run_command('apply',path)
+            self.assertEqual(rc,0,err)
+        target = self.fake.rows[91]
+        self.assertEqual(target['state'],'open')
+        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'needs-triage'}])
+        self.assertEqual(len([c for c in target['comments'] if '修了又犯' in c['body']]),1)
+        moved = events.fold(target['comments'],issue=91)['occurrences']
+        self.assertEqual([o['at'] for o in moved],['2026-09-13T00:00:00Z'])
+        self.assertEqual(len([a for a in self.fake.calls if a[:3] == ['gh','issue','reopen']]),1)
+        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
+
+    def test_two_merges_reopen_the_same_target_once(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91,state='closed')
+        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
+        self.fake.rows[92] = issue(92,bodies=[seen(ticket=62)])
+        path = self.answer('merge:91')
+        Path(path).write_text(Path(path).read_text().replace(
+            '## Problems','| 92 | merge:91 | 同一个问题 | README.md:1 | |\n\n## Problems'))
+        for _ in range(2):
+            rc,out,err = self.run_command('apply',path)
+            self.assertEqual(rc,0,err)
+        target = self.fake.rows[91]
+        self.assertEqual(target['state'],'open')
+        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'needs-triage'}])
+        self.assertEqual(len([c for c in target['comments'] if '修了又犯' in c['body']]),1)
+        moved = events.fold(target['comments'],issue=91)['occurrences']
+        self.assertEqual([o['ticket'] for o in moved],[61,62])
+        self.assertEqual(len([a for a in self.fake.calls if a[:3] == ['gh','issue','reopen']]),1)
+        self.assertEqual([self.fake.rows[n]['state_reason'] for n in (90,92)],['duplicate','duplicate'])
+
     def test_a_rejected_lesson_is_closed_with_its_reason(self):
         self.start_run()
         rc,out,err = self.run_command('apply',self.answer('reject'))
@@ -370,7 +485,7 @@ class Commands(unittest.TestCase):
         self.assertEqual(occurrence['source'],'retro-signal')
         self.assertEqual(occurrence['spec'],76)
 
-    def test_expire_runs_as_a_process_against_a_fake_tracker(self):
+    def run_process(self, *args):
         data = self.root/'tracker.json'
         data.write_text(json.dumps(list(self.fake.rows.values())))
         binary = self.root/'bin'
@@ -390,11 +505,15 @@ sys.exit(result.returncode)
 ''')
         gh.chmod(0o755)
         env = dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'])
-        result = REAL_RUN([os.sys.executable,str(SCRIPT),'expire',REPO],env=env,capture_output=True,text=True)
-        self.assertEqual(result.returncode,0,result.stderr)
-        rows = json.loads(data.read_text())
-        self.assertEqual(rows[0]['state_reason'],'not planned')
-        self.assertIn('#90',result.stdout)
+        result = REAL_RUN([os.sys.executable,str(SCRIPT),*args],env=env,capture_output=True,text=True)
+        self.fake.rows = {r['number']:r for r in json.loads(data.read_text())}
+        return result.returncode, result.stdout, result.stderr
+
+    def test_expire_runs_as_a_process_against_a_fake_tracker(self):
+        rc,out,err = self.run_process('expire',REPO)
+        self.assertEqual(rc,0,err)
+        self.assertEqual(self.fake.rows[90]['state_reason'],'not planned')
+        self.assertIn('#90',out)
 
     def test_recurrence_after_refusal_is_a_reminder_not_a_reproposal(self):
         self.start_run()

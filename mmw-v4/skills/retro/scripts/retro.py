@@ -360,7 +360,7 @@ def qualifies(occurrences):
     return len(occurrences) >= 2 and any(len(values)>=2 for values in (identities,specs,sessions))
 
 
-def merge_lesson(row,context):
+def merge_lesson(row,context,request):
     source = row['target']
     target = resolve_issue(row['conclusion'].split(':',1)[1],context)
     if source == target:
@@ -370,12 +370,28 @@ def merge_lesson(row,context):
     saved = {events.parse(c['body'])[1].get('request') for c in comments
              if events.parse(c['body'])[0]=='event'}
     for index, occurrence in enumerate(row['occurrences']):
-        request = f'merge-{source["repo"]}-{source["number"]}-{index}'
-        if request in saved:
+        occurrence_request = f'merge-{source["repo"]}-{source["number"]}-{index}'
+        if occurrence_request in saved:
             continue
         body = events.build('lesson.seen',line=f'Merged from {issue_url(source["repo"],source["number"])}',
-                            lesson=number,request=request,**occurrence)
+                            lesson=number,request=occurrence_request,**occurrence)
         write(['issue','comment',str(number),'--repo',repo],body)
+    plan = row['merge_reopen']
+    if plan is not None:
+        current = register.read_issue(repo,number)
+        if 'wontfix' not in labels(current):
+            if plan['reopen'] and current['state'].lower() == 'closed':
+                write(['issue','reopen',str(number),'--repo',repo])
+            if plan['triage'] and 'needs-triage' not in labels(current):
+                try:
+                    register.ensure_label(repo,'needs-triage')
+                except RetroError as exc:
+                    raise PartialWrite(f'{exc}; rerun apply to finish the merge') from None
+                write(['issue','edit',str(number),'--repo',repo,'--add-label','needs-triage'])
+            if plan['note']:
+                comment_once(repo,number,plan['note'],f'{request}-merge-{repo}-{number}-reopen')
+        if plan['blocked_spec'] is not None:
+            print(f'NOT REOPENED: #{number} sits under spec #{plan["blocked_spec"]}, which has not finished')
     write(['issue','close',str(source['number']),'--repo',source['repo'],
                       '--reason','duplicate','--duplicate-of',issue_url(repo,number)])
 
@@ -478,9 +494,13 @@ def prepare_answers(args,context):
                     row['canonical'] = canonical
                     if canonical == target:
                         raise RetroError('cannot merge a lesson into itself')
-                    destination = register.gh_json(['issue','view',str(canonical['number']),'--repo',canonical['repo'],'--json','labels'])
+                    destination = register.gh_json(['api',f'repos/{canonical["repo"]}/issues/{canonical["number"]}'])
                     if 'mmw:lesson' not in labels(destination):
                         raise RetroError('merge target is not a lesson')
+                    row['merge_reopen'] = None
+                    if destination['state'] == 'closed' and any(
+                            timestamp(o['at']) > timestamp(destination['closed_at']) for o in row['occurrences']):
+                        row['merge_reopen'] = register.reopen_plan(canonical['repo'],destination)
                 if row['conclusion'] == 'propose' and row['proposal']['repo'] != target['repo']:
                     if row['proposal']['repo'] != register.toolbox_repo():
                         raise RetroError('a proposal transfer must target the installed MMW repository')
@@ -545,7 +565,7 @@ def execute_plan(plan,journal):
             comment_once(target['repo'],target['number'],row['reason'],f'{request}-reject-{index}')
             write(['issue','close',str(target['number']),'--repo',target['repo'],'--reason','not planned'])
         if row['conclusion'].startswith('merge:'):
-            merge_lesson(row,context)
+            merge_lesson(row,context,request)
         if row['conclusion'] == 'propose':
             target = row['target']
             repo,number = target['repo'],target['number']
