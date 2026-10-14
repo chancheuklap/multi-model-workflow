@@ -3693,7 +3693,7 @@ print(number if isinstance(number, int) else "")
 #                       the finding held and another ticket or closing-pass fix resolved it;
 #                       closed as not planned
 #   became-ticket <m>   it is now ticket #<m>. When <m> is the child itself it stays open,
-#                       its layer label goes from mmw:child to mmw:ticket, and its parent
+#                       its kind goes from mmw:child to mmw:ticket, and its parent
 #                       moves from the ticket to the spec, or is removed when there is
 #                       no spec — `verify-ticket.py` finds a
 #                       ticket's spec through its direct parent alone, so a ticket left
@@ -3774,7 +3774,7 @@ route_child() {
       esac ;;
     became-ticket)
       if [ -n "$spec" ] || [ "$became" = "$child" ]; then
-        local current labels
+        local current labels old_kind
         current="$(parent_of "$became")" || refuse "could not ask the tracker where #$became sits; nothing was done"
         labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
           || refuse "could not read #$became's labels; nothing was done"
@@ -3785,9 +3785,11 @@ route_child() {
         elif [ -n "$current" ]; then
           edit+=(--remove-parent)
         fi
-        if printf '%s\n' "$labels" | grep -qx 'mmw:child'; then
-          edit+=(--remove-label mmw:child)
-        fi
+        for old_kind in mmw:child mmw:lesson mmw:problem; do
+          if printf '%s\n' "$labels" | grep -qx "$old_kind"; then
+            edit+=(--remove-label "$old_kind")
+          fi
+        done
         if [ "${#edit[@]}" -gt 0 ]; then
           gh_ issue edit "$became" "${edit[@]}" >/dev/null 2>&1 \
             || refuse "could not make #$became a ticket${spec:+ under #$spec}; nothing was recorded"
