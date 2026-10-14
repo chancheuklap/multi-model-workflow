@@ -76,7 +76,7 @@ MARK = "mmw"
 # must carry, and the fields whose value is one of a closed set. Names are
 # `subject.verb`: a subject from SUBJECTS, a verb in the past tense, lower case, ASCII,
 # no value ever inside the name — ticket numbers, commits, hosts and models are fields.
-SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child")
+SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child", "lesson")
 
 AGENT_KINDS = ("worker", "reviewer")
 
@@ -104,8 +104,14 @@ BOUNCE_REASONS = ("conflict", "checks")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
 RETRO_EVIDENCE = ("complete", "partial")
+LESSON_SOURCES = ("noticed", "owner-correction", "stall", "retro-signal")
 
 EVENTS: dict[str, dict] = {
+    "lesson.seen":       {"stage": "work", "actor": "main",
+                          "required": ("lesson", "seen_in", "source", "session"),
+                          "closed": {"source": LESSON_SOURCES},
+                          "patterns": {"seen_in": r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+",
+                                       "session": r"none|[A-Za-z0-9-]+:[^\s:]+"}},
     "spec.opened":       {"stage": "night",    "actor": "main"},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
     "spec.closed":       {"stage": "night",    "actor": "main"},
@@ -275,6 +281,17 @@ def _check(event: str, payload: dict) -> str | None:
                     f"{', '.join(STALE_REASONS)}")
         if resolution != "stale" and "reason" in payload:
             return "`child.closed` carries `reason` for a non-stale resolution"
+    if event == "lesson.seen":
+        for key in ("lesson", "spec", "ticket"):
+            value = payload.get(key)
+            if key != "lesson" and value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                return f"`lesson.seen` needs a positive integer `{key}`"
+        roles_path = Path(__file__).resolve().parents[2] / "dispatch" / "roles.json"
+        roles = json.loads(roles_path.read_text(encoding="utf-8"))["roles"]
+        if payload.get("actor") not in {"main", *(role["name"] for role in roles)}:
+            return "`lesson.seen` actor must be main or a role in dispatch/roles.json"
     if event == "spec.retroed":
         if payload.get("stage") != "night" or payload.get("actor") != "main":
             return "`spec.retroed` has stage `night` and actor `main`"
@@ -509,6 +526,7 @@ def empty_state(issue: int | None = None) -> dict:
         "spec_closed": False,
         "spec_retroed": None,
         "spec_merged": False,
+        "occurrences": [],
     }
 
 
@@ -628,6 +646,9 @@ def apply(state: dict, event: dict) -> None:
         state["children"].setdefault(str(child), {"child": child}).update(
             resolution=payload.get("resolution"), reason=payload.get("reason"),
             ticket=payload.get("became"))
+    elif name == "lesson.seen":
+        state["occurrences"].append({key: payload.get(key) for key in
+                                     ("seen_in", "spec", "ticket", "session", "source", "at")})
 
     if name in ENDS_EVERY_HOLD:
         _end(state, name)

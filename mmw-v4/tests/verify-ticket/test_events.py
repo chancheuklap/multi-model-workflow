@@ -38,14 +38,37 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """The 27 live events have one shape and closed sets."""
-
-    def test_there_are_twenty_seven_events(self):
-        self.assertEqual(len(events.EVENTS), 27)
+    def test_there_are_twenty_eight_events(self):
+        self.assertEqual(len(events.EVENTS), 28)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",
                      "ticket.bounced", "ticket.recovered", "spec.retroed"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
+
+    def test_lesson_seen_is_validated(self):
+        full = dict(lesson=90, seen_in="o/r", source="noticed", session="orca:term_7")
+        body = events.build("lesson.seen", ticket=61, spec=76, line="Seen #90",
+                            actor="researcher", **full)
+        self.assertEqual(events.parse(body)[1]["lesson"], 90)
+        for key in full:
+            with self.subTest(missing=key), self.assertRaises(events.EventError):
+                events.build("lesson.seen", ticket=None, line="Seen #90",
+                             **{k: v for k, v in full.items() if k != key})
+        for key, bad in (("source", "guess"), ("lesson", "90"), ("lesson", True),
+                         ("seen_in", "r"), ("session", "term_7"), ("actor", "invented")):
+            with self.subTest(key=key, bad=bad), self.assertRaises(events.EventError):
+                events.build("lesson.seen", ticket=None, line="Seen #90", **{**full, key: bad})
+
+    def test_lesson_occurrences_are_folded(self):
+        bodies = [events.build("lesson.seen", ticket=n, spec=76, line="Seen #90",
+                               lesson=90, seen_in="o/r", source="noticed", session="none",
+                               at=SAME_SECOND) for n in (61, 62)]
+        self.assertEqual(events.fold(bodies, issue=90)["occurrences"], [
+            {"seen_in": "o/r", "spec": 76, "ticket": 61, "session": "none",
+             "source": "noticed", "at": SAME_SECOND},
+            {"seen_in": "o/r", "spec": 76, "ticket": 62, "session": "none",
+             "source": "noticed", "at": SAME_SECOND},
+        ])
 
     def test_spec_merged_is_readable_and_spec_opened_keeps_project_optional(self):
         opened = ev("spec.opened", "NIGHT OPENED", runner="paseo", session="main-1",
@@ -108,7 +131,7 @@ class TheVocabulary(unittest.TestCase):
                 self.assertRegex(name, r"^[a-z]+\.[a-z]+$")
                 subject, verb = name.split(".")
                 self.assertIn(subject, events.SUBJECTS)
-                self.assertTrue(verb.endswith("ed") or verb == "lost", verb)
+                self.assertTrue(verb.endswith("ed") or verb in ("lost", "seen"), verb)
 
     def test_the_six_refusals_and_the_three_release_reasons(self):
         self.assertEqual(len(events.REFUSALS), 6)

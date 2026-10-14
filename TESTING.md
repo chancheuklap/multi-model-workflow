@@ -12,6 +12,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
   - **end to end** (`test_*.sh`, and the `test_*.py` that run a script as a process): the real script run as a process, with the external boundaries below replaced by fakes (`mmw-v4/tests/dispatch/test_dispatch.sh`, `mmw-v4/tests/relay/test_relay.sh`, `mmw-v4/tests/liveness/test_guard.sh`, `mmw-v4/tests/install/test_install.py`, `mmw-v4/tests/design-pages/test_pull_design.py`).
   - **node** (`*.test.mjs` under `mmw-v4/tests/board/`, and gate-check's `run-tests.mjs` and `lint-tests.mjs`): the board's page modules and gate-check's engine.
   - **browser**: the board suite drives the real board in a headless Chromium through Playwright.
+- `mmw-v4/tests/register-problem/test_register.py` tests the registration command as a module and as a process. Its fake `gh` holds issues, labels, parents, closing links, and event comments. The concurrency case holds one fake issue read at a file gate until the test releases it, while a second registration runs. The tracker fixture locks each request rather than a whole registration. Git repositories, process identities, and locks run for real in temporary directories, with `MMW_HOME` pointing at the test home.
 - `check-interfaces.py`, beside `dispatch.sh`, checks that the dispatcher's side and the agent's side of every role meet; the dispatch suite's `test_check_interfaces.py` tests the checker itself.
 
 ## How to run them
