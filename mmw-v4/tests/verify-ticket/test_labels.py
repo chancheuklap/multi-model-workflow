@@ -1,5 +1,3 @@
-"""The label table used by issue creation and spec classification."""
-
 import unittest
 from unittest import mock
 

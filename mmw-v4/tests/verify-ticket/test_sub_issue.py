@@ -1,5 +1,3 @@
-"""`--sub-issue`: open a child with its kind's status, or refuse."""
-
 import io
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -110,8 +108,6 @@ class TestCreatesForEachKind(unittest.TestCase):
 
 
 class TestTheKindLabel(unittest.TestCase):
-    """`gh issue create --label` fails outright on a label the repository lacks."""
-
     def test_both_labels_are_made_sure_of_before_anything_is_opened(self):
         code, _, err, recorded, _ = run_sub_issue("decision", "A decision\n\nbody\n")
         self.assertEqual(code, 0, err)
