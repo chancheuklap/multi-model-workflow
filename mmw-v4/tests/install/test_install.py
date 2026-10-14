@@ -168,7 +168,7 @@ class InstallTest(unittest.TestCase):
 
         models = json.loads((self.home / ".mmw/models.json").read_text())
         self.assertEqual(sorted(models["rows"]), sorted(
-            ["junior-worker", "senior-worker", "reviewer", "advisor", "researcher", "candidate"]))
+            ["junior-worker", "senior-worker", "reviewer", "advisor", "researcher", "candidate", "retro-analyst"]))
         self.assertEqual(models["rows"]["reviewer"], V3_MODELS["rows"]["reviewer"])
         backups = list((self.home / ".mmw").glob("models.json.bak-*"))
         self.assertEqual(len(backups), 1)

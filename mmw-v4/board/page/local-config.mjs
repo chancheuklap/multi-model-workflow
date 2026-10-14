@@ -20,6 +20,7 @@ export const LocalConfig = {
     advisor: "被问到时给第二意见",
     researcher: "被派去读一处来源或一类证据，交回注明出处的发现",
     candidate: "被派去设计同一个问题的几个候选方案之一",
+    "retro-analyst": "从一个角度分拣一次运行的问题登记，核实、合并、给出方案",
   },
   // models.json holds one row per session role of dispatch's roles.json (models.py refuses
   // any other set), so the rows are the role list, in the file's order.

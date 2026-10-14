@@ -39,6 +39,13 @@
       "default": {"host": "claude", "model": "opus", "effort": "high"}
     },
     {
+      "name": "retro-analyst",
+      "sent_with": "brief",
+      "what": "sorts one run's problem registrations from one angle: checks each still holds, merges duplicates, gathers evidence, and returns a verdict and a solution",
+      "returns": "its verdict table, reported to the session that sent it",
+      "default": {"host": "claude", "model": "opus", "effort": "high"}
+    },
+    {
       "name": "advisor",
       "sent_with": "brief",
       "what": "a second opinion on one decision, on a stronger model",
