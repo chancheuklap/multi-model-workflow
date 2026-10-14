@@ -161,8 +161,10 @@ class Registration(unittest.TestCase):
         return rc, out.getvalue(), err.getvalue()
 
     def test_find_lists_open_and_closed_matches(self):
-        self.fake.repos["o/r"] = [issue(), issue(11, "closed", "not_planned")]
-        self.fake.repos["acme/toolbox"] = [issue(12)]
+        nonmatch = issue(21, body=problem("unrelated-problem").replace("空列表", "账户"))
+        nonmatch["title"] = "账户问题"
+        self.fake.repos["o/r"] = [issue(), issue(11, "closed", "not_planned"), nonmatch]
+        self.fake.repos["acme/toolbox"] = [issue(12), nonmatch]
         rc, out, err = self.run_register("find", "空列表")
         self.assertEqual(rc, 0, err)
         self.assertEqual(out.splitlines(), [
@@ -252,11 +254,13 @@ class Registration(unittest.TestCase):
                     self.assertIn("NOT REOPENED: #10 sits under spec #76, which has not finished", out)
 
     def test_a_refused_problem_stays_closed_and_is_counted(self):
-        row = self.existing(state="closed", reason="completed", labels=("mmw:lesson", "wontfix"))
-        rc, out, err = self.run_register("add", str(self.path))
-        self.assertEqual(rc, 0, err)
-        self.assertEqual(row["state"], "closed")
-        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
+        for reason in ("completed", "not_planned"):
+            with self.subTest(reason=reason):
+                row = self.existing(state="closed", reason=reason, labels=("mmw:lesson", "wontfix"))
+                rc, out, err = self.run_register("add", str(self.path))
+                self.assertEqual(rc, 0, err)
+                self.assertEqual(row["state"], "closed")
+                self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
 
     def test_refused_writes_exit_two_when_github_accepted_nothing(self):
         for verb in ("create", "comment", "reopen", "label-create"):
