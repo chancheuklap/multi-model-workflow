@@ -3780,9 +3780,10 @@ write_route_batch() {
                 $(ev child.opened 61 "Opened #91 (finding)" --spec 76 --field child=91 --field kind=finding),
                 $(ev child.opened 61 "Opened #92 (finding)" --spec 76 --field child=92 --field kind=finding),
                 $(ev child.opened 61 "Opened #93 (deferred)" --spec 76 --field child=93 --field kind=deferred)]},
-  {"number": 80, "state": "OPEN", "labels": ["ready-for-agent", "mmw:problem"], "parent": {"number": 76}},
+  {"number": 80, "state": "OPEN", "labels": ["ready-for-agent"], "parent": {"number": 76}},
   {"number": 81, "state": "OPEN", "labels": ["mmw:lesson"], "parent": {"number": 76}},
   {"number": 82, "state": "OPEN", "labels": ["ready-for-agent", "mmw:ticket"], "parent": {"number": 76}},
+  {"number": 83, "state": "OPEN", "labels": ["ready-for-agent", "mmw:problem"], "parent": {"number": 76}},
   {"number": 90, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
   {"number": 91, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
   {"number": 92, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 76}},
@@ -3801,12 +3802,12 @@ scenario_routeonekind() {
   write_route_batch
 
   echo "--- became-ticket onto a problem"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 80)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 83)"
   [ "$code" = 0 ] || fail "a problem should become a ticket, got $code: $(cat "$TMP/err")"
-  has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --remove-label :: mmw:problem"
-  [ "$(grep -cF 'gh :: issue :: edit :: 80 ::' "$MMW_TEST_LOG")" = 1 ] \
+  has "gh :: issue :: edit :: 83 :: --add-label :: mmw:ticket :: --remove-label :: mmw:problem"
+  [ "$(grep -cF 'gh :: issue :: edit :: 83 ::' "$MMW_TEST_LOG")" = 1 ] \
     || fail "the problem's kind should change in one edit"
-  has "gh :: issue :: close :: 90 :: --duplicate-of :: 80"
+  has "gh :: issue :: close :: 90 :: --duplicate-of :: 83"
 
   echo "--- became-ticket onto a lesson"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 became-ticket 81)"
@@ -3828,7 +3829,7 @@ scenario_routeonekind() {
   hasnt "gh :: issue :: edit"
   hasnt "gh :: issue :: close"
   [ "$(posted_events 61 child resolution became spec | tr '\n' '|')" = \
-    "child.closed child=90 resolution=became-ticket became=80 spec=76|child.closed child=91 resolution=became-ticket became=81 spec=76|child.closed child=92 resolution=became-ticket became=82 spec=76|" ] \
+    "child.closed child=90 resolution=became-ticket became=83 spec=76|child.closed child=91 resolution=became-ticket became=81 spec=76|child.closed child=92 resolution=became-ticket became=82 spec=76|" ] \
     || fail "each conversion should record one route: $(posted_events 61 child resolution became spec)"
 }
 
@@ -3931,7 +3932,8 @@ scenario_route() {
   echo "--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
   [ "$code" = 0 ] || fail "route became-ticket to another ticket expected exit 0, got $code: $(cat "$TMP/err")"
-  has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket"
+  grep -Fxq 'gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket' "$MMW_TEST_LOG" \
+    || fail "the target without a kind should only gain mmw:ticket"
   hasnt "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --parent"
   has "gh :: issue :: close :: 93 :: --duplicate-of :: 80"
 
