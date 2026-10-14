@@ -2647,8 +2647,6 @@ raise SystemExit(0 if json.load(sys.stdin).get("landed") else 1)
 '
 }
 
-# Release one-ticket resources, archive the workspace, record the landing, then remove
-# origin's branch copy only if both preceding state transitions succeeded.
 finish_landing() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5"
   local merge_commit="$6" base="$7" mode="$8" archived=0 landing_state
@@ -3492,8 +3490,6 @@ delete_origin_base_branch() {
   echo "dispatch: could not delete origin/$into: $(printf '%s' "$out" | tr '\n' ' '); run git push origin --delete $into" >&2
 }
 
-# Keep the local base branch at the fetched night tip. A checked-out branch or local
-# work outside the project stays unchanged, and an absent origin copy changes nothing.
 retain_local_base_branch() {
   local root="$1" into="$2" project="$3" trees path ahead tip out
   trees="$(base_worktrees "$root" "$into")"
