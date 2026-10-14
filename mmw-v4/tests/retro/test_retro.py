@@ -407,3 +407,14 @@ sys.exit(result.returncode)
         receipt = events.parse(self.fake.rows[61]['comments'][-1]['body'])[1]
         self.assertEqual(receipt['event'],'ticket.retroed')
         self.assertEqual(receipt['ticket'],61)
+
+    def test_merging_old_occurrences_does_not_expire_a_recently_seen_target(self):
+        self.start_run()
+        self.fake.rows[90] = issue(bodies=[seen(at='2026-09-01T00:00:00Z')])
+        self.fake.rows[91] = issue(91,bodies=[seen(at='2026-10-09T00:00:00Z')])
+        rc,out,err = self.run_command('apply',self.answer('merge:91'))
+        self.assertEqual(rc,0,err)
+        rc,out,err = self.run_command('expire',REPO)
+        self.assertEqual(rc,0,err)
+        self.assertEqual(self.fake.rows[91]['state'],'open')
+

@@ -83,7 +83,7 @@ def expire(repos):
                 continue
             _, state = history(repo, row['number'])
             occurrences = state['occurrences']
-            if occurrences and timestamp(occurrences[-1]['at']) < cutoff:
+            if occurrences and max(timestamp(o['at']) for o in occurrences) < cutoff:
                 plans.append((repo, row['number']))
     for repo, number in plans:
         write(['issue', 'comment', str(number), '--repo', repo],
