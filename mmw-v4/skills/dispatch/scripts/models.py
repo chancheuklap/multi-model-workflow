@@ -604,8 +604,9 @@ def _read_catalog(host: str, source: str, version: str | None = None) -> dict:
 def _cached_host_result(host: str, source: str, record: dict) -> dict:
     failure = record.get("failure")
     state = "missing" if failure and failure["kind"] == "missing" else "silent" if failure else "ok"
-    result = {**_host_result(state, _offered_rows(host, record.get("offerings") or [], source)),
-              "read_at": record.get("read_at", "")}
+    offerings = record.get("offerings") or []
+    result = {**_host_result(state, _offered_rows(host, offerings, source)),
+              "read_at": record.get("read_at", ""), "ids": [item["id"] for item in offerings]}
     if failure:
         result["failure"] = failure
     return result
@@ -781,7 +782,7 @@ def _offered_rows(host: str, offerings: list[dict], source: str) -> list[dict]:
 
 
 def _host_result(state: str, offered: list[dict] | None = None) -> dict:
-    return {"state": state, "label": _STATE_LABELS[state], "offered": offered or []}
+    return {"state": state, "label": _STATE_LABELS[state], "offered": offered or [], "read_at": ""}
 
 
 def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) -> dict:
@@ -924,8 +925,7 @@ def _validate_local_config(config: dict, scan: dict,
         offered = _offered_row(found.get("offered") or [], host, str(model))
         if offered is None:
             choices = ", ".join(item["model"] for item in found.get("offered") or [])
-            ids = ", ".join(item["id"] for item in read_catalog_cache().get(
-                scan.get("source"), {}).get(host, {}).get("offerings", []))
+            ids = ", ".join(found.get("ids") or [])
             errors.append({"cell": f"{role}.model",
                            "reason": f"{role} saved model {model!r} is not in the current {scan.get('source')} catalog for {host}; choose one of {choices}" + (f" (ids: {ids})" if ids else "")})
             continue

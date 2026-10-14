@@ -292,3 +292,21 @@ else:
                          {"host": "codex", "model": "gpt 6 sol", "effort": "high"})
 
 
+    def test_validation_uses_one_scan_even_if_the_cache_changes(self):
+        saved = models.default_local_config()
+        for row in saved["rows"].values():
+            row.update(host="codex", model="gpt 6 sol", effort="high")
+        (self.home / "models.json").write_text(json.dumps(saved))
+        _, scan, errors = models.check_local_config(saved)
+        self.assertEqual(errors, [])
+        (self.home / "catalog.json").write_text(json.dumps({"cli": {"codex": {
+            "offerings": [{"id": "wrong-generation", "name": "Wrong Generation"}]}}}))
+        proposed = json.loads(json.dumps(saved))
+        proposed["rows"]["senior-worker"]["model"] = "gpt-9"
+        with self.assertRaises(models.InvalidConfig) as caught:
+            models.write_local_config(proposed, 1, scan)
+        self.assertEqual([item["cell"] for item in caught.exception.errors], ["senior-worker.model"])
+        reason = caught.exception.errors[0]["reason"]
+        self.assertIn("gpt-6-sol", reason)
+        self.assertNotIn("wrong-generation", reason)
+        self.assertIn("app-server", (self.home / "codex.log").read_text())
