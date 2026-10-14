@@ -3700,6 +3700,8 @@ print(number if isinstance(number, int) else "")
 #                       under a ticket would name that ticket as its spec. When <m> is
 #                       another issue, the child is closed as a duplicate of it and #<m>
 #                       gets the same label and the same parent only when there is a spec.
+#                       A <m> that carries mmw:map or mmw:spec is refused: a map or spec
+#                       never becomes a ticket.
 #
 # The ticket the child came from is named on the command line and must carry the
 # `child.opened` for it; the spec is that event's `spec`. Both are facts fixed when the
@@ -3713,7 +3715,8 @@ print(number if isinstance(number, int) else "")
 # Exit 0 routed and recorded, or already so. 1 the tracker took some of it and not the
 # rest; stderr says which, nothing was undone, and the same command finishes it. 2
 # nothing was done: the arguments are wrong, the ticket carries no `child.opened` for
-# this child, the child was routed another way, or the tracker could not be asked.
+# this child, the child was routed another way, the became-ticket target is a map or a
+# spec, or the tracker could not be asked.
 route_child() {
   local ticket="$1" child="$2" resolution="$3" detail="${4:-}" reason="" became=""
   case "$ticket" in *[!0-9]* | "") refuse "the ticket number must be digits only, got $ticket" ;; esac
@@ -3773,11 +3776,17 @@ route_child() {
         fixed-elsewhere) line="Closed #$child: the finding was fixed elsewhere" ;;
       esac ;;
     became-ticket)
+      local labels map_or_spec
+      labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
+        || refuse "could not read #$became's labels; nothing was done"
+      for map_or_spec in mmw:map mmw:spec; do
+        if printf '%s\n' "$labels" | grep -qx "$map_or_spec"; then
+          refuse "#$became carries $map_or_spec, and a map or spec cannot become a ticket; pick another target for #$child. Nothing was done"
+        fi
+      done
       if [ -n "$spec" ] || [ "$became" = "$child" ]; then
-        local current labels old_kind
+        local current old_kind
         current="$(parent_of "$became")" || refuse "could not ask the tracker where #$became sits; nothing was done"
-        labels="$(gh_ issue view "$became" --json labels --jq '.labels[].name' 2>/dev/null)" \
-          || refuse "could not read #$became's labels; nothing was done"
         local -a edit=()
         printf '%s\n' "$labels" | grep -qx 'mmw:ticket' || edit+=(--add-label mmw:ticket)
         if [ -n "$spec" ]; then

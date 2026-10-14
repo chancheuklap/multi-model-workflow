@@ -10,7 +10,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefproblems|briefreport|retract
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|specfield|suspend|status
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh orcaclosed
@@ -3831,6 +3831,46 @@ scenario_routeonekind() {
   [ "$(posted_events 61 child resolution became spec | tr '\n' '|')" = \
     "child.closed child=90 resolution=became-ticket became=83 spec=76|child.closed child=91 resolution=became-ticket became=81 spec=76|child.closed child=92 resolution=became-ticket became=82 spec=76|" ] \
     || fail "each conversion should record one route: $(posted_events 61 child resolution became spec)"
+}
+
+scenario_routerefusesmapspec() {
+  local code target kind child
+  reset_log
+  fresh_repo
+  write_route_batch
+
+  while read -r target kind child; do
+    echo "--- became-ticket onto a $kind: refused, nothing done"
+    : > "$MMW_TEST_LOG"
+    code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 "$child" became-ticket "$target")"
+    [ "$code" = 2 ] || fail "a $kind should refuse to become a ticket, got $code: $(cat "$TMP/err")"
+    grep -Fq "#$target carries mmw:$kind" "$TMP/err" \
+      || fail "the refusal should name #$target and mmw:$kind: $(cat "$TMP/err")"
+    hasnt "gh :: issue :: edit"
+    hasnt "gh :: issue :: close"
+    hasnt "gh :: issue :: comment"
+  done <<'ROUTES'
+18 map 90
+76 spec 91
+ROUTES
+  [ -z "$(posted_events 61)" ] || fail "no child.closed should be posted: $(posted_events 61)"
+
+  echo "--- without a spec, a map is refused as a duplicate target too"
+  reset_log
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 18, "state": "OPEN", "labels": ["mmw:map"], "parent": null},
+  {"number": 61, "state": "CLOSED", "labels": ["mmw:ticket"], "parent": null,
+   "comments": [$(ev child.opened 61 "Opened #90 (finding)" --field child=90 --field kind=finding)]},
+  {"number": 90, "state": "OPEN", "labels": ["mmw:child"], "parent": {"number": 61}}
+]
+JSON
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 18)"
+  [ "$code" = 2 ] || fail "a map without a spec should refuse to become a ticket, got $code: $(cat "$TMP/err")"
+  grep -Fq "#18 carries mmw:map" "$TMP/err" || fail "the refusal should name #18 and mmw:map: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit"
+  hasnt "gh :: issue :: close"
+  [ -z "$(posted_events 61)" ] || fail "no child.closed should be posted: $(posted_events 61)"
 }
 
 scenario_routenospec() {
@@ -8415,7 +8455,7 @@ PY
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
-ALL="$ALL routeonekind routenospec missingverifyticket"
+ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems"
 
