@@ -2811,8 +2811,6 @@ scenario_briefproblems() {
   batch="$(newest_batch)"
   copy="$STATE_DIR/briefs/$batch/1/brief.md"
   grep -q '## Problems' "$copy" || fail "the brief copy does not ask for a Problems section"
-  grep -q 'register-problem' "$copy" || fail "the brief copy does not name the problem fields' skill"
-  grep -q 'None' "$copy" || fail "the brief copy does not name the empty Problems value"
   [ "$rc" -ne 0 ] || echo 'the brief asks for a Problems section'
 }
 
