@@ -19,7 +19,6 @@ A prompt states the intent and the check for done. The playbook supplies the ste
 ## Load the context first
 
 - For a noisy report, ask the agent to restate the underlying issue in its own words and in plain English before it does anything else. A misreading shows up before any code exists.
-- In a fresh session, `/recall` earlier work on the topic. Old sessions hold context that the new agent lacks.
 - Before a change to unfamiliar code, ask `/how` for the mechanics and `/why` for the reasons. An agent with no traced model fixes the symptom at the first plausible spot.
 - Ask `/teach` to make the case for a choice, as in "convince me it fixes the cause and not the symptom". A case is easier to check than a summary.
 
@@ -40,7 +39,6 @@ A prompt states the intent and the check for done. The playbook supplies the ste
 - Say "im going to bed" or "im stepping away" so the agent stops asking.
 - Work you hand over for the night is a spec's tickets, each with criteria a command decides. Run a night works them and opens one pull request.
 - Pre-answer what the agent would stop for, such as "don't ask me before committing".
-- Ask for a decision log to audit later.
 - Give an exit: "if you're truly stuck after a few hours, stop and write up why".
 
 ## Steer in one line

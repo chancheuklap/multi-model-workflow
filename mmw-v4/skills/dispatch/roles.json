@@ -45,5 +45,10 @@
       "returns": "its answer, reported to the session that sent it",
       "default": {"host": "claude", "model": "fable", "effort": "medium"}
     }
+  ],
+  "subagents": [
+    {"name": "review-axis", "what": "reviews one of code-review's four review axes"},
+    {"name": "reader", "what": "reads large amounts of material and returns condensed conclusions"},
+    {"name": "default", "what": "handles all other named subagent steps, including steps that name no row"}
   ]
 }

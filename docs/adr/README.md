@@ -33,7 +33,7 @@
 | [0012](0012-review-finding-routing.md) | 一条 review finding 什么时候值一张票：四步判据，默认是 main agent 自己改 | 2026-09-08 | 0008、0009 | 0023 |
 | [0013](0013-a-report-and-its-message-are-one-call.md) | reviewer 与 worker 一样，报告落地和报信是同一次脚本调用 | 2026-09-08 | 0010 | 0020（整份作废） |
 | [0014](0014-advisor-has-one-door.md) | advisor 只有一扇门：正文是技能，两侧共用 | 2026-09-08 | 无 | 0015 |
-| [0015](0015-no-custom-subagents.md) | 工具箱不再交付 subagent：用 host 自带的通用 subagent | 2026-09-09 | 0003、0006、0014 | 0016 |
+| [0015](0015-no-custom-subagents.md) | 工具箱不再交付 subagent：用 host 自带的通用 subagent | 2026-09-09 | 0003、0006、0014 | 0016、0050 |
 | [0016](0016-live-session-table.md) | 会话怎么起写在本机活表里 | 2026-09-09 | 0015 | 0018、0024（整份作废） |
 | [0017](0017-the-night-has-no-clock.md) | 这一夜没有任何时钟 | 2026-09-10 | 0010 | 0020、0021 |
 | [0018](0018-runner-behind-one-boundary.md) | runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置 | 2026-09-10 | 0009、0016 | 0019、0020、0024、0026 |
@@ -68,6 +68,7 @@
 | [0047](0047-a-night-dispatches-only-into-free-places.md) | 一夜同时被持有的票数以 `models.json` 的 `max_workers` 为上限（默认 3），`advance` 只派出上限剩下的空位 | 2026-10-13 | 无 | 无 |
 | [0048](0048-verification-assets-written-in-the-day.md) | feature map 放在产品仓库的 `.agents/skills/verify-<product>/features/`，和 e2e test 一起白天写、主人要求时维护复核，夜里只读 | 2026-10-13 | 0029、0030、0041、0042、0044 | 无 |
 | [0049](0049-v4-serves-claude-code-and-codex.md) | MMW v4 只服务 Claude Code 与 Codex 两个 host，Grok 与 Cursor 退出 | 2026-10-14 | 0003、0006、0007、0021 | 无 |
+| [0050](0050-native-subagent-model-rows.md) | 原生子代理的型号与强度由它那一步点名的行决定 | 2026-10-15 | 0015 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

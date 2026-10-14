@@ -16,7 +16,7 @@ Fan out N parallel workers. They may cover separate slices, race the same brief,
 
 ## Phase B: Fan out
 
-Send all N workers in one message, each a subagent as mmw-mode's `## Subagents` says, and hold your turn until every one has returned.
+Send all N workers in one message, each a subagent on the `default` row as mmw-mode's `## Subagents` says, and hold your turn until every one has returned.
 
 Every brief stands alone. Include the goal, scope, exact slice or race arm, how to verify, and what to report. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence. `PASS`: the slice or arm was checked as the brief says and nothing is wrong. `ISSUES`: the worker can prove a defect; it lists every issue it can prove, not only the first. `BLOCKED`: the check could not run, and the report says what stopped it.
 

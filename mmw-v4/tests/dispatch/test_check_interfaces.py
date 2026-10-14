@@ -41,6 +41,21 @@ class CheckInterfaces(unittest.TestCase):
     def test_the_set_as_it_is_passes(self):
         self.assertEqual(self.run_check(), (0, "INTERFACES OK\n"))
 
+    def test_a_subagents_section_is_not_read_as_roles(self):
+        path = self.tmp / "dispatch" / "roles.json"
+        table = json.loads(path.read_text(encoding="utf-8"))
+        table["subagents"] = [
+            {"name": "review-axis", "what": "reviews one code-review axis"},
+            {"name": "reader", "what": "reads material and returns conclusions"},
+            {"name": "default", "what": "handles other named subagent steps"},
+        ]
+        path.write_text(json.dumps(table), encoding="utf-8")
+        self.assertEqual(self.run_check(), (0, "INTERFACES OK\n"))
+        self.append("how/SKILL.md", "Send it with `dispatch.sh send reader <brief>`.")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "dispatch.sh send reader", "names no role")
+
     def append(self, rel, line):
         path = self.tmp / rel
         path.parent.mkdir(parents=True, exist_ok=True)

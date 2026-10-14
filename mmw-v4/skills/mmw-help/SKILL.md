@@ -35,7 +35,7 @@ Check the state that changes the answer, and mention it only when it does:
 
 Guide page 1 (`mmw-v4/docs/guide/01-setup.md`) has the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
 
-If cost is the worry, say where the tokens go: dispatched workers and reviewers, the four review subagents each reviewer sends, and the candidates of `arena`. A cheaper model or a lower effort on a role's row of `~/.mmw/models.json` spends fewer.
+If cost is the worry, say where the tokens go: dispatched workers and reviewers, the four review subagents each reviewer sends, and the candidates of `arena`. The four review axes use the `review-axis` subagent row, so you can change their model separately from the reviewer session. A cheaper model or a lower effort on a role's row of `~/.mmw/models.json` spends fewer.
 
 ## Start a task
 
@@ -52,7 +52,6 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Know how code works now, or where new code should live | `how` |
 | Know why code is shaped this way, or where a number came from | `why` |
 | Understand a change or subsystem, explained plainly | `teach` |
-| Catch up on their own recent work on a topic | `recall` |
 | Have a question investigated against primary sources | `research` |
 | Know what a small diff could break outside itself | `blast-radius` |
 | Settle types and module shape before code that crosses a function boundary | `architect` |
@@ -82,9 +81,7 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Bring a verification skill and its feature map back in line with the app | `maintain-verification-skill` |
 | Vet a performance number before reporting or acting on it | `benchmark-checklist` |
 | Run a task no playbook fits, with a step list designed for it | `figure-it-out` |
-| Keep a decision log during a run, and review it afterward | `show-me-your-work` |
 | Write or edit a skill, a playbook or a reference to the set's standards | `writing-for-agents` |
-| Turn their own working habits into a personal mode skill | `automate-me` |
 | Turn what a finished task taught into skill edits | `reflect` |
 | Stop agents from repeating the same mistakes in this repo | `correct` |
 | Find their way around MMW | `mmw-help` |
@@ -97,7 +94,6 @@ Close calls:
 - `arena` gives every candidate the same brief and merges the best parts. `swarm` splits work into slices or a race and returns one report.
 - `architect` stops at the sketch and hands it back. It writes no implementation.
 - `code-review` reviews the diff. `blast-radius` looks for breakage outside the diff and proves the one fact that makes the change safe.
-- `recall` rebuilds context across recent sessions. Resuming one specific session or branch is the Session pickup playbook.
 
 ## Playbooks and principles
 
@@ -123,7 +119,6 @@ For a run that drifts, [`references/prompting.md`](references/prompting.md) has 
 
 ## Make MMW my own
 
-- `automate-me` drafts a personal mode skill from the user's own history.
 - `reflect` after a session turns its lessons into skill edits the user approves.
 - "Write a skill for <workflow>" runs the Authoring or modifying a skill playbook. The Eval playbook tests a skill change blind.
 - Fix a misbehaving skill in its own change, not inside the feature work where it went wrong.
