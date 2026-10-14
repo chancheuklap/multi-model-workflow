@@ -200,7 +200,7 @@ Only after the user has accepted the pull request, the orchestrator runs:
 dispatch.sh finish <spec>
 ```
 
-A worktree that has the base branch checked out, usually the one this session runs in, and its local branch are kept. Stderr gives the worktree removal command for the user to run once this session is done. Local ticket branches and the local night branch stay available after landing and `finish`; their origin copies are removed when cleanup permits it.
+A worktree that has the base branch checked out, usually the one this session runs in, and its local branch are kept. For after this session ends, stderr gives a removal command for a linked worktree or a detach command for the main worktree, which Git cannot remove. Local ticket branches and the local night branch stay available after landing and `finish`; their origin copies are removed when cleanup permits it.
 
 Exit 0: the night is merged, the spec issue is closed as completed, and GitHub shows the pull request merged. Exit 1: the merge conflicted or `scripts/check` was red, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as Opening a PR step 3 says, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
 

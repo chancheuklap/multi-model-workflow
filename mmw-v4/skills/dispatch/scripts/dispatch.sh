@@ -3491,10 +3491,15 @@ delete_origin_base_branch() {
 }
 
 retain_local_base_branch() {
-  local root="$1" into="$2" project="$3" trees path ahead tip out
+  local root="$1" into="$2" project="$3" trees path main ahead tip out
   trees="$(base_worktrees "$root" "$into")"
   if [ -n "$trees" ]; then
+    main="$(main_checkout)" || main=""
     while IFS= read -r path; do
+      if [ "$path" = "$main" ]; then
+        echo "dispatch: keeping the main worktree $path on $into; once its session is done, detach it (git -C \"$path\" switch --detach)" >&2
+        continue
+      fi
       echo "dispatch: keeping worktree $path and the local $into it has checked out; once its session is done, remove the worktree (git worktree remove $path)" >&2
     done <<< "$trees"
     return 0
