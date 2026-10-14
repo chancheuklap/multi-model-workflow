@@ -150,13 +150,13 @@ The [Worktree and simulator cleanup](../../skills/mmw-mode/playbooks/worktree-cl
 
 ## Leave it running
 
-"going to bed", "don't stop" and "run until done" tell the session to keep going without you. Say what done means, and the session keeps a decision log with [`show-me-your-work`](../../skills/show-me-your-work/SKILL.md) for you to read when you are back:
+"going to bed", "don't stop" and "run until done" tell the session to keep going without you. Say what done means:
 
 ```text
-im stepping away. keep going until the migration check reports zero old callers. log your decisions.
+im stepping away. keep going until the migration check reports zero old callers.
 ```
 
-Work too large for one session goes through the pipeline instead. To spec records the decisions, To tickets cuts the tickets, and Run a night has workers build them unattended into one pull request. [Run work while you sleep](./07-overnight.md) covers it.
+A batch of overnight work goes through Run a night. The tickets' events and the night summary record what happened. To spec records the decisions, To tickets cuts the tickets, and Run a night has workers build them unattended into one pull request. [Run work while you sleep](./07-overnight.md) covers it.
 
 To stop a session cleanly, ask it to pause. The [Pause safely](../../skills/mmw-mode/playbooks/pause-safely.md) playbook commits the work in progress and writes a resume note. A later session resumes from it with [Session pickup](../../skills/mmw-mode/playbooks/session-pickup.md).
 
