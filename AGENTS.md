@@ -16,7 +16,7 @@ When this repository consumes its own landing pipeline, the MMW runtime for the 
 
 ## Package Manager
 
-No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; gate-check's tests and the board's need `node`; the board tests need Playwright's browsers.
+No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; gate-check's tests and the board's need `node`; the board and design-pages suites install the Chromium build their Playwright needs when it is absent (network then needed), and Playwright itself is never pinned.
 
 ## Commands
 
@@ -26,7 +26,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | `bash mmw-v4/install.sh --check` | Read-only: exit 0 when complete, 1 when something is missing or left over. Run from another checkout it hands over to the installed checkout's own `install.sh` and only reports. `dispatch.sh check <spec>` runs it before every night and reports what remains as a warning |
 | `bash mmw-v4/install.sh --back`, run in the installed checkout | Takes the machine back from v4 to v3: removes what v3 cannot recognise, then runs `mmw-v3/install.sh` from the same checkout, whose exit code it returns. Only when no watch is open, and only with the user's authorisation, like `install.sh` |
 | `python3 mmw-v4/prompt/render.py --adopt` | Once per machine: the `AGENTS.md` already at a target is not a generated file, and `render.py` refuses to overwrite it otherwise |
-| `scripts/check` | The one check every ticket passes before it lands. The default tier checks the syntax of the files changed against `MMW_BASE_REF` (else `origin/dev`), runs the shared checks and `lib`, then the suites its map selects for the changed paths; `--all` runs every suite; `--staged` checks the syntax of the staged files. Exit 0 pass, 1 red, 2 a tool missing or a base ref unknown. Its header lists the steps; a new test directory goes into its map in the same commit |
+| `scripts/check` | The one check every ticket passes before it lands. The default tier checks the syntax of the files changed against `MMW_BASE_REF` (else `origin/dev`), runs the shared checks and `lib`, then the suites its map selects for the changed paths; `--all` runs every suite; `--staged` checks the syntax of the staged files. Exit 0 pass, 1 red, 2 the environment cannot run it: a tool missing, a base ref unknown, or a suite that exited 2 because it cannot run here (Chromium will not start). Its header lists the steps; a new test directory goes into its map in the same commit |
 | `bash mmw-v4/prompt/tests/run.sh` | Tests `render.py`; needs only `python3` |
 | `bash mmw-v4/tests/<name>/run.sh` | One suite: `board`, `design-pages`, `diagram-design`, `dispatch`, `exe-release`, `install`, `liveness`, `relay`, `setup-mmw`, `verify-ticket`, and `lib` for the shared checks themselves. There is no aggregate runner; each `run.sh` header names what it tests and what it needs. Every suite first runs the three shared checks in `mmw-v4/tests/lib/`: `check_module_paths.py` (a script names a module file that is gone), `check_wiring.py` (a route, principle line, or a skill, file, script or `dispatch.sh` command a step names is missing), `check_skill_frontmatter.py` under `uv run` (invalid YAML, or a key beyond `name` and `description` on one of this repository's skills); every suite therefore needs `uv` |
 | `bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario>` | One dispatch scenario (about one hundred and eighty; `all` runs them all); `mmw-v4/tests/relay/test_relay.sh` takes the same argument |
@@ -40,12 +40,11 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | The terms of the landing pipeline and the toolbox, split into bounded contexts; read the map before changing vocabulary | `CONTEXT-MAP.md`, then `docs/contexts/<name>/CONTEXT.md` |
 | ADR shape, the index, the translation table for two earlier numberings | `docs/adr/README.md` |
 | Every `gh` operation of the issue tracker, the three label sets, the wayfinding operations | `mmw-v4/skills/mmw-mode/references/github-issues.md` |
-| How to read the contexts and the ADRs before exploring code | `docs/agents/domain.md` |
 | The owner's guide to v4, from install to a night of unattended work | `mmw-v4/docs/guide/README.md` |
 | The night, step by step, from `check` and `open` to the pull request | `mmw-v4/skills/mmw-mode/playbooks/run-a-night.md` |
 | How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard. Written against v3's dispatch; v4's started from v2's, and the second file lists what it took out | `docs/contexts/night/how-it-works.md`, `mmw-v4/docs/removed-from-dispatch.md` |
 | What install installs and leaves untouched, and how `--back` works | `mmw-v4/install.sh` header comment, `mmw-v4/README.md` `## Install and go back` |
-| Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v4/prompt/README.md` |
+| Which prompt file reaches which host by which route, and the generated file's shape | `mmw-v4/prompt/README.md` |
 | Every skill and principle, one line each | `mmw-v4/README.md` `## Skills` and `## Principles` |
 | The intents the skill set is held to; read before changing what a skill does | `mmw-v4/skills/writing-for-agents/DESIGN-INTENTS.md` |
 | Every rule for the text of a skill, playbook or reference, which component a text goes in and the shape of each, and how a copy is compared with a newer upstream; read before writing, editing or reviewing one | `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` and `SKILL-SET-COMPONENTS.md` |
@@ -58,14 +57,13 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 - A skill or playbook v4 no longer uses is moved to `mmw-v4/docs/retired-skills/` or `mmw-v4/docs/retired-playbooks/`, not deleted.
 - Upstream text enters by copy, not by link. `mmw-v3/upstream-mattpocock/`, `mmw-v3/upstream-pstack/`, `mmw-v3/upstream-cursor-team-kit/` and `mmw-v3/upstream-diagram-design/` are read-only squash subtrees; the commit that copies a file into `mmw-v4/skills/` names the repository that first wrote it, the path there and the commit it was read at, and a later edit says in its own commit message what it changed and why. gate-check under the `verify-ticket` skill came from Leonxlnx/unlazy and is owned here, not pulled again.
 - Every git worktree the pipeline makes sits under the main worktree's `.worktrees/`: `issue-<n>` per ticket, `merge-<branch>` per merge target with one lock each, `fix-<n>` per ticket a playbook opens outside a spec, and `baseline-<n>` per ticket's claim-time baseline run, removed after the run; those names belong to the pipeline. This checkout also carries one hand-made worktree, `mmw-installed`, a full checkout.
-- The user-level prompt is edited in `mmw-v4/prompt/shared.md`, read by Claude Code, Codex and Grok. `~/.codex/AGENTS.md` and `~/.grok/AGENTS.md` are generated, and `render.py` refuses to overwrite a hand edit. Cursor's user-level prompt is maintained in the app.
+- The user-level prompt is edited in `mmw-v4/prompt/shared.md`, read by Claude Code and Codex. `~/.codex/AGENTS.md` is generated, and `render.py` refuses to overwrite a hand edit.
 
 ## Gotchas
 
 - This machine's install is served from the installed checkout `.worktrees/mmw-installed` (recorded in `~/.mmw/installed-root`), and every host symlink points there: an edit to a `SKILL.md` or script in the main worktree reaches no host until it is released. Releasing is the owner's call: a change is committed on `dev` as part of the work, and the three steps after that run only when the owner says to release. The four promotion steps, in this order: commit on `dev`; fast-forward `main` to it (`git push . dev:main`); move the installed checkout to `main` (`git -C .worktrees/mmw-installed checkout --detach main`) and confirm with `bash mmw-v4/install.sh --check`; push both (`git push origin dev main`). The third step waits while any watch is open (Self-hosting boundary). `install.sh` runs only when the user explicitly authorises it; its read-only `--check` is the exception.
 - With Claude Code's Bash sandbox on, the PreToolUse hook `install.sh` registered cannot open the symlink target under `~/.agents/skills` and blocks every command with `can't open file '…/dispatch/scripts/tool-guard.py'`. The file is there; the same command passes with the sandbox off. Leave the install alone.
 - Each Codex hook needs a `trusted_hash` line in `~/.codex/config.toml`; `install.sh` computes it with Codex's own algorithm. When Codex changes the algorithm it prompts "hooks need review" again and `--check` cannot tell.
-- Both dispatch hooks decide whether to stand down from the host's own payload fields, never from the environment: Cursor and Grok export their variables into every child process, and an environment test would also switch off the hooks of a Claude session started from one of their panes.
 - A skill directory is one symlink shared by every repository on the machine: a credential written into any file under its `scripts/<…>` is loaded by every other run.
 
 <important if="you are opening a night or working one ticket inside this repository">

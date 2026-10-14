@@ -37,13 +37,14 @@ class Fake:
     """Answers `gh` and `git` as a repository in a given state."""
 
     def __init__(self, root=None, labels_have=None, issues=True, protected="",
-                 ignored=(".worktrees/", ".scratch/")):
+                 ignored=(".worktrees/", ".scratch/"), install=(0, "", "")):
         self.root = root
         self.labels_have = dict(labels_have if labels_have is not None else
                                 {n: (c, d) for n, (c, d) in TABLE.items()})
         self.issues = issues
         self.protected = protected
         self.ignored = ignored
+        self.install = install
         self.calls = []
 
     def __call__(self, cmd, **kwargs):
@@ -53,6 +54,8 @@ class Fake:
             return self.gh(cmd)
         if cmd[0] == "git":
             return self.git(cmd)
+        if cmd[0] == "bash" and cmd[1].endswith("/install.sh") and cmd[2:] == ["--check"]:
+            return done(cmd, *self.install)
         raise AssertionError(f"unexpected command {cmd}")
 
     def gh(self, cmd):
@@ -68,8 +71,6 @@ class Fake:
             self.labels_have[name] = (args[args.index("--color") + 1],
                                       args[args.index("--description") + 1])
             return done(cmd, 0, f'✓ Label "{name}" created')
-        if args[:2] == ["auth", "status"]:
-            return done(cmd, 0)
         if args[0] == "api":
             path = next(a for a in args[1:] if not a.startswith("-"))
             if path.startswith("repos/o/r/issues?"):
@@ -146,7 +147,10 @@ class TestCheck(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.home = self.root / "mmw-home"
         self.home.mkdir()
-        (self.home / "models.json").write_text("{}")
+        self.toolbox = self.root / "toolbox" / "mmw-v4"
+        self.toolbox.mkdir(parents=True)
+        (self.toolbox / "install.sh").write_text("#!/usr/bin/env bash\n")
+        (self.home / "installed-root").write_text(f"{self.toolbox}\n")
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -156,11 +160,11 @@ class TestCheck(unittest.TestCase):
         (self.root / "scripts" / "check").write_text("#!/usr/bin/env bash\nexit 0\n")
         (self.root / "scripts" / "check").chmod(0o755)
         (self.root / "TESTING.md").write_text("# Testing\n")
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n")
 
     def run_check(self, fake):
         check = load("check")
         with mock.patch("subprocess.run", side_effect=fake), \
-             mock.patch.object(check.shutil, "which", return_value="/bin/tool"), \
              mock.patch.dict("os.environ", {"MMW_HOME": str(self.home)}), \
              redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()):
             code = check.main()
@@ -178,9 +182,9 @@ class TestCheck(unittest.TestCase):
         fake = Fake(root=self.root, labels_have={}, ignored=())
         code, out = self.run_check(fake)
         self.assertEqual(code, 1)
-        for item in ("labels", ".gitignore", "scripts/check", "TESTING.md"):
+        for item in ("labels", ".gitignore", "scripts/check", "TESTING.md", "CLAUDE.md"):
             self.assertRegex(out, rf"(?m)^missing +repository +{item}:", item)
-        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 4 missing"), out)
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 5 missing"), out)
         self.assertEqual(fake.writes(), [])
         self.assertEqual(fake.labels_have, {})
 
@@ -194,6 +198,25 @@ class TestCheck(unittest.TestCase):
         code, out = self.run_check(Fake(root=self.root))
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"(?m)^missing +repository +scripts/check:")
+
+    def test_a_missing_claude_md_is_missing_and_check_writes_none(self):
+        self.set_up_repository()
+        (self.root / "CLAUDE.md").unlink()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +CLAUDE.md: absent; setup creates it, "
+                              r"holding the one line @AGENTS.md")
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 1 missing"), out)
+        self.assertFalse((self.root / "CLAUDE.md").exists())
+
+    def test_any_existing_claude_md_is_ok_and_left_as_it_is(self):
+        self.set_up_repository()
+        own = "# House rules\n\nSee docs/CONTRIBUTING.md.\n"
+        (self.root / "CLAUDE.md").write_text(own)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +CLAUDE.md: present$")
+        self.assertEqual((self.root / "CLAUDE.md").read_text(), own)
 
     def test_a_design_package_without_its_verify_skill_is_missing(self):
         self.set_up_repository()
@@ -235,6 +258,42 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(rows, [["missing", "repository", "verify-alpha"],
                                 ["missing", "repository", "verify-zebra"]])
         self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 2 missing"), out)
+
+    def test_the_install_is_read_through_its_own_check(self):
+        self.set_up_repository()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, rf"(?m)^ok +machine +install: {self.toolbox}/install.sh --check passes$")
+
+        gaps = (1, "", "缺    /home/.claude/skills/dispatch\n缺    /home/.codex/hooks.json\n")
+        code, out = self.run_check(Fake(root=self.root, install=gaps))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +machine +install: .* --check exits 1, 2 line\(s\) on stderr, "
+                              r"first: 缺    /home/.claude/skills/dispatch; run bash .*/install.sh to repair it$")
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 1 missing"), out)
+
+    def test_the_machine_is_one_install_row_and_check_asks_nothing_else_of_it(self):
+        self.set_up_repository()
+        fake = Fake(root=self.root)
+        code, out = self.run_check(fake)
+        self.assertEqual(code, 0, out)
+        machine = [line.split(":", 1)[0].split() for line in out.splitlines() if " machine " in line]
+        self.assertEqual(machine, [["ok", "machine", "install"]])
+        self.assertFalse([c for c in fake.calls if c[:3] == ["gh", "auth", "status"]], fake.calls)
+
+    def test_a_machine_with_no_install_is_missing_and_runs_nothing(self):
+        self.set_up_repository()
+        (self.home / "installed-root").unlink()
+        fake = Fake(root=self.root)
+        code, out = self.run_check(fake)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +machine +install: no .*installed-root; MMW is not installed")
+        self.assertFalse([c for c in fake.calls if c[0] == "bash"], fake.calls)
+
+        (self.home / "installed-root").write_text(f"{self.root / 'gone'}\n")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +machine +install: .* which has no install.sh")
 
     def test_target_json_checks_are_not_read(self):
         self.set_up_repository()

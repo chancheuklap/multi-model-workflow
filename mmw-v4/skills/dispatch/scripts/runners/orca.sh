@@ -21,9 +21,9 @@
 # The launch line is models.py `launch-line` with the first prompt: the host binary, its
 # own flags from hosts.json, which carry the approval bypass, so `--skip-approval` is
 # always honoured by those flags, and last the prompt, which each host takes as its first
-# turn (`grok [PROMPT]`, `codex [PROMPT]`, `claude [prompt]`, `cursor-agent [prompt]`).
+# turn (`codex [PROMPT]`, `claude [prompt]`).
 # The prompt is not typed into the terminal: for some programs Orca cannot report
-# whether typed input started a turn (Grok, Orca 1.4.199: `input_accepted` with
+# whether typed input started a turn (Orca 1.4.199: `input_accepted` with
 # `observation` `unsupported`), so a typed first prompt could not be confirmed. A host
 # with no launch block (today `pi`) is a refusal, not a start with no model, no effort
 # and no bypass.
@@ -40,7 +40,7 @@
 # of the handle: `alive` is a start, anything else a refusal. A refused start closes its
 # terminal: dispatch is about to say this ticket has no session, and a second start would
 # put two agents on one worktree.
-# A host started with a model it does not know does not exit (Grok, Claude and Codex show
+# A host started with a model it does not know does not exit (Claude and Codex show
 # the error on screen and wait), so this wait cannot catch a bad model; the model has to
 # be checked against the host's catalog before `start`.
 # send: exit 0 the text was delivered (input_accepted and turn_started); 4 the text went

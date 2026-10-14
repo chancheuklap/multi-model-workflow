@@ -3,14 +3,15 @@
 #
 #   技能              skills/ 下每个带 SKILL.md 的目录，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   hook              dispatch 的 tool-guard.py 与 turn-guard.py，写进各 host 自己的配置
-#   提示词            prompt/shared.md：Claude Code 读软链，Codex、Grok 读 prompt/render.py 写出的
-#                     AGENTS.md；Cursor 的用户级提示词在 app 里手贴，本脚本只提醒
-#   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex、Grok 的 AGENTS.md
-#   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     worktrees.root。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
+#   提示词            prompt/shared.md：Claude Code 读软链，Codex 读 prompt/render.py 写出的 AGENTS.md
+#   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex 的 AGENTS.md
+#   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
+#                     从前写进去的 grok、cursor 两条 provider。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
-#   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees
-#   子代理层数        Claude Code、Codex、Grok 的子代理层数上限都设为 2
+#   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees；--check 报不是的
+#   基础工具          一样不装，两种模式都查：gh 已登录，git、python3、uv、node 在 PATH 上，
+#                     paseo、herdr、orca 至少一个在 PATH 上。缺的报一行，说怎么装
+#   子代理层数        Claude Code、Codex 的子代理层数上限都设为 2
 #   task board        一个 com.mmw.board LaunchAgent，按 ~/.mmw/boards.json 为每个仓库守住本机服务
 #
 # 装完把本 checkout 的 mmw-v4 目录记进 ~/.mmw/installed-root。
@@ -36,8 +37,8 @@
 #
 # 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
-# 技能装两处，不按 host 分。~/.agents/skills 不属于任何一个 host，Codex、Cursor、Grok
-# 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。
+# 技能装两处，不按 host 分。~/.agents/skills 不属于任何一个 host，Codex 原生扫它；
+# Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。
 
 set -euo pipefail
 
@@ -136,7 +137,7 @@ fi
 # mmw-v3/install.sh 只认指向 mmw-v3、mmw-v2 的软链；指向 mmw-v4 的同名技能软链与 CLAUDE.md 它当作
 # 别人的东西，报冲突、跳过。models.json 里 v4 的 candidate 行 v3 的 models.py 不认，v3 的
 # explainer、synthesizer 行 v4 装的时候摘掉了。所以先把这几样还原成 v3 认得的样子，再交给同一
-# checkout 的 mmw-v3/install.sh 装。hook 的命令两版写的是同一条路径，v3 原地接管；Codex、Grok 的
+# checkout 的 mmw-v3/install.sh 装。hook 的命令两版写的是同一条路径，v3 原地接管；Codex 的
 # AGENTS.md 带同一种生成标记，v3 的 render.py 直接重写。
 
 if [ "$mode" = back ]; then
@@ -270,17 +271,11 @@ done
 
 # ---------------- hook ----------------
 
-# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。三样：
-# dispatch 的 tool-guard.py 的 pretool gate（四个 host）与 question gate（起 session 的三个 host），
-# 同一技能的 turn-guard.py 挂在四个 host 的回合结束事件上（claude、codex、grok 的 Stop，cursor 的
-# stop）。每一处都写进 host 的 JSON 配置，指向 ~/.agents/skills 下的脚本：那已经是指回仓库的软链，
-# 所以改脚本不用重装。v3 挂在 SessionStart 上的 mode-hook.py 不再装，下面的清扫把它摘掉。
-#
-# Cursor 与 Grok 都读 ~/.claude/settings.json，Grok 还读 ~/.cursor/hooks.json，所以写给 claude
-# 的每一条命令前面都带同一个环境变量守卫：GROK_AGENT 或 GROK_HOOK_EVENT 有值就退出——两个都判，
-# Grok 0.2.73 只设前一个、1.0 只设后一个；GROK_SESSION_ID 不能判，Grok 把它传进每个子进程，
-# 会一路带进 Grok 起的 Claude 会话，把那个会话自己的 hook 也关掉。Cursor 那一侧由脚本读它 payload
-# 里的 cursor_version 分辨，不读环境变量（turn-guard.py 头部有全文）。
+# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。三样，
+# claude 与 codex 各装一份：dispatch 的 tool-guard.py 的 pretool gate 与 question gate，同一技能的
+# turn-guard.py 挂在回合结束的 Stop 上。每一处都写进 host 的 JSON 配置，指向 ~/.agents/skills
+# 下的脚本：那已经是指回仓库的软链，所以改脚本不用重装。v3 挂在 SessionStart 上的 mode-hook.py
+# 不再装，下面的清扫把它摘掉；本仓库从前写进 ~/.cursor、~/.grok 的处理器也由它摘掉。
 #
 # 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
@@ -320,21 +315,15 @@ guard = os.environ["MMW_GUARD"]
 # 所以给它比 tool-guard.py 长的超时。
 GUARD_TIMEOUT = 30
 STOP = f"python3 '{guard}' stop "
-# 写给 claude 的每一条命令前面都带它（见本段开头）。
-GROK_GUARD = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec '
-# Cursor 自己的回合上限：turn-guard.py 只在 loop_count 为 0 时要一次 follow-up，这个数是
-# 脚本失灵时 Cursor 那一侧仍然成立的外层边界。
-CURSOR_LOOP_LIMIT = 3
 
 
 def for_host(host, command):
-    return GROK_GUARD + command + host if host == "claude" else command + host
+    return command + host
 
 
 # The tool each host calls to put a question on the screen: the matcher of its
-# question gate. Only hosts that expose a supported question tool carry one.
-QUESTION_TOOLS = {"claude": "AskUserQuestion", "grok": "ask_user_question",
-                  "codex": "request_user_input"}
+# question gate.
+QUESTION_TOOLS = {"claude": "AskUserQuestion", "codex": "request_user_input"}
 
 
 def load(path):
@@ -377,7 +366,7 @@ def ours(handler, command):
 
 
 def grouped(path, event, matcher, command, timeout=TIMEOUT):
-    """Claude Code、Codex、Grok Build 都把处理器按 matcher 分组。
+    """Claude Code、Codex 都把处理器按 matcher 分组。
 
     `command` 是完整的一条：脚本路径、gate 与 host。同一个文件里的同一个事件可以带两条我们
     的处理器（pretool 与 question），靠脚本名加 gate 名认出各自的那条。
@@ -419,31 +408,6 @@ def grouped(path, event, matcher, command, timeout=TIMEOUT):
     return install, installed
 
 
-def cursor(path, event, command, timeout=TIMEOUT, extra=None):
-    """Cursor 把处理器直接列在事件下面。`extra` 是这一条另带的字段（stop 的 loop_limit）。"""
-
-    def install():
-        data = load(path)
-        data.setdefault("version", 1)
-        entries = data.setdefault("hooks", {}).setdefault(event, [])
-        handler = {"command": command, "timeout": timeout, **(extra or {})}
-        for index, existing in enumerate(entries):
-            if ours(existing, command):
-                entries[index] = handler
-                break
-        else:
-            entries.append(handler)
-        save(path, data)
-
-    def installed():
-        entries = (load(path).get("hooks") or {}).get(event) or []
-        return any(isinstance(e, dict) and e.get("command") == command
-                   and all(e.get(k) == v for k, v in (extra or {}).items())
-                   for e in entries)
-
-    return install, installed
-
-
 # ---- 本仓库装过、这次不再装的 hook ----
 #
 # 技能软链那一段靠扫目录认领本仓库的残留（stale_links）；hook 这一侧是同一个机制。
@@ -454,12 +418,13 @@ def cursor(path, event, command, timeout=TIMEOUT, extra=None):
 # （Herdr、Paseo、Nowledge Mem）的处理器指向自己的目录，一条都不碰。
 #
 # 扫哪几个文件是下面这份显式清单：「这次装什么」认不出本仓库曾写在哪个文件里，只有人手
-# 记着。不再往某个文件写的时候，把它留在清单里。
+# 记着。不再往某个文件写的时候，把它留在清单里：~/.cursor 与 ~/.grok 的三行就是这样留下的，
+# v4 不再给这两个 host 装 hook，留着它们是为了把从前装的那几条摘干净。
 MARK = f"'{neutral}/"
 
 # 一行一处：文件、它的格式、整个文件是不是只有本仓库写。
 # 只有本仓库写的那种，条目清空之后连文件一起删——grok 把 hooks/*.json 全部合并读入，
-# 空壳留着不报错也不提示。
+# 空壳留着不报错也不提示。cursor 格式的文件把处理器直接列在事件下面，不按 matcher 分组。
 SWEPT = [
     (home / ".claude/settings.json", "grouped", False),
     (codex_home / "hooks.json", "grouped", False),
@@ -513,11 +478,9 @@ def sweep(path, fmt, keep):
 
 
 # 一行一个安装点：host 根、配置文件、事件名（只出现在输出里）、装与查两个动作。
-# grok 把 hooks/*.json 全部合并读入，所以 tool-guard.py 独占一个文件；claude 与 codex 只有一份
-# 配置，几条都写进去。
+# claude 与 codex 各只有一份配置，几条都写进去。
 grouped_hosts = [
     ("claude", home / ".claude", home / ".claude/settings.json"),
-    ("grok", home / ".grok", home / ".grok/hooks/mmw-verify-ticket.json"),
     ("codex", codex_home, codex_home / "hooks.json"),
 ]
 points = []
@@ -537,23 +500,11 @@ for host, host_home, path in grouped_hosts:
     point(host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
           grouped(path, "PreToolUse", QUESTION_TOOLS[host], for_host(host, QUESTION)),
           for_host(host, QUESTION))
-point(home / ".cursor", home / ".cursor/hooks.json", "beforeShellExecution",
-      cursor(home / ".cursor/hooks.json", "beforeShellExecution", COMMAND + "cursor"),
-      COMMAND + "cursor")
 
-# turn-guard.py 挂在主 agent 的回合结束事件上。grok 那一条独占一个文件，理由同上。
-stop_hosts = [
-    ("claude", home / ".claude", home / ".claude/settings.json"),
-    ("grok", home / ".grok", home / ".grok/hooks/mmw-turn-guard.json"),
-    ("codex", codex_home, codex_home / "hooks.json"),
-]
-for host, host_home, path in stop_hosts:
+# turn-guard.py 挂在主 agent 的回合结束事件上。
+for host, host_home, path in grouped_hosts:
     point(host_home, path, "Stop",
           grouped(path, "Stop", None, for_host(host, STOP), GUARD_TIMEOUT), for_host(host, STOP))
-point(home / ".cursor", home / ".cursor/hooks.json", "stop",
-      cursor(home / ".cursor/hooks.json", "stop", STOP + "cursor", GUARD_TIMEOUT,
-             {"loop_limit": CURSOR_LOOP_LIMIT}),
-      STOP + "cursor")
 
 failed = False
 count = 0
@@ -743,11 +694,10 @@ fi
 
 # ---------------- 提示词 ----------------
 
-# 源在 prompt/shared.md，三家共用。Claude Code 认软链，所以 ~/.claude/CLAUDE.md 直接指 shared.md，
-# 改源即生效。Codex、Grok 没有引入语法，只能由 render.py 把它写成各自的 AGENTS.md；生成物带
+# 源在 prompt/shared.md，两家共用。Claude Code 认软链，所以 ~/.claude/CLAUDE.md 直接指 shared.md，
+# 改源即生效。Codex 没有引入语法，只能由 render.py 把它写成 AGENTS.md；生成物带
 # 哈希，被人直接改过 render.py 就拒绝覆盖。launchd 任务监视 shared.md，改动即重写；Claude Code 那条
-# 软链不需要它。MMW_INSTALL_HOME 之下（测试）不装 launchd。Cursor 的用户级提示词只在它的 app
-# 里，脚本写不进去，装完提醒一句。
+# 软链不需要它。MMW_INSTALL_HOME 之下（测试）不装 launchd。
 
 PROMPT_SRC="$ROOT/prompt"
 
@@ -851,10 +801,7 @@ XML
       "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC/shared.md" || prompt_rc=1
   fi
   if [ "$mode" != check ] && [ "$prompt_rc" -eq 0 ]; then
-    echo "已装  提示词：~/.claude/CLAUDE.md 一条软链，Codex、Grok 各一份生成的 AGENTS.md"
-  fi
-  if [ "$mode" != check ] && [ -d "$HOME_DIR/.cursor" ]; then
-    echo "注意  Cursor 的用户级提示词在 app 里，脚本写不进去：$PROMPT_SRC/shared.md 改过就手贴一次"
+    echo "已装  提示词：~/.claude/CLAUDE.md 一条软链，Codex 一份生成的 AGENTS.md"
   fi
   [ "$prompt_rc" -eq 0 ] || rc=1
 fi
@@ -866,7 +813,7 @@ fi
 
 BOARD_PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.board.plist"
 BOARD_SUPERVISOR="$ROOT/board/supervisor.py"
-BOARD_PATH="$HOME_DIR/.local/bin:$HOME_DIR/.grok/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+BOARD_PATH="$HOME_DIR/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 board_gh="$(command -v gh 2>/dev/null || true)"
 if [ -n "$board_gh" ]; then
   board_gh_dir="$(dirname "$board_gh")"
@@ -904,9 +851,10 @@ launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
 
 # ---------------- Paseo 侧配置 ----------------
 #
-# 源在仓库（hosts.json 里两条 provider 的字面量），host 侧只放生成物：CLI 软链、
-# ~/.paseo/config.json 里的 provider、worktrees.root。models.json 在 ~/.mmw/：第一次
-# install 从 hosts.json 的 defaults 写入，之后只动角色行。v3 的 explainer、synthesizer 行
+# host 侧只放生成物：CLI 软链、~/.paseo/config.json 里的 worktrees.root。本脚本从前往那份
+# config.json 写过 grok、cursor 两条 provider；v4 不再服务这两个 host，所以装的时候摘掉它们，
+# --check 见到就报残留。models.json 在 ~/.mmw/：第一次
+# install 从 roles.json 每个角色的 default 写入，之后只动角色行。v3 的 explainer、synthesizer 行
 # roles.json 没有，models.py 拒绝整份文件，所以摘掉，摘之前留一份 .bak- 副本（--back 从它拿回）；
 # 缺的 candidate 行由 models.py 补默认值。别的行一字不动。不写 Agent profile。
 # MMW_INSTALL_HOME 之下不跑 paseo reload（与 launchd 同构）。
@@ -955,17 +903,7 @@ _spec = importlib.util.spec_from_file_location("mmw_models", models_py)
 models = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(models)
 
-GROK_PROVIDER = {
-    "extends": "acp",
-    "label": "Grok",
-    "command": ["grok", "agent", "stdio"],
-    "params": {"clientCapabilities": {"terminal": False}},
-}
-CURSOR_PROVIDER = {
-    "extends": "acp",
-    "label": "Cursor",
-    "command": ["cursor-agent", "acp"],
-}
+RETIRED_PROVIDERS = ("grok", "cursor")
 
 
 def die(msg):
@@ -1004,11 +942,15 @@ def save(path, data):
     scratch.replace(path)
 
 
-def merge_providers(data):
-    agents = data.setdefault("agents", {})
-    providers = agents.setdefault("providers", {})
-    providers["grok"] = dict(GROK_PROVIDER)
-    providers["cursor"] = dict(CURSOR_PROVIDER)
+def retired_providers(data):
+    providers = (data.get("agents") or {}).get("providers") or {}
+    return [name for name in RETIRED_PROVIDERS if name in providers]
+
+
+def merge(data):
+    for name in retired_providers(data):
+        del data["agents"]["providers"][name]
+        print(f"摘掉  agents.providers.{name}（v4 不再服务这个 host）")
     worktrees = data.setdefault("worktrees", {})
     worktrees["root"] = worktrees_root
     data.setdefault("version", 1)
@@ -1056,25 +998,23 @@ except ValueError as exc:
 
 if mode == "check":
     data = load(config_path)
-    providers = ((data.get("agents") or {}).get("providers") or {})
-    for name, want in (("grok", GROK_PROVIDER), ("cursor", CURSOR_PROVIDER)):
-        have = providers.get(name)
-        if have != want:
-            sys.stderr.write(f"缺    agents.providers.{name} 与 install.sh 不一致\n")
-            failed = True
+    for name in retired_providers(data):
+        sys.stderr.write(f"残留  {config_path} agents.providers.{name}：v4 不再服务这个 host，"
+                         f"跑一次 install.sh 摘掉\n")
+        failed = True
     have_root = ((data.get("worktrees") or {}).get("root"))
     if have_root != worktrees_root:
         sys.stderr.write(f"缺    worktrees.root 应为 {worktrees_root} 实为 {have_root}\n")
         failed = True
     sys.exit(1 if failed else 0)
 
-data = merge_providers(load(config_path))
+data = merge(load(config_path))
 save(config_path, data)
 print(f"已装  {config_path}")
 sys.exit(1 if failed else 0)
 PY
 
-# `paseo reload` 落地本段刚写的两条 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
+# `paseo reload` 让 Paseo 读到本段摘掉的 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
 # daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
 # `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
 # 列出来的不限于这一次安装改的。
@@ -1099,11 +1039,10 @@ fi
 
 # ---------------- 子代理层数 ----------------
 #
-# 被派的 agent 该不该再派人，由开场提示末尾那一句管（It is your whole task …）；这里给三家
+# 被派的 agent 该不该再派人，由开场提示末尾那一句管（It is your whole task …）；这里给两家
 # host 的子代理层数定同一个上限 2，作兜底：主会话的子代理还能再派一层，再往下派不出来。
-# dispatch 起的会话在它的 host 上也是主会话。三家默认各不相同：Claude Code 3（官方文档），
-# Codex 1（codex-rs core/src/config/mod.rs 的 DEFAULT_AGENT_MAX_DEPTH），Grok 1（它自带文档
-# user-guide/16-subagents.md；配置参考 26-config-reference.md 写 [subagents] max_depth 可调）。
+# dispatch 起的会话在它的 host 上也是主会话。两家默认不同：Claude Code 3（官方文档），
+# Codex 1（codex-rs core/src/config/mod.rs 的 DEFAULT_AGENT_MAX_DEPTH）。
 # host 没装（目录不在）就跳过。--back 不还原它。
 
 MMW_DEPTH_MODE="$mode" \
@@ -1201,7 +1140,6 @@ def toml(path, table, key):
 for host, where, got in (
     ("claude", home / ".claude", lambda: claude(home / ".claude/settings.json")),
     ("codex", codex_home, lambda: toml(codex_home / "config.toml", "agents", "max_depth")),
-    ("grok", home / ".grok", lambda: toml(home / ".grok/config.toml", "subagents", "max_depth")),
 ):
     if not where.is_dir():
         continue
@@ -1214,16 +1152,68 @@ for host, where, got in (
 sys.exit(1 if failed else 0)
 PY
 
+# ---------------- 本机基础工具 ----------------
+#
+# 夜里的脚本要调的几样：gh（且已登录）、git、python3、uv、node，以及起会话用的 runner，
+# paseo、herdr、orca 至少一个。本脚本一样都不装，两种模式都只查：缺的报一行，说怎么装。
+# 本机只在这一处查，setup-mmw 的 check.py 经 --check 读到它。
+
+base_tool_hint() {
+  case "$1" in
+    gh) echo "brew install gh，再 gh auth login" ;;
+    git) echo "xcode-select --install，或 brew install git" ;;
+    python3) echo "brew install python" ;;
+    uv) echo "brew install uv" ;;
+    node) echo "brew install node" ;;
+  esac
+}
+
+base_rc=0
+for tool in gh git python3 uv node; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "缺    $tool 不在 PATH 上：$(base_tool_hint "$tool")" >&2
+    base_rc=1
+  fi
+done
+if command -v gh >/dev/null 2>&1; then
+  if ! gh_out="$(gh auth status 2>&1)"; then
+    gh_why="$(printf '%s\n' "$gh_out" | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/^[[:space:]]*//' || true)"
+    echo "缺    gh 没登录（${gh_why:-gh auth status 退出非 0}）：跑 gh auth login" >&2
+    base_rc=1
+  fi
+fi
+base_runners=()
+for runner in paseo herdr orca; do
+  if PATH="$HOME_DIR/.local/bin:$PATH" command -v "$runner" >/dev/null 2>&1; then
+    base_runners+=("$runner")
+  fi
+done
+if [ "${#base_runners[@]}" -eq 0 ]; then
+  echo "缺    runner：paseo、herdr、orca 都不在 PATH 上，夜里的会话靠其中一个起。装 Orca、Herdr 或" \
+       "Paseo 的应用，把它的命令行放上 PATH；Paseo.app 装好后再跑一次 install.sh，它把 paseo 链进 ~/.local/bin" >&2
+  base_rc=1
+fi
+if [ "$base_rc" -eq 0 ]; then
+  echo "已装  基础工具：gh 已登录，git、python3、uv、node 在 PATH 上，runner ${base_runners[*]}"
+else
+  rc=1
+fi
+
 # ---------------- Orca 侧工作树配置 ----------------
 #
 # 协议自己用 git 切工作树，落点是每个仓库的 `.worktrees/`。这一条让 Orca 自己建的树也落在
-# 同一处，只关系到 Orca 的界面，所以只在安装时写，--check 不查。没有 orca 的机器跳过。
+# 同一处。读的是 Orca 此刻的每个 setup：装完之后才加进 Orca 的仓库，下一次 install 补上，
+# 每一次 --check 都报出来。没有 orca 的机器跳过。
 
-if [ "$mode" != check ] && command -v orca >/dev/null 2>&1; then
-  python3 - <<'PY' || rc=1
+if command -v orca >/dev/null 2>&1; then
+  MMW_MODE="$mode" python3 - <<'PY' || rc=1
 import json
+import os
 import subprocess
 import sys
+
+BASE = ".worktrees"
+mode = os.environ["MMW_MODE"]
 
 
 def orca(*args):
@@ -1234,20 +1224,36 @@ proc = orca("project", "setups", "--json")
 try:
     setups = json.loads(proc.stdout)["result"]["setups"]
 except Exception:
-    sys.stderr.write(f"缺    读不出 orca project setups --json（退出 {proc.returncode}），worktree-base-path 没写\n")
+    sys.stderr.write(f"缺    读不出 orca project setups --json（退出 {proc.returncode}），"
+                     f"worktree-base-path 没{'查' if mode == 'check' else '写'}\n")
     sys.exit(1)
+rows = [row for row in setups if isinstance(row, dict) and row.get("id")]
+wrong = [row for row in rows if row.get("worktreeBasePath") != BASE]
+
+
+def where(row):
+    path = row.get("path") or row.get("displayName")
+    return f"orca setup {row['id']}" + (f"（{path}）" if path else "")
+
+
+if mode == "check":
+    for row in wrong:
+        sys.stderr.write(f"缺    {where(row)}的 worktree-base-path 是 {row.get('worktreeBasePath')!r}，"
+                         f"要 {BASE}：跑一次 install.sh\n")
+    if not wrong:
+        print(f"已装  orca 的 {len(rows)} 个 setup，worktree-base-path 都是 {BASE}")
+    sys.exit(1 if wrong else 0)
+
 failed = False
-for row in setups:
-    ident = str((row or {}).get("id") or "")
-    if not ident:
-        continue
-    if orca("project", "setup-update", "--setup", ident, "--worktree-base-path", ".worktrees",
+for row in wrong:
+    ident = str(row["id"])
+    if orca("project", "setup-update", "--setup", ident, "--worktree-base-path", BASE,
             "--json").returncode:
-        sys.stderr.write(f"缺    orca setup {ident} 的 worktree-base-path 没写上：手动跑 "
-                         f"orca project setup-update --setup {ident} --worktree-base-path .worktrees\n")
+        sys.stderr.write(f"缺    {where(row)}的 worktree-base-path 没写上：手动跑 "
+                         f"orca project setup-update --setup {ident} --worktree-base-path {BASE}\n")
         failed = True
     else:
-        print(f"已装  orca setup {ident} worktree-base-path .worktrees")
+        print(f"已装  {where(row)} worktree-base-path {BASE}")
 sys.exit(1 if failed else 0)
 PY
 fi

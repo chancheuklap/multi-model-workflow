@@ -61,7 +61,7 @@ REQUIRED = {
     "ticket.bounced": {"reason": "conflict", "commit": "a" * 40},
     "child.opened": {"child": 90, "kind": "review"},
     "worker.lost": {"session": "gone", "runner": "paseo"},
-    "worker.started": {"machine": "mac-1", "into": "main", "host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
+    "worker.started": {"machine": "mac-1", "into": "main", "host": "codex", "model": "gpt-5.6-sol", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
     "reviewer.started": {"session": "rv-1", "runner": "paseo", "machine": "mac-1"},
 }
 

@@ -9,8 +9,8 @@ Vocabulary that belongs to one skill alone — `design-pages`'s `pull_design.py`
 ### Roles
 
 **host**:
-The command-line agent program a session runs on, one of `claude`, `codex`, `grok`, `cursor`: the `host` field of a `models.json` row. Distinct from the **runner**, which starts the session and keeps it running.
-_Home_: `mmw-v3/skills/dispatch/hosts.json`
+The command-line agent program a session runs on, either `claude` (Claude Code) or `codex` (Codex): the `host` field of a `models.json` row. Distinct from the **runner**, which starts the session and keeps it running.
+_Home_: `mmw-v4/skills/dispatch/hosts.json`
 
 **user**:
 The person who owns the products and works with the orchestrator on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` and `needs-info` wait on the user.
@@ -67,17 +67,13 @@ _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 One memory in Nowledge Mem, kept in the **repository Space** and found by its labels: a worker's saved fact carries `mmw-experience`, `mmw-spec-<n>`, `mmw-ticket-<n>` and, for a map task, `mmw-map-<n>`; the night's **Retro Memory** carries `mmw-retro`.
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
-**`docs/agents/`**:
-This repository's `domain.md`: how to read its contexts and ADRs before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
-_Home_: `docs/agents/domain.md`
-
 **`CONTEXT.md`**:
 The glossary of one bounded context, at `docs/contexts/<name>/CONTEXT.md`; the root `CONTEXT-MAP.md` lists the contexts and how they relate. `mmw-v3/upstream-mattpocock/CONTEXT.md` is upstream's own vocabulary and not part of it.
-_Home_: `docs/agents/domain.md`
+_Home_: `mmw-v4/skills/domain-modeling/GLOSSARY-FORMAT.md`
 
 **`AGENTS.md`**:
-A repository's agent instruction file, root plus nested ones, written to the fixed format of the `manage-agents-md` skill. The `CLAUDE.md` beside it holds only the line `@AGENTS.md` and any other `@` imports.
-_Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
+A repository's agent instruction file, root plus nested ones, which every host loads when a session starts. Claude Code loads it on its own only where no `CLAUDE.md` sits beside it; a `CLAUDE.md` that exists imports it with the line `@AGENTS.md`.
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL.md`
 
 ### The toolbox
 
@@ -334,7 +330,7 @@ The fallback for a checker with no baseline mechanism: intersect its JSON output
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 
 **`scripts/check`**:
-The one executable at a consuming repository's root, named in its `AGENTS.md` `## Commands`, that runs its checkers and tests in three tiers: `--staged`, a one-line hand-over to the commit-hook tool; the default tier, the dependency install, lint and type checks on the changed files, the **always-run group** and the groups the **test group map** selects; `--all`, everything runnable on the machine. It compares against `MMW_BASE_REF`, prints one `PASS|FAIL <step> <seconds>s` line per step, a `not run here:` line and a summary line, and exits 0 on a pass, 1 when the product is red, 2 when the environment cannot run it. Dispatch runs the default tier on every ticket's merge result and before a night opens; a night runs `--all` once before its pull request.
+The one executable at a consuming repository's root that runs its checkers and tests in three tiers: `--staged`, a one-line hand-over to the commit-hook tool; the default tier, the dependency install, lint and type checks on the changed files, the **always-run group** and the groups the **test group map** selects; `--all`, everything runnable on the machine. It compares against `MMW_BASE_REF`, prints one `PASS|FAIL <step> <seconds>s` line per step, a `not run here:` line and a summary line, and exits 0 on a pass, 1 when the product is red, 2 when the environment cannot run it. Dispatch runs the default tier on every ticket's merge result and before a night opens; a night runs `--all` once before its pull request.
 _Avoid_: checker command, repository checks (as the name of the command)
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
 

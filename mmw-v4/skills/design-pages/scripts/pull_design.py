@@ -10,6 +10,7 @@ MMW_DESIGN_PREVIEW_URL supplies the preview address; it is never printed or save
 Exit 0: the pages passed their offline checks and the downloaded files were written.
 Exit 2: the pull was refused; the package is unchanged.
 Never deletes package files, edits the design, or generates reports or metadata.
+When Chromium will not start, installs the build this Playwright needs and tries once more.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import os
 import posixpath
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -388,6 +390,26 @@ def serve_package(root: Path):
     return server
 
 
+def launch_chromium(pw):
+    """Start Chromium, first installing the build this Playwright needs when it is absent."""
+    try:
+        return pw.chromium.launch()
+    except Exception:
+        pass
+    # PLAYWRIGHT_SKIP_BROWSER_GC: the installer would otherwise delete builds another checkout's Playwright needs.
+    install = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"],
+                             env={**os.environ, "PLAYWRIGHT_SKIP_BROWSER_GC": "1"},
+                             capture_output=True, text=True)
+    try:
+        return pw.chromium.launch()
+    except Exception as exc:
+        tail = " ".join((install.stdout + install.stderr).strip().splitlines()[-2:])
+        raise PullRefused("Chromium could not start.",
+                          f"The offline pages cannot be checked; `playwright install chromium` exited {install.returncode}"
+                          + (f" ({tail})." if install.returncode else "."),
+                          "Install Chromium with `uv run --with playwright python -m playwright install chromium` and re-run.") from exc
+
+
 def render_pages(inventory: Inventory, pages: list[str], vendor: dict[str, Path]) -> RenderAudit:
     from playwright.sync_api import TimeoutError as RenderTimeout, sync_playwright
     audit = RenderAudit()
@@ -409,12 +431,7 @@ def render_pages(inventory: Inventory, pages: list[str], vendor: dict[str, Path]
 
     try:
         with sync_playwright() as pw:
-            try:
-                browser = pw.chromium.launch()
-            except Exception as exc:
-                raise PullRefused("Chromium could not start.",
-                                  "The offline pages cannot be checked.",
-                                  "Install Chromium with `uv run --with playwright python -m playwright install chromium` and re-run.") from exc
+            browser = launch_chromium(pw)
             try:
                 for name in pages:
                     context = browser.new_context(service_workers="block")

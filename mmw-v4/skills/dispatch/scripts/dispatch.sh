@@ -118,8 +118,8 @@ DEFAULT_WORKER=junior-worker
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 
-# Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
-# --json output under it, which no JSON reader can parse.
+# A shell that exports CLICOLOR_FORCE=1 makes `gh` write ANSI escapes into --json
+# output, which no JSON reader can parse.
 gh_() {
   env -u CLICOLOR_FORCE -u CLICOLOR gh "$@"
 }
@@ -1770,8 +1770,8 @@ retract_one() {
 # error sentence: `send` answers 0 when the message was taken, 3 when the agent is there
 # but in a turn, and 2 when there is no such session (#314 section 1). A fourth answer, 4,
 # is a message the session was handed and whose turn start its runner cannot observe
-# (Orca running Grok answers every send that way, and Grok reads each one, a busy Grok
-# once its turn ends): the text is in the session, so it is recorded like a 0 and exits 4,
+# (Orca answers that way for a program it cannot observe, which reads the text once its
+# turn ends): the text is in the session, so it is recorded like a 0 and exits 4,
 # which says not to send it again. Sending it again would have the worker read it twice.
 #
 # Telling "not there" from "in a turn" is worth it: reading both as "not there", whose
@@ -2004,7 +2004,7 @@ check_machine() {
   # reader needs when the verdict is no, so it is kept and printed under the refusal.
   #
   # One diagnostic per host, not per row of models.json: several agents share a host, and
-  # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
+  # the call costs seconds (measured: claude 0.7s, pi 1.7s).
   # Paseo's provider snapshot only says something about sessions Paseo starts.
   local host host_line hosts="" diag paseo_roles=""
   [ "$runner" = paseo ] && paseo_roles="$roles reviewer"
@@ -2256,7 +2256,8 @@ print(mod.state_dir(repo))
 PY
 }
 
-# Remove persistent merge worktrees whose matching origin branch no longer exists.
+# Remove persistent merge worktrees, and merge locks, whose matching origin branch no longer
+# exists. A released lock leaves its file behind, so a lock file with no worktree is swept too.
 # A slug cannot be reversed when a branch contains '-', so compare it with the set made
 # by applying the same slug rule to every fetched origin branch.
 sweep_orphan_merge_worktrees() {
@@ -2280,24 +2281,22 @@ refs = subprocess.run(
      "refs/remotes/origin/"], capture_output=True, text=True, check=True
 ).stdout.splitlines()
 active = {name.replace("/", "-") for name in refs if name and name != "HEAD"}
-for path in sorted(Path(trees).glob("merge-*")):
-    if not path.is_dir():
-        continue
-    slug = path.name.removeprefix("merge-")
-    if slug in active:
-        continue
+slugs = {path.name.removeprefix("merge-") for path in Path(trees).glob("merge-*") if path.is_dir()}
+slugs |= {lock.name.removeprefix("merge-").removesuffix(".lock") for lock in Path(state).glob("merge-*.lock")}
+for slug in sorted(slugs - active):
+    path = Path(trees) / f"merge-{slug}"
     lock = Path(state) / f"merge-{slug}.lock"
     try:
         with statedir.locked(lock, wait=0, purpose=f"sweeping orphan merge-{slug}"):
-            removed = subprocess.run(
+            removed = not path.is_dir() or subprocess.run(
                 ["git", "-C", root, "worktree", "remove", "--force", str(path)],
                 capture_output=True, text=True
             ).returncode == 0
+            if removed:
+                lock.unlink(missing_ok=True)
     except statedir.LockHeld:
         continue
-    if removed:
-        lock.unlink(missing_ok=True)
-    else:
+    if not removed:
         print(f"dispatch: could not remove orphan merge worktree {path}", file=sys.stderr)
 PY
 }

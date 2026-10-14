@@ -13,20 +13,19 @@ Run from inside a clone. Writes nothing: not to the repository, the tracker or t
 The summary is `SETUP OK` when nothing is missing, else `SETUP INCOMPLETE <n> missing`.
 Exit 0 with `SETUP OK`, 1 otherwise.
 
-The repository layer is what the `setup-mmw` skill sets up; the machine layer is the
-tools the night's scripts call, which this skill reports and does not install.
+The repository layer is what the `setup-mmw` skill sets up; the machine layer is one row,
+the toolbox's own install as the installed `install.sh --check` reads it, the machine's base
+tools (gh logged in, git, python3, uv, node, a runner) among it. This skill reports it and
+installs nothing on the machine.
 """
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 IGNORED = (".worktrees/", ".scratch/")
-TOOLS = ("git", "python3", "uv", "node")
-RUNNERS = ("paseo", "herdr", "orca")
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -188,6 +187,17 @@ def check_testing(report: Report, root: Path):
                    "and the reviewer's Tests axis reads none")
 
 
+def check_claude_md(report: Report, root: Path):
+    """A root CLAUDE.md: Claude Code reads only CLAUDE.md when one exists, so a one-line
+    import of AGENTS.md guarantees AGENTS.md reaches it."""
+    if (root / "CLAUDE.md").is_file():
+        report.add("ok", "repository", "CLAUDE.md", "present")
+    else:
+        report.add("missing", "repository", "CLAUDE.md",
+                   "absent; setup creates it, holding the one line @AGENTS.md, so Claude Code "
+                   "is sent to AGENTS.md")
+
+
 def check_verification_skills(report: Report, root: Path):
     for design in sorted((root / "design").glob("*")):
         if not design.is_dir():
@@ -202,21 +212,29 @@ def check_verification_skills(report: Report, root: Path):
                        "the owner names the create-verification-skill skill to generate it")
 
 
-def check_machine(report: Report):
-    auth = run(["gh", "auth", "status"])
-    report.add("ok" if auth.returncode == 0 else "missing", "machine", "gh login",
-               "logged in" if auth.returncode == 0 else f"not logged in ({reason(auth)}); run gh auth login")
-    absent = [tool for tool in TOOLS if shutil.which(tool) is None]
-    report.add("missing" if absent else "ok", "machine", "tools",
-               f"not on PATH: {', '.join(absent)}" if absent else ", ".join(TOOLS) + " on PATH")
-    runners = [r for r in RUNNERS if shutil.which(r)]
-    report.add("ok" if runners else "missing", "machine", "runner",
-               ", ".join(runners) + " on PATH" if runners
-               else f"none of {', '.join(RUNNERS)} on PATH; a night starts its sessions through one")
-    models = Path(os.environ.get("MMW_HOME") or Path.home() / ".mmw") / "models.json"
-    report.add("ok" if models.is_file() else "missing", "machine", "models.json",
-               str(models) if models.is_file()
-               else f"no {models}; it says which host and model each role runs on")
+def check_install(report: Report):
+    """The toolbox's install, as its own --check reads it: skills, hooks, prompt, models.json,
+    and the machine's base tools."""
+    recorded = Path(os.environ.get("MMW_HOME") or Path.home() / ".mmw") / "installed-root"
+    if not recorded.is_file():
+        report.add("missing", "machine", "install",
+                   f"no {recorded}; MMW is not installed on this machine: "
+                   "run bash mmw-v4/install.sh from a checkout of the toolbox")
+        return
+    script = Path(recorded.read_text().strip()) / "install.sh"
+    if not script.is_file():
+        report.add("missing", "machine", "install",
+                   f"{recorded} names {script.parent}, which has no install.sh; "
+                   "run bash mmw-v4/install.sh again from a checkout of the toolbox")
+        return
+    proc = run(["bash", str(script), "--check"])
+    if proc.returncode == 0:
+        report.add("ok", "machine", "install", f"{script} --check passes")
+        return
+    gaps = [line for line in proc.stderr.splitlines() if line.strip()]
+    report.add("missing", "machine", "install",
+               f"{script} --check exits {proc.returncode}, {len(gaps)} line(s) on stderr, first: "
+               f"{gaps[0].strip() if gaps else reason(proc)}; run bash {script} to repair it")
 
 
 def main() -> int:
@@ -233,8 +251,9 @@ def main() -> int:
     check_labels(report)
     check_repository_check(report, root)
     check_testing(report, root)
+    check_claude_md(report, root)
     check_verification_skills(report, root)
-    check_machine(report)
+    check_install(report)
     report.print()
     return 0 if report.missing() == 0 else 1
 

@@ -4,9 +4,12 @@
 #   bash mmw-v4/tests/design-pages/run.sh [-k <pattern>]
 #
 # Real pull processes and headless Chromium against a local preview fake.
-# Needs uv and Playwright's Chromium; never contacts Claude Design.
+# Needs uv; never contacts Claude Design. Playwright is the newest release uv
+# resolves, and ../lib/ensure_chromium.py first fetches the Chromium build it
+# needs (network only when that build is absent).
 #
-# A skip count other than 0, or a run count of 0, exits non-zero and does not
+# Exit 2: Chromium cannot start on this machine; no test ran.
+# A skip count other than 0, or a run count of 0, exits 1 and does not
 # print `all passed`.
 
 set -euo pipefail
@@ -19,6 +22,10 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../lib/parse_k.sh
 . "$HERE/../lib/parse_k.sh"  # mmw-v4/tests/lib/parse_k.sh
 
+uv run --quiet --with 'playwright>=1.58' python "$HERE/../lib/ensure_chromium.py" || {
+  echo "cannot run: Chromium for Playwright cannot start here (above); this is the environment, not a test failure" >&2
+  exit 2
+}
 if uv run --quiet --with 'playwright>=1.58' python -u "$HERE/../lib/run_unittests.py" "$HERE" "$pattern"; then
   echo "all passed"
 else

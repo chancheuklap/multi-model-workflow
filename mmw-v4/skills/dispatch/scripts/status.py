@@ -56,10 +56,10 @@ tree = _load("mmw_tree", "issue_tree.py")
 # --------------------------------------------------------------------- reading
 
 def gh(args: list[str]) -> str:
-    """`gh` with the colour forcing some hosts inject stripped off its output.
+    """`gh` with colour forcing stripped from its environment.
 
-    Grok Build hands its agents CLICOLOR_FORCE=1, under which `gh` writes ANSI escapes
-    into --json output that no JSON reader can parse.
+    Under an exported CLICOLOR_FORCE=1, `gh` writes ANSI escapes into --json output that
+    no JSON reader can parse.
     """
     env = dict(os.environ)
     env.pop("CLICOLOR_FORCE", None)

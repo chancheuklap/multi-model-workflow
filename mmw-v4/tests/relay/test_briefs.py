@@ -31,8 +31,8 @@ class BriefCase(RelayCase):
         self.batch = briefs.create(self.state, "researcher", 2, *PARENT)
         for n, session in ((1, "agt_r1"), (2, "agt_r2")):
             briefs.mark_started(self.state, self.batch, n, {
-                "runner": "paseo", "session": session, "host": "grok",
-                "model": "grok-4.7", "effort": "high"})
+                "runner": "paseo", "session": session, "host": "codex",
+                "model": "gpt-5.6-sol", "effort": "high"})
         self.relay.open_watch({"briefs": self.batch}, *PARENT)
         self.result = Path(self.tmp.name) / "answer.md"
         self.result.write_text("the findings, cited\n")

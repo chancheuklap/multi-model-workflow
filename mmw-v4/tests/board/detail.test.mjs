@@ -34,7 +34,7 @@ const ticketView = {
     lamp: "orange", hot: true}],
   rawEvents: [
     {event: "worker.started", at: "2026-09-10T22:38:00Z", line: "worker started",
-      payload: {host: "grok", model: "grok 4.6", effort: "xhigh", session: "w94b8"}},
+      payload: {host: "codex", model: "gpt 5.6 sol", effort: "xhigh", session: "w94b8"}},
     {event: "ticket.claimed", at: "2026-09-10T22:38:00Z", line: "claimed", payload: {}},
   ],
   eventCount: 2,
@@ -43,7 +43,7 @@ const ticketView = {
     summary: "Your decision needed — 唤醒要不要跨过已暂停的 spec",
     from: "22:38", span: "22:38–23:31",
     items: [
-      {time: "22:38", name: "Worker started", text: "grok grok 4.6, xhigh effort",
+      {time: "22:38", name: "Worker started", text: "codex gpt 5.6 sol, xhigh effort",
         hasText: true, tone: "plain",
         detail: [{k: "session", v: "w94b8"}, {k: "comment", v: "worker started"}]},
       {time: "22:38", name: "Ticket claimed", text: "", hasText: false, tone: "plain",
@@ -52,7 +52,7 @@ const ticketView = {
   }],
   runtime: {
     grade: "senior-worker",
-    model: "grok · grok 4.6 · xhigh",
+    model: "codex · gpt 5.6 sol · xhigh",
     rows: [
       {k: "ticket branch", v: "issue-133"},
       {k: "base branch", v: "wake-relay"},
@@ -219,7 +219,7 @@ test("ticket rendering shows phase blocks and keeps backend fields behind an eve
   const {root} = mount(ticketView);
   assert.match(root.textContent, /Worker started/);
   assert.doesNotMatch(root.textContent, /worker\.started|w94b8/);
-  const eventButton = namedButton(root, "22:38 Worker started grok grok 4.6, xhigh effort");
+  const eventButton = namedButton(root, "22:38 Worker started codex gpt 5.6 sol, xhigh effort");
   assert.ok(eventButton);
   eventButton.click();
   assert.match(root.textContent, /w94b8/);
@@ -228,7 +228,7 @@ test("ticket rendering shows phase blocks and keeps backend fields behind an eve
 
 test("poll repaint keeps the detail root and an opened event", () => {
   const {host, root} = mount(ticketView);
-  namedButton(root, "22:38 Worker started grok grok 4.6, xhigh effort").click();
+  namedButton(root, "22:38 Worker started codex gpt 5.6 sol, xhigh effort").click();
   assert.match(root.textContent, /w94b8/);
 
   const repainted = render(host, ticketView);

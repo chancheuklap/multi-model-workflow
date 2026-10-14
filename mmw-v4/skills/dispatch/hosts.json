@@ -1,35 +1,5 @@
 {
-  "defaults": [
-    {"agent": "junior-worker", "host": "grok", "model": "grok 4.7", "effort": "high"},
-    {"agent": "senior-worker", "host": "codex", "model": "gpt 6 sol", "effort": "high"},
-    {"agent": "reviewer", "host": "claude", "model": "opus[1m]", "effort": "high"},
-    {"agent": "advisor", "host": "claude", "model": "fable[1m]", "effort": "medium"},
-    {"agent": "researcher", "host": "grok", "model": "grok 4.7", "effort": "high"},
-    {"agent": "candidate", "host": "claude", "model": "opus[1m]", "effort": "xhigh"}
-  ],
   "hosts": {
-    "cursor": {
-      "binary": "cursor-agent",
-      "effort_in_model": true,
-      "cli": {
-        "argv": ["--model", "{model}", "--force", "--trust", "--approve-mcps"]
-      },
-      "paseo": {
-        "settings": {"modeId": "agent", "features": {"auto_accept": true}},
-        "thinking": "boolean"
-      }
-    },
-    "grok": {
-      "binary": "grok",
-      "efforts": ["xhigh", "high", "medium", "low"],
-      "cli": {
-        "argv": ["-m", "{model}", "--reasoning-effort", "{effort}", "--permission-mode", "bypassPermissions", "--always-approve"]
-      },
-      "paseo": {
-        "settings": {"features": {"auto_accept": true}},
-        "thinking": "option_id"
-      }
-    },
     "claude": {
       "binary": "claude",
       "efforts": ["low", "medium", "high", "xhigh", "max"],

@@ -18,35 +18,26 @@ def run(home, *args):
     return subprocess.run([sys.executable, str(RENDER), *args], env=env, capture_output=True, text=True)
 
 
-def grok_config(home, agents="false"):
-    (home / ".grok").mkdir(exist_ok=True)
-    (home / ".grok" / "config.toml").write_text(f"[compat.claude]\nskills = false\nagents = {agents}\n")
-
-
 class RenderTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.home = Path(self.tmp.name)
-        for d in (".codex", ".grok"):
-            (self.home / d).mkdir(parents=True)
-        grok_config(self.home)
+        (self.home / ".codex").mkdir(parents=True)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_writes_both_targets_with_the_shared_body(self):
+    def test_writes_the_codex_target_with_the_shared_body(self):
         r = run(self.home)
         self.assertEqual(r.returncode, 0, r.stderr)
-        shared = SHARED.read_text()
-        for rel in (".codex/AGENTS.md", ".grok/AGENTS.md"):
-            text = (self.home / rel).read_text()
-            self.assertTrue(text.startswith("<!-- mmw prompt-sync:"), rel)
-            self.assertEqual(text.split("\n", 1)[1], shared, rel)
+        text = (self.home / ".codex/AGENTS.md").read_text()
+        self.assertTrue(text.startswith("<!-- mmw prompt-sync:"))
+        self.assertEqual(text.split("\n", 1)[1], SHARED.read_text())
 
     def test_replaces_a_file_mmw_v3_generated_without_adopt(self):
         body = "the v3 shared body\n"
         digest = hashlib.sha256(body.encode()).hexdigest()
-        target = self.home / ".grok/AGENTS.md"
+        target = self.home / ".codex/AGENTS.md"
         target.write_text("<!-- mmw prompt-sync: generated from mmw-v3/prompt/shared.md; "
                           f"edit that, not this file. body-sha256={digest} -->\n" + body)
         r = run(self.home)
@@ -63,7 +54,7 @@ class RenderTest(unittest.TestCase):
 
     def test_refuses_to_overwrite_hand_edited_target(self):
         run(self.home)
-        target = self.home / ".grok/AGENTS.md"
+        target = self.home / ".codex/AGENTS.md"
         target.write_text(target.read_text() + "\nhand edit\n")
         r = run(self.home)
         self.assertEqual(r.returncode, 2)
@@ -72,7 +63,7 @@ class RenderTest(unittest.TestCase):
         self.assertNotIn("hand edit", target.read_text())
 
     def test_refuses_foreign_file_without_adopt(self):
-        target = self.home / ".grok/AGENTS.md"
+        target = self.home / ".codex/AGENTS.md"
         target.write_text("someone else's file\n")
         r = run(self.home)
         self.assertEqual(r.returncode, 2)
@@ -86,12 +77,12 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertFalse((self.home / ".codex").exists())
 
-    def test_grok_compat_on_is_reported(self):
-        grok_config(self.home, "true")
+    def test_a_grok_home_is_left_alone(self):
+        (self.home / ".grok").mkdir()
         r = run(self.home)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("compat.claude", r.stderr)
-        self.assertTrue((self.home / ".grok/AGENTS.md").exists())
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(list((self.home / ".grok").iterdir()), [])
+        self.assertEqual(run(self.home, "--check").returncode, 0)
 
 
 if __name__ == "__main__":

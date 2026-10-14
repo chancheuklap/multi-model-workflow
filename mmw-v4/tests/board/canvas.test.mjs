@@ -26,13 +26,13 @@ test("no task is the empty canvas", () => {
 test("a ticket card shows its lamp, phase pill and run line", () => {
   const running = ticket({
     n: 2, title: "折叠接入中继",
-    fold: {sessions: [{...worker(), host: "grok", model: "grok 4.6", effort: "xhigh"}]},
+    fold: {sessions: [{...worker(), host: "codex", model: "gpt 5.6 sol", effort: "xhigh"}]},
   });
   const landed = ticket({n: 3, title: "中继进程骨架", fold: {landed: true, worker: {host: "claude", model: "opus 5", effort: "high"}}});
   const stopped = ticket({
     n: 4, title: "回收冲突告警",
     fold: {
-      sessions: [{kind: "worker", live: true, started_at: "2026-01-01T00:00:00Z", host: "grok", model: "grok 4.6", effort: "high"}],
+      sessions: [{kind: "worker", live: true, started_at: "2026-01-01T00:00:00Z", host: "codex", model: "gpt 5.6 sol", effort: "high"}],
       children: {8: {child: 8, kind: "fault"}},
     },
     children: [{number: 8, state: "OPEN"}],
@@ -49,7 +49,7 @@ test("a ticket card shows its lamp, phase pill and run line", () => {
   assert.equal(byN[2].lampCls, "lamp green");
   assert.equal(byN[2].pillCls, "pill working");
   assert.equal(byN[2].cls, "card on");
-  assert.equal(byN[2].run, "grok · grok 4.6 · xhigh");
+  assert.equal(byN[2].run, "codex · gpt 5.6 sol · xhigh");
   assert.equal(byN[3].lampCls, "lamp ink");
   assert.equal(byN[3].phase, "landed");
   assert.equal(byN[4].lampCls, "lamp orange");

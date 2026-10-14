@@ -30,7 +30,7 @@ def base_config(version=1, runner="orca"):
     """The four rows the cases change by name; every other role of roles.json on one row the
     test catalog offers, so a role added to the table needs no change here."""
     rows = {
-        "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
+        "junior-worker": {"host": "claude", "model": "sonnet 5", "effort": "high"},
         "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
         "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
@@ -185,7 +185,7 @@ class LocalConfigTest(unittest.TestCase):
         self.seed({**base_config(), "max_workers": 0})
         rows = models.session_rows()
         self.assertEqual([tuple(row) for row in rows], [
-            (role, "grok", "grok 4.7", "high") if role == "junior-worker" else
+            (role, "claude", "sonnet 5", "high") if role == "junior-worker" else
             (role, "codex", "gpt 5.6 sol", "high") if role == "senior-worker" else
             (role, "claude", "fable 5.1", "medium") if role == "advisor" else
             (role, "claude", "opus 5", "high") for role in models.ALLOWED_AGENTS])
@@ -195,8 +195,6 @@ class LocalConfigTest(unittest.TestCase):
         proposed = json.loads(json.dumps(old))
         proposed["rows"]["reviewer"]["model"] = "sonnet 5"
         scan = self.scan()
-        cursor = scan["hosts"]["cursor"]["offered"]
-        self.assertEqual(cursor, [{"model": "grok 4.6", "efforts": ["high", "xhigh"]}])
         written = models.write_local_config(proposed, old["version"], scan)
         self.assertEqual(written["version"], 2)
         self.assertEqual(set(written), {"version", "runner", "rows"})
@@ -319,10 +317,15 @@ class LocalConfigTest(unittest.TestCase):
     def test_scan_tells_missing_from_silent(self):
         os.environ["MMW_HOST_CATALOG"] = str(STATE_CATALOG)
         scan = models.scan_host_catalogs("auto")
-        self.assertEqual(set(scan["hosts"]), set(models.CLI_HOSTS))
-        self.assertEqual(scan["hosts"]["cursor"]["state"], "missing")
-        self.assertEqual(scan["hosts"]["grok"]["state"], "silent")
+        self.assertEqual(set(scan["hosts"]), {"claude", "codex"})
+        self.assertEqual(scan["hosts"]["codex"]["state"], "missing")
         self.assertEqual(scan["hosts"]["claude"]["offered"], [{"model": "opus 5", "efforts": ["high"]}])
+        silent = json.loads(STATE_CATALOG.read_text())
+        silent["cli"]["claude"] = {"state": "silent"}
+        catalog = Path(self.tmp.name) / "silent.json"
+        catalog.write_text(json.dumps(silent))
+        os.environ["MMW_HOST_CATALOG"] = str(catalog)
+        self.assertEqual(models.scan_host_catalogs("auto")["hosts"]["claude"]["state"], "silent")
 
     def test_unlaunchable_comes_before_the_scan(self):
         with without_launch_block("codex"):
@@ -355,9 +358,8 @@ class LocalConfigTest(unittest.TestCase):
         saved = models.read_local_config()
         self.assertEqual(saved["version"], 2)
         self.assertEqual(saved["rows"]["reviewer"]["model"], "sonnet 5")
-        default = next(r for r in models.load_hosts()["defaults"] if r["agent"] == "researcher")
         self.assertEqual(saved["rows"]["researcher"],
-                         {k: default[k] for k in ("host", "model", "effort")})
+                         {"host": "codex", "model": "gpt 6.1 sol", "effort": "medium"})
 
     def test_install_leaves_a_complete_file_untouched(self):
         self.seed()

@@ -1,6 +1,6 @@
 # MMW v4
 
-MMW v4 is a toolbox of agent skills for working on a product with coding agents. It runs on four hosts: Claude Code, Codex, Cursor and Grok. Every session in every host reads one skill first, [`mmw-mode`](./skills/mmw-mode/SKILL.md). That skill matches the task to a playbook, names the skills each step runs, and holds the principles behind each decision. Every change to the product ends in one pull request that the owner can read without reading code.
+MMW v4 is a toolbox of agent skills for working on a product with coding agents. It runs on two hosts: Claude Code and Codex. Every session in every host reads one skill first, [`mmw-mode`](./skills/mmw-mode/SKILL.md). That skill matches the task to a playbook, names the skills each step runs, and holds the principles behind each decision. Every change to the product ends in one pull request that the owner can read without reading code.
 
 The layout started from pstack, a public Cursor plugin. The skills, the playbooks and the pipeline that sends sessions to tickets are MMW's own.
 
@@ -18,13 +18,14 @@ bash mmw-v4/install.sh --back     # go back to v3
 
 `install.sh` points each host at this checkout's `mmw-v4/`:
 
-- **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex, Cursor and Grok read the first directory. Claude Code reads only the second.
+- **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex reads the first directory. Claude Code reads only the second.
 - **Hooks.** The `dispatch` skill's `tool-guard.py` and `turn-guard.py` go into each host's own hook configuration.
-- **The user-level prompt.** `prompt/shared.md` reaches Claude Code as `~/.claude/CLAUDE.md`, and Codex and Grok as an `AGENTS.md` that `prompt/render.py` writes. Cursor's user-level prompt is pasted into the app by hand. [`prompt/README.md`](./prompt/README.md) has the details.
-- **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex and Grok copies again after each change.
+- **The user-level prompt.** `prompt/shared.md` reaches Claude Code as `~/.claude/CLAUDE.md`, and Codex as an `AGENTS.md` that `prompt/render.py` writes. [`prompt/README.md`](./prompt/README.md) has the details.
+- **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex copy again after each change.
 - **The task board.** The `com.mmw.board` launchd task keeps `board/supervisor.py` running, which serves one local board per repository registered in `~/.mmw/boards.json`. [`board/AGENTS.md`](./board/AGENTS.md) says how it reads GitHub and restarts onto new code.
-- **Paseo and Orca settings.** Paseo gets its command link, two providers and its worktree root. When Orca is present, it puts its worktrees under each repository's `.worktrees/`.
-- **`~/.mmw/models.json`.** Install writes the default file when none exists. In an existing file it changes only the role rows.
+- **Paseo and Orca settings.** Paseo gets its command link and its worktree root; install removes the Grok and Cursor providers an earlier install added. When Orca is present, it puts its worktrees under each repository's `.worktrees/`, for every repository Orca holds at that moment; `--check` reports a repository added to Orca since whose worktrees would go elsewhere, and the next install sets it.
+- **`~/.mmw/models.json`.** Install writes the default file, each role's `default` in `roles.json`, when none exists. In an existing file it changes only the role rows.
+- **Base tools, checked only.** Install and `--check` both check that `gh` is logged in, that `git`, `python3`, `uv` and `node` are on `PATH`, and that one runner (`paseo`, `herdr` or `orca`) is. Install installs none of them; the line for a missing one says how to get it.
 
 Install then records this checkout's `mmw-v4/` in `~/.mmw/installed-root`. `--check` run from another checkout hands the check to the installed checkout's own `install.sh` and changes nothing.
 
@@ -90,7 +91,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`benchmark-checklist`](./skills/benchmark-checklist/SKILL.md) | Vet a measured speedup or regression before you report it or act on it. |
 | [`show-me-your-work`](./skills/show-me-your-work/SKILL.md) | Keep a decision log as a TSV file, one row per decision, for review after you step away. |
 | [`dispatch`](./skills/dispatch/SKILL.md) | Send a session to a ticket or a brief, run a night as its orchestrator, run one ticket outside a night, change a role's host, model, effort or runner, or open the local task board. |
-| [`setup-mmw`](./skills/setup-mmw/SKILL.md) | Set a repository up for the landing pipeline, or check one already set up: its labels, ignored directories, checks and `TESTING.md`. |
+| [`setup-mmw`](./skills/setup-mmw/SKILL.md) | Set a repository up for the landing pipeline, or check one already set up: its labels, ignored directories, checks, `TESTING.md`, and a `CLAUDE.md` that imports `AGENTS.md` when it has none. |
 | [`verify-ticket`](./skills/verify-ticket/SKILL.md) | Run a ticket's acceptance criteria and close the ticket when they pass. |
 | [`resolving-merge-conflicts`](./skills/resolving-merge-conflicts/SKILL.md) | Finish a merge or rebase that has conflicts, or a clean merge that turns the checks red. |
 | [`reflect`](./skills/reflect/SKILL.md) | Capture what a long task taught as an edit to a skill. |
@@ -140,7 +141,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 
 ## Models
 
-The `dispatch` skill sends sessions in six roles, listed in [`roles.json`](./skills/dispatch/roles.json): `junior-worker`, `senior-worker`, `reviewer`, `researcher`, `candidate` and `advisor`. Each role is one row of `~/.mmw/models.json`, which names its host, its model and its reasoning effort. The same file names the runner that starts the sessions.
+The `dispatch` skill sends sessions in six roles, listed in [`roles.json`](./skills/dispatch/roles.json): `junior-worker`, `senior-worker`, `reviewer`, `researcher`, `candidate` and `advisor`. Each role is one row of `~/.mmw/models.json`, which names its host, its model and its reasoning effort. The same file names the runner that starts the sessions. A role's `default` in `roles.json` is the row install writes for it on a machine whose file lacks one.
 
 Change it only with `models.py config`. A change takes effect at the next session start, with no restart and no reinstall.
 

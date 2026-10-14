@@ -1,6 +1,7 @@
 """读本机 models.json，扫描目录，再按 hosts.json 展开成启动参数。
 
-hosts.json 跟着技能走，记下每个 host 怎么起及首次安装的默认值。models.json 是
+hosts.json 与 roles.json 跟着技能走：hosts.json 只记每个 host 怎么起，roles.json 记每个
+角色，连同它首次安装的默认 host、模型与 effort（`default`）。models.json 是
 MMW_HOME 下唯一的可写配置；board、命令行、dispatch.sh 与 install.sh 共用本文件的
 读取、验证、锁与整体替换。runner 自己的命令只由 runners/<runner>.sh 执行。
 """
@@ -31,22 +32,25 @@ ROLES_JSON = SKILL_DIR / "roles.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
 
 
+def _roles() -> list[dict]:
+    return json.loads(ROLES_JSON.read_text(encoding="utf-8"))["roles"]
+
+
 def session_roles() -> tuple[str, ...]:
     """The roles dispatch.sh starts as sessions, in roles.json's order: one models.json row each."""
-    data = json.loads(ROLES_JSON.read_text(encoding="utf-8"))
-    return tuple(r["name"] for r in data["roles"])
+    return tuple(r["name"] for r in _roles())
 
 
 ALLOWED_AGENTS = session_roles()
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 DEFAULT_RUNNER = "orca"
+# How many tickets a night runs at once when models.json names no cap.
+DEFAULT_MAX_WORKERS = 3
 # Which catalog a row resolves against: `paseo` asks paseo, `cli` asks the host's own
 # CLI (a runner that runs the CLI in a terminal starts it with those ids). dispatch.sh
 # sets MMW_CATALOG_MODE from tonight's runner; tests set it or MMW_HOST_CATALOG.
 DEFAULT_CATALOG_MODE = "cli"
-CLI_HOSTS = ("cursor", "grok", "claude", "codex")
-_CURSOR_EFFORT_IN_ID = re.compile(
-    r"-(none|low|medium|high|xhigh|max)(?:-fast)?$", re.I)
+CLI_HOSTS = ("claude", "codex")
 
 
 def load_hosts() -> dict:
@@ -127,11 +131,13 @@ HOST_BINARIES = _HostBinaries()
 
 
 def default_local_config() -> dict:
-    """The version-1 configuration installed on a machine with no prior choice."""
+    """The version-1 configuration installed on a machine with no prior choice: each role's
+    `default` in roles.json."""
     rows = {}
-    for row in load_hosts().get("defaults") or []:
-        rows[row["agent"]] = {key: row[key] for key in ("host", "model", "effort")}
-    return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows, "max_workers": 3}
+    for role in _roles():
+        default = role.get("default") or {}
+        rows[role["name"]] = {key: default.get(key) for key in ("host", "model", "effort")}
+    return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows, "max_workers": DEFAULT_MAX_WORKERS}
 
 
 def _version_errors(value: object) -> list[dict[str, str]]:
@@ -182,7 +188,7 @@ class InstallResult(NamedTuple):
 
 
 def install_local_config() -> InstallResult:
-    """Create models.json once from the hosts.json defaults. An existing file is kept as
+    """Create models.json once from the roles' defaults in roles.json. An existing file is kept as
     it is, except that a role it has no row for gets its default: a role added to
     roles.json reaches a machine configured before it."""
     path = models_json_path()
@@ -267,45 +273,23 @@ def _want_fast(query: str) -> bool:
     return "fast" in _norm(query).split("-")
 
 
-def _ends_with_effort(model_id: str, effort: str) -> bool:
-    if not effort or effort in ("—", "-", ""):
-        return True
-    return bool(re.search(
-        rf"(?:^|-){re.escape(effort.lower())}(?:-fast)?$", model_id.lower()))
-
-
 def _is_fast_id(model_id: str) -> bool:
     return bool(re.search(r"-fast$", model_id.lower()))
 
 
-def match_offering(
-    query: str,
-    offerings: list[dict],
-    *,
-    effort: str = "",
-    effort_in_model: bool = False,
-) -> dict:
+def match_offering(query: str, offerings: list[dict]) -> dict:
     """Pick the unique offering for an everyday name. Raise ValueError otherwise."""
     if not offerings:
         raise ValueError(f"host catalog is empty; {query!r} matches nothing")
-    pool = offerings
-    if effort_in_model and effort and effort not in ("—", "-", ""):
-        pool = [o for o in pool if _ends_with_effort(str(o.get("id") or ""), effort)]
-        if not pool:
-            raise ValueError(
-                f"{query!r} at effort {effort} matches nothing in the catalog")
     needle = _norm(query)
     hits = []
-    for offering in pool:
+    for offering in offerings:
         oid = _norm(str(offering.get("id") or ""))
         name = _norm(str(offering.get("name") or ""))
         # Configuration displays ids through `_slug_everyday`; a displayed name
         # ("fable 5.1") must match the source id ("claude-fable-5-1").
         slug = _norm(_slug_everyday(str(offering.get("id") or "")))
-        cursor_name = _norm(_cursor_family_name(
-            str(offering.get("name") or ""), str(offering.get("id") or ""),
-            fast=_is_fast_id(str(offering.get("id") or "")))) if effort_in_model else ""
-        if needle in (oid, name, slug, cursor_name) or needle in oid or needle in name:
+        if needle in (oid, name, slug) or needle in oid or needle in name:
             hits.append(offering)
     # exact id, name or everyday name wins over substring
     exact = [
@@ -314,9 +298,6 @@ def match_offering(
             _norm(str(o.get("id") or "")),
             _norm(str(o.get("name") or "")),
             _norm(_slug_everyday(str(o.get("id") or ""))),
-            _norm(_cursor_family_name(
-                str(o.get("name") or ""), str(o.get("id") or ""),
-                fast=_is_fast_id(str(o.get("id") or "")))) if effort_in_model else "",
         )
     ]
     if len(exact) == 1:
@@ -381,37 +362,6 @@ def _runner_call(runner: str, verb: str, *args: str, timeout: int = 30) -> str:
     if not adapter.is_file():
         return ""
     return _run(["bash", str(adapter), verb, *args], timeout=timeout)
-
-
-def _parse_cursor_models(text: str) -> list[dict]:
-    out = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.lower().startswith("available"):
-            continue
-        if " - " in line:
-            ident, name = line.split(" - ", 1)
-            ident, name = ident.strip(), name.strip()
-        elif re.match(r"^[\w.-]+$", line):
-            ident = name = line
-        else:
-            continue
-        effort = ""
-        matched = _CURSOR_EFFORT_IN_ID.search(ident)
-        if matched:
-            effort = matched.group(1).lower()
-        out.append({"id": ident, "name": name, "thinkingOptionIds": [effort] if effort else []})
-    return out
-
-
-def _parse_grok_models(text: str) -> list[dict]:
-    out = []
-    for line in text.splitlines():
-        m = re.search(r"^\s*[*-]\s+(\S+)", line)
-        if m:
-            ident = m.group(1).strip("()")
-            out.append({"id": ident, "name": ident})
-    return out
 
 
 # Claude Code has no model-listing subcommand. One `list_models` control request over
@@ -533,14 +483,6 @@ def _host_efforts(host: str, offering: dict | None = None) -> list[str]:
 
 def fetch_cli_offerings(host: str) -> list[dict]:
     """Ask the host CLI. Never Paseo. Empty if the binary is missing or silent."""
-    if host == "cursor":
-        return _parse_cursor_models(_run(["cursor-agent", "models"]))
-    if host == "grok":
-        rows = _parse_grok_models(_run(["grok", "models"]))
-        efforts = _host_efforts("grok")
-        for row in rows:
-            row.setdefault("thinkingOptionIds", list(efforts))
-        return rows
     if host == "claude":
         return _parse_claude_model_list(
             _run(CLAUDE_LIST_MODELS_ARGS, timeout=60, stdin=CLAUDE_LIST_MODELS_STDIN))
@@ -550,7 +492,7 @@ def fetch_cli_offerings(host: str) -> list[dict]:
 
 
 def scan_cli_catalogs() -> dict[str, list[dict]]:
-    """Tonight's five CLI catalogs. Tests set MMW_HOST_CATALOG to skip the binaries."""
+    """Each host's CLI catalog. Tests set MMW_HOST_CATALOG to skip the binaries."""
     fixture = _fixture_catalog()
     if fixture is not None:
         return {host: _fixture_offerings(fixture, "cli", host) for host in CLI_HOSTS}
@@ -573,33 +515,12 @@ def _sort_efforts(values: list[str]) -> list[str]:
 
 def _slug_everyday(ident: str) -> str:
     text = ident.strip()
-    text = re.sub(r"^(claude|cursor)-", "", text, flags=re.I)
+    text = re.sub(r"^claude-", "", text, flags=re.I)
     text = re.sub(r"(?<=\D)(\d)-(\d)(?=\D|$)", r"\1.\2", text)
     if "/" in text:
         text = text.split("/", 1)[-1]
     text = text.replace("-", " ").replace("_", " ")
     return re.sub(r"\s+", " ", text).strip().lower()
-
-
-def _cursor_family_name(name: str, ident: str, *, fast: bool) -> str:
-    text = name.strip() or ident
-    text = re.sub(r"\s*\([^)]*\)", "", text)
-    text = re.sub(r"\s+Fast$", "", text, flags=re.I)
-    text = re.sub(r"\s+1M\b", "", text, flags=re.I)
-    for _ in range(4):
-        text = re.sub(
-            r"\s+(Low|Medium|High|Extra High|Max|None|Thinking)$",
-            "", text, flags=re.I)
-    text = re.sub(r"^Cursor\s+", "", text, flags=re.I)
-    text = re.sub(r"^Claude\s+", "", text, flags=re.I)
-    text = re.sub(r"\s+", " ", text).strip().lower()
-    if ident and "thinking" in ident.lower() and "thinking" not in text.split():
-        text = f"{text} thinking"
-    if not text:
-        text = _slug_everyday(_CURSOR_EFFORT_IN_ID.sub("", ident))
-    if fast and "fast" not in text.split():
-        text = f"{text} fast"
-    return text
 
 
 def _collapse_fillable(rows: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -620,27 +541,6 @@ def _collapse_fillable(rows: list[tuple[str, str]]) -> list[tuple[str, str]]:
 
 def fillable_rows(host: str, offerings: list[dict]) -> list[tuple[str, str]]:
     """Return the model and effort names accepted by configuration commands."""
-    if host == "cursor":
-        rows = []
-        seen: set[tuple[str, str]] = set()
-        for offering in offerings:
-            ident = str(offering.get("id") or "")
-            name = str(offering.get("name") or ident)
-            fast = ident.lower().endswith("-fast")
-            matched = _CURSOR_EFFORT_IN_ID.search(ident)
-            effort = matched.group(1).lower() if matched else "—"
-            model = _cursor_family_name(name, ident, fast=fast)
-            pair = (model, effort)
-            if pair in seen:
-                continue
-            seen.add(pair)
-            rows.append(pair)
-        rows.sort(key=lambda item: (
-            item[0],
-            _EFFORT_ORDER.index(item[1]) if item[1] in _EFFORT_ORDER else 99,
-        ))
-        return rows
-
     rows = []
     seen = set()
     for offering in offerings:
@@ -707,10 +607,8 @@ def _resolve_from_offerings(host: str, model: str, effort: str,
     if host not in hosts:
         raise ValueError(f"unknown host {host}")
     spec = hosts[host]
-    effort_in_model = bool(spec.get("effort_in_model")) and source != "paseo"
     try:
-        offering = match_offering(model, offerings, effort=effort,
-                                  effort_in_model=effort_in_model)
+        offering = match_offering(model, offerings)
         resolved = str(offering.get("id") or "")
     except ValueError:
         # Claude Code's own `/model` picker is this catalog, and a picker upgrade can
@@ -722,17 +620,13 @@ def _resolve_from_offerings(host: str, model: str, effort: str,
         bracket = _CLAUDE_BRACKET_SUFFIX.match(model) if host == "claude" else None
         if not bracket:
             raise
-        offering = match_offering(bracket.group(1), offerings, effort=effort,
-                                  effort_in_model=effort_in_model)
+        offering = match_offering(bracket.group(1), offerings)
         resolved = model
-    allowed = spec.get("efforts")
-    thinking_ids = offering.get("thinkingOptionIds")
-    if allowed and effort not in ("—", "-", "") and spec.get("thinking") != "boolean":
-        names = [str(x) for x in (thinking_ids or allowed)]
-        if names and effort not in names and spec.get("paseo", {}).get("thinking") != "boolean":
-            if not spec.get("effort_in_model") and effort not in [str(x) for x in allowed]:
-                raise ValueError(
-                    f"effort {effort!r} is not one of {', '.join(str(x) for x in allowed)}")
+    allowed = [str(x) for x in spec.get("efforts") or []]
+    if allowed and effort not in ("—", "-", ""):
+        names = [str(x) for x in (offering.get("thinkingOptionIds") or allowed)]
+        if effort not in names and effort not in allowed:
+            raise ValueError(f"effort {effort!r} is not one of {', '.join(allowed)}")
     return host, resolved, effort
 
 
@@ -893,8 +787,8 @@ def check_local_config(config: dict | None = None) -> tuple[dict, dict, list[dic
 
 
 def max_workers() -> int:
-    """max_workers() reads the saved night cap, or 3 when absent, without checking roles."""
-    value = read_local_config().get("max_workers", 3)
+    """max_workers() reads the saved night cap, or DEFAULT_MAX_WORKERS when absent, without checking roles."""
+    value = read_local_config().get("max_workers", DEFAULT_MAX_WORKERS)
     _validate_max_workers(value)
     return value
 
@@ -991,8 +885,7 @@ def bypass_argv(host: str, model: str, effort: str, name: str) -> list[str]:
             continue
         if part == "{effort}" or (isinstance(part, str) and "{effort}" in part):
             if effort in ("—", "-", ""):
-                if argv and argv[-1] in (
-                        "--reasoning-effort", "--effort", "-c"):
+                if argv and argv[-1] in ("--effort", "-c"):
                     argv.pop()
                 continue
         filled = (
@@ -1025,13 +918,8 @@ def apply_permissions(profile: dict, host: str, permissions: str = "bypass") -> 
 
 def thinking_option(host: str, effort: str, offering: dict | None = None) -> str | None:
     spec = load_hosts()["hosts"].get(host) or {}
-    kind = (spec.get("paseo") or {}).get("thinking")
-    if not kind:
+    if not (spec.get("paseo") or {}).get("thinking"):
         return None
-    if kind == "boolean":
-        if effort in ("—", "-", "", "off", "false"):
-            return "false"
-        return "true"
     if effort in ("—", "-", ""):
         return None
     ids = (offering or {}).get("thinkingOptionIds") or spec.get("efforts") or []
@@ -1105,8 +993,7 @@ def launch_line(host: str, model: str, effort: str, name: str,
     name resolved against the runner's catalog, which is what `dispatch.sh` hands here.
 
     Each host with a launch block takes an initial prompt as its last positional
-    argument (`grok [PROMPT]`, `codex [PROMPT]`, `claude [prompt]`, `cursor-agent
-    [prompt]`), so a runner that starts the host from this line does not type the prompt
+    argument (`codex [PROMPT]`, `claude [prompt]`), so a runner that starts the host from this line does not type the prompt
     into it afterwards. A prompt that begins with `-` is refused: the host would read it
     as a flag.
     """

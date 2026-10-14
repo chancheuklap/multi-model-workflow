@@ -22,8 +22,8 @@ reports the ticket blocked rather than clearing the way to it.
     tool-guard.py pretool <host>    the host is about to run a shell command
     tool-guard.py question <host>   the host is about to ask the user a question
 
-`<host>` is one of claude, codex, grok, cursor. It decides only the shape of the
-answer; the decision and the sentence are the same for all four.
+`<host>` is claude or codex. It names the host's question tool; the refusal has the same
+shape and the same sentence on both.
 
 It refuses rather than checks. A worker typing `gh issue close` has by definition not
 been through `--closeout`, so there is no draft of its to check; a hook that guessed
@@ -35,15 +35,6 @@ and on every runner: the working directory's basename. `issue-<n>` (digits only)
 ticket `<n>`, and every session a runner starts on a ticket — worker and reviewer —
 runs in that worktree, with nobody at its screen. Any other basename is not a
 ticket worktree and is not refused. Nothing is asked of any runner.
-
-Cursor CLI imports Claude Code hooks and has no off switch, so this file is
-invoked twice: `pretool cursor` from `~/.cursor/hooks.json`, and `pretool
-claude` from `~/.claude/settings.json`. The Claude-registered copy exits
-immediately when the payload Cursor sent carries Cursor's own `cursor_version`.
-It never asks the environment: Cursor exports `CURSOR_AGENT`, `CURSOR_VERSION`
-and friends into every child process, so a Claude session started by hand from
-a Cursor pane inherits them, and an environment test would switch off that
-Claude session's own gate. Claude Code never sends `cursor_version`.
 """
 
 from __future__ import annotations
@@ -53,7 +44,7 @@ import os
 import re
 import sys
 
-HOSTS = ("claude", "codex", "grok", "cursor")
+HOSTS = ("claude", "codex")
 GATES = ("pretool", "question")
 TICKET_DIR = re.compile(r"^issue-(\d+)$")
 
@@ -75,19 +66,7 @@ NO_QUESTION = (
 QUESTION_TOOLS = {
     "claude": ("AskUserQuestion",),
     "codex": ("request_user_input",),
-    "grok": ("ask_user_question",),
-    "cursor": ("AskQuestion",),
 }
-
-
-def imported_into_cursor(host: str, event: dict) -> bool:
-    """True when Cursor is running the Claude-registered copy of this file.
-
-    That copy would refuse in Claude's JSON, which Cursor may not honour, and
-    the gate would run twice. The Cursor-registered invocation stays. Read off
-    the payload this event came with, never off the environment (see the header).
-    """
-    return host == "claude" and isinstance(event.get("cursor_version"), str)
 
 
 def read_event() -> dict:
@@ -100,28 +79,17 @@ def read_event() -> dict:
 
 
 def command_of(event: dict) -> str | None:
-    """The shell command this event is about, in whichever way its host spelled it.
-
-    Claude Code and Codex nest it under `tool_input`,
-    Grok Build under `toolInput`, Cursor puts it at the top level. This is the only
-    place those three spellings meet.
-    """
-    for name in ("tool_input.command", "toolInput.command", "command"):
-        value = event
-        for part in name.split("."):
-            value = value.get(part) if isinstance(value, dict) else None
-        if isinstance(value, str) and value:
-            return value
-    return None
+    """The shell command this event is about: Claude Code and Codex both nest it under
+    `tool_input`."""
+    tool_input = event.get("tool_input")
+    value = tool_input.get("command") if isinstance(tool_input, dict) else None
+    return value if isinstance(value, str) and value else None
 
 
 def tool_of(event: dict) -> str:
-    """The tool this event is about, in whichever way its host spelled it."""
-    for name in ("tool_name", "toolName"):
-        value = event.get(name)
-        if isinstance(value, str) and value:
-            return value
-    return ""
+    """The tool this event is about."""
+    value = event.get("tool_name")
+    return value if isinstance(value, str) else ""
 
 
 def governed_ticket() -> int | None:
@@ -131,12 +99,9 @@ def governed_ticket() -> int | None:
     and are all governed. A session in no such directory is not.
 
     Two places say where the session is, and either one naming a ticket is enough.
-    Most hosts run this file from the directory the command runs in, so `getcwd` is
-    the answer. Cursor does not: it runs hooks from `~/.cursor` and sends an empty
-    `cwd` in the event, so on that host `getcwd` names no ticket however deep in the
-    worktree the command is, and the gate stayed open on every command it was
-    installed to refuse (measured 2026-09-06, cursor-agent 2026.08.25). `PASEO_AGENT_CWD`
-    is the directory Paseo opened the session in, and every host inherits it.
+    The host runs this file from the session's directory, so `getcwd` is the answer.
+    `PASEO_AGENT_CWD`, the directory Paseo opened the session in, is the second: it
+    still names the ticket when a hook runs from somewhere else.
     """
     for root in (os.getcwd(), os.environ.get("PASEO_AGENT_CWD", "").strip()):
         if not root:
@@ -205,40 +170,27 @@ def leaves_the_agent_lane(command: str, number: int) -> bool:
     return False
 
 
-def refuse(host: str, reason: str) -> None:
-    """Say no in this host's own vocabulary, on stdout, exiting 0 either way."""
-    if host in ("claude", "codex"):
-        answer = {"hookSpecificOutput": {"hookEventName": "PreToolUse",
-                                         "permissionDecision": "deny",
-                                         "permissionDecisionReason": reason}}
-    elif host == "grok":
-        answer = {"decision": "deny", "reason": reason}
-    else:
-        # `user_message` is what the client shows; `agent_message` is what the model
-        # reads, and the model is the one that has to do something about it.
-        answer = {"permission": "deny", "user_message": reason, "agent_message": reason}
+def refuse(reason: str) -> None:
+    """Say no the way Claude Code and Codex both read it, on stdout, exiting 0 either way."""
+    answer = {"hookSpecificOutput": {"hookEventName": "PreToolUse",
+                                     "permissionDecision": "deny",
+                                     "permissionDecisionReason": reason}}
     print(json.dumps(answer, ensure_ascii=False))
 
 
 def no_kill(piece: str) -> str:
     """Why this command is refused and what the session does instead.
 
-    The way out comes last and is never trimmed: a refusal that only diagnoses invites an
-    autonomous agent to improvise, and on 2026-09-05 three of them improvised three
-    different wrong answers to one correct error message. Grok Build clips a deny reason
-    at 256 characters and spends 13 on its own prefix (2026-08-29), so the command quoted
-    first is what gives way.
+    The way out comes last: a refusal that only diagnoses invites an autonomous agent to
+    improvise, and on 2026-09-05 three of them improvised three different wrong answers
+    to one correct error message.
     """
-    tail = (" A run never ends a process it did not start. Stop your own product as "
-            "its verify-<product> skill says; if it is unreachable, report the "
-            "ticket blocked and stop.")
-    room = 256 - len("Hook denied: ") - len(tail) - len("Refused ``.")
-    if len(piece) > room:
-        piece = piece[: room - 1] + "…"
-    return f"Refused `{piece}`." + tail
+    return (f"Refused `{piece}`. A run never ends a process it did not start. Stop your "
+            "own product as its verify-<product> skill says; if it is unreachable, report "
+            "the ticket blocked and stop.")
 
 
-def run_pretool(host: str, event: dict) -> int:
+def run_pretool(event: dict) -> int:
     number = governed_ticket()
     if number is None:
         return 0
@@ -247,11 +199,11 @@ def run_pretool(host: str, event: dict) -> int:
         return 0
     piece = ends_a_process(command)
     if piece is not None:
-        refuse(host, no_kill(piece))
+        refuse(no_kill(piece))
         return 0
     if not leaves_the_agent_lane(command, number):
         return 0
-    refuse(host, REFUSAL.format(n=number))
+    refuse(REFUSAL.format(n=number))
     return 0
 
 
@@ -260,7 +212,7 @@ def run_question(host: str, event: dict) -> int:
         return 0
     if tool_of(event) not in QUESTION_TOOLS.get(host, ()):
         return 0
-    refuse(host, NO_QUESTION)
+    refuse(NO_QUESTION)
     return 0
 
 
@@ -270,11 +222,9 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"usage: tool-guard.py <{'|'.join(GATES)}> <{'|'.join(HOSTS)}>\n")
         return 0
     event = read_event()
-    if imported_into_cursor(argv[1], event):
-        return 0
     if argv[0] == "question":
         return run_question(argv[1], event)
-    return run_pretool(argv[1], event)
+    return run_pretool(event)
 
 
 if __name__ == "__main__":
