@@ -19,6 +19,7 @@ Run by One ticket step 6 and Run a night step 6, once the change has landed on i
 
 The top, in plain words, for the owner:
 
+- The retrospective. List each lesson newly proposed to the owner with its title, link, one-sentence problem, solution and landing playbook, and your recommendation to pick it or not. Give a count and a repository query link for earlier unanswered lessons with `needs-triage` and `mmw:lesson`, excluding the new proposals above. Give each recurrence after the owner's refusal one reminder line. State the counts of new registrations, merges, recurrences after refusal, and previously approved proposals that landed. If the retrospective failed, state why.
 - What changes for the people who use the product.
 - Every decision left to the owner, each with a recommendation.
 - What was not done, and why.

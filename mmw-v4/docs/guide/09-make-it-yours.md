@@ -77,15 +77,19 @@ change the code-review skill so its tests axis flags a test with no assertion, a
 
 A fix written from one bad session tends to fit that session only, and over many edits the skill drifts. The eval catches the drift before it ships.
 
-## Capture a session's lessons with `reflect`
+## Register problems and review a run
 
-Right after a task that taught you something:
+When an agent finds a problem it cannot fix in its current work, the [register-problem](../../skills/register-problem/SKILL.md) skill records its evidence, cost and responsible repository. It looks for the same cause before opening an issue and preserves each new occurrence. A worker's in-ticket product problem stays in its child-issue workflow.
+
+After a night or one ticket, the [Retrospective playbook](../../skills/mmw-mode/playbooks/retrospective.md) uses [retro](../../skills/retro/SKILL.md) to gather registrations and run signals. Independent analysts sort the material by judgment, environment and process. The sending session checks their evidence before applying the results. It reads events, issues and git, not transcripts.
+
+You can also ask for a retrospective of a named run:
 
 ```text
-/reflect that took far too long. capture what we learned so the next run doesn't repeat it.
+review the problems registered during ticket #<n>. run the retrospective and recommend which proposals to pick.
 ```
 
-The [reflect](../../skills/reflect/SKILL.md) skill sends the session's transcript to three reviewers in parallel (judgment, tooling, and a divergent reader), then a synthesizer sorts their proposals into `Accepted`, `Rejected` and `Backlog`. A proposal a lint, a script or a check would enforce better moves to `Backlog`. Nothing is changed until you approve which `Accepted` items to apply. Approve one only if it would change a future decision; one odd session is an anecdote, not a rule.
+The PR lists each new proposal with its problem, solution and recommendation. Earlier unanswered lessons get a count and query link; a problem that recurs after you refused it gets a reminder. Picking a proposal starts its planning playbook. Your later Go authorizes implementation. A retrospective failure is reported without blocking the merge.
 
 ## Fix the repository with `correct`
 
@@ -104,11 +108,11 @@ The [correct](../../skills/correct/SKILL.md) skill reads recent commits, reverts
 
 It fixes the most frequent classes one commit each, and proves each new check fails on a real past mistake. It keeps a table in the repository's agent instruction file that pairs each rule with what enforces it, so a rule nothing enforces shows up as a repeat. Run with no argument, it finds the classes from history on its own.
 
-`reflect` improves skills from one session; `correct` changes a repository so a class of mistake cannot come back.
+Retrospective proposes improvements for your decision; `correct` changes a repository so a class of mistake cannot come back.
 
 ## Where these skills assume Cursor
 
-`reflect` and the Eval playbook keep text written for Cursor. `reflect` names Cursor's `create-skill` skill for drafting. `reflect` names a `pstack-models.mdc` rule for its reviewers' models and falls back to the defaults its table gives when the rule is missing. The Eval playbook and `reflect` look for transcripts in the workspace's `agent-transcripts/` directory, a path Cursor's system prompt names. These are the places to look first when one of them stalls on another host. `create-verification-skill` writes `verify-<product>` in the product repository's `.agents/skills/verify-<product>/`.
+The Eval playbook keeps text written for Cursor and looks for transcripts in the workspace's `agent-transcripts/` directory, a path Cursor's system prompt names. This is the place to look first when Eval stalls on another host. Retrospective uses tracker and git evidence. `create-verification-skill` writes `verify-<product>` in the product repository's `.agents/skills/verify-<product>/`.
 
 **Pitfall:** do not edit a skill mid-task because it misbehaves. The mode's Non-negotiables say to fix a broken skill in its own pull request and keep the task moving. A skill edit tangled into feature work is invisible to review and cannot be evaluated.
 

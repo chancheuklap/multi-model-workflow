@@ -29,7 +29,8 @@ def config(version=1):
         "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
         "researcher": {"host": "claude", "model": "opus 5", "effort": "high"},
-        "candidate": {"host": "claude", "model": "opus 5", "effort": "high"}}}
+        "candidate": {"host": "claude", "model": "opus 5", "effort": "high"},
+        "retro-analyst": {"host": "claude", "model": "opus 5", "effort": "high"}}}
 
 
 def running_board(home, catalog=CATALOG):
@@ -51,7 +52,7 @@ class SettingsApiTest(unittest.TestCase):
             status, raw = board.request("GET", "/api/settings")
             data = json.loads(raw)
         self.assertEqual(status, 200); self.assertEqual(data["version"], 1)
-        self.assertEqual(len(data["rows"]), 6); self.assertIn("sources", data)
+        self.assertEqual(len(data["rows"]), 7); self.assertIn("sources", data)
         self.assertTrue(data["scan"]["scanned_at"]); self.assertEqual(data["scan"]["source"], "cli")
         self.assertEqual(data["scan"]["hosts"]["codex"]["state"], "ok")
         self.assertEqual(set(data["scan"]["hosts"]), {"claude", "codex"})
