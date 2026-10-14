@@ -8,13 +8,12 @@ const payload = {
   version: 12,
   runner: "orca",
   rows: {
-    "junior-worker": {host: "grok", model: "grok 4.6", effort: "high"},
+    "junior-worker": {host: "claude", model: "opus 5", effort: "high"},
     "senior-worker": {host: "codex", model: "gpt 5.6 sol", effort: "high"},
     reviewer: {host: "claude", model: "opus 5", effort: "high"},
     advisor: {host: "claude", model: "fable 5.1", effort: "medium"},
   },
   hosts: [
-    {name: "grok", binary: "grok", cli: true, paseo: true},
     {name: "codex", binary: "codex", cli: true, paseo: true},
     {name: "claude", binary: "claude", cli: true, paseo: true},
   ],
@@ -22,7 +21,6 @@ const payload = {
   scan: {
     source: "cli", scanned_at: "2026-09-10T23:02:00Z", scanning: false,
     hosts: {
-      grok: {state: "ok", offered: [{model: "grok 4.6", efforts: ["high"]}]},
       codex: {state: "ok", offered: [{model: "gpt 5.6 sol", efforts: ["high"]}]},
       claude: {state: "ok", offered: [
         {model: "opus 5", efforts: ["high"]},

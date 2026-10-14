@@ -27,8 +27,8 @@ class BriefCase(StateCase):
         self.batch = briefs.create(self.state, "researcher", 2, MAIN["runner"], MAIN["session"])
         for n in (1, 2):
             briefs.mark_started(self.state, self.batch, n, {
-                "runner": "fake", "session": f"child-{n}", "host": "grok",
-                "model": "grok-4.7", "effort": "high"})
+                "runner": "fake", "session": f"child-{n}", "host": "codex",
+                "model": "gpt-5.6-sol", "effort": "high"})
         self.write("watches.json", {f"briefs:{self.batch}": {"briefs": self.batch, **MAIN}})
         runners = Path(self.tmp.name) / "runners"
         runners.mkdir()

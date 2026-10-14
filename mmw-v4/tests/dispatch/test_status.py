@@ -44,7 +44,7 @@ def ev(name, line, ticket=61, **fields):
 
 def started(ticket, session, runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}", ticket,
-              session=session, runner=runner, machine="mac-1", into="main", host="grok", model="grok-4.6",
+              session=session, runner=runner, machine="mac-1", into="main", host="codex", model="gpt-5.6-sol",
               effort="high",
               grade="junior-worker" if kind == "worker" else kind,
               worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",

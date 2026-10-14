@@ -32,7 +32,7 @@ def comment(ident, body):
 
 def started(session="term_7", runner="orca", kind="worker"):
     return ev(f"{kind}.started", f"{kind} started on {runner}: session {session}",
-              session=session, runner=runner, machine="mac-1", host="grok", model="grok-4.6",
+              session=session, runner=runner, machine="mac-1", host="codex", model="gpt-5.6-sol",
               effort="high", grade="junior-worker", worktree="/repo/.worktrees/issue-61",
               branch="issue-61", base="0" * 40)
 
@@ -127,7 +127,7 @@ class TheVocabulary(unittest.TestCase):
             events.build("ticket.released", ticket=61, line="x", reason="bored")
 
     def test_a_worker_start_missing_any_of_its_facts_is_refused_when_written(self):
-        full = dict(session="t", runner="orca", machine="mac-1", host="grok", model="m",
+        full = dict(session="t", runner="orca", machine="mac-1", host="codex", model="m",
                     effort="high",
                     grade="junior-worker", worktree="/repo/.worktrees/issue-61",
                     branch="issue-61", base="0" * 40)
@@ -141,13 +141,13 @@ class TheVocabulary(unittest.TestCase):
     def test_a_worker_start_on_a_relative_worktree_is_refused(self):
         with self.assertRaises(events.EventError):
             events.build("worker.started", ticket=61, line="started", session="t",
-                         runner="orca", machine="mac-1", host="grok", model="m",
+                         runner="orca", machine="mac-1", host="codex", model="m",
                          effort="high", grade="junior-worker", worktree=".worktrees/issue-61",
                          branch="issue-61", base="0" * 40)
 
     def test_no_effort_is_written_as_an_explicit_dash(self):
         body = events.build("worker.started", ticket=61, line="started", session="t",
-                            runner="herdr", machine="mac-1", host="grok", model="m", effort="—",
+                            runner="herdr", machine="mac-1", host="codex", model="m", effort="—",
                             grade="junior-worker", worktree="/w", branch="issue-61",
                             base="0" * 40)
         self.assertEqual(events.parse(body)[1]["effort"], "—")
@@ -649,7 +649,7 @@ class CommandLine(unittest.TestCase):
             "emit", "worker.started", "--ticket", "61", "--spec", "76",
             "--line", "worker started on orca: session term_7",
             "--field", "session=term_7", "--field", "runner=orca", "--field", "machine=mac-1",
-            "--field", "host=grok",
+            "--field", "host=codex",
             "--field", "model=m", "--field", "effort=high", "--field", "grade=junior-worker",
             "--field", "worktree=/repo/.worktrees/issue-61", "--field", "branch=issue-61",
             "--field", "base=" + "0" * 40, "--field", "note=", "--json-field", "attempt=2")

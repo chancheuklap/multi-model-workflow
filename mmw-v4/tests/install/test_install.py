@@ -18,8 +18,8 @@ FIXTURE_CATALOG = V4 / "tests/dispatch/catalog.json"
 # Every row is one the fixture catalog offers, so models.py's validation passes; the
 # role set is v3's.
 V3_MODELS = {"version": 3, "runner": "orca", "rows": {
-    "junior-worker": {"host": "cursor", "model": "grok 4.6", "effort": "high"},
-    "senior-worker": {"host": "grok", "model": "grok 4.6", "effort": "xhigh"},
+    "junior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
+    "senior-worker": {"host": "claude", "model": "sonnet 5", "effort": "xhigh"},
     "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
     "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
     "researcher": {"host": "claude", "model": "opus 5", "effort": "high"},

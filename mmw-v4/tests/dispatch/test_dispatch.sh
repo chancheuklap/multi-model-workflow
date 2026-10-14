@@ -110,24 +110,22 @@ def labels_from_args():
 
 
 if args[:2] == ["provider", "ls"]:
-    grok = "unavailable" if scenario == "provider-down" else "available"
+    codex = "unavailable" if scenario == "provider-down" else "available"
     print(json.dumps([
-        {"provider": "grok", "status": grok, "label": "Grok"},
         {"provider": "claude", "status": "available", "label": "Claude"},
-        {"provider": "codex", "status": "available", "label": "Codex"},
-        {"provider": "cursor", "status": "available", "label": "Cursor"},
+        {"provider": "codex", "status": codex, "label": "Codex"},
     ]))
     sys.exit(0)
 
 if args[:2] == ["provider", "models"]:
-    print(json.dumps([{"id": "grok-4.6", "thinkingOptionIds": ["high", "xhigh"]}]))
+    print(json.dumps([{"id": "gpt-5.6-sol", "thinkingOptionIds": ["high", "xhigh"]}]))
     sys.exit(0)
 
 # The real call refreshes the daemon's snapshot for one host and answers with a text
 # blob; `check` reads it only to print under a refusal, so one line of it is enough.
 if args[:2] == ["provider", "diagnostic"]:
     host = args[2] if len(args) > 2 else ""
-    down = scenario == "provider-down" and host == "grok"
+    down = scenario == "provider-down" and host == "codex"
     print(json.dumps({
         "provider": host,
         "diagnostic": f"{host}\n  Resolved path: /fake/{host}\n"
@@ -1156,10 +1154,10 @@ mkdir -p "$MMW_HOME"
 : > "$MMW_GH_LAST_BODY"
 # The models.json every scenario starts from. It is this suite's own fixture, not
 # hosts.json's defaults: what a fresh machine is given can change without changing what
-# the scenarios exercise (a Cursor junior row with its effort inside the model id, a Grok
-# senior row at xhigh).
+# the scenarios exercise (a Codex junior row, a Claude senior row at xhigh, so the two
+# worker grades differ in host, model and effort).
 cat > "$MMW_HOME/models.json" <<'JSON'
-{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"},"researcher":{"host":"claude","model":"opus 5","effort":"high"},"candidate":{"host":"claude","model":"opus 5","effort":"xhigh"}}}
+{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"codex","model":"gpt 5.6 sol","effort":"high"},"senior-worker":{"host":"claude","model":"sonnet 5","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"},"researcher":{"host":"claude","model":"opus 5","effort":"high"},"candidate":{"host":"claude","model":"opus 5","effort":"xhigh"}}}
 JSON
 # Every other session role of roles.json gets one row the fixture catalog offers, so a role
 # added to the table needs no change here.
@@ -1610,9 +1608,9 @@ assert found["worktree"] == run["cwd"] and found["branch"] == "issue-" + ticket,
 ' "$TMP/out" "$MMW_FAKE_PASEO_STATE/runs.jsonl" "$MMW_FAKE_PASEO_STATE/gh-comments.json"
 }
 
-JUNIOR_HOST=cursor
-JUNIOR_MODEL=grok-4.6
-SENIOR_MODEL=grok-4.6
+JUNIOR_HOST=codex
+JUNIOR_MODEL=gpt-5.6-sol
+SENIOR_MODEL=claude-sonnet-5
 one_line_reason() {
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
     || fail "the reason should be one line: $(cat "$TMP/err")"
@@ -1766,7 +1764,7 @@ start_facts() {
   local grade="$3"
   [ "$3" = worker ] && grade=junior-worker
   printf '%s\n' --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-    --field host=grok --field model=grok-4.6 --field effort=high \
+    --field host=codex --field model=gpt-5.6-sol --field effort=high \
     --field "grade=$grade" --field "worktree=$1" --field "branch=issue-$2" \
     --field "base=0000000000000000000000000000000000000000" --field into=main
 }
@@ -1886,7 +1884,7 @@ JSON
   has "paseo :: provider :: ls :: --json"
 
   echo "--- every host of the batch is refreshed once, however many rows share it"
-  [ "$(count_of 'provider :: diagnostic')" = 3 ] \
+  [ "$(count_of 'provider :: diagnostic')" = 2 ] \
     || fail "expected one diagnostic per distinct host, got $(count_of 'provider :: diagnostic'): $(grep 'provider :: diagnostic' "$MMW_TEST_LOG")"
 
   echo "--- a provider that is not available, and a ticket with two grades, each printed"
@@ -1900,7 +1898,7 @@ JSON
           MMW_FAKE_PASEO_SCENARIO=provider-down \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q 'grok' "$TMP/err" || fail "the reason does not name the provider: $(cat "$TMP/err")"
+  grep -q 'codex' "$TMP/err" || fail "the reason does not name the provider: $(cat "$TMP/err")"
   grep -q '#61' "$TMP/err" || fail "the reason does not name the ticket: $(cat "$TMP/err")"
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" -ge 2 ] \
     || fail "expected one line per failing check: $(cat "$TMP/err")"
@@ -2012,21 +2010,35 @@ JSON
 }
 
 # A row resolves against the catalog of the runner that starts the session: Orca runs the
-# host's CLI, which takes the CLI's own model id (Cursor's carries its effort,
-# `cursor-grok-4.6-high`), and Paseo takes Paseo's (`grok-4.6`). The fixture catalog holds
-# both shapes, so only the runner decides which one comes out.
+# host's CLI, which takes the CLI's own model id, and Paseo takes Paseo's. The catalog here
+# gives the two sources different ids for one Codex model, so only the runner decides which
+# one comes out.
 scenario_catalogbyrunner() {
-  local code
+  local code catalog="$TMP/catalog-by-source.json"
+  python3 - "$MMW_HOST_CATALOG" "$catalog" <<'PY'
+import json, sys
+paseo = json.load(open(sys.argv[1]))
+cli = dict(paseo)
+cli["codex"] = [{"id": "gpt-5.6-sol-cli", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["high"]}]
+json.dump({"cli": cli, "paseo": paseo}, open(sys.argv[2], "w"))
+PY
   echo "--- on Orca the junior worker starts with the CLI's own model id"
   reset_log
   fresh_repo
-  code="$(run_dispatch env MMW_RUNNER=orca bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  code="$(run_dispatch env MMW_RUNNER=orca MMW_HOST_CATALOG="$catalog" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "orca :: terminal :: create"
-  grep -F "orca :: terminal :: create" "$MMW_TEST_LOG" | grep -qF -- "--model cursor-grok-4.6-high" \
+  grep -F "orca :: terminal :: create" "$MMW_TEST_LOG" | grep -qF -- "-m gpt-5.6-sol-cli" \
     || fail "the launch line should carry the CLI's id: $(grep -F 'orca :: terminal :: create' "$MMW_TEST_LOG")"
-  posted_events 61 model | grep -qx "worker.started model=cursor-grok-4.6-high" \
+  posted_events 61 model | grep -qx "worker.started model=gpt-5.6-sol-cli" \
     || fail "the started event should record the id the session got: $(posted_events 61 model)"
+
+  echo "--- on Paseo the same row starts with Paseo's id"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch env MMW_RUNNER=paseo MMW_HOST_CATALOG="$catalog" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(out_json provider)" = "codex/gpt-5.6-sol" ] || fail "provider: $(out_json provider)"
 }
 
 scenario_advancerefused() {
@@ -2551,8 +2563,8 @@ scenario_start_worker() {
 import json, sys
 from pathlib import Path
 obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
-assert obj["settings"].get("thinkingOptionId") == "true", obj["settings"]
-assert obj["settings"].get("modeId") == "agent", obj["settings"]
+assert obj["settings"].get("thinkingOptionId") == "high", obj["settings"]
+assert obj["settings"].get("modeId") == "full-access", obj["settings"]
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "paseo run settings changed: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md. It is your whole task: what came before it is done, and you start no agent it does not name.") ;;
@@ -2590,7 +2602,7 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
           bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   started_once
-  [ "$(out_json provider)" = "grok/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
+  [ "$(out_json provider)" = "claude/$SENIOR_MODEL" ] || fail "provider: $(out_json provider)"
   [ "$(out_json settings.thinkingOptionId)" = xhigh ] || fail "effort: $(out_json settings.thinkingOptionId)"
 
   echo "--- two worker labels are refused, and nothing is started"
@@ -2651,7 +2663,7 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
 import json, sys
 from pathlib import Path
 obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
-assert obj["settings"].get("thinkingOptionId") == "true"
+assert obj["settings"].get("thinkingOptionId") == "high"
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "copied start settings are wrong: $(cat "$TMP/out")"
 }
 
@@ -4290,13 +4302,13 @@ scenario_runnerparity() {
 
   echo "--- start succeeds"
   reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd "$TMP/repo" --prompt hi --skip-approval)"
   [ "$code" = 0 ] || fail "paseo start expected 0, got $code: $(cat "$TMP/err")"
 
   echo "--- start takes no --label: a usage error, and nothing is started"
   reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd "$TMP/repo" --prompt hi --label mmw.ticket=61)"
   [ "$code" = 2 ] || fail "paseo start with --label expected usage 2, got $code: $(cat "$TMP/err")"
   never_ran
@@ -4306,7 +4318,7 @@ scenario_runnerparity() {
 
   echo "--- start succeeds, pane exists before agent start"
   reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd "$TMP/repo" --prompt hi --skip-approval)"
   [ "$code" = 0 ] || fail "herdr start expected 0, got $code: $(cat "$TMP/err")"
   has "herdr :: tab :: create"
@@ -4320,7 +4332,7 @@ scenario_runnerparity() {
 
   echo "--- the reviewer and the worker of one worktree get different session names"
   reset_log
-  run_runner start --host grok --model grok-4.6 --effort high \
+  run_runner start --host codex --model gpt-5.6-sol --effort high \
     --cwd "$TMP/repo" --prompt hi --title "#61 reviewer" >/dev/null
   [ "$(cat "$TMP/out")" = repo-reviewer ] || fail "the session name should carry the kind: $(cat "$TMP/out")"
   hasnt "herdr :: pane :: split"
@@ -4332,7 +4344,7 @@ scenario_runnerparity() {
 
   echo "--- start takes no --label: a usage error, and no tab is opened"
   reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd "$TMP/repo" --prompt hi --label mmw.ticket=61)"
   [ "$code" = 2 ] || fail "herdr start with --label expected usage 2, got $code: $(cat "$TMP/err")"
   hasnt "herdr :: tab :: create"
@@ -4360,7 +4372,7 @@ scenario_runnerparity() {
 
   echo "--- start succeeds, one create, path: selector, no worktree enumeration"
   reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd . --prompt hi --skip-approval)"
   [ "$code" = 0 ] || fail "orca start expected 0, got $code: $(cat "$TMP/err")"
   [ -n "$(cat "$TMP/out")" ] || fail "orca start should print a session id"
@@ -4384,7 +4396,7 @@ scenario_runnerparity() {
 
   echo "--- the tab carries the title dispatch passes, so one ticket's sessions differ"
   reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd . --prompt hi --skip-approval --title "#61 reviewer")"
   [ "$code" = 0 ] || fail "orca start with a title expected 0, got $code: $(cat "$TMP/err")"
   [ "$(arg_after --title)" = "#61 reviewer" ] \
@@ -4393,16 +4405,16 @@ scenario_runnerparity() {
   echo "--- the first prompt is the last argument of the command exec runs, and nothing is typed"
   reset_log
   local first="Use the implement skill on #61. Don't ask 'Shall I…?'"
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd . --prompt "$first" --skip-approval)"
   [ "$code" = 0 ] || fail "orca start expected 0, got $code: $(cat "$TMP/err")"
   MMW_FIRST="$first" python3 -c '
 import json, os, shlex, sys
 argv = shlex.split(json.load(open(sys.argv[1]))[-1]["command"])
-assert argv[:2] == ["exec", "grok"], argv
+assert argv[:2] == ["exec", "codex"], argv
 assert argv[-1] == os.environ["MMW_FIRST"], argv
 ' "$MMW_FAKE_ORCA_STATE/terminals.json" \
-    || fail "the command should be exec grok … with the prompt last: $(arg_after --command)"
+    || fail "the command should be exec codex … with the prompt last: $(arg_after --command)"
   hasnt "orca :: terminal :: send"
   hasnt "--for :: tui-idle"
   grep -q -- '--for :: exit' "$MMW_TEST_LOG" \
@@ -4410,7 +4422,7 @@ assert argv[-1] == os.environ["MMW_FIRST"], argv
 
   echo "--- start takes no --label: a usage error, and no terminal is created"
   reset_log
-  code="$(run_runner start --host grok --model grok-4.6 --effort high \
+  code="$(run_runner start --host codex --model gpt-5.6-sol --effort high \
           --cwd . --prompt hi --label mmw.ticket=61)"
   [ "$code" = 2 ] || fail "orca start with --label expected usage 2, got $code: $(cat "$TMP/err")"
   hasnt "orca :: terminal :: create"
@@ -4552,7 +4564,7 @@ scenario_orcaunobserved() {
   echo "--- a host whose delivery Orca cannot report still starts: the handle, exit 0, its terminal kept"
   reset_log
   fresh_repo
-  code="$(MMW_FAKE_ORCA_SEND=unobserved run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_ORCA_SEND=unobserved run_runner start --host codex --model gpt-5.6-sol --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 0 ] || fail "an unobserved host is a start, expected 0, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = term_1 ] || fail "start should print the handle: $(cat "$TMP/out")"
   hasnt "orca :: terminal :: send"
@@ -5068,9 +5080,9 @@ scenario_startreadsmodelsjson() {
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(out_json provider)" = "cursor/grok-4.6" ] \
+  [ "$(out_json provider)" = "codex/gpt-5.6-sol" ] \
     || fail "start did not use models.json: $(cat "$TMP/out")"
-  [ "$(out_json settings.thinkingOptionId)" = "true" ] \
+  [ "$(out_json settings.thinkingOptionId)" = "high" ] \
     || fail "start did not use the models.json effort: $(cat "$TMP/out")"
 }
 
@@ -5606,16 +5618,16 @@ scenario_herdrunreadablelist() {
 scenario_herdrnoeffort() {
   local code
   RUNNER="$HERDR_RUNNER"
-  echo "--- an empty effort starts grok without --reasoning-effort, never with a literal dash"
+  echo "--- an empty effort starts claude without --effort, never with a literal dash"
   reset_log
   fresh_repo
-  code="$(run_runner start --host grok --model "grok 4.6" --effort "—" --cwd "$TMP/repo" --prompt go)"
+  code="$(run_runner start --host claude --model "opus 5" --effort "—" --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
   has "herdr :: agent :: start"
-  if grep "herdr :: agent :: start" "$MMW_TEST_LOG" | grep -q -- "--reasoning-effort"; then
+  if grep "herdr :: agent :: start" "$MMW_TEST_LOG" | grep -q -- "--effort"; then
     fail "empty effort must drop the flag: $(grep 'herdr :: agent :: start' "$MMW_TEST_LOG")"
   fi
-  grep "herdr :: agent :: start" "$MMW_TEST_LOG" | grep -qF ":: grok 4.6 ::" \
+  grep "herdr :: agent :: start" "$MMW_TEST_LOG" | grep -qF ":: opus 5 ::" \
     || fail "the model must still be passed: $(grep 'herdr :: agent :: start' "$MMW_TEST_LOG")"
 
   echo "--- a host with no launch block refuses instead of starting without a model"
@@ -5632,10 +5644,10 @@ scenario_herdrstartloud() {
   echo "--- a refused start says what failed, on stderr"
   reset_log
   fresh_repo
-  code="$(MMW_FAKE_HERDR_SCENARIO=tab-fail run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_HERDR_SCENARIO=tab-fail run_runner start --host codex --model "gpt 5.6 sol" --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected 1, got $code"
   nothing_printed
-  code="$(MMW_FAKE_HERDR_SCENARIO=start-fail run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_HERDR_SCENARIO=start-fail run_runner start --host codex --model "gpt 5.6 sol" --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected 1, got $code"
   nothing_printed
 }
@@ -5672,7 +5684,7 @@ scenario_orcarefusalreason() {
   echo "--- a terminal create Orca refuses on stdout carries Orca's reason"
   reset_log
   fresh_repo
-  code="$(MMW_FAKE_ORCA_SCENARIO=start-refused run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_ORCA_SCENARIO=start-refused run_runner start --host codex --model gpt-5.6-sol --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected refusal 1, got $code"
   nothing_printed
 }
@@ -5745,11 +5757,11 @@ scenario_orcanoorphan() {
   echo "--- a host that exits as soon as it starts is refused, says why, and leaves no terminal"
   reset_log
   fresh_repo
-  code="$(MMW_FAKE_ORCA_SCENARIO=exited run_runner start --host grok --model "grok 4.6" --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_ORCA_SCENARIO=exited run_runner start --host codex --model "gpt 5.6 sol" --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
   nothing_printed
   one_line_reason
-  grep -qF "grok -m 'grok 4.6' --reasoning-effort high" "$TMP/err" \
+  grep -qF "codex -m 'gpt 5.6 sol' -c 'model_reasoning_effort=\"high\"'" "$TMP/err" \
     || fail "stderr should give the command to run by hand: $(cat "$TMP/err")"
   has "orca :: terminal :: read"
   has "orca :: terminal :: close"
@@ -5757,14 +5769,14 @@ scenario_orcanoorphan() {
 
   echo "--- an exit wait this cannot read falls back to liveness: alive is a start"
   reset_log
-  code="$(MMW_FAKE_ORCA_SCENARIO=exit-wait-garbage run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_ORCA_SCENARIO=exit-wait-garbage run_runner start --host codex --model gpt-5.6-sol --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 0 ] || fail "a live handle is a start, expected 0, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = term_1 ] || fail "start should print the handle: $(cat "$TMP/out")"
   hasnt "orca :: terminal :: close"
 
   echo "--- and a liveness that is not alive is a refusal that closes the terminal"
   reset_log
-  code="$(MMW_FAKE_ORCA_SCENARIO=wait-garbage run_runner start --host grok --model grok-4.6 --effort high --cwd "$TMP/repo" --prompt go)"
+  code="$(MMW_FAKE_ORCA_SCENARIO=wait-garbage run_runner start --host codex --model gpt-5.6-sol --effort high --cwd "$TMP/repo" --prompt go)"
   [ "$code" = 1 ] || fail "expected refusal 1, got $code: $(cat "$TMP/err")"
   nothing_printed
   has "orca :: terminal :: close"
@@ -7928,7 +7940,7 @@ scenario_regressedrestartbase() {
    "closedAt": "2026-09-11T01:00:00Z", "assignees": ["mmw-bot"],
    "comments": [$(ev worker.started 61 "worker started" --field session=agt_first --field runner=paseo \
      --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-     --field host=grok --field model=grok-4.6 --field effort=high --field grade=junior-worker \
+     --field host=codex --field model=gpt-5.6-sol --field effort=high --field grade=junior-worker \
      --field "worktree=$(wt 61)" --field branch=issue-61 --field "base=$first_base" --field into=main),
      $(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field "commit=$passed" --field into=main)]}
 ]

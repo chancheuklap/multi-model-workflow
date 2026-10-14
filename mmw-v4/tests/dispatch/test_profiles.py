@@ -56,10 +56,10 @@ class BypassArgvTest(unittest.TestCase):
 
     def test_a_host_without_a_cli_block_is_refused(self):
         data = models.load_hosts()
-        data["hosts"]["grok"].pop("cli")
+        data["hosts"]["codex"].pop("cli")
         with mock.patch.object(models, "load_hosts", return_value=data), \
-                self.assertRaisesRegex(ValueError, "grok.*cli"):
-            models.bypass_argv("grok", "x", "low", "issue-1")
+                self.assertRaisesRegex(ValueError, "codex.*cli"):
+            models.bypass_argv("codex", "x", "low", "issue-1")
 
     def test_the_command_line_block_is_named_cli(self):
         hosts = models.load_hosts()["hosts"]
@@ -71,6 +71,8 @@ class BypassArgvTest(unittest.TestCase):
 
 class LaunchLineTest(unittest.TestCase):
     PROMPT = "Use the implement skill on #61. Don't ask 'Shall I…?'"
+    FLAGS = ["-m", "gpt-5.6-sol", "-c", 'model_reasoning_effort="high"',
+             "--dangerously-bypass-approvals-and-sandbox"]
 
     def launch_line(self, *args: str) -> tuple[int, str, str]:
         from io import StringIO
@@ -81,23 +83,18 @@ class LaunchLineTest(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def test_the_prompt_is_the_last_argument_quoted(self):
-        code, out, _ = self.launch_line("grok", "grok-4.6", "high", "issue-61", self.PROMPT)
+        code, out, _ = self.launch_line("codex", "gpt-5.6-sol", "high", "issue-61", self.PROMPT)
         self.assertEqual(code, 0)
-        argv = shlex.split(out)
-        self.assertEqual(argv, [
-            "grok", *models.bypass_argv("grok", "grok-4.6", "high", "issue-61"),
-            self.PROMPT,
-        ])
+        self.assertEqual(shlex.split(out), ["codex", *self.FLAGS, self.PROMPT])
         self.assertTrue(out.rstrip("\n").endswith(" " + shlex.quote(self.PROMPT)), out)
 
     def test_without_a_prompt_the_line_ends_with_the_flags(self):
-        code, out, _ = self.launch_line("grok", "grok-4.6", "high", "issue-61")
+        code, out, _ = self.launch_line("codex", "gpt-5.6-sol", "high", "issue-61")
         self.assertEqual(code, 0)
-        self.assertEqual(shlex.split(out), [
-            "grok", *models.bypass_argv("grok", "grok-4.6", "high", "issue-61")])
+        self.assertEqual(shlex.split(out), ["codex", *self.FLAGS])
 
     def test_a_prompt_that_reads_as_a_flag_is_refused(self):
-        code, out, _ = self.launch_line("grok", "grok-4.6", "high", "issue-61", "--help")
+        code, out, _ = self.launch_line("codex", "gpt-5.6-sol", "high", "issue-61", "--help")
         self.assertEqual((code, out), (2, ""))
 
 
@@ -135,7 +132,7 @@ class SessionRowsTest(unittest.TestCase):
 
     def test_an_unknown_agent_is_refused(self):
         config = models.default_local_config()["rows"]
-        config["intern"] = {"host": "grok", "model": "grok 4.6", "effort": "high"}
+        config["intern"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
         with self.assertRaisesRegex(ValueError, "intern"):
             rows_from(config)
 
@@ -158,7 +155,7 @@ class CatalogMatchTest(unittest.TestCase):
 
     def test_a_miss_is_refused(self):
         with self.assertRaisesRegex(ValueError, "no-such-model"):
-            models.resolve_row("grok", "no-such-model", "high")
+            models.resolve_row("codex", "no-such-model", "high")
 
     def test_opus_5_is_unique_on_claude(self):
         _, model, _ = models.resolve_row("claude", "opus 5", "high")

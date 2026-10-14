@@ -30,7 +30,7 @@ def base_config(version=1, runner="orca"):
     """The four rows the cases change by name; every other role of roles.json on one row the
     test catalog offers, so a role added to the table needs no change here."""
     rows = {
-        "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
+        "junior-worker": {"host": "claude", "model": "sonnet 5", "effort": "high"},
         "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
         "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
@@ -185,7 +185,7 @@ class LocalConfigTest(unittest.TestCase):
         self.seed({**base_config(), "max_workers": 0})
         rows = models.session_rows()
         self.assertEqual([tuple(row) for row in rows], [
-            (role, "grok", "grok 4.7", "high") if role == "junior-worker" else
+            (role, "claude", "sonnet 5", "high") if role == "junior-worker" else
             (role, "codex", "gpt 5.6 sol", "high") if role == "senior-worker" else
             (role, "claude", "fable 5.1", "medium") if role == "advisor" else
             (role, "claude", "opus 5", "high") for role in models.ALLOWED_AGENTS])

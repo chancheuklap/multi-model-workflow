@@ -9,31 +9,25 @@ function offered(models) {
   return {state: "ok", offered: models};
 }
 
+// "both 1" is a model name both hosts list, so a host change can keep the model.
 const scan = {
-  cursor: offered([
-    {model: "auto", efforts: ["—"]},
-    {model: "grok 4.6", efforts: ["low", "medium", "high"]},
-    {model: "composer 2.5", efforts: ["high"]},
-  ]),
-  grok: offered([
-    {model: "grok 4.6", efforts: ["low", "medium", "high", "xhigh"]},
-    {model: "grok 4.5", efforts: ["high"]},
-  ]),
   claude: offered([
     {model: "opus 5", efforts: ["medium", "high"]},
     {model: "sonnet 5", efforts: ["high"]},
     {model: "fable 5.1", efforts: ["medium"]},
+    {model: "both 1", efforts: ["low", "medium", "high"]},
   ]),
   codex: offered([
     {model: "gpt 5.6 sol", efforts: ["low", "medium", "high", "xhigh"]},
     {model: "gpt 6 astra", efforts: ["high"]},
+    {model: "both 1", efforts: ["low", "medium", "high", "xhigh"]},
   ]),
 };
 
 const saved = {
   runner: "orca",
   rows: {
-    "junior-worker": {host: "grok", model: "grok 4.6", effort: "high"},
+    "junior-worker": {host: "codex", model: "gpt 5.6 sol", effort: "high"},
     "senior-worker": {host: "codex", model: "gpt 5.6 sol", effort: "high"},
     reviewer: {host: "claude", model: "opus 5", effort: "high"},
     advisor: {host: "claude", model: "fable 5.1", effort: "medium"},
@@ -44,15 +38,15 @@ const saved = {
 
 test("changing the host keeps a model the new host offers and clears it otherwise", () => {
   const keepFrom = copy(saved);
-  keepFrom.rows["junior-worker"] = {host: "cursor", model: "grok 4.6", effort: "high"};
-  const keep = LocalConfig.setCell(scan, keepFrom, "junior-worker", "host", "grok");
-  assert.equal(keep.rows["junior-worker"].model, "grok 4.6");
+  keepFrom.rows["junior-worker"] = {host: "claude", model: "both 1", effort: "high"};
+  const keep = LocalConfig.setCell(scan, keepFrom, "junior-worker", "host", "codex");
+  assert.equal(keep.rows["junior-worker"].model, "both 1");
   assert.equal(keep.rows["junior-worker"].effort, "high");
 
   const dropEffort = copy(saved);
-  dropEffort.rows["junior-worker"].effort = "xhigh";
-  const keptModel = LocalConfig.setCell(scan, dropEffort, "junior-worker", "host", "cursor");
-  assert.equal(keptModel.rows["junior-worker"].model, "grok 4.6");
+  dropEffort.rows["junior-worker"] = {host: "codex", model: "both 1", effort: "xhigh"};
+  const keptModel = LocalConfig.setCell(scan, dropEffort, "junior-worker", "host", "claude");
+  assert.equal(keptModel.rows["junior-worker"].model, "both 1");
   assert.equal(keptModel.rows["junior-worker"].effort, "");
 
   const clear = LocalConfig.setCell(scan, copy(saved), "junior-worker", "host", "claude");
@@ -63,7 +57,7 @@ test("changing the host keeps a model the new host offers and clears it otherwis
 test("a model with one effort takes it", () => {
   const draft = copy(saved);
   draft.rows["junior-worker"].effort = "xhigh";
-  LocalConfig.setCell(scan, draft, "junior-worker", "model", "grok 4.5");
+  LocalConfig.setCell(scan, draft, "junior-worker", "model", "gpt 6 astra");
   assert.equal(draft.rows["junior-worker"].effort, "high");
 });
 
@@ -84,27 +78,27 @@ test("an alias option shows the model it resolves to today, and saves the alias"
 
 test("a saved value this machine no longer offers is flagged with its reason", () => {
   const retired = copy(scan);
-  retired.grok = offered([{model: "grok 4.5", efforts: ["high"]}]);
+  retired.codex = offered([{model: "gpt 6 astra", efforts: ["high"]}]);
   const modelFlags = LocalConfig.problems(retired, saved);
   const model = modelFlags.find(item => item.key === "junior-worker" && item.cell === "model");
   assert.ok(model);
-  assert.match(model.text, /这台机器的 grok 已经不提供 grok 4.6/);
+  assert.match(model.text, /这台机器的 codex 已经不提供 gpt 5.6 sol/);
   const modelOpts = LocalConfig.rowOptions(retired, saved, "junior-worker").model;
-  assert.equal(modelOpts[0].value, "grok 4.6");
+  assert.equal(modelOpts[0].value, "gpt 5.6 sol");
   assert.match(modelOpts[0].text, /本机已经没有/);
   assert.equal(modelOpts[0].selected, true);
 
   const missing = copy(scan);
-  missing.grok = {state: "missing", offered: []};
+  missing.codex = {state: "missing", offered: []};
   const hostFlags = LocalConfig.problems(missing, saved);
   const host = hostFlags.find(item => item.key === "junior-worker" && item.cell === "host");
   assert.ok(host);
-  assert.match(host.text, /没装 grok/);
+  assert.match(host.text, /没装 codex/);
   assert.match(host.text, /换一个这台机器有的/);
-  const grokOpt = LocalConfig.rowOptions(missing, saved, "junior-worker").host.find(o => o.value === "grok");
-  assert.equal(grokOpt.selected, true);
-  assert.match(grokOpt.text, /本机没装/);
-  assert.equal(grokOpt.disabled, false);
+  const codexOpt = LocalConfig.rowOptions(missing, saved, "junior-worker").host.find(o => o.value === "codex");
+  assert.equal(codexOpt.selected, true);
+  assert.match(codexOpt.text, /本机没装/);
+  assert.equal(codexOpt.disabled, false);
 
   const stale = copy(saved);
   stale.rows["junior-worker"].effort = "max";

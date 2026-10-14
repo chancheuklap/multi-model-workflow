@@ -21,7 +21,7 @@ from board_process import RunningBoard  # noqa: E402
 
 def config(version=1):
     return {"version": version, "runner": "orca", "rows": {
-        "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
+        "junior-worker": {"host": "claude", "model": "sonnet 5", "effort": "high"},
         "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
         "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
@@ -50,7 +50,7 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(status, 200); self.assertEqual(data["version"], 1)
         self.assertEqual(len(data["rows"]), 6); self.assertIn("sources", data)
         self.assertTrue(data["scan"]["scanned_at"]); self.assertEqual(data["scan"]["source"], "cli")
-        self.assertEqual(data["scan"]["hosts"]["grok"]["state"], "ok")
+        self.assertEqual(data["scan"]["hosts"]["codex"]["state"], "ok")
         self.assertEqual(set(data["scan"]["hosts"]), {"cursor", "grok", "claude", "codex"})
         self.assertEqual(data["runners"], ["herdr", "orca", "paseo", "auto"])
         self.assertEqual(data["sources"], {
@@ -118,7 +118,7 @@ class SettingsApiTest(unittest.TestCase):
             return {"source": source, "scanned_at": "done", "scanning": False, "hosts": {}}
 
         settings_api._scan = {"source": "cli", "scanned_at": "old", "scanning": False,
-                              "hosts": {"cursor": {"state": "ok"}}}
+                              "hosts": {"codex": {"state": "ok"}}}
         with mock.patch.object(settings_api.models, "scan_host_catalogs", side_effect=slow_scan):
             worker = threading.Thread(target=settings_api._replace_scan, args=("paseo",))
             worker.start()
