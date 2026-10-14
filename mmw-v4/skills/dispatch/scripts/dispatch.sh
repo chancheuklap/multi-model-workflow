@@ -2574,7 +2574,7 @@ commits_outside_base() {
 # copy. Containment uses the fetch that prepared the merge worktree; deletion is leased
 # to that tip, and checked-out branches or unmerged local work stay unchanged.
 archive_landed_ticket_branch() {
-  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead output probe_rc
+  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead local_ahead output probe_rc
 
   branch="$(ticket_branch "$number")"
   [[ "$branch" =~ ^issue-[0-9]+$ ]] || return 0
@@ -2585,6 +2585,15 @@ archive_landed_ticket_branch() {
        | grep -Fx "branch refs/heads/$branch" >/dev/null; then
     echo "dispatch: keeping $branch because a worktree still has it checked out" >&2
     return 0
+  fi
+
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    local_ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || local_ahead=""
+    if [ -z "$local_ahead" ]; then
+      echo "dispatch: keeping local $branch because its containment in origin/$into could not be checked" >&2
+    elif [ "$local_ahead" -ne 0 ]; then
+      echo "dispatch: keeping local $branch because it has $local_ahead commit(s) not in origin/$into" >&2
+    fi
   fi
 
   git -C "$root" show-ref --verify --quiet "$remote_ref" || return 0
@@ -2600,18 +2609,15 @@ archive_landed_ticket_branch() {
   fi
 
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || ahead=""
-    if [ -z "$ahead" ]; then
-      echo "dispatch: keeping local $branch because its containment in origin/$into could not be checked" >&2
-    elif [ "$ahead" -ne 0 ]; then
-      echo "dispatch: keeping local $branch because it has $ahead commit(s) not in origin/$into" >&2
-    elif git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "$remote_tip"; then
-      output="$(git -C "$root" branch --force "$branch" "$remote_tip" 2>&1)" || {
-        echo "dispatch: could not fast-forward local $branch to $remote_tip: $output; keeping origin/$branch" >&2
-        return 0
-      }
-    else
-      echo "dispatch: keeping local $branch because it is not an ancestor of the fetched origin/$branch tip" >&2
+    if [ "${local_ahead:-}" = 0 ]; then
+      if git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "$remote_tip"; then
+        output="$(git -C "$root" branch --force "$branch" "$remote_tip" 2>&1)" || {
+          echo "dispatch: could not fast-forward local $branch to $remote_tip: $output; keeping origin/$branch" >&2
+          return 0
+        }
+      else
+        echo "dispatch: keeping local $branch because it is not an ancestor of the fetched origin/$branch tip" >&2
+      fi
     fi
   elif ! output="$(git -C "$root" branch "$branch" "$remote_tip" 2>&1)"; then
     echo "dispatch: could not restore local $branch at $remote_tip: $output; keeping origin/$branch" >&2
