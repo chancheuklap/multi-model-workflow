@@ -2256,7 +2256,8 @@ print(mod.state_dir(repo))
 PY
 }
 
-# Remove persistent merge worktrees whose matching origin branch no longer exists.
+# Remove persistent merge worktrees, and merge locks, whose matching origin branch no longer
+# exists. A released lock leaves its file behind, so a lock file with no worktree is swept too.
 # A slug cannot be reversed when a branch contains '-', so compare it with the set made
 # by applying the same slug rule to every fetched origin branch.
 sweep_orphan_merge_worktrees() {
@@ -2280,24 +2281,22 @@ refs = subprocess.run(
      "refs/remotes/origin/"], capture_output=True, text=True, check=True
 ).stdout.splitlines()
 active = {name.replace("/", "-") for name in refs if name and name != "HEAD"}
-for path in sorted(Path(trees).glob("merge-*")):
-    if not path.is_dir():
-        continue
-    slug = path.name.removeprefix("merge-")
-    if slug in active:
-        continue
+slugs = {path.name.removeprefix("merge-") for path in Path(trees).glob("merge-*") if path.is_dir()}
+slugs |= {lock.name.removeprefix("merge-").removesuffix(".lock") for lock in Path(state).glob("merge-*.lock")}
+for slug in sorted(slugs - active):
+    path = Path(trees) / f"merge-{slug}"
     lock = Path(state) / f"merge-{slug}.lock"
     try:
         with statedir.locked(lock, wait=0, purpose=f"sweeping orphan merge-{slug}"):
-            removed = subprocess.run(
+            removed = not path.is_dir() or subprocess.run(
                 ["git", "-C", root, "worktree", "remove", "--force", str(path)],
                 capture_output=True, text=True
             ).returncode == 0
+            if removed:
+                lock.unlink(missing_ok=True)
     except statedir.LockHeld:
         continue
-    if removed:
-        lock.unlink(missing_ok=True)
-    else:
+    if not removed:
         print(f"dispatch: could not remove orphan merge worktree {path}", file=sys.stderr)
 PY
 }

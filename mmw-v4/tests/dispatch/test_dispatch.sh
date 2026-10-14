@@ -18,6 +18,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh sweepsorphanmerge|sweepkeepslockedmerge|sweepsstalemergelock|sweepkeepsheldmergelock
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
@@ -7677,6 +7678,56 @@ PY
   [ -d "$TMP/repo/.worktrees/merge-gone" ] || fail "locked merge worktree was removed"
 }
 
+# A released merge lock leaves its file behind; one whose branch is gone from origin is swept
+# even when no merge worktree is left beside it.
+stale_merge_lock_fixture() {
+  reset_log
+  fresh_repo
+  git -C "$TMP/repo" push -q origin main:feat/live main:gone
+  git -C "$TMP/repo" push -q origin --delete gone
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' '{"pid": 999999, "identity": "Thu Jan  1 00:00:00 1970", "since": "2026-10-01T00:00:00Z", "purpose": "landing into origin/gone"}' \
+    > "$STATE_DIR/merge-gone.lock"
+  : > "$STATE_DIR/merge-main.lock"
+  : > "$STATE_DIR/merge-feat-live.lock"
+  printf '%s\n' '[]' > "$TMP/tickets.json"
+}
+
+scenario_sweepsstalemergelock() {
+  stale_merge_lock_fixture
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  [ ! -e "$STATE_DIR/merge-gone.lock" ] || fail "the lock of a branch gone from origin remains"
+  [ -e "$STATE_DIR/merge-main.lock" ] || fail "the lock of origin/main was swept"
+  [ -e "$STATE_DIR/merge-feat-live.lock" ] || fail "the lock of origin/feat/live was swept"
+}
+
+scenario_sweepkeepsheldmergelock() {
+  stale_merge_lock_fixture
+  local ready="$TMP/merge-lock-ready" holder code
+  rm -f "$ready"
+  python3 - "$SKILL/scripts/statedir.py" "$STATE_DIR/merge-gone.lock" "$ready" <<'PY' &
+import importlib.util, sys, time
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("statedir", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with module.locked(Path(sys.argv[2]), wait=0, purpose="test held merge lock"):
+    Path(sys.argv[3]).touch()
+    time.sleep(30)
+PY
+  holder=$!
+  while [ ! -e "$ready" ]; do sleep 0.05; done
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  [ -e "$STATE_DIR/merge-gone.lock" ] || fail "a merge lock a live process holds was swept"
+}
+
 scenario_landedkeepsunmerged() {
   reset_log
   fresh_repo
@@ -8291,7 +8342,7 @@ PY
   no_relay
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routenospec missingverifyticket"
