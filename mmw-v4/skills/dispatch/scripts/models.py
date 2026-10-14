@@ -45,6 +45,36 @@ def session_roles() -> tuple[str, ...]:
     return tuple(r["name"] for r in _roles())
 
 
+def subagent_rows() -> tuple[str, ...]:
+    return tuple(r["name"] for r in json.loads(
+        ROLES_JSON.read_text(encoding="utf-8"))["subagents"])
+
+
+def subagent_row(name: str, host: str) -> dict[str, str]:
+    if name not in subagent_rows():
+        raise ValueError(f"unknown subagent row {name!r}; choose one of {', '.join(subagent_rows())}")
+    if host not in CLI_HOSTS:
+        raise ValueError(f"unknown subagent host {host!r}; choose one of {', '.join(CLI_HOSTS)}")
+    try:
+        config = read_local_config()
+    except ConfigMissing:
+        config = {}
+    row = config.get("subagents", {})
+    cell = "subagents"
+    for key in (name, host):
+        if not isinstance(row, dict):
+            raise InvalidConfig([{"cell": cell, "reason": "must be a settings object"}])
+        row = row.get(key, {})
+        cell += f".{key}"
+    if not isinstance(row, dict):
+        raise InvalidConfig([{"cell": cell, "reason": "must contain model and effort"}])
+    settings = {key: row.get(key, "inherit") for key in ("model", "effort")}
+    for key, value in settings.items():
+        if not isinstance(value, str) or not value.strip():
+            raise InvalidConfig([{"cell": f"{cell}.{key}", "reason": "must be a nonempty string"}])
+    return settings
+
+
 ALLOWED_AGENTS = session_roles()
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 DEFAULT_RUNNER = "orca"
@@ -941,21 +971,75 @@ def _validate_max_workers(value: object) -> None:
                               "reason": "must be a whole number of at least 1"}])
 
 
+def _validate_subagents(value: object) -> list[dict[str, str]]:
+    errors = []
+    names = subagent_rows()
+    if not isinstance(value, dict):
+        return [{"cell": "subagents", "reason": "must map a subagent row to host settings"}]
+    for name, hosts in value.items():
+        cell = f"subagents.{name}"
+        if name not in names:
+            errors.append({"cell": cell, "reason": f"unknown row; choose one of {', '.join(names)}"})
+            continue
+        if not isinstance(hosts, dict):
+            errors.append({"cell": cell, "reason": "must map hosts to model and effort"})
+            continue
+        for host, row in hosts.items():
+            host_cell = f"{cell}.{host}"
+            if host not in CLI_HOSTS:
+                errors.append({"cell": host_cell, "reason": f"choose one of {', '.join(CLI_HOSTS)}"})
+                continue
+            if not isinstance(row, dict):
+                errors.append({"cell": host_cell, "reason": "must contain model and effort"})
+                continue
+            if host == "claude":
+                choices = {
+                    "model": ("sonnet", "opus", "haiku", "fable", "inherit"),
+                    "effort": ("low", "medium", "high", "xhigh", "max", "inherit"),
+                }
+                for key, allowed in choices.items():
+                    if row.get(key, "inherit") not in allowed:
+                        errors.append({"cell": f"{host_cell}.{key}", "reason":
+                                       f"choose one of {', '.join(allowed)}"})
+            else:
+                offerings = read_catalog_cache().get("cli", {}).get("codex", {}).get("offerings", [])
+                offered = {item["id"]: item for item in offerings}
+                model = row.get("model", "inherit")
+                if not isinstance(model, str) or model not in (*offered, "inherit"):
+                    reason = f"choose one of {', '.join((*offered, 'inherit'))}"
+                    if not offered:
+                        reason += "; no cli codex catalog at " + str(statedir.home() / "catalog.json")
+                        reason += "; click 重新扫描 on the board or run install.sh --check first"
+                    errors.append({"cell": f"{host_cell}.model", "reason": reason})
+                    continue
+                if model == "inherit":
+                    levels = [set(item.get("thinkingOptionIds", [])) for item in offerings]
+                    efforts = _sort_efforts(list(set.intersection(*levels))) if levels else []
+                else:
+                    efforts = offered[model].get("thinkingOptionIds", [])
+                if row.get("effort", "inherit") not in (*efforts, "inherit"):
+                    errors.append({"cell": f"{host_cell}.effort", "reason":
+                                   f"choose one of {', '.join((*efforts, 'inherit'))} for codex model {model!r}"})
+    return errors
+
+
 def write_local_config(config: dict, expected_version: int, scan: dict | None,
                        *, validate_roles: Sequence[str] | None = None) -> dict:
     """Validate, lock, version-check, and atomically replace models.json.
 
-    With scan=None, update only max_workers and keep the saved runner and rows unchecked.
+    With scan=None, update max_workers or subagents and keep runner and rows unchecked.
     """
     path = models_json_path()
     if not path.is_file():
         raise ConfigMissing(f"no models.json at {path}; run install.sh first")
-    if "max_workers" in config or scan is None:
+    if "max_workers" in config:
         _validate_max_workers(config.get("max_workers"))
     if scan is None:
         errors = _version_errors(expected_version)
     else:
         errors = _validate_local_config(config, scan, validate_roles)
+    if "subagents" in config:
+        errors += _validate_subagents(config["subagents"])
     if errors:
         raise InvalidConfig(errors)
     try:
@@ -979,6 +1063,9 @@ def write_local_config(config: dict, expected_version: int, scan: dict | None,
             cap_config = config if "max_workers" in config else current
             if "max_workers" in cap_config:
                 written["max_workers"] = cap_config["max_workers"]
+            subagents_config = config if "subagents" in config else current
+            if "subagents" in subagents_config:
+                written["subagents"] = subagents_config["subagents"]
             statedir.write_atomic(path, json.dumps(written, ensure_ascii=False, indent=2) + "\n")
             return written
     except statedir.LockHeld as exc:
@@ -1163,6 +1250,8 @@ USAGE = ("usage: models.py config show\n"
          "       models.py config runner <runner>\n"
          "       models.py config set <role> <host> <model> <level>\n"
          "       models.py config set max_workers <n>\n"
+         "       models.py config subagent <row> <host> <model|inherit> <effort|inherit>\n"
+         "       models.py subagent <row> <host>\n"
          "       models.py runner\n"
          "       models.py paseo-args <host> <model> <level>\n"
          "       models.py row <role>\n"
@@ -1172,10 +1261,27 @@ USAGE = ("usage: models.py config show\n"
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) == 3 and args[0] == "subagent":
+        try:
+            row = subagent_row(*args[1:])
+            print(f"model={row['model']} effort={row['effort']}")
+            return 0
+        except (ValueError, OSError) as exc:
+            sys.stderr.write(f"models.py: {exc}\n")
+            return 2
     if args[:1] == ["config"]:
         try:
             if args == ["config", "show"]:
                 print(json.dumps(read_local_config(), ensure_ascii=False, indent=2))
+                return 0
+            if len(args) == 6 and args[1] == "subagent":
+                name, host, model, effort = args[2:]
+                subagent_row(name, host)
+                current = read_local_config()
+                subagents = json.loads(json.dumps(current.get("subagents", {})))
+                subagents.setdefault(name, {})[host] = {"model": model, "effort": effort}
+                written = write_local_config({"subagents": subagents}, current.get("version"), None)
+                print(json.dumps(written, ensure_ascii=False))
                 return 0
             if len(args) == 4 and args[1:3] == ["set", "max_workers"]:
                 try:
@@ -1192,6 +1298,7 @@ def main(argv: list[str] | None = None) -> int:
                 current = read_local_config()
                 proposed = json.loads(json.dumps(current))
                 proposed.pop("max_workers", None)
+                proposed.pop("subagents", None)
                 proposed["runner"] = args[2]
                 scan = scan_host_catalogs(args[2])
                 written = write_local_config(proposed, current["version"], scan)
@@ -1204,6 +1311,7 @@ def main(argv: list[str] | None = None) -> int:
                     raise InvalidConfig([{"cell": "role", "reason": f"unknown role {role!r}"}])
                 proposed = json.loads(json.dumps(current))
                 proposed.pop("max_workers", None)
+                proposed.pop("subagents", None)
                 proposed["rows"][role] = {"host": host, "model": model, "effort": effort}
                 scan = scan_host_catalogs(current["runner"], [host])
                 written = write_local_config(

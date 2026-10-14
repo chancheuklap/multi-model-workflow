@@ -1,6 +1,6 @@
 # Changing host, model, which runner this machine uses, or how many tickets a night runs at once
 
-Read this only when the user has told you to change which host, model or reasoning effort (`effort` in `models.json`) a dispatched session uses, which runner the machine uses, or how many tickets a night runs at once. Change it only through the commands below.
+Read this only when the user has told you to change which host, model or reasoning effort (`effort` in `models.json`) a dispatched session uses, a subagent row, which runner the machine uses, or how many tickets a night runs at once. Change it only through the commands below.
 
 ## Change one role
 
@@ -39,3 +39,23 @@ python3 scripts/models.py config set max_workers <n>
 ```
 
 `<n>` is a whole number of at least 1. A session the owner starts in the day, and a ticket run outside a night, do not count against it.
+
+## Change one subagent row
+
+Run:
+
+```bash
+python3 scripts/models.py config subagent <row> <host> <model|inherit> <effort|inherit>
+```
+
+The rows are `review-axis`, `reader`, and `default` in `roles.json`'s `subagents` section. Choose the host explicitly, either `claude` or `codex`. To read its saved choice, run:
+
+```bash
+python3 scripts/models.py subagent <row> <host>
+```
+
+The query prints `model=<value> effort=<value>`. A missing section, row, or host returns `inherit` for both values. `inherit` keeps the sending session's model or effort. `config show` includes saved subagent settings. A write uses the same lock and version as a role change, and other configuration writes keep these settings.
+
+For `claude`, model accepts `sonnet`, `opus`, `haiku`, `fable`, or `inherit`. Effort accepts `low`, `medium`, `high`, `xhigh`, `max`, or `inherit`. These model aliases are the values the subagent dispatch call accepts, not every name the session's model picker offers.
+
+For `codex`, model accepts `inherit` or any visible model id in the `cli` → `codex` entry of `$MMW_HOME/catalog.json`. Effort accepts `inherit` or one of the selected model's efforts. With model set to `inherit`, effort accepts only `inherit` or an effort every visible model supports, because the sending session's model is not known when saving. Without that catalog, only `inherit` for both values can be saved. Click **重新扫描** on the task board or run `install.sh --check` to read the catalog first.
