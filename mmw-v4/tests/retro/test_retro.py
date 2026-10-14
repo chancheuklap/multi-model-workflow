@@ -83,7 +83,10 @@ class Fake:
                 out = json.dumps([rows[:1], rows[1:]])
         elif a[:2] == ['issue', 'view']:
             r = self.rows[int(a[2])]
-            out = json.dumps({k: r.get(k) for k in a[a.index('--json')+1].split(',')})
+            result = {k: r.get(k) for k in a[a.index('--json')+1].split(',')}
+            if 'state' in result:
+                result['state'] = result['state'].upper()
+            out = json.dumps(result)
         elif a[:2] == ['label','create']:
             out = ''
         elif a[:2] == ['issue','create']:
