@@ -67,17 +67,13 @@ _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 One memory in Nowledge Mem, kept in the **repository Space** and found by its labels: a worker's saved fact carries `mmw-experience`, `mmw-spec-<n>`, `mmw-ticket-<n>` and, for a map task, `mmw-map-<n>`; the night's **Retro Memory** carries `mmw-retro`.
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
-**`docs/agents/`**:
-This repository's `domain.md`: how to read its contexts and ADRs before exploring code. v4's `setup-mmw` writes nothing here; the tracker commands and labels live in `mmw-v4/skills/mmw-mode/references/github-issues.md`.
-_Home_: `docs/agents/domain.md`
-
 **`CONTEXT.md`**:
 The glossary of one bounded context, at `docs/contexts/<name>/CONTEXT.md`; the root `CONTEXT-MAP.md` lists the contexts and how they relate. `mmw-v3/upstream-mattpocock/CONTEXT.md` is upstream's own vocabulary and not part of it.
-_Home_: `docs/agents/domain.md`
+_Home_: `mmw-v4/skills/domain-modeling/GLOSSARY-FORMAT.md`
 
 **`AGENTS.md`**:
-A repository's agent instruction file, root plus nested ones, written to the fixed format of the `manage-agents-md` skill. The `CLAUDE.md` beside it holds only the line `@AGENTS.md` and any other `@` imports.
-_Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
+A repository's agent instruction file, root plus nested ones, which every host loads when a session starts. Claude Code loads it on its own only where no `CLAUDE.md` sits beside it; a `CLAUDE.md` that exists imports it with the line `@AGENTS.md`.
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL.md`
 
 ### The toolbox
 

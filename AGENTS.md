@@ -40,7 +40,6 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | The terms of the landing pipeline and the toolbox, split into bounded contexts; read the map before changing vocabulary | `CONTEXT-MAP.md`, then `docs/contexts/<name>/CONTEXT.md` |
 | ADR shape, the index, the translation table for two earlier numberings | `docs/adr/README.md` |
 | Every `gh` operation of the issue tracker, the three label sets, the wayfinding operations | `mmw-v4/skills/mmw-mode/references/github-issues.md` |
-| How to read the contexts and the ADRs before exploring code | `docs/agents/domain.md` |
 | The owner's guide to v4, from install to a night of unattended work | `mmw-v4/docs/guide/README.md` |
 | The night, step by step, from `check` and `open` to the pull request | `mmw-v4/skills/mmw-mode/playbooks/run-a-night.md` |
 | How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard. Written against v3's dispatch; v4's started from v2's, and the second file lists what it took out | `docs/contexts/night/how-it-works.md`, `mmw-v4/docs/removed-from-dispatch.md` |
