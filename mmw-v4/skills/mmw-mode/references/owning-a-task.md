@@ -16,8 +16,8 @@ Triggers for the task as a whole:
 - Nontrivial multi-step → write the throughput checkpoint's four items as Feature step 3 lists them, then go on with your own playbook.
 - Before review → the **no-comments** skill (`/no-comments`).
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a pull request MMW opened, Opening a PR step 3 carries it out.
-- Broken skill mid-task → don't block, and don't silently work around it: it is a problem you ran into, as the next line says, needing Authoring or modifying a skill.
-- Ran into a problem that needs a change while working on something else → open a ticket with only its `## Problem`, as `references/ticket.md` `## Opening a ticket` says for a problem nobody is working on, label it `needs-triage`, tell the owner, and go on with the task in hand.
+- Broken skill mid-task → the **register-problem** skill.
+- The owner corrects your work → the **register-problem** skill, using its `scripts/register.py add --source owner-correction`.
 
 ## Autonomy
 
@@ -32,6 +32,8 @@ Triggers for the task as a whole:
 **A second opinion is a session: `send advisor --follow "the advisor skill" <brief>`.** Ask for one before an architecture choice, a data migration, a big refactor or an API shape is committed, when one problem has resisted two attempts, or before a disputed reading of the task is treated as settled; not for what reading the code can settle. The brief carries the decision, not a narrowed question: the recent exchange quoted, your understanding, the constraints, the options and which way you lean, the paths you think matter. Leave out what to check and the conclusion you expect. For a problem that resisted two attempts, each attempt and what it produced is the core of the evidence. A choice you could reverse in minutes is not worth a session. The answer is advice: take it, or set it aside with a reason; its section for the owner goes to the owner as it stands. Do not ask again to get a different answer. A second consultation is for a new decision, or for the evidence the advisor said would change its answer.
 
 ## Writing the reply
+
+Before writing the final reply, answer the register-problem skill's three self-check questions.
 
 The reader is the owner the user-level instructions describe: they see the running product and your words, not the code. What the owner learns from you is principle and effect: what problem a technique solves, what it assumes, where it stops working, and what it does to the product. Syntax and the shape of the code are not what they are here to learn. Work done overnight is read cold the next morning, with yesterday's context forgotten, so the report has to be readable from nothing.
 
@@ -74,6 +76,7 @@ Every change outside a night lands one way, code, scripts and skill text alike: 
 - **To tickets.** Break a spec, plan, or conversation into tracer-bullet tickets with blocking edges, published as GitHub issues. `playbooks/to-tickets.md`.
 - **Run a night.** A spec's published tickets to run unattended under one orchestrator, through to one pull request. Distinct from One ticket, a ticket outside any spec. `playbooks/run-a-night.md`.
 - **One ticket.** A ticket outside any spec that the owner said go on, or handed in with acceptance criteria: send its worker, check what it built, land it, and open its pull request. `playbooks/one-ticket.md`.
+- **Retrospective.** After one run, a night or one ticket, merge and verify its problem registrations and hand proposals to the owner; also run on the owner's request to review a named run. `playbooks/retrospective.md`.
 - **Opening a PR.** Run by One ticket and Run a night once their change has landed: write one pull request, open it, settle its checks and comments, and merge it on the owner's yes. `playbooks/opening-a-pr.md`.
 - **Bug fix.** A reported defect to reproduce and root-cause with runtime evidence; the fix goes to a worker on one ticket, and you prove it on the same surface. `playbooks/bug-fix.md`.
 - **Perf issue.** A measured slowness to trace against a baseline; the change goes to a worker on one ticket, and you measure it again. `playbooks/perf-issue.md`.
@@ -88,7 +91,7 @@ Every change outside a night lands one way, code, scripts and skill text alike: 
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
 - **Set up a repository.** A repository MMW has not worked in yet, or a check-up of one ("set up MMW here", "is this repo ready for a night"): its labels, ignored directories, `scripts/check` and `TESTING.md`. The **setup-mmw** skill.
 - **Set up code checkers.** A repository with no `scripts/check`, or one gaining a language, a sub-project or a checker: its checkers installed, its tests timed and mapped, and the one command that runs them in three tiers. Distinct from Set up a repository, which checks the whole setup and sends this one item here. `playbooks/set-up-code-checkers.md`.
-- **Stop a repeated mistake.** Only when the owner names it: make a mistake agents keep repeating in this repository impossible, by a check wired into `scripts/check` before a written rule. The **correct** skill.
+- **Stop a repeated mistake.** When the owner names it, or selects a registration whose `## Problem` names `Playbook: Stop a repeated mistake`, plan a check wired into `scripts/check` that makes the repeated mistake impossible before writing a rule. The **correct** skill.
 - **Session pickup.** Resuming or taking over a prior agent's in-flight work from a transcript, a pushed branch, or an open ticket of ours. `playbooks/session-pickup.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a host restart, or imminent context compaction. The complement to Session pickup. Full steps: `playbooks/pause-safely.md`.
 - **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). `playbooks/worktree-cleanup.md`.

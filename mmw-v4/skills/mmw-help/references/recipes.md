@@ -38,5 +38,5 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 ## Away and back
 
 - `im going to bed. run spec #<n> tonight. don't ask me before committing.` The tickets' criteria are the done checks; write them before you leave.
-- `/reflect capture what we learned so the next run doesn't repeat it.` Approve only edits that change a future decision.
+- `run the retrospective for ticket #<n>. recommend which registered problems to pick.` Picking starts planning; Go authorizes implementation.
 - `/wait-what` re-pitches the last reply in plain words, with the context it skipped; `/wait-what visual` makes it one page.

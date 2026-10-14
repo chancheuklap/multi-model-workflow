@@ -3,7 +3,7 @@
 Run a night's step 2 runs `verify-ticket.py <spec> --lint`. A spec
 carries no `## Acceptance criteria`, so without this it is read as a ticket with nothing
 to check and comes back 0 without reading one sub-issue. What tells a spec apart from a
-criteria-less ticket is its layer label `mmw:spec`; an issue carrying no layer label at
+criteria-less ticket is its kind `mmw:spec`; an issue carrying no kind label at
 all is told apart by the shape of the tree, no parent and sub-issues of its own.
 """
 
@@ -80,7 +80,7 @@ class TestLintOnASpec(unittest.TestCase):
         self.assertEqual(code, 1)
 
     def test_a_criteria_less_ticket_under_a_spec_is_still_a_ticket(self):
-        """A `ready-for-human` ticket has no criteria either. Carrying no layer label, it
+        """A `ready-for-human` ticket has no criteria either. Carrying no kind label, it
         is told apart by its parent link, which costs no second question of the tracker;
         and because the tree, not a label, is what answered, the run says so, so nobody
         takes the 0 for a batch that was checked."""
@@ -109,7 +109,7 @@ class TestLintOnASpec(unittest.TestCase):
         ticket_graph.assert_called_once()
 
     def test_a_labelled_spec_attached_to_its_map_is_still_a_spec(self):
-        """The layer label says which layer the issue is, so attaching the spec under
+        """The kind label says what the issue is, so attaching the spec under
         its wayfinder map — which the mmw-mode skill's `references/github-issues.md` asks for — does not
         turn the pre-batch pass into a quiet 0 over the map's own children."""
         code, printed, _, batch, ticket_graph = lint(

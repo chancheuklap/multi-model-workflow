@@ -154,7 +154,7 @@ class InstallTest(unittest.TestCase):
             self.assertEqual(self.link("dispatch", where), str(V4 / "skills/dispatch"))
             self.assertEqual(self.link("mmw-mode", where), str(V4 / "skills/mmw-mode"))
             # A skill only v3 has is removed: the two versions are never installed together.
-            self.assertFalse((self.home / where / "retro").is_symlink(), where)
+            self.assertFalse((self.home / where / "triage").is_symlink(), where)
         self.assertEqual(os.readlink(self.home / ".claude/CLAUDE.md"), str(V4 / "prompt/shared.md"))
         self.assertIn("generated from mmw-v4/prompt/shared.md",
                       (self.home / ".codex/AGENTS.md").read_text().splitlines()[0])
@@ -168,7 +168,7 @@ class InstallTest(unittest.TestCase):
 
         models = json.loads((self.home / ".mmw/models.json").read_text())
         self.assertEqual(sorted(models["rows"]), sorted(
-            ["junior-worker", "senior-worker", "reviewer", "advisor", "researcher", "candidate"]))
+            ["junior-worker", "senior-worker", "reviewer", "advisor", "researcher", "candidate", "retro-analyst"]))
         self.assertEqual(models["rows"]["reviewer"], V3_MODELS["rows"]["reviewer"])
         backups = list((self.home / ".mmw").glob("models.json.bak-*"))
         self.assertEqual(len(backups), 1)
@@ -181,7 +181,7 @@ class InstallTest(unittest.TestCase):
         check = self.run_install("v4", "--check")
         self.assertEqual(check.returncode, 0, check.stderr)
         self.assertIn("HOOKS-INSTALLED", check.stdout.splitlines())
-        self.assertNotIn("retro", check.stdout + check.stderr)
+        self.assertNotIn("triage", check.stdout + check.stderr)
 
     def test_a_second_install_changes_nothing(self):
         self.install_v3()
@@ -201,7 +201,7 @@ class InstallTest(unittest.TestCase):
 
         for where in (".agents/skills", ".claude/skills"):
             self.assertEqual(self.link("dispatch", where), str(V3 / "skills/dispatch"))
-            self.assertEqual(self.link("retro", where), str(V3 / "skills/retro"))
+            self.assertEqual(self.link("triage", where), str(V3 / "skills/triage"))
             self.assertFalse((self.home / where / "control-cli").is_symlink(),
                              "a skill only v4 has goes with --back")
         self.assertEqual(os.readlink(self.home / ".claude/CLAUDE.md"), str(V3 / "prompt/shared.md"))

@@ -193,10 +193,12 @@ test("crossing paseo asks for a rescan", () => {
 test("the sheet has one row per role of roles.json, in its order, each with what it does", () => {
   const roles = JSON.parse(readFileSync(new URL("../../skills/dispatch/roles.json", import.meta.url)))
     .roles.map(role => role.name);
-  assert.deepEqual(roles, ["junior-worker", "senior-worker", "reviewer", "researcher", "candidate", "advisor"]);
+  assert.deepEqual(roles, ["junior-worker", "senior-worker", "reviewer", "researcher", "candidate", "retro-analyst", "advisor"]);
   const rows = Object.fromEntries(roles.map(role => [role, copy(saved.rows.reviewer)]));
   const config = {runner: "orca", rows};
   const view = settingsView({draft: copy(config), saved: copy(config)}, scan, CATALOG);
   assert.deepEqual(view.rows.map(row => row.agent), roles);
   for (const row of view.rows) assert.ok(row.what, row.agent);
+  assert.equal(view.rows.find(row => row.agent === "retro-analyst").what,
+    "从一个角度分拣一次运行的问题登记，核实、合并、给出方案");
 });

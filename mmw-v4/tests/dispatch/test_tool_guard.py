@@ -188,6 +188,7 @@ class TestWhatItStops(unittest.TestCase):
     PASSED = [
         "ls",
         "pytest -q",
+        f"python3 {SKILLS}/register-problem/scripts/register.py add problem.md",
         f"gh issue view {TICKET} --json comments",
         f"gh issue comment {TICKET} --body-file draft.md",
         f"gh issue edit {TICKET} --add-assignee @me",

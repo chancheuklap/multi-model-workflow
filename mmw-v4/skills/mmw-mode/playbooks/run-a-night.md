@@ -21,8 +21,10 @@ Find where you are by the first row whose fact holds; the record says where you 
 | The spec carries `spec.merged` | Nothing: the night is merged; tell the user so |
 | The user has said the night starts, and the spec carries no `spec.opened` | [1. The user says the night starts](#1-the-user-says-the-night-starts), then 1b and 2 |
 | The spec's newest night event is `spec.suspended`, or you are deciding to stop the night because the fault is in the pipeline | [Suspending the night](#suspending-the-night) |
+| A retrospective brief wake arrived after `spec.closed` | Resume Retrospective (`playbooks/retrospective.md`) at **Check and apply the answers** |
 | A wake arrived: `#<n> <event>`, `brief <batch> done`, a line of `watchdog:` alerts, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
 | `dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
+| The spec carries `spec.closed` and no `spec.retroed` | Enter Retrospective (`playbooks/retrospective.md`) with `--spec <spec>` through its re-entry instructions, then [6. Open the pull request](#6-open-the-pull-request) |
 | The spec carries `spec.closed`, and no open pull request runs from the night's branch to the project branch | [6. Open the pull request](#6-open-the-pull-request) |
 | The pull request is open, and the user has accepted it | [7. Merge the accepted night](#7-merge-the-accepted-night) |
 | The pull request is open, and the user has not accepted it | Nothing: wait for the user |
@@ -73,7 +75,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 
 1. Do steps 1-3 of the dispatch skill's `## On waking`, which end with the ack.
 2. Run `dispatch.sh status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers.
-3. Take every row the table matches, not only the ticket named by the wake.
+3. Take every row the table matches, not only the ticket named by the wake. For `ticket.returned`, a `fault` child, or `ticket.checked` with `result=handoff`, register each new stall event with the register-problem skill's `scripts/register.py add --source stall`. First read the source ticket's comments for that event's registration. After a successful add, comment there with the originating event's comment URL and the registration issue. Reuse that registration when the same event appears on a later wake or in the closing pass.
 4. Run `dispatch.sh advance <spec>` once. Its exit codes are under [**2. First `advance`**](#2-first-advance).
 5. When the `advance` you just ran left the frontier empty and no agent live (read `status` again), go to [4. The closing pass](#4-the-closing-pass); otherwise end your turn.
 
@@ -97,13 +99,15 @@ While a worker holds a ticket, its code is the worker's: you change what the wor
 
 For a `contract` child, use this authority order exactly: **decision tickets and ADRs, then the spec, then the design package, then domain documents, then the ticket body**. The e2e tests and the design package stay unchanged during the night. A `contract` child that asks to change an e2e test or the design package always follows the no-authority branch below. Fix it yourself when you can cite a written authority at that order: a higher authority, a more specific file within the same authority, a repository rule, or the artifact a baseline copied. Edit the tracker-owned spec, acceptance criterion, or ticket body directly; when a spec changes, leave the change-and-reason comment that the Revising a spec playbook (`playbooks/revising-a-spec.md`) requires. Edit a repository-owned baseline through the normal `origin/<into>` commit and push procedure in [4. The closing pass](#4-the-closing-pass). Correct every not-yet-landed ticket derived from the same bad statement. Comment on the child with the authority used, every published item corrected, the source commit, and the tickets checked; run `dispatch.sh route <n> <child> fixed`, then resume the active worker with the exact correction, the commit it should integrate from, and `continue`.
 
-When no authority settles the correction, or the proposed correction would overturn the user's decision or expand the spec, leave the choice to the user. Find every not-yet-started ticket derived from the same Parent decision, move each from `ready-for-agent` to `needs-triage`, and comment on the child with the unresolved options, your recommendation, and the ticket numbers moved. Leave the child open for the user. For a ticket already being worked, use `dispatch.sh resume` to tell its worker to abandon the affected criterion as `stuck`, with the reason pointing to this child, and close out so `ticket.returned` moves the ticket to `needs-triage`. When the child asks to change an e2e test or the design package, correct it during the day; for the design package, use the `design-pages` skill to correct the design and pull it again. Commit and push the corrected e2e tests to the next night's branch before `dispatch.sh open`, since ticket checkouts start from `origin`. Close out the child and return both the handed-back tickets and the same-source not-yet-started tickets to `ready-for-agent`.
+When no authority settles the correction, or the proposed correction would overturn the user's decision or expand the spec, leave the choice to the user. Add `needs-triage` to the `contract` child with `gh issue edit <child> --add-label needs-triage`. Find every not-yet-started ticket derived from the same Parent decision, move each from `ready-for-agent` to `needs-triage`, and comment on the child with the unresolved options, your recommendation, and the ticket numbers moved. Leave the child open for the user. For a ticket already being worked, use `dispatch.sh resume` to tell its worker to abandon the affected criterion as `stuck`, with the reason pointing to this child, and close out so `ticket.returned` moves the ticket to `needs-triage`. When the child asks to change an e2e test or the design package, correct it during the day; for the design package, use the `design-pages` skill to correct the design and pull it again. Commit and push the corrected e2e tests to the next night's branch before `dispatch.sh open`, since ticket checkouts start from `origin`. Close out the child and return both the handed-back tickets and the same-source not-yet-started tickets to `ready-for-agent`.
 
 ##### Exit codes of `resume`
 
 Exits 4 and 2 name their next step on stderr. When you run `resume` again after exit 3, word it so a worker that receives both messages reads them as one instruction. A worker that `start <n> worker` puts in place of the old one has none of the instructions given only inside the old session; send them again with `resume`.
 
 #### 4. The closing pass
+
+Register stalls found here as [3. Each time something wakes you](#3-each-time-something-wakes-you) says.
 
 The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go straight to the run of `scripts/check --all` at the end of this step.
 
@@ -180,7 +184,7 @@ dispatch.sh summary <spec>
 
 `summary` exit 0: `NIGHT SUMMARY` is posted and the spec watch is closed. Exit 1: posted and closed, and a relay was left running; end the pid stderr names. Exit 2: nothing was posted; fix what stderr names and run `summary` again. A refusal counting findings no route reached sends you back to step 4.
 
-Then go to step 6.
+Then run Retrospective (`playbooks/retrospective.md`) with `--spec <spec>` before step 6. Resume that playbook on its brief wake, rather than returning to **Each time something wakes you**. Its result, including any failure, goes into the pull request.
 
 #### 6. Open the pull request
 
