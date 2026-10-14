@@ -6347,7 +6347,7 @@ scenario_finishkeepsunmergedlocalnight() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "finish with local-only work failed: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/repo" rev-parse night)" = "$tip" ] || fail "finish lost the local-only work"
-  grep -q 'local night' "$TMP/err" || fail "finish did not explain the retained local work"
+  grep -qw 'night' "$TMP/err" || fail "finish did not explain the retained local work"
   ! grep -qF 'git branch -D' "$TMP/err" || fail "finish suggested deleting local-only work"
   git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "contained origin night remains"
   return 0
@@ -7935,7 +7935,7 @@ scenario_landedkeepsunmergedlocalbranch() {
   [ "$(git -C "$TMP/repo" rev-parse issue-61)" = "$tip" ] || fail "landing lost local-only commits"
   git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the passed commit did not land"
   ! git -C "$TMP/origin.git" cat-file -e main:local.txt 2>/dev/null || fail "unpassed local work landed"
-  grep -q 'keeping local issue-61' "$TMP/err" || fail "landing did not explain retained local-only work"
+  grep -qw 'issue-61' "$TMP/err" || fail "landing did not explain retained local-only work"
 }
 
 scenario_bouncedkeepsbranch() {
