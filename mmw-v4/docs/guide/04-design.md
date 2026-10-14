@@ -67,7 +67,7 @@ Use the swarm skill when parallel work buys coverage. The arena skill gives ever
 review the changes on this branch. the request was: add a --json flag, text output stays byte-identical.
 ```
 
-The code-review skill reads a finished change on four axes, each a separate subagent on the session's own model:
+The code-review skill reads a finished change on four axes, each a separate subagent on the `review-axis` subagent row, whose model and effort per host you set with `models.py config subagent` (`inherit`, the default, keeps the session's own):
 
 - Standards asks whether the code follows the conventions the repository documents, and whether less code would do the same.
 - Spec asks whether the code does what was asked, no less and no more.
