@@ -71,7 +71,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`grilling`](./skills/grilling/SKILL.md) | Have a plan or idea stress-tested in rounds of numbered questions, each with a recommended answer. |
 | [`domain-modeling`](./skills/domain-modeling/SKILL.md) | Settle the project's terms and record decisions in the glossary and the ADRs. |
 | [`advisor`](./skills/advisor/SKILL.md) | Get a second opinion on one decision from a session on a stronger model. |
-| [`figure-it-out`](./skills/figure-it-out/SKILL.md) | Design a rigorous, auditable playbook when no bundled playbook fits the task. |
+| [`figure-it-out`](./skills/figure-it-out/SKILL.md) | Design a rigorous playbook when no bundled playbook fits the task. |
 | [`tdd`](./skills/tdd/SKILL.md) | Write the failing test first, then the code, with tests only at agreed seams. |
 | [`code-review`](./skills/code-review/SKILL.md) | Review a finished diff on four axes: Standards, Spec, Tests and Correctness. |
 | [`no-comments`](./skills/no-comments/SKILL.md) | Strip comments from a diff before review, and fix or encode what the accepted findings name. |
