@@ -3583,6 +3583,23 @@ pr_gate() {
   fi
 }
 
+close_finished_spec() {
+  local spec="$1" state out
+  if ! state="$(gh_ issue view "$spec" --json state --jq .state 2>&1)"; then
+    echo "dispatch: #$spec was not closed because its state could not be read: $state; run finish again (finish $spec)" >&2
+    return 2
+  fi
+  case "$state" in
+    CLOSED) return 0 ;;
+    OPEN) ;;
+    *) echo "dispatch: #$spec was not closed because its state is unreadable ($state); run finish again (finish $spec)" >&2; return 2 ;;
+  esac
+  if ! out="$(gh_ issue close "$spec" --reason completed 2>&1)"; then
+    echo "dispatch: #$spec was not closed: $out; run finish again (finish $spec)" >&2
+    return 2
+  fi
+}
+
 finish_spec() {
   local spec="$1" root into project merged merge base attempt rc out files checked_by
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
@@ -3598,6 +3615,7 @@ finish_spec() {
   merged="$(newest_field "$spec" merge spec.merged 2>/dev/null)" || merged=""
   if [ -n "$merged" ]; then
     finish_cleanup "$root" "$into" "$project"
+    close_finished_spec "$spec" || return 2
     echo "finish #$spec: merge $merged was already recorded; cleanup checked"
     return 0
   fi
@@ -3613,6 +3631,7 @@ finish_spec() {
       fi
       release_merge_lock
       finish_cleanup "$root" "$into" "$project"
+      close_finished_spec "$spec" || return 2
       echo "finish #$spec: origin/$into was already absent; cleanup checked"
       return 0
     fi
@@ -3627,6 +3646,7 @@ finish_spec() {
       fi
       release_merge_lock
       finish_cleanup "$root" "$into" "$project"
+      close_finished_spec "$spec" || return 2
       echo "finish #$spec: origin/$project already contained $into; cleanup checked"
       return 0
     else
@@ -3679,6 +3699,7 @@ finish_spec() {
     fi
     release_merge_lock
     finish_cleanup "$root" "$into" "$project"
+    close_finished_spec "$spec" || return 2
     echo "finish #$spec: merged $into into origin/$project at $merge; cleanup checked"
     return 0
   done
