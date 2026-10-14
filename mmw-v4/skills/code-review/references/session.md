@@ -73,6 +73,8 @@ In-ticket findings get one round of fixes on this ticket, because a review never
 
 ## 5. Write one review report on the ticket
 
+Answer the register-problem skill's three self-check questions before writing the report. Review findings still go in this report for the worker to handle through the existing finding workflow. Register other problems with the register-problem skill's `scripts/register.py add`.
+
 Write the report to a file, then hand that file to the `verify-ticket` skill's `verify-ticket.py`:
 
 ```sh

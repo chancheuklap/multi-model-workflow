@@ -32,7 +32,7 @@ observe.
 | Run | The documented dev command, its ports, env vars, seed data, auth | The target's `app.command` (topic `setup`). A dev server that compiles a route on first visit reads as broken to an agent, so prefer a production build command when the repo has one |
 | e2e state | `tests/e2e/<product>/e2e.config.ts`, the `tests` glob, `e2e` in `package.json`, and any Playwright or Cypress suite | Install the packages and write the config as below. An existing Playwright or Cypress suite is the best source of locators, data setup, and sign-in steps; read it. Configure no model. A config with no model runs the deterministic steps, and nothing else |
 | Observe | The trace page, screenshots, the report, and what the app leaves behind in files, rows, sent messages, logs | The side-effect stores the Evidence section names. Find them now |
-| Isolate | Can each run have its own port and data directory, and each checkout its own back-end stack? | Both layers are required in Launch, as below. If either cannot hold, open a prerequisite ticket before this product gets UI tickets |
+| Isolate | Can each run have its own port and data directory, and each checkout its own back-end stack? | Both layers are required in Launch, as below. If either cannot hold, register the prerequisite before this product gets UI tickets |
 | Name | The package name or the repo name; if `design/<x>/` or `verify-<x>` exists, use x | `<product>` in `verify-<product>`, lowercase, no scope. A name mismatch makes setup-mmw report a missing `verify-<x>` |
 
 For a new project without code, use the design-package branch below; the
@@ -119,9 +119,8 @@ one stack. If the stack runs checkout code, its readiness check must establish
 that the running code is current, not just that a port answers.
 
 If ports or data directories are fixed, or the stack cannot be separated by
-checkout, open a prerequisite ticket with only `## Problem`, labelled
-`needs-triage`, as the mmw-mode skill's `references/ticket.md` `## Opening a ticket`
-step 1 says. This product gets no UI ticket until that prerequisite lands.
+checkout, register the prerequisite with the **register-problem** skill. This
+product gets no UI ticket until that prerequisite lands.
 Record the prerequisite in Hand over.
 
 For desktop Electron, the product target uses e2e's browser provider with

@@ -82,7 +82,8 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Vet a performance number before reporting or acting on it | `benchmark-checklist` |
 | Run a task no playbook fits, with a step list designed for it | `figure-it-out` |
 | Write or edit a skill, a playbook or a reference to the set's standards | `writing-for-agents` |
-| Turn what a finished task taught into skill edits | `reflect` |
+| Register a problem that cannot be fixed in the current work | `register-problem` |
+| Gather and sort a run's problems into proposals for the owner | `retro` |
 | Stop agents from repeating the same mistakes in this repo | `correct` |
 | Find their way around MMW | `mmw-help` |
 
@@ -119,7 +120,7 @@ For a run that drifts, [`references/prompting.md`](references/prompting.md) has 
 
 ## Make MMW my own
 
-- `reflect` after a session turns its lessons into skill edits the user approves.
+- After a run, Retrospective sorts registered problems into proposals the owner picks before planning and implementation.
 - "Write a skill for <workflow>" runs the Authoring or modifying a skill playbook. The Eval playbook tests a skill change blind.
 - Fix a misbehaving skill in its own change, not inside the feature work where it went wrong.
 

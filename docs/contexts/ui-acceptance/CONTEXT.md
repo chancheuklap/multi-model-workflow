@@ -81,7 +81,7 @@ The Launch helper that removes stacks whose checkout is gone, reuses this checko
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **prerequisite ticket**:
-A problem ticket for a product that cannot meet either isolation layer. It must land before that product gets UI tickets.
+A problem registered with the register-problem skill for a product that cannot meet either isolation layer. Its fix must land before that product gets UI tickets.
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **smoke ticket**:

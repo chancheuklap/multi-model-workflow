@@ -12,7 +12,7 @@ The chapters:
 6. [Verify and ship](./06-verify-and-ship.md). Prove the change on the real product with `control-cli`, `control-ui` and a verification skill, vet numbers with `benchmark-checklist`, and deliver one pull request through One ticket or a night, with Opening a PR.
 7. [Run work while you sleep](./07-overnight.md). A spec's tickets worked unattended by dispatched workers, delivered as one pull request in the morning.
 8. [Steer with principle names](./08-principles.md). The 34 principles, and how naming one redirects an agent mid-task.
-9. [Make it yours](./09-make-it-yours.md). Author a skill, test it with Eval, and capture lessons with `reflect` and `correct`.
+9. [Make it yours](./09-make-it-yours.md). Author a skill, test it with Eval, and register problems with `register-problem`, review them through Retrospective, and stop repeated mistakes with `correct`.
 10. [Recipes and pitfalls](./10-recipes-and-pitfalls.md). Prompts to copy and mistakes to skip.
 
 Read the chapters in order the first time. After that, each chapter stands alone.

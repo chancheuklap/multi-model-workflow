@@ -7,10 +7,10 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce|advancecapbadconfig
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefreport|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefproblems|briefreport|retract
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh route|specfield|suspend|status
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh orcaclosed
@@ -2798,6 +2798,22 @@ newest_batch() {
 # What the relay keeps for the watch <key>: "runner session", or nothing.
 brief_watch() { watch_main "$1"; }
 
+scenario_briefproblems() {
+  local code packet batch copy
+  packet="$TMP/problem-brief.md"
+  printf '%s\n' '## Task' 'Answer the question.' '## Known' 'The options are available.' '## For' 'A decision.' > "$packet"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "send advisor expected exit 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  copy="$STATE_DIR/briefs/$batch/1/brief.md"
+  grep -q '## Problems' "$copy" || fail "the brief copy does not ask for a Problems section"
+  [ "$rc" -ne 0 ] || echo 'the brief asks for a Problems section'
+}
+
 scenario_sendbrief() {
   local code packet second batch dest copy
   packet="$TMP/packet.txt"
@@ -3765,6 +3781,9 @@ write_route_batch() {
                 $(ev child.opened 61 "Opened #92 (finding)" --spec 76 --field child=92 --field kind=finding),
                 $(ev child.opened 61 "Opened #93 (deferred)" --spec 76 --field child=93 --field kind=deferred)]},
   {"number": 80, "state": "OPEN", "labels": ["ready-for-agent"], "parent": {"number": 76}},
+  {"number": 81, "state": "OPEN", "labels": ["mmw:lesson"], "parent": {"number": 76}},
+  {"number": 82, "state": "OPEN", "labels": ["ready-for-agent", "mmw:ticket"], "parent": {"number": 76}},
+  {"number": 83, "state": "OPEN", "labels": ["ready-for-agent", "mmw:problem"], "parent": {"number": 76}},
   {"number": 90, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
   {"number": 91, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 61}},
   {"number": 92, "state": "OPEN", "labels": ["needs-triage", "mmw:child"], "parent": {"number": 76}},
@@ -3775,6 +3794,84 @@ JSON
 }
 
 route_in() { run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" "$@"; }
+
+scenario_routeonekind() {
+  local code
+  reset_log
+  fresh_repo
+  write_route_batch
+
+  echo "--- became-ticket onto a problem"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 83)"
+  [ "$code" = 0 ] || fail "a problem should become a ticket, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 83 :: --add-label :: mmw:ticket :: --remove-label :: mmw:problem"
+  [ "$(grep -cF 'gh :: issue :: edit :: 83 ::' "$MMW_TEST_LOG")" = 1 ] \
+    || fail "the problem's kind should change in one edit"
+  has "gh :: issue :: close :: 90 :: --duplicate-of :: 83"
+
+  echo "--- became-ticket onto a lesson"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 became-ticket 81)"
+  [ "$code" = 0 ] || fail "a lesson should become a ticket, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 81 :: --add-label :: mmw:ticket :: --remove-label :: mmw:lesson"
+  [ "$(grep -cF 'gh :: issue :: edit :: 81 ::' "$MMW_TEST_LOG")" = 1 ] \
+    || fail "the lesson's kind should change in one edit"
+  has "gh :: issue :: close :: 91 :: --duplicate-of :: 81"
+
+  echo "--- run again on a target that is already a ticket"
+  : > "$MMW_TEST_LOG"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 82)"
+  [ "$code" = 0 ] || fail "an existing ticket should accept the route, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit"
+  has "gh :: issue :: close :: 92 :: --duplicate-of :: 82"
+  : > "$MMW_TEST_LOG"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 82)"
+  [ "$code" = 0 ] || fail "the repeated route should exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit"
+  hasnt "gh :: issue :: close"
+  [ "$(posted_events 61 child resolution became spec | tr '\n' '|')" = \
+    "child.closed child=90 resolution=became-ticket became=83 spec=76|child.closed child=91 resolution=became-ticket became=81 spec=76|child.closed child=92 resolution=became-ticket became=82 spec=76|" ] \
+    || fail "each conversion should record one route: $(posted_events 61 child resolution became spec)"
+}
+
+scenario_routerefusesmapspec() {
+  local code target kind child
+  reset_log
+  fresh_repo
+  write_route_batch
+
+  while read -r target kind child; do
+    echo "--- became-ticket onto a $kind: refused, nothing done"
+    : > "$MMW_TEST_LOG"
+    code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 "$child" became-ticket "$target")"
+    [ "$code" = 2 ] || fail "a $kind should refuse to become a ticket, got $code: $(cat "$TMP/err")"
+    grep -Fq "#$target carries mmw:$kind" "$TMP/err" \
+      || fail "the refusal should name #$target and mmw:$kind: $(cat "$TMP/err")"
+    hasnt "gh :: issue :: edit"
+    hasnt "gh :: issue :: close"
+    hasnt "gh :: issue :: comment"
+  done <<'ROUTES'
+18 map 90
+76 spec 91
+ROUTES
+  [ -z "$(posted_events 61)" ] || fail "no child.closed should be posted: $(posted_events 61)"
+
+  echo "--- without a spec, a map is refused as a duplicate target too"
+  reset_log
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 18, "state": "OPEN", "labels": ["mmw:map"], "parent": null},
+  {"number": 61, "state": "CLOSED", "labels": ["mmw:ticket"], "parent": null,
+   "comments": [$(ev child.opened 61 "Opened #90 (finding)" --field child=90 --field kind=finding)]},
+  {"number": 90, "state": "OPEN", "labels": ["mmw:child"], "parent": {"number": 61}}
+]
+JSON
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket 18)"
+  [ "$code" = 2 ] || fail "a map without a spec should refuse to become a ticket, got $code: $(cat "$TMP/err")"
+  grep -Fq "#18 carries mmw:map" "$TMP/err" || fail "the refusal should name #18 and mmw:map: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: edit"
+  hasnt "gh :: issue :: close"
+  [ -z "$(posted_events 61)" ] || fail "no child.closed should be posted: $(posted_events 61)"
+}
 
 scenario_routenospec() {
   local code
@@ -3875,7 +3972,8 @@ scenario_route() {
   echo "--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
   [ "$code" = 0 ] || fail "route became-ticket to another ticket expected exit 0, got $code: $(cat "$TMP/err")"
-  has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket"
+  grep -Fxq 'gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket' "$MMW_TEST_LOG" \
+    || fail "the target without a kind should only gain mmw:ticket"
   hasnt "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --parent"
   has "gh :: issue :: close :: 93 :: --duplicate-of :: 80"
 
@@ -8357,8 +8455,9 @@ PY
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
-ALL="$ALL routenospec missingverifyticket"
+ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
+ALL="$ALL briefproblems"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

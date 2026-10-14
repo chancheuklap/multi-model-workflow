@@ -92,7 +92,8 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`setup-mmw`](./skills/setup-mmw/SKILL.md) | Set a repository up for the landing pipeline, or check one already set up: its labels, ignored directories, checks, `TESTING.md`, and a `CLAUDE.md` that imports `AGENTS.md` when it has none. |
 | [`verify-ticket`](./skills/verify-ticket/SKILL.md) | Run a ticket's acceptance criteria and close the ticket when they pass. |
 | [`resolving-merge-conflicts`](./skills/resolving-merge-conflicts/SKILL.md) | Finish a merge or rebase that has conflicts, or a clean merge that turns the checks red. |
-| [`reflect`](./skills/reflect/SKILL.md) | Capture what a long task taught as an edit to a skill. |
+| [`register-problem`](./skills/register-problem/SKILL.md) | Register an evidenced problem that cannot be fixed in the current work, preserving repeated occurrences. |
+| [`retro`](./skills/retro/SKILL.md) | Gather and sort one run's registrations and signals into proposals for the owner. |
 | [`correct`](./skills/correct/SKILL.md) | Stop a repeated agent mistake by changing the repository: architecture first, then types and checks, then tests, then docs. |
 
 ## Principles
@@ -138,7 +139,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 
 ## Models
 
-The `dispatch` skill sends sessions in six roles, listed in [`roles.json`](./skills/dispatch/roles.json): `junior-worker`, `senior-worker`, `reviewer`, `researcher`, `candidate` and `advisor`. Each role is one row of `~/.mmw/models.json`, which names its host, its model and its reasoning effort. The same file names the runner that starts the sessions. A role's `default` in `roles.json` is the row install writes for it on a machine whose file lacks one.
+The `dispatch` skill sends sessions in seven roles, listed in [`roles.json`](./skills/dispatch/roles.json): `junior-worker`, `senior-worker`, `reviewer`, `researcher`, `candidate`, `retro-analyst` and `advisor`. Each role is one row of `~/.mmw/models.json`, which names its host, its model and its reasoning effort. The same file names the runner that starts the sessions. A role's `default` in `roles.json` is the row install writes for it on a machine whose file lacks one.
 
 Change it only with `models.py config`. A change takes effect at the next session start, with no restart and no reinstall.
 
