@@ -13,7 +13,7 @@ MMW 只在正在执行的步骤点名时派宿主的通用子代理，用该步�
 
 [#1025](https://github.com/chancheuklap/multi-model-workflow/issues/1025) 的 `## Sources` 记录了派遣接口的依据。Claude Code 从 2.1.292 起，派遣调用可直接带型号与强度。2026-10-14 的 Codex 0.162.1 实测显示，`spawn_agent` 参数含 `model` 与 `reasoning_effort`，父会话派出的子会话采用了指定的型号与强度。
 
-`roles.json` 的 `subagents` 段登记 `review-axis`、`reader`、`default` 三行。子代理行没有会话角色那样的 `default` 启动配置，三行的初始型号与强度均为 `inherit`。名为 `default` 的子代理行供步骤明确点名，不是任意派遣的回退行。
+`roles.json` 的 `subagents` 段登记 `review-axis`、`reader`、`default` 三行。子代理行没有会话角色那样的 `default` 启动配置，三行的初始型号与强度均为 `inherit`。名为 `default` 的子代理行用于步骤明确点名该行，或步骤点名派子代理却未点名行的情形。没有步骤点名的派遣不使用任何行，也不派子代理。
 
 ## Considered Options
 
@@ -26,4 +26,3 @@ MMW 只在正在执行的步骤点名时派宿主的通用子代理，用该步�
 - 0015 关于不交付子代理定义文件的决定不变。它关于子代理只能用父会话型号、单独换型号需要另设入口的限制不再成立。
 - 主人可通过 `models.py config subagent` 改一行，下一次点名派遣就读取新值，不影响 reviewer 等会话角色。
 - 每个点名的派遣都派新的子代理。worker 仍为它那一次审查修正保留会话。
-- 一夜的事实由票据事件和夜间总结记录，不另记交由子代理审查的决策日志。
