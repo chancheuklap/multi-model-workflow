@@ -187,6 +187,17 @@ def check_testing(report: Report, root: Path):
                    "and the reviewer's Tests axis reads none")
 
 
+def check_claude_md(report: Report, root: Path):
+    """A root CLAUDE.md: Claude Code reads only CLAUDE.md when one exists, so a one-line
+    import of AGENTS.md guarantees AGENTS.md reaches it."""
+    if (root / "CLAUDE.md").is_file():
+        report.add("ok", "repository", "CLAUDE.md", "present")
+    else:
+        report.add("missing", "repository", "CLAUDE.md",
+                   "absent; setup creates it, holding the one line @AGENTS.md, so Claude Code "
+                   "is sent to AGENTS.md")
+
+
 def check_verification_skills(report: Report, root: Path):
     for design in sorted((root / "design").glob("*")):
         if not design.is_dir():
@@ -240,6 +251,7 @@ def main() -> int:
     check_labels(report)
     check_repository_check(report, root)
     check_testing(report, root)
+    check_claude_md(report, root)
     check_verification_skills(report, root)
     check_install(report)
     report.print()

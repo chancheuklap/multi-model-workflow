@@ -91,7 +91,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`benchmark-checklist`](./skills/benchmark-checklist/SKILL.md) | Vet a measured speedup or regression before you report it or act on it. |
 | [`show-me-your-work`](./skills/show-me-your-work/SKILL.md) | Keep a decision log as a TSV file, one row per decision, for review after you step away. |
 | [`dispatch`](./skills/dispatch/SKILL.md) | Send a session to a ticket or a brief, run a night as its orchestrator, run one ticket outside a night, change a role's host, model, effort or runner, or open the local task board. |
-| [`setup-mmw`](./skills/setup-mmw/SKILL.md) | Set a repository up for the landing pipeline, or check one already set up: its labels, ignored directories, checks and `TESTING.md`. |
+| [`setup-mmw`](./skills/setup-mmw/SKILL.md) | Set a repository up for the landing pipeline, or check one already set up: its labels, ignored directories, checks, `TESTING.md`, and a `CLAUDE.md` that imports `AGENTS.md` when it has none. |
 | [`verify-ticket`](./skills/verify-ticket/SKILL.md) | Run a ticket's acceptance criteria and close the ticket when they pass. |
 | [`resolving-merge-conflicts`](./skills/resolving-merge-conflicts/SKILL.md) | Finish a merge or rebase that has conflicts, or a clean merge that turns the checks red. |
 | [`reflect`](./skills/reflect/SKILL.md) | Capture what a long task taught as an edit to a skill. |

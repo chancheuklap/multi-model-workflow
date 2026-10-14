@@ -160,6 +160,7 @@ class TestCheck(unittest.TestCase):
         (self.root / "scripts" / "check").write_text("#!/usr/bin/env bash\nexit 0\n")
         (self.root / "scripts" / "check").chmod(0o755)
         (self.root / "TESTING.md").write_text("# Testing\n")
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n")
 
     def run_check(self, fake):
         check = load("check")
@@ -181,9 +182,9 @@ class TestCheck(unittest.TestCase):
         fake = Fake(root=self.root, labels_have={}, ignored=())
         code, out = self.run_check(fake)
         self.assertEqual(code, 1)
-        for item in ("labels", ".gitignore", "scripts/check", "TESTING.md"):
+        for item in ("labels", ".gitignore", "scripts/check", "TESTING.md", "CLAUDE.md"):
             self.assertRegex(out, rf"(?m)^missing +repository +{item}:", item)
-        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 4 missing"), out)
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 5 missing"), out)
         self.assertEqual(fake.writes(), [])
         self.assertEqual(fake.labels_have, {})
 
@@ -197,6 +198,25 @@ class TestCheck(unittest.TestCase):
         code, out = self.run_check(Fake(root=self.root))
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"(?m)^missing +repository +scripts/check:")
+
+    def test_a_missing_claude_md_is_missing_and_check_writes_none(self):
+        self.set_up_repository()
+        (self.root / "CLAUDE.md").unlink()
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +CLAUDE.md: absent; setup creates it, "
+                              r"holding the one line @AGENTS.md")
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 1 missing"), out)
+        self.assertFalse((self.root / "CLAUDE.md").exists())
+
+    def test_any_existing_claude_md_is_ok_and_left_as_it_is(self):
+        self.set_up_repository()
+        own = "# House rules\n\nSee docs/CONTRIBUTING.md.\n"
+        (self.root / "CLAUDE.md").write_text(own)
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +CLAUDE.md: present$")
+        self.assertEqual((self.root / "CLAUDE.md").read_text(), own)
 
     def test_a_design_package_without_its_verify_skill_is_missing(self):
         self.set_up_repository()
