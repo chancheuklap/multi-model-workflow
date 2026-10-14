@@ -203,7 +203,6 @@ class InstallTest(unittest.TestCase):
                       "timeout": 30, "loop_limit": 3}]}}))
         grok_hooks = self.home / ".grok/hooks/mmw-turn-guard.json"
         grok_hooks.parent.mkdir(parents=True)
-        (self.home / ".grok/config.toml").write_text("[compat.claude]\nagents = false\n")
         grok_hooks.write_text(json.dumps({"hooks": {"Stop": [{"hooks": [
             {"type": "command", "command": f"python3 '{scripts}/turn-guard.py' stop grok",
              "timeout": 30}]}]}}))
@@ -277,8 +276,9 @@ class InstallTest(unittest.TestCase):
         (self.home / ".mmw/installed-root").write_text(f"{V4}\n")
         before = self.run_install("v4", "--check")
         self.assertEqual(before.returncode, 1)
-        for host in ("claude", "codex", "grok"):
+        for host in ("claude", "codex"):
             self.assertIn(f"缺    {host} 子代理层数", before.stderr)
+        self.assertNotIn("grok", before.stderr)
 
         r = self.run_install("v4")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -287,12 +287,12 @@ class InstallTest(unittest.TestCase):
         self.assertIn("someone-elses-hook", hook_commands(self.home / ".claude/settings.json"))
         agents = tomllib.loads(codex.read_text())["agents"]
         self.assertEqual(agents, {"max_threads": 12, "max_depth": 2})
-        self.assertEqual(tomllib.loads(grok.read_text()),
-                         {"compat": {"claude": {"agents": False}}, "subagents": {"max_depth": 2}})
+        self.assertEqual(grok.read_text(), "[compat.claude]\nagents = false\n",
+                         "Grok's config is not v4's to change")
 
         check = self.run_install("v4", "--check")
         self.assertEqual(check.returncode, 0, check.stderr)
-        self.assertIn("已装  grok 子代理层数 2", check.stdout)
+        self.assertIn("已装  codex 子代理层数 2", check.stdout)
 
     @unittest.skipUnless(os.uname().sysname == "Darwin", "launchd is macOS only")
     def test_prompt_sync_job_is_written_and_loaded_on_a_real_home(self):

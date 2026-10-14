@@ -44,7 +44,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | The night, step by step, from `check` and `open` to the pull request | `mmw-v4/skills/mmw-mode/playbooks/run-a-night.md` |
 | How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard. Written against v3's dispatch; v4's started from v2's, and the second file lists what it took out | `docs/contexts/night/how-it-works.md`, `mmw-v4/docs/removed-from-dispatch.md` |
 | What install installs and leaves untouched, and how `--back` works | `mmw-v4/install.sh` header comment, `mmw-v4/README.md` `## Install and go back` |
-| Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v4/prompt/README.md` |
+| Which prompt file reaches which host by which route, and the generated file's shape | `mmw-v4/prompt/README.md` |
 | Every skill and principle, one line each | `mmw-v4/README.md` `## Skills` and `## Principles` |
 | The intents the skill set is held to; read before changing what a skill does | `mmw-v4/skills/writing-for-agents/DESIGN-INTENTS.md` |
 | Every rule for the text of a skill, playbook or reference, which component a text goes in and the shape of each, and how a copy is compared with a newer upstream; read before writing, editing or reviewing one | `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` and `SKILL-SET-COMPONENTS.md` |
@@ -57,7 +57,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 - A skill or playbook v4 no longer uses is moved to `mmw-v4/docs/retired-skills/` or `mmw-v4/docs/retired-playbooks/`, not deleted.
 - Upstream text enters by copy, not by link. `mmw-v3/upstream-mattpocock/`, `mmw-v3/upstream-pstack/`, `mmw-v3/upstream-cursor-team-kit/` and `mmw-v3/upstream-diagram-design/` are read-only squash subtrees; the commit that copies a file into `mmw-v4/skills/` names the repository that first wrote it, the path there and the commit it was read at, and a later edit says in its own commit message what it changed and why. gate-check under the `verify-ticket` skill came from Leonxlnx/unlazy and is owned here, not pulled again.
 - Every git worktree the pipeline makes sits under the main worktree's `.worktrees/`: `issue-<n>` per ticket, `merge-<branch>` per merge target with one lock each, `fix-<n>` per ticket a playbook opens outside a spec, and `baseline-<n>` per ticket's claim-time baseline run, removed after the run; those names belong to the pipeline. This checkout also carries one hand-made worktree, `mmw-installed`, a full checkout.
-- The user-level prompt is edited in `mmw-v4/prompt/shared.md`, read by Claude Code, Codex and Grok. `~/.codex/AGENTS.md` and `~/.grok/AGENTS.md` are generated, and `render.py` refuses to overwrite a hand edit. Cursor's user-level prompt is maintained in the app.
+- The user-level prompt is edited in `mmw-v4/prompt/shared.md`, read by Claude Code and Codex. `~/.codex/AGENTS.md` is generated, and `render.py` refuses to overwrite a hand edit.
 
 ## Gotchas
 

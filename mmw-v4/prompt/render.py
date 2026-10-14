@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把 shared.md 写成 Codex、Grok 各自的用户级 AGENTS.md。
+"""把 shared.md 写成 Codex 的用户级 AGENTS.md。
 
     render.py            写
     render.py --check    只比对；有不一致回 1，不写
@@ -30,11 +30,7 @@ HEADER_RE = re.compile(r"^<!-- " + re.escape(MARK) + r": .* body-sha256=([0-9a-f
 
 def targets(home: Path):
     codex = Path(os.environ.get("CODEX_HOME", home / ".codex"))
-    grok = home / ".grok"
-    return {
-        "codex": (codex, codex / "AGENTS.md"),
-        "grok": (grok, grok / "AGENTS.md"),
-    }
+    return {"codex": (codex, codex / "AGENTS.md")}
 
 
 def render() -> str:
@@ -52,21 +48,6 @@ def classify(existing: str) -> str:
         return "foreign"
     body = existing[m.end():]
     return "ours" if hashlib.sha256(body.encode()).hexdigest() == m.group(1) else "edited"
-
-
-def grok_compat_on(grok_home: Path) -> bool:
-    """Grok 的 [compat.claude] agents 开着时，它会把 ~/.claude/CLAUDE.md 再读一遍。Grok 的默认值是开。"""
-    cfg = grok_home / "config.toml"
-    if not cfg.exists():
-        return True
-    section = None
-    for line in cfg.read_text().splitlines():
-        s = line.split("#", 1)[0].strip()
-        if s.startswith("["):
-            section = s
-        elif section == "[compat.claude]" and s.startswith("agents"):
-            return s.split("=", 1)[1].strip().lower() == "true"
-    return True
 
 
 def main(argv):
@@ -105,11 +86,6 @@ def main(argv):
             continue
         target.write_text(want)
         print(f"已写  {target}")
-    grok_home = targets(home)["grok"][0]
-    if grok_home.is_dir() and grok_compat_on(grok_home):
-        print(f"注意  {grok_home / 'config.toml'} 的 [compat.claude] agents 不是 false：Grok 会把 "
-              f"~/.claude/CLAUDE.md 再读一遍，提示词进两次", file=sys.stderr)
-        rc = rc or 1
     return rc
 
 

@@ -3,14 +3,13 @@
 #
 #   技能              skills/ 下每个带 SKILL.md 的目录，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   hook              dispatch 的 tool-guard.py 与 turn-guard.py，写进各 host 自己的配置
-#   提示词            prompt/shared.md：Claude Code 读软链，Codex、Grok 读 prompt/render.py 写出的
-#                     AGENTS.md；Cursor 的用户级提示词在 app 里手贴，本脚本只提醒
-#   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex、Grok 的 AGENTS.md
+#   提示词            prompt/shared.md：Claude Code 读软链，Codex 读 prompt/render.py 写出的 AGENTS.md
+#   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
 #                     从前写进去的 grok、cursor 两条 provider。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
 #   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees
-#   子代理层数        Claude Code、Codex、Grok 的子代理层数上限都设为 2
+#   子代理层数        Claude Code、Codex 的子代理层数上限都设为 2
 #   task board        一个 com.mmw.board LaunchAgent，按 ~/.mmw/boards.json 为每个仓库守住本机服务
 #
 # 装完把本 checkout 的 mmw-v4 目录记进 ~/.mmw/installed-root。
@@ -136,7 +135,7 @@ fi
 # mmw-v3/install.sh 只认指向 mmw-v3、mmw-v2 的软链；指向 mmw-v4 的同名技能软链与 CLAUDE.md 它当作
 # 别人的东西，报冲突、跳过。models.json 里 v4 的 candidate 行 v3 的 models.py 不认，v3 的
 # explainer、synthesizer 行 v4 装的时候摘掉了。所以先把这几样还原成 v3 认得的样子，再交给同一
-# checkout 的 mmw-v3/install.sh 装。hook 的命令两版写的是同一条路径，v3 原地接管；Codex、Grok 的
+# checkout 的 mmw-v3/install.sh 装。hook 的命令两版写的是同一条路径，v3 原地接管；Codex 的
 # AGENTS.md 带同一种生成标记，v3 的 render.py 直接重写。
 
 if [ "$mode" = back ]; then
@@ -693,11 +692,10 @@ fi
 
 # ---------------- 提示词 ----------------
 
-# 源在 prompt/shared.md，三家共用。Claude Code 认软链，所以 ~/.claude/CLAUDE.md 直接指 shared.md，
-# 改源即生效。Codex、Grok 没有引入语法，只能由 render.py 把它写成各自的 AGENTS.md；生成物带
+# 源在 prompt/shared.md，两家共用。Claude Code 认软链，所以 ~/.claude/CLAUDE.md 直接指 shared.md，
+# 改源即生效。Codex 没有引入语法，只能由 render.py 把它写成 AGENTS.md；生成物带
 # 哈希，被人直接改过 render.py 就拒绝覆盖。launchd 任务监视 shared.md，改动即重写；Claude Code 那条
-# 软链不需要它。MMW_INSTALL_HOME 之下（测试）不装 launchd。Cursor 的用户级提示词只在它的 app
-# 里，脚本写不进去，装完提醒一句。
+# 软链不需要它。MMW_INSTALL_HOME 之下（测试）不装 launchd。
 
 PROMPT_SRC="$ROOT/prompt"
 
@@ -801,10 +799,7 @@ XML
       "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC/shared.md" || prompt_rc=1
   fi
   if [ "$mode" != check ] && [ "$prompt_rc" -eq 0 ]; then
-    echo "已装  提示词：~/.claude/CLAUDE.md 一条软链，Codex、Grok 各一份生成的 AGENTS.md"
-  fi
-  if [ "$mode" != check ] && [ -d "$HOME_DIR/.cursor" ]; then
-    echo "注意  Cursor 的用户级提示词在 app 里，脚本写不进去：$PROMPT_SRC/shared.md 改过就手贴一次"
+    echo "已装  提示词：~/.claude/CLAUDE.md 一条软链，Codex 一份生成的 AGENTS.md"
   fi
   [ "$prompt_rc" -eq 0 ] || rc=1
 fi
@@ -1042,11 +1037,10 @@ fi
 
 # ---------------- 子代理层数 ----------------
 #
-# 被派的 agent 该不该再派人，由开场提示末尾那一句管（It is your whole task …）；这里给三家
+# 被派的 agent 该不该再派人，由开场提示末尾那一句管（It is your whole task …）；这里给两家
 # host 的子代理层数定同一个上限 2，作兜底：主会话的子代理还能再派一层，再往下派不出来。
-# dispatch 起的会话在它的 host 上也是主会话。三家默认各不相同：Claude Code 3（官方文档），
-# Codex 1（codex-rs core/src/config/mod.rs 的 DEFAULT_AGENT_MAX_DEPTH），Grok 1（它自带文档
-# user-guide/16-subagents.md；配置参考 26-config-reference.md 写 [subagents] max_depth 可调）。
+# dispatch 起的会话在它的 host 上也是主会话。两家默认不同：Claude Code 3（官方文档），
+# Codex 1（codex-rs core/src/config/mod.rs 的 DEFAULT_AGENT_MAX_DEPTH）。
 # host 没装（目录不在）就跳过。--back 不还原它。
 
 MMW_DEPTH_MODE="$mode" \
@@ -1144,7 +1138,6 @@ def toml(path, table, key):
 for host, where, got in (
     ("claude", home / ".claude", lambda: claude(home / ".claude/settings.json")),
     ("codex", codex_home, lambda: toml(codex_home / "config.toml", "agents", "max_depth")),
-    ("grok", home / ".grok", lambda: toml(home / ".grok/config.toml", "subagents", "max_depth")),
 ):
     if not where.is_dir():
         continue

@@ -16,14 +16,14 @@ The script points every host on the machine at this checkout's `mmw-v4/`. The ho
 
 - **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex, Cursor and Grok read the first directory. Claude Code reads only the second.
 - **Hooks.** The `dispatch` skill's `tool-guard.py` runs before each host calls a tool. In a session that works a ticket, which runs in the ticket's `issue-<n>` worktree with nobody at the screen, it refuses three things: closing the ticket by hand, putting a question on the screen, and ending a process. `turn-guard.py` runs each time a night's orchestrator ends its turn. It restarts the night's watchdog when the watchdog has stopped, so the night does not die quietly.
-- **The user-level prompt.** `mmw-v4/prompt/shared.md` holds the facts about the owner that every session in every host reads. Claude Code reads it as `~/.claude/CLAUDE.md`, a link to the file. Codex and Grok read an `AGENTS.md` that `prompt/render.py` writes. Cursor's user-level prompt is pasted into the app by hand, and install reminds you of that.
-- **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex and Grok copies again after each change.
+- **The user-level prompt.** `mmw-v4/prompt/shared.md` holds the facts about the owner that every session in every host reads. Claude Code reads it as `~/.claude/CLAUDE.md`, a link to the file. Codex reads an `AGENTS.md` that `prompt/render.py` writes.
+- **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex copy again after each change.
 - **Paseo and Orca settings.** Paseo gets its command link and its worktree root; install removes the Grok and Cursor providers an earlier install added. When Orca is present, it puts its worktrees under each repository's `.worktrees/`.
 - **`~/.mmw/models.json`.** Install writes the default file when none exists. In an existing file it changes only the role rows. It removes a row for a role that `roles.json` does not list, and keeps a `.bak-` copy first.
 
 Last, install records this checkout's `mmw-v4/` in `~/.mmw/installed-root`.
 
-If `render.py` refuses to overwrite a Codex or Grok `AGENTS.md`, the file is not one it wrote. This happens on the first install on a machine. Run `python3 mmw-v4/prompt/render.py --adopt` once. [`prompt/README.md`](../../prompt/README.md) explains the generated file.
+If `render.py` refuses to overwrite Codex's `AGENTS.md`, the file is not one it wrote. This happens on the first install on a machine. Run `python3 mmw-v4/prompt/render.py --adopt` once. [`prompt/README.md`](../../prompt/README.md) explains the generated file.
 
 A skill is a link, not a copy, so an edit to a `SKILL.md` reaches every host at its next call. Only the `description` in a skill's frontmatter needs a new session, because a host reads descriptions when it starts.
 
