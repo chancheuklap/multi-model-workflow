@@ -14,7 +14,8 @@ The summary is `SETUP OK` when nothing is missing, else `SETUP INCOMPLETE <n> mi
 Exit 0 with `SETUP OK`, 1 otherwise.
 
 The repository layer is what the `setup-mmw` skill sets up; the machine layer is the
-tools the night's scripts call, which this skill reports and does not install.
+tools the night's scripts call and the toolbox's own install, read through the installed
+`install.sh --check`, which this skill reports and does not install.
 """
 import json
 import os
@@ -213,10 +214,31 @@ def check_machine(report: Report):
     report.add("ok" if runners else "missing", "machine", "runner",
                ", ".join(runners) + " on PATH" if runners
                else f"none of {', '.join(RUNNERS)} on PATH; a night starts its sessions through one")
-    models = Path(os.environ.get("MMW_HOME") or Path.home() / ".mmw") / "models.json"
-    report.add("ok" if models.is_file() else "missing", "machine", "models.json",
-               str(models) if models.is_file()
-               else f"no {models}; it says which host and model each role runs on")
+    check_install(report)
+
+
+def check_install(report: Report):
+    """The toolbox's install: skills, hooks, prompt and models.json, as its own --check reads them."""
+    recorded = Path(os.environ.get("MMW_HOME") or Path.home() / ".mmw") / "installed-root"
+    if not recorded.is_file():
+        report.add("missing", "machine", "install",
+                   f"no {recorded}; MMW is not installed on this machine: "
+                   "run bash mmw-v4/install.sh from a checkout of the toolbox")
+        return
+    script = Path(recorded.read_text().strip()) / "install.sh"
+    if not script.is_file():
+        report.add("missing", "machine", "install",
+                   f"{recorded} names {script.parent}, which has no install.sh; "
+                   "run bash mmw-v4/install.sh again from a checkout of the toolbox")
+        return
+    proc = run(["bash", str(script), "--check"])
+    if proc.returncode == 0:
+        report.add("ok", "machine", "install", f"{script} --check passes")
+        return
+    gaps = [line for line in proc.stderr.splitlines() if line.strip()]
+    report.add("missing", "machine", "install",
+               f"{script} --check exits {proc.returncode}, {len(gaps)} line(s) on stderr, first: "
+               f"{gaps[0].strip() if gaps else reason(proc)}; run bash {script} to repair it")
 
 
 def main() -> int:
