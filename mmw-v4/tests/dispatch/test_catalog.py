@@ -43,7 +43,12 @@ if host == 'codex':
     assert sys.argv[1:] == ['app-server'], sys.argv
     init = json.loads(sys.stdin.readline())
     assert init['method'] == 'initialize'
+    if mode == 'closed-input':
+        import os
+        os.close(0)
     print(json.dumps({'id': init['id'], 'result': {}}), flush=True)
+    if mode == 'closed-input':
+        time.sleep(10)
     initialized = json.loads(sys.stdin.readline())
     assert initialized == {'method': 'initialized'}
     request = json.loads(sys.stdin.readline())
@@ -121,11 +126,12 @@ class CatalogTest(unittest.TestCase):
         self.assertRegex(entry["read_at"], r"^\d{4}-\d{2}-\d{2}T")
         self.assertIn("-p", (self.home / "claude.log").read_text())
 
-    def failed_read(self, mode, kind, detail=None):
+    def failed_read(self, mode, kind, detail=None, timeout=None):
         self.scan()
         before = self.stored()
         (self.home / "codex.mode").write_text(mode)
-        scan = self.scan()
+        with mock.patch.object(models, "CATALOG_TIMEOUT", models.CATALOG_TIMEOUT if timeout is None else timeout):
+            scan = self.scan()
         after = self.stored()
         self.assertEqual(after["offerings"], before["offerings"])
         self.assertEqual(after["read_at"], before["read_at"])
@@ -146,8 +152,7 @@ class CatalogTest(unittest.TestCase):
         self.assertNotIn("failure", self.stored())
 
     def test_a_timed_out_read_keeps_the_stored_models_and_records_timeout(self):
-        with mock.patch.object(models, "CATALOG_TIMEOUT", 0.15):
-            self.failed_read("timeout", "timeout", "0.15")
+        self.failed_read("timeout", "timeout", "0.15", timeout=0.15)
 
     def test_an_unparseable_answer_keeps_the_stored_models_and_records_unparseable(self):
         self.failed_read("unparseable", "unparseable", "not model JSON")
@@ -259,3 +264,20 @@ else:
         self.assertEqual(after["failure"]["kind"], "exit")
         self.assertIn("paseo boom", after["failure"]["detail"])
         self.assertIn("provider models codex --json", (self.home / "paseo.log").read_text())
+
+
+    def test_a_closed_input_records_failure_without_losing_the_catalog(self):
+        self.failed_read("closed-input", "unparseable", "stdin")
+
+    def test_a_short_path_runs_the_same_codex_shim_for_version_and_catalog(self):
+        binary = self.home / ".local" / "bin" / "codex"
+        interpreter = binary.parent / "mmw-catalog-python"
+        interpreter.symlink_to(sys.executable)
+        binary.write_text("#!/usr/bin/env mmw-catalog-python\n" + binary.read_text().split("\n", 1)[1])
+        with mock.patch.dict(os.environ, {"PATH": "/usr/bin:/bin"}):
+            scan = self.scan()
+        self.assertEqual(scan["hosts"]["codex"]["offered"],
+                         [{"model": "gpt 6 sol", "efforts": ["low", "high"]}])
+        self.assertEqual(self.stored()["version"], "codex 1.0")
+        self.assertEqual((self.home / "codex.log").read_text().splitlines(), ["--version", "app-server"])
+

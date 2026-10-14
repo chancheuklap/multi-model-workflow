@@ -338,6 +338,8 @@ class CatalogFailure(ValueError):
 
 
 def _search_folders() -> list[str]:
+    # LaunchAgents and non-login agent shells can omit the CLI installation directories
+    # from PATH, even though the host and its interpreter are installed there.
     return [str(Path.home() / ".local" / "bin"), "/opt/homebrew/bin", "/usr/local/bin",
             *filter(None, (os.environ.get("PATH") or "").split(os.pathsep))]
 
@@ -362,12 +364,16 @@ def _exit_failure(code: int, stderr: str) -> CatalogFailure:
     return CatalogFailure("exit", f"exit {code}: {first[0] if first else 'no error output'}")
 
 
+def _command_env() -> dict[str, str]:
+    return {**os.environ, "PATH": os.pathsep.join(_search_folders())}
+
+
 def _run(argv: list[str], timeout: float = 30, stdin: str | None = None) -> str:
     resolved = _binary(argv[0])
     try:
         proc = subprocess.run([resolved, *argv[1:]], input=stdin, check=False,
                               capture_output=True, text=True, timeout=timeout,
-                              env={**os.environ, "PATH": os.pathsep.join(_search_folders())})
+                              env=_command_env())
     except subprocess.TimeoutExpired:
         raise CatalogFailure("timeout", f"{argv[0]} exceeded {timeout} seconds") from None
     except OSError as exc:
@@ -389,7 +395,7 @@ def _codex_model_list() -> str:
     with tempfile.TemporaryFile() as errors:
         try:
             proc = subprocess.Popen([binary, "app-server"], stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE, stderr=errors)
+                                    stdout=subprocess.PIPE, stderr=errors, env=_command_env(), bufsize=0)
         except OSError as exc:
             raise CatalogFailure("exit", f"cannot execute {binary}: {exc}") from exc
         buffer = b""
@@ -439,7 +445,10 @@ def _codex_model_list() -> str:
                 raise CatalogFailure("timeout", f"codex exceeded {CATALOG_TIMEOUT} seconds") from None
             code = proc.poll()
             errors.seek(0)
-            raise _exit_failure(code or 1, errors.read().decode(errors="replace")) from None
+            stderr = errors.read().decode(errors="replace")
+            if code:
+                raise _exit_failure(code, stderr) from None
+            raise CatalogFailure("unparseable", f"codex closed stdin before model/list: {stderr[:200]}") from None
         finally:
             if proc.poll() is None:
                 proc.terminate()
