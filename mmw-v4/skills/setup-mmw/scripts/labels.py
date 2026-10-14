@@ -21,7 +21,8 @@ create failed, with `gh`'s reason.
 migrates open issues using the label state machine. It never deletes a label. Each
 changed issue prints its number, labels added and removed, and the rule used. The last
 line is MIGRATE OK <n> changed. Read or write failures exit 1 without rolling back
-completed changes; rerunning handles only the remaining issues. Run after release to
+completed changes. A failed issue is reported without stopping the other issues;
+rerunning handles only the remaining issues. Run after release to
 the installed checkout, with no night or one-ticket watch open.
 """
 import argparse
@@ -96,49 +97,58 @@ def pages(path: str) -> list[dict]:
     return rows
 
 
-def migrate() -> int:
+def migrate_issue(module, row: dict) -> bool:
+    if "pull_request" in row:
+        return False
+    number = row["number"]
+    names = {label["name"] for label in row["labels"]}
+    if "needs-info" in names:
+        print(f"NEEDS-INFO #{number}: left for the owner")
+        return False
+    if "mmw:child" in names:
+        return False
+    if names.intersection(module.WAYFINDER_LABELS):
+        return False
+    remove = []
+    if "mmw:ticket" in names:
+        parent = read_json(["issue", "view", str(number), "--json", "parent"])["parent"]
+        if parent:
+            parent_labels = read_json(["issue", "view", str(parent["number"]), "--json", "labels"])["labels"]
+            if any(label["name"] == "mmw:spec" for label in parent_labels):
+                return False
+        comments = pages(f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100")
+        state = module.events.fold(comments, issue=number)
+        if state["unreadable"]:
+            raise MigrationError(f"could not read events of #{number}: {state['unreadable']}")
+        if any(event["event"] in ("ticket.claimed", "worker.started") for event in state["events"]):
+            return False
+        rule = 2
+        remove = ["--remove-label", "mmw:ticket"]
+    elif "needs-triage" in names and not names.intersection(module.CLASS_LABELS):
+        if not re.search(r"^## Problem\s*$", row.get("body") or "", re.MULTILINE):
+            print(f"SKIP #{number}: not opened by MMW")
+            return False
+        rule = 1
+    else:
+        return False
+    proc = gh(["issue", "edit", str(number), "--add-label", "mmw:problem", *remove])
+    if proc.returncode != 0:
+        raise MigrationError(f"could not edit #{number} by rule {rule}: {reason(proc)}")
+    print(f"#{number}: added mmw:problem; removed {'mmw:ticket' if remove else 'none'}; rule {rule}")
+    return True
+
+
+def migrate() -> tuple[int, int]:
     module = verify_module()
     changed = 0
+    failed = 0
     for row in pages("repos/{owner}/{repo}/issues?state=open&per_page=100"):
-        if "pull_request" in row:
-            continue
-        number = row["number"]
-        names = {label["name"] for label in row["labels"]}
-        if "needs-info" in names:
-            print(f"NEEDS-INFO #{number}: left for the owner")
-            continue
-        if "mmw:child" in names:
-            continue
-        if names.intersection(module.WAYFINDER_LABELS):
-            continue
-        remove = []
-        if "mmw:ticket" in names:
-            parent = read_json(["issue", "view", str(number), "--json", "parent"])["parent"]
-            if parent:
-                parent_labels = read_json(["issue", "view", str(parent["number"]), "--json", "labels"])["labels"]
-                if any(label["name"] == "mmw:spec" for label in parent_labels):
-                    continue
-            comments = pages(f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100")
-            state = module.events.fold(comments, issue=number)
-            if state["unreadable"]:
-                raise MigrationError(f"could not read events of #{number}: {state['unreadable']}")
-            if any(event["event"] in ("ticket.claimed", "worker.started") for event in state["events"]):
-                continue
-            rule = 2
-            remove = ["--remove-label", "mmw:ticket"]
-        elif "needs-triage" in names and not names.intersection(module.CLASS_LABELS):
-            if not re.search(r"^## Problem\s*$", row.get("body") or "", re.MULTILINE):
-                print(f"SKIP #{number}: not opened by MMW")
-                continue
-            rule = 1
-        else:
-            continue
-        proc = gh(["issue", "edit", str(number), "--add-label", "mmw:problem", *remove])
-        if proc.returncode != 0:
-            raise MigrationError(f"could not edit #{number} by rule {rule}: {reason(proc)}")
-        changed += 1
-        print(f"#{number}: added mmw:problem; removed {'mmw:ticket' if remove else 'none'}; rule {rule}")
-    return changed
+        try:
+            changed += migrate_issue(module, row)
+        except (MigrationError, KeyError, TypeError, AttributeError) as exc:
+            print(f"could not migrate #{row.get('number', '?')}: {exc}", file=sys.stderr)
+            failed += 1
+    return changed, failed
 
 
 def main(argv=()) -> int:
@@ -176,9 +186,11 @@ def main(argv=()) -> int:
         return 1
     if args.migrate:
         try:
-            changed = migrate()
+            changed, failed = migrate()
         except (MigrationError, KeyError, TypeError, AttributeError) as exc:
             print(f"could not migrate the repository's issues: {exc}", file=sys.stderr)
+            return 1
+        if failed:
             return 1
         print(f"MIGRATE OK {changed} changed")
     else:

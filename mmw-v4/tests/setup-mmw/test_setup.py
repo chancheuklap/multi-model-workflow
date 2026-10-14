@@ -333,7 +333,7 @@ class TestMigrate(unittest.TestCase):
         self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
 
     def test_a_failed_write_can_be_retried_without_changing_completed_issues(self):
-        fake = Fake(issue_pages=[[self.issue(), self.issue(2, names=("mmw:ticket",))]])
+        fake = Fake(issue_pages=[[self.issue(), self.issue(2, names=("mmw:ticket",)), self.issue(3)]])
 
         def refusing(cmd, **kwargs):
             if cmd[:4] == ["gh", "issue", "edit", "2"]:
@@ -347,6 +347,12 @@ class TestMigrate(unittest.TestCase):
         self.assertEqual(fake.issue_pages[0][0]["labels"],
                          [{"name": "needs-triage"}, {"name": "mmw:problem"}])
         self.assertEqual(fake.issue_pages[0][1]["labels"], [{"name": "mmw:ticket"}])
+        self.assertEqual(fake.issue_pages[0][2]["labels"],
+                         [{"name": "needs-triage"}, {"name": "mmw:problem"}])
+        code, out, err = self.run_migrate(refusing)
+        self.assertEqual(code, 1)
+        self.assertIn("could not edit #2 by rule 2: HTTP 403", err)
+        self.assertNotIn("MIGRATE OK", out)
         fake.calls.clear()
         code, out, err = self.run_migrate(fake)
         self.assertEqual(code, 0, err)
@@ -355,17 +361,20 @@ class TestMigrate(unittest.TestCase):
         self.assertEqual(fake.issue_pages[0][1]["labels"], [{"name": "mmw:problem"}])
 
     def test_read_and_label_failures_exit_one_without_migrating_an_issue(self):
+        endpoint = "repos/{owner}/{repo}/issues?state=open&per_page=100"
         failures = [
-            (["label", "list"], 1, "", "HTTP 403: labels unreadable"),
-            (["label", "create"], 1, "", "HTTP 403: labels unwritable"),
-            (["label", "edit"], 1, "", "HTTP 403: description unwritable"),
-            (["api"], 1, "", "HTTP 502: issues unreadable"),
-            (["api"], 0, "invalid JSON", ""),
-            (["api"], 0, "{}", ""),
-            (["issue", "view", "1"], 1, "", "HTTP 502: parent unreadable"),
-            (["issue", "view", "2"], 1, "", "HTTP 502: parent labels unreadable"),
+            (["label", "list"], 1, "", "HTTP 403: labels unreadable", "labels unreadable"),
+            (["label", "create"], 1, "", "HTTP 403: labels unwritable", "labels unwritable"),
+            (["label", "edit"], 1, "", "HTTP 403: description unwritable", "description unwritable"),
+            (["api"], 1, "", "HTTP 502: issues unreadable", f"{endpoint} failed: HTTP 502"),
+            (["api"], 0, "invalid JSON", "", f"{endpoint} did not return JSON"),
+            (["api"], 0, "{}", "", f"{endpoint} did not return pages of rows"),
+            (["issue", "view", "1"], 1, "", "HTTP 502: parent unreadable",
+             "gh issue view 1 --json parent failed: HTTP 502"),
+            (["issue", "view", "2"], 1, "", "HTTP 502: parent labels unreadable",
+             "gh issue view 2 --json labels failed: HTTP 502"),
         ]
-        for prefix, status, stdout, stderr in failures:
+        for prefix, status, stdout, stderr, expected in failures:
             with self.subTest(prefix=prefix, stdout=stdout):
                 fake = Fake(issue_pages=[[self.issue(names=("mmw:ticket",), parent={"number": 2}),
                                           self.issue(2, names=("mmw:map",))]])
@@ -379,20 +388,23 @@ class TestMigrate(unittest.TestCase):
 
                 code, out, err = self.run_migrate(refusing)
                 self.assertEqual(code, 1)
-                self.assertIn(stderr or "did not return", err)
+                self.assertIn(expected, err)
                 self.assertNotIn("MIGRATE OK", out)
                 self.assertEqual(fake.issue_pages[0][0]["labels"], [{"name": "mmw:ticket"}])
                 self.assertFalse(any(c[:3] == ["gh", "issue", "edit"] for c in fake.calls))
 
     def test_unreadable_comments_do_not_turn_a_ticket_into_a_problem(self):
-        failures = [(1, "", "HTTP 502: comments unreadable"),
-                    (0, "invalid JSON", ""),
-                    (0, "[[null]]", ""),
-                    (0, json.dumps([[{"body": "An event\n<!-- mmw {broken} -->"}]]), "")]
-        for status, stdout, stderr in failures:
+        endpoint = "repos/{owner}/{repo}/issues/1/comments?per_page=100"
+        failures = [(1, "", "HTTP 502: comments unreadable", f"{endpoint} failed: HTTP 502"),
+                    (0, "invalid JSON", "", f"{endpoint} did not return JSON"),
+                    (0, "[[null]]", "", f"{endpoint} did not return issue or comment objects"),
+                    (0, json.dumps([[{"body": "An event\n<!-- mmw {broken} -->"}]]), "",
+                     "could not read events of #1:")]
+        for status, stdout, stderr, expected in failures:
             with self.subTest(stdout=stdout, stderr=stderr):
                 row = self.issue(names=("mmw:ticket",))
-                fake = Fake(issue_pages=[[row]])
+                later = self.issue(2)
+                fake = Fake(issue_pages=[[row, later]])
 
                 def refusing(cmd, **kwargs):
                     if any("/comments?" in arg for arg in cmd):
@@ -401,9 +413,10 @@ class TestMigrate(unittest.TestCase):
 
                 code, out, err = self.run_migrate(refusing)
                 self.assertEqual(code, 1)
-                self.assertIn(stderr or "could not", err)
+                self.assertIn(expected, err)
                 self.assertNotIn("MIGRATE OK", out)
                 self.assertEqual(row["labels"], [{"name": "mmw:ticket"}])
+                self.assertEqual(later["labels"], [{"name": "needs-triage"}, {"name": "mmw:problem"}])
 
 
 class TestCheck(unittest.TestCase):
