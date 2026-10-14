@@ -3486,30 +3486,37 @@ delete_origin_base_branch() {
   echo "dispatch: could not delete origin/$into: $(printf '%s' "$out" | tr '\n' ' '); run git push origin --delete $into" >&2
 }
 
-# Delete the local base branch when it is contained in origin/<project> and no worktree has it
-# checked out; otherwise name what keeps it and the commands that finish the job.
-delete_local_base_branch() {
-  local root="$1" into="$2" project="$3" trees path main ahead out
-  git -C "$root" show-ref --verify --quiet "refs/heads/$into" || return 0
+# Keep the local base branch at the fetched night tip. A checked-out branch or local
+# work outside the project stays unchanged, and an absent origin copy changes nothing.
+retain_local_base_branch() {
+  local root="$1" into="$2" project="$3" trees path ahead tip out
   trees="$(base_worktrees "$root" "$into")"
   if [ -n "$trees" ]; then
-    main="$(main_checkout)" || main=""
     while IFS= read -r path; do
-      if [ "$path" = "$main" ]; then
-        echo "dispatch: keeping the main worktree $path on $into; switch it off $into, then run git branch -D $into" >&2
-        continue
-      fi
-      echo "dispatch: keeping worktree $path and the local $into it has checked out; once its session is done, remove the worktree (git worktree remove $path), then run git branch -D $into" >&2
+      echo "dispatch: keeping worktree $path and the local $into it has checked out; once its session is done, remove the worktree (git worktree remove $path)" >&2
     done <<< "$trees"
     return 0
   fi
-  ahead="$(git -C "$root" rev-list --count "origin/$project..refs/heads/$into" 2>/dev/null)" || ahead=""
-  if [ "$ahead" != 0 ]; then
-    echo "dispatch: keeping local $into because its containment in origin/$project was not proved; after checking, run git branch -D $into" >&2
-    return 0
+  git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" || return 0
+  tip="$(git -C "$root" rev-parse "refs/remotes/origin/$into")"
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$into"; then
+    ahead="$(git -C "$root" rev-list --count "origin/$project..refs/heads/$into" 2>/dev/null)" || ahead=""
+    if [ "$ahead" != 0 ]; then
+      echo "dispatch: keeping local $into because its containment in origin/$project was not proved" >&2
+      return 0
+    fi
+    if ! git -C "$root" merge-base --is-ancestor "refs/heads/$into" "$tip"; then
+      echo "dispatch: keeping local $into because it is not an ancestor of the fetched origin/$into tip" >&2
+      return 0
+    fi
+    out="$(git -C "$root" branch --force "$into" "$tip" 2>&1)" || {
+      echo "dispatch: could not fast-forward local $into to $tip: $out; keeping origin/$into; run finish again" >&2
+      return 1
+    }
+  elif ! out="$(git -C "$root" branch "$into" "$tip" 2>&1)"; then
+    echo "dispatch: could not restore local $into at $tip: $out; keeping origin/$into; run finish again" >&2
+    return 1
   fi
-  out="$(git -C "$root" branch -D "$into" 2>&1)" \
-    || echo "dispatch: could not delete local $into: $out; run git branch -D $into" >&2
 }
 
 clean_base_merge_worktree() {
@@ -3531,8 +3538,8 @@ finish_cleanup() {
      && ! git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project" 2>/dev/null; then
     echo "dispatch: keeping $into because origin/$project does not contain origin/$into; run finish again after reconciling the branches" >&2
   else
-    delete_origin_base_branch "$root" "$into" "$project"
-    delete_local_base_branch "$root" "$into" "$project"
+    retain_local_base_branch "$root" "$into" "$project" \
+      && delete_origin_base_branch "$root" "$into" "$project"
   fi
   clean_base_merge_worktree "$root" "$into"
   sweep_orphan_merge_worktrees "$root" \
