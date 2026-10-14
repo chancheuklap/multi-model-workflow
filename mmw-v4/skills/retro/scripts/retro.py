@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import hashlib
 import json
 import os
 import re
@@ -15,7 +16,6 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.request import urlopen
 
 
 SKILLS = Path(__file__).resolve().parents[2]
@@ -38,6 +38,19 @@ RetroError = register.RegistrationError
 class PartialWrite(RetroError):
     pass
 
+
+
+class UnreadableEvidence(RetroError):
+    def __init__(self,source,detail):
+        super().__init__(detail)
+        self.source = source
+
+
+def primary_json(source,args):
+    try:
+        return register.gh_json(args)
+    except RetroError as exc:
+        raise UnreadableEvidence(source,str(exc)) from None
 
 def write(args,body=None):
     try:
@@ -285,10 +298,10 @@ def evidence_source(source):
         root = Path.cwd().resolve()
         target = (root/match[1]).resolve()
         if not target.is_relative_to(root) or not target.is_file():
-            raise RetroError(f'evidence file {source!r} cannot be read inside {root}')
+            raise UnreadableEvidence(source,f'evidence file {source!r} cannot be read inside {root}')
         lines = target.read_text(encoding='utf-8').splitlines()
         if int(match[2]) > len(lines):
-            raise RetroError(f'evidence {source!r} has no such line')
+            raise UnreadableEvidence(source,f'evidence {source!r} has no such line')
         return 'file',lines[int(match[2])-1]
     parsed = urlparse(source)
     if parsed.netloc == 'github.com':
@@ -297,18 +310,17 @@ def evidence_source(source):
             raise RetroError(f'evidence URL {source!r} is not an issue or commit')
         repo,kind,ident = match.groups()
         if kind == 'commit':
-            return 'commit',register.gh_json(['api',f'repos/{repo}/commits/{ident}'])
+            return 'commit',primary_json(source,['api',f'repos/{repo}/commits/{ident}'])
         if parsed.fragment:
             comment = re.fullmatch(r'issuecomment-([0-9]+)',parsed.fragment)
             if not comment:
                 raise RetroError(f'evidence URL {source!r} has no comment identifier')
-            row = register.gh_json(['api',f'repos/{repo}/issues/comments/{comment[1]}'])
+            row = primary_json(source,['api',f'repos/{repo}/issues/comments/{comment[1]}'])
             if not isinstance(row.get('body'),str):
-                raise RetroError(f'{source} has no readable primary comment')
+                raise UnreadableEvidence(source,f'{source} has no readable primary comment')
             return 'event',row['body']
-        return 'issue',register.gh_json(['issue','view',ident,'--repo',repo,'--json','body,title'])
-    with urlopen(source,timeout=30) as response:
-        return 'url',response.read(100000).decode('utf-8',errors='replace')
+        return 'issue',primary_json(source,['issue','view',ident,'--repo',repo,'--json','body,title'])
+    raise RetroError(f'evidence URL {source!r} is not a GitHub primary source; supply an issue, commit, or path:line')
 
 
 def check_analysis(row):
@@ -320,7 +332,10 @@ def check_analysis(row):
         raise RetroError('evidence needs a URL or path:line')
     links = re.findall(r'https?://[^\s；;,|)]+|[^\s；;,|()]+:[1-9][0-9]*',row['evidence'].replace('`',''))
     for link in links:
-        evidence_source(link)
+        try:
+            evidence_source(link)
+        except (OSError,UnicodeError) as exc:
+            raise UnreadableEvidence(link,str(exc)) from None
     if row['conclusion'] not in ('candidate','propose','reject') and not row['conclusion'].startswith('merge:'):
         raise RetroError('conclusion must be merge:<target>, reject, candidate or propose')
     if not row['code'] or not row['reason']:
@@ -424,17 +439,8 @@ def register_new_problem(path,body,fields,context):
         raise PartialWrite(f'{path} registration exited {rc}; follow register-problem stderr and rerun')
 
 
-def apply_answers(args):
-    context_path = args.context or args.answers[0].parent/'context.json'
-    context = json.loads(context_path.read_text(encoding='utf-8'))
-    if (args.spec is not None and (args.spec!=context['spec'] or context['ticket'] is not None)) or (args.ticket is not None and (args.ticket!=context['ticket'] or context['spec'] is not None)):
-        raise RetroError('apply target differs from context.json; use the matching gather artifact')
-    events.build('spec.retroed' if context['spec'] else 'ticket.retroed',
-                 ticket=context['ticket'],spec=context['spec'],line='Validate gather context',
-                 result='recorded',registered=context['registered'],merged=0,rejected=0,candidates=0,proposals=[],
-                 recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
-                 evidence=context['evidence'],unreadable_sources=context['unreadable_sources'])
-    valid,errors,problems = [],[],[]
+def prepare_answers(args,context):
+    valid,errors,problems,unreadable = [],[],[],[]
     for path in args.answers:
         for body,fields in new_problems(path):
             owner = fields['该谁修']
@@ -457,10 +463,19 @@ def apply_answers(args):
                 row['target'] = target
                 row['occurrences'] = state['occurrences']
                 row['current'] = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
+                if row['conclusion']=='propose':
+                    body = row['current']['body'].replace('\r\n','\n')
+                    row['proposed_body'],matches = re.subn(
+                        r'(^## Problem[ \t]*\n)(?:[ \t]*\n)*(?:Playbook:[^\n]*\n)?',
+                        lambda m:m[1]+f'Playbook: {row["proposal"]["playbook"]}\n',
+                        body,count=1,flags=re.M)
+                    if matches!=1:
+                        raise RetroError('proposal target has no ## Problem heading; correct its body')
                 if 'mmw:lesson' not in labels(row['current']):
                     raise RetroError('answer target is not a lesson; product problems and children stay in their workflows')
                 if row['conclusion'].startswith('merge:'):
                     canonical = resolve_issue(row['conclusion'].split(':',1)[1],context)
+                    row['canonical'] = canonical
                     if canonical == target:
                         raise RetroError('cannot merge a lesson into itself')
                     destination = register.gh_json(['issue','view',str(canonical['number']),'--repo',canonical['repo'],'--json','labels'])
@@ -474,9 +489,28 @@ def apply_answers(args):
                 message = f'{row["path"]}:{row["line"]}: {exc}'
                 print(message,file=sys.stderr)
                 errors.append(message)
-    if errors and not valid:
+                if isinstance(exc,UnreadableEvidence):
+                    unreadable.append(exc.source)
+    groups = {}
+    for row in valid:
+        target = row['target']
+        groups.setdefault((target['repo'],target['number']),[]).append(row)
+    valid = []
+    for group in groups.values():
+        signatures = {(r['conclusion'].split(':',1)[0],
+                       tuple(sorted(r.get('canonical',{}).items())),
+                       r['plan'] if r['conclusion']=='propose' else '') for r in group}
+        if len(signatures)>1:
+            locations = ', '.join(f'{r["path"]}:{r["line"]}' for r in group)
+            message = f'{locations}: conflicting dispositions for one lesson; reconcile the answers'
+            print(message,file=sys.stderr)
+            errors.append(message)
+        else:
+            row = group[0]
+            row['reason'] = '; '.join(dict.fromkeys(r['reason'] for r in group))
+            valid.append(row)
+    if errors and not valid and not problems:
         return 2
-    counts = dict(merged=0,rejected=0,candidates=0,proposals=[])
     for row in valid:
         if row['conclusion'] != 'candidate' and 'needs-triage' in labels(row['current']):
             row['conclusion'] = 'candidate'
@@ -487,15 +521,30 @@ def apply_answers(args):
         if row['conclusion'] == 'propose' and not qualifies(row['occurrences']):
             row['conclusion'] = 'candidate'
             print(f'{row["code"]}: candidate, fewer than two independent occurrences and no stall or owner correction')
-        if row['conclusion'] == 'candidate':
-            counts['candidates'] += 1
+    return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,done=[])
+
+
+def comment_once(repo,number,body,request):
+    marker = f'<!-- retro-apply {request} -->'
+    comments,_ = history(repo,number)
+    if not any(marker in c['body'] for c in comments):
+        write(['issue','comment',str(number),'--repo',repo],body+'\n'+marker+'\n')
+
+
+def execute_plan(plan,journal):
+    context,valid,errors,problems = (plan[k] for k in ('context','rows','errors','problems'))
+    context_path = journal.parent.parent/'context.json'
+    request = journal.stem
+    def save():
+        register.statedir.write_atomic(journal,json.dumps(plan,ensure_ascii=False))
+    for index,row in enumerate(valid):
+        if index in plan['done']:
+            continue
         if row['conclusion'] == 'reject':
-            counts['rejected'] += 1
             target = row['target']
-            write(['issue','comment',str(target['number']),'--repo',target['repo']],row['reason'])
+            comment_once(target['repo'],target['number'],row['reason'],f'{request}-reject-{index}')
             write(['issue','close',str(target['number']),'--repo',target['repo'],'--reason','not planned'])
         if row['conclusion'].startswith('merge:'):
-            counts['merged'] += 1
             merge_lesson(row,context)
         if row['conclusion'] == 'propose':
             target = row['target']
@@ -507,28 +556,65 @@ def apply_answers(args):
                 if not match:
                     raise PartialWrite(f'transfer of {repo}#{number} printed no new URL; inspect its destination before retrying')
                 repo,number = match[1],int(match[2])
-            body = re.sub(r'(^## Problem[ \t]*\n)(?:[ \t]*\n)*(?:Playbook:[^\n]*\n)?',lambda m: m[1]+f'Playbook: {row["proposal"]["playbook"]}\n',current['body'],count=1,flags=re.M)
-            write(['issue','edit',str(number),'--repo',repo],body)
-            write(['issue','comment',str(number),'--repo',repo],row['reason']+'\n\n'+row['plan'])
+                row['target'] = dict(repo=repo,number=number)
+                save()
+            write(['issue','edit',str(number),'--repo',repo],row['proposed_body'])
+            comment_once(repo,number,row['reason']+'\n\n'+row['plan'],f'{request}-propose-{index}')
             if 'needs-triage' not in labels(current):
                 write(['issue','edit',str(number),'--repo',repo,'--add-label','needs-triage'])
-            counts['proposals'].append(number)
+        plan['done'].append(index)
+        save()
     if problems:
         directory = context_path.parent/'problems'
         directory.mkdir(parents=True,exist_ok=True)
-        for body,fields,existing in problems:
+        for index,(body,fields,existing) in enumerate(problems):
+            if index in plan.get('problems_done',[]):
+                continue
             register_new_problem(directory/f'{fields["问题代号"]}.md',body,fields,context)
             if not existing:
                 context['registered'] += 1
-    unreadable = list(dict.fromkeys(context['unreadable_sources'] + errors))
+            plan.setdefault('problems_done',[]).append(index)
+            save()
+    counts = dict(merged=sum(r['conclusion'].startswith('merge:') for r in valid),
+                  rejected=sum(r['conclusion']=='reject' for r in valid),
+                  candidates=sum(r['conclusion']=='candidate' for r in valid),
+                  proposals=[r['target']['number'] for r in valid if r['conclusion']=='propose'])
+    unreadable = list(dict.fromkeys(context['unreadable_sources'] + plan['unreadable']))
     payload = dict(result='recorded',registered=context['registered'],
                    recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
                    evidence='partial' if unreadable else 'complete',unreadable_sources=unreadable,**counts)
     name = 'spec.retroed' if context['spec'] else 'ticket.retroed'
     receipt = events.build(name,ticket=context['ticket'],spec=context['spec'],line='复盘已记录。',**payload)
-    write(['issue','comment',str(context['spec'] or context['ticket']),'--repo',context['repo']],receipt)
+    comment_once(context['repo'],context['spec'] or context['ticket'],receipt,f'{request}-receipt')
     print(events.describe(events.newest([receipt],name)))
     return 1 if errors else 0
+
+
+def apply_answers(args):
+    context_path = args.context or args.answers[0].parent/'context.json'
+    context = json.loads(context_path.read_text(encoding='utf-8'))
+    if (args.spec is not None and (args.spec!=context['spec'] or context['ticket'] is not None)) or (args.ticket is not None and (args.ticket!=context['ticket'] or context['spec'] is not None)):
+        raise RetroError('apply target differs from context.json; use the matching gather artifact')
+    events.build('spec.retroed' if context['spec'] else 'ticket.retroed',
+                 ticket=context['ticket'],spec=context['spec'],line='Validate gather context',
+                 result='recorded',registered=context['registered'],merged=0,rejected=0,candidates=0,proposals=[],
+                 recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
+                 evidence=context['evidence'],unreadable_sources=context['unreadable_sources'])
+    request = hashlib.sha256(json.dumps([context,[(str(p.resolve()),p.read_text(encoding='utf-8'))
+                                                     for p in args.answers]],sort_keys=True).encode()).hexdigest()
+    directory = context_path.parent/'.retro-apply'
+    directory.mkdir(parents=True,exist_ok=True)
+    journal = directory/f'{request}.json'
+    with register.statedir.locked(directory/f'{request}.lock',purpose='apply retrospective answers'):
+        if journal.exists():
+            plan = json.loads(journal.read_text(encoding='utf-8'))
+        else:
+            plan = prepare_answers(args,context)
+            if plan == 2:
+                return 2
+            register.statedir.write_atomic(journal,json.dumps(plan,ensure_ascii=False))
+        return execute_plan(plan,journal)
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
@@ -558,7 +644,7 @@ def main(argv=None):
     except PartialWrite as exc:
         print(f'retro: {exc}',file=sys.stderr)
         return 1
-    except (RetroError, events.EventError, OSError, ValueError, KeyError, TypeError) as exc:
+    except (RetroError, register.statedir.LockHeld, events.EventError, OSError, ValueError, KeyError, TypeError) as exc:
         print(f'retro: {exc}', file=sys.stderr)
         return 2
 

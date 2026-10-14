@@ -13,7 +13,7 @@ Run `python3 scripts/retro.py --help` for command arguments.
 
 - `expire <owner/repo>…` closes open lesson candidates whose last occurrence is more than 30 days old. It leaves the owner's queue, product problems, and children alone.
 - `gather (--spec <n> | --ticket <n>) <owner/repo>… --out <dir>` reads GitHub events, issues, and git. Run it from the product checkout and include the product and MMW repositories. It writes one material file per nonempty angle and `context.json`, which identifies the run and gathered issue codes. It prints each material path and count.
-- `apply <answer file>…` validates each answer row, checks its evidence and occurrence threshold, and writes the accepted dispositions and retrospective event. It reads `context.json` beside the first answer, or the file named by `--context`. Preserve that gather artifact rather than inventing run metadata. Follow stderr for a refused row or incomplete write.
+- `apply <answer file>…` validates each answer row, checks its evidence and occurrence threshold, and writes the accepted dispositions and retrospective event. It reads `context.json` beside the first answer, or the file named by `--context`. Preserve that gather artifact rather than inventing run metadata. Follow stderr for a refused row or incomplete write. Repeating the same command uses the material directory's `.retro-apply` plan to finish missing writes without changing its dispositions.
 
 ## Analyst instructions
 

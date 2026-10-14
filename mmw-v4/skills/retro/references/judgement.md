@@ -52,7 +52,7 @@ Return one table, one row per registration. Keep cells on one line, escaping a l
 | 代号 | 结论 | 理由 | 证据 | 方案 |
 | --- | --- | --- | --- | --- |
 
-Use the gathered problem code or issue URL. An issue number refers to the product repository. The conclusion is `merge:<target code or issue number>`, `reject`, `candidate`, or `propose`. Evidence is one or more URLs or `path:line`, separated by semicolons. The caller applies the answers using the gather's `context.json`.
+Use the gathered problem code or issue URL. An issue number refers to the product repository. The conclusion is `merge:<target code or issue number>`, `reject`, `candidate`, or `propose`. Evidence is one or more GitHub issue or commit URLs or `path:line`, separated by semicolons. The caller applies the answers using the gather's `context.json`.
 
 For `propose`, the plan is required. Use `仓库：<owner/repo>；加：<change>` or `删：<change>`, then `文件：<path>；Playbook: <landing playbook>`. Name the existing heading or check and the exact change. For a rejected row, give the reason. The other dispositions may leave the plan empty.
 

@@ -185,14 +185,25 @@ class Commands(unittest.TestCase):
         self.start_run()
         self.fake.rows[61] = issue(61, labels=('mmw:ticket',),state='closed')
         self.fake.rows[91] = issue(91,labels=('mmw:child',),parent=dict(number=61))
+        self.fake.rows[92] = issue(92,labels=('mmw:child',),parent=dict(number=61))
+        self.fake.rows[61]['comments'].append(dict(id=1,body=events.build('child.closed',ticket=61,child=92,resolution='fixed',line='Resolved child')))
+        self.fake.rows[62] = issue(62,labels=('mmw:ticket',))
+        self.fake.rows[93] = issue(93,labels=('mmw:child',),parent=dict(number=62))
         rc,out,err = self.run_command('gather','--spec','76',REPO,'--out',str(self.root/'materials'))
         self.assertEqual(rc,0,err)
         files = '\n'.join(p.read_text() for p in (self.root/'materials').glob('*.md'))
         self.assertIn('orphaned-child',files)
         self.assertIn('https://github.com/o/r/issues/91',files)
+        self.assertNotIn('https://github.com/o/r/issues/92',files)
+        self.assertNotIn('https://github.com/o/r/issues/93',files)
 
     def test_gather_lists_a_reverted_commit(self):
         self.start_run()
+        (self.root/'before.txt').write_text('before merge\n')
+        REAL_RUN(['git','add','before.txt'],check=True)
+        REAL_RUN(['git','commit','-qm','before merge'],check=True)
+        old = REAL_RUN(['git','rev-parse','HEAD'],capture_output=True,text=True,check=True).stdout.strip()
+        REAL_RUN(['git','revert','--no-edit',old],capture_output=True,check=True)
         base = REAL_RUN(['git','rev-parse','HEAD'],capture_output=True,text=True,check=True).stdout.strip()
         (self.root/'change.txt').write_text('change\n')
         REAL_RUN(['git','add','change.txt'],check=True)
@@ -205,6 +216,7 @@ class Commands(unittest.TestCase):
         files = '\n'.join(p.read_text() for p in (self.root/'materials').glob('*.md'))
         self.assertIn('reverted-commit',files)
         self.assertIn(change,files)
+        self.assertNotIn(old,files)
 
     def answer(self, conclusion='candidate', evidence='README.md:1', plan='', code='missing-information'):
         path = self.root/'answer.md'
@@ -229,7 +241,9 @@ class Commands(unittest.TestCase):
         self.assertEqual(rc,0,err)
         self.assertNotIn({'name':'needs-triage'},self.fake.rows[90]['labels'])
         self.assertIn('candidate',out)
-        self.assertIn('independent',out)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['candidates'],1)
+        self.assertEqual(receipt['proposals'],[])
 
     def test_a_twice_seen_lesson_is_proposed_with_its_playbook(self):
         self.start_run()
@@ -393,7 +407,9 @@ sys.exit(result.returncode)
         self.assertEqual(rc,0,err)
         self.assertEqual(self.fake.rows[90]['state'],'closed')
         self.assertNotIn({'name':'needs-triage'},self.fake.rows[90]['labels'])
-        self.assertIn('owner refusal',out)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['candidates'],1)
+        self.assertEqual(receipt['proposals'],[])
 
     def test_a_ticket_retrospective_is_recorded_on_that_ticket(self):
         self.start_run()
@@ -418,3 +434,92 @@ sys.exit(result.returncode)
         self.assertEqual(rc,0,err)
         self.assertEqual(self.fake.rows[91]['state'],'open')
 
+    def test_a_bad_url_rejects_only_its_row_with_a_location(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91)
+        path = self.answer('reject',evidence='http://127.0.0.1:1/unavailable')
+        Path(path).write_text(Path(path).read_text().replace('## Problems','| 91 | candidate | 已核实 | README.md:1 | |\n\n## Problems'))
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,1,err)
+        self.assertIn('answer.md:3',err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['candidates'],1)
+        self.assertEqual(self.fake.rows[90]['state'],'open')
+
+    def test_conflicting_dispositions_of_one_lesson_are_refused(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91)
+        path = self.answer('merge:91')
+        Path(path).write_text(Path(path).read_text().replace('## Problems','| 90 | reject | 不该同时生效 | README.md:1 | |\n\n## Problems'))
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,2,err)
+        self.assertEqual(self.fake.rows[90]['state'],'open')
+        self.assertEqual(self.fake.rows[91]['comments'],[])
+        self.assertIn('answer.md:3',err)
+        self.assertIn('answer.md:5',err)
+
+    def test_proposal_writes_its_playbook_in_a_crlf_body(self):
+        self.start_run()
+        self.fake.rows[90] = issue(bodies=[seen(source='stall')])
+        self.fake.rows[90]['body'] = self.fake.rows[90]['body'].replace('\n','\r\n')
+        rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
+        self.assertEqual(rc,0,err)
+        self.assertEqual(self.fake.rows[90]['body'].splitlines()[:2],['## Problem','Playbook: Stop a repeated mistake'])
+
+    def test_proposal_without_a_problem_heading_is_refused_before_writing(self):
+        self.start_run()
+        self.fake.rows[90] = issue(bodies=[seen(source='stall')])
+        self.fake.rows[90]['body'] = 'Wrong heading\n'
+        rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
+        self.assertEqual(rc,2,err)
+        self.assertEqual(self.fake.rows[90]['labels'],[{'name':'mmw:lesson'}])
+        self.assertIn('answer.md:3',err)
+
+    def test_retry_after_receipt_failure_keeps_proposals_and_does_not_repeat_rejections(self):
+        self.start_run()
+        self.fake.rows[90] = issue(bodies=[seen(source='stall')])
+        self.fake.rows[91] = issue(91)
+        path = self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake')
+        Path(path).write_text(Path(path).read_text().replace('## Problems','| 91 | reject | 已不成立 | README.md:1 | |\n\n## Problems'))
+        original = self.fake
+        def fail_receipt(args,**kwargs):
+            if args[:4]==['gh','issue','comment','76']:
+                return subprocess.CompletedProcess(args,1,'','receipt denied')
+            return original(args,**kwargs)
+        self.fake = fail_receipt
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,1,err)
+        self.fake = original
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,0,err)
+        receipt = events.parse(original.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['proposals'],[90])
+        self.assertEqual(receipt['candidates'],0)
+        self.assertEqual(len([c for c in original.rows[91]['comments'] if '已不成立' in c['body']]),1)
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,0,err)
+        self.assertEqual(len([c for c in original.rows[76]['comments'] if events.parse(c['body'])[1].get('event')=='spec.retroed']),1)
+
+    def test_a_refused_row_is_not_itself_an_unreadable_primary_source(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91)
+        path = self.answer('reject',evidence='')
+        Path(path).write_text(Path(path).read_text().replace('## Problems','| 91 | candidate | 已核实 | README.md:1 | |\n\n## Problems'))
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,1,err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['evidence'],'complete')
+        self.assertEqual(receipt['unreadable_sources'],[])
+
+    def test_apply_uses_the_context_written_by_gather(self):
+        self.start_run()
+        material = self.root/'materials'
+        rc,out,err = self.run_command('gather','--spec','76',REPO,'--out',str(material))
+        self.assertEqual(rc,0,err)
+        path = self.answer('candidate')
+        rc,out,err = self.run_command('apply',path,'--context',str(material/'context.json'))
+        self.assertEqual(rc,0,err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['registered'],1)
+        self.assertEqual(receipt['candidates'],1)
+        self.assertEqual(receipt['proposals'],[])
