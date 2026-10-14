@@ -9,6 +9,7 @@ and not a broken copy.
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -112,6 +113,27 @@ class WiringTest(unittest.TestCase):
         path.write_text(path.read_text(encoding="utf-8") + "\nRun `dispatch.sh progress`.\n",
                         encoding="utf-8")
         self.assertFinds("dispatch.sh progress")
+
+    def test_a_step_naming_a_row_that_is_not_there(self):
+        path = self.skills / "mmw-mode/playbooks/run-a-night.md"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text + "\nSend a subagent on the `writer` row.\n", encoding="utf-8")
+        r = self.run_check()
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn(f"mmw-v4/skills/mmw-mode/playbooks/run-a-night.md:{text.count(chr(10)) + 2}:", r.stdout)
+        self.assertIn("writer", r.stdout)
+
+    def test_a_row_no_step_names(self):
+        path = self.skills / "dispatch/roles.json"
+        roles = json.loads(path.read_text(encoding="utf-8"))
+        roles["subagents"].append({"name": "unused", "what": "has no dispatch step"})
+        path.write_text(json.dumps(roles, indent=2) + "\n", encoding="utf-8")
+        r = self.run_check()
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("unused", r.stdout)
+        line = next(n for n, text in enumerate(path.read_text().splitlines(), 1)
+                    if '"name": "unused"' in text)
+        self.assertIn(f"mmw-v4/skills/dispatch/roles.json:{line}:", r.stdout)
 
 
 if __name__ == "__main__":

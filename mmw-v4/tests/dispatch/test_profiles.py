@@ -223,10 +223,12 @@ class CliCatalogParseTest(unittest.TestCase):
         self.assertEqual(rows[1]["note"], "Fable 5.1")
         self.assertEqual(rows[1]["thinkingOptionIds"], ["low", "medium", "high"])
 
-    def test_claude_without_list_models_offers_nothing(self):
+    def test_claude_without_list_models_reports_unparseable(self):
         # A CLI that predates the request answers subtype error and still exits 0.
-        self.assertEqual(models._parse_claude_model_list(
-            '{"type":"control_response","response":{"subtype":"error"}}\n'), [])
+        with self.assertRaises(models.CatalogFailure) as caught:
+            models._parse_claude_model_list(
+                '{"type":"control_response","response":{"subtype":"error"}}\n')
+        self.assertEqual(caught.exception.kind, "unparseable")
 
     def test_claude_offered_rows_carry_the_note_and_resolve_to_the_alias(self):
         offerings = models._parse_claude_model_list(self.CLAUDE_LIST)
@@ -237,21 +239,21 @@ class CliCatalogParseTest(unittest.TestCase):
             "claude", "fable[1m]", "high", offerings, "cli")[1], "fable[1m]")
 
     def test_codex_hidden_models_are_not_offered(self):
-        raw = json.dumps({"models": [
-            {"slug": "gpt-6-sol", "visibility": "list"},
-            {"slug": "codex-auto-review", "visibility": "hide"},
-            {"slug": "gpt-reserve", "visibility": "hide"},
+        raw = json.dumps({"data": [
+            {"id": "gpt-6-sol", "displayName": "GPT-6-Sol", "hidden": False,
+             "supportedReasoningEfforts": [], "isDefault": True},
+            {"id": "codex-auto-review", "hidden": True},
+            {"id": "gpt-reserve", "hidden": True},
         ]})
-        self.assertEqual([r["id"] for r in models._parse_codex_debug_models(raw)], ["gpt-6-sol"])
+        self.assertEqual([r["id"] for r in models._parse_codex_model_list(raw)], ["gpt-6-sol"])
 
-    def test_codex_debug_json_keeps_slug_and_effort(self):
-        raw = json.dumps({"models": [{
-            "slug": "gpt-5.6-sol",
-            "display_name": "GPT-5.6-Sol",
-            "supported_reasoning_levels": [
-                {"effort": "low"}, {"effort": "high"}],
+    def test_codex_model_list_keeps_id_and_effort(self):
+        raw = json.dumps({"data": [{
+            "id": "gpt-5.6-sol", "displayName": "GPT-5.6-Sol", "hidden": False,
+            "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "high"}],
+            "isDefault": True,
         }]})
-        rows = models._parse_codex_debug_models(raw)
+        rows = models._parse_codex_model_list(raw)
         self.assertEqual(rows[0]["id"], "gpt-5.6-sol")
         self.assertEqual(rows[0]["thinkingOptionIds"], ["low", "high"])
 

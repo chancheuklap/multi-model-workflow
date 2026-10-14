@@ -7,9 +7,8 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 - `read <thread>. restate the underlying issue in your own words, in plain english.`
 - `investigate why <symptom>. give me what we know, what data you used, and your best hypotheses. don't change any code yet.`
 - `use /how to understand <subsystem>. then use /why to find out why it broke recently.`
-- `/recall my work on <topic> from last week, then read <issue>.`
 - `/teach me why you implemented it this way and not <other way>. what did you trade off?`
-- `take over this branch. read the decision log, find what's done, and continue. don't redo finished work.`
+- `take over this branch. read the ticket and its events, find what's done, and continue. don't redo finished work.`
 
 ## Build
 
@@ -39,6 +38,5 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 ## Away and back
 
 - `im going to bed. run spec #<n> tonight. don't ask me before committing.` The tickets' criteria are the done checks; write them before you leave.
-- `/show-me-your-work catch me up on what you did last night.` Read its Attention section first.
 - `/reflect capture what we learned so the next run doesn't repeat it.` Approve only edits that change a future decision.
 - `/wait-what` re-pitches the last reply in plain words, with the context it skipped; `/wait-what visual` makes it one page.

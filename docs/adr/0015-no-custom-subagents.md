@@ -3,6 +3,8 @@ date: 2026-09-09
 amends: [0003, 0006, 0014]
 ---
 
+> 原生子代理的型号与强度由 [0050](0050-native-subagent-model-rows.md) 修订。不交付子代理定义文件的决定不变。
+
 # 工具箱不再交付 subagent：用 host 自带的通用 subagent
 
 MMW 只交付技能。`mmw-v2/agents/` 整个目录连同 `assemble.py`、`reviewer`、`claim-checker` 都删掉了，各 host 的 `agents/` 目录（含 `~/.grok/roles/`）成为退役位置，`install.sh` 每次运行都从里面摘掉本仓库留下的软链。需要派活的技能改口要 host 自带的通用 subagent。
