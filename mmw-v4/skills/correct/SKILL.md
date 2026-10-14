@@ -5,13 +5,13 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Correct
 
-The operator keeps correcting agents in this repo for the same mistakes. Change the repo so the next agent can't make them.
+The operator keeps correcting agents in this repo for the same mistakes. Plan a change that makes them impossible, for a worker to build after the owner's Go.
 
 Assume every contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Design the repo so a change that looks right from one file is right for the whole repo.
 
 ## Find the mistake classes
 
-First, read recent commits, reverts, review comments, agent instruction files, and comments that explain workarounds. Group the mistakes into classes. A class counts once it has happened twice.
+Open or take up the ticket as the mmw-mode skill's `references/ticket.md` `## Opening a ticket` says. Read its registration in `## Problem` and its `lesson.seen` occurrences. Read the commits, reverts, review comments, agent instruction files, and workaround comments those occurrences cite. Group the mistakes into classes. A class counts once it has happened twice. Count occurrences from that registration's `lesson.seen` events.
 
 ## Fix each class at the highest level that works
 
@@ -22,6 +22,10 @@ First, read recent commits, reverts, review comments, agent instruction files, a
 
 ## Fix and prove
 
-Then fix the most frequent classes now, one commit each. A correction whose rule is already written and enforced by nothing is a repeat: fix it at the highest level in the same change, and drop the written rule once its mistake can't happen. Prove each new check fails on a real past mistake. Run it through `scripts/check`, locally and in CI. Exceptions go on the offending line with a reason, an expiry date, and a human's approval.
+Choose the level under `## Fix each class at the highest level that works`. A correction whose rule is already written and enforced by nothing is a repeat. Plan its enforcement at the highest level that works, and the removal of the written rule once its mistake can't happen.
+
+Write the plan and acceptance criteria into the ticket. Name the check to add to the repository's `scripts/check` and the real past mistake, with its commit, on which the check must first fail. Exceptions go on the offending line with a reason, an expiry date, and a human's approval. Hand the plan to the owner as the mmw-mode skill's `references/ticket.md` `## Handing it back` says. The worker builds it after the owner's Go. Done when the ticket holds the plan and runnable criteria and has been handed back.
+
+**Verify.** Run the new check on the commit containing the real past mistake named in the ticket. It must fail for that mistake. Run it on the corrected head. It must pass. Include both commands, commits, and outputs in the reply.
 
 **Reply:** each class with its evidence, the level you picked, and why a higher level didn't work.
