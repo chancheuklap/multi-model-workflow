@@ -9,8 +9,8 @@ Vocabulary that belongs to one skill alone — `design-pages`'s `pull_design.py`
 ### Roles
 
 **host**:
-The command-line agent program a session runs on, one of `claude`, `codex`, `grok`, `cursor`: the `host` field of a `models.json` row. Distinct from the **runner**, which starts the session and keeps it running.
-_Home_: `mmw-v3/skills/dispatch/hosts.json`
+The command-line agent program a session runs on, either `claude` (Claude Code) or `codex` (Codex): the `host` field of a `models.json` row. Distinct from the **runner**, which starts the session and keeps it running.
+_Home_: `mmw-v4/skills/dispatch/hosts.json`
 
 **user**:
 The person who owns the products and works with the orchestrator on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` and `needs-info` wait on the user.
