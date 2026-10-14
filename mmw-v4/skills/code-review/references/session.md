@@ -20,7 +20,7 @@ Read the ticket (`gh issue view <ticket>`, comments included), the spec sections
 
 Run four axes: Standards, Spec, Tests and Correctness.
 
-On a host that can run subagents, start one of your host's general-purpose subagents per axis, all in one message, so they run at once and never see each other's findings. Name no model and no thinking level: each axis runs on this session's. Each prompt names the axis's file, the ticket and the base commit, with the file one of `standards-reviewer.md`, `spec-reviewer.md`, `tests-reviewer.md` and `correctness-reviewer.md`:
+On a host that can run subagents, start one of your host's general-purpose subagents per axis on the `review-axis` row, all in one message, so they run at once and never see each other's findings. Each prompt names the axis's file, the ticket and the base commit, with the file one of `standards-reviewer.md`, `spec-reviewer.md`, `tests-reviewer.md` and `correctness-reviewer.md`:
 
 ```
 Read the mmw-mode skill in full, then follow the code-review skill's references/standards-reviewer.md: review ticket #<ticket> from base commit <base-commit>, and hand back its Report section's report as your last message. It is your whole task: what came before it is done, and you start no agent it does not name.
