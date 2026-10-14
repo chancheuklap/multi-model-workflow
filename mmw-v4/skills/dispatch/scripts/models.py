@@ -612,22 +612,6 @@ def _cached_host_result(host: str, source: str, record: dict) -> dict:
     return result
 
 
-def fetch_cli_offerings(host: str) -> list[dict]:
-    record = _read_catalog(host, "cli")
-    if not record.get("offerings"):
-        failure = record["failure"]
-        raise CatalogFailure(failure["kind"], failure["detail"])
-    return record["offerings"]
-
-
-def scan_cli_catalogs() -> dict[str, list[dict]]:
-    """Each host's CLI catalog. Tests set MMW_HOST_CATALOG to skip the binaries."""
-    fixture = _fixture_catalog()
-    if fixture is not None:
-        return {host: _fixture_offerings(fixture, "cli", host) for host in CLI_HOSTS}
-    return {host: fetch_cli_offerings(host) for host in CLI_HOSTS}
-
-
 _EFFORT_ORDER = (
     "none", "off", "minimal", "low", "medium", "high", "xhigh", "max",
     "ultra", "ultracode")
