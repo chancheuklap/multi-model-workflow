@@ -9,7 +9,7 @@ What is written here is acted on, not just read: specs and tickets take their wo
 ## Contexts
 
 - [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — the mode, its playbooks and principles, skills, upstream snapshots and the import record, install locations, prompts, hosts and ADRs
-- [Tickets](./docs/contexts/tickets/CONTEXT.md): what a spec and a ticket are, how they are written, published and linted, and the labels and queues they carry
+- [Tickets](./docs/contexts/tickets/CONTEXT.md): what a spec and a ticket are, how they are written, published and linted, and the kind and status labels they carry
 - [Ticket run](./docs/contexts/ticket-run/CONTEXT.md): one ticket being worked from claim to close — events on the ticket, criteria runs, code review, the worker's final run, the advisor, the closing steps and the closeout
 - [Night](./docs/contexts/night/CONTEXT.md): dispatching sessions onto tickets, runners and adapters, workspaces and worktrees, base and project branches, the relay, the watchdog and the turn guard, and the orchestrator's commands
 - [UI acceptance](./docs/contexts/ui-acceptance/CONTEXT.md): Claude Design, its design system and page project, the pulled design package, product-local verification skills, feature maps and e2e tests, and prototypes with their verdicts
@@ -20,7 +20,7 @@ What is written here is acted on, not just read: specs and tickets take their wo
 
 - **Tickets → Ticket run**: a published ticket (sections, criteria, labels), with the spec sections and baselines it names, is what the worker works from; the run writes its events back onto it as comments
 - **Ticket run → Night**: the events a run posts (`ticket.passed`, `ticket.returned`, `reviewer.reported`, …) are what the relay turns into wakes and what `advance` lands
-- **Night → Tickets**: `advance` reads the frontier off ticket labels and blocking edges; `reverify` hands a red landed ticket back to the `needs-triage` queue
+- **Night → Tickets**: `advance` reads the frontier off ticket labels and blocking edges; `reverify` hands a red landed ticket back to `needs-triage`, awaiting the owner's decision
 - **Tickets ↔ UI acceptance**: daytime ticket-writing sessions use the design package as baseline, write e2e tests and pins, and copy each CHECK line from the product's `verify-<product>` Launch section; existing behavior is described in its feature map
 - **UI acceptance → Night**: workers run product-target e2e CHECK lines against isolated product runs and checkout-local back-end stacks; verification assets and the design package stay read-only, and a wrong test or design returns through a `contract` child for daytime correction
 - **Task board → Ticket run, Night**: the task board reads ticket state through `events.py`, `issue_tree.py` and `ghlist.py`, and writes the same `models.json` as `models.py config`, with the roles `roles.json` lists
