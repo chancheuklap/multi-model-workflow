@@ -18,6 +18,7 @@ The Principles section below grounds every trigger. Cite only principles whose l
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow exception of Bug fix step 2.
 - Posting to a ticket, a comment or a pull request, or showing a person a command or its output → write `<REDACTED>` in place of every secret, and keep a credential in an environment variable rather than in the command.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
+- Encountering a problem you cannot fix in the work at hand → the **register-problem** skill.
 
 ## Principles
 

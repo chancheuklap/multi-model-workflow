@@ -62,7 +62,7 @@ A ticket already open keeps its number and its body: its playbook's first step o
 
 Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a decision log, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`. With no spec, **Read first** lists what the playbook's steps produced (a reproduction, a harness, a sketch, a log), each by its path on `fix-<n>`, and **What to build**, beside the behaviour, carries the rules the worker writes by that the playbook names.
 
-A problem nobody is working on now, one a session ran into while doing something else, gets step 1 only and the label `needs-triage`; its `Playbook:` line is written when the kind is plain, and otherwise when the owner picks it. Its `fix-<n>` is opened when the owner picks it, at that playbook's first step.
+A problem a session encounters while doing something else is registered with the **register-problem** skill rather than opened here.
 
 An issue someone else opened is not worked as it stands. Open an issue of our own whose `## Problem` quotes it with its link, and leave the original as it is. Opening a PR closes it once the pull request merges. A child issue keeps its number and becomes a ticket in place on the owner's Go, through One ticket's **Ready** step (`../playbooks/one-ticket.md`). Preserve its opening ``A `<kind>` child of #<n>`` line when writing its plan, because **Ready** reads the original ticket number there.
 

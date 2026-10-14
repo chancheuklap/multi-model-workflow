@@ -7,7 +7,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce|advancecapbadconfig
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefreport|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefproblems|briefreport|retract
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh route|specfield|suspend|status
@@ -2797,6 +2797,24 @@ newest_batch() {
 
 # What the relay keeps for the watch <key>: "runner session", or nothing.
 brief_watch() { watch_main "$1"; }
+
+scenario_briefproblems() {
+  local code packet batch copy
+  packet="$TMP/problem-brief.md"
+  printf '%s\n' '## Task' 'Answer the question.' '## Known' 'The options are available.' '## For' 'A decision.' > "$packet"
+  reset_log
+  fresh_repo
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "send advisor expected exit 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  copy="$STATE_DIR/briefs/$batch/1/brief.md"
+  grep -q '## Problems' "$copy" || fail "the brief copy does not ask for a Problems section"
+  grep -q 'register-problem' "$copy" || fail "the brief copy does not name the problem fields' skill"
+  grep -q 'None' "$copy" || fail "the brief copy does not name the empty Problems value"
+  [ "$rc" -ne 0 ] || echo 'the brief asks for a Problems section'
+}
 
 scenario_sendbrief() {
   local code packet second batch dest copy
@@ -8359,6 +8377,7 @@ ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproj
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
+ALL="$ALL briefproblems"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

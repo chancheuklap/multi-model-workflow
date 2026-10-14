@@ -16,8 +16,8 @@ Triggers for the task as a whole:
 - Nontrivial multi-step → write the throughput checkpoint's four items as Feature step 3 lists them, then go on with your own playbook.
 - Before review → the **no-comments** skill (`/no-comments`).
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a pull request MMW opened, Opening a PR step 3 carries it out.
-- Broken skill mid-task → don't block, and don't silently work around it: it is a problem you ran into, as the next line says, needing Authoring or modifying a skill.
-- Ran into a problem that needs a change while working on something else → open a ticket with only its `## Problem`, as `references/ticket.md` `## Opening a ticket` says for a problem nobody is working on, label it `needs-triage`, tell the owner, and go on with the task in hand.
+- Broken skill mid-task → the **register-problem** skill.
+- The owner corrects your work → the **register-problem** skill, using its `scripts/register.py add --source owner-correction`.
 
 ## Autonomy
 
@@ -32,6 +32,8 @@ Triggers for the task as a whole:
 **A second opinion is a session: `send advisor --follow "the advisor skill" <brief>`.** Ask for one before an architecture choice, a data migration, a big refactor or an API shape is committed, when one problem has resisted two attempts, or before a disputed reading of the task is treated as settled; not for what reading the code can settle. The brief carries the decision, not a narrowed question: the recent exchange quoted, your understanding, the constraints, the options and which way you lean, the paths you think matter. Leave out what to check and the conclusion you expect. For a problem that resisted two attempts, each attempt and what it produced is the core of the evidence. A choice you could reverse in minutes is not worth a session. The answer is advice: take it, or set it aside with a reason; its section for the owner goes to the owner as it stands. Do not ask again to get a different answer. A second consultation is for a new decision, or for the evidence the advisor said would change its answer.
 
 ## Writing the reply
+
+Before writing the final reply, answer the register-problem skill's three self-check questions.
 
 The reader is the owner the user-level instructions describe: they see the running product and your words, not the code. What the owner learns from you is principle and effect: what problem a technique solves, what it assumes, where it stops working, and what it does to the product. Syntax and the shape of the code are not what they are here to learn. Work done overnight is read cold the next morning, with yesterday's context forgotten, so the report has to be readable from nothing.
 
