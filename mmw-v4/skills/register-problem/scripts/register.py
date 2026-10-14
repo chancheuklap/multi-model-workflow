@@ -363,7 +363,6 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
             saved()
         if not recorded:
             comment = events.build("lesson.seen", line=f"登记 #{number}，在 {seen_in} 发现。{plan['note']}",
-                                   text=body if receipt["action"] != "OPENED" else "",
                                    lesson=number, seen_in=seen_in, source=source,
                                    request=receipt["request"], **receipt["context"])
             confirmed_write(["issue", "comment", str(number), "--repo", repo], occurrence_recorded, comment)

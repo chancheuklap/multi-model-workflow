@@ -205,6 +205,7 @@ class Registration(unittest.TestCase):
         self.assertEqual([r["number"] for r in self.fake.repos["o/r"]], [20])
         self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
         self.assertEqual(row["state"], "open")
+        self.assertEqual(len([line for line in row["comments"][-1]["body"].splitlines() if line.strip()]), 2)
 
     def test_an_expired_lesson_is_reopened_as_pending(self):
         for labels, expected in ((("mmw:lesson",), [{"name": "mmw:lesson"}]),
