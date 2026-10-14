@@ -53,11 +53,11 @@
 | [0032](0032-v3-is-built-on-pstacks-shape.md) | MMW v3 按 pstack 的形状重建：一份 mode 按任务选 playbook，规则写成原则技能，上游拷进 `skills/` 由 `imports.tsv` 逐行记账 | 2026-10-06 | 0003 | 0036、0040 |
 | [0033](0033-a-full-machine-is-a-blocked-ticket.md) | 机器的产品槽位全被占时，worker 这次运行什么都不跑、退 2，票报受阻；不排队，也没有人为槽位叫醒它 | 2026-10-06 | 0022 | 无 |
 | [0034](0034-each-night-fact-has-one-record.md) | 夜里每个事实只从记下它的那一条事件读；事件在写时按表校验，读时只拒读不懂的 | 2026-10-06 | 0019、0023 | 无 |
-| [0035](0035-a-nights-memory-stays-in-its-repository.md) | 一夜的 Memory 只写进本仓库的 Space：开夜的会话 `NMEM_SPACE` 不对就拒绝开夜；Nowledge Mem 列不全记录时，夜照样关，不做 Memory 收尾 | 2026-10-06 | 无 | 0037 |
+| [0035](0035-a-nights-memory-stays-in-its-repository.md) | 一夜的 Memory 只写进本仓库的 Space：开夜的会话 `NMEM_SPACE` 不对就拒绝开夜；Nowledge Mem 列不全记录时，夜照样关，不做 Memory 收尾 | 2026-10-06 | 无 | 0037、0051（Memory 收尾） |
 | [0036](0036-rollback-to-v2-is-one-install.md) | 从 v3 退回 v2，是在装着的 checkout 里跑一次 `bash mmw-v2/install.sh`；`mmw-v2/` 因此是退路，不只是历史 | 2026-10-07 | 0032 | 无 |
 | [0037](0037-the-session-space-is-installed-per-machine.md) | 终端里的 `NMEM_SPACE` 由 `mmw-v3/install.sh` 每台机器装一次；仓库的 Space 仍由 `setup-mmw` 建，它只报告会话的 `NMEM_SPACE` 对不对 | 2026-10-07 | 0035 | 无 |
 | [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 无 |
-| [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 无 |
+| [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 0051（复盘提案写入编码规范） |
 | [0040](0040-writing-rules-live-in-writing-for-agents.md) | 技能文字的写作规则都在 `writing-for-agents` 技能里；改技能一律从 Authoring or modifying a skill 开始，一个会话做不完的由它交给 Write a spec | 2026-10-08 | 0032 | 0046 |
 | [0041](0041-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 0044、0048 |
 | [0042](0042-several-products-in-one-repository.md) | 一个仓库里每个产品占 `.mmw/<产品>/`，一次运行仍只租一个按产品分段的 lease，control-ui 与 control-cli 是 ui-acceptance 的 reference 而不是 skill | 2026-10-08 | 无 | 0048 |
@@ -69,7 +69,7 @@
 | [0048](0048-verification-assets-written-in-the-day.md) | feature map 放在产品仓库的 `.agents/skills/verify-<product>/features/`，和 e2e test 一起白天写、主人要求时维护复核，夜里只读 | 2026-10-13 | 0029、0030、0041、0042、0044 | 无 |
 | [0049](0049-v4-serves-claude-code-and-codex.md) | MMW v4 只服务 Claude Code 与 Codex 两个 host，Grok 与 Cursor 退出 | 2026-10-14 | 0003、0006、0007、0021 | 无 |
 | [0050](0050-native-subagent-model-rows.md) | 原生子代理的型号与强度由它那一步点名的行决定 | 2026-10-15 | 0015 | 无 |
-| [0051](0051-problem-registration-retro-and-label-states.md) | 问题先登记并复盘，主人挑中和批准计划分两次，标签分种类与状态 | 2026-10-14 | 无 | 无 |
+| [0051](0051-problem-registration-retro-and-label-states.md) | 问题先登记并复盘，主人挑中和批准计划分两次，标签分种类与状态 | 2026-10-14 | 0035、0039 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

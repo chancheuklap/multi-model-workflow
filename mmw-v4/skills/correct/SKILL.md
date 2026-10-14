@@ -11,7 +11,7 @@ Assume every contributor is an agent that sees only the files it opened, copies 
 
 ## Find the mistake classes
 
-Open or take up the ticket as the mmw-mode skill's `references/ticket.md` `## Opening a ticket` says. Read its registration in `## Problem` and its `lesson.seen` occurrences. Read the commits, reverts, review comments, agent instruction files, and workaround comments those occurrences cite. Group the mistakes into classes. A class counts once it has happened twice. Count occurrences from that registration's `lesson.seen` events.
+Open or take up the ticket as the mmw-mode skill's `references/ticket.md` `## Opening a ticket` says. For a registration, read `## Problem` and its `lesson.seen` occurrences, then the commits, reverts, review comments, agent instruction files, and workaround comments those occurrences cite. When the owner names the task without a registration, read recent commits, reverts, review comments, agent instruction files, and comments that explain workarounds. Record the past mistakes and their evidence in `## Problem`. Group the mistakes into classes. A class counts once it has happened twice. For a registered class, count occurrences from that registration's `lesson.seen` events; otherwise, count the evidenced past mistakes.
 
 ## Fix each class at the highest level that works
 
@@ -28,4 +28,4 @@ Write the plan and acceptance criteria into the ticket. Name the check to add to
 
 **Verify.** Run the new check on the commit containing the real past mistake named in the ticket. It must fail for that mistake. Run it on the corrected head. It must pass. Include both commands, commits, and outputs in the reply.
 
-**Reply:** each class with its evidence, the level you picked, and why a higher level didn't work.
+**Reply:** each class with its evidence, the level you picked, and why a higher level didn't work; the plan, including the check to add and the past commit it must fail on; the acceptance criteria; and what the ticket leaves out.
