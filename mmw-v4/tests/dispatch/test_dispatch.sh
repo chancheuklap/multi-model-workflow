@@ -24,7 +24,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh landedkeepslocalbranch|landedrestoreslocalbranch|landedfastforwardslocalbranch|landedkeepsunmergedlocalbranch|regressedrestart
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsmainworktree|finishkeepsunmergedlocalnight
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails|finishcleanupfails
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -6410,6 +6410,56 @@ scenario_finishclosespecfails() {
   [ "$(count_of 'gh :: issue :: close :: 76 :: --reason :: completed')" = 2 ] || fail "close retry was not attempted once after the failure"
 }
 
+scenario_finishcleanupfails() {
+  local code mode merge base lock
+  for mode in fetch restore delete; do
+    setup_finish_closed
+    git -C "$TMP/repo" merge -q --no-ff -m "Merge branch 'night'" night
+    git -C "$TMP/repo" push -q origin proj
+    merge="$(git -C "$TMP/repo" rev-parse proj)"
+    base="$(git -C "$TMP/repo" rev-parse "$merge^1")"
+    post_ev 76 spec.merged --ticket '' --spec 76 --line merged --field into=night \
+      --field project=proj --field "merge=$merge" --field "base=$base"
+    case "$mode" in
+      fetch) git -C "$TMP/repo" remote set-url origin "$TMP/no-origin.git" ;;
+      restore)
+        git -C "$TMP/repo" branch -D night >/dev/null
+        lock="$TMP/repo/.git/refs/heads/night.lock"
+        : > "$lock"
+        ;;
+      delete)
+        cat > "$TMP/origin.git/hooks/update" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = refs/heads/night ] && [ "$3" = 0000000000000000000000000000000000000000 ]; then
+  echo 'night deletion refused' >&2
+  exit 1
+fi
+SH
+        chmod +x "$TMP/origin.git/hooks/update"
+        ;;
+    esac
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+    [ "$code" = 2 ] || fail "$mode cleanup failure expected exit 2, got $code"
+    [ "$(env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" gh issue view 76 --json state --jq .state)" = OPEN ] \
+      || fail "$mode cleanup failure closed the spec"
+    [ "$(count_of 'gh :: issue :: close :: 76')" = 0 ] || fail "$mode cleanup failure attempted to close the spec"
+    git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night || fail "$mode cleanup failure lost origin/night"
+    case "$mode" in
+      fetch) git -C "$TMP/repo" remote set-url origin "$TMP/origin.git" ;;
+      restore) rm -f "$lock" ;;
+      delete) rm -f "$TMP/origin.git/hooks/update" ;;
+    esac
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+    [ "$code" = 0 ] || fail "$mode cleanup retry failed: $(cat "$TMP/err")"
+    [ "$(env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" gh issue view 76 --json state --jq .state)" = CLOSED ] \
+      || fail "$mode cleanup retry did not close the spec"
+    [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$merge" ] || fail "$mode cleanup retry merged again"
+    [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] || fail "$mode cleanup retry recorded a second merge"
+    git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "$mode cleanup retry left origin/night"
+  done
+  return 0
+}
+
 scenario_finishmerges() {
   local code merge base
   setup_finish_closed
@@ -8664,7 +8714,7 @@ PY
 
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landedkeepslocalbranch landedrestoreslocalbranch landedfastforwardslocalbranch landedkeepsunmergedlocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishclosesspec finishclosespecfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems"
