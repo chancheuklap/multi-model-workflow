@@ -73,7 +73,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 
 1. Do steps 1-3 of the dispatch skill's `## On waking`, which end with the ack.
 2. Run `dispatch.sh status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers.
-3. Take every row the table matches, not only the ticket named by the wake.
+3. Take every row the table matches, not only the ticket named by the wake. For `ticket.returned`, a `fault` child, or `ticket.checked` with `result=handoff`, register each new stall event with the register-problem skill's `scripts/register.py add --source stall`. First read the source ticket's comments for that event's registration. After a successful add, comment there with the originating event's comment URL and the registration issue. Reuse that registration when the same event appears on a later wake or in the closing pass.
 4. Run `dispatch.sh advance <spec>` once. Its exit codes are under [**2. First `advance`**](#2-first-advance).
 5. When the `advance` you just ran left the frontier empty and no agent live (read `status` again), go to [4. The closing pass](#4-the-closing-pass); otherwise end your turn.
 
@@ -104,6 +104,8 @@ When no authority settles the correction, or the proposed correction would overt
 Exits 4 and 2 name their next step on stderr. When you run `resume` again after exit 3, word it so a worker that receives both messages reads them as one instruction. A worker that `start <n> worker` puts in place of the old one has none of the instructions given only inside the old session; send them again with `resume`.
 
 #### 4. The closing pass
+
+Register stalls found here as [3. Each time something wakes you](#3-each-time-something-wakes-you) says.
 
 The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go straight to the run of `scripts/check --all` at the end of this step.
 

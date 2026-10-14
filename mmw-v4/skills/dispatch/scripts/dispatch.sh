@@ -1527,7 +1527,9 @@ start_one() {
 # session already started for the batch is stopped and the batch removed.
 brief_footer() {
   printf '%s\n' "---" \
-    "This brief is $1. \`## Task\` is the question you answer; \`## Known\` is what the session that sent you already has, so start from it and do not redo it; \`## For\` is what your answer will be used for. The session that sent you waits for your answer and sees nothing else of yours. When you are done, write your whole answer to one file and run:" \
+    "This brief is $1. \`## Task\` is the question you answer; \`## Known\` is what the session that sent you already has, so start from it and do not redo it; \`## For\` is what your answer will be used for. The session that sent you waits for your answer and sees nothing else of yours." \
+    "End your answer with \`## Problems\`. List each problem you encountered that you cannot fix in this work, using the register-problem skill's six fields. Write \`None\` when there are no problems. You do not register them yourself." \
+    "When you are done, write your whole answer to one file and run:" \
     "" \
     "bash $SELF report $1 <file>" \
     "" \
