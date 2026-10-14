@@ -66,6 +66,44 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["version"], 2)
         self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["reviewer"]["model"], "sonnet 5")
 
+    def test_a_put_without_subagents_keeps_them(self):
+        saved = {**config(), "subagents": {"reader": {"claude": {
+            "model": "haiku", "effort": "medium"}}}}
+        (self.home / "models.json").write_text(json.dumps(saved))
+        proposed = config()
+        proposed["rows"]["reviewer"]["model"] = "sonnet 5"
+        with running_board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+            self.assertEqual(status, 200, raw)
+            self.assertEqual(json.loads(raw)["version"], 2)
+            status, raw = board.request("GET", "/api/settings")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["subagents"], {"reader": {"claude": {
+            "model": "haiku", "effort": "medium"}}})
+        self.assertEqual(json.loads((self.home / "models.json").read_text())["subagents"],
+                         {"reader": {"claude": {"model": "haiku", "effort": "medium"}}})
+
+    def test_a_put_with_subagents_saves_them(self):
+        proposed = {**config(), "subagents": {"reader": {"claude": {
+            "model": "haiku", "effort": "medium"}}}}
+        with running_board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+            self.assertEqual(status, 200, raw)
+            status, raw = board.request("GET", "/api/settings")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["subagents"], {"reader": {"claude": {
+            "model": "haiku", "effort": "medium"}}})
+
+    def test_a_put_with_invalid_subagents_refuses_without_writing(self):
+        proposed = {**config(), "subagents": {"reader": {"claude": {
+            "model": "opus[1m]", "effort": "medium"}}}}
+        before = (self.home / "models.json").read_bytes()
+        with running_board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+        self.assertEqual(status, 422)
+        self.assertEqual(json.loads(raw)["errors"][0]["cell"], "subagents.reader.claude.model")
+        self.assertEqual((self.home / "models.json").read_bytes(), before)
+
     def test_put_after_a_change_elsewhere_is_409(self):
         with running_board(self.home) as board:
             elsewhere = config(2); elsewhere["runner"] = "herdr"
