@@ -22,7 +22,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh landedkeepslocalbranch|landedrestoreslocalbranch|landedfastforwardslocalbranch|regressedrestart
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh landedkeepslocalbranch|landedrestoreslocalbranch|landedfastforwardslocalbranch|landedkeepsunmergedlocalbranch|regressedrestart
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsunmergedlocalnight
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
@@ -7846,6 +7846,27 @@ scenario_landedfastforwardslocalbranch() {
     || fail "the local ticket branch was not fast-forwarded to the fetched remote tip"
 }
 
+scenario_landedkeepsunmergedlocalbranch() {
+  reset_log
+  fresh_repo
+  make_branch issue-61 ticket.txt ticket
+  local passed tip code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  git -C "$TMP/repo" checkout -q issue-61
+  commit_file "$TMP/repo" local.txt unmerged local-only
+  tip="$(git -C "$TMP/repo" rev-parse HEAD)"
+  git -C "$TMP/repo" checkout -q main
+  write_one_passed 61 "$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "local-only landing failed: $(cat "$TMP/err")"
+  assert_kept_branch 61
+  [ "$(git -C "$TMP/repo" rev-parse issue-61)" = "$tip" ] || fail "landing lost local-only commits"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the passed commit did not land"
+  ! git -C "$TMP/origin.git" cat-file -e main:local.txt 2>/dev/null || fail "unpassed local work landed"
+  grep -q 'keeping local issue-61' "$TMP/err" || fail "landing did not explain retained local-only work"
+}
+
 scenario_bouncedkeepsbranch() {
   setup_bounced_conflict
   git -C "$TMP/repo" push -q -u origin issue-61
@@ -8620,7 +8641,7 @@ PY
   no_relay
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landedkeepslocalbranch landedrestoreslocalbranch landedfastforwardslocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landedkeepslocalbranch landedrestoreslocalbranch landedfastforwardslocalbranch landedkeepsunmergedlocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishclosesspec finishclosespecfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
