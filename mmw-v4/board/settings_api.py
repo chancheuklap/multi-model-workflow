@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 from pathlib import Path
@@ -12,7 +13,8 @@ if str(MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(MODELS_DIR))
 import models  # noqa: E402
 
-_state_lock = threading.Lock()
+_state_lock = threading.Condition()
+_scan_active = False
 _scan: dict | None = None
 
 
@@ -33,40 +35,60 @@ def _body(request) -> dict:
     return data
 
 
+def _run_scan(source: str) -> dict:
+    global _scan, _scan_active
+    try:
+        fresh = models.scan_host_catalogs(source)
+        with _state_lock:
+            _scan = fresh
+        return fresh
+    finally:
+        with _state_lock:
+            if _scan is not None:
+                _scan = {**_scan, "scanning": False}
+            _scan_active = False
+            _state_lock.notify_all()
+
+
+def _begin_scan(source: str) -> None:
+    global _scan, _scan_active
+    if not os.environ.get("MMW_HOST_CATALOG") or _scan is None or _scan.get("source") != source:
+        _scan = models.cached_host_catalogs(source)
+    _scan = {**_scan, "scanning": True}
+    _scan_active = True
+
+
 def _cached_scan(runner: str) -> dict:
     global _scan
     source = models.catalog_source(runner)
     with _state_lock:
-        if _scan is not None:
-            return _scan
-        _scan = {"source": source, "scanned_at": "", "scanning": True, "hosts": {}}
-    fresh = models.scan_host_catalogs(runner)
-    with _state_lock:
-        _scan = fresh
-        return _scan
+        if not _scan_active:
+            _begin_scan(source)
+            threading.Thread(target=_run_scan, args=(source,), daemon=True).start()
+        return dict(_scan)
 
 
 def _replace_scan(source: str) -> dict:
-    global _scan
     if source not in ("cli", "paseo"):
         raise ValueError(f"source must be cli or paseo, got {source!r}")
     with _state_lock:
-        previous_hosts = (_scan or {}).get("hosts") or {}
-        _scan = {"source": source, "scanned_at": (_scan or {}).get("scanned_at", ""),
-                 "scanning": True, "hosts": previous_hosts}
-    fresh = models.scan_host_catalogs(source)
-    with _state_lock:
-        _scan = fresh
-    return fresh
+        while _scan_active:
+            _state_lock.wait()
+        _begin_scan(source)
+    return _run_scan(source)
 
 
 def initialize() -> None:
-    """Scan once while the board process is starting, before it prints its origin."""
+    """Load saved catalogs and refresh in the background before serving settings."""
     try:
         config = models.read_local_config()
     except models.ConfigMissing:
         return
-    _replace_scan(models.catalog_source(str(config.get("runner"))))
+    source = models.catalog_source(str(config.get("runner")))
+    if os.environ.get("MMW_HOST_CATALOG"):
+        _replace_scan(source)
+    else:
+        _cached_scan(source)
 
 
 def _options() -> dict:

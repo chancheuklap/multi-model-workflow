@@ -13,6 +13,10 @@ import shlex
 import os
 import re
 import subprocess
+import select
+import tempfile
+import threading
+import time
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -319,49 +323,133 @@ def match_offering(query: str, offerings: list[dict]) -> dict:
         f"{query!r} matches more than one offering: " + ", ".join(ids))
 
 
+CATALOG_TIMEOUT = 45
+_catalog_lock = threading.Lock()
+
+
+class CatalogFailure(ValueError):
+    def __init__(self, kind: str, detail: str):
+        self.kind = kind
+        self.detail = detail
+        super().__init__(f"{kind}: {detail}")
+
+    def record(self) -> dict:
+        return {"kind": self.kind, "detail": self.detail, "at": statedir.now_iso()}
+
+
+def _search_folders() -> list[str]:
+    return [str(Path.home() / ".local" / "bin"), "/opt/homebrew/bin", "/usr/local/bin",
+            *filter(None, (os.environ.get("PATH") or "").split(os.pathsep))]
+
+
 def _which(name: str) -> str | None:
-    # The only caller is `_run`, which has to find each host's CLI from a non-login
-    # shell whose PATH may be short: an agent's shell tool, `install.sh` checking the
-    # saved configuration, or `dispatch.sh` starting an agent. On this machine those CLIs are
-    # installed in ~/.local/bin and /opt/homebrew/bin, so the list assumes a Mac with
-    # Homebrew.
-    extra = [
-        str(Path.home() / ".local" / "bin"),
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-    ]
-    path = os.pathsep.join(extra + [os.environ.get("PATH") or ""])
-    for folder in path.split(os.pathsep):
-        if not folder:
-            continue
+    for folder in _search_folders():
         candidate = Path(folder) / name
         if candidate.is_file() and os.access(candidate, os.X_OK):
             return str(candidate)
     return None
 
 
-def _run(argv: list[str], timeout: int = 30, stdin: str | None = None) -> str:
-    if not argv:
-        return ""
-    binary = argv[0]
-    resolved = binary if "/" in binary else (_which(binary) or "")
+def _binary(name: str) -> str:
+    resolved = name if "/" in name else _which(name)
     if not resolved:
-        return ""
+        raise CatalogFailure("missing", f"{name} not found; searched " + ", ".join(_search_folders()))
+    return resolved
+
+
+def _exit_failure(code: int, stderr: str) -> CatalogFailure:
+    first = stderr.strip().splitlines()
+    return CatalogFailure("exit", f"exit {code}: {first[0] if first else 'no error output'}")
+
+
+def _run(argv: list[str], timeout: float = 30, stdin: str | None = None) -> str:
+    resolved = _binary(argv[0])
     try:
-        proc = subprocess.run(
-            [resolved, *argv[1:]], input=stdin,
-            check=False, capture_output=True, text=True, timeout=timeout)
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
+        proc = subprocess.run([resolved, *argv[1:]], input=stdin, check=False,
+                              capture_output=True, text=True, timeout=timeout,
+                              env={**os.environ, "PATH": os.pathsep.join(_search_folders())})
+    except subprocess.TimeoutExpired:
+        raise CatalogFailure("timeout", f"{argv[0]} exceeded {timeout} seconds") from None
+    except OSError as exc:
+        raise CatalogFailure("exit", f"cannot execute {resolved}: {exc}") from exc
+    if proc.returncode:
+        raise _exit_failure(proc.returncode, proc.stderr)
     return proc.stdout or ""
 
 
-def _runner_call(runner: str, verb: str, *args: str, timeout: int = 30) -> str:
-    """Ask a runner adapter; runner CLI command shapes remain inside that adapter."""
+def _runner_call(runner: str, verb: str, *args: str, timeout: float = 30) -> str:
+    _binary(runner)
     adapter = RUNNERS_DIR / f"{runner}.sh"
-    if not adapter.is_file():
-        return ""
     return _run(["bash", str(adapter), verb, *args], timeout=timeout)
+
+
+def _codex_model_list() -> str:
+    binary = _binary(HOST_BINARIES.get("codex"))
+    deadline = time.monotonic() + CATALOG_TIMEOUT
+    with tempfile.TemporaryFile() as errors:
+        try:
+            proc = subprocess.Popen([binary, "app-server"], stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE, stderr=errors)
+        except OSError as exc:
+            raise CatalogFailure("exit", f"cannot execute {binary}: {exc}") from exc
+        buffer = b""
+        raw = ""
+
+        def send(message):
+            proc.stdin.write((json.dumps(message) + "\n").encode())
+            proc.stdin.flush()
+
+        def answer(ident):
+            nonlocal buffer, raw
+            raw = ""
+            while True:
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    raw += line.decode("utf-8", errors="replace") + "\n"
+                    try:
+                        data = json.loads(line)
+                    except (ValueError, UnicodeError):
+                        raise CatalogFailure("unparseable", raw[:200]) from None
+                    if isinstance(data, dict) and data.get("id") == ident:
+                        if "error" in data or not isinstance(data.get("result"), dict):
+                            raise CatalogFailure("unparseable", raw[:200])
+                        return json.dumps(data["result"])
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not select.select([proc.stdout], [], [], remaining)[0]:
+                    raise CatalogFailure("timeout", f"codex exceeded {CATALOG_TIMEOUT} seconds")
+                chunk = os.read(proc.stdout.fileno(), 65536)
+                if not chunk:
+                    code = proc.wait(timeout=max(0.01, deadline - time.monotonic()))
+                    errors.seek(0)
+                    stderr = errors.read().decode("utf-8", errors="replace")
+                    if code:
+                        raise _exit_failure(code, stderr)
+                    raise CatalogFailure("unparseable", (raw + buffer.decode(errors="replace"))[:200])
+                buffer += chunk
+
+        try:
+            send({"id": 1, "method": "initialize", "params": {
+                "clientInfo": {"name": "mmw", "title": "MMW", "version": "4"}}})
+            answer(1)
+            send({"method": "initialized"})
+            send({"id": 2, "method": "model/list", "params": {}})
+            return answer(2)
+        except (BrokenPipeError, subprocess.TimeoutExpired) as exc:
+            if isinstance(exc, subprocess.TimeoutExpired):
+                raise CatalogFailure("timeout", f"codex exceeded {CATALOG_TIMEOUT} seconds") from None
+            code = proc.poll()
+            errors.seek(0)
+            raise _exit_failure(code or 1, errors.read().decode(errors="replace")) from None
+        finally:
+            if proc.poll() is None:
+                proc.terminate()
+            try:
+                proc.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            proc.stdin.close()
+            proc.stdout.close()
 
 
 # Claude Code has no model-listing subcommand. One `list_models` control request over
@@ -393,7 +481,8 @@ def _parse_claude_model_list(text: str) -> list[dict]:
         response = data.get("response") if isinstance(data, dict) else None
         if not isinstance(response, dict) or response.get("subtype") != "success":
             continue
-        rows = (response.get("response") or {}).get("models")
+        payload = response.get("response")
+        rows = payload.get("models") if isinstance(payload, dict) else None
         if not isinstance(rows, list):
             continue
         out, seen = [], set()
@@ -415,62 +504,29 @@ def _parse_claude_model_list(text: str) -> list[dict]:
             out.append({"id": ident, "name": ident,
                         "thinkingOptionIds": [str(x) for x in levels or [] if x],
                         "note": note})
-        if out:
-            return out
-    return []
+        return out
+    raise CatalogFailure("unparseable", text[:200])
 
 
-def _parse_codex_debug_models(text: str) -> list[dict]:
-    if not text.strip():
-        return []
+def _parse_codex_model_list(text: str) -> list[dict]:
     try:
         data = json.loads(text)
-    except json.JSONDecodeError:
-        return []
-    rows = data.get("models") if isinstance(data, dict) else data
-    if not isinstance(rows, list):
-        return []
-    out = []
-    for item in rows:
-        # `hide` marks Codex's internal models (codex-auto-review, gpt-reserve), which its
-        # own `/model` picker does not offer.
-        if not isinstance(item, dict) or item.get("visibility") == "hide":
-            continue
-        ident = str(item.get("slug") or item.get("id") or "")
-        if not ident:
-            continue
-        name = str(item.get("display_name") or ident)
-        levels = []
-        for level in item.get("supported_reasoning_levels") or []:
-            if isinstance(level, dict):
-                value = level.get("effort") or level.get("id") or level.get("level")
-            else:
-                value = level
-            if value:
-                levels.append(str(value))
-        out.append({"id": ident, "name": name, "thinkingOptionIds": levels})
-    return out
-
-
-def _paseo_models(host: str) -> list[dict]:
-    raw = _runner_call("paseo", "catalog-models", host)
-    if not raw.strip():
-        return []
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(data, list):
-        return []
-    out = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        ident = str(item.get("id") or "")
-        name = str(item.get("model") or ident)
-        thinking = item.get("thinkingOptionIds") or []
-        out.append({"id": ident, "name": name, "thinkingOptionIds": thinking})
-    return out
+        rows = data.get("data") if isinstance(data, dict) else None
+        if not isinstance(rows, list):
+            raise ValueError("expected model/list data")
+        out = []
+        for item in rows:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                raise ValueError("expected a model id")
+            if item.get("hidden") is not False:
+                continue
+            out.append({"id": item["id"], "name": item["displayName"],
+                        "thinkingOptionIds": [level["reasoningEffort"]
+                                              for level in item["supportedReasoningEfforts"]],
+                        "isDefault": item["isDefault"]})
+        return out
+    except (ValueError, KeyError, TypeError):
+        raise CatalogFailure("unparseable", text[:200]) from None
 
 
 def _host_efforts(host: str, offering: dict | None = None) -> list[str]:
@@ -481,14 +537,70 @@ def _host_efforts(host: str, offering: dict | None = None) -> list[str]:
     return [str(x) for x in (spec.get("efforts") or [])]
 
 
+def read_catalog_cache() -> dict:
+    path = statedir.home() / "catalog.json"
+    data = statedir.read_json(path, {})
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} is not a catalog object; remove the cache and scan again")
+    return data
+
+
+def _store_catalog(source: str, host: str, entry: dict) -> dict:
+    path = statedir.home() / "catalog.json"
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with _catalog_lock, statedir.locked(path.with_suffix(".lock"), purpose="write catalog.json"):
+        cache = read_catalog_cache()
+        section = cache.setdefault(source, {})
+        if "failure" in entry:
+            entry = {**section.get(host, {}), **entry}
+        section[host] = entry
+        statedir.write_atomic(path, json.dumps(cache, ensure_ascii=False, indent=2) + "\n")
+    return entry
+
+
+def _read_catalog(host: str, source: str, version: str | None = None) -> dict:
+    try:
+        version = version if version is not None else _run([HOST_BINARIES.get(host), "--version"]).strip()
+        if source == "paseo":
+            raw = _runner_call("paseo", "catalog-models", host, timeout=CATALOG_TIMEOUT)
+            try:
+                rows = json.loads(raw)
+                if not isinstance(rows, list):
+                    raise ValueError("expected Paseo model list")
+                offerings = [{"id": item["id"], "name": item.get("model") or item["id"],
+                              "thinkingOptionIds": item.get("thinkingOptionIds") or []}
+                             for item in rows]
+            except (ValueError, KeyError, TypeError):
+                raise CatalogFailure("unparseable", raw[:200]) from None
+        elif host == "claude":
+            offerings = _parse_claude_model_list(_run(
+                CLAUDE_LIST_MODELS_ARGS, timeout=60, stdin=CLAUDE_LIST_MODELS_STDIN))
+        else:
+            offerings = _parse_codex_model_list(_codex_model_list())
+        if not offerings:
+            raise CatalogFailure("empty", f"{host} returned an empty model list")
+        return _store_catalog(source, host, {"offerings": offerings, "read_at": statedir.now_iso(),
+                                             "version": version})
+    except CatalogFailure as exc:
+        return _store_catalog(source, host, {"failure": exc.record()})
+
+
+def _cached_host_result(host: str, source: str, record: dict) -> dict:
+    failure = record.get("failure")
+    state = "missing" if failure and failure["kind"] == "missing" else "silent" if failure else "ok"
+    result = {**_host_result(state, _offered_rows(host, record.get("offerings") or [], source)),
+              "read_at": record.get("read_at", "")}
+    if failure:
+        result["failure"] = failure
+    return result
+
+
 def fetch_cli_offerings(host: str) -> list[dict]:
-    """Ask the host CLI. Never Paseo. Empty if the binary is missing or silent."""
-    if host == "claude":
-        return _parse_claude_model_list(
-            _run(CLAUDE_LIST_MODELS_ARGS, timeout=60, stdin=CLAUDE_LIST_MODELS_STDIN))
-    if host == "codex":
-        return _parse_codex_debug_models(_run(["codex", "debug", "models"], timeout=45))
-    return []
+    record = _read_catalog(host, "cli")
+    if not record.get("offerings"):
+        failure = record["failure"]
+        raise CatalogFailure(failure["kind"], failure["detail"])
+    return record["offerings"]
 
 
 def scan_cli_catalogs() -> dict[str, list[dict]]:
@@ -673,20 +785,30 @@ def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) ->
                 state = "ok" if offerings else "silent"
         else:
             state, offerings = "silent", []
-    elif source == "paseo":
-        offerings = _paseo_models(host)
-        state = "ok" if offerings else "silent"
     else:
-        binary = HOST_BINARIES.get(host)
-        if _which(binary) is None:
-            state, offerings = "missing", []
-        else:
-            offerings = fetch_cli_offerings(host)
-            state = "ok" if offerings else "silent"
+        return _cached_host_result(host, source, _read_catalog(host, source))
     if state not in _STATE_LABELS:
         raise ValueError(f"MMW_HOST_CATALOG gives {host} unknown state {state!r}")
     return _host_result(
         state, _offered_rows(host, offerings, source) if state == "ok" else [])
+
+
+def cached_host_catalogs(runner: str) -> dict:
+    """The persisted catalog without starting any host command."""
+    source = catalog_source(runner)
+    entries = read_catalog_cache().get(source, {})
+    hosts = {}
+    for host in CLI_HOSTS:
+        spec = load_hosts()["hosts"].get(host) or {}
+        if not _can_start(runner, spec):
+            hosts[host] = _host_result("unlaunchable")
+        elif host in entries:
+            hosts[host] = _cached_host_result(host, source, entries[host])
+        else:
+            hosts[host] = {**_host_result("silent"), "read_at": ""}
+    return {"source": source, "scanned_at": max(
+        (entry.get("read_at", "") for entry in entries.values()), default=""),
+        "scanning": False, "hosts": hosts}
 
 
 def scan_host_catalogs(runner: str, hosts: Sequence[str] = CLI_HOSTS) -> dict:
@@ -696,14 +818,28 @@ def scan_host_catalogs(runner: str, hosts: Sequence[str] = CLI_HOSTS) -> dict:
     selected = [host for host in CLI_HOSTS if host in hosts]
 
     paseo_down = False
+    paseo_failure = None
     if source == "paseo":
         if fixture is not None:
             paseo = fixture.get("paseo")
             paseo_down = isinstance(paseo, dict) and paseo.get("state") == "down"
         else:
-            paseo_down = not bool(_runner_call("paseo", "catalog-status"))
+            try:
+                status = _runner_call("paseo", "catalog-status")
+                if not status.strip():
+                    raise CatalogFailure("empty", "paseo returned an empty provider list")
+            except CatalogFailure as exc:
+                paseo_down = True
+                paseo_failure = exc
     if paseo_down:
-        result = {host: _host_result("down") for host in selected}
+        result = {}
+        for host in selected:
+            if paseo_failure:
+                record = _store_catalog(source, host, {"failure": paseo_failure.record()})
+                result[host] = {**_cached_host_result(host, source, record),
+                                "state": "down", "label": _STATE_LABELS["down"]}
+            else:
+                result[host] = _host_result("down")
     else:
         with ThreadPoolExecutor(max_workers=max(1, len(selected))) as pool:
             values = pool.map(lambda host: _scan_one_host(host, runner, source, fixture), selected)
@@ -762,14 +898,20 @@ def _validate_local_config(config: dict, scan: dict,
         found = catalog_hosts.get(host) if isinstance(catalog_hosts, dict) else None
         if not isinstance(found, dict) or found.get("state") != "ok":
             state = found.get("label") if isinstance(found, dict) else "was not scanned"
+            if isinstance(found, dict) and found.get("failure"):
+                failure = found["failure"]
+                state = f"{state}; {failure['kind']}: {failure['detail']}"
             errors.append({"cell": f"{role}.host", "reason":
                            f"host {host} is unavailable: {state}; restore it and scan again"})
             continue
         model = row.get("model")
         offered = _offered_row(found.get("offered") or [], host, str(model))
         if offered is None:
+            choices = ", ".join(item["model"] for item in found.get("offered") or [])
+            ids = ", ".join(item["id"] for item in read_catalog_cache().get(
+                scan.get("source"), {}).get(host, {}).get("offerings", []))
             errors.append({"cell": f"{role}.model",
-                           "reason": f"model {model!r} is not in the current {scan.get('source')} catalog for {host}; choose an offered model"})
+                           "reason": f"{role} saved model {model!r} is not in the current {scan.get('source')} catalog for {host}; choose one of {choices}" + (f" (ids: {ids})" if ids else "")})
             continue
         effort = row.get("effort")
         if effort not in (offered.get("efforts") or []):
@@ -848,11 +990,22 @@ def fetch_offerings(host: str) -> list[dict]:
     fixture = _fixture_catalog()
     if fixture is not None:
         return _fixture_offerings(fixture, mode, host)
-    if mode == "paseo":
-        return _paseo_models(host)
-    # One catalog source per host. Asking two different sources is how a saved name
-    # can validate in the editor and then fail at start.
-    return fetch_cli_offerings(host)
+    stored = read_catalog_cache().get(mode, {}).get(host, {})
+    try:
+        version = _run([HOST_BINARIES.get(host), "--version"]).strip()
+    except CatalogFailure as exc:
+        record = _store_catalog(mode, host, {"failure": exc.record()})
+    else:
+        if stored.get("offerings") and version == stored.get("version"):
+            return stored["offerings"]
+        record = _read_catalog(host, mode, version)
+    failure = record.get("failure")
+    if failure:
+        if not record.get("offerings"):
+            raise CatalogFailure(failure["kind"], failure["detail"])
+        sys.stderr.write(f"models.py: {host} {failure['kind']}: {failure['detail']}; "
+                         f"using catalog read at {record['read_at']}\n")
+    return record.get("offerings") or []
 
 
 def resolve_row(host: str, model: str, effort: str) -> tuple[str, str, str]:
