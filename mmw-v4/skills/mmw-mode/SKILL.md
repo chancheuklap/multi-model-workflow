@@ -61,7 +61,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Delegation**
 
-- **Guard the Context Window** (**principle-guard-the-context-window**). Context fills up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents, keep summaries in the main thread.
+- **Guard the Context Window** (**principle-guard-the-context-window**). Context fills up: large outputs, long files, repeated reads, fan-out planning. Read large payloads in chunks, or give them to the subagent the current step sends for them; keep only summaries in the main thread.
 - **Never Block on the Human** (**principle-never-block-on-the-human**). Tempted to ask "should I do X?" on reversible work, or a step failed or was interrupted. Proceed, present the result, let the human course-correct.
 - **Progress Is What the Record Says** (**principle-progress-is-what-the-record-says**). Picking work up or resuming it. Where you are is what the ticket, the branch, the map or the resume note says, not what the session remembers.
 
@@ -87,7 +87,9 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Subagents
 
-**Send a subagent with your host's general-purpose subagent, and name no model:** its prompt opens with `Read the mmw-mode skill in full, then`, goes on with what the step that sends it says, plus its own piece: the file or the steps it follows, and what it hands back, where and in what shape. It ends with `It is your whole task: what came before it is done, and you start no agent it does not name.` Hold your turn until every subagent you sent has returned; what a subagent hands back is its last message. On a host that cannot run subagents, do the pieces yourself, one after another.
+**Send a subagent only where the step you follow names one.** Anywhere else, do the work yourself. Work that needs a model of its own, has to run outside this turn, or is a different job from yours is a session, not a subagent: the dispatch skill sends it.
+
+Send your host's general-purpose subagent using the row the step names, or `default` when the step names a subagent but no row. Before sending, run the dispatch skill's `scripts/models.py subagent <row> <host>`, with your host named explicitly. Pass the printed model and effort to the subagent call; omit each value that is `inherit`. Its prompt opens with `Read the mmw-mode skill in full, then`, goes on with what the step that sends it says, plus its own piece: the file or the steps it follows, and what it hands back, where and in what shape. It ends with `It is your whole task: what came before it is done, and you start no agent it does not name.` Hold your turn until every subagent you sent has returned; what a subagent hands back is its last message. On a host that cannot run subagents, do the pieces yourself, one after another.
 
 You own every subagent's work. Review the diff and write your own summary, don't pass through what it said.
 

@@ -5,7 +5,7 @@
 
 Adding a playbook, a principle or a skill means writing its name in more than one
 place, and a name written in one place and missing from the other fails silently: an
-agent told to read a file or run a skill that is not there guesses. Four kinds of
+agent told to read a file or run a skill that is not there guesses. Five kinds of
 pointer are checked, in the text of every `.md` under `mmw-v4/skills/` (HTML comments
 and fenced code left out):
 
@@ -26,6 +26,8 @@ and fenced code left out):
    ending in `/` is a directory of the repository being worked on, and a one-letter name
    (`references/x.md`) is an example; neither is checked.
 4. **dispatch.sh commands.** Each `dispatch.sh <command>` is a command `dispatch.sh` has.
+5. **Subagent rows.** Each "on the `<row>` row" names a row in the dispatch skill's
+   `roles.json` `subagents` section, and every row there is named at least once.
 
 Text about MMW v2 (a line naming it, or a section whose heading does) records where
 something came from and is not checked.
@@ -37,6 +39,7 @@ finding per line, each naming the file and line to change.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -46,6 +49,7 @@ MODE_DIR = SKILLS / "mmw-mode"
 MODE = MODE_DIR / "SKILL.md"
 ROUTES = MODE_DIR / "references" / "owning-a-task.md"
 DISPATCH_SH = SKILLS / "dispatch" / "scripts" / "dispatch.sh"
+ROLES = SKILLS / "dispatch" / "roles.json"
 
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`", re.M)
 INDEX_LINE = re.compile(r"^- \*\*(.+?)\*\* \(\*\*(principle-[a-z0-9-]+)\*\*\)", re.M)
@@ -62,6 +66,7 @@ REPO_CHECK = "scripts/check"
 BARE_SKILL_FILE = re.compile(r"(?<!pstack's )the `([a-z0-9-]+)` skill's `([A-Za-z0-9_.-]+\.md)`")
 NAME_BEFORE = re.compile(r"[`*]([a-z0-9-]+)[`*]")
 DISPATCH_CMD = re.compile(r"dispatch\.sh ([a-z][a-z-]+)")
+SUBAGENT_ROW = re.compile(r"on the `([^`\n]+)` row")
 
 
 def readable(path: Path) -> str:
@@ -174,9 +179,28 @@ def check_names(path: Path, commands: set[str]) -> list[str]:
     return found
 
 
+def check_subagent_rows() -> list[str]:
+    roles_text = ROLES.read_text(encoding="utf-8")
+    rows = {row["name"] for row in json.loads(roles_text)["subagents"]}
+    found, named = [], set()
+    for path in sorted(SKILLS.rglob("*.md")):
+        text = readable(path)
+        for m in SUBAGENT_ROW.finditer(text):
+            named.add(m.group(1))
+            if m.group(1) not in rows:
+                found.append(f"{where(path, text, m.start())}: names subagent row {m.group(1)}, "
+                             "which is not in dispatch/roles.json `subagents`")
+    start = roles_text.index('"subagents"')
+    for row in sorted(rows - named):
+        m = re.search(r'"name"\s*:\s*' + re.escape(json.dumps(row)), roles_text[start:])
+        found.append(f"{where(ROLES, roles_text, start + m.start())}: "
+                     f"subagent row {row} is not named by any step")
+    return found
+
+
 def main() -> int:
     mode = readable(MODE)
-    findings = check_routes(readable(ROUTES)) + check_principles(mode)
+    findings = check_routes(readable(ROUTES)) + check_principles(mode) + check_subagent_rows()
     commands = dispatch_commands()
     for path in sorted(SKILLS.rglob("*.md")):
         if "__pycache__" not in path.parts:

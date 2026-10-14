@@ -26,15 +26,11 @@ If a candidate is lost or produces no output, proceed with N-1 and note the drop
 
 Read every candidate end to end before scoring. Score each against the rubric criterion by criterion, not on holistic feel, and write the scores down before Phase D.
 
-## Phase D: Cross-judge and pick
-
-Send one judge: a subagent, as mmw-mode's `## Subagents` says, on this session's model, whose piece is `follow the arena skill's references/judge.md: briefs <the candidates' brief files>, candidates in <directories>, rubric <rubric>.` Hold your turn until it returns. Its worth is that it has not seen the reasoning that framed the task, nor your scores.
-
-Compare its scores with yours. Agreement on the base confirms the pick. Disagreement means one of you is biased or the rubric was ambiguous. Read both rationales before deciding.
+## Phase D: Pick
 
 Pick the base on which candidate a future maintainer can extend most easily without breaking invariants. Prefer the cleaner boundary or smaller API when two feel tied, per the Laziness Protocol.
 
-Record the pick and the reason in a short synthesis note alongside the base artifact, including the cross-judge's verdict.
+Record the pick and the reason in a short synthesis note alongside the base artifact.
 
 ## Phase E: Graft
 
