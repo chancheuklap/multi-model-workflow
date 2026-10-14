@@ -39,6 +39,10 @@ class RegistrationError(RuntimeError):
     pass
 
 
+class UnconfirmedWrite(RegistrationError):
+    pass
+
+
 def command(args):
     try:
         result = subprocess.run(args, capture_output=True, text=True,
@@ -124,6 +128,19 @@ def body_file_command(args, body):
         return command(["gh", *args, "--body-file", fh.name])
 
 
+def confirmed_write(args, accepted, body=None):
+    try:
+        return body_file_command(args, body) if body is not None else command(["gh", *args])
+    except RegistrationError as failed:
+        try:
+            confirmed = accepted()
+        except (RegistrationError, OSError, ValueError, KeyError, TypeError) as exc:
+            raise UnconfirmedWrite(f"{failed}; could not confirm whether GitHub accepted it: {exc}") from None
+        if not confirmed:
+            raise failed
+        return ""
+
+
 def ensure_label(repo, name):
     color, description = verify.LABELS[name]
     try:
@@ -131,7 +148,13 @@ def ensure_label(repo, name):
                  "--description", description])
     except RegistrationError as exc:
         if "already exists" not in str(exc):
-            raise
+            try:
+                labels = whole_list(f"repos/{repo}/labels?per_page=100")
+            except RegistrationError as unreadable:
+                raise UnconfirmedWrite(f"{exc}; label acceptance could not be confirmed: {unreadable}") from None
+            if any(label["name"] == name for label in labels):
+                return True
+            raise exc
         return False
     return True
 
@@ -278,9 +301,21 @@ def reopen_plan(repo, row):
 
 def finish_registration(receipt, pending, fields, body, source, seen_in, matches):
     repo, number, plan = receipt["repo"], receipt["number"], receipt["plan"]
-    write_attempted = False
     def saved():
         statedir.write_atomic(pending, json.dumps(receipt, ensure_ascii=False))
+    def created():
+        found = [r for r in issue_list(repo)
+                 if problem_fields(r.get("body") or "").get("问题代号") == fields["问题代号"]]
+        if len(found) != 1:
+            return False
+        receipt["number"] = found[0]["number"]
+        return True
+    def occurrence_recorded():
+        for comment in comments(repo, number):
+            what, payload = events.parse(comment["body"])
+            if what == "event" and payload.get("request") == receipt["request"]:
+                return True
+        return False
     try:
         if number is None and matches:
             matched_repo, matched = matches[0]
@@ -293,14 +328,16 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
             for label in labels:
                 receipt["changed"] |= ensure_label(repo, label)
                 saved()
-            write_attempted = True
-            printed = body_file_command(["issue", "create", "--repo", repo, "--title",
+            printed = confirmed_write(["issue", "create", "--repo", repo, "--title",
                                          f"{fields['问题代号']}: {fields['发生了什么']}",
-                                         *[a for label in labels for a in ("--label", label)]], body)
+                                         *[a for label in labels for a in ("--label", label)]], created, body)
+            receipt["changed"] = True
             match = re.search(r"/issues/(\d+)", printed)
-            if not match:
+            if match:
+                receipt["number"] = int(match[1])
+            elif receipt["number"] is None and not created():
                 raise RegistrationError("GitHub accepted issue creation but printed no number; find the problem code, then rerun")
-            number = receipt["number"] = int(match[1])
+            number = receipt["number"]
             saved()
         history = comments(repo, number)
         state = events.fold(history, issue=number)
@@ -313,22 +350,24 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
         if "wontfix" in {l["name"] for l in row["labels"]}:
             plan.update(reopen=False, triage=False, note="")
         if plan["reopen"] and row["state"].lower() == "closed":
-            write_attempted = True
-            command(["gh", "issue", "reopen", str(number), "--repo", repo])
+            confirmed_write(["issue", "reopen", str(number), "--repo", repo],
+                            lambda: read_issue(repo, number)["state"].lower() == "open")
             receipt["changed"] = True
             saved()
         if plan["triage"] and "needs-triage" not in {l["name"] for l in row["labels"]}:
             receipt["changed"] |= ensure_label(repo, "needs-triage")
             saved()
-            write_attempted = True
-            command(["gh", "issue", "edit", str(number), "--repo", repo, "--add-label", "needs-triage"])
+            confirmed_write(["issue", "edit", str(number), "--repo", repo, "--add-label", "needs-triage"],
+                            lambda: "needs-triage" in {l["name"] for l in read_issue(repo, number)["labels"]})
+            receipt["changed"] = True
+            saved()
         if not recorded:
             comment = events.build("lesson.seen", line=f"登记 #{number}，在 {seen_in} 发现。{plan['note']}",
                                    text=body if receipt["action"] != "OPENED" else "",
                                    lesson=number, seen_in=seen_in, source=source,
                                    request=receipt["request"], **receipt["context"])
-            write_attempted = True
-            body_file_command(["issue", "comment", str(number), "--repo", repo], comment)
+            confirmed_write(["issue", "comment", str(number), "--repo", repo], occurrence_recorded, comment)
+            receipt["changed"] = True
         pending.unlink()
         if plan["blocked_spec"] is not None:
             print(f"NOT REOPENED: #{number} sits under spec #{plan['blocked_spec']}, which has not finished")
@@ -336,7 +375,7 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
         print(f"{action}: #{number} in {repo}")
         return 0
     except (RegistrationError, OSError, ValueError, KeyError, TypeError) as exc:
-        partial = receipt["changed"] or write_attempted
+        partial = receipt["changed"] or isinstance(exc, UnconfirmedWrite)
         print(f"register: {repo}#{number or '?'} registration incomplete: {exc}; "
               "rerun the same command to finish missing writes", file=sys.stderr)
         return 1 if partial else 2

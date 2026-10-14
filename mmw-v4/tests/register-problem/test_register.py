@@ -108,8 +108,12 @@ class Fake:
                 repo = "/".join(parts[1:3])
                 if len(parts) == 4:
                     self.assert_paginated(args)
-                    rows = [{k: v for k, v in r.items() if k not in ("comments", "parent", "closer")}
-                            for r in self.repos[repo]]
+                    if parts[3] == "labels":
+                        rows = [{"name": n, "color": c, "description": d}
+                                for n, (c, d) in self.labels[repo].items()]
+                    else:
+                        rows = [{k: v for k, v in r.items() if k not in ("comments", "parent", "closer")}
+                                for r in self.repos[repo]]
                     data = [rows[:1], rows[1:]]
                 elif parts[-1] == "comments":
                     self.assert_paginated(args)
@@ -253,36 +257,57 @@ class Registration(unittest.TestCase):
         self.assertEqual(row["state"], "closed")
         self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
 
+    def test_refused_writes_exit_two_when_github_accepted_nothing(self):
+        for verb in ("create", "comment", "reopen", "label-create"):
+            with self.subTest(verb=verb):
+                self.fake = Fake()
+                if verb != "label-create":
+                    self.fake.labels["o/r"]["mmw:lesson"] = ("123456", "already present")
+                if verb not in ("create", "label-create"):
+                    self.existing(state="closed" if verb == "reopen" else "open",
+                                  reason="not_planned" if verb == "reopen" else None)
+                before = json.dumps((self.fake.repos, self.fake.labels))
+                self.fake.fail = lambda c: c[1:3] == (["label", "create"] if verb == "label-create" else ["issue", verb])
+                path = self.root / f"refused-{verb}.md"
+                path.write_text(problem())
+                rc, out, err = self.run_register("add", str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertIn("503", err)
+                self.assertEqual(json.dumps((self.fake.repos, self.fake.labels)), before)
+
     def test_a_half_written_registration_is_finished_by_running_again(self):
-        for failure in ("comment", "edit", "lost-comment-response"):
+        for failure in ("comment", "edit", "lost-comment-response", "lost-create-response", "lost-edit-response"):
             with self.subTest(failure=failure):
                 self.fake = Fake()
-                if failure == "edit":
+                if failure in ("edit", "lost-edit-response"):
                     row = self.existing(state="closed", reason="completed")
                     row["closer"] = {"url": "https://github.com/acme/toolbox/pull/9"}
                 self.fake.fail = lambda c: c[1:3] == ["issue", "edit" if failure == "edit" else "comment"]
-                if failure == "lost-comment-response":
+                if failure.startswith("lost-"):
                     self.fake.fail = None
                     original = self.fake
                     def lost(cmd, **kwargs):
                         result = original(cmd, **kwargs)
-                        if cmd[1:3] == ["issue", "comment"]:
+                        if cmd[1:3] == ["issue", failure.split("-")[1]]:
                             return subprocess.CompletedProcess(cmd, 1, "", "connection lost after acceptance")
                         return result
                     self.fake = lost
                 rc, out, err = self.run_register("add", str(self.path))
-                self.assertEqual(rc, 1, err)
-                self.assertIn("#10" if failure == "edit" else "#100", err)
-                if failure == "lost-comment-response":
+                if failure.startswith("lost-"):
+                    self.assertEqual(rc, 0, err)
                     self.fake = original
-                self.fake.fail = None
-                rc, out, err = self.run_register("add", str(self.path))
-                self.assertEqual(rc, 0, err)
-                repo = "acme/toolbox" if failure == "edit" else "o/r"
+                else:
+                    self.assertEqual(rc, 1, err)
+                    self.assertIn("#10" if failure == "edit" else "#100", err)
+                    self.fake.fail = None
+                    rc, out, err = self.run_register("add", str(self.path))
+                    self.assertEqual(rc, 0, err)
+                reopening = failure in ("edit", "lost-edit-response")
+                repo = "acme/toolbox" if reopening else "o/r"
                 row = self.fake.repos[repo][0]
                 self.assertEqual(len(self.fake.repos[repo]), 1)
-                self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2 if failure == "edit" else 1)
-                if failure == "edit":
+                self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2 if reopening else 1)
+                if reopening:
                     self.assertIn({"name": "needs-triage"}, row["labels"])
                     self.assertIn("修了又犯", row["comments"][-1]["body"])
                     self.assertIn("https://github.com/acme/toolbox/pull/9", row["comments"][-1]["body"])
