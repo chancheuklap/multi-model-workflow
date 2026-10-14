@@ -53,13 +53,13 @@ CAT_IN_TICKET_ITEM_RE = re.compile(
 IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"
-# The layer label every issue this pipeline opens carries beside its queue label: which
-# layer of the tree it is, so a reader of the board never counts nesting to find out.
 CLASS_LABELS = {
     "mmw:map": ("5319e7", "MMW layer: the map one discussion opened"),
     "mmw:spec": ("1d76db", "MMW layer: a spec, the container of one batch of tickets"),
     "mmw:ticket": ("0e8a16", "MMW layer: a ticket, one unit of work"),
     "mmw:child": ("c5def5", "MMW layer: a child issue a ticket opened"),
+    "mmw:lesson": ("8e44ad", "做法上的问题，等复盘"),
+    "mmw:problem": ("f1c40f", "不在任何票里的产品问题，或计划还没批的 issue"),
 }
 # The one of them `--lint` asks after by name: which number is a batch's container.
 CLASS_SPEC = "mmw:spec"
@@ -68,8 +68,7 @@ CLASS_SPEC = "mmw:spec"
 # description are defined once, here, for every label the pipeline puts on an issue;
 # `ensure_label` creates whichever of them a repository lacks, the first time one is used.
 QUEUE_LABELS = {
-    "needs-triage": ("F9D0C4", "还没评估过，不知道该不该做、怎么做"),
-    "needs-info": ("B60205", "缺输入，等人补"),
+    "needs-triage": ("F9D0C4", "等你决定：只有主人能让它离开"),
     "ready-for-agent": ("FEF2C0", "已写清楚，可以直接派工人 AFK 跑"),
     "ready-for-human": ("BFDADC", "HITL 的活，不派工人"),
     "wontfix": ("ffffff", "This will not be worked on"),
@@ -1643,10 +1642,12 @@ def gh_issue_create(args: list[str], body: str) -> tuple[subprocess.CompletedPro
 
 
 def run_sub_issue(number: int, kind: str, path: Path) -> int:
-    """Open a `needs-triage` child under this ticket, and record it on this ticket.
+    """Open a child under this ticket with its kind's status, and record it here.
 
-    The child carries the layer label `mmw:child` beside its queue label. Its body opens
-    with a line a person reads; which kind it is and where it came from is the
+    Every child carries `mmw:child`. Only `decision` and `deferred` carry
+    `needs-triage`; `finding`, `contract` and `fault` await the orchestrator.
+    Its body opens with a line a person reads; which kind it is and where it came
+    from is the
     `child.opened` event posted on this ticket, which is where the ticket's own fold finds
     its children. A child opened whose event could not be written exits 1 and says so:
     the child exists, and opening it again would make two.
@@ -1657,7 +1658,10 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not text.strip():
         return refuse(f"{path} is empty")
     title = text.strip().splitlines()[0].strip()
-    for label in ("needs-triage", "mmw:child"):
+    labels = ["mmw:child"]
+    if kind in ("decision", "deferred"):
+        labels.insert(0, "needs-triage")
+    for label in labels:
         missing = ensure_label(label)
         if missing:
             return refuse(f"the repository has no `{label}` label and it could not be "
@@ -1666,7 +1670,7 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not posted.endswith("\n"):
         posted += "\n"
     result, child = gh_issue_create(
-        ["--parent", str(number), "--label", "needs-triage", "--label", "mmw:child",
+        ["--parent", str(number), *[arg for label in labels for arg in ("--label", label)],
          "--title", title], posted)
     if result.returncode != 0:
         sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
@@ -3569,7 +3573,8 @@ def main(argv: list[str] | None = None) -> int:
                              "path, to one of its own outside the repository, printed as "
                              "`DRAFT: wrote <path>`")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
-                        help="open a needs-triage child under this ticket; KIND is one of "
+                        help="open an mmw:child under this ticket; only decision and "
+                             "deferred also carry needs-triage; KIND is one of "
                              + ", ".join(SUB_ISSUE_KINDS))
     parser.add_argument("--actor", choices=events.REVERIFY_ACTORS,
                         help="required with --reverify: the worker's final run or the main "

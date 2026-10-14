@@ -1,4 +1,4 @@
-"""`--sub-issue`: open one needs-triage child of this ticket, or refuse."""
+"""`--sub-issue`: open a child with its kind's status, or refuse."""
 
 import io
 import unittest
@@ -68,9 +68,33 @@ class TestCreatesForEachKind(unittest.TestCase):
                 create = create_of(recorded)
                 self.assertEqual(create[create.index("--parent") + 1], "77")
                 self.assertEqual(create.count("--parent"), 1)
-                self.assertEqual(labels_of(create), ["needs-triage", "mmw:child"])
                 self.assertEqual(create[create.index("--title") + 1], f"The {kind} case")
                 self.assertIn("99", out.strip().splitlines()[-1])
+
+    def test_a_finding_child_is_born_with_only_its_kind(self):
+        code, _, err, recorded, _ = run_sub_issue("finding", "A finding\n\nbody\n")
+        self.assertEqual(code, 0, err)
+        self.assertCountEqual(labels_of(create_of(recorded)), ["mmw:child"])
+
+    def test_a_contract_child_is_born_with_only_its_kind(self):
+        code, _, err, recorded, _ = run_sub_issue("contract", "A contract\n\nbody\n")
+        self.assertEqual(code, 0, err)
+        self.assertCountEqual(labels_of(create_of(recorded)), ["mmw:child"])
+
+    def test_a_fault_child_is_born_with_only_its_kind(self):
+        code, _, err, recorded, _ = run_sub_issue("fault", "A fault\n\nbody\n")
+        self.assertEqual(code, 0, err)
+        self.assertCountEqual(labels_of(create_of(recorded)), ["mmw:child"])
+
+    def test_a_decision_child_is_born_awaiting_the_owner(self):
+        code, _, err, recorded, _ = run_sub_issue("decision", "A decision\n\nbody\n")
+        self.assertEqual(code, 0, err)
+        self.assertCountEqual(labels_of(create_of(recorded)), ["mmw:child", "needs-triage"])
+
+    def test_a_deferred_child_is_born_awaiting_the_owner(self):
+        code, _, err, recorded, _ = run_sub_issue("deferred", "A deferred\n\nbody\n")
+        self.assertEqual(code, 0, err)
+        self.assertCountEqual(labels_of(create_of(recorded)), ["mmw:child", "needs-triage"])
 
     def test_the_body_opens_with_a_line_naming_the_kind_and_the_ticket(self):
         code, _, err, recorded, bodies = run_sub_issue(
@@ -85,13 +109,11 @@ class TestCreatesForEachKind(unittest.TestCase):
         self.assertIn("detail", posted)
 
 
-class TestTheLayerLabel(unittest.TestCase):
-    """Every child carries `mmw:child` beside its queue label, so a board reads its layer
-    off a label rather than counting how deep it is nested. Both labels are made sure of
-    first: `gh issue create --label` fails outright on a label the repository lacks."""
+class TestTheKindLabel(unittest.TestCase):
+    """`gh issue create --label` fails outright on a label the repository lacks."""
 
     def test_both_labels_are_made_sure_of_before_anything_is_opened(self):
-        code, _, err, recorded, _ = run_sub_issue("finding", "A finding\n\nbody\n")
+        code, _, err, recorded, _ = run_sub_issue("decision", "A decision\n\nbody\n")
         self.assertEqual(code, 0, err)
         self.assertEqual(run_sub_issue.labels_asked, ["needs-triage", "mmw:child"])
         self.assertEqual(sorted(labels_of(create_of(recorded))), ["mmw:child", "needs-triage"])
@@ -100,7 +122,7 @@ class TestTheLayerLabel(unittest.TestCase):
         code, _, err, recorded, bodies = run_sub_issue(
             "finding", "A finding\n\nbody\n", label_problem="HTTP 403: not allowed")
         self.assertEqual(code, 2)
-        self.assertIn("needs-triage", err)
+        self.assertIn("mmw:child", err)
         self.assertIn("HTTP 403", err)
         self.assertFalse(any(c[:3] == ["gh", "issue", "create"] for c in recorded))
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))

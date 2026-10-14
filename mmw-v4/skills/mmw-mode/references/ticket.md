@@ -55,7 +55,7 @@ For a UI acceptance criterion, copy the whole `CHECK:` line and any `TIMEOUT:` f
 
 A playbook outside any spec opens its ticket at its first step, before the plan is known:
 
-1. Write the body with `## Problem` alone, then `gh issue create --title "<what is wrong or wanted, in a few words>" --label mmw:ticket --body-file <file>`, creating the label first when the repository lacks it, as `github-issues.md` `## Three label sets` says. `mmw:ticket` is its only label until One ticket readies it, but for `needs-triage` on a problem nobody is working on now: `verify-ticket.py --lint` passes it, no worker can claim it without `ready-for-agent`, and no `advance` reaches it, since it sits under no spec.
+1. Write the body with `## Problem` alone, then `gh issue create --title "<what is wrong or wanted, in a few words>" --label mmw:problem --body-file <file>`, creating the label first when the repository lacks it, as `github-issues.md` `## Three label sets` says. `mmw:problem` is its kind until the owner says Go, when One ticket's **Ready** step changes it to `mmw:ticket`. It carries no status label while you write the plan. `verify-ticket.py --lint` passes it, no worker can claim it without `ready-for-agent`, and no `advance` reaches it, since it sits under no spec.
 2. From a checkout of the project branch, `git fetch origin`, then `git worktree add .worktrees/fix-<n> -b fix-<n> origin/<project branch>` and `git -C .worktrees/fix-<n> push -u origin fix-<n>`. The project branch is the branch the owner's work merges into: the one this checkout is on, unless that is the repository's default branch, which takes no work directly; then ask the owner which branch it is. When `fix-<n>` already exists, use it.
 
 A ticket already open keeps its number and its body: its playbook's first step opens only the `fix-<n>` it lacks.
@@ -64,14 +64,14 @@ Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes t
 
 A problem nobody is working on now, one a session ran into while doing something else, gets step 1 only and the label `needs-triage`; its `Playbook:` line is written when the kind is plain, and otherwise when the owner picks it. Its `fix-<n>` is opened when the owner picks it, at that playbook's first step.
 
-An issue someone else opened, or a child of a night's ticket, is not worked as it stands: open a ticket of our own whose `## Problem` quotes it with its link, and leave the original as it is. Opening a PR closes it once the pull request merges.
+An issue someone else opened is not worked as it stands. Open an issue of our own whose `## Problem` quotes it with its link, and leave the original as it is. Opening a PR closes it once the pull request merges. A child issue keeps its number and becomes a ticket in place on the owner's Go, through One ticket's **Ready** step (`../playbooks/one-ticket.md`). Preserve its opening ``A `<kind>` child of #<n>`` line when writing its plan, because **Ready** reads the original ticket number there.
 
 ## Handing it back
 
-The last step of every playbook that opens a ticket. Tell the owner what that playbook's `**Reply:**` line names: the problem, its cause or its baseline, the plan, the criteria, and what the ticket leaves out. Then wait for their word.
+The last step of every playbook that opens a ticket. Handing it back is the moment you run `gh issue edit <n> --add-label needs-triage`. Tell the owner what that playbook's `**Reply:**` line names: the problem, its cause or its baseline, the plan, the criteria, and what the ticket leaves out. Then wait for their word.
 
 - **Change it.** Edit the ticket, and hand it back again.
-- **Not yet.** `gh issue edit <n> --add-label needs-triage`.
+- **Not yet.** It already carries `needs-triage`. Do nothing.
 - **No.** `gh issue edit <n> --add-label wontfix`, then `gh issue close <n> --reason "not planned"`.
 - **Go.** Run One ticket (`../playbooks/one-ticket.md`) on it.
 - **Too big for one ticket.** Run To spec (`../playbooks/to-spec.md`), then close the ticket with a comment linking the spec. `fix-<n>` stays.

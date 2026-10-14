@@ -198,28 +198,32 @@ _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`, `mmw-v3/skills/ver
 ### Labels and queues
 
 **label**:
-A GitHub label on an issue. This repository's own labels come from three sets that never stand in for each other: a **layer label** says which layer of the tree the issue is, a triage label which queue it is in, a worker-grade label which worker row starts it. Triage's `bug` and `enhancement` and wayfinder's `wayfinder:<type>` labels sit outside the three.
+A GitHub label on an issue. This repository's own labels come from three sets that never stand in for each other: a **kind** says what the issue is, a **status** says who owes the next step, and a worker-grade label says which worker starts it. Triage's `bug` and `enhancement` and wayfinder's `wayfinder:<type>` labels sit outside the three.
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
-**layer label**:
-One of `mmw:map`, `mmw:spec`, `mmw:ticket`, `mmw:child`, saying which layer of the tree an issue is. It puts an issue in no queue.
+**kind**:
+Exactly one of `mmw:map`, `mmw:spec`, `mmw:ticket`, `mmw:child`, `mmw:lesson`, `mmw:problem` on each MMW issue, saying what it is. A `wayfinder:<type>` decision ticket carries none. A kind puts an issue in no status.
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
-**queue**:
-What a triage label expresses: `ready-for-agent` is the agent queue, `needs-triage` holds what nobody has judged, `ready-for-human` is the user's queue.
+**status**:
+Who owes the next step. An open issue without a status label awaits machine processing. `needs-triage` awaits the owner's decision. `ready-for-agent` with one worker grade, or `ready-for-human`, means ready for work, with an assignee when in progress. Closed ends the work, with `wontfix` for the owner's rejection. Maps and specs use only open and closed.
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **triage role**:
-A canonical label name the upstream skills use: five state roles, which `mmw-v4/skills/mmw-mode/references/github-issues.md` lists with this repository's label strings, and two category roles, `bug` and `enhancement`, used as named.
-_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`, `mmw-v3/skills/triage/SKILL.md`
+A label's role in triage, either a status or one of the category labels `bug` and `enhancement` used by upstream skills.
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **`needs-triage`**:
-The label of an issue nobody has judged yet: an issue from outside, a ticket its worker handed back or that bounced twice, a landed ticket `reverify` reopened, or a child a worker opened. The triage skill reads this queue.
-_Home_: `mmw-v3/skills/triage/SKILL.md`, `mmw-v3/skills/triage/references/pipeline-issues.md`
-
-**`needs-info`**:
-Waiting on the user for more information; one of triage's four outcomes.
+The status awaiting the owner's decision. Only the owner lets an issue leave it, and deferral has no expiry.
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
+
+**`mmw:lesson`**:
+The kind of a problem in how work is done, awaiting retrospective processing.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` `CLASS_LABELS`
+
+**`mmw:problem`**:
+The kind of a product problem outside any ticket, or a playbook's plan not yet approved. It becomes `mmw:ticket` on the owner's Go.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` `CLASS_LABELS`, `mmw-v4/skills/mmw-mode/playbooks/one-ticket.md` **Ready**
 
 **`ready-for-agent`**:
 The agent-queue label, which the ticket format puts on every agent ticket beside a worker-grade label. It never goes on a spec.
@@ -246,15 +250,11 @@ The line a `reach` ticket adds naming what would retire it, that is, make the ti
 _Home_: `mmw-v3/skills/verify-ticket/references/person-ticket.md`
 
 **`wontfix`**:
-Will not be done; one of triage's four outcomes.
+The owner's rejection of work, carried on an issue closed as not planned.
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **`bug`, `enhancement`**:
 The two category roles, for work arriving from outside; a ticket this repository plans for itself carries neither.
-_Home_: `mmw-v3/skills/triage/SKILL.md`
-
-**`## Triage Notes`**:
-The comment template `triage` posts for a `needs-info` outcome: what has been established so far, and the specific questions still needed from the reporter.
 _Home_: `mmw-v3/skills/triage/SKILL.md`
 
 **`.out-of-scope/`**:
@@ -304,5 +304,5 @@ The two lint levels. Only an `ERROR` affects `--lint`'s exit code.
 _Home_: `mmw-v3/skills/verify-ticket/references/linting.md`
 
 **triage**:
-The skill that judges an issue waiting in `needs-triage` and recommends one of four outcomes: `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`.
-_Home_: `mmw-v3/skills/triage/SKILL.md`
+Judging an issue awaiting the owner's decision, with three work outcomes: `ready-for-agent`, `ready-for-human`, or rejection with `wontfix`.
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`

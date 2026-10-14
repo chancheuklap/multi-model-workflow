@@ -13,7 +13,7 @@ The command-line agent program a session runs on, either `claude` (Claude Code) 
 _Home_: `mmw-v4/skills/dispatch/hosts.json`
 
 **user**:
-The person who owns the products and works with the orchestrator on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` and `needs-info` wait on the user.
+The person who owns the products and works with the orchestrator on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` waits on the user's decision.
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **subagent**:
