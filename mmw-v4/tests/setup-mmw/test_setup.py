@@ -105,7 +105,8 @@ class TestLabels(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def test_the_table_is_every_set_including_wayfinder(self):
-        for name in ("mmw:map", "needs-triage", "junior-worker", "wayfinder:map", "wayfinder:task"):
+        for name in ("mmw:map", "mmw:lesson", "mmw:problem", "needs-triage",
+                     "junior-worker", "wayfinder:map", "wayfinder:task"):
             self.assertIn(name, TABLE)
 
     def test_creates_only_the_missing_labels_and_never_overwrites(self):

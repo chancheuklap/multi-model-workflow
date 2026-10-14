@@ -8,6 +8,8 @@ python3 scripts/verify-ticket.py <n> --sub-issue <kind> <file>
 
 `--sub-issue` takes a kind and a file whose first line is the child's title and whose rest is its body; it opens the child under this ticket and records it there.
 
+Every child carries `mmw:child`. A `finding`, `contract` or `fault` opens with no status label, awaiting processing. A `decision` or `deferred` also carries `needs-triage`, awaiting the owner's decision.
+
 The kind decides who reads the child and when: `fault` and `contract` wake the session that sent this ticket, the night's orchestrator or the One ticket session, which repairs the pipeline or the source and resumes this ticket; a `finding` goes to the session that merges this ticket, in the night's closing pass or One ticket's **Open the pull request** step; `decision` and `deferred` reach the owner in the night summary or the top half of this ticket's pull request description, while you carry on. None of these readers has seen your session, so the body stands on its own.
 
 ## Which kind it is

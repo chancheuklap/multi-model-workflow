@@ -28,11 +28,17 @@ Three sets, each answering one question, none standing in for another:
 
 | Set | Answers | Labels |
 | --- | --- | --- |
-| Layer | which layer of the tree this issue is | `mmw:map` · `mmw:spec` · `mmw:ticket` · `mmw:child` |
-| Queue | who it is waiting on | `ready-for-agent` · `ready-for-human` · `needs-triage` · `needs-info` · `wontfix` |
+| Kind | what this issue is | `mmw:map` · `mmw:spec` · `mmw:ticket` · `mmw:child` · `mmw:lesson` · `mmw:problem` |
+| Status | who owes the next step | no status label · `needs-triage` · `ready-for-agent` · `ready-for-human` · closed, with `wontfix` when the owner rejects it |
 | Grade | which worker starts it | `junior-worker` · `senior-worker` |
 
-A layer label puts an issue in no queue. `needs-triage` marks every ticket waiting for the owner to look at it: one a session ran into, one the owner put off, one its worker handed back, and one `land` could not merge. The owner picks one, and the Session pickup playbook (`../playbooks/session-pickup.md`) takes it up. The queue: `gh issue list --state open --label needs-triage --limit 1000 --json number,title,labels`. The colour and description of every label are `LABELS` in the `verify-ticket` skill's `scripts/verify-ticket.py`, which creates a label the repository lacks the first time it puts one on. Before a `gh issue create --label` of your own, create a missing label from that table with `gh label create <name> --color <colour> --description "<description>"`: `gh issue create` fails outright on a missing label. Leave a label that already exists as it is.
+Every MMW issue carries exactly one kind label. A `wayfinder:<type>` decision ticket carries none. Maps and specs use only open and closed, not the status labels.
+
+A kind label puts an issue in no status. An open issue with no status label awaits processing by the machine. `needs-triage` means awaiting the owner's decision, and only the owner lets it leave. `ready-for-agent` with one grade label, or `ready-for-human`, means ready for work. An assignee marks work in progress. Closed ends the work, with `wontfix` when the owner rejects it.
+
+Issues enter `needs-triage` when a session records a product problem, a worker opens a `decision` or `deferred` child, a retrospective proposes work, or a playbook hands back its plan. Tickets enter it when a worker hands them back, they bounce twice at night or once outside a night, `reverify` reopens them, or `land` cannot merge them. An orchestrator also puts a `contract` child there when no written authority settles it. A repaired problem that recurs enters it too. The owner's deferral leaves it there without expiry. The owner picks one, and the Session pickup playbook (`../playbooks/session-pickup.md`) takes it up. List them with `gh issue list --state open --label needs-triage --limit 1000 --json number,title,labels`.
+
+The colour and description of every label are `LABELS` in the `verify-ticket` skill's `scripts/verify-ticket.py`, which creates a label the repository lacks the first time it puts one on. Before a `gh issue create --label` of your own, create a missing label from that table with `gh label create <name> --color <colour> --description "<description>"`. `gh issue create` fails outright on a missing label. Leave a label that already exists as it is.
 
 ## When a playbook says "publish"
 
@@ -40,7 +46,7 @@ Create a GitHub issue.
 
 - **A spec**: `verify-ticket.py --publish --spec-body <file> --title "<title>"` of the `verify-ticket` skill, with `--map <map>` when the spec comes from a wayfinder map. It gives the spec `mmw:spec`, and with `--map` it publishes the spec as a sub-issue of the map; it prints the spec's number.
 - **The tickets of a spec**: drafts, linted, then `verify-ticket.py <spec> --publish --drafts <dir>`, as the To tickets playbook (`../playbooks/to-tickets.md`) says.
-- **A ticket outside any spec**: opened by the first step of the playbook of its kind, as `ticket.md` `## Opening a ticket` says, with `mmw:ticket` as its only label until One ticket readies it, unless it waits in `needs-triage`. The ones whose plan is still being written, or that wait for the owner's go: `gh issue list --state open --label mmw:ticket --limit 1000 --json number,title,labels --jq '[.[] | select([.labels[].name] | any(. == "ready-for-agent" or . == "ready-for-human" or . == "needs-triage" or . == "needs-info" or . == "wontfix") | not)]'`.
+- **A problem outside any spec**: opened by the first step of the playbook of its kind, as `ticket.md` `## Opening a ticket` says, with `mmw:problem` as its kind until the owner's Go. The ones whose plan is still being written or not yet handed back carry `mmw:problem` without `needs-triage`. List them with `gh issue list --state open --label mmw:problem --limit 1000 --json number,title,labels --jq '[.[] | select([.labels[].name] | any(. == "needs-triage") | not)]'`.
 
 ## When a playbook says "fetch the relevant ticket"
 

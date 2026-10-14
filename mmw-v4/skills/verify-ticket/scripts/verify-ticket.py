@@ -53,13 +53,13 @@ CAT_IN_TICKET_ITEM_RE = re.compile(
 IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"
-# The layer label every issue this pipeline opens carries beside its queue label: which
-# layer of the tree it is, so a reader of the board never counts nesting to find out.
 CLASS_LABELS = {
-    "mmw:map": ("5319e7", "MMW layer: the map one discussion opened"),
-    "mmw:spec": ("1d76db", "MMW layer: a spec, the container of one batch of tickets"),
-    "mmw:ticket": ("0e8a16", "MMW layer: a ticket, one unit of work"),
-    "mmw:child": ("c5def5", "MMW layer: a child issue a ticket opened"),
+    "mmw:map": ("5319e7", "MMW kind: the map one discussion opened"),
+    "mmw:spec": ("1d76db", "MMW kind: a spec, the container of one batch of tickets"),
+    "mmw:ticket": ("0e8a16", "MMW kind: a ticket, one unit of work"),
+    "mmw:child": ("c5def5", "MMW kind: a child issue a ticket opened"),
+    "mmw:lesson": ("8e44ad", "做法上的问题，等复盘"),
+    "mmw:problem": ("f1c40f", "不在任何票里的产品问题，或计划还没批的 issue"),
 }
 # The one of them `--lint` asks after by name: which number is a batch's container.
 CLASS_SPEC = "mmw:spec"
@@ -68,8 +68,7 @@ CLASS_SPEC = "mmw:spec"
 # description are defined once, here, for every label the pipeline puts on an issue;
 # `ensure_label` creates whichever of them a repository lacks, the first time one is used.
 QUEUE_LABELS = {
-    "needs-triage": ("F9D0C4", "还没评估过，不知道该不该做、怎么做"),
-    "needs-info": ("B60205", "缺输入，等人补"),
+    "needs-triage": ("F9D0C4", "等你决定：只有主人能让它离开"),
     "ready-for-agent": ("FEF2C0", "已写清楚，可以直接派工人 AFK 跑"),
     "ready-for-human": ("BFDADC", "HITL 的活，不派工人"),
     "wontfix": ("ffffff", "This will not be worked on"),
@@ -311,11 +310,9 @@ def unannounced_change(ticket: dict, comments: list[str], me: str, first: str) -
 
 
 def hand_back_for_triage(number: int) -> None:
-    """Put the ticket back in the queue nobody has judged yet. Patched out in tests.
+    """Hand the unfinished ticket back for the owner's decision. Patched out in tests.
 
-    A worker that could not finish has not established what the ticket needs next — a
-    person, more information, another agent, or nothing at all. `needs-triage` is that
-    state, and it is the one queue a skill picks up on its own.
+    `needs-triage` records that the owner decides the ticket's next step.
 
     A ticket still assigned to the worker that gave up is a ticket `status.py`'s
     frontier will not dispatch again — it takes only unassigned tickets — so the
@@ -1643,10 +1640,12 @@ def gh_issue_create(args: list[str], body: str) -> tuple[subprocess.CompletedPro
 
 
 def run_sub_issue(number: int, kind: str, path: Path) -> int:
-    """Open a `needs-triage` child under this ticket, and record it on this ticket.
+    """Open a child under this ticket with its kind's status, and record it here.
 
-    The child carries the layer label `mmw:child` beside its queue label. Its body opens
-    with a line a person reads; which kind it is and where it came from is the
+    Every child carries `mmw:child`. Only `decision` and `deferred` carry
+    `needs-triage`; `finding`, `contract` and `fault` await the orchestrator.
+    Its body opens with a line a person reads; which kind it is and where it came
+    from is the
     `child.opened` event posted on this ticket, which is where the ticket's own fold finds
     its children. A child opened whose event could not be written exits 1 and says so:
     the child exists, and opening it again would make two.
@@ -1657,7 +1656,10 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not text.strip():
         return refuse(f"{path} is empty")
     title = text.strip().splitlines()[0].strip()
-    for label in ("needs-triage", "mmw:child"):
+    labels = ["mmw:child"]
+    if kind in ("decision", "deferred"):
+        labels.insert(0, "needs-triage")
+    for label in labels:
         missing = ensure_label(label)
         if missing:
             return refuse(f"the repository has no `{label}` label and it could not be "
@@ -1666,7 +1668,7 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not posted.endswith("\n"):
         posted += "\n"
     result, child = gh_issue_create(
-        ["--parent", str(number), "--label", "needs-triage", "--label", "mmw:child",
+        ["--parent", str(number), *[arg for label in labels for arg in ("--label", label)],
          "--title", title], posted)
     if result.returncode != 0:
         sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
@@ -1727,12 +1729,12 @@ def label_defined(name: str) -> bool:
 
 
 def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int:
-    """Publish a spec: one issue carrying the layer label `mmw:spec`, and, when
+    """Publish a spec: one issue carrying the kind label `mmw:spec`, and, when
     `map_number` is given, a native sub-issue of that map — the link the board and the
     retro find a spec's map through; nothing written in the body stands in for it.
 
     A spec is a container for the tickets underneath it, not a piece of work, so it
-    carries no triage label.
+    carries no status label.
     """
     text = body_path.read_text(encoding="utf-8") if body_path.is_file() else ""
     if not text.strip():
@@ -3130,7 +3132,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
                 f"heading, or label the ticket `ready-for-human` when a person does it",
                 "no-criteria")
         if not any(label in CLASS_LABELS for label in labels):
-            say("warn", f"{who} carries no layer label, so its layer was read off "
+            say("warn", f"{who} carries no kind label, so its kind was read off "
                 f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
                 f"without it a spec attached to a map leaves its batch unlinted here",
                 "layer-label")
@@ -3188,11 +3190,11 @@ def reads_as_spec(number: int, labels: list[str]) -> bool:
     """Whether `--lint` reads `number` as a spec — the container of a batch — rather
     than as a ticket that carries nothing to check.
 
-    The layer label answers it, and its answer does not move when the spec is attached
+    The kind label answers it, and its answer does not move when the spec is attached
     to its wayfinder map as a sub-issue, which is what the mmw-mode skill's
-    `references/github-issues.md` asks for. Only an issue carrying no layer label at all falls back to the shape of
+    `references/github-issues.md` asks for. Only an issue carrying no kind label at all falls back to the shape of
     the tree — no parent, and children of its own — which is what an issue opened
-    before the layer labels existed is. That fallback cannot tell such a spec, once it is
+    before the kind labels existed is. That fallback cannot tell such a spec, once it is
     attached to a map, from a criteria-less ticket; `lint_criteria` names the missing
     label rather than let the answer pass for a read one.
     """
@@ -3364,7 +3366,7 @@ def lint_drafts(spec: int, directory: Path) -> int:
                       f"without `.md`  [unknown-draft]")
                 bad = True
         if "mmw:ticket" not in draft["labels"]:
-            print(f"  ERROR {name}: LABELS: has no `mmw:ticket`, the layer label every "
+            print(f"  ERROR {name}: LABELS: has no `mmw:ticket`, the kind label every "
                   f"ticket is published with  [layer-label]")
             bad = True
         entries.append({"id": name, "dependencies": dependencies})
@@ -3569,7 +3571,8 @@ def main(argv: list[str] | None = None) -> int:
                              "path, to one of its own outside the repository, printed as "
                              "`DRAFT: wrote <path>`")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
-                        help="open a needs-triage child under this ticket; KIND is one of "
+                        help="open an mmw:child under this ticket; only decision and "
+                             "deferred also carry needs-triage; KIND is one of "
                              + ", ".join(SUB_ISSUE_KINDS))
     parser.add_argument("--actor", choices=events.REVERIFY_ACTORS,
                         help="required with --reverify: the worker's final run or the main "
