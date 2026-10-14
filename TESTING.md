@@ -46,7 +46,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 - A skip is a failure. `mmw-v4/tests/lib/run_unittests.py` exits 1 on a skip count other than 0 or a run count of 0, and the suite then withholds `all passed`; the `verify-ticket` suite fails without `node` rather than passing on half its tests.
 - The task board loads verify-ticket's `events.py` and `issue_tree.py` and dispatch's `ghlist.py`, `models.py`, `statedir.py` and `roles.json` by file path (`mmw-v4/board/codeversion.py` lists them): a change to one of them is a change to the board.
 - The design-pages offline check waits up to 15 seconds for visible content, then observes another 3 seconds for asynchronous console errors, exceptions and requests. It cannot establish what happens after that observation window.
-- The board and design-pages suites need Playwright's browsers. With Playwright cached, the board suite runs `uv` offline.
+- The board and design-pages suites take the newest Playwright `uv` resolves (no pin, no upper bound: it follows global upgrades) and run `mmw-v4/tests/lib/ensure_chromium.py` first, which installs the Chromium build that Playwright needs when it is absent and never deletes another build. When Chromium still cannot start, the suite exits 2 before any test runs, and `scripts/check` reports it as `ENV` and ends `CHECK CANNOT RUN` rather than red. A suite's `run.sh` exits 2 for nothing else. With Playwright cached, the board suite runs `uv` offline, on the newest cached release.
 
 ## Which suites a change needs
 

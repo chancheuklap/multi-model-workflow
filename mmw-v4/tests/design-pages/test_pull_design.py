@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -288,6 +289,21 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.snapshot(self.target).get('_ds/late/readme.md'), b'## Unifications\nlate kit\n')
+
+    def test_a_chromium_that_cannot_be_installed_exits_2_and_writes_nothing(self):
+        browsers = Path(self.tmp.name) / "no-browsers"
+        browsers.mkdir()
+        with socket.socket() as closed:
+            closed.bind(("127.0.0.1", 0))
+            unreachable = f"http://127.0.0.1:{closed.getsockname()[1]}"
+        env = {**os.environ, "MMW_DESIGN_PREVIEW_URL": self.preview.preview_url,
+               "PLAYWRIGHT_BROWSERS_PATH": str(browsers), "PLAYWRIGHT_DOWNLOAD_HOST": unreachable}
+        result = subprocess.run([sys.executable, str(SCRIPT), str(self.target), "--pages", "Demo.dc.html"],
+                                capture_output=True, text=True, env=env)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("Chromium could not start.", result.stderr)
+        self.assertFalse(self.target.exists())
+        self.assertEqual([p.name for p in browsers.iterdir()], [".links"], "the installer ran and downloaded nothing")
 
     def test_executable_loads_its_pep_723_dependencies(self):
         env = os.environ.copy()

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # The task board's suite: mmw-v4/board/ against a fake gh and a temporary MMW_HOME.
-# Needs bash, python3, uv (Playwright and a real headless Chromium) and node.
+# Needs bash, python3, uv and node. Playwright is the newest release uv resolves,
+# and ../lib/ensure_chromium.py first fetches the headless Chromium it needs
+# (network only when that build is absent).
 # No live tracker, no running board, no install.
+# Exit 2: Chromium cannot start on this machine; no test ran.
 set -euo pipefail
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_module_paths.py" || { echo "a toolbox script names a module file that does not exist (above); fix it before running this suite" >&2; exit 1; }
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_wiring.py" || { echo "the skill set names a playbook, principle, skill, file or dispatch.sh command that is not there (above); fix it before running this suite" >&2; exit 1; }
@@ -22,6 +25,10 @@ trap 'rm -rf "$MMW_HOME"' EXIT
 if uv run --offline --quiet --with playwright python -c 'import playwright' >/dev/null 2>&1; then
   export UV_OFFLINE=1
 fi
+uv run --quiet --with playwright python "$HERE/../lib/ensure_chromium.py" || {
+  echo "cannot run: Chromium for Playwright cannot start here (above); this is the environment, not a test failure" >&2
+  exit 2
+}
 rc=0
 count=0
 shopt -s nullglob

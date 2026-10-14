@@ -9,15 +9,18 @@ test suites, in three tiers.
 
 The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
 Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
-untracked files. There is no dependency install: the repository has no package manager, and
-the suites that run under `uv run` resolve their own dependencies.
+untracked files. There is no dependency install: the repository has no package manager, the
+suites that run under `uv run` resolve their own dependencies, and the browser suites fetch the
+Chromium build their Playwright needs (mmw-v4/tests/lib/ensure_chromium.py).
 
-Each step prints `PASS|FAIL <step> <seconds>s`; a failing step adds its last lines and the path
-of its full log under .scratch/check/. The last line is the summary.
+Each step prints `PASS|FAIL|ENV <step> <seconds>s`; a failing step adds its last lines and the
+path of its full log under .scratch/check/, and so does a step that exits 2 (ENV: its suite
+cannot run on this machine, such as Chromium that will not start). The last line is the summary.
 
 Exit 0: every step passed. Exit 1: a step is red, or the self-check found a test directory MAP
-does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check (a tool
-missing from PATH, a base ref git does not know); nothing was run.
+does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check: a tool
+missing from PATH or a base ref git does not know, and nothing was run; or no step is red and a
+suite exited 2 because it cannot run here.
 
 Python standard library only.
 """
@@ -176,13 +179,15 @@ class Run:
     def __init__(self) -> None:
         self.logs = ROOT / ".scratch" / "check" / time.strftime("%Y%m%d-%H%M%S")
         self.failed: list[str] = []
+        self.unrunnable: list[str] = []
         self.count = 0
 
-    def report(self, name: str, ok: bool, seconds: float, lines: list[str], log: Path | None) -> None:
+    def report(self, name: str, ok: bool, seconds: float, lines: list[str], log: Path | None,
+               unrunnable: bool = False) -> None:
         self.count += 1
-        print(f"{'PASS' if ok else 'FAIL'} {name} {seconds:.0f}s", flush=True)
+        print(f"{'PASS' if ok else 'ENV' if unrunnable else 'FAIL'} {name} {seconds:.0f}s", flush=True)
         if not ok:
-            self.failed.append(name)
+            (self.unrunnable if unrunnable else self.failed).append(name)
             for line in lines[-TAIL:]:
                 print(f"    {line}")
             if log:
@@ -196,7 +201,7 @@ class Run:
         with log.open("w") as out:
             rc = subprocess.run(["bash", "-c", command], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT).returncode
         lines = log.read_text(errors="replace").splitlines()
-        self.report(name, rc == 0, time.monotonic() - start, lines, log)
+        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2)
 
     def syntax(self, paths: list[str]) -> None:
         start = time.monotonic()
@@ -256,8 +261,12 @@ def main(argv: list[str]) -> int:
 
     total = time.monotonic() - started
     if run.failed:
-        print(f"CHECK FAIL {tier}: {len(run.failed)} of {run.count} steps red ({', '.join(run.failed)}) in {total:.0f}s")
+        unrunnable = f"; cannot run here: {', '.join(run.unrunnable)}" if run.unrunnable else ""
+        print(f"CHECK FAIL {tier}: {len(run.failed)} of {run.count} steps red ({', '.join(run.failed)}){unrunnable} in {total:.0f}s")
         return 1
+    if run.unrunnable:
+        return cannot_run(f"{', '.join(run.unrunnable)} exited 2: these suites cannot run on this machine (above); "
+                          f"the other {run.count - len(run.unrunnable)} steps passed in {total:.0f}s")
     print(f"CHECK PASS {tier}: {run.count} steps in {total:.0f}s")
     return 0
 
