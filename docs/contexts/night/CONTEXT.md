@@ -51,8 +51,8 @@ A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one tick
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`, `mmw-v4/skills/mmw-mode/references/ticket.md` (`## Opening a ticket`), `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` (`run_baseline`)
 
 **ticket branch**:
-The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked, and deleted after it lands.
-_Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
+The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked. Landing keeps the local branch and removes the origin copy when cleanup permits it.
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh`
 
 ### Branches and integration
 
@@ -147,8 +147,8 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **`dispatch.sh finish`**:
-`dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, runs `scripts/check`'s default tier on the result unless its tip is a ticket's landing merge, pushes it, posts `spec.merged`, and removes the base branch.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
+`dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, runs `scripts/check`'s default tier on the result unless its tip is a ticket's landing merge, pushes it, posts `spec.merged`, closes the spec issue as completed, and removes the origin copy of the base branch when cleanup permits it. The local base branch and any worktree that has it checked out stay in place.
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/run-a-night.md` (`#### 7. Merge the accepted night`)
 
 **open-ticket**:
 `dispatch.sh open-ticket <n>`: what `open` is for one ticket outside a night, a relay watch on that ticket alone with the calling session as orchestrator.
