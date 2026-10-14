@@ -21,9 +21,9 @@ Leave out problems already fixed in this work, one-off problems that cannot recu
 
 Before handing work back, ask yourself:
 
-- 判断：我有没有被纠正过、有没有报了做完其实没验证？
-- 环境：我有没有花很久找一个文件或一条命令、有没有需要的信息拿不到？
-- 流程：我照着的技能或流程有没有写错、缺了、或写了却不起作用？
+- 判断: Was I corrected, or did I claim completion without verifying the work?
+- 环境: Did I spend a long time finding a file or command, or fail to obtain information I needed?
+- 流程: Was the skill or workflow I followed wrong, incomplete, or ineffective?
 
 ## Register where the fix belongs
 
