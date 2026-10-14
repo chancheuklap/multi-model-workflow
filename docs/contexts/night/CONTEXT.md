@@ -61,8 +61,8 @@ The merge-base of `origin/<base branch>` and the ticket branch: the commit a tic
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **night's base commit**:
-The merge-base of a night's project and base branches, as `spec.opened` records them: where the night's landing and closing-pass commits start. The `retro` skill reads it as `observed.base_commit`.
-_Home_: `mmw-v3/skills/retro/scripts/retro.py`
+The merge-base of a night's project and base branches, as `spec.opened` records them: where the night's landing and closing-pass commits start.
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
 The branch on `origin` a ticket's work merges into: the newest `worker.started.into`, else the open night's `spec.opened.into`, else the branch of the checkout `start` runs from. In a night it is the temporary integration branch the night's tickets merge into, which `finish` merges into the **project branch** once the user accepts the night.
@@ -203,8 +203,8 @@ The JSON file of **Memory closing** decisions, `{"decisions": [...]}`, that `sum
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **retro**:
-The orchestrator's step right after `summary` records `spec.closed`: the retro skill, which writes the night's **Retro Memory** and posts `spec.retroed`.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
+The capability that expires lesson candidates, gathers evidence from a run, and applies analyst dispositions, recording `spec.retroed` or `ticket.retroed`.
+_Home_: `mmw-v4/skills/retro/SKILL.md`
 
 **`status.py`**:
 The dispatch skill's read-only script that computes where each of a spec's tickets stands from the tracker alone, for `status`, `advance`, `reverify`, `land` and `summary`. It keeps no state file.
@@ -359,63 +359,43 @@ _Home_: `mmw-v3/skills/dispatch/scripts/turn-guard.py`
 
 ### Retro
 
+**登记**:
+An issue recording a problem the acting session cannot fix in its current work, with evidence, cost, and a responsible repository. A lesson describes a way-of-working problem; a product problem stays in its own workflow.
+_Home_: `mmw-v4/skills/register-problem/SKILL.md`
+
+**出现**:
+One `lesson.seen` on a registration, identifying where, when, and in which ticket, spec, or session the problem occurred. Repeated comments in one context do not satisfy the threshold for independent recurrence.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/events.py` (`lesson.seen`, `occurrences`)
+
+**复盘**:
+Sorting registered lessons and run signals by judgment, environment, and process, checking whether they still hold, merging duplicate causes, and giving the owner evidence-backed proposals. It reads events, issues, and git, not conversations or external memory.
+_Home_: `mmw-v4/skills/retro/SKILL.md`
+
 **gather**:
-`retro.py gather <spec>`: inventories a completed night's evidence — its tickets' events, the spec's own events, the comment bodies behind them — as present, missing or unreadable, for the agent to read before judging causes.
-_Home_: `mmw-v3/skills/retro/scripts/retro.py`
+The retrospective's read-only command, selecting one spec or ticket and writing material for each nonempty angle plus `context.json`. Material includes current and related lessons, signals, reverted commits, orphaned children, recurrence after refusal, and approved closures without commits.
+_Home_: `mmw-v4/skills/retro/scripts/retro.py` (`gather`)
 
 **evidence_checked**:
-`gather`'s inventory of every source it read for the retro, each recorded present, missing or unreadable. A missing source narrows the analysis; it is never read as proof that the thing it would have shown did not happen.
-_Home_: `mmw-v3/skills/retro/scripts/retro.py`
-
-**retro problem**:
-One thing that went wrong in a night, as the retro records it: a **retro category**, a cause, and evidence from primary sources whose text or output states that cause (event comment or commit URLs, a repository file, or a read-only `check:` command), with two dispositions, `handled_here` (how this instance was dealt with) and `prevention` (one of the **Prevention destinations**), plus its **earlier occurrence**s and, when it qualifies, a **proposal**. A problem no such source proves is not recorded.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
-
-**retro category**:
-One of the seven areas the retro inspects in every night and files each **retro problem** under: Navigation, Automated checks, Coding standards, Global AGENTS.md, Tool economy, No-ops, Information access; each is recorded with a candidate summary or `none`, and it is the `<category>` of `retro.py search`. Distinct from ticket-run's **review category**, a code-review axis's name for a finding.
-_Home_: `mmw-v3/skills/retro/scripts/retro.py` (`CATEGORIES`), `mmw-v3/skills/retro/SKILL.md`
-
-**`retro.py search`**:
-`retro.py search <category> <cause>`: finds Retro Memory records citing an **earlier occurrence** of the same cause, for one current problem.
-_Home_: `mmw-v3/skills/retro/scripts/retro.py`
+Gather's inventory of opened primary sources. An unreadable source narrows the analysis; it does not prove that the thing it would have shown did not happen.
+_Home_: `mmw-v4/skills/retro/scripts/retro.py` (`event_comments`, `inventory`)
 
 **earlier occurrence**:
-A prior problem of the same cause `retro.py search` finds, counted only when its original source is opened, shows the same cause, and belongs to a different ticket, spec or night; two event comments on one ticket or spec are one occurrence, not two.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
-
-**finalize**:
-`retro.py finalize <spec> <analysis> <gather>`: checks the analysis against a fresh `gather`, files each **proposal** as a `needs-triage` issue in its repository, writes the **Retro Memory**, and posts `spec.retroed`.
-_Home_: `mmw-v3/skills/retro/scripts/retro.py`
+A registration's earlier `lesson.seen`, counted as independent recurrence when it belongs to another ticket, spec, or session. Its original evidence supports the same cause.
+_Home_: `mmw-v4/skills/retro/scripts/retro.py` (`qualifies`)
 
 **stall event**:
-One of `ticket.returned`, `child.opened` with `kind=fault`, or `ticket.checked` with `result=handoff`: the event a **retro problem** without two independently verified occurrences needs among its event sources to earn a **proposal** through a Memory record `spec.closed` proposed.
+One of `ticket.returned`, `child.opened` with `kind=fault`, or `ticket.checked` with `result=handoff`. A registration arising from a stall has source `stall` and can qualify for a proposal on its first occurrence.
 _Avoid_: blocking event
-_Home_: `mmw-v3/skills/retro/SKILL.md`
-
-**review_learning**:
-The retro's record distinguishing a review finding that was invalid from one that was valid and fixed elsewhere; two invalid findings citing one `CODING_STANDARDS.md` rule point to that rule, to clarify or remove, two valid findings of one kind with a fixed shape point to a check.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
-
-**intent_reconciliation**:
-The retro's comparison of the spec's expected surface (Problem Statement and User Stories) with the observed one (checks and events) against Out of Scope, recorded `aligned`, `diverged` or `unverified`, without changing the spec.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
-
-**Prevention destinations**:
-The nine values a retro problem's Prevention names by its `destination`, each with one fixed reader: a check, a script, that repository's `AGENTS.md`, a repository-local skill, a row of a `CODING_STANDARDS.md`, a line of `TESTING.md`, an MMW skill, toolbox Memory, or none.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
+_Home_: `mmw-v4/skills/register-problem/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py`
 
 **proposal**:
-A retro problem's candidate change, given only when its cause has two independently verified event or commit occurrences, or when `spec.closed` proposed a Memory record whose decision's `evidence` is among the problem's evidence and one of the problem's event sources is a **stall event**; it names the responsible repository, a title and body, and, for a change to an instruction file, a **`prompt_change`**.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
+A lesson offered to the owner with its responsible repository, addition or deletion, target file, and landing playbook. It needs two independent occurrences, or one stall or owner's correction. Offering it adds `needs-triage`; it does not authorize implementation.
+_Home_: `mmw-v4/skills/retro/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py` (`proposal`, `qualifies`)
 
-**`prompt_change`**:
-A proposal's structured edit to one instruction file: the target file and heading, the complete current and proposed passages, and which of missing context, ambiguity, success criteria or late information it addresses.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
+**apply**:
+The retrospective's command that validates answer rows and evidence, then writes merges, rejections, and proposals, registers new signal-derived problems, and records a typed retrospective event. Candidates remain unchanged.
+_Home_: `mmw-v4/skills/retro/scripts/retro.py` (`apply_answers`)
 
-**`previous_proposals`**:
-The retro's check of every proposal the most recent **Retro Memory** named, each recorded `landed`, with the commit, active Rule, Memory or current file that proves the change, or `no-evidence-found`. A closed issue alone is not proof that a proposal landed.
-_Home_: `mmw-v3/skills/retro/SKILL.md`
-
-**Retro Memory**:
-The Memory labelled `mmw-retro`, one per spec at the fixed id `mmw-retro-<space>-spec-<number>`, that `finalize` writes and posts as `spec.retroed` with the `NIGHT RETRO` line the user reads before accepting the night.
-_Home_: `mmw-v3/skills/retro/scripts/retro.py`
+**retrospective receipt**:
+The `spec.retroed` or `ticket.retroed` event recording counts, proposed issues, recurrence after refusal, landed proposals, and evidence completeness. An unrecorded outcome carries only its reason.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`

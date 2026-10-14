@@ -151,7 +151,8 @@ class BoardDataTest(unittest.TestCase):
         unrecorded = event("spec.retroed", 10, id=1001, event_ticket=None,
                            result="unrecorded", reason="Nowledge Mem write failed")
         recorded = event("spec.retroed", 10, id=1002, event_ticket=None, result="recorded",
-                         retro_memory="retro-10", problem_count=1, proposals=[430],
+                         registered=1, merged=0, rejected=0, candidates=0,
+                         landed_since_last=0, recurred_after_wontfix=[], proposals=[430],
                          evidence="complete", unreadable_sources=[])
         folded = board_data.events.fold([recorded, unrecorded], 10)
         self.assertEqual(folded["spec_retroed"]["payload"]["result"], "recorded")
