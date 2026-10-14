@@ -1181,6 +1181,11 @@ ensure_workspace() {
   fi
   mkdir -p "$root/.worktrees"
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    if [ "$remote" = 0 ] \
+       && git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "origin/$into"; then
+      git -C "$root" branch --force "$branch" "origin/$into" >/dev/null \
+        || { echo "dispatch: could not move the contained $branch to origin/$into before restart" >&2; return 1; }
+    fi
     git -C "$root" worktree add --quiet "$dest" "$branch" \
       || { echo "dispatch: could not create a worktree for $branch" >&2; return 1; }
     created=1
@@ -2565,11 +2570,11 @@ commits_outside_base() {
   git -C "$1" rev-list --count "origin/$3..$2" 2>/dev/null
 }
 
-# Remove the local and origin copies of a landed ticket branch. Both containment
-# decisions use refs from the fetch that prepared the merge worktree; each copy can be
-# kept independently, and the remote deletion is leased to that fetched tip.
-delete_landed_ticket_branch() {
-  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead output probe_rc
+# Keep the local landed ticket branch at the fetched origin tip before deleting origin's
+# copy. Containment uses the fetch that prepared the merge worktree; deletion is leased
+# to that tip, and checked-out branches or unmerged local work stay unchanged.
+archive_landed_ticket_branch() {
+  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead local_ahead output probe_rc
 
   branch="$(ticket_branch "$number")"
   [[ "$branch" =~ ^issue-[0-9]+$ ]] || return 0
@@ -2583,13 +2588,11 @@ delete_landed_ticket_branch() {
   fi
 
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || ahead=""
-    if [ -z "$ahead" ]; then
+    local_ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || local_ahead=""
+    if [ -z "$local_ahead" ]; then
       echo "dispatch: keeping local $branch because its containment in origin/$into could not be checked" >&2
-    elif [ "$ahead" -ne 0 ]; then
-      echo "dispatch: keeping local $branch because it has $ahead commit(s) not in origin/$into" >&2
-    elif ! output="$(git -C "$root" branch -D "$branch" 2>&1)"; then
-      echo "dispatch: could not delete local $branch: $(printf '%s' "$output" | tail -2 | tr '\n' ' '); delete it manually with: git branch -D $branch" >&2
+    elif [ "$local_ahead" -ne 0 ]; then
+      echo "dispatch: keeping local $branch because it has $local_ahead commit(s) not in origin/$into" >&2
     fi
   fi
 
@@ -2602,6 +2605,22 @@ delete_landed_ticket_branch() {
   fi
   if [ "$ahead" -ne 0 ]; then
     echo "dispatch: keeping origin/$branch because it has $ahead commit(s) not in origin/$into" >&2
+    return 0
+  fi
+
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    if [ "${local_ahead:-}" = 0 ]; then
+      if git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "$remote_tip"; then
+        output="$(git -C "$root" branch --force "$branch" "$remote_tip" 2>&1)" || {
+          echo "dispatch: could not fast-forward local $branch to $remote_tip: $output; keeping origin/$branch" >&2
+          return 0
+        }
+      else
+        echo "dispatch: keeping local $branch because it is not an ancestor of the fetched origin/$branch tip" >&2
+      fi
+    fi
+  elif ! output="$(git -C "$root" branch "$branch" "$remote_tip" 2>&1)"; then
+    echo "dispatch: could not restore local $branch at $remote_tip: $output; keeping origin/$branch" >&2
     return 0
   fi
   if output="$(git -C "$root" push \
@@ -2628,15 +2647,13 @@ raise SystemExit(0 if json.load(sys.stdin).get("landed") else 1)
 '
 }
 
-# Release one-ticket resources, archive the workspace, record the landing, then remove
-# branch copies only if both preceding state transitions succeeded.
 finish_landing() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5"
   local merge_commit="$6" base="$7" mode="$8" archived=0 landing_state
   ticket_is_landed "$number"; landing_state=$?
   if [ "$landing_state" -eq 0 ]; then
     archive_workspace "$number" && archived=1
-    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
+    [ "$archived" -eq 0 ] || archive_landed_ticket_branch "$root" "$number" "$into"
     return 0
   fi
   if [ "$landing_state" -eq 2 ]; then
@@ -2652,7 +2669,7 @@ finish_landing() {
   fi
   archive_workspace "$number" && archived=1
   if record_landed "$number" "$spec" "$into" "$passed" "$merge_commit" "$base"; then
-    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
+    [ "$archived" -eq 0 ] || archive_landed_ticket_branch "$root" "$number" "$into"
   fi
 }
 
@@ -2984,7 +3001,7 @@ land_tickets() {
     fi
     if archive_workspace "$number"; then
       if ticket_is_landed "$number"; then
-        delete_landed_ticket_branch "$root" "$number" "$archive_into"
+        archive_landed_ticket_branch "$root" "$number" "$archive_into"
       fi
     else
       failed=$((failed + 1))
@@ -3471,59 +3488,79 @@ delete_origin_base_branch() {
   rc=$?
   [ "$rc" -eq 2 ] && return 0
   echo "dispatch: could not delete origin/$into: $(printf '%s' "$out" | tr '\n' ' '); run git push origin --delete $into" >&2
+  return 2
 }
 
-# Delete the local base branch when it is contained in origin/<project> and no worktree has it
-# checked out; otherwise name what keeps it and the commands that finish the job.
-delete_local_base_branch() {
-  local root="$1" into="$2" project="$3" trees path main ahead out
-  git -C "$root" show-ref --verify --quiet "refs/heads/$into" || return 0
+retain_local_base_branch() {
+  local root="$1" into="$2" project="$3" trees path main ahead tip out
   trees="$(base_worktrees "$root" "$into")"
   if [ -n "$trees" ]; then
     main="$(main_checkout)" || main=""
     while IFS= read -r path; do
       if [ "$path" = "$main" ]; then
-        echo "dispatch: keeping the main worktree $path on $into; switch it off $into, then run git branch -D $into" >&2
+        echo "dispatch: keeping the main worktree $path on $into; once its session is done, detach it (git -C \"$path\" switch --detach)" >&2
         continue
       fi
-      echo "dispatch: keeping worktree $path and the local $into it has checked out; once its session is done, remove the worktree (git worktree remove $path), then run git branch -D $into" >&2
+      echo "dispatch: keeping worktree $path and the local $into it has checked out; once its session is done, remove the worktree (git worktree remove $path)" >&2
     done <<< "$trees"
     return 0
   fi
-  ahead="$(git -C "$root" rev-list --count "origin/$project..refs/heads/$into" 2>/dev/null)" || ahead=""
-  if [ "$ahead" != 0 ]; then
-    echo "dispatch: keeping local $into because its containment in origin/$project was not proved; after checking, run git branch -D $into" >&2
-    return 0
+  git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" || return 0
+  tip="$(git -C "$root" rev-parse "refs/remotes/origin/$into")"
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$into"; then
+    ahead="$(git -C "$root" rev-list --count "origin/$project..refs/heads/$into" 2>/dev/null)" || ahead=""
+    if [ "$ahead" != 0 ]; then
+      echo "dispatch: keeping local $into because its containment in origin/$project was not proved" >&2
+      return 0
+    fi
+    if ! git -C "$root" merge-base --is-ancestor "refs/heads/$into" "$tip"; then
+      echo "dispatch: keeping local $into because it is not an ancestor of the fetched origin/$into tip" >&2
+      return 0
+    fi
+    out="$(git -C "$root" branch --force "$into" "$tip" 2>&1)" || {
+      echo "dispatch: could not fast-forward local $into to $tip: $out; keeping origin/$into; run finish again" >&2
+      return 1
+    }
+  elif ! out="$(git -C "$root" branch "$into" "$tip" 2>&1)"; then
+    echo "dispatch: could not restore local $into at $tip: $out; keeping origin/$into; run finish again" >&2
+    return 1
   fi
-  out="$(git -C "$root" branch -D "$into" 2>&1)" \
-    || echo "dispatch: could not delete local $into: $out; run git branch -D $into" >&2
 }
 
 clean_base_merge_worktree() {
-  local root="$1" into="$2" main dest state
+  local root="$1" into="$2" main dest state failed=0
   main="$(main_checkout)" || return 0
   dest="$main/.worktrees/merge-$(merge_slug "$into")"
   if [ -e "$dest" ]; then
-    git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 \
-      || echo "dispatch: could not remove $dest; run git worktree remove --force $dest" >&2
+    git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 || {
+      echo "dispatch: could not remove $dest; run git worktree remove --force $dest" >&2
+      failed=2
+    }
   fi
-  state="$(repository_state_dir)" || return 0
-  rm -f "$state/merge-$(merge_slug "$into").lock"
+  state="$(repository_state_dir)" || return 2
+  rm -f "$state/merge-$(merge_slug "$into").lock" || return 2
+  return "$failed"
 }
 
 finish_cleanup() {
-  local root="$1" into="$2" project="$3"
-  fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 0; }
+  local root="$1" into="$2" project="$3" failed=0
+  fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 2; }
   if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" \
      && ! git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project" 2>/dev/null; then
     echo "dispatch: keeping $into because origin/$project does not contain origin/$into; run finish again after reconciling the branches" >&2
-  else
-    delete_origin_base_branch "$root" "$into" "$project"
-    delete_local_base_branch "$root" "$into" "$project"
+  elif ! retain_local_base_branch "$root" "$into" "$project" \
+       || ! delete_origin_base_branch "$root" "$into" "$project"; then
+    failed=2
   fi
-  clean_base_merge_worktree "$root" "$into"
-  sweep_orphan_merge_worktrees "$root" \
-    || echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
+  clean_base_merge_worktree "$root" "$into" || failed=2
+  sweep_orphan_merge_worktrees "$root" || {
+    echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
+    failed=2
+  }
+  if [ "$failed" -ne 0 ]; then
+    echo "dispatch: cleanup of $into is incomplete; run finish again" >&2
+  fi
+  return "$failed"
 }
 
 # The night is delivered as one pull request from the night's branch to the project branch,
@@ -3563,6 +3600,23 @@ pr_gate() {
   fi
 }
 
+close_finished_spec() {
+  local spec="$1" state out
+  if ! state="$(gh_ issue view "$spec" --json state --jq .state 2>&1)"; then
+    echo "dispatch: #$spec was not closed because its state could not be read: $state; run finish again (finish $spec)" >&2
+    return 2
+  fi
+  case "$state" in
+    CLOSED) return 0 ;;
+    OPEN) ;;
+    *) echo "dispatch: #$spec was not closed because its state is unreadable ($state); run finish again (finish $spec)" >&2; return 2 ;;
+  esac
+  if ! out="$(gh_ issue close "$spec" --reason completed 2>&1)"; then
+    echo "dispatch: #$spec was not closed: $out; run finish again (finish $spec)" >&2
+    return 2
+  fi
+}
+
 finish_spec() {
   local spec="$1" root into project merged merge base attempt rc out files checked_by
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
@@ -3577,7 +3631,8 @@ finish_spec() {
 
   merged="$(newest_field "$spec" merge spec.merged 2>/dev/null)" || merged=""
   if [ -n "$merged" ]; then
-    finish_cleanup "$root" "$into" "$project"
+    finish_cleanup "$root" "$into" "$project" || return 2
+    close_finished_spec "$spec" || return 2
     echo "finish #$spec: merge $merged was already recorded; cleanup checked"
     return 0
   fi
@@ -3592,7 +3647,8 @@ finish_spec() {
         refuse "origin/$into is absent and the local $into is not contained in origin/$project; nothing was deleted"
       fi
       release_merge_lock
-      finish_cleanup "$root" "$into" "$project"
+      finish_cleanup "$root" "$into" "$project" || return 2
+      close_finished_spec "$spec" || return 2
       echo "finish #$spec: origin/$into was already absent; cleanup checked"
       return 0
     fi
@@ -3606,7 +3662,8 @@ finish_spec() {
         fi
       fi
       release_merge_lock
-      finish_cleanup "$root" "$into" "$project"
+      finish_cleanup "$root" "$into" "$project" || return 2
+      close_finished_spec "$spec" || return 2
       echo "finish #$spec: origin/$project already contained $into; cleanup checked"
       return 0
     else
@@ -3658,7 +3715,8 @@ finish_spec() {
       refuse "origin/$project contains $into, but the spec.merged event on #$spec was not written; run finish again"
     fi
     release_merge_lock
-    finish_cleanup "$root" "$into" "$project"
+    finish_cleanup "$root" "$into" "$project" || return 2
+    close_finished_spec "$spec" || return 2
     echo "finish #$spec: merged $into into origin/$project at $merge; cleanup checked"
     return 0
   done

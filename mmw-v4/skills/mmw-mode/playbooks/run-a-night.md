@@ -18,7 +18,7 @@ Find where you are by the first row whose fact holds; the record says where you 
 
 | The fact | Go to |
 | --- | --- |
-| The spec carries `spec.merged` | Nothing: the night is merged; tell the user so |
+| The spec carries `spec.merged` | If the spec issue is still open, go to [7. Merge the accepted night](#7-merge-the-accepted-night) to retry `finish`; otherwise the night is merged, and you tell the user so |
 | The user has said the night starts, and the spec carries no `spec.opened` | [1. The user says the night starts](#1-the-user-says-the-night-starts), then 1b and 2 |
 | The spec's newest night event is `spec.suspended`, or you are deciding to stop the night because the fault is in the pipeline | [Suspending the night](#suspending-the-night) |
 | A retrospective brief wake arrived after `spec.closed` | Resume Retrospective (`playbooks/retrospective.md`) at **Check and apply the answers** |
@@ -200,15 +200,17 @@ Only after the user has accepted the pull request, the orchestrator runs:
 dispatch.sh finish <spec>
 ```
 
-A worktree that has the base branch checked out, usually the one this session runs in, is kept: stderr gives the commands that remove it, for the user to run once this session is done, and `finish` needs no second run.
+A worktree that has the base branch checked out, usually the one this session runs in, and its local branch are kept. For after this session ends, stderr gives a removal command for a linked worktree or a detach command for the main worktree, which Git cannot remove. Local ticket branches and the local night branch stay available after landing and `finish`; their origin copies are removed when cleanup permits it.
 
-Exit 0: the merge is recorded, and GitHub shows the pull request merged. Exit 1: the merge conflicted or `scripts/check` was red, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as Opening a PR step 3 says, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
+Exit 0: the night is merged, the spec issue is closed as completed, and GitHub shows the pull request merged. Exit 1: the merge conflicted or `scripts/check` was red, and nothing was pushed or deleted; stderr says which. Settle a conflict on the night's branch with the **resolving-merge-conflicts** skill and a red check as Opening a PR step 3 says, push, and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
 
 Exit 2 naming the pull request: a check is red or still running, or a review thread is open, and nothing was merged. Settle each as Opening a PR step 3 says (`playbooks/opening-a-pr.md`), then run `finish` again. A fix this night's change needs is made as the closing pass fixes a finding (step 4) and pushed to `origin/<into>`; the pull request shows the new commit. A fix the closing pass would turn into a ticket goes to the user instead, who decides whether this night waits for it.
 
 When the user asks to take back a merged night, use the Revert button on its merged pull request; do it only when they ask.
 
 Exit 2 naming tickets still open on the night's branch: whether each is closed is the user's decision; close none yourself. Tell the user which, and run `finish` again once they are closed.
+
+Exit 2 naming a spec that could not be closed: the merge and its record stay in place. Run `finish` again to close the spec without merging again.
 
 Other exits 2: fix what stderr names and run `finish` again.
 
