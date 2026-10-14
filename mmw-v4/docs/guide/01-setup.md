@@ -56,7 +56,7 @@ Moving from v3 to v4 is the plain install, run once in the installed checkout. S
 
 ## Choose a model for each role
 
-The `dispatch` skill starts sessions in six roles, listed in [`roles.json`](../../skills/dispatch/roles.json):
+The `dispatch` skill starts sessions in seven roles, listed in [`roles.json`](../../skills/dispatch/roles.json):
 
 | Role | Sent with | Does |
 | --- | --- | --- |
@@ -66,6 +66,7 @@ The `dispatch` skill starts sessions in six roles, listed in [`roles.json`](../.
 | `researcher` | a brief | Reads one source or one angle of the code and hands back cited findings. |
 | `candidate` | a brief | Designs one of several candidate answers to the same brief. |
 | `advisor` | a brief | Gives a second opinion on one decision, on a stronger model. |
+| `retro-analyst` | a brief | Sorts one run's problem registrations from one angle, checks the evidence, and hands back a verdict and a solution for each. |
 
 Each role is one row of `~/.mmw/models.json`. The row names the host (`claude` or `codex`), the model and the reasoning effort. The same file names the runner that starts the sessions.
 

@@ -99,16 +99,16 @@ When you correct sessions for the same mistake again and again, the fix belongs 
 /correct agents keep calling the database client directly instead of going through the repository layer
 ```
 
-The [correct](../../skills/correct/SKILL.md) skill reads recent commits, reverts, review comments and comments that explain workarounds, and groups the mistakes into classes. A class counts once it has happened twice. It fixes each class at the highest level that works:
+The [correct](../../skills/correct/SKILL.md) skill reads recent commits, reverts, review comments and comments that explain workarounds, and groups the mistakes into classes. A class counts once it has happened twice. It plans each fix at the highest level that works:
 
 1. Make the mistake impossible with architecture: one owner per piece of state, one supported way per task.
 2. Block it with types, or with a lint or check whose error names the fix.
 3. Catch it with a test.
-4. Write a doc or an agent rule, last, and only for a judgement call, because nothing fails when an agent skips a rule.
+4. Write a rule, last, and only for a judgement call, because nothing fails when an agent skips a rule.
 
-It fixes the most frequent classes one commit each, and proves each new check fails on a real past mistake. It keeps a table in the repository's agent instruction file that pairs each rule with what enforces it, so a rule nothing enforces shows up as a repeat. Run with no argument, it finds the classes from history on its own.
+It writes no fix itself. It writes the plan and its acceptance criteria into a ticket and hands it back to you, naming the check to add and the real past commit the check must first fail on; after your Go, a worker builds it. A rule goes into a principle, `TESTING.md`, the glossary or an ADR, never into `AGENTS.md` or `CLAUDE.md`. A class whose rule is written down and enforced by nothing counts as a repeat. Started from a registered lesson, it counts that lesson's occurrences; named by you with no registration, it finds the classes from history on its own.
 
-Retrospective proposes improvements for your decision; `correct` changes a repository so a class of mistake cannot come back.
+Retrospective proposes improvements for your decision; `correct` plans the change that keeps a class of mistake from coming back, for a worker to build.
 
 ## Where these skills assume Cursor
 
