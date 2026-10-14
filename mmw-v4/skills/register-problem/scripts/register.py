@@ -254,7 +254,7 @@ def registration_context(repo):
         match = re.fullmatch(r"(?:issue|fix)-(\d+)", branch)
         ticket = match[1] if match else None
     spec = os.environ.get("MMW_SPEC")
-    actor = os.environ.get("MMW_ROLE") or "main"
+    actor = "main"
     if ticket:
         ticket = int(ticket)
         row = read_issue(repo, ticket)
