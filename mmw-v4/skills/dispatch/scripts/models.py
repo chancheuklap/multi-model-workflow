@@ -548,10 +548,17 @@ def _host_efforts(host: str, offering: dict | None = None) -> list[str]:
 
 def read_catalog_cache() -> dict:
     path = statedir.home() / "catalog.json"
-    data = statedir.read_json(path, {})
-    if not isinstance(data, dict):
-        raise ValueError(f"{path} is not a catalog object; remove the cache and scan again")
-    return data
+    try:
+        data = statedir.read_json(path, {})
+        if not isinstance(data, dict):
+            raise ValueError("expected a catalog object")
+        return data
+    except (json.JSONDecodeError, ValueError) as exc:
+        sys.stderr.write(f"models.py: cannot read catalog cache at {path}: {exc}; "
+                         "ignoring cache and rebuilding from host reads\n")
+        return {}
+    except OSError as exc:
+        raise ValueError(f"cannot read catalog cache at {path}: {exc}; remove the cache and scan again") from exc
 
 
 def _store_catalog(source: str, host: str, entry: dict) -> dict:

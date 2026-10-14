@@ -281,3 +281,14 @@ else:
         self.assertEqual(self.stored()["version"], "codex 1.0")
         self.assertEqual((self.home / "codex.log").read_text().splitlines(), ["--version", "app-server"])
 
+    def test_a_corrupt_cache_is_reported_and_regenerated_without_losing_configuration(self):
+        (self.home / "catalog.json").write_text("{")
+        code, out, err = self.row()
+        self.assertEqual((code, out), (0, "codex\tgpt-6-sol\thigh\n"))
+        self.assertIn(str(self.home / "catalog.json"), err)
+        self.assertIn("cache", err)
+        self.assertEqual(self.stored()["version"], "codex 1.0")
+        self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["senior-worker"],
+                         {"host": "codex", "model": "gpt 6 sol", "effort": "high"})
+
+
