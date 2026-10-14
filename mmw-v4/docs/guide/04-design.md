@@ -33,7 +33,7 @@ For a second opinion on a design before it is committed, the session sends an `a
 
 The arena skill is the general tool underneath the architect skill. It gives the same task to N candidates, one per angle, and each candidate writes only its own `candidates/<n>/` directory. Each candidate is a `candidate` session sent with `dispatch.sh send candidate`. All candidates run on the one host and model that `~/.mmw/models.json` gives that role, so their differences come from their angles, not from their models. The rubric stays out of every brief, so no candidate writes to the test.
 
-After every candidate reports, one read-only judge, a subagent on the session's own model, scores each against the rubric and recommends a base. The session reads every candidate end to end, compares its pick with the judge's, grafts the best one or two ideas from the others into the base, and verifies the result. A short synthesis note records the base, each graft and its source, each rejection and why, and any dropout. The `candidates/` directory is then removed.
+After every candidate reports, the session reads every candidate end to end, scores each against the rubric criterion by criterion, and writes down the scores. It picks a base, grafts the best one or two ideas from the others into the base, and verifies the result. A short synthesis note records the base, each graft and its source, each rejection and why, and any dropout. The `candidates/` directory is then removed.
 
 ```mermaid
 flowchart LR
@@ -41,7 +41,7 @@ flowchart LR
     B --> C[Candidate 1]
     B --> D[Candidate 2]
     B --> E[Candidate N]
-    C --> F[Read-only judge]
+    C --> F[Session scores each rubric criterion]
     D --> F
     E --> F
     F --> G[Pick a base]
