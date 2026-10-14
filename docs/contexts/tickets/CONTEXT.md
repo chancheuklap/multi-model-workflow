@@ -1,6 +1,6 @@
 # Tickets
 
-The written half of the landing pipeline: what a spec and a ticket are, the sections each one carries, how a batch is published, read back and linted, and which labels and queues an issue carries while it waits. Every other context reads what this one wrote.
+The written half of the landing pipeline: what a spec and a ticket are, the sections each one carries, how a batch is published, read back and linted, and which kinds and statuses an issue carries while it waits. Every other context reads what this one wrote.
 
 ## Language
 
@@ -195,7 +195,7 @@ _Home_: `mmw-v3/skills/dispatch/scripts/status.py`
 The tracker's native parent–child relation. A map's children are its decision tickets and specs, a spec's direct children are its tickets, and a ticket's direct children are the issues a worker opens under it with `--sub-issue <kind>`.
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`, `mmw-v3/skills/verify-ticket/references/sub-issues.md`
 
-### Labels and queues
+### Labels and statuses
 
 **label**:
 A GitHub label on an issue. This repository's own labels come from three sets that never stand in for each other: a **kind** says what the issue is, a **status** says who owes the next step, and a worker-grade label says which worker starts it. Triage's `bug` and `enhancement` and wayfinder's `wayfinder:<type>` labels sit outside the three.
@@ -210,8 +210,8 @@ Who owes the next step. An open issue without a status label awaits machine proc
 _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **triage role**:
-A label's role in triage, either a status or one of the category labels `bug` and `enhancement` used by upstream skills.
-_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
+A canonical label name the upstream skills use: status roles, which `mmw-v4/skills/mmw-mode/references/github-issues.md` lists with this repository's label strings, and two category roles, `bug` and `enhancement`, used as named.
+_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`, `mmw-v3/skills/triage/SKILL.md`
 
 **`needs-triage`**:
 The status awaiting the owner's decision. Only the owner lets an issue leave it, and deferral has no expiry.
@@ -226,7 +226,7 @@ The kind of a product problem outside any ticket, or a playbook's plan not yet a
 _Home_: `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` `CLASS_LABELS`, `mmw-v4/skills/mmw-mode/playbooks/one-ticket.md` **Ready**
 
 **`ready-for-agent`**:
-The agent-queue label, which the ticket format puts on every agent ticket beside a worker-grade label. It never goes on a spec.
+The status ready for an agent, which the ticket format puts on every agent ticket beside a worker-grade label. It never goes on a spec.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`ready-for-human`**:
@@ -262,7 +262,7 @@ The directory of one-file-per-concept records of enhancement requests rejected a
 _Home_: `mmw-v3/skills/triage/OUT-OF-SCOPE.md`
 
 **decision ticket**:
-A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. It carries no state role and is not triaged. Its resolution comment is a baseline source.
+A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. It carries no status label and is not triaged. Its resolution comment is a baseline source.
 _Home_: `mmw-v3/skills/wayfinder/SKILL.md`
 
 **map**:
@@ -296,7 +296,7 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`, `mmw-v3/skills/verify
 _Home_: `mmw-v3/skills/verify-ticket/references/linting.md`
 
 **lint rule ID**:
-The string in `[brackets]` at the end of a lint finding's line, naming the check that reported it, as ESLint's and SARIF's `ruleId` does: a cycle in the batch's blocking edges, a worker-grade or layer label out of place, a weak `EXPECT:`, and others. Always qualified: `retro`'s Rule id names a Nowledge Mem Rule.
+The string in `[brackets]` at the end of a lint finding's line, naming the check that reported it, as ESLint's and SARIF's `ruleId` does: a cycle in the batch's blocking edges, a worker-grade or kind label out of place, a weak `EXPECT:`, and others. Always qualified: `retro`'s Rule id names a Nowledge Mem Rule.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`, `mmw-v3/skills/verify-ticket/scripts/gate-check/gate-lint.mjs`
 
 **`ERROR`, `WARN`**:
@@ -304,5 +304,5 @@ The two lint levels. Only an `ERROR` affects `--lint`'s exit code.
 _Home_: `mmw-v3/skills/verify-ticket/references/linting.md`
 
 **triage**:
-Judging an issue awaiting the owner's decision, with three work outcomes: `ready-for-agent`, `ready-for-human`, or rejection with `wontfix`.
-_Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
+The skill that judges an issue waiting in `needs-triage` and recommends one of three outcomes: `ready-for-agent`, `ready-for-human`, `wontfix`.
+_Home_: `mmw-v3/skills/triage/SKILL.md`

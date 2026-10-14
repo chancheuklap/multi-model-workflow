@@ -54,10 +54,10 @@ IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"
 CLASS_LABELS = {
-    "mmw:map": ("5319e7", "MMW layer: the map one discussion opened"),
-    "mmw:spec": ("1d76db", "MMW layer: a spec, the container of one batch of tickets"),
-    "mmw:ticket": ("0e8a16", "MMW layer: a ticket, one unit of work"),
-    "mmw:child": ("c5def5", "MMW layer: a child issue a ticket opened"),
+    "mmw:map": ("5319e7", "MMW kind: the map one discussion opened"),
+    "mmw:spec": ("1d76db", "MMW kind: a spec, the container of one batch of tickets"),
+    "mmw:ticket": ("0e8a16", "MMW kind: a ticket, one unit of work"),
+    "mmw:child": ("c5def5", "MMW kind: a child issue a ticket opened"),
     "mmw:lesson": ("8e44ad", "做法上的问题，等复盘"),
     "mmw:problem": ("f1c40f", "不在任何票里的产品问题，或计划还没批的 issue"),
 }
@@ -310,11 +310,9 @@ def unannounced_change(ticket: dict, comments: list[str], me: str, first: str) -
 
 
 def hand_back_for_triage(number: int) -> None:
-    """Put the ticket back in the queue nobody has judged yet. Patched out in tests.
+    """Hand the unfinished ticket back for the owner's decision. Patched out in tests.
 
-    A worker that could not finish has not established what the ticket needs next — a
-    person, more information, another agent, or nothing at all. `needs-triage` is that
-    state, and it is the one queue a skill picks up on its own.
+    `needs-triage` records that the owner decides the ticket's next step.
 
     A ticket still assigned to the worker that gave up is a ticket `status.py`'s
     frontier will not dispatch again — it takes only unassigned tickets — so the
@@ -1731,12 +1729,12 @@ def label_defined(name: str) -> bool:
 
 
 def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int:
-    """Publish a spec: one issue carrying the layer label `mmw:spec`, and, when
+    """Publish a spec: one issue carrying the kind label `mmw:spec`, and, when
     `map_number` is given, a native sub-issue of that map — the link the board and the
     retro find a spec's map through; nothing written in the body stands in for it.
 
     A spec is a container for the tickets underneath it, not a piece of work, so it
-    carries no triage label.
+    carries no status label.
     """
     text = body_path.read_text(encoding="utf-8") if body_path.is_file() else ""
     if not text.strip():
@@ -3134,7 +3132,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
                 f"heading, or label the ticket `ready-for-human` when a person does it",
                 "no-criteria")
         if not any(label in CLASS_LABELS for label in labels):
-            say("warn", f"{who} carries no layer label, so its layer was read off "
+            say("warn", f"{who} carries no kind label, so its kind was read off "
                 f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
                 f"without it a spec attached to a map leaves its batch unlinted here",
                 "layer-label")
@@ -3192,11 +3190,11 @@ def reads_as_spec(number: int, labels: list[str]) -> bool:
     """Whether `--lint` reads `number` as a spec — the container of a batch — rather
     than as a ticket that carries nothing to check.
 
-    The layer label answers it, and its answer does not move when the spec is attached
+    The kind label answers it, and its answer does not move when the spec is attached
     to its wayfinder map as a sub-issue, which is what the mmw-mode skill's
-    `references/github-issues.md` asks for. Only an issue carrying no layer label at all falls back to the shape of
+    `references/github-issues.md` asks for. Only an issue carrying no kind label at all falls back to the shape of
     the tree — no parent, and children of its own — which is what an issue opened
-    before the layer labels existed is. That fallback cannot tell such a spec, once it is
+    before the kind labels existed is. That fallback cannot tell such a spec, once it is
     attached to a map, from a criteria-less ticket; `lint_criteria` names the missing
     label rather than let the answer pass for a read one.
     """
@@ -3368,7 +3366,7 @@ def lint_drafts(spec: int, directory: Path) -> int:
                       f"without `.md`  [unknown-draft]")
                 bad = True
         if "mmw:ticket" not in draft["labels"]:
-            print(f"  ERROR {name}: LABELS: has no `mmw:ticket`, the layer label every "
+            print(f"  ERROR {name}: LABELS: has no `mmw:ticket`, the kind label every "
                   f"ticket is published with  [layer-label]")
             bad = True
         entries.append({"id": name, "dependencies": dependencies})
