@@ -1,10 +1,12 @@
 import importlib.util
+import fcntl
 import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from contextlib import chdir, redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -73,11 +75,12 @@ class Fake:
             data = {}
         elif args[:2] == ["issue", "create"]:
             repo = flag("--repo")
-            row = issue(number=100, body=Path(flag("--body-file")).read_text(), labels=())
+            next_number = max((r["number"] for r in self.repos[repo]), default=99) + 1
+            row = issue(number=next_number, body=Path(flag("--body-file")).read_text(), labels=())
             row["title"] = flag("--title")
             row["labels"] = [{"name": args[i + 1]} for i, a in enumerate(args) if a == "--label"]
             self.repos[repo].append(row)
-            return subprocess.CompletedProcess(cmd, 0, f"https://github.com/{repo}/issues/100\n", "")
+            return subprocess.CompletedProcess(cmd, 0, f"https://github.com/{repo}/issues/{next_number}\n", "")
         elif args[:2] == ["issue", "view"]:
             data = self.row(flag("--repo"), int(args[2]))
         elif args[:2] == ["issue", "reopen"]:
@@ -325,7 +328,7 @@ class Registration(unittest.TestCase):
         self.assertIn("503", err)
         self.assertEqual(self.fake.repos, {"o/r": [], "acme/toolbox": []})
 
-    def test_the_cli_process_registers_and_finds_against_fake_github(self):
+    def cli_environment(self):
         bin_dir = self.root / "bin"
         bin_dir.mkdir()
         store = self.root / "github.json"
@@ -340,6 +343,10 @@ class Registration(unittest.TestCase):
         env = {k: v for k, v in os.environ.items() if not k.startswith(("MMW_", "NMEM_"))}
         env.update(MMW_HOME=str(self.home), PATH=str(bin_dir) + os.pathsep + env["PATH"],
                    FAKE_REGISTER_STORE=str(store))
+        return env, store
+
+    def test_the_cli_process_registers_and_finds_against_fake_github(self):
+        env, store = self.cli_environment()
         run = REAL_RUN([sys.executable, str(SCRIPT), "add", str(self.path)], cwd=self.product,
                        env=env, capture_output=True, text=True, timeout=30)
         self.assertEqual(run.returncode, 0, run.stderr)
@@ -351,14 +358,52 @@ class Registration(unittest.TestCase):
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn("#100\to/r\topen\tmmw:lesson\ttest-compares-empty-lists", run.stdout)
 
+    def test_different_problem_codes_register_while_another_read_is_blocked(self):
+        env, store = self.cli_environment()
+        gate = self.root / "read-gate"
+        first = subprocess.Popen([sys.executable, str(SCRIPT), "add", str(self.path)],
+                                 cwd=self.product, env={**env, "FAKE_REGISTER_GATE": str(gate)},
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not gate.exists() and time.monotonic() < deadline:
+                if first.poll() is not None:
+                    self.fail(first.communicate())
+                time.sleep(0.02)
+            self.assertTrue(gate.exists(), "the first registration reached its issue read")
+            second_path = self.root / "second.md"
+            second_path.write_text(problem("different-problem"))
+            second = REAL_RUN([sys.executable, str(SCRIPT), "add", str(second_path)],
+                              cwd=self.product, env=env, capture_output=True, text=True, timeout=15)
+            self.assertEqual(second.returncode, 0, second.stderr)
+        finally:
+            gate.with_suffix(".release").touch()
+            out, err = first.communicate(timeout=15)
+        self.assertEqual(first.returncode, 0, err)
+        data = json.loads(store.read_text())
+        self.assertEqual(sorted(r["body"].split("问题代号：")[1].splitlines()[0]
+                                for r in data["repos"]["o/r"]),
+                         ["different-problem", "test-compares-empty-lists"])
+        self.assertEqual([len(events.fold(r["comments"])["occurrences"])
+                          for r in data["repos"]["o/r"]], [1, 1])
+
 
 def fake_server():
     path = Path(os.environ["FAKE_REGISTER_STORE"])
-    data = json.loads(path.read_text())
-    fake = Fake()
-    fake.repos, fake.labels = data["repos"], data["labels"]
-    result = fake(["gh", *sys.argv[1:]])
-    path.write_text(json.dumps({"repos": fake.repos, "labels": fake.labels}))
+    gate = os.environ.get("FAKE_REGISTER_GATE")
+    if gate and sys.argv[1] == "api" and "/issues?" in sys.argv[2]:
+        gate = Path(gate)
+        gate.touch()
+        deadline = time.monotonic() + 25
+        while not gate.with_suffix(".release").exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+    with path.with_suffix(".lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = json.loads(path.read_text())
+        fake = Fake()
+        fake.repos, fake.labels = data["repos"], data["labels"]
+        result = fake(["gh", *sys.argv[1:]])
+        path.write_text(json.dumps({"repos": fake.repos, "labels": fake.labels}))
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
     sys.exit(result.returncode)

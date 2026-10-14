@@ -201,7 +201,8 @@ def add_problem(path, source, target, repos):
                                     sort_keys=True).encode()).hexdigest()
     directory = statedir.state_dir(toolbox_repo()) / "registrations"
     directory.mkdir(parents=True, exist_ok=True)
-    with statedir.locked(directory / "register.lock", purpose="register a problem"):
+    code_key = hashlib.sha256(fields["问题代号"].encode()).hexdigest()
+    with statedir.locked(directory / f"{code_key}.lock", purpose="register a problem"):
         pending = directory / f"{key}.json"
         rows = [(repo, row) for repo in repos for row in issue_list(repo)
                 if problem_fields(row.get("body") or "").get("问题代号") == fields["问题代号"]]
