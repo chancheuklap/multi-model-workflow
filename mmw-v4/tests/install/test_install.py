@@ -1,5 +1,5 @@
-"""mmw-v4/install.sh in a throwaway home (MMW_INSTALL_HOME), with fake orca, nmem, paseo and
-launchctl first on PATH. The v3 machine each case starts from is made by running
+"""mmw-v4/install.sh in a throwaway home (MMW_INSTALL_HOME), with fake orca, gh, node, nmem,
+paseo and launchctl first on PATH. The v3 machine each case starts from is made by running
 mmw-v3/install.sh into the same home, so the takeover and the way back meet what v3 really
 writes."""
 import json
@@ -28,11 +28,33 @@ V3_MODELS = {"version": 3, "runner": "orca", "rows": {
 }}
 
 FAKES = {
-    "orca": """#!/bin/sh
-echo "orca $*" >> "$MMW_TEST_LOG"
-case "$*" in
-  "project setups --json") echo '{"result":{"setups":[{"id":"setup_1"}]}}' ;;
-esac
+    # Orca's setups live in the JSON list at $MMW_FAKE_ORCA_SETUPS; setup-update changes it.
+    "orca": """#!/usr/bin/env python3
+import json, os, sys
+args = sys.argv[1:]
+with open(os.environ["MMW_TEST_LOG"], "a") as log:
+    log.write("orca " + " ".join(args) + "\\n")
+path = os.environ["MMW_FAKE_ORCA_SETUPS"]
+setups = json.load(open(path))
+if args == ["project", "setups", "--json"]:
+    print(json.dumps({"result": {"setups": setups}}))
+elif args[:2] == ["project", "setup-update"]:
+    ident = args[args.index("--setup") + 1]
+    for row in setups:
+        if row["id"] == ident:
+            row["worktreeBasePath"] = args[args.index("--worktree-base-path") + 1]
+    json.dump(setups, open(path, "w"))
+""",
+    # `gh auth status` answers $MMW_FAKE_GH_AUTH, 0 (logged in) when unset.
+    "gh": """#!/bin/sh
+echo "gh $*" >> "$MMW_TEST_LOG"
+if [ "$*" = "auth status" ] && [ "${MMW_FAKE_GH_AUTH:-0}" != 0 ]; then
+  echo "You are not logged into any GitHub hosts. To log in, run: gh auth login" >&2
+  exit 1
+fi
+exit 0
+""",
+    "node": """#!/bin/sh
 exit 0
 """,
     "nmem": """#!/bin/sh
@@ -91,6 +113,8 @@ class InstallTest(unittest.TestCase):
                                   "thinkingOptionIds": ["low", "medium", "high", "xhigh"]})
         self.catalog = root / "catalog.json"
         self.catalog.write_text(json.dumps(catalog))
+        self.orca_setups = root / "orca-setups.json"
+        self.orca_setups.write_text(json.dumps([{"id": "setup_1", "path": "/repos/first"}]))
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -101,12 +125,12 @@ class InstallTest(unittest.TestCase):
                             "MMW_CATALOG_MODE", "MMW_RUNNER") and not k.startswith("NMEM_")}
         env.update(MMW_INSTALL_HOME=str(self.home), MMW_HOST_CATALOG=str(self.catalog),
                    MMW_TEST_LOG=str(self.log), PATH=f"{self.bin}:{env['PATH']}",
-                   MMW_FAKE_LAUNCHD=str(self.launchd))
+                   MMW_FAKE_LAUNCHD=str(self.launchd), MMW_FAKE_ORCA_SETUPS=str(self.orca_setups))
         return env
 
-    def run_install(self, version, *args):
+    def run_install(self, version, *args, env=None):
         script = (V4 if version == "v4" else V3) / "install.sh"
-        return subprocess.run(["bash", str(script), *args], env=self.env(),
+        return subprocess.run(["bash", str(script), *args], env=env or self.env(),
                               capture_output=True, text=True)
 
     def install_v3(self):
@@ -250,13 +274,57 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("installed one checked: --check", r.stdout)
 
-    def test_orca_setups_get_the_worktree_base_path_and_check_asks_orca_nothing(self):
-        self.run_install("v4")
+    def test_an_orca_setup_added_after_install_is_reported_then_set(self):
+        self.assertEqual(self.run_install("v4").returncode, 0)
         self.assertIn("orca project setup-update --setup setup_1 --worktree-base-path .worktrees --json",
                       self.log.read_text())
+        setups = json.loads(self.orca_setups.read_text())
+        setups.append({"id": "setup_2", "path": "/repos/new", "worktreeBasePath": "../worktrees"})
+        self.orca_setups.write_text(json.dumps(setups))
         self.log.write_text("")
-        self.run_install("v4", "--check")
-        self.assertNotIn("orca", self.log.read_text())
+
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 1)
+        self.assertIn("缺    orca setup setup_2（/repos/new）的 worktree-base-path 是 '../worktrees'，"
+                      "要 .worktrees：跑一次 install.sh", check.stderr)
+        self.assertNotIn("setup_1", check.stderr)
+        self.assertNotIn("setup-update", self.log.read_text(), "--check writes nothing to Orca")
+
+        self.assertEqual(self.run_install("v4").returncode, 0)
+        updates = [line for line in self.log.read_text().splitlines() if "setup-update" in line]
+        self.assertEqual(updates, ["orca project setup-update --setup setup_2 "
+                                   "--worktree-base-path .worktrees --json"])
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertIn("已装  orca 的 2 个 setup，worktree-base-path 都是 .worktrees", check.stdout)
+
+    def test_check_reports_a_gh_that_is_not_logged_in(self):
+        self.assertEqual(self.run_install("v4").returncode, 0)
+        env = self.env()
+        env["MMW_FAKE_GH_AUTH"] = "1"
+        check = self.run_install("v4", "--check", env=env)
+        self.assertEqual(check.returncode, 1)
+        self.assertIn("缺    gh 没登录（You are not logged into any GitHub hosts. To log in, run: "
+                      "gh auth login）：跑 gh auth login", check.stderr)
+        self.assertEqual(self.run_install("v4", "--check").returncode, 0)
+
+    def test_check_names_each_missing_base_tool_and_how_to_get_it(self):
+        # PATH is a directory holding only python3, uv, git and the fake gh, then the
+        # system's own /usr/bin and /bin, which carry no node and no runner.
+        bare = Path(self.tmp.name) / "bare-bin"
+        bare.mkdir()
+        for tool in ("python3", "uv", "git"):
+            (bare / tool).symlink_to(shutil.which(tool))
+        (bare / "gh").symlink_to(self.bin / "gh")
+        env = self.env()
+        env["PATH"] = f"{bare}:/usr/bin:/bin"
+        check = self.run_install("v4", "--check", env=env)
+        self.assertEqual(check.returncode, 1)
+        self.assertIn("缺    node 不在 PATH 上：brew install node", check.stderr)
+        self.assertIn("缺    runner：paseo、herdr、orca 都不在 PATH 上", check.stderr)
+        for present in ("python3", "uv", "git", "gh"):
+            self.assertNotIn(f"缺    {present} 不在 PATH 上", check.stderr)
+        self.assertNotIn("gh 没登录", check.stderr)
 
     def test_check_reports_v3_rows_before_install(self):
         self.install_v3()

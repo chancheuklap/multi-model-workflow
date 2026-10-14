@@ -3,9 +3,10 @@
 #
 #   bash mmw-v4/tests/install/run.sh
 #
-#   test_install.py   install.sh in a throwaway home (MMW_INSTALL_HOME) with fake orca, nmem, paseo
-#                     and launchctl on PATH: the takeover of a machine mmw-v3/install.sh set up,
-#                     --back, --check and its handover, the models.json rows
+#   test_install.py   install.sh in a throwaway home (MMW_INSTALL_HOME) with fake orca, gh, node, nmem,
+#                     paseo and launchctl on PATH: the takeover of a machine mmw-v3/install.sh set up,
+#                     --back, --check and its handover, the models.json rows, Orca's worktree-base-path,
+#                     and the machine's base tools
 #
 # Needs bash, python3 and uv, and mmw-v3/ beside mmw-v4/.
 

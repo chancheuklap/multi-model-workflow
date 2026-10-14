@@ -71,8 +71,6 @@ class Fake:
             self.labels_have[name] = (args[args.index("--color") + 1],
                                       args[args.index("--description") + 1])
             return done(cmd, 0, f'✓ Label "{name}" created')
-        if args[:2] == ["auth", "status"]:
-            return done(cmd, 0)
         if args[0] == "api":
             path = next(a for a in args[1:] if not a.startswith("-"))
             if path.startswith("repos/o/r/issues?"):
@@ -166,7 +164,6 @@ class TestCheck(unittest.TestCase):
     def run_check(self, fake):
         check = load("check")
         with mock.patch("subprocess.run", side_effect=fake), \
-             mock.patch.object(check.shutil, "which", return_value="/bin/tool"), \
              mock.patch.dict("os.environ", {"MMW_HOME": str(self.home)}), \
              redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()):
             code = check.main()
@@ -254,6 +251,15 @@ class TestCheck(unittest.TestCase):
         self.assertRegex(out, r"(?m)^missing +machine +install: .* --check exits 1, 2 line\(s\) on stderr, "
                               r"first: 缺    /home/.claude/skills/dispatch; run bash .*/install.sh to repair it$")
         self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 1 missing"), out)
+
+    def test_the_machine_is_one_install_row_and_check_asks_nothing_else_of_it(self):
+        self.set_up_repository()
+        fake = Fake(root=self.root)
+        code, out = self.run_check(fake)
+        self.assertEqual(code, 0, out)
+        machine = [line.split(":", 1)[0].split() for line in out.splitlines() if " machine " in line]
+        self.assertEqual(machine, [["ok", "machine", "install"]])
+        self.assertFalse([c for c in fake.calls if c[:3] == ["gh", "auth", "status"]], fake.calls)
 
     def test_a_machine_with_no_install_is_missing_and_runs_nothing(self):
         self.set_up_repository()

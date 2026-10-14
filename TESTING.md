@@ -28,7 +28,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 - **Claude Design's preview server.** `mmw-v4/tests/design-pages/test_pull_design.py` starts a local fake that serves project files and the three runtime scripts.
 - **The runners.** `test_dispatch.sh` puts fake `paseo`, `herdr` and `orca` on `PATH`, each logging every call. `test_relay.sh` delivers through the real `runners/paseo.sh` adapter to a fake `paseo`. The liveness unit tests use a fake board and fake runner verbs. `mmw-v4/tests/dispatch/test_status.py` reads a fixed `paseo ls`/`inspect` snapshot.
 - **The hosts' model catalogs.** `mmw-v4/tests/dispatch/catalog.json` and `catalogs/` stand in for each host's catalog.
-- **The machine's install targets.** `test_install.py` puts fake `orca`, `nmem`, `paseo` and `launchctl` on `PATH`.
+- **The machine's install targets.** `test_install.py` puts fake `orca` (its setups in a JSON file the test writes), `gh`, `node`, `nmem`, `paseo` and `launchctl` on `PATH`; the case for missing base tools runs `--check` on a `PATH` of only `python3`, `uv`, `git`, the fake `gh`, `/usr/bin` and `/bin`.
 - **What runs for real:** git (bare origins and clones made in a temporary directory), processes and the state directory's locks (`statedir.py`'s lock is tested against real processes, a recycled pid among them), `node`, and the headless Chromium (board and design-pages suites).
 
 ## How a test puts the system into a state

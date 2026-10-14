@@ -8,7 +8,9 @@
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
 #                     从前写进去的 grok、cursor 两条 provider。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
-#   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees
+#   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees；--check 报不是的
+#   基础工具          一样不装，两种模式都查：gh 已登录，git、python3、uv、node 在 PATH 上，
+#                     paseo、herdr、orca 至少一个在 PATH 上。缺的报一行，说怎么装
 #   子代理层数        Claude Code、Codex 的子代理层数上限都设为 2
 #   task board        一个 com.mmw.board LaunchAgent，按 ~/.mmw/boards.json 为每个仓库守住本机服务
 #
@@ -1150,16 +1152,68 @@ for host, where, got in (
 sys.exit(1 if failed else 0)
 PY
 
+# ---------------- 本机基础工具 ----------------
+#
+# 夜里的脚本要调的几样：gh（且已登录）、git、python3、uv、node，以及起会话用的 runner，
+# paseo、herdr、orca 至少一个。本脚本一样都不装，两种模式都只查：缺的报一行，说怎么装。
+# 本机只在这一处查，setup-mmw 的 check.py 经 --check 读到它。
+
+base_tool_hint() {
+  case "$1" in
+    gh) echo "brew install gh，再 gh auth login" ;;
+    git) echo "xcode-select --install，或 brew install git" ;;
+    python3) echo "brew install python" ;;
+    uv) echo "brew install uv" ;;
+    node) echo "brew install node" ;;
+  esac
+}
+
+base_rc=0
+for tool in gh git python3 uv node; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "缺    $tool 不在 PATH 上：$(base_tool_hint "$tool")" >&2
+    base_rc=1
+  fi
+done
+if command -v gh >/dev/null 2>&1; then
+  if ! gh_out="$(gh auth status 2>&1)"; then
+    gh_why="$(printf '%s\n' "$gh_out" | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/^[[:space:]]*//' || true)"
+    echo "缺    gh 没登录（${gh_why:-gh auth status 退出非 0}）：跑 gh auth login" >&2
+    base_rc=1
+  fi
+fi
+base_runners=()
+for runner in paseo herdr orca; do
+  if PATH="$HOME_DIR/.local/bin:$PATH" command -v "$runner" >/dev/null 2>&1; then
+    base_runners+=("$runner")
+  fi
+done
+if [ "${#base_runners[@]}" -eq 0 ]; then
+  echo "缺    runner：paseo、herdr、orca 都不在 PATH 上，夜里的会话靠其中一个起。装 Orca、Herdr 或" \
+       "Paseo 的应用，把它的命令行放上 PATH；Paseo.app 装好后再跑一次 install.sh，它把 paseo 链进 ~/.local/bin" >&2
+  base_rc=1
+fi
+if [ "$base_rc" -eq 0 ]; then
+  echo "已装  基础工具：gh 已登录，git、python3、uv、node 在 PATH 上，runner ${base_runners[*]}"
+else
+  rc=1
+fi
+
 # ---------------- Orca 侧工作树配置 ----------------
 #
 # 协议自己用 git 切工作树，落点是每个仓库的 `.worktrees/`。这一条让 Orca 自己建的树也落在
-# 同一处，只关系到 Orca 的界面，所以只在安装时写，--check 不查。没有 orca 的机器跳过。
+# 同一处。读的是 Orca 此刻的每个 setup：装完之后才加进 Orca 的仓库，下一次 install 补上，
+# 每一次 --check 都报出来。没有 orca 的机器跳过。
 
-if [ "$mode" != check ] && command -v orca >/dev/null 2>&1; then
-  python3 - <<'PY' || rc=1
+if command -v orca >/dev/null 2>&1; then
+  MMW_MODE="$mode" python3 - <<'PY' || rc=1
 import json
+import os
 import subprocess
 import sys
+
+BASE = ".worktrees"
+mode = os.environ["MMW_MODE"]
 
 
 def orca(*args):
@@ -1170,20 +1224,36 @@ proc = orca("project", "setups", "--json")
 try:
     setups = json.loads(proc.stdout)["result"]["setups"]
 except Exception:
-    sys.stderr.write(f"缺    读不出 orca project setups --json（退出 {proc.returncode}），worktree-base-path 没写\n")
+    sys.stderr.write(f"缺    读不出 orca project setups --json（退出 {proc.returncode}），"
+                     f"worktree-base-path 没{'查' if mode == 'check' else '写'}\n")
     sys.exit(1)
+rows = [row for row in setups if isinstance(row, dict) and row.get("id")]
+wrong = [row for row in rows if row.get("worktreeBasePath") != BASE]
+
+
+def where(row):
+    path = row.get("path") or row.get("displayName")
+    return f"orca setup {row['id']}" + (f"（{path}）" if path else "")
+
+
+if mode == "check":
+    for row in wrong:
+        sys.stderr.write(f"缺    {where(row)}的 worktree-base-path 是 {row.get('worktreeBasePath')!r}，"
+                         f"要 {BASE}：跑一次 install.sh\n")
+    if not wrong:
+        print(f"已装  orca 的 {len(rows)} 个 setup，worktree-base-path 都是 {BASE}")
+    sys.exit(1 if wrong else 0)
+
 failed = False
-for row in setups:
-    ident = str((row or {}).get("id") or "")
-    if not ident:
-        continue
-    if orca("project", "setup-update", "--setup", ident, "--worktree-base-path", ".worktrees",
+for row in wrong:
+    ident = str(row["id"])
+    if orca("project", "setup-update", "--setup", ident, "--worktree-base-path", BASE,
             "--json").returncode:
-        sys.stderr.write(f"缺    orca setup {ident} 的 worktree-base-path 没写上：手动跑 "
-                         f"orca project setup-update --setup {ident} --worktree-base-path .worktrees\n")
+        sys.stderr.write(f"缺    {where(row)}的 worktree-base-path 没写上：手动跑 "
+                         f"orca project setup-update --setup {ident} --worktree-base-path {BASE}\n")
         failed = True
     else:
-        print(f"已装  orca setup {ident} worktree-base-path .worktrees")
+        print(f"已装  {where(row)} worktree-base-path {BASE}")
 sys.exit(1 if failed else 0)
 PY
 fi

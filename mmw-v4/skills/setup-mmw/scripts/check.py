@@ -13,21 +13,19 @@ Run from inside a clone. Writes nothing: not to the repository, the tracker or t
 The summary is `SETUP OK` when nothing is missing, else `SETUP INCOMPLETE <n> missing`.
 Exit 0 with `SETUP OK`, 1 otherwise.
 
-The repository layer is what the `setup-mmw` skill sets up; the machine layer is the
-tools the night's scripts call and the toolbox's own install, read through the installed
-`install.sh --check`, which this skill reports and does not install.
+The repository layer is what the `setup-mmw` skill sets up; the machine layer is one row,
+the toolbox's own install as the installed `install.sh --check` reads it, the machine's base
+tools (gh logged in, git, python3, uv, node, a runner) among it. This skill reports it and
+installs nothing on the machine.
 """
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 IGNORED = (".worktrees/", ".scratch/")
-TOOLS = ("git", "python3", "uv", "node")
-RUNNERS = ("paseo", "herdr", "orca")
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -203,22 +201,9 @@ def check_verification_skills(report: Report, root: Path):
                        "the owner names the create-verification-skill skill to generate it")
 
 
-def check_machine(report: Report):
-    auth = run(["gh", "auth", "status"])
-    report.add("ok" if auth.returncode == 0 else "missing", "machine", "gh login",
-               "logged in" if auth.returncode == 0 else f"not logged in ({reason(auth)}); run gh auth login")
-    absent = [tool for tool in TOOLS if shutil.which(tool) is None]
-    report.add("missing" if absent else "ok", "machine", "tools",
-               f"not on PATH: {', '.join(absent)}" if absent else ", ".join(TOOLS) + " on PATH")
-    runners = [r for r in RUNNERS if shutil.which(r)]
-    report.add("ok" if runners else "missing", "machine", "runner",
-               ", ".join(runners) + " on PATH" if runners
-               else f"none of {', '.join(RUNNERS)} on PATH; a night starts its sessions through one")
-    check_install(report)
-
-
 def check_install(report: Report):
-    """The toolbox's install: skills, hooks, prompt and models.json, as its own --check reads them."""
+    """The toolbox's install, as its own --check reads it: skills, hooks, prompt, models.json,
+    and the machine's base tools."""
     recorded = Path(os.environ.get("MMW_HOME") or Path.home() / ".mmw") / "installed-root"
     if not recorded.is_file():
         report.add("missing", "machine", "install",
@@ -256,7 +241,7 @@ def main() -> int:
     check_repository_check(report, root)
     check_testing(report, root)
     check_verification_skills(report, root)
-    check_machine(report)
+    check_install(report)
     report.print()
     return 0 if report.missing() == 0 else 1
 

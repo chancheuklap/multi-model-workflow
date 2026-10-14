@@ -9,7 +9,7 @@ Sets a repository up for the landing pipeline: everything the pipeline needs onc
 
 What you write here is read at the moment of acting by every playbook that publishes or triages an issue, by every script that puts a label on one, and by every worker and reviewer that works in this repository. A wrong command or a wrong line is repeated by each spec, ticket and night after it, without an error. So make each file true of this repository rather than filling in a template: check a command against the repository before you write it down.
 
-The machine is set up once by the toolbox's own install, not here: `scripts/check.py` reports its rows, the install's through the installed `install.sh --check`, and changes nothing on the machine. Running the install is the owner's call.
+The machine is set up once by the toolbox's own install, not here: `scripts/check.py` reports it in one `install` row, read through the installed `install.sh --check`, which also checks the machine's base tools (gh logged in, git, python3, uv and node, and a runner), and changes nothing on the machine. Running the install is the owner's call.
 
 ## Steps
 
