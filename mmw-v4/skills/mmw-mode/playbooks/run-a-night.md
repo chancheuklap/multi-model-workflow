@@ -24,7 +24,7 @@ Find where you are by the first row whose fact holds; the record says where you 
 | A retrospective brief wake arrived after `spec.closed` | Resume Retrospective (`playbooks/retrospective.md`) at **Check and apply the answers** |
 | A wake arrived: `#<n> <event>`, `brief <batch> done`, a line of `watchdog:` alerts, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
 | `dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
-| The spec carries `spec.closed` and no `spec.retroed` | Run Retrospective (`playbooks/retrospective.md`) with `--spec <spec>`, then [6. Open the pull request](#6-open-the-pull-request) |
+| The spec carries `spec.closed` and no `spec.retroed` | Enter Retrospective (`playbooks/retrospective.md`) with `--spec <spec>` through its re-entry instructions, then [6. Open the pull request](#6-open-the-pull-request) |
 | The spec carries `spec.closed`, and no open pull request runs from the night's branch to the project branch | [6. Open the pull request](#6-open-the-pull-request) |
 | The pull request is open, and the user has accepted it | [7. Merge the accepted night](#7-merge-the-accepted-night) |
 | The pull request is open, and the user has not accepted it | Nothing: wait for the user |
