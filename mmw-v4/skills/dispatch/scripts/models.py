@@ -1,6 +1,7 @@
 """读本机 models.json，扫描目录，再按 hosts.json 展开成启动参数。
 
-hosts.json 跟着技能走，记下每个 host 怎么起及首次安装的默认值。models.json 是
+hosts.json 与 roles.json 跟着技能走：hosts.json 只记每个 host 怎么起，roles.json 记每个
+角色，连同它首次安装的默认 host、模型与 effort（`default`）。models.json 是
 MMW_HOME 下唯一的可写配置；board、命令行、dispatch.sh 与 install.sh 共用本文件的
 读取、验证、锁与整体替换。runner 自己的命令只由 runners/<runner>.sh 执行。
 """
@@ -31,10 +32,13 @@ ROLES_JSON = SKILL_DIR / "roles.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
 
 
+def _roles() -> list[dict]:
+    return json.loads(ROLES_JSON.read_text(encoding="utf-8"))["roles"]
+
+
 def session_roles() -> tuple[str, ...]:
     """The roles dispatch.sh starts as sessions, in roles.json's order: one models.json row each."""
-    data = json.loads(ROLES_JSON.read_text(encoding="utf-8"))
-    return tuple(r["name"] for r in data["roles"])
+    return tuple(r["name"] for r in _roles())
 
 
 ALLOWED_AGENTS = session_roles()
@@ -127,10 +131,12 @@ HOST_BINARIES = _HostBinaries()
 
 
 def default_local_config() -> dict:
-    """The version-1 configuration installed on a machine with no prior choice."""
+    """The version-1 configuration installed on a machine with no prior choice: each role's
+    `default` in roles.json."""
     rows = {}
-    for row in load_hosts().get("defaults") or []:
-        rows[row["agent"]] = {key: row[key] for key in ("host", "model", "effort")}
+    for role in _roles():
+        default = role.get("default") or {}
+        rows[role["name"]] = {key: default.get(key) for key in ("host", "model", "effort")}
     return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows, "max_workers": DEFAULT_MAX_WORKERS}
 
 
@@ -182,7 +188,7 @@ class InstallResult(NamedTuple):
 
 
 def install_local_config() -> InstallResult:
-    """Create models.json once from the hosts.json defaults. An existing file is kept as
+    """Create models.json once from the roles' defaults in roles.json. An existing file is kept as
     it is, except that a role it has no row for gets its default: a role added to
     roles.json reaches a machine configured before it."""
     path = models_json_path()

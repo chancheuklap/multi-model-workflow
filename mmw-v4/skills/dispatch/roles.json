@@ -5,39 +5,45 @@
       "sent_with": "ticket",
       "follows": "the mmw-mode skill's playbooks/work-a-ticket.md",
       "what": "works one ticket to closed: writes the code, runs the criteria, starts its reviewer",
-      "returns": "events on its ticket, which the relay turns into wakes for the session that sent it"
+      "returns": "events on its ticket, which the relay turns into wakes for the session that sent it",
+      "default": {"host": "codex", "model": "gpt 6.1 sol", "effort": "medium"}
     },
     {
       "name": "senior-worker",
       "sent_with": "ticket",
       "follows": "the mmw-mode skill's playbooks/work-a-ticket.md",
       "what": "the worker of a ticket graded senior",
-      "returns": "events on its ticket, which the relay turns into wakes for the session that sent it"
+      "returns": "events on its ticket, which the relay turns into wakes for the session that sent it",
+      "default": {"host": "codex", "model": "gpt 6.1 sol", "effort": "high"}
     },
     {
       "name": "reviewer",
       "sent_with": "ticket",
       "follows": "the code-review skill's references/session.md",
       "what": "reviews one ticket's diff, sending the code-review axes",
-      "returns": "reviewer.reported on the ticket, which the relay turns into a wake for its worker"
+      "returns": "reviewer.reported on the ticket, which the relay turns into a wake for its worker",
+      "default": {"host": "claude", "model": "sonnet", "effort": "high"}
     },
     {
       "name": "researcher",
       "sent_with": "brief",
       "what": "reads one source, an angle of the code or one kind of evidence, and hands back cited findings",
-      "returns": "its findings, reported to the session that sent it"
+      "returns": "its findings, reported to the session that sent it",
+      "default": {"host": "codex", "model": "gpt 6.1 sol", "effort": "medium"}
     },
     {
       "name": "candidate",
       "sent_with": "brief",
       "what": "designs one of several candidate answers to the same brief",
-      "returns": "its design, reported to the session that sent it"
+      "returns": "its design, reported to the session that sent it",
+      "default": {"host": "claude", "model": "opus", "effort": "high"}
     },
     {
       "name": "advisor",
       "sent_with": "brief",
       "what": "a second opinion on one decision, on a stronger model",
-      "returns": "its answer, reported to the session that sent it"
+      "returns": "its answer, reported to the session that sent it",
+      "default": {"host": "claude", "model": "fable", "effort": "medium"}
     }
   ]
 }

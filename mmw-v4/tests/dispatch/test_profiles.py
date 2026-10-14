@@ -184,7 +184,14 @@ class DefaultsTest(unittest.TestCase):
         config = models.default_local_config()
         self.assertEqual(config["version"], 1)
         self.assertEqual(config["runner"], "orca")
-        self.assertEqual(set(config["rows"]), set(models.ALLOWED_AGENTS))
+        self.assertEqual(config["rows"], {
+            "junior-worker": {"host": "codex", "model": "gpt 6.1 sol", "effort": "medium"},
+            "senior-worker": {"host": "codex", "model": "gpt 6.1 sol", "effort": "high"},
+            "reviewer": {"host": "claude", "model": "sonnet", "effort": "high"},
+            "researcher": {"host": "codex", "model": "gpt 6.1 sol", "effort": "medium"},
+            "candidate": {"host": "claude", "model": "opus", "effort": "high"},
+            "advisor": {"host": "claude", "model": "fable", "effort": "medium"},
+        })
 
 
 class CliCatalogParseTest(unittest.TestCase):

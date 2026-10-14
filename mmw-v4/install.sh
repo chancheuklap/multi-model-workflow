@@ -852,7 +852,7 @@ launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
 # host 侧只放生成物：CLI 软链、~/.paseo/config.json 里的 worktrees.root。本脚本从前往那份
 # config.json 写过 grok、cursor 两条 provider；v4 不再服务这两个 host，所以装的时候摘掉它们，
 # --check 见到就报残留。models.json 在 ~/.mmw/：第一次
-# install 从 hosts.json 的 defaults 写入，之后只动角色行。v3 的 explainer、synthesizer 行
+# install 从 roles.json 每个角色的 default 写入，之后只动角色行。v3 的 explainer、synthesizer 行
 # roles.json 没有，models.py 拒绝整份文件，所以摘掉，摘之前留一份 .bak- 副本（--back 从它拿回）；
 # 缺的 candidate 行由 models.py 补默认值。别的行一字不动。不写 Agent profile。
 # MMW_INSTALL_HOME 之下不跑 paseo reload（与 launchd 同构）。

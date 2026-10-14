@@ -1153,7 +1153,7 @@ export MMW_HOST_CATALOG="$HERE/catalog.json"
 mkdir -p "$MMW_HOME"
 : > "$MMW_GH_LAST_BODY"
 # The models.json every scenario starts from. It is this suite's own fixture, not
-# hosts.json's defaults: what a fresh machine is given can change without changing what
+# roles.json's defaults: what a fresh machine is given can change without changing what
 # the scenarios exercise (a Codex junior row, a Claude senior row at xhigh, so the two
 # worker grades differ in host, model and effort).
 cat > "$MMW_HOME/models.json" <<'JSON'

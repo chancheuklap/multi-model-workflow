@@ -24,7 +24,7 @@ bash mmw-v4/install.sh --back     # go back to v3
 - **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex copy again after each change.
 - **The task board.** The `com.mmw.board` launchd task keeps `board/supervisor.py` running, which serves one local board per repository registered in `~/.mmw/boards.json`. [`board/AGENTS.md`](./board/AGENTS.md) says how it reads GitHub and restarts onto new code.
 - **Paseo and Orca settings.** Paseo gets its command link and its worktree root; install removes the Grok and Cursor providers an earlier install added. When Orca is present, it puts its worktrees under each repository's `.worktrees/`.
-- **`~/.mmw/models.json`.** Install writes the default file when none exists. In an existing file it changes only the role rows.
+- **`~/.mmw/models.json`.** Install writes the default file, each role's `default` in `roles.json`, when none exists. In an existing file it changes only the role rows.
 
 Install then records this checkout's `mmw-v4/` in `~/.mmw/installed-root`. `--check` run from another checkout hands the check to the installed checkout's own `install.sh` and changes nothing.
 
@@ -140,7 +140,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 
 ## Models
 
-The `dispatch` skill sends sessions in six roles, listed in [`roles.json`](./skills/dispatch/roles.json): `junior-worker`, `senior-worker`, `reviewer`, `researcher`, `candidate` and `advisor`. Each role is one row of `~/.mmw/models.json`, which names its host, its model and its reasoning effort. The same file names the runner that starts the sessions.
+The `dispatch` skill sends sessions in six roles, listed in [`roles.json`](./skills/dispatch/roles.json): `junior-worker`, `senior-worker`, `reviewer`, `researcher`, `candidate` and `advisor`. Each role is one row of `~/.mmw/models.json`, which names its host, its model and its reasoning effort. The same file names the runner that starts the sessions. A role's `default` in `roles.json` is the row install writes for it on a machine whose file lacks one.
 
 Change it only with `models.py config`. A change takes effect at the next session start, with no restart and no reinstall.
 

@@ -85,7 +85,7 @@ class InstallTest(unittest.TestCase):
         self.launchd = root / "launchd"
         self.launchd.mkdir()
         # The dispatch suite's catalog, plus the `opus` family a fresh candidate row
-        # (hosts.json's default, `opus[1m]`) resolves against on a real machine.
+        # (its default in roles.json, `opus`) resolves against on a real machine.
         catalog = json.loads(FIXTURE_CATALOG.read_text())
         catalog["claude"].append({"id": "opus", "name": "Opus",
                                   "thinkingOptionIds": ["low", "medium", "high", "xhigh"]})

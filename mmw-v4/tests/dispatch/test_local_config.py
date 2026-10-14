@@ -358,9 +358,8 @@ class LocalConfigTest(unittest.TestCase):
         saved = models.read_local_config()
         self.assertEqual(saved["version"], 2)
         self.assertEqual(saved["rows"]["reviewer"]["model"], "sonnet 5")
-        default = next(r for r in models.load_hosts()["defaults"] if r["agent"] == "researcher")
         self.assertEqual(saved["rows"]["researcher"],
-                         {k: default[k] for k in ("host", "model", "effort")})
+                         {"host": "codex", "model": "gpt 6.1 sol", "effort": "medium"})
 
     def test_install_leaves_a_complete_file_untouched(self):
         self.seed()

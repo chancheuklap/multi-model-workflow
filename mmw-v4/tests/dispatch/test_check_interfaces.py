@@ -3,7 +3,7 @@
     python3 -m unittest discover -s mmw-v4/tests/dispatch -p test_check_interfaces.py
 
 The check reads the relay's WAKES, events.py's EVENTS, verify-ticket.py's RESUME_STEPS,
-the route lines of the mode's references/owning-a-task.md and its playbooks, the role table and hosts.json, every skill's
+the route lines of the mode's references/owning-a-task.md and its playbooks, the role table with each role's default and hosts.json, every skill's
 SKILL.md, and the playbooks and references that send a brief role. Each case copies the skills tree into a temporary directory, makes one change
 a later edit could make, and runs the copied script there.
 """
@@ -97,14 +97,37 @@ class CheckInterfaces(unittest.TestCase):
                     "| --- | --- |\n| Doing x | `references/x.md` |")
         self.assertEqual(self.run_check(), (0, "INTERFACES OK\n"))
 
-    def test_a_role_with_no_default_model_is_found(self):
-        path = self.tmp / "dispatch" / "hosts.json"
-        hosts = json.loads(path.read_text(encoding="utf-8"))
-        hosts["defaults"] = [row for row in hosts["defaults"] if row["agent"] != "candidate"]
-        path.write_text(json.dumps(hosts), encoding="utf-8")
+    def change_default(self, name, change):
+        path = self.tmp / "dispatch" / "roles.json"
+        roles = json.loads(path.read_text(encoding="utf-8"))
+        for role in roles["roles"]:
+            if role["name"] == name:
+                change(role)
+        path.write_text(json.dumps(roles), encoding="utf-8")
+
+    def test_a_role_with_no_default_is_found(self):
+        self.change_default("candidate", lambda role: role.pop("default"))
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.finding(out, "candidate")
+        self.finding(out, "dispatch/roles.json", "candidate", "`default` is missing")
+
+    def test_a_default_without_a_model_is_found(self):
+        self.change_default("reviewer", lambda role: role["default"].update(model=" "))
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "dispatch/roles.json", "reviewer", "has no model")
+
+    def test_a_default_naming_a_host_hosts_json_lacks_is_found(self):
+        self.change_default("advisor", lambda role: role["default"].update(host="grok"))
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "dispatch/roles.json", "advisor", "host 'grok'")
+
+    def test_a_default_effort_its_host_does_not_list_is_found(self):
+        self.change_default("junior-worker", lambda role: role["default"].update(effort="max"))
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.finding(out, "dispatch/roles.json", "junior-worker", "effort 'max'", "codex")
 
     def test_a_send_of_a_role_the_table_does_not_have_is_found(self):
         self.append("how/SKILL.md", "Send it with `dispatch.sh send narrator <brief>`.")
@@ -115,12 +138,9 @@ class CheckInterfaces(unittest.TestCase):
     def test_a_brief_role_nothing_sends_is_found(self):
         roles_path = self.tmp / "dispatch" / "roles.json"
         roles = json.loads(roles_path.read_text(encoding="utf-8"))
-        roles["roles"].append({"name": "synthetic-brief", "sent_with": "brief", "what": "x", "returns": "x"})
+        roles["roles"].append({"name": "synthetic-brief", "sent_with": "brief", "what": "x", "returns": "x",
+                               "default": {"host": "codex", "model": "x", "effort": "high"}})
         roles_path.write_text(json.dumps(roles), encoding="utf-8")
-        hosts_path = self.tmp / "dispatch" / "hosts.json"
-        hosts = json.loads(hosts_path.read_text(encoding="utf-8"))
-        hosts["defaults"].append({"agent": "synthetic-brief", "host": "codex", "model": "x", "effort": "high"})
-        hosts_path.write_text(json.dumps(hosts), encoding="utf-8")
         code, out = self.run_check()
         self.assertEqual(code, 1)
         self.finding(out, "synthetic-brief")

@@ -19,7 +19,7 @@ The script points every host on the machine at this checkout's `mmw-v4/`. The ho
 - **The user-level prompt.** `mmw-v4/prompt/shared.md` holds the facts about the owner that every session in every host reads. Claude Code reads it as `~/.claude/CLAUDE.md`, a link to the file. Codex reads an `AGENTS.md` that `prompt/render.py` writes.
 - **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex copy again after each change.
 - **Paseo and Orca settings.** Paseo gets its command link and its worktree root; install removes the Grok and Cursor providers an earlier install added. When Orca is present, it puts its worktrees under each repository's `.worktrees/`.
-- **`~/.mmw/models.json`.** Install writes the default file when none exists. In an existing file it changes only the role rows. It removes a row for a role that `roles.json` does not list, and keeps a `.bak-` copy first.
+- **`~/.mmw/models.json`.** Install writes the default file, each role's `default` in `roles.json`, when none exists. In an existing file it changes only the role rows. It removes a row for a role that `roles.json` does not list, and keeps a `.bak-` copy first.
 
 Last, install records this checkout's `mmw-v4/` in `~/.mmw/installed-root`.
 

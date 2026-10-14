@@ -22,9 +22,9 @@ places have to agree, and nothing else notices when one of them moves:
    whose `## Find your moment`, `## Reached from here` or `## Next` section names a
    `playbooks/` file routes a second time, and the second statement drifts from the first.
    A moment table that sends its reader to the skill's own references is not a route.
-5. **Every role has a row in each table, and every role sent is a role.** Each role of the
-   dispatch skill's `roles.json` has a default row in `hosts.json` (`defaults`), and each
-   default row is a role. Every `dispatch.sh send <role>` (or `send <role>`) a `SKILL.md`, a
+5. **Every role has a default a fresh machine can start, and every role sent is a role.**
+   Each role of the dispatch skill's `roles.json` has a `default` naming a host, a model and
+   an effort, the host one `hosts.json` describes and the effort one that host lists. Every `dispatch.sh send <role>` (or `send <role>`) a `SKILL.md`, a
    playbook or the mmw-mode skill's `references/owning-a-task.md` writes names a role, or
    `worker`, which `send` resolves to the junior or senior worker by the ticket's grade. A
    role sent with a brief is sent by one of those files.
@@ -108,21 +108,19 @@ def module_constants(path: Path) -> dict[str, object]:
 
 
 def check_roles() -> list[str]:
-    """Rule 5: the role table against hosts.json and every `dispatch.sh send` written."""
+    """Rule 5: each role's default against hosts.json, and every `dispatch.sh send` written."""
     out: list[str] = []
     where = ROLES_JSON.relative_to(SKILLS)
     try:
         roles = json.loads(ROLES_JSON.read_text(encoding="utf-8"))["roles"]
-        defaults = {row["agent"] for row in json.loads(HOSTS_JSON.read_text(encoding="utf-8"))["defaults"]}
+        hosts = json.loads(HOSTS_JSON.read_text(encoding="utf-8"))["hosts"]
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return [f"{where}: the role table or hosts.json cannot be read: {exc}"]
     names = {r["name"] for r in roles}
-    for name in sorted(names - defaults):
-        out.append(f"{HOSTS_JSON.relative_to(SKILLS)}: the role {name} has no row in "
-                   f"`defaults`, so a fresh machine has no model for it")
-    for name in sorted(defaults - names):
-        out.append(f"{HOSTS_JSON.relative_to(SKILLS)}: `defaults` has a row for {name}, which "
-                   f"is no role in {where}")
+    for role in roles:
+        if why := default_fault(role.get("default"), hosts):
+            out.append(f"{where}: the {role['name']} role's `default` {why}, so a fresh machine "
+                       f"has no session it can start for it")
     sent: set[str] = set()
     texts = sorted(SKILLS.glob("*/SKILL.md")) + sorted((MODE.parent / "playbooks").glob("*.md"))
     for path in texts + [ROUTES]:
@@ -154,6 +152,23 @@ def check_roles() -> list[str]:
             out.append(f"{where}: {role['name']} is sent with a brief, and no SKILL.md, playbook or owning-a-task.md "
                        f"writes `dispatch.sh send {role['name']}`")
     return out
+
+
+def default_fault(default: object, hosts: dict) -> str | None:
+    """Why a role's `default` cannot start a session, or None when it can."""
+    if not isinstance(default, dict):
+        return "is missing; give it {\"host\", \"model\", \"effort\"}"
+    blank = [k for k in ("host", "model", "effort")
+             if not isinstance(default.get(k), str) or not default[k].strip()]
+    if blank:
+        return "has no " + ", ".join(blank)
+    host = default["host"]
+    if host not in hosts:
+        return f"names host {host!r}, which hosts.json does not describe ({', '.join(sorted(hosts))})"
+    efforts = hosts[host].get("efforts") or []
+    if default["effort"] not in efforts:
+        return f"names effort {default['effort']!r}, which host {host} does not list ({', '.join(efforts)})"
+    return None
 
 
 def resolve_follows(what: str) -> str | None:
