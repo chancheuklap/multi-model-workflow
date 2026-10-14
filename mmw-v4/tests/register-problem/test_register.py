@@ -191,6 +191,7 @@ class Registration(unittest.TestCase):
 
     def test_an_open_match_gets_one_more_occurrence(self):
         row = self.existing()
+        row["body"] = row["body"].replace("\n", "\r\n")
         self.fake.repos["o/r"] = [issue(20, body=problem("test-compares-empty-lists-other"))]
         rc, out, err = self.run_register("add", str(self.path))
         self.assertEqual(rc, 0, err)

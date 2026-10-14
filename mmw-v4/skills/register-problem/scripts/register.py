@@ -100,8 +100,9 @@ def issue_list(repo):
 
 def problem_fields(body):
     section = re.search(r"^## Problem\s*\n(.*?)(?=^## |\Z)", body, re.M | re.S)
-    return dict(re.findall(r"^\s*(问题代号|角度|发生了什么|证据|代价|该谁修)\s*[:：]\s*(.+)$",
-                           section[1] if section else "", re.M))
+    return {key: value.strip() for key, value in
+            re.findall(r"^\s*(问题代号|角度|发生了什么|证据|代价|该谁修)\s*[:：]\s*(.+)$",
+                       section[1] if section else "", re.M)}
 
 
 def find(words, repos):
