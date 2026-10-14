@@ -904,7 +904,8 @@ launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
 
 # ---------------- Paseo 侧配置 ----------------
 #
-# 源在仓库（hosts.json 里两条 provider 的字面量），host 侧只放生成物：CLI 软链、
+# 源在仓库（下面 Python 段里 GROK_PROVIDER、CURSOR_PROVIDER 两条 provider 的字面量），
+# host 侧只放生成物：CLI 软链、
 # ~/.paseo/config.json 里的 provider、worktrees.root。models.json 在 ~/.mmw/：第一次
 # install 从 hosts.json 的 defaults 写入，之后只动角色行。v3 的 explainer、synthesizer 行
 # roles.json 没有，models.py 拒绝整份文件，所以摘掉，摘之前留一份 .bak- 副本（--back 从它拿回）；

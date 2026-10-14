@@ -40,6 +40,8 @@ def session_roles() -> tuple[str, ...]:
 ALLOWED_AGENTS = session_roles()
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 DEFAULT_RUNNER = "orca"
+# How many tickets a night runs at once when models.json names no cap.
+DEFAULT_MAX_WORKERS = 3
 # Which catalog a row resolves against: `paseo` asks paseo, `cli` asks the host's own
 # CLI (a runner that runs the CLI in a terminal starts it with those ids). dispatch.sh
 # sets MMW_CATALOG_MODE from tonight's runner; tests set it or MMW_HOST_CATALOG.
@@ -131,7 +133,7 @@ def default_local_config() -> dict:
     rows = {}
     for row in load_hosts().get("defaults") or []:
         rows[row["agent"]] = {key: row[key] for key in ("host", "model", "effort")}
-    return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows, "max_workers": 3}
+    return {"version": 1, "runner": DEFAULT_RUNNER, "rows": rows, "max_workers": DEFAULT_MAX_WORKERS}
 
 
 def _version_errors(value: object) -> list[dict[str, str]]:
@@ -893,8 +895,8 @@ def check_local_config(config: dict | None = None) -> tuple[dict, dict, list[dic
 
 
 def max_workers() -> int:
-    """max_workers() reads the saved night cap, or 3 when absent, without checking roles."""
-    value = read_local_config().get("max_workers", 3)
+    """max_workers() reads the saved night cap, or DEFAULT_MAX_WORKERS when absent, without checking roles."""
+    value = read_local_config().get("max_workers", DEFAULT_MAX_WORKERS)
     _validate_max_workers(value)
     return value
 
