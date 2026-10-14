@@ -2,7 +2,7 @@
 
 An agent that edits code it has not traced fixes the symptom at the first plausible spot. Agents usually fail in one of two ways. They misread what you want, or they lack the context to do the work right. [The mmw-mode chapter](./02-mmw-mode.md) covers what goes in a request. This page covers context.
 
-Four skills build it. The [how skill](../../skills/how/SKILL.md) explains what the code does now. The [why skill](../../skills/why/SKILL.md) finds the reasons it has that shape. The [teach skill](../../skills/teach/SKILL.md) blends both into one plain explanation. The [recall skill](../../skills/recall/SKILL.md) rebuilds recent working context on a topic. Each one makes the agent explain itself in words you can check, which is how you supervise an agent that may know the code better than you do.
+Three skills build it. The [how skill](../../skills/how/SKILL.md) explains what the code does now. The [why skill](../../skills/why/SKILL.md) finds the reasons it has that shape. The [teach skill](../../skills/teach/SKILL.md) blends both into one plain explanation. Each one makes the agent explain itself in words you can check, which is how you supervise an agent that may know the code better than you do.
 
 ![A detective studies a machine blueprint with a magnifying glass while robots fetch case files; the evidence board behind her links clues under /how and /why.](./images/understanding.jpg)
 
@@ -53,24 +53,6 @@ The "convince me" framing turns the explanation into an argument you can test. T
 ```
 
 An agent that must explain its work has to read the code and back each claim with evidence.
-
-## Rebuild recent context with the recall skill
-
-```text
-/recall catch me up on the export work from last week
-```
-
-The recall skill builds a short brief from two records. One is your own recent chats. The other is the shared record, searched through the why skill's investigators: the issues, the fixes that shipped and were reverted, and the errors still firing. It checks every pull request, branch, and ticket it names against `git` and `gh` before it reports. The brief has four parts: a capsule of at most five bullets, one line per thread with a status tag such as `[merged #N]` or `[in flight <branch>]`, the recurring problems, and the next move.
-
-The skill's text names one place to read chats from: Cursor's transcript folder, `~/.cursor/projects/<slug>/agent-transcripts/`. On another host, expect the brief to rest on the shared record.
-
-Start new work on an old topic by loading the context first, then hand over the new input:
-
-```text
-/recall my work on the virtualized list from yesterday, then read this bug report.
-```
-
-To resume one specific session, use Session pickup, below, not the recall skill.
 
 ## Take over prior work with Session pickup
 

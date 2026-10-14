@@ -61,7 +61,6 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`how`](./skills/how/SKILL.md) | Get a walkthrough of how a subsystem works, at the level of a senior engineer onboarding onto it. |
 | [`why`](./skills/why/SKILL.md) | Find out why code is shaped the way it is, from its history and other evidence, with stated confidence. |
 | [`teach`](./skills/teach/SKILL.md) | Understand a change or subsystem. It runs `how` and `why` and builds one plain explanation, diagram by diagram. |
-| [`recall`](./skills/recall/SKILL.md) | Rebuild your recent working context on a topic from chat history and the shared record, as a short current-state brief. |
 | [`research`](./skills/research/SKILL.md) | Investigate a question against primary sources and get the findings as one cited Markdown file. |
 | [`blast-radius`](./skills/blast-radius/SKILL.md) | Find what a small change could break elsewhere, with the facts its safety depends on proven by running code. |
 | [`architect`](./skills/architect/SKILL.md) | Settle types, signatures and module shape from several design angles before implementing. It writes no implementation. |
@@ -89,14 +88,12 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`create-verification-skill`](./skills/create-verification-skill/SKILL.md) | When you name it, generate an e2e-based `verify-<product>` in the product repository's `.agents/skills/verify-<product>/` and tests in `tests/e2e/<product>/`, prove them once, and commit directly. |
 | [`maintain-verification-skill`](./skills/maintain-verification-skill/SKILL.md) | When you request it, align a `verify-<product>` feature map and e2e tests with the product and commit proven corrections directly. |
 | [`benchmark-checklist`](./skills/benchmark-checklist/SKILL.md) | Vet a measured speedup or regression before you report it or act on it. |
-| [`show-me-your-work`](./skills/show-me-your-work/SKILL.md) | Keep a decision log as a TSV file, one row per decision, for review after you step away. |
 | [`dispatch`](./skills/dispatch/SKILL.md) | Send a session to a ticket or a brief, run a night as its orchestrator, run one ticket outside a night, change a role's host, model, effort or runner, or open the local task board. |
 | [`setup-mmw`](./skills/setup-mmw/SKILL.md) | Set a repository up for the landing pipeline, or check one already set up: its labels, ignored directories, checks, `TESTING.md`, and a `CLAUDE.md` that imports `AGENTS.md` when it has none. |
 | [`verify-ticket`](./skills/verify-ticket/SKILL.md) | Run a ticket's acceptance criteria and close the ticket when they pass. |
 | [`resolving-merge-conflicts`](./skills/resolving-merge-conflicts/SKILL.md) | Finish a merge or rebase that has conflicts, or a clean merge that turns the checks red. |
 | [`reflect`](./skills/reflect/SKILL.md) | Capture what a long task taught as an edit to a skill. |
 | [`correct`](./skills/correct/SKILL.md) | Stop a repeated agent mistake by changing the repository: architecture first, then types and checks, then tests, then docs. |
-| [`automate-me`](./skills/automate-me/SKILL.md) | Draft your own `-mode` skill from how you have worked. |
 
 ## Principles
 

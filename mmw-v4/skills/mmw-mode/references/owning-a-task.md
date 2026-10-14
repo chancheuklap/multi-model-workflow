@@ -18,7 +18,6 @@ Triggers for the task as a whole:
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a pull request MMW opened, Opening a PR step 3 carries it out.
 - Broken skill mid-task → don't block, and don't silently work around it: it is a problem you ran into, as the next line says, needing Authoring or modifying a skill.
 - Ran into a problem that needs a change while working on something else → open a ticket with only its `## Problem`, as `references/ticket.md` `## Opening a ticket` says for a problem nobody is working on, label it `needs-triage`, tell the owner, and go on with the task in hand.
-- Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "run until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record. Keep it local otherwise. Work on a wayfinder map is the exception: the map and its tickets are the record.
 
 ## Autonomy
 
