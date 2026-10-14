@@ -190,9 +190,10 @@ test("crossing paseo asks for a rescan", () => {
   assert.equal(LocalConfig.needsRescan({runner: "auto"}, {runner: "orca"}), false);
 });
 
-test("the sheet has one row per session role of roles.json, in its order, each with what it does", () => {
+test("the sheet has one row per role of roles.json, in its order, each with what it does", () => {
   const roles = JSON.parse(readFileSync(new URL("../../skills/dispatch/roles.json", import.meta.url)))
-    .roles.filter(role => role.kind === "session").map(role => role.name);
+    .roles.map(role => role.name);
+  assert.deepEqual(roles, ["junior-worker", "senior-worker", "reviewer", "researcher", "candidate", "advisor"]);
   const rows = Object.fromEntries(roles.map(role => [role, copy(saved.rows.reviewer)]));
   const config = {runner: "orca", rows};
   const view = settingsView({draft: copy(config), saved: copy(config)}, scan, CATALOG);
