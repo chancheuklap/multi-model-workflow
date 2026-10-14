@@ -8,28 +8,6 @@
     {"agent": "candidate", "host": "claude", "model": "opus[1m]", "effort": "xhigh"}
   ],
   "hosts": {
-    "cursor": {
-      "binary": "cursor-agent",
-      "effort_in_model": true,
-      "cli": {
-        "argv": ["--model", "{model}", "--force", "--trust", "--approve-mcps"]
-      },
-      "paseo": {
-        "settings": {"modeId": "agent", "features": {"auto_accept": true}},
-        "thinking": "boolean"
-      }
-    },
-    "grok": {
-      "binary": "grok",
-      "efforts": ["xhigh", "high", "medium", "low"],
-      "cli": {
-        "argv": ["-m", "{model}", "--reasoning-effort", "{effort}", "--permission-mode", "bypassPermissions", "--always-approve"]
-      },
-      "paseo": {
-        "settings": {"features": {"auto_accept": true}},
-        "thinking": "option_id"
-      }
-    },
     "claude": {
       "binary": "claude",
       "efforts": ["low", "medium", "high", "xhigh", "max"],

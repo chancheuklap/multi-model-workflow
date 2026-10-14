@@ -221,6 +221,27 @@ class InstallTest(unittest.TestCase):
         self.assertFalse(grok_hooks.exists())
         self.assertEqual(self.run_install("v4", "--check").returncode, 0)
 
+    def test_grok_and_cursor_paseo_providers_are_reported_then_removed(self):
+        self.assertEqual(self.run_install("v4").returncode, 0)
+        config = self.home / ".paseo/config.json"
+        data = json.loads(config.read_text())
+        data.setdefault("agents", {})["providers"] = {
+            "grok": {"extends": "acp", "label": "Grok", "command": ["grok", "agent", "stdio"]},
+            "cursor": {"extends": "acp", "label": "Cursor", "command": ["cursor-agent", "acp"]},
+            "pi": {"extends": "acp", "label": "Pi", "command": ["pi", "acp"]}}
+        config.write_text(json.dumps(data))
+
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 1)
+        self.assertIn(f"残留  {config} agents.providers.grok", check.stderr)
+        self.assertIn(f"残留  {config} agents.providers.cursor", check.stderr)
+
+        r = self.run_install("v4")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(config.read_text())["agents"]["providers"],
+                         {"pi": {"extends": "acp", "label": "Pi", "command": ["pi", "acp"]}})
+        self.assertEqual(self.run_install("v4", "--check").returncode, 0)
+
     def test_check_from_another_checkout_hands_over(self):
         other = Path(self.tmp.name) / "installed/mmw-v4"
         other.mkdir(parents=True)

@@ -23,7 +23,7 @@ bash mmw-v4/install.sh --back     # go back to v3
 - **The user-level prompt.** `prompt/shared.md` reaches Claude Code as `~/.claude/CLAUDE.md`, and Codex and Grok as an `AGENTS.md` that `prompt/render.py` writes. Cursor's user-level prompt is pasted into the app by hand. [`prompt/README.md`](./prompt/README.md) has the details.
 - **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex and Grok copies again after each change.
 - **The task board.** The `com.mmw.board` launchd task keeps `board/supervisor.py` running, which serves one local board per repository registered in `~/.mmw/boards.json`. [`board/AGENTS.md`](./board/AGENTS.md) says how it reads GitHub and restarts onto new code.
-- **Paseo and Orca settings.** Paseo gets its command link, two providers and its worktree root. When Orca is present, it puts its worktrees under each repository's `.worktrees/`.
+- **Paseo and Orca settings.** Paseo gets its command link and its worktree root; install removes the Grok and Cursor providers an earlier install added. When Orca is present, it puts its worktrees under each repository's `.worktrees/`.
 - **`~/.mmw/models.json`.** Install writes the default file when none exists. In an existing file it changes only the role rows.
 
 Install then records this checkout's `mmw-v4/` in `~/.mmw/installed-root`. `--check` run from another checkout hands the check to the installed checkout's own `install.sh` and changes nothing.

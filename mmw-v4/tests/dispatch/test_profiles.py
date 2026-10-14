@@ -33,19 +33,6 @@ def rows_from(rows: dict) -> list:
 
 
 class BypassArgvTest(unittest.TestCase):
-    def test_cursor_junior_worker_expands_to_force_trust_approve(self):
-        argv = models.bypass_argv(
-            "cursor", "cursor-grok-4.6-high", "high", "issue-61")
-        self.assertEqual(
-            argv, ["--model", "cursor-grok-4.6-high", "--force", "--trust", "--approve-mcps"])
-
-    def test_grok_carries_reasoning_effort_and_bypass(self):
-        argv = models.bypass_argv("grok", "grok-4.6", "high", "issue-61")
-        self.assertEqual(argv, [
-            "-m", "grok-4.6", "--reasoning-effort", "high",
-            "--permission-mode", "bypassPermissions", "--always-approve",
-        ])
-
     def test_claude_reviewer_takes_the_session_name(self):
         argv = models.bypass_argv(
             "claude", "claude-opus-5", "high", "issue-61-review")
@@ -65,7 +52,7 @@ class BypassArgvTest(unittest.TestCase):
         hosts = models.load_hosts()["hosts"]
         self.assertEqual(
             sorted(h for h, spec in hosts.items() if "cli" in spec),
-            ["claude", "codex", "cursor", "grok"])
+            ["claude", "codex"])
         self.assertEqual([h for h, spec in hosts.items() if "herdr" in spec], [])
 
 
@@ -144,14 +131,16 @@ class CatalogMatchTest(unittest.TestCase):
         self.addCleanup(os.environ.pop, "MMW_HOST_CATALOG", None)
         self.addCleanup(os.environ.pop, "MMW_CATALOG_MODE", None)
 
-    def test_everyday_cursor_name_picks_ordinary_not_fast(self):
-        host, model, effort = models.resolve_row("cursor", "grok 4.6", "high")
-        self.assertEqual((host, model, effort),
-                         ("cursor", "grok-4.6", "high"))
+    def test_the_everyday_name_resolves_to_the_catalog_id(self):
+        self.assertEqual(models.resolve_row("codex", "gpt 5.6 sol", "high"),
+                         ("codex", "gpt-5.6-sol", "high"))
 
-    def test_fast_is_used_only_when_the_cell_says_fast(self):
-        _, model, _ = models.resolve_row("cursor", "grok 4.6 fast", "high")
-        self.assertEqual(model, "grok-4.6-fast")
+    def test_a_partial_name_takes_the_ordinary_offering_unless_it_says_fast(self):
+        offerings = [{"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol"},
+                     {"id": "gpt-5.6-sol-fast", "name": "GPT-5.6-Sol Fast"}]
+        self.assertEqual(models.match_offering("5.6 sol", offerings)["id"], "gpt-5.6-sol")
+        self.assertEqual(models.match_offering("5.6 sol fast", offerings)["id"],
+                         "gpt-5.6-sol-fast")
 
     def test_a_miss_is_refused(self):
         with self.assertRaisesRegex(ValueError, "no-such-model"):
@@ -182,18 +171,12 @@ class CatalogMatchTest(unittest.TestCase):
 
 
 class PaseoSettingsTest(unittest.TestCase):
-    def test_cursor_on_paseo_turns_everyday_high_into_on(self):
-        self.assertEqual(models.thinking_option("cursor", "high"), "true")
-        self.assertEqual(models.thinking_option("cursor", "off"), "false")
+    def test_the_everyday_effort_name_is_the_thinking_option(self):
+        self.assertEqual(models.thinking_option("codex", "high"), "high")
+        self.assertIsNone(models.thinking_option("codex", "—"))
 
-    def test_grok_keeps_the_everyday_effort_name(self):
-        self.assertEqual(models.thinking_option("grok", "high"), "high")
-
-    def test_cursor_create_agent_settings_are_agent_mode_and_auto_accept(self):
-        self.assertEqual(
-            models.create_agent_settings("cursor"),
-            {"modeId": "agent", "features": {"auto_accept": True}},
-        )
+    def test_codex_create_agent_settings_are_full_access(self):
+        self.assertEqual(models.create_agent_settings("codex"), {"modeId": "full-access"})
 
 
 class DefaultsTest(unittest.TestCase):
@@ -205,20 +188,6 @@ class DefaultsTest(unittest.TestCase):
 
 
 class CliCatalogParseTest(unittest.TestCase):
-    def test_cursor_line_carries_the_effort_inside_the_id(self):
-        rows = models._parse_cursor_models(
-            "Available models\n"
-            "cursor-grok-4.6-high - Cursor Grok 4.6\n"
-            "cursor-grok-4.6-high-fast - Cursor Grok 4.6 Fast\n"
-        )
-        self.assertEqual(rows[0]["id"], "cursor-grok-4.6-high")
-        self.assertEqual(rows[0]["thinkingOptionIds"], ["high"])
-
-    def test_grok_stars_are_model_ids(self):
-        rows = models._parse_grok_models(
-            "Available models:\n  * grok-4.6 (default)\n  - grok-4.5\n")
-        self.assertEqual([r["id"] for r in rows], ["grok-4.6", "grok-4.5"])
-
     # The control_response line of `list_models`, Claude Code 2.1.280, 2026-09-23,
     # trimmed to the fields read and one disabled placeholder row added.
     CLAUDE_LIST = json.dumps({"type": "control_response", "response": {
@@ -268,11 +237,6 @@ class CliCatalogParseTest(unittest.TestCase):
         ]})
         self.assertEqual([r["id"] for r in models._parse_codex_debug_models(raw)], ["gpt-6-sol"])
 
-    def test_every_grok_model_the_cli_lists_is_offered(self):
-        rows = models.fillable_rows("grok", models._parse_grok_models(
-            "Available models:\n  - grok-4.7\n  * grok-4.6 (default)\n  - grok-4.5\n"))
-        self.assertEqual([m for m, _ in rows], ["grok 4.7", "grok 4.6", "grok 4.5"])
-
     def test_codex_debug_json_keeps_slug_and_effort(self):
         raw = json.dumps({"models": [{
             "slug": "gpt-5.6-sol",
@@ -285,16 +249,10 @@ class CliCatalogParseTest(unittest.TestCase):
         self.assertEqual(rows[0]["thinkingOptionIds"], ["low", "high"])
 
     def test_fillable_rows_are_the_cells_to_copy(self):
-        rows = models.fillable_rows("cursor", [
-            {"id": "cursor-grok-4.6-high", "name": "Cursor Grok 4.6"},
-            {"id": "cursor-grok-4.6-low", "name": "Cursor Grok 4.6 Low"},
-            {"id": "cursor-grok-4.6-high-fast", "name": "Cursor Grok 4.6 Fast"},
+        rows = models.fillable_rows("codex", [
+            {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["high", "low"]},
         ])
-        by_model = [(m, e) for m, e in rows]
-        self.assertIn(("grok 4.6", "high"), by_model)
-        self.assertIn(("grok 4.6", "low"), by_model)
-        self.assertIn(("grok 4.6 fast", "high"), by_model)
-        self.assertNotIn(("grok 4.6", "low, high"), by_model)
+        self.assertEqual(rows, [("gpt 5.6 sol", "low, high")])
 
 
 class RetiredCommandTest(unittest.TestCase):

@@ -6,8 +6,8 @@
 #   提示词            prompt/shared.md：Claude Code 读软链，Codex、Grok 读 prompt/render.py 写出的
 #                     AGENTS.md；Cursor 的用户级提示词在 app 里手贴，本脚本只提醒
 #   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex、Grok 的 AGENTS.md
-#   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
-#                     worktrees.root。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
+#   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
+#                     从前写进去的 grok、cursor 两条 provider。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
 #   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees
 #   子代理层数        Claude Code、Codex、Grok 的子代理层数上限都设为 2
@@ -854,9 +854,9 @@ launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
 
 # ---------------- Paseo 侧配置 ----------------
 #
-# 源在仓库（下面 Python 段里 GROK_PROVIDER、CURSOR_PROVIDER 两条 provider 的字面量），
-# host 侧只放生成物：CLI 软链、
-# ~/.paseo/config.json 里的 provider、worktrees.root。models.json 在 ~/.mmw/：第一次
+# host 侧只放生成物：CLI 软链、~/.paseo/config.json 里的 worktrees.root。本脚本从前往那份
+# config.json 写过 grok、cursor 两条 provider；v4 不再服务这两个 host，所以装的时候摘掉它们，
+# --check 见到就报残留。models.json 在 ~/.mmw/：第一次
 # install 从 hosts.json 的 defaults 写入，之后只动角色行。v3 的 explainer、synthesizer 行
 # roles.json 没有，models.py 拒绝整份文件，所以摘掉，摘之前留一份 .bak- 副本（--back 从它拿回）；
 # 缺的 candidate 行由 models.py 补默认值。别的行一字不动。不写 Agent profile。
@@ -906,17 +906,7 @@ _spec = importlib.util.spec_from_file_location("mmw_models", models_py)
 models = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(models)
 
-GROK_PROVIDER = {
-    "extends": "acp",
-    "label": "Grok",
-    "command": ["grok", "agent", "stdio"],
-    "params": {"clientCapabilities": {"terminal": False}},
-}
-CURSOR_PROVIDER = {
-    "extends": "acp",
-    "label": "Cursor",
-    "command": ["cursor-agent", "acp"],
-}
+RETIRED_PROVIDERS = ("grok", "cursor")
 
 
 def die(msg):
@@ -955,11 +945,15 @@ def save(path, data):
     scratch.replace(path)
 
 
-def merge_providers(data):
-    agents = data.setdefault("agents", {})
-    providers = agents.setdefault("providers", {})
-    providers["grok"] = dict(GROK_PROVIDER)
-    providers["cursor"] = dict(CURSOR_PROVIDER)
+def retired_providers(data):
+    providers = (data.get("agents") or {}).get("providers") or {}
+    return [name for name in RETIRED_PROVIDERS if name in providers]
+
+
+def merge(data):
+    for name in retired_providers(data):
+        del data["agents"]["providers"][name]
+        print(f"摘掉  agents.providers.{name}（v4 不再服务这个 host）")
     worktrees = data.setdefault("worktrees", {})
     worktrees["root"] = worktrees_root
     data.setdefault("version", 1)
@@ -1007,25 +1001,23 @@ except ValueError as exc:
 
 if mode == "check":
     data = load(config_path)
-    providers = ((data.get("agents") or {}).get("providers") or {})
-    for name, want in (("grok", GROK_PROVIDER), ("cursor", CURSOR_PROVIDER)):
-        have = providers.get(name)
-        if have != want:
-            sys.stderr.write(f"缺    agents.providers.{name} 与 install.sh 不一致\n")
-            failed = True
+    for name in retired_providers(data):
+        sys.stderr.write(f"残留  {config_path} agents.providers.{name}：v4 不再服务这个 host，"
+                         f"跑一次 install.sh 摘掉\n")
+        failed = True
     have_root = ((data.get("worktrees") or {}).get("root"))
     if have_root != worktrees_root:
         sys.stderr.write(f"缺    worktrees.root 应为 {worktrees_root} 实为 {have_root}\n")
         failed = True
     sys.exit(1 if failed else 0)
 
-data = merge_providers(load(config_path))
+data = merge(load(config_path))
 save(config_path, data)
 print(f"已装  {config_path}")
 sys.exit(1 if failed else 0)
 PY
 
-# `paseo reload` 落地本段刚写的两条 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
+# `paseo reload` 让 Paseo 读到本段摘掉的 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
 # daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
 # `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
 # 列出来的不限于这一次安装改的。

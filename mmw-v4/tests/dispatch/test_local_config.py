@@ -195,8 +195,6 @@ class LocalConfigTest(unittest.TestCase):
         proposed = json.loads(json.dumps(old))
         proposed["rows"]["reviewer"]["model"] = "sonnet 5"
         scan = self.scan()
-        cursor = scan["hosts"]["cursor"]["offered"]
-        self.assertEqual(cursor, [{"model": "grok 4.6", "efforts": ["high", "xhigh"]}])
         written = models.write_local_config(proposed, old["version"], scan)
         self.assertEqual(written["version"], 2)
         self.assertEqual(set(written), {"version", "runner", "rows"})
@@ -319,10 +317,15 @@ class LocalConfigTest(unittest.TestCase):
     def test_scan_tells_missing_from_silent(self):
         os.environ["MMW_HOST_CATALOG"] = str(STATE_CATALOG)
         scan = models.scan_host_catalogs("auto")
-        self.assertEqual(set(scan["hosts"]), set(models.CLI_HOSTS))
-        self.assertEqual(scan["hosts"]["cursor"]["state"], "missing")
-        self.assertEqual(scan["hosts"]["grok"]["state"], "silent")
+        self.assertEqual(set(scan["hosts"]), {"claude", "codex"})
+        self.assertEqual(scan["hosts"]["codex"]["state"], "missing")
         self.assertEqual(scan["hosts"]["claude"]["offered"], [{"model": "opus 5", "efforts": ["high"]}])
+        silent = json.loads(STATE_CATALOG.read_text())
+        silent["cli"]["claude"] = {"state": "silent"}
+        catalog = Path(self.tmp.name) / "silent.json"
+        catalog.write_text(json.dumps(silent))
+        os.environ["MMW_HOST_CATALOG"] = str(catalog)
+        self.assertEqual(models.scan_host_catalogs("auto")["hosts"]["claude"]["state"], "silent")
 
     def test_unlaunchable_comes_before_the_scan(self):
         with without_launch_block("codex"):

@@ -51,7 +51,7 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(len(data["rows"]), 6); self.assertIn("sources", data)
         self.assertTrue(data["scan"]["scanned_at"]); self.assertEqual(data["scan"]["source"], "cli")
         self.assertEqual(data["scan"]["hosts"]["codex"]["state"], "ok")
-        self.assertEqual(set(data["scan"]["hosts"]), {"cursor", "grok", "claude", "codex"})
+        self.assertEqual(set(data["scan"]["hosts"]), {"claude", "codex"})
         self.assertEqual(data["runners"], ["herdr", "orca", "paseo", "auto"])
         self.assertEqual(data["sources"], {
             "hosts": "hosts.json", "runners": "scripts/runners/*.sh"})
