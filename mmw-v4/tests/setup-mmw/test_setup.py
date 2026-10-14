@@ -27,6 +27,10 @@ def load(name):
 
 labels = load("labels")
 TABLE = labels.label_table()
+event_spec = importlib.util.spec_from_file_location(
+    "setup_test_events", SCRIPTS.parents[1] / "verify-ticket" / "scripts" / "events.py")
+events = importlib.util.module_from_spec(event_spec)
+event_spec.loader.exec_module(events)
 
 
 def done(cmd, code=0, out="", err=""):
@@ -37,7 +41,8 @@ class Fake:
     """Answers `gh` and `git` as a repository in a given state."""
 
     def __init__(self, root=None, labels_have=None, issues=True, protected="",
-                 ignored=(".worktrees/", ".scratch/"), install=(0, "", "")):
+                 ignored=(".worktrees/", ".scratch/"), install=(0, "", ""),
+                 issue_pages=None):
         self.root = root
         self.labels_have = dict(labels_have if labels_have is not None else
                                 {n: (c, d) for n, (c, d) in TABLE.items()})
@@ -46,6 +51,7 @@ class Fake:
         self.ignored = ignored
         self.install = install
         self.calls = []
+        self.issue_pages = issue_pages
 
     def __call__(self, cmd, **kwargs):
         cmd = list(cmd)
@@ -71,8 +77,39 @@ class Fake:
             self.labels_have[name] = (args[args.index("--color") + 1],
                                       args[args.index("--description") + 1])
             return done(cmd, 0, f'✓ Label "{name}" created')
+        if args[:2] == ["label", "edit"]:
+            name = args[2]
+            self.labels_have[name] = (self.labels_have[name][0],
+                                      args[args.index("--description") + 1])
+            return done(cmd)
+        if args[:2] == ["issue", "edit"]:
+            row = next(row for page in self.issue_pages for row in page
+                       if row["number"] == int(args[2]))
+            if "--remove-label" in args:
+                name = args[args.index("--remove-label") + 1]
+                row["labels"] = [label for label in row["labels"] if label["name"] != name]
+            if "--add-label" in args:
+                row["labels"].append({"name": args[args.index("--add-label") + 1]})
+            return done(cmd)
+        if args[:2] == ["issue", "view"]:
+            row = next(row for page in self.issue_pages for row in page
+                       if row["number"] == int(args[2]))
+            fields = args[args.index("--json") + 1].split(",")
+            return done(cmd, out=json.dumps({field: row[field] for field in fields}))
         if args[0] == "api":
             path = next(a for a in args[1:] if not a.startswith("-"))
+            if self.issue_pages is not None:
+                if path.endswith("/issues?state=open&per_page=100"):
+                    assert "--paginate" in args and "--slurp" in args, cmd
+                    return done(cmd, out=json.dumps(self.issue_pages))
+                if "/issues/" in path and "/comments?" in path:
+                    assert "--paginate" in args and "--slurp" in args, cmd
+                    number = int(path.split("/issues/")[1].split("/")[0])
+                    row = next(row for page in self.issue_pages for row in page
+                               if row["number"] == number)
+                    comments = [{"id": index, "body": body}
+                                for index, body in enumerate(row["comments"], start=1)]
+                    return done(cmd, out=json.dumps([comments[:100], comments[100:]]))
             if path.startswith("repos/o/r/issues?"):
                 return done(cmd, 0, "7\n")
             if "protected=true" in path:
@@ -140,6 +177,233 @@ class TestLabels(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("HTTP 403", err)
         self.assertNotIn("LABELS OK", out)
+
+
+class TestMigrate(unittest.TestCase):
+    def event(self, name, **fields):
+        return events.build(name, ticket=1, line="An event", at="2026-09-10T00:00:00Z", **fields)
+
+    def issue(self, number=1, names=("needs-triage",), body="## Problem\n\nA problem.",
+              parent=None, comments=()):
+        return {"number": number, "labels": [{"name": name} for name in names],
+                "body": body, "parent": parent, "comments": list(comments)}
+
+    def run_migrate(self, fake):
+        with mock.patch.object(labels.subprocess, "run", side_effect=fake), \
+             redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+            code = labels.main(["--migrate"])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_migrate_creates_the_two_new_kinds(self):
+        fake = Fake(labels_have={n: v for n, v in TABLE.items()
+                                 if n not in ("mmw:lesson", "mmw:problem")}, issue_pages=[[]])
+        code, out, err = self.run_migrate(fake)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(fake.labels_have["mmw:lesson"], ("8e44ad", "做法上的问题，等复盘"))
+        self.assertEqual(fake.labels_have["mmw:problem"],
+                         ("f1c40f", "不在任何票里的产品问题，或计划还没批的 issue"))
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 0 changed")
+
+    def test_migrate_rewrites_needs_triage_and_deletes_no_label(self):
+        fake = Fake(issue_pages=[[]])
+        fake.labels_have["needs-triage"] = ("000000", "old meaning")
+        fake.labels_have["needs-info"] = ("abcdef", "owner's label")
+        code, out, err = self.run_migrate(fake)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(fake.labels_have["needs-triage"],
+                         ("000000", "等你决定：只有主人能让它离开"))
+        self.assertEqual(fake.labels_have["needs-info"], ("abcdef", "owner's label"))
+        self.assertFalse(any(c[:3] == ["gh", "label", "delete"] for c in fake.calls))
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 0 changed")
+
+    def test_an_untyped_mmw_registration_becomes_a_problem(self):
+        row = self.issue(names=("needs-triage", "bug"))
+        code, out, err = self.run_migrate(Fake(issue_pages=[[row]]))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(row["labels"], [{"name": "needs-triage"}, {"name": "bug"},
+                                         {"name": "mmw:problem"}])
+        self.assertIn("#1: added mmw:problem; removed none; rule 1", out)
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_an_issue_mmw_did_not_open_is_skipped(self):
+        row = self.issue(body="## Problems\nExternal bug report")
+        code, out, err = self.run_migrate(Fake(issue_pages=[[row, self.issue(2)]]))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(row["labels"], [{"name": "needs-triage"}])
+        self.assertIn("SKIP #1: not opened by MMW", out)
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_an_unapproved_ticket_becomes_a_problem(self):
+        for parent in (None, {"number": 2}):
+            with self.subTest(parent=parent):
+                row = self.issue(names=("mmw:ticket", "needs-triage", "senior-worker"),
+                                 parent=parent)
+                fake = Fake(issue_pages=[[row, self.issue(2, names=("mmw:map",))]])
+                code, out, err = self.run_migrate(fake)
+                self.assertEqual(code, 0, err)
+                self.assertEqual(row["labels"], [{"name": "needs-triage"},
+                                                 {"name": "senior-worker"},
+                                                 {"name": "mmw:problem"}])
+                self.assertIn("#1: added mmw:problem; removed mmw:ticket; rule 2", out)
+                self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_a_ticket_a_worker_claimed_is_left_a_ticket(self):
+        histories = [
+            [self.event("ticket.claimed", login="owner", branch="issue-1", commit="0" * 40)],
+            [self.event("worker.started", session="wk-1", runner="paseo", machine="mac-1",
+                        host="codex", model="gpt-5", effort="high", grade="senior-worker",
+                        worktree="/repo/.worktrees/issue-1", branch="issue-1", base="0" * 40),
+             self.event("worker.lost", session="wk-1", runner="paseo", reason="ended")],
+        ]
+        for history in histories:
+            with self.subTest(history=history):
+                row = self.issue(names=("mmw:ticket", "needs-triage"),
+                                 comments=["ordinary comment"] * 100 + history)
+                code, out, err = self.run_migrate(Fake(issue_pages=[[row, self.issue(2)]]))
+                self.assertEqual(code, 0, err)
+                self.assertEqual(row["labels"], [{"name": "mmw:ticket"}, {"name": "needs-triage"}])
+                self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_a_ticket_under_a_spec_is_left_a_ticket(self):
+        row = self.issue(names=("mmw:ticket", "needs-triage"), parent={"number": 2})
+        parent = self.issue(2, names=("mmw:spec",))
+        code, out, err = self.run_migrate(Fake(issue_pages=[[row, parent, self.issue(3)]]))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(row["labels"], [{"name": "mmw:ticket"}, {"name": "needs-triage"}])
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_children_are_left_as_they_are(self):
+        for names in (("mmw:child", "needs-triage"),
+                      ("mmw:child", "mmw:ticket", "needs-triage")):
+            with self.subTest(names=names):
+                row = self.issue(names=names)
+                code, out, err = self.run_migrate(Fake(issue_pages=[[row, self.issue(2)]]))
+                self.assertEqual(code, 0, err)
+                self.assertEqual(row["labels"], [{"name": name} for name in names])
+                self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_needs_info_issues_are_listed_not_changed(self):
+        rows = [self.issue(names=("needs-info", "needs-triage")),
+                self.issue(2, names=("needs-info", "mmw:ticket")),
+                self.issue(3, names=("needs-info", "mmw:child")), self.issue(4)]
+        code, out, err = self.run_migrate(Fake(issue_pages=[rows]))
+        self.assertEqual(code, 0, err)
+        self.assertEqual([row["labels"] for row in rows], [
+            [{"name": "needs-info"}, {"name": "needs-triage"}],
+            [{"name": "needs-info"}, {"name": "mmw:ticket"}],
+            [{"name": "needs-info"}, {"name": "mmw:child"}],
+            [{"name": "needs-triage"}, {"name": "mmw:problem"}],
+        ])
+        for number in (1, 2, 3):
+            self.assertIn(f"NEEDS-INFO #{number}: left for the owner", out)
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_a_second_migrate_changes_nothing(self):
+        fake = Fake(issue_pages=[[self.issue(), self.issue(2, names=("mmw:ticket",))]])
+        fake.labels_have["needs-triage"] = ("123456", "old meaning")
+        code, out, err = self.run_migrate(fake)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 2 changed")
+        fake.calls.clear()
+        code, out, err = self.run_migrate(fake)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 0 changed")
+        self.assertFalse(any(c[:3] in (["gh", "issue", "edit"], ["gh", "label", "edit"],
+                                     ["gh", "label", "create"]) for c in fake.calls))
+        self.assertEqual(fake.issue_pages[0][0]["labels"],
+                         [{"name": "needs-triage"}, {"name": "mmw:problem"}])
+        self.assertEqual(fake.issue_pages[0][1]["labels"], [{"name": "mmw:problem"}])
+
+    def test_migrate_reads_every_page(self):
+        first = [self.issue(number, names=("mmw:spec",)) for number in range(1, 101)]
+        row = self.issue(101)
+        code, out, err = self.run_migrate(Fake(issue_pages=[first, [row]]))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(row["labels"], [{"name": "needs-triage"}, {"name": "mmw:problem"}])
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_wayfinder_decisions_and_pull_requests_are_not_migrated(self):
+        decision = self.issue(names=("needs-triage", "wayfinder:research"))
+        pull = self.issue(2)
+        pull["pull_request"] = {"url": "https://example.test/pull/2"}
+        code, out, err = self.run_migrate(Fake(issue_pages=[[decision, pull, self.issue(3)]]))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(decision["labels"], [{"name": "needs-triage"}, {"name": "wayfinder:research"}])
+        self.assertEqual(pull["labels"], [{"name": "needs-triage"}])
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+
+    def test_a_failed_write_can_be_retried_without_changing_completed_issues(self):
+        fake = Fake(issue_pages=[[self.issue(), self.issue(2, names=("mmw:ticket",))]])
+
+        def refusing(cmd, **kwargs):
+            if cmd[:4] == ["gh", "issue", "edit", "2"]:
+                return done(cmd, 1, err="HTTP 403: cannot edit issue")
+            return fake(cmd, **kwargs)
+
+        code, out, err = self.run_migrate(refusing)
+        self.assertEqual(code, 1)
+        self.assertIn("could not edit #2 by rule 2: HTTP 403", err)
+        self.assertNotIn("MIGRATE OK", out)
+        self.assertEqual(fake.issue_pages[0][0]["labels"],
+                         [{"name": "needs-triage"}, {"name": "mmw:problem"}])
+        self.assertEqual(fake.issue_pages[0][1]["labels"], [{"name": "mmw:ticket"}])
+        fake.calls.clear()
+        code, out, err = self.run_migrate(fake)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out.splitlines()[-1], "MIGRATE OK 1 changed")
+        self.assertEqual([c[3] for c in fake.calls if c[:3] == ["gh", "issue", "edit"]], ["2"])
+        self.assertEqual(fake.issue_pages[0][1]["labels"], [{"name": "mmw:problem"}])
+
+    def test_read_and_label_failures_exit_one_without_migrating_an_issue(self):
+        failures = [
+            (["label", "list"], 1, "", "HTTP 403: labels unreadable"),
+            (["label", "create"], 1, "", "HTTP 403: labels unwritable"),
+            (["label", "edit"], 1, "", "HTTP 403: description unwritable"),
+            (["api"], 1, "", "HTTP 502: issues unreadable"),
+            (["api"], 0, "invalid JSON", ""),
+            (["api"], 0, "{}", ""),
+            (["issue", "view", "1"], 1, "", "HTTP 502: parent unreadable"),
+            (["issue", "view", "2"], 1, "", "HTTP 502: parent labels unreadable"),
+        ]
+        for prefix, status, stdout, stderr in failures:
+            with self.subTest(prefix=prefix, stdout=stdout):
+                fake = Fake(issue_pages=[[self.issue(names=("mmw:ticket",), parent={"number": 2}),
+                                          self.issue(2, names=("mmw:map",))]])
+                fake.labels_have.pop("mmw:lesson")
+                fake.labels_have["needs-triage"] = ("123456", "old")
+
+                def refusing(cmd, **kwargs):
+                    if cmd[1:1 + len(prefix)] == prefix:
+                        return done(cmd, status, stdout, stderr)
+                    return fake(cmd, **kwargs)
+
+                code, out, err = self.run_migrate(refusing)
+                self.assertEqual(code, 1)
+                self.assertIn(stderr or "did not return", err)
+                self.assertNotIn("MIGRATE OK", out)
+                self.assertEqual(fake.issue_pages[0][0]["labels"], [{"name": "mmw:ticket"}])
+                self.assertFalse(any(c[:3] == ["gh", "issue", "edit"] for c in fake.calls))
+
+    def test_unreadable_comments_do_not_turn_a_ticket_into_a_problem(self):
+        failures = [(1, "", "HTTP 502: comments unreadable"),
+                    (0, "invalid JSON", ""),
+                    (0, "[[null]]", ""),
+                    (0, json.dumps([[{"body": "An event\n<!-- mmw {broken} -->"}]]), "")]
+        for status, stdout, stderr in failures:
+            with self.subTest(stdout=stdout, stderr=stderr):
+                row = self.issue(names=("mmw:ticket",))
+                fake = Fake(issue_pages=[[row]])
+
+                def refusing(cmd, **kwargs):
+                    if any("/comments?" in arg for arg in cmd):
+                        return done(cmd, status, stdout, stderr)
+                    return fake(cmd, **kwargs)
+
+                code, out, err = self.run_migrate(refusing)
+                self.assertEqual(code, 1)
+                self.assertIn(stderr or "could not", err)
+                self.assertNotIn("MIGRATE OK", out)
+                self.assertEqual(row["labels"], [{"name": "mmw:ticket"}])
 
 
 class TestCheck(unittest.TestCase):
