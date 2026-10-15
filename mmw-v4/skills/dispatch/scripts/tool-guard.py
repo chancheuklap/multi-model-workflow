@@ -119,8 +119,33 @@ LEADING_ASSIGNMENTS = re.compile(r"^(?:\w+=\S*\s+)*")
 def pieces(command: str) -> list[str]:
     """Every piece of `command` a shell would run as a command of its own, leading
     variable assignments stripped."""
+    parts = []
+    quote = None
+    start = offset = 0
+    while offset < len(command):
+        char = command[offset]
+        if char == "\\" and quote != "'":
+            offset += 2
+            continue
+        if quote is not None:
+            if char == quote:
+                quote = None
+        elif char in "\"'":
+            quote = char
+        else:
+            separator = SEPARATORS.match(command, offset)
+            if separator:
+                parts.append(command[start:offset])
+                start = offset = separator.end()
+                continue
+        offset += 1
+    if quote is not None or offset > len(command):
+        # Uncertain boundaries retain the conservative split used by every gate.
+        parts = SEPARATORS.split(command)
+    else:
+        parts.append(command[start:])
     return [LEADING_ASSIGNMENTS.sub("", piece.strip())
-            for piece in SEPARATORS.split(command) if piece.strip()]
+            for piece in parts if piece.strip()]
 
 
 # `kill`, its two relatives, and the shape that reaches them through a pipe
