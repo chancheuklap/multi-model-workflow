@@ -441,5 +441,108 @@ class EndingAProcess(unittest.TestCase):
                 self.assertIsNone(answer, f"{command} was refused")
 
 
+class TestQuotedCommands(unittest.TestCase):
+    def test_quoted_separators_are_not_process_commands(self):
+        for command in (
+            "rg -n 'tool.guard|kill|refus' x.py",
+            'grep "a; kill 1" f',
+            "echo 'x && pkill y'",
+            'echo "x || killall y"',
+            "echo 'x\nkill 1'",
+            'echo "x | kill 1"',
+            "echo '$(true; kill 1)'",
+            "echo '`true; kill 1`'",
+            "echo '# literal; kill 1'",
+            'echo "<< literal; kill 1"',
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(hk.ends_a_process(command))
+
+    def test_quoted_original_command_passes_the_hook(self):
+        command = (
+            "rg -n 'tool.guard|kill|refus' mmw-v4/tests/install/test_install.py\n"
+            "cat /Users/cheuklapchan/.agents/skills/principle-prove-it-works/SKILL.md\n"
+            "cat /Users/cheuklapchan/.agents/skills/"
+            "principle-progress-is-what-the-record-says/SKILL.md\n"
+        )
+        for host in EVENTS:
+            with self.subTest(host=host):
+                self.assertEqual(call(host, with_command(host, command)), (0, None))
+
+    def test_quoted_and_escaped_boundaries(self):
+        for command, expected in (
+            (r"echo a\; kill 1", None),
+            (r"echo a\| kill 1", None),
+            (r"echo a\&\& pkill x", None),
+            (r"echo a\|\| killall x", None),
+            ("echo a\\\nkill 1", None),
+            (r'echo "a \" | kill 1"', None),
+            ('echo "a \' | kill 1"', None),
+            (r"echo 'a\'; kill 1", "kill 1"),
+            (r'echo "a \\"; kill 1', "kill 1"),
+            ('echo "a; kill 1"; pkill x', "pkill x"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_quoted_text_does_not_close_the_ticket(self):
+        command = f"echo 'a; gh issue close {TICKET}'"
+        self.assertEqual(hk.runs(command), [])
+        self.assertEqual(call("codex", with_command("codex", command)), (0, None))
+
+    def test_quoted_real_process_commands_are_still_recognised(self):
+        for command, expected in (
+            ("foo | kill 1", "kill 1"),
+            ("lsof -ti:5173 | xargs kill -9", "xargs kill -9"),
+            ("a; pkill x", "pkill x"),
+            ("a && killall y", "killall y"),
+            ("a || kill 1", "kill 1"),
+            ("a\nkill 1", "kill 1"),
+            (" ; ; FLAG=1 kill 1", "kill 1"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_quoted_unclosed_input_uses_conservative_boundaries(self):
+        for command, expected in (
+            ("echo 'a | kill 1", "kill 1"),
+            ('echo "a; pkill x', "pkill x"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_quoted_comment_and_heredoc_text_cannot_hide_commands(self):
+        for command in (
+            "echo hi # don't\nkill 1\n# it's done",
+            "# Don't leave stale\nkill 1234\n# It's fine",
+            "echo hi;# don't\nkill 1\n# it's done",
+            f"cat > d <<'EOF'\ndon't\nEOF\ngh issue close {TICKET}\n"
+            "cat <<'EOF'\nit's\nEOF",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    _, answer = call(host, with_command(host, command))
+                    decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
+                    self.assertEqual(decision, "deny")
+
+    def test_quoted_nested_shell_code_is_conservatively_checked(self):
+        for command in (
+            "bash -c 'echo hi; kill 1'",
+            'sh -c "a | pkill x"',
+            f"bash -c 'x; gh issue close {TICKET}'",
+            'echo "$(true; kill 1)"',
+            'echo "`true; kill 1`"',
+            "echo $(true; kill 1)",
+            "echo `true; kill 1`",
+            "FLAG=1 /bin/bash -lc 'echo hi; kill 1'",
+            "'bash' -c 'echo hi; kill 1'",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    _, answer = call(host, with_command(host, command))
+                    decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
+                    self.assertEqual(decision, "deny")
+
+
 if __name__ == "__main__":
     unittest.main()
