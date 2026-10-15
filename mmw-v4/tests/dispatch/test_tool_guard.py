@@ -441,6 +441,61 @@ class EndingAProcess(unittest.TestCase):
                 self.assertIsNone(answer, f"{command} was refused")
 
 
+class TestBackgroundCommands(unittest.TestCase):
+    def test_background_process_commands_are_recognised(self):
+        for command, expected in (
+            ("a & kill 1", "kill 1"),
+            ("a&kill 1", "kill 1"),
+            ("a& pkill x", "pkill x"),
+            ("a &killall y", "killall y"),
+            ("a & FLAG=1 kill 1", "kill 1"),
+            (r"echo \>&kill 1", "kill 1"),
+            (r"echo \>&kill 1 $(true)", "kill 1 $(true)"),
+            (r"echo \<&kill 1 $(true)", "kill 1 $(true)"),
+            (r"echo \\\>&kill 1 $(true)", "kill 1 $(true)"),
+            ("echo 'a & kill 1", "kill 1"),
+            ("echo a & kill 1\\", "kill 1\\"),
+            ("bash -c 'a & kill 1'", "kill 1'"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_background_ampersands_in_data_and_redirections_stay_data(self):
+        for command, expected in (
+            ("kill 1", "kill 1"),
+            ("a && kill 1", "kill 1"),
+            ("cmd 2>&1", None),
+            ("cmd >&2", None),
+            ("cmd &>log", None),
+            ("kill &>/dev/null 1", "kill &>/dev/null 1"),
+            ("kill &>>/dev/null 1", "kill &>>/dev/null 1"),
+            (r"echo \\>&kill 1 $(true)", None),
+            ("cmd <&0", None),
+            ("cmd >&kill 1", None),
+            ("cmd <&kill 1", None),
+            ("echo 'a & b'", None),
+            ('echo "a & kill 1"', None),
+            (r"echo a\& b", None),
+            (r"echo a\& kill 1", None),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_background_ticket_close_is_refused(self):
+        for command in (f"a & gh issue close {TICKET}",
+                        f"a&gh issue close {TICKET}",
+                        f"a & gh issue close &>/dev/null {TICKET}",
+                        f"a & gh issue close &>>/dev/null {TICKET}",
+                        rf"echo \>&gh issue close {TICKET} $(true)",
+                        f"a & gh issue close &>/dev/null {TICKET} $(true)",
+                        f"bash -c 'a & gh issue close {TICKET}'"):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    _, answer = call(host, with_command(host, command))
+                    decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
+                    self.assertEqual(decision, "deny")
+
+
 class TestQuotedCommands(unittest.TestCase):
     def test_quoted_separators_are_not_process_commands(self):
         for command in (
