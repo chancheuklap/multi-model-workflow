@@ -3360,6 +3360,11 @@ def lint_drafts(spec: int, directory: Path) -> int:
         print(f"\n## {name} (draft)")
         dependencies: list[int | str] = []
         bad = False
+        if len(draft["title"]) > GITHUB_TITLE_LIMIT:
+            print(f"  ERROR {name}: TITLE has {len(draft['title'])} Unicode characters; "
+                  f"the GitHub title limit is {GITHUB_TITLE_LIMIT}; shorten TITLE "
+                  f"before publishing  [title-limit]")
+            bad = True
         for blocker in draft["blocked"]:
             issue = DRAFT_ISSUE_RE.match(blocker)
             if issue:
@@ -3419,8 +3424,8 @@ def run_publish_drafts(spec: int, directory: Path) -> int:
     names, print the draft name to issue number table, then run `--lint` on the
     published spec once, because only the tracker shows what publishing did.
 
-    A cycle, or a blocker naming no draft and no `#<n>`, is refused before anything is
-    created: publishing is deterministic given a valid batch, so an invalid one is
+    An overlong title, a cycle, or a blocker naming no draft and no `#<n>`, is refused
+    before anything is created: publishing is deterministic given a valid batch, so an invalid one is
     reported, not half built. A `gh` failure partway through names every draft already
     published, so nothing has to be guessed from the tracker by hand.
     """
