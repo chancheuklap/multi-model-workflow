@@ -216,6 +216,9 @@ def add_problem(path, source, target, repos):
         raise RegistrationError(f"{path} needs ## Problem with all six fields; complete the registration")
     if not re.fullmatch(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*", fields["问题代号"]):
         raise RegistrationError(f"{path}'s 问题代号 must be a lower-case hyphenated phrase")
+    if len(fields["问题代号"]) > 80:
+        raise RegistrationError(f"{path}'s 问题代号 has {len(fields['问题代号'])} characters; "
+                                "the limit is 80; shorten the code before registering")
     if fields["角度"] not in ("判断", "环境", "流程", "产品"):
         raise RegistrationError(f"{path}'s 角度 must be 判断、环境、流程 or 产品")
     seen_in = current_repo()
