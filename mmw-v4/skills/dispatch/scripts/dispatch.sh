@@ -2565,7 +2565,9 @@ commits_outside_base() {
   git -C "$1" rev-list --count "origin/$3..$2" 2>/dev/null
 }
 
-# Delete only contained ticket branches after their worktree has been archived.
+# Remove the local and origin copies of a landed ticket branch. Both containment
+# decisions use refs from the fetch that prepared the merge worktree; each copy can be
+# kept independently, and the remote deletion is leased to that fetched tip.
 delete_landed_ticket_branch() {
   local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead output probe_rc
 
@@ -2587,8 +2589,7 @@ delete_landed_ticket_branch() {
     elif [ "$ahead" -ne 0 ]; then
       echo "dispatch: keeping local $branch because it has $ahead commit(s) not in origin/$into" >&2
     elif ! output="$(git -C "$root" branch -D "$branch" 2>&1)"; then
-      echo "dispatch: could not delete local $branch: $(printf '%s' "$output" | tail -2 | tr '
-' ' '); delete it manually with: git branch -D $branch" >&2
+      echo "dispatch: could not delete local $branch: $(printf '%s' "$output" | tail -2 | tr '\n' ' '); delete it manually with: git branch -D $branch" >&2
     fi
   fi
 
@@ -2614,8 +2615,7 @@ delete_landed_ticket_branch() {
   fi
   [ "$probe_rc" -eq 0 ] \
     || output="$output The remote could not be checked after the failed deletion."
-  echo "dispatch: could not delete origin/$branch: $(printf '%s' "$output" | tr '
-' ' '); after confirming its tip is contained in origin/$into, delete it manually with: git push origin --delete $branch" >&2
+  echo "dispatch: could not delete origin/$branch: $(printf '%s' "$output" | tr '\n' ' '); after confirming its tip is contained in origin/$into, delete it manually with: git push origin --delete $branch" >&2
 }
 
 # Whether the ticket's complete event fold currently says it is landed.
