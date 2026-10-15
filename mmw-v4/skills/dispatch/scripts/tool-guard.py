@@ -124,7 +124,7 @@ PREFIX_COMMANDS = {
     "command": ("", ()),
     "builtin": ("", ()),
     "exec": ("a", ()),
-    "env": ("uC", ("--unset", "--chdir")),
+    "env": ("uCPS", ("--unset", "--chdir", "--split-string")),
     "sudo": ("uUgChpDrtRT", ("--user", "--group", "--host", "--prompt", "--close-from",
                               "--chdir", "--chroot", "--role", "--type", "--command-timeout")),
     "nohup": ("", ()),
@@ -134,7 +134,7 @@ PREFIX_COMMANDS = {
 WORD = re.compile(SHELL_WORD)
 
 
-def command_word(piece: str) -> str:
+def strip_command_prefixes(piece: str) -> str:
     while True:
         piece = LEADING_SYNTAX.sub("", piece).strip()
         program = WORD.match(piece)
@@ -160,10 +160,13 @@ def command_word(piece: str) -> str:
                 program[0] == "command" and any(flag in value for flag in "vV")
             ):
                 return piece
-            needs_value = value in long_values
+            option_name, separator, argument_value = value.partition("=")
+            needs_value = option_name in long_values and not separator
             if not value.startswith("--"):
                 for index, flag in enumerate(value[1:], 1):
                     if flag in short_values:
+                        option_name = flag
+                        argument_value = value[index + 1:]
                         needs_value = index == len(value) - 1
                         break
             rest = rest[option.end():].lstrip()
@@ -171,7 +174,14 @@ def command_word(piece: str) -> str:
                 argument = WORD.match(rest)
                 if argument is None:
                     return piece
+                argument_value = shlex.split(argument[0])[0]
                 rest = rest[argument.end():].lstrip()
+            if program[0] == "env" and option_name in ("S", "--split-string"):
+                try:
+                    arguments = shlex.join(shlex.split(argument_value))
+                except ValueError:
+                    return piece
+                rest = f"{arguments} {rest}".strip()
         piece = rest
 
 
@@ -192,7 +202,7 @@ def pieces(command: str) -> list[str]:
             if char == quote:
                 quote = None
         elif char in "\"'":
-            prefix = command_word(command[start:offset])
+            prefix = strip_command_prefixes(command[start:offset])
             try:
                 words = shlex.split(prefix)
             except ValueError:
@@ -222,7 +232,7 @@ def pieces(command: str) -> list[str]:
                 parts.append(command[start:operator.start()])
                 start = operator.end()
     parts.append(command[start:])
-    return [command_word(piece)
+    return [strip_command_prefixes(piece)
             for piece in parts if piece.strip()]
 
 
