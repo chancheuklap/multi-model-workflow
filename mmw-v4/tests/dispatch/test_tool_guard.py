@@ -462,6 +462,7 @@ class TestCommandPrefixes(unittest.TestCase):
             f"(gh issue close {TICKET})",
             f">out gh issue close {TICKET}",
             f"env FOO=1 gh issue close {TICKET}",
+            f'env "FOO=a b" gh issue close {TICKET}',
             f"X=$(date) gh issue close {TICKET}",
             f"sudo -n env FOO=1 gh issue edit {TICKET} --remove-label ready-for-agent",
         ):
@@ -495,6 +496,11 @@ class TestCommandPrefixes(unittest.TestCase):
     def test_prefix_programs_expose_the_termination_command(self):
         for command in (
             "env FOO=1 kill 1",
+            'env "FOO=a b" kill 1',
+            "env 'FOO=a b' kill 1",
+            'env "PATH=$PATH:/x" kill 1',
+            'env -i "FOO=a b" "OTHER=1" kill 1',
+            'env -- "FOO=a b" kill 1',
             "env -i -u OLD --chdir /tmp FOO='two words' kill 1",
             "env --unset=OLD -- kill 1",
             "sudo -n kill 1",
