@@ -113,7 +113,7 @@ def governed_ticket() -> int | None:
     return None
 
 
-SHELL_OPERATORS = re.compile(r"[<>]&|&>>?|(?P<boundary>[;\n]|&&|\|\||\||&)")
+SHELL_OPERATORS = re.compile(r"\\[\\<>]|[<>]&|&>>?|(?P<boundary>[;\n]|&&|\|\||\||&)")
 LEADING_ASSIGNMENTS = re.compile(r"^(?:\w+=\S*\s+)*")
 
 
