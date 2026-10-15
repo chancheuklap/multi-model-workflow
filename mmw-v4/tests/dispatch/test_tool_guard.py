@@ -442,6 +442,19 @@ class EndingAProcess(unittest.TestCase):
 
 
 class TestCommandPrefixes(unittest.TestCase):
+    def test_prefix_sudo_list_only_queries_permissions(self):
+        for command, expected in (
+            ("sudo -l kill", None),
+            ("sudo -ll kill", None),
+            ("sudo -nl kill", None),
+            ("sudo --list kill", None),
+            ("sudo -u root -l kill", None),
+            ("sudo -n kill 1", "kill 1"),
+            ("sudo -uwill kill 1", "kill 1"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
     def test_prefix_env_path_and_split_options_keep_command_arguments(self):
         for command, expected in (
             ("env -P /bin kill 1", "kill 1"),
