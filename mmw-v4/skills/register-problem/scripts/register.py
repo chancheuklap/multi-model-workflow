@@ -328,8 +328,10 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
             for label in labels:
                 receipt["changed"] |= ensure_label(repo, label)
                 saved()
-            printed = confirmed_write(["issue", "create", "--repo", repo, "--title",
-                                         f"{fields['问题代号']}: {fields['发生了什么']}",
+            title = f"{fields['问题代号']}: {fields['发生了什么']}"
+            if len(title) > 256:
+                title = title[:255] + "…"
+            printed = confirmed_write(["issue", "create", "--repo", repo, "--title", title,
                                          *[a for label in labels for a in ("--label", label)]], created, body)
             receipt["changed"] = True
             match = re.search(r"/issues/(\d+)", printed)
