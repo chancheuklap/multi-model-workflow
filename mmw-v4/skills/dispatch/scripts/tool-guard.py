@@ -142,15 +142,23 @@ def strip_command_prefixes(piece: str) -> str:
             return piece
         short_values, long_values = PREFIX_COMMANDS[program[0]]
         rest = piece[program.end():].lstrip()
+        options_ended = False
         while True:
             rest = LEADING_SYNTAX.sub("", rest).strip()
             option = WORD.match(rest)
             if option is None:
                 break
             value = shlex.split(option[0])[0]
+            if program[0] == "env" and (options_ended or not value.startswith("-")) \
+                    and re.match(r"[^=]+=", value):
+                rest = rest[option.end():].lstrip()
+                continue
+            if options_ended:
+                break
             if value == "--":
                 rest = rest[option.end():].lstrip()
-                break
+                options_ended = True
+                continue
             if value == "-" and program[0] == "env":
                 rest = rest[option.end():].lstrip()
                 continue
