@@ -144,11 +144,9 @@ class TestPublishDrafts(unittest.TestCase):
                         code = vt.run_publish_drafts(76, self.dir)
                 self.assertEqual(code, 2)
                 self.assertIn("256", err.getvalue())
-                self.assertIn("b", err.getvalue())
-                self.assertIn("257", err.getvalue())
+                self.assertIn("b: 257", err.getvalue())
                 if "a" in long_titles:
-                    self.assertIn("a", err.getvalue())
-                    self.assertIn("258", err.getvalue())
+                    self.assertIn("a: 258", err.getvalue())
                 label.assert_not_called()
                 create.assert_not_called()
 
