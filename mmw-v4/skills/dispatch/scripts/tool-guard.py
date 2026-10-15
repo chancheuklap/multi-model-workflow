@@ -113,7 +113,7 @@ def governed_ticket() -> int | None:
     return None
 
 
-SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")
+SHELL_OPERATORS = re.compile(r"[<>]&|&>>?|(?P<boundary>[;\n]|&&|\|\||\||&)")
 LEADING_ASSIGNMENTS = re.compile(r"^(?:\w+=\S*\s+)*")
 
 
@@ -148,16 +148,22 @@ def pieces(command: str) -> list[str]:
                                 or command[offset - 1] in "&()")
             ):
                 break
-            separator = SEPARATORS.match(command, offset)
-            if separator:
-                parts.append(command[start:offset])
-                start = offset = separator.end()
+            operator = SHELL_OPERATORS.match(command, offset)
+            if operator:
+                if operator.group("boundary") is not None:
+                    parts.append(command[start:offset])
+                    start = operator.end()
+                offset = operator.end()
                 continue
         offset += 1
     if quote is not None or offset != len(command):
-        parts = SEPARATORS.split(command)
-    else:
-        parts.append(command[start:])
+        parts = []
+        start = 0
+        for operator in SHELL_OPERATORS.finditer(command):
+            if operator.group("boundary") is not None:
+                parts.append(command[start:operator.start()])
+                start = operator.end()
+    parts.append(command[start:])
     return [LEADING_ASSIGNMENTS.sub("", piece.strip())
             for piece in parts if piece.strip()]
 
