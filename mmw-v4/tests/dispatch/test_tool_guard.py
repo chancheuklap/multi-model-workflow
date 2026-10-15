@@ -442,6 +442,40 @@ class EndingAProcess(unittest.TestCase):
 
 
 class TestCommandPrefixes(unittest.TestCase):
+    def test_prefix_ticket_commands_are_refused_by_both_hosts(self):
+        for command in (
+            f"(gh issue close {TICKET})",
+            f">out gh issue close {TICKET}",
+            f"env FOO=1 gh issue close {TICKET}",
+            f"sudo -n env FOO=1 gh issue edit {TICKET} --remove-label ready-for-agent",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    code, answer = call(host, with_command(host, command))
+                    decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
+                    self.assertEqual((code, decision), (0, "deny"))
+
+    def test_prefix_literal_text_is_not_a_command(self):
+        self.assertEqual(hk.ends_a_process("env FOO=1 kill 1"), "kill 1")
+        for command in (
+            "grep -n kill x.py",
+            'echo "(kill 1)"',
+            "rg 'env kill' x",
+            "env FOO=1 grep -n kill x.py",
+            "sudo -n echo '(kill 1)'",
+            "command -v kill",
+            "env --help kill",
+            ">kill echo ok",
+            "2> 'kill 1' echo ok",
+            "env -u kill echo ok",
+            "sudo -u kill echo ok",
+            f"echo '(gh issue close {TICKET})'",
+            f"env FOO=1 echo 'gh issue close {TICKET}'",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(hk.ends_a_process(command))
+                self.assertEqual(call("codex", with_command("codex", command)), (0, None))
+
     def test_prefix_programs_expose_the_termination_command(self):
         for command in (
             "env FOO=1 kill 1",
