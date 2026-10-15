@@ -507,6 +507,37 @@ class TestQuotedCommands(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(hk.ends_a_process(command), expected)
 
+    def test_quoted_comment_and_heredoc_text_cannot_hide_commands(self):
+        for command in (
+            "echo hi # don't\nkill 1\n# it's done",
+            "# Don't leave stale\nkill 1234\n# It's fine",
+            f"cat > d <<'EOF'\ndon't\nEOF\ngh issue close {TICKET}\n"
+            "cat <<'EOF'\nit's\nEOF",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    _, answer = call(host, with_command(host, command))
+                    decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
+                    self.assertEqual(decision, "deny")
+
+    def test_quoted_nested_shell_code_is_conservatively_checked(self):
+        for command in (
+            "bash -c 'echo hi; kill 1'",
+            'sh -c "a | pkill x"',
+            f"bash -c 'x; gh issue close {TICKET}'",
+            'echo "$(true; kill 1)"',
+            'echo "`true; kill 1`"',
+            "echo $(true; kill 1)",
+            "echo `true; kill 1`",
+            "FLAG=1 /bin/bash -lc 'echo hi; kill 1'",
+            "'bash' -c 'echo hi; kill 1'",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    _, answer = call(host, with_command(host, command))
+                    decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
+                    self.assertEqual(decision, "deny")
+
 
 if __name__ == "__main__":
     unittest.main()
