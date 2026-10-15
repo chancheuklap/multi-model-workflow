@@ -207,6 +207,19 @@ class Commands(unittest.TestCase):
         self.assertNotIn('https://github.com/o/r/issues/92',files)
         self.assertNotIn('https://github.com/o/r/issues/93',files)
 
+    def test_gather_excludes_needs_triage_children_but_lists_orphans(self):
+        self.start_run()
+        self.fake.rows[61] = issue(61, labels=('mmw:ticket',),state='closed')
+        self.fake.rows[91] = issue(91,labels=('mmw:child','needs-triage'),parent=dict(number=61))
+        self.fake.rows[92] = issue(92,labels=('mmw:child',),parent=dict(number=61))
+        rc,out,err = self.run_command('gather','--spec','76',REPO,'--out',str(self.root/'materials'))
+        self.assertEqual(rc,0,err)
+        material = (self.root/'materials/process.md').read_text()
+        rows = json.loads(material.split('\n\n',1)[1])
+        self.assertEqual(rows, [dict(kind='orphaned-child',
+                                    source='https://github.com/o/r/issues/92',
+                                    parent='https://github.com/o/r/issues/61')])
+
     def test_gather_lists_a_reverted_commit(self):
         self.start_run()
         (self.root/'before.txt').write_text('before merge\n')
