@@ -58,6 +58,24 @@ class TestPublishSpec(unittest.TestCase):
         self.assertEqual(code, 2)
         gh.assert_not_called()
 
+    def test_title_limit_refuses_spec_before_any_github_write(self):
+        code, out, err, label, gh = self.publish(title="界" * 257)
+        self.assertEqual(code, 2)
+        self.assertIn("256", err)
+        self.assertIn("257", err)
+        self.assertIn("--title", err)
+        label.assert_not_called()
+        gh.assert_not_called()
+
+    def test_title_limit_accepts_exactly_256_unicode_characters(self):
+        title = "😀" * 256
+        code, out, err, _, gh = self.publish(title=title)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out.strip(), "50")
+        args, body = gh.call_args.args
+        self.assertEqual(args[args.index("--title") + 1], title)
+        self.assertEqual(body, "A spec.\n")
+
     def test_a_missing_label_that_cannot_be_created_is_refused(self):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "spec.md"
@@ -113,6 +131,26 @@ class TestPublishDrafts(unittest.TestCase):
         with redirect_stderr(io.StringIO()) as err:
             code = vt.run_publish_drafts(76, self.dir)
         self.assertEqual(code, 2)
+
+    def test_title_limit_drafts_refuse_the_whole_batch_and_list_every_long_title(self):
+        for long_titles in (("b",), ("a", "b")):
+            with self.subTest(long_titles=long_titles):
+                self.draft("a", "界" * 258 if "a" in long_titles else "A")
+                self.draft("b", "😀" * 257)
+                with mock.patch.object(vt, "ensure_label", return_value=None) as label, \
+                     mock.patch.object(vt, "gh_issue_create", return_value=created(101)) as create, \
+                     mock.patch.object(vt, "lint_spec", return_value=0):
+                    with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+                        code = vt.run_publish_drafts(76, self.dir)
+                self.assertEqual(code, 2)
+                self.assertIn("256", err.getvalue())
+                self.assertIn("b", err.getvalue())
+                self.assertIn("257", err.getvalue())
+                if "a" in long_titles:
+                    self.assertIn("a", err.getvalue())
+                    self.assertIn("258", err.getvalue())
+                label.assert_not_called()
+                create.assert_not_called()
 
     def test_an_unknown_blocker_is_refused_before_anything_is_created(self):
         self.draft("a", "A", blocked_by="not-a-draft")
