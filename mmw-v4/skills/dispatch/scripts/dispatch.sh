@@ -3523,9 +3523,66 @@ clean_base_merge_worktree() {
   return "$failed"
 }
 
+sync_local_project_branch() {
+  local root="$1" project="$2" tip trees path ahead status out ref_rc before rollback
+  tip="$(git -C "$root" rev-parse --verify "refs/remotes/origin/$project" 2>&1)" || {
+    echo "dispatch: could not read origin/$project for local synchronization: $tip; run finish again" >&2
+    return 2
+  }
+  trees="$(base_worktrees "$root" "$project")" || {
+    echo "dispatch: could not list worktrees for local $project; run finish again" >&2
+    return 2
+  }
+  git -C "$root" show-ref --verify --quiet "refs/heads/$project"
+  ref_rc=$?
+  if [ "$ref_rc" -eq 0 ]; then
+    ahead="$(git -C "$root" rev-list --count "$tip..refs/heads/$project" 2>&1)" || {
+      echo "dispatch: could not check local $project against origin/$project: $ahead; run finish again" >&2
+      return 2
+    }
+    if [ "$ahead" -ne 0 ]; then
+      echo "dispatch: keeping local $project${trees:+ in worktree $trees} because it has $ahead commit(s) not in origin/$project" >&2
+      return 0
+    fi
+  elif [ "$ref_rc" -ne 1 ]; then
+    echo "dispatch: could not read local $project; run finish again" >&2
+    return 2
+  fi
+  if [ -n "$trees" ]; then
+    while IFS= read -r path; do
+      status="$(git -C "$path" status --porcelain --untracked-files=no 2>&1)" || {
+        echo "dispatch: could not inspect worktree $path on $project: $status; run finish again" >&2
+        return 2
+      }
+      if [ -n "$status" ]; then
+        echo "dispatch: keeping local $project and worktree $path because it has uncommitted changes" >&2
+        return 0
+      fi
+      before="$(git -C "$path" rev-parse HEAD 2>&1)" || {
+        echo "dispatch: could not read $project in worktree $path: $before; run finish again" >&2
+        return 2
+      }
+      out="$(git -C "$path" merge --ff-only "$tip" 2>&1)" || {
+        if [ "$(git -C "$path" rev-parse HEAD)" = "$before" ] \
+           && git -C "$path" diff --cached --quiet "$tip"; then
+          rollback="$(git -C "$path" read-tree -u -m "$tip" "$before" 2>&1)" || {
+            echo "dispatch: could not restore worktree $path after the failed fast-forward: $rollback; inspect its changes before running finish again" >&2
+          }
+        fi
+        echo "dispatch: could not fast-forward local $project in worktree $path: $out; run finish again" >&2
+        return 2
+      }
+    done <<< "$trees"
+  elif ! out="$(git -C "$root" branch --force "$project" "$tip" 2>&1)"; then
+    echo "dispatch: could not synchronize local $project to origin/$project at $tip: $out; run finish again" >&2
+    return 2
+  fi
+}
+
 finish_cleanup() {
   local root="$1" into="$2" project="$3" failed=0
   fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 2; }
+  sync_local_project_branch "$root" "$project" || return 2
   if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" \
      && ! git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project" 2>/dev/null; then
     echo "dispatch: keeping $into because origin/$project does not contain origin/$into; run finish again after reconciling the branches" >&2

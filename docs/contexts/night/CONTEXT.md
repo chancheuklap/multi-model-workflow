@@ -51,7 +51,7 @@ A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one tick
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`, `mmw-v4/skills/mmw-mode/references/ticket.md` (`## Opening a ticket`), `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` (`run_baseline`)
 
 **ticket branch**:
-The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked. Landing keeps the local branch and removes the origin copy when cleanup permits it.
+The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked. Landing deletes both the local and origin copies when cleanup permits it.
 _Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh`
 
 ### Branches and integration
@@ -147,7 +147,7 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **`dispatch.sh finish`**:
-`dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, runs `scripts/check`'s default tier on the result unless its tip is a ticket's landing merge, pushes it, posts `spec.merged`, closes the spec issue as completed, and removes the origin copy of the base branch when cleanup permits it. The local base branch and any worktree that has it checked out stay in place.
+`dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, runs `scripts/check`'s default tier on the result unless its tip is a ticket's landing merge, pushes it, posts `spec.merged`, closes the spec issue as completed, and removes the origin copy of the base branch when cleanup permits it. The local base branch and any worktree that has it checked out stay in place. The local project branch is created or fast-forwarded to the fetched origin tip, including in a clean worktree. A dirty worktree or local commits outside origin keep it unchanged, with the reason on stderr. A synchronization failure exits 2 and leaves the spec open for a retry.
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/run-a-night.md` (`#### 7. Merge the accepted night`)
 
 **open-ticket**:
@@ -227,7 +227,7 @@ One line of `status.py`'s read-only plans, each read by `dispatch.sh` and nobody
 _Home_: `mmw-v3/skills/dispatch/scripts/status.py`
 
 **`ARCHIVE`, archive**:
-Archiving a ticket's workspace: giving its product slot back, ending every session the ticket's events name, and deleting its worktree and the ticket's instance data, so nothing of the directory is kept; the ticket branch and its pushed commits are what remain. `advance` archives a ticket's workspace once it lands, `land` once the ticket is closed (the `ARCHIVE` plan line), and `retract` a gone worker's; a ticket handed back keeps its workspace for the next `start`, and a workspace whose product is still up, or whose events cannot be read, is kept.
+Archiving a ticket's workspace: giving its product slot back, ending every session the ticket's events name, and deleting its worktree and the ticket's instance data, so nothing of the directory is kept. Unlanded ticket branches and their pushed commits remain; landing cleanup deletes contained ticket branches when no worktree has them checked out. `advance` archives a ticket's workspace once it lands, `land` once the ticket is closed (the `ARCHIVE` plan line), and `retract` a gone worker's; a ticket handed back keeps its workspace for the next `start`, and a workspace whose product is still up, or whose events cannot be read, is kept.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh` (`archive_workspace`), `mmw-v3/skills/dispatch/scripts/status.py`
 
 **worker-grades line**:
