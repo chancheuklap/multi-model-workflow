@@ -42,6 +42,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import sys
 
 HOSTS = ("claude", "codex")
@@ -112,20 +113,141 @@ def governed_ticket() -> int | None:
     return None
 
 
-SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")
-LEADING_ASSIGNMENTS = re.compile(r"^(?:\w+=\S*\s+)*")
+SHELL_OPERATORS = re.compile(r"\\[\\<>]|[<>]&|&>>?|(?P<boundary>[;\n]|&&|\|\||\||&)")
+SHELL_WORD = r'''(?:\\[^\n]|'[^']*'|"(?:\\[\s\S]|[^"\\])*"|[^\s\\'"<>&;|()])+'''
+LEADING_SYNTAX = re.compile(
+    rf"^(?:\s+|\\\n|\(|[{{!](?=\s|\\\n|$)|"
+    rf"[A-Za-z_]\w*=(?:{SHELL_WORD}|[()])*|"
+    rf"(?:\d+)?(?:&>>?|>>?|[<>]&|<)\s*{SHELL_WORD})+"
+)
+PREFIX_COMMANDS = {
+    "command": ("", ()),
+    "builtin": ("", ()),
+    "exec": ("a", ()),
+    "env": ("uCPS", ("--unset", "--chdir", "--split-string")),
+    "sudo": ("uUgChpDrtRT", ("--user", "--group", "--host", "--prompt", "--close-from",
+                              "--chdir", "--chroot", "--role", "--type", "--command-timeout")),
+    "nohup": ("", ()),
+    "time": ("fo", ("--format", "--output")),
+    "nice": ("n", ("--adjustment",)),
+}
+WORD = re.compile(SHELL_WORD)
+
+
+def strip_command_prefixes(piece: str) -> str:
+    while True:
+        piece = LEADING_SYNTAX.sub("", piece).strip()
+        program = WORD.match(piece)
+        if program is None or program[0] not in PREFIX_COMMANDS:
+            return piece
+        short_values, long_values = PREFIX_COMMANDS[program[0]]
+        rest = piece[program.end():].lstrip()
+        options_ended = False
+        while True:
+            rest = LEADING_SYNTAX.sub("", rest).strip()
+            option = WORD.match(rest)
+            if option is None:
+                break
+            value = shlex.split(option[0])[0]
+            if program[0] == "env" and (options_ended or not value.startswith("-")) \
+                    and re.match(r"[^=]+=", value):
+                rest = rest[option.end():].lstrip()
+                continue
+            if options_ended:
+                break
+            if value == "--":
+                rest = rest[option.end():].lstrip()
+                options_ended = True
+                continue
+            if value == "-" and program[0] == "env":
+                rest = rest[option.end():].lstrip()
+                continue
+            if not value.startswith("-") or value == "-":
+                break
+            if value in ("--help", "--version") \
+                    or (program[0] == "sudo" and value == "--list") or (
+                program[0] == "command" and any(flag in value for flag in "vV")
+            ):
+                return piece
+            option_name, separator, argument_value = value.partition("=")
+            needs_value = option_name in long_values and not separator
+            if not value.startswith("--"):
+                for index, flag in enumerate(value[1:], 1):
+                    if program[0] == "sudo" and flag == "l":
+                        return piece
+                    if flag in short_values:
+                        option_name = flag
+                        argument_value = value[index + 1:]
+                        needs_value = index == len(value) - 1
+                        break
+            rest = rest[option.end():].lstrip()
+            if needs_value:
+                argument = WORD.match(rest)
+                if argument is None:
+                    return piece
+                argument_value = shlex.split(argument[0])[0]
+                rest = rest[argument.end():].lstrip()
+            if program[0] == "env" and option_name in ("S", "--split-string"):
+                try:
+                    arguments = shlex.join(shlex.split(argument_value))
+                except ValueError:
+                    return piece
+                rest = f"{arguments} {rest}".strip()
+        piece = rest
 
 
 def pieces(command: str) -> list[str]:
-    """Every piece of `command` a shell would run as a command of its own, leading
-    variable assignments stripped."""
-    return [LEADING_ASSIGNMENTS.sub("", piece.strip())
-            for piece in SEPARATORS.split(command) if piece.strip()]
+    parts = []
+    quote = None
+    start = offset = 0
+    while offset < len(command):
+        char = command[offset]
+        if char == "\\" and quote != "'":
+            offset += 2
+            continue
+        if quote != "'" and (char == "`" or command.startswith("$(", offset)):
+            break
+        if quote is not None:
+            if char == quote:
+                quote = None
+        elif char in "\"'":
+            prefix = strip_command_prefixes(command[start:offset])
+            try:
+                words = shlex.split(prefix)
+            except ValueError:
+                break
+            if words and os.path.basename(words[0]) in ("sh", "bash", "dash", "ksh", "zsh"):
+                break
+            quote = char
+        else:
+            if command.startswith("<<", offset) or (
+                char == "#" and (offset == start or command[offset - 1].isspace()
+                                or command[offset - 1] in "&()")
+            ):
+                break
+            operator = SHELL_OPERATORS.match(command, offset)
+            if operator:
+                if operator.group("boundary") is not None:
+                    parts.append(command[start:offset])
+                    start = operator.end()
+                offset = operator.end()
+                continue
+        offset += 1
+    if quote is not None or offset != len(command):
+        parts = []
+        start = 0
+        for operator in SHELL_OPERATORS.finditer(command):
+            if operator.group("boundary") is not None:
+                parts.append(command[start:operator.start()])
+                start = operator.end()
+    parts.append(command[start:])
+    return [strip_command_prefixes(piece)
+            for piece in parts if piece.strip()]
 
 
-# `kill`, its two relatives, and the shape that reaches them through a pipe
-# (`lsof -ti:5173 | xargs kill -9`). First word only: prose that mentions killing lands
-# mid-line, a command starts one — the same test the `gh` gate below relies on.
+# This guards against accidental process termination behind assignments, groups,
+# negation, redirections, continuations and PREFIX_COMMANDS. It is not a sandbox
+# against deliberate evasion through eval, functions, aliases or python3 -c.
 ENDS_A_PROCESS = re.compile(r"^(kill|pkill|killall|killall5)\b")
 XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
 
