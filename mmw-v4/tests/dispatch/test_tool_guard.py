@@ -465,6 +465,22 @@ class TestQuotedCommands(unittest.TestCase):
             with self.subTest(host=host):
                 self.assertEqual(call(host, with_command(host, command)), (0, None))
 
+    def test_quoted_and_escaped_boundaries(self):
+        for command, expected in (
+            (r"echo a\; kill 1", None),
+            (r"echo a\| kill 1", None),
+            (r"echo a\&\& pkill x", None),
+            (r"echo a\|\| killall x", None),
+            ("echo a\\\nkill 1", None),
+            (r'echo "a \" | kill 1"', None),
+            ('echo "a \' | kill 1"', None),
+            (r"echo 'a\'; kill 1", "kill 1"),
+            (r'echo "a \\"; kill 1', "kill 1"),
+            ('echo "a; kill 1"; pkill x', "pkill x"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
     def test_quoted_text_does_not_close_the_ticket(self):
         command = f"echo 'a; gh issue close {TICKET}'"
         self.assertEqual(hk.runs(command), [])
