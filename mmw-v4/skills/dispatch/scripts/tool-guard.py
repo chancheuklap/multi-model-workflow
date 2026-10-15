@@ -120,10 +120,59 @@ LEADING_SYNTAX = re.compile(
     rf"[A-Za-z_]\w*=(?:{SHELL_WORD})?|"
     rf"(?:\d+)?(?:&>>?|>>?|[<>]&|<)\s*{SHELL_WORD})+"
 )
+PREFIX_COMMANDS = {
+    "command": ("", ()),
+    "builtin": ("", ()),
+    "exec": ("a", ()),
+    "env": ("uC", ("--unset", "--chdir")),
+    "sudo": ("uUgChpDrtRT", ("--user", "--group", "--host", "--prompt", "--close-from",
+                              "--chdir", "--chroot", "--role", "--type", "--command-timeout")),
+    "nohup": ("", ()),
+    "time": ("fo", ("--format", "--output")),
+    "nice": ("n", ("--adjustment",)),
+}
+WORD = re.compile(SHELL_WORD)
 
 
 def command_word(piece: str) -> str:
-    return LEADING_SYNTAX.sub("", piece).strip()
+    while True:
+        piece = LEADING_SYNTAX.sub("", piece).strip()
+        program = WORD.match(piece)
+        if program is None or program[0] not in PREFIX_COMMANDS:
+            return piece
+        short_values, long_values = PREFIX_COMMANDS[program[0]]
+        rest = piece[program.end():].lstrip()
+        while True:
+            rest = LEADING_SYNTAX.sub("", rest).strip()
+            option = WORD.match(rest)
+            if option is None:
+                break
+            value = shlex.split(option[0])[0]
+            if value == "--":
+                rest = rest[option.end():].lstrip()
+                break
+            if value == "-" and program[0] == "env":
+                rest = rest[option.end():].lstrip()
+                continue
+            if not value.startswith("-") or value == "-":
+                break
+            if value in ("--help", "--version") or (
+                program[0] == "command" and any(flag in value for flag in "vV")
+            ):
+                return piece
+            needs_value = value in long_values
+            if not value.startswith("--"):
+                for index, flag in enumerate(value[1:], 1):
+                    if flag in short_values:
+                        needs_value = index == len(value) - 1
+                        break
+            rest = rest[option.end():].lstrip()
+            if needs_value:
+                argument = WORD.match(rest)
+                if argument is None:
+                    return piece
+                rest = rest[argument.end():].lstrip()
+        piece = rest
 
 
 def pieces(command: str) -> list[str]:
