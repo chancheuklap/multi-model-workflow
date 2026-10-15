@@ -114,12 +114,21 @@ def governed_ticket() -> int | None:
 
 
 SHELL_OPERATORS = re.compile(r"\\[\\<>]|[<>]&|&>>?|(?P<boundary>[;\n]|&&|\|\||\||&)")
-LEADING_ASSIGNMENTS = re.compile(r"^(?:\w+=\S*\s+)*")
+SHELL_WORD = r'''(?:\\[^\n]|'[^']*'|"(?:\\[\s\S]|[^"\\])*"|[^\s\\'"<>&;|()])+'''
+LEADING_SYNTAX = re.compile(
+    rf"^(?:\s+|\\\n|\(|[{{!](?=\s|\\\n|$)|"
+    rf"[A-Za-z_]\w*=(?:{SHELL_WORD})?|"
+    rf"(?:\d+)?(?:&>>?|>>?|[<>]&|<)\s*{SHELL_WORD})+"
+)
+
+
+def command_word(piece: str) -> str:
+    return LEADING_SYNTAX.sub("", piece).strip()
 
 
 def pieces(command: str) -> list[str]:
     """Every piece of `command` a shell would run as a command of its own, leading
-    variable assignments stripped."""
+    shell syntax before the command word stripped."""
     parts = []
     quote = None
     start = offset = 0
@@ -134,7 +143,7 @@ def pieces(command: str) -> list[str]:
             if char == quote:
                 quote = None
         elif char in "\"'":
-            prefix = LEADING_ASSIGNMENTS.sub("", command[start:offset].strip())
+            prefix = command_word(command[start:offset])
             try:
                 words = shlex.split(prefix)
             except ValueError:
@@ -164,13 +173,12 @@ def pieces(command: str) -> list[str]:
                 parts.append(command[start:operator.start()])
                 start = operator.end()
     parts.append(command[start:])
-    return [LEADING_ASSIGNMENTS.sub("", piece.strip())
+    return [command_word(piece)
             for piece in parts if piece.strip()]
 
 
-# `kill`, its two relatives, and the shape that reaches them through a pipe
-# (`lsof -ti:5173 | xargs kill -9`). First word only: prose that mentions killing lands
-# mid-line, a command starts one — the same test the `gh` gate below relies on.
+# This prevents accidental process termination through ordinary shell syntax, not
+# deliberate evasion through eval, functions, aliases or interpreters such as python3 -c.
 ENDS_A_PROCESS = re.compile(r"^(kill|pkill|killall|killall5)\b")
 XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
 
