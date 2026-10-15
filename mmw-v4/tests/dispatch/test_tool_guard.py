@@ -464,12 +464,11 @@ class TestBackgroundCommands(unittest.TestCase):
             ("cmd 2>&1", None),
             ("cmd >&2", None),
             ("cmd &>log", None),
-            ("cmd &>>log", None),
+            ("kill &>/dev/null 1", "kill &>/dev/null 1"),
+            ("kill &>>/dev/null 1", "kill &>>/dev/null 1"),
             ("cmd <&0", None),
             ("cmd >&kill 1", None),
             ("cmd <&kill 1", None),
-            ("cmd &>kill 1", None),
-            ("cmd &>>kill 1", None),
             ("echo 'a & b'", None),
             ('echo "a & kill 1"', None),
             (r"echo a\& b", None),
@@ -481,6 +480,8 @@ class TestBackgroundCommands(unittest.TestCase):
     def test_background_ticket_close_is_refused(self):
         for command in (f"a & gh issue close {TICKET}",
                         f"a&gh issue close {TICKET}",
+                        f"a & gh issue close &>/dev/null {TICKET}",
+                        f"a & gh issue close &>>/dev/null {TICKET}",
                         f"bash -c 'a & gh issue close {TICKET}'"):
             for host in EVENTS:
                 with self.subTest(command=command, host=host):
