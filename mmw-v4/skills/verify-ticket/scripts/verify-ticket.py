@@ -1656,6 +1656,8 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not text.strip():
         return refuse(f"{path} is empty")
     title = text.strip().splitlines()[0].strip()
+    if len(title) > 256:
+        title = title[:255] + "…"
     labels = ["mmw:child"]
     if kind in ("decision", "deferred"):
         labels.insert(0, "needs-triage")
