@@ -24,7 +24,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh landeddeletesbranch|landedkeepsunmergedlocalbranch|regressedrestart
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsmainworktree|finishkeepsunmergedlocalnight
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishsyncsprojectbranch
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishsyncsprojectbranch|finishsyncsprojectworktree|finishkeepsunmergedproject
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails|finishcleanupfails
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
 #
@@ -6312,6 +6312,65 @@ scenario_finishsyncsprojectbranch() {
   done
 }
 
+scenario_finishsyncsprojectworktree() {
+  local code mode session tip status
+  for mode in clean dirty staged; do
+    setup_finish_closed
+    tip="$(git -C "$TMP/repo" rev-parse proj)"
+    git -C "$TMP/repo" checkout -q main
+    session="$TMP/repo/.worktrees/project session"
+    git -C "$TMP/repo" worktree add -q "$session" proj
+    session="$(CDPATH='' cd -- "$session" && pwd -P)"
+    printf 'untracked\n' > "$session/untracked.txt"
+    if [ "$mode" != clean ]; then
+      printf 'unfinished\n' > "$session/project.txt"
+      if [ "$mode" = staged ]; then
+        git -C "$session" add project.txt
+      fi
+    fi
+    status="$(git -C "$session" status --porcelain)"
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+    [ "$code" = 0 ] || fail "$mode project worktree finish failed: $(cat "$TMP/err")"
+    if [ "$mode" = clean ]; then
+      [ "$(git -C "$session" rev-parse HEAD)" = "$(git -C "$TMP/origin.git" rev-parse proj)" ] \
+        || fail "clean project worktree was not fast-forwarded"
+      [ "$(cat "$session/night.txt" 2>/dev/null)" = night ] || fail "clean project worktree did not get night's files"
+    else
+      [ "$(git -C "$session" rev-parse HEAD)" = "$tip" ] || fail "$mode project worktree moved"
+      [ "$(git -C "$session" status --porcelain)" = "$status" ] || fail "$mode project worktree status changed"
+      [ "$(cat "$session/project.txt")" = unfinished ] || fail "$mode project worktree edits changed"
+      grep -qF "$session" "$TMP/err" || fail "$mode warning omitted the worktree path"
+      grep -q 'uncommitted' "$TMP/err" || fail "$mode warning omitted the uncommitted changes"
+    fi
+    [ "$(cat "$session/untracked.txt")" = untracked ] || fail "$mode finish changed an untracked file"
+    [ "$(git -C "$session" branch --show-current)" = proj ] || fail "$mode finish detached the project worktree"
+  done
+}
+
+scenario_finishkeepsunmergedproject() {
+  local code mode session tip
+  for mode in checked-out unchecked; do
+    setup_finish_closed
+    commit_file "$TMP/repo" local.txt unmerged local-only
+    tip="$(git -C "$TMP/repo" rev-parse proj)"
+    session="$(CDPATH='' cd -- "$TMP/repo" && pwd -P)"
+    if [ "$mode" = unchecked ]; then
+      git -C "$TMP/repo" checkout -q main
+    fi
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+    [ "$code" = 0 ] || fail "$mode unmerged project finish failed: $(cat "$TMP/err")"
+    [ "$(git -C "$TMP/repo" rev-parse proj)" = "$tip" ] || fail "$mode finish moved local-only project work"
+    [ "$(git -C "$TMP/repo" show proj:local.txt)" = unmerged ] || fail "$mode finish lost local-only project work"
+    git -C "$TMP/origin.git" show proj:night.txt >/dev/null 2>&1 || fail "$mode finish did not merge the night"
+    ! git -C "$TMP/origin.git" cat-file -e proj:local.txt 2>/dev/null || fail "$mode finish pushed local-only work"
+    grep -q 'not in origin/proj' "$TMP/err" || fail "$mode warning omitted the unmerged project commits"
+    if [ "$mode" = checked-out ]; then
+      grep -qF "$session" "$TMP/err" || fail "unmerged project warning omitted its worktree path"
+      [ "$(cat "$session/local.txt")" = unmerged ] || fail "finish changed the unmerged worktree"
+    fi
+  done
+}
+
 scenario_finishkeepslocalnight() {
   local code tip
   setup_finish_closed
@@ -6455,8 +6514,8 @@ scenario_finishclosespecfails() {
 }
 
 scenario_finishcleanupfails() {
-  local code mode merge base lock
-  for mode in fetch restore delete; do
+  local code mode merge base lock session
+  for mode in fetch restore delete projectrestore projectadvance projectworktree; do
     setup_finish_closed
     git -C "$TMP/repo" merge -q --no-ff -m "Merge branch 'night'" night
     git -C "$TMP/repo" push -q origin proj
@@ -6469,6 +6528,20 @@ scenario_finishcleanupfails() {
       restore)
         git -C "$TMP/repo" branch -D night >/dev/null
         lock="$TMP/repo/.git/refs/heads/night.lock"
+        : > "$lock"
+        ;;
+      projectrestore | projectadvance | projectworktree)
+        git -C "$TMP/repo" checkout -q main
+        if [ "$mode" = projectrestore ]; then
+          git -C "$TMP/repo" branch -D proj >/dev/null
+        else
+          git -C "$TMP/repo" branch -f proj "$base"
+        fi
+        if [ "$mode" = projectworktree ]; then
+          session="$TMP/repo/.worktrees/project-session"
+          git -C "$TMP/repo" worktree add -q "$session" proj
+        fi
+        lock="$TMP/repo/.git/refs/heads/proj.lock"
         : > "$lock"
         ;;
       delete)
@@ -6490,7 +6563,7 @@ SH
     git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night || fail "$mode cleanup failure lost origin/night"
     case "$mode" in
       fetch) git -C "$TMP/repo" remote set-url origin "$TMP/origin.git" ;;
-      restore) rm -f "$lock" ;;
+      restore | projectrestore | projectadvance | projectworktree) rm -f "$lock" ;;
       delete) rm -f "$TMP/origin.git/hooks/update" ;;
     esac
     code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
@@ -6498,6 +6571,7 @@ SH
     [ "$(env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" gh issue view 76 --json state --jq .state)" = CLOSED ] \
       || fail "$mode cleanup retry did not close the spec"
     [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$merge" ] || fail "$mode cleanup retry merged again"
+    [ "$(git -C "$TMP/repo" rev-parse proj)" = "$merge" ] || fail "$mode cleanup retry did not sync the project branch"
     [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] || fail "$mode cleanup retry recorded a second merge"
     git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "$mode cleanup retry left origin/night"
   done
@@ -8722,7 +8796,7 @@ PY
 
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landedkeepsunmergedlocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems"
