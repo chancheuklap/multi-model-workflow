@@ -169,7 +169,8 @@ def gather(args):
                 items[angle].append(dict(kind='recurred-after-wontfix',source=issue_url(source_repo,n)))
     for source_repo in args.repos:
         for row in register.issue_list(source_repo):
-            if 'mmw:child' not in labels(row) or row['state'].lower() != 'open':
+            if ('mmw:child' not in labels(row) or 'needs-triage' in labels(row)
+                    or row['state'].lower() != 'open'):
                 continue
             child = register.read_issue(source_repo,row['number'])
             parent = child.get('parent')
