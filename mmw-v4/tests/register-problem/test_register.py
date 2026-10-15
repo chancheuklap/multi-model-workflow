@@ -214,6 +214,26 @@ class Registration(unittest.TestCase):
         self.assertEqual(len(self.fake.repos["o/r"]), 1)
         self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
 
+    def test_code_limit_refuses_81_before_writes_and_accepts_80(self):
+        self.path.write_text(problem("a" * 81))
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertNotEqual(rc, 0)
+        self.assertIn("80", err)
+        self.assertIn("81", err)
+        writes = [c for c in self.fake.calls if c[1:3] in (
+            ["label", "create"], ["issue", "create"], ["issue", "comment"],
+            ["issue", "edit"], ["issue", "reopen"])]
+        self.assertEqual(writes, [])
+        self.assertEqual(self.fake.repos, {"o/r": [], "acme/toolbox": []})
+        self.assertEqual(self.fake.labels, {"o/r": {}, "acme/toolbox": {}})
+        body = problem("a" * 80)
+        self.path.write_text(body)
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual((rc, out), (0, "OPENED: #100 in o/r\n"), err)
+        row = self.fake.repos["o/r"][0]
+        self.assertEqual(row["title"], "a" * 80 + ": 测试比较空列表")
+        self.assertEqual(row["body"], body)
+
     def existing(self, **kwargs):
         row = issue(**kwargs)
         row["comments"] = [{"id": 1, "body": event("lesson.seen", "Seen #10", ticket=61,
