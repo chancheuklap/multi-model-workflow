@@ -462,6 +462,7 @@ class TestCommandPrefixes(unittest.TestCase):
             f"(gh issue close {TICKET})",
             f">out gh issue close {TICKET}",
             f"env FOO=1 gh issue close {TICKET}",
+            f"X=$(date) gh issue close {TICKET}",
             f"sudo -n env FOO=1 gh issue edit {TICKET} --remove-label ready-for-agent",
         ):
             for host in EVENTS:
@@ -518,6 +519,14 @@ class TestCommandPrefixes(unittest.TestCase):
 
     def test_prefix_shell_syntax_exposes_the_termination_command(self):
         for command, expected in (
+            ("FOO=$(x) kill 1", "kill 1"),
+            ("X=$(date) kill 1", "kill 1"),
+            ("X=a$(b) kill 1", "kill 1"),
+            ("X=$((1+2)) kill 1", "kill 1"),
+            ("a && X=$(y) kill 1", "kill 1"),
+            ("X=$(a$(b$(c))) kill 1", "kill 1"),
+            ('X="$(date)" kill 1', "kill 1"),
+            ("X=`date` kill 1", "kill 1"),
             ("a & (kill 1)", "kill 1)"),
             ("a ; (kill 1)", "kill 1)"),
             ("a & { kill 1; }", "kill 1"),
