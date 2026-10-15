@@ -45,6 +45,7 @@ tree = _load("mmw_tree", "issue_tree.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
 LEDGER_NAME = "AC.md"
+GITHUB_TITLE_LIMIT = 256
 # The summary line gate-check prints on its own stdout.
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
@@ -1656,8 +1657,8 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     if not text.strip():
         return refuse(f"{path} is empty")
     title = text.strip().splitlines()[0].strip()
-    if len(title) > 256:
-        title = title[:255] + "…"
+    if len(title) > GITHUB_TITLE_LIMIT:
+        title = title[:GITHUB_TITLE_LIMIT - 1] + "…"
     labels = ["mmw:child"]
     if kind in ("decision", "deferred"):
         labels.insert(0, "needs-triage")
@@ -1738,6 +1739,9 @@ def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int
     A spec is a container for the tickets underneath it, not a piece of work, so it
     carries no status label.
     """
+    if len(title) > GITHUB_TITLE_LIMIT:
+        return refuse(f"--title has {len(title)} Unicode characters; the GitHub title "
+                      f"limit is {GITHUB_TITLE_LIMIT}; shorten --title before publishing")
     text = body_path.read_text(encoding="utf-8") if body_path.is_file() else ""
     if not text.strip():
         return refuse(f"{body_path} is empty")
@@ -3356,6 +3360,11 @@ def lint_drafts(spec: int, directory: Path) -> int:
         print(f"\n## {name} (draft)")
         dependencies: list[int | str] = []
         bad = False
+        if len(draft["title"]) > GITHUB_TITLE_LIMIT:
+            print(f"  ERROR {name}: TITLE has {len(draft['title'])} Unicode characters; "
+                  f"the GitHub title limit is {GITHUB_TITLE_LIMIT}; shorten TITLE "
+                  f"before publishing  [title-limit]")
+            bad = True
         for blocker in draft["blocked"]:
             issue = DRAFT_ISSUE_RE.match(blocker)
             if issue:
@@ -3415,8 +3424,8 @@ def run_publish_drafts(spec: int, directory: Path) -> int:
     names, print the draft name to issue number table, then run `--lint` on the
     published spec once, because only the tracker shows what publishing did.
 
-    A cycle, or a blocker naming no draft and no `#<n>`, is refused before anything is
-    created: publishing is deterministic given a valid batch, so an invalid one is
+    An overlong title, a cycle, or a blocker naming no draft and no `#<n>`, is refused
+    before anything is created: publishing is deterministic given a valid batch, so an invalid one is
     reported, not half built. A `gh` failure partway through names every draft already
     published, so nothing has to be guessed from the tracker by hand.
     """
@@ -3429,6 +3438,12 @@ def run_publish_drafts(spec: int, directory: Path) -> int:
             drafts.append(read_draft(path))
         except (DraftUnreadable, OSError, UnicodeError) as exc:
             return refuse(str(exc))
+    long_titles = [f"{draft['name']}: {len(draft['title'])} Unicode characters"
+                   for draft in drafts if len(draft["title"]) > GITHUB_TITLE_LIMIT]
+    if long_titles:
+        return refuse(f"GitHub title limit is {GITHUB_TITLE_LIMIT}; "
+                      + "; ".join(long_titles)
+                      + "; shorten each draft's TITLE before publishing; nothing was published")
     names = {d["name"] for d in drafts}
     entries = []
     for draft in drafts:
