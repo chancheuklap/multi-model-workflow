@@ -41,7 +41,7 @@
 | [0020](0020-wakes-come-from-the-board.md) | 唤醒从 board 上发出：中继读票上的结果事件，经 runner 的送消息动词送到等它的那个会话，任何脚本都不再报信 | 2026-09-10 | 0010、0013、0017、0018 | 0021、0022、0026 |
 | [0021](0021-liveness-in-three-layers.md) | 判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写 | 2026-09-10 | 0017、0020 | 0022、0026、0049 |
 | [0022](0022-one-relay-many-watches.md) | 唤醒按 watch 分：一个仓库一个中继，同时看多个 watch，每个 watch 叫醒开它的那个主 agent；等槽位的 worker 也由中继叫醒 | 2026-09-11 | 0020、0021 | 0026、0033 |
-| [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 0025、0026、0027、0034、0052 |
+| [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 0025、0026、0027、0034 |
 | [0024](0024-models-json-and-runner-extension-boundary.md) | 会话配置只存进 `models.json`，runner 的附加操作也只经适配器 | 2026-09-11 | 0016、0018 | 0026 |
 | [0025](0025-project-branch-and-finish.md) | 开夜记住并推送 project branch；用户验收后 finish 把 base branch 合回并清理 | 2026-09-11 | 0023 | 0052 |
 | [0026](0026-no-verifier.md) | 取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria | 2026-09-14 | 0018、0019、0020、0021、0022、0023、0024 | 0045 |
@@ -70,7 +70,7 @@
 | [0049](0049-v4-serves-claude-code-and-codex.md) | MMW v4 只服务 Claude Code 与 Codex 两个 host，Grok 与 Cursor 退出 | 2026-10-14 | 0003、0006、0007、0021 | 无 |
 | [0050](0050-native-subagent-model-rows.md) | 原生子代理的型号与强度由它那一步点名的行决定 | 2026-10-15 | 0015 | 无 |
 | [0051](0051-problem-registration-retro-and-label-states.md) | 问题先登记并复盘，主人挑中和批准计划分两次，标签分种类与状态 | 2026-10-14 | 0035、0039 | 无 |
-| [0052](0052-keep-local-branches-and-close-the-spec.md) | 落地和 finish 只删 origin 上的票分支与 base branch，本机副本留档并指向落地时的提交；finish 成功时关闭 spec | 2026-10-15 | 0023、0025 | 无 |
+| [0052](0052-keep-local-branches-and-close-the-spec.md) | finish 后本机留着夜分支和任务分支，指向合并时的提交；finish 成功时关闭 spec | 2026-10-15 | 0025 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
