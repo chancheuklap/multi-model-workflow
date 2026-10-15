@@ -117,7 +117,7 @@ SHELL_OPERATORS = re.compile(r"\\[\\<>]|[<>]&|&>>?|(?P<boundary>[;\n]|&&|\|\||\|
 SHELL_WORD = r'''(?:\\[^\n]|'[^']*'|"(?:\\[\s\S]|[^"\\])*"|[^\s\\'"<>&;|()])+'''
 LEADING_SYNTAX = re.compile(
     rf"^(?:\s+|\\\n|\(|[{{!](?=\s|\\\n|$)|"
-    rf"[A-Za-z_]\w*=(?:{SHELL_WORD})?|"
+    rf"[A-Za-z_]\w*=(?:{SHELL_WORD}|[()])*|"
     rf"(?:\d+)?(?:&>>?|>>?|[<>]&|<)\s*{SHELL_WORD})+"
 )
 PREFIX_COMMANDS = {
