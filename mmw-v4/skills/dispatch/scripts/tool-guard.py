@@ -245,8 +245,9 @@ def pieces(command: str) -> list[str]:
             for piece in parts if piece.strip()]
 
 
-# This prevents accidental process termination through ordinary shell syntax, not
-# deliberate evasion through eval, functions, aliases or interpreters such as python3 -c.
+# This guards against accidental process termination behind assignments, groups,
+# negation, redirections, continuations and PREFIX_COMMANDS. It is not a sandbox
+# against deliberate evasion through eval, functions, aliases or python3 -c.
 ENDS_A_PROCESS = re.compile(r"^(kill|pkill|killall|killall5)\b")
 XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
 
