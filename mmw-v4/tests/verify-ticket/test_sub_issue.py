@@ -57,6 +57,26 @@ def labels_of(create):
 
 
 class TestCreatesForEachKind(unittest.TestCase):
+    def test_title_limit_keeps_full_body_and_records_the_created_title(self):
+        for first_line, expected in (
+            ("界🧪" * 200, "界🧪" * 127 + "界…"),
+            ("界🧪" * 128 + "尾", "界🧪" * 127 + "界…"),
+            ("界🧪" * 128, "界🧪" * 128),
+            ("A short title", "A short title"),
+        ):
+            with self.subTest(length=len(first_line)):
+                text = first_line + "\n\nFull details stay here.\n"
+                code, _, err, recorded, bodies = run_sub_issue("finding", text)
+                self.assertEqual(code, 0, err)
+                create = create_of(recorded)
+                title = create[create.index("--title") + 1]
+                self.assertEqual(title, expected)
+                self.assertLessEqual(len(title), 256)
+                self.assertEqual(bodies[0], "A `finding` child of #77.\n\n" + text)
+                what, payload = vt.events.parse(bodies[-1])
+                self.assertEqual((what, payload["event"], payload["title"]),
+                                 ("event", "child.opened", title))
+
     def test_each_kind_fires_gh_issue_create_with_parent_and_labels(self):
         for kind in KINDS:
             with self.subTest(kind=kind):
