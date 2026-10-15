@@ -1181,11 +1181,6 @@ ensure_workspace() {
   fi
   mkdir -p "$root/.worktrees"
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    if [ "$remote" = 0 ] \
-       && git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "origin/$into"; then
-      git -C "$root" branch --force "$branch" "origin/$into" >/dev/null \
-        || { echo "dispatch: could not move the contained $branch to origin/$into before restart" >&2; return 1; }
-    fi
     git -C "$root" worktree add --quiet "$dest" "$branch" \
       || { echo "dispatch: could not create a worktree for $branch" >&2; return 1; }
     created=1
@@ -2570,11 +2565,9 @@ commits_outside_base() {
   git -C "$1" rev-list --count "origin/$3..$2" 2>/dev/null
 }
 
-# Keep the local landed ticket branch at the fetched origin tip before deleting origin's
-# copy. Containment uses the fetch that prepared the merge worktree; deletion is leased
-# to that tip, and checked-out branches or unmerged local work stay unchanged.
-archive_landed_ticket_branch() {
-  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead local_ahead output probe_rc
+# Delete only contained ticket branches after their worktree has been archived.
+delete_landed_ticket_branch() {
+  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead output probe_rc
 
   branch="$(ticket_branch "$number")"
   [[ "$branch" =~ ^issue-[0-9]+$ ]] || return 0
@@ -2588,11 +2581,14 @@ archive_landed_ticket_branch() {
   fi
 
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    local_ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || local_ahead=""
-    if [ -z "$local_ahead" ]; then
+    ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || ahead=""
+    if [ -z "$ahead" ]; then
       echo "dispatch: keeping local $branch because its containment in origin/$into could not be checked" >&2
-    elif [ "$local_ahead" -ne 0 ]; then
-      echo "dispatch: keeping local $branch because it has $local_ahead commit(s) not in origin/$into" >&2
+    elif [ "$ahead" -ne 0 ]; then
+      echo "dispatch: keeping local $branch because it has $ahead commit(s) not in origin/$into" >&2
+    elif ! output="$(git -C "$root" branch -D "$branch" 2>&1)"; then
+      echo "dispatch: could not delete local $branch: $(printf '%s' "$output" | tail -2 | tr '
+' ' '); delete it manually with: git branch -D $branch" >&2
     fi
   fi
 
@@ -2607,22 +2603,6 @@ archive_landed_ticket_branch() {
     echo "dispatch: keeping origin/$branch because it has $ahead commit(s) not in origin/$into" >&2
     return 0
   fi
-
-  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    if [ "${local_ahead:-}" = 0 ]; then
-      if git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "$remote_tip"; then
-        output="$(git -C "$root" branch --force "$branch" "$remote_tip" 2>&1)" || {
-          echo "dispatch: could not fast-forward local $branch to $remote_tip: $output; keeping origin/$branch" >&2
-          return 0
-        }
-      else
-        echo "dispatch: keeping local $branch because it is not an ancestor of the fetched origin/$branch tip" >&2
-      fi
-    fi
-  elif ! output="$(git -C "$root" branch "$branch" "$remote_tip" 2>&1)"; then
-    echo "dispatch: could not restore local $branch at $remote_tip: $output; keeping origin/$branch" >&2
-    return 0
-  fi
   if output="$(git -C "$root" push \
       "--force-with-lease=refs/heads/$branch:$remote_tip" origin --delete "$branch" 2>&1)"; then
     return 0
@@ -2634,7 +2614,8 @@ archive_landed_ticket_branch() {
   fi
   [ "$probe_rc" -eq 0 ] \
     || output="$output The remote could not be checked after the failed deletion."
-  echo "dispatch: could not delete origin/$branch: $(printf '%s' "$output" | tr '\n' ' '); after confirming its tip is contained in origin/$into, delete it manually with: git push origin --delete $branch" >&2
+  echo "dispatch: could not delete origin/$branch: $(printf '%s' "$output" | tr '
+' ' '); after confirming its tip is contained in origin/$into, delete it manually with: git push origin --delete $branch" >&2
 }
 
 # Whether the ticket's complete event fold currently says it is landed.
@@ -2653,7 +2634,7 @@ finish_landing() {
   ticket_is_landed "$number"; landing_state=$?
   if [ "$landing_state" -eq 0 ]; then
     archive_workspace "$number" && archived=1
-    [ "$archived" -eq 0 ] || archive_landed_ticket_branch "$root" "$number" "$into"
+    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
     return 0
   fi
   if [ "$landing_state" -eq 2 ]; then
@@ -2669,7 +2650,7 @@ finish_landing() {
   fi
   archive_workspace "$number" && archived=1
   if record_landed "$number" "$spec" "$into" "$passed" "$merge_commit" "$base"; then
-    [ "$archived" -eq 0 ] || archive_landed_ticket_branch "$root" "$number" "$into"
+    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
   fi
 }
 
@@ -3001,7 +2982,7 @@ land_tickets() {
     fi
     if archive_workspace "$number"; then
       if ticket_is_landed "$number"; then
-        archive_landed_ticket_branch "$root" "$number" "$archive_into"
+        delete_landed_ticket_branch "$root" "$number" "$archive_into"
       fi
     else
       failed=$((failed + 1))
