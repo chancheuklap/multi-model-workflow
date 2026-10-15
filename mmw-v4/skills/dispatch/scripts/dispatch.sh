@@ -3440,16 +3440,13 @@ record_spec_merged() {
     --field "into=$into" --field "project=$project" --field "merge=$merge" --field "base=$base"
 }
 
-# Print, one per line, the worktrees that have the base branch checked out. finish never removes
-# them: the pipeline makes no such worktree (its own are `issue-<n>` and detached merge
-# worktrees), so each one is a checkout a person or a runner made, and removing it can end the
-# session living in it.
-base_worktrees() {
-  local root="$1" into="$2" path branch
+branch_worktrees() {
+  local root="$1" name="$2" path branch listing
+  listing="$(git -C "$root" worktree list --porcelain)" || return 2
   while IFS=$'\t' read -r path branch; do
-    [ "$branch" = "refs/heads/$into" ] || continue
+    [ "$branch" = "refs/heads/$name" ] || continue
     [ -n "$path" ] && printf '%s\n' "$path"
-  done < <(git -C "$root" worktree list --porcelain | awk '
+  done < <(printf '%s\n' "$listing" | awk '
     /^worktree / { path=substr($0,10); branch="" }
     /^branch / { branch=substr($0,8); print path "\t" branch }
   ')
@@ -3474,7 +3471,7 @@ delete_origin_base_branch() {
 
 retain_local_base_branch() {
   local root="$1" into="$2" project="$3" trees path main ahead tip out
-  trees="$(base_worktrees "$root" "$into")"
+  trees="$(branch_worktrees "$root" "$into")"
   if [ -n "$trees" ]; then
     main="$(main_checkout)" || main=""
     while IFS= read -r path; do
@@ -3529,7 +3526,7 @@ sync_local_project_branch() {
     echo "dispatch: could not read origin/$project for local synchronization: $tip; run finish again" >&2
     return 2
   }
-  trees="$(base_worktrees "$root" "$project")" || {
+  trees="$(branch_worktrees "$root" "$project")" || {
     echo "dispatch: could not list worktrees for local $project; run finish again" >&2
     return 2
   }
@@ -3550,6 +3547,10 @@ sync_local_project_branch() {
   fi
   if [ -n "$trees" ]; then
     while IFS= read -r path; do
+      if [ ! -d "$path" ]; then
+        echo "dispatch: registered worktree $path for $project is missing; restore the directory, or inspect stale registrations with git -C \"$root\" worktree prune --dry-run --expire now and prune confirmed stale registrations with git -C \"$root\" worktree prune --expire now, then run finish again" >&2
+        return 2
+      fi
       status="$(git -C "$path" status --porcelain --untracked-files=no 2>&1)" || {
         echo "dispatch: could not inspect worktree $path on $project: $status; run finish again" >&2
         return 2
