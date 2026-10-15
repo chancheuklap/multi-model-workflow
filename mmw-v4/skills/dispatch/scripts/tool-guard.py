@@ -140,7 +140,6 @@ def pieces(command: str) -> list[str]:
                 continue
         offset += 1
     if quote is not None or offset > len(command):
-        # Uncertain boundaries retain the conservative split used by every gate.
         parts = SEPARATORS.split(command)
     else:
         parts.append(command[start:])
