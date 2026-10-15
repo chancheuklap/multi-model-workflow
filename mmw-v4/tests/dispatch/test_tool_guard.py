@@ -450,6 +450,8 @@ class TestCommandPrefixes(unittest.TestCase):
             ("env --split-string='kill 1'", "kill 1"),
             ("env -S 'kill' 1", "kill 1"),
             ("env -S \"echo 'kill 1'\"", None),
+            ("env -S '(kill 1)'", None),
+            ("env -S 'kill; echo ok'", None),
             ("env -P kill echo ok", None),
         ):
             with self.subTest(command=command):
