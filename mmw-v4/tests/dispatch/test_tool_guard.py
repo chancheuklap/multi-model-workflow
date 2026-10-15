@@ -450,6 +450,10 @@ class TestQuotedCommands(unittest.TestCase):
             'echo "x || killall y"',
             "echo 'x\nkill 1'",
             'echo "x | kill 1"',
+            "echo '$(true; kill 1)'",
+            "echo '`true; kill 1`'",
+            "echo '# literal; kill 1'",
+            'echo "<< literal; kill 1"',
         ):
             with self.subTest(command=command):
                 self.assertIsNone(hk.ends_a_process(command))
@@ -511,6 +515,7 @@ class TestQuotedCommands(unittest.TestCase):
         for command in (
             "echo hi # don't\nkill 1\n# it's done",
             "# Don't leave stale\nkill 1234\n# It's fine",
+            "echo hi;# don't\nkill 1\n# it's done",
             f"cat > d <<'EOF'\ndon't\nEOF\ngh issue close {TICKET}\n"
             "cat <<'EOF'\nit's\nEOF",
         ):

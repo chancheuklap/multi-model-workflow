@@ -42,6 +42,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import sys
 
 HOSTS = ("claude", "codex")
@@ -127,19 +128,33 @@ def pieces(command: str) -> list[str]:
         if char == "\\" and quote != "'":
             offset += 2
             continue
+        if quote != "'" and (char == "`" or command.startswith("$(", offset)):
+            break
         if quote is not None:
             if char == quote:
                 quote = None
         elif char in "\"'":
+            prefix = LEADING_ASSIGNMENTS.sub("", command[start:offset].strip())
+            try:
+                words = shlex.split(prefix)
+            except ValueError:
+                break
+            if words and os.path.basename(words[0]) in ("sh", "bash", "dash", "ksh", "zsh"):
+                break
             quote = char
         else:
+            if command.startswith("<<", offset) or (
+                char == "#" and (offset == start or command[offset - 1].isspace()
+                                or command[offset - 1] in "&()")
+            ):
+                break
             separator = SEPARATORS.match(command, offset)
             if separator:
                 parts.append(command[start:offset])
                 start = offset = separator.end()
                 continue
         offset += 1
-    if quote is not None or offset > len(command):
+    if quote is not None or offset != len(command):
         parts = SEPARATORS.split(command)
     else:
         parts.append(command[start:])
