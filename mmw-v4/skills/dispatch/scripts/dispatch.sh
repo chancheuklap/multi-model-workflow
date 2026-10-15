@@ -1181,11 +1181,6 @@ ensure_workspace() {
   fi
   mkdir -p "$root/.worktrees"
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    if [ "$remote" = 0 ] \
-       && git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "origin/$into"; then
-      git -C "$root" branch --force "$branch" "origin/$into" >/dev/null \
-        || { echo "dispatch: could not move the contained $branch to origin/$into before restart" >&2; return 1; }
-    fi
     git -C "$root" worktree add --quiet "$dest" "$branch" \
       || { echo "dispatch: could not create a worktree for $branch" >&2; return 1; }
     created=1
@@ -2570,11 +2565,11 @@ commits_outside_base() {
   git -C "$1" rev-list --count "origin/$3..$2" 2>/dev/null
 }
 
-# Keep the local landed ticket branch at the fetched origin tip before deleting origin's
-# copy. Containment uses the fetch that prepared the merge worktree; deletion is leased
-# to that tip, and checked-out branches or unmerged local work stay unchanged.
-archive_landed_ticket_branch() {
-  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead local_ahead output probe_rc
+# Remove the local and origin copies of a landed ticket branch. Both containment
+# decisions use refs from the fetch that prepared the merge worktree; each copy can be
+# kept independently, and the remote deletion is leased to that fetched tip.
+delete_landed_ticket_branch() {
+  local root="$1" number="$2" into="$3" branch remote_ref remote_tip ahead output probe_rc
 
   branch="$(ticket_branch "$number")"
   [[ "$branch" =~ ^issue-[0-9]+$ ]] || return 0
@@ -2588,11 +2583,13 @@ archive_landed_ticket_branch() {
   fi
 
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    local_ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || local_ahead=""
-    if [ -z "$local_ahead" ]; then
+    ahead="$(commits_outside_base "$root" "refs/heads/$branch" "$into")" || ahead=""
+    if [ -z "$ahead" ]; then
       echo "dispatch: keeping local $branch because its containment in origin/$into could not be checked" >&2
-    elif [ "$local_ahead" -ne 0 ]; then
-      echo "dispatch: keeping local $branch because it has $local_ahead commit(s) not in origin/$into" >&2
+    elif [ "$ahead" -ne 0 ]; then
+      echo "dispatch: keeping local $branch because it has $ahead commit(s) not in origin/$into" >&2
+    elif ! output="$(git -C "$root" branch -D "$branch" 2>&1)"; then
+      echo "dispatch: could not delete local $branch: $(printf '%s' "$output" | tail -2 | tr '\n' ' '); delete it manually with: git branch -D $branch" >&2
     fi
   fi
 
@@ -2605,22 +2602,6 @@ archive_landed_ticket_branch() {
   fi
   if [ "$ahead" -ne 0 ]; then
     echo "dispatch: keeping origin/$branch because it has $ahead commit(s) not in origin/$into" >&2
-    return 0
-  fi
-
-  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    if [ "${local_ahead:-}" = 0 ]; then
-      if git -C "$root" merge-base --is-ancestor "refs/heads/$branch" "$remote_tip"; then
-        output="$(git -C "$root" branch --force "$branch" "$remote_tip" 2>&1)" || {
-          echo "dispatch: could not fast-forward local $branch to $remote_tip: $output; keeping origin/$branch" >&2
-          return 0
-        }
-      else
-        echo "dispatch: keeping local $branch because it is not an ancestor of the fetched origin/$branch tip" >&2
-      fi
-    fi
-  elif ! output="$(git -C "$root" branch "$branch" "$remote_tip" 2>&1)"; then
-    echo "dispatch: could not restore local $branch at $remote_tip: $output; keeping origin/$branch" >&2
     return 0
   fi
   if output="$(git -C "$root" push \
@@ -2653,7 +2634,7 @@ finish_landing() {
   ticket_is_landed "$number"; landing_state=$?
   if [ "$landing_state" -eq 0 ]; then
     archive_workspace "$number" && archived=1
-    [ "$archived" -eq 0 ] || archive_landed_ticket_branch "$root" "$number" "$into"
+    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
     return 0
   fi
   if [ "$landing_state" -eq 2 ]; then
@@ -2669,7 +2650,7 @@ finish_landing() {
   fi
   archive_workspace "$number" && archived=1
   if record_landed "$number" "$spec" "$into" "$passed" "$merge_commit" "$base"; then
-    [ "$archived" -eq 0 ] || archive_landed_ticket_branch "$root" "$number" "$into"
+    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
   fi
 }
 
@@ -3001,7 +2982,7 @@ land_tickets() {
     fi
     if archive_workspace "$number"; then
       if ticket_is_landed "$number"; then
-        archive_landed_ticket_branch "$root" "$number" "$archive_into"
+        delete_landed_ticket_branch "$root" "$number" "$archive_into"
       fi
     else
       failed=$((failed + 1))
@@ -3459,16 +3440,13 @@ record_spec_merged() {
     --field "into=$into" --field "project=$project" --field "merge=$merge" --field "base=$base"
 }
 
-# Print, one per line, the worktrees that have the base branch checked out. finish never removes
-# them: the pipeline makes no such worktree (its own are `issue-<n>` and detached merge
-# worktrees), so each one is a checkout a person or a runner made, and removing it can end the
-# session living in it.
-base_worktrees() {
-  local root="$1" into="$2" path branch
+branch_worktrees() {
+  local root="$1" name="$2" path branch listing
+  listing="$(git -C "$root" worktree list --porcelain)" || return 2
   while IFS=$'\t' read -r path branch; do
-    [ "$branch" = "refs/heads/$into" ] || continue
+    [ "$branch" = "refs/heads/$name" ] || continue
     [ -n "$path" ] && printf '%s\n' "$path"
-  done < <(git -C "$root" worktree list --porcelain | awk '
+  done < <(printf '%s\n' "$listing" | awk '
     /^worktree / { path=substr($0,10); branch="" }
     /^branch / { branch=substr($0,8); print path "\t" branch }
   ')
@@ -3493,7 +3471,7 @@ delete_origin_base_branch() {
 
 retain_local_base_branch() {
   local root="$1" into="$2" project="$3" trees path main ahead tip out
-  trees="$(base_worktrees "$root" "$into")"
+  trees="$(branch_worktrees "$root" "$into")"
   if [ -n "$trees" ]; then
     main="$(main_checkout)" || main=""
     while IFS= read -r path; do
@@ -3542,9 +3520,70 @@ clean_base_merge_worktree() {
   return "$failed"
 }
 
+sync_local_project_branch() {
+  local root="$1" project="$2" tip trees path ahead status out ref_rc before rollback
+  tip="$(git -C "$root" rev-parse --verify "refs/remotes/origin/$project" 2>&1)" || {
+    echo "dispatch: could not read origin/$project for local synchronization: $tip; run finish again" >&2
+    return 2
+  }
+  trees="$(branch_worktrees "$root" "$project")" || {
+    echo "dispatch: could not list worktrees for local $project; run finish again" >&2
+    return 2
+  }
+  git -C "$root" show-ref --verify --quiet "refs/heads/$project"
+  ref_rc=$?
+  if [ "$ref_rc" -eq 0 ]; then
+    ahead="$(git -C "$root" rev-list --count "$tip..refs/heads/$project" 2>&1)" || {
+      echo "dispatch: could not check local $project against origin/$project: $ahead; run finish again" >&2
+      return 2
+    }
+    if [ "$ahead" -ne 0 ]; then
+      echo "dispatch: keeping local $project${trees:+ in worktree $trees} because it has $ahead commit(s) not in origin/$project" >&2
+      return 0
+    fi
+  elif [ "$ref_rc" -ne 1 ]; then
+    echo "dispatch: could not read local $project; run finish again" >&2
+    return 2
+  fi
+  if [ -n "$trees" ]; then
+    while IFS= read -r path; do
+      if [ ! -d "$path" ]; then
+        echo "dispatch: registered worktree $path for $project is missing; restore the directory, or inspect stale registrations with git -C \"$root\" worktree prune --dry-run --expire now and prune confirmed stale registrations with git -C \"$root\" worktree prune --expire now, then run finish again" >&2
+        return 2
+      fi
+      status="$(git -C "$path" status --porcelain --untracked-files=no 2>&1)" || {
+        echo "dispatch: could not inspect worktree $path on $project: $status; run finish again" >&2
+        return 2
+      }
+      if [ -n "$status" ]; then
+        echo "dispatch: keeping local $project and worktree $path because it has uncommitted changes" >&2
+        return 0
+      fi
+      before="$(git -C "$path" rev-parse HEAD 2>&1)" || {
+        echo "dispatch: could not read $project in worktree $path: $before; run finish again" >&2
+        return 2
+      }
+      out="$(git -C "$path" merge --ff-only "$tip" 2>&1)" || {
+        if [ "$(git -C "$path" rev-parse HEAD)" = "$before" ] \
+           && git -C "$path" diff --cached --quiet "$tip"; then
+          rollback="$(git -C "$path" read-tree -u -m "$tip" "$before" 2>&1)" || {
+            echo "dispatch: could not restore worktree $path after the failed fast-forward: $rollback; inspect its changes before running finish again" >&2
+          }
+        fi
+        echo "dispatch: could not fast-forward local $project in worktree $path: $out; run finish again" >&2
+        return 2
+      }
+    done <<< "$trees"
+  elif ! out="$(git -C "$root" branch --force "$project" "$tip" 2>&1)"; then
+    echo "dispatch: could not synchronize local $project to origin/$project at $tip: $out; run finish again" >&2
+    return 2
+  fi
+}
+
 finish_cleanup() {
   local root="$1" into="$2" project="$3" failed=0
   fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 2; }
+  sync_local_project_branch "$root" "$project" || return 2
   if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" \
      && ! git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project" 2>/dev/null; then
     echo "dispatch: keeping $into because origin/$project does not contain origin/$into; run finish again after reconciling the branches" >&2
