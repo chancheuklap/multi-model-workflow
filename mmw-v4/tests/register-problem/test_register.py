@@ -191,6 +191,29 @@ class Registration(unittest.TestCase):
         self.assertEqual(row["labels"], [{"name": "mmw:problem"}, {"name": "needs-triage"}])
         self.assertEqual(events.fold(row["comments"])["occurrences"][0]["source"], "owner-correction")
 
+    def test_title_limit_keeps_full_body_and_duplicate_registration(self):
+        description = "故障😀界" * 100
+        body = problem().replace("测试比较空列表", description)
+        self.path.write_text(body)
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 0, err)
+        create = next(c for c in self.fake.calls if c[1:3] == ["issue", "create"])
+        title = create[create.index("--title") + 1]
+        self.assertEqual(len(title), 256)
+        self.assertTrue(title.startswith("test-compares-empty-lists: "))
+        self.assertTrue(title.endswith("…"))
+        row = self.fake.repos["o/r"][0]
+        self.assertEqual(row["body"], body)
+        rc, out, err = self.run_register("find", "test-compares-empty-lists", description)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("#100\to/r\topen\tmmw:lesson\ttest-compares-empty-lists\t", out)
+        second = self.root / "second.md"
+        second.write_text(body.replace(description, "另一次发生"))
+        rc, out, err = self.run_register("add", str(second))
+        self.assertEqual((rc, out), (0, "APPENDED: #100 in o/r\n"), err)
+        self.assertEqual(len(self.fake.repos["o/r"]), 1)
+        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 2)
+
     def existing(self, **kwargs):
         row = issue(**kwargs)
         row["comments"] = [{"id": 1, "body": event("lesson.seen", "Seen #10", ticket=61,
