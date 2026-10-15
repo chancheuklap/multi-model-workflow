@@ -164,7 +164,8 @@ def strip_command_prefixes(piece: str) -> str:
                 continue
             if not value.startswith("-") or value == "-":
                 break
-            if value in ("--help", "--version") or (
+            if value in ("--help", "--version") \
+                    or (program[0] == "sudo" and value == "--list") or (
                 program[0] == "command" and any(flag in value for flag in "vV")
             ):
                 return piece
@@ -172,6 +173,8 @@ def strip_command_prefixes(piece: str) -> str:
             needs_value = option_name in long_values and not separator
             if not value.startswith("--"):
                 for index, flag in enumerate(value[1:], 1):
+                    if program[0] == "sudo" and flag == "l":
+                        return piece
                     if flag in short_values:
                         option_name = flag
                         argument_value = value[index + 1:]
