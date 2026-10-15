@@ -6313,14 +6313,40 @@ scenario_finishsyncsprojectbranch() {
 }
 
 scenario_finishsyncsprojectworktree() {
-  local code mode session tip status
-  for mode in clean dirty staged; do
+  local code mode session tip status merge base
+  for mode in clean dirty staged missing; do
     setup_finish_closed
     tip="$(git -C "$TMP/repo" rev-parse proj)"
     git -C "$TMP/repo" checkout -q main
     session="$TMP/repo/.worktrees/project session"
     git -C "$TMP/repo" worktree add -q "$session" proj
     session="$(CDPATH='' cd -- "$session" && pwd -P)"
+    if [ "$mode" = missing ]; then
+      git -C "$TMP/repo" checkout -q --detach origin/proj
+      base="$(git -C "$TMP/repo" rev-parse HEAD)"
+      git -C "$TMP/repo" merge -q --no-ff -m "Merge branch 'night'" night
+      merge="$(git -C "$TMP/repo" rev-parse HEAD)"
+      git -C "$TMP/repo" push -q origin HEAD:proj
+      post_ev 76 spec.merged --ticket '' --spec 76 --line merged --field into=night \
+        --field project=proj --field "merge=$merge" --field "base=$base"
+      git -C "$TMP/repo" checkout -q main
+      rm -rf "$session"
+      code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+      [ "$code" = 2 ] || fail "missing project worktree expected exit 2, got $code"
+      grep -qF "$session" "$TMP/err" || fail "missing worktree warning omitted its path"
+      grep -q 'worktree prune --dry-run --expire now' "$TMP/err" || fail "missing worktree warning omitted the inspection command"
+      grep -q 'worktree prune --expire now' "$TMP/err" || fail "missing worktree warning omitted the repair command"
+      [ "$(git -C "$TMP/repo" rev-parse proj)" = "$tip" ] || fail "missing worktree branch moved"
+      git -C "$TMP/repo" worktree list --porcelain | grep -qF "$session" || fail "finish silently pruned the missing worktree"
+      [ "$(env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" gh issue view 76 --json state --jq .state)" = OPEN ] \
+        || fail "missing worktree failure closed the spec"
+      git -C "$TMP/repo" worktree prune --expire now
+      code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+      [ "$code" = 0 ] || fail "missing worktree repair did not allow retry: $(cat "$TMP/err")"
+      [ "$(git -C "$TMP/repo" rev-parse proj)" = "$(git -C "$TMP/origin.git" rev-parse proj)" ] \
+        || fail "repaired project branch did not synchronize"
+      continue
+    fi
     printf 'untracked\n' > "$session/untracked.txt"
     if [ "$mode" != clean ]; then
       printf 'unfinished\n' > "$session/project.txt"
@@ -6514,8 +6540,10 @@ scenario_finishclosespecfails() {
 }
 
 scenario_finishcleanupfails() {
-  local code mode merge base lock session
-  for mode in fetch restore delete projectrestore projectadvance projectworktree; do
+  local code mode merge base lock session real_git
+  local -a git_env
+  for mode in fetch restore delete projectrestore projectadvance projectworktree projectlisting; do
+    git_env=("PATH=$PATH")
     setup_finish_closed
     git -C "$TMP/repo" merge -q --no-ff -m "Merge branch 'night'" night
     git -C "$TMP/repo" push -q origin proj
@@ -6544,6 +6572,22 @@ scenario_finishcleanupfails() {
         lock="$TMP/repo/.git/refs/heads/proj.lock"
         : > "$lock"
         ;;
+      projectlisting)
+        git -C "$TMP/repo" checkout -q main
+        git -C "$TMP/repo" branch -f proj "$base"
+        real_git="$(command -v git)"
+        mkdir -p "$TMP/listing-bin"
+        cat > "$TMP/listing-bin/git" <<'SH'
+#!/usr/bin/env bash
+if [ "${3:-} ${4:-} ${5:-}" = 'worktree list --porcelain' ]; then
+  echo 'worktree list failed' >&2
+  exit 1
+fi
+exec "$MMW_REAL_GIT" "$@"
+SH
+        chmod +x "$TMP/listing-bin/git"
+        git_env=("PATH=$TMP/listing-bin:$PATH" "MMW_REAL_GIT=$real_git")
+        ;;
       delete)
         cat > "$TMP/origin.git/hooks/update" <<'SH'
 #!/usr/bin/env bash
@@ -6555,12 +6599,16 @@ SH
         chmod +x "$TMP/origin.git/hooks/update"
         ;;
     esac
-    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+    code="$(run_dispatch env "${git_env[@]}" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
     [ "$code" = 2 ] || fail "$mode cleanup failure expected exit 2, got $code"
     [ "$(env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" gh issue view 76 --json state --jq .state)" = OPEN ] \
       || fail "$mode cleanup failure closed the spec"
     [ "$(count_of 'gh :: issue :: close :: 76')" = 0 ] || fail "$mode cleanup failure attempted to close the spec"
     git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night || fail "$mode cleanup failure lost origin/night"
+    if [ "$mode" = projectlisting ]; then
+      grep -q 'could not list worktrees' "$TMP/err" || fail "listing failure omitted its cause"
+      [ "$(git -C "$TMP/repo" rev-parse proj)" = "$base" ] || fail "listing failure moved the project branch"
+    fi
     case "$mode" in
       fetch) git -C "$TMP/repo" remote set-url origin "$TMP/origin.git" ;;
       restore | projectrestore | projectadvance | projectworktree) rm -f "$lock" ;;
