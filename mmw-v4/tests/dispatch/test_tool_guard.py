@@ -441,6 +441,136 @@ class EndingAProcess(unittest.TestCase):
                 self.assertIsNone(answer, f"{command} was refused")
 
 
+class TestCommandPrefixes(unittest.TestCase):
+    LITERAL_COMMANDS = (
+        "grep -n kill x.py",
+        'echo "(kill 1)"',
+        "rg 'env kill' x",
+        "env FOO=1 grep -n kill x.py",
+        "sudo -n echo '(kill 1)'",
+        "command -v kill",
+        "env --help kill",
+        ">kill echo ok",
+        "2> 'kill 1' echo ok",
+        "env -u kill echo ok",
+        "sudo -u kill echo ok",
+        f"echo '(gh issue close {TICKET})'",
+        f"env FOO=1 echo 'gh issue close {TICKET}'",
+    )
+
+    def test_prefix_sudo_list_only_queries_permissions(self):
+        for command, expected in (
+            ("sudo -l kill", None),
+            ("sudo -ll kill", None),
+            ("sudo -nl kill", None),
+            ("sudo --list kill", None),
+            ("sudo -u root -l kill", None),
+            ("sudo -n kill 1", "kill 1"),
+            ("sudo -uwill kill 1", "kill 1"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_prefix_env_path_and_split_options_keep_command_arguments(self):
+        for command, expected in (
+            ("env -P /bin kill 1", "kill 1"),
+            ("env -S 'kill 1'", "kill 1"),
+            ("env -iS 'kill 1'", "kill 1"),
+            ("env --split-string='kill 1'", "kill 1"),
+            ("env -S 'kill' 1", "kill 1"),
+            ("env -S \"echo 'kill 1'\"", None),
+            ("env -S '(kill 1)'", None),
+            ("env -S 'kill; echo ok'", None),
+            ("env -P kill echo ok", None),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_prefix_ticket_commands_are_refused_by_both_hosts(self):
+        for command in (
+            f"(gh issue close {TICKET})",
+            f">out gh issue close {TICKET}",
+            f"env FOO=1 gh issue close {TICKET}",
+            f'env "FOO=a b" gh issue close {TICKET}',
+            f"X=$(date) gh issue close {TICKET}",
+            f"sudo -n env FOO=1 gh issue edit {TICKET} --remove-label ready-for-agent",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    code, answer = call(host, with_command(host, command))
+                    decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
+                    self.assertEqual((code, decision), (0, "deny"))
+
+    def test_prefix_literal_text_is_not_a_command(self):
+        cases = [("grep -n kill x.py; kill 1", "kill 1")]
+        cases.extend((command, None) for command in self.LITERAL_COMMANDS)
+        for command, expected in cases:
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+    def test_prefix_literal_text_passes_the_hook(self):
+        for command in self.LITERAL_COMMANDS:
+            with self.subTest(command=command):
+                self.assertEqual(call("codex", with_command("codex", command)), (0, None))
+
+    def test_prefix_programs_expose_the_termination_command(self):
+        for command in (
+            "env FOO=1 kill 1",
+            'env "FOO=a b" kill 1',
+            "env 'FOO=a b' kill 1",
+            'env "PATH=$PATH:/x" kill 1',
+            'env -i "FOO=a b" "OTHER=1" kill 1',
+            'env -- "FOO=a b" kill 1',
+            "env -i -u OLD --chdir /tmp FOO='two words' kill 1",
+            "env --unset=OLD -- kill 1",
+            "sudo -n kill 1",
+            "sudo -nu root -g staff --preserve-env=FOO -- kill 1",
+            "sudo --user root --group=staff kill 1",
+            "nohup kill 1",
+            "command kill 1",
+            "command -p kill 1",
+            "builtin kill 1",
+            "exec kill 1",
+            "exec -a worker kill 1",
+            "nice -n 5 kill 1",
+            "nice --adjustment=5 kill 1",
+            "nice -5 kill 1",
+            "time -p kill 1",
+            "time -f '%E' -o timing.log kill 1",
+            "(FLAG=1 >out env -i FOO=1 sudo -n nohup nice -n 5 "
+            "command builtin exec -a worker time -p ! { kill 1; })",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), "kill 1")
+
+    def test_prefix_shell_syntax_exposes_the_termination_command(self):
+        for command, expected in (
+            ("FOO=$(x) kill 1", "kill 1"),
+            ("X=$(date) kill 1", "kill 1"),
+            ("X=a$(b) kill 1", "kill 1"),
+            ("X=$((1+2)) kill 1", "kill 1"),
+            ("a && X=$(y) kill 1", "kill 1"),
+            ("X=$(a$(b$(c))) kill 1", "kill 1"),
+            ('X="$(date)" kill 1', "kill 1"),
+            ("X=`date` kill 1", "kill 1"),
+            ("a & (kill 1)", "kill 1)"),
+            ("a ; (kill 1)", "kill 1)"),
+            ("a & { kill 1; }", "kill 1"),
+            ("a ; { kill 1; }", "kill 1"),
+            ("! kill 1", "kill 1"),
+            ("a & >out kill 1", "kill 1"),
+            ("a ; >out kill 1", "kill 1"),
+            ("a & \\\nkill 1", "kill 1"),
+            ("a ; \\\nkill 1", "kill 1"),
+            ("2>/dev/null kill 1", "kill 1"),
+            ("> out >>out <in 2>err 2>&1 &>out kill 1", "kill 1"),
+            (">'out file' 2> \"error file\" kill 1", "kill 1"),
+            ("(FLAG=1 >out ! \\\n { OTHER='two words' kill 1; })", "kill 1"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+
 class TestBackgroundCommands(unittest.TestCase):
     def test_background_process_commands_are_recognised(self):
         for command, expected in (
