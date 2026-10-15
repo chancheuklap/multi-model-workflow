@@ -441,6 +441,27 @@ class EndingAProcess(unittest.TestCase):
                 self.assertIsNone(answer, f"{command} was refused")
 
 
+class TestCommandPrefixes(unittest.TestCase):
+    def test_prefix_shell_syntax_exposes_the_termination_command(self):
+        for command, expected in (
+            ("a & (kill 1)", "kill 1)"),
+            ("a ; (kill 1)", "kill 1)"),
+            ("a & { kill 1; }", "kill 1"),
+            ("a ; { kill 1; }", "kill 1"),
+            ("! kill 1", "kill 1"),
+            ("a & >out kill 1", "kill 1"),
+            ("a ; >out kill 1", "kill 1"),
+            ("a & \\\nkill 1", "kill 1"),
+            ("a ; \\\nkill 1", "kill 1"),
+            ("2>/dev/null kill 1", "kill 1"),
+            ("> out >>out <in 2>err 2>&1 &>out kill 1", "kill 1"),
+            (">'out file' 2> \"error file\" kill 1", "kill 1"),
+            ("(FLAG=1 >out ! \\\n { OTHER='two words' kill 1; })", "kill 1"),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
+
 class TestBackgroundCommands(unittest.TestCase):
     def test_background_process_commands_are_recognised(self):
         for command, expected in (
