@@ -442,6 +442,19 @@ class EndingAProcess(unittest.TestCase):
 
 
 class TestCommandPrefixes(unittest.TestCase):
+    def test_prefix_env_path_and_split_options_keep_command_arguments(self):
+        for command, expected in (
+            ("env -P /bin kill 1", "kill 1"),
+            ("env -S 'kill 1'", "kill 1"),
+            ("env -iS 'kill 1'", "kill 1"),
+            ("env --split-string='kill 1'", "kill 1"),
+            ("env -S 'kill' 1", "kill 1"),
+            ("env -S \"echo 'kill 1'\"", None),
+            ("env -P kill echo ok", None),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), expected)
+
     def test_prefix_ticket_commands_are_refused_by_both_hosts(self):
         for command in (
             f"(gh issue close {TICKET})",
