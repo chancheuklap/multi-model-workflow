@@ -442,6 +442,31 @@ class EndingAProcess(unittest.TestCase):
 
 
 class TestCommandPrefixes(unittest.TestCase):
+    def test_prefix_programs_expose_the_termination_command(self):
+        for command in (
+            "env FOO=1 kill 1",
+            "env -i -u OLD --chdir /tmp FOO='two words' kill 1",
+            "env --unset=OLD -- kill 1",
+            "sudo -n kill 1",
+            "sudo -nu root -g staff --preserve-env=FOO -- kill 1",
+            "sudo --user root --group=staff kill 1",
+            "nohup kill 1",
+            "command kill 1",
+            "command -p kill 1",
+            "builtin kill 1",
+            "exec kill 1",
+            "exec -a worker kill 1",
+            "nice -n 5 kill 1",
+            "nice --adjustment=5 kill 1",
+            "nice -5 kill 1",
+            "time -p kill 1",
+            "time -f '%E' -o timing.log kill 1",
+            "(FLAG=1 >out env -i FOO=1 sudo -n nohup nice -n 5 "
+            "command builtin exec -a worker time -p ! { kill 1; })",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(hk.ends_a_process(command), "kill 1")
+
     def test_prefix_shell_syntax_exposes_the_termination_command(self):
         for command, expected in (
             ("a & (kill 1)", "kill 1)"),
