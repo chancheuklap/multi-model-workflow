@@ -186,8 +186,6 @@ def strip_command_prefixes(piece: str) -> str:
 
 
 def pieces(command: str) -> list[str]:
-    """Every piece of `command` a shell would run as a command of its own, leading
-    shell syntax before the command word stripped."""
     parts = []
     quote = None
     start = offset = 0
