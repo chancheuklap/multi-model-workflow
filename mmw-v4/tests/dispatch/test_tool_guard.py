@@ -450,6 +450,9 @@ class TestBackgroundCommands(unittest.TestCase):
             ("a &killall y", "killall y"),
             ("a & FLAG=1 kill 1", "kill 1"),
             (r"echo \>&kill 1", "kill 1"),
+            (r"echo \>&kill 1 $(true)", "kill 1 $(true)"),
+            (r"echo \<&kill 1 $(true)", "kill 1 $(true)"),
+            (r"echo \\\>&kill 1 $(true)", "kill 1 $(true)"),
             ("echo 'a & kill 1", "kill 1"),
             ("echo a & kill 1\\", "kill 1\\"),
             ("bash -c 'a & kill 1'", "kill 1'"),
@@ -466,6 +469,7 @@ class TestBackgroundCommands(unittest.TestCase):
             ("cmd &>log", None),
             ("kill &>/dev/null 1", "kill &>/dev/null 1"),
             ("kill &>>/dev/null 1", "kill &>>/dev/null 1"),
+            (r"echo \\>&kill 1 $(true)", None),
             ("cmd <&0", None),
             ("cmd >&kill 1", None),
             ("cmd <&kill 1", None),
@@ -482,6 +486,8 @@ class TestBackgroundCommands(unittest.TestCase):
                         f"a&gh issue close {TICKET}",
                         f"a & gh issue close &>/dev/null {TICKET}",
                         f"a & gh issue close &>>/dev/null {TICKET}",
+                        rf"echo \>&gh issue close {TICKET} $(true)",
+                        f"a & gh issue close &>/dev/null {TICKET} $(true)",
                         f"bash -c 'a & gh issue close {TICKET}'"):
             for host in EVENTS:
                 with self.subTest(command=command, host=host):
