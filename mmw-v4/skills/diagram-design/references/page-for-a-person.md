@@ -4,7 +4,7 @@ Use this for a page with several diagrams or text beside a diagram. **principle-
 
 ## Page opening
 
-Use a title that names the page's subject. Immediately below it, place the conclusion, totals, and decisions the reader needs to make, so the first view tells the reader what to judge.
+Use a title that names the page's subject.
 
 ## Figure units and numbered notes
 
@@ -28,4 +28,4 @@ Lay out for a desktop window and use the available width. Fit each diagram at wi
 
 ## Revision
 
-Before revising a design, read the current page in full. Update the existing page and diagram, and report the change and reason in the reply. Reading first keeps settled details intact across iterations.
+Before revising a design, read the current page in full. Reading first keeps settled details intact across iterations.
