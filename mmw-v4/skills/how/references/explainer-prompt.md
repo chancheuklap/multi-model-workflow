@@ -25,7 +25,7 @@ The core of the explanation, and the longest section. Walk through the flow: wha
 
 Use prose, not pseudocode. Reference specific files and functions so the reader knows where to look, but don't dump large code blocks unless a snippet is essential to a point.
 
-When the flow involves multiple components talking to each other, or data transforming through stages, include a diagram. Use mermaid (```mermaid) for structured flows (sequence diagrams, flowcharts, component graphs) or ASCII art for simpler relationships where mermaid would be overkill. Use your judgment. A diagram should clarify, not decorate. If prose covers the flow, skip the diagram.
+Describe every component, every connection between components, and what each connection carries in prose. The how skill's Step 4. Present uses the **diagram-design** skill to draw this explanation as one page for the person.
 
 ### Where Things Live
 A brief file/directory map. Just the ones someone would need to start working here.
