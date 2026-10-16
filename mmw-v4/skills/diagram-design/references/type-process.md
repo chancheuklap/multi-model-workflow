@@ -53,6 +53,9 @@ dark: false
 - `steps[j].focal: true` — exactly **one** step may declare this. Header chip renders in accent.
 - `nodes[i].focal: true` — exactly **one** node may declare this. Renders with accent border (§5).
 - `nodes[i].chips` — `{in: "<CODE>", out: "<CODE>"}` object (either side `null` to omit). Codes from §8. **Skip** the input chip on the first step's nodes, **skip** the output chip on the last step's nodes (no upstream / downstream).
+- `nodes[i].kind` — optional `action` (default), `decision`, or `exit`. A `kind: decision` node selects the next step by condition. A `kind: exit` node ends this process and names the destination in its title. Decision and exit nodes display only their title, without role or data chips, subtitle, or tool.
+- `arrows[i].label` — condition on every outgoing decision edge, destination on an exit edge, or reason for a return.
+- `arrows[i].style` — adds `style: return` for an edge back to an earlier step. It takes precedence over focal styling.
 - `nodes[i].color` — optional **per-node color override**. Any valid `"#hex"` string; the §4 palette is recommended for cross-diagram consistency.
 
 ---
@@ -61,7 +64,7 @@ dark: false
 
 ```
 label_col_w      = 140
-step_slot_w      = 112                                # 100-px node + 12-px corridor
+step_slot_w      = node_w + 12                       # 100-px node + 12-px corridor
 right_pad        = 28
 n_steps          = len(steps)
 n_lanes          = len(lanes)
@@ -100,6 +103,24 @@ legend_y_top     = header_h + n_lanes * lane_h
 legend_row_y     = [legend_y_top + 16, legend_y_top + 37,
                     legend_y_top + 58, legend_y_top + 79]
 ```
+
+### 2.0 Branch and Chinese geometry
+
+Apply these overrides before calculating the canvas, centers, and anchors above. With no Han text, decisions, exits, or returns, the original geometry is unchanged.
+
+**Chinese text.** Follow `style-guide.md` `### Traditional Chinese labels`, including its Simplified Chinese rules. Chinese titles and labels use 12px, the minimum allowed size. Titles keep semibold weight. Traditional Chinese names use `'Geist', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif`. Simplified Chinese names use `'Geist', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`. Chinese labels use 12px sans, weight 500, no tracking, and no uppercase transform. Technical values stay Latin mono. Chinese prose in the subtitle or tool slot uses the same 12px sans treatment.
+
+Let `text_w(t)` use the style-guide width budget at the text's rendered size. Count every wide or full-width character as 1em, nonspacing marks as zero, and all other characters at the face's Latin advance. Round structural dimensions up to a multiple of 4 with `ceil4(v) = 4 * ceil(v / 4)`.
+
+- With any Han text, `node_w = max(100, ceil4(max(text_w(t) for all node titles, subtitles, and tools) + 16))`. Titles remain one line. `node_h = 80`, `lane_h = 96`, and title, subtitle, and tool baselines are `node_y + 28`, `+44`, and `+60`. Data chips sit at `node_y + node_h - 10`. The output chip's x is `node_x + node_w - 20` in every size.
+- With Han lane labels, `label_col_w = max(140, ceil4(longest lane-label line width + 16))`. Two-line lane labels use baselines `lane_y_mid - 4` and `lane_y_mid + 12`.
+- With Han step labels, `header_h = 44` and their baseline is 36. Keep the numbered chips at their original positions. With Han legend labels, use `legend_h = 100` for three rows or 124 for four rows, with row baselines at `legend_y_top + 20 + 24*r`, starting at `r=0`.
+- Let `cx = step_cx(j)` and `cy = lane_y_mid(k)`. A decision's bounding box has height `node_h` and width `node_w`. Enlarge `node_w` to at least `ceil4(2 * (longest decision-title width + 16))`, so its centered single-line title fits inside the diamond. Its vertices are `(cx, cy-node_h/2)`, `(cx+node_w/2, cy)`, `(cx, cy+node_h/2)`, and `(cx-node_w/2, cy)`. An exit uses an ellipse centered at `(cx, cy)` with radii `node_w/2` and `node_h/2`. Center both titles vertically with `dominant-baseline="middle"`.
+- `step_slot_w = max(node_w + 12, ceil4(longest step-label width + 16))`. When any decision or return exists, use the branch corridors below instead of the 12px gap.
+
+**Branch corridors.** Let `E` be the number of edges originating at decisions plus other return edges. Rank these edges from `i=0` in their input order. Set `track_pad = 24 + 12*E`, `step_slot_w = max(step_slot_w, node_w + 2*track_pad, ceil4(longest arrow-label width + node_w + 32))`, and `lane_h = max(lane_h, node_h + 2*track_pad)`. Set the content-area gutter to `track_pad` instead of 8 in `step_cx(j)`, and `right_pad = max(28, track_pad)`. Recompute all §2 coordinates. These tracks sit in the empty margins between cells, not inside node bounds.
+
+For edge `i`, `src_gap_x = node_x(src_step) + node_w + 8 + 12*i`, `dst_gap_x = node_x(dst_step) - 8 - 12*i`, `upper_y = node_y(src_lane) - 8 - 12*i`, and `lower_y = node_y(src_lane) + node_h + 8 + 12*i`. For `R` return edges, reserve a strip below all lanes and above the legend. Return `q` in input order uses `return_y(q) = header_h + n_lanes*lane_h + 16 + 12*q`. Add `16 + 12*R` to `legend_y_top` and `viewBox_h` when `R > 0`. This strip is outside every swimlane.
 
 ### 2.1 Background structure
 
@@ -141,7 +162,7 @@ One or two-line mono label, all uppercase, letter-spacing 0.08em, font-size 8, f
 
 Per-lane `color` override (§4): replaces the label fill with `C` and the lane stripe tint with `rgba(C, 0.04)`.
 
-### 2.4 Node content layout (inside the 100×64 rect)
+### 2.4 Node content layout (Latin action defaults, 100×64 rect)
 
 ```
 role_chip          rect 14×10 at (node_x+4, node_y+4),  rx=2
@@ -164,13 +185,14 @@ Empty cells (no node entry) render **nothing**. No placeholder rect, no role chi
 
 ## 3. Connector rules (mandatory)
 
-Three styles, bound to topology. Connectors drawn **before** all node rects (z-order rule).
+Styles bind to topology. Connectors drawn **before** all node rects (z-order rule).
 
 | `style` | Stroke | Width | Dash | Marker | When required |
 |---|---|---|---|---|---|
-| `normal` | `#4f5d75` (muted) | 1.0 | — | `arrow` | Standard data hand-off between steps or actors. Unlabelled. |
+| `normal` | `#4f5d75` (muted) | 1.0 | — | `arrow` | Standard data hand-off between steps or actors. Decision branches carry conditions. |
 | `focal-in` / `focal-out` | `#eb6c36` (accent) | 1.2 | — | `arrow-accent` | Every edge whose endpoint is the focal node (`focal-in`) or origin is the focal node (`focal-out`). |
-| `trigger` | `#4f5d75` (muted) | 1.0 | `4,3` | `arrow-sm` | Orchestration trigger (scheduler → tool, manual override → upstream step). Unlabelled. |
+| `trigger` | `#4f5d75` (muted) | 1.0 | `4,3` | `arrow-sm` | Orchestration trigger (scheduler → tool). Labels follow §3.3. |
+| `return` | `#4f5d75` (muted) | 1.0 | `4,3` | `arrow-sm` | Labelled route back to an earlier step, outside the swimlanes (§3.3). |
 
 **Defs block** (required, three markers):
 
@@ -189,11 +211,11 @@ Three styles, bound to topology. Connectors drawn **before** all node rects (z-o
 
 **Single-bend right-angle:** exit RIGHT → corridor → enter TOP (↓ destination below) or BOTTOM (↑ destination above).
 
-- Source-side: exit at `(node_x + 100, lane_y_mid(src_lane))` — node's right edge, vertical center.
-- Destination-side: enter at `(step_cx(dst_step), node_y(dst_lane))` for downward, or `(step_cx(dst_step), node_y(dst_lane) + 64)` for upward.
+- Source-side: exit at `(node_x + node_w, lane_y_mid(src_lane))` — node's right edge, vertical center.
+- Destination-side: enter at `(step_cx(dst_step), node_y(dst_lane))` for downward, or `(step_cx(dst_step), node_y(dst_lane) + node_h)` for upward.
 - Corner radius: 8-px Q-bezier at the bend.
 - Same-lane edges (rare — same lane, adjacent steps): horizontal `<line>` from src right to dst left.
-- **No diagonals.** **No left-side entry.** **No exit from the top/bottom of a node.**
+- **No diagonals.** Ordinary forward action edges use these ports. Decision branches and returns use §3.3 instead.
 
 ```svg
 <!-- Downward (destination lane > source lane) -->
@@ -211,11 +233,21 @@ Three styles, bound to topology. Connectors drawn **before** all node rects (z-o
 
 - **Z-order:** all `<path>` and `<line>` connectors emitted **before** any node `<rect>`.
 - **Markers:** exactly one `marker-end` per path. Never `marker-start`.
-- **Labels:** all process arrows are unlabelled by default. The step number + the actor lane carry the semantic; a label on every arrow is noise. Only label an arrow if it represents a non-step concept (re-test loop, escalation) — then use a paper-masked rect behind 6.5-px mono text.
+- **Labels:** ordinary handoffs are unlabelled. Decision branches, exit edges, and returns follow §3.3. Latin labels use 6.5px mono on a paper mask. Chinese labels use §2.0. Masks are 16px tall for Chinese, 12px for Latin, and `ceil4(text_w(label) + 8)` wide.
 
 ### 3.2 Crossings
 
-Avoid. The corridor x position (8 px before destination node) is the only routing column — if two arrows would cross there, **swap step assignments** or **split into two diagrams** rather than introducing a bend-around. Crossings hide the underlying control flow.
+Swap step assignments first when arrows cross or a path would intersect a node. If the process grammar still cannot show the flow without crossings, redraw with containers under the diagram-design skill's `## 7. Layout & Spacing`. Keep the whole subject on one canvas, with detail nested inside or directly beside it.
+
+### 3.3 Branches, exits, and returns
+
+Use the shape and condition-label conventions of `type-flowchart.md` `## Layout conventions`. A step that selects its successor by condition is a diamond with at most three exits. Label every outgoing edge with its condition, including an edge that returns. An edge leaving the process ends at an ellipse whose title names the destination. Exit nodes have no outgoing edges. Use `style: return` and a label for every edge to an earlier step.
+
+For non-return decision edges, assign ports in outgoing input order, first right, second bottom, third top. Route the right port horizontally to `src_gap_x`, vertically to `lower_y`, horizontally to `dst_gap_x`, vertically to the destination center y, then horizontally into its left vertex or edge. The bottom port goes vertically to `lower_y`, then follows the same route from there. The top port goes vertically to `upper_y`, horizontally to `dst_gap_x`, vertically to the destination center y, then horizontally into its left vertex or edge. These are orthogonal paths with 8px rounded corners. Place the condition label at the midpoint of the horizontal segment at `upper_y` or `lower_y`, with its paper mask.
+
+A return leaves the source's right vertex or edge, runs horizontally to `src_gap_x`, vertically to `return_y(q)`, horizontally to `dst_gap_x`, vertically to the destination center y, then horizontally into its left vertex or edge. Its dashed horizontal return path stays in the fixed strip outside the swimlanes. Place its label at that horizontal segment's midpoint. Return edges keep the muted dashed style even when touching the focal node. Other focal-touching branches retain the accent style. A non-decision edge into an exit uses the ordinary forward routing and puts its destination label at the midpoint of its horizontal segment.
+
+All branch and return paths must clear every node. If tracks cross other connectors, apply §3.2 rather than drawing through a node or dropping a condition. This routing changes only diagrams that declare decisions or returns.
 
 ---
 
@@ -307,17 +339,18 @@ If zero or >1 of any focal slot are declared, halt and ask the user.
 Before emitting SVG, verify **every** item:
 
 1. `viewBox = "0 0 {viewBox_w} {viewBox_h}"` derived via §2.
-2. Header strip at `y=0..36`; legend strip at `y=legend_y_top..viewBox_h` (`legend_y_top = 36 + n_lanes * 80`).
-3. Every node at `(step_cx(j) - 50, lane_y_top(k) + 8)` size `100×64`.
+2. Header and legend strips use §2, including the Chinese and return-strip overrides in §2.0.
+3. Every node uses §2 dimensions and anchors, with the shape selected by `kind`. Latin action defaults remain `100×64`.
 4. Empty cells render nothing — no placeholder rect, no text.
 5. Exactly **one** focal step (`steps[j].focal: true`).
 6. Exactly **one** focal node (`nodes[i].focal: true`).
-7. Focal-touching arrows use `style: focal-in` / `focal-out` (accent).
-8. All other arrows `style: normal` (muted solid) or `style: trigger` (muted dashed). Unlabelled by default.
+7. Focal-touching arrows use `style: focal-in` / `focal-out` (accent), except returns, which stay muted dashed.
+8. All other arrows use `normal`, `trigger`, or `return` as §3 defines. Ordinary handoffs are unlabelled.
 9. All arrows emitted before any node rect (z-order rule).
-10. Single-bend right-angle routing only — exit right, enter top/bottom. No diagonals. Q-bezier `r=8` at each bend.
+10. Ordinary forward edges use §3.1. Branches and returns use §3.3 and §2.0 tracks. No diagonals or paths through nodes. Q-bezier `r=8` at each bend.
 11. Custom component colors ≤ 3 (in addition to the focal pair). Arrows never recolored by component `color`.
 12. Subtitle and tool labels stay muted regardless of any component `color`. Input chip skipped on first step's nodes, output chip skipped on last step's nodes.
+13. No unlabelled decision branches. Every exit names its destination, and every return is labelled and routed outside the swimlanes.
 
 ---
 
@@ -325,8 +358,8 @@ Before emitting SVG, verify **every** item:
 
 Same catalog as `type-data-flow.md` §8.
 
-- **Input chip** at `(node_x+4, node_y+54)` — bottom-**left**. Payload entering the node.
-- **Output chip** at `(node_x+80, node_y+54)` — bottom-**right**. Payload leaving the node.
+- **Input chip** at `(node_x+4, node_y+node_h-10)` — bottom-**left**. Payload entering the node.
+- **Output chip** at `(node_x+node_w-20, node_y+node_h-10)` — bottom-**right**. Payload leaving the node.
 - Either chip may be omitted (first/last step, unknown payload).
 
 ### Chip codes
@@ -364,19 +397,19 @@ Each row introduced by a category label at `x = label_col_w + 4` (= 144). The de
 | Lanes (actors) | 6 |
 | Steps | 12 |
 | Nodes per lane | Nodes = active steps only — empty cells are invisible |
-| Labelled arrows | 0 by default (label only for non-step concepts) |
+| Labelled arrows | Required on decision branches, exit edges, and returns; ordinary handoffs unlabelled |
 | Data-type chips per node | 2 (input + output) |
 | Custom-colored elements (§4) | 3 (in addition to focal node + focal step) |
 
-Above 6 lanes or 12 steps: split into two diagrams (overview + detail).
+Above 6 lanes or 12 steps, redraw in a type with containers under the diagram-design skill's `## 7. Layout & Spacing`. Keep the whole subject on one canvas, with detail nested inside or directly beside it.
 
 ---
 
 ## 11. Anti-patterns
 
 - **Placeholder empty cells** — if an actor doesn't participate in a step, leave the cell empty (no box, no text).
-- **Diagonal arrows** — every connector must have exactly one right-angle bend. No direct straight lines between nodes in different lanes.
-- **Left/right port entry on a vertical-dominant arrow** — always exit right, enter top or bottom.
+- **Diagonal arrows** — use §3.1 for ordinary forward edges and §3.3 for branches and returns.
+- **Wrong ports** — ordinary forward edges exit right and enter top or bottom. Branch and return ports follow §3.3.
 - **More than one focal step / focal node** — pick the single most critical operation.
 - **Unlabelled lanes** — every swimlane must identify its actor.
 - **All arrows the same style** — orchestration triggers must be dashed to distinguish them from data-flow connectors.
@@ -384,7 +417,8 @@ Above 6 lanes or 12 steps: split into two diagrams (overview + detail).
 - **Custom-colored arrows** — connectors are topology-driven; `color` on a node never spreads to its edges.
 - **Lane tints over-applied** — a tint on every lane reads as decoration, not signal. Apply to ≤1 lane.
 - **Data-type chips in a double-line-name node** — skip the chips or shorten the name to one line.
-- **More than 12 steps without splitting** — use an overview + detail pair.
+- **Unlabelled decision branches** — every outgoing decision edge carries its condition.
+- **Oversized process grammar** — above 6 lanes or 12 steps, use containers on one canvas under the diagram-design skill's `## 7. Layout & Spacing`.
 
 ---
 
@@ -479,7 +513,7 @@ To document a different process, change only the value of these inputs:
 - **Steps**: rename `steps[j].label`, move `focal: true` to the step that defines the diagram's central claim. Up to 12 steps.
 - **Nodes**: write one entry per `(lane, step)` cell that has work. Leave cells empty (no entry) to render nothing.
 - **Colors**: choose `color: "#hex"` on at most 3 nodes (§4 cap). Stick to the recommended palette unless brand demands otherwise.
-- **Arrows**: declare every edge explicitly with `style: normal | focal-in | focal-out | trigger`. The routing rule (§3.1) fills in the geometry.
+- **Arrows**: declare every edge explicitly with `style: normal | focal-in | focal-out | trigger | return`, including `label` where §3.3 requires it. The routing rules (§3.1 and §3.3) fill in the geometry.
 
 Everything else — viewBox sizing, chip positions, legend layout, dark-mode token swap — is derivable. The YAML is the **source of truth**; the SVG is one of many possible renderings of it (light/dark/full all derive from the same inputs with different style tokens).
 
