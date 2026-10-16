@@ -34,7 +34,7 @@ These hold for every component. They come from how pstack itself adds and change
 
 ## mode
 
-The model to imitate, in content as well as shape, is `upstream/pstack/skills/poteto-mode/SKILL.md` (2,971 words, seven sections).
+The model to imitate, in content as well as shape, is `upstream/pstack/skills/poteto-mode/SKILL.md` (3,153 words, seven sections).
 
 ### What the mode is for
 

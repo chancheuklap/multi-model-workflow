@@ -68,7 +68,7 @@ One memory in Nowledge Mem, kept in the **repository Space** and found by its la
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
 **`CONTEXT.md`**:
-The glossary of one bounded context, at `docs/contexts/<name>/CONTEXT.md`; the root `CONTEXT-MAP.md` lists the contexts and how they relate. `upstream/mattpocock/CONTEXT.md` is upstream's own vocabulary and not part of it.
+The glossary of one bounded context, at `docs/contexts/<name>/CONTEXT.md`; the root `CONTEXT-MAP.md` lists the contexts and how they relate. `upstream/mattpocock/GLOSSARY.md` is upstream's own vocabulary and not part of it.
 _Home_: `mmw-v4/skills/domain-modeling/GLOSSARY-FORMAT.md`
 
 **`AGENTS.md`**:
