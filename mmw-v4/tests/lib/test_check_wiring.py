@@ -27,10 +27,9 @@ class WiringTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name) / "mmw-v4"
-        shutil.copytree(MMW / "skills", root / "skills",
+        shutil.copytree(MMW / "skills", root / "skills", symlinks=True,
                         ignore=shutil.ignore_patterns("__pycache__"))
-        for upstream in MMW.glob("upstream-*"):
-            (root / upstream.name).symlink_to(upstream)
+        (root.parent / "upstream").symlink_to(MMW.parent / "upstream")
         self.skills = root / "skills"
         self.mode = self.skills / "mmw-mode" / "SKILL.md"
         self.routes = self.skills / "mmw-mode" / "references" / "owning-a-task.md"

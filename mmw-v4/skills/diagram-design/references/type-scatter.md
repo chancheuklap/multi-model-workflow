@@ -21,7 +21,7 @@
 
 <!-- Focal point -->
 <circle cx="X" cy="Y" r="6" fill="#f5f5f5"/>
-<circle cx="X" cy="Y" r="6" fill="rgba(235,108,54,0.15)" stroke="#eb6c36" stroke-width="1.2"/>
+<circle cx="X" cy="Y" r="6" fill="rgba(191,69,32,0.15)" stroke="#bf4520" stroke-width="1.2"/>
 ```
 
 ## Anti-patterns
@@ -77,7 +77,7 @@ Not for: a third value that is really a category (use the focal accent or facet 
 <circle cx="537.6" cy="154" r="38.6" fill="#f5f5f5"/>
 <circle data-name="Payments" data-x="260" data-y="2.8" data-size="760"
         cx="537.6" cy="154" r="38.6"
-        fill="rgba(235,108,54,0.15)" stroke="#eb6c36" stroke-width="1.2"/>
+        fill="rgba(191,69,32,0.15)" stroke="#bf4520" stroke-width="1.2"/>
 
 <!-- Its label, bound to the bubble it names -->
 <text data-name="Payments" data-role="label" x="538" y="108" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PAYMENTS</text>
@@ -150,7 +150,7 @@ Not for: two variables (that is the parent scatter); comparing distributions acr
 <circle data-value="90" cx="260" cy="250" r="4" fill="rgba(45,49,66,0.55)" stroke="#4f5d75" stroke-width="0.75"/>
 
 <!-- The focal dot — named, accented, same radius as everyone -->
-<circle data-value="431" data-name="req-4c1f" cx="942" cy="230" r="4" fill="rgba(235,108,54,0.55)" stroke="#eb6c36" stroke-width="1.2"/>
+<circle data-value="431" data-name="req-4c1f" cx="942" cy="230" r="4" fill="rgba(191,69,32,0.55)" stroke="#bf4520" stroke-width="1.2"/>
 
 <!-- Its label, bound to the dot it names -->
 <text data-name="req-4c1f" data-role="label" x="942" y="120" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">REQ-4C1F</text>

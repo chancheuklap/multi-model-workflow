@@ -19,9 +19,9 @@
 ```svg
 <!-- Focal series -->
 <polyline points="x0,y0 x1,y1 x2,y2 ..."
-          fill="none" stroke="#eb6c36" stroke-width="1.8" stroke-linejoin="round"/>
+          fill="none" stroke="#bf4520" stroke-width="1.8" stroke-linejoin="round"/>
 <!-- Dots at each point (focal only) -->
-<circle cx="x0" cy="y0" r="4" fill="#eb6c36"/>
+<circle cx="x0" cy="y0" r="4" fill="#bf4520"/>
 
 <!-- Non-focal series -->
 <polyline points="x0,y0 x1,y1 ..."
@@ -99,9 +99,9 @@ Not for: three or more states (that is the **line chart** above, or a bump chart
 <!-- A series: the line declares its two values, and each of its four labels
      declares which series and which end it belongs to -->
 <line data-series="Recommender" data-from="238" data-to="431"
-      x1="320" y1="303.5" x2="680" y2="140.5" stroke="#eb6c36" stroke-width="2.4"/>
-<circle cx="320" cy="303.5" r="4" fill="#eb6c36"/>
-<circle cx="680" cy="140.5" r="4" fill="#eb6c36"/>
+      x1="320" y1="303.5" x2="680" y2="140.5" stroke="#bf4520" stroke-width="2.4"/>
+<circle cx="320" cy="303.5" r="4" fill="#bf4520"/>
+<circle cx="680" cy="140.5" r="4" fill="#bf4520"/>
 <text data-series="Recommender" data-end="from" data-role="name" x="272" y="307" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="end">Recommender</text>
 <text data-series="Recommender" data-end="from" x="304" y="307" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">238</text>
 <text data-series="Recommender" data-end="to" x="696" y="144" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">431</text>
@@ -182,7 +182,7 @@ The binding contract is the slopegraph's, applied to areas: the outline declares
 
 ```svg
 <line data-ridge="checkout-api" data-role="baseline" x1="320" y1="320" x2="680" y2="320" stroke="rgba(45,49,66,0.25)" stroke-width="1"/>
-<path data-ridge="checkout-api" data-baseline="320" data-bins="0,1,6,17,21,14,8,6,7,9,7,4,0" d="M320,320 L350,317.6 L380,305.6 L410,279.2 L440,269.6 L470,286.4 L500,300.8 L530,305.6 L560,303.2 L590,298.4 L620,303.2 L650,310.4 L680,320 Z" fill="rgba(235,108,54,0.16)" stroke="#eb6c36" stroke-width="2.4" stroke-linejoin="round"/>
+<path data-ridge="checkout-api" data-baseline="320" data-bins="0,1,6,17,21,14,8,6,7,9,7,4,0" d="M320,320 L350,317.6 L380,305.6 L410,279.2 L440,269.6 L470,286.4 L500,300.8 L530,305.6 L560,303.2 L590,298.4 L620,303.2 L650,310.4 L680,320 Z" fill="rgba(191,69,32,0.16)" stroke="#bf4520" stroke-width="2.4" stroke-linejoin="round"/>
 <text data-ridge="checkout-api" data-role="name" x="304" y="323.5" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="end">checkout-api</text>
 <text data-ridge="checkout-api" data-role="range" x="696" y="323.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">40–440 ms</text>
 <text data-tick="2" data-bin="240" x="500" y="400" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">240</text>
@@ -309,7 +309,7 @@ Everything the slopegraph's colour section says holds here unchanged: one accent
 The binding contract is the slopegraph's, one level up: the path declares its ranks, and every visible string is bound to what it describes.
 
 ```svg
-<path data-series="legacy-http" data-ranks="1,2,4,6" d="M320,88 L440,144 L560,256 L680,368" fill="none" stroke="#eb6c36" stroke-width="2.4"/>
+<path data-series="legacy-http" data-ranks="1,2,4,6" d="M320,88 L440,144 L560,256 L680,368" fill="none" stroke="#bf4520" stroke-width="2.4"/>
 <text data-series="legacy-http" data-end="first" data-role="name" x="272" y="91.5" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="end">legacy-http</text>
 <text data-series="legacy-http" data-end="first" data-role="rank" x="304" y="91.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="end">#1</text>
 <text data-axis="0" data-state="Q1" x="320" y="416" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">Q1</text>

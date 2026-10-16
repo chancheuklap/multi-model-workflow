@@ -49,7 +49,7 @@ V3_WRITTEN = ("mmw-v3/skills/README.md", "mmw-v3/skills/mmw-mode/",
               "mmw-v3/skills/setup-mmw/CODING_STANDARDS.md",
               "mmw-v3/skills/writing-for-agents/DESIGN-INTENTS.md",
               "mmw-v3/skills/writing-for-agents/UPSTREAM-INTENTS.md")
-# mmw-v3/upstream-pstack/ and mmw-v3/upstream-cursor-team-kit/ are splits of two
+# upstream/pstack/ and upstream/cursor-team-kit/ are splits of two
 # directories of cursor/plugins, so each squash commit names the split, not the
 # cursor/plugins commit. Each line maps (cursor/plugins commit, directory) to the
 # split commit and the directory prefix stripped from source. The same upstream

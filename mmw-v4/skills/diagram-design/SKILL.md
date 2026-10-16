@@ -216,7 +216,7 @@ Non-negotiable, and §9 checks each one. Full text and edge cases: [primitives-c
 3. **No overlaps.** No shared or stacked strokes: offset parallel routes by 12px or more, and use the bridge/hop at a single crossing.
 4. **Fan attach points.** Connectors on one box edge each get their own point at `L * k / (N + 1)`, 12px or more apart (8px on very small boxes).
 5. **No transit behind a non-endpoint box.** Reroute. Only when the box is geometrically unavoidable: dashed stroke (`4,3`), label at the visible end, no marker on the intervening box.
-6. **Mask before node.** A label mask must not overlap a node drawn after it; badge masks fully inside a node and masks over earlier zones are fine. Verify with `python3 repo-root/scripts/verify-geometry.py <file>`, run from this skill's own directory.
+6. **Mask before node.** A label mask must not overlap a node drawn after it; badge masks fully inside a node and masks over earlier zones are fine. Verify with `python3 scripts/verify-geometry.py <file>`, run from this skill's own directory.
 
 ---
 
@@ -288,7 +288,7 @@ Run before producing any diagram.
 - [ ] **§6 rule 3:** no overlapping or stacked connectors; bridge/hop at crossings?
 - [ ] **§6 rule 4:** a distinct attach point per connector on a shared edge, 12px or more apart, none hiding another?
 - [ ] **§6 rule 5:** no transit behind a non-endpoint box, except the unavoidable case (dashed, label at the visible end)?
-- [ ] **§6 rule 6:** no label mask overlapping a node drawn after it? (Run `python3 repo-root/scripts/verify-geometry.py <file>` from this skill's own directory.)
+- [ ] **§6 rule 6:** no label mask overlapping a node drawn after it? (Run `python3 scripts/verify-geometry.py <file>` from this skill's own directory.)
 - [ ] Every arrow label has an opaque `fill="#f5f5f5"` rect behind it?
 - [ ] Each diagram has its own legend visible without scrolling away from the diagram? Use a bottom strip for a diagram that fits in one viewport, or a sticky adjacent column for a taller diagram, so the reader keeps the notation in view.
 - [ ] No vertical `writing-mode` text?
@@ -296,7 +296,7 @@ Run before producing any diagram.
 - [ ] **`min-width` equals the viewBox width, and the SVG sits in a local `overflow-x: auto` wrapper? (Otherwise a phone scrolls the whole page — or an `overflow: hidden` ancestor clips the diagram with no scrollbar at all. See [output-spec.md](references/output-spec.md).)**
 - [ ] Node origins, dimensions, gaps, padding on the 4px grid; type sizes on the role ramp?
 - [ ] From this skill's own directory, did `python3 scripts/self_check.py <file>` pass? (Accessible-SVG contract, single-file safety, motion basics.)
-- [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? Also run `python3 repo-root/scripts/verify-motion.py path/to/generated.html` plus the skin linter (`python3 repo-root/scripts/lint-skin.py <file>`) from this skill's own directory.
+- [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? Also run `python3 repo-root/scripts/verify-motion.py path/to/generated.html` plus the skin linter (`python3 scripts/lint-skin.py <file>`) from this skill's own directory.
 - [ ] Opened the rendered file at desktop window width and inspected the whole page and every diagram for overlap, text overflow, connector endpoints displaced from their targets, and whole-page horizontal scrolling? The checks above read the source; these defects and a picture that does not answer its question show only in the render.
 
 **Typography:**

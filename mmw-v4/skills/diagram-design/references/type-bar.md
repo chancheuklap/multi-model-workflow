@@ -26,7 +26,7 @@
 <text x="X+W/2" y="Y-8" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">VALUE</text>
 ```
 
-Focal bar: replace fill with `rgba(235,108,54,0.12)`, stroke with `#eb6c36`, label fill with `#eb6c36`.
+Focal bar: replace fill with `rgba(191,69,32,0.12)`, stroke with `#bf4520`, label fill with `#bf4520`.
 
 ## Anti-patterns
 
@@ -79,7 +79,7 @@ Focal bar: replace fill with `rgba(235,108,54,0.12)`, stroke with `#eb6c36`, lab
 <!-- One row. Connector first so the dots cap it; labels outside the pair. -->
 <line x1="458" y1="96" x2="740" y2="96" stroke="rgba(45,49,66,0.55)" stroke-width="1"/>
 <circle cx="458" cy="96" r="6" fill="#f5f5f5" stroke="#4f5d75" stroke-width="1.5"/>
-<circle cx="740" cy="96" r="6" fill="#eb6c36" stroke="#2d3142" stroke-width="1"/>
+<circle cx="740" cy="96" r="6" fill="#bf4520" stroke="#2d3142" stroke-width="1"/>
 <text x="446" y="100" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">34</text>
 <text x="752" y="100" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">71</text>
 <text x="188" y="100" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="end">Platform</text>
