@@ -52,7 +52,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 ## Skills
 
-`mmw-mode` runs most of these when a step names them. You can also name one in a prompt, such as `/how do we cancel runs?`. The 34 principle skills are in the next section.
+`mmw-mode` runs most of these when a step names them. You can also name one in a prompt, such as `/how do we cancel runs?`. The 35 principle skills are in the next section.
 
 | Skill | Use it to |
 | --- | --- |
@@ -98,7 +98,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 ## Principles
 
-Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes all 34 and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle, and its reply names each principle that changed a decision. The rule below is a summary of that index entry.
+Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes all 35 and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle, and its reply names each principle that changed a decision. The rule below is a summary of that index entry.
 
 | Group | Principle | Rule |
 | --- | --- | --- |
@@ -133,6 +133,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 | Delegation | [Never Block on the Human](./skills/principle-never-block-on-the-human/SKILL.md) | Do reversible work and show the result, and ask only about a decision that belongs to the owner. |
 | Delegation | [Progress Is What the Record Says](./skills/principle-progress-is-what-the-record-says/SKILL.md) | Where work stands is what the ticket, branch, map or resume note says, not what the session remembers. |
 | Writing | [Write for Where It Is Read](./skills/principle-write-for-where-it-is-read/SKILL.md) | Before writing, name who reads the text, what they are doing then, and what they can see. |
+| Writing | [Everything at Hand](./skills/principle-everything-at-hand/SKILL.md) | Put everything needed to understand each place on a page where the reader looks at that place. |
 | Writing | [Anchor Every Reference](./skills/principle-anchor-every-reference/SKILL.md) | Name a file, section, rule or event by its path and its heading, identifier or rule number, the same way each time. |
 | Writing | [Files Describe the Present](./skills/principle-files-describe-the-present/SKILL.md) | Write only what is true now. What changed and why goes in the commit message and the reply. |
 | Meta | [Encode Lessons in Structure](./skills/principle-encode-lessons-in-structure/SKILL.md) | When you write the same instruction a second time, encode it as a lint, a flag, a runtime check or a script. |

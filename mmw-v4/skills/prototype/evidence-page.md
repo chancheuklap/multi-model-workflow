@@ -12,7 +12,7 @@ The question picks the shape; both share the same header.
 ## Sections, in order
 
 1. **Header**: `<title>` and `<h1>` carry the issue and the experiment round so several open tabs stay distinguishable. Under it: the question and the bar, the run parameters, the run time, the commit.
-2. **Legend**: every colour, box style, and marker the page uses, before any of them appears.
+2. **Legend placement**: place each Body block's legend beside that block, covering its colours, box styles, and markers, so the reader can interpret the block in view.
 3. **Summary table**: one row per approach, one column per measure the bar names. No verdict column: the page reports, the `README.md` judges.
 4. **Body**: the grid or the catalogue.
 5. **How it decided**: the rules the approach applied, one line each, naming the file and function in the leaf directory that implements it, so a reader can map what they see back to code.
@@ -29,7 +29,7 @@ A section may open with a one-line *what to look for* note. It points the eye; i
 
 ## Skeleton
 
-Embed in the generator and fill the slots; the rest of the page is rows of `.row` inside `.sample` blocks.
+Embed in the generator and fill the slots; the rest of the page is rows of `.row` inside `.sample` blocks. Put `<div class="legend">{{legend_items}}</div>` beside each Body block rather than in the header, so the generator follows the per-block legend placement.
 
 ```html
 <!doctype html>
@@ -57,7 +57,6 @@ Embed in the generator and fill the slots; the rest of the page is rows of `.row
 </style>
 <h1>{{issue}} · {{round}}</h1>
 <p class="meta">{{question}} · bar: {{bar}} · params: {{params}} · run: {{run_time}} · commit: {{commit}}</p>
-<div class="legend">{{legend_items}}</div>
 <table>{{summary_table}}</table>
 {{body}}
 <h2>How it decided</h2>

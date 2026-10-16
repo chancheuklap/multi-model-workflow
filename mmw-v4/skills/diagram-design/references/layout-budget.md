@@ -70,6 +70,8 @@ Over budget: SKILL.md §7.
 3. **Summary cards** — optional, for parallel facts beside a diagram: 2–3 col grid with *varied* widths (e.g., `1.1fr 1fr 0.9fr`).
 4. **Footer** — colophon in Geist Mono, muted, hairline top border.
 
+For a page with several diagrams or text beside a diagram, use [page-for-a-person.md](page-for-a-person.md) for the page layout, so the single-diagram template does not separate explanations from their figures.
+
 ## Summary Card Pattern
 
 Don't use 3 identical generic cards. Vary the treatment:

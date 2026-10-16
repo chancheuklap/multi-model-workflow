@@ -1,6 +1,6 @@
 # Architecture report
 
-The page Improve the architecture step 3 draws with the `diagram-design` skill. Its reader is the owner, who does not read code: no file, function or code is on it, and each part of the product is under the name the project's glossary gives it, and every word on it, the badges included, is in the owner's language. This file sets what goes on the page, top to bottom: the header, one card per candidate, then the top recommendation.
+The page Improve the architecture step 3 draws with the `diagram-design` skill. Its reader is the owner, who does not read code: no file, function or code is on it. Write the explanatory text and badges in the owner's language, with names governed by **principle-anchor-every-reference**. This file sets what goes on the page, top to bottom: the header, one card per candidate, then the top recommendation.
 
 ## Header
 
@@ -10,9 +10,9 @@ Repo name and date. No introduction paragraph. Straight into the candidates.
 
 The diagrams carry the weight. Each candidate is one `<article>`:
 
-- **Title**: short, names the part made simpler, in the glossary's names (e.g. "One place takes in orders").
+- **Title**: short, names the part made simpler (e.g. "One place takes in orders").
 - **Badge row**: recommendation strength (`Strong` = `accent`, `Worth exploring` = `ink`, `Speculative` = `muted`), plus its size: one ticket, or a spec.
-- **Before / After diagram**: the centrepiece. Two columns, side by side. See Diagrams below.
+- **Before / After diagram**: the centrepiece. See Diagrams below.
 - **What hurts now**: one sentence, as a person changing the product meets it: which kind of change is slow, easy to get wrong, or hard to test, and why.
 - **What changes**: one sentence.
 - **What gets better**: bullets of six words or fewer, each an effect on a later change (e.g. "A pricing fix touches one part", "Tests run the real path").
@@ -29,7 +29,7 @@ Pick the `diagram-design` type that fits the candidate. Mix them. Don't make eve
 - A tree of calls that collapses into one module: **Tree** before, **Nested** after, with the now-internal calls shown faded inside the deep module.
 - An interface nearly as wide as its implementation: **Nested**, the interface drawn as the outer band around the implementation, thin in the after picture.
 
-Before and after sit side by side, drawn with the same `viewBox` about 560 wide, each scaled to its column's width (overriding the template's `min-width`), so the reader compares them by eye and 12px labels stay legible at half the page width.
+Draw both diagrams with the same `viewBox` about 560 wide, each scaled to its column's width (overriding the template's `min-width`), so 12px labels stay legible at half the page width.
 
 Each kind of mark keeps one look across every diagram in the report, so the reader learns the notation once. The legend names them in plain words: a part, the part made deeper, where two parts meet, a change that spills from one part into another.
 
@@ -46,4 +46,4 @@ One larger card. Candidate name, one sentence on why, anchor link to its card. T
 
 ## Words
 
-Plain words, short sentences, the glossary's names. The architecture terms of the `codebase-design` skill (module, interface, depth, seam, adapter, leverage, locality) stay off the page; they go into the ticket Refactoring writes. No hedging, no throat-clearing. If a sentence could be a bullet, make it a bullet. If a bullet could be cut, cut it.
+Plain words, short sentences. The architecture terms of the `codebase-design` skill (module, interface, depth, seam, adapter, leverage, locality) stay off the page; they go into the ticket Refactoring writes. No hedging, no throat-clearing. If a sentence could be a bullet, make it a bullet. If a bullet could be cut, cut it.

@@ -118,7 +118,7 @@ Rules:
 
 ## Legend — horizontal strip at the bottom
 
-**Never put the legend inside the diagram area.** Place as a horizontal strip after all nodes, with a hairline separator:
+For a diagram taller than one viewport, use [page-for-a-person.md](page-for-a-person.md) to keep the legend visible beside it. For a diagram that fits in one viewport, place the legend outside the active diagram area as a horizontal strip after all nodes, with a hairline separator:
 
 ```svg
 <line x1="30" y1="LEGEND_Y-8" x2="VIEWBOX_W-30" y2="LEGEND_Y-8"

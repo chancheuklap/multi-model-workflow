@@ -7,6 +7,8 @@ description: Create branded architecture, architecture delta, IT current-state, 
 
 Create diagrams as self-contained HTML files with inline SVG and an editorial design system.
 
+For any page or diagram for a person, first read **principle-everything-at-hand**. For a page with several diagrams or text beside a diagram, read [`references/page-for-a-person.md`](references/page-for-a-person.md) before laying it out. Reader rules come before drawing technique because a technically correct diagram can still make the reader search for its explanation.
+
 Forty-four visual types. Semantic patterns describe behavior; type references describe layout.
 
 Run every script from this skill's own directory. A script a reference names as `scripts/<name>.py` is this skill's own `scripts/<name>.py` when that file exists, and `repo-root/scripts/<name>.py` otherwise.
@@ -40,14 +42,14 @@ Applied to schematics:
 - Coral is **editorial, not a flag.** 1–2 focal nodes per diagram. Using it on 5 nodes erases the signal.
 - The schematic isn't done when everything is added. It's done when nothing can be removed.
 
-Six rules hold for every diagram and for the page around it. Each ends on the question to ask of the finished page.
+Use these drawing judgements with **principle-everything-at-hand**. Ask each retained question of the finished page and use the principle's **The test** for reader rules.
 
 1. **Question first.** A diagram answers the one question the reader asked, and draws the object of that question. A diagram you cannot draw is one you have not understood yet: go back to the source rather than routing round the picture with a table or prose. *Can the reader answer their question from this diagram alone?*
-2. **Bounded by the source.** A diagram of an existing system, document or process draws what its source holds. Every component, connection, name and grouping traces to the source. Names are copied as the source writes them, never translated, shortened or renamed; a project's glossary, where it has one, is part of the source. Nothing is invented to fill a layout, and nothing that does work in the source is silently dropped. A grouping the source has no word for gets a plain description, never a new name or code, even one the conversation has already started using. A type's minimum count never adds an element: choose a type the source fills. The subject is drawn as it is now, or as the design will leave it, never as the story of how it got there; a before/after comparison draws both states (rule 3). *Does every element match the source, and is everything that does work in the source on the diagram?*
-3. **Whole and detail on one canvas.** The reader looks for breaks and repeats across the whole, so one subject stays on one canvas; above 9 nodes it nests, as the budget in §7 says. Detail means the real steps and what each step uses, not a few coarse boxes. A document or a process is drawn on its own structure, with its flow drawn inside it. A before/after comparison is one subject: its two states sit side by side at the same scale, so the reader compares them by eye. *Can the reader walk one real run through the diagram and see what each step takes in and hands on?*
-4. **The picture carries the content.** The reader knows nothing about the topic: pictures show what things are and how they connect. Flows, structures, routes, who reads or writes what, and before/after comparisons are drawn; a table is for parallel entries with no relations between them, such as a lookup sheet. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn. Detail the source already holds is cited, not retold; a term the reader may not know still gets its one plain sentence on the page (rule 6). *What would the reader lose without this sentence? Would this table read faster as a diagram?*
-5. **One mark, one meaning.** A kind of thing keeps one shape and one colour across the whole page, in the diagrams and in the prose that names it, with the legend beside the diagram. Colour by kind sorts things; coral marks the focus, and the two never share a colour. *Does each mark mean the same thing wherever it appears?*
-6. **The page stands alone.** Write it by **principle-write-for-where-it-is-read**, for a reader who saw none of the conversation that produced it, and name everything on it by **principle-anchor-every-reference**. What the conversation settled, a design among it, is stated on the page, not referred to. *Could someone who saw none of that conversation read every sentence?*
+2. **Bounded by the source.** A diagram of an existing system, document or process draws what its source holds. Every component, connection, name and grouping traces to the source. Use **principle-anchor-every-reference** for names. Nothing is invented to fill a layout, and nothing that does work in the source is silently dropped. A grouping the source has no word for gets a plain description, never a new name or code, even one the conversation has already started using. A type's minimum count never adds an element: choose a type the source fills. *Does every element match the source, and is everything that does work in the source on the diagram?*
+3. **Draw the real detail.** Above 9 nodes, nest as the budget in §7 says. Detail means the real steps and what each step uses, not a few coarse boxes. A document or a process is drawn on its own structure, with its flow drawn inside it. *Can the reader walk one real run through the diagram and see what each step takes in and hands on?*
+4. **Choose tables for unrelated entries.** A table is for parallel entries with no relations between them, such as a lookup sheet. *Would this table read faster as a diagram?*
+5. **One mark, one meaning.** A kind of thing keeps one shape and one colour across the whole page, in the diagrams and in the prose that names it. Colour by kind sorts things; coral marks the focus, and the two never share a colour. *Does each mark mean the same thing wherever it appears?*
+6. **Reader rules.** Use **principle-everything-at-hand** for the page and every diagram on it.
 
 ---
 
@@ -236,7 +238,7 @@ Per-type limits (lifelines, lanes, series, bars, stages, and the rest): [layout-
 
 If you exceed, re-draw in a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture) and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, and so does the top level, where each container counts as one node; the canvas as a whole may hold more. An arrow between two nodes of one container counts against that container; an arrow that crosses containers counts against the top level. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
 
-Split into overview + detail only when the subject genuinely holds two independent questions — then say which question each diagram answers. A reader who has to hold two canvases in their head to see one system has lost the thing they came for. The per-type caps in layout-budget.md (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
+For the whole and detail required by **principle-everything-at-hand**, draw one large overview with detail nested inside or drawn directly beside it, so both stay in the same place. The per-type caps in layout-budget.md (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
 
 ---
 
@@ -252,7 +254,7 @@ Run before producing any diagram.
 
 **The six rules:**
 
-- [ ] Asked each §1 rule's question of every diagram and of the page around it?
+- [ ] Asked each §1 drawing question and applied **principle-everything-at-hand**'s **The test** to every diagram and the page around it?
 
 **Type fit:**
 
@@ -288,14 +290,14 @@ Run before producing any diagram.
 - [ ] **§6 rule 5:** no transit behind a non-endpoint box, except the unavoidable case (dashed, label at the visible end)?
 - [ ] **§6 rule 6:** no label mask overlapping a node drawn after it? (Run `python3 scripts/verify-geometry.py <file>` from this skill's own directory.)
 - [ ] Every arrow label has an opaque `fill="#f5f5f5"` rect behind it?
-- [ ] Legend is a horizontal bottom strip, not floating?
+- [ ] Each diagram has its own legend visible without scrolling away from the diagram? Use a bottom strip for a diagram that fits in one viewport, or a sticky adjacent column for a taller diagram, so the reader keeps the notation in view.
 - [ ] No vertical `writing-mode` text?
 - [ ] `viewBox` expanded for the legend strip (~60px)?
 - [ ] **`min-width` equals the viewBox width, and the SVG sits in a local `overflow-x: auto` wrapper? (Otherwise a phone scrolls the whole page — or an `overflow: hidden` ancestor clips the diagram with no scrollbar at all. See [output-spec.md](references/output-spec.md).)**
 - [ ] Node origins, dimensions, gaps, padding on the 4px grid; type sizes on the role ramp?
 - [ ] From this skill's own directory, did `python3 scripts/self_check.py <file>` pass? (Accessible-SVG contract, single-file safety, motion basics.)
 - [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? Also run `python3 repo-root/scripts/verify-motion.py path/to/generated.html` plus the skin linter (`python3 scripts/lint-skin.py <file>`) from this skill's own directory.
-- [ ] Opened the rendered file and looked at every diagram in it? The checks above read the source; clipped text, crossing strokes and a picture that does not answer its question show only in the render.
+- [ ] Opened the rendered file at desktop window width and inspected the whole page and every diagram for overlap, text overflow, connector endpoints displaced from their targets, and whole-page horizontal scrolling? The checks above read the source; these defects and a picture that does not answer its question show only in the render.
 
 **Typography:**
 
@@ -377,6 +379,8 @@ Show the page in the richest surface this session has:
 
 - **You hold a tool that renders HTML for the user**: a visual panel, canvas, artifact, or site surface. Use it.
 - **Plain CLI only**: write the file to a temporary location outside the working tree, open it with this machine's file-opening command, and give the user the path in your reply.
+
+When publishing through a built-in page tool that requires its own design skill, read that skill and meet its technical constraints: permitted external sources, document skeleton, title, theme tokens, and a mobile page without whole-page horizontal scrolling. Use **principle-everything-at-hand** and this skill for layout and reading, because they carry the project's reader requirements. Where the built-in advice conflicts, choose diagrams for relationships, a legend for each figure, adjacent explanations, desktop-first layout, and render inspection until the page meets the checklist.
 
 Renders correctly in any modern browser. Motion-enabled output must render its complete meaning without JavaScript; under `prefers-reduced-motion: reduce` it shows the complete static frame and hides/disables playback controls.
 

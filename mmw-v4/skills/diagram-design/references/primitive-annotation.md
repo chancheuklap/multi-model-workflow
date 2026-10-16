@@ -16,6 +16,7 @@ Use for editorial asides — the "italic pointer" that marks a detail without co
 ```
 
 ## Rules
+- Numbered explanations in [page-for-a-person.md](page-for-a-person.md) identify elements rather than editorial asides. They are separate from these italic callouts and do not count toward the two-callout limit, so necessary explanations remain available.
 - Italic + serif together signal "editorial voice" against the diagram's sans/mono body. Don't substitute italic sans or italic mono — the combination is load-bearing.
 - Dashed path (`stroke-dasharray="4,3"`) distinguishes the callout leader from primary arrows (which are solid).
 - Place callouts in margins (top-right, bottom-left). Never inside the active diagram area.
