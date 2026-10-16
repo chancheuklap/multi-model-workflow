@@ -64,7 +64,7 @@ dark: false
 
 ```
 label_col_w      = 140
-step_slot_w      = node_w + 12                       # 100-px node + 12-px corridor
+step_slot_w      = node_w + 12
 right_pad        = 28
 n_steps          = len(steps)
 n_lanes          = len(lanes)
