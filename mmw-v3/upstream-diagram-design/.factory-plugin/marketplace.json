@@ -1,9 +1,0 @@
-{
-  "name": "diagram-design",
-  "plugins": [
-    {
-      "name": "diagram-design",
-      "source": "./"
-    }
-  ]
-}

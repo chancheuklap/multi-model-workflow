@@ -103,7 +103,7 @@ A **hand-off** is an edge A → B: skill or agent A leaves something that B read
 
 An **upstream skill** is one whose text was first written outside `mmw-v4/skills/`: in an upstream repository (`mattpocock/skills`, `cursor/plugins`) or in MMW's own earlier text. The copy in `mmw-v4/skills/` is the set's text. The set's work is to connect it to the workflow: what reaches it, what it hands on, which repository rule it must obey. The copy changes only where the change alters what the agent does: a step, their order, where or with what it works, what it produces or hands over, a component it names that the set does not have. A rewording for style, clarity or the set's voice is a finding, fixed by restoring the upstream text, because every difference has to be carried by hand through each upstream update.
 
-The upstream trees are read-only, under `mmw-v3/upstream-mattpocock/`, `mmw-v3/upstream-pstack/`, `mmw-v3/upstream-cursor-team-kit/` and `mmw-v3/upstream-diagram-design/` of this repository; a copy is compared with its source there.
+The upstream trees are read-only `git subtree --squash` copies under `upstream/` of this repository: `upstream/mattpocock/` (`mattpocock/skills`), `upstream/pstack/` and `upstream/cursor-team-kit/` (those two directories of `cursor/plugins`), `upstream/diagram-design/` (`cathrynlavery/diagram-design`) and `upstream/e2e/` (the `skills/` directory of `tester-army/e2e`, read but not installed). A copy is compared with its source there. A whole repository is updated with `git subtree pull --prefix upstream/<name> https://github.com/<owner>/<repo> main --squash`; one directory of a repository by fetching it, printing that directory's split with `git subtree split --prefix=<directory> FETCH_HEAD`, and running `git subtree merge --prefix=upstream/<name> --squash <split>`.
 
 - The commit that copies a file into `mmw-v4/skills/` names the repository that first wrote it (never an intermediate copy), the path there, and the commit it was read at. A later edit to the copy says in its own commit message what it changed and why.
 - When a copy is compared with a newer upstream version, carry each change that alters behaviour into the copy unless an edit of the set already changed that passage, and read the changed upstream files against [`UPSTREAM-INTENTS.md`](UPSTREAM-INTENTS.md): an intent upstream added or changed is written there in the same change, and placed in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md) under the intent that takes it or among the departures with its reason.
@@ -148,7 +148,7 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 
 ## Upstream examples
 
-mattpocock's own skills show several checks done well. Read them in their subtree, `mmw-v3/upstream-mattpocock/skills/`; the paths below are relative to it. The `retro` below is upstream's, not MMW's own `retro` skill.
+mattpocock's own skills show several checks done well. Read them in their subtree, `upstream/mattpocock/skills/`; the paths below are relative to it. The `retro` below is upstream's, not MMW's own `retro` skill.
 
 | Check | Upstream file | What to look at |
 | --- | --- | --- |

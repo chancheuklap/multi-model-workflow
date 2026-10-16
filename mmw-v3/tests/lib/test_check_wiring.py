@@ -29,8 +29,7 @@ class WiringTest(unittest.TestCase):
         root = Path(tmp.name) / "mmw-v3"
         shutil.copytree(MMW / "skills", root / "skills",
                         ignore=shutil.ignore_patterns("__pycache__"))
-        for upstream in MMW.glob("upstream-*"):
-            (root / upstream.name).symlink_to(upstream)
+        (root.parent / "upstream").symlink_to(MMW.parent / "upstream")
         self.skills = root / "skills"
         self.mode = self.skills / "mmw-mode" / "SKILL.md"
 

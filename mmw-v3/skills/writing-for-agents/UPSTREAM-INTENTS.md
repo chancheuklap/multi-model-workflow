@@ -1,6 +1,6 @@
 # Upstream intents
 
-The design intents of the two skill sets MMW is built from: Matt Pocock's skills (`mattpocock/skills`, subtree `mmw-v3/upstream-mattpocock/`) and pstack (`cursor/plugins`, subtree `mmw-v3/upstream-pstack/`). MMW is Matt's skills placed into pstack's frame, with MMW's own additions. Every id below appears in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md), either under the MMW intent that takes it or among the departures with the reason; an id in neither is a gap, to be brought in or given a reason.
+The design intents of the two skill sets MMW is built from: Matt Pocock's skills (`mattpocock/skills`, subtree `upstream/mattpocock/`) and pstack (`cursor/plugins`, subtree `upstream/pstack/`). MMW is Matt's skills placed into pstack's frame, with MMW's own additions. Every id below appears in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md), either under the MMW intent that takes it or among the departures with the reason; an id in neither is a gap, to be brought in or given a reason.
 
 ## Reading an upstream for its intents
 
@@ -46,7 +46,7 @@ Written for an engineer at the keyboard who reads the code. They answer four fai
 | M27 | written | When person-invoked skills are too many to remember, a router skill lists them and when each applies; a router can suggest, not trigger. | `SKILL-MECHANICS.md`; `ask-matt` |
 | M28 | written | Per-repository setup splits hard from soft dependencies: a skill that goes wrong without the setup has one line pointing to setup; one the setup only sharpens mentions it in passing, to stay light. | `.agents/adr/0001-explicit-setup-pointer-only-for-hard-dependencies.md` |
 | M29 | written | Skills sit in buckets and get promoted: the two promoted buckets go into the plugin and the README; in-progress, rarely used and deprecated ones do not; the README, the plugin manifest and the doc pages stay in step with the promoted set. | `AGENTS.md` |
-| M30 | written | Two ways to distribute: the plugin is a read-only subscription that updates itself; a copy in a repository is editable and owned. The maintainer symlinks the install so it follows the repository. | `README.md` Installation; `mmw-v3/upstream-mattpocock/scripts/link-skills.sh` |
+| M30 | written | Two ways to distribute: the plugin is a read-only subscription that updates itself; a copy in a repository is editable and owned. The maintainer symlinks the install so it follows the repository. | `README.md` Installation; `upstream/mattpocock/scripts/link-skills.sh` |
 | M31 | written | A decision not to do something is a component too: one file per decision under `.out-of-scope/`, saying what is not done and why; triage reads it first, so a rejected request does not come back. | `.out-of-scope/`; `triage` |
 | M32 | implied | The set is released by version: each change carries a changeset, collected into `CHANGELOG.md`, and plugin subscribers receive versions. | `.changeset/`; `CHANGELOG.md`; `package.json` |
 | M33 | written | Whether a dependency is a skill call or only a pointer depends on its use: reading the glossary for vocabulary is a one-line pointer; actively building or sharpening the model calls `domain-modeling`. | `.agents/invocation.md` |
@@ -91,7 +91,7 @@ Written by poteto for an engineer who reads the code and runs many agents at onc
 | P32 | written | One principle per skill, so other skills can name it; the mode holds the index of all principles. | `README.md` |
 | P33 | written | A template every invocation uses stays in the skill file rather than a separate file that costs a read every time. | `skills/principle-guard-the-context-window/SKILL.md` |
 | P34 | written | The reply's shared rules are written once, in the mode; each playbook's Reply holds only what is unique to it. | `poteto-mode` `## Writing the reply` |
-| P35 | written | The subagent definition exists to force a read of the mode before work starts; a general-purpose subagent skips that read and drifts. | `mmw-v3/upstream-pstack/agents/poteto-agent.md`; `README.md` |
+| P35 | written | The subagent definition exists to force a read of the mode before work starts; a general-purpose subagent skips that read and drifts. | `upstream/pstack/agents/poteto-agent.md`; `README.md` |
 | P36 | written | The model configuration is a standing rule outside the plugin, written by `setup-pstack`; each skill reads its role's row and falls back to a default. | `setup-pstack`; `README.md` |
 | P37 | written | Authoring a skill has a fixed process: write it with `create-skill`, validate the frontmatter and links, add tests for a structural change; when in doubt delete, keeping only prose that changes a decision; a link to another skill must resolve, and its rules are not restated. | the Authoring a skill playbook |
 | P38 | written | The mode stays in effect once entered; each turn reminds the agent to judge whether it applies. | `README.md`; the `reminder` field of `poteto-mode`'s frontmatter |

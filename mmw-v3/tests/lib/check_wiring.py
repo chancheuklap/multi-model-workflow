@@ -138,7 +138,7 @@ def dispatch_commands() -> set[str]:
 
 def upstream_roots(skill: str) -> list[Path]:
     """The root of each vendored upstream tree that carries this skill under its skills/."""
-    return [skills.parent for skills in SKILLS.parent.glob("upstream-*/skills")
+    return [skills.parent for skills in (SKILLS.parents[1] / "upstream").glob("*/skills")
             if (skills / skill).is_dir()]
 
 

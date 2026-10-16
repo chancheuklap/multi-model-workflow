@@ -16,10 +16,11 @@ mid-task, by an agent that has never seen the app.
 When you need e2e instructions, run `npx e2e guide <topic>`: `writing-tests`
 for writing tests, `running` and `debugging` for running and reading results.
 It prints the same text from the version installed in this repository.
-Do not copy the e2e skill into the product repository or MMW, or use e2e's
-`init` command. Its description invites automatic selection at worker and
-reviewer startup, and its body promotes model-driven actions, remote
-control, and exploratory testing.
+Do not install the e2e skill in the product repository or on a host, or use
+e2e's `init` command. Its description invites automatic selection at worker
+and reviewer startup, and its body promotes model-driven actions, remote
+control, and exploratory testing. MMW keeps a read-only copy of it at
+`upstream/e2e/` for comparison; no host loads that copy.
 
 ## 1. Interview the repo, not the user
 

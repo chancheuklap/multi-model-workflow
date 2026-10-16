@@ -32,7 +32,7 @@ These hold for every component. They come from how pstack itself adds and change
 
 ## mode
 
-The model to imitate, in content as well as shape, is `mmw-v3/upstream-pstack/skills/poteto-mode/SKILL.md` (2,971 words, seven sections).
+The model to imitate, in content as well as shape, is `upstream/pstack/skills/poteto-mode/SKILL.md` (2,971 words, seven sections).
 
 ### What the mode is for
 
@@ -105,7 +105,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 
 ## playbook
 
-The models to imitate are the 23 files in `mmw-v3/upstream-pstack/skills/poteto-mode/playbooks/`. Read `bug-fix.md` and `refactoring.md` before writing a first one.
+The models to imitate are the 23 files in `upstream/pstack/skills/poteto-mode/playbooks/`. Read `bug-fix.md` and `refactoring.md` before writing a first one.
 
 ### What a playbook is for
 
@@ -135,7 +135,7 @@ A judgement several steps point to may follow the steps as a section of its own,
 - **For:** one judgement that many tasks need. "One-off -> brain note. Recurring fix -> skill or lint rule. Systemic issue -> principle." (pstack `principle-encode-lessons-in-structure`). In pstack every principle is named by at least two files besides the mode's index.
 - **Not for:** a judgement only one playbook needs (it stays in that playbook's step), or a repeated mistake a script can stop.
 - **Loading:** the mode's `## Principles` holds one line per principle and is always in context once the mode loads; the full text is read only when the condition arises. This is how a rule loads at the moment it applies, without a hook.
-- **Shape** (models: `mmw-v3/upstream-pstack/skills/principle-*/SKILL.md`):
+- **Shape** (models: `upstream/pstack/skills/principle-*/SKILL.md`):
   - Frontmatter: `name: principle-<slug>`; `description` is the one sentence every skill reached only by name has: `Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.` A principle is reached through its line in the mode's index, so its condition and rule are written there and not in the description (pstack sets `disable-model-invocation: true` on principles for the same reason).
   - `# <Title>` and the rule in one or two sentences.
   - `**Why:**` one sentence.
@@ -148,7 +148,7 @@ A judgement several steps point to may follow the steps as a section of its own,
 
 - **For:** one thing that recurs and that nothing else handles. "A workflow you keep hitting but isn't captured → propose a new skill." It is either used by many steps, or worth invoking directly.
 - **Not for:** what an existing skill can hold. Edit that skill.
-- **Shape** (models: `swarm`, `how`, `figure-it-out` under `mmw-v3/upstream-pstack/skills/`):
+- **Shape** (models: `swarm`, `how`, `figure-it-out` under `upstream/pstack/skills/`):
   - Frontmatter: `name`, `description` (what it does, then `Use for …` or `Use when …` with the words someone would use), and `argument-hint` when the skill takes an argument the person types.
   - `# <Title>` and one paragraph: what it does and what it hands back.
   - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names no model (`mmw-mode/SKILL.md` `## Subagents`).
@@ -157,7 +157,7 @@ A judgement several steps point to may follow the steps as a section of its own,
 
 ## reference
 
-The models to imitate: `mmw-v3/upstream-pstack/skills/how/references/explorer-prompt.md` (a prompt template) and `mmw-v3/upstream-pstack/skills/poteto-mode/references/bugbot-triage.md` (a lookup table).
+The models to imitate: `upstream/pstack/skills/how/references/explorer-prompt.md` (a prompt template) and `upstream/pstack/skills/poteto-mode/references/bugbot-triage.md` (a lookup table).
 
 ### What a reference is for
 
@@ -180,7 +180,7 @@ In the same change: the step or trigger that opens it names its path.
 
 ## script
 
-The models to imitate: `mmw-v3/upstream-pstack/skills/poteto-mode/scripts/worktree-audit.sh` (a small read-only program) and `mmw-v3/upstream-pstack/skills/poteto-mode/scripts/orch/` (a larger one with tests).
+The models to imitate: `upstream/pstack/skills/poteto-mode/scripts/worktree-audit.sh` (a small read-only program) and `upstream/pstack/skills/poteto-mode/scripts/orch/` (a larger one with tests).
 
 ### What a script is for
 
@@ -188,9 +188,9 @@ The part of the work that comes out the same every time and that a program can d
 
 ### When a new script is warranted
 
-- **An instruction is about to be written a second time** (pstack's `principle-encode-lessons-in-structure`, `mmw-v3/upstream-pstack/skills/principle-encode-lessons-in-structure/SKILL.md`): "If the fix is structural, only use the structural fix. The instruction is the symptom."
-- **The work is not done at a glance** (pstack's `principle-build-the-lever`, `mmw-v3/upstream-pstack/skills/principle-build-the-lever/SKILL.md`): "The tool is the artifact a reviewer can rerun."
-- **A repeated mistake can be made impossible** (pstack's `correct` skill's order, `mmw-v3/upstream-pstack/skills/correct/SKILL.md`: architecture, then types, then a lint or CI check whose error names the fix, then a test; prose last). A check is proven by making it fail on a real past mistake.
+- **An instruction is about to be written a second time** (pstack's `principle-encode-lessons-in-structure`, `upstream/pstack/skills/principle-encode-lessons-in-structure/SKILL.md`): "If the fix is structural, only use the structural fix. The instruction is the symptom."
+- **The work is not done at a glance** (pstack's `principle-build-the-lever`, `upstream/pstack/skills/principle-build-the-lever/SKILL.md`): "The tool is the artifact a reviewer can rerun."
+- **A repeated mistake can be made impossible** (pstack's `correct` skill's order, `upstream/pstack/skills/correct/SKILL.md`: architecture, then types, then a lint or CI check whose error names the fix, then a test; prose last). A check is proven by making it fail on a real past mistake.
 - **Not for a decision that needs judgement.** That stays in prose: written prominently, with an example of the failure.
 
 In the same change: the step or trigger that runs it gives the exact command.
