@@ -42,7 +42,7 @@ Without it, a verifier has to infer the intended share from the text inside the 
 <text x="X+16" y="Y+46" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">VALUE · SHARE</text>
 ```
 
-Focal cell: replace the fill with `rgba(235,108,54,0.16)` and the stroke with `#eb6c36` at 1.5px.
+Focal cell: replace the fill with `rgba(191,69,32,0.16)` and the stroke with `#bf4520` at 1.5px.
 
 ## Honest-data rule
 
@@ -97,7 +97,7 @@ The treemap's colour section holds here with one change: the ramp runs **per ser
 Every segment is one `<rect>` (over its paper mask, as in the parent) carrying the category, the series and the amount. Every visible string is bound to what it describes.
 
 ```svg
-<rect x="580" y="106" width="216" height="314" rx="2" data-column="mobile" data-segment="macOS" data-amount="1980" fill="rgba(235,108,54,0.16)" stroke="#eb6c36" stroke-width="1.5"/>
+<rect x="580" y="106" width="216" height="314" rx="2" data-column="mobile" data-segment="macOS" data-amount="1980" fill="rgba(191,69,32,0.16)" stroke="#bf4520" stroke-width="1.5"/>
 <text data-column="mobile" data-segment="macOS" data-role="label" x="596" y="152" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">1,980 min · 83% of mobile</text>
 <text data-column="mobile" data-role="caption" x="688" y="438" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">mobile · 24%</text>
 <text data-segment="macOS" data-role="key" x="344" y="497" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">macOS</text>

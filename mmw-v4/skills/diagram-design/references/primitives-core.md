@@ -33,7 +33,7 @@ Don't use the dot pattern when the diagram sits inside a product page, slide, or
   <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
 </marker>
 <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-  <polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/>
+  <polygon points="0 0, 8 3, 0 6" fill="#bf4520"/>
 </marker>
 <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
   <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/>
@@ -45,7 +45,7 @@ When one page carries several diagrams, prefix each marker `id` with the diagram
 | Arrow | Stroke | When |
 |---|---|---|
 | Default | muted `#4f5d75` | Internal, generic |
-| Accent | coral `#eb6c36` | Primary / highlighted / headline |
+| Accent | coral `#bf4520` | Primary / highlighted / headline |
 | Link-blue | `#2e5aa8` | HTTP/API calls, external systems |
 | Dashed | `stroke-dasharray="5,4"` + any color | Optional, passive, return, async |
 
@@ -103,7 +103,7 @@ Every arrow label needs an opaque rect behind it. Without one it bleeds through 
 ```svg
 <!-- Mask sits 14px above the arrow (8px text height + 6px gap). Stroke is at ARROW_Y. -->
 <rect x="MID_X-18" y="ARROW_Y-20" width="36" height="12" rx="2" fill="#f5f5f5"/>
-<text x="MID_X" y="ARROW_Y-11" fill="#7a8399" font-size="8"
+<text x="MID_X" y="ARROW_Y-11" fill="#5a6580" font-size="8"
       font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">WRITE</text>
 ```
 
