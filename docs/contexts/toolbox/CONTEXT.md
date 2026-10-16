@@ -39,8 +39,8 @@ The working tree of the repository's own clone, as against the linked worktrees 
 _Home_: `AGENTS.md`
 
 **subtree**:
-How an upstream repository is carried inside this one, read-only (`git subtree pull --prefix … --squash`): `mmw-v3/upstream-mattpocock/` is `mattpocock/skills`, `mmw-v3/upstream-pstack/` is pstack from `cursor/plugins`, `mmw-v3/upstream-cursor-team-kit/` is `cursor-team-kit/` from the same `cursor/plugins`, `mmw-v3/upstream-diagram-design/` is `cathrynlavery/diagram-design`. Nothing runs from a subtree: a file a skill needs is copied into `mmw-v3/skills/` and gets a row in **`imports.tsv`**.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+How an upstream repository is carried inside this one, read-only (`git subtree pull --prefix … --squash`): `upstream/mattpocock/` is `mattpocock/skills`, `upstream/pstack/` is pstack from `cursor/plugins`, `upstream/cursor-team-kit/` is `cursor-team-kit/` from the same `cursor/plugins`, `upstream/diagram-design/` is `cathrynlavery/diagram-design`, `upstream/e2e/` is `skills/` from `tester-army/e2e`. A directory of a repository comes in as its `git subtree split`. Nothing runs from a subtree except through the `repo-root` symlink: a file a skill needs is copied into `mmw-v4/skills/`.
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **upstream**:
 The source project of a subtree, or of any file copied into the set. A copied file differs from its source only where a **`J` entry** in its `imports.tsv` row records the change; upstream's own `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` stay in the subtree as upstream wrote them.
@@ -68,7 +68,7 @@ One memory in Nowledge Mem, kept in the **repository Space** and found by its la
 _Home_: `mmw-v3/skills/mmw-mode/references/memory.md`, `mmw-v3/skills/retro/SKILL.md`
 
 **`CONTEXT.md`**:
-The glossary of one bounded context, at `docs/contexts/<name>/CONTEXT.md`; the root `CONTEXT-MAP.md` lists the contexts and how they relate. `mmw-v3/upstream-mattpocock/CONTEXT.md` is upstream's own vocabulary and not part of it.
+The glossary of one bounded context, at `docs/contexts/<name>/CONTEXT.md`; the root `CONTEXT-MAP.md` lists the contexts and how they relate. `upstream/mattpocock/GLOSSARY.md` is upstream's own vocabulary and not part of it.
 _Home_: `mmw-v4/skills/domain-modeling/GLOSSARY-FORMAT.md`
 
 **`AGENTS.md`**:
@@ -439,8 +439,8 @@ _Home_: `mmw-v3/skills/teach/SKILL.md`
 _Home_: `mmw-v3/skills/teach/SKILL.md`
 
 **`repo-root` symlink**:
-`diagram-design`'s own symlink, `mmw-v3/skills/diagram-design/repo-root -> ../../upstream-diagram-design`, so a script that needs a file outside the skill directory resolves to the subtree root even when the skill is installed as a linked directory and `../../` would resolve into the host's own directory instead.
-_Home_: `mmw-v3/skills/diagram-design/SKILL.md`
+`diagram-design`'s own symlink, `mmw-v4/skills/diagram-design/repo-root -> ../../../upstream/diagram-design`, so a script that needs a file outside the skill directory resolves to the subtree root even when the skill is installed as a linked directory and `../../` would resolve into the host's own directory instead.
+_Home_: `mmw-v4/skills/diagram-design/SKILL.md`
 
 **"Hand the decision on"**:
 Step 5 of the `Improve the architecture` playbook: a confirmed grilling decision goes to the `Write a spec` playbook instead of being acted on in the same session, so the deepened module or seam still passes through the ticket and acceptance pipeline.

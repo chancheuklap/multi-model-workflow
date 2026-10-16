@@ -57,7 +57,7 @@ internal_connections:               # explicit platform-component edges
   - { from: "JupyterLab",  to: "Trino",      style: "secondary", dashed: true }
   - { from: "Airflow",     to: ["Apache NiFi", "MinIO", "JupyterLab"], style: "trigger" }
 
-focal_accent: "#eb6c36"             # one color for all focal components (default = SKILL accent)
+focal_accent: "#bf4520"             # one color for all focal components (default = SKILL accent)
 dark: false
 ```
 
@@ -188,7 +188,7 @@ consumer_y(k)     = source_y(k)                 # mirrored
 consumer_cy(k)    = source_cy(k)
 ```
 
-All side-column nodes use fixed `w=160 h=64`. Same fill / stroke pattern: fill `rgba(79,93,117,0.06)`, stroke `#7a8399`, stroke-width 1.
+All side-column nodes use fixed `w=160 h=64`. Same fill / stroke pattern: fill `rgba(79,93,117,0.06)`, stroke `#5a6580`, stroke-width 1.
 
 ---
 
@@ -198,18 +198,18 @@ Five styles, bound to topology. Don't let user override style on focal-touching,
 
 | `style` | Stroke | Width | Dash | Marker | When required |
 |---|---|---|---|---|---|
-| `primary` | `#eb6c36` (focal_accent) | 1.4 | — | `arrow-accent` | Every edge whose endpoint is a `focal: true` component. Also every Trino → consumer edge (serve-flow rule). |
+| `primary` | `#bf4520` (focal_accent) | 1.4 | — | `arrow-accent` | Every edge whose endpoint is a `focal: true` component. Also every Trino → consumer edge (serve-flow rule). |
 | `secondary` | `#4f5d75` (muted) | 1.2 | — | `arrow` | Default for internal platform-component edges and source → platform edges that don't touch focal. |
 | `federated` | `#2e5aa8` (link-blue) | 1.0 | `4,3` | `arrow-link` | Federation queries (e.g., source DB → Trino). |
 | `trigger` | `#4f5d75` (muted) | 1.0 | `4,3` | `arrow` | Every edge originating from a `kind: bar` component (Airflow drops). Unlabelled. |
-| `auth` | `#eb6c36` | 1.2 | `5,4` | `arrow-accent` | Every edge from a footer node up to the zone bottom edge. **Never to a specific component.** |
+| `auth` | `#bf4520` | 1.2 | `5,4` | `arrow-accent` | Every edge from a footer node up to the zone bottom edge. **Never to a specific component.** |
 
 **Defs block** (required, five markers — exactly):
 
 ```svg
 <defs>
   <marker id="arrow"        markerWidth="8" markerHeight="6" refX="7" refY="3"   orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
-  <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3"   orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/></marker>
+  <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3"   orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
   <marker id="arrow-link"   markerWidth="8" markerHeight="6" refX="7" refY="3"   orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
   <marker id="arrow-sm"     markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0, 6 2.5, 0 5" fill="#4f5d75"/></marker>
   <marker id="arrow-dim"    markerWidth="8" markerHeight="6" refX="7" refY="3"   orient="auto"><polygon points="0 0, 8 3, 0 6" fill="rgba(45,49,66,0.45)"/></marker>
@@ -310,15 +310,15 @@ Any source, consumer, platform component (node or bar), or footer node accepts a
 | Page paper | `#f5f5f5` | `#2d3142` |
 | Ink | `#2d3142` | `#f5f5f5` |
 | Muted | `#4f5d75` | `#bfc0c0` |
-| Accent | `#eb6c36` | `#f08a59` |
-| Link (federated) | `#2e5aa8` | `#6a95d8` |
+| Accent | `#bf4520` | `#f08a59` |
+| Link (federated) | `#2e5aa8` | `#739fdf` |
 | Side-column fill | `rgba(79,93,117,0.06)` | `rgba(245,245,245,0.06)` |
-| Side-column stroke | `#7a8399` | `rgba(245,245,245,0.30)` |
+| Side-column stroke | `#5a6580` | `rgba(245,245,245,0.30)` |
 | Zone fill | `rgba(45,49,66,0.025)` | `rgba(245,245,245,0.04)` |
 | Zone stroke | `rgba(45,49,66,0.32)` | `rgba(245,245,245,0.30)` |
 | Non-focal bar fill | `rgba(45,49,66,0.05)` | `rgba(245,245,245,0.06)` |
-| Focal fill | `rgba(235,108,54,0.08)` | `rgba(240,138,89,0.12)` |
-| Focal stroke | `#eb6c36` | `#f08a59` |
+| Focal fill | `rgba(191,69,32,0.08)` | `rgba(240,138,89,0.12)` |
+| Focal stroke | `#bf4520` | `#f08a59` |
 | Custom component colors | `C` | `C_light` (lighten ~15%) |
 
 ---
