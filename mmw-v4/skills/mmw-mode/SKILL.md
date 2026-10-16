@@ -14,6 +14,7 @@ The Principles section below grounds every trigger. Cite only principles whose l
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Any prose surface → the **unslop** skill. A reply or comment the owner reads is written per `references/owning-a-task.md` `## Writing the reply`.
+- Any page or diagram for a person, including an Artifact, HTML page or prototype page → the **diagram-design** skill, under **principle-everything-at-hand**.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow exception of Bug fix step 2.
 - Posting to a ticket, a comment or a pull request, or showing a person a command or its output → write `<REDACTED>` in place of every secret, and keep a credential in an environment variable rather than in the command.
@@ -68,6 +69,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Writing**
 
+- **Everything at Hand** (**principle-everything-at-hand**). Making any page or diagram for a person. Put everything needed to understand each place where the reader looks at that place.
 - **Write for Where It Is Read** (**principle-write-for-where-it-is-read**). Before writing anything another reader picks up: a subagent brief, a spec, a ticket, a document, a script's output. Name who reads it, what they are doing then, and what they can see.
 - **Anchor Every Reference** (**principle-anchor-every-reference**). Mentioning a file, section, rule or event in a reply or a document. Name it by path plus heading, identifier or rule number, verbatim, the same way each time.
 - **Files Describe the Present** (**principle-files-describe-the-present**). Writing or editing any file. Write only what is true now; what changed and why goes in the commit message and the reply.

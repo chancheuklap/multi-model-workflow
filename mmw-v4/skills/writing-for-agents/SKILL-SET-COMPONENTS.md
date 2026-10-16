@@ -161,7 +161,7 @@ A judgement several steps point to may follow the steps as a section of its own,
   - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names the subagent row to use (`mmw-mode/SKILL.md` `## Subagents`).
   - The phases or steps; a step that needs a template names `references/<file>`.
   - What it hands back, and in what form.
-- **A skill the steps that make one kind of output name**, the way Opening a PR names **technical-writing** and **unslop**: it holds the rules that kind of output shares, and the step that names it says only what this output carries. An HTML page for a person is one: the step that makes it names the **diagram-design** skill, which holds how every page is drawn and where it goes, and says what goes on the page. The mode names it nowhere.
+- **A skill the steps that make one kind of output name**, the way Opening a PR names **technical-writing** and **unslop**: it holds the rules that kind of output shares, and the step that names it says only what this output carries. An HTML page for a person is one: the step that makes it names the **diagram-design** skill and says what goes on the page. The mode's `## Non-negotiables` names **diagram-design** and **principle-everything-at-hand** for any page or diagram for a person, including a page made outside a playbook step, so those reader rules are reached there too.
 
 ## reference
 
