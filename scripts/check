@@ -105,6 +105,7 @@ TEST_ROOTS = ["mmw-v4/tests", "mmw-v4/prompt/tests"]
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "mmw-v4/docs/retired-")
 EXCLUDED = {
     "efforts/code-landing/prototypes/fixture/tests": "a prototype's fixture repository, test data rather than a suite",
+    "tests": "the e2e tests of tests/e2e/<product>/, which verify-<product> runs and each ticket's CHECK names",
 }
 NOT_RUN_HERE = ("exe-release's PowerShell checks (mmw-v4/tests/exe-release/check-generated-powershell.sh,"
                 " check-template-behaviour.sh): they need a Windows build machine")

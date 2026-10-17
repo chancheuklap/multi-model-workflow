@@ -1,0 +1,151 @@
+{
+  "cli": {
+    "claude": {
+      "offerings": [
+        {
+          "id": "opus",
+          "name": "opus",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "note": "For complex work and everyday tasks"
+        },
+        {
+          "id": "fable",
+          "name": "fable",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "note": "For your toughest challenges"
+        },
+        {
+          "id": "sonnet",
+          "name": "sonnet",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "note": "Most efficient for simpler tasks"
+        },
+        {
+          "id": "haiku",
+          "name": "haiku",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "note": "Fastest for quick answers"
+        }
+      ],
+      "read_at": "2026-10-17T03:18:59Z"
+    },
+    "codex": {
+      "offerings": [
+        {
+          "id": "gpt-6.1-sol",
+          "name": "GPT-6.1-Sol",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": true
+        },
+        {
+          "id": "gpt-6-astra",
+          "name": "GPT-6-Astra",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-6-sol",
+          "name": "GPT-6-Sol",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-6-luna",
+          "name": "GPT-6-Luna",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-sol",
+          "name": "GPT-5.6-Sol",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-terra",
+          "name": "GPT-5.6-Terra",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "name": "GPT-5.6-Luna",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "isDefault": false
+        }
+      ],
+      "read_at": "2026-10-16T15:38:50Z"
+    }
+  }
+}

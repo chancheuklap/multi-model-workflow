@@ -682,17 +682,21 @@ def _collapse_fillable(rows: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return out
 
 
+def everyday_name(offering: dict) -> str:
+    """The name a catalog offering goes by in models.json rows and on the board."""
+    ident = str(offering.get("id") or "")
+    name = str(offering.get("name") or ident)
+    if name and name.lower() != ident.lower() and not re.search(r"\d", name):
+        return name.lower().strip()
+    return _slug_everyday(name if re.search(r"\d", name) else ident)
+
+
 def fillable_rows(host: str, offerings: list[dict]) -> list[tuple[str, str]]:
     """Return the model and effort names accepted by configuration commands."""
     rows = []
     seen = set()
     for offering in offerings:
-        ident = str(offering.get("id") or "")
-        name = str(offering.get("name") or ident)
-        if name and name.lower() != ident.lower() and not re.search(r"\d", name):
-            model = name.lower().strip()
-        else:
-            model = _slug_everyday(name if re.search(r"\d", name) else ident)
+        model = everyday_name(offering)
         if not model or model in seen:
             continue
         seen.add(model)
@@ -820,8 +824,13 @@ def _scan_one_host(host: str, runner: str, source: str, fixture: dict | None) ->
         return _cached_host_result(host, source, _read_catalog(host, source))
     if state not in _STATE_LABELS:
         raise ValueError(f"MMW_HOST_CATALOG gives {host} unknown state {state!r}")
-    return _host_result(
+    result = _host_result(
         state, _offered_rows(host, offerings, source) if state == "ok" else [])
+    if isinstance(entry, dict):
+        result["read_at"] = str(entry.get("read_at") or "")
+        if entry.get("failure"):
+            result["failure"] = entry["failure"]
+    return result
 
 
 def cached_host_catalogs(runner: str) -> dict:
@@ -971,6 +980,53 @@ def _validate_max_workers(value: object) -> None:
                               "reason": "must be a whole number of at least 1"}])
 
 
+SUBAGENT_CLAUDE_CHOICES = {
+    "model": ("sonnet", "opus", "haiku", "fable"),
+    "effort": ("low", "medium", "high", "xhigh", "max"),
+}
+
+
+def _codex_subagent_offerings() -> list[dict]:
+    """The stored cli codex catalog, which a subagent's codex cell is checked against."""
+    return read_catalog_cache().get("cli", {}).get("codex", {}).get("offerings", [])
+
+
+def _common_efforts(offerings: list[dict]) -> list[str]:
+    levels = [set(item.get("thinkingOptionIds", [])) for item in offerings]
+    return _sort_efforts(list(set.intersection(*levels))) if levels else []
+
+
+def subagent_choices() -> dict:
+    """What each subagent cell may hold besides `inherit`: rows, claude's fixed values, codex's catalog ids."""
+    offerings = _codex_subagent_offerings()
+    return {
+        "rows": list(subagent_rows()),
+        "claude": {"models": list(SUBAGENT_CLAUDE_CHOICES["model"]),
+                   "efforts": list(SUBAGENT_CLAUDE_CHOICES["effort"])},
+        "codex": {
+            "models": [{"model": item["id"], "efforts": list(item.get("thinkingOptionIds", []))}
+                       for item in offerings],
+            "inherit_efforts": _common_efforts(offerings),
+        },
+    }
+
+
+def model_labels(ids: dict[str, list[str]]) -> dict[str, dict[str, str]]:
+    """The board's name for each model id per host: its everyday name, then " · <note>" when the
+    stored cli catalog has one; an id the catalog no longer lists gets its everyday spelling."""
+    cache = read_catalog_cache().get("cli", {})
+    labels: dict[str, dict[str, str]] = {}
+    for host, wanted in ids.items():
+        offered = {str(o.get("id")): o for o in cache.get(host, {}).get("offerings", [])}
+        labels[host] = {}
+        for ident in wanted:
+            offering = offered.get(ident)
+            name = everyday_name(offering) if offering else _slug_everyday(ident)
+            note = str(offering.get("note") or "") if offering else ""
+            labels[host][ident] = f"{name} · {note}" if note else name
+    return labels
+
+
 def _validate_subagents(value: object) -> list[dict[str, str]]:
     errors = []
     names = subagent_rows()
@@ -993,16 +1049,13 @@ def _validate_subagents(value: object) -> list[dict[str, str]]:
                 errors.append({"cell": host_cell, "reason": "must contain model and effort"})
                 continue
             if host == "claude":
-                choices = {
-                    "model": ("sonnet", "opus", "haiku", "fable", "inherit"),
-                    "effort": ("low", "medium", "high", "xhigh", "max", "inherit"),
-                }
-                for key, allowed in choices.items():
+                for key, values in SUBAGENT_CLAUDE_CHOICES.items():
+                    allowed = (*values, "inherit")
                     if row.get(key, "inherit") not in allowed:
                         errors.append({"cell": f"{host_cell}.{key}", "reason":
                                        f"choose one of {', '.join(allowed)}"})
             else:
-                offerings = read_catalog_cache().get("cli", {}).get("codex", {}).get("offerings", [])
+                offerings = _codex_subagent_offerings()
                 offered = {item["id"]: item for item in offerings}
                 model = row.get("model", "inherit")
                 if not isinstance(model, str) or model not in (*offered, "inherit"):
@@ -1013,8 +1066,7 @@ def _validate_subagents(value: object) -> list[dict[str, str]]:
                     errors.append({"cell": f"{host_cell}.model", "reason": reason})
                     continue
                 if model == "inherit":
-                    levels = [set(item.get("thinkingOptionIds", [])) for item in offerings]
-                    efforts = _sort_efforts(list(set.intersection(*levels))) if levels else []
+                    efforts = _common_efforts(offerings)
                 else:
                     efforts = offered[model].get("thinkingOptionIds", [])
                 if row.get("effort", "inherit") not in (*efforts, "inherit"):

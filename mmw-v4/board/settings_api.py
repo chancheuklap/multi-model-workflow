@@ -122,7 +122,41 @@ def _get() -> tuple[int, dict[str, str], bytes]:
         scan = _ready_scan(runner)
         if not scan["scanned_at"]:
             scan = _replace_scan(models.catalog_source(runner))
-    return _json(200, {**config, **_options(), "scan": {**scan, "scanning": False}})
+    subagents = _subagents(config)
+    return _json(200, {**config, **_options(), "scan": {**scan, "scanning": False},
+                       **_subagent_answer(config["rows"], subagents, scan["hosts"])})
+
+
+def _subagents(config: dict) -> dict:
+    saved = config.get("subagents") if isinstance(config.get("subagents"), dict) else {}
+    return {row: {host: {"model": "inherit", "effort": "inherit", **(saved.get(row, {}).get(host) or {})}
+                  for host in models.CLI_HOSTS}
+            for row in models.subagent_rows()}
+
+
+def _subagent_answer(rows: dict, subagents: dict, hosts: dict) -> dict:
+    """The subagent cells with their choices, one name per model id, and each saved model the catalog lacks."""
+    choices = models.subagent_choices()
+    codex_ids = [item["model"] for item in choices["codex"]["models"]]
+    stale = []
+    for agent, row in rows.items():
+        scan = hosts.get(row.get("host"), {})
+        offered = [item["model"] for item in scan.get("offered", [])]
+        if scan.get("state") == "ok" and row.get("model") not in offered:
+            stale.append({"cell": f"rows.{agent}.model", "host": row["host"],
+                          "stored": row.get("model"), "offered": offered})
+    stored = []
+    for name, cells in subagents.items():
+        model = cells["codex"]["model"]
+        if model != "inherit":
+            stored.append(model)
+            if codex_ids and model not in codex_ids:
+                stale.append({"cell": f"subagents.{name}.codex.model", "host": "codex",
+                              "stored": model, "offered": codex_ids})
+    labels = models.model_labels({"claude": choices["claude"]["models"],
+                                  "codex": list(dict.fromkeys(codex_ids + stored))})
+    return {"subagents": subagents, "stale": stale,
+            "subagent_options": {**choices, "labels": labels}}
 
 
 def _put(request) -> tuple[int, dict[str, str], bytes]:

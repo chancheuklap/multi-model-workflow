@@ -1,0 +1,20 @@
+/* What this variant adds to the settings sheet: each host's catalog status under 本机的 host, and
+   the subagent rows inside the same agent table, on the same four columns, one line per host. */
+
+.sheet { width: min(840px, 100%); }
+
+.host-cats { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-6); }
+.host-cat { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6) var(--sp-8); }
+.host-read { font-size: var(--t-meta); color: var(--soft); }
+.host-failure { flex-basis: 100%; }
+
+.roles.sub-roles { --cols: 150px 100px minmax(0, 1fr) 150px; }
+.sub-group {
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  margin-top: var(--sp-12); padding-block: var(--sp-12) var(--sp-4); border-top: 1px solid var(--rule);
+}
+.sub-role > .role-name { grid-row: span 2; align-self: start; padding-top: var(--sp-6); }
+.sub-host {
+  display: flex; align-items: center; height: 32px; padding-left: calc(var(--sp-8) + 1px);
+  font: var(--t-meta) var(--mono); color: var(--soft);
+}
