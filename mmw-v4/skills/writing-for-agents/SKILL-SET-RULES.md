@@ -66,7 +66,7 @@ These stay, though a trimming pass reads them as noise: a sentence that prevents
 - A description carries the trigger and nothing else: what the skill is, and the branches on which to load it (`writing-for-agents` `SKILL.md` `## Context pointers`); a skill that runs only when named says so in place of triggers (`writing-for-agents` `SKILL-MECHANICS.md` `## Invocation`). Routing (which role's file, which row of a command table, which reference), usage, process and outputs belong to the body; a description carrying them is a finding. A branch naming the role an agent was started as ("when you were started as the advisor") is a trigger.
 - Read every description in the set side by side, also in a partial review. Two descriptions that claim the same job are a conflict. A caller and the skill it hands to may share a trigger word when each description names only its own part of the job.
 - A description names no host and no runner: every host scans it into its system prompt, so one name ties the skill to that host or runner. A runner that cannot start is refused by its script at run time.
-- A skill has no host-side manifest beside it, so its name and description have one authority. The frontmatter holds `name` and `description`, plus `argument-hint` when the skill takes an argument the person types, and `disable-model-invocation: true` on a skill only the person starts, paired with `policy.allow_implicit_invocation: false` in the `openai.yaml` of its `agents/` directory, the only file that may sit beside it for a host. The frontmatter is valid YAML: quote a value that holds a colon followed by a space.
+- The allowed frontmatter keys live in `SKILL-MECHANICS.md` `## Invocation` and `mmw-v4/tests/lib/check_skill_frontmatter.py`.
 
 ### Vocabulary
 
@@ -90,13 +90,11 @@ A **hand-off** is an edge A → B: skill or agent A leaves something that B read
 - Each event gets one instruction across the set. Two skills or scripts that tell the agent different things about the same event (the same exit code, the same wake, the same "done") contradict each other; the fix goes in the skill that owns the event.
 - A sentence written for one caller can misread under another. When skill X runs inside skill Y, reread X's general statements in Y's situation.
 - Read each task for **unguided choices**: points where the agent must choose and the text says nothing, which hands the choice to the model's own habits. Fill each one with the criterion, or make it an explicit branch. A choice any reasonable model makes the same way is not unguided; writing it down is a no-op.
-- Invoking another skill, in MMW: name the skill and the job, never an install path; a whole job loads its `SKILL.md`, and the agent holding the skill resolves its scripts. To take its vocabulary and apply it in place, read its `SKILL.md`; to run it in a separate context, ask for the host's own general-purpose subagent and have it use the skill. A playbook step using only its command or material shared by several playbooks names the skill and file ("the `code-review` skill's `references/session.md`") without first loading its `SKILL.md`. The task's order stays in its playbook; the skill holds the method.
 - A hard dependency (the skill produces wrong output without some setup) gets one line naming what to run, as upstream's `to-spec` names `setup-matt-pocock-skills`; a soft one (the setup only sharpens output) gets a general mention.
 
 ### Prompts written for other agents
 
-- A start prompt carries only what is known when the agent is started (the ticket number, a base commit, where the task came from), then `Read the mmw-mode skill in full, then follow <what>.`, <what> being the file the agent works by, named by the step that sends it, then `It is your whole task: …`. Rules reach the agent through the mode's `SKILL.md` and that file; naming the file keeps the agent out of the mode's `references/owning-a-task.md`, which only an agent that owns its task reads. A ticket or spec is named and read from the tracker, not retold. A brief a model writes from a template counts as a start prompt, and the template lists everything the receiver needs.
-- Everything an agent must apply reaches it by one of two means: a skill or file its prompt tells it to load, or text pasted into the prompt. A rule the prompt says the agent applies, delivered by neither, is a broken hand-off. A rule stated both in a skill and in a prompt a script builds is duplication; the prompt keeps the data.
+- A ticket or spec is named and read from the tracker, not retold. A brief a model writes from a template counts as a start prompt, and the template lists everything the receiver needs. Everything an agent must apply reaches it by one of two means: a skill or file its prompt tells it to load, or text pasted into the prompt. A rule the prompt says the agent applies, delivered by neither, is a broken hand-off. A rule stated both in a skill and in a prompt a script builds is duplication; the prompt keeps the data.
 - A subagent's brief states what it returns and its length (upstream `code-review`: "Under 400 words"), so its report fits the caller's attention.
 
 ### Upstream skills
@@ -139,7 +137,7 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 
 ### Refusals and output an agent reads
 
-- A refusal has three parts (**principle-fail-loudly**): what happened, with one fact the reader can check (a path, a pid, a count, a ticket number); why; and the one next step the reader can take, fitting the skill that receives it. A refusal (exit 2) changes nothing before it refuses. A script whose sibling script is missing reports an incomplete checkout; no flag passes over it.
+- A refusal follows **principle-fail-loudly**. A script whose sibling script is missing reports an incomplete checkout; no flag passes over it.
 - Hosts cut long output before the agent sees it, so the next step sits in the first lines.
 - The suggested next step is safe to run as written.
 
@@ -150,8 +148,7 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 - Fix at the level of the finding. A wording finding is fixed in the sentence: improve the sentence that misled, since a new sentence added to correct an old one leaves both. A load finding is fixed in the structure: move, merge, split at a branch, or delete whole sections, carrying each sentence that still applies across verbatim. Sentences the finding does not touch stay byte for byte.
 - Asked to "streamline", an agent shortens and cuts function with it, so every deletion is tested against the agent's behaviour: walk the task once after the edit, as **Authoring or modifying a skill**'s **Prove it, once** says, and confirm it still reaches its completion criterion with nothing guessed (`writing-for-agents` `SKILL.md` `## Pruning`); a fix made from a review of the set is not walked again, since the review's walk was its walk. Reaching the completion criterion on the walked path does not clear a cut to such a passage, since its effect is on the runs the walk did not take. Before cutting one, name the case it would have guided and what guides that case after the cut.
 - Before a rename, move or deletion, `grep` the set for the heading, file name, token and term you are changing, and change every file that states it in the same edit: skills, references, scripts, templates, tests. Callers cite sections by name, and a program may import a script by file path.
-- Text taken from another source keeps its authors' wording (see [Upstream skills](#upstream-skills)). Excerpts are quoted verbatim and collected into one block before they are placed; finding places for them first splits the source apart.
-- The file states what is true now; what changed and why goes to the commit message and the report.
+- Excerpts are quoted verbatim and collected into one block before they are placed; finding places for them first splits the source apart.
 
 ## Upstream examples
 
