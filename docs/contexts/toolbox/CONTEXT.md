@@ -280,7 +280,7 @@ _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **upstream skill**:
 A skill copied into `mmw-v4/skills/` from an upstream subtree, entering the set as its authors wrote it. The set changes the copy only where the change alters what the agent does, never for wording, clarity or its own voice; a newer upstream version is carried in, rewording and compression included, into every passage the set has not changed. Distinct from a local rewording, which is a finding fixed by restoring the upstream text.
-_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`; `mmw-v4/skills/writing-for-agents/UPSTREAM.md` `## Carry a newer upstream version`
 
 **skill-set-review finding**:
 An established problem in a skill's text or structure, always fixed once evidenced — there are no severity levels. Distinct from ticket-run's **review finding** and release's **release finding**.
