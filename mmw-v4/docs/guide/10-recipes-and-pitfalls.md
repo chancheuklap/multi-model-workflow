@@ -53,7 +53,7 @@ we want offline mode for the mobile app, and i don't know yet what that takes. c
 spec #212's tickets are published. run the night on them. i'm going to bed.
 ```
 
-In the morning you get one pull request whose top half is written for you. When you accept it:
+In the morning you get one pull request whose first line opens your visual page. The body is the short record; the page shows the result and what you decide. When you accept it:
 
 ```text
 i accept the night's pull request for #212. finish it.
@@ -108,7 +108,7 @@ The [code-review](../../skills/code-review/SKILL.md) skill reads the diff on fou
 ## Vet a number before you post it
 
 ```text
-/benchmark-checklist vet this 40% speedup before it goes in the pull request description
+/benchmark-checklist vet this 40% speedup before it goes on the pull request's page
 ```
 
 You get faster, slower, no measurable difference, or inconclusive, with the run count, the range, and what limits the number.

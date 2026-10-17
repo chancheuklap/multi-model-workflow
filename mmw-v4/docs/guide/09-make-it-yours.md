@@ -49,13 +49,13 @@ A skill that drives your app to prove behaviour is a verification skill. The `cr
 
 ## Write docs to a standard with `technical-writing`
 
-Skills are not the only prose that ships. Docs, readmes, pull request descriptions and commit messages go through the [technical-writing](../../skills/technical-writing/SKILL.md) skill, then the [unslop](../../skills/unslop/SKILL.md) skill:
+Skills are not the only prose that ships. Docs, readmes and commit messages go through the [technical-writing](../../skills/technical-writing/SKILL.md) skill, then the [unslop](../../skills/unslop/SKILL.md) skill:
 
 ```text
 /technical-writing review the readme changes
 ```
 
-Its goal is prose a tired engineer understands on the first read. It cuts words that do no work, prefers the short everyday word, writes the real file or command name instead of a description of it, and reads each sentence for a second meaning. The Opening a PR playbook applies it to every pull request MMW opens, with every layer except Diátaxis.
+Its goal is prose a tired engineer understands on the first read. It cuts words that do no work, prefers the short everyday word, writes the real file or command name instead of a description of it, and reads each sentence for a second meaning. Pull requests use the [Opening a PR](../../skills/mmw-mode/playbooks/opening-a-pr.md) playbook's fixed record. Its summary sentence and your page follow the owner's reply rules and `unslop`.
 
 ## Test a skill change blind with the Eval playbook
 
@@ -89,7 +89,7 @@ You can also ask for a retrospective of a named run:
 review the problems registered during ticket #<n>. run the retrospective and recommend which proposals to pick.
 ```
 
-The PR lists each new proposal with its problem, solution and recommendation. Earlier unanswered lessons get a count and query link; a problem that recurs after you refused it gets a reminder. Picking a proposal starts its planning playbook. Your later Go authorizes implementation. A retrospective failure is reported without blocking the merge.
+The pull request's page presents each new proposal as a decision card with its problem, solution and recommendation. Earlier unanswered lessons get a count and query link; a problem that recurs after you refused it gets a reminder. Picking a proposal starts its planning playbook. Your later Go authorizes implementation. A retrospective failure is reported without blocking the merge.
 
 ## Fix the repository with `correct`
 
