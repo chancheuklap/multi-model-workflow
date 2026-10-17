@@ -1,11 +1,6 @@
 import {LocalConfig, catalogFromPayload, settingsView} from "./local-config.mjs";
 import {el, hand, hhmm} from "./shared.mjs";
 
-// Prototype mount point (#1055): the server names a prototype module only when MMW_BOARD_PROTOTYPE is set.
-const prototypeModule = typeof document === "undefined"
-  ? "" : document.querySelector('meta[name="mmw-prototype"]')?.content || "";
-const prototype = prototypeModule ? await import(prototypeModule) : null;
-
 const SUB_HOSTS = [{id: "claude", label: "Claude"}, {id: "codex", label: "Codex"}];
 const SUB_FIELDS = [{id: "model", label: "model"}, {id: "effort", label: "effort"}];
 const INHERIT = "inherit";
@@ -91,7 +86,6 @@ function detachEsc(host) {
 }
 
 export function unmount(host) {
-  if (prototype) return prototype.unmount(host);
   detachEsc(host);
   host.replaceChildren();
 }
@@ -110,7 +104,6 @@ function withInherit(options) {
 }
 
 export function fromPayload(payload) {
-  if (prototype) return prototype.fromPayload(payload);
   const catalog = catalogFromPayload(payload);
   const saved = {runner: payload.runner, rows: copy(payload.rows), subagents: copy(payload.subagents || {})};
   return {
@@ -642,6 +635,5 @@ function paint(host, model, api, hooks) {
 }
 
 export function render(host, model, api, hooks = {}) {
-  if (prototype) return prototype.render(host, model, api, hooks);
   return paint(host, model, api, hooks);
 }

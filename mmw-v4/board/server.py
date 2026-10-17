@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import http.server
-import os
 import secrets
 import sys
 import threading
@@ -19,10 +18,6 @@ import gates
 import settings_api
 
 PAGE = Path(__file__).resolve().parent / "page"
-# Prototype mount point (#1055): with MMW_BOARD_PROTOTYPE set to a module under efforts/, the page loads it
-# and /efforts/ is served from the repository. Removed when the prototype comes down.
-EFFORTS = Path(__file__).resolve().parents[2] / "efforts"
-PROTOTYPE = os.environ.get("MMW_BOARD_PROTOTYPE", "")
 
 
 class BurstServer(http.server.ThreadingHTTPServer):
@@ -69,18 +64,8 @@ def make_handler(token: str, board_module=board_data, settings_module=settings_a
             if path in ("/", "/index.html"):
                 raw = (PAGE / "index.html").read_text(encoding="utf-8")
                 raw = raw.replace("__MMW_PAGE_TOKEN__", token)
-                if PROTOTYPE:
-                    raw = raw.replace("<title>", f'<meta name="mmw-prototype" content="/{PROTOTYPE}">\n    <title>')
                 body = raw.encode("utf-8")
                 self._respond(200, {"Content-Type": "text/html; charset=utf-8"}, body)
-                return
-            if PROTOTYPE and path.startswith("/efforts/"):
-                file = (EFFORTS / path[len("/efforts/"):]).resolve()
-                if file.is_file() and EFFORTS in file.parents:
-                    kind = "text/javascript" if file.suffix == ".mjs" else self.guess_type(str(file))
-                    self._respond(200, {"Content-Type": kind, "Cache-Control": "no-store"}, file.read_bytes())
-                else:
-                    self.send_error(404)
                 return
             super().do_GET()
 
