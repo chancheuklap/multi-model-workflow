@@ -29,6 +29,8 @@ In both sub-shapes, put the mount point on the feature file's final `Route:`. Fo
 
 A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `efforts/<effort>/prototypes/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them. The first implementation ticket is a smoke ticket that builds the product skeleton from the prototype; the other tickets depend on it.
 
+### Separate repositories and Electron
+
 For a frontend and backend in separate repositories, keep the prototype in the frontend repository. Run the backend spec first and merge it before the frontend spec's night, so frontend tests do not intercept unimplemented interfaces. For Electron, prototype the renderer and fake missing preload bridge methods. Native dialogs, menus, and tray behavior need separate decisions and product-target tests.
 
 ## Process
@@ -41,7 +43,7 @@ If either is missing, ask once in plain language: "This product has no tools for
 
 Work on the effort's branch and worktree from the project branch. On the map route, this is the night's branch, reused across the effort's specs. On the Feature route, use `fix-<n>`. Commit the environment tools, verification skill, prototype, feature files, and tests there, to enter the project branch with the effort's accepted PR.
 
-Done when the effort checkout has the tools to start and drive its local product, or the new-product standalone pages.
+Done when the effort checkout is ready and, for an existing product, its local environment and verification tools are available.
 
 ### 1. State the question and pick N
 
@@ -59,7 +61,7 @@ The arena scoring only filters candidates by these three criteria: it runs, ever
 
 Use an **API fake** only for interfaces that do not exist yet. Existing interfaces use the real local backend. When fake sample data references an existing entity, provide those referenced records through the API fake too, so their IDs agree. Take sample data from the environment tools' product-test seed data rather than inventing it, so tests written from the prototype do not fail on different data in the product. Start from that seed data each launch. Keep fake mutations in `sessionStorage`: refresh retains them, a new tab or restart returns to the seed data.
 
-Use the real login flow and test accounts against the local account service started by the environment tools, not production or development servers. When new permissions do not exist in the backend yet, demonstrate their different UIs through the prototype's own identity switcher. Give the owner state URLs for states that normal actions cannot reach, such as loading or errors. Tests do not use those URLs.
+When the product has accounts, use the real login flow and test accounts against the local account service started by the environment tools, not production or development servers. When new permissions do not exist in the backend yet, demonstrate their different UIs through the prototype's own identity switcher. Give the owner state URLs for states that normal actions cannot reach, such as loading or errors. Tests do not use those URLs.
 
 Give every actionable element a role and an accessible name, so e2e can find it by those names.
 
