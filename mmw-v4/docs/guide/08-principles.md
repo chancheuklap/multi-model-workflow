@@ -37,7 +37,7 @@ How much to build, and when to rethink the design.
 - [Laziness Protocol](../../skills/principle-laziness-protocol/SKILL.md). Aim for the most result with the least code and complexity; prefer deletion and the smallest change that solves the problem.
 - [Foundational Thinking](../../skills/principle-foundational-thinking/SKILL.md). Get the core types and data structures right before writing logic.
 - [Redesign From First Principles](../../skills/principle-redesign-from-first-principles/SKILL.md). Integrate a new requirement as if it had been there from the start, instead of bolting it on.
-- [Attack the Premise](../../skills/principle-attack-the-premise/SKILL.md). When two or more fixes that share one premise have failed the same gate, question the premise, not the fixes.
+- [Attack the Premise](../../skills/principle-attack-the-premise/SKILL.md). When two or more fixes that share one premise have failed the same gate, write the premise down and test it directly before another fix that assumes it.
 - [Subtract Before You Add](../../skills/principle-subtract-before-you-add/SKILL.md). Remove dead weight first, then build on the simpler base.
 - [Minimize Reader Load](../../skills/principle-minimize-reader-load/SKILL.md). Count the layers and hidden state a reader must trace, and reduce them.
 - [Outcome-Oriented Execution](../../skills/principle-outcome-oriented-execution/SKILL.md). Converge on the target design; do not keep throwaway compatibility states.
@@ -64,9 +64,9 @@ Where state, validation and compatibility live.
 What counts as proof.
 
 - [Prove It Works](../../skills/principle-prove-it-works/SKILL.md). Check the real artifact directly, not a proxy, a self-report or "it compiles".
-- [Fix Root Causes](../../skills/principle-fix-root-causes/SKILL.md). Reproduce first, then trace each symptom to its root cause and fix it there.
+- [Fix Root Causes](../../skills/principle-fix-root-causes/SKILL.md). Trace each symptom back to the first place the system went wrong and fix it there; a guard counts as a fix only when the state it handles is legitimate.
 - [Sequence Work into Verifiable Units](../../skills/principle-sequence-verifiable-units/SKILL.md). Break work into small units that each end in a check, and verify each before starting the next.
-- [Test Behavior, Not Implementation](../../skills/principle-test-behavior-not-implementation/SKILL.md). Call the code the way its users do and assert a literal expected value; a test that would still pass if every imported function returned `undefined` is rewritten or deleted.
+- [Test Behavior, Not Implementation](../../skills/principle-test-behavior-not-implementation/SKILL.md). Assert what the code's users can observe, so a test fails when that behavior breaks and keeps passing when only the internals change.
 - [The Baseline Is the Contract](../../skills/principle-baseline-is-the-contract/SKILL.md). A settled conclusion (an answer, a winning prototype, a signed-off page) is copied, never improved from memory; a gap goes to whoever owns it.
 - [Run the Smallest Test Set](../../skills/principle-run-the-smallest-test-set/SKILL.md). Run the smallest set of tests that proves the change; a full suite only when a gate requires it or a named risk does.
 - [Explain the Number](../../skills/principle-explain-the-number/SKILL.md). Before trusting or reporting a measured number, find what limits it and rule out that it measured something else. The [benchmark-checklist](../../skills/benchmark-checklist/SKILL.md) skill applies it to a benchmark.

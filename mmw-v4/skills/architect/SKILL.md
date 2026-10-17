@@ -11,7 +11,7 @@ Design before implementing. Sketch types, function signatures, class shapes, and
 
 Build a real mental model of every system the new code touches. Run the **how** skill over the relevant subsystems, and look for what already solves the problem, in the repository and outside it, before sketching (**principle-start-from-what-exists**). What the caller already traced or found, you take from it rather than doing again.
 
-Naming a file isn't grounding. Produce the traced model `how` prescribes. If the design redefines ownership or layering, also run the **why** skill on the existing shape so the rationale becomes a constraint, not a guess.
+Naming a file isn't grounding. Produce the architectural explanation `how` prescribes. If the design redefines ownership or layering, also run the **why** skill on the existing shape so the rationale becomes a constraint, not a guess.
 
 From the grounding, write down the constraints any new interface would need to satisfy, the dependencies it would rely on and the category each falls into, as the **codebase-design** skill sorts them, and a rough illustrative code sketch that makes the constraints concrete, not a proposal.
 
@@ -36,7 +36,7 @@ Screen every candidate against [`references/design-red-flags.md`](references/des
 
 Hand arena its rubric: depth (leverage at the interface), locality (where change concentrates), and seam placement. Prefer the deeper design, in the **codebase-design** skill's terms. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
 
-Arena returns one synthesized design package. The synthesis decision populates the rationale's "Synthesis decision" section. Arena's verification of a sketch is the red-flag screen and the **codebase-design** skill's measures above.
+Arena returns one synthesized design package. Its synthesis decision fills the rationale's "Synthesis decision" section. Arena's verification of a sketch is the red-flag screen and the **codebase-design** skill's measures above.
 
 ## Phase C: Hand back
 

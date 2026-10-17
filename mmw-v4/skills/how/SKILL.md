@@ -7,7 +7,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-## Step 1. Assess Complexity
+## 1. Assess complexity
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
@@ -32,6 +32,6 @@ Write one explanation yourself from the researchers' answers, as `references/exp
 
 Check the explanation against the code before you use it, then present it to the user. Asked by the person rather than by another skill, present it as one page drawn with the **diagram-design** skill: the parts it names and how they connect, and one run through them from start to end, the sections below as the words beside the pictures. Handed back to another skill, it stays text. Close the researchers' batch once nothing you still do needs their answers.
 
-## Output Format
+## Output format
 
 The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.
