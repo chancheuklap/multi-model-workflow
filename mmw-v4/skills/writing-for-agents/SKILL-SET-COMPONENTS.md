@@ -40,7 +40,7 @@ The model to imitate, in content as well as shape, is `upstream/pstack/skills/po
 
 The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the entry: its description, which every host scans at start, says to read it in full at the start of every session. No hook and no line in the user-level prompt tells a session to read it.
 
-It is read in two layers, split by whether the agent owns its task. `SKILL.md` holds what every agent judges with and keeps all seven section headings below, in their order. `references/owning-a-task.md` holds what only the owner of a task uses, under the headings of the sections it holds a part of, and is read by an agent whose first message names no file to follow. Each section below says which file holds which part. What to do is named by whoever sends an agent; which skill and which principle to use stays each agent's judgement, through the first layer.
+It is read in two layers, split by whether the agent owns its task. `SKILL.md` holds what every agent judges with and keeps all seven section headings below, in their order. `references/owning-a-task.md` holds what only the owner of a task uses, under the headings of the sections it holds a part of, and is read by an agent whose first message names no file to follow. What to do is named by whoever sends an agent; which skill and which principle to use stays each agent's judgement, through the first layer.
 
 ### Frontmatter
 

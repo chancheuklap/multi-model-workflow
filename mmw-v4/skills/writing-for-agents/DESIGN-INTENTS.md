@@ -47,7 +47,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Hand-offs`.
 13. **A start prompt carries data and one pointer** (the ticket, a base commit, where the task came from, then `Read the mmw-mode skill in full, then follow <what>.`, <what> being the file the agent works by, then `It is your whole task: …`); rules arrive through the mode and that file. The step that sends the agent names <what>, so the agent never guesses its job. A subagent's prompt opens and ends the same way, names the file or the steps it follows, holds everything else it needs, and states what it returns, where, and how long.
     Takes: P35, adapted (no subagent definition: the prompt that starts an agent sends it to the mode, which `poteto-agent` did for pstack's subagents); P17, adapted (a subagent's brief is complete).
-    Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Prompts written for other agents`.
+    Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Prompts written for other agents`. `mmw-mode` `SKILL.md` `## Subagents`; the `dispatch` skill's `roles.json`.
 14. **Models by strength.**
     Takes: P3, adapted (another model means another session; the second opinion is the advisor session); P36, adapted (configuration in `models.json`, not in a host rule); P17, adapted (a worker keeps its session for its one fix; each named dispatch starts a fresh subagent).
     Home: `mmw-mode` `## Subagents` and `references/owning-a-task.md` `## Subagents`; the `dispatch` skill's `roles.json` session roles and `subagents` section, and `scripts/models.py`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## subagent`.
