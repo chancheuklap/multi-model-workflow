@@ -303,8 +303,8 @@ The line, beginning `Done when`, on which the set's own text states a step's or 
 _Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **cognitive walkthrough**:
-The review method of `WALKING-A-SKILL-SET.md`'s `# Walking a skill set` (the usability-inspection method), which the `Authoring or modifying a skill` playbook's **Gather the evidence** uses: for each task an agent does with the set, read and run what that agent would, in its order, holding nothing it would not hold.
-_Home_: `mmw-v4/skills/mmw-mode/playbooks/authoring-a-skill.md` **Gather the evidence**; `mmw-v4/skills/writing-for-agents/WALKING-A-SKILL-SET.md`
+The review method of `WALKING-A-SKILL-SET.md`'s `# Walking a skill set` (the usability-inspection method), which the `Authoring or modifying a skill` playbook's **Prove it, once** runs: for each task an agent does with the set, read and run what that agent would, in its order, holding nothing it would not hold. **Gather the evidence** uses `### List the tasks` to map the text's entries to tasks.
+_Home_: `mmw-v4/skills/writing-for-agents/WALKING-A-SKILL-SET.md`; `mmw-v4/skills/mmw-mode/playbooks/authoring-a-skill.md` **Gather the evidence** for task listing, **Prove it, once** for the walk
 
 **task** (skill-set-review task):
 One job an agent is entered into a skill to do — consult an advisor, publish a spec, work one ticket — the unit a cognitive walkthrough walks; a skill entered mid-task is walked from its entry to its return. Distinct from ticket-run's task root.
