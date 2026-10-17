@@ -79,8 +79,9 @@ class SettingsApiTest(unittest.TestCase):
             self.assertEqual(json.loads(raw)["version"], 2)
             status, raw = board.request("GET", "/api/settings")
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(raw)["subagents"], {"reader": {"claude": {
-            "model": "haiku", "effort": "medium"}}})
+        self.assertEqual(json.loads(raw)["subagents"]["reader"], {
+            "claude": {"model": "haiku", "effort": "medium"},
+            "codex": {"model": "inherit", "effort": "inherit"}})
         self.assertEqual(json.loads((self.home / "models.json").read_text())["subagents"],
                          {"reader": {"claude": {"model": "haiku", "effort": "medium"}}})
 
@@ -92,8 +93,9 @@ class SettingsApiTest(unittest.TestCase):
             self.assertEqual(status, 200, raw)
             status, raw = board.request("GET", "/api/settings")
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(raw)["subagents"], {"reader": {"claude": {
-            "model": "haiku", "effort": "medium"}}})
+        self.assertEqual(json.loads(raw)["subagents"]["reader"], {
+            "claude": {"model": "haiku", "effort": "medium"},
+            "codex": {"model": "inherit", "effort": "inherit"}})
 
     def test_a_put_with_invalid_subagents_refuses_without_writing(self):
         proposed = {**config(), "subagents": {"reader": {"claude": {
@@ -172,6 +174,102 @@ class SettingsApiTest(unittest.TestCase):
             worker.join(timeout=2)
         self.assertFalse(worker.is_alive())
 
+
+
+CODEX_CATALOG = {"offerings": [
+    {"id": "gpt-6.1-sol", "name": "GPT-6.1-Sol", "thinkingOptionIds": ["low", "medium", "high", "xhigh"]},
+    {"id": "gpt-6-luna", "name": "GPT-6-Luna", "thinkingOptionIds": ["low", "medium", "high"]},
+], "read_at": "2026-10-17T03:19:02Z", "version": "codex-cli 0.162.1"}
+CLAUDE_CATALOG = {"offerings": [
+    {"id": "sonnet", "name": "sonnet", "note": "Most efficient for simpler tasks",
+     "thinkingOptionIds": ["low", "medium", "high"]},
+], "read_at": "2026-10-17T03:18:59Z", "version": "2.1.0"}
+
+
+class SubagentAnswerTest(unittest.TestCase):
+    """GET /api/settings gives the 本机配置 sheet its subagent cells, their choices and names (#1055)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name)
+        (self.home / "models.json").write_text(json.dumps(config()) + "\n")
+        (self.home / "catalog.json").write_text(json.dumps({"cli": {
+            "codex": CODEX_CATALOG, "claude": CLAUDE_CATALOG}}))
+
+    def get(self):
+        with running_board(self.home) as board:
+            status, raw = board.request("GET", "/api/settings")
+        self.assertEqual(status, 200, raw)
+        return json.loads(raw)
+
+    def test_every_subagent_cell_is_answered_and_unset_cells_are_inherit(self):
+        data = self.get()
+        self.assertEqual(list(data["subagents"]), ["review-axis", "reader", "default"])
+        self.assertEqual(data["subagents"]["default"], {
+            "claude": {"model": "inherit", "effort": "inherit"},
+            "codex": {"model": "inherit", "effort": "inherit"}})
+        self.assertNotIn("subagents", json.loads((self.home / "models.json").read_text()))
+
+    def test_the_choices_are_claudes_fixed_values_and_the_stored_codex_catalog(self):
+        options = self.get()["subagent_options"]
+        self.assertEqual(options["rows"], ["review-axis", "reader", "default"])
+        self.assertEqual(options["claude"], {"models": ["sonnet", "opus", "haiku", "fable"],
+                                             "efforts": ["low", "medium", "high", "xhigh", "max"]})
+        self.assertEqual(options["codex"], {
+            "models": [{"model": "gpt-6.1-sol", "efforts": ["low", "medium", "high", "xhigh"]},
+                       {"model": "gpt-6-luna", "efforts": ["low", "medium", "high"]}],
+            "inherit_efforts": ["low", "medium", "high"]})
+
+    def test_each_model_id_is_named_as_the_agent_rows_name_it(self):
+        labels = self.get()["subagent_options"]["labels"]
+        self.assertEqual(labels["codex"], {"gpt-6.1-sol": "gpt 6.1 sol", "gpt-6-luna": "gpt 6 luna"})
+        self.assertEqual(labels["claude"]["sonnet"], "sonnet · Most efficient for simpler tasks")
+        self.assertEqual(labels["claude"]["opus"], "opus")
+
+    def test_a_subagent_codex_cell_is_saved_as_the_catalog_id(self):
+        proposed = {**config(), "subagents": {"reader": {"codex": {"model": "gpt-6-luna", "effort": "high"}}}}
+        with running_board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+            self.assertEqual(status, 200, raw)
+            status, raw = board.request("GET", "/api/settings")
+        self.assertEqual(json.loads((self.home / "models.json").read_text())["subagents"],
+                         {"reader": {"codex": {"model": "gpt-6-luna", "effort": "high"}}})
+        self.assertEqual(json.loads(raw)["subagents"]["reader"]["codex"], {"model": "gpt-6-luna", "effort": "high"})
+
+    def test_a_codex_name_in_place_of_its_id_is_refused_on_its_cell(self):
+        proposed = {**config(), "subagents": {"reader": {"codex": {"model": "gpt 6 luna", "effort": "high"}}}}
+        with running_board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+        self.assertEqual(status, 422)
+        self.assertEqual(json.loads(raw)["errors"][0]["cell"], "subagents.reader.codex.model")
+
+    def test_a_saved_subagent_model_the_catalog_lacks_is_stale_and_named(self):
+        saved = {**config(), "subagents": {"review-axis": {"codex": {"model": "gpt-5.5-sol", "effort": "high"}}}}
+        (self.home / "models.json").write_text(json.dumps(saved))
+        data = self.get()
+        self.assertIn({"cell": "subagents.review-axis.codex.model", "host": "codex", "stored": "gpt-5.5-sol",
+                       "offered": ["gpt-6.1-sol", "gpt-6-luna"]}, data["stale"])
+        self.assertEqual(data["subagent_options"]["labels"]["codex"]["gpt-5.5-sol"], "gpt 5.5 sol")
+
+    def test_an_agent_row_model_the_scan_lacks_is_stale(self):
+        saved = config(); saved["rows"]["reviewer"]["model"] = "opus 3"
+        (self.home / "models.json").write_text(json.dumps(saved))
+        stale = {item["cell"]: item for item in self.get()["stale"]}
+        self.assertEqual((stale["rows.reviewer.model"]["host"], stale["rows.reviewer.model"]["stored"]),
+                         ("claude", "opus 3"))
+        self.assertIn("opus 5", stale["rows.reviewer.model"]["offered"])
+        self.assertNotIn("rows.candidate.model", stale)
+
+    def test_a_test_catalog_entry_carries_its_read_time_and_failure(self):
+        catalog = self.home / "fixture.json"
+        catalog.write_text(json.dumps({"cli": {"codex": {
+            "offerings": CODEX_CATALOG["offerings"], "read_at": "2026-10-17T03:19:02Z",
+            "failure": {"kind": "timeout", "detail": "30 s", "at": "2026-10-17T09:05:11Z"}}}}))
+        with running_board(self.home, catalog) as board:
+            status, raw = board.request("GET", "/api/settings")
+        codex = json.loads(raw)["scan"]["hosts"]["codex"]
+        self.assertEqual(codex["read_at"], "2026-10-17T03:19:02Z")
+        self.assertEqual(codex["failure"]["kind"], "timeout")
 
 
 class StoredCatalogApiTest(unittest.TestCase):

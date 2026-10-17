@@ -2,16 +2,15 @@
 // Everything else (models.json, the scan, PUT, rescan) is the board's real local back end; a PUT
 // that carries `subagents` is already validated and written by models.py.
 //
-// Draft interface contract, added to the GET answer:
+// Interface contract (final, #1055 What to build 5), added to the GET answer:
 //   subagent_options: {
-//     rows: ["review-axis", "reader", "default"],            // roles.json `subagents`, in order
-//     claude: {models: [...], efforts: [...]},               // models.py's fixed claude choices
-//     codex: {models: [{model, efforts}], inheritEfforts},   // the stored codex catalog, by id
-//     labels: {<host>: {<id>: <name>}},  // the name the agent rows show for that model: models.py's
-//                                       // _slug_everyday(id), plus " · <note>" when the catalog has one
-//   }
+//     rows: ["review-axis", "reader", "default"],                  // roles.json `subagents`, in order
+//     claude: {models: [...], efforts: [...]},                     // models.py SUBAGENT_CLAUDE_CHOICES
+//     codex: {models: [{model: <id>, efforts}], inherit_efforts},  // the stored cli codex catalog
+//     labels: {<host>: {<id>: <name>}},  // models.py model_labels: the agent rows' name, " · <note>" when there is one
+//   }                                    // (lists leave out `inherit`; the page puts it first)
 //   subagents: {<row>: {claude: {model, effort}, codex: {model, effort}}}  // "inherit" when unset
-//   scan.hosts.<host>: {read_at, failure?: {kind, detail, at}}            // read_at filled here when empty
+//   scan.hosts.<host>: {read_at, failure?: {kind, detail, at}}
 //   stale: [{cell, host, stored, offered: [...]}]  // a saved model the host's catalog no longer lists
 //
 // State addresses, for states the local back end cannot be driven into (`?state=` on the page URL):
@@ -20,19 +19,12 @@
 
 const ROWS = ["review-axis", "reader", "default"];
 const CLAUDE = {
-  models: ["inherit", "sonnet", "opus", "haiku", "fable"],
-  efforts: ["inherit", "low", "medium", "high", "xhigh", "max"],
+  models: ["sonnet", "opus", "haiku", "fable"],
+  efforts: ["low", "medium", "high", "xhigh", "max"],
 };
-const CODEX = [
-  {model: "gpt-6.1-sol", efforts: ["low", "medium", "high", "xhigh", "max", "ultra"]},
-  {model: "gpt-6-astra", efforts: ["low", "medium", "high", "xhigh", "max", "ultra"]},
-  {model: "gpt-6-sol", efforts: ["low", "medium", "high", "xhigh", "max", "ultra"]},
-  {model: "gpt-6-luna", efforts: ["low", "medium", "high", "xhigh", "max"]},
-  {model: "gpt-5.6-sol", efforts: ["low", "medium", "high", "xhigh"]},
-  {model: "gpt-5.6-terra", efforts: ["low", "medium", "high", "xhigh"]},
-  {model: "gpt-5.6-luna", efforts: ["low", "medium", "high"]},
-];
-const READ_AT = {claude: "2026-10-17T03:18:59Z", codex: "2026-10-17T03:19:02Z"};
+// The codex catalog of scripts/dev/board-fixtures/catalog.json, the one the board under test reads.
+const CODEX = [{"model": "gpt-6.1-sol", "efforts": ["low", "medium", "high", "xhigh", "max", "ultra"]}, {"model": "gpt-6-astra", "efforts": ["low", "medium", "high", "xhigh", "max", "ultra"]}, {"model": "gpt-6-sol", "efforts": ["low", "medium", "high", "xhigh", "max", "ultra"]}, {"model": "gpt-6-luna", "efforts": ["low", "medium", "high", "xhigh", "max"]}, {"model": "gpt-5.6-sol", "efforts": ["low", "medium", "high", "xhigh", "max", "ultra"]}, {"model": "gpt-5.6-terra", "efforts": ["low", "medium", "high", "xhigh", "max", "ultra"]}, {"model": "gpt-5.6-luna", "efforts": ["low", "medium", "high", "xhigh", "max"]}];
+const READ_AT = {claude: "2026-10-17T03:18:59Z", codex: "2026-10-16T15:38:50Z"};
 
 function state() {
   return typeof location === "undefined" ? "" : new URLSearchParams(location.search).get("state") || "";
@@ -40,7 +32,7 @@ function state() {
 
 function inheritEfforts(models) {
   const sets = models.map(m => new Set(m.efforts));
-  return ["inherit", ...models[0].efforts.filter(e => sets.every(s => s.has(e)))];
+  return models[0].efforts.filter(e => sets.every(s => s.has(e)));
 }
 
 // models.py _slug_everyday, which turns a catalog id into the name the agent rows store and show.
@@ -60,13 +52,12 @@ function labels(hosts, ids) {
 
 export function withFake(payload) {
   const out = structuredClone(payload);
-  const codexModels = [{model: "inherit", efforts: inheritEfforts(CODEX)}, ...CODEX];
   // A field the answer already carries (a test's browser.route, or the back end once it has it) is kept.
   out.subagent_options = out.subagent_options || {
     rows: ROWS,
     claude: CLAUDE,
-    codex: {models: codexModels, inheritEfforts: inheritEfforts(CODEX)},
-    labels: labels(out.scan?.hosts, {claude: CLAUDE.models.slice(1),
+    codex: {models: CODEX, inherit_efforts: inheritEfforts(CODEX)},
+    labels: labels(out.scan?.hosts, {claude: CLAUDE.models,
       codex: [...CODEX.map(m => m.model), "gpt-5.5-sol"]}),
   };
   const saved = out.subagents || {};
@@ -85,7 +76,7 @@ export function withFake(payload) {
     out.rows.reviewer = {...out.rows.reviewer, host: "claude", model: "opus[old]"};
     out.subagents["review-axis"].codex = {model: "gpt-5.5-sol", effort: "high"};
     out.stale = [
-      {cell: "rows.reviewer.model", host: "claude", stored: "opus[old]", offered: CLAUDE.models.slice(1)},
+      {cell: "rows.reviewer.model", host: "claude", stored: "opus[old]", offered: CLAUDE.models},
       {cell: "subagents.review-axis.codex.model", host: "codex", stored: "gpt-5.5-sol",
         offered: CODEX.map(m => m.model)},
     ];

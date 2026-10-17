@@ -22,6 +22,12 @@ export const LocalConfig = {
     candidate: "被派去设计同一个问题的几个候选方案之一",
     "retro-analyst": "从一个角度分拣一次运行的问题登记，核实、合并、给出方案",
   },
+  // One line per subagent row of roles.json's `subagents`, in its order.
+  SUBAGENT_WHAT: {
+    "review-axis": "code-review 的四个审查轴，一个轴派一个",
+    reader: "读大量材料，交回压缩过的结论",
+    default: "其余点了名的子代理步骤，也包括没点行名的",
+  },
   // models.json holds one row per session role of dispatch's roles.json (models.py refuses
   // any other set), so the rows are the role list, in the file's order.
   roles: d => Object.keys(d.rows),

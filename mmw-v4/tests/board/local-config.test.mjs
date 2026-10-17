@@ -202,3 +202,11 @@ test("the sheet has one row per role of roles.json, in its order, each with what
   assert.equal(view.rows.find(row => row.agent === "retro-analyst").what,
     "从一个角度分拣一次运行的问题登记，核实、合并、给出方案");
 });
+
+test("every subagent row of roles.json says what it is for", () => {
+  const rows = JSON.parse(readFileSync(new URL("../../skills/dispatch/roles.json", import.meta.url)))
+    .subagents.map(row => row.name);
+  assert.deepEqual(rows, ["review-axis", "reader", "default"]);
+  assert.deepEqual(Object.keys(LocalConfig.SUBAGENT_WHAT), rows);
+  assert.equal(LocalConfig.SUBAGENT_WHAT.reader, "读大量材料，交回压缩过的结论");
+});

@@ -20,6 +20,8 @@ const PROTOTYPE = 'efforts/fix-1055/prototypes/1055/UI/mount.mjs';
 export default {
   tests: '*.e2e.ts',
   cache: 'off',
+  // Every test of a run talks to one board and one models.json; two saving at once get 409 from each other.
+  workers: 1,
   targets: [
     { name: 'product', engine: web({ viewport: { width: 1440, height: 900 } }),
       app: { url: 'http://127.0.0.1:0', readyUrl: 'http://127.0.0.1:{port}/api/settings', command: board() } },

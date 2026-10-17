@@ -103,12 +103,25 @@ export function unmount(host) {
   host.replaceChildren();
 }
 
+// The interface lists what a cell may hold besides `inherit`; every list on the page starts with it.
+function withInherit(options) {
+  const o = options || {rows: [], claude: {models: [], efforts: []}, codex: {models: [], inherit_efforts: []}, labels: {}};
+  return {
+    rows: o.rows, labels: o.labels,
+    claude: {models: [INHERIT, ...o.claude.models], efforts: [INHERIT, ...o.claude.efforts]},
+    codex: {
+      models: [{model: INHERIT, efforts: o.codex.inherit_efforts}, ...o.codex.models],
+      inheritEfforts: [INHERIT, ...o.codex.inherit_efforts],
+    },
+  };
+}
+
 export function fromPayload(payload) {
   const catalog = catalogFromPayload(payload);
   const saved = {runner: payload.runner, rows: copy(payload.rows), subagents: copy(payload.subagents || {})};
   return {
     catalog, scan: payload.scan.hosts,
-    options: payload.subagent_options,
+    options: withInherit(payload.subagent_options),
     stale: payload.stale || [],
     st: {
       saved, draft: copy(saved),

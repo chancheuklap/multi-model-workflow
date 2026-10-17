@@ -40,7 +40,7 @@ test('a subagent row is set per host, counted, saved, and shown again when the s
 
   await expect(codexModel.getByRole('option')).toHaveCount(8);
   expect(await codexEffort.getByRole('option').allTextContents())
-    .toEqual(['跟叫它的会话一样', 'low', 'medium', 'high']);
+    .toEqual(['跟叫它的会话一样', 'low', 'medium', 'high', 'xhigh', 'max']);
   await codexModel.selectOption('gpt 6 luna');
   await codexEffort.selectOption('xhigh');
   await expect(screen.getByText(/^改了 2 处：/)).toBeVisible();
@@ -60,7 +60,7 @@ test('a subagent row is set per host, counted, saved, and shown again when the s
 test('the model catalog tab says when each host was read and what it offers', async ({ app, screen }) => {
   await openSheet(app, screen);
   await screen.getByRole('tab', /^型号目录/).tap();
-  await expect(screen.getByText(/^目录读于 \d\d:\d\d/)).toHaveCount(2);
+  await expect(screen.getByText(/^目录读于 (\d+月\d+日 )?\d\d:\d\d/)).toHaveCount(2);
   await expect(screen.getByText(/^现在可选：opus、fable、sonnet、haiku$/)).toBeVisible();
   await expect(screen.getByText(/^现在可选：gpt 6\.1 sol、/)).toBeVisible();
   await expect(screen.getByText('配置里存的 model 都还在目录里。')).toBeVisible();
@@ -74,7 +74,7 @@ test('a failed catalog read names its kind and detail and keeps the stored catal
   await openSheet(app, screen);
   await expect(screen.getByRole('tab', /^型号目录.*读取失败/)).toBeVisible();
   await screen.getByRole('tab', /^型号目录/).tap();
-  await expect(screen.getByText(/最近一次读取失败.*超时 · codex app-server 30 秒没有回答。仍在用 \d\d:\d\d 读到的那份。/)).toBeVisible();
+  await expect(screen.getByText(/最近一次读取失败.*超时 · codex app-server 30 秒没有回答。仍在用 (\d+月\d+日 )?\d\d:\d\d 读到的那份。/)).toBeVisible();
   await app.screenshot('read-failed');
 });
 
