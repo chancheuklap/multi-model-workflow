@@ -3,6 +3,11 @@ import {
 } from "./local-config.mjs";
 import {el, hand} from "./shared.mjs";
 
+// Prototype mount point (#1055): the server names a prototype module only when MMW_BOARD_PROTOTYPE is set.
+const prototypeModule = typeof document === "undefined"
+  ? "" : document.querySelector('meta[name="mmw-prototype"]')?.content || "";
+const prototype = prototypeModule ? await import(prototypeModule) : null;
+
 function copy(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -54,11 +59,13 @@ function detachEsc(host) {
 }
 
 export function unmount(host) {
+  if (prototype) return prototype.unmount(host);
   detachEsc(host);
   host.replaceChildren();
 }
 
 export function fromPayload(payload) {
+  if (prototype) return prototype.fromPayload(payload);
   const catalog = catalogFromPayload(payload);
   const saved = {runner: payload.runner, rows: copy(payload.rows)};
   return {
@@ -317,5 +324,6 @@ function paint(host, model, api, hooks) {
 }
 
 export function render(host, model, api, hooks = {}) {
+  if (prototype) return prototype.render(host, model, api, hooks);
   return paint(host, model, api, hooks);
 }

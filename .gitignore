@@ -16,3 +16,6 @@ __pycache__/
 
 # story-parity.py writes its screenshots here when it runs in a checkout
 story-shots/
+
+# scripts/dev/board-instance.py keeps this checkout's board instance here
+.board-dev/

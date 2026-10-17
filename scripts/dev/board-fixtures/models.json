@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "runner": "orca",
+  "rows": {
+    "junior-worker": {
+      "host": "codex",
+      "model": "gpt 6.1 sol",
+      "effort": "medium"
+    },
+    "senior-worker": {
+      "host": "codex",
+      "model": "gpt 6.1 sol",
+      "effort": "high"
+    },
+    "reviewer": {
+      "host": "claude",
+      "model": "sonnet",
+      "effort": "high"
+    },
+    "researcher": {
+      "host": "codex",
+      "model": "gpt 6.1 sol",
+      "effort": "medium"
+    },
+    "candidate": {
+      "host": "claude",
+      "model": "opus",
+      "effort": "high"
+    },
+    "retro-analyst": {
+      "host": "claude",
+      "model": "opus",
+      "effort": "high"
+    },
+    "advisor": {
+      "host": "claude",
+      "model": "fable",
+      "effort": "medium"
+    }
+  }
+}
