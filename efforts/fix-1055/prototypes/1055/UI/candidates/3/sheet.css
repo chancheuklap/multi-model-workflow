@@ -1,0 +1,60 @@
+/* Variant 3 of the settings sheet: session roles, subagents and the model catalog
+   as three tabs over one footer. Only what settings.css does not already have. */
+
+/* One height for every tab, so switching tabs does not move the footer. */
+.sheet.t3 { height: min(720px, 100%); }
+.sheet.t3 .sheet-body { flex: 1; }
+
+.t3-tabs {
+  display: flex; gap: var(--sp-4); padding: 0 var(--sp-24);
+  border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+.t3-tab {
+  display: inline-flex; align-items: center; gap: var(--sp-8); height: 40px; padding: 0 var(--sp-12);
+  margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; cursor: pointer;
+  font: var(--t-body) var(--sans); color: var(--soft);
+}
+.t3-tab:hover { color: var(--ink); }
+.t3-tab[aria-selected="true"] { color: var(--ink); font-weight: var(--w-bold); border-bottom-color: var(--ink); }
+.t3-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; border-radius: var(--r-sm); }
+.t3-badge {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 var(--sp-6);
+  border: 1px solid var(--rule); border-radius: var(--r-pill);
+  font: var(--w-medium) var(--t-meta) var(--sans); color: var(--muted);
+}
+.t3-badge.bad { border-color: var(--ink); color: var(--ink); background: var(--hatch); font-weight: var(--w-bold); }
+
+.t3-panel[hidden] { display: none; }
+.t3-lead { color: var(--muted); }
+.t3-flags { padding-top: var(--sp-16); }
+
+.subs {
+  --cols: 140px repeat(4, minmax(0, 1fr));
+  display: flex; flex-direction: column;
+}
+.subs-group, .subs-head, .sub { display: grid; grid-template-columns: var(--cols); column-gap: var(--sp-8); }
+.subs-group > :first-child { grid-column: 1; }
+.subs-group .subs-host {
+  grid-column: span 2; padding-bottom: var(--sp-4); border-bottom: 1px solid var(--rule);
+  font-weight: var(--w-bold); color: var(--muted);
+}
+.subs-head { padding: var(--sp-6) 0; }
+.sub { row-gap: var(--sp-6); padding-block: var(--sp-12); border-top: 1px solid var(--rule-2); align-items: center; }
+.sub .role-foot { grid-column: 2 / -1; }
+
+.t3-hosts { display: flex; flex-direction: column; gap: var(--sp-8); }
+.t3-host-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8); flex-wrap: wrap; }
+.t3-failure { align-items: flex-start; font-weight: var(--w-regular); }
+.t3-failure .hatch-swatch { margin-top: 3px; }
+.t3-offered { font: var(--t-meta) var(--mono); }
+
+.t3-stale { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.t3-stale-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-16);
+  padding-block: var(--sp-8); border-top: 1px solid var(--rule-2);
+}
+.t3-stale-item:first-child { border-top: 0; }
+.t3-stale-text { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.t3-stale-cell { font-weight: var(--w-bold); color: var(--ink); }
+
+.sel.jumped { outline: 2px solid var(--focus); outline-offset: 2px; transition: outline-color 1.6s; }

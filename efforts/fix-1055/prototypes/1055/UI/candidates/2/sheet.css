@@ -1,0 +1,37 @@
+/* Variant 2 of the settings sheet: one block per host. The block head carries the host's model
+   catalog state; the block holds the session roles on that host and its subagent cells, on the
+   same four columns so model and effort line up down the whole block. */
+
+.sheet { width: min(860px, 100%); }
+.runner-row { grid-template-columns: 150px 220px minmax(0, 1fr); }
+.runner-row .scan { justify-self: end; font-size: var(--t-meta); color: var(--soft); }
+.runner-row .role-foot { grid-column: 2 / -1; }
+
+.host-block { gap: var(--sp-12); }
+.host-block .roles { --cols: 150px 96px minmax(0, 1fr) 176px; }
+.host-block-head {
+  display: flex; align-items: center; gap: var(--sp-6) var(--sp-12); flex-wrap: wrap;
+}
+.host-block-name {
+  margin: 0; font: var(--w-bold) var(--t-title) var(--mono); color: var(--ink);
+}
+.host-read { margin-left: auto; font-size: var(--t-meta); color: var(--soft); }
+.host-failure { font-size: var(--t-meta); line-height: var(--lh-prose); }
+
+.roles.subagents { padding-top: var(--sp-8); }
+.roles.subagents .roles-head { border-top: 1px dashed var(--rule); padding-top: var(--sp-12); }
+.sub-note { padding-bottom: var(--sp-6); }
+.host-cell { font: var(--t-meta) var(--mono); color: var(--faint); padding-left: var(--sp-8); }
+.empty-note { padding-block: var(--sp-8); border-top: 1px solid var(--rule-2); }
+.initial-note { padding-block: var(--sp-16); border-top: 1px solid var(--rule-2); }
+
+@media (max-width: 640px) {
+  .host-block .roles { --cols: minmax(0, 1fr) minmax(0, 1fr); }
+  .role .role-name { grid-column: 1 / -1; }
+  .roles-head { display: none; }
+  .host-cell { display: none; }
+  .host-block .role-foot { grid-column: 1 / -1; }
+  .runner-row { grid-template-columns: minmax(0, 1fr); }
+  .runner-row .scan { justify-self: start; }
+  .host-read { margin-left: 0; }
+}
