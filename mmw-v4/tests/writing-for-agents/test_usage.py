@@ -35,8 +35,9 @@ class Usage(unittest.TestCase):
         return result.stdout
 
     def test_first_line_is_the_summary(self):
+        (self.repo / 'AGENTS.md').write_text('the how skill\n')
         self.assertEqual(self.run_usage().splitlines()[0],
-                         'usage how: 0 text entries; claude 0 invoked, 0 read, 0 by subagents; codex 0 read')
+                         'usage how: 1 text entries; claude 0 invoked, 0 read, 0 by subagents; codex 0 read')
 
     def test_lists_text_entries(self):
         (self.skills / 'other').mkdir()
@@ -55,6 +56,9 @@ class Usage(unittest.TestCase):
         self.assertNotIn('SKILL.md:7\n', output)
 
     def test_counts_a_skill_invocation(self):
+        self.record(self.claude, 'project/other.jsonl', {'type': 'assistant', 'message': {'content': [
+            {'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'however'}},
+            {'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'other'}}]}})
         self.record(self.claude, 'project/session.jsonl',
                     {'type': 'user', 'timestamp': '2026-10-12T00:00:00Z',
                      'message': {'role': 'user', 'content': 'Owner request\nPRIVATE SECOND LINE'}},
@@ -69,6 +73,9 @@ class Usage(unittest.TestCase):
         self.assertNotIn('PRIVATE', output)
 
     def test_counts_a_file_read_by_path(self):
+        self.record(self.claude, 'project/other.jsonl', {'type': 'assistant', 'message': {'content': [
+            {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/x/skills/however/SKILL.md'}},
+            {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/x/skills/other/SKILL.md'}}]}})
         self.record(self.claude, 'project/session.jsonl',
                     {'type': 'assistant', 'message': {'content': [
                         {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/home/me/.agents/skills/how/SKILL.md'}},
@@ -100,12 +107,62 @@ class Usage(unittest.TestCase):
                      'input': "await tools.exec_command({cmd: 'cat /x/skills/how/SKILL.md'});"}})
         output = self.run_usage()
         self.assertIn('codex 7 read', output)
+        self.assertIn('skills/how/SKILL.md', output)
+
+    def test_session_preview_is_only_the_first_user_line_cut_to_80(self):
+        self.record(self.codex, 'preview.jsonl',
+                    {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
+                     'content': [{'type': 'input_text', 'text': 'Older owner request\nPRIVATE'}]}},
+                    {'type': 'response_item', 'payload': {'type': 'function_call',
+                     'arguments': json.dumps({'cmd': 'cat /x/skills/how/SKILL.md'})}})
+        self.record(self.codex, 'long.jsonl',
+                    {'type': 'event_msg', 'payload': {'type': 'user_message', 'message': 'x' * 100}},
+                    {'type': 'response_item', 'payload': {'type': 'function_call',
+                     'arguments': json.dumps({'cmd': 'cat /x/skills/how/SKILL.md'})}})
+        output = self.run_usage()
         self.assertIn('Older owner request', output)
         self.assertNotIn('PRIVATE', output)
-        self.assertIn('skills/how/SKILL.md', output)
-        self.assertIn('2026-10-12', output)
         self.assertIn('x' * 80, output)
         self.assertNotIn('x' * 81, output)
+
+    def test_reads_javascript_command_with_identity_escape(self):
+        self.record(self.codex, 'escape.jsonl', {'type': 'response_item', 'payload': {
+            'type': 'custom_tool_call', 'input':
+                r'''await tools.exec_command({cmd: "cat /x/skills/how/SKILL.md; echo '\.md'"});'''}})
+        self.assertIn('codex 1 read', self.run_usage())
+
+    def test_missing_input_directory_refuses_instead_of_reporting_zero(self):
+        for flag in ('--repo', '--claude', '--codex'):
+            with self.subTest(flag=flag):
+                missing = self.root / 'missing'
+                result = subprocess.run([
+                    sys.executable, str(SCRIPT), 'how', '--repo', str(self.repo),
+                    '--claude', str(self.claude), '--codex', str(self.codex), flag, str(missing)],
+                    text=True, capture_output=True)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn(flag, result.stderr)
+                self.assertIn(str(missing), result.stderr)
+                self.assertNotIn('usage how: 0', result.stdout)
+
+    def test_keeps_a_read_before_a_later_unbalanced_quote(self):
+        self.record(self.codex, 'partial.jsonl', {'type': 'response_item', 'payload': {
+            'type': 'function_call', 'arguments': json.dumps({'cmd':
+                "cd x && sed -n '1,5p' /x/skills/how/guide.md\necho it's"})}})
+        self.assertIn('codex 1 read', self.run_usage())
+
+    def test_output_redirections_are_not_reads(self):
+        for i, command in enumerate(["cat > /x/skills/how/SKILL.md <<'EOF'\nnew text\nEOF",
+                                     'cat /tmp/source >> /x/skills/how/guide.md']):
+            self.record(self.codex, f'write-{i}.jsonl', {'type': 'response_item', 'payload': {
+                'type': 'function_call', 'arguments': json.dumps({'cmd': command})}})
+        self.assertIn('codex 0 read', self.run_usage())
+
+    def test_reads_shell_wrappers_and_environment_prefixes(self):
+        for i, command in enumerate(["/bin/zsh -lc 'cat /x/skills/how/SKILL.md'",
+                                     'FOO=1 cat /x/skills/how/SKILL.md']):
+            self.record(self.codex, f'wrapper-{i}.jsonl', {'type': 'response_item', 'payload': {
+                'type': 'function_call', 'arguments': json.dumps({'cmd': command})}})
+        self.assertIn('codex 2 read', self.run_usage())
 
     def test_ignores_a_bare_mention(self):
         self.record(self.claude, 'mention.jsonl', {'type': 'assistant', 'message': {
@@ -168,6 +225,10 @@ class Usage(unittest.TestCase):
         self.assertIn('claude dates: 2026-10-12 to 2026-10-13', output)
         self.assertIn('claude file skills/how/SKILL.md: 2 sessions', output)
         self.assertIn('codex file skills/how/guide.md: 2 sessions', output)
+        (self.repo / 'AGENTS.md').write_text('the how skill\n')
+        output = self.run_usage('how', '--since', '2026-10-12')
+        self.assertLess(output.index('claude dates:'), output.index('AGENTS.md:1'))
+        self.assertLess(output.index('codex file '), output.index('AGENTS.md:1'))
 
 
 if __name__ == '__main__':

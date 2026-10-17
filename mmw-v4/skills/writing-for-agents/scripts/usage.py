@@ -2,7 +2,6 @@
 """Read local skill references and session evidence without changing either."""
 
 import argparse
-import ast
 import json
 import re
 import shlex
@@ -103,6 +102,21 @@ def claude_sessions(root, target):
     return sessions
 
 
+def javascript_string(literal):
+    escapes = {'b': '\b', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t', 'v': '\v', '0': '\0'}
+
+    def replace(match):
+        value = match.group(1)
+        if value.startswith(('u', 'x')) and len(value) > 1:
+            return chr(int(value[1:].strip('{}'), 16))
+        if value in ('\n', '\r\n'):
+            return ''
+        return escapes.get(value, value)
+
+    return re.sub(r'\\(u\{[0-9a-fA-F]+\}|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|\r?\n|.)',
+                  replace, literal[1:-1])
+
+
 def commands(value):
     if isinstance(value, dict):
         for key, item in value.items():
@@ -124,27 +138,52 @@ def commands(value):
             embedded = re.findall(r'''(?:cmd|command)\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')''', value)
             if embedded:
                 for command in embedded:
-                    yield json.loads(command) if command.startswith('"') else ast.literal_eval(command)
+                    yield javascript_string(command)
             else:
                 yield value
+
+
+def segment_reads(segment, target):
+    arguments = []
+    skip = False
+    for argument in segment:
+        if skip:
+            skip = False
+        elif argument in ('>', '>>', '>|', '>&', '&>', '&>>', '<<', '<<-', '<<<'):
+            skip = True
+        else:
+            arguments.append(argument)
+    while arguments and re.match(r'^[A-Za-z_]\w*=', arguments[0]):
+        arguments.pop(0)
+    if not arguments:
+        return set()
+    program = Path(arguments[0]).name
+    if program in ('sh', 'bash', 'zsh', 'dash', 'ksh'):
+        for index, argument in enumerate(arguments[1:-1], 1):
+            if re.fullmatch(r'-[a-z]*c[a-z]*', argument):
+                return codex_reads(arguments[index + 1], target)
+    if program in ('cat', 'nl', 'head', 'tail') or (program == 'sed' and '-n' in arguments[1:]):
+        return file_paths(arguments[1:], target)
+    return set()
 
 
 def codex_reads(value, target):
     found = set()
     for command in commands(value):
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=';&|()<>\n')
+        lexer.whitespace = ' \t\r'
+        tokens = []
         try:
-            lexer = shlex.shlex(command, posix=True, punctuation_chars=';&|()\n')
-            lexer.whitespace = ' \t\r'
-            tokens = list(lexer)
+            for token in lexer:
+                tokens.append(token)
         except ValueError:
-            continue
+            tokens = tokens[:max((i + 1 for i, t in enumerate(tokens)
+                                  if t and all(c in ';&|()\n' for c in t)), default=0)]
         segment = []
         for token in [*tokens, ';']:
             if token and all(c in ';&|()\n' for c in token):
                 if segment:
-                    program = Path(segment[0]).name
-                    if program in ('cat', 'nl', 'head', 'tail') or (program == 'sed' and '-n' in segment[1:]):
-                        found |= file_paths(segment[1:], target)
+                    found |= segment_reads(segment, target)
                 segment = []
             else:
                 segment.append(token)
@@ -201,6 +240,14 @@ def main():
     parser.add_argument('--since', type=date.fromisoformat, metavar='YYYY-MM-DD',
                         help='include sessions started on or after this date')
     args = parser.parse_args()
+    for flag in ('repo', 'claude', 'codex'):
+        path = getattr(args, flag)
+        if not path.is_dir():
+            parser.error(f'--{flag} directory {path} does not exist; usage cannot be measured; '
+                         f'pass --{flag} with an existing directory')
+    if not (args.repo / 'mmw-v4/skills').is_dir():
+        parser.error(f'--repo {args.repo} has no mmw-v4/skills directory; '
+                     'pass --repo with the MMW repository root')
     target = Target.parse(args.skill, args.repo, parser)
     entries = text_entries(args.repo, target)
     claude = claude_sessions(args.claude, target)
@@ -214,9 +261,6 @@ def main():
     subagents = sum(len(s.subagents) for s in claude.values())
     codex_read = sum(bool(s.reads) for s in codex.values())
     print(f'usage {args.skill}: {len(entries)} text entries; claude {invoked} invoked, {read} read, {subagents} by subagents; codex {codex_read} read')
-    for path, lines in entries.items():
-        for line in lines:
-            print(f'{path}:{line}')
     for host, sessions in [('claude', claude), ('codex', codex)]:
         counted = [s for s in sessions.values() if s.invoked or s.reads]
         dates = sorted(s.date for s in counted if s.date)
@@ -224,6 +268,10 @@ def main():
         counts = Counter(file for session in counted for file in session.reads)
         for file, count in sorted(counts.items()):
             print(f'{host} file {file}: {count} sessions')
+    for path, lines in entries.items():
+        for line in lines:
+            print(f'{path}:{line}')
+    for host, sessions in [('claude', claude), ('codex', codex)]:
         for path, session in sessions.items():
             if session.invoked or session.reads:
                 files = ', '.join(sorted(session.reads)) or '-'
