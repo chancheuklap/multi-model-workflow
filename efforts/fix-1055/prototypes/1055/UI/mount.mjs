@@ -4,8 +4,11 @@
 import {withFake} from "./fake.mjs";
 import {mountSwitcher} from "../../switcher.mjs";
 
-const VARIANTS = {1: "./candidates/1/sheet.mjs", 2: "./candidates/2/sheet.mjs", 3: "./candidates/3/sheet.mjs"};
-const WINNER = "1";
+const VARIANTS = {
+  定稿: "./winner/sheet.mjs",
+  1: "./candidates/1/sheet.mjs", 2: "./candidates/2/sheet.mjs", 3: "./candidates/3/sheet.mjs",
+};
+const WINNER = "定稿";
 
 const params = new URLSearchParams(location.search);
 let key = VARIANTS[params.get("variant")] ? params.get("variant") : WINNER;

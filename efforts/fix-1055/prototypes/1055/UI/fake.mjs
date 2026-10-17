@@ -7,6 +7,8 @@
 //     rows: ["review-axis", "reader", "default"],            // roles.json `subagents`, in order
 //     claude: {models: [...], efforts: [...]},               // models.py's fixed claude choices
 //     codex: {models: [{model, efforts}], inheritEfforts},   // the stored codex catalog, by id
+//     labels: {<host>: {<id>: <name>}},  // the name the agent rows show for that model: models.py's
+//                                       // _slug_everyday(id), plus " · <note>" when the catalog has one
 //   }
 //   subagents: {<row>: {claude: {model, effort}, codex: {model, effort}}}  // "inherit" when unset
 //   scan.hosts.<host>: {read_at, failure?: {kind, detail, at}}            // read_at filled here when empty
@@ -41,6 +43,21 @@ function inheritEfforts(models) {
   return ["inherit", ...models[0].efforts.filter(e => sets.every(s => s.has(e)))];
 }
 
+// models.py _slug_everyday, which turns a catalog id into the name the agent rows store and show.
+function slug(id) {
+  let text = id.trim().replace(/^claude-/i, "").replace(/(?<=\D)(\d)-(\d)(?=\D|$)/g, "$1.$2");
+  if (text.includes("/")) text = text.split("/").slice(1).join("/");
+  return text.replace(/[-_]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function labels(hosts, ids) {
+  return Object.fromEntries(Object.entries(ids).map(([host, list]) => [host, Object.fromEntries(list.map(id => {
+    const offered = (hosts?.[host]?.offered || []).find(o => o.model === slug(id));
+    const name = offered?.model || slug(id);
+    return [id, offered?.note ? `${name} · ${offered.note}` : name];
+  }))]));
+}
+
 export function withFake(payload) {
   const out = structuredClone(payload);
   const codexModels = [{model: "inherit", efforts: inheritEfforts(CODEX)}, ...CODEX];
@@ -48,6 +65,8 @@ export function withFake(payload) {
     rows: ROWS,
     claude: CLAUDE,
     codex: {models: codexModels, inheritEfforts: inheritEfforts(CODEX)},
+    labels: labels(out.scan?.hosts, {claude: CLAUDE.models.slice(1),
+      codex: [...CODEX.map(m => m.model), "gpt-5.5-sol"]}),
   };
   const saved = out.subagents || {};
   out.subagents = Object.fromEntries(ROWS.map(row => [row, {
