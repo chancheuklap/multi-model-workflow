@@ -41,11 +41,25 @@ class UpstreamHunks(unittest.TestCase):
         self.git('add', 'upstream')
         self.git('commit', '-qm', 'upstream update')
 
-    def check(self, *args):
-        return subprocess.run([sys.executable, str(SCRIPT), 'x', '--repo', str(self.repo),
+    def check(self, *args, upstream='x'):
+        return subprocess.run([sys.executable, str(SCRIPT), upstream, '--repo', str(self.repo),
                                '--base', self.base, '--mmw', self.base,
                                '--map', str(self.mapping), '--keep', str(self.keep),
                                '--check', *args], text=True, capture_output=True)
+
+    def test_mattpocock_row_is_compared(self):
+        self.upstream = self.repo / 'upstream/mattpocock/skills/productivity/writing-for-agents/SKILL.md'
+        self.upstream.parent.mkdir(parents=True)
+        self.mapping.write_text('mattpocock\tskills/productivity/writing-for-agents/SKILL.md\tcopies/skill.md\n')
+        self.baseline('heading\nold rule\nend\n')
+        self.update_upstream('heading\nnew rule\nend\n')
+        missing = self.check(upstream='mattpocock')
+        self.assertEqual(missing.returncode, 1, missing.stdout + missing.stderr)
+        self.assertIn('MISSING copies/skill.md:2 new rule', missing.stdout)
+        self.copy.write_text(self.upstream.read_text())
+        carried = self.check(upstream='mattpocock')
+        self.assertEqual(carried.returncode, 0, carried.stdout + carried.stderr)
+        self.assertIn('UPSTREAM OK 1 carried, 0 kept, 0 merge', carried.stdout)
 
     def test_missing_carry_names_copy_and_upstream_line(self):
         self.update_upstream('heading\nnew rule\nend\n')
