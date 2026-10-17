@@ -66,7 +66,7 @@ Known local failures:
 | --- | --- | --- |
 | `list` cannot load the config | A config error or missing dependency | Read its diagnostic and run `npm ci` if dependencies are missing |
 | The engine cannot start Chromium | Chromium is not installed | Run `npx @e2e-dev/web install chromium` |
-| The server exits before ready | The environment tool's build or migration failed | Read the target log under the run's output directory and repair the reported prerequisite |
+| The server exits before ready | The environment tool's build or migration failed | Read `tests/e2e/notes/.e2e/logs/product.log` and repair the reported prerequisite |
 | The smoke test cannot find `Notes` | The app did not render its reachable home page | Read the smoke trace and inspect the page before driving further |
 | Pinning fails on `product` while `design` passes | The prototype has pinning but the product does not | This is the expected base failure before the pinning ticket lands |
 
@@ -94,7 +94,7 @@ services or states that operations cannot produce.
 
 The runner stops the tool it started. The tool removes its instance and fresh
 data directory on exit, including after a failed attempt. Stop only processes
-you started. Keep the evidence under `tests/e2e/notes/.e2e/`.
+you started. Keep the evidence and target logs under `tests/e2e/notes/.e2e/`.
 
 ## Rules
 

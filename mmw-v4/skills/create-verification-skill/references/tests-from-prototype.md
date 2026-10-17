@@ -35,7 +35,7 @@ not in test interception. Test data and operations stay identical across targets
 Capture `app.screenshot('<state>')` at the states to compare with the prototype.
 The Spec reviewer uses these frames to compare the same state on both targets.
 Assertions prove what the user sees and can accomplish. The ticket's back-end
-tests prove storage, rather than a separate stored half of `Proof`. A slice
+tests prove storage. A slice
 with back-end work also gets a back-end test CHECK naming its dedicated test
 database, separate from e2e data. Its EXPECT requires zero skipped tests.
 
