@@ -19,3 +19,4 @@ story-shots/
 
 # scripts/dev/board-instance.py keeps this checkout's board instance here
 .board-dev/
+.e2e/
