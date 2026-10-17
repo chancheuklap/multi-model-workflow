@@ -71,7 +71,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 </important>
 
 <important if="you are pulling an upstream's new version or editing a file copied from one">
-- Follow `### Upstream skills` of `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`: pull the subtree, carry each change that alters behaviour into the copy unless an edit of the set already changed that passage, read the changed upstream files against `UPSTREAM-INTENTS.md`, and name the upstream commit in the commit message.
+- Follow `### Upstream skills` of `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`: read `DESIGN-INTENTS.md` `## Departures`, pull the subtree, classify and check the changes with `scripts/upstream-hunks.py`, apply the four merge cases including upstream wording changes, read the changed upstream files against `UPSTREAM-INTENTS.md`, and name the upstream commit in the commit message.
 </important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
