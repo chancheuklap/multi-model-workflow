@@ -37,6 +37,7 @@ Mechanisms before text, and deletion before addition.
 | --- | --- |
 | A fixed-shape mistake a script can detect | Stop a repeated mistake |
 | An existing check is broken or disconnected | Bug fix |
+| A verification-tool problem | Authoring or modifying a skill: problems shared by similar products go in `create-verification-skill/references/known-issues.md`; product-specific problems go in that product's `verify-<product>` Doctor or Gotchas |
 | A judgment valid across repositories needs guidance | Authoring or modifying a skill |
 | A skill, playbook, or trigger is wrong, missing, or ineffective | Authoring or modifying a skill |
 | A rule gives false alarms or does not change behavior | Authoring or modifying a skill |

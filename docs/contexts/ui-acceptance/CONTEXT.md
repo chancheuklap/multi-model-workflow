@@ -1,42 +1,22 @@
 # UI acceptance
 
-How signed-off pages come from Claude Design into a design package, and how a product's `verify-<product>` skill and e2e tests prove the product. The design package is the UI's standard answer; verification assets are written in the day and read-only at night.
+How a local prototype becomes the UI baseline, and how a product's `verify-<product>` skill and e2e tests prove the product. The owner approves the winner at design freeze; the prototype and verification assets are read-only at night.
 
 ## Language
 
 ### The design side
 
-**Claude Design**:
-The design tool where the owner signs off a product's pages. Its project is the source of the repository's design package.
-_Home_: `mmw-v4/skills/design-pages/SKILL.md`
+**design freeze**:
+The point at which the owner approves the running winner prototype. Later design changes go through a `contract` child or a new prototype round.
+_Home_: `mmw-v4/skills/prototype/UI.md`
 
-**Claude Design agent**:
-The agent inside a Claude Design project, separate from the repository session. It reads that project's root `CLAUDE.md`, follows the selected task sheet, and reads pushed repository code through Claude Design's GitHub connection.
-_Home_: `mmw-v4/skills/design-pages/SKILL.md`
+**API fake**:
+A working, non-production implementation of the prototype's missing interfaces, in Martin Fowler's test-double sense. Existing interfaces use the real local backend, except referenced entities supplied by the fake to keep identifiers consistent; sample data comes from the environment tool's test seed data, and changes live in sessionStorage.
+_Home_: `mmw-v4/skills/prototype/UI.md`
 
-**design system**:
-A product's Claude Design project holding its visual variables, fonts, icons, and reusable parts, without product logic or whole page regions. A bound page project holds a copy under `_ds/<folder>/` that the design-pages session refreshes after a change.
-_Home_: `mmw-v4/skills/design-pages/references/design-system.md`, `mmw-v4/skills/design-pages/references/template-design-system-claude-md.md`
-
-**page project**:
-One long-lived Claude Design project per product, bound to its design system and holding the pages the owner designs. For an existing product, a task redraws only the pages it changes, from current code.
-_Home_: `mmw-v4/skills/design-pages/references/pages.md`
-
-**`tasks/<n>.md`**:
-A page project's task sheet for the calling ticket n, naming its pages, states, references, and completion criteria. Sheets without a top `Pulled:` line reserve their listed pages for that task, since Claude Design has no branches.
-_Home_: `mmw-v4/skills/design-pages/SKILL.md`, `mmw-v4/skills/design-pages/references/pages.md`, `mmw-v4/skills/design-pages/references/pull.md`
-
-**`设计决策记录.md`**:
-The page-project file recording decisions made while drawing, under the current task's number, marked `已确认` or `待确认`. Pull registers each pending decision's ticket before downloading; confirmed decisions accompany the pages as baseline.
-_Home_: `mmw-v4/skills/design-pages/references/template-page-project-claude-md.md`, `mmw-v4/skills/design-pages/references/pull.md`
-
-**pull**:
-The design-pages skill's part C, which registers decisions and uses `scripts/pull_design.py` to bring only the task's signed-off pages and their files into the repository. Its commit goes directly to the project branch.
-_Home_: `mmw-v4/skills/design-pages/references/pull.md`
-
-**design package**:
-The signed-off Claude Design pages and their files in `design/<product>/`, written by pull. It is the baseline for the UI's appearance, copy, and interactions, with confirmed design decisions included.
-_Home_: `mmw-v4/skills/design-pages/SKILL.md`, `mmw-v4/skills/design-pages/references/pull.md`
+**environment tool**:
+The product repository's development commands and operating skill for starting the whole product locally, with a backend and database per checkout and test accounts. The product's verification skill calls it rather than owning separate environment scripts.
+_Home_: `mmw-v4/skills/prototype/UI.md`, `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 ### The acceptance side
 
@@ -49,11 +29,11 @@ One product's maintained account of its user-facing features, one feature file p
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **feature file**:
-One feature's file, starting with its name, `Route:`, and `Tests:` on three lines. Its `Proof` names the observable end state on screen and in side-effect stores; `Gotchas` records prerequisites and local limits that can look like defects.
+One feature's file, starting with its name, `Route:`, and `Tests:` on three lines. Its user-facing description comes from the winner, settled decisions and glossary before design freeze; `Proof` records what the user sees and can accomplish, while `Gotchas` records prerequisites and local limits that can look like defects.
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **e2e test**:
-A fixed-step test under `tests/e2e/<product>/` that proves a user path and its side effects. It is written in the day from current code for existing behavior or from the design package for a new feature, and read-only at night.
+A fixed-step test under `tests/e2e/<product>/` that proves what a user sees and can accomplish. It is written in the day from current code for existing behavior or from the winner prototype for new behavior, with the same steps and assertions on both targets, and is read-only at night; backend tests prove real storage.
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **`e2e.config.ts`**:
@@ -65,7 +45,7 @@ The e2e target that runs the real product against its real local back end. It is
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **`design`** (target):
-The e2e target that serves `design/<product>/` through a local static server for the same tests' assertions. It runs during daytime test writing or maintenance, not at night.
+The e2e target that renders the winner prototype. For an existing web or Electron product, it uses the product's launch command with one environment variable; a new project starts its standalone prototype page. Daytime test writing proves it green, and Spec review uses it for screenshot pairs; nightly CHECK lines use `product`.
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **CHECK line**:
@@ -76,9 +56,9 @@ _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 The two required layers of separation: each product run has its own port and fresh data directory, and each checkout has its own back-end stack. Test workers within one run do not separate two tickets' runs.
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
-**ensure script**:
-The Launch helper that removes stacks whose checkout is gone, reuses this checkout's reachable stack, and starts it when unreachable. Runs in the same checkout share that stack; the helper uses its existing idempotent lifecycle command.
-_Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
+**known-issues**:
+The shared verification-tool problem list, read during generation and maintenance. Problems shared by similar products belong here; product-specific guidance belongs in that product's Doctor or Gotchas.
+_Home_: `mmw-v4/skills/create-verification-skill/references/known-issues.md`
 
 **prerequisite ticket**:
 A problem registered with the register-problem skill for a product that cannot meet either isolation layer. Its fix must land before that product gets UI tickets.
@@ -105,25 +85,25 @@ Product behavior that is actually broken, rather than a description or environme
 _Home_: `mmw-v4/skills/maintain-verification-skill/SKILL.md`
 
 **`contract` child** (UI acceptance):
-A ticket's child reporting that its e2e test or design package is wrong. Those assets stay unchanged at night; the worker abandons the affected criterion as stuck and hands the ticket back for daytime correction.
+A ticket's child reporting that its e2e test or winner prototype is wrong. Those assets stay unchanged at night; the worker abandons the affected criterion as stuck and hands the ticket back for daytime correction.
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/work-a-ticket.md`, `mmw-v4/skills/mmw-mode/playbooks/run-a-night.md`
 
 ### The prototype side
 
 **prototype**:
-Code that answers one question, kept with its question and verdict in a leaf directory rather than shipped directly. A winning UI variant becomes signed-off pages through design-pages; the production implementation is written from the settled answer.
+Code that answers a question in a leaf directory. A UI prototype is a complete, interactive design in the product's code, iterated with the owner; its winner is the appearance and interaction baseline, rewritten to production standards rather than shipped directly. Its conclusion lives in the feature file; LOGIC, EXP and SKETCH keep a README verdict.
 _Home_: `mmw-v4/skills/prototype/SKILL.md`, `mmw-v4/skills/prototype/UI.md`
 
 **leaf directory**:
-`efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, one prototype branch's code and `README.md` holding its question, current conclusion, and what the real code has taken. The issue is a ticket number or a short feature name when there is no ticket.
+`efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, one prototype branch's code. UI keeps `winner/` and `candidates/<n>/`, with its conclusion in the feature file; LOGIC, EXP and SKETCH keep `README.md` holding their question, current conclusion, and what the real code has taken. The issue is a ticket number or a short feature name when there is no ticket.
 _Home_: `mmw-v4/skills/prototype/SKILL.md`
 
 **effort** (`<effort>`):
 The development effort's directory name under `efforts/`, taken from the filing map's `## Notes` or otherwise the current branch name with `/` replaced by `-`, as lowercase ASCII words joined by `-`. Distinct from the toolbox's `effort`, a model's reasoning effort.
 _Home_: `mmw-v4/skills/prototype/SKILL.md`
 
-**scaffolding**:
-The mount point, prototype route, switcher, and any route-side symlink that let UI variants render in the app. It comes down after the winner is recorded, leaving the variants in their leaf directory as reference.
+**mount point**:
+The environment-variable-controlled entry that renders the winner at the feature file's final `Route:`, or in the rendering module for a UI without its own route. Each page has its own entry, with one shared switcher for variants; entries stay until implementation and are removed per page by the last ticket, or the final commit of a single ticket.
 _Home_: `mmw-v4/skills/prototype/UI.md`
 
 **shell**:
