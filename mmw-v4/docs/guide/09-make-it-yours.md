@@ -43,7 +43,7 @@ Its other files apply those levers to this set:
 | [`DESIGN-INTENTS.md`](../../skills/writing-for-agents/DESIGN-INTENTS.md) | What the set is built to keep true, and the deliberate departures from its upstreams. A change that breaks an intent waits for the owner's word |
 | [`WALKING-A-SKILL-SET.md`](../../skills/writing-for-agents/WALKING-A-SKILL-SET.md) | How a fresh agent walks a real task to prove a change |
 | [`SKILL-MECHANICS.md`](../../skills/writing-for-agents/SKILL-MECHANICS.md) | Frontmatter, invocation, and the mode as the router |
-| [`UPSTREAM-INTENTS.md`](../../skills/writing-for-agents/UPSTREAM-INTENTS.md) | What Matt Pocock's skills and pstack each set out to do, for comparing the set with them |
+| [`UPSTREAM.md`](../../skills/writing-for-agents/UPSTREAM.md) | How to carry a newer upstream version, what Matt Pocock's skills and pstack each set out to do, and which MMW intents take them |
 
 A skill that drives your app to prove behaviour is a verification skill. The `create-verification-skill` and `maintain-verification-skill` skills generate and keep it; [Verify and ship](./06-verify-and-ship.md) covers both.
 

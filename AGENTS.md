@@ -47,7 +47,8 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | Which prompt file reaches which host by which route, and the generated file's shape | `mmw-v4/prompt/README.md` |
 | Every skill and principle, one line each | `mmw-v4/README.md` `## Skills` and `## Principles` |
 | The intents the skill set is held to; read before changing what a skill does | `mmw-v4/skills/writing-for-agents/DESIGN-INTENTS.md` |
-| Every rule for the text of a skill, playbook or reference, which component a text goes in and the shape of each, and how a copy is compared with a newer upstream; read before writing, editing or reviewing one | `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` and `SKILL-SET-COMPONENTS.md` |
+| Every rule for the text of a skill, playbook or reference, which component a text goes in and the shape of each; read before writing, editing or reviewing one | `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` and `SKILL-SET-COMPONENTS.md` |
+| How to carry a newer upstream version and which MMW intents take its intents | `mmw-v4/skills/writing-for-agents/UPSTREAM.md` |
 | The facts of how this repository's tests run: where they live, how to run them, what is stubbed, how a test reaches a state, traps; the reviewer's Tests axis reads it. Which suites a change needs is the map in `scripts/check` | `TESTING.md` |
 
 ## Key Conventions
@@ -71,7 +72,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 </important>
 
 <important if="you are pulling an upstream's new version or editing a file copied from one">
-- Follow `### Upstream skills` of `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`: read `DESIGN-INTENTS.md` `## Departures`, pull the subtree, classify and check the changes with `scripts/upstream-hunks.py`, apply the four merge cases including upstream wording changes, read the changed upstream files against `UPSTREAM-INTENTS.md`, and name the upstream commit in the commit message.
+- Follow `## Carry a newer upstream version` of `mmw-v4/skills/writing-for-agents/UPSTREAM.md`: read `DESIGN-INTENTS.md` `## Departures`, pull the subtree, classify and check the changes with `scripts/upstream-hunks.py`, apply the four merge cases including upstream wording changes, read the changed upstream files against `UPSTREAM.md`, and name the upstream commit in the commit message.
 </important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
