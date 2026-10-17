@@ -41,6 +41,7 @@ TAIL = 20
 SHARED = (
     "python3 mmw-v4/tests/lib/check_module_paths.py"
     " && python3 mmw-v4/tests/lib/check_wiring.py"
+    " && python3 mmw-v4/tests/lib/check_host_neutrality.py"
     " && uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py"
 )
 

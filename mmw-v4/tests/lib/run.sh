@@ -8,5 +8,6 @@
 # Needs only python3.
 
 set -euo pipefail
+python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_host_neutrality.py" || { echo "the skill set contains host-specific wording or a stale exception (above); fix the named line before running this suite" >&2; exit 1; }
 python3 -m unittest discover -s "$(dirname -- "${BASH_SOURCE[0]}")" -p 'test_*.py'
 echo "all passed"
