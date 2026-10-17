@@ -41,7 +41,15 @@ Three kinds of review finding, each quoting the line of the ticket, the spec, or
 
 Quote the requirement for each review finding. A review finding with no quoted line is your opinion about the design, which is not what this axis decides. With no ticket line, spec or baseline to quote, say so instead of listing requirements you inferred from the code.
 
-## 3. Report
+## 3. Compare the prototype and product screenshots
+
+When `Read first` names a UI prototype, run this ticket's tests yourself in its worktree, once with `--target design` and once with `--target product`, using the product's `verify-<product>` skill's Launch. Take the same-state screenshot pairs those tests capture. The product screenshots come from the commit under review. The prototype screenshots come from the latest commit that still has its mount point. If this ticket removed the mount point, use `git worktree add --detach <temporary-directory> <commit>` to check out that commit, run the design target there, and remove the temporary worktree afterwards. Running these tests and making this temporary checkout do not violate read-only review.
+
+Open every screenshot pair and compare the images yourself, without pixel comparison. For each difference, decide whether this slice deliberately leaves it unbuilt or the implementation failed to copy it. Report only differences the tests do not cover. A failure to copy the prototype is `Built wrong`; work deliberately outside this slice is not a finding. Name the state, viewport, what the images show, the product component's `path:line`, and the baseline requirement. Do not use a temporary PNG as the finding's citation.
+
+Done when every screenshot pair has been inspected and each difference is classified. If the tests cannot produce the pairs, say what prevented the comparison in your report.
+
+## 4. Report
 
 Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its `path:line` and its quoted line (a `Missing` finding, which has no line, names the spec section instead); nothing that is not a finding. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
