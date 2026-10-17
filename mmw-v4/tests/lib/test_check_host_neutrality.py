@@ -95,5 +95,50 @@ class HostNeutralityTest(unittest.TestCase):
             with self.subTest(text=text):
                 self.reference.write_text(text + '\n')
                 self.assertIn(f'neutrality-test.md:1: {word}', self.run_check().stdout)
-        self.reference.write_text('Read ../SKILL.md.\nCHECK: python3 mmw-v4/skills/example/scripts/check.py\n')
+        self.reference.write_text('Read ../SKILL.md.\n')
         self.assertNotIn('neutrality-test.md:', self.run_check().stdout)
+
+
+    def test_joined_host_and_runner_names_are_reported(self):
+        for text, words in (('Use Claude/Codex/Grok here.', ('Claude', 'Codex', 'Grok')),
+                            ('Run on orca/herdr/paseo.', ('orca', 'herdr', 'paseo')),
+                            ('Open Cursor.Then go.', ('Cursor',))):
+            with self.subTest(text=text):
+                self.reference.write_text(text + '\n')
+                result = self.run_check()
+                self.assertEqual(result.returncode, 1, result.stdout)
+                for word in words:
+                    self.assertIn(f'neutrality-test.md:1: {word}', result.stdout)
+
+    def test_tool_names_with_markdown_or_line_wrapping_are_reported(self):
+        for text in ('Use the `Skill` tool.', 'Use the Skill\ntool.',
+                     'Use the **Task** tool.', 'Use the Task\ntool.'):
+            with self.subTest(text=text):
+                self.reference.write_text(text + '\n')
+                result = self.run_check()
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn('neutrality-test.md:1: the ', result.stdout)
+
+    def test_an_embedded_parent_path_cannot_escape_its_skill(self):
+        self.reference.write_text('Read references/../../../b/SKILL.md.\n')
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn('neutrality-test.md:1: references/../../../b/SKILL.md', result.stdout)
+
+    def test_a_check_cannot_name_a_repository_local_skill_path(self):
+        self.reference.write_text('CHECK: bash mmw-v4/skills/verify-ticket/scripts/x.sh\n')
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn('neutrality-test.md:1: mmw-v4/skills/verify-ticket/scripts/x.sh', result.stdout)
+
+    def test_an_empty_or_missing_skill_tree_is_not_a_pass(self):
+        for name in ('missing', 'empty'):
+            with self.subTest(name=name):
+                skills = self.root / name
+                if name == 'empty':
+                    skills.mkdir()
+                result = subprocess.run([sys.executable, str(CHECK), str(skills)],
+                                        text=True, capture_output=True)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn(str(skills), result.stdout)
+                self.assertNotIn('HOST NEUTRALITY OK', result.stdout)
