@@ -9,7 +9,7 @@ amends: [0029, 0030, 0044, 0048]
 
 ## 为什么这样定
 
-- Claude Design 当年是为了让 worker 照设计做。`9ff2d5b44:docs/research/code-landing/10-previous-attempt-postmortem.md` 记录的实验里，本地 mockup 作 baseline 同样有效，问题在 worker 不照做。现在由 Read first 加 baseline-is-the-contract、先红后绿的 e2e 和 reviewer 管住，本地原型还能当真页面试用。ERP 的 22 个静态单页不能这样试。
+- #1094 §6「文档与检查脚本」记录，Claude Design 当年是为了让 worker 照设计做，当时的实验里本地 mockup 作 baseline 同样有效，问题在 worker 不照做。现在由 Read first 加 baseline-is-the-contract、先红后绿的 e2e 和 reviewer 管住，本地原型还能当真页面试用。ERP 的 22 个静态单页不能这样试。
 - `design` target 对已有产品只比产品启动命令多一个环境变量，Electron 也一样。同一份测试没有 target 分支，落地后原型入口自然停用、测试不改。入口挂在产品代码里，主人试用的不是空壳。
 - UI 原型不写 README。结论进 feature file，流程没有读 UI 原型 README 的步骤。
 - 「产品能做什么」提交在 effort 分支或 `fix-<n>`，不直接进 project branch。后者只写产品现在能做的事，否则 maintain-verification-skill 会把「写了没做」当作描述错误。
