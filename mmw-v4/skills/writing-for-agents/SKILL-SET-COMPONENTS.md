@@ -20,16 +20,16 @@ A skill's directory is symlinked whole into every host, so it holds only what th
 
 ## The method
 
-These hold for every component. They come from how pstack itself adds and changes components (course lesson 2) and from what went wrong in the two earlier attempts.
+These hold for every component.
 
-1. **Imitate pstack in content, not only in shape.** Before writing a component, read the pstack component of the same kind that does the closest job. Where a pstack text already covers what MMW needs (a principle, a section of poteto-mode, a skill), start from that text and merge MMW's specifics into it. A file with pstack's headings and MMW's old text under them is not a migration.
-2. **Compare before you choose; pstack is not the default winner.** Before calling something missing from the set, read its entry in [`UPSTREAM-INTENTS.md`](UPSTREAM-INTENTS.md) and the departures in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md): a departure listed there is a decision, not a gap. When v2 and pstack each have a component doing the same job, read both in full and keep the one that does more, or keep both when they do different jobs. Several v2 skills do more than their pstack counterpart (`writing-for-agents` in the place of Cursor's `create-skill`, `grilling`, which pstack has no counterpart for). Compare components, not only skills: the pstack side of a job can be a playbook (pstack writes how a skill is made in its Authoring a skill playbook; Cursor's `create-skill` is only the tool its first step names). A component only pstack has, which nothing in MMW corresponds to, is not brought in until a task needs it, because it names other components. A sentence only pstack has is a different case: it comes in when it overlaps and conflicts with nothing already in the set. The comparisons made so far are in `mmw-v3/course/` lesson 4, figure 3; where every rule of `shared.md`, and every pstack communication rule merged with MMW's, goes is in figures 4 and 5.
-3. **Place each piece of text by these questions, not by what type of text it looks like.** Who needs it, at which moment? How many places use it? Does it change a decision? Can a mechanism (a script, a check, a hook already in v2) enforce it? The two earlier attempts placed text by type ("move each passage to the layer its type belongs to") and produced one situation with two different actions in two places (#880), the same rule written twice (#884) and references to things that had moved (#885). A v2 file is not one unit either. A v2 skill can carry the steps of a task, rules several steps read, and the capability itself, and each part goes where these questions put it: v2's `writing-for-agents` became the playbook Authoring or modifying a skill (its steps), `writing-for-agents/SKILL-SET-RULES.md` (the rules it reads) and a skill (the capability). Text from the earlier attempts may be the base where it is more complete than pstack's; their placement rules are followed only where lesson 2 found them agreeing with pstack.
+1. **Imitate pstack in content, not only in shape.** Before writing a component, read the upstream component of the same kind that does the closest job. Where an upstream text already covers what MMW needs, start from that text and merge MMW's specifics into it.
+2. **Compare before you choose; pstack is not the default winner.** Before calling something missing from the set, read its entry in [`UPSTREAM-INTENTS.md`](UPSTREAM-INTENTS.md) and the departures in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md): a departure listed there is a decision, not a gap. Where both sides do one job, read both in full and keep the one that does more, or keep both when they do different jobs. A component only an upstream has, which nothing in MMW corresponds to, is not brought in until a task needs it, because it names other components. A sentence only an upstream has is a different case: it comes in when it overlaps and conflicts with nothing already in the set.
+3. **Place each piece of text by these questions, not by what type of text it looks like.** Who needs it, at which moment? How many places use it? Does it change a decision? Can a mechanism (a script, a check, a hook) enforce it?
 4. **The default is to edit an existing home or to delete, not to create.** A new component needs all three: "no existing skill is a real home, the pattern recurs, and the topic deserves its own skill" (pstack `reflect`). "When in doubt, delete. Keep only prose that changes a decision." (pstack `authoring-a-skill.md`).
 5. **What can be a check is not written as prose.** Order of preference: architecture, types, a lint or check whose error names the fix, a test, and prose last (pstack `correct`). "Skill prose is for things mechanisms cannot enforce" (pstack `reflect`).
 6. **Register in the same change.** A new playbook gets its route line in `mmw-mode/references/owning-a-task.md` `## Playbooks`; a new principle gets its index line in `## Principles`; a reference or script gets named, with its path or command, by the step that uses it; `python3 mmw-v4/tests/lib/check_wiring.py`, which every suite under `mmw-v4/tests/` but `lib` runs first, fails when one of these is missing or names something that is not there. A new skill needs no install entry: `mmw-v4/install.sh` installs every directory under `mmw-v4/skills/` that has a `SKILL.md`. Text brought in from anywhere else is named, with the repository that first wrote it and the commit it was read at, in the message of the commit that brings it in.
-7. **What pstack does not say is labelled.** pstack has no written rule for some decisions (when a new playbook is warranted, for one). A placement that rests on an inference from pstack's examples says so, and goes to the owner.
-8. **Bring in what the step needs, and check what it names.** Before copying a component, list every component its text names. A named component the set does not have, and the current step does not bring in, either costs the copy one sentence (dropped, and named in the commit message) or, when the copy depends on it, keeps the copy out until a step brings both. The base of a copy is v2's version, which carries the owner's improvements; a v2 sentence that ties it to something the set does not have (a skill, a command, a script) is dropped.
+7. **What pstack does not say is labelled.** A placement that rests on an inference from pstack's examples says so, and goes to the owner.
+8. **Bring in what the step needs, and check what it names.** Before copying a component, list every component its text names. A named component the set does not have, and the current step does not bring in, either costs the copy one sentence (dropped, and named in the commit message) or, when the copy depends on it, keeps the copy out until a step brings both.
 9. **A correction covers its whole class.** When the owner corrects one placement, check everything brought in so far for the same mistake before reporting back.
 
 ## mode
@@ -38,16 +38,14 @@ The model to imitate, in content as well as shape, is `upstream/pstack/skills/po
 
 ### What the mode is for
 
-The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the entry: its description, which every host scans at start, says to read it in full at the start of every session. An agent that is sent is also told so in its first words: a start prompt `dispatch.sh` writes is its data, then `Read the mmw-mode skill in full, then follow <what>.` (`Dispatched: <role>, ticket #<n>, base <commit>. Read …`, or `Dispatched: <role>, brief <file>. Read …`), then `It is your whole task: …`; a subagent's prompt opens with `Read the mmw-mode skill in full, then` and ends with that same sentence. No hook and no line in the user-level prompt tells a session to read it.
+The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the entry: its description, which every host scans at start, says to read it in full at the start of every session. No hook and no line in the user-level prompt tells a session to read it.
 
-It is read in two layers, split by whether the agent owns its task. `SKILL.md` holds what every agent judges with and keeps all seven section headings below, in their order. `references/owning-a-task.md` holds what only the owner of a task uses, under the headings of the sections it holds a part of, and is read by an agent whose first message names no file to follow. Each section below says which file holds which part. What to do is named by whoever sends an agent; which skill and which principle to use stays each agent's judgement, through the first layer.
+It is read in two layers, split by whether the agent owns its task. `SKILL.md` holds what every agent judges with and keeps all seven section headings below, in their order. `references/owning-a-task.md` holds what only the owner of a task uses, under the headings of the sections it holds a part of, and is read by an agent whose first message names no file to follow. What to do is named by whoever sends an agent; which skill and which principle to use stays each agent's judgement, through the first layer.
 
 ### Frontmatter
 
 - `name: mmw-mode`.
 - `description`: what the mode is in one sentence, the instruction to read it in full at the start of every session, before anything else, and which agent goes on to `references/owning-a-task.md`.
-
-poteto-mode's `mode`, `reminder`, `icon` and `color` are Cursor fields and are left out.
 
 ### The two rules that shape every section
 
@@ -59,13 +57,13 @@ poteto-mode's `mode`, `reminder`, `icon` and `color` are Cursor fields and are l
 #### `## Non-negotiables`
 
 - **Used:** at any moment of any task, as soon as the situation a line names arises, whichever playbook is running.
-- **Content:** in `SKILL.md`, one paragraph saying that the Principles section grounds every trigger (a principle's index line is itself a trigger), citing only principles whose full `SKILL.md` was read this session, then the triggers under **Your own code and prose**. In `references/owning-a-task.md`, the sentence that the reply names each principle that shaped a decision and the choice it changed, then the triggers for the task as a whole (an understanding, a design, a split, a review, a record). One line per trigger: `Situation → what to use`, where what to use is a skill, a playbook (with its path), or a reference. A line names; it does not explain how. The exception is a judgement that must be made on the spot, written into the line (poteto-mode's "classify it before you ask" line).
+- **Content:** one line per trigger: `Situation → what to use`, where what to use is a skill, a playbook (with its path), or a reference.
 - **When to add a line:** under the name that fits it. The situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead. A situation a principle's index line already names gets no line here, unless the line adds an action the principle does not hold (poteto-mode's "Any code → name the data shape first").
 
 #### `## Principles`
 
 - **Used:** the index is read when the mode loads; a principle's full text is read only when its condition arises and it is applied.
-- **Content:** two sentences of usage ("Read the leaf skill in full for any principle you apply. Each entry names when it applies."), then the index in named groups (poteto-mode: Core, Architecture, Verification, Delegation, Meta). Each line holds three things: `**Name** (**principle-<slug>**). Condition. One-sentence rule.` The full text lives in `mmw-v4/skills/principle-<slug>/SKILL.md`, never in the mode.
+- **Content:** each index line holds three things: `**Name** (**principle-<slug>**). Condition. One-sentence rule.`
 - **When to add a line:** in the same change that adds the principle skill. When a principle is warranted is in `## principle` below.
 
 This index is how a rule loads at the moment it applies: one line is always in context, the full text is read when the condition arises. No hook is needed for it.
@@ -73,36 +71,23 @@ This index is how a rule loads at the moment it applies: one line is always in c
 #### `## Autonomy`
 
 - **Used:** whenever the agent is deciding whether to act or to ask the owner first.
-- **Content:** six paragraphs, each opening in bold; **Two kinds of moment** and **Session overrides** are in `references/owning-a-task.md`, the other four in `SKILL.md`:
-  - **Just do it.** What proceeds without asking: reversible work; a decision only the owner makes is not taken, and its list is in **principle-never-block-on-the-human**.
-  - **Two kinds of moment.** A question asked in discussion is answered, not acted on; an instruction to act is carried out.
-  - **Always pause** for irreversible writes, and on correctness, security and money.
-  - **Session overrides:** what the owner's words change ("going to bed"; an approved plan or ticket is the go signal).
-  - **Unattended.** How a session whose start prompt is a `Dispatched:` line works with nobody to ask: by the file its start prompt names, and what replaces asking. It is the only text such a session relies on for working unwatched; the start prompt itself carries no rule, only that pointer.
-  - **No is an acceptable answer.** Disagreement is owed when there is a flaw, never manufactured.
 
 #### `## Subagents`
 
 - **Used:** before spawning any subagent.
-- **Content:** one paragraph each. In `SKILL.md`: how to send a host's general-purpose subagent, using the subagent row the sending step names, and what to do on a host that cannot run one; what a subagent's prompt opens with, names (the file or the steps it follows, and what it hands back, where and in what shape) and ends with; who owns what comes back. In `references/owning-a-task.md`: how to send a session with `dispatch.sh send` and what a brief holds; when to ask the advisor for a second opinion. Every subagent in MMW is sent out by a skill or a playbook, which writes its prompt (an axis of `code-review`, the judge of `eval`, the ambiguity scanner of To tickets); every subagent reads this mode first. Sessions a script starts (junior and senior worker, reviewer, researcher, candidate, retro-analyst, advisor) are not subagents; their start and their models are the `dispatch` skill's, and its `roles.json` lists every session role.
 
 #### `## Writing the reply`
 
 - **Used:** while writing every reply, and any comment the owner reads.
-- **Content:** in `references/owning-a-task.md`; `SKILL.md` keeps the heading and one line pointing there. The rules every reply shares, one point per bullet, each stated as an action: evidence or its label in the same sentence; reasons and consequences rather than files and functions; plain standard vocabulary; when lists and tables help. A rule's reason stands beside it. Who reads the reply and what they can and cannot see are facts about the owner, in `mmw-v4/prompt/shared.md`, which every session carries with or without the mode; what the owner learns from a reply (principle and effect) opens this section. Anchored references are `principle-anchor-every-reference`'s. Close with the division of labour: each playbook's `**Reply:**` line names only what is unique to that playbook.
 
 #### `## Comments`
 
 - **Used:** while writing a code comment or any file's prose about the code.
-- **Content:** one paragraph. A comment is kept only for a non-obvious why the code cannot show. That a file describes its subject now, never its own history, is `principle-files-describe-the-present`'s, and holds for comments too.
 
 #### `## Playbooks`
 
 - **Used:** at the start of a task, to choose its route.
-- **Content:** in `SKILL.md`, which steps an agent works by (those of the file the prompt names, or else of the matched playbook), and the sentence that sends an agent whose first message names no file to `references/owning-a-task.md`. In `references/owning-a-task.md`, in this order:
-  1. Usage: match the task to a route line and open its playbook.
-  2. One sentence that sends a ticket with acceptance criteria and no `Playbook:` line, given anywhere but to a worker, to One ticket, and one with that line to Session pickup; then one sentence on the one way every change outside a night lands.
-  3. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.`` A playbook only a sent agent follows keeps its line, which says who sends it (Work a ticket: "Sent by the dispatch skill to a ticket"); the sent agent itself reaches it through the file its start prompt names.
+- **Content:** one route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
 - **When to add a line:** in the same change that adds the playbook file. Whether a playbook is warranted is in `## playbook` below.
 
 ## playbook
@@ -132,8 +117,6 @@ In the same change as the new file: add its route line to the `mmw-mode` skill's
 
 A playbook that changes the repository outside a night opens its ticket and `fix-<n>` at step 1 and ends with the hand-back to the owner, both as the `mmw-mode` skill's `references/ticket.md` says; the change itself goes to a worker through One ticket. Its verification step follows the numbered steps as a section opened by its title in bold, which One ticket step 4 runs, and a section **A ticket that came back** names the step to resume at. Its `**Reply:**` names what the hand-back tells the owner, since the result comes after it.
 
-Set up code checkers is the one such playbook that commits its own change, as the `setup-mmw` skill does: `dispatch.sh open-ticket` and `land` refuse a repository without `scripts/check`, so the change that gives a repository one cannot land through a ticket.
-
 A judgement several steps point to may follow the steps as a section of its own, opened by its name in bold (To spec's **Seams**); the two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections instead. A playbook may name a step of another playbook ("Run **Authoring or modifying a skill** on the findings").
 
 ## principle
@@ -160,7 +143,7 @@ A judgement several steps point to may follow the steps as a section of its own,
   - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names the subagent row to use (`mmw-mode/SKILL.md` `## Subagents`).
   - The phases or steps; a step that needs a template names `references/<file>`.
   - What it hands back, and in what form.
-- **A skill the steps that make one kind of output name**, the way Opening a PR names **technical-writing** and **unslop**: it holds the rules that kind of output shares, and the step that names it says only what this output carries. An HTML page for a person is one: the step that makes it names the **diagram-design** skill and says what goes on the page. The mode's `## Non-negotiables` names **diagram-design** and **principle-everything-at-hand** for any page or diagram for a person, including a page made outside a playbook step, so those reader rules are reached there too.
+- **A skill the steps that make one kind of output name**, the way Opening a PR names **technical-writing** and **unslop**: it holds the rules that kind of output shares, and the step that names it says only what this output carries.
 
 ## reference
 
@@ -210,10 +193,8 @@ In the same change: the step or trigger that runs it gives the exact command.
 
 ## subagent
 
-- **What there is:** MMW ships no subagent definitions (ADR 0015). A skill that needs one sends out its host's general-purpose subagent, using the subagent row that step names, and writes its whole prompt, usually from a template in the skill's `references/` (each `code-review` axis is its axis file with the ticket and base commit written in). Its prompt opens with `Read the mmw-mode skill in full, then`, so it judges by the same triggers and principles as the session that sent it, names the file or the steps it follows and what it hands back, and ends with `It is your whole task: …`; past the mode's `SKILL.md`, it reads only what the skill gives it. The rules every such dispatch follows are `mmw-mode/SKILL.md` `## Subagents`.
-- **Not a subagent:** a session a script starts. Every one is started by the `dispatch` skill's `dispatch.sh send <role> <ticket number>` or `dispatch.sh send <role> --follow "<what>" <brief file>`, as a session of its own on the row `~/.mmw/models.json` gives its role: a worker or reviewer with a ticket number, a researcher, candidate, retro-analyst or advisor with a brief. Its start prompt is one line: its data, then `Read the mmw-mode skill in full, then follow <what>. It is your whole task: …`, <what> being its role's `follows` in `roles.json` for a ticket, or the `--follow` the sending step writes for a brief. It matches no route line. A briefed session reports its answer with `dispatch.sh report`, and the relay wakes the session that sent the brief once the whole batch has reported. The one session `dispatch.sh` does not start is an Eval candidate: a blind test starts it with the host's own command and an organic prompt, since a `Dispatched:` line and a brief would tell it it is being tested.
+- **What there is:** MMW ships no subagent definitions (ADR 0015).
 - **Which kind a new agent is:** three questions, in order. Can the session do the work itself in this turn, where its own reading is good enough: then no agent. Does the work need a model of its own, or to run outside this turn, or is it a different job from the sender's: then a session role. Otherwise (several pieces of the same job at once, or a context the session's own reasoning has not touched): a subagent. Every session role has a row in the `dispatch` skill's `roles.json`, which carries its `default` host, model and effort; `check-interfaces.py` beside `dispatch.sh` refuses a role without a default a fresh machine can start, a `send` of a role `roles.json` does not have, and a brief role nothing sends. A subagent has no `default` like a session role. Its model comes from the subagent row the sending step names, registered in the `dispatch` skill's `roles.json` `subagents` section. Its prompt is written in that step or, when it is long, in the sending skill's `references/`.
-- pstack's `poteto-agent` exists because a general subagent skips reading the mode: "Substituting `generalPurpose` skips that read and drifts." MMW has no definition file for it: every prompt that starts an agent, subagent or session, opens with reading the mode, on any host.
 
 ## configuration
 
