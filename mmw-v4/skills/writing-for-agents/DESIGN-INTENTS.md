@@ -86,7 +86,7 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Home: the `domain-modeling` skill; `docs/adr/`.
 25. **A prototype is code that answers a question,** kept in the repository with its verdict; a code shape that reaches beyond one ticket is settled by competing sketches.
     Takes: M16, adapted (the verdict, not the code, is what the real build takes); P19, kept (options are compared in prototypes, `architect` sketches and `arena`).
-    Home: the `prototype` skill; the `architect` and `arena` skills. A product's signed-off screens live in `design/<product>/`, written by the `design-pages` skill.
+    Home: the `prototype` skill; the `architect` and `arena` skills. A UI prototype's conclusion lives in the feature file; its winner is the UI baseline, under `prototype/UI.md`.
 26. **Each repository is set up once and skills only read the setup;** the repository's files are placed by how long they stay true.
     Takes: M19, adapted (`setup-mmw` also writes `TESTING.md` and has Set up code checkers write the repository's `scripts/check`).
     Home: the `setup-mmw` skill; **Set up code checkers**; the repository's `scripts/check`, whose default tier `dispatch.sh land` and `advance` run on each merge result.
@@ -150,9 +150,9 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
 
 ## UI acceptance
 
-42. **The design package is the UI's standard answer; e2e tests are written in the day and read-only at night.**
-    Takes: P9, adapted (verification skills are generated per product; tests are written in the day and read-only at night, rather than kept current by review).
-    Home: **To tickets** step **Write each acceptance criterion**; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `mmw-mode` skill's `references/ticket.md`.
+42. **The winner prototype is the UI's standard answer; e2e tests are written from it in the day and read-only at night.**
+    Takes: P9, adapted (verification skills are generated per product; tests are written in the day and read-only at night, rather than kept current by review); E1, adapted (web and Electron UI, with the product environment tool owning launch); E2, kept; E3, adapted (fixed steps only); E4, adapted (installed guides without installing upstream skills); E5, adapted (one file per feature, no index or status; conclusions from the winner, settled decisions and glossary); E6, adapted (user-visible proof in e2e, storage proved by backend tests; no video); E9, adapted (irreversible writes need permission, generated assets follow the effort branch rule).
+    Home: `prototype/UI.md`; `create-verification-skill/SKILL.md`; **To tickets** step **Write each acceptance criterion**; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `mmw-mode` skill's `references/ticket.md`.
 
 ## Departures
 
@@ -185,3 +185,6 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P3 (the rest) | Adjusting each subagent's reasoning and speed to its job | Only the row the step names in `~/.mmw/models.json`, set by the owner, decides its strength (14). Owner decision, 2026-10-17. |
 | P44 (the rest) | User-only `/sharpen`, unspoken framing and immediate work | To spec step **Check that nothing load-bearing is undecided** names `sharpen` and returns its conclusions with that step's questions in one batch (3, 21, 22). Upstream tried automatic invocation and returned to manual invocation; MMW names it in only one step, with the owner's decisions and the day's settled scope limiting overspecification. Owner decision, 2026-10-17. |
 | P45 | `figure-it-out` designing a playbook when none matches | Every task matches a route; work one ticket cannot carry goes through To spec (5, 23). Owner decision, 2026-10-17. |
+| E7 | Model-driven exploration, bug bash and feature charters | Fixed-step e2e tests written in the day prove the UI; Spec review compares prototype and product screenshots (42). Owner decision, #1094 §7. |
+| E8 | Migrating an existing test suite into e2e | Deferred until a product with an existing suite needs it (42). Owner decision, #1094 §7. |
+| E9 (commit rule) | Never commit generated verification assets | Assets generated during a prototype effort are committed to its branch and delivered with its PR; other direct-commit exceptions live in `mmw-mode/references/owning-a-task.md` `## Playbooks` (23, 32). Owner decision, #1094 §3 step 0. |

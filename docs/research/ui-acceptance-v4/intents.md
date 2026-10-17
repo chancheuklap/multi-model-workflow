@@ -12,7 +12,7 @@
 
 - mmw v4 是技能集合，agent 通过被点名来调用技能。不能像 pstack 那样靠 agent 自觉触发 verify；需要它的步骤明确写出来。
 - e2e test 和仓库其他测试不一样：不进 TESTING.md、scripts/check、spec 的 Testing Decisions、票的 Seam；不归开夜流程管，不由 worker 生产，也不由 reviewer 判对错。
-- verify-<产品> 和 e2e test 在开夜前生成并提交：现有功能照已有代码写，新项目、新功能照 Claude Design 的设计包写。夜里只读。
+- verify-<产品> 和 e2e test 在开夜前生成并提交：现有功能照已有代码写，新项目、新功能照 winner 原型写。夜里只读。
 - 「去掉 pending」这一步的答案是 `verify-ticket.py --closeout`，不新发明机制。
 - 不新增 verifier。worker 写完代码自己跑验收直到通过，然后只 review 一次、返工一次，不允许两个 agent 来回返工。
 - 验收用的 e2e test 只用固定步骤。

@@ -11,7 +11,7 @@ A baseline is a decision someone already paid for: a user's answer, a prototype 
 
 **Pattern:**
 - Copy the values, wording, states and interface shapes of every baseline from it rather than writing them again from memory.
-- A design package is copied exactly. A prototype is rewritten to production standard, keeping the shape its verdict settled on.
+- Copy the winner prototype's appearance and interactions exactly. Rewrite its code to production standard.
 - When something you were told to follow does not hold (it lacks a state, field, interaction or case, or contradicts another source), keep going on what still holds and raise the gap where whoever owns the baseline sees it. Quote what does not hold, and state what in that same source still holds and must be preserved.
 - Never quietly change a baseline, never quietly add around one.
 
