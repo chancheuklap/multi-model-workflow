@@ -1,5 +1,3 @@
-"""Run the host-neutrality command against broken copies of the skill set."""
-
 import shutil
 import subprocess
 import sys
