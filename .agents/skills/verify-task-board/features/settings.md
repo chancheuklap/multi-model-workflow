@@ -37,3 +37,5 @@ Tests: settings.e2e.ts, subagents.e2e.ts
 
 - 每次运行的 `MMW_HOME` 是新的，从 `scripts/dev/board-fixtures/` 起步：`reviewer` 是 claude、sonnet、high，子代理都是「跟叫它的会话一样」。型号目录来自 `host-catalog.json`，不问本机的 claude、codex。
 - 「重新扫描」在测试里读的是同一份目录，看不出目录变化；目录读失败、存的型号不在目录里，这两个状态本机造不出来，用 `browser.route` 改 `GET /api/settings` 的回答（`subagents.e2e.ts` 的 `answerSettings`）。
+- 读取时间不是今天时，页面写成「10月16日 23:38」；测试数据里的读取时间是固定的，总有一天不是今天，断言读取时间要容许前面的日期。
+- 同一次运行的测试共用一个看板和一份 `models.json`，所以配置里 `workers: 1`；两个测试同时保存会互相得到 409。
