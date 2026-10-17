@@ -40,7 +40,7 @@ _Home_: `AGENTS.md`
 
 **subtree**:
 How an upstream repository is carried inside this one, read-only (`git subtree pull --prefix … --squash`): `upstream/mattpocock/` is `mattpocock/skills`, `upstream/pstack/` is pstack from `cursor/plugins`, `upstream/cursor-team-kit/` is `cursor-team-kit/` from the same `cursor/plugins`, `upstream/diagram-design/` is `cathrynlavery/diagram-design`, `upstream/e2e/` is `skills/` from `tester-army/e2e`. A directory of a repository comes in as its `git subtree split`. Nothing runs from a subtree except through the `repo-root` symlink: a file a skill needs is copied into `mmw-v4/skills/`.
-_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/UPSTREAM.md` `## Carry a newer upstream version`
 
 **upstream**:
 The source project of a subtree, or of any file copied into the set. A copied file differs from its source only where a **`J` entry** in its `imports.tsv` row records the change; upstream's own `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` stay in the subtree as upstream wrote them.
@@ -280,7 +280,7 @@ _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **upstream skill**:
 A skill copied into `mmw-v4/skills/` from an upstream subtree, entering the set as its authors wrote it. The set changes the copy only where the change alters what the agent does, never for wording, clarity or its own voice; a newer upstream version is carried in, rewording and compression included, into every passage the set has not changed. Distinct from a local rewording, which is a finding fixed by restoring the upstream text.
-_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`; `mmw-v4/skills/writing-for-agents/UPSTREAM.md` `## Carry a newer upstream version`
 
 **skill-set-review finding**:
 An established problem in a skill's text or structure, always fixed once evidenced — there are no severity levels. Distinct from ticket-run's **review finding** and release's **release finding**.
