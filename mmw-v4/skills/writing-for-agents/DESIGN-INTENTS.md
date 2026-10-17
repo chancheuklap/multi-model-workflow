@@ -1,6 +1,6 @@
 # MMW design intents
 
-What MMW's skill set is built to keep true, and the standard a change to it is held to. **Authoring or modifying a skill** reads it at **Read the standards** to name the intent a change serves. A change that breaks an intent is not made without the owner's word; MMW's deliberate departures from its upstreams, listed below, are decisions, not gaps.
+What MMW's skill set is built to keep true, and the standard a change to it is held to. **Authoring or modifying a skill** reads it at **Judge it against the design** to name the intent a change serves. A change that breaks an intent is not made without the owner's word; MMW's deliberate departures from its upstreams, listed below, are decisions, not gaps.
 
 Each intent says what is kept and its home: the files whose text carries the rule an agent acts on. The upstream mapping lives in [`UPSTREAM.md`](UPSTREAM.md). This file is an index: the rule itself is written in its home, where the acting agent reads it. A change that adds, changes or drops an intent, or moves its home, changes its entry here in the same commit.
 
@@ -18,7 +18,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 ## How the set is built and runs
 
 5. **One entry routes each task to one playbook.**
-   Home: `mmw-mode`'s description and `## Playbooks`, and its `references/owning-a-task.md`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## mode`.
+   Home: `mmw-mode`'s description and `## Playbooks`, and its `references/owning-a-task.md`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## mode`; the **Authoring or modifying a skill** route line in `mmw-mode` `references/owning-a-task.md` `## Playbooks`.
 6. **A text goes in the component that answers who needs it and at which moment, not the one its type suggests:** mode, playbook, principle, skill, reference, script, subagent prompt, configuration, user-level prompt.
    Home: [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The components and where they live`, `## The method`.
 7. **A playbook is not a skill.**
@@ -43,7 +43,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
     Home: [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` items 1, 2 and 8; [`UPSTREAM.md`](UPSTREAM.md).
 17. **A skill hands over understanding, then trusts the model.**
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) facts 1 and 4.
-18. **A change to the skill text is proven by a fresh agent walking a real task with only its trigger;** tests prove the scripts, not the text.
+18. **A change to the skill text is proven by a fresh agent walking a real task with only its trigger when the change alters what an agent does in a task;** tests prove the scripts, not the text.
     Home: [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md); **Authoring or modifying a skill**'s **Prove it, once**.
 19. **Text for an agent leaves no branch without a way on and no choice unguided;** examples use a neutral domain; a refusal puts the next step in its first lines.
     Home: `writing-for-agents` `SKILL.md`; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Hand-offs`, `### Examples`, `### Refusals and output an agent reads`.
