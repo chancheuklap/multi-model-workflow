@@ -47,7 +47,6 @@ origin/*) git fetch origin "+refs/heads/${base#origin/}:refs/remotes/$base" --qu
 esac
 git rev-parse --verify --quiet "$base^{commit}" >/dev/null 2>&1 || { echo "error: base ref not found: $base" >&2; exit 1; }
 
-# PR state by branch, fetched once as [{number, state, head}].
 prs=$(mktemp)
 if raw=$(gh pr list --author "@me" --state all --limit 1000 \
 	--json number,state,headRefName 2>/dev/null); then
