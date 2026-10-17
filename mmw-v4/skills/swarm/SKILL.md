@@ -5,7 +5,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Swarm
 
-Fan out N parallel workers. They may cover separate slices, race the same brief, or mix both. The parent waits, aggregates, and returns one report.
+Fan out N parallel workers.
 
 ## Phase A: Frame
 
@@ -25,8 +25,6 @@ If a worker drops out, proceed with N-1 and note it.
 ## Phase C: Aggregate
 
 Read the terminal results. Drop a result that does not record the SHAs and method its brief names, and respawn that worker once. After a second miss, record a gap. A gap does not count as a pass. For coverage, every required slice needs a result. For a race, apply the selection rule declared up front. Use first pass, rank all, or best-of. Do not paste raw worker dumps.
-
-Keep a compact result table, one-line evidenced issues, and explicit gaps or dropouts.
 
 ## Phase D: Report
 

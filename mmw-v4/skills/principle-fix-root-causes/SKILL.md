@@ -5,17 +5,19 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Fix Root Causes
 
-When debugging, do not fix symptoms. Trace every problem to its root cause and fix it there.
+When debugging, fix the fault, not the place where it surfaced. The symptom is where a wrong state became visible. The root cause is the first place the system did something it should not do, or failed to handle a state it should handle.
 
-**Why:** Symptom fixes accumulate. Each workaround makes the system harder to reason about, and the real bug remains. Root-cause fixes are slower upfront but reduce total debugging time.
+**Why:** A symptom fix hides the evidence and leaves the fault free to surface somewhere else. Each one makes the system harder to reason about, because the code now carries a workaround for a bug that nobody named.
 
 **Pattern:**
-- Reproduce first
-- Ask "why" until you hit the root cause
-- Do not add guards (adding a nil check to silence a crash is a symptom fix)
-- If a workaround needs a paragraph-long comment to justify it, the code is wrong (fix the code, not the comment)
-- Check for the pattern, not just the instance (grep for the same pattern, fix all instances)
-- When stuck, instrument. Don't guess (add logging, read the actual error)
+- Reproduce first.
+- Ask "why" at each step until the answer is a wrong decision in the code, not a consequence of an earlier one.
+- When stuck, instrument. Read the actual error and the actual state. Do not guess.
+- Ask whether the state that triggered the symptom is legitimate. If the system may be in that state, the code that broke on it is the root cause, and handling the state there is the fix. If the state should never exist, a check where it broke hides the bug. Find what produced the state. Guards, retries, swallowed errors, clamped values, and discarded state are the usual ways to hide a bug.
+- When something fails only after a restart, suspect persisted state first: config files, caches, lock files, serialized state.
+- Check for the pattern, not just the instance. Find every place with the same fault and fix them all.
+- If a workaround needs a paragraph-long comment to justify it, the code is wrong. Fix the code, not the comment.
+- If the deciding fact took a deep dig to find, propose the cheap, always-on signal that would have shown it at first look.
 - A check that will not pass is a symptom too. Answer it by fixing the code, or by recording that the criterion was not met; never by bending the baseline, the harness or the test. Loosening an expected value, adding a retry, a sleep or a skip, or widening a timeout until red turns green is bending the check. A check that is itself wrong is reported where its owner sees it, with what it should be; the work it judges does not correct it
 
 **In a diff:**
@@ -28,7 +30,3 @@ When debugging, do not fix symptoms. Trace every problem to its root cause and f
 - A test change that weakens an existing assertion, or bends the check as the last pattern line says: put the check back. An honest "not met" costs the owner one look; a false pass lands broken behavior under a green mark, and everything built on it inherits it.
 
 **Stop:** when no fix is in sight, stop trying and record what each round tried. That record is the whole account of the trying.
-
-**Restart bugs: suspect state before code**
-
-When something "fails after restart," suspect stale persistent state first: config files, caches, lock files, serialized state. If clearing a state file restores behavior, prioritize state validation as the fix.
