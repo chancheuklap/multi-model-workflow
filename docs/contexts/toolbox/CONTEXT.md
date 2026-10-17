@@ -89,6 +89,14 @@ _Home_: `mmw-v3/skills/mmw-mode/SKILL.md`
 One file under `mmw-v3/skills/mmw-mode/playbooks/` saying how one kind of task is done, start to end: what the session owns, numbered steps each ending in a **`Done when` line**, and the `**Reply:**`. It is reached only through its route line in the mode's `## Playbooks`, and named in prose by its title (`Run a night`, `Work a ticket`).
 _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-COMPONENTS.md`
 
+**the owner's page**:
+The single visual reading and decision place for one pull request, published at the address or local path on the body's first line. Distinct from **the record**, which preserves the change's identification and evidence links.
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/opening-a-pr.md` `**The owner's page.**`
+
+**the record**:
+The pull request body of fixed lines identifying the change and linking its ticket verdicts, landings, checks and unresolved work. The owner's explanation and decisions are on **the owner's page**.
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/opening-a-pr.md` `**The record.**`
+
 **principle**:
 A skill named `principle-<slug>` holding one judgement many tasks need. Its line in the mode's `## Principles` says when it applies and is always in context; the full text is read only then, and every step where it applies names it in bold.
 _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-COMPONENTS.md`

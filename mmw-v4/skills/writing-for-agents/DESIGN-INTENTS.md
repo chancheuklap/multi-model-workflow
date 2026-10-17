@@ -126,9 +126,9 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
 36. **A script is a tool and judgement is the agent's;** a rule a script enforces is not written again as prose.
     Takes: P10, adapted (lessons go into structure, enforced by scripts); P11, adapted (the tool is the agent's lever; judgement is not handed to it); M21, adapted (Matt has no runtime; MMW's mechanical rules are enforced by scripts).
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) fact 2, `### Scripts and judgement`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` item 5.
-37. **The owner understands a night in a few minutes in the morning, from one pull request.** The night is finished only after the owner accepts it; `finish` merges it once its checks and review threads are settled.
+37. **The owner understands a night in a few minutes in the morning, from the page the pull request's first line names; the body is the record.** The night is finished only after the owner accepts it; `finish` merges it once its checks and review threads are settled.
     Takes: P13, adapted (the decision log's review became the night summary on the pull request); M23, kept.
-    Home: **Run a night**; the `dispatch` skill's `scripts/status.py` and `dispatch.sh finish`.
+    Home: **Opening a PR** `**The record.**` and `**The owner's page.**`; **Run a night**; the `dispatch` skill's `scripts/status.py` and `dispatch.sh finish`.
 
 ## Learning and rules
 
@@ -185,3 +185,4 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P3 (the rest) | Adjusting each subagent's reasoning and speed to its job | Only the row the step names in `~/.mmw/models.json`, set by the owner, decides its strength (14). Owner decision, 2026-10-17. |
 | P44 (the rest) | User-only `/sharpen`, unspoken framing and immediate work | To spec step **Check that nothing load-bearing is undecided** names `sharpen` and returns its conclusions with that step's questions in one batch (3, 21, 22). Upstream tried automatic invocation and returned to manual invocation; MMW names it in only one step, with the owner's decisions and the day's settled scope limiting overspecification. Owner decision, 2026-10-17. |
 | P45 | `figure-it-out` designing a playbook when none matches | Every task matches a route; work one ticket cannot carry goes through To spec (5, 23). Owner decision, 2026-10-17. |
+| P20, Opening a PR | **Descriptions**, a body briefing a code reviewer, written with `technical-writing` | One owner reads one visual page; the body is the record, and replies carry only their unique facts (2, 4, 33, 37). Owner decision, 2026-10-18. |
