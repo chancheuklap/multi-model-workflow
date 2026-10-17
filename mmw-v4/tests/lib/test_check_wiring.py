@@ -56,6 +56,53 @@ class WiringTest(unittest.TestCase):
         r = self.run_check()
         self.assertEqual(r.returncode, 0, r.stdout)
 
+    def test_an_intent_home_naming_a_missing_step(self):
+        path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
+        self.edit(path, "**Authoring or modifying a skill**'s **Prove it, once**",
+                  "**Authoring or modifying a skill**'s **A step that does not exist**")
+        line = next(n for n, text in enumerate(path.read_text().splitlines(), 1)
+                    if "A step that does not exist" in text)
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn(f"writing-for-agents/DESIGN-INTENTS.md:{line}:", result.stdout)
+        self.assertIn("A step that does not exist", result.stdout)
+
+    def test_an_upstream_row_naming_a_missing_intent(self):
+        path = self.skills / "writing-for-agents/UPSTREAM.md"
+        path.write_text("| Id | Kind | Intent | Source | MMW |\n"
+                        "| --- | --- | --- | --- | --- |\n"
+                        "| M1 | written | Align | source | 1, kept (999 examples); 999, adapted (missing) |\n")
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("writing-for-agents/UPSTREAM.md:3:", result.stdout)
+        self.assertIn("999", result.stdout)
+
+    def test_intent_homes_require_existing_playbooks_skills_and_files(self):
+        path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
+        original = path.read_text()
+        for old, new in (("**Bug fix**", "**Missing playbook**"),
+                         ("`principle-prove-it-works`", "`principle-missing`"),
+                         ("`scripts/relay.py`", "`scripts/missing.py`"),
+                         ("[`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md)",
+                          "[`MISSING.md`](MISSING.md)")):
+            with self.subTest(new=new):
+                path.write_text(original.replace(old, new))
+                self.assertFinds(new.split('`')[1] if '`' in new else "Missing playbook")
+
+    def test_upstream_entries_use_only_leading_tokens_and_registered_departures(self):
+        path = self.skills / "writing-for-agents/UPSTREAM.md"
+        path.write_text("| Id | Kind | Intent | Source | MMW |\n"
+                        "| --- | --- | --- | --- | --- |\n"
+                        "| M1 | written | Align | source | 1, kept (999 examples); 2, adapted (999 cases) |\n"
+                        "| P12 | written | No plan | source | Departure (owner decides) |\n")
+        result = self.run_check()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.edit(path, "| P12 |", "| M2 |")
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("writing-for-agents/UPSTREAM.md:4:", result.stdout)
+        self.assertIn("M2", result.stdout)
+
     def test_a_route_line_whose_file_is_gone(self):
         (self.skills / "mmw-mode/playbooks/investigation.md").unlink()
         self.assertFinds("playbooks/investigation.md")
