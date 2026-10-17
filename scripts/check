@@ -62,6 +62,7 @@ STEPS = {
     "register-problem": ("bash mmw-v4/tests/register-problem/run.sh", ["bash", "python3", "uv", "git"]),
     "verify-ticket": ("bash mmw-v4/tests/verify-ticket/run.sh", ["bash", "python3", "uv", "node"]),
     "writing-for-agents": ("bash mmw-v4/tests/writing-for-agents/run.sh", ["bash", "python3", "uv", "git"]),
+    "worktree-audit": ("bash mmw-v4/tests/worktree-audit/run.sh", ["bash", "python3", "uv", "git"]),
     "prompt": ("bash mmw-v4/prompt/tests/run.sh", ["bash", "python3"]),
 }
 
@@ -94,6 +95,7 @@ MAP = [
     ("mmw-v4/skills/diagram-design/", ["diagram-design"]),
     ("mmw-v4/skills/exe-release/", ["exe-release"]),
     ("mmw-v4/skills/writing-for-agents/scripts/", ["writing-for-agents"]),
+    ("mmw-v4/skills/mmw-mode/scripts/worktree-audit.sh", ["worktree-audit"]),
     ("mmw-v4/board/", ["board"]),
     ("mmw-v4/install.sh", ["install"]),
     ("mmw-v3/install.sh", ["install"]),
