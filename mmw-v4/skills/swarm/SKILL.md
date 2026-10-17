@@ -5,7 +5,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Swarm
 
-Fan out N parallel workers. They may cover separate slices, race the same brief, or mix both. The parent waits, aggregates, and returns one report.
+Fan out N parallel workers.
 
 ## Phase A: Frame
 

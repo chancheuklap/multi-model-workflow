@@ -279,8 +279,8 @@ Text that is not about the task at hand now: a dated measurement, a design ratio
 _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **upstream skill**:
-A skill copied into `mmw-v3/skills/` from an upstream subtree, entering the set as its authors wrote it; its text changes only where the change alters what the agent does, never for wording, clarity or this set's own voice.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+A skill copied into `mmw-v4/skills/` from an upstream subtree, entering the set as its authors wrote it. The set changes the copy only where the change alters what the agent does, never for wording, clarity or its own voice; a newer upstream version is carried in, rewording and compression included, into every passage the set has not changed. Distinct from a local rewording, which is a finding fixed by restoring the upstream text.
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`
 
 **skill-set-review finding**:
 An established problem in a skill's text or structure, always fixed once evidenced — there are no severity levels. Distinct from ticket-run's **review finding** and release's **release finding**.
