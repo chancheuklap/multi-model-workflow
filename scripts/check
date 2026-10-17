@@ -62,7 +62,7 @@ STEPS = {
     "register-problem": ("bash mmw-v4/tests/register-problem/run.sh", ["bash", "python3", "uv", "git"]),
     "verify-ticket": ("bash mmw-v4/tests/verify-ticket/run.sh", ["bash", "python3", "uv", "node"]),
     "writing-for-agents": ("bash mmw-v4/tests/writing-for-agents/run.sh", ["bash", "python3", "uv", "git"]),
-    "worktree-audit": ("bash mmw-v4/tests/worktree-audit/run.sh", ["bash", "python3", "uv", "git"]),
+    "worktree-audit": ("bash mmw-v4/tests/worktree-audit/run.sh", ["bash", "python3", "uv", "git", "jq"]),
     "prompt": ("bash mmw-v4/prompt/tests/run.sh", ["bash", "python3"]),
 }
 
