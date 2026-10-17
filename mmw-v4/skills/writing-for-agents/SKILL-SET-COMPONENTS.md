@@ -66,6 +66,8 @@ It is read in two layers, split by whether the agent owns its task. `SKILL.md` h
 - **Content:** each index line holds three things: `**Name** (**principle-<slug>**). Condition. One-sentence rule.`
 - **When to add a line:** in the same change that adds the principle skill. When a principle is warranted is in `## principle` below.
 
+This index is how a rule loads at the moment it applies: one line is always in context, the full text is read when the condition arises. No hook is needed for it.
+
 #### `## Autonomy`
 
 - **Used:** whenever the agent is deciding whether to act or to ask the owner first.
