@@ -61,7 +61,8 @@ function labels(hosts, ids) {
 export function withFake(payload) {
   const out = structuredClone(payload);
   const codexModels = [{model: "inherit", efforts: inheritEfforts(CODEX)}, ...CODEX];
-  out.subagent_options = {
+  // A field the answer already carries (a test's browser.route, or the back end once it has it) is kept.
+  out.subagent_options = out.subagent_options || {
     rows: ROWS,
     claude: CLAUDE,
     codex: {models: codexModels, inheritEfforts: inheritEfforts(CODEX)},
@@ -76,7 +77,7 @@ export function withFake(payload) {
   for (const [host, entry] of Object.entries(out.scan?.hosts || {})) {
     if (!entry.read_at) entry.read_at = READ_AT[host] || "";
   }
-  out.stale = [];
+  out.stale = out.stale || [];
   if (state() === "read-failed" && out.scan?.hosts?.codex) {
     out.scan.hosts.codex.failure = {kind: "timeout", detail: "codex app-server 30 秒没有回答", at: "2026-10-17T09:05:11Z"};
   }

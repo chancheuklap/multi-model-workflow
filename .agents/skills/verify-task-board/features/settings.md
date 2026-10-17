@@ -1,6 +1,6 @@
 # 本机配置
 Route: / → 顶栏齿轮「本机配置」
-Tests: settings.e2e.ts
+Tests: settings.e2e.ts, subagents.e2e.ts
 
 在看板上看、改这台机器上每个 agent 跑在哪个 host、model、effort，以及会话派子代理时用哪个 model、effort，保存到本机的 `models.json`。分三个页签：「会话角色」「子代理」「型号目录」，共用底部一个状态栏和一个「保存」。
 
@@ -20,13 +20,20 @@ Tests: settings.e2e.ts
 
 ## Driving it with e2e
 
-`settings.e2e.ts` 改 `reviewer 的 effort`，看底部「改了 1 处」，点「保存」看「已保存」，关掉再打开，读回新值。下拉框都按「<agent> 的 host / model / effort」的可访问名字找；关闭按钮是「关闭本机配置」。
+`settings.e2e.ts` 改 `reviewer 的 effort`，看底部「改了 1 处：」，点「保存」看「已保存」，关掉再打开，读回新值。`subagents.e2e.ts`（#1055）在「子代理」页改 `reader 的 Codex model`、`reader 的 Codex effort`，保存后重开读回；在「型号目录」页看读取时间和「现在可选」；目录读取失败、存的型号已不在目录里两个状态，用 `browser.route` 改 `GET /api/settings` 的回答。
+
+下拉框按「<agent> 的 host / model / effort」和「<子代理> 的 Claude|Codex model|effort」的可访问名字找；页签是 `tab`，名字以页签名开头、后面跟标记（按 `/^子代理/` 找）；子代理一行是 `group`「子代理 <行名>」；关闭按钮是「关闭本机配置」。「改了 N 处」在页签标记和底栏各出现一次，底栏那句带冒号（`/^改了 1 处：/`）。
 
 ## Proof
 
-改过的格子在关掉、重新打开本机配置后仍是新值，底部写「已保存 · <时刻>」。
+- 改过的格子在关掉、重新打开本机配置后仍是新值，底部写「已保存 · <时刻>」。
+- 「子代理」页三行各有用途；Claude 的 model 有 5 项、effort 有 6 项；Codex 的 model 有 8 项（「跟叫它的会话一样」和目录里的 7 个），选「跟叫它的会话一样」时 effort 只有「跟叫它的会话一样、low、medium、high」；选项里的型号名和「会话角色」那一列的写法相同（`gpt 6 luna`、`sonnet · Most efficient for simpler tasks`）。
+- 「型号目录」页两个 host 都写「目录读于 HH:MM」和「现在可选：…」；读取失败时写「最近一次读取失败（时刻）：<种类> · <详情>。仍在用 HH:MM 读到的那份。」，页签带「读取失败」。
+- 存的型号已不在目录里时，页签带「N 格旧型号」，「保存」不可用，那一格列在「型号目录」页，写「存的是 <名字>，<host> 的目录里已经没有；现在可选：…」，「跳到这一格」把焦点放到那个下拉框。
+
+存进 `models.json` 的值（子代理 codex 格存目录 id、`inherit` 存 `inherit`）由票里的后端测试证明，不在 e2e 里断言。
 
 ## Gotchas
 
-- 每次运行的 `MMW_HOME` 是新的，从 `scripts/dev/board-fixtures/` 起步：`reviewer` 是 claude、sonnet、high。型号目录来自 `host-catalog.json`，不问本机的 claude、codex。
-- 「重新扫描」在测试里读的是同一份目录，看不出目录变化；目录读失败、存的型号不在目录里，这两个状态本机造不出来，用 `browser.route` 截 `GET /api/settings`。
+- 每次运行的 `MMW_HOME` 是新的，从 `scripts/dev/board-fixtures/` 起步：`reviewer` 是 claude、sonnet、high，子代理都是「跟叫它的会话一样」。型号目录来自 `host-catalog.json`，不问本机的 claude、codex。
+- 「重新扫描」在测试里读的是同一份目录，看不出目录变化；目录读失败、存的型号不在目录里，这两个状态本机造不出来，用 `browser.route` 改 `GET /api/settings` 的回答（`subagents.e2e.ts` 的 `answerSettings`）。

@@ -9,7 +9,7 @@ test('an agent row change is counted, saved, and shown again when the sheet reop
   await expect(screen.getByRole('button', '保存')).toBeDisabled();
 
   await effort.selectOption('medium');
-  await expect(screen.getByText(/^改了 1 处/)).toBeVisible();
+  await expect(screen.getByText(/^改了 1 处：/)).toBeVisible();
   await screen.getByRole('button', '保存').tap();
   await expect(screen.getByText(/^已保存/)).toBeVisible();
   await app.screenshot('saved');
