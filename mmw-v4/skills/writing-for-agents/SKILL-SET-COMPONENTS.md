@@ -101,9 +101,8 @@ This index is how a rule loads at the moment it applies: one line is always in c
 - **Used:** at the start of a task, to choose its route.
 - **Content:** in `SKILL.md`, which steps an agent works by (those of the file the prompt names, or else of the matched playbook), and the sentence that sends an agent whose first message names no file to `references/owning-a-task.md`. In `references/owning-a-task.md`, in this order:
   1. Usage: match the task to a route line and open its playbook.
-  2. One sentence for a task no route line matches: it goes to `figure-it-out`, as in poteto-mode.
-  3. One sentence that sends a ticket with acceptance criteria and no `Playbook:` line, given anywhere but to a worker, to One ticket, and one with that line to Session pickup; then one sentence on the one way every change outside a night lands.
-  4. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.`` A playbook only a sent agent follows keeps its line, which says who sends it (Work a ticket: "Sent by the dispatch skill to a ticket"); the sent agent itself reaches it through the file its start prompt names.
+  2. One sentence that sends a ticket with acceptance criteria and no `Playbook:` line, given anywhere but to a worker, to One ticket, and one with that line to Session pickup; then one sentence on the one way every change outside a night lands.
+  3. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.`` A playbook only a sent agent follows keeps its line, which says who sends it (Work a ticket: "Sent by the dispatch skill to a ticket"); the sent agent itself reaches it through the file its start prompt names.
 - **When to add a line:** in the same change that adds the playbook file. Whether a playbook is warranted is in `## playbook` below.
 
 ## playbook

@@ -71,14 +71,14 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`grilling`](./skills/grilling/SKILL.md) | Have a plan or idea stress-tested in rounds of numbered questions, each with a recommended answer. |
 | [`domain-modeling`](./skills/domain-modeling/SKILL.md) | Settle the project's terms and record decisions in the glossary and the ADRs. |
 | [`advisor`](./skills/advisor/SKILL.md) | Get a second opinion on one decision from a session on a stronger model. |
-| [`figure-it-out`](./skills/figure-it-out/SKILL.md) | Design a rigorous playbook when no bundled playbook fits the task. |
+| [`sharpen`](./skills/sharpen/SKILL.md) | Examine the expert approach, your real goal, constraints and an outside check before work starts, with the conclusions returned for your decision. |
 | [`tdd`](./skills/tdd/SKILL.md) | Write the failing test first, then the code, with tests only at agreed seams. |
 | [`code-review`](./skills/code-review/SKILL.md) | Review a finished diff on four axes: Standards, Spec, Tests and Correctness. |
 | [`no-comments`](./skills/no-comments/SKILL.md) | Strip comments from a diff before review, and fix or encode what the accepted findings name. |
 | [`unslop`](./skills/unslop/SKILL.md) | Remove AI writing patterns from any text. |
 | [`technical-writing`](./skills/technical-writing/SKILL.md) | Write docs, readmes, PR descriptions and commit messages to a layered standard. |
 | [`writing-for-agents`](./skills/writing-for-agents/SKILL.md) | Write a skill, an `AGENTS.md` or any document an agent reads. |
-| [`wait-what`](./skills/wait-what/SKILL.md) | Have the last message re-pitched in plain words, or with `visual` as one HTML page. |
+| [`wait-what`](./skills/wait-what/SKILL.md) | Re-pitch the last message in words or with `visual` as one HTML page; catch up with `ketchup`; align on your goal with `in-your-own-words`, then wait for your confirmation. |
 | [`diagram-design`](./skills/diagram-design/SKILL.md) | Draw a diagram or an HTML page that explains something to a person, in one house style; the skill that makes the page says what goes on it. |
 | [`design-pages`](./skills/design-pages/SKILL.md) | Build a product's design system and draw pages in Claude Design, then pull signed-off pages into `design/<product>/`. |
 | [`exe-release`](./skills/exe-release/SKILL.md) | Build an install package from the code on the current branch. |
@@ -105,7 +105,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 | Core | [Laziness Protocol](./skills/principle-laziness-protocol/SKILL.md) | Bias to deletion and the smallest change that solves the problem. |
 | Core | [Foundational Thinking](./skills/principle-foundational-thinking/SKILL.md) | Settle the core types and data structures, the order of scaffold and feature, and what concurrent actors share, before writing logic. |
 | Core | [Redesign From First Principles](./skills/principle-redesign-from-first-principles/SKILL.md) | Redesign as if a new requirement had been part of the design from day one. |
-| Core | [Attack the Premise](./skills/principle-attack-the-premise/SKILL.md) | When two fixes that share one premise fail the same check, question the premise instead of writing a third. |
+| Core | [Attack the Premise](./skills/principle-attack-the-premise/SKILL.md) | When two fixes that share one premise fail the same check, write the premise down and test it directly before writing a third. |
 | Core | [Subtract Before You Add](./skills/principle-subtract-before-you-add/SKILL.md) | Remove dead weight first, then build on the simpler base. |
 | Core | [Minimize Reader Load](./skills/principle-minimize-reader-load/SKILL.md) | Count layers and hidden state, collapse one-caller wrappers, and shrink mutable scope. |
 | Core | [Outcome-Oriented Execution](./skills/principle-outcome-oriented-execution/SKILL.md) | In a planned rewrite or migration, converge on the target design and keep no throwaway compatibility states. |
@@ -122,9 +122,9 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 | Architecture | [Migrate Callers Then Delete Legacy APIs](./skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md) | Migrate every caller and delete the old API in one wave. |
 | Architecture | [Separate Before Serializing Shared State](./skills/principle-separate-before-serializing-shared-state/SKILL.md) | When concurrent actors might write the same thing, remove the sharing first. |
 | Verification | [Prove It Works](./skills/principle-prove-it-works/SKILL.md) | Before declaring done, check the real artifact, not a proxy or "it compiles". |
-| Verification | [Fix Root Causes](./skills/principle-fix-root-causes/SKILL.md) | Reproduce first, trace each symptom to its root cause, and fix it there. |
+| Verification | [Fix Root Causes](./skills/principle-fix-root-causes/SKILL.md) | Trace each symptom back to the first place the system went wrong and fix it there; a guard is a fix only when the state it handles is legitimate. |
 | Verification | [Sequence Work into Verifiable Units](./skills/principle-sequence-verifiable-units/SKILL.md) | Break multi-step work into small units that each end in a check, and verify each before the next. |
-| Verification | [Test Behavior, Not Implementation](./skills/principle-test-behavior-not-implementation/SKILL.md) | Call the code the way its users do and compare the result with a literal expected value. |
+| Verification | [Test Behavior, Not Implementation](./skills/principle-test-behavior-not-implementation/SKILL.md) | Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change. |
 | Verification | [The Baseline Is the Contract](./skills/principle-baseline-is-the-contract/SKILL.md) | Copy a settled answer, prototype or signed-off page exactly, and raise a gap to whoever owns it. |
 | Verification | [Run the Smallest Test Set](./skills/principle-run-the-smallest-test-set/SKILL.md) | Run the smallest test set that proves the change, and a full suite only for a gate or a named risk. |
 | Verification | [Explain the Number](./skills/principle-explain-the-number/SKILL.md) | Before you trust a measured number, find what limits it and rule out that it measured something else. |

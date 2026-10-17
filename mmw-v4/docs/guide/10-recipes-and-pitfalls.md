@@ -173,7 +173,7 @@ You rarely need more words; you need the right name. [Steer with principle names
 /wait-what
 ```
 
-That is the whole prompt. The [wait-what](../../skills/wait-what/SKILL.md) skill re-pitches the last message with the context it skipped, in short sentences and the project's own names. Use it when a reply is thorough and you still cannot tell what it said. `/wait-what visual` makes the same re-pitch one page of pictures.
+That is the whole prompt. The [wait-what](../../skills/wait-what/SKILL.md) skill re-pitches the last message with the context it skipped, in short sentences and the project's own names. Use it when a reply is thorough and you still cannot tell what it said. `/wait-what visual` makes the same re-pitch one page of pictures. `/wait-what ketchup` catches you up on progress since your last message and names decisions waiting for you. `/wait-what in-your-own-words` restates your goal and waits for your confirmation or correction before work starts.
 
 ## The pitfalls
 

@@ -28,7 +28,6 @@ flowchart TD
     D -->|New behavior| G[Feature]
     D -->|Structure only| H[Refactoring]
     D -->|A plan to sharpen| P[Grill with docs]
-    D -->|No match| J[figure-it-out]
     E --> R[A cited answer, no pull request]
     F --> B[A ticket with the plan, handed back to you]
     I --> B
@@ -38,10 +37,9 @@ flowchart TD
     P --> N[To spec, To tickets, Run a night]
     T --> PR[One pull request]
     N --> PR
-    J --> K[A playbook designed for this task]
 ```
 
-The session works through the matched playbook's steps. When no playbook fits, the [`figure-it-out`](../../skills/figure-it-out/SKILL.md) skill designs one for the task.
+The session works through the matched playbook's steps.
 
 The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s `references/owning-a-task.md` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
 
