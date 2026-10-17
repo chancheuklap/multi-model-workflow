@@ -23,6 +23,7 @@ class Hunk:
     marker: str
     first_line: str
     merge: bool
+    old_lines: tuple
 
 
 @dataclass
@@ -31,6 +32,7 @@ class Copy:
     local: str
     hunks: list[Hunk]
     differences: list[tuple]
+    current: list[str]
 
 
 def edits(before, after):
@@ -40,6 +42,14 @@ def edits(before, after):
 
 def overlaps(start, end, other_start, other_end):
     return start < max(other_end, other_start + 1) and other_start < max(end, start + 1)
+
+
+def keeps_old_text(hunk, copy):
+    # An insertion beside the new text touches no line of it, so the overlap test misses
+    # replaced upstream lines left in the copy next to their replacement.
+    return any(tag == 'insert' and a in (hunk.new_start, hunk.new_end)
+               and set(hunk.old_lines).intersection(copy.current[c:d])
+               for tag, a, _, c, d in copy.differences)
 
 
 def git(repo, *args):
@@ -82,8 +92,9 @@ def compare(args, repo):
             marker = next((line for line in marker_lines if line.strip()), '')
             first_line = next((line for line in newest[j:new_end] if line.strip()), '')
             merge = any(overlaps(i, end, a, b) for _, a, b, _, _ in local_edits)
-            hunks.append(Hunk(i, end, j, new_end, marker, first_line, merge))
-        copies.append(Copy(upstream, local, hunks, edits(newest, current)))
+            old_lines = tuple(line for line in base[i:end] if line.strip() and line not in newest[j:new_end])
+            hunks.append(Hunk(i, end, j, new_end, marker, first_line, merge, old_lines))
+        copies.append(Copy(upstream, local, hunks, edits(newest, current), current))
     if not copies:
         raise ValueError(f'{args.map}: no copies mapped for upstream {args.upstream}')
     return copies
@@ -134,7 +145,7 @@ def main():
                     if (copy.local, hunk) in exceptions:
                         kept += 1
                     elif any(overlaps(hunk.new_start, hunk.new_end, a, b)
-                           for _, a, b, _, _ in copy.differences):
+                             for _, a, b, _, _ in copy.differences) or keeps_old_text(hunk, copy):
                         print(f'MISSING {copy.local}:{hunk.new_start + 1} {hunk.first_line}')
                         missing += 1
                     else:

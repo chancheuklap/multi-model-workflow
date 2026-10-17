@@ -124,6 +124,22 @@ class UpstreamHunks(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('UPSTREAM OK 0 carried, 1 kept, 0 merge', result.stdout)
 
+    def test_replaced_line_left_beside_its_replacement_is_missing(self):
+        self.update_upstream('heading\nnew rule\nend\n')
+        for local in ('heading\nnew rule\nold rule\nend\n', 'heading\nold rule\nnew rule\nend\n'):
+            with self.subTest(local=local):
+                self.copy.write_text(local)
+                result = self.check()
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn('MISSING copies/skill.md:2 new rule', result.stdout)
+
+    def test_local_addition_beside_a_carried_line_passes(self):
+        self.update_upstream('heading\nnew rule\nend\n')
+        self.copy.write_text('heading\nnew rule\nlocal addition\nend\n')
+        result = self.check()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('UPSTREAM OK 1 carried, 0 kept, 0 merge', result.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()
