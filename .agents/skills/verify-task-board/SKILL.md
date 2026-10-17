@@ -22,8 +22,10 @@ a fresh `MMW_HOME` seeded from `scripts/dev/board-fixtures/` (`models.json`, a s
 catalog `host-catalog.json` it answers instead of asking the claude and codex CLIs). The runner starts it; ready is
 `GET /api/settings` answering, about 0.2 seconds.
 
-`product` is the board. `design` is the same command with `--prototype <module under efforts/>`, which mounts that
-prototype over the page it replaces (`MMW_BOARD_PROTOTYPE`); run it only while writing or maintaining tests in the day.
+`product` is the board. `design` is the same command with `--prototype <module under efforts/>`, which sets
+`MMW_BOARD_PROTOTYPE`; it shows a prototype only while the board carries a mount point that reads it (`server.py` and
+the page's module, added with the prototype and taken down when it lands). None does now, so `design` serves the
+product. Run it only while writing or maintaining tests in the day.
 
 The e2e packages live in `tests/e2e/task-board/package.json`, because the repository has no package manager. CHECK
 line for a ticket's acceptance file `<file>` (relative to `tests/e2e/task-board/`):

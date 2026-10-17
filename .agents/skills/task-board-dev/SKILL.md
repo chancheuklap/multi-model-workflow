@@ -12,7 +12,7 @@ board (the `com.mmw.board` LaunchAgent, ports from 47100).
 | Command | Does |
 | --- | --- |
 | `python3 scripts/dev/board-instance.py up` | Starts this checkout's instance, or reuses a live one; prints `READY <url>`. `MMW_HOME` is `.board-dev/home/`, kept across restarts; `--fresh` reseeds it from `scripts/dev/board-fixtures/` |
-| `… up --prototype <module>` | The same with a prototype under `efforts/` mounted (`MMW_BOARD_PROTOTYPE`) |
+| `… up --prototype <module>` | The same with `MMW_BOARD_PROTOTYPE` set to a prototype under `efforts/`; it shows only while a mount point reads it (none does now) |
 | `… up --real-catalog` | Asks this machine's claude and codex CLIs for their model catalogs instead of `board-fixtures/host-catalog.json` |
 | `python3 scripts/dev/board-instance.py down` | Stops this checkout's instance |
 | `python3 scripts/dev/board-instance.py serve --port N` | Foreground, a fresh `MMW_HOME` deleted on exit; the e2e runner starts this |
