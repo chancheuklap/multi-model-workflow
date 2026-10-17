@@ -16,8 +16,8 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
    Takes: M1, adapted (only product decisions go to the person); M17, adapted (the owner still approves the ticket breakdown; seams are the agent's); P6, adapted (adds the list of the owner's decisions, and the default an unattended session takes and records).
    Home: `principle-never-block-on-the-human`; `mmw-mode` `## Autonomy`.
 4. **A reply to the owner leads with principle and effect, and every claim carries its evidence or its label,** so the owner can judge it without reading code. The rules every reply shares are written once, in the mode; a playbook's Reply holds only what is unique to it.
-   Takes: P14, adapted (written for an owner who does not read code); P34, kept.
-   Home: `mmw-mode` `references/owning-a-task.md` `## Writing the reply`.
+   Takes: P14, adapted (written for an owner who does not read code); P34, kept; P42, adapted (as `wait-what ketchup`, using `wait-what`'s voice and the `diagram-design` skill for drawings); P43, adapted (as `wait-what in-your-own-words`, stopping after the restatement for confirmation).
+   Home: `mmw-mode` `references/owning-a-task.md` `## Writing the reply`; `wait-what`.
 
 ## How the set is built and runs
 
@@ -73,8 +73,8 @@ Each intent says what is kept, the upstream intents it takes from [`UPSTREAM-INT
     Takes: M1, kept (facts are the agent's); P6, adapted (only "run it rather than ask"); P24, kept (`how`, `why`, `teach`); M15, kept in intent only (`wizard` and `to-questionnaire` are not in the set).
     Home: `mmw-mode` `## Autonomy`; the `how`, `why` and `teach` skills.
 21. **Align before acting: grill until the questions run out.** Engineering decisions such as the data shape and the seam are the agent's, written in the spec.
-    Takes: M1, adapted (a round of questions waits for the fact-finding subagent); M17, adapted (seams are not put to the owner); P19, adapted (the data shape is an engineering decision in the spec).
-    Home: the `grilling` skill; **Grill with docs**; **To spec**.
+    Takes: M1, adapted (a round of questions waits for the fact-finding subagent); M17, adapted (seams are not put to the owner); P19, adapted (the data shape is an engineering decision in the spec); P44, adapted (named by To spec step **Check that nothing load-bearing is undecided**, with conclusions returned to the owner).
+    Home: the `grilling` skill; **Grill with docs**; **To spec**; `sharpen`.
 22. **The day settles every decision the owner holds, into the spec and the tickets; the night has nobody to ask.** The night copies what the day settled and does not improve on it; where a copy does not hold, it opens a child saying so.
     Takes: P13, adapted (the unattended contract became the ticket and its criteria; an owner's decision met at night is recorded with its options and default); M9, adapted (decisions live in the spec and tickets on the tracker).
     Home: `mmw-mode` `## Autonomy` (**Unattended**); **To spec**; **To tickets**; `principle-baseline-is-the-contract`.
@@ -162,7 +162,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | --- | --- | --- |
 | P12 | No written plan; the code is the spec | The owner does not read code; the spec and the tickets are what the owner can accept (1, 23) |
 | P15 | Steps copied verbatim into a to-do list, a skipped step kept with its reason | Progress is read from the ticket's events and the branch (33) |
-| P26 | Bound to Cursor: its subagent types, `/loop`, cloud agents, rule files | One text serves every host, with the host's general-purpose subagent (39, 14) |
+| P26 | Bound to Cursor, with a separate generated directory tree for Claude Code | One text serves every host, with the host's general-purpose subagent (39, 14) |
 | P8, P20 (the rest) | A stack of PRs, one verdict per PR bound to its patch | One pull request for a night or for a day's change; a conclusion is judged once (30, 32) |
 | P13 (the rest) | A decision log reviewed by another vendor's model before hand-back | No decision log is kept; a night's facts are events and the night summary (33, 37) |
 | P13 (the rest) | Long-running Orchestrate and Autonomous run | **Run a night** and the ticket's events carry it (34, 37) |
@@ -170,7 +170,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P4 (the rest) | Every section's whole body in the mode's `SKILL.md` | The seven headings stay in `SKILL.md`; what only a task's owner uses (the routes, sending sessions, the reply to the owner) is in `references/owning-a-task.md`, so an agent sent to one file neither routes itself nor writes its hand-back by the owner's reply rules (5, 8) |
 | P35 (the rest) | A shipped subagent definition that forces a read of the mode | Every prompt that starts an agent, subagent or session, opens with reading the mode, on any host; the file it names keeps a sent agent to the mode's first layer (5, 13) |
 | P36 (the rest) | The model configuration as a host's standing rule | Configuration lives only in `~/.mmw/models.json`, changed through `models.py` (14) |
-| P38 (the rest) | The mode kept in effect by a host's reminder field | The mode's own description asks for the read, on every host (5, 39) |
+| P38 (the rest) | The user selects the mode from the menu before each message, relying on the host to attach the skill | The mode's own description asks for the read, on every host (5, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
 | M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
 | P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30); direct-commit exceptions are listed only in the `mmw-mode` skill's `references/owning-a-task.md` `## Playbooks` |
@@ -182,3 +182,6 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | M30 (the rest) | The plugin as a read-only subscription | Nothing is packaged; a change reaches the installed checkout through the release steps (39) |
 | M32 | Versioned releases with changesets and a changelog | One owner and no subscribers; every release step is a git commit or push (2, 39) |
 | P40 | Unattended work fired by Cursor's automation files | A night is started by `dispatch` and woken by the relay, on any host (34, 39) |
+| P3 (the rest) | Adjusting each subagent's reasoning and speed to its job | Only the row the step names in `~/.mmw/models.json`, set by the owner, decides its strength (14). Owner decision, 2026-10-17. |
+| P44 (the rest) | User-only `/sharpen`, unspoken framing and immediate work | To spec step **Check that nothing load-bearing is undecided** names `sharpen` and returns its conclusions with that step's questions in one batch (3, 21, 22). Upstream tried automatic invocation and returned to manual invocation; MMW names it in only one step, with the owner's decisions and the day's settled scope limiting overspecification. Owner decision, 2026-10-17. |
+| P45 | `figure-it-out` designing a playbook when none matches | Every task matches a route; work one ticket cannot carry goes through To spec (5, 23). Owner decision, 2026-10-17. |

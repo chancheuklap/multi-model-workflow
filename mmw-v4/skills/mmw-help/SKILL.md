@@ -59,6 +59,7 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Get several designs of one brief, merged into the best one | `arena` |
 | Run parallel workers over slices or a race, with one report | `swarm` |
 | Answer a design question by building code that answers it | `prototype` |
+| Examine the expert approach, your real goal, constraints and an outside check, with conclusions returned for your decision | `sharpen` |
 | Have a plan stress-tested one question at a time | `grilling` |
 | Settle the project's terms or record a decision | `domain-modeling` |
 | Have a diff read on four axes by eyes that did not write it | `code-review` |
@@ -71,7 +72,7 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Strip comments before review, using a reviewer that didn't write them | `no-comments` |
 | Clean AI tells out of prose | `unslop` |
 | Write docs, a README, a PR description, or a commit message to a standard | `technical-writing` |
-| Have the last reply re-pitched, in words or with `visual` as one page | `wait-what` |
+| Re-pitch the last reply in words or with `visual` as one page; catch up with `ketchup`; align on your goal with `in-your-own-words`, then wait for confirmation | `wait-what` |
 | Draw a diagram or a page that explains something | `diagram-design` |
 | Draw a product's UI in Claude Design and pull signed-off pages into the repository | `design-pages` |
 | Build an install package from the current branch | `exe-release` |
@@ -80,7 +81,6 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Give agents a scripted way to drive the app and prove behavior | `create-verification-skill` |
 | Bring a verification skill and its feature map back in line with the app | `maintain-verification-skill` |
 | Vet a performance number before reporting or acting on it | `benchmark-checklist` |
-| Run a task no playbook fits, with a step list designed for it | `figure-it-out` |
 | Write or edit a skill, a playbook or a reference to the set's standards | `writing-for-agents` |
 | Register a problem that cannot be fixed in the current work | `register-problem` |
 | Gather and sort a run's problems into proposals for the owner | `retro` |
