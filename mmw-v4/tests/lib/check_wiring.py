@@ -6,8 +6,8 @@
 Adding a playbook, a principle or a skill means writing its name in more than one
 place, and a name written in one place and missing from the other fails silently: an
 agent told to read a file or run a skill that is not there guesses. Seven kinds of
-pointer are checked, in the text of every `.md` under `mmw-v4/skills/` (HTML comments
-and fenced code left out):
+pointer are checked. Checks 3-5 scan every `.md` under `mmw-v4/skills/`; the others
+read the files named below. HTML comments and fenced code are left out.
 
 1. **Routes.** Each file in the mmw-mode skill's `playbooks/` has
    exactly one route line in `## Playbooks` of its `references/owning-a-task.md`, every
@@ -205,10 +205,14 @@ def check_subagent_rows() -> list[str]:
 def check_intent_homes() -> list[str]:
     path = SKILLS / "writing-for-agents/DESIGN-INTENTS.md"
     text = readable(path)
+    homes = list(re.finditer(r"^ +Home: (.+)$", text, re.M))
+    if not homes:
+        return [f"{where(path, text, 0)}: no Home: lines matched; "
+                "restore the Home: entries in DESIGN-INTENTS.md"]
     routes = {name: MODE_DIR / rel for name, rel in ROUTE_LINE.findall(readable(ROUTES))}
     repository = Path(__file__).resolve().parents[3]
     found = []
-    for home in re.finditer(r"^ +Home: (.+)$", text, re.M):
+    for home in homes:
         body = home.group(1)
         skill = path.parent
         playbook = None
@@ -270,8 +274,12 @@ def check_upstream_destinations() -> list[str]:
     departed = {identifier for cell in re.findall(r"^\| ([MP]\d+.*?) \|", departures, re.M)
                 for identifier in re.findall(r"[MP]\d+", cell)}
     text = readable(path)
+    rows = list(re.finditer(r"^\| ([MP]\d+) \|.*$", text, re.M))
+    if not rows:
+        return [f"{where(path, text, 0)}: no upstream intent rows matched; "
+                "restore the | M<n> | and | P<n> | rows in UPSTREAM.md"]
     found = []
-    for row in re.finditer(r"^\| ([MP]\d+) \|.*$", text, re.M):
+    for row in rows:
         cells = row.group().strip("|").split("|")
         entries = cells[4].strip().split("; ") if len(cells) == 5 else [""]
         for entry in entries:

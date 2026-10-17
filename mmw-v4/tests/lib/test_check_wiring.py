@@ -10,6 +10,7 @@ and not a broken copy.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -80,14 +81,31 @@ class WiringTest(unittest.TestCase):
     def test_intent_homes_require_existing_playbooks_skills_and_files(self):
         path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
         original = path.read_text()
-        for old, new in (("**Bug fix**", "**Missing playbook**"),
-                         ("`principle-prove-it-works`", "`principle-missing`"),
-                         ("`scripts/relay.py`", "`scripts/missing.py`"),
+        for old, new, finding in (("**Bug fix**", "**Missing playbook**",
+                                  "Home names playbook **Missing playbook**"),
+                         ("`principle-prove-it-works`", "`principle-missing`",
+                          "Home names principle-missing"),
+                         ("`scripts/relay.py`", "`scripts/missing.py`",
+                          "Home names scripts/missing.py"),
                          ("[`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md)",
-                          "[`MISSING.md`](MISSING.md)")):
+                          "[`MISSING.md`](MISSING.md)", "Home names MISSING.md")):
             with self.subTest(new=new):
                 path.write_text(original.replace(old, new))
-                self.assertFinds(new.split('`')[1] if '`' in new else "Missing playbook")
+                self.assertFinds(finding)
+
+    def test_intent_homes_refuse_when_no_home_lines_match(self):
+        path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
+        path.write_text(path.read_text().replace("Home:", "Destination:"))
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("writing-for-agents/DESIGN-INTENTS.md:1: no Home: lines", result.stdout)
+
+    def test_upstream_destinations_refuse_when_no_rows_match(self):
+        path = self.skills / "writing-for-agents/UPSTREAM.md"
+        path.write_text(re.sub(r"^\| ([MP]\d+) \|", r"| `\1` |", path.read_text(), flags=re.M))
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("writing-for-agents/UPSTREAM.md:1: no upstream intent rows", result.stdout)
 
     def test_upstream_entries_use_only_leading_tokens_and_registered_departures(self):
         path = self.skills / "writing-for-agents/UPSTREAM.md"
