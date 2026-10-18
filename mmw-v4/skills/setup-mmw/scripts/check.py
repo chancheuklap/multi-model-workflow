@@ -198,20 +198,6 @@ def check_claude_md(report: Report, root: Path):
                    "is sent to AGENTS.md")
 
 
-def check_verification_skills(report: Report, root: Path):
-    for design in sorted((root / "design").glob("*")):
-        if not design.is_dir():
-            continue
-        name = f"verify-{design.name}"
-        skill = Path(".agents") / "skills" / name / "SKILL.md"
-        if (root / skill).is_file():
-            report.add("ok", "repository", name, f"{skill} present for design/{design.name}/")
-        else:
-            report.add("missing", "repository", name,
-                       f"no {skill} for design/{design.name}/; "
-                       "the owner names the create-verification-skill skill to generate it")
-
-
 def check_install(report: Report):
     """The toolbox's install, as its own --check reads it: skills, hooks, prompt, models.json,
     and the machine's base tools."""
@@ -252,7 +238,6 @@ def main() -> int:
     check_repository_check(report, root)
     check_testing(report, root)
     check_claude_md(report, root)
-    check_verification_skills(report, root)
     check_install(report)
     report.print()
     return 0 if report.missing() == 0 else 1

@@ -2,7 +2,7 @@
 
 MMW seen as a repository and as an install target: the skills it ships, the upstream subtrees it copies from, where an install puts things on a machine, the prompts and hooks each host reads, and the notes and ADRs that record why. Everything here is about the toolbox as an artifact, not about a run of the pipeline through it.
 
-Vocabulary that belongs to one skill alone — `design-pages`'s `pull_design.py` switches and exit codes and the style rules in `template-project-claude-md.md`; the design vocabulary of upstream skills such as `codebase-design`; the per-language tool choices, flags and pinned versions in the `mmw-mode` skill's `references/checkers-*.md` — is defined in those files and is not repeated here. `design-pages`'s entries and the page conventions are defined in `docs/contexts/ui-acceptance/CONTEXT.md`; `exe-release`'s own vocabulary (the release manifest, the release engine, tiers, build machine, build hooks) is defined in `docs/contexts/release/CONTEXT.md`. The code checkers' and `manage-agents-md`'s own concepts, below, are this context's.
+Vocabulary that belongs to one skill alone, such as the design vocabulary of upstream skills like `codebase-design` or the per-language tool choices, flags and pinned versions in the `mmw-mode` skill's `references/checkers-*.md`, is defined in those files and is not repeated here. Prototype and verification concepts are defined in `docs/contexts/ui-acceptance/CONTEXT.md`; `exe-release`'s own vocabulary is defined in `docs/contexts/release/CONTEXT.md`. The code checkers' and `manage-agents-md`'s own concepts, below, are this context's.
 
 ## Language
 
