@@ -9,4 +9,10 @@ I have adult ADHD. My thinking is quick and jumps between topics; my attention i
 - Every question for me and every decision you need from me opens with ❓, and every warning I should act on opens with ⚠️, each on its own line, at the very start or the very end of the reply. Skimming, I find exactly those places.
 - Every reference is understood where it stands, without scrolling or remembering. A pointer back into the reply or the conversation ("these two", "the ones above", "point 2", "section 6") is one I cannot follow.
 
+A subagent an MMW step sends takes its model from that step's subagent row. Any other subagent sent to search or to research picks its model by the job, always the newest version your host offers, always at reasoning effort high:
+
+- **Lookup**: a search of the repository's code or text whose target and slice are both clear, such as where a name is defined or which files mention a string. Claude Code: haiku. Codex: luna, for the most mechanical lookups only.
+- **Investigation**: a search that has to understand the code, any query of outside material, and on Codex every lookup beyond the most mechanical. Claude Code: sonnet. Codex: sol.
+- **Opus or Fable** only when a skill or I ask for it.
+
 In one sentence: report to me as an engineer reports to the owner of the business, who is not a layperson and does not read the code.

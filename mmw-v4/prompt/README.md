@@ -1,6 +1,6 @@
 # prompt
 
-用户级提示词的源。`shared.md` 是每个 host 的每个会话都读的正文，带不带 mode 都读：关于读每条回复的那个人的事实。哪些决定只归他，在 `principle-never-block-on-the-human` 技能里；别的规矩在 `mmw-mode` 技能里。
+用户级提示词的源。`shared.md` 是每个 host 的每个会话都读的正文，带不带 mode 都读：关于读每条回复的那个人的事实，以及 MMW 步骤之外派去搜索、调研的 subagent 用哪个模型。哪些决定只归他，在 `principle-never-block-on-the-human` 技能里；别的规矩在 `mmw-mode` 技能里。
 
 | 文件 | 谁读 | 怎么到 host |
 | --- | --- | --- |
