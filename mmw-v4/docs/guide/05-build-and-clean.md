@@ -100,7 +100,7 @@ A worker runs the no-comments skill on its branch before it sends its reviewer, 
 
 ## Clean the prose with the unslop skill
 
-The [unslop skill](../../skills/unslop/SKILL.md) removes the patterns that make text read machine-written: filler, hedging, inflated vocabulary, long dashes, and colons used as connectors. The `mmw-mode` skill applies it to every prose surface, the reply included. PR titles, PR descriptions, and commit messages also go through the [technical-writing skill](../../skills/technical-writing/SKILL.md) first, as the Opening a PR playbook says. To run it on a file yourself:
+The [unslop skill](../../skills/unslop/SKILL.md) removes the patterns that make text read machine-written: filler, hedging, inflated vocabulary, long dashes, and colons used as connectors. The `mmw-mode` skill applies it to every prose surface, the reply included. Commit messages also go through the [technical-writing skill](../../skills/technical-writing/SKILL.md) first. A pull request's body is a fixed record and its owner's page is drawn, as the Opening a PR playbook says. To run it on a file yourself:
 
 ```text
 /unslop the readme changes
