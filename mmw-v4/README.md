@@ -35,7 +35,7 @@ A skill is a link, not a copy, so an edit to a `SKILL.md` reaches every host at 
 
 ## Two ways a change reaches the product
 
-Each path ends in one pull request to the project branch, opened by the [Opening a PR](./skills/mmw-mode/playbooks/opening-a-pr.md) playbook. The owner reads its top half, and the owner's yes merges it.
+Each path ends in one pull request to the project branch, opened by the [Opening a PR](./skills/mmw-mode/playbooks/opening-a-pr.md) playbook. The owner reads the page the pull request's first line names, and the owner's yes merges it.
 
 1. **A night.** A spec's published tickets run unattended. The [Run a night](./skills/mmw-mode/playbooks/run-a-night.md) playbook sends a worker to each ticket, lands each ticket that passes, and opens one pull request for the owner to read in the morning. After the owner accepts it, `dispatch.sh finish` merges it. `finish` refuses while a check is red or still running, or a review thread is open.
 2. **One ticket.** Every other change, code, scripts and skill text alike. The playbook of its kind ([Bug fix](./skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](./skills/mmw-mode/playbooks/perf-issue.md), [Hillclimb](./skills/mmw-mode/playbooks/hillclimb.md), [Feature](./skills/mmw-mode/playbooks/feature.md), [Refactoring](./skills/mmw-mode/playbooks/refactoring.md), [Authoring or modifying a skill](./skills/mmw-mode/playbooks/authoring-a-skill.md)) opens a ticket and its `fix-<n>` branch, writes the plan into the ticket, and hands it back to the owner. On the owner's go, the [One ticket](./skills/mmw-mode/playbooks/one-ticket.md) playbook sends a worker with `dispatch.sh send`, checks the result the way that playbook says, lands it, and opens the pull request.

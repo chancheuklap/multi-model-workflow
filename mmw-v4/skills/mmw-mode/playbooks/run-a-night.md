@@ -160,7 +160,7 @@ dispatch.sh advance <spec>
 
 Loop: each `ticket.passed` wakes you at step 3; when the frontier is empty again, this pass runs again. Continue until no open finding survives.
 
-Then, in a checkout at `origin/<into>` with the last fix pushed, run `scripts/check --all` once: it is the night's one run of every test. Red: fix each red step as you fix a finding above, push, and run it again. Exit 2: fix the environment stderr names and run it again. Its summary line goes into the pull request description at step 6. Then go to step 5.
+Then, in a checkout at `origin/<into>` with the last fix pushed, run `scripts/check --all` once: it is the night's one run of every test. Red: fix each red step as you fix a finding above, push, and run it again. Exit 2: fix the environment stderr names and run it again. Its summary line goes into the pull request's record at step 6. Then go to step 5.
 
 #### 5. The night is over
 
@@ -174,7 +174,7 @@ dispatch.sh reverify <spec>
 
 To recover a reopened ticket, repair the cause on the base branch, push it, and run `reverify <spec>` again; all met, `reverify` closes it itself. Still red, it stays reopened in `needs-triage`, and `summary` lists it as handed back.
 
-After `reverify`, use the checkout where step 4 ran `scripts/check --all`, with its dependencies already installed. Find the products this night touched from the `--config` paths in its tickets' CHECK lines, without a separate registry. For each product, first run the preparation required by the `verify-<product>` skill's Launch that `app.command` does not perform, including any build. Then run `npx e2e run --config tests/e2e/<product>/e2e.config.ts --target product` once. Run only the product target. A red test belonging to an open ticket, whether handed back or not yet worked, is expected: report it under that ticket in the pull request. Its test stays in the batch that merges into the project branch. Any other red test is a regression: investigate with the product's `verify-<product>` skill's Doctor, handle the fix by step 4's closing-pass rules, and rerun after the fix. Put the product-target e2e summary line in the pull request's `## Verification`.
+After `reverify`, use the checkout where step 4 ran `scripts/check --all`, with its dependencies already installed. Find the products this night touched from the `--config` paths in its tickets' CHECK lines, without a separate registry. For each product, first run the preparation required by the `verify-<product>` skill's Launch that `app.command` does not perform, including any build. Then run `npx e2e run --config tests/e2e/<product>/e2e.config.ts --target product` once. Run only the product target. A red test belonging to an open ticket, whether handed back or not yet worked, is expected: report it under that ticket in the page's Not done and left over block. Its test stays in the batch that merges into the project branch. Any other red test is a regression: investigate with the product's `verify-<product>` skill's Doctor, handle the fix by step 4's closing-pass rules, and rerun after the fix. Put the product-target e2e summary line in the pull request's record.
 
 Tickets left for human acceptance, handed back to triage by their worker, or behind an open blocker are valid outcomes; `summary` does not require every ticket to succeed.
 
@@ -188,9 +188,9 @@ Then run Retrospective (`playbooks/retrospective.md`) with `--spec <spec>` befor
 
 #### 6. Open the pull request
 
-The night is delivered as one pull request from the night's branch to the project branch: the `into` and `project` fields of the spec's `spec.opened` comment. The user reads it in the morning, and it is the only place they need to look.
+The night is delivered as one pull request from the night's branch to the project branch: the `into` and `project` fields of the spec's `spec.opened` comment. The user reads the page its first line names in the morning, and that page is the only place they need to look.
 
-Run Opening a PR (`playbooks/opening-a-pr.md`) from the night's branch, through its step 3, with the summary line of step 4's `scripts/check --all` run in the description. Then tell the user the night finished and give them the pull request's link; say that once they accept it, `finish` merges it into the project branch. Done when the pull request is open and the user has its link.
+Run Opening a PR (`playbooks/opening-a-pr.md`) from the night's branch, through its step 3, with step 4's `scripts/check --all` summary line and each product-target e2e summary line from step 5 for its record. Put handed-back tickets in the page's What the owner decides and Not done and left over blocks. Then tell the user the night finished and give them the pull request's link; say that once they accept it, `finish` merges it into the project branch. Done when the pull request is open and the user has its link.
 
 #### 7. Merge the accepted night
 
@@ -224,4 +224,4 @@ Workspaces and branches stay, with the interrupted tickets' commits present on o
 
 Exit 0: the night is stopped. Exit 1: stderr names, one line each, what was left; tell the user each line. Exit 2: nothing was touched; fix what stderr names and run `suspend` again. Done when `suspend` exits 0, or exits 1 and you have told the user each line stderr left.
 
-**Reply:** the pull request's link once it is open, each decision it leaves to the user, and after `finish` the commands its stderr gave for the user to run.
+**Reply:** the pull request's link once it is open, and after `finish` the commands its stderr gave for the user to run.
