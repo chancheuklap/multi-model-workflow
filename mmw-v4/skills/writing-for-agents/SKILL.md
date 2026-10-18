@@ -1,11 +1,21 @@
 ---
 name: writing-for-agents
-description: Writing documents for agents. Use when creating or editing skills, or writing any document an agent will consume.
+description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
 Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.
 
-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation, and the mode as router. When the text you are writing, editing, reviewing or trimming will land in MMW's skill set (the skills under `mmw-v4/skills/`), read [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md), whether you write it into the file now or into a spec or ticket an agent will copy it from: its checks are the rules for that text. To decide which file of the set a text goes in, or to write a new one, read [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md); to prove a change to the set on a task, read [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md). To name what a change to the set must keep, or whether a finding breaks the set's design, read [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md); to compare the set with an upstream, or after pulling one, read [`UPSTREAM-INTENTS.md`](UPSTREAM-INTENTS.md).
+For a ticket's **Read first** or a task that names this skill, open the file and section that answers the question in hand.
+
+| Question | File |
+| --- | --- |
+| How do I write a document an agent consumes? | `SKILL.md` below |
+| Which checks govern this passage, and how do I edit it? | [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Checks` and `## Editing` |
+| Which component and file hold this passage, and what shape does it take? | [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) |
+| Which intent must this change keep? | [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md) |
+| How do I prove the text on a real task? | [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md) |
+| How do frontmatter, invocation and the mode as router work? | [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) |
+| How do I carry a newer upstream version or compare its intents with MMW's? | [`UPSTREAM.md`](UPSTREAM.md) |
 
 ## Context pointers
 

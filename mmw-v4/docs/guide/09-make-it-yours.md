@@ -6,22 +6,26 @@ Start smaller than you think. Prompt plainly, watch where sessions go wrong, and
 
 ## Change a skill through its playbook
 
-Writing or editing a skill, a playbook, a reference or a principle matches the Authoring or modifying a skill playbook ([authoring-a-skill.md](../../skills/mmw-mode/playbooks/authoring-a-skill.md)):
+Changing the skill set matches the Authoring or modifying a skill playbook ([authoring-a-skill.md](../../skills/mmw-mode/playbooks/authoring-a-skill.md)). It accepts your words, a registered problem or retrospective proposal, an upstream release, or a doubt about a part of the set:
 
 ```text
 the bug fix playbook should tell the session to save the original repro command in the ticket. change it.
 ```
 
-The playbook opens a ticket for the change first, then:
+The playbook runs six steps:
 
-1. **Read the standards.** The session first searches the set for the meaning you asked for. If the text already says it, the session tells you where, closes the ticket, and stops. Otherwise it names the design intent the change serves, decides which component and which file each passage belongs in, and reads how text is written. All three come from the `writing-for-agents` skill, below.
-2. **Write the ticket, by size.** A change one ticket can carry is written into the ticket and handed back to you; on your go, a worker writes the text. A larger one goes through To spec and To tickets and runs as a night ([Run work while you sleep](./07-overnight.md)).
-3. **Prove it, once.** Once the worker's ticket passes, or after the night, the session runs the checks that apply: the test suites a changed script needs, `uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py`, `python3 mmw-v4/tests/lib/check_wiring.py` (prints `WIRING OK`), the host-neutrality `grep`, and `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` (prints `INTERFACES OK`) when a dispatched session's prompts or wakes changed. Then one fresh agent walks one real task the change touches. A place where that agent ended wrong, stopped short or guessed at a sentence the change wrote fails the check, and the change does not land; every other guess goes into the reply as a finding for later.
-4. **Deliver it.** One ticket lands the change and opens one pull request, merged on your yes.
+1. **Open the ticket.** Record the source of the change and open its `fix-<n>` branch.
+2. **Gather the evidence.** Your words prompt a search for the meaning in the set. If it already says what you asked for, the session tells you where and whether the installed checkout carries it, closes the ticket, and stops. A registration or proposal has its evidence checked on the project branch. An upstream release follows `UPSTREAM.md`. A doubt prompts a list of the text's tasks, a usage measurement with `scripts/usage.py`, and checks of the scoped passages. Each finding carries evidence you can open in a file committed on `fix-<n>`.
+3. **Judge it against the design.** Name the intent each change serves. A conflict with an intent or a deliberate departure waits for your decision.
+4. **Plan the fix.** Remove, merge, move or simplify before adding. Give each passage one component and file. Put a rule a script can check into a check, and preserve upstream text unless a design intent requires changing it.
+5. **Write the ticket, by size.** A change one ticket can carry goes into that ticket. Its **Read first** names the section that governs each passage, so the worker and reviewer receive the same standards. A larger change goes through To spec and To tickets and runs as a night ([Run work while you sleep](./07-overnight.md)).
+6. **Hand it back.** The session presents the plan. On your go, One ticket sends the worker, or To spec plans the larger change.
+
+**Prove it, once** follows the worker's passing ticket, or your acceptance of a night and its completed `finish`. The session runs `scripts/check` and the suites a changed script needs. When the change alters what an agent does in a task, one fresh agent walks a real task on the changed text. A wording-only fix skips the walk. The walk's record is committed on `fix-<n>` and linked from the pull request. A missing required record, a wrong ending, a premature stop or a guess at a sentence the change wrote fails the check. Other guesses are findings for later. One ticket delivers one pull request, merged on your yes.
 
 The playbook's bias is to delete: every sentence in a skill costs attention on every run that loads it, so answering each slip with one more sentence makes the skill worse.
 
-A skill's body is live on the next call, because install links each skill directory rather than copying it. A changed frontmatter `description` is read when a host starts, so it takes effect in a new session.
+A skill's body is live on the next call after the installed checkout moves on your release, because install links each skill directory rather than copying it. The running checkout stays frozen during a night. A changed frontmatter `description` takes effect in a new session after release, because a host reads it at session start. The repository's `AGENTS.md` `## Gotchas` holds the release steps.
 
 ## The standards: `writing-for-agents`
 
@@ -43,7 +47,7 @@ Its other files apply those levers to this set:
 | [`DESIGN-INTENTS.md`](../../skills/writing-for-agents/DESIGN-INTENTS.md) | What the set is built to keep true, and the deliberate departures from its upstreams. A change that breaks an intent waits for the owner's word |
 | [`WALKING-A-SKILL-SET.md`](../../skills/writing-for-agents/WALKING-A-SKILL-SET.md) | How a fresh agent walks a real task to prove a change |
 | [`SKILL-MECHANICS.md`](../../skills/writing-for-agents/SKILL-MECHANICS.md) | Frontmatter, invocation, and the mode as the router |
-| [`UPSTREAM-INTENTS.md`](../../skills/writing-for-agents/UPSTREAM-INTENTS.md) | What Matt Pocock's skills and pstack each set out to do, for comparing the set with them |
+| [`UPSTREAM.md`](../../skills/writing-for-agents/UPSTREAM.md) | How to carry a newer upstream version, what Matt Pocock's skills and pstack each set out to do, and which MMW intents take them |
 
 A skill that drives your app to prove behaviour is a verification skill. The `create-verification-skill` and `maintain-verification-skill` skills generate and keep it; [Verify and ship](./06-verify-and-ship.md) covers both.
 
