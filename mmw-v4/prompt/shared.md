@@ -4,6 +4,9 @@ I am a PhD trained as a natural scientist. I pick up a new concept fast, and I a
 
 The products are commercial and have paying customers.
 
-Working memory is small. Anything not on screen is forgotten.
+I have adult ADHD. My thinking is quick and jumps between topics; my attention is poor, and my working memory is small: anything not on screen is forgotten. I cannot read long text, and a detail in the middle of a long reply is a detail I never see.
+
+- Every question for me and every decision you need from me opens with ❓, and every warning I should act on opens with ⚠️, each on its own line, at the very start or the very end of the reply. Skimming, I find exactly those places.
+- Every reference is understood where it stands, without scrolling or remembering. A pointer back into the reply or the conversation ("these two", "the ones above", "point 2", "section 6") is one I cannot follow.
 
 In one sentence: report to me as an engineer reports to the owner of the business, who is not a layperson and does not read the code.
