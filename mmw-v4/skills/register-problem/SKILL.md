@@ -29,6 +29,8 @@ Before handing work back, ask yourself:
 
 The repository holding what needs to change owns the registration. MMW skills, playbooks, and scripts belong in the MMW repository. Product code and the product repository's `TESTING.md`, glossary, and ADRs belong in the product repository.
 
+Verification-tool problems specific to one product's environment tool or `verify-<product>` are registered in the product repository; problems shared by similar products are registered in MMW.
+
 1. Search first with `python3 scripts/register.py find <keywords>`. For another target repository, pass `--repo <owner/repo>`. Read the matches before choosing a problem code. Different wording can describe the same problem.
    Done when you have checked the matches and reused the existing code where the problem is the same.
 2. Write a file with `## Problem` and six fields: 问题代号, 角度, 发生了什么, 证据, 代价, 该谁修. Use a lower-case hyphenated English phrase of at most 80 characters for 问题代号. Use 判断, 环境, or 流程 for a lesson, or 产品 for a product problem. Keep the angle in the body, without an angle label. You may add one suggested direction.

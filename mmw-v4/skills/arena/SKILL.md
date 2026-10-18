@@ -5,6 +5,8 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Arena
 
+When the **prototype** skill's UI branch calls this skill, follow its `UI.md` for scoring, selection, and what to keep, including the exception to "Then remove `candidates/`" under `## Outputs`.
+
 Fan out N parallel designs of the same task, each from its own angle. Read every candidate end to end. Pick the strongest as the base. Graft the best ideas from the others into it. Verify the synthesized result.
 
 ## Phase A: Frame

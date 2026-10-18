@@ -1,6 +1,6 @@
 # Upstream intents
 
-The design intents of the two skill sets MMW is built from: Matt Pocock's skills (`mattpocock/skills`, subtree `upstream/mattpocock/`) and pstack (`cursor/plugins`, subtree `upstream/pstack/`). MMW is Matt's skills placed into pstack's frame, with MMW's own additions. Every id below appears in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md), either under the MMW intent that takes it or among the departures with the reason; an id in neither is a gap, to be brought in or given a reason.
+The design intents of the skill sets MMW is built from: Matt Pocock's skills (`mattpocock/skills`, subtree `upstream/mattpocock/`), pstack (`cursor/plugins`, subtree `upstream/pstack/`), and e2e (`tester-army/e2e`, its `skills/` subtree at `upstream/e2e/`). MMW is Matt's skills placed into pstack's frame, with MMW's own additions. Every id below appears in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md), either under the MMW intent that takes it or among the departures with the reason; an id in neither is a gap, to be brought in or given a reason.
 
 ## Reading an upstream for its intents
 
@@ -102,3 +102,19 @@ Written by poteto for an engineer who reads the code and runs many agents at onc
 | P43 | written | Before work starts, restate in the agent's own words the user's goals and the problem they are trying to solve. | `in-your-own-words` |
 | P44 | written | Sharpen before starting: the expert's primary sources, real methods and outside check; the user's real goal; loosen constraints as readily as adding them; leave the user's choices open. Keep the framing unspoken and return no rewritten prompt. | `sharpen` |
 | P45 | written | For a task no playbook matches, or large or cross-cutting work, `figure-it-out` designs a playbook for that task. | `figure-it-out`; `poteto-mode` `## Playbooks` |
+
+## e2e
+
+Written for coding agents to prove an app through its user interface, with exact steps and optional model-driven actions. The snapshot is tester-army/e2e's `skills/` at `ea7cdb5`. Source paths below are relative to `upstream/e2e/`.
+
+| Id | Kind | Intent | Source |
+| --- | --- | --- | --- |
+| E1 | written | The agent that changes an app can prove it as a user sees it. A project-local verification skill records the observed launch, health check, drive, evidence, and cleanup recipe for the next agent reading cold. Unsupported products stop before any file is written. | `create-verification-skill/SKILL.md` opening, `## 1. Interview the repo, not the user`, `## 2. Generate the skill` |
+| E2 | written | Generate from the repository, not generic instructions. Read an existing skill first, preserve facts that still hold, and execute the generated instructions end to end before handing them over. Cleanup stops only what the run started and preserves its evidence. | `create-verification-skill/SKILL.md` sections 1, 4 and 5 |
+| E3 | written | Fixed steps and model-driven goals share one runner. Exact values use locators and assertions; each agent action has one goal and a check immediately after it. A config without a model runs deterministic tests. | `e2e/SKILL.md` opening, `## Workflow: writing a test`, `## Rules` |
+| E4 | written | Load only the reference for the current job. The project's installed package guide takes precedence over a skill snapshot so instructions match the runner being used. | `e2e/SKILL.md` `## Start here: pick the reference for the job`; `create-verification-skill/SKILL.md` opening |
+| E5 | written | A feature map is the maintained verification source. Each feature names its entry points, tests, proof and gotchas; proving one convenient entry does not prove the others. Descriptions and tests change together when the app changes. | `create-verification-skill/SKILL.md` `## 3. Seed the feature map`, `## 5. Hand over`; `create-verification-skill/references/example/verify-playground/features/` |
+| E6 | written | Keep inspectable evidence of actions and results, including side effects, rather than trusting a final screenshot or a successful agent action. Give durable proof its own output directory because a later run clears results. Secrets are named, never embedded in tests or generated instructions. | `create-verification-skill/SKILL.md` `## 2. Generate the skill`, `## Rules`; `e2e/SKILL.md` `## Rules` |
+| E7 | written | Exploration proposes bugs; a fixed reproduction test establishes one only when its assertion fails. Charters come from the feature map, and an aborted exploration is not a proven bug bash. | `create-verification-skill/SKILL.md` sections 2, 3 and 4 |
+| E8 | written | Migration preserves the old suite's behavior one slice at a time. A checked progress file survives sessions, the new suite retains every assertion, both suites run until the user retires the old tests, and an optional planted defect checks strictness. | `migrate-to-e2e/SKILL.md` sections 1, 5, 6, 7 and 8 |
+| E9 | written | The user controls writes outside the test work. Generated assets are listed rather than committed on the user's behalf; upstream feedback is previewed and sent only with permission, without app content or credentials. | `create-verification-skill/SKILL.md` `## Rules`; `e2e/SKILL.md` `## Feedback`; `migrate-to-e2e/SKILL.md` `## Rules` |

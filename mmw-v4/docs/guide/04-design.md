@@ -95,15 +95,19 @@ The prototype skill builds code that answers one question, and the question deci
 - An implementation question gets the smallest runnable experiment, and records what it shows.
 - A question about the shape of the code gets the architect skill's sketch.
 
-Each prototype lives in a leaf directory `efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, beside a `README.md` that states the question, the verdict with its exact names and values, and what was ruled out. That verdict outlives the session. A spec cites it, a ticket copies its values, and a worker builds from it at night with no one to ask.
+Each prototype lives in a leaf directory `efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, with its conclusion in the feature file for UI, or a `README.md` for LOGIC, EXP and SKETCH that states the question, the verdict with its exact names and values, and what was ruled out. That verdict outlives the session. A spec cites it, a ticket copies its values, and a worker builds from it at night with no one to ask.
 
 Prototypes also stop the agent asking you questions it can answer itself. The `mmw-mode` skill's Non-negotiables say that a fork whose answer you could observe by running something is not yours to answer. The session sketches it with the prototype skill and lets the result decide. You are asked only the calls that are yours: what the user sees, what happens to money, and what is in scope.
 
-## Draw the screens in Claude Design
+## Design in the running product
 
-Draw the UI in Claude Design. The [design-pages skill](../../skills/design-pages/SKILL.md) builds a product's design system, manages its page project, and pulls signed-off pages into `design/<product>/`.
+For a new or changed UI, the [prototype skill's UI branch](../../skills/prototype/UI.md) builds a complete, interactive local prototype in the product's own code. Existing interfaces and login use the real local backend; an API fake supplies missing interfaces from the environment tool's test seed data. The prototype runs at the final routes with an environment variable, so you try the design in the product itself.
 
-The session prepares a task sheet listing the pages to draw and names its ticket number, n. In that project, say `开始 <n>` with that number, or `继续` to continue the task. The agent there follows the sheet and records decisions made while drawing in `设计决策记录.md`. The design package is committed straight to the project branch. A night already running keeps its original design; the next night receives the update.
+When the direction is open, try structurally different variants through a switcher and choose the winner or a combination. The session keeps the other variants. Once you choose a direction, you and the session iterate one question at a time, changing it in place and committing each round. You operate the page yourself. The session checks every button's API call and settles questions that affect the UI with you during iteration.
+
+Before approval, the session checks that the prototype demonstrates every visible rule in the settled decisions. It writes the feature description from the winner, those decisions and the glossary. You say "就是这个" in the running page. That is design freeze, the only design approval; you do not approve the description sentence by sentence. On the Feature route it is also the go-ahead, unless the ticket adds scope beyond the prototype and recorded decisions.
+
+The winner lives under `efforts/<effort>/prototypes/<issue>/UI/winner/` on the effort branch or `fix-<n>`. Its conclusion goes in the feature file, not a prototype README. The mount points stay until implementation. Workers copy the winner's appearance and interactions while rewriting code to production standards and building the real backend. The same test steps and assertions run on prototype and product. Spec review compares screenshot pairs, and the pull request shows you prototype and product screenshots side by side in the same states.
 
 ## Write the README first for shared code
 

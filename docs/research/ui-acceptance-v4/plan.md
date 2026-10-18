@@ -6,7 +6,7 @@
 
 1. v4 是技能集合。需要 verify-<产品> 的步骤，文字里明确写「照这个产品的 verify-<产品>」，不靠 agent 自己触发。这条只写在 mmw-mode `## Non-negotiables` 那一行：「Shipping UI / IDE / CLI → 驱动产品用它的 verify-<产品>，没有的产品用 control-cli / control-ui；抓 profile、heap、CDP trace、截图仍用 control-ui / control-cli」。Perf issue、Runtime forensics 原文写的「via the matching control skill」指的就是这一行，不另加字。
 2. e2e test 和仓库其他测试分开。e2e test 是判官，归 verify 系统管，事实写在 verify-<产品> 和 feature map；不进 TESTING.md、scripts/check、spec 的 Testing Decisions、票的 Seam。
-3. verify-<产品>（含 feature map）和 e2e test 开夜前生成并提交：现有产品、现有功能照代码写；新项目、新功能照 Claude Design 的设计包写。夜里只读：worker 不写不改，reviewer 不判。这条靠文字和审查守：worker 改了不会被拦住，会在 `Outside Owns:` 里被看见。
+3. verify-<产品>（含 feature map）和 e2e test 开夜前生成并提交：现有产品、现有功能照代码写；新项目、新功能照 winner 原型写。夜里只读：worker 不写不改，reviewer 不判。这条靠文字和审查守：worker 改了不会被拦住，会在 `Outside Owns:` 里被看见。
 4. 不新增 verifier。
 5. 维护只在主人要求时；验收 e2e test 只用固定步骤；设计包是界面的标准答案；v4 删掉的不加回来。
 6. 新方案落地后，项目仓库里旧流水线留下的东西（`.mmw/` 下的 target.json、harness、journeys、stories，旧的 `design/`、feature 文档等）全部删掉，再照新方案 setup。方案不读、不改、不兼容它们；需要的事实写进本方案和新生成的 verify-<产品>。
@@ -41,8 +41,8 @@ v3 的 design-pages 技能带回 v4，三个设计 playbook（Build a design sys
   - `e2e.config.ts` 两个运行对象：`product`（真产品）和 `design`（用本机静态服务打开 `design/<产品>/`，端口 0；e2e 不许打开本地文件）。
   - Isolate 分两层写，都是硬要求：被测产品每次运行一套（端口 0、这次运行自己的数据目录；夜里同时跑的是两张票各自的运行，`workers` 只管一次运行里的测试，错不开它们）；产品依赖的后台栈（比如 agentflow 的 Gateway）每个检出一套：Launch 的启动命令先跑一个 ensure 脚本，它先清掉检出已不在的栈，再看本检出的栈通不通，通了直接用，不通才起；同一检出里的多次运行共用它，检出删掉后由下一次任何人的 ensure 收走。产品做不到（端口、数据目录写死，或起栈不能按检出分开），先开前提票改好，落地前这个产品不开界面票。这不是加回 v4 删掉的产品槽位：没有登记和租约，只有每个检出各起各的。
   - Launch 一节给出票上 CHECK 要照抄的整行：先跑仓库自己的依赖安装，再跑 e2e，例如 `pnpm install --frozen-lockfile --silent && npx e2e run <文件> --config tests/e2e/<产品>/e2e.config.ts --target product --trace on --output .e2e/<测试文件名>`。`--trace on` 让每次运行都留 `trace.md`，审计读它，不另跑；`--output` 让每条验收项各留一份，因为 e2e 每次运行先清空上一次的结果（e2e `reference/cli.mdx` 第 386 行）。原因：worker 认领时，v4 在一个什么都没装的临时目录里先跑一遍验收标准。浏览器在生成时装好（`npx @e2e-dev/web install chromium`，一台机器一次；不装的话第一次运行会自己下载，吃掉检查的时间）。`TIMEOUT:` 按生成时实测的冷启动时间写（preflight 在一个新检出里跑，后台栈总是冷的）。preflight 的检出从系统临时目录挪到主检出的 `.worktrees/baseline-<n>`：本机 Docker（Colima）只挂载主目录，临时目录里的检出起不来后台栈；也合本仓库「流水线建的工作树都在 `.worktrees/` 下」的约定。
-  - 加一个分支「设计包里有、产品里还没有的功能」：照设计页写 feature 文件和 e2e test；`--target design` 必须通过，`--target product` 必须失败。新项目没有代码就是这个分支的全部功能，并在这里：唯一多的是 Launch 的启动命令取自 spec 的 Implementation Decisions，对真产品的那一半由第一夜第一张票的 smoke test 证明，在 Hand over 里写明。这和 to-tickets.md 第 64 行「spec 逐字给出的文本，CHECK 也要在那段文本的副本上跑一次、必须通过」是同一条规矩在界面上的样子。
-  - 同一个 e2e test 跑两个目标，所以分两段：准备一段按目标分（product 用产品自己的入口建数据，design 打开画那种情况的那一页：一种情况画一页，页名带情况，`tests/e2e/<产品>/helpers/design.ts` 把「路由 + 情况」对到页面文件），断言一段两边共用。这个分支给一个样例和 `helpers/design.ts`，写票的人照着写，不各自发明。
+  - 加一个分支「winner 原型里有、产品里还没有的功能」：照 winner 原型写 feature 文件和 e2e test；`--target design` 必须通过，`--target product` 必须失败。新项目没有代码就是这个分支的全部功能，并在这里：唯一多的是 Launch 的启动命令取自 spec 的 Implementation Decisions，对真产品的那一半由第一夜第一张票的 smoke test 证明，在 Hand over 里写明。这和 to-tickets.md 第 64 行「spec 逐字给出的文本，CHECK 也要在那段文本的副本上跑一次、必须通过」是同一条规矩在界面上的样子。
+  - 同一个 e2e test 在两个 target 上跑同一份步骤和断言，代码不按 target 分支。已有产品的 `design` target 用同一条启动命令加一个环境变量，渲染 winner；新项目启动独立原型页。测试先写 `Proof`，只断言用户看到什么、能做什么，存储由票的后端测试证明。
   - Launch 让产品从空的临时数据目录起来（pstack 原文要求 Launch 从空数据目录到可用状态，含迁移），product 目标默认连本机真后台。测试要的数据由测试自己建（见二「测试数据」）。
   - **桌面 Electron（进 v4 的只有这一段，通用）**：e2e 原版这里写「桌面应用没有 e2e 引擎，停下」，v4 版换成：product 目标用 e2e 的 browser provider，`scope: 'attempt'`，每个测试开一份新的 Electron（调试端口 0、临时用户数据目录），测完关掉；后台由 Electron 主进程起的产品，`workers: 1`（只管一次运行里的测试），后台的库放这次运行自己的目录、整次运行共用，跨运行的隔离靠上面那条硬要求；靠 docker compose 起后台栈的产品，Doctor 第一项是 Docker 在跑、后台栈可达。2026-10-13 在替身程序上用 e2e 实测通过，凭证和替身代码在同目录 `evidence/electron-stand-in/`。
   - **agentflow 的事实（不进 v4；写进 agentflow 生成的 verify-parrot、verify-hedgehog 和下面那张票）**：
@@ -68,7 +68,7 @@ v3 的 design-pages 技能带回 v4，三个设计 playbook（Build a design sys
 
 - **To spec**：第 2 步 Explore the repo 加半句：有 verify-<产品> 的产品，列出 `features/` 并读每个文件的开头几行（功能名、怎么到达、测试文件），再只读改到的那几个功能的全文，把这个 spec 改到的已有功能按 map 里的名字写进 Implementation Decisions，每个注明行为不变或要变；第 5 步给你画的流程图也用这些功能名。To tickets 第 4 步的 pin 与改写两分照抄这份清单。Testing Decisions 只管仓库原有测试。界面票照哪几页设计，写进对应的 Implementation Decisions 小节，作为票上 baseline 的出处。
 - **To tickets 第 4 步**（一夜一批）：
-  - 照 verify-<产品>，点名 create-verification-skill 的「设计包里有、产品里还没有」分支，为每张界面票写 e2e test 和 feature 文件。元素只用角色、可见名字、标签找；固定步骤；产品那边连本机真后台，测试的前几步用产品自己的入口把要的数据建出来（见下面「测试数据」）；feature 文件 Proof 的存储一半写成测试里的断言：操作之后刷新页面或重开产品，断言数据还在；全走产品自己的入口，不直接查库。`browser.route` 只截三类请求：外部服务、还没做出来的接口（ERP 前后端是两个仓库，前端先做时截住，回的内容照 spec 的接口约定直接写在测试里；后端那个 spec 的 PR 在 Verification 里写「落地后点名维护 verify-erp-frontend」；那就是 maintain-verification-skill 的一次运行：截取已不需要是 harness gap，改了就是 `changed`，直接提交，没有另一条流程。前端的 product 目标连哪个后端检出、哪个提交，是写 verify-erp-frontend 时要答的事实）、靠操作造不出来的出错和加载中。设计包里的数据只用来画图，测试在 product 目标上一个字节都不读它。
+  - 照 verify-<产品>，点名 create-verification-skill 的「winner 原型里有、产品里还没有」分支，为每张界面票写 e2e test 和 feature 文件。先写 `Proof`，只写用户看到什么、能做什么，再写测试。同一份步骤和断言跑两个 target，不按 target 分支；元素只用角色、可访问名字、标签找。产品那边连本机真后台，测试用产品自己的入口准备状态。`browser.route` 只截外部服务和操作造不出的状态；前后端分仓库时后端先落地，前端晚一夜，不截还没做的接口。interface contract 定稿后，先改 API fake 再写测试，开工前在 `design` 上跑一次；存储由票里另一条后端测试的 `CHECK:` 证明，专用测试库与 e2e 分开，跳过数为 0。
   - 对设计页通过、对现在的产品失败，两行结果写进回复。这就是 v4「CHECK 在 base 上先失败」在界面票上的样子。
   - **测试数据**（不新造机制，也是 e2e 自己的思路：测试通过产品自己的入口把状态造出来）：
     - 数据长什么样归 spec：Implementation Decisions 的接口约定和表结构变更，To spec 照数据库表和代码写。
