@@ -40,7 +40,7 @@ _Home_: `AGENTS.md`
 
 **subtree**:
 How an upstream repository is carried inside this one, read-only (`git subtree pull --prefix … --squash`): `upstream/mattpocock/` is `mattpocock/skills`, `upstream/pstack/` is pstack from `cursor/plugins`, `upstream/cursor-team-kit/` is `cursor-team-kit/` from the same `cursor/plugins`, `upstream/diagram-design/` is `cathrynlavery/diagram-design`, `upstream/e2e/` is `skills/` from `tester-army/e2e`. A directory of a repository comes in as its `git subtree split`. Nothing runs from a subtree except through the `repo-root` symlink: a file a skill needs is copied into `mmw-v4/skills/`.
-_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/UPSTREAM.md` `## Carry a newer upstream version`
 
 **upstream**:
 The source project of a subtree, or of any file copied into the set. A copied file differs from its source only where a **`J` entry** in its `imports.tsv` row records the change; upstream's own `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` stay in the subtree as upstream wrote them.
@@ -228,99 +228,99 @@ _Home_: `mmw-v4/skills/maintain-verification-skill/SKILL.md`
 
 ### Skill-set review
 
-Vocabulary of the `writing-for-agents` skill's `SKILL-SET-RULES.md` and `WALKING-A-SKILL-SET.md` and the `mmw-mode` skill's `Review the skill set` playbook: the rules and the review method this repository applies to its own skill set.
+Vocabulary of the `writing-for-agents` skill's `SKILL-SET-RULES.md` and `WALKING-A-SKILL-SET.md` and the `mmw-mode` skill's `Authoring or modifying a skill` playbook: the rules and the review method this repository applies to its own skill set.
 
 **skill set**:
-The skills under `mmw-v3/skills/`, with the mode's playbooks and every skill's references and scripts, run by agents that each load only their own part; the unit `SKILL-SET-RULES.md` checks and the `Review the skill set` playbook reviews.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+The skills under `mmw-v4/skills/`, with the mode's playbooks and every skill's references and scripts, run by agents that each load only their own part; the unit `SKILL-SET-RULES.md` checks and the `Authoring or modifying a skill` playbook improves.
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **moment**:
 A point in a task that needs one coherent set of material and that a given run may reach without the others: a role arriving, one branch of a choice, a re-entry later in the same task. Inside a moment the agent follows steps.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **jump**:
 A step that needs a second file, of the same skill or another, beyond the one the step already holds. Fixed by moving the material into that file; handing the whole job to another skill by name is a **hand-off**, not a jump.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **fragment**:
 A reference every run of a task opens, which belongs inlined in the file that already holds the moment rather than split out on its own.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **hand-off**:
 An edge A → B: one skill or agent leaves something a second reads or waits for. Broken where B needs something A never produced, or where A produces something that reaches B looking like success.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **unguided choice**:
 A point where the agent must choose and the text says nothing, leaving the choice to the model's own habits; fixed by writing the criterion or making the branch explicit.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **rigid / brittle**:
 The two failure modes of a flow that scripts every move instead of trusting the model with the ordinary ones: rigid, the agent follows the list even where the situation differs from it; brittle, every enumerated case must be kept in step with the text, and the case nobody listed has no guidance at all.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **duplication**:
 One meaning stated in two places across the set — a script's `--help`, its refusal text, a start prompt it builds, and a template all count as places. Fixed by keeping the copy the acting agent loads at the moment it acts and deleting the rest.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **cache** (redundancy finding):
 Text that restates a script's `--help`, a config file, the tracker, or a skill the agent has already loaded, rather than sending the agent to read it there.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **no-op**:
 An instruction the model already follows by default, or a bare attitude ("be careful") where naming the action would do. Distinct from a **stance**, which a model does not hold by default.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **stance**:
 A warning that names a temptation particular to the work and what to do instead, so it is not a **no-op**: a model would not otherwise resist that temptation on its own.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **over-specification**:
 A numbered procedure for work a capable agent already does unprompted, an if-then list that mirrors a script's own branches, or an enumeration of cases one criterion would cover; fixed by replacing it with the goal and the one or two judgement calls the agent would actually get wrong.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **over-defense**:
 Text or a mechanism guarding a path that does not occur, judged by whether it has ever fired and whether its case is reachable by normal input; when both answers are no, it is deleted and the residual risk is stated once.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **sediment**:
 Text that is not about the task at hand now: a dated measurement, a design rationale that belongs in an ADR, or a changelog-like "no longer" / "now" sentence.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **upstream skill**:
 A skill copied into `mmw-v4/skills/` from an upstream subtree, entering the set as its authors wrote it. The set changes the copy only where the change alters what the agent does, never for wording, clarity or its own voice; a newer upstream version is carried in, rewording and compression included, into every passage the set has not changed. Distinct from a local rewording, which is a finding fixed by restoring the upstream text.
-_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md` `### Upstream skills`; `mmw-v4/skills/writing-for-agents/UPSTREAM.md` `## Carry a newer upstream version`
 
 **skill-set-review finding**:
 An established problem in a skill's text or structure, always fixed once evidenced — there are no severity levels. Distinct from ticket-run's **review finding** and release's **release finding**.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md`
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/authoring-a-skill.md` **Gather the evidence**
 
 **load finding**:
 A skill-set-review finding that happens on every run of a task: material read but unused, a jump, a fragment, duplication, a cache, a no-op, over-specification.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **failure finding**:
 A skill-set-review finding that an agent ends wrong or stuck, naming how that occurs where the set is actually used: the user's setup, the tracker history of past runs, or an input a script receives in normal use. A path nobody takes is not one, and text guarding such a path is an **over-defense**.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md`
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/authoring-a-skill.md` **Gather the evidence**
 
 **wording finding**:
 A skill-set-review finding about a sentence that misled, fixed in that sentence rather than by adding a second sentence to correct it. Distinct from a **load finding**, which is fixed in the structure.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **`Done when` line**:
 The line, beginning `Done when`, on which the set's own text states a step's or a task's completion criterion. A step without one, or two statements of what "done" means for one task, is a finding.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **cognitive walkthrough**:
-The review method of `WALKING-A-SKILL-SET.md`'s `# Walking a skill set` (the usability-inspection method), which step 1 of the `Review the skill set` playbook runs: for each task an agent does with the set, read and run what that agent would, in its order, holding nothing it would not hold.
-_Home_: `mmw-v3/skills/writing-for-agents/WALKING-A-SKILL-SET.md`
+The review method of `WALKING-A-SKILL-SET.md`'s `# Walking a skill set` (the usability-inspection method), which the `Authoring or modifying a skill` playbook's **Prove it, once** runs: for each task an agent does with the set, read and run what that agent would, in its order, holding nothing it would not hold. **Gather the evidence** uses `### List the tasks` to map the text's entries to tasks.
+_Home_: `mmw-v4/skills/writing-for-agents/WALKING-A-SKILL-SET.md`; `mmw-v4/skills/mmw-mode/playbooks/authoring-a-skill.md` **Gather the evidence** for task listing, **Prove it, once** for the walk
 
 **task** (skill-set-review task):
 One job an agent is entered into a skill to do — consult an advisor, publish a spec, work one ticket — the unit a cognitive walkthrough walks; a skill entered mid-task is walked from its entry to its return. Distinct from ticket-run's task root.
-_Home_: `mmw-v3/skills/writing-for-agents/WALKING-A-SKILL-SET.md`
+_Home_: `mmw-v4/skills/writing-for-agents/WALKING-A-SKILL-SET.md`
 
 **host and runner neutrality**:
 The rule that one text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability.
-_Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 ### Code checkers
 

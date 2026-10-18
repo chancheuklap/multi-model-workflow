@@ -4,28 +4,41 @@
 
 A skill change is a project like any other, with its own standards and its own proof: it runs the general flow for its size, held to the skill set's standards, and is proven once. Every agent that loads the changed text acts on it in cases its writer did not foresee, with no one to ask: a rule written in a second place drifts from the first, and a rule without its reason fails in the case nobody listed. The temptation is to answer each slip with one more sentence; every sentence costs attention on every run that loads the file, so the change deletes before it adds.
 
-1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Authoring or modifying a skill` and the owner's words under `## Problem`. A ticket already open keeps its number and opens only the `fix-<n>` it lacks. Done when the ticket is open and `fix-<n>` is on origin.
-2. **Read the standards.** Search the skill set for the meaning first. A meaning the text already states as asked needs no change: tell the owner where it says so and whether the installed checkout (the one `~/.mmw/installed-root` names) carries it yet, close the ticket with that answer, and stop. Otherwise everything this change writes, text and scripts alike, keeps to these standards:
-   - The entry in the `writing-for-agents` skill's `DESIGN-INTENTS.md` for the intent the change serves. A change that would break an intent, or bring back one of its departures, is not made: tell the owner which intent and why, and wait for their word.
-   - Which component, and so which file, each passage belongs in: the `writing-for-agents` skill's `SKILL-SET-COMPONENTS.md`.
-   - How text is written: the `writing-for-agents` skill's `SKILL.md` whole, since each of its levers bears on every passage, and the `writing-for-agents` skill's `SKILL-SET-RULES.md` `## Checks` and `## Editing`.
+1. **Open the ticket.** Open a ticket and its `fix-<n>` as `../references/ticket.md` `## Opening a ticket` says, with `Playbook: Authoring or modifying a skill` under `## Problem`. Record which source the change comes from: the owner's words; a registered problem or retrospective proposal reached through Session pickup; an upstream release; a doubt about a part of the set. Keep the owner's words when they are the source. A ticket already open keeps its number and opens only the `fix-<n>` it lacks.
 
-   Done when the intent the change serves is named and every passage you will write has one component and one file, or the owner has heard that the text already states the change.
-3. **Write the ticket, by size.** Text and scripts take the same flow.
-   - A change one ticket can carry: fill the ticket in as `../references/ticket.md` `## Opening a ticket` says. **What to build** names each passage, the component and file it goes in, and the standards of step 2 it keeps to, which are baselines under **Read first**. The acceptance criteria are the checks of **Prove it, once** below that a command decides and that read a file this change touches; the worker writes the text.
-   - A larger one: hand it back as too big for one ticket, and on the owner's word run the To spec playbook (`playbooks/to-spec.md`), which hands on to To tickets. Each Implementation Decisions subsection that changes the skill set cites the standards of step 2, so To tickets copies them into its tickets' **Read first**, and Testing Decisions turns each check of **Prove it, once** that a command decides into an acceptance criterion of every ticket that changes a file the check reads. The spec states decisions; the night's tickets write the text, from the files as they stand.
+   Done when the ticket records its source and `fix-<n>` is on origin.
+2. **Gather the evidence.** Pick the row for the source recorded under `## Problem`.
+
+   | Source | Evidence to gather |
+   | --- | --- |
+   | The owner's words | Search the set for the meaning. A meaning the text already states as asked needs no change: tell the owner where it says so and whether the installed checkout (the one `~/.mmw/installed-root` names) carries it yet, close the ticket with that answer, and stop. |
+   | A registered problem or retrospective proposal | Open the issue's evidence and confirm it still holds on the project branch. |
+   | An upstream release | Follow the `writing-for-agents` skill's `UPSTREAM.md` `## Carry a newer upstream version`. |
+   | A doubt about a part of the set | Map every entry of the scoped text to a task as the `writing-for-agents` skill's `WALKING-A-SKILL-SET.md` `### List the tasks` says. Measure its use with that skill's `scripts/usage.py <skill name or file>`. Test each passage in scope against its `SKILL-SET-RULES.md` `## Checks`. |
+
+   Commit the findings file on `fix-<n>`. Each finding names evidence the owner can open, such as a path and line, a command and its output, a session count or an issue, and the check or intent it concerns.
+
+   Done when every finding carries evidence the owner can open, or the meaning is already stated and the owner has heard where.
+3. **Judge it against the design.** Read the `writing-for-agents` skill's `DESIGN-INTENTS.md` and name the intent each change serves. A change that would break an intent, or bring back one of its departures, is not made: tell the owner which intent and why, and wait for their word.
+
+   Done when each change names its intent and any conflict has the owner's decision.
+4. **Plan the fix.** Apply the `writing-for-agents` skill's `SKILL-SET-RULES.md` `## Editing`: remove, merge, move or simplify before adding, name the run a new mechanism would have prevented, and fix at the level of the finding. A rule a script could check becomes a check, in `SKILL-SET-COMPONENTS.md` `## The method` item 5's order. Use that file to give each passage one component and one file. Write text by the skill's `SKILL.md` and the sections of `SKILL-SET-RULES.md` `## Checks` that govern each passage. For an upstream copy, follow `SKILL-SET-RULES.md` `### Upstream skills` and, for a newer release, `UPSTREAM.md`'s four cases. Change upstream text only where it conflicts with a design intent and connecting text outside it cannot resolve the conflict.
+
+   Done when each finding has a planned fix at its own level, and each passage has one component, one file and its governing standards.
+5. **Write the ticket, by size.** Text and scripts take the same flow.
+   - A change one ticket can carry: fill the ticket in as `../references/ticket.md` `## Opening a ticket` says. **What to build** names each passage, the component and file it goes in, and the standards it keeps to. **Read first** names, for each passage, the file and section of the `writing-for-agents` skill that governs it, marked as a baseline, not whole files. The worker and reviewer read only **Read first**, so this list is how these standards reach them. A change that alters what an agent does in a task says so in **What to build**, because **Prove it, once** walks it. The acceptance criteria are the checks of **Prove it, once** below that a command decides and that read a file this change touches; the worker writes the text.
+   - A larger one: hand it back as too big for one ticket, and on the owner's word run the To spec playbook (`playbooks/to-spec.md`), which hands on to To tickets. Each Implementation Decisions subsection that changes the skill set cites, for each passage, the file and section of the standards that governs it, so To tickets copies them into its tickets' **Read first**. State which changes alter what an agent does in a task. Testing Decisions turns each check of **Prove it, once** that a command decides into an acceptance criterion of every ticket that changes a file the check reads. The spec states decisions; the night's tickets write the text, from the files as they stand.
 
    Done when every section below `## Problem` is filled, or the change is named as too big for one ticket.
-4. **Hand it back.** As `../references/ticket.md` `## Handing it back` says. Done when the owner has said go and One ticket runs, or To spec runs, or the ticket is in `needs-triage` or closed.
+6. **Hand it back.** As `../references/ticket.md` `## Handing it back` says.
+
+   Done when the owner has said go and One ticket runs, or To spec runs, or the ticket is in `needs-triage` or closed.
 
 **Prove it, once.** One ticket step 4 runs this once the ticket passed, in `.worktrees/issue-<n>`; for a larger change, once the owner has accepted the night and `finish` has run. From the repository root, run each check that applies:
 - When a script changed, the suites **principle-run-the-smallest-test-set** picks (`bash mmw-v4/tests/<name>/run.sh`).
-- `uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py` exits 0: every skill's frontmatter holds only what the `writing-for-agents` skill's `SKILL-SET-RULES.md` `### Descriptions` allows.
-- `python3 mmw-v4/tests/lib/check_wiring.py` prints `WIRING OK`.
-- The `grep` of the `writing-for-agents` skill's `SKILL-SET-RULES.md` `### Paths and host neutrality` finds no hit that section does not pass.
-- When a playbook a session is sent to, a start prompt, the relay's wakes, a `RESUME:` step or the role table changed, `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` prints `INTERFACES OK`.
+- `scripts/check` exits 0.
 
-Then have one fresh agent walk one real task the change touches, on the changed text read from that checkout, as the `writing-for-agents` skill's `WALKING-A-SKILL-SET.md` `### List the tasks` and `### A fresh agent's walk` say. Its record of the walk is the task's load. A place where the agent ended wrong, stopped short of the completion criterion, or guessed at a sentence this change wrote fails the check: the change does not land. Every other guess goes into the Reply as a finding for a later change: each fresh agent finds a new guess somewhere, and fixing each one adds a sentence that raises the next.
+Then, when the change alters what an agent does in a task, have one fresh agent walk one real task the change touches, on the changed text read from that checkout, as the `writing-for-agents` skill's `WALKING-A-SKILL-SET.md` `### List the tasks` and `### A fresh agent's walk` say. A wording-only fix needs no walk. Its record of the walk is the task's load. Commit the record on `fix-<n>` and link it from the pull request. A required walk without that record fails the check. A place where the agent ended wrong, stopped short of the completion criterion, or guessed at a sentence this change wrote fails the check: the change does not land. Every other guess goes into the Reply as a finding for a later change: each fresh agent finds a new guess somewhere, and fixing each one adds a sentence that raises the next.
 
 **A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 2 with that evidence.
 

@@ -5,9 +5,9 @@
 
 Adding a playbook, a principle or a skill means writing its name in more than one
 place, and a name written in one place and missing from the other fails silently: an
-agent told to read a file or run a skill that is not there guesses. Five kinds of
-pointer are checked, in the text of every `.md` under `mmw-v4/skills/` (HTML comments
-and fenced code left out):
+agent told to read a file or run a skill that is not there guesses. Seven kinds of
+pointer are checked. Checks 3-5 scan every `.md` under `mmw-v4/skills/`; the others
+read the files named below. HTML comments and fenced code are left out.
 
 1. **Routes.** Each file in the mmw-mode skill's `playbooks/` has
    exactly one route line in `## Playbooks` of its `references/owning-a-task.md`, every
@@ -28,6 +28,10 @@ and fenced code left out):
 4. **dispatch.sh commands.** Each `dispatch.sh <command>` is a command `dispatch.sh` has.
 5. **Subagent rows.** Each "on the `<row>` row" names a row in the dispatch skill's
    `roles.json` `subagents` section, and every row there is named at least once.
+6. **Intent homes.** Each `Home:` in `DESIGN-INTENTS.md` names existing skills,
+   files, routed playbooks and their bold step titles. Intent 41 explicitly has no home.
+7. **Upstream destinations.** Each entry in an `UPSTREAM.md` `MMW` cell starts
+   with an existing intent number, or `Departure` for an id in `## Departures`.
 
 Text about MMW v2 (a line naming it, or a section whose heading does) records where
 something came from and is not checked.
@@ -198,9 +202,101 @@ def check_subagent_rows() -> list[str]:
     return found
 
 
+def check_intent_homes() -> list[str]:
+    path = SKILLS / "writing-for-agents/DESIGN-INTENTS.md"
+    text = readable(path)
+    homes = list(re.finditer(r"^ +Home: (.+)$", text, re.M))
+    if not homes:
+        return [f"{where(path, text, 0)}: no Home: lines matched; "
+                "restore the Home: entries in DESIGN-INTENTS.md"]
+    routes = {name: MODE_DIR / rel for name, rel in ROUTE_LINE.findall(readable(ROUTES))}
+    repository = Path(__file__).resolve().parents[3]
+    found = []
+    for home in homes:
+        body = home.group(1)
+        skill = path.parent
+        playbook = None
+        previous = ""
+        for token in re.finditer(r"`([^`]+)`|\*\*(.+?)\*\*", body):
+            code, bold = token.groups()
+            prefix = body[:token.start()]
+            if bold:
+                if re.search(r"(?:step |'s )$", prefix):
+                    steps = (re.findall(r"^(?:\d+\. )?\*\*(.+?)\*\*", readable(playbook), re.M)
+                             if playbook and playbook.is_file() else [])
+                    if bold not in {step.rstrip(".") for step in steps}:
+                        found.append(f"{where(path, text, home.start())}: Home names step **{bold}**, "
+                                     "which its playbook does not have; correct DESIGN-INTENTS.md")
+                elif bold in routes:
+                    playbook = routes[bold]
+                elif not (body[token.end():].startswith(" rule") or prefix.endswith("(")):
+                    found.append(f"{where(path, text, home.start())}: Home names playbook **{bold}**, "
+                                 "which has no route; correct DESIGN-INTENTS.md")
+                continue
+            if code.startswith("#") or body[token.end():].startswith(" section"):
+                continue
+            if " " in code or previous.startswith("dispatch.sh "):
+                previous = code
+                continue
+            previous = code
+            if "<" in code:
+                continue
+            if "/" in code or "." in code:
+                if code.startswith("mmw-v4/skills/"):
+                    target = SKILLS / code.removeprefix("mmw-v4/skills/")
+                elif code.startswith("mmw-mode/"):
+                    target = SKILLS / code
+                elif (code.startswith(("mmw-v4/", "docs/")) or code == "AGENTS.md"
+                      or prefix.endswith("repository's ")):
+                    target = repository / code
+                elif body[token.end():].startswith("]("):
+                    target = path.parent / code
+                else:
+                    target = skill / code
+            else:
+                skill = SKILLS / code
+                target = skill / "SKILL.md"
+            if not target.exists():
+                found.append(f"{where(path, text, home.start())}: Home names {code}, "
+                             "which does not exist; correct DESIGN-INTENTS.md")
+    return found
+
+
+def check_upstream_destinations() -> list[str]:
+    directory = SKILLS / "writing-for-agents"
+    path = directory / "UPSTREAM.md"
+    if not path.exists():
+        return [f"{path.relative_to(SKILLS.parent.parent)}:1: upstream destinations file "
+                "does not exist; restore UPSTREAM.md"]
+    design = readable(directory / "DESIGN-INTENTS.md")
+    intents = set(re.findall(r"^(\d+)\. \*\*", design, re.M))
+    departures, _ = section(design, "Departures")
+    departed = {identifier for cell in re.findall(r"^\| ([MP]\d+.*?) \|", departures, re.M)
+                for identifier in re.findall(r"[MP]\d+", cell)}
+    text = readable(path)
+    rows = list(re.finditer(r"^\| ([MP]\d+) \|.*$", text, re.M))
+    if not rows:
+        return [f"{where(path, text, 0)}: no upstream intent rows matched; "
+                "restore the | M<n> | and | P<n> | rows in UPSTREAM.md"]
+    found = []
+    for row in rows:
+        cells = row.group().strip("|").split("|")
+        entries = cells[4].strip().split("; ") if len(cells) == 5 else [""]
+        for entry in entries:
+            leading = re.match(r"^(\d+|Departure)\b", entry.strip())
+            token = leading.group(1) if leading else None
+            if token in intents or (token == "Departure" and row.group(1) in departed):
+                continue
+            found.append(f"{where(path, text, row.start())}: {row.group(1)} MMW entry {entry!r} "
+                         "must start with an existing intent number or Departure for an id in "
+                         "DESIGN-INTENTS.md `## Departures`; correct this MMW cell")
+    return found
+
+
 def main() -> int:
     mode = readable(MODE)
-    findings = check_routes(readable(ROUTES)) + check_principles(mode) + check_subagent_rows()
+    findings = (check_routes(readable(ROUTES)) + check_principles(mode)
+                + check_subagent_rows() + check_intent_homes() + check_upstream_destinations())
     commands = dispatch_commands()
     for path in sorted(SKILLS.rglob("*.md")):
         if "__pycache__" not in path.parts:

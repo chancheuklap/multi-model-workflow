@@ -81,7 +81,7 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Give agents a scripted way to drive the app and prove behavior | `create-verification-skill` |
 | Bring a verification skill and its feature map back in line with the app | `maintain-verification-skill` |
 | Vet a performance number before reporting or acting on it | `benchmark-checklist` |
-| Write or edit a skill, a playbook or a reference to the set's standards | `writing-for-agents` |
+| Write or edit a skill, a playbook or a reference to the set's standards | the Authoring or modifying a skill playbook |
 | Register a problem that cannot be fixed in the current work | `register-problem` |
 | Gather and sort a run's problems into proposals for the owner | `retro` |
 | Stop agents from repeating the same mistakes in this repo | `correct` |
@@ -121,7 +121,7 @@ For a run that drifts, [`references/prompting.md`](references/prompting.md) has 
 ## Make MMW my own
 
 - After a run, Retrospective sorts registered problems into proposals the owner picks before planning and implementation.
-- "Write a skill for <workflow>" runs the Authoring or modifying a skill playbook. The Eval playbook tests a skill change blind.
+- Changing the set from your words, a registered problem or retrospective proposal, an upstream release or a doubt about a part of the set runs the Authoring or modifying a skill playbook. The Eval playbook tests a skill change blind.
 - Fix a misbehaving skill in its own change, not inside the feature work where it went wrong.
 
 Guide page 9 (`mmw-v4/docs/guide/09-make-it-yours.md`) covers each of these.
