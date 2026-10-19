@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -75,6 +76,30 @@ class BriefRounds(BriefCase):
 
 
 class BriefTurnEnd(BriefCase):
+    def test_a_child_waiting_on_its_own_open_batch_ends_its_turn(self):
+        nested = briefs.create(self.state, "candidate", 1, "fake", "child-1")
+        self.write("watches.json", {
+            f"briefs:{self.batch}": {"briefs": self.batch, **MAIN},
+            f"briefs:{nested}": {"briefs": nested, "runner": "fake", "session": "child-1"}})
+        self.env("FAKE_SELF", "child-1")
+        for host in guard.HOSTS:
+            run = subprocess.run([sys.executable, guard.__file__, "stop", host],
+                                 input="{}", capture_output=True, text=True)
+            self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
+        recorded = (self.state / "guard.log").read_text()
+        self.assertIn(nested, recorded)
+        self.assertIn("allow", recorded)
+        briefs.mark_lost(self.state, nested, 1, "candidate stopped")
+        self.assertTrue(briefs.complete(self.state, nested))
+        run = subprocess.run([sys.executable, guard.__file__, "stop", "codex"],
+                             input="{}", capture_output=True, text=True)
+        self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
+        briefs.remove(self.state, nested)
+        run = subprocess.run([sys.executable, guard.__file__, "stop", "codex"],
+                             input="{}", capture_output=True, text=True)
+        self.assertEqual(run.returncode, 2)
+        self.assertIn(f"report {self.batch}/1 <file>", run.stderr)
+
     def test_a_child_ending_its_turn_without_reporting_is_blocked_once_with_the_command(self):
         self.env("FAKE_SELF", "child-1")
         blocks = guard.guard("claude")

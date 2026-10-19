@@ -16,7 +16,8 @@ runs every time the orchestrator's turn ends, and:
 
 It does one more thing, for a session a brief `dispatch.sh send` started (briefs.py): when this
 process is such a session and its brief is still open, neither reported nor lost, the turn
-end is blocked once with the one command that reports it. A brief's session that ends its
+end is blocked once with the one command that reports it, unless that session is waiting
+on an open batch it sent. A brief's session that ends its
 turn without reporting would otherwise leave the session that briefed it waiting until the
 session is closed and the watchdog finds it stopped.
 
@@ -224,6 +225,11 @@ def guard(host: str, forced: bool = False) -> list[str]:
         child = own_brief(state, asked)
         if child is not None:
             name = f"{child['batch']}/{child['n']}"
+            waiting = briefs.open_batches(state, (child["runner"], child["session"]))
+            if waiting:
+                batches = ", ".join(b["batch"] for b in waiting)
+                log(state, host, False, None, f"brief {name} waits on its own open batches {batches}")
+                continue
             log(state, host, not forced, None, f"brief {name} ends its turn without reporting")
             if not forced:
                 blocks.append(

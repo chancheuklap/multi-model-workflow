@@ -141,6 +141,44 @@ class InstallTest(unittest.TestCase):
     def link(self, name, where=".agents/skills"):
         return os.readlink(self.home / where / name)
 
+    def test_reply_check_is_registered_trusted_and_reported_when_missing(self):
+        install = self.run_install("v4")
+        self.assertEqual(install.returncode, 0, install.stderr)
+        for host, config in (("claude", self.home / ".claude/settings.json"),
+                             ("codex", self.home / ".codex/hooks.json")):
+            data = json.loads(config.read_text())
+            stops = data["hooks"]["Stop"]
+            commands = [h["command"] for group in stops for h in group["hooks"]]
+            expected = f"python3 '{self.home}/.agents/skills/mmw-mode/scripts/reply-check.py' stop {host}"
+            self.assertEqual(commands.count(expected), 1)
+            self.assertEqual(len([c for c in commands if "turn-guard.py' stop" in c]), 1)
+            if host == "codex":
+                group = next(i for i, g in enumerate(stops)
+                             if any(h["command"] == expected for h in g["hooks"]))
+                key = f"{config}:stop:{group}:0"
+                trust = tomllib.loads((self.home / ".codex/config.toml").read_text())
+                self.assertRegex(trust["hooks"]["state"][key]["trusted_hash"], r"^sha256:[0-9a-f]{64}$")
+            before = config.read_bytes()
+            data["hooks"]["Stop"] = [g for g in stops
+                                      if not any(h["command"] == expected for h in g["hooks"])]
+            config.write_text(json.dumps(data))
+            broken = config.read_bytes()
+            check = self.run_install("v4", "--check")
+            self.assertEqual(check.returncode, 1, check.stderr)
+            self.assertIn("reply-check.py", check.stderr)
+            self.assertEqual(config.read_bytes(), broken, "--check must not repair the registration")
+            config.write_bytes(before)
+        config = self.home / ".codex/config.toml"
+        trusted = config.read_text()
+        config.write_text(trusted.replace(f'[hooks.state."{key}"]\ntrusted_hash = "sha256:',
+                                         f'[hooks.state."{key}"]\ntrusted_hash = "invalid:'))
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 1, check.stderr)
+        self.assertIn(key, check.stderr)
+        config.write_text(trusted)
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 0, check.stderr)
+
     def test_takes_over_a_v3_machine(self):
         self.install_v3()
         board = self.home / "Library/LaunchAgents/com.mmw.board.plist"

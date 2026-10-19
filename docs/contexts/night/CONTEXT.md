@@ -16,7 +16,7 @@ _Home_: `docs/contexts/night/how-it-works.md`
 
 **orchestrator**:
 The session the user started, which runs one spec's night with the dispatch skill's commands, from `check` to `summary` and, after the user accepts the result, `finish`. It has no `models.json` row.
-_Avoid_: main agent
+_Avoid_: main agent, 编排者
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **runner**:
@@ -47,8 +47,8 @@ What the relay sends a session when an event it waits on lands on a ticket, `#<n
 _Home_: `mmw-v3/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work; a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time; `fix-<n>` for a ticket a playbook opens outside a spec, where the daytime session commits its records and pushes `fix-<n>`; or the detached `baseline-<n>`, where `verify-ticket.py --preflight` runs the ticket's criteria once at its worker's base commit, removed after that run.
-_Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`, `mmw-v4/skills/mmw-mode/references/ticket.md` (`## Opening a ticket`), `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` (`run_baseline`)
+A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work; a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time; `fix-<n>` for a ticket a playbook opens outside a spec, where the daytime session commits its records and pushes `fix-<n>`; `map-<map number>` for a map's effort, created when Chart the map opens the map; or the detached `baseline-<n>`, where `verify-ticket.py --preflight` runs the ticket's criteria once at its worker's base commit, removed after that run.
+_Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`, `mmw-v4/skills/mmw-mode/references/ticket.md` (`## Opening a ticket`), `mmw-v4/skills/mmw-mode/playbooks/chart-the-map.md` (`Create the map`), `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` (`run_baseline`)
 
 **ticket branch**:
 The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked. Landing deletes both the local and origin copies when cleanup permits it.
@@ -70,6 +70,7 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **project branch**:
 The branch a night's base branch was cut from and into which `finish` merges the accepted night, recorded in `spec.opened` as `project`.
+_Avoid_: 项目分支
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`MMW_BASE_REF`**:
@@ -103,8 +104,8 @@ The dispatch skill's script, whose verbs open, advance, land, suspend and finish
 _Home_: `mmw-v3/skills/dispatch/SKILL.md`
 
 **brief**:
-`dispatch.sh brief <role> <brief file>...`: starts one session per brief file for a role with no ticket (`advisor`, `researcher`, `explainer`, `synthesizer`), in the current worktree, all answering the calling session. Each reports with `dispatch.sh report <batch>/<n> <file>`; the result is kept in the state directory, never in the repository or on the tracker. It writes no event.
-_Home_: `mmw-v3/skills/dispatch/scripts/briefs.py`
+`dispatch.sh send <role> --follow "<file>" <brief file>...` for a role `roles.json` sends with a brief: starts one session per brief file in the sender's worktree, all answering the sending session. Each session writes only the files its brief names and makes no git write; it reports with `dispatch.sh report <batch>/<n> <file>`, and the answer is kept in the state directory. It writes no event.
+_Home_: `mmw-v4/skills/dispatch/scripts/briefs.py`
 
 **batch**:
 What one `brief` call starts: its sessions, all of one role, all answering one parent session. The relay watches it as `briefs:<batch>` and wakes the parent once, `brief <batch> done`, when every brief has reported or been found lost; `dispatch.sh brief close <batch>` removes it.
