@@ -378,9 +378,19 @@ def git_write(args: list[str]) -> bool:
            (flag.startswith("-") and not flag.startswith("--") and
             any(letter in flag[1:] for letter in "dDmMcCftu")) for flag in flags):
         return True
-    if any(flag.split("=", 1)[0] in BRANCH_QUERIES for flag in flags):
+    if any(flag.split("=", 1)[0] in BRANCH_QUERIES or
+           (flag.startswith("-") and not flag.startswith("--") and "l" in flag[1:])
+           for flag in flags):
         return False
-    return any(not flag.startswith("-") for flag in flags)
+    index = 0
+    while index < len(flags):
+        if flags[index] in ("--format", "--sort"):
+            index += 2
+            continue
+        if not flags[index].startswith("-"):
+            return True
+        index += 1
+    return False
 
 
 def session_guard():

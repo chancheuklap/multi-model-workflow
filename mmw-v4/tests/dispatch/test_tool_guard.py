@@ -786,7 +786,9 @@ class BriefWorktreeGuard(unittest.TestCase):
                         "git branch -d findings", "git branch -D findings", "git branch -m findings",
                         "git branch -M findings", "git branch -c findings", "git branch -C findings",
                         "git branch --delete findings", "git branch --move findings",
-                        "git branch --copy findings", "git branch --create-reflog findings"):
+                        "git branch --copy findings", "git branch --create-reflog findings",
+                        "git branch --format '%(refname:short)' findings",
+                        "git branch --sort committerdate findings"):
             with self.subTest(command=command):
                 self.assertIsNotNone(self.hook(command))
 
@@ -795,7 +797,9 @@ class BriefWorktreeGuard(unittest.TestCase):
                         "git diff", "git log -3", "git branch --list", "git branch -a",
                         "git worktree list", "echo 'git commit -m findings'",
                         "git branch --show-current", "git branch --contains HEAD",
-                        "git branch --list 'topic*'", "git --no-pager log -3"):
+                        "git branch --list 'topic*'", "git branch -l 'topic*'",
+                        "git branch --format '%(refname:short)'", "git branch --sort committerdate",
+                        "git --no-pager log -3"):
             with self.subTest(command=command):
                 self.assertIsNone(self.hook(command))
 
