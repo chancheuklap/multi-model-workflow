@@ -504,7 +504,6 @@ for host, host_home, path in grouped_hosts:
           grouped(path, "PreToolUse", QUESTION_TOOLS[host], for_host(host, QUESTION)),
           for_host(host, QUESTION))
 
-# turn-guard.py 与 reply-check.py 挂在主 agent 的回合结束事件上。
 for host, host_home, path in grouped_hosts:
     for command, label in ((STOP, "Stop turn-guard.py"), (REPLY_STOP, "Stop reply-check.py")):
         point(host_home, path, label,

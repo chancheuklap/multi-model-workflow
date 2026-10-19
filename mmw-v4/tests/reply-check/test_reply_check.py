@@ -1,5 +1,3 @@
-"""The real reply-check command with host payloads, a temporary repository and fake runners."""
-
 import json
 import os
 import subprocess
