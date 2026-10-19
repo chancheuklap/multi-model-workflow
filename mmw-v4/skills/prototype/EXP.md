@@ -13,7 +13,7 @@ If the question is "does this state model feel right", this is the wrong branch:
 
 ## The record
 
-The experiment's record lives in comments on its ticket. An **experiment round** is one run, or one batch of runs, made to answer the question under one set of parameters.
+The experiment's record lives in comments on its ticket; with no ticket, the reply carries this record. An **experiment round** is one run, or one batch of runs, made to answer the question under one set of parameters.
 
 - **Question and bar**: the first comment states what is being asked and what result counts as "yes".
 - **Rounds**: one comment per experiment round, each dated, with what changed since the previous one, the observations, the run and static-server commands, and the URL.

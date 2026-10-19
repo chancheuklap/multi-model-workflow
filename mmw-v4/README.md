@@ -64,7 +64,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`research`](./skills/research/SKILL.md) | Investigate a question against primary sources and get the findings as one cited Markdown file. |
 | [`blast-radius`](./skills/blast-radius/SKILL.md) | Find what a small change could break elsewhere, with the facts its safety depends on proven by running code. |
 | [`codebase-design`](./skills/codebase-design/SKILL.md) | Use the shared vocabulary for deep modules: module, interface, depth, seam, adapter, leverage, locality. |
-| [`arena`](./skills/arena/SKILL.md) | Send every candidate through one entry, compare designs of the same task from different angles, and graft the best parts onto the selected base. |
+| [`arena`](./skills/arena/SKILL.md) | Compare designs of the same task from different angles and graft the best parts onto the selected base. |
 | [`swarm`](./skills/swarm/SKILL.md) | Run several parallel workers on separate slices or on the same brief, then get one aggregated report. |
 | [`prototype`](./skills/prototype/SKILL.md) | Build code that answers one logic, UI, implementation or code-shape question, kept under `efforts/<effort>/prototypes/`, with non-UI verdicts on the ticket. |
 | [`grilling`](./skills/grilling/SKILL.md) | Have a plan or idea stress-tested in rounds of numbered questions, each with a recommended answer. |
