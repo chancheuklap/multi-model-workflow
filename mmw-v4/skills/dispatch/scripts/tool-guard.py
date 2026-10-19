@@ -380,6 +380,8 @@ def command_contexts(command: str) -> list[tuple[str, str, Path]]:
             if group == "(":
                 scopes.append((cwd, values.copy()))
         words = shell_words(expanded)
+        while words and words[0] in ("{", "!"):
+            words = words[1:]
         assignments = words[1:] if words[:1] == ["export"] else words
         if assignments and all(re.match(r"^[A-Za-z_]\w*=", word) for word in assignments):
             values.update(word.split("=", 1) for word in assignments)

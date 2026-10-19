@@ -847,7 +847,8 @@ class BriefWorktreeGuard(unittest.TestCase):
         for command in (f"git worktree remove --force '{other}'", f"rm -rf '{other}'",
                         f"env NOTE=1 git worktree remove '{other}'", f"(rm -rf '{other}')",
                         f'wt="{other}"; rm -rf "$wt"',
-                        f'wt="{other}"; git worktree remove "${{wt}}"'):
+                        f'wt="{other}"; git worktree remove "${{wt}}"',
+                        f'{{ wt="{other}"; rm -rf "$wt"; }}'):
             with self.subTest(command=command):
                 answer = self.hook(command)
                 self.assertIsNotNone(answer)
