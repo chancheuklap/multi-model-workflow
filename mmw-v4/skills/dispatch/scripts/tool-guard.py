@@ -521,9 +521,9 @@ def removal_refusal(piece: str, paths: list[Path]) -> str | None:
             why += f"Open batches {names} use their recorded worktrees here. "
             way = f"Close the batches with {close} before removing their worktrees."
             if current:
-                way += " Run cleanup from outside this path."
+                way += " Run cleanup from a session whose working directory is outside this path."
         else:
-            way = "Run cleanup from outside this path."
+            way = "Run cleanup from a session whose working directory is outside this path."
         return f"Refused `{piece}` removing {path}. {why}{way}"
     return None
 
