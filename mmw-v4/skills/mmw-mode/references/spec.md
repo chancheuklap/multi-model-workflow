@@ -48,11 +48,11 @@ The implementation decisions that were made, grouped into numbered subsections (
 
 Each subsection is read on its own: a worker opens only the subsections its ticket names, so a subsection that depends on another names it.
 
-**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, a research or prototype path. A decision with no source is written as "this spec's decision", citing what it rests on (and, where the user confirmed it, say so). What an ADR decides that shapes a decision is written into the subsection it shapes, citing the ADR: the worker reads the spec, not the ADR.
+**Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, the link of a research answer or verdict comment, or a prototype path. A decision with no source is written as "this spec's decision", citing what it rests on (and, where the user confirmed it, say so). What an ADR decides that shapes a decision is written into the subsection it shapes, citing the ADR: the worker reads the spec, not the ADR.
 
 **A user story's conclusion is folded into the subsection that implements it.** A worker reads the Implementation Decisions subsections its ticket names and never a story, so a behaviour that is settled only in a story reaches nobody. Whatever a story decides about a value, a transition or a failure is stated here, in the subsection that implements it, with the story number as its source.
 
-Do NOT include implementation file paths (the module you will edit, the function you will add) or code snippets. They may end up being outdated very quickly. Paths to source material (ADRs, research files, prototype directories, domain docs, test directories, shared contract locations) are what the tickets and the implementer read from: write them.
+Do NOT include implementation file paths (the module you will edit, the function you will add) or code snippets. They may end up being outdated very quickly. Paths and links to source material (ADRs, research answer comments, prototype directories, domain docs, test directories, shared contract locations) are what the tickets and the implementer read from: write them.
 
 Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
 
