@@ -89,6 +89,11 @@ class BriefTurnEnd(BriefCase):
         recorded = (self.state / "guard.log").read_text()
         self.assertIn(nested, recorded)
         self.assertIn("allow", recorded)
+        briefs.mark_lost(self.state, nested, 1, "candidate stopped")
+        self.assertTrue(briefs.complete(self.state, nested))
+        run = subprocess.run([sys.executable, guard.__file__, "stop", "codex"],
+                             input="{}", capture_output=True, text=True)
+        self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
         briefs.remove(self.state, nested)
         run = subprocess.run([sys.executable, guard.__file__, "stop", "codex"],
                              input="{}", capture_output=True, text=True)
