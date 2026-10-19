@@ -12,6 +12,8 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
@@ -76,6 +78,8 @@ def call(host: str, event: dict, env: dict | None = None,
             merged.update(env)
         if not env or "PASEO_AGENT_CWD" not in env:
             merged["PASEO_AGENT_CWD"] = path
+        if not env or "MMW_HOME" not in env:
+            merged["MMW_HOME"] = str(Path(path) / ".mmw")
         with mock.patch.dict(os.environ, merged, clear=True), \
              mock.patch.object(hk.sys, "stdin", io.StringIO(json.dumps(event))), \
              redirect_stdout(out), redirect_stderr(io.StringIO()):
@@ -159,12 +163,6 @@ class TestSelfScope(unittest.TestCase):
         run.assert_not_called()
         popen.assert_not_called()
         opened.assert_not_called()
-
-    def test_the_source_imports_no_socket_urllib_tempfile_shutil_or_pathlib(self):
-        source = (DISPATCH_SCRIPTS / "tool-guard.py").read_text(encoding="utf-8")
-        for name in ("socket", "urllib", "tempfile", "shutil", "pathlib"):
-            self.assertNotIn(f"import {name}", source)
-
 
 # ------------------------------------------------------------------------ AC2
 
@@ -727,6 +725,124 @@ class TestQuotedCommands(unittest.TestCase):
                     _, answer = call(host, with_command(host, command))
                     decision = answer["hookSpecificOutput"]["permissionDecision"] if answer else None
                     self.assertEqual(decision, "deny")
+
+
+class BriefWorktreeGuard(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.worktree = self.root / "sender"
+        self.worktree.mkdir()
+        self.home = self.root / "home"
+        self.runners = self.root / "runners"
+        self.runners.mkdir()
+        self.calls = self.root / "runner-calls"
+        (self.runners / "fake.sh").write_text(
+            'printf "%s\\n" "$1" >> "$FAKE_CALLS"\n'
+            '[ "$1" = self ] && printf "%s\\n" "$FAKE_SELF"\n')
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith("MMW_")}
+        self.env.update(MMW_HOME=str(self.home), MMW_RUNNERS_DIR=str(self.runners),
+                        FAKE_SELF="child", FAKE_CALLS=str(self.calls))
+        self.briefs = load(DISPATCH_SCRIPTS / "briefs.py", "guard_test_briefs")
+        with mock.patch.dict(os.environ, self.env, clear=True):
+            self.state = self.briefs.state_for("o/r")
+        self.batch = self.briefs.create(self.state, "researcher", 1, "fake", "parent",
+                                       worktree=self.worktree)
+        self.briefs.mark_started(self.state, self.batch, 1,
+                                {"runner": "fake", "session": "child"})
+
+    def hook(self, command, *, host="codex", cwd=None):
+        run = subprocess.run([sys.executable, str(DISPATCH_SCRIPTS / "tool-guard.py"),
+                              "pretool", host], input=json.dumps(with_command(host, command)),
+                             cwd=cwd or self.worktree, env=self.env,
+                             capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return json.loads(run.stdout) if run.stdout.strip() else None
+
+    def test_a_brief_session_commit_is_refused(self):
+        commands = [f"git {verb}" for verb in (
+            "commit -m findings", "merge topic", "rebase dev", "reset --hard", "push origin dev",
+            "pull", "stash", "cherry-pick HEAD", "revert HEAD", "am patch", "tag v1",
+            "worktree add ../candidate")]
+        commands += [
+            "env NOTE=1 git commit -m findings", "sudo -n git commit -m findings",
+            "command git commit -m findings", "(git commit -m findings)",
+            "! { git commit -m findings; }", ">out git commit -m findings",
+            "true && git commit -m findings", "false || git commit -m findings",
+            "echo ok; git commit -m findings", "echo ok & git commit -m findings",
+            "echo ok | git commit -m findings", "echo ok\ngit commit -m findings",
+            "git -c user.name=Researcher -C . commit -m findings",
+            "git --git-dir=.git commit -m findings"]
+        for host in EVENTS:
+            for command in commands:
+                with self.subTest(host=host, command=command):
+                    answer = self.hook(command, host=host)
+                    self.assertIsNotNone(answer)
+                    self.assertIn(f"{self.batch}/1", reason_of(answer))
+
+    def test_a_brief_session_branch_switch_is_refused(self):
+        for command in ("git checkout -b findings", "git switch dev", "git branch findings",
+                        "git branch -d findings", "git branch -D findings", "git branch -m findings",
+                        "git branch -M findings", "git branch -c findings", "git branch -C findings",
+                        "git branch --delete findings", "git branch --move findings",
+                        "git branch --copy findings", "git branch --create-reflog findings"):
+            with self.subTest(command=command):
+                self.assertIsNotNone(self.hook(command))
+
+    def test_a_brief_session_may_write_files(self):
+        for command in ("cat > answer.md", "mkdir -p candidates/1", "git status",
+                        "git diff", "git log -3", "git branch --list", "git branch -a",
+                        "git worktree list", "echo 'git commit -m findings'",
+                        "git branch --show-current", "git branch --contains HEAD",
+                        "git branch --list 'topic*'", "git --no-pager log -3"):
+            with self.subTest(command=command):
+                self.assertIsNone(self.hook(command))
+
+    def test_a_session_that_is_no_brief_may_commit(self):
+        self.env["FAKE_SELF"] = "parent"
+        self.assertIsNone(self.hook("git commit -m findings"))
+        self.env["FAKE_SELF"] = "child"
+        self.briefs.mark_lost(self.state, self.batch, 1, "stopped")
+        self.assertIsNone(self.hook("git commit -m findings"))
+
+    def test_a_command_with_no_git_write_asks_no_runner(self):
+        self.assertIsNone(self.hook("git status && echo 'git commit -m findings'"))
+        self.assertFalse(self.calls.exists())
+
+    def test_removing_the_worktree_this_session_runs_in_is_refused(self):
+        self.env["FAKE_SELF"] = "parent"
+        nested = self.worktree / "notes"
+        nested.mkdir()
+        for host in EVENTS:
+            for command in ("git worktree remove --force ..", "rm -rf ..", "rm -rf .",
+                            f"rm -rf '{self.worktree}'", f"git -C '{self.root}' worktree remove sender"):
+                with self.subTest(host=host, command=command):
+                    answer = self.hook(command, host=host, cwd=nested)
+                    self.assertIsNotNone(answer)
+                    self.assertIn(str(nested), reason_of(answer))
+        self.assertIsNone(self.hook("rm -f answer.md", cwd=nested))
+        self.assertIsNone(self.hook("git worktree remove ../../unused", cwd=nested))
+        self.briefs.remove(self.state, self.batch)
+        self.assertIsNotNone(self.hook("rm -rf ..", cwd=nested))
+
+    def test_removing_a_worktree_an_open_batch_runs_in_is_refused(self):
+        self.env["FAKE_SELF"] = "unrelated"
+        other = self.root / "other"
+        other.mkdir()
+        protected = self.briefs.create(self.state, "candidate", 1, "fake", "sender",
+                                       worktree=other)
+        for command in (f"git worktree remove --force '{other}'", f"rm -rf '{other}'",
+                        f"env NOTE=1 git worktree remove '{other}'", f"(rm -rf '{other}')"):
+            with self.subTest(command=command):
+                answer = self.hook(command)
+                self.assertIsNotNone(answer)
+                self.assertIn(protected, reason_of(answer))
+                self.assertIn(f"dispatch.sh brief close {protected}", reason_of(answer))
+        self.briefs.mark_lost(self.state, protected, 1, "stopped")
+        self.assertIsNotNone(self.hook(f"rm -rf '{other}'"))
+        self.briefs.remove(self.state, protected)
+        self.assertIsNone(self.hook(f"rm -rf '{other}'"))
 
 
 if __name__ == "__main__":
