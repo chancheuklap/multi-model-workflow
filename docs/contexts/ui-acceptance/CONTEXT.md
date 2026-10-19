@@ -91,11 +91,11 @@ _Home_: `mmw-v4/skills/mmw-mode/playbooks/work-a-ticket.md`, `mmw-v4/skills/mmw-
 ### The prototype side
 
 **prototype**:
-Code that answers a question in a leaf directory. A UI prototype is a complete, interactive design in the product's code, iterated with the owner; its winner is the appearance and interaction baseline, rewritten to production standards rather than shipped directly. Its conclusion lives in the feature file; LOGIC, EXP and SKETCH keep a README verdict.
+Code that answers a question in a leaf directory. A UI prototype is a complete, interactive design in the product's code, iterated with the owner; its winner is the appearance and interaction baseline, rewritten to production standards rather than shipped directly. Its conclusion lives in the feature file; LOGIC, EXP and SKETCH keep their verdict in a comment on the ticket that asked the question.
 _Home_: `mmw-v4/skills/prototype/SKILL.md`, `mmw-v4/skills/prototype/UI.md`
 
 **leaf directory**:
-`efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, one prototype branch's code. UI keeps `winner/` and `candidates/<n>/`, with its conclusion in the feature file; LOGIC, EXP and SKETCH keep `README.md` holding their question, current conclusion, and what the real code has taken. The issue is a ticket number or a short feature name when there is no ticket.
+`efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, one prototype branch's code. UI keeps `winner/` and `candidates/<n>/`, with its conclusion in the feature file; LOGIC, EXP and SKETCH record their question, current conclusion, and what the real code has taken in a comment on the ticket that asked the question. The issue is a ticket number or a short feature name when there is no ticket.
 _Home_: `mmw-v4/skills/prototype/SKILL.md`
 
 **effort** (`<effort>`):
@@ -111,11 +111,11 @@ The HTML page around a logic prototype's pure module, or the harness around an e
 _Home_: `mmw-v4/skills/prototype/LOGIC.md`, `mmw-v4/skills/prototype/EXP.md`
 
 **experiment round**:
-One run or batch of runs answering an experiment's question under one parameter set, distinct from the tickets context's round. The leaf `README.md` records each round under `Rounds`, newest first.
+One run or batch of runs answering an experiment's question under one parameter set, distinct from the tickets context's round. One comment on the experiment's ticket records each round.
 _Home_: `mmw-v4/skills/prototype/EXP.md`
 
 **evidence page**:
-The static HTML page an experiment generates at the end of each run, showing outputs as a comparison grid or catalogue. It reports facts, while the leaf `README.md` records observations and the conclusion.
+The static HTML page an experiment generates at the end of each run, showing outputs as a comparison grid or catalogue. It reports facts, while comments on the ticket record observations and the conclusion.
 _Home_: `mmw-v4/skills/prototype/EXP.md`, `mmw-v4/skills/prototype/evidence-page.md`
 
 **evidence scratch directory**:

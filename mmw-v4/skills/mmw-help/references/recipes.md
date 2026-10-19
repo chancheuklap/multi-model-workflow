@@ -22,7 +22,7 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 ## Design and plan
 
 - `prototype a few options for <feature>. take screenshots or videos for me to compare.`
-- `we need <feature>. /architect it first, and answer open questions with prototypes. let me review before proceeding.`
+- `we need <feature>. use the prototype skill for its code shape first, and answer open questions with prototypes. let me review before proceeding.`
 - `write a tutorial for how i would use <new package> first. then /teach me why it beats the current one.`
 - `get the advisor's second opinion on this thread and our approach.`
 - `turn this design into a spec, then cut it into tickets.`

@@ -49,7 +49,7 @@ Known local failures:
 
 | Symptom | Cause | Do |
 | --- | --- | --- |
-| `design` fails where `product` passes on a feature nobody changed | The prototype replaces that page and has not caught up with it | Compare with the prototype's leaf `README.md`; a missing behaviour goes to the prototype, not the test |
+| `design` fails where `product` passes on a feature nobody changed | The prototype replaces that page and has not caught up with it | Compare with the prototype's `winner/`; a missing behaviour goes to the prototype, not the test |
 | `serve` exits at once with `no prototype module` | `--prototype` names a path that is not in this checkout | Pass the path relative to the repository root |
 
 ## Drive

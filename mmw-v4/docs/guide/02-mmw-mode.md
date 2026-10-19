@@ -158,7 +158,7 @@ A batch of overnight work goes through Run a night. The tickets' events and the 
 
 To stop a session cleanly, ask it to pause. The [Pause safely](../../skills/mmw-mode/playbooks/pause-safely.md) playbook commits the work in progress and writes a resume note. A later session resumes from it with [Session pickup](../../skills/mmw-mode/playbooks/session-pickup.md).
 
-**Pitfall.** Do not list skills in your prompt ("use how, then architect, then arena..."). The playbook already orders them, and a hand-written order usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
+**Pitfall.** Do not list skills in your prompt ("use how, then prototype, then arena..."). The playbook already orders them, and a hand-written order usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
 
 Read [`owning-a-task.md`](../../skills/mmw-mode/references/owning-a-task.md) itself for the full routing rules.
 
