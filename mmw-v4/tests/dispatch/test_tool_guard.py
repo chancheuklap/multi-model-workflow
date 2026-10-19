@@ -47,7 +47,7 @@ EVENTS = {
 
 @contextmanager
 def named_cwd(basename: str):
-    """A temporary directory whose basename is the only fact `pretool` reads."""
+    """A temporary session directory for a host-payload test."""
     with tempfile.TemporaryDirectory() as root:
         path = os.path.join(root, basename)
         os.mkdir(path)
@@ -142,8 +142,7 @@ class TestCwdNamesTheTicket(unittest.TestCase):
 
 
 class TestSelfScope(unittest.TestCase):
-    """A basename that is not `issue-<n>` is not a ticket worktree. `pretool` reads the
-    two directories of `governed_ticket` and nothing else."""
+    """Ticket closeout uses the process and session directory names, without a runner."""
 
     def test_a_marker_that_is_not_a_ticket_number_is_no_marker(self):
         for name in ("issue", "issue-", "issue-64x", "64", "Issue-64"):
@@ -168,7 +167,7 @@ class TestSelfScope(unittest.TestCase):
 
 
 class TestWhatItStops(unittest.TestCase):
-    """Two commands finish a ticket. Everything else is the worker's own business."""
+    """The ticket-closeout gate refuses commands that finish this ticket by hand."""
 
     STOPPED = [
         f"gh issue close {TICKET}",
