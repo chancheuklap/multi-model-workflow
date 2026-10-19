@@ -22,6 +22,7 @@ _Home_: `mmw-v4/skills/prototype/UI.md`, `mmw-v4/skills/create-verification-skil
 
 **`verify-<product>`**:
 The product-local verification skill generated under `.agents/skills/verify-<product>/`. It holds the knowledge of launching, checking, driving, capturing evidence, and cleaning up that product, together with its feature map.
+_Avoid_: 产品验证技能
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **feature map**:
@@ -30,6 +31,7 @@ _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **feature file**:
 One feature's file, starting with its name, `Route:`, and `Tests:` on three lines. Its user-facing description comes from the winner, settled decisions and glossary before design freeze; `Proof` records what the user sees and can accomplish, while `Gotchas` records prerequisites and local limits that can look like defects.
+_Avoid_: 功能文件
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **e2e test**:
@@ -109,6 +111,7 @@ _Home_: `docs/adr/0056-every-effort-has-its-own-branch.md`
 
 **mount point**:
 The environment-variable-controlled entry that renders the winner at the feature file's final `Route:`, or in the rendering module for a UI without its own route. Each page has its own entry, with one shared switcher for variants; entries stay until implementation and are removed per page by the last ticket, or the final commit of a single ticket.
+_Avoid_: 挂载点
 _Home_: `mmw-v4/skills/prototype/UI.md`
 
 **shell**:

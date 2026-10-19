@@ -2,7 +2,7 @@
 # 把 MMW v4 装到本机，让每个 host 都读得到。下面几样，全部指向运行本脚本的这个 checkout 的 mmw-v4/：
 #
 #   技能              skills/ 下每个带 SKILL.md 的目录，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   hook              dispatch 的 tool-guard.py 与 turn-guard.py，写进各 host 自己的配置
+#   hook              dispatch 的 tool-guard.py、turn-guard.py 与 mmw-mode 的 reply-check.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md：Claude Code 读软链，Codex 读 prompt/render.py 写出的 AGENTS.md
 #   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
@@ -271,9 +271,9 @@ done
 
 # ---------------- hook ----------------
 
-# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。三样，
+# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。四样，
 # claude 与 codex 各装一份：dispatch 的 tool-guard.py 的 pretool gate 与 question gate，同一技能的
-# turn-guard.py 挂在回合结束的 Stop 上。每一处都写进 host 的 JSON 配置，指向 ~/.agents/skills
+# turn-guard.py 与 mmw-mode 的 reply-check.py 挂在回合结束的 Stop 上。每一处都写进 host 的 JSON 配置，指向 ~/.agents/skills
 # 下的脚本：那已经是指回仓库的软链，所以改脚本不用重装。v3 挂在 SessionStart 上的 mode-hook.py
 # 不再装，下面的清扫把它摘掉；本仓库从前写进 ~/.cursor、~/.grok 的处理器也由它摘掉。
 #
@@ -287,6 +287,7 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_MODE="$mode" \
   MMW_HOOK="$NEUTRAL_DIR/dispatch/scripts/tool-guard.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
+  MMW_REPLY_CHECK="$NEUTRAL_DIR/mmw-mode/scripts/reply-check.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
@@ -315,6 +316,8 @@ guard = os.environ["MMW_GUARD"]
 # 所以给它比 tool-guard.py 长的超时。
 GUARD_TIMEOUT = 30
 STOP = f"python3 '{guard}' stop "
+reply_check = os.environ["MMW_REPLY_CHECK"]
+REPLY_STOP = f"python3 '{reply_check}' stop "
 
 
 def for_host(host, command):
@@ -501,10 +504,12 @@ for host, host_home, path in grouped_hosts:
           grouped(path, "PreToolUse", QUESTION_TOOLS[host], for_host(host, QUESTION)),
           for_host(host, QUESTION))
 
-# turn-guard.py 挂在主 agent 的回合结束事件上。
+# turn-guard.py 与 reply-check.py 挂在主 agent 的回合结束事件上。
 for host, host_home, path in grouped_hosts:
-    point(host_home, path, "Stop",
-          grouped(path, "Stop", None, for_host(host, STOP), GUARD_TIMEOUT), for_host(host, STOP))
+    for command, label in ((STOP, "Stop turn-guard.py"), (REPLY_STOP, "Stop reply-check.py")):
+        point(host_home, path, label,
+              grouped(path, "Stop", None, for_host(host, command), GUARD_TIMEOUT),
+              for_host(host, command))
 
 failed = False
 count = 0
