@@ -12,8 +12,8 @@ Give every actionable element a role and an accessible name, so e2e can find it 
 
 A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
 
-Put any question whose answer would change the UI in your variant's rationale, not under `## Problems`.
+As a candidate, put any question whose answer would change the UI in your variant's rationale, not under `## Problems`.
 
-Open your variant at the URL your brief gives and check it against the Done line below.
+Open your variant on the product page and check it against the Done line below; a candidate uses the URL its brief gives.
 
 Done when your variant runs, exposes every state, and connects each button to a real interface or the API fake.

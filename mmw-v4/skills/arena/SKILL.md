@@ -14,7 +14,7 @@ The N candidates receive the same task, so the task is the contract. Each candid
 1. State the artifact each candidate is producing.
 2. When the caller hands the pick to the owner, there is no rubric and Phase C is skipped. Otherwise, take the caller's rubric, or derive it. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. The rubric is the picker's tool in Phases C and D. Candidates only see the task.
 3. Give each candidate its angle. When the caller gives constraints, each candidate takes one. Otherwise set N angles yourself, each a different shape of the whole design, not a point fix inside one shape. N is the number of angles.
-4. Assign output paths. Each candidate writes only its own directory `candidates/<n>/`, under where the caller keeps the result, per the **separate-before-serializing-shared-state** principle skill.
+4. Assign output paths. Each candidate writes its artifact only in its own directory `candidates/<n>/`, under where the caller keeps the result, per the **separate-before-serializing-shared-state** principle skill.
 
 ## Phase B: Fan out
 
