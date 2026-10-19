@@ -36,9 +36,7 @@ ticket `<n>`, and every session a runner starts on a ticket — worker and revie
 runs in that worktree, with nobody at its screen. Any other basename is not a
 ticket worktree and is not refused by those gates. They ask no runner.
 
-Brief git writes and worktree deletions are guarded in every directory. Git writes
-first match the command, then identify an open brief through turn-guard.py's
-own_brief: the runner adapter's self against briefs.open_children. Commands without
+Brief git writes and worktree deletions are guarded in every directory. Commands without
 a git write ask no runner. File writes remain allowed so candidates can write into
 the sender's checkout. Batch records keep the sender's worktree protected until
 `dispatch.sh brief close <batch>` removes them, even after the children report.
