@@ -5,6 +5,7 @@ import argparse
 import json
 import re
 import shlex
+import string
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
@@ -15,6 +16,21 @@ from pathlib import Path
 class Target:
     skill: str
     file: str | None = None
+
+    def existing_files(self, paths, repo):
+        root = (repo / 'mmw-v4/skills' / self.skill).resolve()
+        found = set()
+        punctuation = (string.punctuation + ''.join(chr(ord(char) + 0xFEE0) for char in string.punctuation)
+                       + '。、「」『』【】〈〉《》“”‘’…')
+        for path in paths:
+            if any(char in path for char in '*?[$'):
+                continue
+            path = re.sub(r':\d+$', '', path.rstrip(punctuation)).rstrip(punctuation)
+            file = repo / 'mmw-v4' / path
+            if (file.resolve().is_relative_to(root) and file.is_file()
+                    and (self.file is None or path == self.file)):
+                found.add(path)
+        return found
 
     @classmethod
     def parse(cls, name, repo, parser):
@@ -39,6 +55,7 @@ class Session:
     first_user: str = ''
     invoked: bool = False
     reads: set[str] = field(default_factory=set)
+    file_reads: set[str] = field(default_factory=set)
     subagents: set[str] = field(default_factory=set)
 
 
@@ -53,15 +70,16 @@ def records(path):
                 yield row
 
 
-def file_paths(value, target):
+def file_paths(value, target, complete_paths=False):
     if isinstance(value, dict):
-        return set().union(*(file_paths(v, target) for v in value.values()))
+        return set().union(*(file_paths(v, target, complete_paths) for v in value.values()))
     if isinstance(value, list):
-        return set().union(*(file_paths(v, target) for v in value))
+        return set().union(*(file_paths(v, target, complete_paths) for v in value))
     if not isinstance(value, str):
         return set()
-    found = set(re.findall(rf'skills/{re.escape(target.skill)}/[^\s\x22\x27`;,(){{}}\[\]<>]+', value))
-    return {path for path in found if target.file is None or path == target.file}
+    brackets = '' if complete_paths else r'\[\]'
+    found = set(re.findall(rf'skills/{re.escape(target.skill)}/[^\s\x22\x27`;,(){{}}{brackets}<>]+', value))
+    return {path for path in found if complete_paths or target.file is None or path == target.file}
 
 
 def claude_sessions(root, target):
@@ -84,6 +102,7 @@ def claude_sessions(root, target):
             for block in content:
                 if block.get('type') == 'tool_use':
                     session.reads |= file_paths(block.get('input', {}), target)
+                    session.file_reads |= file_paths(block.get('input', {}), target, complete_paths=True)
                 if block.get('type') == 'tool_use' and block.get('name') == 'Skill':
                     session.invoked |= target.file is None and block.get('input', {}).get('skill') == target.skill
         sessions[path] = session
@@ -95,6 +114,7 @@ def claude_sessions(root, target):
         parent = sessions.setdefault(parent_path, Session())
         parent.invoked |= child.invoked
         parent.reads |= child.reads
+        parent.file_reads |= child.file_reads
         if child.invoked or child.reads:
             parent.subagents.add(str(path))
         if not parent.date:
@@ -143,7 +163,7 @@ def commands(value):
                 yield value
 
 
-def segment_reads(segment, target):
+def segment_reads(segment, target, complete_paths=False):
     arguments = []
     skip = False
     for argument in segment:
@@ -161,17 +181,18 @@ def segment_reads(segment, target):
     if program in ('sh', 'bash', 'zsh', 'dash', 'ksh'):
         for index, argument in enumerate(arguments[1:-1], 1):
             if re.fullmatch(r'-[a-z]*c[a-z]*', argument):
-                return codex_reads(arguments[index + 1], target)
+                return codex_reads(arguments[index + 1], target, complete_paths)
     if program in ('cat', 'nl', 'head', 'tail') or (program == 'sed' and '-n' in arguments[1:]):
-        return file_paths(arguments[1:], target)
+        return file_paths(arguments[1:], target, complete_paths)
     return set()
 
 
-def codex_reads(value, target):
+def codex_reads(value, target, complete_paths=False):
     found = set()
     for command in commands(value):
         lexer = shlex.shlex(command, posix=True, punctuation_chars=';&|()<>\n')
         lexer.whitespace = ' \t\r'
+        lexer.whitespace_split = complete_paths
         tokens = []
         try:
             for token in lexer:
@@ -183,7 +204,7 @@ def codex_reads(value, target):
         for token in [*tokens, ';']:
             if token and all(c in ';&|()\n' for c in token):
                 if segment:
-                    found |= segment_reads(segment, target)
+                    found |= segment_reads(segment, target, complete_paths)
                 segment = []
             else:
                 segment.append(token)
@@ -206,7 +227,9 @@ def codex_sessions(root, target):
                              if b.get('type') == 'input_text'), '')
                 session.first_user = text.splitlines()[0][:80] if text else ''
             if payload.get('type') in ('function_call', 'custom_tool_call'):
-                session.reads |= codex_reads(payload.get('arguments', payload.get('input', '')), target)
+                value = payload.get('arguments', payload.get('input', ''))
+                session.reads |= codex_reads(value, target)
+                session.file_reads |= codex_reads(value, target, complete_paths=True)
         sessions[path] = session
     return sessions
 
@@ -265,7 +288,7 @@ def main():
         counted = [s for s in sessions.values() if s.invoked or s.reads]
         dates = sorted(s.date for s in counted if s.date)
         print(f'{host} dates: {dates[0] + " to " + dates[-1] if dates else "-"}')
-        counts = Counter(file for session in counted for file in session.reads)
+        counts = Counter(file for session in counted for file in target.existing_files(session.file_reads, args.repo))
         for file, count in sorted(counts.items()):
             print(f'{host} file {file}: {count} sessions')
     for path, lines in entries.items():
