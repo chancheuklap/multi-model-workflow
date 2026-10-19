@@ -4,7 +4,7 @@
     reply-check.py stop <claude|codex>     the host's Stop payload on stdin
 
 Both hosts supply the final reply in `last_assistant_message` and the session's working
-directory in `cwd`. Ticket worktrees, open brief sessions, open-watch orchestrators and
+directory in `cwd`. A null reply has no text to check and ends the turn. Ticket worktrees, open brief sessions, open-watch orchestrators and
 `stop_hook_active` continuations end unchecked. Session identity is read through the turn
 guard's own_brief and is_main predicates, without arming a watchdog or writing state.
 
@@ -105,7 +105,9 @@ def check() -> int:
         return 0
     if unattended():
         return 0
-    reply = payload.get("last_assistant_message")
+    reply = payload["last_assistant_message"]
+    if reply is None:
+        return 0
     if not isinstance(reply, str):
         raise ValueError("expected last_assistant_message to be the reply text in the Stop payload")
     hits = {match.group(): "write the content itself here, in place"
