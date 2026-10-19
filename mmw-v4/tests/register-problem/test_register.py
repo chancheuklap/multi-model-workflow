@@ -252,6 +252,44 @@ class Registration(unittest.TestCase):
         self.assertEqual(row["state"], "open")
         self.assertEqual(len([line for line in row["comments"][-1]["body"].splitlines() if line.strip()]), 2)
 
+    def test_a_second_registration_from_the_same_session_adds_no_occurrence(self):
+        self.fake.session = ("orca", "same-session")
+        rc, out, err = self.run_register("add", str(self.path), "--source", "retro-signal")
+        self.assertEqual(rc, 0, err)
+        row = self.fake.repos["o/r"][0]
+        first_comment = row["comments"][0]["id"]
+        second = self.root / "second.md"
+        second.write_text(problem().replace("测试比较空列表", "另一次登记同一信号"))
+        rc, out, err = self.run_register("add", str(second))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 1)
+        self.assertIn(f"https://github.com/o/r/issues/100#issuecomment-{first_comment}", out)
+        row.update(state="closed", state_reason="completed",
+                   closer={"url": "https://github.com/o/r/pull/9"})
+        rc, out, err = self.run_register("add", str(second))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(row["state"], "open")
+        self.assertIn({"name": "needs-triage"}, row["labels"])
+        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 1)
+        self.assertIn(f"https://github.com/o/r/issues/100#issuecomment-{first_comment}", out)
+
+    def test_registrations_from_two_sessions_add_two_occurrences(self):
+        for session in ("first-session", "second-session"):
+            self.fake.session = ("orca", session)
+            rc, out, err = self.run_register("add", str(self.path))
+            self.assertEqual(rc, 0, err)
+        row = self.fake.repos["o/r"][0]
+        self.assertEqual([r["session"] for r in events.fold(row["comments"])["occurrences"]],
+                         ["orca:first-session", "orca:second-session"])
+
+    def test_registrations_with_no_session_each_add_an_occurrence(self):
+        for _ in range(2):
+            rc, out, err = self.run_register("add", str(self.path))
+            self.assertEqual(rc, 0, err)
+        row = self.fake.repos["o/r"][0]
+        self.assertEqual([r["session"] for r in events.fold(row["comments"])["occurrences"]],
+                         ["none", "none"])
+
     def test_an_expired_lesson_is_reopened_as_pending(self):
         for labels, expected in ((("mmw:lesson",), [{"name": "mmw:lesson"}]),
                                  (("mmw:problem",), [{"name": "mmw:problem"}, {"name": "needs-triage"}])):

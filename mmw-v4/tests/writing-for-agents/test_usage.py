@@ -34,6 +34,61 @@ class Usage(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
 
+    def test_a_path_with_a_line_number_counts_for_its_file(self):
+        self.record(self.claude, 'lines.jsonl', {'type': 'assistant', 'message': {'content': [
+            {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': path}}
+            for path in ('/x/skills/how/SKILL.md', '/x/skills/how/SKILL.md:155')]}})
+        self.record(self.codex, 'lines.jsonl', {'type': 'response_item', 'payload': {
+            'type': 'function_call', 'arguments': json.dumps({'cmd': 'cat /x/skills/how/SKILL.md:155'})}})
+        output = self.run_usage()
+        self.assertEqual([line for line in output.splitlines() if ' file ' in line], [
+            'claude file skills/how/SKILL.md: 1 sessions',
+            'codex file skills/how/SKILL.md: 1 sessions'])
+        self.record(self.claude, 'only-line.jsonl', {'type': 'assistant', 'message': {'content': [
+            {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/x/skills/how/SKILL.md:12'}}]}})
+        output = self.run_usage('mmw-v4/skills/how/SKILL.md')
+        self.assertEqual([line for line in output.splitlines() if ' file ' in line], [
+            'claude file skills/how/SKILL.md: 2 sessions',
+            'codex file skills/how/SKILL.md: 1 sessions'])
+
+    def test_trailing_punctuation_is_stripped_before_matching(self):
+        for index, suffix in enumerate(('.', ':155,', ':155。', '；', '）', '】', '！', '．')):
+            self.record(self.claude, f'punctuation-{index}.jsonl', {
+                'type': 'assistant', 'message': {'content': [
+                    {'type': 'tool_use', 'name': 'Read',
+                     'input': {'file_path': '/x/skills/how/SKILL.md' + suffix}}]}})
+        self.assertEqual([line for line in self.run_usage().splitlines() if ' file ' in line],
+                         ['claude file skills/how/SKILL.md: 8 sessions'])
+        self.assertEqual([line for line in self.run_usage('mmw-v4/skills/how/SKILL.md').splitlines()
+                          if ' file ' in line], ['claude file skills/how/SKILL.md: 8 sessions'])
+
+    def test_a_glob_or_variable_path_is_not_counted(self):
+        (self.skills / 'how/guide').write_text('guide\n')
+        (self.skills / 'how/$file').write_text('variable\n')
+        for index, path in enumerate(('*.md', 'SKILL.md*', 'SKILL.md?', 'guide[ab]', '$file')):
+            self.record(self.claude, f'pattern-{index}.jsonl', {
+                'type': 'assistant', 'message': {'content': [
+                    {'type': 'tool_use', 'name': 'Read',
+                     'input': {'file_path': '/x/skills/how/' + path}}]}})
+            self.record(self.codex, f'pattern-{index}.jsonl', {'type': 'response_item', 'payload': {
+                'type': 'function_call', 'arguments': json.dumps({'cmd': 'cat /x/skills/how/' + path})}})
+        output = self.run_usage()
+        self.assertEqual(output.splitlines()[0],
+                         'usage how: 0 text entries; claude 0 invoked, 5 read, 0 by subagents; codex 4 read')
+        self.assertEqual([line for line in output.splitlines() if ' file ' in line], [])
+
+    def test_a_path_to_no_existing_file_is_not_counted(self):
+        (self.skills / 'how/directory').mkdir()
+        (self.skills / 'other').mkdir()
+        (self.skills / 'other/secret.md').write_text('outside the skill\n')
+        (self.skills / 'how/link.md').symlink_to(self.skills / 'other/secret.md')
+        self.record(self.claude, 'missing.jsonl', {'type': 'assistant', 'message': {'content': [
+            {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/x/skills/how/' + path}}
+            for path in ('missing.md', 'directory', '../other/secret.md', 'link.md')]}})
+        output = self.run_usage()
+        self.assertIn('claude 0 invoked, 1 read, 0 by subagents', output)
+        self.assertEqual([line for line in output.splitlines() if ' file ' in line], [])
+
     def test_first_line_is_the_summary(self):
         (self.repo / 'AGENTS.md').write_text('the how skill\n')
         self.assertEqual(self.run_usage().splitlines()[0],
@@ -210,6 +265,7 @@ class Usage(unittest.TestCase):
             self.assertNotIn('skills/how/SKILL.md', output)
 
     def test_since_limits_sessions_and_reports_file_counts_and_dates(self):
+        (self.skills / 'how/guide.md').write_text('guide\n')
         for day in ('11', '12', '13'):
             self.record(self.claude, f'project/{day}.jsonl',
                         {'timestamp': f'2026-10-{day}T12:00:00Z', 'type': 'assistant',
