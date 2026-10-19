@@ -348,6 +348,14 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
         state = events.fold(history, issue=number)
         if state["unreadable"]:
             raise RegistrationError(f"#{number} has unreadable events; repair those comments before retrying")
+        session = receipt["context"]["session"]
+        duplicate = None
+        if session != "none":
+            for comment in history:
+                what, payload = events.parse(comment["body"])
+                if what == "event" and payload["event"] == "lesson.seen" and payload["session"] == session:
+                    duplicate = comment
+                    break
         recorded = any(events.parse(c["body"])[0] == "event" and
                        events.parse(c["body"])[1].get("request") == receipt["request"]
                        for c in history)
@@ -366,7 +374,7 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
                             lambda: "needs-triage" in {l["name"] for l in read_issue(repo, number)["labels"]})
             receipt["changed"] = True
             saved()
-        if not recorded:
+        if not recorded and duplicate is None:
             comment = events.build("lesson.seen", line=f"登记 #{number}，在 {seen_in} 发现。{plan['note']}",
                                    lesson=number, seen_in=seen_in, source=source,
                                    request=receipt["request"], **receipt["context"])
@@ -375,6 +383,10 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
         pending.unlink()
         if plan["blocked_spec"] is not None:
             print(f"NOT REOPENED: #{number} sits under spec #{plan['blocked_spec']}, which has not finished")
+        if duplicate is not None:
+            link = duplicate.get("html_url") or f"https://github.com/{repo}/issues/{number}#issuecomment-{duplicate['id']}"
+            print(f"ALREADY RECORDED: #{number} in {repo}, session {session}: {link}")
+            return 0
         action = "REOPENED" if plan["reopen"] else receipt["action"]
         print(f"{action}: #{number} in {repo}")
         return 0
