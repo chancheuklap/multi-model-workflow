@@ -18,7 +18,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, the sections of `TESTING.md` the spec relies on, copied from what those sections cite, one per line, each with a word on what it settles. For a UI ticket, list the exact path to the winner prototype and the affected feature file from the product's feature map, each marked as a baseline. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research answers, prototype directories and verdict comments, domain docs, the sections of `TESTING.md` the spec relies on, copied from what those sections cite, one per line, each with a word on what it settles. For a UI ticket, list the exact path to the winner prototype and the affected feature file from the product's feature map, each marked as a baseline. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing.
 
 ## Seam
 
@@ -60,7 +60,7 @@ A playbook outside any spec opens its ticket at its first step, before the plan 
 
 A ticket already open keeps its number and its body: its playbook's first step opens only the `fix-<n>` it lacks.
 
-Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a decision log, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`. With no spec, **Read first** lists what the playbook's steps produced (a reproduction, a harness, a sketch, a log), each by its path on `fix-<n>`, and **What to build**, beside the behaviour, carries the rules the worker writes by that the playbook names.
+Every later step of the playbook works in `.worktrees/fix-<n>`. What it writes there, a reproduction, a harness, a baseline, a sketch, a prototype, a glossary entry or an ADR, it commits and pushes on `fix-<n>`; the change itself is written only by the worker. To fill the plan in, write every section below `## Problem` into the body, `## Problem` copied unchanged and `None` under `## Parent`, and run `gh issue edit <n> --body-file <file>`. With no spec, **Read first** lists what the playbook's steps produced (a reproduction, a harness, a sketch), each by its repository path on `fix-<n>` or the link of the ticket comment that holds it, and **What to build**, beside the behaviour, carries the rules the worker writes by that the playbook names.
 
 A problem a session encounters while doing something else is registered with the **register-problem** skill rather than opened here.
 

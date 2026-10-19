@@ -16,7 +16,7 @@ A skill change is a project like any other, with its own standards and its own p
    | An upstream release | Follow the `writing-for-agents` skill's `UPSTREAM.md` `## Carry a newer upstream version`. |
    | A doubt about a part of the set | Map every entry of the scoped text to a task as the `writing-for-agents` skill's `WALKING-A-SKILL-SET.md` `### List the tasks` says. Measure its use with that skill's `scripts/usage.py <skill name or file>`. Test each passage in scope against its `SKILL-SET-RULES.md` `## Checks`. |
 
-   Commit the findings file on `fix-<n>`. Each finding names evidence the owner can open, such as a path and line, a command and its output, a session count or an issue, and the check or intent it concerns.
+   Post the findings as one comment on the ticket. Each finding names evidence the owner can open, such as a path and line, a command and its output, a session count or an issue, and the check or intent it concerns.
 
    Done when every finding carries evidence the owner can open, or the meaning is already stated and the owner has heard where.
 3. **Judge it against the design.** Read the `writing-for-agents` skill's `DESIGN-INTENTS.md` and name the intent each change serves. A change that would break an intent, or bring back one of its departures, is not made: tell the owner which intent and why, and wait for their word.
@@ -38,7 +38,7 @@ A skill change is a project like any other, with its own standards and its own p
 - When a script changed, the suites **principle-run-the-smallest-test-set** picks (`bash mmw-v4/tests/<name>/run.sh`).
 - `scripts/check` exits 0.
 
-Then, when the change alters what an agent does in a task, have one fresh agent walk one real task the change touches, on the changed text read from that checkout, as the `writing-for-agents` skill's `WALKING-A-SKILL-SET.md` `### List the tasks` and `### A fresh agent's walk` say. A wording-only fix needs no walk. Its record of the walk is the task's load. Commit the record on `fix-<n>` and link it from the pull request. A required walk without that record fails the check. A place where the agent ended wrong, stopped short of the completion criterion, or guessed at a sentence this change wrote fails the check: the change does not land. Every other guess goes into the Reply as a finding for a later change: each fresh agent finds a new guess somewhere, and fixing each one adds a sentence that raises the next.
+Then, when the change alters what an agent does in a task, have one fresh agent walk one real task the change touches, on the changed text read from that checkout, as the `writing-for-agents` skill's `WALKING-A-SKILL-SET.md` `### List the tasks` and `### A fresh agent's walk` say. A wording-only fix needs no walk. Its record of the walk is the task's load. Post the record as a comment on the ticket and link it from the pull request. A required walk without that record fails the check. A place where the agent ended wrong, stopped short of the completion criterion, or guessed at a sentence this change wrote fails the check: the change does not land. Every other guess goes into the Reply as a finding for a later change: each fresh agent finds a new guess somewhere, and fixing each one adds a sentence that raises the next.
 
 **A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 2 with that evidence.
 

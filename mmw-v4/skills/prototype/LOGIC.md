@@ -16,7 +16,7 @@ If the question is "what should this look like," this is the wrong branch. Use [
 
 ### 1. State the question
 
-Before writing code, write down what state model and what question you're prototyping. One paragraph, at the top of the demo (in a visible intro, not just a comment) and opening the leaf `README.md`. A logic prototype that answers the wrong question is pure waste, so make the question explicit so it can be checked later, whether the user is watching now or returning to it AFK.
+Before writing code, write down what state model and what question you're prototyping. One paragraph, at the top of the demo (in a visible intro, not just a comment) and opening the verdict comment on its ticket. A logic prototype that answers the wrong question is pure waste, so make the question explicit so it can be checked later, whether the user is watching now or returning to it AFK.
 
 ### 2. Isolate the logic in a portable module
 

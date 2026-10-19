@@ -1,27 +1,27 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. The [architect skill](../../skills/architect/SKILL.md) settles types and seams before implementation. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [swarm skill](../../skills/swarm/SKILL.md) fans out slices or races when the job is coverage rather than design. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
+One attempt at a hard design locks in the first shape the model thought of. The [prototype skill's sketch branch](../../skills/prototype/SKETCH.md) settles types and seams before implementation when the shape reaches beyond one ticket. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [swarm skill](../../skills/swarm/SKILL.md) fans out slices or races when the job is coverage rather than design. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
 
 The two most common design mistakes are taking the agent's first design and debating a question that a prototype could settle. This page fixes both. The written plan comes after: a spec and its tickets, which you can check and accept before agents build from them.
 
-## Settle the shape with the architect skill
+## Settle code shape with the prototype skill's sketch branch
 
 ```text
-/architect design the import pipeline before writing any code. i care most about how callers use it.
+use the prototype skill to settle the import pipeline shape before writing any code. i care most about how callers use it.
 ```
 
-The architect skill works in three phases. First it grounds itself. It runs the how skill over the code the design touches, adds the why skill when the design moves ownership or layers, and looks for what already solves the problem (**principle-start-from-what-exists**), taking what its caller already found rather than doing it again. A shape later work builds on (an interface code outside the change calls, a data shape stored or passed between subsystems, a change across subsystems) goes to the arena skill with at least two structurally different candidates. Each candidate gets one constraint:
+The sketch branch works in three phases. First it grounds itself. It runs the how skill over the code the design touches, adds the why skill when the design moves ownership or layers, and looks for what already solves the problem (**principle-start-from-what-exists**), taking what its caller already found rather than doing it again. A shape later work builds on (an interface code outside the change calls, a data shape stored or passed between subsystems, a change across subsystems) goes to the arena skill with at least two structurally different candidates. Each candidate gets one constraint:
 
 - Minimize the interface, with one to three entry points.
 - Maximize flexibility for many uses.
 - Make the most common caller's case trivial.
 - Design around ports and adapters, when dependencies cross a seam.
 
-Every candidate is screened against [`references/design-red-flags.md`](../../skills/architect/references/design-red-flags.md) and scored on depth, locality, and seam placement, in the [codebase-design skill](../../skills/codebase-design/SKILL.md)'s terms. Last, it hands back one synthesized sketch: the caller's usage written first, then types and signatures whose bodies say `not implemented`, with a rationale shaped by [`references/rationale-template.md`](../../skills/architect/references/rationale-template.md). It writes no implementation.
+Every candidate is screened against [`references/design-red-flags.md`](../../skills/prototype/references/design-red-flags.md) and scored on depth, locality, and seam placement, in the [codebase-design skill](../../skills/codebase-design/SKILL.md)'s terms. Last, it hands back one synthesized sketch: the caller's usage written first, then types and signatures whose bodies say `not implemented`, with a rationale shaped by [`references/rationale-template.md`](../../skills/prototype/references/rationale-template.md). It writes no implementation.
 
-You rarely need to type it. The `mmw-mode` skill's Non-negotiables send any code that crosses a function boundary to the architect skill. Inside a discussion, the prototype skill's sketch branch runs it when a question about the shape of the code reaches beyond one ticket and no prototype, ADR, or earlier spec has settled it.
+You rarely need to type it. The build playbooks send code-shape questions to the prototype skill's `## Pick a branch`. It draws a sketch only when the shape reaches beyond one ticket and no prototype, ADR, or earlier spec has settled it. Inside one ticket, the worker shapes the code from the data shape named in the ticket, and the reviewer judges it.
 
-The sketch is not sacred once code starts. If implementation needs the same workaround in unrelated places, or types that compile only with forced casts, the [Redesign From First Principles principle](../../skills/principle-redesign-from-first-principles/SKILL.md) treats that as proof the sketch is wrong. Re-run the architect skill instead of patching around it.
+The sketch is not sacred once code starts. If implementation needs the same workaround in unrelated places, or types that compile only with forced casts, the [Redesign From First Principles principle](../../skills/principle-redesign-from-first-principles/SKILL.md) treats that as proof the sketch is wrong. A worker raises a `contract` child rather than scrapping a baseline sketch. The coordinator re-runs the prototype skill's sketch branch and resumes the worker with the corrected baseline.
 
 For a second opinion on a design before it is committed, the session sends an `advisor`, as the `## Subagents` section of the `mmw-mode` skill's `references/owning-a-task.md` says. The [advisor skill](../../skills/advisor/SKILL.md) judges a decision already framed and changes nothing.
 
@@ -31,9 +31,9 @@ For a second opinion on a design before it is committed, the session sends an `a
 /arena design the cache key format from four angles. it is expensive to change later.
 ```
 
-The arena skill is the general tool underneath the architect skill. It gives the same task to N candidates, one per angle, and each candidate writes only its own `candidates/<n>/` directory. Each candidate is a `candidate` session sent with `dispatch.sh send candidate`. All candidates run on the one host and model that `~/.mmw/models.json` gives that role, so their differences come from their angles, not from their models. The rubric stays out of every brief, so no candidate writes to the test.
+The arena skill is the sole sender of candidates for both the sketch and UI branches, and for direct design requests. It gives the same task to N candidates, one per angle, and each candidate writes only its own `candidates/<n>/` directory. Each candidate is a `candidate` session sent with `dispatch.sh send candidate --follow "the arena skill's references/candidate.md"`. The brief names artifact-specific rules under `## Task`, and the shared grounding and output directory under `## Known`. A UI brief also gives the URL that opens its variant. All candidates run on the one host and model that `~/.mmw/models.json` gives that role, so their differences come from their angles, not from their models. The ranking rubric stays out of every brief; each candidate receives the completion criterion it must meet.
 
-After every candidate reports, the session reads every candidate end to end, scores each against the rubric criterion by criterion, and writes down the scores. It picks a base, grafts the best one or two ideas from the others into the base, and verifies the result. A short synthesis note records the base, each graft and its source, each rejection and why, and any dropout. The `candidates/` directory is then removed.
+After every candidate reports, the session reads every candidate end to end, scores each against the rubric criterion by criterion, and writes down the scores. It picks a base, grafts the best one or two ideas from the others into the base, and verifies the result. A short synthesis note records the base, each graft and its source, each rejection and why, and any dropout. The caller decides who picks the base and whether to keep `candidates/`. For UI, the owner chooses the base, and the variants stay.
 
 ```mermaid
 flowchart LR
@@ -93,9 +93,9 @@ The prototype skill builds code that answers one question, and the question deci
 - A logic question gets one HTML file that a non-developer can click through.
 - A UI question gets several variants on one route, switched by a URL parameter.
 - An implementation question gets the smallest runnable experiment, and records what it shows.
-- A question about the shape of the code gets the architect skill's sketch.
+- A question about the shape of the code goes through the sketch gate in `## Pick a branch`.
 
-Each prototype lives in a leaf directory `efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, with its conclusion in the feature file for UI, or a `README.md` for LOGIC, EXP and SKETCH that states the question, the verdict with its exact names and values, and what was ruled out. That verdict outlives the session. A spec cites it, a ticket copies its values, and a worker builds from it at night with no one to ask.
+Each prototype lives in a leaf directory `efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, with its conclusion in the feature file for UI, or a verdict comment on the asking ticket for LOGIC, EXP and SKETCH that states the question, the verdict with its exact names and values, and what was ruled out. That verdict outlives the session. A spec cites it, a ticket copies its values, and a worker builds from it at night with no one to ask.
 
 Prototypes also stop the agent asking you questions it can answer itself. The `mmw-mode` skill's Non-negotiables say that a fork whose answer you could observe by running something is not yours to answer. The session sketches it with the prototype skill and lets the result decide. You are asked only the calls that are yours: what the user sees, what happens to money, and what is in scope.
 
@@ -103,7 +103,7 @@ Prototypes also stop the agent asking you questions it can answer itself. The `m
 
 For a new or changed UI, the [prototype skill's UI branch](../../skills/prototype/UI.md) builds a complete, interactive local prototype in the product's own code. Existing interfaces and login use the real local backend; an API fake supplies missing interfaces from the environment tool's test seed data. The prototype runs at the final routes with an environment variable, so you try the design in the product itself.
 
-When the direction is open, try structurally different variants through a switcher and choose the winner or a combination. The session keeps the other variants. Once you choose a direction, you and the session iterate one question at a time, changing it in place and committing each round. You operate the page yourself. The session checks every button's API call and settles questions that affect the UI with you during iteration.
+Before variants are generated, the session mounts their reserved `?variant=` keys with placeholders and adds the switcher. Candidates can then open their own variants. When the direction is open, try structurally different variants through the switcher and choose the winner or a combination. The session keeps the other variants. Once you choose a direction, you and the session iterate one question at a time, changing it in place and committing each round. You operate the page yourself. The session checks every button's API call and settles questions that affect the UI with you during iteration.
 
 Before approval, the session checks that the prototype demonstrates every visible rule in the settled decisions. It writes the feature description from the winner, those decisions and the glossary. You say "就是这个" in the running page. That is design freeze, the only design approval; you do not approve the description sentence by sentence. On the Feature route it is also the go-ahead, unless the ticket adds scope beyond the prototype and recorded decisions.
 
@@ -150,11 +150,11 @@ The published tickets then run as a night. [Run work while you sleep](./07-overn
 Most changes need none of this. A rough ladder:
 
 - A small finished change you are unsure about needs the code-review skill alone.
-- A change that crosses function boundaries or moves ownership earns the architect skill, which brings the arena skill with it.
+- A code shape that reaches beyond one ticket earns the prototype skill's sketch branch, which brings the arena skill with it.
 - A standalone decision where independent attempts help, such as naming, a format, or an algorithm, goes to the arena skill directly.
 - A coverage matrix, a set of parallel checks, or a race with a declared rule goes to the swarm skill.
 - An open question you could answer by running something, such as a layout, a timing, or an approach, gets a prototype, not a debate.
-- A contested design that is expensive to reverse gets the architect skill, then the code-review skill before shipping.
+- A contested code shape that reaches beyond one ticket gets the prototype skill's sketch branch, then the code-review skill before shipping.
 - Work one ticket cannot carry gets Grill with docs or a map, then To spec and To tickets.
 
 The `mmw-mode` skill already applies this ladder. Name these skills yourself when you want more or less scrutiny than its default.

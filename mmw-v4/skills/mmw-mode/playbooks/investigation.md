@@ -11,6 +11,6 @@ Investigation requests are read-only. They produce a cited explanation or a reco
 
 For a question the owner asked, the reply gives the conclusion and page location. When a playbook or skill handed you the question instead of the owner (a fact the **grilling** skill needs, a research ticket of a map), the output goes back to that step as one Markdown file that names the question and opens with `## Answer`, at most three sentences a reader can act on. It goes in your temporary directory unless that step names a place.
 
-No PR, no `architect` unless the investigation precedes a code change. If it does, hand back to the user and re-route to Bug fix or Feature.
+No PR and no sketch. When the investigation precedes a code change, hand back to the user and re-route to Bug fix or Feature.
 
 **Reply:** the investigation output. For "are we sure?" answers, include your real judgment with reasons. Push back if the premise is wrong (see Autonomy).
