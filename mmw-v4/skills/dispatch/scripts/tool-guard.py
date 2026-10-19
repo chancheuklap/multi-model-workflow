@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Three things a dispatched session may not do: take its ticket out of the agent queue
-by hand, put a question on the screen, and end a process.
+"""Guard ticket closeout, unattended questions, process termination, brief git writes
+and deletion of worktrees in use.
 
 A ticket closes through `verify-ticket.py <n> --closeout <draft>`, which checks the
 closing comment, posts it, and only then closes the ticket. `gh issue close` skips all
@@ -34,16 +34,24 @@ Whether this session is governed is read off the process, the same way for both 
 and on every runner: the working directory's basename. `issue-<n>` (digits only) is
 ticket `<n>`, and every session a runner starts on a ticket — worker and reviewer —
 runs in that worktree, with nobody at its screen. Any other basename is not a
-ticket worktree and is not refused. Nothing is asked of any runner.
+ticket worktree and is not refused by those gates. They ask no runner.
+
+Brief git writes and worktree deletions are guarded in every directory. Commands without
+a git write ask no runner. File writes remain allowed so candidates can write into
+the sender's checkout. Batch records keep the sender's worktree protected until
+`dispatch.sh brief close <batch>` removes them, even after the children report.
+Deletion also protects this process's working directory and its ancestors.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
 import shlex
 import sys
+from pathlib import Path
 
 HOSTS = ("claude", "codex")
 GATES = ("pretool", "question")
@@ -196,7 +204,7 @@ def strip_command_prefixes(piece: str) -> str:
         piece = rest
 
 
-def pieces(command: str) -> list[str]:
+def pieces(command: str, strip_prefixes: bool = True) -> list[str]:
     parts = []
     quote = None
     start = offset = 0
@@ -241,7 +249,7 @@ def pieces(command: str) -> list[str]:
                 parts.append(command[start:operator.start()])
                 start = operator.end()
     parts.append(command[start:])
-    return [strip_command_prefixes(piece)
+    return [strip_command_prefixes(piece) if strip_prefixes else piece
             for piece in parts if piece.strip()]
 
 
@@ -312,20 +320,240 @@ def no_kill(piece: str) -> str:
             "the ticket blocked and stop.")
 
 
+GIT_WRITES = {"commit", "checkout", "switch", "merge", "rebase", "reset", "push",
+              "pull", "stash", "cherry-pick", "revert", "am", "tag"}
+GIT_VALUE_OPTIONS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"}
+BRANCH_WRITES = {"--delete", "--move", "--copy", "--create-reflog", "--track", "--force",
+                 "--set-upstream-to", "--unset-upstream", "--edit-description"}
+BRANCH_QUERIES = {"--list", "--show-current", "--contains", "--no-contains", "--merged",
+                  "--no-merged", "--points-at"}
+
+
+def shell_words(piece: str) -> list[str]:
+    lexer = shlex.shlex(piece, posix=True, punctuation_chars="()")
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        return [word for word in lexer if word not in ("(", ")")]
+    except ValueError:
+        return []
+
+
+def expand_shell_variables(piece: str, values: dict[str, str]) -> str:
+    result = []
+    quote = None
+    offset = 0
+    while offset < len(piece):
+        char = piece[offset]
+        if char == "\\" and quote != "'":
+            result.append(piece[offset:offset + 2])
+            offset += 2
+            continue
+        if char == quote:
+            quote = None
+        elif quote is None and char in "\"'":
+            quote = char
+        if char == "$" and quote != "'":
+            match = re.match(r"\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})", piece[offset:])
+            if match:
+                name = match[1] or match[2]
+                value = values.get(name, match[0])
+                result.append(value.replace("\\", "\\\\").replace('"', '\\"')
+                              if quote == '"' else shlex.quote(value))
+                offset += len(match[0])
+                continue
+        result.append(char)
+        offset += 1
+    return "".join(result)
+
+
+def command_contexts(command: str) -> list[tuple[str, str, Path]]:
+    cwd = Path.cwd()
+    values = {**os.environ, "PWD": str(cwd)}
+    commands = []
+    scopes = []
+    for raw in pieces(command, strip_prefixes=False):
+        expanded = expand_shell_variables(raw, values)
+        groups = [match[0] for match in re.finditer(rf"{SHELL_WORD}|[()]", expanded)
+                  if match[0] in ("(", ")")] if "$(" not in raw else []
+        for group in groups:
+            if group == "(":
+                scopes.append((cwd, values.copy()))
+        words = shell_words(expanded)
+        while words and words[0] in ("{", "!"):
+            words = words[1:]
+        assignments = words[1:] if words[:1] == ["export"] else words
+        if assignments and all(re.match(r"^[A-Za-z_]\w*=", word) for word in assignments):
+            values.update(word.split("=", 1) for word in assignments)
+        else:
+            piece = strip_command_prefixes(expanded)
+            words = shell_words(piece)
+            if words[:1] == ["cd"]:
+                args = [word for word in words[1:] if word not in ("-L", "-P", "--")]
+                target = args[0] if args else values.get("HOME", str(cwd))
+                if target == "-":
+                    target = values.get("OLDPWD", str(cwd))
+                previous = cwd
+                cwd = (cwd / os.path.expanduser(target)).resolve()
+                values.update(OLDPWD=str(previous), PWD=str(cwd))
+            else:
+                commands.append((strip_command_prefixes(raw), piece, cwd))
+        for group in groups:
+            if group == ")" and scopes:
+                cwd, values = scopes.pop()
+    return commands
+
+
+def git_command(piece: str, cwd: Path | None = None) -> tuple[list[str], Path] | None:
+    words = shell_words(piece)
+    if not words or os.path.basename(words[0]) != "git":
+        return None
+    cwd = cwd or Path.cwd()
+    index = 1
+    while index < len(words) and words[index].startswith("-"):
+        option = words[index]
+        if option in ("--help", "--version"):
+            return None
+        if option == "--":
+            index += 1
+            break
+        if option in GIT_VALUE_OPTIONS:
+            index += 1
+            if index == len(words):
+                return None
+            if option == "-C":
+                cwd = (cwd / words[index]).resolve()
+        elif option.startswith("-C"):
+            cwd = (cwd / option[2:]).resolve()
+        index += 1
+    return words[index:], cwd
+
+
+def git_write(args: list[str]) -> bool:
+    if not args:
+        return False
+    verb, *flags = args
+    if verb in GIT_WRITES:
+        return True
+    if verb == "worktree":
+        return bool(flags) and flags[0] in ("add", "remove")
+    if verb != "branch":
+        return False
+    options = iter(flags)
+    flags = []
+    for flag in options:
+        if flag in ("--format", "--sort"):
+            next(options, None)
+        else:
+            flags.append(flag)
+    if any(flag.split("=", 1)[0] in BRANCH_WRITES or
+           (flag.startswith("-") and not flag.startswith("--") and
+            any(letter in flag[1:] for letter in "dDmMcCftu")) for flag in flags):
+        return True
+    if any(flag.split("=", 1)[0] in BRANCH_QUERIES or
+           (flag.startswith("-") and not flag.startswith("--") and "l" in flag[1:])
+           for flag in flags):
+        return False
+    return any(not flag.startswith("-") for flag in flags)
+
+
+def session_guard():
+    path = Path(__file__).resolve().with_name("turn-guard.py")
+    spec = importlib.util.spec_from_file_location("mmw_tool_session_guard", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def brief_git_refusal(piece: str) -> str | None:
+    guard = session_guard()
+    asked: dict = {}
+    root = guard.statedir.home() / "state"
+    for state in sorted(root.iterdir()) if root.is_dir() else []:
+        child = guard.own_brief(state, asked)
+        if child is not None:
+            name = f"{child['batch']}/{child['n']}"
+            return (f"Refused `{piece}` for open brief {name}. Brief sessions share the "
+                    "sender's worktree and make no git write. Hand back your files with "
+                    f"`dispatch.sh report {name} <file>`; the session that sent the brief "
+                    "commits what you hand back.")
+    return None
+
+
+def removal_paths(piece: str, git: tuple[list[str], Path] | None,
+                  cwd: Path | None = None) -> list[Path]:
+    if git is not None:
+        args, cwd = git
+        if args[:2] != ["worktree", "remove"]:
+            return []
+        args = args[2:]
+    else:
+        words = shell_words(piece)
+        if not words or os.path.basename(words[0]) != "rm":
+            return []
+        args, cwd = words[1:], cwd or Path.cwd()
+    paths = []
+    options = True
+    for arg in args:
+        if options and arg == "--":
+            options = False
+        elif arg and (not options or not arg.startswith("-")):
+            paths.append((cwd / os.path.expanduser(arg)).resolve())
+    return paths
+
+
+def removal_refusal(piece: str, paths: list[Path]) -> str | None:
+    guard = session_guard()
+    root = guard.statedir.home() / "state"
+    batches = [batch for state in sorted(root.iterdir()) if state.is_dir()
+               for batch in guard.briefs.open_batches(state)] if root.is_dir() else []
+    cwd = Path.cwd().resolve()
+    for path in paths:
+        held = [b for b in batches if b.get("worktree") and
+                Path(b["worktree"]).resolve().is_relative_to(path)]
+        current = cwd.is_relative_to(path)
+        if not held and not current:
+            continue
+        why = f"It contains this process's working directory {cwd}. " if current else ""
+        if held:
+            names = ", ".join(b["batch"] for b in held)
+            close = ", then ".join(f"`dispatch.sh brief close {b['batch']}`" for b in held)
+            why += f"Open batches {names} use their recorded worktrees here. "
+            way = f"Close the batches with {close} before removing their worktrees."
+            if current:
+                way += " Run cleanup from a session whose working directory is outside this path."
+        else:
+            way = "Run cleanup from a session whose working directory is outside this path."
+        return f"Refused `{piece}` removing {path}. {why}{way}"
+    return None
+
+
 def run_pretool(event: dict) -> int:
-    number = governed_ticket()
-    if number is None:
-        return 0
     command = command_of(event)
     if command is None:
         return 0
-    piece = ends_a_process(command)
-    if piece is not None:
-        refuse(no_kill(piece))
-        return 0
-    if not leaves_the_agent_lane(command, number):
-        return 0
-    refuse(REFUSAL.format(n=number))
+    number = governed_ticket()
+    if number is not None:
+        piece = ends_a_process(command)
+        if piece is not None:
+            refuse(no_kill(piece))
+            return 0
+        if leaves_the_agent_lane(command, number):
+            refuse(REFUSAL.format(n=number))
+            return 0
+    for source, piece, cwd in command_contexts(command):
+        git = git_command(piece, cwd)
+        paths = removal_paths(piece, git, cwd)
+        if paths:
+            reason = removal_refusal(source, paths)
+            if reason is not None:
+                refuse(reason)
+                return 0
+        if git is not None and git_write(git[0]):
+            reason = brief_git_refusal(source)
+            if reason is not None:
+                refuse(reason)
+                return 0
     return 0
 
 

@@ -11,6 +11,8 @@ closing the batch's watch leaves nothing of it behind.
 from __future__ import annotations
 
 import sys
+import os
+import subprocess
 import unittest
 from datetime import timedelta
 from pathlib import Path
@@ -60,6 +62,22 @@ class CopyTest(BriefCase):
         briefs.remove(self.state, self.batch)
         with self.assertRaises(briefs.Refusal):
             briefs.write_brief(self.state, self.batch, 1, self.result, "---")
+
+    def test_a_new_batch_records_the_senders_worktree(self):
+        worktree = Path(self.tmp.name) / "sender"
+        worktree.mkdir()
+        subprocess.run(["git", "init", "-q", str(worktree)], check=True)
+        subdir = worktree / "notes"
+        subdir.mkdir()
+        run = subprocess.run(
+            [sys.executable, briefs.__file__, "new", "--repo", "o/r", "--role",
+             "researcher", "--count", "1", "--runner", "orca", "--session", "sender"],
+            cwd=subdir, env=os.environ.copy(),
+            capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        state = briefs.statedir.state_dir("o/r")
+        record = briefs.batch_record(state, run.stdout.strip())
+        self.assertEqual(record.get("worktree"), str(worktree.resolve()))
 
 
 class ReportTest(BriefCase):
@@ -153,6 +171,22 @@ class BatchWakeTest(BriefCase):
 
 
 class BatchWatchTest(BriefCase):
+    def test_open_batches_are_found_by_their_parent(self):
+        other_runner = briefs.create(self.state, "candidate", 1, "paseo", PARENT[1])
+        other_session = briefs.create(self.state, "candidate", 1, PARENT[0], "another")
+        nested = briefs.create(self.state, "candidate", 1, *PARENT)
+        self.assertEqual({b["batch"] for b in briefs.open_batches(self.state, PARENT)},
+                         {self.batch, nested})
+        self.report(1)
+        self.report(2)
+        self.assertEqual({b["batch"] for b in briefs.open_batches(self.state, PARENT)},
+                         {self.batch, nested})
+        briefs.remove(self.state, self.batch)
+        briefs.remove(self.state, nested)
+        self.assertEqual(briefs.open_batches(self.state, PARENT), [])
+        self.assertEqual({b["batch"] for b in briefs.open_batches(self.state)},
+                         {other_runner, other_session})
+
     def test_a_batch_shares_no_ticket_with_any_watch(self):
         self.assertEqual(set(self.watches()), {"tickets:61,62", f"briefs:{self.batch}"})
         self.poll()  # a batch's watch lists no ticket to read

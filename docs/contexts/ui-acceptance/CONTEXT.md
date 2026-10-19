@@ -22,6 +22,7 @@ _Home_: `mmw-v4/skills/prototype/UI.md`, `mmw-v4/skills/create-verification-skil
 
 **`verify-<product>`**:
 The product-local verification skill generated under `.agents/skills/verify-<product>/`. It holds the knowledge of launching, checking, driving, capturing evidence, and cleaning up that product, together with its feature map.
+_Avoid_: 产品验证技能
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **feature map**:
@@ -30,6 +31,7 @@ _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **feature file**:
 One feature's file, starting with its name, `Route:`, and `Tests:` on three lines. Its user-facing description comes from the winner, settled decisions and glossary before design freeze; `Proof` records what the user sees and can accomplish, while `Gotchas` records prerequisites and local limits that can look like defects.
+_Avoid_: 功能文件
 _Home_: `mmw-v4/skills/create-verification-skill/SKILL.md`
 
 **e2e test**:
@@ -99,11 +101,17 @@ _Home_: `mmw-v4/skills/prototype/SKILL.md`, `mmw-v4/skills/prototype/UI.md`
 _Home_: `mmw-v4/skills/prototype/SKILL.md`
 
 **effort** (`<effort>`):
-The development effort's directory name under `efforts/`, taken from the filing map's `## Notes` or otherwise the current branch name with `/` replaced by `-`, as lowercase ASCII words joined by `-`. Distinct from the toolbox's `effort`, a model's reasoning effort.
-_Home_: `mmw-v4/skills/prototype/SKILL.md`
+One whole piece of development work toward one destination: a wayfinder map with the research, prototypes, specs and nights it gives rise to, or one ticket outside any map that opened a `fix-<n>`. Its files live under `efforts/<effort>/`, the name taken from the map's `## Notes` or otherwise the current branch name with `/` replaced by `-`, as lowercase ASCII words joined by `-`. A lone Investigation or code review is not an effort. Distinct from the toolbox's `effort`, a model's reasoning effort.
+_Home_: `mmw-v4/skills/prototype/SKILL.md`, `docs/adr/0056-every-effort-has-its-own-branch.md`
+
+**effort branch**:
+The one branch an effort's work is committed on, cut from the project branch when the effort starts: for a map, when the map is created, and it becomes the night's branch; for a ticket outside any map, its `fix-<n>`. It reaches the project branch only through a pull request the owner accepts.
+_Avoid_: base branch (for where research notes go), proto-<n>
+_Home_: `docs/adr/0056-every-effort-has-its-own-branch.md`
 
 **mount point**:
 The environment-variable-controlled entry that renders the winner at the feature file's final `Route:`, or in the rendering module for a UI without its own route. Each page has its own entry, with one shared switcher for variants; entries stay until implementation and are removed per page by the last ticket, or the final commit of a single ticket.
+_Avoid_: 挂载点
 _Home_: `mmw-v4/skills/prototype/UI.md`
 
 **shell**:
