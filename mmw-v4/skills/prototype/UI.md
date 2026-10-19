@@ -55,7 +55,7 @@ Done when the current question and the directions still open are explicit.
 
 Keep one prototype in `efforts/<effort>/prototypes/<issue>/UI/`. If an earlier standalone prototype came from elsewhere, move it here and retire that copy. Do not keep synchronizing two copies. If prototype code cannot meet repository lint rules, exclude the prototype directory from lint rather than changing the rules. Implementation rewrites the code to meet them.
 
-The product's own launch command plus one environment variable starts the prototype, including Electron. The mount point renders prototype code only with that variable enabled. Render `winner/` by default, and the product's own page until `winner/` exists. Register one `?variant=` key per candidate directory before the candidates start; a key whose code has not loaded shows a placeholder. The `?variant=` URL search param lets the owner browse the other variants, rather than enabling the prototype itself.
+The product's own launch command plus one environment variable starts the prototype, including Electron. The mount point renders prototype code only with that variable enabled. Render `winner/` by default, and the product's own page until `winner/` exists. Register one `?variant=` key per candidate directory before the candidates start, fixing the entry file and exports the mount point imports from each directory; a key whose code has not loaded shows a placeholder. The `?variant=` URL search param lets the owner browse the other variants, rather than enabling the prototype itself.
 
 Keep the variants in the leaf directory. The product route or rendering module holds only the mount point importing them. Use a path alias, relative import, or a symlink beside the route when the project cannot import across that boundary. Keep the mount point and any symlink until implementation, not just until selection.
 
@@ -77,7 +77,7 @@ Done when the owner can switch variants on the real pages without interfering wi
 
 Write every variant, yours or a candidate's, as `references/ui-variant.md` says.
 
-For competing directions, run the **arena** skill. Each candidate writes one variant into `candidates/<n>/` within this checkout's leaf directory; its `## Task` names the **prototype** skill's `references/ui-variant.md`. The owner chooses the base, not the score, and you fuse the selected parts into `winner/`; keep `candidates/<n>/`. Post the synthesis note as a comment on the ticket that asked the question; with no ticket, the reply carries it. Each candidate's brief names under `## Known` its directory `candidates/<n>/`, the URL that renders its variant (`?variant=<n>`), and the grounding paths to the mount point, the API fake, the page's existing component and its feature file. Give each its own running instance when Launch's isolation requires it. If the product has no backend stack and the page reads on every request, candidates can share the instance you started. For a simple page, draft the alternatives yourself without arena.
+For competing directions, run the **arena** skill. Each candidate writes one variant into `candidates/<n>/` within this checkout's leaf directory; its `## Task` names the **prototype** skill's `references/ui-variant.md`. The owner chooses the base, not the score. Each candidate's brief names under `## Known` its directory `candidates/<n>/`, the entry file and exports the mount point imports from that directory, the URL that renders its variant (`?variant=<n>`), and the grounding paths to the mount point, the page's existing component and its feature file. Give each its own running instance when Launch's isolation requires it. If the product has no backend stack and the page reads on every request, candidates can share the instance you started. For a simple page, draft the alternatives yourself without arena.
 
 Bring questions from the candidates' rationales that would change the UI alongside the variants for the owner to settle during selection, rather than registering them as separate problems.
 
@@ -85,7 +85,7 @@ Done when every variant meets `references/ui-variant.md`'s Done criterion.
 
 ### 5. Hand it over and iterate
 
-Give the owner the URL and variant keys. The owner operates the page, chooses a direction or combination, and gives feedback. Do not choose or accept it for them. Fuse the selected parts into `winner/` and retain the other variants in `candidates/<n>/` for later reference.
+Give the owner the URL and variant keys. The owner operates the page, chooses a direction or combination, and gives feedback. Do not choose or accept it for them. Fuse the selected parts into `winner/` and retain the other variants in `candidates/<n>/` for later reference. Post arena's synthesis note as a comment on the ticket that asked the question; with no ticket, the reply carries it.
 
 Once the direction is settled, work one to one with the owner. Ask one question per round, edit the same prototype in place, and commit each round. Do not send a worker or reviewer. Do not generate a whole new set of designs. If one component remains uncertain, use a small arena just for it.
 

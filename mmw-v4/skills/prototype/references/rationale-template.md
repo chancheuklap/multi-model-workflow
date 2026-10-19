@@ -1,6 +1,6 @@
 # Rationale template
 
-The prose posted on the ticket beside the type sketch. One page. Sentence-case headings, no boilerplate. Replace the italic notes with actual content.
+The verdict comment [`SKILL.md` rule 6](../SKILL.md#rules-that-apply-to-every-branch) names. Link the sketch in `SKETCH/` rather than pasting it into the comment. One page. Sentence-case headings, no boilerplate. Replace the italic notes with actual content.
 
 ## Problem
 

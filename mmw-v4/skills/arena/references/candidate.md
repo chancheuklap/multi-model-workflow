@@ -1,6 +1,6 @@
 # Candidate
 
-You produce one of N candidates at the same task, from the angle your brief's `## Task` gives. Read every file your brief names before you start, and write only in your output directory.
+You produce one of N candidates at the same task, from the angle your brief's `## Task` gives. Read every file your brief names before you start, and write only in your output directory, your answer file included.
 
 Produce the artifact and a short rationale, the rationale naming the alternatives it considered and what it rejected. The artifact stays in its output directory. Your answer is the rationale plus the output directory's path, reported as your brief says. The sender reads the artifact there.
 
