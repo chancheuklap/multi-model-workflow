@@ -12,7 +12,7 @@ Fan out N parallel designs of the same task, each from its own angle. Read every
 The N candidates receive the same task, so the task is the contract. Each candidate is a session of the dispatch skill's `candidate` role, all on one model, so their differences come from their angles, not from their models.
 
 1. State the artifact each candidate is producing.
-2. Take the caller's rubric, or derive it. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. The rubric is the picker's tool in Phases C and D. Candidates only see the task.
+2. When the caller hands the pick to the owner, there is no rubric and Phase C is skipped. Otherwise, take the caller's rubric, or derive it. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. The rubric is the picker's tool in Phases C and D. Candidates only see the task.
 3. Give each candidate its angle. When the caller gives constraints, each candidate takes one. Otherwise set N angles yourself, each a different shape of the whole design, not a point fix inside one shape. N is the number of angles.
 4. Assign output paths. Each candidate writes only its own directory `candidates/<n>/`, under where the caller keeps the result, per the **separate-before-serializing-shared-state** principle skill.
 
@@ -24,7 +24,7 @@ If a candidate is lost or produces no output, proceed with N-1 and note the drop
 
 ## Phase C: Score
 
-Read every candidate end to end before scoring. Score each against the rubric criterion by criterion, not on holistic feel, and write the scores down before Phase D.
+When the caller hands the pick to the owner, skip this phase. Otherwise, read every candidate end to end before scoring. Score each against the rubric criterion by criterion, not on holistic feel, and write the scores down before Phase D.
 
 ## Phase D: Pick
 

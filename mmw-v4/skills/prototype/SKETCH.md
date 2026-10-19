@@ -8,13 +8,13 @@ Build a real mental model of every system the new code touches. Run the **how** 
 
 Naming a file isn't grounding. Produce the architectural explanation `how` prescribes. If the design redefines ownership or layering, also run the **why** skill on the existing shape so the rationale becomes a constraint, not a guess.
 
-From the grounding, write down the constraints any new interface would need to satisfy, the dependencies it would rely on and the category each falls into, as the **codebase-design** skill sorts them, and a rough illustrative code sketch that makes the constraints concrete, not a proposal.
+From the grounding, write down the constraints any new interface would need to satisfy, the dependencies it would rely on and the category each falls into, as the **codebase-design** skill sorts them, and a rough illustrative code sketch that makes the constraints concrete, not a proposal. Keep this grounding in `grounding.md` in the leaf directory `SKETCH/`.
 
 Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Its `## Task` names the **prototype** skill's `references/sketch-candidate.md`, `references/rationale-template.md` and `references/design-red-flags.md`, and the **codebase-design** skill as the shape of the artifact.
+Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Its `## Task` names the **prototype** skill's `references/sketch-candidate.md`, `references/rationale-template.md` and `references/design-red-flags.md` as the shape of the artifact. Each candidate's brief names `SKETCH/grounding.md` by its repository path under `## Known`.
 
 Give each candidate its technical facts (file paths, coupling details, the dependency category of each dependency, what sits behind the seam) and a different design constraint. Run three, and the fourth when it applies, per **principle-exhaust-the-design-space**:
 
@@ -33,7 +33,7 @@ Arena returns one synthesized design package. Its synthesis decision fills the r
 
 Hand the synthesized sketch and its rationale back to the caller.
 
-If the human pushes back on the shape, treat that as Phase A evidence. Re-ground and re-run Phase B.
+If the human pushes back on the shape, or the worker building it raises a `contract` child saying it does not hold, treat that as Phase A evidence. The coordinator re-grounds and re-runs Phase B, as **One ticket** step 3 says.
 
 ## Outputs
 
