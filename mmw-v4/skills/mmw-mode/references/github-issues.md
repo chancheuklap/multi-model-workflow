@@ -61,4 +61,4 @@ The **map** is a single issue with **child** issues as tickets.
 - **Blocking**: as in **Blocking** above. A ticket is unblocked when every blocker is closed.
 - **Frontier query**: list the map's open children (**List a parent's sub-issues**, open only), drop any carrying `mmw:spec`, any with an open blocker (`issue_dependencies_summary.blocked_by > 0`) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far, then `gh issue edit <map> --add-sub-issue <n>` for each ticket that pointer names that is not already a child of the map.
