@@ -348,6 +348,15 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
         state = events.fold(history, issue=number)
         if state["unreadable"]:
             raise RegistrationError(f"#{number} has unreadable events; repair those comments before retrying")
+        session = receipt["context"]["session"]
+        if session != "none":
+            for comment in history:
+                what, payload = events.parse(comment["body"])
+                if what == "event" and payload["event"] == "lesson.seen" and payload["session"] == session:
+                    pending.unlink()
+                    link = comment.get("html_url") or f"https://github.com/{repo}/issues/{number}#issuecomment-{comment['id']}"
+                    print(f"ALREADY RECORDED: #{number} in {repo}, session {session}: {link}")
+                    return 0
         recorded = any(events.parse(c["body"])[0] == "event" and
                        events.parse(c["body"])[1].get("request") == receipt["request"]
                        for c in history)
