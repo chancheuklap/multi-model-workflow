@@ -26,7 +26,7 @@ The map, its child tickets, blocking, and frontier queries live on GitHub. **Way
 
 The whole map at low resolution, loaded once per session. Open tickets are **not** listed: they are open child issues, found by query.
 
-Every session of a map works in `.worktrees/map-<map number>`, the map's effort branch its `## Notes` names: it sends its briefs from there and commits there. A map that names none gets one first, as Chart the map step 3 says (`../playbooks/chart-the-map.md`).
+Every session of a map works in `.worktrees/map-<map number>`, the map's effort branch its `## Notes` names: it sends its briefs from there and commits there. A map that names none gets one first, as Chart the map step 3 says (`../playbooks/chart-the-map.md`). A map whose branch exists while `.worktrees/map-<map number>` is absent on this machine gets its worktree back on that branch, commits included: run `git fetch origin`, then `git worktree add .worktrees/map-<map number> map-<map number>`, then `git -C .worktrees/map-<map number> pull --ff-only`.
 
 ```markdown
 ## Destination
