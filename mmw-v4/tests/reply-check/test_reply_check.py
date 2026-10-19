@@ -65,6 +65,13 @@ class ReplyCheck(unittest.TestCase):
                     self.assertEqual(run.returncode, 2, run.stderr)
                     self.assertEqual(run.stdout, "")
                     self.assertIn(phrase, run.stderr)
+            for reply, hit in (("内容如上所述", "如上"), ("详情见上文", "见上"),
+                               ("请见上图", "见上"), ("沿用前文的计划", "前文"),
+                               ("上文解释过", "上文")):
+                with self.subTest(host=host, reply=reply):
+                    run = self.run_hook(reply, host)
+                    self.assertEqual(run.returncode, 2, run.stderr)
+                    self.assertIn(hit, run.stderr)
         run = self.run_hook("上一条 and see above and point 2")
         for phrase in ("上一条", "see above", "point 2"):
             self.assertIn(phrase, run.stderr)
@@ -87,7 +94,9 @@ class ReplyCheck(unittest.TestCase):
     def test_a_clean_reply_ends_the_turn(self):
         self.glossary("**feature file**:\n_Avoid_: 功能文件\n")
         for host in ("claude", "codex"):
-            for reply in ("", "The feature file describes the saved plan.", "这份计划包含全部工作。", "checkpoint 2"):
+            for reply in ("", "The feature file describes the saved plan.", "这份计划包含全部工作。", "checkpoint 2",
+                          "例如上海", "比如上海", "以上文件已改", "以上文件已更新",
+                          "之前文档", "之前文件里没有", "意见上一致", "他的意见上没问题"):
                 with self.subTest(host=host, reply=reply):
                     run = self.run_hook(reply, host)
                     self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))

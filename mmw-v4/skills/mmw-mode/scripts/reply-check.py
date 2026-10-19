@@ -49,7 +49,10 @@ import re
 import sys
 
 POINTERS = re.compile(
-    r"上一条|上面列的|前面列的|如上|见上|上文|前文|"
+    r"上一条|上面列的|前面列的|"
+    r"如上(?=$|[^\u3400-\u9fff]|所|述|文|面)|"
+    r"见上(?=$|[^\u3400-\u9fff]|文|面|述|图|表|节|一条)|"
+    r"(?:上文|前文)(?![档件字本])|"
     r"\b(?:the ones above|as above|see above|point\s+[0-9]+)\b", re.IGNORECASE)
 
 
