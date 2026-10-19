@@ -264,6 +264,14 @@ class Registration(unittest.TestCase):
         self.assertEqual(rc, 0, err)
         self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 1)
         self.assertIn(f"https://github.com/o/r/issues/100#issuecomment-{first_comment}", out)
+        row.update(state="closed", state_reason="completed",
+                   closer={"url": "https://github.com/o/r/pull/9"})
+        rc, out, err = self.run_register("add", str(second))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(row["state"], "open")
+        self.assertIn({"name": "needs-triage"}, row["labels"])
+        self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 1)
+        self.assertIn(f"https://github.com/o/r/issues/100#issuecomment-{first_comment}", out)
 
     def test_registrations_from_two_sessions_add_two_occurrences(self):
         for session in ("first-session", "second-session"):
