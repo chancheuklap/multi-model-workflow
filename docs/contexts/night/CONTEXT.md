@@ -16,7 +16,7 @@ _Home_: `docs/contexts/night/how-it-works.md`
 
 **orchestrator**:
 The session the user started, which runs one spec's night with the dispatch skill's commands, from `check` to `summary` and, after the user accepts the result, `finish`. It has no `models.json` row.
-_Avoid_: main agent
+_Avoid_: main agent, 编排者
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **runner**:
@@ -70,6 +70,7 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **project branch**:
 The branch a night's base branch was cut from and into which `finish` merges the accepted night, recorded in `spec.opened` as `project`.
+_Avoid_: 项目分支
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`MMW_BASE_REF`**:
