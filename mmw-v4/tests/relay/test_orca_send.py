@@ -1,5 +1,3 @@
-"""Orca send's process contract against a fake Orca, without a live terminal."""
-
 import json
 import os
 from pathlib import Path
