@@ -23,7 +23,7 @@ _Home_: `docs/adr/0015-no-custom-subagents.md`, amended by `docs/adr/0050-native
 ### Places
 
 **MMW**:
-This toolbox (the toolbox): the skills the user shares across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a dispatched worker → a closed ticket) and the task board. Only `mmw-v3/` is live; `mmw-v2/` and `archive/` (earlier generations), `deprecated/` (what v2 retired) and `docs/research/code-landing-refs/` (read-only snapshots of third-party repositories) are kept for history, and the rest of `docs/research/` holds research notes a spec may cite. `mmw-v2/install.sh` is also the way back from v3 to v2 (ADR 0036).
+This toolbox (the toolbox): the skills the user shares across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a dispatched worker → a closed ticket) and the task board. Only `mmw-v3/` is live; `mmw-v2/` and `archive/` (earlier generations), `deprecated/` (what v2 retired) and `docs/research/code-landing-refs/` (read-only snapshots of third-party repositories) are kept for history, and the rest of `docs/research/` holds earlier research notes read for history; a new research answer is a comment on its ticket. `mmw-v2/install.sh` is also the way back from v3 to v2 (ADR 0036).
 _Home_: `AGENTS.md`
 
 **consuming repository**:
@@ -207,7 +207,7 @@ An architecture decision record in `docs/adr/`, named `0001-slug.md`. `docs/adr/
 _Home_: `docs/adr/README.md`
 
 **research file**:
-The Markdown file, citing each claim's source, that a researcher reports as its answer. Only a map's research ticket keeps it, as the research note under `efforts/<effort>/research/`.
+The Markdown file, citing each claim's source, that a researcher reports as its answer. A map's research ticket keeps its answer unchanged as its resolution comment.
 _Home_: `mmw-v3/skills/research/SKILL.md`
 
 **refusal**:

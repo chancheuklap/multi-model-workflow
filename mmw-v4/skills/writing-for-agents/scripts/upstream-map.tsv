@@ -16,7 +16,7 @@ pstack	skills/principle-laziness-protocol/SKILL.md	mmw-v4/skills/principle-lazin
 pstack	skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md	mmw-v4/skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md
 pstack	skills/principle-type-system-discipline/SKILL.md	mmw-v4/skills/principle-type-system-discipline/SKILL.md
 pstack	skills/correct/SKILL.md	mmw-v4/skills/correct/SKILL.md
-pstack	skills/architect/SKILL.md	mmw-v4/skills/architect/SKILL.md
+pstack	skills/architect/SKILL.md	mmw-v4/skills/prototype/SKETCH.md
 pstack	skills/arena/SKILL.md	mmw-v4/skills/arena/SKILL.md
 pstack	skills/benchmark-checklist/SKILL.md	mmw-v4/skills/benchmark-checklist/SKILL.md
 pstack	skills/how/SKILL.md	mmw-v4/skills/how/SKILL.md
@@ -56,5 +56,5 @@ mattpocock	skills/productivity/wait-what/SKILL.md	mmw-v4/skills/wait-what/SKILL.
 mattpocock	skills/productivity/wait-what/agents/openai.yaml	mmw-v4/skills/wait-what/agents/openai.yaml
 mattpocock	skills/productivity/writing-for-agents/SKILL-MECHANICS.md	mmw-v4/skills/writing-for-agents/SKILL-MECHANICS.md
 mattpocock	skills/productivity/writing-for-agents/SKILL.md	mmw-v4/skills/writing-for-agents/SKILL.md
-pstack	skills/architect/references/rationale-template.md	mmw-v4/skills/architect/references/rationale-template.md
+pstack	skills/architect/references/rationale-template.md	mmw-v4/skills/prototype/references/rationale-template.md
 diagram-design	skills/diagram-design/references/onboarding.md	mmw-v4/skills/diagram-design/references/onboarding.md

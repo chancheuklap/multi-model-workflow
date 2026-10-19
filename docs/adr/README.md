@@ -56,7 +56,7 @@
 | [0035](0035-a-nights-memory-stays-in-its-repository.md) | 一夜的 Memory 只写进本仓库的 Space：开夜的会话 `NMEM_SPACE` 不对就拒绝开夜；Nowledge Mem 列不全记录时，夜照样关，不做 Memory 收尾 | 2026-10-06 | 无 | 0037、0051（Memory 收尾） |
 | [0036](0036-rollback-to-v2-is-one-install.md) | 从 v3 退回 v2，是在装着的 checkout 里跑一次 `bash mmw-v2/install.sh`；`mmw-v2/` 因此是退路，不只是历史 | 2026-10-07 | 0032 | 无 |
 | [0037](0037-the-session-space-is-installed-per-machine.md) | 终端里的 `NMEM_SPACE` 由 `mmw-v3/install.sh` 每台机器装一次；仓库的 Space 仍由 `setup-mmw` 建，它只报告会话的 `NMEM_SPACE` 对不对 | 2026-10-07 | 0035 | 无 |
-| [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 无 |
+| [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 0056 |
 | [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 0051（复盘提案写入编码规范） |
 | [0040](0040-writing-rules-live-in-writing-for-agents.md) | 技能文字的写作规则都在 `writing-for-agents` 技能里；改技能一律从 Authoring or modifying a skill 开始，一个会话做不完的由它交给 Write a spec | 2026-10-08 | 0032 | 0046、0054 |
 | [0041](0041-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 0044、0048 |
@@ -73,8 +73,9 @@
 | [0052](0052-keep-local-branches-and-close-the-spec.md) | finish 后本机留着夜分支和任务分支，指向合并时的提交；finish 成功时关闭 spec | 2026-10-15 | 0025 | 无 |
 | [0053](0053-upstream-copies-at-repository-root.md) | 上游的只读副本放在仓库根目录的 `upstream/<name>/`，每份一个 `git subtree --squash` 目录，与上游逐字节相同 | 2026-10-16 | 0032 | 无 |
 | [0054](0054-authoring-is-the-skill-set-entry.md) | Authoring or modifying a skill 是改进技能集的唯一入口，writing-for-agents 只在被点名时运行 | 2026-10-18 | 0040、0046 | 无 |
-| [0055](0055-ui-design-is-a-local-prototype.md) | 界面设计在产品代码里做本地原型，Claude Design 退役 | 2026-10-18 | 0029、0030、0044、0048 | 无 |
-| [0056](0056-every-effort-has-its-own-branch.md) | 每个 effort 从开始起就有自己的 effort branch，研究、原型和所有 brief 会话的产出都提交在它上面，只经主人接受的 PR 进 project branch | 2026-10-19 | 无 | 无 |
+| [0055](0055-ui-design-is-a-local-prototype.md) | 界面设计在产品代码里做本地原型，Claude Design 退役 | 2026-10-18 | 0029、0030、0044、0048 | 0056 |
+| [0056](0056-records-live-on-the-ticket.md) | 研究答案、非界面原型的结论和工作记录只记在票的评论里 | 2026-10-19 | 0038、0055 | 无 |
+| [0057](0057-every-effort-has-its-own-branch.md) | 每个 effort 从开始起就有自己的 effort branch，原型和所有 brief 会话写出的文件都提交在它上面，只经主人接受的 PR 进 project branch | 2026-10-19 | 无 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

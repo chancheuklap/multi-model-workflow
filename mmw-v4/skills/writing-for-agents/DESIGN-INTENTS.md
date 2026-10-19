@@ -60,8 +60,8 @@ Each intent says what is kept and its home: the files whose text carries the rul
     Home: **To spec**; **To tickets**; **Work a ticket**; the `code-review` skill; **Run a night**; **One ticket**; **Opening a PR**; **Retrospective** (`mmw-mode/playbooks/retrospective.md`); the `retro` skill.
 24. **A shared language and ADRs, and what they point to exists.**
     Home: the `domain-modeling` skill; `docs/adr/`.
-25. **A prototype is code that answers a question,** kept in the repository with its verdict; a code shape that reaches beyond one ticket is settled by competing sketches.
-    Home: the `prototype` skill; the `architect` and `arena` skills. A UI prototype's conclusion lives in the feature file; its winner is the UI baseline, under the `prototype` skill's `UI.md`.
+25. **A prototype is code that answers a question,** kept in the repository, its verdict on the ticket that asked the question; a code shape that reaches beyond one ticket is settled by competing sketches.
+    Home: the `prototype` skill; the `prototype` skill's `SKETCH.md`; the `arena` skill. A UI prototype's conclusion lives in the feature file; its winner is the UI baseline, under the `prototype` skill's `UI.md`.
 26. **Each repository is set up once and skills only read the setup;** the repository's files are placed by how long they stay true.
     Home: the `setup-mmw` skill; **Set up code checkers**; the repository's `scripts/check`, whose default tier `dispatch.sh land` and `advance` run on each merge result.
 
@@ -122,7 +122,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P15 | Steps copied verbatim into a to-do list, a skipped step kept with its reason | Progress is read from the ticket's events and the branch (33) |
 | P26 | Bound to Cursor, with a separate generated directory tree for Claude Code | One text serves every host, with the host's general-purpose subagent (39, 14) |
 | P8, P20 (the rest) | A stack of PRs, one verdict per PR bound to its patch | One pull request for a night or for a day's change; a conclusion is judged once (30, 32) |
-| P13 (the rest) | A decision log reviewed by another vendor's model before hand-back | No decision log is kept; a night's facts are events and the night summary (33, 37) |
+| P13 (the rest) | A decision log reviewed by another vendor's model before hand-back | No separate decision log is kept: a night's facts are events and the night summary, and a Hillclimb's attempts are comments on its ticket (33, 37) |
 | P13 (the rest) | Long-running Orchestrate and Autonomous run | **Run a night** and the ticket's events carry it (34, 37) |
 | P19, P3 (the rest) | `interrogate`: cross-model adversarial review | The `code-review` skill's four axes, on one model, judged once (30) |
 | P4 (the rest) | Every section's whole body in the mode's `SKILL.md` | The seven headings stay in `SKILL.md`; what only a task's owner uses (the routes, sending sessions, the reply to the owner) is in `references/owning-a-task.md`, so an agent sent to one file neither routes itself nor writes its hand-back by the owner's reply rules (5, 8) |
