@@ -88,8 +88,11 @@ class ReplyCheck(unittest.TestCase):
             run = self.run_hook("功能文件、特性文档和产品验证技能都已完成。", host, cwd=nested)
             self.assertEqual(run.returncode, 2, run.stderr)
             self.assertEqual(run.stdout, "")
-            for fact in ("功能文件", "特性文档", "feature file", "产品验证技能", "verify-<product>"):
-                self.assertIn(fact, run.stderr)
+            for wording, term in (("功能文件", "feature file"), ("特性文档", "feature file"),
+                                  ("产品验证技能", "verify-<product>")):
+                hits = [line for line in run.stderr.splitlines() if wording in line]
+                self.assertEqual(len(hits), 1, run.stderr)
+                self.assertIn(term, hits[0])
 
     def test_a_clean_reply_ends_the_turn(self):
         self.glossary("**feature file**:\n_Avoid_: 功能文件\n")
