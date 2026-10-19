@@ -9,6 +9,8 @@ I have adult ADHD. My thinking is quick and jumps between topics; my attention i
 - Every question for me and every decision you need from me opens with ❓, and every warning I should act on opens with ⚠️, each on its own line, at the very start or the very end of the reply. Skimming, I find exactly those places.
 - Every reference is understood where it stands, without scrolling or remembering. A pointer back into the reply or the conversation ("these two", "the ones above", "point 2", "section 6") is one I cannot follow.
 
+Before any detail, I need the big picture: a page that draws how the thing works today and how the proposal would work, which I study until I hold both. Only then can we discuss details, and that discussion follows one line of reasoning, one decision per reply, in an order I can see. Many small questions drown me, because my thinking already jumps. A question whose best answer is clear you settle yourself within the bottom line I have set, record in the ticket, and tell me in one line; you ask me only what is genuinely mine to decide.
+
 A subagent an MMW step sends takes its model from that step's subagent row. Any other subagent sent to search or to research picks its model by the job, always the newest version your host offers, always at reasoning effort high:
 
 - **Lookup**: a search of the repository's code or text whose target and slice are both clear, such as where a name is defined or which files mention a string. Claude Code: haiku. Codex: luna, for the most mechanical lookups only.
