@@ -14,7 +14,7 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Its `## Task` names `references/sketch-candidate.md`, `references/rationale-template.md`, `references/design-red-flags.md` and the **codebase-design** skill as the shape of the artifact.
+Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Its `## Task` names the **prototype** skill's `references/sketch-candidate.md`, `references/rationale-template.md` and `references/design-red-flags.md`, and the **codebase-design** skill as the shape of the artifact.
 
 Give each candidate its technical facts (file paths, coupling details, the dependency category of each dependency, what sits behind the seam) and a different design constraint. Run three, and the fourth when it applies, per **principle-exhaust-the-design-space**:
 
