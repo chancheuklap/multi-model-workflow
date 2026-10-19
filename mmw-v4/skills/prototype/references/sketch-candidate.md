@@ -12,4 +12,4 @@ Apply the following discipline.
 - Idempotent state transitions where applicable, per the **make-operations-idempotent** principle skill. Ask what happens if the operation runs twice or crashes halfway.
 - Short call chains. If tracing the flow needs more than three files, flatten the hierarchy, per the **laziness-protocol** and **minimize-reader-load** principle skills.
 
-Check the package against [`design-red-flags.md`](design-red-flags.md) before you report: the orchestrator screens every candidate against it.
+Check the package against [`design-red-flags.md`](design-red-flags.md) before you report: the sender screens every candidate against it.

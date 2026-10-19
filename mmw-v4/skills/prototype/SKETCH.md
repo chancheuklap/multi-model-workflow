@@ -14,7 +14,7 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Its `## Task` names the **prototype** skill's `references/sketch-candidate.md`, `references/rationale-template.md` and `references/design-red-flags.md` as the shape of the artifact. Each candidate's brief names `SKETCH/grounding.md` by its repository path under `## Known`.
+Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Its `## Task` names the **prototype** skill's `references/sketch-candidate.md`, `references/rationale-template.md` and `references/design-red-flags.md` as the shape of the artifact. When Phase A ran, each candidate's brief names `SKETCH/grounding.md` by its repository path under `## Known`. On the greenfield path that skips Phase A, the brief names no grounding file.
 
 Give each candidate its technical facts (file paths, coupling details, the dependency category of each dependency, what sits behind the seam) and a different design constraint. Run three, and the fourth when it applies, per **principle-exhaust-the-design-space**:
 
