@@ -88,7 +88,8 @@ happened is read on the tracker. What `send` answered decides what happens to th
 
     0                 delivered; the row stays until it is acked
     4                 handed over and not confirmed: the text reached the session and
-                      no turn start was seen. Delivered all the same (`unconfirmed` on
+                      no turn start was seen after it looked idle, or the runner could
+                      not observe the program. Delivered all the same (`unconfirmed` on
                       the row): typing it again every cycle would bury the session in
                       copies. Like any delivered row it stays until acked, and is sent
                       once more only when the relay restarts

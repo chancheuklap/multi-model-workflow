@@ -44,11 +44,11 @@
 # the error on screen and wait), so this wait cannot catch a bad model; the model has to
 # be checked against the host's catalog before `start`.
 # send: exit 0 the text was delivered (input_accepted and turn_started); 4 the text went
-# into the terminal and no turn start was seen — the program is mid-turn and will read it
-# when the turn ends, or it is one Orca cannot observe (`observation` `unsupported`) — or
+# into the terminal after the program looked idle and no turn start was seen, or Orca
+# could not observe the program (`observation` `unsupported`), or
 # the receipt could not be read after the send: handed over, not confirmed, and not to be
-# typed again; 3 nothing was typed — the list could not be read, the handle is past a
-# truncated list, or Orca refused the send with an error of its own — so sending again
+# typed again; 3 nothing was typed — the program is not idle, the list could not be read,
+# the handle is past a truncated list, or Orca refused the send with an error of its own — so sending again
 # is safe; 2 there is no such session (terminal_not_writable, or a complete list without
 # it). The receipt's stages are `result.send.prompt.stages` and its warnings
 # `result.warnings` (Orca 1.4.199, read 2026-09-10 off a real `terminal send --json`).
@@ -292,7 +292,7 @@ elif kind == "send":
     code = err.get("code") or data.get("code") or ""
     print("%s\t%s\t%s\t%s" % (code, ",".join(str(s) for s in stages), observation,
                                  " ".join(warning.split())))
-elif kind == "wait":
+elif kind in ("wait", "idle"):
     # A condition that was met is answered under result.wait, and a wait that ran out
     # as error.code `timeout` (Orca 1.4.199, read 2026-09-11 off a real
     # `terminal wait --for exit --json`).
@@ -302,6 +302,17 @@ elif kind == "wait":
     if satisfied is None:
         satisfied = data.get("satisfied")
     status = str(wait.get("status") or data.get("status") or "")
+    if kind == "idle":
+        observation = wait.get("observation") or result.get("observation") or data.get("observation")
+        if observation == "unsupported":
+            print("unknown")
+        elif code == "timeout" or (not code and satisfied is False):
+            print("busy")
+        elif not code and satisfied is True:
+            print("idle")
+        else:
+            print("unknown")
+        sys.exit(0)
     flag = "true" if satisfied is True or str(satisfied).lower() == "true" else "false"
     print("%s\t%s\t%s" % (code, flag, status))
 else:
@@ -450,6 +461,12 @@ send() {
       exit 3
       ;;
   esac
+  out="$(orca_ terminal wait --terminal "$ident" --for tui-idle \
+        --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true
+  if [ "$(printf '%s' "$out" | parse_json idle)" = busy ]; then
+    echo "runners/orca.sh: $ident is not idle; nothing was sent, so retry when the program is idle" >&2
+    exit 3
+  fi
   out="$(orca_ terminal send --terminal "$ident" --text "$text" --enter \
         --wait-submit "$SEND_WAIT_S" --json 2>&1)" || true
   receipt="$(printf '%s' "$out" | parse_json send)" || {
@@ -474,7 +491,7 @@ send() {
       if [ "$observation" = unsupported ]; then
         echo "runners/orca.sh: $ident took the text, and Orca cannot observe the program in it, so whether a turn started is not known: $warning" >&2
       else
-        echo "runners/orca.sh: $ident took the text and no turn start was seen; a program mid-turn reads it when the turn ends: $warning" >&2
+        echo "runners/orca.sh: $ident took the text and no turn start was seen; the idle probe did not report a busy program: $warning" >&2
       fi
       printf '%s\n' unknown
       exit 4
