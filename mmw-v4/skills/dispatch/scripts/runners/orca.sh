@@ -52,6 +52,11 @@
 # is safe; 2 there is no such session (terminal_not_writable, or a complete list without
 # it). The receipt's stages are `result.send.prompt.stages` and its warnings
 # `result.warnings` (Orca 1.4.199, read 2026-09-10 off a real `terminal send --json`).
+# Before typing, send reads terminal.agentIdentity from `terminal show --json`.
+# With an identity, an unsatisfied tui-idle probe or timeout means busy. Without an
+# identity or a readable answer, send types as usual. Orca 1.4.227 reports identities
+# for its watched agents but none for a plain shell; tui-idle timeouts alone cannot
+# distinguish the two (checked 2026-10-19).
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. A running process
 # and an idle UI are two fields; idle is not what this verb answers.
 # stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
@@ -76,6 +81,7 @@
 # MMW_USES: terminal send --terminal --text --enter --wait-submit --json
 # MMW_USES: terminal wait --terminal --for --timeout-ms --json
 # MMW_USES: terminal read --terminal --json
+# MMW_USES: terminal show --terminal --json
 # MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
 # MMW_USES: worktree set --worktree --issue --parent-worktree --json
@@ -272,7 +278,10 @@ if not isinstance(data, dict):
 kind = sys.argv[1]
 result = data.get("result") if isinstance(data.get("result"), dict) else {}
 err = data.get("error") if isinstance(data.get("error"), dict) else {}
-if kind == "handle":
+if kind == "agent":
+    terminal = result.get("terminal")
+    print(str(terminal.get("agentIdentity") or "") if isinstance(terminal, dict) else "")
+elif kind == "handle":
     handle = result.get("handle")
     terminal = result.get("terminal")
     if not handle and isinstance(terminal, dict):
@@ -303,10 +312,7 @@ elif kind in ("wait", "idle"):
         satisfied = data.get("satisfied")
     status = str(wait.get("status") or data.get("status") or "")
     if kind == "idle":
-        observation = wait.get("observation") or result.get("observation") or data.get("observation")
-        if observation == "unsupported":
-            print("unknown")
-        elif code == "timeout" or (not code and satisfied is False):
+        if code == "timeout" or (not code and satisfied is False):
             print("busy")
         elif not code and satisfied is True:
             print("idle")
@@ -461,11 +467,14 @@ send() {
       exit 3
       ;;
   esac
-  out="$(orca_ terminal wait --terminal "$ident" --for tui-idle \
-        --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true
-  if [ "$(printf '%s' "$out" | parse_json idle)" = busy ]; then
-    echo "runners/orca.sh: $ident is not idle; nothing was sent, so retry when the program is idle" >&2
-    exit 3
+  out="$(orca_ terminal show --terminal "$ident" --json 2>&1)" || true
+  if [ -n "$(printf '%s' "$out" | parse_json agent)" ]; then
+    out="$(orca_ terminal wait --terminal "$ident" --for tui-idle \
+          --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true
+    if [ "$(printf '%s' "$out" | parse_json idle)" = busy ]; then
+      echo "runners/orca.sh: $ident is not idle; nothing was sent, so retry when the program is idle" >&2
+      exit 3
+    fi
   fi
   out="$(orca_ terminal send --terminal "$ident" --text "$text" --enter \
         --wait-submit "$SEND_WAIT_S" --json 2>&1)" || true

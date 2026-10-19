@@ -24,6 +24,8 @@ if args[:2] == ["terminal", "list"]:
 elif args[:2] == ["terminal", "wait"]:
     print(os.environ["FAKE_ORCA_PROBE"])
     sys.exit(int(os.environ["FAKE_ORCA_PROBE_EXIT"]))
+elif args[:2] == ["terminal", "show"]:
+    print(os.environ["FAKE_ORCA_SHOW"])
 elif args[:2] == ["terminal", "send"]:
     print(json.dumps({"result": {"send": {"prompt": {
         "stages": json.loads(os.environ["FAKE_ORCA_STAGES"])
@@ -43,11 +45,13 @@ class OrcaSend(unittest.TestCase):
         fake.write_text(f"#!{sys.executable}\n" + FAKE_ORCA)
         fake.chmod(0o755)
 
-    def send(self, probe, stages, probe_exit=0):
+    def send(self, probe, stages, probe_exit=0, show=None):
         self.log.unlink(missing_ok=True)
         env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"],
                    MMW_HOME=str(self.root / "mmw-home"),
                    FAKE_ORCA_LOG=str(self.log), FAKE_ORCA_PROBE=probe,
+                   FAKE_ORCA_SHOW=show if show is not None else json.dumps({
+                       "result": {"terminal": {"agentIdentity": "codex"}}}),
                    FAKE_ORCA_PROBE_EXIT=str(probe_exit), FAKE_ORCA_STAGES=json.dumps(stages))
         result = subprocess.run(["bash", str(ADAPTER), "send", SESSION, TEXT],
                                 env=env, capture_output=True, text=True, timeout=10)
@@ -78,11 +82,25 @@ class OrcaSend(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assert_sent(calls)
 
+    def test_send_types_into_a_terminal_with_no_agent_identity(self):
+        probe = json.dumps({"error": {"code": "timeout"}})
+        for terminal in [{}, {"agentIdentity": None}, {"agentIdentity": ""}]:
+            with self.subTest(terminal=terminal):
+                show = json.dumps({"result": {"terminal": terminal}})
+                result, calls = self.send(probe, ["input_accepted"], probe_exit=1, show=show)
+                self.assertEqual(result.returncode, 4, result.stderr)
+                self.assert_sent(calls)
+
+    def test_send_holds_the_text_when_an_agent_terminal_times_out(self):
+        probe = json.dumps({"error": {"code": "timeout"}})
+        result, calls = self.send(probe, ["input_accepted"], probe_exit=1)
+        sends = [call for call in calls if call[:2] == ["terminal", "send"]]
+        self.assertEqual((result.returncode, sends), (3, []), result.stderr)
+
     def test_send_types_the_text_when_orca_cannot_tell(self):
         probes = [
             "not-json",
             "{}",
-            json.dumps({"result": {"wait": {"satisfied": False, "observation": "unsupported"}}}),
             json.dumps({"error": {"code": "runtime_unavailable"}}),
         ]
         for probe in probes:
@@ -90,10 +108,18 @@ class OrcaSend(unittest.TestCase):
                 result, calls = self.send(probe, ["input_accepted"], probe_exit=1)
                 self.assertEqual(result.returncode, 4, result.stderr)
                 self.assert_sent(calls)
+        for show in ["not-json", "{}"]:
+            with self.subTest(show=show):
+                probe = json.dumps({"error": {"code": "timeout"}})
+                result, calls = self.send(probe, ["input_accepted"], probe_exit=1, show=show)
+                self.assertEqual(result.returncode, 4, result.stderr)
+                self.assert_sent(calls)
 
     def test_send_probes_the_session_it_was_given(self):
         probe = json.dumps({"result": {"wait": {"satisfied": True}}})
         result, calls = self.send(probe, ["input_accepted", "turn_started"])
+        shows = [call for call in calls if call[:2] == ["terminal", "show"]]
+        self.assertEqual(shows, [["terminal", "show", "--terminal", SESSION, "--json"]])
         waits = [call for call in calls if call[:2] == ["terminal", "wait"]]
         self.assertEqual(len(waits), 1)
         wait = waits[0]
@@ -102,6 +128,7 @@ class OrcaSend(unittest.TestCase):
         self.assertIn("--json", wait)
         self.assertGreater(int(wait[wait.index("--timeout-ms") + 1]), 0)
         self.assertLessEqual(int(wait[wait.index("--timeout-ms") + 1]), 100)
+        self.assertLess(calls.index(shows[0]), calls.index(wait))
         self.assertLess(calls.index(wait), next(i for i, call in enumerate(calls)
                                              if call[:2] == ["terminal", "send"]))
         self.assertEqual(result.returncode, 0, result.stderr)
