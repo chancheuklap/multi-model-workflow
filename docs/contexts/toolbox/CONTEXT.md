@@ -187,8 +187,8 @@ The repeatable override flag of `verify-ticket.py`, `dispatch.sh`, `pull_design.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`, `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **host hook**:
-A program a host runs at one of its own events. `install.sh` registers three, in each host's own configuration: `tool-guard.py` and `turn-guard.py` of the dispatch skill, and the `mmw-mode` skill's `mode-hook.py` on Claude Code's and Codex's session start. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): the three share the bare word "hook" but run at different events for different reasons.
-_Home_: `mmw-v3/install.sh`
+A program a host runs at one of its own events. `install.sh` registers four handlers from three scripts in Claude Code's and Codex's own configuration: the dispatch skill's `tool-guard.py` before a tool call (`pretool`) and before the question tool (`question`), and at the end of a turn (`Stop`) the dispatch skill's `turn-guard.py` and the `mmw-mode` skill's `reply-check.py`. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): they share the bare word "hook" but run at different events for different reasons.
+_Home_: `mmw-v4/install.sh`
 
 **`tool-guard.py`**:
 The dispatch skill's hook that runs before a host's tool call. In a session whose working directory is a ticket worktree (`issue-<n>`), it refuses a command that would end a process or take the ticket out of the agent queue (`pretool`) and a call to the host's question tool (`question`). In every directory, `pretool` also refuses a git write from a session that is an open brief, and the removal (`git worktree remove`, `rm`) of a path that is or holds this process's working directory or is an open batch's recorded worktree.
