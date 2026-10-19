@@ -799,6 +799,7 @@ class BriefWorktreeGuard(unittest.TestCase):
                         "git branch --show-current", "git branch --contains HEAD",
                         "git branch --list 'topic*'", "git branch -l 'topic*'",
                         "git branch --format '%(refname:short)'", "git branch --sort committerdate",
+                        "git branch --sort -committerdate", "git branch --format '-d'",
                         "git --no-pager log -3"):
             with self.subTest(command=command):
                 self.assertIsNone(self.hook(command))
