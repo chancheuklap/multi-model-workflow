@@ -760,6 +760,10 @@ class BriefWorktreeGuard(unittest.TestCase):
         return json.loads(run.stdout) if run.stdout.strip() else None
 
     def test_a_brief_session_commit_is_refused(self):
+        self.env["FAKE_PRIVATE_VALUE"] = "private-environment-value"
+        answer = self.hook('git commit -m "$FAKE_PRIVATE_VALUE"')
+        self.assertIsNotNone(answer)
+        self.assertNotIn(self.env["FAKE_PRIVATE_VALUE"], reason_of(answer))
         commands = [f"git {verb}" for verb in (
             "commit -m findings", "merge topic", "rebase dev", "reset --hard", "push origin dev",
             "pull", "stash", "cherry-pick HEAD", "revert HEAD", "am patch", "tag v1",
@@ -820,12 +824,16 @@ class BriefWorktreeGuard(unittest.TestCase):
         nested.mkdir()
         for host in EVENTS:
             for command in ("git worktree remove --force ..", "rm -rf ..", "rm -rf .",
-                            f"rm -rf '{self.worktree}'", f"git -C '{self.root}' worktree remove sender"):
+                            f"rm -rf '{self.worktree}'", f"git -C '{self.root}' worktree remove sender",
+                            "cd ../.. && rm -rf sender", "cd ../.. && git worktree remove sender",
+                            "cd ..; cd ..; rm -rf sender", "(cd ../.. && rm -rf sender)",
+                            "(cd ../.. && true); rm -rf ../notes"):
                 with self.subTest(host=host, command=command):
                     answer = self.hook(command, host=host, cwd=nested)
                     self.assertIsNotNone(answer)
                     self.assertIn(str(nested), reason_of(answer))
         self.assertIsNone(self.hook("rm -f answer.md", cwd=nested))
+        self.assertIsNone(self.hook("cd .. && rm -f answer.md", cwd=nested))
         self.assertIsNone(self.hook("git worktree remove ../../unused", cwd=nested))
         self.briefs.remove(self.state, self.batch)
         self.assertIsNotNone(self.hook("rm -rf ..", cwd=nested))
@@ -837,7 +845,9 @@ class BriefWorktreeGuard(unittest.TestCase):
         protected = self.briefs.create(self.state, "candidate", 1, "fake", "sender",
                                        worktree=other)
         for command in (f"git worktree remove --force '{other}'", f"rm -rf '{other}'",
-                        f"env NOTE=1 git worktree remove '{other}'", f"(rm -rf '{other}')"):
+                        f"env NOTE=1 git worktree remove '{other}'", f"(rm -rf '{other}')",
+                        f'wt="{other}"; rm -rf "$wt"',
+                        f'wt="{other}"; git worktree remove "${{wt}}"'):
             with self.subTest(command=command):
                 answer = self.hook(command)
                 self.assertIsNotNone(answer)
@@ -845,6 +855,8 @@ class BriefWorktreeGuard(unittest.TestCase):
                 self.assertIn(f"dispatch.sh brief close {protected}", reason_of(answer))
         self.briefs.mark_lost(self.state, protected, 1, "stopped")
         self.assertIsNotNone(self.hook(f"rm -rf '{other}'"))
+        self.assertIsNone(self.hook(f'wt="{other}"; rm -rf \'$wt\''))
+        self.assertIsNone(self.hook('wt="unused"; rm -rf "$wt"'))
         self.briefs.remove(self.state, protected)
         self.assertIsNone(self.hook(f"rm -rf '{other}'"))
 

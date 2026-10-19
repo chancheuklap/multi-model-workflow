@@ -204,7 +204,7 @@ def strip_command_prefixes(piece: str) -> str:
         piece = rest
 
 
-def pieces(command: str) -> list[str]:
+def pieces(command: str, strip_prefixes: bool = True) -> list[str]:
     parts = []
     quote = None
     start = offset = 0
@@ -249,7 +249,7 @@ def pieces(command: str) -> list[str]:
                 parts.append(command[start:operator.start()])
                 start = operator.end()
     parts.append(command[start:])
-    return [strip_command_prefixes(piece)
+    return [strip_command_prefixes(piece) if strip_prefixes else piece
             for piece in parts if piece.strip()]
 
 
@@ -339,11 +339,74 @@ def shell_words(piece: str) -> list[str]:
         return []
 
 
-def git_command(piece: str) -> tuple[list[str], Path] | None:
+def expand_shell_variables(piece: str, values: dict[str, str]) -> str:
+    result = []
+    quote = None
+    offset = 0
+    while offset < len(piece):
+        char = piece[offset]
+        if char == "\\" and quote != "'":
+            result.append(piece[offset:offset + 2])
+            offset += 2
+            continue
+        if char == quote:
+            quote = None
+        elif quote is None and char in "\"'":
+            quote = char
+        if char == "$" and quote != "'":
+            match = re.match(r"\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})", piece[offset:])
+            if match:
+                name = match[1] or match[2]
+                value = values.get(name, match[0])
+                result.append(value.replace("\\", "\\\\").replace('"', '\\"')
+                              if quote == '"' else shlex.quote(value))
+                offset += len(match[0])
+                continue
+        result.append(char)
+        offset += 1
+    return "".join(result)
+
+
+def command_contexts(command: str) -> list[tuple[str, str, Path]]:
+    cwd = Path.cwd()
+    values = {**os.environ, "PWD": str(cwd)}
+    commands = []
+    scopes = []
+    for raw in pieces(command, strip_prefixes=False):
+        expanded = expand_shell_variables(raw, values)
+        groups = [match[0] for match in re.finditer(rf"{SHELL_WORD}|[()]", expanded)
+                  if match[0] in ("(", ")")] if "$(" not in raw else []
+        for group in groups:
+            if group == "(":
+                scopes.append((cwd, values.copy()))
+        words = shell_words(expanded)
+        assignments = words[1:] if words[:1] == ["export"] else words
+        if assignments and all(re.match(r"^[A-Za-z_]\w*=", word) for word in assignments):
+            values.update(word.split("=", 1) for word in assignments)
+        else:
+            piece = strip_command_prefixes(expanded)
+            words = shell_words(piece)
+            if words[:1] == ["cd"]:
+                args = [word for word in words[1:] if word not in ("-L", "-P", "--")]
+                target = args[0] if args else values.get("HOME", str(cwd))
+                if target == "-":
+                    target = values.get("OLDPWD", str(cwd))
+                previous = cwd
+                cwd = (cwd / os.path.expanduser(target)).resolve()
+                values.update(OLDPWD=str(previous), PWD=str(cwd))
+            else:
+                commands.append((strip_command_prefixes(raw), piece, cwd))
+        for group in groups:
+            if group == ")" and scopes:
+                cwd, values = scopes.pop()
+    return commands
+
+
+def git_command(piece: str, cwd: Path | None = None) -> tuple[list[str], Path] | None:
     words = shell_words(piece)
     if not words or os.path.basename(words[0]) != "git":
         return None
-    cwd = Path.cwd()
+    cwd = cwd or Path.cwd()
     index = 1
     while index < len(words) and words[index].startswith("-"):
         option = words[index]
@@ -415,7 +478,8 @@ def brief_git_refusal(piece: str) -> str | None:
     return None
 
 
-def removal_paths(piece: str, git: tuple[list[str], Path] | None) -> list[Path]:
+def removal_paths(piece: str, git: tuple[list[str], Path] | None,
+                  cwd: Path | None = None) -> list[Path]:
     if git is not None:
         args, cwd = git
         if args[:2] != ["worktree", "remove"]:
@@ -425,14 +489,14 @@ def removal_paths(piece: str, git: tuple[list[str], Path] | None) -> list[Path]:
         words = shell_words(piece)
         if not words or os.path.basename(words[0]) != "rm":
             return []
-        args, cwd = words[1:], Path.cwd()
+        args, cwd = words[1:], cwd or Path.cwd()
     paths = []
     options = True
     for arg in args:
         if options and arg == "--":
             options = False
-        elif not options or not arg.startswith("-"):
-            paths.append((cwd / os.path.expandvars(os.path.expanduser(arg))).resolve())
+        elif arg and (not options or not arg.startswith("-")):
+            paths.append((cwd / os.path.expanduser(arg)).resolve())
     return paths
 
 
@@ -475,16 +539,16 @@ def run_pretool(event: dict) -> int:
         if leaves_the_agent_lane(command, number):
             refuse(REFUSAL.format(n=number))
             return 0
-    for piece in pieces(command):
-        git = git_command(piece)
-        paths = removal_paths(piece, git)
+    for source, piece, cwd in command_contexts(command):
+        git = git_command(piece, cwd)
+        paths = removal_paths(piece, git, cwd)
         if paths:
-            reason = removal_refusal(piece, paths)
+            reason = removal_refusal(source, paths)
             if reason is not None:
                 refuse(reason)
                 return 0
         if git is not None and git_write(git[0]):
-            reason = brief_git_refusal(piece)
+            reason = brief_git_refusal(source)
             if reason is not None:
                 refuse(reason)
                 return 0
