@@ -54,11 +54,10 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Understand a change or subsystem, explained plainly | `teach` |
 | Have a question investigated against primary sources | `research` |
 | Know what a small diff could break outside itself | `blast-radius` |
-| Settle types and module shape before code that crosses a function boundary | `architect` |
 | Use the shared words for module design: depth, seam, adapter | `codebase-design` |
 | Get several designs of one brief, merged into the best one | `arena` |
 | Run parallel workers over slices or a race, with one report | `swarm` |
-| Answer a design question by building code that answers it | `prototype` |
+| Answer a logic, UI, implementation or code-shape question by building code that answers it | `prototype` |
 | Examine the expert approach, your real goal, constraints and an outside check, with conclusions returned for your decision | `sharpen` |
 | Have a plan stress-tested one question at a time | `grilling` |
 | Settle the project's terms or record a decision | `domain-modeling` |
@@ -92,14 +91,14 @@ Close calls:
 
 - `how` explains what the code does. `why` explains the reasons. `teach` runs one or both and explains the result plainly.
 - `arena` gives every candidate the same brief and merges the best parts. `swarm` splits work into slices or a race and returns one report.
-- `architect` stops at the sketch and hands it back. It writes no implementation.
+- The **prototype** skill's sketch branch stops at the sketch and hands it back. It writes no implementation.
 - `code-review` reviews the diff. `blast-radius` looks for breakage outside the diff and proves the one fact that makes the change safe.
 
 ## Playbooks and principles
 
 Playbooks are step lists inside the **mmw-mode** skill, not skills. Describing the task picks one; the `## Playbooks` of the mode's `references/owning-a-task.md` is the one list of which task goes to which playbook, so read it there rather than answering from memory. Guide page 5 (`mmw-v4/docs/guide/05-build-and-clean.md`), page 6 (`mmw-v4/docs/guide/06-verify-and-ship.md`) and page 7 (`mmw-v4/docs/guide/07-overnight.md`) show how a change is built, delivered as one pull request, and run unattended overnight.
 
-Planning here is a spec and its tickets, because the owner checks those, not code. Grill with docs or a wayfinder map settles the decisions, To spec records them, To tickets cuts the spec into tickets the owner approves. For a design question, the **prototype** skill or `architect` settles it in code first.
+Planning here is a spec and its tickets, because the owner checks those, not code. Grill with docs or a wayfinder map settles the decisions, To spec records them, To tickets cuts the spec into tickets the owner approves. For a design question, the **prototype** skill settles it in code first.
 
 Principles are one-rule skills that the mode indexes in its `## Principles` and cites in its replies. The user rarely invokes one. They steer with the names instead, as in "apply prove it works. show me the real output." Guide page 8 (`mmw-v4/docs/guide/08-principles.md`) lists them.
 

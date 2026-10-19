@@ -15,7 +15,7 @@
    7. Do it cheaper.
 
    When an earlier mantra meets the target, stop. Done when the trace shows where the time goes and which mantra answers it.
-4. **Plan the change** from the trace. If it crosses a function boundary, `architect` first. Done when the change and its target number are planned.
+4. **Plan the change** from the trace. A question of code shape goes to the **prototype** skill's `## Pick a branch` first. Done when the change and its target number are planned.
 5. **Write the ticket.** Fill it in as `../references/ticket.md` `## Opening a ticket` says. **What to build** states the baseline number, the trace evidence, the planned change and the target, and asks for one attempt at a time, each verified before the next (the **sequence-verifiable-units** principle skill). The first acceptance criterion is the benchmark command, vetted with the **benchmark-checklist** skill, printing a line only a run that meets the target prints; the second, the tests the change must keep green. Done when every section below `## Problem` is filled.
 6. **Hand it back.** As `../references/ticket.md` `## Handing it back` says. Done when the owner has said go and One ticket runs, or the ticket is in `needs-triage` or closed.
 

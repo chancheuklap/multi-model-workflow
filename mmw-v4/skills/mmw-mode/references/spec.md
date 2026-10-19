@@ -77,7 +77,7 @@ Links to the first-hand material this spec was built from, one line per kind. Wr
 - Decision tickets (each named by the decision it settled)
 - Upstream specs this one builds on, including an earlier spec the decision tickets cite as their basis
 - ADRs
-- Research files
+- Research answers (the ticket comments that hold them)
 - Prototype directories
 - Domain docs
 - Evidence (measurements, cost runs, real-call records)

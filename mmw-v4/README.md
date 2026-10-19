@@ -48,7 +48,7 @@ The full list of playbooks is the `## Playbooks` section of [`mmw-mode`'s `refer
 
 pstack has none. Its author holds that the best spec is code. MMW departs from that, because its owner does not read code. A spec and its tickets are what the owner can check and accept before agents build from them unattended.
 
-[Grill with docs](./skills/mmw-mode/playbooks/grill-with-docs.md), or a wayfinder map ([Chart the map](./skills/mmw-mode/playbooks/chart-the-map.md), then [Work through the map](./skills/mmw-mode/playbooks/work-through-the-map.md)), settles the decisions. [To spec](./skills/mmw-mode/playbooks/to-spec.md) records them and decides nothing new. [To tickets](./skills/mmw-mode/playbooks/to-tickets.md) cuts them into tickets with acceptance criteria. Design questions are still settled in code first. A prototype answers a question about behaviour, and [`architect`](./skills/architect/SKILL.md) sketches the shape of the code.
+[Grill with docs](./skills/mmw-mode/playbooks/grill-with-docs.md), or a wayfinder map ([Chart the map](./skills/mmw-mode/playbooks/chart-the-map.md), then [Work through the map](./skills/mmw-mode/playbooks/work-through-the-map.md)), settles the decisions. [To spec](./skills/mmw-mode/playbooks/to-spec.md) records them and decides nothing new. [To tickets](./skills/mmw-mode/playbooks/to-tickets.md) cuts them into tickets with acceptance criteria. Design questions are still settled in code first. The [`prototype`](./skills/prototype/SKILL.md) skill answers questions about logic, UI, implementation, and code shape. Its [sketch branch](./skills/prototype/SKETCH.md) settles a shape that reaches beyond one ticket.
 
 ## Skills
 
@@ -63,11 +63,10 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`teach`](./skills/teach/SKILL.md) | Understand a change or subsystem. It runs `how` and `why` and builds one plain explanation, diagram by diagram. |
 | [`research`](./skills/research/SKILL.md) | Investigate a question against primary sources and get the findings as one cited Markdown file. |
 | [`blast-radius`](./skills/blast-radius/SKILL.md) | Find what a small change could break elsewhere, with the facts its safety depends on proven by running code. |
-| [`architect`](./skills/architect/SKILL.md) | Settle types, signatures and module shape from several design angles before implementing. It writes no implementation. |
 | [`codebase-design`](./skills/codebase-design/SKILL.md) | Use the shared vocabulary for deep modules: module, interface, depth, seam, adapter, leverage, locality. |
-| [`arena`](./skills/arena/SKILL.md) | Run several designs of the same task from different angles, pick the strongest as the base, and graft in the best parts of the others. |
+| [`arena`](./skills/arena/SKILL.md) | Send every candidate through one entry, compare designs of the same task from different angles, and graft the best parts onto the selected base. |
 | [`swarm`](./skills/swarm/SKILL.md) | Run several parallel workers on separate slices or on the same brief, then get one aggregated report. |
-| [`prototype`](./skills/prototype/SKILL.md) | Build code that answers one design or behaviour question, kept in the repository under `efforts/<effort>/prototypes/`. |
+| [`prototype`](./skills/prototype/SKILL.md) | Build code that answers one logic, UI, implementation or code-shape question, kept under `efforts/<effort>/prototypes/`, with non-UI verdicts on the ticket. |
 | [`grilling`](./skills/grilling/SKILL.md) | Have a plan or idea stress-tested in rounds of numbered questions, each with a recommended answer. |
 | [`domain-modeling`](./skills/domain-modeling/SKILL.md) | Settle the project's terms and record decisions in the glossary and the ADRs. |
 | [`advisor`](./skills/advisor/SKILL.md) | Get a second opinion on one decision from a session on a stronger model. |

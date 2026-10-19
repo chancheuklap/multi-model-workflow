@@ -51,33 +51,17 @@ When the structural direction is open, default to 3 variants, capped at 5. State
 
 Done when the current question and the directions still open are explicit.
 
-### 2. Generate radically different variants
-
-Use the product's existing components and production-style frontend code. Each variant follows the page's purpose, available data, and styling system, with a clear exported component name. Variants differ in layout, information hierarchy, or primary action, rather than just colour or copy.
-
-For competing directions, use the **arena** skill and the **dispatch** skill's `dispatch.sh send candidate`. Each candidate writes one direction into `candidates/<n>/` within this checkout's leaf directory. Give each its own running instance when Launch's isolation requires it. If the product has no backend stack and the page reads on every request, candidates can share the instance you started. For a simple page, draft the alternatives yourself without arena.
-
-The arena scoring only filters candidates by these three criteria: it runs, every state is reachable, and buttons have interfaces. Use no other scoring criteria, and keep the criteria out of the candidate briefs. The owner chooses the base, not the score. Bring candidate-reported questions that would change the UI alongside the variants for the owner to settle during selection, rather than registering them as separate problems.
-
-Use an **API fake** only for interfaces that do not exist yet. Existing interfaces use the real local backend. When fake sample data references an existing entity, provide those referenced records through the API fake too, so their IDs agree. Take sample data from the environment tools' product-test seed data rather than inventing it, so tests written from the prototype do not fail on different data in the product. Start from that seed data each launch. Keep fake mutations in `sessionStorage`: refresh retains them, a new tab or restart returns to the seed data.
-
-When the product has accounts, use the real login flow and test accounts against the local account service started by the environment tools, not production or development servers. When new permissions do not exist in the backend yet, demonstrate their different UIs through the prototype's own identity switcher. Give the owner state URLs for states that normal actions cannot reach, such as loading or errors. Tests do not use those URLs.
-
-Give every actionable element a role and an accessible name, so e2e can find it by those names.
-
-Done when the variants run, expose every state, and connect each button to a real interface or the API fake.
-
-### 3. Wire them together
+### 2. Wire them together
 
 Keep one prototype in `efforts/<effort>/prototypes/<issue>/UI/`. If an earlier standalone prototype came from elsewhere, move it here and retire that copy. Do not keep synchronizing two copies. If prototype code cannot meet repository lint rules, exclude the prototype directory from lint rather than changing the rules. Implementation rewrites the code to meet them.
 
-The product's own launch command plus one environment variable starts the prototype, including Electron. The mount point renders prototype code only with that variable enabled. Render `winner/` by default. The `?variant=` URL search param lets the owner browse the other variants, rather than enabling the prototype itself.
+The product's own launch command plus one environment variable starts the prototype, including Electron. The mount point renders prototype code only with that variable enabled. Render `winner/` by default, and the product's own page until `winner/` exists. Register one `?variant=` key per candidate directory before the candidates start; a key whose code has not loaded shows a placeholder. The `?variant=` URL search param lets the owner browse the other variants, rather than enabling the prototype itself.
 
 Keep the variants in the leaf directory. The product route or rendering module holds only the mount point importing them. Use a path alias, relative import, or a symlink beside the route when the project cannot import across that boundary. Keep the mount point and any symlink until implementation, not just until selection.
 
 Done when the normal launch command with the environment variable renders the prototype in its final location and the ordinary launch renders the product.
 
-### 4. Build the floating switcher
+### 3. Build the floating switcher
 
 Put one shared switcher under `efforts/<effort>/prototypes/`, beside the leaf directories. Use a small fixed-position bar at the bottom-centre of the screen with:
 
@@ -88,6 +72,16 @@ Put one shared switcher under `efforts/<effort>/prototypes/`, beside the leaf di
 Update `?variant=` through the framework's router so links are shareable and reload-stable. Let the left and right arrow keys cycle too, except when an input, textarea, or contenteditable element has focus. Make the bar visually distinct from the page being judged, and show it only with the prototype environment variable enabled. The winner runs without a variant selection.
 
 Done when the owner can switch variants on the real pages without interfering with text input.
+
+### 4. Generate radically different variants
+
+Write every variant, yours or a candidate's, as `references/ui-variant.md` says.
+
+For competing directions, run the **arena** skill. Each candidate writes one variant into `candidates/<n>/` within this checkout's leaf directory; its `## Task` names `references/ui-variant.md`; the rubric is that file's Done criterion. The owner chooses the base, not the score, and you fuse the selected parts into `winner/`; keep `candidates/<n>/`. Its `## Known` carries its directory and the URL that renders its variant (`?variant=<n>`). Give each its own running instance when Launch's isolation requires it. If the product has no backend stack and the page reads on every request, candidates can share the instance you started. For a simple page, draft the alternatives yourself without arena.
+
+Bring candidate-reported questions that would change the UI alongside the variants for the owner to settle during selection, rather than registering them as separate problems.
+
+Done when every variant meets `references/ui-variant.md`'s Done criterion.
 
 ### 5. Hand it over and iterate
 
@@ -110,7 +104,7 @@ Done when the owner has chosen the direction, the winner reflects the iteration'
 5. The owner says "That's it" on the real page. This is design freeze, the single approval of the prototype. Do not ask them to approve the feature file's sentences too.
 6. Commit that part of the feature file before writing tests. Only the environment tools, mount point, and prototype precede it on the effort branch.
 
-The UI conclusion lives in the feature file, not a leaf `README.md`. Hand back the winner's exact path and the feature file. The interface contract starts from the API fake and is finalized during spec grilling or Feature ticket writing. Once finalized, update the API fake to match it before writing tests.
+The UI conclusion lives in the feature file. Hand back the winner's exact path and the feature file. The interface contract starts from the API fake and is finalized during spec grilling or Feature ticket writing. Once finalized, update the API fake to match it before writing tests.
 
 Keep the mount points until implementation. The final ticket removes them after all slice tickets. For a single ticket, removal is its last commit. In an effort with multiple specs, a later spec's mount points may enter the project branch with an earlier PR and stay until that spec lands. Tests use the same steps and assertions for the normal launch and the launch with the prototype variable. Removing a mount point reveals the product page without changing tests.
 
@@ -118,7 +112,4 @@ Done when the owner has approved the running winner, the feature file's account 
 
 ## Anti-patterns
 
-- **Variants that differ only in colour or copy.** That's a tweak, not a prototype. Real variants disagree about structure.
-- **Sharing too much code between variants.** A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
-- **Replacing existing interfaces with stubs.** Existing interfaces use the real local backend. Missing ones use the API fake, with referenced existing entities supplied by the fake when their IDs must match.
 - **Promoting the prototype directly to production.** Copy the winner's appearance and interaction, and rewrite its code to production standards.

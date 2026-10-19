@@ -177,10 +177,10 @@ That is the whole prompt. The [wait-what](../../skills/wait-what/SKILL.md) skill
 
 ## The pitfalls
 
-- **Listing skills in the prompt.** "Use /how then /architect then /arena" reorders steps the playbook already sequences. State the goal and the check; name a skill only to override a default.
+- **Listing skills in the prompt.** "Use /how then /prototype then /arena" reorders steps the playbook already sequences. State the goal and the check; name a skill only to override a default.
 - **A finish condition that cannot fail.** "Make it better" gives nothing to check. A ticket's `CHECK:` that passes on a broken product is the same mistake in a ticket; To tickets and `verify-ticket.py --lint` exist to catch it.
 - **Leading with your theory of the cause.** The session searches where you pointed. Ask it to restate the problem first, then share your hunch.
-- **Taking the first design.** One attempt locks in the first shape the model thought of. Ask for prototypes or the `architect` skill and pick from evidence.
+- **Taking the first design.** One attempt locks in the first shape the model thought of. Ask for prototypes, including the sketch branch for code shape, and pick from evidence.
 - **Polishing an abstract plan.** Adversarial review of a plan with no code behind it invents risks that never happen. Settle open questions with prototypes, then review what got built.
 - **Running a night on undecided work.** Each worker guesses an open question differently. Settle it with Grill with docs or a map, then publish the tickets.
 - **Handing a ticket to a session to build by hand.** A ticket with acceptance criteria is worked only by a dispatched worker. Given one anywhere else, the session runs the One ticket playbook on it.
