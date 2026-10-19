@@ -44,6 +44,12 @@ class Usage(unittest.TestCase):
         self.assertEqual([line for line in output.splitlines() if ' file ' in line], [
             'claude file skills/how/SKILL.md: 1 sessions',
             'codex file skills/how/SKILL.md: 1 sessions'])
+        self.record(self.claude, 'only-line.jsonl', {'type': 'assistant', 'message': {'content': [
+            {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/x/skills/how/SKILL.md:12'}}]}})
+        output = self.run_usage('mmw-v4/skills/how/SKILL.md')
+        self.assertEqual([line for line in output.splitlines() if ' file ' in line], [
+            'claude file skills/how/SKILL.md: 2 sessions',
+            'codex file skills/how/SKILL.md: 1 sessions'])
 
     def test_trailing_punctuation_is_stripped_before_matching(self):
         for index, suffix in enumerate(('.', ':155,', ':155。', '；', '）', '】', '！', '．')):
@@ -53,6 +59,8 @@ class Usage(unittest.TestCase):
                      'input': {'file_path': '/x/skills/how/SKILL.md' + suffix}}]}})
         self.assertEqual([line for line in self.run_usage().splitlines() if ' file ' in line],
                          ['claude file skills/how/SKILL.md: 8 sessions'])
+        self.assertEqual([line for line in self.run_usage('mmw-v4/skills/how/SKILL.md').splitlines()
+                          if ' file ' in line], ['claude file skills/how/SKILL.md: 8 sessions'])
 
     def test_a_glob_or_variable_path_is_not_counted(self):
         (self.skills / 'how/guide').write_text('guide\n')

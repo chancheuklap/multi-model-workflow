@@ -288,7 +288,8 @@ def main():
         counted = [s for s in sessions.values() if s.invoked or s.reads]
         dates = sorted(s.date for s in counted if s.date)
         print(f'{host} dates: {dates[0] + " to " + dates[-1] if dates else "-"}')
-        counts = Counter(file for session in counted for file in target.existing_files(session.file_reads, args.repo))
+        counts = Counter(file for session in sessions.values()
+                         for file in target.existing_files(session.file_reads, args.repo))
         for file, count in sorted(counts.items()):
             print(f'{host} file {file}: {count} sessions')
     for path, lines in entries.items():
