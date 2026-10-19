@@ -22,7 +22,7 @@ reopens the parent's turn once for each.
 
 Files, under `<state>/briefs/<batch>/`:
 
-    batch.json        role, count, the parent's runner and session, when it was made
+    batch.json        role, count, the parent's runner, session and worktree, when it was made
     batch.lock        taken for every write below it
     <n>/brief.md      the brief the child reads: the parent's file, then how to report
     <n>/started.json  the child's runner, session, host, model, effort, when it started
@@ -46,6 +46,7 @@ import json
 import re
 import secrets
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -149,20 +150,33 @@ def complete(state: Path, batch: str) -> bool:
 def open_children(state: Path) -> list[dict]:
     """Every open brief on this state directory: `batch`, `n`, and its started record."""
     out = []
-    try:
-        batches = sorted(p.name for p in root(state).iterdir() if BATCH_RE.match(p.name))
-    except OSError:
-        return []
-    for batch in batches:
+    for record in open_batches(state):
+        batch = record["batch"]
         for entry in briefs_of(state, batch):
             if entry["state"] == "open":
                 out.append({"batch": batch, "n": entry["n"], **entry["started"]})
     return out
 
 
+def open_batches(state: Path, parent: tuple[str, str] | None = None) -> list[dict]:
+    """Unclosed batch records, optionally belonging to (runner, session), with `batch`."""
+    try:
+        batches = sorted(p.name for p in root(state).iterdir() if BATCH_RE.match(p.name))
+    except OSError:
+        return []
+    out = []
+    for batch in batches:
+        record = batch_record(state, batch)
+        if record is not None and (parent is None or
+                                  (record.get("runner"), record.get("session")) == parent):
+            out.append({**record, "batch": batch})
+    return out
+
+
 # ----------------------------------------------------------------- writing
 
-def create(state: Path, role: str, count: int, runner: str, session: str) -> str:
+def create(state: Path, role: str, count: int, runner: str, session: str,
+           worktree: Path | None = None) -> str:
     """A new batch of `count` briefs of `role` for the parent (runner, session); its name."""
     if count < 1:
         raise Refusal("a batch needs at least one brief")
@@ -177,7 +191,8 @@ def create(state: Path, role: str, count: int, runner: str, session: str) -> str
         for n in range(1, count + 1):
             (directory / str(n)).mkdir(mode=0o700)
         _write(directory / "batch.json", {"role": role, "count": count, "runner": runner,
-                                          "session": session, "at": now_iso()})
+                                          "session": session, "at": now_iso(),
+                                          "worktree": str((worktree or Path.cwd()).resolve())})
         return batch
     raise Refusal(f"could not make a new batch directory under {root(state)}")
 
@@ -323,7 +338,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         state = state_for(args.repo)
         if args.command == "new":
-            print(create(state, args.role, args.count, args.runner, args.session))
+            top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                                 capture_output=True, text=True)
+            if top.returncode != 0 or not top.stdout.strip():
+                raise Refusal("cannot read the sender's worktree; run send from a git worktree")
+            print(create(state, args.role, args.count, args.runner, args.session,
+                         Path(top.stdout.strip())))
         elif args.command == "brief":
             batch, n = parse_brief(args.brief)
             print(write_brief(state, batch, n, Path(args.file), args.footer))
