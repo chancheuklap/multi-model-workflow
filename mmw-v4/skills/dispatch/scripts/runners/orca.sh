@@ -52,9 +52,13 @@
 # is safe; 2 there is no such session (terminal_not_writable, or a complete list without
 # it). The receipt's stages are `result.send.prompt.stages` and its warnings
 # `result.warnings` (Orca 1.4.199, read 2026-09-10 off a real `terminal send --json`).
-# Before typing, send reads terminal.agentIdentity from `terminal show --json`.
+# Each send call mints one UUID and passes it as --retry-request. An error carrying
+# error.data.orchestrationRequestId is replayed once under that same UUID, then the
+# replay's answer decides the exit. An error marked deliveryOutcome "unknown" or
+# retrySafe false exits 4 without replay: the text may already be in the terminal.
+# Before typing, send reads agentIdentity from the handle's `terminal list` row.
 # With an identity, an unsatisfied tui-idle probe or timeout means busy. Without an
-# identity or a readable answer, send types as usual. Orca 1.4.227 reports identities
+# identity, send types as usual. Orca 1.4.227 reports identities
 # for its watched agents but none for a plain shell; tui-idle timeouts alone cannot
 # distinguish the two (checked 2026-10-19).
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. A running process
@@ -78,10 +82,9 @@
 # are malformed. Adapters that do not implement this optional verb answer exit 3.
 #
 # MMW_USES: terminal create --worktree --command --title --json
-# MMW_USES: terminal send --terminal --text --enter --wait-submit --json
+# MMW_USES: terminal send --terminal --text --enter --wait-submit --retry-request --json
 # MMW_USES: terminal wait --terminal --for --timeout-ms --json
 # MMW_USES: terminal read --terminal --json
-# MMW_USES: terminal show --terminal --json
 # MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
 # MMW_USES: worktree set --worktree --issue --parent-worktree --json
@@ -215,7 +218,7 @@ open_url() {
   orca_ tab create --url "$url" --worktree "$worktree" --json >/dev/null
 }
 
-# Prints "connected writable" when list named the handle. Exit 0 found, 1 listed
+# Prints the agent identity when list named the handle. Exit 0 found, 1 listed
 # without that handle, 2 list could not be asked or its answer could not be read.
 list_row() {
   local ident="$1" json
@@ -223,17 +226,12 @@ list_row() {
   printf '%s' "$json" | MMW_IDENT="$ident" python3 -c '
 import json, os, sys
 
-# Exit 0 with "<connected> <writable>" when the handle is listed; 1 when a complete list
+# Exit 0 with the identity, possibly empty, when the handle is listed; 1 when a complete list
 # was read and the handle is not on it; 2 for everything else. Exit 1 is the one answer
 # that becomes "stopped" and "no such session", so only a readable, untruncated list may
 # give it: a handle past a truncated page is not known to be gone. Python exits 1 on an
 # uncaught error, so the whole read sits inside one try.
 want = os.environ["MMW_IDENT"]
-
-def flag(value):
-    if value is None:
-        return "absent"
-    return "true" if value is True or str(value).lower() == "true" else "false"
 
 try:
     payload = json.load(sys.stdin)
@@ -243,7 +241,7 @@ try:
         sys.exit(2)
     for row in rows:
         if isinstance(row, dict) and str(row.get("handle") or "") == want:
-            print("%s %s" % (flag(row.get("connected")), flag(row.get("writable"))))
+            print(str(row.get("agentIdentity") or ""))
             sys.exit(0)
     if result.get("truncated"):
         sys.exit(2)
@@ -278,10 +276,7 @@ if not isinstance(data, dict):
 kind = sys.argv[1]
 result = data.get("result") if isinstance(data.get("result"), dict) else {}
 err = data.get("error") if isinstance(data.get("error"), dict) else {}
-if kind == "agent":
-    terminal = result.get("terminal")
-    print(str(terminal.get("agentIdentity") or "") if isinstance(terminal, dict) else "")
-elif kind == "handle":
+if kind == "handle":
     handle = result.get("handle")
     terminal = result.get("terminal")
     if not handle and isinstance(terminal, dict):
@@ -299,7 +294,15 @@ elif kind == "send":
     warning = " ".join(str(w) for w in warnings) or err.get("message") or ""
     observation = str(prompt.get("observation") or "")
     code = err.get("code") or data.get("code") or ""
-    print("%s\t%s\t%s\t%s" % (code, ",".join(str(s) for s in stages), observation,
+    recovery = err.get("data") if isinstance(err.get("data"), dict) else {}
+    if recovery.get("deliveryOutcome") == "unknown" or recovery.get("retrySafe") is False:
+        recovery_kind = "unknown"
+        warning = err.get("message") or warning
+    elif recovery.get("orchestrationRequestId"):
+        recovery_kind = "replay"
+    else:
+        recovery_kind = ""
+    print("%s\t%s\t%s\t%s\t%s" % (code, ",".join(str(s) for s in stages), observation, recovery_kind,
                                  " ".join(warning.split())))
 elif kind in ("wait", "idle"):
     # A condition that was met is answered under result.wait, and a wait that ran out
@@ -457,8 +460,9 @@ except Exception:
 
 send() {
   local ident="${1:-}" text="${2:-}" rc out code stages observation warning receipt rest
+  local identity request_id attempt recovery
   [ -n "$ident" ] && [ -n "$text" ] || usage
-  list_row "$ident" >/dev/null
+  identity="$(list_row "$ident")"
   rc=$?
   case "$rc" in
     1) exit 2 ;;
@@ -467,8 +471,7 @@ send() {
       exit 3
       ;;
   esac
-  out="$(orca_ terminal show --terminal "$ident" --json 2>&1)" || true
-  if [ -n "$(printf '%s' "$out" | parse_json agent)" ]; then
+  if [ -n "$identity" ]; then
     out="$(orca_ terminal wait --terminal "$ident" --for tui-idle \
           --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true
     if [ "$(printf '%s' "$out" | parse_json idle)" = busy ]; then
@@ -476,19 +479,33 @@ send() {
       exit 3
     fi
   fi
-  out="$(orca_ terminal send --terminal "$ident" --text "$text" --enter \
-        --wait-submit "$SEND_WAIT_S" --json 2>&1)" || true
-  receipt="$(printf '%s' "$out" | parse_json send)" || {
-    echo "runners/orca.sh: terminal send to $ident answered with no receipt this can read; the text may be in the terminal" >&2
-    printf '%s\n' unknown
-    exit 4
+  request_id="$(python3 -c 'import uuid; print(uuid.uuid4())')" || {
+    echo "runners/orca.sh: could not mint a request UUID for $ident; nothing was sent" >&2
+    exit 3
   }
-  code="${receipt%%	*}"
-  rest="${receipt#*	}"
-  stages="${rest%%	*}"
-  rest="${rest#*	}"
-  observation="${rest%%	*}"
-  warning="${rest#*	}"
+  for attempt in 1 2; do
+    out="$(orca_ terminal send --terminal "$ident" --text "$text" --enter \
+          --wait-submit "$SEND_WAIT_S" --retry-request "$request_id" --json 2>&1)" || true
+    receipt="$(printf '%s' "$out" | parse_json send)" || {
+      echo "runners/orca.sh: terminal send to $ident answered with no receipt this can read; the text may be in the terminal" >&2
+      printf '%s\n' unknown
+      exit 4
+    }
+    code="${receipt%%	*}"
+    rest="${receipt#*	}"
+    stages="${rest%%	*}"
+    rest="${rest#*	}"
+    observation="${rest%%	*}"
+    rest="${rest#*	}"
+    recovery="${rest%%	*}"
+    warning="${rest#*	}"
+    if [ "$recovery" = unknown ]; then
+      echo "runners/orca.sh: terminal send to $ident could not confirm delivery; the text may be in the terminal: $warning" >&2
+      printf '%s\n' unknown
+      exit 4
+    fi
+    [ "$attempt" = 1 ] && [ "$recovery" = replay ] || break
+  done
   case "$code" in
     terminal_not_writable|terminal_handle_stale) exit 2 ;;
   esac
