@@ -166,7 +166,7 @@ The rule that while this repository consumes its own landing pipeline, the runti
 _Home_: `AGENTS.md`
 
 **installed checkout**:
-The checkout whose `mmw-v3/` directory `~/.mmw/installed-root` records, and which every host symlink points at; in this repository, the hand-made worktree `.worktrees/mmw-installed`. A watch holds it fixed for its whole duration, under the **self-hosting boundary**.
+The checkout whose `mmw-v4/` directory `~/.mmw/installed-root` records, and which every host symlink points at; in this repository, the hand-made worktree `.worktrees/mmw-installed`. A watch holds it fixed for its whole duration, under the **self-hosting boundary**.
 _Home_: `AGENTS.md`
 
 **the four promotion steps**:
