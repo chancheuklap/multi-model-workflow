@@ -78,6 +78,7 @@ MAP = [
     (DISPATCH + "scripts/relay.py", ["relay"]),
     (DISPATCH + "scripts/briefs.py", ["relay"]),
     (DISPATCH + "scripts/runners/paseo.sh", ["relay"]),
+    (DISPATCH + "scripts/runners/orca.sh", ["relay"]),
     (DISPATCH + "scripts/statedir.py", ["relay", "liveness", "board"]),
     (DISPATCH + "scripts/turn-guard.py", ["liveness", "install"]),
     (DISPATCH + "scripts/watchdog.py", ["liveness"]),
