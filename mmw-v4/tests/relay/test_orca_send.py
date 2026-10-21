@@ -177,6 +177,7 @@ class OrcaSend(unittest.TestCase):
             ({"result": {"send": {"prompt": {"stages": ["turn_started"]}}}}, 0),
             ({"result": {"send": {"prompt": {"stages": ["input_accepted"]}}}}, 4),
             (durable, 3),
+            ({"ok": False, "error": {"code": "runtime_unavailable", "message": "Unavailable."}}, 3),
             ({"ok": False, "error": {"code": "terminal_handle_stale"}}, 2),
             ({"ok": False, "error": {"code": "terminal_not_writable"}}, 2),
             ({"ok": False, "error": {"code": "runtime_error", "data": {
@@ -188,6 +189,9 @@ class OrcaSend(unittest.TestCase):
                 self.assertEqual(result.returncode, code, result.stderr)
                 if code == 4:
                     self.assertEqual(result.stdout.strip(), "unknown")
+                if code == 3:
+                    self.assertIn("delivery is unconfirmed", result.stderr)
+                    self.assertNotIn("nothing was typed", result.stderr)
                 ids = self.request_ids(calls, 2)
                 self.assertEqual(ids[0], ids[1])
                 sends = [call for call in calls if call[:2] == ["terminal", "send"]]

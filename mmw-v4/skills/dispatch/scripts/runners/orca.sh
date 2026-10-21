@@ -47,9 +47,10 @@
 # into the terminal after the program looked idle and no turn start was seen, or Orca
 # could not observe the program (`observation` `unsupported`), or
 # the receipt could not be read after the send: handed over, not confirmed, and not to be
-# typed again; 3 nothing was typed — the program is not idle, the list could not be read,
-# the handle is past a truncated list, or Orca refused the send with an error of its own — so sending again
-# is safe; 2 there is no such session (terminal_not_writable, or a complete list without
+# typed again; 3 the relay may send again because the program is not idle, the list
+# could not be read, the handle is past a truncated list, or Orca refused the send with
+# an error of its own. After a failed replay, delivery remains unconfirmed despite exit 3.
+# Exit 2 means there is no such session (terminal_not_writable, or a complete list without
 # it). The receipt's stages are `result.send.prompt.stages` and its warnings
 # `result.warnings` (Orca 1.4.199, read 2026-09-10 off a real `terminal send --json`).
 # Each send call mints one UUID and passes it as --retry-request. An error carrying
@@ -57,6 +58,8 @@
 # replay's answer decides the exit. An error marked deliveryOutcome "unknown" or
 # retrySafe false exits 4 without replay: the text may already be in the terminal.
 # Before typing, send reads agentIdentity from the handle's `terminal list` row.
+# The recovery fields follow Orca 1.4.235. UUID replay and list-row identity were
+# measured on Orca 1.4.232, 2026-10-21, as recorded in ticket #1211 and its reproduction.
 # With an identity, an unsatisfied tui-idle probe or timeout means busy. Without an
 # identity, send types as usual. Orca 1.4.227 reports identities
 # for its watched agents but none for a plain shell; tui-idle timeouts alone cannot
@@ -522,7 +525,11 @@ send() {
       ;;
   esac
   if [ -n "$code" ]; then
-    echo "runners/orca.sh: Orca refused the send to $ident ($code); nothing was typed: $warning" >&2
+    if [ "$attempt" = 2 ]; then
+      echo "runners/orca.sh: Orca refused the replay to $ident ($code); delivery is unconfirmed: $warning" >&2
+    else
+      echo "runners/orca.sh: Orca refused the send to $ident ($code); nothing was typed: $warning" >&2
+    fi
     exit 3
   fi
   echo "runners/orca.sh: terminal send to $ident answered with no stage this can read; the text may be in the terminal: $warning" >&2
