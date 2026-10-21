@@ -24,7 +24,7 @@ _Home_: `docs/adr/0015-no-custom-subagents.md`, amended by `docs/adr/0050-native
 
 **MMW**:
 This toolbox: the skills the user shares across hosts, repositories and machines, together with the landing pipeline and the task board. Only `mmw-v4/` is live. Earlier generations, retired material, `docs/research/` and `upstream/` are history or read-only, not sources of current facts or scripts to run.
-_Home_: `AGENTS.md`
+_Home_: `mmw-v4/README.md`, `AGENTS.md`
 
 **consuming repository**:
 A repository whose real tickets run through the pipeline. This repository is one too, for one product, the task board, whose code is `mmw-v4/board/`.

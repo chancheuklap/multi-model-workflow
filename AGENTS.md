@@ -37,4 +37,4 @@ When this repository consumes its own landing pipeline, the MMW runtime for the 
 - `.worktrees/mmw-installed` is a hand-made full checkout, not the pipeline's. Never prune it.
 - Edit the user-level prompt in `mmw-v4/prompt/shared.md`. `~/.codex/AGENTS.md` is generated.
 
-Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
+Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full. The task board has `mmw-v4/board/AGENTS.md`.
