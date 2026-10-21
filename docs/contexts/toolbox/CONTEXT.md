@@ -2,7 +2,7 @@
 
 MMW seen as a repository and as an install target: the skills it ships, the upstream subtrees it copies from, where an install puts things on a machine, the prompts and hooks each host reads, and the notes and ADRs that record why. Everything here is about the toolbox as an artifact, not about a run of the pipeline through it.
 
-Vocabulary that belongs to one skill alone, such as the design vocabulary of upstream skills like `codebase-design` or the per-language tool choices, flags and pinned versions in the `mmw-mode` skill's `references/checkers-*.md`, is defined in those files and is not repeated here. Prototype and verification concepts are defined in `docs/contexts/ui-acceptance/CONTEXT.md`; `exe-release`'s own vocabulary is defined in `docs/contexts/release/CONTEXT.md`. The code checkers' and `manage-agents-md`'s own concepts, below, are this context's.
+Vocabulary that belongs to one skill alone, such as the design vocabulary of upstream skills like `codebase-design` or the per-language tool choices, flags and pinned versions in the `mmw-mode` skill's `references/checkers-*.md`, is defined in those files and is not repeated here. Prototype and verification concepts are defined in `docs/contexts/ui-acceptance/CONTEXT.md`; `exe-release`'s own vocabulary is defined in `docs/contexts/release/CONTEXT.md`. The code checkers' own concepts, below, are this context's.
 
 ## Language
 
@@ -23,8 +23,8 @@ _Home_: `docs/adr/0015-no-custom-subagents.md`, amended by `docs/adr/0050-native
 ### Places
 
 **MMW**:
-This toolbox (the toolbox): the skills the user shares across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a dispatched worker → a closed ticket) and the task board. Only `mmw-v3/` is live; `mmw-v2/` and `archive/` (earlier generations), `deprecated/` (what v2 retired) and `docs/research/code-landing-refs/` (read-only snapshots of third-party repositories) are kept for history, and the rest of `docs/research/` holds earlier research notes read for history; a new research answer is a comment on its ticket. `mmw-v2/install.sh` is also the way back from v3 to v2 (ADR 0036).
-_Home_: `AGENTS.md`
+This toolbox: the skills the user shares across hosts, repositories and machines, together with the landing pipeline and the task board. Only `mmw-v4/` is live. Earlier generations, retired material, `docs/research/` and `upstream/` are history or read-only, not sources of current facts or scripts to run.
+_Home_: `mmw-v4/README.md`, `AGENTS.md`
 
 **consuming repository**:
 A repository whose real tickets run through the pipeline. This repository is one too, for one product, the task board, whose code is `mmw-v4/board/`.
@@ -36,7 +36,7 @@ _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **main worktree**:
 The working tree of the repository's own clone, as against the linked worktrees `git worktree add` makes (git-worktree(1): "A repository has one main worktree … and zero or more linked worktrees"). Every worktree the pipeline makes, and this repository's **installed checkout**, sits under its `.worktrees/`. Distinct from the **repository root**, which inside a ticket worktree is that worktree's top level.
-_Home_: `AGENTS.md`
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh`
 
 **subtree**:
 How an upstream repository is carried inside this one, read-only (`git subtree pull --prefix … --squash`): `upstream/mattpocock/` is `mattpocock/skills`, `upstream/pstack/` is pstack from `cursor/plugins`, `upstream/cursor-team-kit/` is `cursor-team-kit/` from the same `cursor/plugins`, `upstream/diagram-design/` is `cathrynlavery/diagram-design`, `upstream/e2e/` is `skills/` from `tester-army/e2e`. A directory of a repository comes in as its `git subtree split`. Nothing runs from a subtree except through the `repo-root` symlink: a file a skill needs is copied into `mmw-v4/skills/`.
@@ -74,6 +74,10 @@ _Home_: `mmw-v4/skills/domain-modeling/GLOSSARY-FORMAT.md`
 **`AGENTS.md`**:
 A repository's agent instruction file, root plus nested ones, which every host loads when a session starts. Claude Code loads it on its own only where no `CLAUDE.md` sits beside it; a `CLAUDE.md` that exists imports it with the line `@AGENTS.md`.
 _Home_: `mmw-v4/skills/writing-for-agents/SKILL.md`
+
+**context pointer**:
+A reference in an agent's context that names material outside that context and the condition for reading it. Its wording, not the file it names, decides when an agent reaches that material.
+_Home_: `mmw-v4/skills/writing-for-agents/SKILL.md` `## Context pointers`
 
 ### The toolbox
 
@@ -215,8 +219,8 @@ The fixed three-part shape every script refusal in this repository takes: what h
 _Home_: `mmw-v4/skills/principle-fail-loudly/SKILL.md`, `mmw-v3/skills/ui-acceptance/scripts/refusal.py`
 
 **shared checks**:
-The three checks in `mmw-v3/tests/lib/` that every `mmw-v3/tests/<name>/run.sh` runs before its own: `check_module_paths.py` (a script names a module file that no longer exists), `check_wiring.py` (a route, a principle line, or a skill, file, script or `dispatch.sh` command a step names is missing), `check_skill_frontmatter.py` (invalid YAML, or a key beyond those `SKILL-SET-RULES.md` allows, on one of this repository's skills).
-_Home_: `TESTING.md`, `AGENTS.md`
+The four checks in `mmw-v4/tests/lib/` that every suite runs before its own tests. Distinct from the suite's tests of one skill or subsystem.
+_Home_: `TESTING.md`
 
 **verify-this**:
 The skill that proves or disproves one claim and returns exactly one of `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE`. Distinct from a **feature map review**.
@@ -369,60 +373,6 @@ _Home_: `mmw-v4/skills/mmw-mode/references/checkers-git-hooks.md`
 **probe**:
 A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits.
 _Home_: `mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md`
-
-### Managing AGENTS.md
-
-**survey list**:
-The one file, `survey-list.md` in the scratch directory, that merges every group's reported facts and the user's later answers; the sole source the writing step of the `Write AGENTS.md` playbook reads from.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md`
-
-**survey entry**:
-One line of the survey list, naming one fact an `AGENTS.md` might carry. Its fields, listed in its `_Home_` and in `mmw-v3/skills/mmw-mode/references/agents-md-survey.md`, decide where the fact goes and whether it is written at all; its `type` is one of `command`, `convention`, `gotcha`, `reference`, `defect` and `purpose` from the survey, or `identity` and `purpose` for the user's answers, and decides which section takes it (a `defect` goes to the report, never into a file).
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md`
-
-**`<important if>` block**:
-An `<important if="...">` block in an `AGENTS.md`, gathering every convention or gotcha entry that shares one `when` value, read only by tasks of that kind.
-_Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
-
-**assignment**:
-The share of the repository one survey group reads, sent in that group's copy of the prompt template: a topic (toolchain, documents, history, patterns) feeding the root file, or everything under one top-level directory. Assignments are split so each fits one session.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md`
-
-**command rule**:
-The `### Writing rules` bullet that keeps a command in an `AGENTS.md` only when `--help` and the manifest's scripts do not give its meaning; on a rewrite every command of the old file passes through it.
-_Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
-
-**recommended answer**:
-The suggested answer the `Write AGENTS.md` playbook puts beside each fixed question to the user, drawn from the survey list, so the user confirms or corrects it instead of composing one from nothing. The term and the pattern are upstream `grilling`'s own.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md`
-
-**nested pair**:
-An `AGENTS.md` and `CLAUDE.md` written for one directory that earned its own file, because an agent working there would break something it would not notice from the root file alone.
-_Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
-
-**situation** (create / rewrite):
-The `Write AGENTS.md` playbook's two entry points, chosen by whether the repository already has an instruction file: create starts from nothing, rewrite migrates what exists.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md`
-
-**`destinations.md`**:
-The rewrite situation's own file: one line per rule or command in an old instruction file, mapping it to where it goes in the new format, to `CODING_STANDARDS.md` or `TESTING.md`, to the user, or to removal with a reason.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md`
-
-**context pointer**:
-An External References row or the subdirectory sentence in an `AGENTS.md`: its wording, not the file it names, decides whether an agent actually reaches that file.
-_Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
-
-**subdirectory sentence**:
-The fixed English sentence telling an agent to read a subdirectory's `AGENTS.md` before working there, kept in English because `check.sh` finds it by its English words regardless of the file's own language.
-_Home_: `mmw-v3/skills/manage-agents-md/SKILL.md`
-
-**`check.sh`**:
-`manage-agents-md`'s mechanical checker of a repository's `AGENTS.md`/`CLAUDE.md` files: line count against its limit, the `CLAUDE.md` pairing, path references, `<important>` tag balance, the subdirectory sentence, a leftover `AGENTS.override.md`.
-_Home_: `mmw-v3/skills/manage-agents-md/scripts/check.sh`
-
-**code and test rules**:
-The class of survey entries describing how code or tests are written; routed to a repository's `CODING_STANDARDS.md` or `TESTING.md` instead of any `AGENTS.md`, because the reviewer's Standards and Tests axes read those two files.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/write-agents-md.md`
 
 ### This repository's additions to upstream skills
 

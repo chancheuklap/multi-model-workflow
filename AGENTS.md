@@ -1,9 +1,18 @@
 # AGENTS.md
 
-MMW is the user's toolbox of skills shared across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a worker dispatched for the night → closed ticket) and a local task board. Personal use, no CI, tests run by hand.
-Only `mmw-v4/` is live. It is built on pstack's layout: every session reads the `mmw-mode` skill, and an agent that owns its task goes on to the skill's `references/owning-a-task.md`, whose `## Playbooks` routes the task to one playbook (ADR 0032). `mmw-v3/`, `mmw-v2/` and `archive/` are earlier generations, `deprecated/` what v2 retired, `mmw-v4/docs/retired-skills/` and `mmw-v4/docs/retired-playbooks/` what v4 retired, `docs/research/code-landing-refs/` read-only snapshots of third-party repositories: read them for history, treat nothing in them as fact, and leave their scripts unrun. `mmw-v3/` stays in use one way: `mmw-v4/install.sh --back` runs its `install.sh` to take the machine back to v3. `upstream/` holds the read-only upstream trees. The rest of `docs/research/` holds earlier research notes, read for history; a new research answer is a comment on its ticket.
-This repository is also a consuming repository of its own pipeline, for one product, the task board, whose code is `mmw-v4/board/`. Tickets about the board run from here.
+Keep a line here only when all three tests hold:
+
+- Reading the code, an ADR, a glossary or a script's header cannot tell an agent, or tells it too late.
+- Getting it wrong is costly or cannot be undone.
+- It is the owner's rule or a fact outside the repository, not an inventory of repository contents, so it stays true as the code changes.
+
+Only `mmw-v4/` is live. `mmw-v3/`, `mmw-v2/`, `archive/`, `deprecated/`, `mmw-v4/docs/retired-skills/`, `mmw-v4/docs/retired-playbooks/`, `docs/research/` and `upstream/` are history or read-only. Treat nothing in them as fact and run none of their scripts.
+
 The skills in this repository are deliverables, not the working instructions of an agent working on it.
+
+This repository consumes its own pipeline for one product, the task board in `mmw-v4/board/`. Tickets about the board run from here. Personal use, no CI, tests run by hand.
+
+Runtime is bash and the `python3` standard library. No package manager, no build step.
 
 ## Self-hosting boundary
 
@@ -14,64 +23,18 @@ When this repository consumes its own landing pipeline, the MMW runtime for the 
 - Tests of the changed MMW run only in isolated test homes against fake trackers, runners and repositories. They prove the product under test; they do not authorize that product to take over the current run. The changed MMW becomes eligible to run only after the old installed MMW has closed the whole watch, the user has accepted the result, `finish` has completed, and the installed checkout is deliberately updated for a later run.
 - If the frozen runtime cannot finish a batch after the product under test changes a protocol, do not bridge the versions by editing events, invoking the new protocol or resuming an agent under new instructions. Keep the old runtime authoritative and report the incompatibility immediately. Suspend or repair the run only through that frozen runtime; record the product defect for a later batch.
 
-## Package Manager
-
-No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; gate-check's tests and the board's need `node`; the board suite installs the Chromium build its Playwright needs when it is absent (network then needed), and Playwright itself is never pinned.
-
-## Commands
-
-| Command | What it does |
-| --- | --- |
-| `bash mmw-v4/install.sh` | The one install entry. Its header comment lists what it installs: every directory under `mmw-v4/skills/` with a `SKILL.md`, symlinked into `~/.agents/skills` and `~/.claude/skills`; the host hooks; the user-level prompt; a launchd task watching it; Paseo's configuration and a default `~/.mmw/models.json` when absent; Orca's `worktree-base-path`; the hosts' subagent depth; the `com.mmw.board` LaunchAgent. It removes every skill link into this repository that `mmw-v4/skills/` has no directory for, those of v3-only skills included, so two versions are never installed together. It leaves the Nowledge Mem Space and Identities, `~/.cursor/mcp.json` and the `~/.zshrc` lines as `mmw-v3/install.sh` installed them, and records this checkout's `mmw-v4/` in `~/.mmw/installed-root` |
-| `bash mmw-v4/install.sh --check` | Read-only: exit 0 when complete, 1 when something is missing or left over. Run from another checkout it hands over to the installed checkout's own `install.sh` and only reports. `dispatch.sh check <spec>` runs it before every night and reports what remains as a warning |
-| `bash mmw-v4/install.sh --back`, run in the installed checkout | Takes the machine back from v4 to v3: removes what v3 cannot recognise, then runs `mmw-v3/install.sh` from the same checkout, whose exit code it returns. Only when no watch is open, and only with the user's authorisation, like `install.sh` |
-| `python3 mmw-v4/prompt/render.py --adopt` | Once per machine: the `AGENTS.md` already at a target is not a generated file, and `render.py` refuses to overwrite it otherwise |
-| `scripts/check` | The one check every ticket passes before it lands. The default tier checks the syntax of the files changed against `MMW_BASE_REF` (else `origin/dev`), runs the shared checks and `lib`, then the suites its map selects for the changed paths; `--all` runs every suite; `--staged` checks the syntax of the staged files. Exit 0 pass, 1 red, 2 the environment cannot run it: a tool missing, a base ref unknown, or a suite that exited 2 because it cannot run here (Chromium will not start). Its header lists the steps; a new test directory goes into its map in the same commit |
-| `bash mmw-v4/prompt/tests/run.sh` | Tests `render.py`; needs only `python3` |
-| `bash mmw-v4/tests/<name>/run.sh` | One suite: `board`, `diagram-design`, `dispatch`, `exe-release`, `install`, `liveness`, `relay`, `setup-mmw`, `verify-ticket`, `worktree-audit`, `writing-for-agents`, and `lib` for the shared checks themselves. There is no aggregate runner; each `run.sh` header names what it tests and what it needs. Every suite first runs the four shared checks in `mmw-v4/tests/lib/`: `check_module_paths.py` (a script names a module file that is gone), `check_wiring.py` (a route, principle line, or a skill, file, script or `dispatch.sh` command a step names is missing), `check_host_neutrality.py` (a path or host-specific instruction that violates the skill set's neutrality rules), `check_skill_frontmatter.py` under `uv run` (invalid YAML, or a key beyond `name`, `description`, `argument-hint` and `disable-model-invocation` on one of this repository's skills); every suite therefore needs `uv` |
-| `bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario>` | One dispatch scenario (about one hundred and eighty; `all` runs them all); `mmw-v4/tests/relay/test_relay.sh` takes the same argument |
-| `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` | Checks that the dispatcher's side and the agent's side of every role meet: start prompts, relay wakes, playbook steps, `RESUME:` titles, `roles.json`. Prints `INTERFACES OK` |
-| `python3 mmw-v4/skills/dispatch/scripts/models.py config show\|set\|runner\|subagent …` | The only way to change `~/.mmw/models.json` (which host, model and reasoning effort each role runs on; subagent rows per host; the selected runner). Takes effect at the next start or subagent dispatch, no restart or reinstall. Usage in `mmw-v4/skills/dispatch/references/editing-models.md` |
-
-## External References
-
-| Need | File |
-| --- | --- |
-| The terms of the landing pipeline and the toolbox, split into bounded contexts; read the map before changing vocabulary | `CONTEXT-MAP.md`, then `docs/contexts/<name>/CONTEXT.md` |
-| ADR shape, the index, the translation table for two earlier numberings | `docs/adr/README.md` |
-| Every `gh` operation of the issue tracker, the three label sets, the wayfinding operations | `mmw-v4/skills/mmw-mode/references/github-issues.md` |
-| The owner's guide to v4, from install to a night of unattended work | `mmw-v4/docs/guide/README.md` |
-| The night, step by step, from `check` and `open` to the pull request | `mmw-v4/skills/mmw-mode/playbooks/run-a-night.md` |
-| How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard. Written against v3's dispatch; v4's started from v2's, and the second file lists what it took out | `docs/contexts/night/how-it-works.md`, `mmw-v4/docs/removed-from-dispatch.md` |
-| What install installs and leaves untouched, and how `--back` works | `mmw-v4/install.sh` header comment, `mmw-v4/README.md` `## Install and go back` |
-| Which prompt file reaches which host by which route, and the generated file's shape | `mmw-v4/prompt/README.md` |
-| Every skill and principle, one line each | `mmw-v4/README.md` `## Skills` and `## Principles` |
-| Any change under `mmw-v4/skills/`, from the owner's words, a registered problem or retrospective proposal, an upstream release or a doubt about the set | `mmw-v4/skills/mmw-mode/playbooks/authoring-a-skill.md` |
-| How to carry a newer upstream version and which MMW intents take its intents | `mmw-v4/skills/writing-for-agents/UPSTREAM.md` |
-| The facts of how this repository's tests run: where they live, how to run them, what is stubbed, how a test reaches a state, traps; the reviewer's Tests axis reads it. Which suites a change needs is the map in `scripts/check` | `TESTING.md` |
-
-## Key Conventions
-
-- Every directory under `mmw-v4/skills/` with a `SKILL.md` is installed; there is no second list. A host's symlink points at the skill's directory in the installed checkout (see Gotchas), so a released edit is live at the next call; only the frontmatter `description` is scanned at host start and needs a new session.
-- A playbook, a principle and a skill are each registered once: a route line in `## Playbooks` of `mmw-mode`'s `references/owning-a-task.md`, a line in `mmw-mode`'s `## Principles`, or the skill's directory. `check_wiring.py` holds the set to it.
-- A skill or playbook v4 no longer uses is moved to `mmw-v4/docs/retired-skills/` or `mmw-v4/docs/retired-playbooks/`, not deleted.
-- Upstream text enters by copy, not by link. `upstream/mattpocock/`, `upstream/pstack/`, `upstream/cursor-team-kit/`, `upstream/diagram-design/` and `upstream/e2e/` are read-only squash subtrees; the commit that copies a file into `mmw-v4/skills/` names the repository that first wrote it, the path there and the commit it was read at, and a later edit says in its own commit message what it changed and why. gate-check under the `verify-ticket` skill came from Leonxlnx/unlazy and is owned here, not pulled again.
-- Every git worktree the pipeline makes sits under the main worktree's `.worktrees/`: `issue-<n>` per ticket, `merge-<branch>` per merge target with one lock each, `fix-<n>` per ticket a playbook opens outside a spec, `map-<n>` per map, on the map's effort branch of the same name, and `baseline-<n>` per ticket's claim-time baseline run, removed after the run; those names belong to the pipeline. This checkout also carries one hand-made worktree, `mmw-installed`, a full checkout.
-- The user-level prompt is edited in `mmw-v4/prompt/shared.md`, read by Claude Code and Codex. `~/.codex/AGENTS.md` is generated, and `render.py` refuses to overwrite a hand edit.
-
 ## Gotchas
 
-- This machine's install is served from the installed checkout `.worktrees/mmw-installed` (recorded in `~/.mmw/installed-root`), and every host symlink points there: an edit to a `SKILL.md` or script in the main worktree reaches no host until it is released. Releasing is the owner's call: a change is committed on `dev` as part of the work, and the three steps after that run only when the owner says to release. The four promotion steps, in this order: commit on `dev`; fast-forward `main` to it (`git push . dev:main`); move the installed checkout to `main` (`git -C .worktrees/mmw-installed checkout --detach main`) and confirm with `bash mmw-v4/install.sh --check`; push both (`git push origin dev main`). The third step waits while any watch is open (Self-hosting boundary). `install.sh` runs only when the user explicitly authorises it; its read-only `--check` is the exception.
-- With Claude Code's Bash sandbox on, the PreToolUse hook `install.sh` registered cannot open the symlink target under `~/.agents/skills` and blocks every command with `can't open file '…/dispatch/scripts/tool-guard.py'`. The file is there; the same command passes with the sandbox off. Leave the install alone.
-- Each Codex hook needs a `trusted_hash` line in `~/.codex/config.toml`; `install.sh` computes it with Codex's own algorithm. When Codex changes the algorithm it prompts "hooks need review" again and `--check` cannot tell.
-- A skill directory is one symlink shared by every repository on the machine: a credential written into any file under its `scripts/<…>` is loaded by every other run.
+- A change reaches no host until it is released. Releasing is the owner's call. The first promotion step is part of the work. The remaining steps run only when the owner says to release. The four promotion steps run in order:
+  1. Commit on `dev`.
+  2. Fast-forward `main` with `git push . dev:main`.
+  3. Move the installed checkout with `git -C .worktrees/mmw-installed checkout --detach main` and confirm with `bash mmw-v4/install.sh --check`. This step waits while any watch is open, under `## Self-hosting boundary`.
+  4. Push both with `git push origin dev main`.
+- Run `install.sh` or `install.sh --back` only with the owner's explicit authorisation. Read-only `install.sh --check` is excepted.
+- With Claude Code's Bash sandbox on, the PreToolUse hook can report `can't open file '…/dispatch/scripts/tool-guard.py'` because it cannot open the skill symlink target. The file is there and the command passes with the sandbox off. Leave the install alone.
+- A credential written under any skill's `scripts/` is loaded by every repository on the machine.
+- Retire unused v4 skills and playbooks by moving them to `mmw-v4/docs/retired-skills/` or `mmw-v4/docs/retired-playbooks/`. Never delete them.
+- `.worktrees/mmw-installed` is a hand-made full checkout, not the pipeline's. Never prune it.
+- Edit the user-level prompt in `mmw-v4/prompt/shared.md`. `~/.codex/AGENTS.md` is generated.
 
-<important if="you are opening a night or working one ticket inside this repository">
-- `dispatch.sh send worker` and `send reviewer` cut the ticket worktree under the main worktree's `.worktrees/` whichever worktree it is run from, so a worker starts its reviewer from its own worktree and both work in the same place.
-</important>
-
-<important if="you are pulling an upstream's new version or editing a file copied from one">
-- Start with `mmw-v4/skills/mmw-mode/playbooks/authoring-a-skill.md`; its **Gather the evidence** step sends an upstream release to the upstream procedure.
-</important>
-
-Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
+Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full. The task board has `mmw-v4/board/AGENTS.md`.
