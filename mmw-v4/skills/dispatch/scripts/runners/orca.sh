@@ -218,8 +218,6 @@ open_url() {
   orca_ tab create --url "$url" --worktree "$worktree" --json >/dev/null
 }
 
-# Prints the agent identity when list named the handle. Exit 0 found, 1 listed
-# without that handle, 2 list could not be asked or its answer could not be read.
 list_row() {
   local ident="$1" json
   json="$(orca_ terminal list --json 2>/dev/null)" || return 2
