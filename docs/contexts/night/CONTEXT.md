@@ -93,7 +93,7 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **landing pipeline**:
 The path from a published spec to landed, closed tickets.
-_Home_: `AGENTS.md`
+_Home_: `mmw-v4/README.md` `## Two ways a change reaches the product`
 
 **dispatch**:
 Turning a ticket into a running session in its worktree with `dispatch.sh start <n> worker|reviewer`. A ticket or session that has been through it is dispatched.
