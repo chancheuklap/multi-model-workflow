@@ -470,6 +470,45 @@ class Commands(unittest.TestCase):
         self.assertEqual(len([c for c in self.fake.rows[76]['comments']
                               if events.parse(c['body'])[1].get('event')=='spec.retroed']),1)
 
+    def test_apply_receipt_marks_an_appended_occurrence(self):
+        self.start_run()
+        REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
+        marker = self.root/'home/installed-root'
+        marker.parent.mkdir(parents=True)
+        marker.write_text(str(self.root))
+        self.fake.rows[91] = issue(91,bodies=[seen()])
+        self.fake.rows[91]['body'] = self.fake.rows[91]['body'].replace('missing-information','old-fault')
+        path = self.answer('candidate')
+        Path(path).write_text(Path(path).read_text().replace('## Problems\nNone',
+            '## Problems\n### old-fault\n问题代号：old-fault\n角度：流程\n'
+            '发生了什么：工具拒绝了正常请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r\n'
+            '### new-fault\n问题代号：new-fault\n角度：流程\n'
+            '发生了什么：工具丢失了请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r\n'
+            '### new-fault-again\n问题代号：new-fault\n角度：流程\n'
+            '发生了什么：工具丢失了请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r'))
+        original = self.fake
+        def fail_receipt(args, **kwargs):
+            if args[:4] == ['gh','issue','comment','76']:
+                return subprocess.CompletedProcess(args,1,'','receipt denied')
+            return original(args, **kwargs)
+        self.fake = fail_receipt
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,1,err)
+        self.fake = original
+        for _ in range(2):
+            rc,out,err = self.run_command('apply',path)
+            self.assertEqual(rc,0,err)
+            receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+            self.assertEqual(receipt['problems'],[
+                dict(repo='o/r',number=90,conclusion='candidate'),
+                dict(repo='o/r',number=91,conclusion='appended'),
+                dict(repo='o/r',number=104,conclusion='registered'),
+                dict(repo='o/r',number=104,conclusion='appended')])
+            self.assertEqual(receipt['registered'],1)
+        self.assertEqual(len(events.fold(self.fake.rows[91]['comments'])['occurrences']),2)
+        self.assertEqual(len([c for c in self.fake.rows[76]['comments']
+                              if events.parse(c['body'])[1].get('event')=='spec.retroed']),1)
+
     def test_apply_refuses_unreadable_evidence_and_keeps_other_rows(self):
         self.start_run()
         self.fake.rows[91] = issue(91)

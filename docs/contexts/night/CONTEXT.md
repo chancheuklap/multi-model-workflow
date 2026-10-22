@@ -398,5 +398,5 @@ The retrospective's command that validates answer rows and evidence, then writes
 _Home_: `mmw-v4/skills/retro/scripts/retro.py` (`apply_answers`)
 
 **retrospective receipt**:
-The `spec.retroed` or `ticket.retroed` event recording counts, proposed issues, recurrence after refusal, landed proposals, and evidence completeness. An unrecorded outcome carries only its reason.
+The `spec.retroed` or `ticket.retroed` event recording counts, proposed issues, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each disposed problem's issue and conclusion. An unrecorded outcome carries only its reason.
 _Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`
