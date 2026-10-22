@@ -599,6 +599,7 @@ def execute_plan(plan,journal):
             if index in plan.get('problems_done',[]):
                 continue
             entry = register_new_problem(directory/f'{fields["问题代号"]}.md',body,fields,context)
+            entry['conclusion'] = 'appended' if existing else 'registered'
             plan.setdefault('registered_problems',[]).append(entry)
             if not existing:
                 context['registered'] += 1

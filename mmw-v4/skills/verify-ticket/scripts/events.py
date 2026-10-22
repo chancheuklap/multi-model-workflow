@@ -328,10 +328,10 @@ def _check(event: str, payload: dict) -> str | None:
                     return f"{where} needs `repo` as owner/repo; correct the receipt writer"
                 if isinstance(number, bool) or not isinstance(number, int) or number < 1:
                     return f"{where} needs a positive integer `number`; correct the receipt writer"
-                if conclusion not in ("propose", "candidate", "reject", "registered") and (
+                if conclusion not in ("propose", "candidate", "reject", "registered", "appended") and (
                         not isinstance(conclusion, str) or not re.fullmatch(
                             r"merge:[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*", conclusion)):
-                    return f"{where} needs conclusion propose, candidate, reject, registered or merge:owner/repo#number; correct the receipt writer"
+                    return f"{where} needs conclusion propose, candidate, reject, registered, appended or merge:owner/repo#number; correct the receipt writer"
             for key in counts:
                 count = payload.get(key)
                 if isinstance(count, bool) or not isinstance(count, int) or count < 0:
