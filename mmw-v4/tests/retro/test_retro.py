@@ -433,6 +433,43 @@ class Commands(unittest.TestCase):
         self.assertEqual(receipt['registered'],0)
         self.assertNotIn('retro_memory',receipt)
 
+    def test_apply_receipt_lists_each_problem(self):
+        self.start_run()
+        REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
+        marker = self.root/'home/installed-root'
+        marker.parent.mkdir(parents=True)
+        marker.write_text(str(self.root))
+        for number in (91, 92, 93, 94):
+            self.fake.rows[number] = issue(number, bodies=[seen(source='owner-correction')])
+        path = self.answer('candidate')
+        Path(path).write_text(Path(path).read_text().replace('## Problems\nNone',
+            '| 91 | reject | 已不成立 | README.md:1 | |\n'
+            '| 92 | merge:94 | 重复 | README.md:1 | |\n'
+            '| 93 | propose | 主人纠正 | README.md:1 | 仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake |\n'
+            '\n## Problems\n### new-fault\n问题代号：new-fault\n角度：流程\n'
+            '发生了什么：工具拒绝了正常请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r'))
+        expected = [dict(repo='o/r', number=90, conclusion='candidate'),
+                    dict(repo='o/r', number=91, conclusion='reject'),
+                    dict(repo='o/r', number=92, conclusion='merge:o/r#94'),
+                    dict(repo='o/r', number=93, conclusion='propose'),
+                    dict(repo='o/r', number=107, conclusion='registered')]
+        original = self.fake
+        def fail_receipt(args, **kwargs):
+            if args[:4] == ['gh','issue','comment','76']:
+                return subprocess.CompletedProcess(args,1,'','receipt denied')
+            return original(args, **kwargs)
+        self.fake = fail_receipt
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,1,err)
+        self.fake = original
+        for _ in range(2):
+            rc,out,err = self.run_command('apply',path)
+            self.assertEqual(rc,0,err)
+            receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+            self.assertEqual(receipt.get('problems'),expected)
+        self.assertEqual(len([c for c in self.fake.rows[76]['comments']
+                              if events.parse(c['body'])[1].get('event')=='spec.retroed']),1)
+
     def test_apply_refuses_unreadable_evidence_and_keeps_other_rows(self):
         self.start_run()
         self.fake.rows[91] = issue(91)
@@ -479,6 +516,8 @@ class Commands(unittest.TestCase):
         rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：mmw/toolbox；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
         self.assertEqual(rc,0,err)
         self.assertEqual(self.fake.rows[99].get('transferred_to'),'mmw/toolbox')
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['problems'], [dict(repo='mmw/toolbox', number=99, conclusion='propose')])
 
     def test_new_problems_are_registered_from_the_answer(self):
         self.start_run()
@@ -555,6 +594,7 @@ sys.exit(result.returncode)
         receipt = events.parse(self.fake.rows[61]['comments'][-1]['body'])[1]
         self.assertEqual(receipt['event'],'ticket.retroed')
         self.assertEqual(receipt['ticket'],61)
+        self.assertEqual(receipt['problems'], [dict(repo=REPO, number=90, conclusion='candidate')])
 
     def test_merging_old_occurrences_does_not_expire_a_recently_seen_target(self):
         self.start_run()

@@ -454,6 +454,13 @@ def register_new_problem(path,body,fields,context):
                 os.environ[key] = value
     if rc:
         raise PartialWrite(f'{path} registration exited {rc}; follow register-problem stderr and rerun')
+    matches = [dict(repo=destination,number=row['number'],conclusion='registered')
+               for destination in dict.fromkeys((repo,register.toolbox_repo()))
+               for row in register.issue_list(destination)
+               if register.problem_fields(row.get('body') or '').get('问题代号') == fields['问题代号']]
+    if len(matches) != 1:
+        raise PartialWrite(f'{path} registration has {len(matches)} matching issues; inspect its problem code and rerun')
+    return matches[0]
 
 
 def prepare_answers(args,context):
@@ -591,7 +598,8 @@ def execute_plan(plan,journal):
         for index,(body,fields,existing) in enumerate(problems):
             if index in plan.get('problems_done',[]):
                 continue
-            register_new_problem(directory/f'{fields["问题代号"]}.md',body,fields,context)
+            entry = register_new_problem(directory/f'{fields["问题代号"]}.md',body,fields,context)
+            plan.setdefault('registered_problems',[]).append(entry)
             if not existing:
                 context['registered'] += 1
             plan.setdefault('problems_done',[]).append(index)
@@ -601,7 +609,16 @@ def execute_plan(plan,journal):
                   candidates=sum(r['conclusion']=='candidate' for r in valid),
                   proposals=[r['target']['number'] for r in valid if r['conclusion']=='propose'])
     unreadable = list(dict.fromkeys(context['unreadable_sources'] + plan['unreadable']))
+    disposed = []
+    for row in valid:
+        conclusion = row['conclusion']
+        if conclusion.startswith('merge:'):
+            target = row['canonical']
+            conclusion = f'merge:{target["repo"]}#{target["number"]}'
+        disposed.append(dict(**row['target'],conclusion=conclusion))
+    disposed.extend(plan.get('registered_problems',[]))
     payload = dict(result='recorded',registered=context['registered'],
+                   problems=disposed,
                    recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
                    evidence='partial' if unreadable else 'complete',unreadable_sources=unreadable,**counts)
     name = 'spec.retroed' if context['spec'] else 'ticket.retroed'
