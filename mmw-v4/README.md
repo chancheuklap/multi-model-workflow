@@ -67,6 +67,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`arena`](./skills/arena/SKILL.md) | Compare designs of the same task from different angles and graft the best parts onto the selected base. |
 | [`swarm`](./skills/swarm/SKILL.md) | Run several parallel workers on separate slices or on the same brief, then get one aggregated report. |
 | [`prototype`](./skills/prototype/SKILL.md) | Build code that answers one logic, UI, implementation or code-shape question, kept under `efforts/<effort>/prototypes/`, with non-UI verdicts on the ticket. |
+| [`wizard`](./skills/wizard/SKILL.md) | Get a bash script that walks a person, stage by stage, through steps only they can take, such as setting up a cloud account or credentials. |
 | [`grilling`](./skills/grilling/SKILL.md) | Have a plan or idea stress-tested in rounds of numbered questions, each with a recommended answer. |
 | [`domain-modeling`](./skills/domain-modeling/SKILL.md) | Settle the project's terms and record decisions in the glossary and the ADRs. |
 | [`advisor`](./skills/advisor/SKILL.md) | Get a second opinion on one decision from a session on a stronger model. |
