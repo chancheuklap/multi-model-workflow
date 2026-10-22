@@ -483,6 +483,8 @@ class Commands(unittest.TestCase):
             '## Problems\n### old-fault\n问题代号：old-fault\n角度：流程\n'
             '发生了什么：工具拒绝了正常请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r\n'
             '### new-fault\n问题代号：new-fault\n角度：流程\n'
+            '发生了什么：工具丢失了请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r\n'
+            '### new-fault-again\n问题代号：new-fault\n角度：流程\n'
             '发生了什么：工具丢失了请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r'))
         original = self.fake
         def fail_receipt(args, **kwargs):
@@ -500,7 +502,8 @@ class Commands(unittest.TestCase):
             self.assertEqual(receipt['problems'],[
                 dict(repo='o/r',number=90,conclusion='candidate'),
                 dict(repo='o/r',number=91,conclusion='appended'),
-                dict(repo='o/r',number=104,conclusion='registered')])
+                dict(repo='o/r',number=104,conclusion='registered'),
+                dict(repo='o/r',number=104,conclusion='appended')])
             self.assertEqual(receipt['registered'],1)
         self.assertEqual(len(events.fold(self.fake.rows[91]['comments'])['occurrences']),2)
         self.assertEqual(len([c for c in self.fake.rows[76]['comments']

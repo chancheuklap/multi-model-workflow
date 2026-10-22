@@ -9,10 +9,12 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import hashlib
+import io
 import json
 import os
 import re
 import sys
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -445,16 +447,23 @@ def register_new_problem(path,body,fields,context):
                 os.environ.pop(key,None)
             else:
                 os.environ[key] = str(value)
-        rc = register.main(['add',str(path),'--repo',repo,'--source','retro-signal'])
+        with redirect_stdout(io.StringIO()) as output:
+            rc = register.main(['add',str(path),'--repo',repo,'--source','retro-signal'])
     finally:
         for key,value in prior.items():
             if value is None:
                 os.environ.pop(key,None)
             else:
                 os.environ[key] = value
+    printed = output.getvalue()
+    print(printed,end='')
     if rc:
         raise PartialWrite(f'{path} registration exited {rc}; follow register-problem stderr and rerun')
-    matches = [dict(repo=destination,number=row['number'],conclusion='registered')
+    action = re.search(r'^(OPENED|APPENDED|REOPENED|ALREADY RECORDED):',printed,re.M)
+    if not action:
+        raise PartialWrite(f'{path} registration printed no known outcome; inspect register-problem output before retrying')
+    conclusion = 'registered' if action[1] == 'OPENED' else 'appended'
+    matches = [dict(repo=destination,number=row['number'],conclusion=conclusion)
                for destination in dict.fromkeys((repo,register.toolbox_repo()))
                for row in register.issue_list(destination)
                if register.problem_fields(row.get('body') or '').get('问题代号') == fields['问题代号']]
@@ -468,14 +477,11 @@ def prepare_answers(args,context):
     for path in args.answers:
         for body,fields in new_problems(path):
             owner = fields['该谁修']
-            repo = register.toolbox_repo() if owner in ('MMW','MMW 仓库') else register.repository(owner)
+            register.repository(register.toolbox_repo() if owner in ('MMW','MMW 仓库') else owner)
             if fields['角度'] not in ('判断','环境','流程','产品') or not re.fullmatch(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*',fields['问题代号']):
                 raise RetroError(f'{path} ## Problems has an invalid code or angle')
             evidence_source(fields['证据'])
-            existing = any(register.problem_fields(r.get('body') or '').get('问题代号')==fields['问题代号']
-                           for destination in dict.fromkeys((repo,register.toolbox_repo()))
-                           for r in register.issue_list(destination))
-            problems.append((body,fields,existing))
+            problems.append((body,fields))
     for path in args.answers:
         for row in answer_rows(path):
             try:
@@ -595,13 +601,12 @@ def execute_plan(plan,journal):
     if problems:
         directory = context_path.parent/'problems'
         directory.mkdir(parents=True,exist_ok=True)
-        for index,(body,fields,existing) in enumerate(problems):
+        for index,(body,fields) in enumerate(problems):
             if index in plan.get('problems_done',[]):
                 continue
             entry = register_new_problem(directory/f'{fields["问题代号"]}.md',body,fields,context)
-            entry['conclusion'] = 'appended' if existing else 'registered'
             plan.setdefault('registered_problems',[]).append(entry)
-            if not existing:
+            if entry['conclusion'] == 'registered':
                 context['registered'] += 1
             plan.setdefault('problems_done',[]).append(index)
             save()
