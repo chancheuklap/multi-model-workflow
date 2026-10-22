@@ -253,6 +253,33 @@ class TheVocabulary(unittest.TestCase):
                     events.build("spec.retroed", ticket=None, spec=76,
                                  line="NIGHT RETRO", **fields)
 
+    def test_retroed_refuses_a_malformed_problem_entry(self):
+        full = dict(result='recorded', registered=0, merged=0, rejected=0,
+                    candidates=0, proposals=[], recurred_after_wontfix=[],
+                    landed_since_last=0, evidence='complete', unreadable_sources=[])
+        for name, context in [('spec.retroed', dict(ticket=None, spec=76)),
+                              ('ticket.retroed', dict(ticket=61, spec=None))]:
+            for entry in ({'number': 90, 'conclusion': 'candidate'},
+                          {'repo': 'o/r', 'conclusion': 'candidate'},
+                          {'repo': 'o/r', 'number': 90},
+                          {'repo': 'r', 'number': 90, 'conclusion': 'candidate'},
+                          {'repo': 'o/r', 'number': True, 'conclusion': 'candidate'},
+                          {'repo': 'o/r', 'number': 90, 'conclusion': 'unknown'},
+                          {'repo': 'o/r', 'number': 90, 'conclusion': 'merge:missing'},
+                          'candidate'):
+                with self.subTest(name=name, entry=entry):
+                    with self.assertRaises(events.EventError) as caught:
+                        events.build(name, line='Retro', problems=[entry], **context, **full)
+                    self.assertIn('problems[0]', str(caught.exception))
+            problems = [dict(repo='o/r', number=90, conclusion=c) for c in
+                        ('candidate', 'propose', 'reject', 'registered', 'merge:o/r#91')]
+            body = events.build(name, line='Retro', problems=problems, **context, **full)
+            self.assertEqual(events.parse(body)[1]['problems'], problems)
+            legacy = events.build(name, line='Retro', **context, **full)
+            state = events.fold([legacy, body])
+            self.assertEqual(state[name.replace('.', '_')]['payload']['problems'], problems)
+            self.assertEqual(events.fold([legacy])['unreadable'], [])
+
     def test_unrecorded_retro_receipts_carry_only_a_concrete_reason(self):
         body = events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
                             result="unrecorded", reason="Nowledge Mem write failed")

@@ -307,7 +307,7 @@ def _check(event: str, payload: dict) -> str | None:
         if event == "spec.retroed" and payload.get("ticket") is not None:
             return "`spec.retroed` is a spec event and its `ticket` must be null"
         counts = ("registered", "merged", "rejected", "candidates", "landed_since_last")
-        success = (*counts, "proposals", "recurred_after_wontfix", "evidence", "unreadable_sources")
+        success = (*counts, "proposals", "problems", "recurred_after_wontfix", "evidence", "unreadable_sources")
         if payload.get("result") == "unrecorded":
             reason = payload.get("reason")
             if not isinstance(reason, str) or not reason.strip():
@@ -316,6 +316,22 @@ def _check(event: str, payload: dict) -> str | None:
             if extra:
                 return f"`{event}` with result `unrecorded` carries fields other than its reason: " + ", ".join(sorted(extra))
         elif payload.get("result") == "recorded":
+            problems = payload.get("problems", [])
+            if not isinstance(problems, list):
+                return f"`{event}` needs `problems` as a list of disposed issues; correct the receipt writer"
+            for index, entry in enumerate(problems):
+                where = f"`{event}` problems[{index}]"
+                if not isinstance(entry, dict):
+                    return f"{where} needs repo, number and conclusion; correct the receipt writer"
+                repo, number, conclusion = (entry.get(k) for k in ("repo", "number", "conclusion"))
+                if not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+", repo):
+                    return f"{where} needs `repo` as owner/repo; correct the receipt writer"
+                if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+                    return f"{where} needs a positive integer `number`; correct the receipt writer"
+                if conclusion not in ("propose", "candidate", "reject", "registered") and (
+                        not isinstance(conclusion, str) or not re.fullmatch(
+                            r"merge:[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*", conclusion)):
+                    return f"{where} needs conclusion propose, candidate, reject, registered or merge:owner/repo#number; correct the receipt writer"
             for key in counts:
                 count = payload.get(key)
                 if isinstance(count, bool) or not isinstance(count, int) or count < 0:
