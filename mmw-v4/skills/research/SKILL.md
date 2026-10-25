@@ -3,7 +3,7 @@ name: research
 description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
-Investigate a question against high-trust primary sources and capture the findings as one Markdown file. The session that briefed you reads it and nothing else of yours, and may post it unchanged on a ticket later sessions read with nothing else of this run: the file stands on its own and names the question it answers.
+Investigate a question against high-trust primary sources and capture the findings as one Markdown file. The session that briefed you reads it and nothing else of yours, and may keep it unchanged where later sessions read it with nothing else of this run: the file stands on its own and names the question it answers.
 
 The brief's question is your whole scope: answer it, and decide nothing it does not ask. Read only. Change no file of the repository but the answer and the files beside it that your brief's closing lines name, and run nothing that changes state but the report command your brief ends with.
 
