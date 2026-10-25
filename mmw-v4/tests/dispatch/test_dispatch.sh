@@ -2893,7 +2893,7 @@ scenario_sendintorefused() {
 }
 
 scenario_sendintoreuse() {
-  local code packet="$TMP/research.txt" dir="efforts/fix-61/research/61-search/" batch failure
+  local code packet="$TMP/research.txt" dir="efforts/fix-61/research/61-search/" batch failure saved
   printf '%s\n' 'Compare the search options.' > "$packet"
   reset_log
   fresh_repo
@@ -2907,16 +2907,20 @@ scenario_sendintoreuse() {
   started_once
   batch="$(newest_batch)"
   [ -n "$batch" ] || fail "reusing an empty directory made no batch"
-  printf '%s\n' 'the original answer' > "$TMP/repo/${dir}brief-1.md"
   mkdir -p "$TMP/repo/${dir}brief-1"
   printf '%s\n' 'the original evidence' > "$TMP/repo/${dir}brief-1/source.txt"
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
-    --follow "the research skill" --into "$dir" "$packet")"
-  [ "$code" = 2 ] || fail "a second batch in the same directory expected 2, got $code"
-  [ "$(count_of "paseo :: run")" = 1 ] || fail "a second batch started a researcher over the kept answer"
+  for saved in evidence answer; do
+    if [ "$saved" = answer ]; then
+      printf '%s\n' 'the original answer' > "$TMP/repo/${dir}brief-1.md"
+    fi
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+      --follow "the research skill" --into "$dir" "$packet")"
+    [ "$code" = 2 ] || fail "a second batch over saved $saved expected 2, got $code"
+    [ "$(count_of "paseo :: run")" = 1 ] || fail "a second batch started over saved $saved"
+    [ "$(cat "$TMP/repo/${dir}brief-1/source.txt")" = 'the original evidence' ] || fail "the kept evidence changed"
+    grep -qF 'new <slug>' "$TMP/err" || fail "the $saved refusal does not name a new slug"
+  done
   [ "$(cat "$TMP/repo/${dir}brief-1.md")" = 'the original answer' ] || fail "the kept answer changed"
-  [ "$(cat "$TMP/repo/${dir}brief-1/source.txt")" = 'the original evidence' ] || fail "the kept evidence changed"
-  grep -qF 'new <slug>' "$TMP/err" || fail "the answer refusal does not name a new slug"
   for failure in run-fail run-fail-after-one; do
     reset_log
     fresh_repo

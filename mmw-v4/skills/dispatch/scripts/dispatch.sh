@@ -1583,14 +1583,14 @@ brief_many() {
   [ -n "$row" ] || refuse "missing $role row in $MODELS_JSON; add it with models.py config set $role <host> <model> <level>, then send again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local cwd repo line parent_runner parent_session batch
+  local cwd repo line parent_runner parent_session batch saved
   cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$cwd" ] \
     || refuse "not inside a git repository, so there is no worktree to start the $role in; run send from a worktree"
   if [ -n "$into" ]; then
-    if compgen -G "$cwd/$into/brief-*.md" >/dev/null; then
-      refuse "research directory $into already holds an answer; send with --into naming a new <slug> so the answer stays unchanged"
-    fi
+    for saved in "$cwd/$into"/brief-*.md "$cwd/$into"/brief-*/; do
+      [ ! -e "$saved" ] || refuse "research directory $into already holds an answer or evidence; send with --into naming a new <slug> so the saved files stay unchanged"
+    done
   fi
   repo="$(repo_slug)" || exit 2
   line="$(own_session)" \
