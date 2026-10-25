@@ -2898,6 +2898,33 @@ scenario_sendintorefused() {
       [ ! -e "$TMP/repo/efforts" ] || fail "a refused send created a directory"
     done
   done
+  local failure parent_state valid="efforts/notes/research/61-search/" send_env
+  for failure in unnamed first-start second-start; do
+    for parent_state in absent existing; do
+      reset_log
+      fresh_repo
+      rm -rf "$STATE_DIR/briefs"
+      [ "$parent_state" = absent ] || mkdir "$TMP/repo/efforts"
+      case "$failure" in
+        unnamed) send_env=(-u TERM_PROGRAM -u HERDR_ENV) ;;
+        first-start) send_env=(PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail) ;;
+        second-start) send_env=(PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail-after-one) ;;
+      esac
+      seed_main_agent agt_main
+      code="$(run_dispatch env "${send_env[@]}" bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+        --follow "the research skill" --into "$valid" "$packet" "$packet")"
+      [ "$code" = 2 ] || fail "$failure expected 2, got $code"
+      nothing_printed
+      [ ! -e "$TMP/repo/$valid" ] || fail "$failure left a question directory"
+      [ -z "$(newest_batch)" ] || fail "$failure left a batch"
+      if [ "$parent_state" = absent ]; then
+        [ ! -e "$TMP/repo/efforts" ] || fail "$failure left newly created parent directories"
+      else
+        [ -d "$TMP/repo/efforts" ] || fail "$failure removed a pre-existing parent"
+        [ ! -e "$TMP/repo/efforts/notes" ] || fail "$failure left newly created child directories"
+      fi
+    done
+  done
   [ "$rc" -ne 0 ] || echo "send researcher on an effort branch without a question directory is refused"
 }
 

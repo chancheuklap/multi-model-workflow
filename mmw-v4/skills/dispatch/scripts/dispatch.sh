@@ -1565,7 +1565,7 @@ close_batch() {
   fi
 }
 
-brief_many() {
+brief_many() (
   local role="$1" follows="$2" into="$3"
   shift 3
   [ "$#" -ge 1 ] || usage
@@ -1589,8 +1589,6 @@ brief_many() {
     || refuse "not inside a git repository, so there is no worktree to start the $role in; run send from a worktree"
   if [ -n "$into" ]; then
     [ ! -e "$cwd/$into" ] || refuse "research directory $into already exists, so another batch could overwrite its answers; send with --into naming an unused question directory"
-    mkdir -p "$cwd/${into%/*}" && mkdir "$cwd/$into" \
-      || refuse "could not reserve $into in $cwd; send with --into naming an unused, writable question directory"
   fi
   repo="$(repo_slug)" || exit 2
   line="$(own_session)" \
@@ -1601,6 +1599,28 @@ brief_many() {
            --runner "$parent_runner" --session "$parent_session")" || exit 2
   open_relay --briefs "$batch" >/dev/null \
     || { python3 "$BRIEFS" forget --repo "$repo" --batch "$batch"; exit 2; }
+
+  local cleanup_path="" existing_parent=""
+  trap '
+    brief_result=$?
+    if [ "$brief_result" -ne 0 ] && [ -n "$cleanup_path" ]; then
+      while [ "$cleanup_path" != "$existing_parent" ]; do
+        if [ -d "$cleanup_path" ]; then
+          rmdir "$cleanup_path" 2>/dev/null || { echo "dispatch: kept $cleanup_path because it could not be removed as an empty directory" >&2; break; }
+        fi
+        cleanup_path="${cleanup_path%/*}"
+      done
+    fi
+    exit "$brief_result"
+  ' EXIT
+  if [ -n "$into" ]; then
+    cleanup_path="$cwd/${into%/*}"
+    existing_parent="$cleanup_path"
+    while [ ! -e "$existing_parent" ]; do existing_parent="${existing_parent%/*}"; done
+    mkdir -p "$cleanup_path" && mkdir "$cwd/$into" \
+      || { close_batch "$batch"; refuse "could not reserve $into in $cwd; send with --into naming an unused, writable question directory"; }
+    cleanup_path="$cwd/$into"
+  fi
 
   local n=0 copy prompt session started=()
   for file in "$@"; do
@@ -1625,7 +1645,7 @@ brief_many() {
   done
   printf '%s\n' "${started[@]}"
   echo "dispatch: brief batch $batch: $# $role sessions on $RUNNER_NAME; the relay wakes $parent_runner session $parent_session with \`brief $batch done\` once every one has reported or is lost" >&2
-}
+)
 
 # `report <batch>/<n> <file>`: the session of that brief hands its answer back.
 report_brief() {
