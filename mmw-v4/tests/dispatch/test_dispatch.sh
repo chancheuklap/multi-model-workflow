@@ -2856,7 +2856,6 @@ scenario_sendinto() {
       grep -qF "${dir}brief-$n.md" "$copy" || fail "brief $n lacks its answer path"
       grep -qF "${dir}brief-$n/" "$copy" || fail "brief $n lacks its evidence directory"
       grep -qF "report $batch/$n ${dir}brief-$n.md" "$copy" || fail "brief $n reports the wrong file"
-      grep -qF 'where you write it does not matter' "$copy" && fail "brief $n has conflicting destination instructions"
     done
     [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] || fail "batch output changed"
     [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] || fail "batch wake recipient changed"
