@@ -78,7 +78,7 @@ Woken by `brief <batch> done`, follow the dispatch skill's `## On waking`. Write
 
 ## Step 5. Present
 
-Check the answer against the code before you use it, then present it to the user. **Do not soften the confidence language**: what is inferred stays inferred. Close the investigators' batch once nothing you still do needs their answers.
+Check the answer against the code before you use it, then present it to the user. Asked by the person rather than by another skill, present it as one page drawn with the **diagram-design** skill: the decisions that shaped the target on a timeline, each marked with its source and confidence tier, and its earlier and current shape side by side, the sections below as the words beside the pictures. Handed back to another skill, it stays text. **Do not soften the confidence language**: what is inferred stays inferred. Close the investigators' batch once nothing you still do needs their answers.
 
 ## Output Format
 
