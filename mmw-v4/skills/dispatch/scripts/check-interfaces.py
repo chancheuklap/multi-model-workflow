@@ -68,7 +68,7 @@ ORCHESTRATOR_PLAYBOOKS = {"Run a night": "`{event}`", "One ticket": "#<n> {event
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`\.?\s*$", re.M)
 WAITED = re.compile(r"#<n> ([a-z]+\.[a-z]+)")
 SENT = re.compile(r"`(?:[^`\n]*dispatch\.sh )?send ([a-z][a-z-]*)")
-FOLLOWED = re.compile(r'`(?:[^`\n]*dispatch\.sh )?send ([a-z][a-z-]*)(?= )( --follow "([^"`]+)")?')
+FOLLOWED = re.compile(r'`(?:[^`\n]*dispatch\.sh )?send ([a-z][a-z-]*)( --follow "([^"`]+)")?')
 FOLLOWS = re.compile(r"^the ([a-z0-9-]+) skill(?:'s (\S+?))?\.?$")
 ROUTING = re.compile(r"^## (?:Find your moment|Reached from here|Next)\n(.*?)(?=^## |\Z)", re.M | re.S)
 
