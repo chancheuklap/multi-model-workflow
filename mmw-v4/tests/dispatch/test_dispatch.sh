@@ -2859,6 +2859,15 @@ scenario_sendinto() {
     done
     [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] || fail "batch output changed"
     [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] || fail "batch wake recipient changed"
+    printf '%s\n' 'the original answer' > "$TMP/repo/${dir}brief-1.md"
+    mkdir -p "$TMP/repo/${dir}brief-1"
+    printf '%s\n' 'the original evidence' > "$TMP/repo/${dir}brief-1/source.txt"
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+      --follow "the research skill" --into "$dir" "$packet")"
+    [ "$code" = 2 ] || fail "a second batch in the same directory expected 2, got $code"
+    [ "$(count_of "paseo :: run")" = 2 ] || fail "a second batch started a researcher over the kept answer"
+    [ "$(cat "$TMP/repo/${dir}brief-1.md")" = 'the original answer' ] || fail "the kept answer changed"
+    [ "$(cat "$TMP/repo/${dir}brief-1/source.txt")" = 'the original evidence' ] || fail "the kept evidence changed"
   done
   [ "$rc" -ne 0 ] || echo "each brief writes into its question directory"
 }

@@ -1588,7 +1588,9 @@ brief_many() {
   [ -n "$cwd" ] \
     || refuse "not inside a git repository, so there is no worktree to start the $role in; run send from a worktree"
   if [ -n "$into" ]; then
-    mkdir -p "$cwd/$into" || refuse "could not create $into in $cwd; fix the directory permissions, then send again"
+    [ ! -e "$cwd/$into" ] || refuse "research directory $into already exists, so another batch could overwrite its answers; send with --into naming an unused question directory"
+    mkdir -p "$cwd/${into%/*}" && mkdir "$cwd/$into" \
+      || refuse "could not reserve $into in $cwd; send with --into naming an unused, writable question directory"
   fi
   repo="$(repo_slug)" || exit 2
   line="$(own_session)" \
