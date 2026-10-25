@@ -2834,30 +2834,33 @@ scenario_briefproblems() {
 }
 
 scenario_sendinto() {
-  local code packet batch copy n dir="efforts/notes-search/research/61-search-options/"
+  local code packet batch copy n branch dir
   packet="$TMP/research.txt"
   printf '%s\n' 'Compare the search options.' > "$packet"
-  reset_log
-  fresh_repo
-  git -C "$TMP/repo" checkout -qb map-61
-  rm -rf "$STATE_DIR/briefs"
-  seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
-    --follow "the research skill" --into "$dir" "$packet" "$packet")"
-  [ "$code" = 0 ] || fail "send into expected 0, got $code: $(cat "$TMP/err")"
-  [ -d "$TMP/repo/$dir" ] || fail "the question directory was not created"
-  [ "$(count_of "paseo :: run")" = 2 ] || fail "expected two researcher sessions"
-  batch="$(newest_batch)"
-  for n in 1 2; do
-    copy="$STATE_DIR/briefs/$batch/$n/brief.md"
-    [ -f "$copy" ] || { fail "brief $n was not created"; continue; }
-    grep -qF "${dir}brief-$n.md" "$copy" || fail "brief $n lacks its answer path"
-    grep -qF "${dir}brief-$n/" "$copy" || fail "brief $n lacks its evidence directory"
-    grep -qF "report $batch/$n ${dir}brief-$n.md" "$copy" || fail "brief $n reports the wrong file"
-    grep -qF 'where you write it does not matter' "$copy" && fail "brief $n has conflicting destination instructions"
+  for branch in map-61 fix-61; do
+    dir="efforts/$branch/research/61-search2-options/"
+    reset_log
+    fresh_repo
+    git -C "$TMP/repo" checkout -qb "$branch"
+    rm -rf "$STATE_DIR/briefs"
+    seed_main_agent agt_main
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+      --follow "the research skill" --into "$dir" "$packet" "$packet")"
+    [ "$code" = 0 ] || fail "send into expected 0, got $code: $(cat "$TMP/err")"
+    [ -d "$TMP/repo/$dir" ] || fail "the question directory was not created"
+    [ "$(count_of "paseo :: run")" = 2 ] || fail "expected two researcher sessions"
+    batch="$(newest_batch)"
+    for n in 1 2; do
+      copy="$STATE_DIR/briefs/$batch/$n/brief.md"
+      [ -f "$copy" ] || { fail "brief $n was not created"; continue; }
+      grep -qF "${dir}brief-$n.md" "$copy" || fail "brief $n lacks its answer path"
+      grep -qF "${dir}brief-$n/" "$copy" || fail "brief $n lacks its evidence directory"
+      grep -qF "report $batch/$n ${dir}brief-$n.md" "$copy" || fail "brief $n reports the wrong file"
+      grep -qF 'where you write it does not matter' "$copy" && fail "brief $n has conflicting destination instructions"
+    done
+    [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] || fail "batch output changed"
+    [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] || fail "batch wake recipient changed"
   done
-  [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] || fail "batch output changed"
-  [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] || fail "batch wake recipient changed"
   [ "$rc" -ne 0 ] || echo "each brief writes into its question directory"
 }
 
@@ -2868,7 +2871,7 @@ scenario_sendintorefused() {
     for dir in '' 'research/61-search' 'efforts/Notes/research/61-search/' \
       'efforts/notes/research/61-Search/' 'efforts/notes/research/issue-61-search/' \
       '/efforts/notes/research/61-search/' 'efforts/notes/research/61-search/../' \
-      'efforts/notes_guide/research/61-search/' 'efforts/notes/research/61-search2/'; do
+      'efforts/notes_guide/research/61-search/' 'efforts/notes/research/61-search--options/'; do
       reset_log
       fresh_repo
       git -C "$TMP/repo" checkout -qb "$branch"

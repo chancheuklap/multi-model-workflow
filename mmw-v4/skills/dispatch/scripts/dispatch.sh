@@ -1712,8 +1712,8 @@ send_one() {
             fi
           fi
           if [ -n "$into" ]; then
-            [[ "$into" =~ ^efforts/[a-z]+(-[a-z]+)*/research/[0-9]+-[a-z]+(-[a-z]+)*/?$ ]] \
-              || refuse "send researcher needs --into efforts/<effort>/research/<ticket number>-<slug>/ with lowercase ASCII words joined by -; got $into; nothing was started"
+            [[ "$into" =~ ^efforts/[a-z0-9]+(-[a-z0-9]+)*/research/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*/?$ ]] \
+              || refuse "send researcher needs --into efforts/<effort>/research/<ticket number>-<slug>/ with lowercase ASCII letters and digits in words joined by -; got $into; nothing was started"
             into="${into%/}"
           fi
           brief_many "$role" "$follows" "$into" "$@" ;;
