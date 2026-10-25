@@ -5,7 +5,7 @@ amends: [0056]
 
 # Effort 内的研究答案原样保存在每个问题的目录，由派出会话提交，票的 resolution comment 指向答案文件
 
-一个 effort 内，每位 researcher 的完整回答原样保存在 `efforts/<effort>/research/<ticket number>-<slug>/brief-<n>.md`，为这份回答制作或保存的来源、图片、数据和脚本放在同目录的 `brief-<n>/`。派出会话用 `send researcher --into` 指定目录，读完回答后在 effort branch 上提交并推送，再关闭 brief batch。只有一位 researcher 时，`brief-1.md` 就是答案；有多位时，派出会话另写 `answer.md`，引用各份回答。研究票的 resolution comment 是答案的 `## Answer` 和答案文件路径。本决定只改写 0056 中研究答案的位置，其余记录仍按 0056 放在票的评论里。
+一个 effort 内，每位 researcher 的完整回答原样保存在 `efforts/<effort>/research/<ticket number>-<slug>/brief-<n>.md`，为这份回答制作或保存的来源、图片、数据和脚本放在同目录的 `brief-<n>/`。派出会话用 `send researcher --into` 指定目录，读完回答后在 effort branch 上提交并推送，再关闭 brief batch。研究票的 resolution comment：一位 researcher 时，是它回答的 `## Answer` 和 `brief-1.md` 的路径；多位时，是派出会话综合各份回答写的 `## Answer` 和每份 `brief-<n>.md` 的路径；没有派 researcher 时，就是答案本身，不建文件。本决定只改写 0056 中研究答案的位置，其余记录仍按 0056 放在票的评论里。
 
 ## 要修的是什么
 
