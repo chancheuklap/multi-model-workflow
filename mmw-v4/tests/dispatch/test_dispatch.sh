@@ -7,7 +7,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce|advancecapbadconfig
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|briefproblems|briefreport|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|sendintoreuse|briefproblems|briefreport|retract
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
@@ -2859,15 +2859,6 @@ scenario_sendinto() {
     done
     [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] || fail "batch output changed"
     [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] || fail "batch wake recipient changed"
-    printf '%s\n' 'the original answer' > "$TMP/repo/${dir}brief-1.md"
-    mkdir -p "$TMP/repo/${dir}brief-1"
-    printf '%s\n' 'the original evidence' > "$TMP/repo/${dir}brief-1/source.txt"
-    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
-      --follow "the research skill" --into "$dir" "$packet")"
-    [ "$code" = 2 ] || fail "a second batch in the same directory expected 2, got $code"
-    [ "$(count_of "paseo :: run")" = 2 ] || fail "a second batch started a researcher over the kept answer"
-    [ "$(cat "$TMP/repo/${dir}brief-1.md")" = 'the original answer' ] || fail "the kept answer changed"
-    [ "$(cat "$TMP/repo/${dir}brief-1/source.txt")" = 'the original evidence' ] || fail "the kept evidence changed"
   done
   [ "$rc" -ne 0 ] || echo "each brief writes into its question directory"
 }
@@ -2898,34 +2889,52 @@ scenario_sendintorefused() {
       [ ! -e "$TMP/repo/efforts" ] || fail "a refused send created a directory"
     done
   done
-  local failure parent_state valid="efforts/notes/research/61-search/" send_env
-  for failure in unnamed first-start second-start; do
-    for parent_state in absent existing; do
-      reset_log
-      fresh_repo
-      rm -rf "$STATE_DIR/briefs"
-      [ "$parent_state" = absent ] || mkdir "$TMP/repo/efforts"
-      case "$failure" in
-        unnamed) send_env=(-u TERM_PROGRAM -u HERDR_ENV) ;;
-        first-start) send_env=(PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail) ;;
-        second-start) send_env=(PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO=run-fail-after-one) ;;
-      esac
-      seed_main_agent agt_main
-      code="$(run_dispatch env "${send_env[@]}" bash "$DISPATCH" "${TOOLS[@]}" send researcher \
-        --follow "the research skill" --into "$valid" "$packet" "$packet")"
-      [ "$code" = 2 ] || fail "$failure expected 2, got $code"
-      nothing_printed
-      [ ! -e "$TMP/repo/$valid" ] || fail "$failure left a question directory"
-      [ -z "$(newest_batch)" ] || fail "$failure left a batch"
-      if [ "$parent_state" = absent ]; then
-        [ ! -e "$TMP/repo/efforts" ] || fail "$failure left newly created parent directories"
-      else
-        [ -d "$TMP/repo/efforts" ] || fail "$failure removed a pre-existing parent"
-        [ ! -e "$TMP/repo/efforts/notes" ] || fail "$failure left newly created child directories"
-      fi
-    done
-  done
   [ "$rc" -ne 0 ] || echo "send researcher on an effort branch without a question directory is refused"
+}
+
+scenario_sendintoreuse() {
+  local code packet="$TMP/research.txt" dir="efforts/fix-61/research/61-search/" batch failure
+  printf '%s\n' 'Compare the search options.' > "$packet"
+  reset_log
+  fresh_repo
+  git -C "$TMP/repo" checkout -qb fix-61
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  mkdir -p "$TMP/repo/$dir"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+    --follow "the research skill" --into "$dir" "$packet")"
+  [ "$code" = 0 ] || fail "an empty question directory expected 0, got $code: $(cat "$TMP/err")"
+  started_once
+  batch="$(newest_batch)"
+  [ -n "$batch" ] || fail "reusing an empty directory made no batch"
+  printf '%s\n' 'the original answer' > "$TMP/repo/${dir}brief-1.md"
+  mkdir -p "$TMP/repo/${dir}brief-1"
+  printf '%s\n' 'the original evidence' > "$TMP/repo/${dir}brief-1/source.txt"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+    --follow "the research skill" --into "$dir" "$packet")"
+  [ "$code" = 2 ] || fail "a second batch in the same directory expected 2, got $code"
+  [ "$(count_of "paseo :: run")" = 1 ] || fail "a second batch started a researcher over the kept answer"
+  [ "$(cat "$TMP/repo/${dir}brief-1.md")" = 'the original answer' ] || fail "the kept answer changed"
+  [ "$(cat "$TMP/repo/${dir}brief-1/source.txt")" = 'the original evidence' ] || fail "the kept evidence changed"
+  grep -qF 'new <slug>' "$TMP/err" || fail "the answer refusal does not name a new slug"
+  for failure in run-fail run-fail-after-one; do
+    reset_log
+    fresh_repo
+    git -C "$TMP/repo" checkout -qb fix-61
+    rm -rf "$STATE_DIR/briefs"
+    seed_main_agent agt_main
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main MMW_FAKE_PASEO_SCENARIO="$failure" \
+      bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" \
+      --into "$dir" "$packet" "$packet")"
+    [ "$code" = 2 ] || fail "$failure expected 2, got $code"
+    nothing_printed
+    [ -d "$TMP/repo/$dir" ] || fail "$failure cleaned up the question directory"
+    [ -z "$(newest_batch)" ] || fail "$failure left a batch"
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+      --follow "the research skill" --into "$dir" "$packet")"
+    [ "$code" = 0 ] || fail "retry after $failure expected 0, got $code: $(cat "$TMP/err")"
+  done
+  [ "$rc" -ne 0 ] || echo "a question directory with an answer is refused and an empty one is reused"
 }
 
 scenario_sendbrief() {
@@ -8942,7 +8951,7 @@ ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproj
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
-ALL="$ALL briefproblems sendinto sendintorefused"
+ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
