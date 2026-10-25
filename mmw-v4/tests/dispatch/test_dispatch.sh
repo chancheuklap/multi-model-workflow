@@ -2853,7 +2853,7 @@ scenario_sendinto() {
     for n in 1 2; do
       copy="$STATE_DIR/briefs/$batch/$n/brief.md"
       [ -f "$copy" ] || { fail "brief $n was not created"; continue; }
-      grep -qF "${dir}brief-$n.md" "$copy" || fail "brief $n lacks its answer path"
+      grep -qF "write your whole answer to ${dir}brief-$n.md" "$copy" || fail "brief $n writes to the wrong answer path"
       grep -qF "${dir}brief-$n/" "$copy" || fail "brief $n lacks its evidence directory"
       grep -qF "report $batch/$n ${dir}brief-$n.md" "$copy" || fail "brief $n reports the wrong file"
     done
