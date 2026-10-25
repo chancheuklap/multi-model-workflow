@@ -211,8 +211,8 @@ An architecture decision record in `docs/adr/`, named `0001-slug.md`. `docs/adr/
 _Home_: `docs/adr/README.md`
 
 **research file**:
-The Markdown file, citing each claim's source, that a researcher reports as its answer. A map's research ticket keeps its answer unchanged as its resolution comment.
-_Home_: `mmw-v3/skills/research/SKILL.md`
+The Markdown file, citing each claim's source, that a researcher reports as its answer. Inside an effort, the unchanged file lives in the question's directory `efforts/<effort>/research/<ticket number>-<slug>/`; a research ticket's resolution comment points at the answer file.
+_Home_: `mmw-v4/skills/research/SKILL.md`, `mmw-v4/skills/mmw-mode/references/wayfinder.md` `## Ticket Types`, `docs/adr/0058-research-answers-live-in-the-effort-directory.md`
 
 **refusal**:
 The fixed three-part shape every script refusal in this repository takes: what happened, with one checkable fact; why; what to do next. A check that can verify nothing says so rather than reading like a pass.

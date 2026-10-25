@@ -3,9 +3,9 @@ name: research
 description: Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.
 ---
 
-Investigate a question against high-trust primary sources and capture the findings as one Markdown file. The session that briefed you reads it and nothing else of yours, and may post it unchanged on a ticket later sessions read with nothing else of this run: the file stands on its own and names the question it answers.
+Investigate a question against high-trust primary sources and capture the findings as one Markdown file. The session that briefed you reads it and nothing else of yours, and may keep it unchanged where later sessions read it with nothing else of this run: the file stands on its own and names the question it answers.
 
-The brief's question is your whole scope: answer it, and decide nothing it does not ask. Read only. Change no file of the repository, and run nothing that changes state but the report command your brief ends with.
+The brief's question is your whole scope: answer it, and decide nothing it does not ask. Read only. Change no file of the repository but the answer and the files beside it that your brief's closing lines name, and run nothing that changes state but the report command your brief ends with.
 
 | Your start prompt has you follow | Work by |
 | --- | --- |
@@ -14,7 +14,7 @@ The brief's question is your whole scope: answer it, and decide nothing it does 
 | this skill | the steps below |
 
 1. Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them. Follow every claim back to the source that owns it.
-2. Write the findings to a single Markdown file in the operating system's temporary directory, citing each claim's source. Open it with `## Answer`: at most three sentences a reader can act on.
+2. Write the findings to a single Markdown file, citing each claim's source: at the path your brief's closing lines name, with every file you made or saved for it in the directory they name beside it; with no such path, in the operating system's temporary directory. Open it with `## Answer`: at most three sentences a reader can act on.
 3. A brief that ends with a report command takes this file as your answer: report it. With no brief, say where the file is.
 
 Done when the report command has printed `reported brief …`, or, with no brief, you have said where the file is.
