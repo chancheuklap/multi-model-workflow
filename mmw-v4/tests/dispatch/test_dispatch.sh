@@ -7,7 +7,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce|advancecapbadconfig
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|briefproblems|briefreport|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|briefproblems|briefreport|retract
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
@@ -2831,6 +2831,63 @@ scenario_briefproblems() {
   copy="$STATE_DIR/briefs/$batch/1/brief.md"
   grep -q '## Problems' "$copy" || fail "the brief copy does not ask for a Problems section"
   [ "$rc" -ne 0 ] || echo 'the brief asks for a Problems section'
+}
+
+scenario_sendinto() {
+  local code packet batch copy n dir="efforts/notes-search/research/61-search-options/"
+  packet="$TMP/research.txt"
+  printf '%s\n' 'Compare the search options.' > "$packet"
+  reset_log
+  fresh_repo
+  git -C "$TMP/repo" checkout -qb map-61
+  rm -rf "$STATE_DIR/briefs"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+    --follow "the research skill" --into "$dir" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send into expected 0, got $code: $(cat "$TMP/err")"
+  [ -d "$TMP/repo/$dir" ] || fail "the question directory was not created"
+  [ "$(count_of "paseo :: run")" = 2 ] || fail "expected two researcher sessions"
+  batch="$(newest_batch)"
+  for n in 1 2; do
+    copy="$STATE_DIR/briefs/$batch/$n/brief.md"
+    [ -f "$copy" ] || { fail "brief $n was not created"; continue; }
+    grep -qF "${dir}brief-$n.md" "$copy" || fail "brief $n lacks its answer path"
+    grep -qF "${dir}brief-$n/" "$copy" || fail "brief $n lacks its evidence directory"
+    grep -qF "report $batch/$n ${dir}brief-$n.md" "$copy" || fail "brief $n reports the wrong file"
+    grep -qF 'where you write it does not matter' "$copy" && fail "brief $n has conflicting destination instructions"
+  done
+  [ "$(cut -f1 "$TMP/out" | tr '\n' ' ')" = "$batch/1 $batch/2 " ] || fail "batch output changed"
+  [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] || fail "batch wake recipient changed"
+  [ "$rc" -ne 0 ] || echo "each brief writes into its question directory"
+}
+
+scenario_sendintorefused() {
+  local branch dir code packet="$TMP/research.txt"
+  printf '%s\n' 'Compare the search options.' > "$packet"
+  for branch in map-61 fix-61; do
+    for dir in '' 'research/61-search' 'efforts/Notes/research/61-search/' \
+      'efforts/notes/research/61-Search/' 'efforts/notes/research/issue-61-search/' \
+      '/efforts/notes/research/61-search/' 'efforts/notes/research/61-search/../' \
+      'efforts/notes_guide/research/61-search/' 'efforts/notes/research/61-search2/'; do
+      reset_log
+      fresh_repo
+      git -C "$TMP/repo" checkout -qb "$branch"
+      rm -rf "$STATE_DIR/briefs"
+      seed_main_agent agt_main
+      local flags=()
+      [ -z "$dir" ] || flags=(--into "$dir")
+      code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher \
+        --follow "the research skill" ${flags[@]+"${flags[@]}"} "$packet")"
+      [ "$code" = 2 ] || fail "$branch with destination '$dir' expected 2, got $code"
+      grep -qF -- '--into efforts/<effort>/research/<ticket number>-<slug>/' "$TMP/err" \
+        || fail "refusal lacks the required directory shape: $(cat "$TMP/err")"
+      never_ran
+      nothing_printed
+      [ -z "$(newest_batch)" ] || fail "a refused send created a batch"
+      [ ! -e "$TMP/repo/efforts" ] || fail "a refused send created a directory"
+    done
+  done
+  [ "$rc" -ne 0 ] || echo "send researcher on an effort branch without a question directory is refused"
 }
 
 scenario_sendbrief() {
@@ -8847,7 +8904,7 @@ ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproj
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
-ALL="$ALL briefproblems"
+ALL="$ALL briefproblems sendinto sendintorefused"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

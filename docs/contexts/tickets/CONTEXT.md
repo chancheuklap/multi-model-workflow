@@ -115,7 +115,7 @@ The sources the ticket's spec subsections cite, each read to its conclusion befo
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **baseline**:
-An item under `## Read first` that records a settled conclusion — a decision ticket's resolution, an ADR's decision, a research answer's resolution comment, a prototype's chosen artifact and verdict comment — which the worker follows rather than consults. In the configuration-management sense (IEEE Std 610.12), it is a reviewed and agreed item that further work builds on and that changes only through change control, which here is a `contract` child.
+An item under `## Read first` that records a settled conclusion — a decision ticket's resolution, an ADR's decision, a research answer's file in its question's directory linked by the resolution comment, a prototype's chosen artifact and verdict comment — which the worker follows rather than consults. In the configuration-management sense (IEEE Std 610.12), it is a reviewed and agreed item that further work builds on and that changes only through change control, which here is a `contract` child.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`## Seam`**:

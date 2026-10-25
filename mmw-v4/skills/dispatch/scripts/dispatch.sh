@@ -3,7 +3,7 @@
 # Send a session to work, move a spec's batch forward, or report on one.
 #
 #   dispatch.sh send worker|reviewer <n>
-#   dispatch.sh send <role> --follow "<what it follows>" <brief file>...
+#   dispatch.sh send <role> --follow "<what it follows>" [--into <dir>] <brief file>...
 #   dispatch.sh report <batch>/<n> <file>
 #   dispatch.sh brief show|close <batch>
 #   dispatch.sh ack <n> <event> | brief <batch>
@@ -396,7 +396,7 @@ post_event() {
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh send worker|reviewer <n>
-       dispatch.sh send <role> --follow "<what it follows>" <brief file>...
+       dispatch.sh send <role> --follow "<what it follows>" [--into <dir>] <brief file>...
        dispatch.sh report <batch>/<n> <file>
        dispatch.sh brief show|close <batch>
        dispatch.sh ack <n> <event> | brief <batch>
@@ -1526,14 +1526,20 @@ start_one() {
 # `<batch>/<n><TAB><session>`. A start the runner refuses is refused once, and every
 # session already started for the batch is stopped and the batch removed.
 brief_footer() {
+  local brief="$1" into="$2" answer="<file>"
+  [ -z "$into" ] || answer="$into/brief-${brief##*/}.md"
   printf '%s\n' "---" \
     "This brief is $1. \`## Task\` is the question you answer; \`## Known\` is what the session that sent you already has, so start from it and do not redo it; \`## For\` is what your answer will be used for. The session that sent you waits for your answer and sees nothing else of yours." \
     "End your answer with \`## Problems\`. List each problem you encountered that you cannot fix in this work, using the register-problem skill's six fields. Write \`None\` when there are no problems. You do not register them yourself." \
-    "When you are done, write your whole answer to one file and run:" \
+    "When you are done, write your whole answer to $answer and run:" \
     "" \
-    "bash $SELF report $1 <file>" \
-    "" \
-    "Then end your turn. The file is copied out when you report, so where you write it does not matter."
+    "bash $SELF report $brief $answer" \
+    ""
+  if [ -n "$into" ]; then
+    printf '%s\n' "Put every file you made or saved for this answer (saved sources, images, data, scripts) under $into/brief-${brief##*/}/. Then end your turn."
+  else
+    printf '%s\n' "Then end your turn. The file is copied out when you report, so where you write it does not matter."
+  fi
 }
 
 # Stop every session `brief <batch>` started and close the batch's watch, which removes
@@ -1560,8 +1566,8 @@ close_batch() {
 }
 
 brief_many() {
-  local role="$1" follows="$2"
-  shift 2
+  local role="$1" follows="$2" into="$3"
+  shift 3
   [ "$#" -ge 1 ] || usage
   local file
   for file in "$@"; do
@@ -1581,6 +1587,9 @@ brief_many() {
   cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$cwd" ] \
     || refuse "not inside a git repository, so there is no worktree to start the $role in; run send from a worktree"
+  if [ -n "$into" ]; then
+    mkdir -p "$cwd/$into" || refuse "could not create $into in $cwd; fix the directory permissions, then send again"
+  fi
   repo="$(repo_slug)" || exit 2
   line="$(own_session)" \
     || refuse "nothing could wake this session with the results, so no $role was started"
@@ -1595,7 +1604,7 @@ brief_many() {
   for file in "$@"; do
     n=$((n + 1))
     copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
-            --footer "$(brief_footer "$batch/$n")")" \
+            --footer "$(brief_footer "$batch/$n" "$into")")" \
       || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
     prompt="Dispatched: $role, brief $copy. $READ_MODE $follows. $WHOLE_TASK"
     # Herdr's session id is basename(cwd) plus the title's last word, so the last word
@@ -1668,7 +1677,7 @@ print(" ".join(r["name"] for r in roles if r.get("sent_with") == "brief"))
 #                       the file the sending step has it work by, written into its prompt
 # A night's workers are started by `advance`, on the night's own watch.
 send_one() {
-  local role="${1:-}" roles
+  local role="${1:-}" roles follows="" into="" branch
   [ "$#" -ge 2 ] || usage
   shift
   case "$role" in
@@ -1682,9 +1691,32 @@ send_one() {
       roles="$(brief_roles)" || refuse "could not read the roles at $ROLES_JSON"
       case " $roles " in
         *" $role "*)
-          [ "${1:-}" = --follow ] && [ -n "${2:-}" ] && [ "$#" -ge 3 ] \
+          while [ "$#" -gt 0 ]; do
+            case "$1" in
+              --follow)
+                [ -n "${2:-}" ] || refuse "send $role needs a value after --follow; nothing was started"
+                follows="$2"; shift 2 ;;
+              --into)
+                [ "$role" = researcher ] || refuse "--into is for send researcher only; nothing was started"
+                [ -n "${2:-}" ] || refuse "send researcher needs --into efforts/<effort>/research/<ticket number>-<slug>/; nothing was started"
+                into="$2"; shift 2 ;;
+              *) break ;;
+            esac
+          done
+          [ -n "$follows" ] && [ "$#" -ge 1 ] \
             || refuse "send $role takes --follow \"<what it follows>\" before its brief files, the file the sending step has it work by, such as \"the research skill\"; nothing was started"
-          brief_many "$role" "$2" "${@:3}" ;;
+          if [ "$role" = researcher ] && [ -z "$into" ]; then
+            branch="$(git symbolic-ref --quiet --short HEAD)" || branch=""
+            if [[ "$branch" =~ ^(map|fix)-[0-9]+$ ]]; then
+              refuse "send researcher on effort branch $branch needs --into efforts/<effort>/research/<ticket number>-<slug>/ so its answer is kept; nothing was started"
+            fi
+          fi
+          if [ -n "$into" ]; then
+            [[ "$into" =~ ^efforts/[a-z]+(-[a-z]+)*/research/[0-9]+-[a-z]+(-[a-z]+)*/?$ ]] \
+              || refuse "send researcher needs --into efforts/<effort>/research/<ticket number>-<slug>/ with lowercase ASCII words joined by -; got $into; nothing was started"
+            into="${into%/}"
+          fi
+          brief_many "$role" "$follows" "$into" "$@" ;;
         *) refuse "$role is not a role send starts; the roles are worker, reviewer and $roles (roles.json)" ;;
       esac
       ;;
