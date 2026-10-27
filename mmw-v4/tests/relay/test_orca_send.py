@@ -79,11 +79,12 @@ class OrcaSend(unittest.TestCase):
 
     def test_send_to_codex_mid_turn_is_delivered(self):
         probe = json.dumps({"result": {"wait": {"satisfied": False, "status": "running"}}})
-        result, calls = self.send(probe, ["input_accepted", "turn_started"],
-                                  identity={"agentIdentity": "codex"})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assert_sent(calls)
-        self.assertFalse(any(call[:2] == ["terminal", "wait"] for call in calls))
+        for stages in [["input_accepted"], ["input_accepted", "turn_started"]]:
+            with self.subTest(stages=stages):
+                result, calls = self.send(probe, stages, identity={"agentIdentity": "codex"})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assert_sent(calls)
+                self.assertFalse(any(call[:2] == ["terminal", "wait"] for call in calls))
 
     def assert_sent(self, calls):
         sends = [call for call in calls if call[:2] == ["terminal", "send"]]

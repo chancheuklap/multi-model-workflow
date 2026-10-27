@@ -49,11 +49,12 @@
 # A host started with a model it does not know does not exit (Claude and Codex show
 # the error on screen and wait), so this wait cannot catch a bad model; the model has to
 # be checked against the host's catalog before `start`.
-# send: exit 0 the text was delivered (input_accepted and turn_started); 4 the text went
-# into the terminal after the program looked idle and no turn start was seen, or Orca
+# send: exit 0 Orca reported turn_started, or input_accepted for Codex, which can
+# receive text mid-turn. Exit 4 the text went into a non-Codex terminal and no turn
+# start was seen, or Orca
 # could not observe the program (`observation` `unsupported`), or
 # the receipt could not be read after the send: handed over, not confirmed, and not to be
-# typed again; 3 the relay may send again because the program is not idle, the list
+# typed again; 3 the relay may send again because a non-Codex program is not idle, the list
 # could not be read, the handle is past a truncated list, or Orca refused the send with
 # an error of its own. After a failed replay, delivery remains unconfirmed despite exit 3.
 # Exit 2 means there is no such session (terminal_not_writable, or a complete list without
@@ -576,10 +577,11 @@ send() {
   esac
   case ",$stages," in
     *,input_accepted,*)
+      [ "$identity" = codex ] && exit 0
       if [ "$observation" = unsupported ]; then
         echo "runners/orca.sh: $ident took the text, and Orca cannot observe the program in it, so whether a turn started is not known: $warning" >&2
       else
-        echo "runners/orca.sh: $ident took the text and no turn start was seen; the idle probe did not report a busy program: $warning" >&2
+        echo "runners/orca.sh: $ident took the text and no turn start was seen: $warning" >&2
       fi
       printf '%s\n' unknown
       exit 4
