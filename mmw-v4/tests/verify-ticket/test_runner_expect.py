@@ -1,7 +1,6 @@
 import io
 import json
 import subprocess
-import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -45,20 +44,16 @@ def ticket(check, expect):
 
 
 def lint(body, draft=False):
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp)
-        (path / 'T1.md').write_text('TITLE: Runner contract\n'
-                                  'LABELS: mmw:ticket, ready-for-agent, junior-worker\n'
-                                  'BLOCKED BY: (none)\n---\n' + body)
-        with mock.patch.object(vt, 'fetch_body', side_effect=lambda n: body if n == 77 else
-                               '## Implementation Decisions\n\n### 1. Runners\n\nRules\n'), \
-             mock.patch.object(vt, 'fetch_ticket', return_value={
-                 'labels': [{'name': name} for name in LABELS]}), \
-             mock.patch.object(vt, 'fetch_parent', return_value=None), \
-             mock.patch.object(vt, 'fetch_sub_issues', return_value=[77]), \
-             mock.patch.object(vt, 'fetch_blocked_by', return_value=[]), \
-             redirect_stdout(io.StringIO()) as out:
-            code = vt.main(['555', '--lint', '--drafts', tmp] if draft else ['77', '--lint'])
+    with mock.patch.object(vt, 'fetch_body', side_effect=lambda n: body if n == 77 else
+                           '## Implementation Decisions\n\n### 1. Runners\n\nRules\n'), \
+         mock.patch.object(vt, 'fetch_ticket', return_value={
+             'labels': [{'name': name} for name in LABELS]}), \
+         mock.patch.object(vt, 'fetch_parent', return_value=None), \
+         mock.patch.object(vt, 'fetch_sub_issues', return_value=[77]), \
+         mock.patch.object(vt, 'fetch_blocked_by', return_value=[]), \
+         redirect_stdout(io.StringIO()) as out:
+        code = (vt.lint_criteria(0, body, LABELS, spec=555, name='T1') if draft
+                else vt.main(['77', '--lint']))
     return code, out.getvalue()
 
 

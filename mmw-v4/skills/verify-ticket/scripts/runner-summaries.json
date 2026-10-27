@@ -1,6 +1,7 @@
 {
   "pytest": {
     "expect": "/^(?:=+ )?(?=[^\\r\\n]*\\d+ (?:passed|xfailed|xpassed))\\d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed)(?:, \\d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed))* in [0-9.]+s(?: \\(\\d+:\\d{2}:\\d{2}\\))?(?: =+)?$/m",
+    "summary_pattern": "^(?:=+ )?(?:\\d+ (?:passed|failed|errors?|skipped|deselected|warnings?|xfailed|xpassed|subtests passed)(?:, \\d+ (?:passed|failed|errors?|skipped|deselected|warnings?|xfailed|xpassed|subtests passed))*|no tests ran) in [0-9.]+s(?: \\(\\d+:\\d{2}:\\d{2}\\))?(?: =+)?$",
     "samples": [
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k 'pass or warning or xfail or xpass'",
@@ -239,6 +240,7 @@
   },
   "vitest": {
     "expect": "/^[ \\t]*Tests[ \\t]+\\d+ (?:passed|skipped|todo)(?:[ \\t]+\\|[ \\t]+\\d+ (?:passed|skipped|todo))*[ \\t]+\\(\\d+\\)[ \\t]*$/m",
+    "summary_pattern": "^[ \\t]*(?:(?:Tests|Test Files)[ \\t]+\\d+ (?:passed|failed|skipped|todo)(?:[ \\t]+\\|[ \\t]+\\d+ (?:passed|failed|skipped|todo))*[ \\t]+\\(\\d+\\)|No test files found, exiting with code \\d+)[ \\t]*$",
     "samples": [
       {
         "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals cases.test.js",
