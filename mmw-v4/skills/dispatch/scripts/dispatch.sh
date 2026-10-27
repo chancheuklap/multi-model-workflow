@@ -390,7 +390,7 @@ post_event() {
   local issue="$1" body
   shift
   body="$(python3 "$EVENTS" emit "$@")" || return 2
-  gh_ issue comment "$issue" --body "$body" >/dev/null 2>&1 || return 1
+  gh_ issue comment "$issue" --body "$body" >/dev/null || return 1
 }
 
 usage() {
