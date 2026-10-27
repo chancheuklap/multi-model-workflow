@@ -10,10 +10,11 @@ guard's own_brief and is_main predicates, without arming a watchdog or writing s
 
 A hit maps the phrase to its replacement instruction. Pointer phrases call for the content
 itself in place. Chinese _Avoid_ wordings call for the entry's name. MMW's own
-docs/contexts/*/CONTEXT.md files load first, then every CONTEXT.md in the working repository,
-excluding .git, node_modules and .worktrees. The working repository's wording wins.
-English wordings and parenthesized qualifications are not matched. The repository is
-the nearest parent with a .git entry, or cwd when there is none. No glossary is required.
+docs/contexts/*/CONTEXT.md files load first, then the working repository's tracked and
+untracked-not-ignored CONTEXT.md files, excluding .git, node_modules and .worktrees.
+The repository is the nearest parent with a .git entry. Without one, only cwd/CONTEXT.md
+loads, without recursive discovery. The working directory's wording wins.
+English wordings and parenthesized qualifications are not matched. No glossary is required.
 
 Exit 0 allows the stop. Exit 2 lists the hits and replacements on stderr, which both hosts
 send to the model to continue the turn. An error of this check exits 1 with the reason on
@@ -49,6 +50,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 POINTERS = re.compile(
@@ -60,14 +62,19 @@ POINTERS = re.compile(
 
 
 def avoided_wordings(cwd: Path) -> dict[str, str]:
-    repo = next((path for path in (cwd, *cwd.parents) if (path / ".git").exists()), cwd)
+    repo = next((path for path in (cwd, *cwd.parents) if (path / ".git").exists()), None)
     mmw = Path(__file__).resolve().parents[4]
     paths = sorted(mmw.glob("docs/contexts/*/CONTEXT.md"))
-    for directory, children, files in os.walk(repo):
-        children[:] = sorted(name for name in children
-                             if name not in {".git", "node_modules", ".worktrees"})
-        if "CONTEXT.md" in files:
-            paths.append(Path(directory) / "CONTEXT.md")
+    if repo is not None:
+        listed = subprocess.run(["git", "-C", str(repo), "ls-files", "--cached", "--others",
+                                 "--exclude-standard", "-z"], check=True, capture_output=True)
+        for name in sorted(set(listed.stdout.split(b"\0"))):
+            path = Path(os.fsdecode(name))
+            if path.name == "CONTEXT.md" and not {".git", "node_modules", ".worktrees"}.intersection(path.parts):
+                if (repo / path).is_file():
+                    paths.append(repo / path)
+    elif (cwd / "CONTEXT.md").is_file():
+        paths.append(cwd / "CONTEXT.md")
     avoided = {}
     for path in paths:
         term = None
