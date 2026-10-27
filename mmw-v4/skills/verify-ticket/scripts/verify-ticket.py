@@ -3245,6 +3245,12 @@ def lint_criteria(number: int, body: str, labels: list[str],
             for finding in parent_order_findings(body, spec):
                 say("error", f"{who} " + finding, "parent-order")
 
+    for line in section(body, "Read first"):
+        if re.search(r"(?<![\w.-])(?:www\.)?claude\.ai(?![\w-]|\.[\w-])", line, re.I):
+            say("error", f"{who} ## Read first line `{line}` links to claude.ai; "
+                "copy what the page settles into a file in the repository, commit it, "
+                "and cite that path", "unreadable-read-first")
+
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
     # saying "zero live gates" would report the ticket's correct shape as a fault.
