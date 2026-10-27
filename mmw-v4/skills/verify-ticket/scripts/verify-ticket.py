@@ -2005,11 +2005,11 @@ def worker_repository_check(number: int, root: Path, into: str | None,
     checked = run_repository_check(root, base_ref, root, number)
     if checked["status"] == "red":
         print(f"#{number}: the repository check is red.\n{checked['detail']}")
-        steps = list(dict.fromkeys(step for row in checked["failed"] for step in row["steps"]))
         proof = checked["proof"]
-        if not steps or proof is None:
+        if proof is None:
             return 1
-        if not base_repository_steps_red(root, base_ref, proof["base"], steps):
+        steps = detached_base_red_steps(root, base_ref, proof["base"], checked["failed"])
+        if not steps:
             return 1
         proof["base_red"] = steps
         print(f"#{number}: steps {', '.join(steps)} are red on the base too. Open a finding "
@@ -2037,30 +2037,45 @@ def worker_repository_check(number: int, root: Path, into: str | None,
     return 0
 
 
-def base_repository_steps_red(root: Path, base_ref: str, base: str, steps: list[str]) -> bool:
+def base_red_steps(root: Path, base_ref: str, failed: list[dict]) -> list[str]:
+    """Run the failed rows' named steps in a base checkout supplied by the caller.
+
+    Return those steps only for exit 1 with every step explicitly reported as FAIL.
+    Worker verification and dispatch share this rule. Output goes to stderr.
+    """
+    steps = list(dict.fromkeys(step for row in failed for step in row.get("steps", [])))
+    if not steps:
+        return []
+    try:
+        code, output = _run(root / REPOSITORY_CHECK, root,
+                            dict(os.environ, MMW_BASE_REF=base_ref), "--step", ",".join(steps))
+    except OSError as exc:
+        print(f"Base comparison could not run scripts/check: {exc}", file=sys.stderr)
+        return []
+    print(f"Base comparison, scripts/check --step {','.join(steps)} exited {code}:\n{output}",
+          file=sys.stderr)
+    return steps if code == 1 and set(steps).issubset(FAIL_STEP_RE.findall(output)) else []
+
+
+def detached_base_red_steps(root: Path, base_ref: str, base: str,
+                            failed: list[dict]) -> list[str]:
     with tempfile.TemporaryDirectory(prefix="mmw-worker-base-") as tmp:
         checkout = Path(tmp) / "base"
         added = subprocess.run(["git", "worktree", "add", "--detach", str(checkout), base],
                                cwd=root, capture_output=True, text=True)
         if added.returncode:
             print(f"Base comparison could not start: {added.stderr or added.stdout}")
-            return False
-        red = False
+            return []
         try:
-            code, output = _run(checkout / REPOSITORY_CHECK, checkout,
-                                dict(os.environ, MMW_BASE_REF=base_ref), "--step", ",".join(steps))
-            print(f"Base comparison on {base[:12]}, scripts/check --step {','.join(steps)} "
-                  f"exited {code}:\n{output}")
-            red = code == 1 and set(steps).issubset(FAIL_STEP_RE.findall(output))
-        except OSError as exc:
-            print(f"Base comparison could not run scripts/check: {exc}")
+            print(f"Comparing failed steps on base {base[:12]}")
+            steps = base_red_steps(checkout, base_ref, failed)
         finally:
             removed = subprocess.run(["git", "worktree", "remove", "--force", str(checkout)],
                                      cwd=root, capture_output=True, text=True)
         if removed.returncode:
             print(f"Base comparison could not remove {checkout}: {removed.stderr or removed.stdout}")
-            return False
-        return red
+            return []
+        return steps
 
 
 def repository_allows_closeout(comments: list, commit: str) -> bool:
