@@ -116,7 +116,7 @@ The command that makes sure the repository's task board is registered and answer
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh pr`**:
-The command that opens a ready pull request, reports whether GitHub CI runs for its base branch, and waits for checks. When the base has no PR CI, it dispatches only workflows with both `pull_request` and `workflow_dispatch` triggers and no required inputs.
+The command that opens a ready pull request, reports whether GitHub CI runs for its base branch, and waits for checks.
 _Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`open_pr`)
 
 **start prompt**:
