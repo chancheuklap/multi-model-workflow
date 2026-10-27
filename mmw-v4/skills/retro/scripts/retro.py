@@ -403,28 +403,35 @@ def merge_lesson(source, target, occurrences):
 
 def merge_apply(args):
     data = json.loads(args.decisions.read_text(encoding='utf-8'))
+    if not isinstance(data, dict):
+        raise RetroError(f'{args.decisions}: expected a JSON object with batch and decisions; correct the file')
+    for field in ('batch', 'decisions'):
+        if field not in data:
+            raise RetroError(f'{args.decisions}: missing {field}; add the field to the decisions file')
     batch = data['batch']
     rows = data['decisions']
     if not isinstance(rows, list):
-        raise RetroError('decisions must be a list; correct the decisions file')
+        raise RetroError(f'{args.decisions}: decisions must be a list; correct the file')
     events.build('lessons.merged', ticket=None, line='Validate batch', decision='kept', batch=batch)
     plan = []
     sources = {}
-    for row in rows:
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise RetroError(f'{args.decisions}: decisions[{index}] must be an object; correct the file')
+        for field in ('lesson', 'decision', 'reason'):
+            if not isinstance(row.get(field), str) or not row[field].strip():
+                raise RetroError(f'{args.decisions}: decisions[{index}].{field} needs a nonempty string; correct the file')
         source = lesson_reference(row['lesson'])
-        if row['lesson'] in sources:
+        source_key = f'{source["repo"]}#{source["number"]}'
+        if source_key in sources:
             raise RetroError(f'{row["lesson"]} has more than one decision; reconcile the decisions file')
-        sources[row['lesson']] = row['decision']
+        sources[source_key] = row['decision']
         decision, reason = row['decision'], row['reason']
-        if not isinstance(reason, str) or not reason.strip():
-            raise RetroError(f'{row["lesson"]} needs a reason; correct the decisions file')
         body = events.build('lessons.merged', ticket=None, batch=batch, decision=decision,
                             line=f'{decision}. {reason}')
         target = None
         if decision.startswith('merged:'):
             target = lesson_reference(decision.split(':', 1)[1])
-            if target == source:
-                raise RetroError('cannot merge a lesson into itself')
         elif decision not in ('closed', 'kept'):
             raise RetroError('merge-apply accepts closed, merged:owner/repo#number or kept; record spec/ticket with events.py')
         current = register.gh_json(['api', f'repos/{source["repo"]}/issues/{source["number"]}'])
@@ -443,6 +450,8 @@ def merge_apply(args):
             destination = register.gh_json(['api', f'repos/{target["repo"]}/issues/{target["number"]}'])
             if 'pull_request' in destination or 'mmw:lesson' not in labels(destination):
                 raise RetroError('merge target is not a lesson; correct the decisions file')
+            if destination['state'].lower() != 'open':
+                raise RetroError(f'{target["repo"]}#{target["number"]} is closed; choose an open merge destination in {args.decisions}')
             history(target['repo'], target['number'])
         plan.append(dict(source=source, target=target, decision=decision, body=body,
                          occurrences=state['occurrences'], state=current['state']))

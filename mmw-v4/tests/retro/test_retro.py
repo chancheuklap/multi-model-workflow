@@ -278,14 +278,64 @@ class Commands(unittest.TestCase):
         path = self.root/'decisions.json'
         self.fake.rows[91] = issue(91, labels=('mmw:ticket',))
         for second in (dict(lesson='o/r#91', decision='kept', reason='Not a lesson'),
-                       dict(lesson='o/r#90', decision='kept', reason='Conflicting duplicate'),
-                       dict(lesson='o/r#90', decision='merged:o/r#90', reason='Self merge')):
+                       dict(lesson='o/r#90', decision='kept', reason='Conflicting duplicate')):
             with self.subTest(second=second):
                 path.write_text(json.dumps(dict(batch='bad-batch', decisions=[
                     dict(lesson='o/r#90', decision='closed', reason='Fixed'), second])))
                 rc, out, err = self.run_process('merge-apply', str(path))
                 self.assertEqual(rc, 2, err)
                 self.assertEqual(self.fake.rows[90]['state'], 'open')
+                self.assertEqual(len(self.fake.rows[90]['comments']), 1)
+
+    def test_merge_apply_refuses_self_merge(self):
+        path = self.root/'self-merge.json'
+        path.write_text(json.dumps(dict(batch='self-merge', decisions=[
+            dict(lesson='o/r#90', decision='merged:o/r#90', reason='Self merge')])))
+        rc, out, err = self.run_process('merge-apply', str(path))
+        self.assertEqual(rc, 2, err)
+        self.assertEqual(self.fake.rows[90]['state'], 'open')
+        self.assertEqual(len(self.fake.rows[90]['comments']), 1)
+
+    def test_merge_apply_normalizes_registration_identity_before_conflict_checks(self):
+        self.fake.rows[91] = issue(91)
+        path = self.root/'case-conflicts.json'
+        cases = [
+            [dict(lesson='o/r#90', decision='closed', reason='Fixed'),
+             dict(lesson='O/R#90', decision='kept', reason='Keep')],
+            [dict(lesson='O/R#91', decision='closed', reason='Fixed'),
+             dict(lesson='o/r#90', decision='merged:o/r#91', reason='Same cause')],
+        ]
+        for decisions in cases:
+            with self.subTest(decisions=decisions):
+                self.fake = Fake([issue(bodies=[seen()]), issue(91)])
+                path.write_text(json.dumps(dict(batch='case-conflicts', decisions=decisions)))
+                rc, out, err = self.run_process('merge-apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertFalse(any(c[1:3] in (['issue','comment'], ['issue','close'])
+                                     for c in self.fake.calls))
+
+    def test_merge_apply_refuses_a_closed_destination_before_writing(self):
+        self.fake.rows[91] = issue(91, state='closed')
+        path = self.root/'closed-target.json'
+        path.write_text(json.dumps(dict(batch='closed-target', decisions=[
+            dict(lesson='o/r#90', decision='merged:o/r#91', reason='Same cause')])))
+        rc, out, err = self.run_process('merge-apply', str(path))
+        self.assertEqual(rc, 2, err)
+        self.assertIn('o/r#91', err)
+        self.assertIn('open', err)
+        self.assertEqual(self.fake.rows[90]['state'], 'open')
+        self.assertEqual(self.fake.rows[91]['comments'], [])
+
+    def test_merge_apply_names_the_file_and_malformed_field(self):
+        path = self.root/'malformed-decisions.json'
+        for data, field in (([], 'object'), ({'decisions': []}, 'batch'),
+                            ({'batch': 'bad', 'decisions': [dict(lesson='o/r#90', decision='kept')]}, 'reason')):
+            with self.subTest(data=data):
+                path.write_text(json.dumps(data))
+                rc, out, err = self.run_process('merge-apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertIn(str(path), err)
+                self.assertIn(field, err)
                 self.assertEqual(len(self.fake.rows[90]['comments']), 1)
 
     def test_gather_window_starts_at_the_first_claim(self):
