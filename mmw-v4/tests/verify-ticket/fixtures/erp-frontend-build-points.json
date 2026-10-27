@@ -1,0 +1,23 @@
+[
+  {
+    "ticket": 65,
+    "url": "https://github.com/agentflow-hq/erp-frontend/issues/65",
+    "edited_at": "2026-10-23T03:55:23Z",
+    "child": 88,
+    "child_opened_at": "2026-10-23T03:58:05Z"
+  },
+  {
+    "ticket": 66,
+    "url": "https://github.com/agentflow-hq/erp-frontend/issues/66",
+    "edited_at": "2026-10-23T04:17:48Z",
+    "child": 94,
+    "child_opened_at": "2026-10-23T04:21:19Z"
+  },
+  {
+    "ticket": 68,
+    "url": "https://github.com/agentflow-hq/erp-frontend/issues/68",
+    "edited_at": "2026-10-23T04:18:08Z",
+    "child": 93,
+    "child_opened_at": "2026-10-23T04:20:12Z"
+  }
+]

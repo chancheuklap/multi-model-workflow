@@ -3901,6 +3901,7 @@ route_child() {
   local line
   case "$resolution" in
     fixed)
+      python3 "$VERIFY" "$ticket" --lint || return 2
       [ "$state" = CLOSED ] || gh_ issue close "$child" --reason completed >/dev/null 2>&1 \
         || refuse "could not close #$child; nothing was recorded"
       line="Fixed #$child on the closing pass" ;;

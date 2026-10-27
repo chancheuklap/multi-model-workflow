@@ -23,6 +23,12 @@ Each draft uses its `TIMEOUT:` limit, with `MMW_BASE_REF` set to the selected re
 
 A failed base check alone is not a lint error. New behaviour is expected to fail there. Published-ticket and published-spec `--lint` runs only static checks and never runs acceptance commands on a base.
 
+## Build points name their criteria
+
+`build-point-without-criterion` is an `ERROR` on drafts and published tickets when a numbered point under `## What to build` names no `AC<n>`, or names an `AC<n>` absent from `## Acceptance criteria`. The error identifies the point and any nonexistent criterion. `## What to build` must contain at least one numbered point. Tickets without acceptance criteria, including `mmw:problem` drafts and `ready-for-human` tickets, are exempt. A `ready-for-agent` ticket without acceptance criteria still fails with `no-criteria`.
+
+`dispatch.sh route <ticket> <child> fixed` runs `verify-ticket.py <ticket> --lint` before closing the child or recording its resolution. If lint exits 1 or 2, route passes on its output, exits 2, and closes and records nothing. Correct the ticket and retry the route command.
+
 ## Runner EXPECT standards
 
 `runner-expect` is an `ERROR` on drafts and published tickets when a `CHECK:` stage runs `pytest` or `vitest` as its command but its `EXPECT:` is not that runner's standard. The error names a real summary the pattern rejects on success or accepts on failure, when one exists, and prints the standard to copy. Count-pinned patterns and markers echoed by the command are not substitutes. Commands behind `uv run`, `pnpm`, `npx` and `python -m` count. A runner name used only as an argument, such as `grep -q vitest package.json`, does not. A criterion running both runners gets `runner-expect` and must be split into one criterion per runner.

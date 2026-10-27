@@ -38,7 +38,7 @@ def ticket(check, expect):
     command = ('  CHECK:\n  ```sh\n' + '\n'.join('  ' + line for line in check.splitlines())
                + '\n  ```' if '\n' in check else '  CHECK: ' + check)
     return ('## Parent\n\n#555, Implementation Decisions section 1\n\n'
-            '## Acceptance criteria\n\n'
+            '## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n'
             '- [ ] AC1: the selected behaviour passes\n'
             f'{command}\n  EXPECT: {expect}\n  EVIDENCE: pending\n')
 

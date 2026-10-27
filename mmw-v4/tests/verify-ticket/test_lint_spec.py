@@ -17,11 +17,11 @@ from _load import load
 vt = load()
 
 SPEC = 216
-CLEAN = ("## Parent\n\n#216\n\n## Acceptance criteria\n\n"
+CLEAN = ("## Parent\n\n#216\n\n## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n"
          "- [ ] AC1: the importer writes six rows\n"
          "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
          "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")
-MANUAL = ("## Parent\n\n#216\n\n## Acceptance criteria\n\n"
+MANUAL = ("## Parent\n\n#216\n\n## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n"
           "- [ ] AC1: the wording reads well\n  EVIDENCE: pending\n")
 SPEC_BODY = "## Summary\n\nA spec.\n\n## Out of Scope\n\n- nothing\n"
 LABELS = {"labels": [{"name": "ready-for-agent"}, {"name": "junior-worker"}], "state": "OPEN"}
@@ -178,16 +178,16 @@ Do the third.
 """
 
 COVERS_1_AND_2 = ("## Parent\n\n#216, Implementation Decisions sections 1 and 2\n\n"
-                  "## Acceptance criteria\n\n"
+                  "## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n"
                   "- [ ] AC1: the importer writes six rows\n"
                   "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
                   "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")
-COVERS_NONE = ("## Parent\n\n#216\n\n## Acceptance criteria\n\n"
+COVERS_NONE = ("## Parent\n\n#216\n\n## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n"
                "- [ ] AC1: the importer writes six rows\n"
                "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
                "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")
 COVERS_3_CLOSED = ("## Parent\n\n#216, Implementation Decisions section 3\n\n"
-                   "## Acceptance criteria\n\n"
+                   "## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n"
                    "- [ ] AC1: the importer writes six rows\n"
                    "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
                    "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")

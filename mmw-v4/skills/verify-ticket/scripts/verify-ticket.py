@@ -3171,6 +3171,41 @@ def parent_order_findings(body: str, spec: int) -> list[str]:
             f"spec's sections after it (`; #{first} Implementation Decisions section <n>`)"]
 
 
+def lint_build_points(body: str) -> list[str]:
+    criteria = {item["id"] for item in parse_criteria(
+        "\n".join(section(body, "Acceptance criteria")))}
+    points: list[list[str]] = []
+    fence = None
+    for line in section(body, "What to build"):
+        if fence is not None:
+            close = FENCE_CLOSE_RE.match(line)
+            if close and close.group(1)[0] == fence[0] and len(close.group(1)) >= fence[1]:
+                fence = None
+            continue
+        opened = FENCE_OPEN_RE.match(line)
+        if opened and not (opened.group(2)[0] == "`" and "`" in opened.group(3)):
+            fence = (opened.group(2)[0], len(opened.group(2)))
+            continue
+        if re.match(r"^ {0,3}[0-9]+[.)]\s+", line):
+            points.append([line])
+        elif points:
+            points[-1].append(line)
+    if not points:
+        return ["## What to build needs at least one numbered point naming an existing AC<n>"]
+    findings = []
+    for lines in points:
+        named = set(re.findall(r"(?<![A-Za-z0-9_])AC[0-9]+(?![A-Za-z0-9_])", "\n".join(lines)))
+        missing = named - criteria
+        if not named:
+            findings.append(f"## What to build point {lines[0]} names no AC<n>; "
+                            "name the criterion that decides this point")
+        elif missing:
+            findings.append(f"## What to build point {lines[0]} names nonexistent "
+                            f"{', '.join(sorted(missing))}; define each in ## Acceptance criteria "
+                            "or correct the reference")
+    return findings
+
+
 def lint_criteria(number: int, body: str, labels: list[str],
                   spec: int | None = None, name: str | None = None) -> int:
     """Everything `--lint` says about one ticket's own text: its worker label, how its
@@ -3229,6 +3264,9 @@ def lint_criteria(number: int, body: str, labels: list[str],
         report_worker_and_parent()
         verdict()
         return 1 if counts["error"] else 0
+
+    for finding in lint_build_points(body):
+        say("error", f"{who} " + finding, "build-point-without-criterion")
 
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
