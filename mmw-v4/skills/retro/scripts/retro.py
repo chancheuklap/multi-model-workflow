@@ -273,7 +273,7 @@ def gather(args):
                     settlement = events.newest(
                         [comment for comment in ticket_comments
                          if events.parse(comment['body'])[0] == 'event'
-                         and events.parse(comment['body'])[1].get('child') == payload['child']],
+                         and str(events.parse(comment['body'])[1].get('child')) == str(payload['child'])],
                         'child.closed')
                     item['settlement'] = settlement['body'] if settlement else 'not yet settled'
                 items['process'].append(item)

@@ -261,22 +261,39 @@ class Commands(unittest.TestCase):
         self.fake.rows[61] = issue(61, labels=('mmw:ticket',), parent=dict(number=76), bodies=[
             events.build('child.opened', ticket=61, child=91, kind='contract', line='Missing case',
                          at='2026-09-02T00:00:00Z'),
-            events.build('child.closed', ticket=61, child=91, resolution='fixed',
+            events.build('child.closed', ticket=61, child='91', resolution='fixed',
                          line='The orchestrator added the missing case', at='2026-09-03T00:00:00Z'),
             events.build('child.opened', ticket=61, child=92, kind='contract', line='Another gap',
                          at='2026-09-04T00:00:00Z')])
         self.fake.rows[91] = issue(91, labels=('mmw:child',), parent=dict(number=61))
         self.fake.rows[92] = issue(92, labels=('mmw:child',), parent=dict(number=61))
+        self.fake.rows[91]['body'] = 'Contract 91 needs the missing case.'
+        self.fake.rows[92]['body'] = 'Contract 92 needs another field.'
         rc, out, err = self.run_command('gather', '--spec', '76', REPO, '--out', str(self.root/'materials'))
         self.assertEqual(rc, 0, err)
         self.assertTrue((self.root/'materials/process.md').exists(), 'contract signals produce process materials')
         material = json.loads((self.root/'materials/process.md').read_text().split('\n\n', 1)[1])
         signals = [r for r in material if r['kind'] == 'signal']
         self.assertEqual([r['event']['child'] for r in signals], [91, 92])
-        self.assertEqual(signals[0]['child_body'], self.fake.rows[91]['body'])
+        self.assertEqual(signals[0]['child_body'], 'Contract 91 needs the missing case.')
         self.assertEqual(signals[0]['settlement'], self.fake.rows[61]['comments'][1]['body'])
-        self.assertEqual(signals[1]['child_body'], self.fake.rows[92]['body'])
+        self.assertEqual(signals[1]['child_body'], 'Contract 92 needs another field.')
         self.assertIn('not yet settled', signals[1]['settlement'])
+
+        fixture = json.loads((Path(__file__).parent/'fixtures'/'settled-contract-1358.json').read_text())
+        self.fake.rows[1350] = issue(1350, labels=('mmw:ticket',), bodies=[events.build(
+            'ticket.claimed', ticket=1350, line='Claimed', at='2026-10-27T11:21:51Z')])
+        self.fake.rows[1350]['comments'].extend(fixture)
+        self.fake.rows[1358] = issue(1358, labels=('mmw:child',), parent=dict(number=1350))
+        self.fake.rows[1358]['body'] = 'The historical fault child does not exist.'
+        rc, out, err = self.run_command('gather', '--ticket', '1350', REPO,
+                                        '--out', str(self.root/'real-settlement'))
+        self.assertEqual(rc, 0, err)
+        material = json.loads((self.root/'real-settlement/process.md').read_text().split('\n\n', 1)[1])
+        signals = [r for r in material if r['kind'] == 'signal']
+        self.assertEqual(len(signals), 1)
+        self.assertEqual(signals[0]['child_body'], 'The historical fault child does not exist.')
+        self.assertEqual(signals[0]['settlement'], fixture[1]['body'])
 
     def test_gather_replays_the_three_real_misses(self):
         self.start_run()
