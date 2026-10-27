@@ -7688,7 +7688,7 @@ if not hits:
 # Read the bounce the fake tracker holds, then claim that same ticket. The resume
 # quotes the Failed checks slice of the comment that was posted.
 assert_resume_quotes_posted_bounce() {
-  local n="${1:-61}" body quote out err code commit
+  local n="${1:-61}" body quote out err code commit shape
   body="$(bounced_comment "$n")"
   quote="$(printf '%s\n' "$body" | python3 -c '
 import sys
@@ -7700,8 +7700,18 @@ for line in sys.stdin:
 raise SystemExit(1)
 ')" || fail "the posted bounce has no Failed checks: line: $body"
   commit="$(git -C "$(wt "$n")" rev-parse HEAD)"
+  # A worker's own run records the shape of the criteria it ran; preflight resumes only
+  # from a run whose shape matches the ticket's criteria now.
+  shape="$(cd "$(wt "$n")" && python3 - "$(dirname "$SKILL")/verify-ticket/scripts/verify-ticket.py" "$n" <<'SHAPE'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("vt", sys.argv[1])
+vt = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(vt)
+print(vt.shape_digest(vt.section(vt.fetch_body(int(sys.argv[2])), "Acceptance criteria")))
+SHAPE
+)" || fail "could not read #$n's criteria shape"
   post_ev "$n" ticket.checked --ticket "$n" --line "self run" \
-    --field run=self --field "commit=$commit" --field result=met
+    --field run=self --field "commit=$commit" --field result=met --field "shape=$shape"
   out="$TMP/preflight-$n.out"
   err="$TMP/preflight-$n.err"
   code="$(
