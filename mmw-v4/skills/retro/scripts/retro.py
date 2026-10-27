@@ -356,18 +356,24 @@ def check_analysis(row):
             evidence_source(link)
         except (OSError,UnicodeError) as exc:
             raise UnreadableEvidence(link,str(exc)) from None
-    if row['conclusion'] not in ('candidate','propose','reject') and not row['conclusion'].startswith('merge:'):
+    if row['conclusion'] not in ('candidate','propose','reject') and not re.fullmatch(r'merge:\S.*', row['conclusion']):
         raise RetroError('conclusion must be merge:<target>, reject, candidate or propose')
     if not row['code'] or not row['reason']:
         raise RetroError('missing problem code or reason')
 
 
 def resolve_issue(code,context):
+    code = re.sub(r'\s*[（(].*[）)]\s*$', '', code).strip()
     if code in context['issues']:
         return context['issues'][code]
     match = re.fullmatch(r'#?([1-9][0-9]*)',code)
     if match:
         return dict(repo=context['repo'],number=int(match[1]))
+    match = re.fullmatch(r'([A-Za-z0-9-]+/[A-Za-z0-9._-]+)#([1-9][0-9]*)', code)
+    if not match:
+        match = re.fullmatch(r'https://github.com/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/issues/([1-9][0-9]*)/?', code)
+    if match:
+        return dict(repo=register.repository(match[1]), number=int(match[2]))
     raise RetroError(f'unknown problem code {code!r}; use a gathered code or issue URL')
 
 
@@ -476,22 +482,12 @@ def merge_apply(args):
     return 0
 
 
-def proposal(plan):
-    repo = re.search(r'(?:仓库|repository)[:：]\s*([A-Za-z0-9-]+/[A-Za-z0-9._-]+)',plan)
-    path = re.search(r'(?:文件|file)[:：]\s*([^；;\s]+)',plan)
-    playbook = re.search(r'Playbook:\s*([^；;\n]+)',plan)
-    if not repo or not path or not playbook or not re.search(r'(?:加|删|add|remove)[:：]',plan):
-        raise RetroError('proposal needs repository, add/remove, file and Playbook')
-    if Path(path[1]).name in ('AGENTS.md','CLAUDE.md','CODING_STANDARDS.md') or 'nowledgemem' in plan:
-        raise RetroError('proposal targets an owner-managed file or external memory; choose an allowed destination')
-    return dict(repo=register.repository(repo[1]),file=path[1],playbook=playbook[1].strip())
-
-
 def new_problems(path):
     text = path.read_text(encoding='utf-8')
     section = re.search(r'^## Problems[ \t]*\n(.*)\Z',text,re.M|re.S)
     if not section:
-        raise RetroError(f'{path} needs ## Problems; write None when there are no new problems')
+        print(f'{path} needs ## Problems; write None when there are no new problems',file=sys.stderr)
+        return []
     content = section[1].strip()
     if content == 'None':
         return []
@@ -500,16 +496,30 @@ def new_problems(path):
     for chunk in chunks:
         if not chunk.strip():
             continue
-        body = chunk.strip()
+        body = re.sub(r'^([ \t]*)- (?=(?:问题代号|角度|发生了什么|证据|代价|该谁修)\s*[:：])',
+                      r'\1', chunk.strip(), flags=re.M)
+        body = re.sub(r'^([ \t]*该谁修[ \t]*[:：][ \t]*[^\n]+?)[ \t]*[（(].*[）)][ \t]*$',
+                      r'\1', body, flags=re.M)
         if not body.startswith('## Problem\n'):
             body = '## Problem\n'+body
         fields = register.problem_fields(body)
-        required = ('问题代号','角度','发生了什么','证据','代价','该谁修')
-        if any(not fields.get(k) for k in required):
-            raise RetroError(f'{path} ## Problems lacks a six-field registration; complete it before applying')
+        try:
+            required = ('问题代号','角度','发生了什么','证据','代价','该谁修')
+            if any(not fields.get(k) for k in required):
+                raise RetroError('lacks a six-field registration; complete the entry before applying')
+            owner = fields['该谁修']
+            register.repository(register.toolbox_repo() if owner in ('MMW','MMW 仓库') else owner)
+            if (fields['角度'] not in ('判断','环境','流程','产品')
+                    or not re.fullmatch(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*',fields['问题代号'])
+                    or len(fields['问题代号']) > 80):
+                raise RetroError('invalid problem code or angle; correct the entry')
+            evidence_source(fields['证据'])
+        except (RetroError,OSError,UnicodeError) as exc:
+            print(f'{path} ## Problems {fields.get("问题代号", chunk.splitlines()[0])}: {exc}',file=sys.stderr)
+            continue
         bodies.append((body,fields))
-    if not bodies:
-        raise RetroError(f'{path} ## Problems is empty; write None or a registration')
+    if not content:
+        print(f'{path} ## Problems is empty; write None or a registration',file=sys.stderr)
     return bodies
 
 
@@ -550,39 +560,25 @@ def register_new_problem(path,body,fields,context):
 
 
 def prepare_answers(args,context):
-    valid,errors,problems,unreadable = [],[],[],[]
+    valid,errors,problems,unreadable,unrecorded = [],[],[],[],[]
     for path in args.answers:
-        for body,fields in new_problems(path):
-            owner = fields['该谁修']
-            register.repository(register.toolbox_repo() if owner in ('MMW','MMW 仓库') else owner)
-            if fields['角度'] not in ('判断','环境','流程','产品') or not re.fullmatch(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*',fields['问题代号']):
-                raise RetroError(f'{path} ## Problems has an invalid code or angle')
-            evidence_source(fields['证据'])
-            problems.append((body,fields))
+        problems.extend(new_problems(path))
     for path in args.answers:
         for row in answer_rows(path):
             try:
                 check_analysis(row)
-                if row['conclusion'] == 'propose':
-                    row['proposal'] = proposal(row['plan'])
-                target = resolve_issue(row['code'],context)
+                try:
+                    target = resolve_issue(row['code'],context)
+                    current = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
+                    if 'mmw:lesson' not in labels(current):
+                        raise RetroError('answer target is not a lesson; product problems and children stay in their workflows')
+                except RetroError as exc:
+                    unrecorded.append(dict(code=row['code'],conclusion='unrecorded',reason=str(exc)))
+                    print(f'{row["path"]}:{row["line"]}: unrecorded: {exc}',file=sys.stderr)
+                    continue
                 _,state = history(target['repo'],target['number'])
                 row['target'] = target
                 row['occurrences'] = state['occurrences']
-                row['current'] = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
-                if 'mmw:lesson' not in labels(row['current']):
-                    raise RetroError('answer target is not a lesson; product problems and children stay in their workflows')
-                if row['conclusion'].startswith('merge:'):
-                    canonical = resolve_issue(row['conclusion'].split(':',1)[1],context)
-                    row['canonical'] = canonical
-                    if canonical == target:
-                        raise RetroError('cannot merge a lesson into itself')
-                    destination = register.gh_json(['api',f'repos/{canonical["repo"]}/issues/{canonical["number"]}'])
-                    if 'mmw:lesson' not in labels(destination):
-                        raise RetroError('merge target is not a lesson')
-                if row['conclusion'] == 'propose' and row['proposal']['repo'] != target['repo']:
-                    if row['proposal']['repo'] != register.toolbox_repo():
-                        raise RetroError('a proposal transfer must target the installed MMW repository')
                 valid.append(row)
             except RetroError as exc:
                 message = f'{row["path"]}:{row["line"]}: {exc}'
@@ -590,25 +586,11 @@ def prepare_answers(args,context):
                 errors.append(message)
                 if isinstance(exc,UnreadableEvidence):
                     unreadable.append(exc.source)
-    groups = {}
-    for row in valid:
-        target = row['target']
-        groups.setdefault((target['repo'],target['number']),[]).append(row)
-    valid = []
-    for group in groups.values():
-        signatures = {(r['conclusion'].split(':',1)[0],
-                       tuple(sorted(r.get('canonical',{}).items())),
-                       r['plan'] if r['conclusion']=='propose' else '') for r in group}
-        if len(signatures)>1:
-            locations = ', '.join(f'{r["path"]}:{r["line"]}' for r in group)
-            message = f'{locations}: conflicting dispositions for one lesson; reconcile the answers'
-            print(message,file=sys.stderr)
-            errors.append(message)
-        else:
-            valid.extend(group)
-    if errors and not valid and not problems:
+    if not valid and not problems:
+        print('no recordable answer rows or new problems; correct the answer file',file=sys.stderr)
         return 2
-    return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,done=[])
+    return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,
+                unrecorded=unrecorded,done=[])
 
 
 def comment_once(repo,number,body,request):
@@ -656,12 +638,9 @@ def execute_plan(plan,journal):
     unreadable = list(dict.fromkeys(context['unreadable_sources'] + plan['unreadable']))
     disposed = []
     for row in valid:
-        conclusion = row['conclusion']
-        if conclusion.startswith('merge:'):
-            target = row['canonical']
-            conclusion = f'merge:{target["repo"]}#{target["number"]}'
-        disposed.append(dict(**row['target'],conclusion=conclusion))
+        disposed.append(dict(**row['target'],conclusion=row['conclusion']))
     disposed.extend(plan.get('registered_problems',[]))
+    disposed.extend(plan.get('unrecorded',[]))
     payload = dict(result='recorded',registered=context['registered'],
                    problems=disposed,
                    recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
