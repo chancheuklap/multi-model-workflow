@@ -609,10 +609,158 @@ class Commands(unittest.TestCase):
         self.assertEqual([receipt[k] for k in ('merged','rejected','candidates','proposals')], [1,1,2,1])
         self.assertEqual(receipt['problems'], [
             dict(repo='o/r',number=90,conclusion='reject'),
-            dict(repo='o/r',number=91,conclusion='merge:o/r#94'),
+            dict(repo='o/r',number=91,conclusion='merge:94'),
             dict(repo='o/r',number=92,conclusion='propose'),
             dict(repo='o/r',number=93,conclusion='candidate'),
             dict(repo='o/r',number=93,conclusion='candidate')])
+
+    def test_apply_records_loose_rows_verbatim(self):
+        self.start_run()
+        path = Path(self.answer())
+        rows = [
+            ('missing-information (signal, first round)', 'propose', '改：保留原始答复'),
+            ('#91 (related lesson)', 'candidate', '继续观察'),
+            ('other/product#92', 'propose', '仓库：another/product；文件：AGENTS.md；改：记录'),
+            ('https://github.com/other/product/issues/93 (registration)', 'reject', ''),
+            ('#94', 'merge:unknown target (signal, note)', '目标留给归并时判断'),
+            ('#90', 'reject', '另一位分析员的不同判断'),
+        ]
+        for number in (91, 92, 93, 94):
+            self.fake.rows[number] = issue(number)
+        evidence = 'README.md:1；https://github.com/o/r/issues/90'
+        path.write_text('| 代号 | 结论 | 理由 | 证据 | 方案 |\n' + ''.join(
+            f'| {code} | {conclusion} | 核对过原始材料 | {evidence} | {plan} |\n'
+            for code, conclusion, plan in rows) + '\n## Problems\nNone\n')
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        for number, expected in ((90, [rows[0], rows[5]]), (91, [rows[1]]),
+                                 (92, [rows[2]]), (93, [rows[3]]), (94, [rows[4]])):
+            records = [events.parse(c['body'])[1] for c in self.fake.rows[number]['comments']
+                       if events.parse(c['body'])[1]['event'] == 'lesson.assessed']
+            self.assertEqual([(r['conclusion'], r['reason'], r['evidence'], r['plan']) for r in records],
+                             [(r[1], '核对过原始材料', evidence, r[2]) for r in expected])
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['problems'], [
+            dict(repo='o/r', number=90, conclusion='propose'),
+            dict(repo='o/r', number=91, conclusion='candidate'),
+            dict(repo='other/product', number=92, conclusion='propose'),
+            dict(repo='other/product', number=93, conclusion='reject'),
+            dict(repo='o/r', number=94, conclusion='merge:unknown target (signal, note)'),
+            dict(repo='o/r', number=90, conclusion='reject')])
+        self.assertFalse(any(c[1:3] in (['issue','edit'], ['issue','close'],
+                                       ['issue','reopen'], ['issue','transfer']) for c in self.fake.calls))
+        writes = [(c[c.index('--repo')+1], int(c[3])) for c in self.fake.calls
+                  if c[1:3] == ['issue', 'comment']]
+        self.assertEqual(writes, [('o/r', 90), ('o/r', 91), ('other/product', 92),
+                                  ('other/product', 93), ('o/r', 94), ('o/r', 90), ('o/r', 76)])
+        self.fake.calls.clear()
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        self.assertFalse(any(c[1:3] == ['issue','comment'] for c in self.fake.calls))
+
+    def test_apply_lists_a_row_naming_no_registration(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91, labels=('mmw:ticket',))
+        path = Path(self.answer())
+        signal = 'https://github.com/o/r/issues/76#issuecomment-1 (signal, stalled)'
+        path.write_text(path.read_text().replace('## Problems',
+            f'| {signal} | propose | 信号不是登记 | README.md:1 | 改：记录停顿 |\n'
+            '| #91 | reject | 这是产品票 | README.md:1 | |\n\n## Problems'))
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        records = [events.parse(c['body'])[1] for c in self.fake.rows[90]['comments']]
+        self.assertEqual([r['event'] for r in records], ['lesson.seen', 'lesson.assessed'])
+        self.assertEqual(self.fake.rows[91]['comments'], [])
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['candidates'], 1)
+        self.assertEqual(len(receipt['problems']), 3)
+        for entry, code in zip(receipt['problems'][1:], (signal, '#91')):
+            self.assertEqual(entry['code'], code)
+            self.assertEqual(entry['conclusion'], 'unrecorded')
+            self.assertTrue(entry['reason'])
+
+    def test_apply_retries_a_failed_registration_lookup(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91)
+        path = Path(self.answer())
+        path.write_text(path.read_text().replace('## Problems',
+            '| #91 | candidate | 另一条登记 | README.md:1 | |\n\n## Problems'))
+        tracker = self.fake
+        def unavailable(args, **kwargs):
+            if args[:4] == ['gh', 'issue', 'view', '90']:
+                return subprocess.CompletedProcess(args, 1, '', 'GitHub unavailable')
+            return tracker(args, **kwargs)
+        self.fake = unavailable
+        rc, out, err = self.run_command('apply', str(path))
+        self.assertEqual(rc, 2, err)
+        self.assertIn('GitHub unavailable', err)
+        self.assertFalse(any(c[1:3] == ['issue', 'comment'] for c in tracker.calls))
+        self.fake = tracker
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        for number in (90, 91):
+            self.assertEqual(len([c for c in self.fake.rows[number]['comments']
+                                  if events.parse(c['body'])[1]['event'] == 'lesson.assessed']), 1)
+
+    def test_apply_requires_an_explicit_problems_section(self):
+        self.start_run()
+        path = Path(self.answer())
+        table = path.read_text().split('## Problems')[0]
+        for section in ('', '## Problems\n'):
+            with self.subTest(section=section):
+                path.write_text(table + section)
+                rc, out, err = self.run_command('apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertIn('## Problems', err)
+                self.assertFalse(any(c[1:3] == ['issue', 'comment'] for c in self.fake.calls))
+
+    def test_apply_reads_loose_problem_entries(self):
+        self.start_run()
+        REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
+        marker = self.root/'home/installed-root'
+        marker.parent.mkdir(parents=True)
+        marker.write_text(str(self.root))
+        path = Path(self.answer())
+        path.write_text(path.read_text().replace('## Problems\nNone',
+            '## Problems\n### unreadable\n- 问题代号：broken-entry\n'
+            '- 角度：流程\n- 该谁修：o/r\n'
+            '### loose-fault\n- 问题代号：loose-fault\n- 角度：流程\n'
+            '- 发生了什么：工具拒绝了正常请求\n- 证据：`README.md:1`；https://github.com/o/r/issues/90\n'
+            '- 代价：工作停下\n- 该谁修：o/r (由工具仓库处理)\n'
+            '### bad-owner\n问题代号：bad-owner\n角度：流程\n发生了什么：没有目标仓库\n'
+            '证据：README.md:1\n代价：工作停下\n该谁修：不知道\n'
+            '### another-fault\n问题代号：another-fault\n角度：流程\n'
+            '发生了什么：工具丢失了请求\n证据：README.md:1\n'
+            '代价：工作停下\n该谁修：MMW 仓库（工具负责人）\n'))
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        self.assertIn('broken-entry', err)
+        self.assertIn('bad-owner', err)
+        created = [r for n, r in self.fake.rows.items() if n > 100]
+        self.assertEqual([retro.register.problem_fields(r['body'])['问题代号'] for r in created],
+                         ['loose-fault', 'another-fault'])
+        for row in created:
+            self.assertEqual(events.parse(row['comments'][0]['body'])[1]['source'], 'retro-signal')
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['registered'], 2)
+        self.assertEqual(receipt['candidates'], 1)
+
+    def test_apply_marks_unreadable_new_problem_evidence(self):
+        self.start_run()
+        path = Path(self.answer())
+        path.write_text(path.read_text().replace('## Problems\nNone',
+            '## Problems\n### missing-source\n问题代号：missing-source\n角度：流程\n'
+            '发生了什么：证据文件无法读取\n证据：README.md:1；absent.md:1\n'
+            '代价：不能核实结论\n该谁修：o/r\n'))
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 1, err)
+        self.assertIn('absent.md:1', err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['candidates'], 1)
+        self.assertEqual(receipt['registered'], 0)
+        self.assertEqual(receipt['evidence'], 'partial')
+        self.assertEqual(receipt['unreadable_sources'], ['absent.md:1'])
+        self.assertFalse(any(c[1:3] == ['issue', 'create'] for c in self.fake.calls))
 
     def test_apply_rerun_records_nothing_twice(self):
         path = self.assessment_answer()
@@ -686,7 +834,7 @@ class Commands(unittest.TestCase):
             '发生了什么：工具拒绝了正常请求\n证据：README.md:1\n代价：工作停下\n该谁修：o/r'))
         expected = [dict(repo='o/r', number=90, conclusion='candidate'),
                     dict(repo='o/r', number=91, conclusion='reject'),
-                    dict(repo='o/r', number=92, conclusion='merge:o/r#94'),
+                    dict(repo='o/r', number=92, conclusion='merge:94'),
                     dict(repo='o/r', number=93, conclusion='propose'),
                     dict(repo='o/r', number=107, conclusion='registered')]
         original = self.fake
@@ -870,18 +1018,6 @@ sys.exit(result.returncode)
         self.assertEqual(receipt['candidates'],1)
         self.assertEqual(self.fake.rows[90]['state'],'open')
 
-    def test_conflicting_dispositions_of_one_lesson_are_refused(self):
-        self.start_run()
-        self.fake.rows[91] = issue(91)
-        path = self.answer('merge:91')
-        Path(path).write_text(Path(path).read_text().replace('## Problems','| 90 | reject | 不该同时生效 | README.md:1 | |\n\n## Problems'))
-        rc,out,err = self.run_command('apply',path)
-        self.assertEqual(rc,2,err)
-        self.assertEqual(self.fake.rows[90]['state'],'open')
-        self.assertEqual(self.fake.rows[91]['comments'],[])
-        self.assertIn('answer.md:3',err)
-        self.assertIn('answer.md:5',err)
-
     def test_proposal_preserves_the_registration_body(self):
         self.start_run()
         self.fake.rows[90] = issue(bodies=[seen(source='stall')])
@@ -891,15 +1027,8 @@ sys.exit(result.returncode)
         self.assertEqual(rc,0,err)
         self.assertEqual(self.fake.rows[90]['body'], original)
 
-    def test_invalid_proposals_and_non_lesson_targets_are_refused(self):
+    def test_non_lesson_targets_are_unrecorded(self):
         self.start_run()
-        for plan in ('加：检查；文件：check.py；Playbook: Bug fix',
-                     '仓库：o/r；加：检查；Playbook: Bug fix',
-                     '仓库：o/r；加：检查；文件：AGENTS.md；Playbook: Bug fix'):
-            with self.subTest(plan=plan):
-                rc,out,err = self.run_command('apply',self.answer('propose',plan=plan))
-                self.assertEqual(rc,2,err)
-                self.assertEqual(len(self.fake.rows[90]['comments']),1)
         self.fake.rows[90]['labels'] = [dict(name='mmw:ticket')]
         rc,out,err = self.run_command('apply',self.answer('candidate'))
         self.assertEqual(rc,2,err)

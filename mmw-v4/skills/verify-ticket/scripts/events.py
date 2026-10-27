@@ -117,7 +117,7 @@ EVENTS: dict[str, dict] = {
                                        "session": r"none|[A-Za-z0-9-]+:[^\s:]+"}},
     "lesson.assessed":   {"stage": "work", "actor": "main",
                           "required": ("conclusion", "reason", "evidence", "run", "qualifies", "request"),
-                          "patterns": {"conclusion": r"merge:[^\s]+|reject|candidate|propose",
+                          "patterns": {"conclusion": r"merge:\S.*|reject|candidate|propose",
                                        "run": r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*"}},
     "spec.opened":       {"stage": "night",    "actor": "main"},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
@@ -352,14 +352,19 @@ def _check(event: str, payload: dict) -> str | None:
                 if not isinstance(entry, dict):
                     return f"{where} needs repo, number and conclusion; correct the receipt writer"
                 repo, number, conclusion = (entry.get(k) for k in ("repo", "number", "conclusion"))
+                if conclusion == "unrecorded":
+                    if any(not isinstance(entry.get(k), str) or not entry[k].strip()
+                           for k in ("code", "reason")):
+                        return f"{where} unrecorded needs its original code and a reason; correct the receipt writer"
+                    continue
                 if not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+", repo):
                     return f"{where} needs `repo` as owner/repo; correct the receipt writer"
                 if isinstance(number, bool) or not isinstance(number, int) or number < 1:
                     return f"{where} needs a positive integer `number`; correct the receipt writer"
                 if conclusion not in ("propose", "candidate", "reject", "registered", "appended") and (
                         not isinstance(conclusion, str) or not re.fullmatch(
-                            r"merge:[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*", conclusion)):
-                    return f"{where} needs conclusion propose, candidate, reject, registered, appended or merge:owner/repo#number; correct the receipt writer"
+                            r"merge:\S.*", conclusion)):
+                    return f"{where} needs conclusion propose, candidate, reject, registered, appended or merge:<target>; correct the receipt writer"
             for key in counts:
                 count = payload.get(key)
                 if isinstance(count, bool) or not isinstance(count, int) or count < 0:
