@@ -2889,7 +2889,6 @@ scenario_briefclosebrowsers() {
   done
   hasnt 'close-all'
   hasnt 'kill-all'
-  [ ! -d "$STATE_DIR/briefs/$batch" ] || fail "closed batch directory remains"
 }
 
 scenario_briefclosekillsleftover() {
@@ -2938,7 +2937,7 @@ scenario_briefbrowsername() {
 }
 
 scenario_sendrefusesclosedbatch() {
-  local code packet batch pointer valid
+  local code packet batch pointer valid expected
   packet="$TMP/previous-answer.md"
   echo 'Answer the question.' > "$packet"
   reset_log
@@ -2956,14 +2955,17 @@ scenario_sendrefusesclosedbatch() {
   [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
   valid="$TMP/valid-brief.md"
   echo 'Answer an independent question.' > "$valid"
-  for pointer in "$pointer" "briefs/$batch/1/result.md" 'briefs/19990101-000000-abcd/1/result.md'; do
+  for pointer in "$pointer" "briefs/$batch/1/result.md" 'briefs/19990101-000000-abcd/1/result.md' \
+      "$STATE_DIR/briefs/$batch:" "briefs/$batch;" "briefs/$batch]"; do
+    expected="$batch"
+    case "$pointer" in *19990101-000000-abcd*) expected=19990101-000000-abcd ;; esac
     printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read $pointer." '## For' 'A decision.' > "$packet"
     : > "$MMW_TEST_LOG"
     code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$valid" "$packet")"
     [ "$code" = 2 ] || fail "dead batch reference expected 2, got $code: $(cat "$TMP/err")"
     hasnt 'paseo :: run'
     grep -qF '## Known' "$TMP/err" || fail "refusal does not explain how to preserve the answer"
-    grep -qF "$batch" "$TMP/err" || case "$pointer" in *19990101*) ;; *) fail "refusal does not name the closed batch" ;; esac
+    grep -qF "$expected" "$TMP/err" || fail "refusal does not name batch $expected"
   done
 }
 

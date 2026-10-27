@@ -1641,7 +1641,7 @@ import re, sys
 from pathlib import Path
 
 state = Path(sys.argv[1])
-references = re.compile(r'''(?P<root>[^\s`"'<>()\[\]]*\bbriefs)/(?P<batch>[0-9]{8}-[0-9]{6}-[0-9a-f]{4})(?=/|\s|[`"'<>.,)]|$)''')
+references = re.compile(r'''(?P<root>[^\s`"'<>()\[\]]*\bbriefs)/(?P<batch>[0-9]{8}-[0-9]{6}-[0-9a-f]{4})(?![\w-])''')
 for source in sys.argv[2:]:
     try:
         text = Path(source).read_text(encoding='utf-8')
