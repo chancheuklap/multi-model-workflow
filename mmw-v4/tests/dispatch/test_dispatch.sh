@@ -9661,7 +9661,7 @@ scenario_prgreen() {
 }
 
 scenario_prnotewhennoci() {
-  local code workflow base
+  local code workflow base pattern ci
   rm -rf "$TMP/repo/.github/workflows"
   mkdir -p "$TMP/repo/.github/workflows"
   printf 'PR body\n' > "$TMP/body.md"
@@ -9691,6 +9691,27 @@ scenario_prnotewhennoci() {
     [ "$code" = 0 ] || fail "expected 0: $(cat "$TMP/err")"
     ! grep -q '^NOTE:' "$TMP/out" || fail "unexpected NOTE for unrestricted $workflow"
   done
+  while IFS='|' read -r pattern base ci; do
+    printf 'on: {pull_request: {branches: [%s]}}\n' "$pattern" > "$TMP/repo/.github/workflows/pull-request.yaml"
+    code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+      --base "$base" --head feature --title Changes --body-file "$TMP/body.md")"
+    [ "$code" = 0 ] || fail "branch filter expected 0: $(cat "$TMP/err")"
+    if [ "$ci" = yes ]; then
+      ! grep -q '^NOTE:' "$TMP/out" || fail "$pattern must cover $base"
+    else
+      grep -qx "NOTE: GitHub CI does not run for pull requests into $base" "$TMP/out" \
+        || fail "$pattern must not cover $base"
+    fi
+  done <<'CASES'
+'*'|fix/1|no
+'*'|main|yes
+'**'|fix/1|yes
+'fix/*'|fix/1/extra|no
+'fix/**'|fix/1/extra|yes
+'v[12].[0-9]+.[0-9]+'|v1.10.1|yes
+'v[12].[0-9]+.[0-9]+'|v3.10.1|no
+'releases/**', '!releases/**-alpha'|releases/v1-alpha|no
+CASES
   printf 'on: *unreadable\n' > "$TMP/repo/.github/workflows/pull-request.yaml"
   code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
     --base night --head feature --title Changes --body-file "$TMP/body.md")"

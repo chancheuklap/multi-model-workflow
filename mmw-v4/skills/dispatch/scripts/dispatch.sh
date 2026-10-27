@@ -4148,7 +4148,6 @@ open_pr() {
   python3 - "$@" <<'PY'
 import argparse
 from dataclasses import dataclass
-import fnmatch
 import json
 import os
 from pathlib import Path
@@ -4255,6 +4254,24 @@ def yaml_block(lines):
     return result
 
 
+def branch_matches(base, pattern):
+    expression = []
+    for token in re.findall(r"\\.|\*\*|\*|\[[A-Za-z0-9-]+\]|.", pattern):
+        if token == "**":
+            expression.append(".*")
+        elif token == "*":
+            expression.append("[^/]*")
+        elif token in ("?", "+") or token.startswith("[") and token.endswith("]"):
+            expression.append(token)
+        elif token.startswith("\\"):
+            expression.append(re.escape(token[1:]))
+        elif token in ("[", "]"):
+            raise ValueError("unsupported branch character class")
+        else:
+            expression.append(re.escape(token))
+    return re.fullmatch("".join(expression), base) is not None
+
+
 @dataclass
 class Workflow:
     path: Path
@@ -4274,9 +4291,9 @@ class Workflow:
             raise ValueError("branch filters must be lists")
         allowed = not branches
         for pattern in branches:
-            if fnmatch.fnmatchcase(base, pattern.lstrip("!")):
+            if branch_matches(base, pattern.removeprefix("!")):
                 allowed = not pattern.startswith("!")
-        return allowed and not any(fnmatch.fnmatchcase(base, pattern) for pattern in ignored)
+        return allowed and not any(branch_matches(base, pattern) for pattern in ignored)
 
     def skip_reason(self):
         if "pull_request" not in self.events:
@@ -4322,7 +4339,7 @@ def read_workflow_triggers(path, base):
         workflow = Workflow(path, events)
         workflow.covers(base)
         return workflow
-    except (OSError, ValueError, TypeError, AttributeError) as error:
+    except (OSError, ValueError, TypeError, AttributeError, re.error) as error:
         print(f"workflow {path}: could not read triggers ({error}); assuming CI runs", flush=True)
         return Workflow(path, None)
 
