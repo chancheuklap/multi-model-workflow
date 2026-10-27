@@ -294,6 +294,13 @@ class TestDraftBase(unittest.TestCase):
         self.assertEqual(code, 0, out.getvalue())
         self.assertFalse(self.calls.exists())
 
+    def test_drafts_base_run_name_checkout(self):
+        self.write("checkout")
+        code, out = self.lint()
+        self.assertEqual(code, 0, out)
+        self.assertIn("checkout AC1 FAIL on origin/project", out)
+        self.assertEqual(self.calls.read_text().splitlines(), ["checkout:origin/project"])
+
     def test_drafts_base_run_timeout(self):
         self.write(check="python3 -c 'import time; print(42, flush=True); time.sleep(10)'")
         with mock.patch.object(vt, "DEFAULT_TIMEOUT", 1):

@@ -3426,8 +3426,8 @@ def lint_draft_base_checks(drafts: list[dict], root: Path, base: str) -> int:
                          if item["check"]]
                 if not items:
                     continue
-                ledger_dir = tmp / name
-                ledger_dir.mkdir()
+                ledger_dir = tmp / "ledgers" / name
+                ledger_dir.mkdir(parents=True)
                 ledger = write_ledger(body, ledger_dir,
                                       [criterion_block(item) for item in items])
                 results_path = ledger_dir / "results.json"
