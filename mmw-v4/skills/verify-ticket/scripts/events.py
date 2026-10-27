@@ -239,6 +239,10 @@ RESULTS = {
 
 BLOCK_RE = re.compile(r"<!--\s*" + MARK + r"\b(.*?)-->", re.S)
 OPENER_RE = re.compile(r"<!--\s*" + MARK + r"\b")
+TERMINAL_ESCAPE_RE = re.compile(
+    r"\x1b\].*?(?:\x07|\x1b\\)|(?:\x1b\[|\\?\^\[\[)[0-?]*[ -/]*[@-~]",
+    re.S,
+)
 COMMENT_ID_RE = re.compile(r"#issuecomment-(\d+)")
 
 
@@ -366,7 +370,12 @@ def block(payload: dict) -> str:
     HTML comment early; JSON reads the escape back as the same character.
     """
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    return f"<!-- {MARK} " + text.replace(">", "\\u003e") + " -->"
+    text = text.replace(">", "\\u003e")
+    try:
+        json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise EventError(f"event JSON could not be read back: {exc}") from exc
+    return f"<!-- {MARK} " + text + " -->"
 
 
 def neutralise(prose: str) -> str:
@@ -377,6 +386,16 @@ def neutralise(prose: str) -> str:
     nobody wrote. `&lt;!--` renders as `<!--` for a person and opens nothing.
     """
     return OPENER_RE.sub(lambda m: "&lt;!--" + m.group(0)[4:], prose or "")
+
+
+def strip_terminal_escapes(value):
+    if isinstance(value, str):
+        return TERMINAL_ESCAPE_RE.sub("", value)
+    if isinstance(value, dict):
+        return {key: strip_terminal_escapes(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [strip_terminal_escapes(item) for item in value]
+    return value
 
 
 def build(event: str, *, ticket: int | None, line: str, text: str = "",
@@ -392,7 +411,7 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     table = EVENTS.get(event)
     if table is None:
         raise EventError(f"`{event}` is not an event of this pipeline")
-    first = neutralise(line).strip().splitlines()
+    first = neutralise(strip_terminal_escapes(line)).strip().splitlines()
     if not first or not first[0].strip():
         raise EventError(f"`{event}` needs a first line a person can read")
     payload = {
@@ -409,6 +428,7 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
             raise EventError(f"`{key}` is a common field, not a field of `{event}`")
         if value is not None and value != "":
             payload[key] = value
+    payload = strip_terminal_escapes(payload)
     problem = _check(event, payload)
     if problem:
         raise EventError(problem)
@@ -417,7 +437,7 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     if rest:
         parts.append(rest)
     if text and text.strip():
-        parts += ["", neutralise(text).strip("\n")]
+        parts += ["", neutralise(strip_terminal_escapes(text)).strip("\n")]
     return "\n".join(parts) + "\n\n" + block(payload) + "\n"
 
 

@@ -7714,6 +7714,27 @@ setup_checked_ticket() {
   seed_workspace 61
 }
 
+scenario_bounceansitail() {
+  setup_checked_ticket "printf '\033[32mFAIL lint-python\033[0m\n\\^[[32mpyrefly\\^[[0m\n'; exit 1"
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "colour output should bounce and continue: $(cat "$TMP/err")"
+  gh_comments_json 61 | python3 "$EVENTS_PY" fold 61 --comments-file - > "$TMP/fold.json" \
+    || fail "the ticket fold could not read the bounce"
+  MMW_BOUNCE="$(bounced_comment 61)" python3 - "$TMP/fold.json" <<'PYTEST' || fail "the bounce must retain readable check output without colour codes"
+import json, os, sys
+from pathlib import Path
+state = json.loads(Path(sys.argv[1]).read_text())
+assert state["unreadable"] == [], state["unreadable"]
+assert state["bounced"], state
+raw = os.environ["MMW_BOUNCE"].split("<!-- mmw ", 1)[1].rsplit(" -->", 1)[0]
+bounce = json.loads(raw)
+assert bounce["reason"] == "checks", bounce
+assert bounce["commands"][0]["tail"] == "FAIL lint-python\npyrefly", bounce
+PYTEST
+}
+
 scenario_advancebouncedchecks() {
   setup_checked_ticket "printf 'red-%s\\n' tail; exit 1"
   local before code
@@ -9075,7 +9096,7 @@ ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard o
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
-ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
+ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail"
 ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
 ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 
