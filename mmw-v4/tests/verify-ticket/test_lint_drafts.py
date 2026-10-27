@@ -252,13 +252,22 @@ class TestDraftBase(unittest.TestCase):
     def test_no_runner_summary(self):
         standards = json.loads((vt.HERE / "runner-summaries.json").read_text())
         for runner, contract in standards.items():
-            for output in ("quiet", *[s["summary"] for s in contract["samples"]]):
+            other_summaries = {
+                "pytest": ["=== 3 passed, 2 deselected in 0.04s ===",
+                           "3 passed, 2 warnings in 0.5s", "2 failed, 3 passed in 0.1s",
+                           "=== 1 error in 0.1s ===", "1 passed, 1 xfailed in 0.1s",
+                           "=== 3 failed, 2 skipped in 0.10s ==="],
+                "vitest": ["Tests  1 failed | 2 skipped (3)", "Test Files  1 failed (1)"],
+            }
+            absent = ("quiet", "done: 3 passed", "Tests  banana passed (1)")
+            for output in (*absent, *[s["summary"] for s in contract["samples"]],
+                           *other_summaries[runner]):
                 with self.subTest(runner=runner, output=output):
                     self.write(check=f"./{runner} {shlex.quote(output)} 1",
                                expect=contract["expect"])
                     code, out = self.lint()
-                    self.assertEqual("[no-runner-summary]" in out, output == "quiet", out)
-                    self.assertEqual(code, 1 if output == "quiet" else 0, out)
+                    self.assertEqual("[no-runner-summary]" in out, output in absent, out)
+                    self.assertEqual(code, 1 if output in absent else 0, out)
 
     def test_published_lint_runs_nothing(self):
         self.write()

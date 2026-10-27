@@ -3404,14 +3404,7 @@ def read_draft(path: Path) -> dict:
 
 def runner_summary_present(output: str, contract: dict) -> bool:
     output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
-    for sample in contract["samples"]:
-        parts = re.split(r"(\d+(?:\.\d+)?)", sample["summary"].strip())
-        pattern = "".join(r"\d+(?:\.\d+)?" if i % 2 else re.escape(part)
-                          for i, part in enumerate(parts))
-        pattern = re.sub(r"=+", "=+", pattern).replace(r"\ ", r"[ \t]+")
-        if re.search(r"^[ \t]*" + pattern + r"[ \t]*$", output, re.MULTILINE):
-            return True
-    return False
+    return bool(re.search(contract["summary_pattern"], output, re.MULTILINE))
 
 
 def lint_draft_base_checks(drafts: list[dict], root: Path, base: str) -> int:
