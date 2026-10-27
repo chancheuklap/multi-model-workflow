@@ -75,7 +75,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 
 1. Do steps 1-3 of the dispatch skill's `## On waking`, which end with the ack.
 2. Run `dispatch.sh status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers.
-3. Take every row the table matches, not only the ticket named by the wake. For `ticket.returned`, a `fault` child, or `ticket.checked` with `result=handoff`, register each new stall event with the register-problem skill's `scripts/register.py add --source stall`. First read the source ticket's comments for that event's registration. After a successful add, comment there with the originating event's comment URL and the registration issue. Reuse that registration when the same event appears on a later wake or in the closing pass.
+3. Take every row the table matches, not only the ticket named by the wake. For `ticket.returned`, a `fault` child, or `ticket.checked` with `result=handoff`, register each new stall event with the register-problem skill's `scripts/register.py add <file> --source stall --repo <产品仓库> --ticket <n>`. First read the source ticket's comments for that event's registration. After a successful add, comment there with the originating event's comment URL and the registration issue. Reuse that registration when the same event appears on a later wake or in the closing pass.
 4. Run `dispatch.sh advance <spec>` once. Its exit codes are under [**2. First `advance`**](#2-first-advance).
 5. When the `advance` you just ran left the frontier empty and no agent live (read `status` again), go to [4. The closing pass](#4-the-closing-pass); otherwise end your turn.
 
