@@ -2912,6 +2912,50 @@ def lint_timeouts(body: str) -> list[str]:
     return findings
 
 
+def lint_runner_expectations(body: str) -> list[str]:
+    """Require each known runner's standard EXPECT and name a misclassified run."""
+    runners = json.loads((HERE / "runner-summaries.json").read_text(encoding="utf-8"))
+    findings = []
+    for gate_id, check, expect in criteria_lines(body):
+        for runner, contract in runners.items():
+            if runner not in check.lower() or expect == contract["expect"]:
+                continue
+            script = r'''
+const {expect, samples} = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+try {
+  const parsed = expect.match(/^\/([\s\S]*)\/([a-z]*)$/);
+  const wrong = samples.find(sample => {
+    const matched = parsed
+      ? new RegExp(parsed[1], parsed[2]).test(sample.output)
+      : sample.output.includes(expect);
+    return matched !== sample.success;
+  });
+  console.log(JSON.stringify(wrong ? {
+    reason: wrong.success ? 'rejects success' : 'accepts failure',
+    summary: wrong.summary
+  } : {}));
+} catch (error) {
+  console.log(JSON.stringify({reason: 'is invalid', summary: error.message}));
+}
+'''
+            try:
+                result = subprocess.run(
+                    ["node", "-e", script],
+                    input=json.dumps({"expect": expect, "samples": contract["samples"]}),
+                    capture_output=True, text=True, timeout=10, check=True,
+                )
+                wrong = json.loads(result.stdout)
+                detail = (f" {wrong['reason']}: {wrong['summary']}."
+                          if wrong else " is not the standard pattern.")
+            except (OSError, subprocess.SubprocessError, ValueError) as exc:
+                detail = f" could not be checked against recorded output ({exc})."
+            findings.append(
+                f"{gate_id}: {runner} EXPECT {expect}{detail} The standard EXPECT is "
+                f"mandatory, including for count-pinned patterns and echoed markers. "
+                f"Copy EXPECT: {contract['expect']} from runner-summaries.json.")
+    return findings
+
+
 def final_stage(check: str) -> str:
     """The command whose exit code a CHECK's shell hands back: the text after the last
     `|`, `;` or `&` the shell reads as a separator.
@@ -3171,6 +3215,8 @@ def lint_criteria(number: int, body: str, labels: list[str],
 
     for finding in lint_expectations(body):
         say("error", finding, "dollar-without-m")
+    for finding in lint_runner_expectations(body):
+        say("error", finding, "runner-expect")
     for finding in lint_timeouts(body):
         say("error", finding, "bad-timeout")
     for finding in lint_network_stubs(body):
