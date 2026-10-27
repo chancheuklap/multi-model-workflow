@@ -22,7 +22,8 @@ elif verb == "list":
     answer = {"result": {"terminals": [{"handle": "term_screen", "agentIdentity": "codex"}]}}
 elif verb == "wait":
     if args[args.index("--for") + 1] == "exit":
-        answer = {"error": {"code": "timeout"}}
+        print(os.environ["SCREEN_EXIT_PROBE"])
+        sys.exit(0)
     else:
         print(os.environ.get("SCREEN_PROBE", "{}"))
         sys.exit(0)
@@ -47,11 +48,13 @@ class RunnerScreen(unittest.TestCase):
         fake.write_text(f"#!{sys.executable}\n" + FAKE_ORCA)
         fake.chmod(0o755)
 
-    def run_orca(self, verb, screen, probe="{}", read_exit=0):
+    def run_orca(self, verb, screen, probe="{}", read_exit=0,
+                 exit_probe='{"error":{"code":"timeout"}}'):
         self.log.unlink(missing_ok=True)
         env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"],
                    MMW_HOME=str(self.root / "mmw-home"), SCREEN_LOG=str(self.log),
-                   SCREEN_READ=screen, SCREEN_PROBE=probe, SCREEN_READ_EXIT=str(read_exit))
+                   SCREEN_READ=screen, SCREEN_PROBE=probe, SCREEN_READ_EXIT=str(read_exit),
+                   SCREEN_EXIT_PROBE=exit_probe)
         args = ["--host", "codex", "--model", "gpt-6.1-sol", "--effort", "medium",
                 "--cwd", str(self.root), "--prompt", "Work the ticket"] if verb == "start" else [SESSION]
         result = subprocess.run(["bash", str(RUNNERS / "orca.sh"), verb, *args], env=env,
@@ -68,15 +71,23 @@ class RunnerScreen(unittest.TestCase):
         self.assertFalse(any(call[:2] == ["terminal", "close"] for call in calls))
 
     def test_screen_start_refuses_on_a_listed_dialog(self):
-        for text in ["Do you trust this folder?", "Allow external imports?", "Trust this folder?"]:
-            with self.subTest(text=text):
+        screens = ["Do you trust this folder?", "Allow external imports?", "Trust this folder?"]
+        waits = [{"error": {"code": "timeout"}},
+                 {"result": {"wait": {"satisfied": False, "status": "running"}}}]
+        for text, wait in ((text, wait) for text in screens for wait in waits):
+            with self.subTest(text=text, wait=wait):
                 line = "  > " + text
-                result, calls = self.run_orca("start", self.screen("Welcome", line, "Enter to confirm"))
+                result, calls = self.run_orca(
+                    "start", self.screen("Welcome", line, "Enter to confirm"),
+                    json.dumps({"result": {"wait": {"satisfied": False, "status": "running"}}}),
+                    exit_probe=json.dumps(wait))
                 self.assertEqual((result.returncode, result.stdout), (1, ""), result.stderr)
                 self.assertEqual(result.stderr.splitlines()[0], line)
                 self.assertEqual(len(result.stderr.splitlines()), 2)
                 self.assertIn(str(self.root), result.stderr.splitlines()[1])
-                self.assertTrue(any(call[:2] == ["terminal", "close"] for call in calls))
+                closed = [call[call.index("--terminal") + 1] for call in calls
+                          if call[:2] == ["terminal", "close"]]
+                self.assertEqual(closed, [SESSION])
 
     def test_screen_state_reports_the_turn(self):
         for probe, expected in [
