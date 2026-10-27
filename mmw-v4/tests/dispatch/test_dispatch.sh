@@ -8794,7 +8794,29 @@ repository_record() {
     --field run=repository --field result=met --field tier=default \
     --field "commit=$(git -C "$TMP/repo" rev-parse issue-61)" --field "base=$1" \
     --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-    --json-field 'steps=["unit"]'
+    --json-field 'steps=["unit"]' "${@:2}"
+}
+
+scenario_landskipsbaseredproof() {
+  rm -f "$TMP/check-runs"
+  setup_checked_ticket "printf '%s\\n' \"\${1:-default}\" >> '$TMP/check-runs'
+if [ \"\${1:-}\" = --step ]; then [ \"\$2\" = unit ] || exit 2; fi
+echo 'FAIL unit 0s'
+exit 1"
+  local passed base code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  base="$(git -C "$TMP/origin.git" rev-parse main)"
+  repository_record "$base" --json-field 'base_red=["unit"]'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the ticket did not land"
+  [ "$(cat "$TMP/check-runs" 2>/dev/null)" = "$(printf 'default\n--step')" ] \
+    || fail "landing did not check the merge and compare its failed steps on the base"
+  posted_events 61 checked_by | grep '^ticket.landed' | grep -q 'checked_by=None' \
+    || fail "landing reused the worker's base-red record"
+  posted_events 61 base_red | grep -qx "ticket.landed base_red=\['unit'\]" \
+    || fail "landing did not record its own base-red comparison"
 }
 
 scenario_landreusesproof() {
@@ -10206,7 +10228,7 @@ scenario_prredandnone() {
   grep -q 'HTTP 502' "$TMP/err" || fail 'a check read failure must explain why'
 }
 
-ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall prgreen prnotewhennoci prdispatchesworkflow prredandnone"
+ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall landskipsbaseredproof prgreen prnotewhennoci prdispatchesworkflow prredandnone"
 ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands recheckred recheckgreenrecordsnothing"
 ALL="$ALL advancebaseredlands"
 ALL="$ALL recheckpathselection"

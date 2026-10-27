@@ -2527,7 +2527,7 @@ PY
 base_check_steps_red() {
   local root="$1" base_ref="$2" failed="$3" out
   out="$(python3 - "$VERIFY" "$root" "$base_ref" "$failed" <<'PY'
-import importlib.util, json, os, sys
+import importlib.util, json, sys
 from pathlib import Path
 
 script, root, base_ref, failed = sys.argv[1:]
@@ -2536,17 +2536,8 @@ spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
-steps = list(dict.fromkeys(step for row in json.loads(failed) for step in row.get("steps", [])))
+steps = mod.base_red_steps(Path(root), base_ref, json.loads(failed))
 if not steps:
-    sys.exit(1)
-env = dict(os.environ, MMW_BASE_REF=base_ref)
-try:
-    code, output = mod._run(Path(root) / mod.REPOSITORY_CHECK, Path(root), env, "--step", ",".join(steps))
-except OSError as exc:
-    print(f"dispatch: base check could not start: {exc}", file=sys.stderr)
-    sys.exit(1)
-print(output, file=sys.stderr, end="")
-if code != 1 or not set(steps).issubset(mod.FAIL_STEP_RE.findall(output)):
     sys.exit(1)
 print(json.dumps(steps, separators=(",", ":")))
 PY
