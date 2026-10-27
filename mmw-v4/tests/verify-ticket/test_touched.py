@@ -284,6 +284,16 @@ class TestPostsOnlyOnCoveringOpenTickets(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual([n for n, _ in posted], [82])
 
+    def test_owns_note_covers_the_annotated_path(self):
+        for path in ("src/helper.py", "src/**", "`src/helper.py`", "`src/**`"):
+            for note in (" (AC1 only)", "(AC1 only)", " （只限 AC1）", "（只限 AC1）"):
+                with self.subTest(path=path, note=note):
+                    code, err, posted, _, _ = run_touched(
+                        (SELF_RUN, DECISIONS, REVIEW),
+                        {80: "## Owns\n\n- " + path + note + "\n"})
+                    self.assertEqual(code, 0, err)
+                    self.assertEqual([n for n, _ in posted], [80])
+
     def test_a_closed_sibling_is_skipped(self):
         code, err, posted, _, _ = run_touched(
             (SELF_RUN, DECISIONS, REVIEW),
