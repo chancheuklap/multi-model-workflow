@@ -595,7 +595,7 @@ state() {
   info="$(printf '%s' "$out" | parse_json wait)" || info=""
   code="${info%%$'\t'*}"
   rest="${info#*$'\t'}"
-  status="${rest#*$'\t'}"
+  status="$(printf '%s' "${rest#*$'\t'}" | tr '[:upper:]' '[:lower:]')"
   case "$code" in
     terminal_handle_stale|terminal_not_writable) printf '%s\n' stopped; return ;;
   esac

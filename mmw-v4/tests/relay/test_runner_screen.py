@@ -94,6 +94,7 @@ class RunnerScreen(unittest.TestCase):
             ({"result": {"wait": {"satisfied": True, "status": "running"}}}, "idle"),
             ({"result": {"wait": {"satisfied": False, "status": "running"}}}, "working"),
             ({"error": {"code": "timeout"}}, "working"),
+            ({"result": {"wait": {"satisfied": True, "status": "Exited"}}}, "stopped"),
         ]:
             with self.subTest(expected=expected, probe=probe):
                 result, _ = self.run_orca("state", self.screen("Work the ticket"), json.dumps(probe))
