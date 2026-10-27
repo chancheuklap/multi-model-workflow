@@ -189,7 +189,7 @@ def check_env(report: Report, root: Path):
     testing = root / "TESTING.md"
     words = testing.read_text() if testing.is_file() else ""
     needed = compose or re.search(
-        r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?|数据库|端口|容器)\b",
+        r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?)\b|数据库|端口|容器",
         words, re.IGNORECASE)
     if not (root / "scripts" / "env").exists():
         if needed:

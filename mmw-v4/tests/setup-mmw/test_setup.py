@@ -522,6 +522,12 @@ class TestCheck(unittest.TestCase):
                 code, out = self.run_check(Fake(root=self.root))
                 self.assertEqual(code, 1, out)
                 self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
+        for prose in ("测试用到数据库和容器", "测试使用端口", "测试用到数据库。", "测试使用数据库进行"):
+            with self.subTest(prose=prose):
+                (self.root / "TESTING.md").write_text(prose)
+                code, out = self.run_check(Fake(root=self.root))
+                self.assertEqual(code, 1, out)
+                self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
         (self.root / "TESTING.md").unlink()
         for name in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
             with self.subTest(compose=name):
