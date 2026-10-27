@@ -11,6 +11,12 @@ vt = load()
 
 
 class TestSectionFences(unittest.TestCase):
+    def test_unclosed_fence_cannot_hide_review_findings(self):
+        report = ("REVIEW a..b\n\n## Spec\n\nquote:\n```python\nx = 1\n\n"
+                  "## In-ticket\n\n- Spec [x] a.py:3 claim\n")
+        with self.assertRaisesRegex(ValueError, "--sub-issue fault"):
+            vt.require_in_ticket(report, 1, 1348)
+
     def test_read_first_lint_sees_past_a_fenced_example(self):
         source = "- https://claude.ai/artifact/real-baseline"
         body = ("## Problem\n\n```markdown\n## Read first\n\n"
@@ -38,6 +44,9 @@ class TestSectionFences(unittest.TestCase):
                         f"{closing}\nAfter.\n\n## Seam\nNone\n")
                 self.assertEqual(vt.section(body, "Read first"), [
                     "- `real.md`", opening, "## Seam", "example", closing, "After."])
+        body = ("## Problem\n- item\n    ```\n    ## Read first\n"
+                "    ```\n## Read first\n- real\n")
+        self.assertEqual(vt.section(body, "Read first"), ["- real"])
 
     def test_section_keeps_its_own_fenced_block(self):
         body = "## Read first\n\nBefore.\n```python\nprint('baseline')\n```\nAfter.\n\n## Seam\nNone\n"

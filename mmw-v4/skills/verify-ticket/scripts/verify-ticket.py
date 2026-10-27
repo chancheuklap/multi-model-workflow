@@ -450,7 +450,7 @@ def section(body: str, heading: str) -> list[str]:
             fence = (opened.group(2)[0], len(opened.group(2)))
         elif active and line.startswith("## "):
             break
-        elif not active and line.strip() == f"## {heading}":
+        elif not active and line.rstrip() == f"## {heading}":
             active = True
             continue
         if active:
@@ -1331,15 +1331,12 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
 
 
 def require_in_ticket(review: str, comment: int | str | None, number: int) -> None:
-    """Refuse a review report that carries no `## In-ticket` heading: the reviewer posts
-    one whatever it found, `None` included, so a report without one stopped before any
-    axis ran (a commit that does not resolve, an empty diff) and reviewed nothing."""
-    if any(line.strip() == "## In-ticket" for line in review.splitlines()):
+    if section(review, "In-ticket"):
         return
     first = review.splitlines()[0] if review else "(empty)"
     raise ValueError(
-        f"the newest review report (comment {comment}, `{first[:80]}`) has no ## In-ticket "
-        f"section, so nothing reviewed this ticket and it cannot close as reviewed; open a "
+        f"the newest review report (comment {comment}, `{first[:80]}`) has no readable ## In-ticket "
+        f"content, so it cannot close as reviewed; open a "
         f"fault child with `verify-ticket.py {number} --sub-issue fault <file>`, its body "
         f"the report, and stop")
 
