@@ -1,9 +1,3 @@
-"""Refresh real runner output fixtures. Requires uv, npm and network access.
-
-Run from any directory with python3 record_runner_summaries.py. The standard EXPECT
-values stay in runner-summaries.json; this command replaces only recorded samples.
-"""
-
 import json
 import os
 import shlex

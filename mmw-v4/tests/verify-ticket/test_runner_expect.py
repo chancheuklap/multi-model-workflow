@@ -1,5 +1,3 @@
-"""Runner EXPECT contracts, lint errors and original-ticket replays, without GitHub."""
-
 import io
 import json
 import subprocess

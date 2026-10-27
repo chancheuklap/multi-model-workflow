@@ -2913,7 +2913,6 @@ def lint_timeouts(body: str) -> list[str]:
 
 
 def lint_runner_expectations(body: str) -> list[str]:
-    """Require each known runner's standard EXPECT and name a misclassified run."""
     runners = json.loads((HERE / "runner-summaries.json").read_text(encoding="utf-8"))
     findings = []
     for gate_id, check, expect in criteria_lines(body):
