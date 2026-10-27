@@ -86,7 +86,7 @@ The unit the toolbox ships: one directory under `mmw-v3/skills/` with a `SKILL.m
 _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-COMPONENTS.md`, `mmw-v3/install.sh`
 
 **mode**:
-The `mmw-mode` skill: the owner's way of working, which every session reads in full before any work. Its `## Non-negotiables`, `## Principles` index, `## Autonomy` and reply rules hold for every task, and its `## Playbooks` routes each kind of task to one playbook. A session a script starts is told to read it by its start prompt; in a repository with `.mmw/`, the host hook `mode-hook.py` tells a Claude Code or Codex session to read it at start.
+The `mmw-mode` skill: the owner's way of working, which every session reads in full before any work. Its `## Non-negotiables`, `## Principles` index, `## Autonomy` and reply rules hold for every task, and its `## Playbooks` routes each kind of task to one playbook. A session a script starts is told to read it by its start prompt; in every repository, the host hook `session-start.py` tells a Claude Code or Codex session to read it at start, and a Claude Code session to read it again after its context is compacted.
 _Home_: `mmw-v3/skills/mmw-mode/SKILL.md`
 
 **playbook**:
@@ -191,7 +191,7 @@ The repeatable override flag of `verify-ticket.py`, `dispatch.sh`, `pull_design.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`, `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **host hook**:
-A program a host runs at one of its own events. `install.sh` registers four handlers from three scripts in Claude Code's and Codex's own configuration: the dispatch skill's `tool-guard.py` before a tool call (`pretool`) and before the question tool (`question`), and at the end of a turn (`Stop`) the dispatch skill's `turn-guard.py` and the `mmw-mode` skill's `reply-check.py`. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): they share the bare word "hook" but run at different events for different reasons.
+A program a host runs at one of its own events. `install.sh` registers five handlers from four scripts in Claude Code's and Codex's own configuration: the dispatch skill's `tool-guard.py` before a tool call (`pretool`) and before the question tool (`question`), at the end of a turn (`Stop`) the dispatch skill's `turn-guard.py` and the `mmw-mode` skill's `reply-check.py`, and when a session starts (`SessionStart`) the `mmw-mode` skill's `session-start.py`. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): they share the bare word "hook" but run at different events for different reasons.
 _Home_: `mmw-v4/install.sh`
 
 **`tool-guard.py`**:
