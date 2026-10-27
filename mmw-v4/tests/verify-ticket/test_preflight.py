@@ -489,25 +489,25 @@ class TestResume(unittest.TestCase):
                 self.assertEqual(code, 0, err)
                 self.assertIn("READY:", out)
                 self.assertFalse(any(row.startswith("RESUME:") for row in out.splitlines()), out)
-                self.assertIn("acceptance criteria", err.lower())
-                self.assertIn("read the ticket", err.lower())
+                self.assertTrue(err.strip())
+                self.assertIn("#77", err)
 
     def test_an_unchanged_shape_still_resumes(self):
         current = SELF_LEDGER.replace("[x]", "[ ]").replace("exit=0", "pending")
-        for comments in (
-            [checked("self", SELF_LEDGER, ticket=77),
-             event("worker.decided", "DECISIONS", ticket=77)],
-            [checked("self", SELF_LEDGER.replace("it works", "old contract"), ticket=77),
-             checked("self", SELF_LEDGER, ticket=77),
-             event("worker.decided", "DECISIONS", ticket=77),
-             checked("baseline", SELF_LEDGER.replace("it works", "other contract"), ticket=77)],
-            [event("worker.decided", "DECISIONS", ticket=77)],
+        for expected, comments in (
+            ("Start the reviewer",
+             [checked("self", SELF_LEDGER, ticket=77),
+              event("worker.decided", "DECISIONS", ticket=77)]),
+            ("Start the reviewer",
+             [checked("self", SELF_LEDGER.replace("it works", "old contract"), ticket=77),
+              checked("self", SELF_LEDGER, ticket=77),
+              event("worker.decided", "DECISIONS", ticket=77),
+              checked("baseline", SELF_LEDGER.replace("it works", "other contract"), ticket=77)]),
+            ("Integrate and run every criterion",
+             [event("worker.decided", "DECISIONS", ticket=77)]),
         ):
             with self.subTest(comments=comments):
                 out = self.resume(comments, body="## Acceptance criteria\n\n" + current)
-                expected = ("Start the reviewer" if any(
-                    event_of(comment)[1].get("run") == "self" for comment in comments)
-                    else "Integrate and run every criterion")
                 self.assertResumes(out, expected)
 
     def test_a_run_of_your_own_with_no_decision_resumes_at_step_2(self):
