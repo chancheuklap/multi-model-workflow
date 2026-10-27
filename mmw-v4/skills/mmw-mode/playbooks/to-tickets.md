@@ -20,15 +20,23 @@ Break the work into **tracer bullet** tickets.
 
 <vertical-slice-rules>
 
-- Each slice cuts a narrow but COMPLETE path through every layer (schema, API, UI, tests): vertical, NOT a horizontal slice of one layer
+- Every ticket runs from one action of the product's user to a result that user sees, through every layer it needs. The user uses the shipped product from outside it, either an end user or, in a tooling repository, the agent or owner who runs the tool. Another layer or service of the same product never counts as the user. No reason to split outweighs this rule.
 - A completed slice is demoable or verifiable on its own
 - Any prefactoring should be done first
 
 </vertical-slice-rules>
 
+Horizontal slices fail for five reasons:
+
+- Nothing is usable until the last ticket lands.
+- Mismatches between layers appear late, when those layers finally connect.
+- A night stopped halfway leaves half-built layers rather than complete deliverable features.
+- A horizontal ticket's acceptance checks prove that one layer works, not that the user can use the product.
+- Splitting by layer does not buy parallel work when each layer still waits for the previous one, and only adds hand-offs.
+
 For UI work, each slice combines its part of the prototype front end with the interfaces, back end, database and tests it needs. The first slice owns any shared page skeleton; the others are blocked by it. The final ticket only removes mount points and is blocked by every slice. With only one ticket, remove the mount points in its last commit.
 
-Split where the parts can run at the same time, or where one part's criteria can fail without the other's; keep together what would write the same files, since splitting that only adds an edge.
+Split a vertical ticket into narrower vertical tickets where they can run at the same time, or where one ticket's criteria can fail without the other's. Every resulting ticket still completes a user action and its visible result. Keep together what would write the same files, since splitting that only adds an edge. Write a release order such as "the gateway ships first" inside the vertical ticket's **What to build**, never as a ticket of its own.
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
@@ -67,6 +75,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 - Find affected existing features as `../references/feature-map.md` says, using the behavior decisions in the spec's Implementation Decisions. For unchanged behaviour, take the e2e tests registered in the feature map as pins, green on the base branch. Where no test exists, write one from the current code and register it in the feature map. For changed behaviour, rewrite the old cases from the winner prototype as acceptance tests, red on the base branch. Move those rewritten cases into this ticket's own new file and remove them from the old file; the cases left there stay pins. Update the feature file's sentences about what the product can do at the same time, and list it as a baseline.
 - Commit and push these tests and feature files to the night's branch before `dispatch.sh open`. An effort that already has its effort branch, `map-<map number>` for a map or the `fix-<n>` of the ticket the spec came from, uses that branch as the night's branch. Otherwise create the night's branch from the project branch before committing these assets. Do not commit them to the project branch. The checkout where `check` and `open` run names the night's base branch, and `open` merges the project branch into it. Workers' checkouts are cut from `origin`, so local-only commits reach no worker.
 - For a slice with back-end work, add a back-end test `CHECK:` naming its dedicated test database, separate from the e2e database. Its `EXPECT:` requires zero skipped tests.
+- When a ticket's code calls an interface built in another repository, read the producer's code on its project branch. List the interface's actual rules under **What to build**, including fields, accepted values, status codes, and error bodies, each with the producer's path and line. Add one criterion whose test asserts each rule.
 - For a UI acceptance criterion, copy the whole CHECK line and any `TIMEOUT:` from Launch, aimed at its own new test file, and copy the passing e2e summary as `EXPECT:`. For a UI pin, use Launch's CHECK line aimed at the existing test file registered in the feature map. Nighttime CHECK lines run only `product`. For other criteria, `CHECK:` comes from Testing Decisions: its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds. Run the `CHECK:` once on the base branch, where it must fail. When it passes there, it cannot see this ticket's work: its selector also matches cases that already exist, or the command never looks at the thing the criterion names (a checker asked whether a file is referenced that only checks that referenced files exist). Make it run the new case by its own name first, before any wider selector, or aim it at the thing itself, and run it on the base branch again to see it fail. When the spec quotes text the product must hold word for word, also run the `CHECK:` once on a copy of that text, where it must pass: a pattern or a split marker that also occurs inside the quoted text (a heading named in a sentence, an old name inside the new one) fails on a correct product. A pin is the exception: it passes there by design. When this ticket changes the command a pin runs (a checker given a new rule), the pin must also pass once that change is in: find what in the base branch's tree the new rule would report, and settle each case in **What to build** before you publish.
 - A `CHECK:` never runs the repository's `scripts/check`: the dispatch skill runs it on every ticket's merge result, so a criterion that repeats it proves nothing this ticket adds, and fails on work this ticket never touched (**principle-subtract-before-you-add**).
 - `EXPECT:` is a **success-only marker**: the line the precedent prints only when it passed. Run the precedent once and copy that line. `ok`, `passed` or `done` on their own also appear in failing output; take the whole counted line.
@@ -105,6 +114,7 @@ Hold this turn until it returns; where the host runs subagents in the background
 Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
 
 - **Title**: short descriptive name
+- **Customer action**: the opening sentence of **What to build**, naming the one action the product's user takes and what they see. A ticket that cannot state it is a horizontal slice and goes back to step 3.
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
 - **Worker**: `junior-worker` or `senior-worker`, and the one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
@@ -123,6 +133,8 @@ Ask the user:
 Write each answered choice that only changes what one ticket delivers into that draft's **What to build**. Write each answered choice that changes a decision in a spec section back through the Revising a spec playbook (`playbooks/revising-a-spec.md`), then into the drafts.
 
 #### Read-back
+
+Check that each published ticket's **What to build** opens with the sentence naming the one action the product's user takes and what they see once the ticket is done.
 
 Read the lint `--publish` ran on the published spec as the `verify-ticket` skill's `references/linting.md` says: no `ERROR`, and every `WARN` read once and either fixed or kept on purpose. The drafts runs of steps 6 and 7 do not stand in for it: only this run sees the tracker's labels, sub-issues and blocking edges. Fix each `ERROR` on its ticket and run `verify-ticket.py <spec> --lint` again. Then fetch each `ready-for-human` ticket again and check it holds all of **the five things** in `../references/person-ticket.md`, because no agent can repair one. Checking sub-issues, labels and blockers by hand again found nothing across 158 published tickets; the publish command and this lint hold them.
 
