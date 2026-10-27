@@ -1,0 +1,310 @@
+{
+  "pytest": {
+    "expect": "/^(?:=+ )?(?=[^\\r\\n]*\\d+ (?:passed|xfailed|xpassed))\\d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed)(?:, \\d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed))* in [0-9.]+s(?: \\(\\d+:\\d{2}:\\d{2}\\))?(?: =+)?$/m",
+    "samples": [
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k 'pass or warning or xfail or xpass'",
+        "exit": 0,
+        "success": true,
+        "summary": "======= 2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.02s =======",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 4 deselected / 4 selected\n\ntest_cases.py ..xX                                                       [100%]\n\n=============================== warnings summary ===============================\ntest_cases.py::test_warning\n  /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5/test_cases.py:9: UserWarning: recorded warning\n    warnings.warn(\"recorded warning\", UserWarning)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======= 2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.02s =======\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k xfail",
+        "exit": 0,
+        "success": true,
+        "summary": "================= 6 deselected, 1 xfailed, 1 xpassed in 0.02s ==================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 6 deselected / 2 selected\n\ntest_cases.py xX                                                         [100%]\n\n================= 6 deselected, 1 xfailed, 1 xpassed in 0.02s ==================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k xpass",
+        "exit": 0,
+        "success": true,
+        "summary": "======================= 7 deselected, 1 xpassed in 0.01s =======================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 7 deselected / 1 selected\n\ntest_cases.py X                                                          [100%]\n\n======================= 7 deselected, 1 xpassed in 0.01s =======================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k 'pass or skip'",
+        "exit": 0,
+        "success": false,
+        "summary": "============ 1 passed, 1 skipped, 5 deselected, 1 xpassed in 0.01s =============",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 5 deselected / 3 selected\n\ntest_cases.py .Xs                                                        [100%]\n\n============ 1 passed, 1 skipped, 5 deselected, 1 xpassed in 0.01s =============\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k 'fail or pass'",
+        "exit": 1,
+        "success": false,
+        "summary": "======= 1 failed, 1 passed, 4 deselected, 1 xfailed, 1 xpassed in 0.02s ========",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 4 deselected / 4 selected\n\ntest_cases.py .xXF                                                       [100%]\n\n=================================== FAILURES ===================================\n__________________________________ test_fail ___________________________________\n\n    def test_fail():\n>       assert False\nE       assert False\n\ntest_cases.py:24: AssertionError\n=========================== short test summary info ============================\nFAILED test_cases.py::test_fail - assert False\n======= 1 failed, 1 passed, 4 deselected, 1 xfailed, 1 xpassed in 0.02s ========\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k 'error or pass'",
+        "exit": 1,
+        "success": false,
+        "summary": "============= 1 passed, 5 deselected, 1 xpassed, 1 error in 0.02s ==============",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 5 deselected / 3 selected\n\ntest_cases.py .XE                                                        [100%]\n\n==================================== ERRORS ====================================\n_________________________ ERROR at setup of test_error _________________________\n\n    @pytest.fixture\n    def broken():\n>       raise RuntimeError(\"recorded setup error\")\nE       RuntimeError: recorded setup error\n\ntest_cases.py:28: RuntimeError\n=========================== short test summary info ============================\nERROR test_cases.py::test_error - RuntimeError: recorded setup error\n============= 1 passed, 5 deselected, 1 xpassed, 1 error in 0.02s ==============\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k skip",
+        "exit": 0,
+        "success": false,
+        "summary": "======================= 1 skipped, 7 deselected in 0.01s =======================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 7 deselected / 1 selected\n\ntest_cases.py s                                                          [100%]\n\n======================= 1 skipped, 7 deselected in 0.01s =======================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k long",
+        "exit": 0,
+        "success": true,
+        "summary": "================== 1 passed, 7 deselected in 61.01s (0:01:01) ==================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 7 deselected / 1 selected\n\ntest_cases.py .                                                          [100%]\n\n================== 1 passed, 7 deselected in 61.01s (0:01:01) ==================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_pass",
+        "exit": 0,
+        "success": true,
+        "summary": "============================== 1 passed in 0.01s ===============================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_cases.py .                                                          [100%]\n\n============================== 1 passed in 0.01s ===============================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_warning",
+        "exit": 0,
+        "success": true,
+        "summary": "========================= 1 passed, 1 warning in 0.01s =========================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_cases.py .                                                          [100%]\n\n=============================== warnings summary ===============================\ntest_cases.py::test_warning\n  /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5/test_cases.py:9: UserWarning: recorded warning\n    warnings.warn(\"recorded warning\", UserWarning)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 1 passed, 1 warning in 0.01s =========================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_xfail",
+        "exit": 0,
+        "success": true,
+        "summary": "============================== 1 xfailed in 0.01s ==============================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_cases.py x                                                          [100%]\n\n============================== 1 xfailed in 0.01s ==============================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_xpass",
+        "exit": 0,
+        "success": true,
+        "summary": "============================== 1 xpassed in 0.01s ==============================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_cases.py X                                                          [100%]\n\n============================== 1 xpassed in 0.01s ==============================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest empty",
+        "exit": 5,
+        "success": false,
+        "summary": "============================ no tests ran in 0.01s =============================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 0 items\n\n============================ no tests ran in 0.01s =============================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k 'pass or warning or xfail or xpass'",
+        "exit": 0,
+        "success": true,
+        "summary": "2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.01s",
+        "output": "..xX                                                                     [100%]\n=============================== warnings summary ===============================\ntest_cases.py::test_warning\n  /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5/test_cases.py:9: UserWarning: recorded warning\n    warnings.warn(\"recorded warning\", UserWarning)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.01s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k xfail",
+        "exit": 0,
+        "success": true,
+        "summary": "6 deselected, 1 xfailed, 1 xpassed in 0.01s",
+        "output": "xX                                                                       [100%]\n6 deselected, 1 xfailed, 1 xpassed in 0.01s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k xpass",
+        "exit": 0,
+        "success": true,
+        "summary": "7 deselected, 1 xpassed in 0.00s",
+        "output": "X                                                                        [100%]\n7 deselected, 1 xpassed in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k 'pass or skip'",
+        "exit": 0,
+        "success": false,
+        "summary": "1 passed, 1 skipped, 5 deselected, 1 xpassed in 0.00s",
+        "output": ".Xs                                                                      [100%]\n1 passed, 1 skipped, 5 deselected, 1 xpassed in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k 'fail or pass'",
+        "exit": 1,
+        "success": false,
+        "summary": "1 failed, 1 passed, 4 deselected, 1 xfailed, 1 xpassed in 0.01s",
+        "output": ".xXF                                                                     [100%]\n=================================== FAILURES ===================================\n__________________________________ test_fail ___________________________________\n\n    def test_fail():\n>       assert False\nE       assert False\n\ntest_cases.py:24: AssertionError\n=========================== short test summary info ============================\nFAILED test_cases.py::test_fail - assert False\n1 failed, 1 passed, 4 deselected, 1 xfailed, 1 xpassed in 0.01s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k 'error or pass'",
+        "exit": 1,
+        "success": false,
+        "summary": "1 passed, 5 deselected, 1 xpassed, 1 error in 0.01s",
+        "output": ".XE                                                                      [100%]\n==================================== ERRORS ====================================\n_________________________ ERROR at setup of test_error _________________________\n\n    @pytest.fixture\n    def broken():\n>       raise RuntimeError(\"recorded setup error\")\nE       RuntimeError: recorded setup error\n\ntest_cases.py:28: RuntimeError\n=========================== short test summary info ============================\nERROR test_cases.py::test_error - RuntimeError: recorded setup error\n1 passed, 5 deselected, 1 xpassed, 1 error in 0.01s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k skip",
+        "exit": 0,
+        "success": false,
+        "summary": "1 skipped, 7 deselected in 0.00s",
+        "output": "s                                                                        [100%]\n1 skipped, 7 deselected in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k long",
+        "exit": 0,
+        "success": true,
+        "summary": "1 passed, 7 deselected in 61.01s (0:01:01)",
+        "output": ".                                                                        [100%]\n1 passed, 7 deselected in 61.01s (0:01:01)\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_pass",
+        "exit": 0,
+        "success": true,
+        "summary": "1 passed in 0.00s",
+        "output": ".                                                                        [100%]\n1 passed in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_warning",
+        "exit": 0,
+        "success": true,
+        "summary": "1 passed, 1 warning in 0.00s",
+        "output": ".                                                                        [100%]\n=============================== warnings summary ===============================\ntest_cases.py::test_warning\n  /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5/test_cases.py:9: UserWarning: recorded warning\n    warnings.warn(\"recorded warning\", UserWarning)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_xfail",
+        "exit": 0,
+        "success": true,
+        "summary": "1 xfailed in 0.01s",
+        "output": "x                                                                        [100%]\n1 xfailed in 0.01s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_xpass",
+        "exit": 0,
+        "success": true,
+        "summary": "1 xpassed in 0.00s",
+        "output": "X                                                                        [100%]\n1 xpassed in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q empty",
+        "exit": 5,
+        "success": false,
+        "summary": "no tests ran in 0.00s",
+        "output": "\nno tests ran in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_long",
+        "exit": 0,
+        "success": true,
+        "summary": "========================= 1 passed in 61.01s (0:01:01) =========================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_cases.py .                                                          [100%]\n\n========================= 1 passed in 61.01s (0:01:01) =========================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_subtests.py::test_subtests",
+        "exit": 0,
+        "success": true,
+        "summary": "============================== 1 passed in 0.01s ===============================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_subtests.py .                                                       [100%]\n\n============================== 1 passed in 0.01s ===============================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_subtests.py::test_subtest_failure",
+        "exit": 1,
+        "success": false,
+        "summary": "============================== 2 failed in 0.01s ===============================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_subtests.py uF                                                      [100%]\n\n=================================== FAILURES ===================================\n_______________________ test_subtest_failure (<subtest>) _______________________\n\nsubtests = <_pytest.subtests.Subtests object at 0x10acb9fd0>\n\n    def test_subtest_failure(subtests):\n        with subtests.test():\n>           assert False\nE           assert False\n\ntest_subtests.py:10: AssertionError\n_____________________________ test_subtest_failure _____________________________\ncontains 1 failed subtest\n=========================== short test summary info ============================\nSUBFAILED(<subtest>) test_subtests.py::test_subtest_failure - assert False\nFAILED test_subtests.py::test_subtest_failure - contains 1 failed subtest\n============================== 2 failed in 0.01s ===============================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_long",
+        "exit": 0,
+        "success": true,
+        "summary": "1 passed in 61.01s (0:01:01)",
+        "output": ".                                                                        [100%]\n1 passed in 61.01s (0:01:01)\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_subtests.py::test_subtests",
+        "exit": 0,
+        "success": true,
+        "summary": "1 passed, 2 subtests passed in 0.00s",
+        "output": "uu.                                                                      [100%]\n1 passed, 2 subtests passed in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_subtests.py::test_subtest_failure",
+        "exit": 1,
+        "success": false,
+        "summary": "2 failed in 0.01s",
+        "output": "uF                                                                       [100%]\n=================================== FAILURES ===================================\n_______________________ test_subtest_failure (<subtest>) _______________________\n\nsubtests = <_pytest.subtests.Subtests object at 0x108b4f230>\n\n    def test_subtest_failure(subtests):\n        with subtests.test():\n>           assert False\nE           assert False\n\ntest_subtests.py:10: AssertionError\n_____________________________ test_subtest_failure _____________________________\ncontains 1 failed subtest\n=========================== short test summary info ============================\nSUBFAILED(<subtest>) test_subtests.py::test_subtest_failure - assert False\nFAILED test_subtests.py::test_subtest_failure - contains 1 failed subtest\n2 failed in 0.01s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_subtests.py::test_subtest_skipped",
+        "exit": 0,
+        "success": false,
+        "summary": "1 passed, 1 skipped in 0.00s",
+        "output": "-.                                                                       [100%]\n1 passed, 1 skipped in 0.00s\n"
+      }
+    ],
+    "version": "9.1.1",
+    "fixture_source": "mmw-v4/tests/verify-ticket/record_runner_summaries.py"
+  },
+  "vitest": {
+    "expect": "/^[ \\t]*Tests[ \\t]+\\d+ (?:passed|skipped|todo)(?:[ \\t]+\\|[ \\t]+\\d+ (?:passed|skipped|todo))*[ \\t]+\\(\\d+\\)[ \\t]*$/m",
+    "samples": [
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals cases.test.js",
+        "exit": 0,
+        "success": true,
+        "summary": "      Tests  6 passed (6)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 passed (1)\n      Tests  6 passed (6)\n   Start at  11:55:06\n   Duration  95ms (transform 52%, import 22%, worker 17%, tests 10%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals cases.test.js -t selected",
+        "exit": 0,
+        "success": true,
+        "summary": "      Tests  1 passed | 5 skipped (6)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 passed (1)\n      Tests  1 passed | 5 skipped (6)\n   Start at  11:55:06\n   Duration  95ms (transform 52%, import 23%, worker 17%, tests 7%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals failed.test.js",
+        "exit": 1,
+        "success": false,
+        "summary": "      Tests  2 failed | 1 passed (3)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n ❯ failed.test.js (2 tests | 1 failed) 4ms\n   × failure 3ms\n ❯ only-failed.test.js (1 test | 1 failed) 4ms\n   × failure 3ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  failed.test.js > failure\nAssertionError: expected 1 to be 2 // Object.is equality\n\n- Expected\n+ Received\n\n- 2\n+ 1\n\n ❯ failed.test.js:1:33\n      1| test('failure', () => expect(1).toBe(2));\n       |                                 ^\n      2| test('pass', () => expect(1).toBe(1));\n      3|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  only-failed.test.js > failure\nAssertionError: expected 1 to be 2 // Object.is equality\n\n- Expected\n+ Received\n\n- 2\n+ 1\n\n ❯ only-failed.test.js:1:33\n      1| test('failure', () => expect(1).toBe(2));\n       |                                 ^\n      2|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  2 failed (2)\n      Tests  2 failed | 1 passed (3)\n   Start at  11:55:07\n   Duration  90ms (transform 36%, tests 23%, import 21%, worker 20%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals only-failed.test.js",
+        "exit": 1,
+        "success": false,
+        "summary": "      Tests  1 failed (1)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n ❯ only-failed.test.js (1 test | 1 failed) 3ms\n   × failure 3ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  only-failed.test.js > failure\nAssertionError: expected 1 to be 2 // Object.is equality\n\n- Expected\n+ Received\n\n- 2\n+ 1\n\n ❯ only-failed.test.js:1:33\n      1| test('failure', () => expect(1).toBe(2));\n       |                                 ^\n      2|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed (1)\n   Start at  11:55:07\n   Duration  86ms (transform 36%, tests 22%, import 21%, worker 20%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals missing.test.js",
+        "exit": 1,
+        "success": false,
+        "summary": "No test files found, exiting with code 1",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\nNo test files found, exiting with code 1\n\nfilter: missing.test.js\ninclude: **/*.{test,spec}.?(c|m)[jt]s?(x)\nexclude:  **/node_modules/**, **/.git/**\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals todo.test.js",
+        "exit": 0,
+        "success": true,
+        "summary": "      Tests  1 passed | 1 todo (2)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 passed (1)\n      Tests  1 passed | 1 todo (2)\n   Start at  11:55:08\n   Duration  76ms (transform 47%, import 25%, worker 20%, tests 9%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals todo-skip.test.js",
+        "exit": 0,
+        "success": true,
+        "summary": "      Tests  1 passed | 1 skipped | 1 todo (3)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 passed (1)\n      Tests  1 passed | 1 skipped | 1 todo (3)\n   Start at  11:55:09\n   Duration  89ms (transform 45%, import 26%, worker 21%, tests 8%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals todo-only.test.js",
+        "exit": 0,
+        "success": true,
+        "summary": "      Tests  1 todo (1)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 skipped (1)\n      Tests  1 todo (1)\n   Start at  11:55:09\n   Duration  72ms (transform 51%, import 28%, worker 20%, environment 1%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals skip-only.test.js",
+        "exit": 0,
+        "success": true,
+        "summary": "      Tests  1 skipped (1)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 skipped (1)\n      Tests  1 skipped (1)\n   Start at  11:55:10\n   Duration  78ms (transform 51%, import 28%, worker 21%)\n\n"
+      }
+    ],
+    "version": "5.0.5",
+    "fixture_source": "mmw-v4/tests/verify-ticket/record_runner_summaries.py"
+  }
+}

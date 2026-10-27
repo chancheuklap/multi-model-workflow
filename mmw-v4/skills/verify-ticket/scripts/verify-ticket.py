@@ -20,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -2912,13 +2913,86 @@ def lint_timeouts(body: str) -> list[str]:
     return findings
 
 
-def final_stage(check: str) -> str:
-    """The command whose exit code a CHECK's shell hands back: the text after the last
-    `|`, `;` or `&` the shell reads as a separator.
+def check_runners(check: str) -> set[str]:
+    found = set()
+    prefixes = {'uv': ('run',), 'pnpm': (), 'npx': ()}
+    for stage in shell_stages(check):
+        try:
+            words = shlex.split(stage, comments=True)
+        except ValueError:
+            continue
+        while words:
+            command = Path(words[0]).name
+            if re.match(r'^[A-Za-z_]\w*=', words[0]):
+                words = words[1:]
+            elif re.fullmatch(r'python(?:\d+(?:\.\d+)*)?', command) and words[1:2] == ['-m']:
+                words = words[2:]
+            elif command in prefixes and tuple(words[1:1 + len(prefixes[command])]) == prefixes[command]:
+                words = words[1 + len(prefixes[command]):]
+                if words[:1] == ['exec']:
+                    words = words[1:]
+                while words and words[0] in ('--yes', '-y', '--quiet', '-q', '--silent', '--'):
+                    words = words[1:]
+            else:
+                if command in ('pytest', 'vitest'):
+                    found.add(command)
+                break
+    return found
 
-    Quoting is followed, because a grep pattern holds those characters as often as a
-    shell does: `grep -c 'a\\|b' f` is one command, not two.
-    """
+
+def lint_runner_expectations(body: str) -> list[str]:
+    runners = json.loads((HERE / "runner-summaries.json").read_text(encoding="utf-8"))
+    findings = []
+    for gate_id, check, expect in criteria_lines(body):
+        selected = check_runners(check)
+        if len(selected) > 1:
+            standards = '; '.join(f"{runner} EXPECT: {runners[runner]['expect']}"
+                                  for runner in sorted(selected))
+            findings.append(f"{gate_id}: CHECK runs pytest and vitest; write one criterion "
+                            f"per runner. {standards}")
+            continue
+        for runner in selected:
+            contract = runners[runner]
+            if expect == contract["expect"]:
+                continue
+            script = r'''
+const {expect, samples} = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+try {
+  const parsed = expect.match(/^\/([\s\S]*)\/([a-z]*)$/);
+  const wrong = samples.find(sample => {
+    const matched = parsed
+      ? new RegExp(parsed[1], parsed[2]).test(sample.output)
+      : sample.output.includes(expect);
+    return matched !== sample.success;
+  });
+  console.log(JSON.stringify(wrong ? {
+    reason: wrong.success ? 'rejects success' : 'accepts failure',
+    summary: wrong.summary
+  } : {}));
+} catch (error) {
+  console.log(JSON.stringify({reason: 'is invalid', summary: error.message}));
+}
+'''
+            try:
+                result = subprocess.run(
+                    ["node", "-e", script],
+                    input=json.dumps({"expect": expect, "samples": contract["samples"]}),
+                    capture_output=True, text=True, timeout=10, check=True,
+                )
+                wrong = json.loads(result.stdout)
+                detail = (f" {wrong['reason']}: {wrong['summary']}."
+                          if wrong else " is not the standard pattern.")
+            except (OSError, subprocess.SubprocessError, ValueError) as exc:
+                detail = f" could not be checked against recorded output ({exc})."
+            findings.append(
+                f"{gate_id}: {runner} EXPECT {expect}{detail} The standard EXPECT is "
+                f"mandatory, including for count-pinned patterns and echoed markers. "
+                f"Copy EXPECT: {contract['expect']} from runner-summaries.json.")
+    return findings
+
+
+def shell_stages(check: str) -> list[str]:
+    stages = []
     start, quote, index = 0, "", 0
     while index < len(check):
         char = check[index]
@@ -2933,10 +3007,20 @@ def final_stage(check: str) -> str:
         elif char == "\\":
             index += 2
             continue
-        elif char in "|;&":
+        elif char == "#" and (index == 0 or check[index - 1].isspace()):
+            newline = check.find("\n", index)
+            index = len(check) if newline == -1 else newline
+            continue
+        elif char in "|;&\n":
+            stages.append(check[start:index].strip())
             start = index + 1
         index += 1
-    return check[start:].strip()
+    stages.append(check[start:].strip())
+    return stages
+
+
+def final_stage(check: str) -> str:
+    return shell_stages(check)[-1]
 
 
 def expect_satisfied_by(expect: str, text: str) -> bool:
@@ -3171,6 +3255,8 @@ def lint_criteria(number: int, body: str, labels: list[str],
 
     for finding in lint_expectations(body):
         say("error", finding, "dollar-without-m")
+    for finding in lint_runner_expectations(body):
+        say("error", finding, "runner-expect")
     for finding in lint_timeouts(body):
         say("error", finding, "bad-timeout")
     for finding in lint_network_stubs(body):
