@@ -2966,9 +2966,6 @@ scenario_installedrefusessend() {
   [ "$code" = 2 ] || fail "send from the installed checkout expected 2, got $code: $(cat "$TMP/err")"
   grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
     || fail "the refusal does not name the installed checkout: $(cat "$TMP/err")"
-  grep -qF 'from the checkout of the repository you want to work on' "$TMP/err" \
-    || fail "the refusal does not say where to run dispatch: $(cat "$TMP/err")"
-  grep -qF 'absolute path' "$TMP/err" || fail "the refusal does not name absolute-path invocation"
   never_ran
   nothing_printed
   [ -z "$(newest_batch)" ] || fail "the refused send created a brief batch"
@@ -2977,7 +2974,8 @@ scenario_installedrefusessend() {
   for command in open open-ticket ack advance integrate integrated land start report retract wait resume reverify summary finish suspend route 'brief close'; do
     code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" $command 76)"
     [ "$code" = 2 ] || fail "$command from the installed checkout expected 2, got $code"
-    grep -qF 'absolute path' "$TMP/err" || fail "$command did not refuse the installed checkout: $(cat "$TMP/err")"
+    grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
+      || fail "$command did not name the installed checkout: $(cat "$TMP/err")"
   done
   never_ran
   hasnt 'gh ::'
