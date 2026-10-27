@@ -42,7 +42,7 @@ def preflight(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
     return run(number=number, branch=branch, dirty=dirty, history=history, **kwargs)[:4]
 
 
-def run(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
+def run(number=77, branch="issue-77", dirty=(), history=None, body="", **kwargs):
     """Run --preflight against a made-up ticket; return (exit code, what it posted,
     stderr, the assign mock, stdout).
 
@@ -60,6 +60,7 @@ def run(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
 
     with mock.patch.object(vt, "fetch_ticket", return_value=ticket(**kwargs)), \
          mock.patch.object(vt, "fetch_comments", side_effect=comments_of), \
+         mock.patch.object(vt, "fetch_body", return_value=body), \
          mock.patch.object(vt, "gh_login", return_value=ME), \
          mock.patch.object(vt, "current_branch", return_value=branch), \
          mock.patch.object(vt, "dirty_tracked", return_value=list(dirty)), \
@@ -456,9 +457,9 @@ class TestResume(unittest.TestCase):
     run of the worker's own, a `reviewer.reported`, a `worker.decided`, or a worker
     reverify — the resume table in the `implement` skill's `## Closing steps`."""
 
-    def resume(self, comments):
+    def resume(self, comments, body="## Acceptance criteria\n\n" + SELF_LEDGER):
         with mock.patch.object(vt, "git", return_value=HEAD):
-            code, posted, err, _, out = run(number=77, history={77: comments})
+            code, posted, err, _, out = run(number=77, history={77: comments}, body=body)
         self.assertEqual(code, 0, err)
         return out
 
@@ -471,6 +472,43 @@ class TestResume(unittest.TestCase):
 
     def test_a_fresh_ticket_prints_no_resume_line(self):
         self.assertNotIn("RESUME", self.resume([]))
+
+    def test_a_recut_ticket_prints_no_resume_line(self):
+        current = SELF_LEDGER.replace("it works", "the recut contract")
+        for later in ([],
+                      [event("ticket.returned", "HANDOFF REQUIRED", ticket=77)],
+                      [checked("baseline", current, ticket=77),
+                       checked("reverify", current, ticket=77, commit=HEAD)]):
+            with self.subTest(later=later):
+                comments = [checked("self", current, ticket=77),
+                            checked("self", SELF_LEDGER, ticket=77),
+                            event("worker.decided", "DECISIONS", ticket=77), *later]
+                with mock.patch.object(vt, "git", return_value=HEAD):
+                    code, _, err, _, out = run(
+                        history={77: comments}, body="## Acceptance criteria\n\n" + current)
+                self.assertEqual(code, 0, err)
+                self.assertIn("READY:", out)
+                self.assertFalse(any(row.startswith("RESUME:") for row in out.splitlines()), out)
+                self.assertIn("acceptance criteria", err.lower())
+                self.assertIn("read the ticket", err.lower())
+
+    def test_an_unchanged_shape_still_resumes(self):
+        current = SELF_LEDGER.replace("[x]", "[ ]").replace("exit=0", "pending")
+        for comments in (
+            [checked("self", SELF_LEDGER, ticket=77),
+             event("worker.decided", "DECISIONS", ticket=77)],
+            [checked("self", SELF_LEDGER.replace("it works", "old contract"), ticket=77),
+             checked("self", SELF_LEDGER, ticket=77),
+             event("worker.decided", "DECISIONS", ticket=77),
+             checked("baseline", SELF_LEDGER.replace("it works", "other contract"), ticket=77)],
+            [event("worker.decided", "DECISIONS", ticket=77)],
+        ):
+            with self.subTest(comments=comments):
+                out = self.resume(comments, body="## Acceptance criteria\n\n" + current)
+                expected = ("Start the reviewer" if any(
+                    event_of(comment)[1].get("run") == "self" for comment in comments)
+                    else "Integrate and run every criterion")
+                self.assertResumes(out, expected)
 
     def test_a_run_of_your_own_with_no_decision_resumes_at_step_2(self):
         out = self.resume([checked("self", SELF_LEDGER, ticket=77)])
