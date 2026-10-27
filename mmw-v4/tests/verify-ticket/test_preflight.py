@@ -335,6 +335,80 @@ class TestBaselineRun(unittest.TestCase):
             ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
         self.assertEqual(listed.count("worktree "), 1, listed)
 
+    def test_the_baseline_worktree_gets_its_environment(self):
+        for failure in ("", "setup", "up", "down"):
+            with self.subTest(failure=failure):
+                root, _, _ = self.repo()
+                script = root / "scripts" / "env"
+                script.parent.mkdir()
+                script.write_text("""#!/usr/bin/env bash
+printf '%s %s %s\\n' "$1" "$2" "$PWD" >> "$MMW_TEST_ENV_LOG"
+if [ "$1" = "$MMW_TEST_ENV_FAIL" ]; then
+  echo "fixture environment failure for $1" >&2
+  exit 7
+fi
+case "$1" in
+  setup) touch "$2/.setup-ready" ;;
+  up) test -f "$2/.setup-ready" && touch "$2/.env-ready" ;;
+esac
+""")
+                script.chmod(0o755)
+                subprocess.run(["git", "add", "scripts/env"], cwd=root, check=True,
+                               capture_output=True)
+                subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t",
+                                "commit", "-m", "environment"], cwd=root, check=True,
+                               capture_output=True)
+                base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root,
+                                               text=True).strip()
+                log = root / "calls.log"
+                body = """## Acceptance criteria
+
+- [ ] AC1: the baseline environment is ready for tests
+  CHECK: test -f .env-ready && printf 'check\\n' >> "$MMW_TEST_ENV_LOG" && echo ready
+  EXPECT: ready
+  EVIDENCE: pending
+"""
+                with mock.patch.dict(os.environ, {"MMW_TEST_ENV_LOG": str(log),
+                                                  "MMW_TEST_ENV_FAIL": failure}):
+                    code, posted, err, _, _ = self.claim(root, base, body=body)
+                tree = root.resolve() / ".worktrees" / "baseline-77"
+                expected = [f"setup {tree} {tree}"]
+                if failure != "setup":
+                    expected.append(f"up {tree} {tree}")
+                if failure not in ("setup", "up"):
+                    expected.append("check")
+                expected.append(f"down {tree} {tree}")
+                self.assertTrue(log.exists(), "the environment script never ran")
+                self.assertEqual(log.read_text().splitlines(), expected)
+                self.assertFalse(tree.exists())
+                if failure in ("setup", "up"):
+                    self.assertEqual(code, 2, err)
+                    self.assertIn(f"scripts/env {failure}", err)
+                    self.assertIn(str(tree), err)
+                    self.assertIn(f"fixture environment failure for {failure}", err)
+                    self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
+                else:
+                    self.assertEqual(code, 0, err)
+                    payload = event_of(posted[1][1])[1]
+                    self.assertTrue(payload["criteria"][0]["met"], payload)
+                    if failure == "down":
+                        self.assertIn("fixture environment failure for down", err)
+
+    def test_the_baseline_run_sets_the_base_ref(self):
+        root, base, _ = self.repo()
+        body = """## Acceptance criteria
+
+- [ ] AC1: the baseline receives the ticket and its base branch
+  CHECK: printf '%s %s' "$MMW_TICKET" "$MMW_BASE_REF"
+  EXPECT: 77 origin/spec-337
+  EVIDENCE: pending
+"""
+        with mock.patch.dict(os.environ, {"MMW_BASE_REF": "wrong-branch"}):
+            code, posted, err, _, _ = self.claim(root, base, body=body)
+        self.assertEqual(code, 0, err)
+        payload = event_of(posted[1][1])[1]
+        self.assertTrue(payload["criteria"][0]["met"], payload)
+
     def test_the_baseline_checkout_is_baseline_n_under_the_main_checkout(self):
         root, base, _ = self.repo()
         ticket_root = root / ".worktrees" / "issue-77"
