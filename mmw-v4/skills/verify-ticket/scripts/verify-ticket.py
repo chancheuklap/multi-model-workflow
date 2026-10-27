@@ -2059,7 +2059,8 @@ def run_worktree_environment(worktree: Path, step: str) -> int:
         return 0
     try:
         result = subprocess.run([str(script), step, str(worktree)], cwd=worktree,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                errors="replace")
     except OSError as exc:
         output, status = str(exc), 2
     else:

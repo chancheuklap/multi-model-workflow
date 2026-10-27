@@ -342,6 +342,7 @@ class TestBaselineRun(unittest.TestCase):
                 script = root / "scripts" / "env"
                 script.parent.mkdir()
                 script.write_text("""#!/usr/bin/env bash
+printf '\\377\\376\\n'
 printf '%s %s %s\\n' "$1" "$2" "$PWD" >> "$MMW_TEST_ENV_LOG"
 if [ "$1" = "$MMW_TEST_ENV_FAIL" ]; then
   echo "fixture environment failure for $1" >&2
