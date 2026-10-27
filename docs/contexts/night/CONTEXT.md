@@ -115,6 +115,10 @@ _Home_: `mmw-v4/skills/dispatch/scripts/briefs.py`
 The command that makes sure the repository's task board is registered and answering and opens it, or prints its URL.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
+**`dispatch.sh pr`**:
+The command that opens a ready pull request, reports whether GitHub CI runs for its base branch, and waits for checks.
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`open_pr`)
+
 **`dispatch.sh recheck`**:
 The read-only check of affected landed criteria before a closing-pass push. Unlike `reverify`, it records no results on landed tickets and changes none of their states.
 _Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`recheck_spec`)
