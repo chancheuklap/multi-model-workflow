@@ -100,7 +100,7 @@ CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
 CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
                 "baseline": "claim", "repository": "close"}
-BOUNCE_REASONS = ("conflict", "checks")
+BOUNCE_REASONS = ("conflict", "checks", "breaks-landed-criterion")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
 RETRO_EVIDENCE = ("complete", "partial")
