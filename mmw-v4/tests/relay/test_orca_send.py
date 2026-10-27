@@ -26,6 +26,8 @@ if args[:2] == ["terminal", "list"]:
 elif args[:2] == ["terminal", "wait"]:
     print(os.environ["FAKE_ORCA_PROBE"])
     sys.exit(int(os.environ["FAKE_ORCA_PROBE_EXIT"]))
+elif args[:2] == ["terminal", "read"]:
+    print(json.dumps({"result": {"terminal": {"tail": json.loads(os.environ["FAKE_ORCA_SCREEN"])}}}))
 elif args[:2] == ["terminal", "send"]:
     answers = json.loads(os.environ["FAKE_ORCA_SENDS"])
     count = Path(os.environ["FAKE_ORCA_COUNT"])
@@ -49,12 +51,13 @@ class OrcaSend(unittest.TestCase):
         fake.write_text(f"#!{sys.executable}\n" + FAKE_ORCA)
         fake.chmod(0o755)
 
-    def send(self, probe, stages, probe_exit=0, identity=None, answers=None):
+    def send(self, probe, stages, probe_exit=0, identity=None, answers=None, screen=None):
         self.log.unlink(missing_ok=True)
         (self.root / "count").unlink(missing_ok=True)
         env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"],
                    MMW_HOME=str(self.root / "mmw-home"),
                    FAKE_ORCA_LOG=str(self.log), FAKE_ORCA_PROBE=probe,
+                   FAKE_ORCA_SCREEN=json.dumps(screen if screen is not None else []),
                    FAKE_ORCA_IDENTITY=json.dumps(identity if identity is not None else {
                        "agentIdentity": "claude"}),
                    FAKE_ORCA_PROBE_EXIT=str(probe_exit),
@@ -85,6 +88,15 @@ class OrcaSend(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assert_sent(calls)
                 self.assertFalse(any(call[:2] == ["terminal", "wait"] for call in calls))
+
+    def test_send_to_codex_at_a_dialog_is_refused(self):
+        question = "Trust this folder?"
+        result, calls = self.send("{}", ["input_accepted"],
+                                  identity={"agentIdentity": "codex"},
+                                  screen=[question, "› 1. Trust and continue"])
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn(question, result.stderr)
+        self.assertFalse(any(call[:2] == ["terminal", "send"] for call in calls))
 
     def assert_sent(self, calls):
         sends = [call for call in calls if call[:2] == ["terminal", "send"]]

@@ -51,11 +51,11 @@
 # be checked against the host's catalog before `start`.
 # send: exit 0 Orca reported turn_started, or input_accepted for Codex, which can
 # receive text mid-turn. Exit 4 the text went into a non-Codex terminal and no turn
-# start was seen, or Orca
-# could not observe the program (`observation` `unsupported`), or
+# start was seen, or Orca could not observe the program (`observation` `unsupported`), or
 # the receipt could not be read after the send: handed over, not confirmed, and not to be
-# typed again; 3 the relay may send again because a non-Codex program is not idle, the list
-# could not be read, the handle is past a truncated list, or Orca refused the send with
+# typed again; 3 the relay may send again because Codex is at a dialog or its screen
+# cannot be read, a non-Codex program is not idle, the list could not be read, the
+# handle is past a truncated list, or Orca refused the send with
 # an error of its own. After a failed replay, delivery remains unconfirmed despite exit 3.
 # Exit 2 means there is no such session (terminal_not_writable, or a complete list without
 # it). The receipt's stages are `result.send.prompt.stages` and its warnings
@@ -67,8 +67,10 @@
 # Before typing, send reads agentIdentity from the handle's `terminal list` row.
 # The recovery fields follow Orca 1.4.235. UUID replay and list-row identity were
 # measured on Orca 1.4.232, 2026-10-21, as recorded in ticket #1211 and its reproduction.
-# Codex skips the tui-idle probe. For other identities, an unsatisfied probe or
-# timeout means busy. Without an identity, send types as usual. Orca 1.4.227 reports identities
+# Codex checks the screen with dialogs.txt and refuses a confirmed dialog or an
+# unreadable screen before typing. It skips the tui-idle probe. For other identities,
+# an unsatisfied probe or timeout means busy. Without an identity, send types as
+# usual. Orca 1.4.227 reports identities
 # for its watched agents but none for a plain shell; tui-idle timeouts alone cannot
 # distinguish the two (checked 2026-10-19).
 # Codex mid-turn delivery: Orca 1.4.232, codex-cli 0.163.0, 2026-10-27: tui-idle timed out; input_accepted without turn_started; the self-sent probe reached the active turn.
@@ -523,7 +525,7 @@ except Exception:
 
 send() {
   local ident="${1:-}" text="${2:-}" rc out code stages observation warning receipt rest
-  local identity request_id attempt recovery
+  local identity request_id attempt recovery dialog
   [ -n "$ident" ] && [ -n "$text" ] || usage
   identity="$(list_row "$ident")"
   rc=$?
@@ -534,7 +536,16 @@ send() {
       exit 3
       ;;
   esac
-  if [ -n "$identity" ] && [ "$identity" != codex ]; then
+  if [ "$identity" = codex ]; then
+    dialog="$(screen_dialog "$ident")" || {
+      echo "runners/orca.sh: could not inspect $ident for dialogs using $HERE/dialogs.txt; nothing was sent, retry when its screen can be read" >&2
+      exit 3
+    }
+    if [ -n "$dialog" ]; then
+      printf 'runners/orca.sh: %s is at a dialog: %s; nothing was sent\n' "$ident" "$dialog" >&2
+      exit 3
+    fi
+  elif [ -n "$identity" ]; then
     out="$(orca_ terminal wait --terminal "$ident" --for tui-idle \
           --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true
     if [ "$(printf '%s' "$out" | parse_json idle)" = busy ]; then
