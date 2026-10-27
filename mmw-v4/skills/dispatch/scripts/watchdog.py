@@ -14,8 +14,8 @@ This process is what notices. It costs no tokens and holds no session: it reads 
 **Three layers, and which one this is.** The first layer is `turn-guard.py`, beside this
 file: a hook on each orchestrator's own turn end that re-arms this process and will not let
 that turn end while tickets are held and this process is not healthy. This file is the
-second layer (it beats, it watches the relay) and the third (it asks a silent ticket's
-runner what its sessions are doing). When this process dies, the first layer finds
+second layer (it beats, it watches the relay) and the third (it asks each held session's
+runner what that session is doing). When this process dies, the first layer finds
 out at an orchestrator's next turn end; there is no fourth layer, so a crash of the host a
 orchestrator runs in is found by a person.
 
