@@ -38,12 +38,27 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    def test_there_are_thirty_one_events(self):
-        self.assertEqual(len(events.EVENTS), 31)
+    def test_there_are_thirty_two_events(self):
+        self.assertEqual(len(events.EVENTS), 32)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",
                      "ticket.bounced", "ticket.recovered", "spec.retroed", "spec.checked"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
+
+    def test_lessons_merged_is_an_event(self):
+        for decision in ('closed', 'merged:o/r#90', 'spec:76', 'ticket:61', 'kept'):
+            body = events.build('lessons.merged', ticket=None, line='Batch decision',
+                                decision=decision, batch='backlog-2026-10-27')
+            self.assertEqual(events.parse(body)[1]['decision'], decision)
+            self.assertEqual(events.newest([body], 'lessons.merged')['payload']['batch'],
+                             'backlog-2026-10-27')
+            self.assertEqual(events.fold([body])['unreadable'], [])
+        for fields in ({'decision': 'kept'}, {'batch': 'batch-1'},
+                       {'decision': 'merge:o/r#90', 'batch': 'batch-1'},
+                       {'decision': 'spec:0', 'batch': 'batch-1'},
+                       {'decision': 'kept', 'batch': '   '}):
+            with self.subTest(fields=fields), self.assertRaises(events.EventError):
+                events.build('lessons.merged', ticket=None, line='Batch decision', **fields)
 
     def test_lesson_assessed_is_an_event(self):
         full = dict(conclusion="propose", reason="The failure recurred", evidence="README.md:1",

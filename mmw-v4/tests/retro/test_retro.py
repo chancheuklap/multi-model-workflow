@@ -66,7 +66,8 @@ class Fake:
                 n = int(endpoint.split('/issues/')[1].split('/')[0])
                 rows = [r for r in self.rows.values() if r.get('parent') == dict(number=n)]
             elif '/issues?' in endpoint:
-                rows = list(self.rows.values())
+                rows = [r for r in self.rows.values()
+                        if r.get('repo', self.repo) == endpoint.split('/issues?')[0].removeprefix('repos/')]
                 if 'labels=mmw%3Alesson' in endpoint or 'labels=mmw:lesson' in endpoint:
                     rows = [r for r in rows if {'name':'mmw:lesson'} in r['labels']]
             elif '/issues/comments/' in endpoint:
@@ -158,6 +159,184 @@ class Commands(unittest.TestCase):
         self.previous = Path.cwd()
         os.chdir(self.root)
         self.addCleanup(os.chdir, self.previous)
+
+    def test_backlog_lists_open_lessons_with_assessments(self):
+        assessment = events.build('lesson.assessed', ticket=61, line='Still present',
+                                  conclusion='candidate', reason='Still present', evidence='README.md:1',
+                                  plan='', run='o/r#61', qualifies=False, request='assessment-1')
+        self.fake.rows[90]['comments'].append(dict(id=2, body=assessment))
+        self.fake.rows[91] = issue(91, state='closed')
+        self.fake.rows[92] = issue(92, labels=('mmw:ticket',))
+        self.fake.rows[93] = issue(93, bodies=[seen(ticket=62)])
+        self.fake.rows[93]['repo'] = 'other/product'
+        self.fake.rows[90]['body'] += '\n## Other\nNot the problem.\n'
+        rc, out, err = self.run_process('backlog', REPO, 'other/product', '--out', str(self.root/'backlog'))
+        self.assertEqual(rc, 0, err)
+        self.assertIn('BACKLOG 2 open, 1 assessed since last merge', out)
+        rows = json.loads((self.root/'backlog/backlog.json').read_text())
+        self.assertEqual([r['number'] for r in rows], [90, 93])
+        self.assertEqual(rows[0]['repo'], REPO)
+        self.assertIn('发生了什么：信息拿不到', rows[0]['problem'])
+        self.assertNotIn('Not the problem', rows[0]['problem'])
+        self.assertEqual(rows[0]['occurrences'], [dict(seen_in=REPO, spec=76, ticket=61,
+                         session='none', source='noticed', at='2026-09-13T00:00:00Z')])
+        self.assertEqual(rows[0]['assessments'], [events.parse(assessment)[1]])
+        self.assertIsNone(rows[0]['merged'])
+        self.assertEqual(rows[1]['assessments'], [])
+        self.assertEqual(rows[1]['repo'], 'other/product')
+        self.assertFalse(any(call[1:3] in (['issue','comment'], ['issue','close'])
+                             for call in self.fake.calls))
+
+    def test_backlog_counts_assessments_since_the_last_merge(self):
+        def assessed(request):
+            return events.build('lesson.assessed', ticket=61, at=NOW, line='Assessment',
+                                conclusion='candidate', reason='Still present', evidence='README.md:1',
+                                plan='', run='o/r#61', qualifies=False, request=request)
+        merged = events.build('lessons.merged', ticket=None, at=NOW, line='Kept',
+                              decision='kept', batch='latest')
+        self.fake.rows[90] = issue(bodies=[assessed('old-1'), events.build(
+            'lessons.merged', ticket=None, at=NOW, line='Kept earlier', decision='kept', batch='earlier'),
+            assessed('old-2'), merged, assessed('new-1'), assessed('new-2')])
+        self.fake.rows[90]['comments'].reverse()
+        self.fake.rows[91] = issue(91, bodies=[assessed('never-merged')])
+        self.fake.rows[92] = issue(92, state='closed', bodies=[assessed('closed')])
+        rc, out, err = self.run_process('backlog', REPO, REPO, '--out', str(self.root/'backlog'))
+        self.assertEqual(rc, 0, err)
+        self.assertIn('BACKLOG 2 open, 3 assessed since last merge', out)
+        rows = json.loads((self.root/'backlog/backlog.json').read_text())
+        self.assertEqual(rows[0]['merged'], events.parse(merged)[1])
+        self.assertEqual([a['request'] for a in rows[0]['assessments']],
+                         ['old-1', 'old-2', 'new-1', 'new-2'])
+
+    def test_merge_apply_carries_out_the_decisions_once(self):
+        self.fake.rows[91] = issue(91, bodies=[seen(ticket=62), seen(ticket=63)])
+        self.fake.rows[92] = issue(92, bodies=[seen(ticket=64)])
+        self.fake.rows[93] = issue(93, bodies=[seen(ticket=65)])
+        path = self.root/'decisions.json'
+        path.write_text(json.dumps(dict(batch='owner-approved-1', decisions=[
+            dict(lesson='o/r#90', decision='closed', reason='Already fixed'),
+            dict(lesson='o/r#91', decision='merged:o/r#92', reason='Same root cause'),
+            dict(lesson='o/r#93', decision='kept', reason='Wait for more evidence')])) )
+        rc, out, err = self.run_process('merge-apply', str(path))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual((self.fake.rows[90]['state'], self.fake.rows[90]['state_reason']),
+                         ('closed', 'not planned'))
+        self.assertEqual((self.fake.rows[91]['state'], self.fake.rows[91]['state_reason'],
+                          self.fake.rows[91]['duplicate_of']),
+                         ('closed', 'duplicate', 'https://github.com/o/r/issues/92'))
+        self.assertEqual(self.fake.rows[93]['state'], 'open')
+        self.assertEqual([o['ticket'] for o in events.fold(self.fake.rows[92]['comments'])['occurrences']],
+                         [64, 62, 63])
+        for number, decision, reason in ((90, 'closed', 'Already fixed'),
+                                         (91, 'merged:o/r#92', 'Same root cause'),
+                                         (93, 'kept', 'Wait for more evidence')):
+            comment = self.fake.rows[number]['comments'][-1]['body']
+            record = events.parse(comment)[1]
+            self.assertEqual((record['event'], record['batch'], record['decision']),
+                             ('lessons.merged', 'owner-approved-1', decision))
+            self.assertIn(reason, comment)
+        before = json.loads(json.dumps(list(self.fake.rows.values())))
+        self.fake.calls.clear()
+        rc, out, err = self.run_process('merge-apply', str(path))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(list(self.fake.rows.values()), before)
+        self.assertFalse(any(c[1:3] in (['issue','comment'], ['issue','close']) for c in self.fake.calls))
+
+    def test_merge_apply_resumes_after_each_lost_write_response(self):
+        path = self.root/'decisions.json'
+        path.write_text(json.dumps(dict(batch='retry-batch', decisions=[
+            dict(lesson='o/r#90', decision='merged:o/r#91', reason='Same root cause'),
+            dict(lesson='o/r#92', decision='closed', reason='Fixed'),
+            dict(lesson='o/r#93', decision='kept', reason='Keep observing')])))
+        for fail_at in range(1, 7):
+            with self.subTest(write=fail_at):
+                tracker = Fake([issue(bodies=[seen()]), issue(91), issue(92), issue(93)])
+                writes = 0
+                def lose_response(args, **kwargs):
+                    nonlocal writes
+                    result = tracker(args, **kwargs)
+                    if args[1:3] in (['issue', 'comment'], ['issue', 'close']):
+                        writes += 1
+                        if writes == fail_at:
+                            return subprocess.CompletedProcess(args, 1, '', 'response lost')
+                    return result
+                self.fake = lose_response
+                rc, out, err = self.run_command('merge-apply', str(path))
+                self.assertEqual(rc, 1, err)
+                self.fake = tracker
+                rc, out, err = self.run_process('merge-apply', str(path))
+                self.assertEqual(rc, 0, err)
+                self.assertEqual(len(events.fold(self.fake.rows[91]['comments'])['occurrences']), 1)
+                for number in (90, 92, 93):
+                    records = [events.parse(c['body'])[1] for c in self.fake.rows[number]['comments']]
+                    self.assertEqual(len([r for r in records if r['event'] == 'lessons.merged']), 1)
+                self.assertEqual(self.fake.rows[90]['state_reason'], 'duplicate')
+                self.assertEqual(self.fake.rows[92]['state_reason'], 'not planned')
+                self.assertEqual(self.fake.rows[93]['state'], 'open')
+
+    def test_merge_apply_validates_the_whole_batch_before_writing(self):
+        path = self.root/'decisions.json'
+        self.fake.rows[91] = issue(91, labels=('mmw:ticket',))
+        for second in (dict(lesson='o/r#91', decision='kept', reason='Not a lesson'),
+                       dict(lesson='o/r#90', decision='kept', reason='Conflicting duplicate')):
+            with self.subTest(second=second):
+                path.write_text(json.dumps(dict(batch='bad-batch', decisions=[
+                    dict(lesson='o/r#90', decision='closed', reason='Fixed'), second])))
+                rc, out, err = self.run_process('merge-apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertEqual(self.fake.rows[90]['state'], 'open')
+                self.assertEqual(len(self.fake.rows[90]['comments']), 1)
+
+    def test_merge_apply_refuses_self_merge(self):
+        path = self.root/'self-merge.json'
+        path.write_text(json.dumps(dict(batch='self-merge', decisions=[
+            dict(lesson='o/r#90', decision='merged:o/r#90', reason='Self merge')])))
+        rc, out, err = self.run_process('merge-apply', str(path))
+        self.assertEqual(rc, 2, err)
+        self.assertEqual(self.fake.rows[90]['state'], 'open')
+        self.assertEqual(len(self.fake.rows[90]['comments']), 1)
+
+    def test_merge_apply_normalizes_registration_identity_before_conflict_checks(self):
+        self.fake.rows[91] = issue(91)
+        path = self.root/'case-conflicts.json'
+        cases = [
+            [dict(lesson='o/r#90', decision='closed', reason='Fixed'),
+             dict(lesson='O/R#90', decision='kept', reason='Keep')],
+            [dict(lesson='O/R#91', decision='closed', reason='Fixed'),
+             dict(lesson='o/r#90', decision='merged:o/r#91', reason='Same cause')],
+        ]
+        for decisions in cases:
+            with self.subTest(decisions=decisions):
+                self.fake = Fake([issue(bodies=[seen()]), issue(91)])
+                path.write_text(json.dumps(dict(batch='case-conflicts', decisions=decisions)))
+                rc, out, err = self.run_process('merge-apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertFalse(any(c[1:3] in (['issue','comment'], ['issue','close'])
+                                     for c in self.fake.calls))
+
+    def test_merge_apply_refuses_a_closed_destination_before_writing(self):
+        self.fake.rows[91] = issue(91, state='closed')
+        path = self.root/'closed-target.json'
+        path.write_text(json.dumps(dict(batch='closed-target', decisions=[
+            dict(lesson='o/r#90', decision='merged:o/r#91', reason='Same cause')])))
+        rc, out, err = self.run_process('merge-apply', str(path))
+        self.assertEqual(rc, 2, err)
+        self.assertIn('o/r#91', err)
+        self.assertIn('open', err)
+        self.assertEqual(self.fake.rows[90]['state'], 'open')
+        self.assertEqual(self.fake.rows[91]['comments'], [])
+
+    def test_merge_apply_names_the_file_and_malformed_field(self):
+        path = self.root/'malformed-decisions.json'
+        for data, field in (([], 'object'), ({'decisions': []}, 'batch'),
+                            ({'batch': 'bad', 'decisions': [dict(lesson='o/r#90', decision='kept')]}, 'reason')):
+            with self.subTest(data=data):
+                path.write_text(json.dumps(data))
+                rc, out, err = self.run_process('merge-apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertIn(str(path), err)
+                self.assertIn(field, err)
+                self.assertEqual(len(self.fake.rows[90]['comments']), 1)
 
     def test_gather_window_starts_at_the_first_claim(self):
         self.start_run()
