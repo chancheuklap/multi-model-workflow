@@ -195,7 +195,7 @@ A program a host runs at one of its own events. `install.sh` registers five hand
 _Home_: `mmw-v4/install.sh`
 
 **`tool-guard.py`**:
-The dispatch skill's hook that runs before a host's tool call. In a session whose working directory is a ticket worktree (`issue-<n>`), it refuses a command that would end a process or take the ticket out of the agent queue (`pretool`) and a call to the host's question tool (`question`). In every directory, `pretool` also refuses a git write from a session that is an open brief, and the removal (`git worktree remove`, `rm`) of a path that is or holds this process's working directory or is an open batch's recorded worktree.
+The dispatch skill's hook that runs before a host's tool call. In a session whose working directory is a ticket worktree (`issue-<n>`), it refuses a command that would end a process outside the session's own process tree (it allows `kill [-<signal>] <pid>...` when every numeric target descends from the nearest host process, and refuses one whose ancestry it cannot read) or take the ticket out of the agent queue (`pretool`), and a call to the host's question tool (`question`). In every directory, `pretool` also refuses `gh issue comment` and `gh pr comment` with `--edit-last`, since all agents share one GitHub account and a comment is edited by its id through `gh api`; a git write from a session that is an open brief; and the removal (`git worktree remove`, `rm`) of a path that is or holds this process's working directory or is an open batch's recorded worktree.
 _Home_: `mmw-v4/skills/dispatch/scripts/tool-guard.py`
 
 **`verify-ticket.py`**:
