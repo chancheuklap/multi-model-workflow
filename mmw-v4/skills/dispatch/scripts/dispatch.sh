@@ -2520,6 +2520,36 @@ PY
   esac
 }
 
+base_check_steps_red() {
+  local root="$1" base_ref="$2" failed="$3" out
+  out="$(python3 - "$VERIFY" "$root" "$base_ref" "$failed" <<'PY'
+import importlib.util, json, os, sys
+from pathlib import Path
+
+script, root, base_ref, failed = sys.argv[1:]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+steps = list(dict.fromkeys(step for row in json.loads(failed) for step in row.get("steps", [])))
+if not steps:
+    sys.exit(1)
+env = dict(os.environ, MMW_BASE_REF=base_ref)
+try:
+    code, output = mod._run(Path(root) / mod.REPOSITORY_CHECK, Path(root), env, "--step", ",".join(steps))
+except OSError as exc:
+    print(f"dispatch: base check could not start: {exc}", file=sys.stderr)
+    sys.exit(1)
+print(output, file=sys.stderr, end="")
+if code != 1 or not set(steps).issubset(mod.FAIL_STEP_RE.findall(output)):
+    sys.exit(1)
+print(json.dumps(steps, separators=(",", ":")))
+PY
+)" || return 1
+  LANDED_BASE_RED="$out"
+}
+
 # Prints `<tier> <commit> <base>` of the newest green record on issue <n> (event
 # `ticket.checked` run `repository`, or `spec.checked`) that proves the default tier of
 # <commit> against <base> on this machine; non-zero when none does. A step so covered
@@ -2846,10 +2876,12 @@ finish_landing() {
 # Merge the exact ticket.passed commit, check the result, then fast-forward origin.
 # 0 merged, 1 bounced, 2 could not complete, 3 was already in origin,
 # 4 environment preparation failed.
+LANDED_BASE_RED="[]"
 land_one_via_origin() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5" mode="${6:-advance}"
   local attempt merge_root base merge_commit landed_base rc files push_error=""
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
+    LANDED_BASE_RED="[]"
     prepare_merge_worktree "$root" "$into"; rc=$?
     [ "$rc" -eq 0 ] || return "$rc"
     merge_root="$MERGE_ROOT"
@@ -2899,6 +2931,15 @@ land_one_via_origin() {
       run_merge_checks "$merge_root" "origin/$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
     fi
     if [ "$rc" -eq 1 ]; then
+      git -C "$merge_root" reset --hard "$base" >/dev/null \
+        || { echo "dispatch: could not check out the base $base to compare failed steps" >&2; release_merge_lock; return 2; }
+      if base_check_steps_red "$merge_root" "origin/$into" "$MERGE_CHECKS_FAILED"; then
+        rc=0
+      fi
+      git -C "$merge_root" reset --hard "$merge_commit" >/dev/null \
+        || { echo "dispatch: could not restore merge $merge_commit after comparing the base" >&2; release_merge_lock; return 2; }
+    fi
+    if [ "$rc" -eq 1 ]; then
       git -C "$merge_root" reset --hard "origin/$into" >/dev/null
       if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$MERGE_CHECKS_FAILED"; then
         release_merge_lock
@@ -2935,7 +2976,7 @@ land_one_via_origin() {
 # landed, and that — not its closing — is what lets the tickets it blocks start: a
 # ticket is cut from the base branch and has to find its blockers' work there.
 record_landed() {
-  local number="$1" spec="${2:-}" into="$3" commit="$4" merge="${5:-}" base="${6:-}" branch line
+  local number="$1" spec="${2:-}" into="$3" commit="$4" merge="${5:-}" base="${6:-}" branch line text=""
   local -a fields
   branch="$(ticket_branch "$number")"
   line="Landed $branch into $into"
@@ -2948,8 +2989,12 @@ record_landed() {
   [ -z "$merge" ] || fields+=(--field "merge=$merge")
   [ -z "$base" ] || fields+=(--field "base=$base")
   [ -z "${LANDED_CHECKED_BY:-}" ] || fields+=(--field "checked_by=repository ${LANDED_CHECKED_BY}")
+  if [ "${LANDED_BASE_RED:-[]}" != '[]' ]; then
+    text="Red on the base too: $(python3 -c 'import json, sys; print(", ".join(json.loads(sys.argv[1])))' "$LANDED_BASE_RED")"
+    fields+=(--json-field "base_red=$LANDED_BASE_RED")
+  fi
   if ! post_event "$number" ticket.landed --ticket "$number" --spec "$spec" \
-      --line "$line" "${fields[@]}"; then
+      --line "$line" --text-file <(printf '%s\n' "$text") "${fields[@]}"; then
     echo "dispatch: $commit is in origin/$into, but the ticket.landed event on #$number was not written; the tickets it blocks stay blocked until the next advance or land writes it" >&2
     return 1
   fi

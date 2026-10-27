@@ -8211,6 +8211,35 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
 }
 
+scenario_advancebaseredlands() {
+  local code before mode body
+  for mode in base-too merge-only unsupported; do
+    body='if [ "${1:-}" = --step ]; then
+  [ "$2" = unit ] || exit 2
+  [ "$MMW_RED_MODE" != unsupported ] || exit 2
+  if [ "$MMW_RED_MODE" = merge-only ] && [ ! -e ticket.txt ]; then echo "PASS unit 0s"; exit 0; fi
+else
+  echo "PASS lint 0s"
+fi
+echo "FAIL unit 0s"
+exit 1'
+    setup_checked_ticket "$body"
+    before="$(git -C "$TMP/origin.git" rev-parse main)"
+    code="$(run_dispatch env MMW_RED_MODE="$mode" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+      bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+    [ "$code" = 0 ] || fail "$mode advance failed: $(cat "$TMP/err")"
+    if [ "$mode" = base-too ]; then
+      [ "$(git -C "$TMP/origin.git" rev-parse main)" != "$before" ] || fail "base-red ticket did not land"
+      posted_events 61 base_red | grep -qx "ticket.landed base_red=\['unit'\]" || fail "landing omitted base_red"
+      gh_comments_json 61 | python3 -c 'import json, sys; assert any("Red on the base too: unit" in c["body"] for c in json.load(sys.stdin)["comments"])' \
+        || fail "landing omitted the base-red explanation"
+    else
+      [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "$mode merge was pushed"
+      posted_events 61 reason | grep -qx 'ticket.bounced reason=checks' || fail "$mode did not bounce"
+    fi
+  done
+}
+
 # 29 lines, the failing test's name on line 10. The command builds that name at
 # runtime, so the command text itself does not contain it.
 twenty_nine_line_check() {
@@ -8306,7 +8335,7 @@ scenario_advancebouncedkeepserrors() {
 
 scenario_advancebouncedsteps() {
   local before code body
-  setup_checked_ticket 'echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
+  setup_checked_ticket '[ "${1:-}" != --step ] || exit 2; echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
@@ -9606,6 +9635,8 @@ ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername 
 ALL="$ALL envstartsetsup envupfails envdownonend envmergeworktree envrestartaftersuspend envabsent"
 ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall"
+
+ALL="$ALL advancebaseredlands"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
