@@ -1602,7 +1602,7 @@ close_batch() {
 check_brief_references() {
   local repo
   repo="$(repo_slug)" || return 2
-  python3 "$BRIEFS" check-references --repo "$repo" "$@"
+  python3 "$BRIEFS" check-references --repo "$repo" -- "$@"
 }
 
 brief_many() {
@@ -1651,7 +1651,7 @@ brief_many() {
   local n=0 copy prompt session started=()
   for file in "$@"; do
     n=$((n + 1))
-    copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
+    copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file="$file" \
             --footer "$(brief_footer "$batch/$n" "$into" "$role")")" \
       || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
     prompt="Dispatched: $role, brief $copy. $READ_MODE $follows. $WHOLE_TASK"

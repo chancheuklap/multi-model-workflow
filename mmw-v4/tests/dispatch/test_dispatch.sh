@@ -3184,6 +3184,9 @@ scenario_sendrefusesclosedbatch() {
   printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read [the previous answer]($pointer)." '## For' 'A decision.' > "$packet"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
   [ "$code" = 0 ] || fail "reference to an open batch was refused: $(cat "$TMP/err")"
+  cat "$packet" > "$TMP/repo/-notes.md"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" -notes.md)"
+  [ "$code" = 0 ] || fail "reference to an open batch in -notes.md was refused: $(cat "$TMP/err")"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
   [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
   valid="$TMP/valid-brief.md"
@@ -3200,6 +3203,14 @@ scenario_sendrefusesclosedbatch() {
     grep -qF '## Known' "$TMP/err" || fail "refusal does not explain how to preserve the answer"
     grep -qF "$expected" "$TMP/err" || fail "refusal does not name batch $expected"
   done
+  cat "$packet" > "$TMP/repo/-notes.md"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" -notes.md)"
+  [ "$code" = 2 ] || fail "dead batch reference in -notes.md expected 2, got $code: $(cat "$TMP/err")"
+  hasnt 'paseo :: run'
+  grep -qF -- '-notes.md' "$TMP/err" || fail "refusal does not name the leading-dash brief file"
+  grep -qF "$batch" "$TMP/err" || fail "leading-dash brief refusal does not name batch $batch"
+  grep -qF '## Known' "$TMP/err" || fail "leading-dash brief refusal does not explain how to preserve the answer"
 }
 
 scenario_briefproblems() {
