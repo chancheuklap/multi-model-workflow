@@ -617,6 +617,25 @@ class TestOutsideOwns(unittest.TestCase):
             self.assertEqual(fields, {"outside_owns": []})
             self.assertEqual(vt.outside_owns_text(fields), "Outside Owns: None")
 
+    def test_owns_note_parenthesised_file_does_not_authorise_a_sibling(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            sh = self.repo(tmp)
+            sh("checkout", "-qb", "issue-4")
+            owned = "src/app/(auth)/login/page.tsx"
+            sibling = "src/app/(auth)/login/sibling.tsx"
+            (tmp / owned).parent.mkdir(parents=True)
+            (tmp / owned).write_text("owned\n")
+            (tmp / sibling).write_text("outside\n")
+            sh("add", "-A")
+            sh("commit", "-qm", "write owned file and sibling")
+            for entry in (owned + " (new)", "`" + owned + "` （新文件）",
+                          owned + "（新文件）"):
+                with self.subTest(entry=entry):
+                    globs = vt.owns_globs("## Owns\n\n- " + entry + "\n")
+                    fields = vt.outside_owns_fields(4, globs, tmp, "main")
+                    self.assertEqual(fields, {"outside_owns": [sibling]})
+
     def test_the_list_is_answered_on_the_tickets_own_branch(self):
         with tempfile.TemporaryDirectory() as raw:
             tmp = Path(raw)

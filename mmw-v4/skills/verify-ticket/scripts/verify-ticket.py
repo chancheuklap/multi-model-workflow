@@ -489,7 +489,7 @@ def owns_globs(body: str) -> list[str]:
     """
     globs = []
     for line in section(body, "Owns"):
-        m = re.match(r"^\s*-\s+([^\s(（]+)", line)
+        m = re.match(r"^\s*-\s+([^\s（]+)", line)
         if not m:
             continue
         value = m.group(1)
