@@ -392,6 +392,27 @@ def leaves_the_agent_lane(command: str, number: int) -> bool:
     return False
 
 
+def edits_last_comment(command: str) -> str | None:
+    for run in runs(command):
+        words = shell_words(run)
+        arguments = []
+        edit_last = False
+        options = iter(words[1:])
+        for option in options:
+            if option == "--":
+                arguments.extend(options)
+                break
+            if option in ("--body", "-b", "--body-file", "-F", "--repo", "-R"):
+                next(options, None)
+            elif option.split("=", 1)[0] == "--edit-last":
+                edit_last = True
+            elif not option.startswith("-"):
+                arguments.append(option)
+        if arguments[:2] in (["issue", "comment"], ["pr", "comment"]) and edit_last:
+            return run
+    return None
+
+
 def refuse(reason: str) -> None:
     """Say no the way Claude Code and Codex both read it, on stdout, exiting 0 either way."""
     answer = {"hookSpecificOutput": {"hookEventName": "PreToolUse",
@@ -624,6 +645,11 @@ def removal_refusal(piece: str, paths: list[Path]) -> str | None:
 def run_pretool(event: dict, host: str) -> int:
     command = command_of(event)
     if command is None:
+        return 0
+    comment = edits_last_comment(command)
+    if comment is not None:
+        refuse(f"Refused `{comment}`. All agents share one GitHub account, so the last "
+               "comment may be another agent's event. Use gh api to edit by comment id.")
         return 0
     number = governed_ticket()
     if number is not None:

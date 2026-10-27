@@ -220,6 +220,32 @@ class TestWhatItStops(unittest.TestCase):
         self.assertFalse(hk.leaves_the_agent_lane("gh issue close 58", TICKET))
         self.assertFalse(hk.leaves_the_agent_lane(f"gh issue close {TICKET}0", TICKET))
 
+    def test_guard_edit_last_is_refused(self):
+        for host in EVENTS:
+            for directory in (f"issue-{TICKET}", "night-76", "workspace"):
+                for command in (
+                    "gh issue comment 64 --edit-last --body correction",
+                    "gh pr comment 64 --body-file report.md --edit-last",
+                    "gh issue comment 64 --edit-last=true --body correction",
+                    "gh -R o/r issue comment 64 --edit-last",
+                    "gh pr --repo=o/r comment 64 --edit-last",
+                    "echo ok; env FOO=1 gh pr comment 64 --edit-last",
+                ):
+                    with self.subTest(host=host, directory=directory, command=command):
+                        code, answer = call(host, with_command(host, command), cwd_basename=directory)
+                        self.assertEqual(code, 0)
+                        self.assertIsNotNone(answer)
+                        self.assertIn("gh api", reason_of(answer))
+                        self.assertIn("comment id", reason_of(answer))
+            for command in (
+                "gh issue comment 64 --body '--edit-last'",
+                "gh pr comment 64 --body='the --edit-last flag is forbidden'",
+                "gh api repos/o/r/issues/comments/123 -X PATCH -f body=correction",
+                "echo 'gh issue comment 64 --edit-last'",
+                "cat <<EOF\ngh pr comment 64 --edit-last\nEOF",
+            ):
+                self.assertEqual(call(host, with_command(host, command)), (0, None))
+
 
 # ------------------------------------------------------------------------ AC3
 
