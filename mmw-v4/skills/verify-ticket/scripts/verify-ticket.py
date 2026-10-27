@@ -7,6 +7,12 @@ that ledger to unlazy's `gate-check`, and posts the result back as one
 `ticket.checked` event. Nothing is cached. The ledger is removed when the run
 ends. Each run replaces `.scratch/criteria/<ticket>/`, and a failing criterion's
 output is `<id>.log` in that directory.
+
+Claim-time baseline checkouts run their optional executable `scripts/env setup <worktree>`
+and `up <worktree>` before criteria, then `down <worktree>` before removal, including a
+failed preparation. Each command runs from the target checkout root with its absolute path.
+Preparation failures exit 2; cleanup failures are reported without blocking removal.
+Repositories without `scripts/env` run unchanged and print no environment messages.
 """
 
 from __future__ import annotations
@@ -1850,6 +1856,14 @@ def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
     return _run_checks(number, reverify, actor, fetch_body(number), repo_root())
 
 
+def criterion_environment(number: int, into: str | None) -> dict[str, str]:
+    env = os.environ.copy()
+    env["MMW_TICKET"] = str(number)
+    if into:
+        env["MMW_BASE_REF"] = f"origin/{into}"
+    return env
+
+
 def _run_checks(number: int, reverify: bool,
                 actor: str | None, body: str, root: Path) -> int:
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
@@ -1881,10 +1895,7 @@ def _run_checks(number: int, reverify: bool,
             cmd.append("--reverify")
         cmd += ["--timeout", str(check_timeout(body))]
         cmd.append(str(ledger))
-        env = os.environ.copy()
-        env["MMW_TICKET"] = str(number)
-        if isinstance(into, str) and into:
-            env["MMW_BASE_REF"] = f"origin/{into}"
+        env = criterion_environment(number, into)
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         if result.returncode == 2:
@@ -2078,36 +2089,59 @@ def check_run_outcome(returncode: int, summary: str) -> str | None:
     return "unmet"
 
 
-def run_baseline_if_needed(number: int, root: Path) -> None:
+def run_baseline_if_needed(number: int, root: Path) -> int:
     """Run the baseline once for the newest `worker.started.base`, if that run is missing.
 
-    A red result does not refuse the claim. Failures of the throwaway worktree are written
-    as an unmet `ticket.checked` of run `baseline` when the base commit is known, and
-    otherwise named on stderr; they never raise into `--preflight`.
+    A red result does not refuse the claim. Checkout failures are written as an unmet
+    `ticket.checked` of run `baseline` when the base commit is known, and otherwise named
+    on stderr. Environment preparation failures return 2 and stop `--preflight`.
     """
     try:
         comments = fetch_comments(number)
     except TrackerReadError as exc:
         sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
-        return
+        return 0
     started = events.newest(comments, "worker.started")
     base = (started or {}).get("payload", {}).get("base")
     if not isinstance(base, str) or not re.fullmatch(r"[0-9a-f]{40}", base):
         sys.stderr.write(f"#{number}: baseline run did not start "
                          f"(no worker.started.base commit)\n")
-        return
+        return 0
     existing = newest_run(comments, "baseline")
     if existing and existing["payload"].get("commit") == base:
-        return
+        return 0
     try:
         body = fetch_body(number)
     except TrackerReadError as exc:
         sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
-        return
-    run_baseline(number, body, base, root)
+        return 0
+    return run_baseline(number, body, base, root, started["payload"].get("into"))
+
+
+def run_worktree_environment(worktree: Path, step: str) -> int:
+    script = worktree / "scripts" / "env"
+    if not script.exists():
+        return 0
+    try:
+        result = subprocess.run([str(script), step, str(worktree)], cwd=worktree,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                errors="replace")
+    except OSError as exc:
+        output, status = str(exc), 2
+    else:
+        output, status = result.stdout, result.returncode
+    if status:
+        sys.stderr.write(f"scripts/env {step} failed for {worktree} (exit {status}); "
+                         "fix scripts/env and retry\n")
+        sys.stderr.write("\n".join(output.splitlines()[-10:]) + "\n")
+        return 2
+    if output:
+        sys.stderr.write(output)
+    return 0
 
 
 def _remove_baseline_checkout(root: Path, worktree: Path) -> None:
+    run_worktree_environment(worktree, "down")
     subprocess.run(["git", "worktree", "remove", "--force", "--force", str(worktree)],
                    cwd=root, capture_output=True, text=True)
     shutil.rmtree(worktree, ignore_errors=True)
@@ -2115,7 +2149,7 @@ def _remove_baseline_checkout(root: Path, worktree: Path) -> None:
                    cwd=root, capture_output=True, text=True)
 
 
-def run_baseline(number: int, body: str, base: str, root: Path) -> None:
+def run_baseline(number: int, body: str, base: str, root: Path, into: str | None) -> int:
     """The criteria at `base`, in the main checkout's `.worktrees/baseline-<n>`."""
     items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
     skipped = []
@@ -2134,7 +2168,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
             _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
                            outcome="unmet",
                            line=f"Baseline run on {short}: unmet ({why})")
-            return
+            return 0
         worktree = Path(main) / ".worktrees" / f"baseline-{number}"
         worktree.parent.mkdir(parents=True, exist_ok=True)
         _remove_baseline_checkout(root, worktree)
@@ -2146,11 +2180,14 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
             _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
                            outcome="unmet",
                            line=f"Baseline run on {short}: unmet ({why})")
-            return
+            return 0
+        for step in ("setup", "up"):
+            if run_worktree_environment(worktree, step):
+                return 2
         if not runnable:
             _post_baseline(number, body, base, runnable=[], skipped=skipped, outcome="unmet",
                            line=f"Baseline run on {short}: nothing ran (all skipped)")
-            return
+            return 0
         ledger_dir = tmp / "ledger"
         ledger_dir.mkdir()
         lines = []
@@ -2163,8 +2200,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
         ledger = write_ledger(body, ledger_dir, lines)
         cmd = ["node", str(GATE_CHECK), "--cwd", str(worktree),
                "--timeout", str(check_timeout(body)), str(ledger)]
-        env = os.environ.copy()
-        env["MMW_TICKET"] = str(number)
+        env = criterion_environment(number, into)
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=worktree, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
@@ -2174,7 +2210,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
             _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
                            outcome="unmet",
                            line=f"Baseline run on {short}: could not start")
-            return
+            return 0
         ran = parse_criteria(updated) if updated else runnable
         _post_baseline(number, body, base, runnable=ran, skipped=skipped, outcome=outcome,
                        line=f"Baseline run on {short}: {summary or outcome}",
@@ -2185,6 +2221,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
         if worktree is not None:
             _remove_baseline_checkout(root, worktree)
         shutil.rmtree(tmp, ignore_errors=True)
+    return 0
 
 
 def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
@@ -2306,10 +2343,19 @@ def run_preflight(number: int) -> int:
     except (OSError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"#{number} is claimed, but its ticket.claimed event was not "
                          f"written ({exc})\n")
-    run_baseline_if_needed(number, root)
+    if run_baseline_if_needed(number, root) == 2:
+        return 2
     print(f"READY: #{number} claimed on issue-{number}")
     try:
-        resume = resume_at(fetch_comments(number), git("rev-parse", "HEAD", cwd=root))
+        comments = fetch_comments(number)
+        own_run = newest_run(comments, "self")
+        if own_run is not None and own_run["payload"].get("shape") != shape_digest(
+                section(fetch_body(number), "Acceptance criteria")):
+            resume = None
+            sys.stderr.write(f"#{number}: acceptance criteria were recut since your newest "
+                             f"own run; read the ticket and start from the code step\n")
+        else:
+            resume = resume_at(comments, git("rev-parse", "HEAD", cwd=root))
     except TrackerReadError as exc:
         resume = None
         sys.stderr.write(f"#{number}: could not read where to resume ({exc}); read the "

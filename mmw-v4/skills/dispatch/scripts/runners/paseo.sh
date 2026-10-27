@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
-# Paseo adapter: the runner adapter's three core verbs (`start`, `send`, `liveness`), `stop`, and `self`.
+# Paseo adapter: the runner adapter's `start`, `send`, `liveness`, `state`, `stop`, and `self` verbs.
 #
 #   runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval]
 #                          [--title T] [--env KEY=VALUE]... --prompt TEXT
 #   runners/paseo.sh send <session-id> <text>
 #   runners/paseo.sh liveness <session-id>
+#   runners/paseo.sh state <session-id>
 #   runners/paseo.sh stop <session-id>
 #   runners/paseo.sh self
 #   runners/paseo.sh attach --cwd DIR [--issue N] [--under-caller]
@@ -19,6 +20,9 @@
 # option come from `models.py paseo-args`.
 # send: exit 0 the text was delivered; 3 the session is there and did not take it;
 # 2 there is no such session.
+# start cannot read the screen on this runner, so it cannot reject host dialogs.
+# state cannot report dialog. It prints working, idle, stopped, or unknown from
+# ls. initializing and unrecognized statuses are unknown.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout.
 # stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
 # self prints the id of the session this process itself runs in, the id `send` reaches:
@@ -46,6 +50,7 @@ usage() {
   echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT" >&2
   echo "       runners/paseo.sh send <session-id> <text>" >&2
   echo "       runners/paseo.sh liveness <session-id>" >&2
+  echo "       runners/paseo.sh state <session-id>" >&2
   echo "       runners/paseo.sh stop <session-id>" >&2
   echo "       runners/paseo.sh self" >&2
   echo "       runners/paseo.sh attach --cwd DIR [--issue N] [--under-caller]" >&2
@@ -164,6 +169,23 @@ send() {
   exit 3
 }
 
+state() {
+  local ident="${1:-}" status rc answer=unknown
+  [ -n "$ident" ] || usage
+  status="$(ls_status "$ident")"
+  rc=$?
+  case "$rc" in
+    1) printf '%s\n' stopped; return ;;
+    2) printf '%s\n' unknown; return ;;
+  esac
+  case "$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')" in
+    running) answer=working ;;
+    idle) answer=idle ;;
+    closed|error) answer=stopped ;;
+  esac
+  printf '%s\n' "$answer"
+}
+
 liveness() {
   local ident="${1:-}" status rc
   [ -n "$ident" ] || usage
@@ -221,6 +243,7 @@ case "$verb" in
   start) start "$@" ;;
   send) send "$@" ;;
   liveness) liveness "$@" ;;
+  state) state "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
   attach) exit 0 ;;

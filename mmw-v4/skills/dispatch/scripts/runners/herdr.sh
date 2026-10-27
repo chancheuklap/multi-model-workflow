@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
-# Herdr adapter: the runner adapter's three core verbs (`start`, `send`, `liveness`), `stop`, and `self`.
+# Herdr adapter: the runner adapter's `start`, `send`, `liveness`, `state`, `stop`, and `self` verbs.
 #
 #   runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT
 #   runners/herdr.sh send <session-id> <text>
 #   runners/herdr.sh liveness <session-id>
+#   runners/herdr.sh state <session-id>
 #   runners/herdr.sh stop <session-id>
 #   runners/herdr.sh self
 #   runners/herdr.sh attach --cwd DIR [--issue N] [--under-caller]
@@ -21,6 +22,9 @@
 # handed to the agent and no turn start was seen (`agent_prompt_stalled`, `timeout`, or
 # an error this does not know): handed over, not confirmed, and not to be typed again;
 # 2 there is no such session.
+# start cannot read the screen on this runner, so it cannot reject host dialogs.
+# state cannot report dialog. It prints working, idle, stopped, or unknown from
+# agent list. blocked and unrecognized statuses are unknown.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. Stopped means
 # the name is absent from `agent list`; a name still on that list is not stopped.
 # Tolerance, 1 second: that is how long a dead agent may still read `alive`. Measured on
@@ -56,6 +60,7 @@ usage() {
   echo "usage: runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT" >&2
   echo "       runners/herdr.sh send <session-id> <text>" >&2
   echo "       runners/herdr.sh liveness <session-id>" >&2
+  echo "       runners/herdr.sh state <session-id>" >&2
   echo "       runners/herdr.sh stop <session-id>" >&2
   echo "       runners/herdr.sh self" >&2
   echo "       runners/herdr.sh attach --cwd DIR [--issue N] [--under-caller]" >&2
@@ -242,6 +247,22 @@ send() {
   exit 4
 }
 
+state() {
+  local ident="${1:-}" status rc answer=unknown
+  [ -n "$ident" ] || usage
+  status="$(list_status "$ident")"
+  rc=$?
+  case "$rc" in
+    1) printf '%s\n' stopped; return ;;
+    2) printf '%s\n' unknown; return ;;
+  esac
+  case "$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')" in
+    working) answer=working ;;
+    idle|done) answer=idle ;;
+  esac
+  printf '%s\n' "$answer"
+}
+
 liveness() {
   local ident="${1:-}" status rc
   [ -n "$ident" ] || usage
@@ -351,6 +372,7 @@ case "$verb" in
   start) start "$@" ;;
   send) send "$@" ;;
   liveness) liveness "$@" ;;
+  state) state "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
   attach) exit 0 ;;

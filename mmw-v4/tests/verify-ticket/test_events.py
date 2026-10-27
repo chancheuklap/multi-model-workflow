@@ -38,6 +38,35 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
+
+    def test_build_strips_terminal_escapes(self):
+        dirty = ("\x1b[32mFAIL\x1b[0m ^[[31mlint^[[0m "
+                 "\\^[[32mpyrefly\\^[[0m "
+                 "\x1b]0;window title\x07tail "
+                 "\x1b]8;;https://example.test\x1b\\link\x1b]8;;\x1b\\")
+        clean = "FAIL lint pyrefly tail link"
+        body = events.build(
+            "ticket.bounced", ticket=61, line=dirty, text=dirty,
+            reason="checks", commit="a" * 40,
+            commands=[{"command": "scripts/check", "tail": dirty,
+                       "details": {"lines": [dirty, 7, None, True]}}])
+        what, payload = events.parse(body)
+        self.assertEqual(what, "event")
+        self.assertEqual(body.split("\n\n<!--", 1)[0], clean + "\n\n" + clean)
+        self.assertEqual(payload["commands"], [{
+            "command": "scripts/check", "tail": clean,
+            "details": {"lines": [clean, 7, None, True]}}])
+        self.assertEqual(events.fold([body])["unreadable"], [])
+
+    def test_build_preserves_caret_regex_text(self):
+        text = "grep '^[[:alpha:]]' x; EXPECT: /^[[:alpha:]]+$/m; x ^[[a-z]] y; echo ^[[A"
+        body = events.build("worker.decided", ticket=61, line=text, text=text,
+                            command=text, expected=text)
+        what, payload = events.parse(body)
+        self.assertEqual(what, "event")
+        self.assertEqual(body.split("\n\n<!--", 1)[0], text + "\n\n" + text)
+        self.assertEqual((payload["command"], payload["expected"]), (text, text))
+
     def test_there_are_thirty_two_events(self):
         self.assertEqual(len(events.EVENTS), 32)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",

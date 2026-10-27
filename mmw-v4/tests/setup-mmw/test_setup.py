@@ -1,13 +1,7 @@
-"""The setup-mmw skill's scripts: `labels.py` and `check.py` against a fake `gh` and
-`git`.
-
-Nothing here reaches GitHub or a real repository: every subprocess `labels.py` and `check.py` start
-is answered by `Fake`, which records the command, and the files `check.py` reads sit in
-a temporary directory.
-"""
 import importlib.util
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -448,6 +442,119 @@ class TestCheck(unittest.TestCase):
             code = check.main()
         sys.modules.pop("labels", None)
         return code, out.getvalue()
+
+    def env_repository(self, resource='"shared-db"', fail="", failure_message="fixture failure"):
+        self.set_up_repository()
+        self.log = self.root / "env-calls.jsonl"
+        script = self.root / "scripts" / "env"
+        script.write_text(
+            f"#!{sys.executable}\n"
+            "import json, pathlib, sys\n"
+            "verb, tree = sys.argv[1:]\n"
+            f"with open({str(self.log)!r}, 'a') as log:\n"
+            "    log.write(json.dumps([verb, tree, str(pathlib.Path.cwd())]) + '\\n')\n"
+            f"if verb == {fail!r}:\n"
+            f"    print({failure_message!r}, file=sys.stderr)\n"
+            "    sys.exit(1)\n"
+            f"if verb == 'up': print({resource})\n")
+        script.chmod(0o755)
+        for args in (["init", "-q"], ["add", "scripts/env"],
+                     ["-c", "user.name=Test", "-c", "user.email=test@example.test",
+                      "commit", "-qm", "environment fixture"]):
+            subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)
+        real_run = subprocess.run
+        fake = Fake(root=self.root)
+
+        def boundary(cmd, **kwargs):
+            if (cmd[0] == "git" and "worktree" in cmd) or str(cmd[0]).endswith("/scripts/env"):
+                return real_run(cmd, **kwargs)
+            return fake(cmd, **kwargs)
+
+        return boundary
+
+    def test_env_row_missing_on_shared_resources(self):
+        boundary = self.env_repository()
+        code, out = self.run_check(boundary)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +scripts/env:.*shared-db")
+
+    def test_env_row_ok_on_separate_resources(self):
+        boundary = self.env_repository(resource='"db-" + pathlib.Path(tree).name')
+        code, out = self.run_check(boundary)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +scripts/env:")
+
+    def test_env_row_missing_when_up_names_no_resources(self):
+        boundary = self.env_repository(resource=repr(" \t "))
+        code, out = self.run_check(boundary)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +scripts/env:.*scripts/env up")
+
+    def test_env_failure_without_message_reports_exit(self):
+        boundary = self.env_repository(fail="setup", failure_message=" ")
+        code, out = self.run_check(boundary)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +scripts/env:.*scripts/env setup.*exit 1")
+
+    def test_env_probe_cleans_up(self):
+        for failure in ("", "setup", "up", "down"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
+                original = self.root
+                self.root = Path(temporary)
+                try:
+                    boundary = self.env_repository(resource='"db-" + pathlib.Path(tree).name',
+                                                   fail=failure)
+                    code, out = self.run_check(boundary)
+                    self.assertEqual(code, 1 if failure else 0, out)
+                    if failure:
+                        self.assertIn(f"scripts/env {failure}", out)
+                        self.assertIn("fixture failure", out)
+                    calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+                    trees = {tree for verb, tree, cwd in calls}
+                    self.assertEqual(len(trees), 2)
+                    for tree in trees:
+                        verbs = [verb for verb, path, cwd in calls if path == tree]
+                        self.assertEqual(verbs, ["setup", "down"] if failure == "setup"
+                                         else ["setup", "up", "down"])
+                    self.assertTrue(all(Path(cwd).resolve() == Path(tree).resolve()
+                                        for verb, tree, cwd in calls))
+                    listed = subprocess.run(["git", "worktree", "list", "--porcelain"],
+                                            cwd=self.root, capture_output=True, text=True, check=True)
+                    self.assertEqual(listed.stdout.count("worktree "), 1, listed.stdout)
+                finally:
+                    self.root = original
+
+    def test_env_row_missing_without_scripts_env(self):
+        self.set_up_repository()
+        for word in ("Postgres", "POSTGRESQL", "mysql", "Redis", "Docker", "database",
+                     "databases", "container", "containers", "port", "ports", "数据库", "端口", "容器"):
+            with self.subTest(word=word):
+                (self.root / "TESTING.md").write_text(f"Tests use {word}.\n")
+                code, out = self.run_check(Fake(root=self.root))
+                self.assertEqual(code, 1, out)
+                self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
+        for prose in ("测试用到数据库和容器", "测试使用端口", "测试用到数据库。", "测试使用数据库进行"):
+            with self.subTest(prose=prose):
+                (self.root / "TESTING.md").write_text(prose)
+                code, out = self.run_check(Fake(root=self.root))
+                self.assertEqual(code, 1, out)
+                self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
+        (self.root / "TESTING.md").unlink()
+        for name in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
+            with self.subTest(compose=name):
+                compose = self.root / name
+                compose.write_text("services: {}\n")
+                code, out = self.run_check(Fake(root=self.root))
+                self.assertEqual(code, 1, out)
+                self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
+                compose.unlink()
+
+    def test_env_row_ok_when_not_needed(self):
+        self.set_up_repository()
+        (self.root / "TESTING.md").write_text("Tests use files. Export reports.\n")
+        code, out = self.run_check(Fake(root=self.root))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +scripts/env:")
 
     def test_a_repository_set_up_is_setup_ok(self):
         self.set_up_repository()

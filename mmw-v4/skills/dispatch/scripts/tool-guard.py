@@ -12,12 +12,10 @@ form. So every host asks this file before calling its question tool, and this fi
 refuses the call and says where the question goes instead — the default taken and
 recorded, or `ABANDON: AC<n> decision` with a sub-issue.
 
-Ending a process is never this session's to do. Several runs share one machine, and
-another run's application is indistinguishable from a stuck one, so a session that is
-free to end what looks stuck is free to end a neighbour's work one second before it
-finished. A run stops its own product as its `verify-<product>` skill says;
-everything else is somebody else's, and a run that cannot reach its product
-reports the ticket blocked rather than clearing the way to it.
+Several runs share one machine. A session may end processes in its own host's process
+tree with `kill [-<signal>] <pid>...`, but never a neighbour's or an unreadable tree.
+The host is this hook's nearest ancestor whose executable basename equals <host>.
+Host process names: claude and codex, checked with live ps comm on 2026-10-27.
 
     tool-guard.py pretool <host>    the host is about to run a shell command
     tool-guard.py question <host>   the host is about to ask the user a question
@@ -36,9 +34,11 @@ ticket `<n>`, and every session a runner starts on a ticket — worker and revie
 runs in that worktree, with nobody at its screen. Any other basename is not a
 ticket worktree and is not refused by those gates. They ask no runner.
 
-Brief git writes and worktree deletions are guarded in every directory. Commands without
-a git write ask no runner. File writes remain allowed so candidates can write into
-the sender's checkout. Batch records keep the sender's worktree protected until
+Brief git writes, worktree deletions and `gh issue comment` or `gh pr comment` with
+`--edit-last` are guarded in every directory. All agents share one GitHub account.
+edit an existing comment by its id with `gh api`, never by its position.
+Commands without a git write ask no runner. File writes remain allowed so candidates
+can write into the sender's checkout. Batch records keep the sender's worktree protected until
 `dispatch.sh brief close <batch>` removes them, even after the children report.
 Deletion also protects this process's working directory and its ancestors.
 """
@@ -50,6 +50,8 @@ import json
 import os
 import re
 import shlex
+import signal
+import subprocess
 import sys
 from pathlib import Path
 
@@ -140,6 +142,79 @@ PREFIX_COMMANDS = {
     "nice": ("n", ("--adjustment",)),
 }
 WORD = re.compile(SHELL_WORD)
+SHELLS = ("sh", "bash", "dash", "ksh", "zsh")
+
+
+def strip_heredocs(command: str) -> str:
+    result = []
+    pending: list[tuple[str, bool]] = []
+    quote = None
+    arithmetic = 0
+    header_start = offset = 0
+    while offset < len(command):
+        char = command[offset]
+        if char == "\\" and quote != "'":
+            result.append(command[offset:offset + 2])
+            offset += 2
+            continue
+        if char == quote:
+            quote = None
+        elif quote is None and char in "\"'":
+            quote = char
+        elif quote is None and command.startswith("((", offset):
+            arithmetic += 2
+            result.append("((")
+            offset += 2
+            continue
+        elif quote is None and arithmetic and char in "()":
+            arithmetic += 1 if char == "(" else -1
+        elif quote is None and char == "#" and (
+            offset == 0 or command[offset - 1].isspace() or command[offset - 1] in ";&|()"
+        ):
+            end = command.find("\n", offset)
+            if end == -1:
+                result.append(command[offset:])
+                break
+            result.append(command[offset:end])
+            offset = end
+            continue
+        elif quote is None and command.startswith("<<<", offset):
+            result.append("<<<")
+            offset += 3
+            continue
+        elif quote is None and not arithmetic and command.startswith("<<", offset):
+            marker = re.match(r"<<(-?)[ \t]*(" + SHELL_WORD + ")", command[offset:])
+            if marker:
+                pending.append((shlex.split(marker[2])[0], bool(marker[1])))
+                result.append(" ")
+                offset += marker.end()
+                continue
+        result.append(char)
+        offset += 1
+        if char == "\n" and quote is None:
+            body_start = offset
+            shell_input = pending and any(
+                words and os.path.basename(words[0]) in SHELLS
+                for piece in pieces(command[header_start:offset - 1])
+                for words in [shell_words(piece)]
+            )
+            for delimiter, tabs in pending:
+                terminated = False
+                while offset < len(command):
+                    end = command.find("\n", offset)
+                    end = len(command) if end == -1 else end
+                    line = command[offset:end]
+                    offset = min(end + 1, len(command))
+                    if (line.lstrip("\t") if tabs else line) == delimiter:
+                        terminated = True
+                        break
+                if not terminated:
+                    return command
+            if shell_input:
+                result.append(command[body_start:offset])
+            pending.clear()
+            header_start = offset
+    return command if pending else "".join(result)
 
 
 def strip_command_prefixes(piece: str) -> str:
@@ -205,6 +280,7 @@ def strip_command_prefixes(piece: str) -> str:
 
 
 def pieces(command: str, strip_prefixes: bool = True) -> list[str]:
+    command = strip_heredocs(command)
     parts = []
     quote = None
     start = offset = 0
@@ -224,7 +300,7 @@ def pieces(command: str, strip_prefixes: bool = True) -> list[str]:
                 words = shlex.split(prefix)
             except ValueError:
                 break
-            if words and os.path.basename(words[0]) in ("sh", "bash", "dash", "ksh", "zsh"):
+            if words and os.path.basename(words[0]) in SHELLS:
                 break
             quote = char
         else:
@@ -260,12 +336,51 @@ ENDS_A_PROCESS = re.compile(r"^(kill|pkill|killall|killall5)\b")
 XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
 
 
-def ends_a_process(command: str) -> str | None:
-    """The piece of `command` that would end a process, or `None`."""
+def ends_a_process(command: str, host: str) -> str | None:
     for piece in pieces(command):
-        if ENDS_A_PROCESS.match(piece) or XARGS_KILL.match(piece):
+        if (ENDS_A_PROCESS.match(piece) or XARGS_KILL.match(piece)) \
+                and not kills_own_processes(piece, host):
             return piece
     return None
+
+
+def kills_own_processes(piece: str, host: str) -> bool:
+    words = shell_words(piece)
+    if not words or words[0] != "kill":
+        return False
+    targets = words[1:]
+    if targets and targets[0].startswith("-"):
+        value = targets.pop(0)[1:]
+        try:
+            if value != "0":
+                signal.Signals(int(value)) if value.isascii() and value.isdecimal() else signal.Signals[
+                    value if value.startswith("SIG") else "SIG" + value]
+        except (ValueError, KeyError):
+            return False
+    if not targets or any(re.fullmatch(r"[0-9]+", pid) is None for pid in targets):
+        return False
+    try:
+        targets = [int(pid) for pid in targets]
+        rows = subprocess.run(["ps", "-axo", "pid=,ppid=,comm="], capture_output=True,
+                              text=True, check=True).stdout.splitlines()
+        processes = {}
+        for row in rows:
+            pid, parent, executable = row.split(None, 2)
+            processes[int(pid)] = (int(parent), os.path.basename(executable))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+
+    def ancestors(pid):
+        seen = set()
+        while pid in processes and pid not in seen:
+            seen.add(pid)
+            yield pid
+            pid = processes[pid][0]
+
+    owner = next((pid for pid in ancestors(os.getppid()) if processes[pid][1] == host), None)
+    return owner is not None and all(
+        pid in processes and owner in ancestors(processes[pid][0]) for pid in targets
+    )
 
 
 def runs(command: str) -> list[str]:
@@ -300,6 +415,27 @@ def leaves_the_agent_lane(command: str, number: int) -> bool:
     return False
 
 
+def edits_last_comment(command: str) -> str | None:
+    for run in runs(command):
+        words = shell_words(run)
+        arguments = []
+        edit_last = False
+        options = iter(words[1:])
+        for option in options:
+            if option == "--":
+                arguments.extend(options)
+                break
+            if option in ("--body", "-b", "--body-file", "-F", "--repo", "-R"):
+                next(options, None)
+            elif option.split("=", 1)[0] == "--edit-last":
+                edit_last = True
+            elif not option.startswith("-"):
+                arguments.append(option)
+        if arguments[:2] in (["issue", "comment"], ["pr", "comment"]) and edit_last:
+            return run
+    return None
+
+
 def refuse(reason: str) -> None:
     """Say no the way Claude Code and Codex both read it, on stdout, exiting 0 either way."""
     answer = {"hookSpecificOutput": {"hookEventName": "PreToolUse",
@@ -315,7 +451,8 @@ def no_kill(piece: str) -> str:
     improvise, and on 2026-09-05 three of them improvised three different wrong answers
     to one correct error message.
     """
-    return (f"Refused `{piece}`. A run never ends a process it did not start. Stop your "
+    return (f"Refused `{piece}`. Only processes started by this session may be ended. "
+            "Use kill [-<signal>] <numeric pid>... with a readable ancestry to this host. Stop your "
             "own product as its verify-<product> skill says; if it is unreachable, report "
             "the ticket blocked and stop.")
 
@@ -528,13 +665,18 @@ def removal_refusal(piece: str, paths: list[Path]) -> str | None:
     return None
 
 
-def run_pretool(event: dict) -> int:
+def run_pretool(event: dict, host: str) -> int:
     command = command_of(event)
     if command is None:
         return 0
+    comment = edits_last_comment(command)
+    if comment is not None:
+        refuse(f"Refused `{comment}`. All agents share one GitHub account, so the last "
+               "comment may be another agent's event. Use gh api to edit by comment id.")
+        return 0
     number = governed_ticket()
     if number is not None:
-        piece = ends_a_process(command)
+        piece = ends_a_process(command, host)
         if piece is not None:
             refuse(no_kill(piece))
             return 0
@@ -574,7 +716,7 @@ def main(argv: list[str] | None = None) -> int:
     event = read_event()
     if argv[0] == "question":
         return run_question(argv[1], event)
-    return run_pretool(event)
+    return run_pretool(event, argv[1])
 
 
 if __name__ == "__main__":

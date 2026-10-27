@@ -8,6 +8,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|sendintoreuse|briefproblems|briefreport|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh briefbrowsername|briefclosebrowsers|briefclosekillsleftover|sendrefusesclosedbatch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
@@ -60,7 +61,7 @@ fail() { echo "  FAILED: $1" >&2; rc=1; }
 TMP="$(mktemp -d)"
 # A relay left running would go on polling a tracker that is gone, through whatever `gh`
 # is next on PATH.
-trap 'stop_test_listeners; stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
+trap 'stop_test_browsers; stop_test_listeners; stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/paseo-state"
 
 cat > "$TMP/bin/paseo" <<'FAKE'
@@ -1139,6 +1140,50 @@ print(next((t for t in rows if t.get("number") == want), {}).get("title", "a tic
   *) echo '{}' ;;
 esac
 FAKE
+
+cat > "$TMP/bin/playwright-cli" <<'FAKE'
+#!/usr/bin/env python3
+import os, subprocess, sys, time
+from pathlib import Path
+
+with open(os.environ["MMW_TEST_LOG"], "a") as log:
+    log.write("playwright-cli" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+if sys.argv[2] == "open":
+    pidfile = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "browser-pids"
+    ready = pidfile.with_name(sys.argv[1][3:] + ".ready")
+    subprocess.Popen([sys.executable, str(Path(__file__).with_name("cliDaemon.js")),
+                      sys.argv[1][3:], str(pidfile), str(ready)],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(200):
+        if ready.exists():
+            break
+        time.sleep(.01)
+    else:
+        sys.exit("fake browser daemon did not start")
+FAKE
+cat > "$TMP/bin/cliDaemon.js" <<'FAKE'
+import os, signal, subprocess, sys, time
+from pathlib import Path
+
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])
+with open(sys.argv[2], 'a') as log:
+    log.write(f'{os.getpid()} {child.pid}\n')
+Path(sys.argv[3]).touch()
+time.sleep(300)
+FAKE
+chmod +x "$TMP/bin/playwright-cli"
+
+stop_test_browsers() {
+  local pid
+  if [ -f "$TMP/paseo-state/browser-pids" ]; then
+    for pid in $(cat "$TMP/paseo-state/browser-pids"); do
+      kill -KILL "$pid" 2>/dev/null || true
+    done
+    rm -f "$TMP/paseo-state/browser-pids"
+  fi
+}
 
 REAL_PYTHON="$(command -v python3)"
 cat > "$TMP/bin/python3" <<WRAPPER
@@ -2574,6 +2619,239 @@ scenario_integratedirty() {
   [ "$(cat "$TMP/repo/tracked.txt")" = dirty ] || fail "dirty integrate changed the tracked file"
 }
 
+put_env() {
+  mkdir -p "$TMP/repo/scripts"
+  cat > "$TMP/repo/scripts/env" <<'ENV'
+#!/usr/bin/env bash
+printf 'env :: %s :: %s :: %s\n' "$1" "$2" "$PWD" >> "$MMW_TEST_LOG"
+if [ "$1" = "${MMW_TEST_ENV_FAIL:-}" ]; then
+  echo "fixture environment failure for $1" >&2
+  exit 7
+fi
+case "$1" in
+  setup) touch "$2/.setup-ready" ;;
+  up)
+    [ -f "$2/.setup-ready" ] || exit 8
+    touch "$2/.env-ready"
+    echo "test-resource-$(basename "$2")" ;;
+  down) rm -f "$2/.env-ready" ;;
+esac
+ENV
+  chmod +x "$TMP/repo/scripts/env"
+  printf '.setup-ready\n.env-ready\n' >> "$TMP/repo/.gitignore"
+  git -C "$TMP/repo" add scripts/env .gitignore
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'repository environment'
+  git -C "$TMP/repo" push -q origin main
+}
+
+scenario_envstartsetsup() {
+  reset_log
+  fresh_repo
+  put_env
+  local code tree
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/issue-61"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "setup and up should run in the target checkout: $(cat "$MMW_TEST_LOG")"
+  [ -f "$tree/.env-ready" ] || fail 'the worker environment is missing'
+  [ "$(line_of '^env :: up')" -lt "$(line_of 'paseo :: run')" ] \
+    || fail 'the environment should be ready before the worker starts'
+  assert_started || fail "environment output changed the session id: $(cat "$TMP/out")"
+}
+
+scenario_envupfails() {
+  local step code tree
+  for step in setup up; do
+    reset_log
+    fresh_repo
+    put_env
+    tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/issue-61"
+    code="$(run_dispatch env MMW_TEST_ENV_FAIL="$step" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+    [ "$code" = 2 ] || fail "$step failure expected 2, got $code: $(cat "$TMP/err")"
+    grep -qF "scripts/env $step" "$TMP/err" || fail "the failing step is missing"
+    grep -qF "$tree" "$TMP/err" || fail "the failing worktree is missing"
+    grep -qF "fixture environment failure for $step" "$TMP/err" || fail "the script output is missing"
+    never_ran
+    [ "$step" != setup ] || hasnt "env :: up"
+
+    reset_log
+    fresh_repo
+    put_env
+    make_branch issue-61 ticket.txt ticket
+    git -C "$TMP/repo" push -q origin issue-61
+    write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+    tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-main"
+    code="$(run_dispatch env MMW_TEST_ENV_FAIL="$step" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+            bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+    [ "$code" = 2 ] || fail "merge $step failure expected 2, got $code: $(cat "$TMP/err")"
+    grep -qF "scripts/env $step" "$TMP/err" || fail "the failing merge step is missing"
+    grep -qF "$tree" "$TMP/err" || fail "the failing merge worktree is missing"
+    has "env :: down :: $tree :: $tree"
+    hasnt 'ticket.landed'
+    if git -C "$TMP/origin.git" show main:ticket.txt >/dev/null 2>&1; then
+      fail 'environment failure still landed the ticket'
+    fi
+  done
+
+  reset_log
+  fresh_repo
+  put_env
+  put_check "$TMP/repo" 'exit 2'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'unrunnable repository check'
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 1 ] || fail "a repository-check failure must retain land's exit 1, got $code: $(cat "$TMP/err")"
+  hasnt 'ticket.landed'
+}
+
+scenario_envdownonend() {
+  local code tree
+  reset_log
+  fresh_repo
+  put_env
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  seed_workspace 61
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  write_one_passed 61 "$(git -C "$tree" rev-parse HEAD)"
+  code="$(run_dispatch env MMW_TEST_ENV_FAIL=down FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "cleanup failure should not block land: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  grep -qF 'fixture environment failure for down' "$TMP/err" || fail 'cleanup failure was not reported'
+  assert_no_wt 61
+  git -C "$TMP/origin.git" show main:ticket.txt >/dev/null || fail 'the ticket was not landed'
+
+  reset_log
+  fresh_repo
+  put_env
+  write_open_batch
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start before suspend failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
+  [ "$code" = 0 ] || fail "suspend failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  [ ! -f "$tree/.env-ready" ] || fail 'suspend left the resources running'
+  assert_wt 61
+
+  reset_log
+  fresh_repo
+  put_env
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start before retract failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  set_agent_status "$(cat "$TMP/out")" closed
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  assert_no_wt 61
+}
+
+scenario_envmergeworktree() {
+  reset_log
+  fresh_repo
+  put_env
+  put_check "$TMP/repo" 'test -f .env-ready || exit 1
+printf "merge-check :: %s\\n" "$PWD" >> "$MMW_TEST_LOG"'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'check requires environment'
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  seed_workspace 61
+  write_one_passed 61 "$(git -C "$(wt 61)" rev-parse HEAD)"
+  local code tree orphan
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-main"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "land failed: $(cat "$TMP/err")"
+  has "env :: setup :: $tree :: $tree"
+  has "env :: up :: $tree :: $tree"
+  has "merge-check :: $tree"
+  [ "$(line_of '^env :: setup')" -lt "$(line_of '^env :: up')" ] || fail 'setup must precede up'
+  [ "$(line_of '^env :: up')" -lt "$(line_of '^merge-check')" ] || fail 'up must precede merge checks'
+  git -C "$TMP/origin.git" show main:ticket.txt >/dev/null || fail 'merge checks did not allow landing'
+
+  printf '[]\n' > "$TMP/tickets.json"
+  open_night
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 0 ] || fail "reverify preparation failed: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "reverify should prepare its detached merge worktree: $(cat "$MMW_TEST_LOG")"
+
+  orphan="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-retired"
+  git -C "$TMP/repo" worktree add -q --detach "$orphan" origin/main
+  printf '[]\n' > "$TMP/tickets.json"
+  code="$(run_dispatch env MMW_TEST_ENV_FAIL=down FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "orphan cleanup failed: $(cat "$TMP/err")"
+  has "env :: down :: $orphan :: $orphan"
+  [ ! -d "$orphan" ] || fail 'the orphan merge worktree was not removed'
+  grep -qF 'fixture environment failure for down' "$TMP/err" || fail 'merge cleanup failure was hidden'
+
+  setup_finish_closed
+  put_env
+  git -C "$TMP/repo" push -q origin proj
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-night"
+  git -C "$TMP/repo" worktree add -q --detach "$tree" origin/proj
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish cleanup failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  [ ! -d "$tree" ] || fail 'finish left the base merge worktree'
+}
+
+scenario_envrestartaftersuspend() {
+  reset_log
+  fresh_repo
+  put_env
+  write_open_batch
+  local code tree head
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "first start failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  head="$(git -C "$tree" rev-parse HEAD)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
+  [ "$code" = 0 ] || fail "suspend failed: $(cat "$TMP/err")"
+  fake_relay
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "restart failed: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "the standing worktree needs setup and up again: $(cat "$MMW_TEST_LOG")"
+  [ -f "$tree/.env-ready" ] || fail 'restart did not restore the environment'
+  [ "$(git -C "$tree" rev-parse HEAD)" = "$head" ] || fail 'restart changed the ticket work'
+}
+
+scenario_envabsent() {
+  reset_log
+  fresh_repo
+  local code passed
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start without env failed: $(cat "$TMP/err")"
+  assert_started || fail 'start output changed'
+  ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'start without env should be silent'
+  passed="$(git -C "$(wt 61)" rev-parse HEAD)"
+  write_one_passed 61 "$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "land without env failed: $(cat "$TMP/err")"
+  ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'absent env should be silent'
+  assert_no_wt 61
+}
+
 scenario_start_worker() {
   local code
   echo "--- a ticket with no worker label starts one session on the default row and prints its id"
@@ -2826,6 +3104,115 @@ newest_batch() {
 # What the relay keeps for the watch <key>: "runner session", or nothing.
 brief_watch() { watch_main "$1"; }
 
+scenario_briefclosebrowsers() {
+  local code packet batch n
+  packet="$TMP/browser-close.md"
+  echo 'Read the vendor page.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  for n in 1 2; do
+    [ "$(count_of "playwright-cli :: -s=mmw-$batch-$n :: close")" = 1 ] \
+      || fail "brief close did not close browser session $n exactly once"
+  done
+  hasnt 'close-all'
+  hasnt 'kill-all'
+}
+
+scenario_briefclosekillsleftover() {
+  local code packet batch other
+  packet="$TMP/browser-leftover.md"
+  echo 'Read the vendor page.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet")"
+  [ "$code" = 0 ] || fail "send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  other="mmw-19990101-000000-abcd-1"
+  playwright-cli "-s=mmw-$batch-1" open
+  playwright-cli "-s=$other" open
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  python3 - "$MMW_FAKE_PASEO_STATE/browser-pids" <<'PY' || fail "batch browser process isolation failed"
+import subprocess, sys
+from pathlib import Path
+
+rows = [list(map(int, row.split())) for row in Path(sys.argv[1]).read_text().splitlines()]
+assert len(rows) == 2, rows
+def alive(pid):
+    p = subprocess.run(['ps', '-p', str(pid), '-o', 'stat='], capture_output=True, text=True)
+    return p.returncode == 0 and p.stdout.strip() and not p.stdout.strip().startswith('Z')
+assert not any(alive(pid) for pid in rows[0]), f'closed batch processes survived: {rows[0]}'
+assert all(alive(pid) for pid in rows[1]), f'other session was stopped: {rows[1]}'
+PY
+}
+
+scenario_briefbrowsername() {
+  local code packet batch n
+  packet="$TMP/browser-brief.md"
+  printf '%s\n' '## Task' 'Read the vendor page.' '## Known' 'It requires JavaScript.' '## For' 'A source check.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send researcher expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  for n in 1 2; do
+    grep -qF "playwright-cli -s=mmw-$batch-$n" "$STATE_DIR/briefs/$batch/$n/brief.md" \
+      || fail "researcher $n was not given its named browser session"
+  done
+}
+
+scenario_sendrefusesclosedbatch() {
+  local code packet batch pointer valid expected
+  packet="$TMP/previous-answer.md"
+  echo 'Answer the question.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "first send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  pointer="$STATE_DIR/briefs/$batch/1/result.md"
+  echo 'The previous answer.' > "$pointer"
+  printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read [the previous answer]($pointer)." '## For' 'A decision.' > "$packet"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "reference to an open batch was refused: $(cat "$TMP/err")"
+  cat "$packet" > "$TMP/repo/-notes.md"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" -notes.md)"
+  [ "$code" = 0 ] || fail "reference to an open batch in -notes.md was refused: $(cat "$TMP/err")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  valid="$TMP/valid-brief.md"
+  echo 'Answer an independent question.' > "$valid"
+  for pointer in "$pointer" "briefs/$batch/1/result.md" 'briefs/19990101-000000-abcd/1/result.md' \
+      "$STATE_DIR/briefs/$batch:" "briefs/$batch;" "briefs/$batch]"; do
+    expected="$batch"
+    case "$pointer" in *19990101-000000-abcd*) expected=19990101-000000-abcd ;; esac
+    printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read $pointer." '## For' 'A decision.' > "$packet"
+    : > "$MMW_TEST_LOG"
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$valid" "$packet")"
+    [ "$code" = 2 ] || fail "dead batch reference expected 2, got $code: $(cat "$TMP/err")"
+    hasnt 'paseo :: run'
+    grep -qF '## Known' "$TMP/err" || fail "refusal does not explain how to preserve the answer"
+    grep -qF "$expected" "$TMP/err" || fail "refusal does not name batch $expected"
+  done
+  cat "$packet" > "$TMP/repo/-notes.md"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" -notes.md)"
+  [ "$code" = 2 ] || fail "dead batch reference in -notes.md expected 2, got $code: $(cat "$TMP/err")"
+  hasnt 'paseo :: run'
+  grep -qF -- '-notes.md' "$TMP/err" || fail "refusal does not name the leading-dash brief file"
+  grep -qF "$batch" "$TMP/err" || fail "leading-dash brief refusal does not name batch $batch"
+  grep -qF '## Known' "$TMP/err" || fail "leading-dash brief refusal does not explain how to preserve the answer"
+}
+
 scenario_briefproblems() {
   local code packet batch copy
   packet="$TMP/problem-brief.md"
@@ -2948,6 +3335,74 @@ scenario_sendintoreuse() {
     [ "$code" = 0 ] || fail "retry after $failure expected 0, got $code: $(cat "$TMP/err")"
   done
   [ "$rc" -ne 0 ] || echo "a question directory with an answer is refused and an empty one is reused"
+}
+
+scenario_installedrefusessend() {
+  local code installed packet command
+  fresh_repo
+  reset_log
+  installed="$TMP/repo/mmw-v4"
+  mkdir -p "$installed/skills/dispatch"
+  printf '%s\n' "$installed" > "$MMW_HOME/installed-root"
+  packet="$TMP/installed-brief.txt"
+  printf '%s\n' 'Investigate the product.' > "$packet"
+  seed_main_agent agt_main
+  code="$( (cd "$installed/skills/dispatch" && env PASEO_AGENT_ID=agt_main \
+    bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet") \
+    > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 2 ] || fail "send from the installed checkout expected 2, got $code: $(cat "$TMP/err")"
+  grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
+    || fail "the refusal does not name the installed checkout: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+  [ -z "$(newest_batch)" ] || fail "the refused send created a brief batch"
+  hasnt 'gh ::'
+
+  for command in open open-ticket ack advance integrate integrated land start report retract wait resume reverify summary finish suspend route 'brief close'; do
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" $command 76)"
+    [ "$code" = 2 ] || fail "$command from the installed checkout expected 2, got $code"
+    grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
+      || fail "$command did not name the installed checkout: $(cat "$TMP/err")"
+  done
+  never_ran
+  hasnt 'gh ::'
+  rm -f "$MMW_HOME/installed-root"
+}
+
+scenario_installedallowsstatus() {
+  local code
+  fresh_repo
+  reset_log
+  write_open_batch
+  mkdir -p "$TMP/repo/mmw-v4"
+  printf '%s\n' "$TMP/repo/mmw-v4" > "$MMW_HOME/installed-root"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+    bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  [ "$code" = 0 ] || fail "status in the installed checkout expected 0, got $code: $(cat "$TMP/err")"
+  grep -q 'spec #76' "$TMP/out" || fail "status did not print the spec table: $(cat "$TMP/out")"
+  never_ran
+  hasnt 'gh :: issue :: comment'
+  rm -f "$MMW_HOME/installed-root"
+}
+
+scenario_installedothercheckoutsend() {
+  local code installed packet
+  fresh_repo
+  reset_log
+  installed="$TMP/installed checkout"
+  git -C "$TMP/repo" worktree add -q --detach "$installed"
+  mkdir -p "$installed/mmw-v4"
+  printf '%s\n' "$installed/mmw-v4" > "$MMW_HOME/installed-root"
+  packet="$TMP/other-checkout-brief.txt"
+  printf '%s\n' 'Investigate the product.' > "$packet"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" \
+    send researcher --follow "the research skill" "$packet")"
+  [ "$code" = 0 ] || fail "send from another checkout expected 0, got $code: $(cat "$TMP/err")"
+  started_once
+  [ "$(out_json cwd)" = "$(git -C "$TMP/repo" rev-parse --show-toplevel)" ] \
+    || fail "the researcher did not start in the calling checkout: $(out_json cwd)"
+  rm -f "$MMW_HOME/installed-root"
 }
 
 scenario_sendbrief() {
@@ -5576,6 +6031,20 @@ JSON
   grep -q "started 1" "$TMP/err" || fail "the freed ticket was not started: $(cat "$TMP/err")"
 }
 
+scenario_posteventshowsgherror() {
+  reset_log
+  fresh_repo
+  local code
+  code="$(run_dispatch env FAKE_GH_COMMENT_FAILS=1 bash "$DISPATCH" "${TOOLS[@]}" send reviewer 61)"
+  [ "$code" = 2 ] || fail "a refused event write must exit 2, got $code: $(cat "$TMP/err")"
+  grep -q 'reviewer.started' "$TMP/err" \
+    || fail "the refusal must name the event: $(cat "$TMP/err")"
+  grep -Fxq 'HTTP 502' "$TMP/err" \
+    || fail "the refusal must preserve gh stderr: $(cat "$TMP/err")"
+  has "gh :: issue :: comment :: 61 :: --body"
+  has "paseo :: archive :: --force :: agt_run_1"
+}
+
 # A session whose start event cannot be written is a session no command can find, and
 # `advance` would read its ticket as free. It is stopped again, and the start refused.
 scenario_startunrecorded() {
@@ -7707,6 +8176,27 @@ setup_checked_ticket() {
   seed_workspace 61
 }
 
+scenario_bounceansitail() {
+  setup_checked_ticket "printf '\033[32mFAIL lint-python\033[0m\n\\^[[32mpyrefly\\^[[0m\n'; exit 1"
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "colour output should bounce and continue: $(cat "$TMP/err")"
+  gh_comments_json 61 | python3 "$EVENTS_PY" fold 61 --comments-file - > "$TMP/fold.json" \
+    || fail "the ticket fold could not read the bounce"
+  MMW_BOUNCE="$(bounced_comment 61)" python3 - "$TMP/fold.json" <<'PYTEST' || fail "the bounce must retain readable check output without colour codes"
+import json, os, sys
+from pathlib import Path
+state = json.loads(Path(sys.argv[1]).read_text())
+assert state["unreadable"] == [], state["unreadable"]
+assert state["bounced"], state
+raw = os.environ["MMW_BOUNCE"].split("<!-- mmw ", 1)[1].rsplit(" -->", 1)[0]
+bounce = json.loads(raw)
+assert bounce["reason"] == "checks", bounce
+assert bounce["commands"][0]["tail"] == "FAIL lint-python\npyrefly", bounce
+PYTEST
+}
+
 scenario_advancebouncedchecks() {
   setup_checked_ticket "printf 'red-%s\\n' tail; exit 1"
   local before code
@@ -7749,7 +8239,7 @@ if not hits:
 # Read the bounce the fake tracker holds, then claim that same ticket. The resume
 # quotes the Failed checks slice of the comment that was posted.
 assert_resume_quotes_posted_bounce() {
-  local n="${1:-61}" body quote out err code commit
+  local n="${1:-61}" body quote out err code commit shape
   body="$(bounced_comment "$n")"
   quote="$(printf '%s\n' "$body" | python3 -c '
 import sys
@@ -7761,8 +8251,18 @@ for line in sys.stdin:
 raise SystemExit(1)
 ')" || fail "the posted bounce has no Failed checks: line: $body"
   commit="$(git -C "$(wt "$n")" rev-parse HEAD)"
+  # A worker's own run records the shape of the criteria it ran; preflight resumes only
+  # from a run whose shape matches the ticket's criteria now.
+  shape="$(cd "$(wt "$n")" && python3 - "$(dirname "$SKILL")/verify-ticket/scripts/verify-ticket.py" "$n" <<'SHAPE'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("vt", sys.argv[1])
+vt = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(vt)
+print(vt.shape_digest(vt.section(vt.fetch_body(int(sys.argv[2])), "Acceptance criteria")))
+SHAPE
+)" || fail "could not read #$n's criteria shape"
   post_ev "$n" ticket.checked --ticket "$n" --line "self run" \
-    --field run=self --field "commit=$commit" --field result=met
+    --field run=self --field "commit=$commit" --field result=met --field "shape=$shape"
   out="$TMP/preflight-$n.out"
   err="$TMP/preflight-$n.err"
   code="$(
@@ -9101,8 +9601,10 @@ ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard o
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
-ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
-ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
+ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteventshowsgherror"
+ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername briefclosebrowsers briefclosekillsleftover sendrefusesclosedbatch"
+ALL="$ALL envstartsetsup envupfails envdownonend envmergeworktree envrestartaftersuspend envabsent"
+ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall"
 
 case " $ALL all " in
