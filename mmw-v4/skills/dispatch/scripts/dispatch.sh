@@ -1577,76 +1577,10 @@ brief_footer() {
   fi
 }
 
-close_batch_browsers() {
-  [ "$#" -gt 0 ] || return 0
-  python3 - "$@" <<'PY'
-import os, re, signal, subprocess, sys, time
-
-names = sys.argv[1:]
-for name in names:
-    try:
-        closed = subprocess.run(['playwright-cli', f'-s={name}', 'close'],
-                                capture_output=True, text=True, timeout=15)
-        if closed.returncode:
-            print(f'dispatch: browser close failed for {name}: {closed.stderr.strip()}; '
-                  'checking for surviving daemons', file=sys.stderr)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        print(f'dispatch: browser close failed for {name}: {exc}; '
-              'checking for surviving daemons', file=sys.stderr)
-
-def processes():
-    result = subprocess.run(['ps', '-axo', 'pid=,ppid=,stat=,command='],
-                            capture_output=True, text=True, check=True)
-    rows = {}
-    for line in result.stdout.splitlines():
-        fields = line.split(None, 3)
-        if len(fields) == 4 and fields[0].isdigit() and fields[1].isdigit():
-            rows[int(fields[0])] = (int(fields[1]), fields[2], fields[3])
-    return rows
-
-try:
-    rows = processes()
-    targets = {pid for pid, (_, _, command) in rows.items()
-               if any(re.search(r'(?:^|\s)\S*cliDaemon\S*\s+' + re.escape(name)
-                                + r'(?=\s|$)', command) for name in names)}
-    while True:
-        children = {pid for pid, (parent, _, _) in rows.items() if parent in targets}
-        if children <= targets:
-            break
-        targets |= children
-    for sig in (signal.SIGTERM, signal.SIGKILL):
-        for pid in targets:
-            try:
-                os.kill(pid, sig)
-            except ProcessLookupError:
-                pass
-        for _ in range(20):
-            current = processes()
-            targets = {pid for pid in targets if pid in current
-                       and not current[pid][1].startswith('Z')}
-            if not targets:
-                break
-            time.sleep(.05)
-        if not targets:
-            break
-    if targets:
-        raise RuntimeError(f'browser processes still running: {sorted(targets)}')
-except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
-    sys.exit(f'dispatch: could not clean browser sessions {names}: {exc}; '
-             'inspect the named processes and retry brief close')
-PY
-}
-
-# Stop every session `brief <batch>` started and close the batch's watch, which removes
-# the batch. Used by `brief close` and by a `brief` that could not start them all.
 close_batch() {
   local batch="$1" repo line name state role runner session rest stopped=0 failed=""
-  local browsers=()
   repo="$(repo_slug)" || return 2
   while IFS=$'\t' read -r name state role runner session rest; do
-    if [ "$role" = researcher ]; then
-      browsers+=("mmw-${name%/*}-${name##*/}")
-    fi
     [ -n "$session" ] && [ "$session" != - ] || continue
     if [ -f "$SKILL_ROOT/scripts/runners/$runner.sh" ] \
        && runner_call "$runner" stop "$session" >/dev/null 2>&1; then
@@ -1655,10 +1589,10 @@ close_batch() {
       failed="$failed $runner:$session"
     fi
   done < <(python3 "$BRIEFS" show --repo "$repo" --batch "$batch" 2>/dev/null)
-  close_batch_browsers "${browsers[@]+"${browsers[@]}"}" || return 2
+  python3 "$BRIEFS" close-browsers --repo "$repo" --batch "$batch" || return 2
+  python3 "$BRIEFS" forget --repo "$repo" --batch "$batch" || return 2
   stop_relay --briefs "$batch"
   case "$?" in 0 | 3) ;; *) return 2 ;; esac
-  python3 "$BRIEFS" forget --repo "$repo" --batch "$batch" || return 2
   echo "dispatch: closed brief batch $batch: $stopped sessions stopped" >&2
   if [ -n "$failed" ]; then
     echo "dispatch: these sessions of batch $batch could not be stopped and still run; end them on their runner by hand:$failed" >&2
@@ -1666,26 +1600,9 @@ close_batch() {
 }
 
 check_brief_references() {
-  local state
-  state="$(repository_state_dir)" || return 2
-  python3 - "$state" "$@" <<'PY'
-import re, sys
-from pathlib import Path
-
-state = Path(sys.argv[1])
-references = re.compile(r'''(?P<root>[^\s`"'<>()\[\]]*\bbriefs)/(?P<batch>[0-9]{8}-[0-9]{6}-[0-9a-f]{4})(?![\w-])''')
-for source in sys.argv[2:]:
-    try:
-        text = Path(source).read_text(encoding='utf-8')
-    except (OSError, UnicodeError) as exc:
-        sys.exit(f'dispatch: cannot read brief {source}: {exc}; write a readable UTF-8 brief and send again')
-    for match in references.finditer(text):
-        root, batch = match.group('root', 'batch')
-        directory = (state / root if root == 'briefs' else Path(root).expanduser()) / batch
-        if not directory.is_dir():
-            sys.exit(f'dispatch: brief {source} references closed or missing batch {batch} at {directory}; '
-                     '把那份答案的要点写进 `## Known`，或在下一轮回答之前不要关闭上一批。 Nothing was started.')
-PY
+  local repo
+  repo="$(repo_slug)" || return 2
+  python3 "$BRIEFS" check-references --repo "$repo" -- "$@"
 }
 
 brief_many() {
@@ -1734,7 +1651,7 @@ brief_many() {
   local n=0 copy prompt session started=()
   for file in "$@"; do
     n=$((n + 1))
-    copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
+    copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file="$file" \
             --footer "$(brief_footer "$batch/$n" "$into" "$role")")" \
       || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
     prompt="Dispatched: $role, brief $copy. $READ_MODE $follows. $WHOLE_TASK"
