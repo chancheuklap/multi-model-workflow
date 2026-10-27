@@ -116,7 +116,7 @@ The command that makes sure the repository's task board is registered and answer
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh recheck`**:
-`dispatch.sh recheck <spec> [<commit>]` runs the affected criteria of this night's landed tickets in the merge worktree, without writing on those tickets. The commit defaults to the caller's `HEAD`. It compares the commit with `origin/<base branch>` and selects criteria whose `CHECK:` mentions a changed path or its immediate parent directory. It exits 0 when the selected criteria pass, 1 when any fail, and 2 when the run cannot start. Closing-pass fixes run it before pushing.
+The read-only check of affected landed criteria before a closing-pass push. Unlike `reverify`, it records no results on landed tickets and changes none of their states.
 _Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`recheck_spec`)
 
 **start prompt**:
