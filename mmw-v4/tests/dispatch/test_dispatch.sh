@@ -933,6 +933,9 @@ rows = [line.rsplit(" ", 1) for line in os.environ["MMW_CHECKS"].splitlines() if
 print(json.dumps([{"name": name, "bucket": bucket} for name, bucket in rows]))'
     elif [ -n "${FAKE_GH_PR_CHECKS:-}" ]; then
       printf '%s\n' "$FAKE_GH_PR_CHECKS"
+      if [[ "$*" == *"--watch"* ]] && printf '%s\n' "$FAKE_GH_PR_CHECKS" | grep -Eq ' (fail|cancel)$'; then
+        exit 1
+      fi
     else
       echo 'no checks reported on the branch' >&2
       exit 1
