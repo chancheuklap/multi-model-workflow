@@ -230,7 +230,7 @@ def add_problem(path, source, target, repos, ticket):
         destination = responsible if "/" in responsible else f"<owner>/{responsible}"
         raise RegistrationError(f"{path}'s 该谁修 names {responsible}, but the target is {target}; "
                                 f"add --repo {destination} to register where the fix belongs")
-    seen_in = target
+    seen_in = target if ticket is not None else current_repo()
     context = registration_context(seen_in, ticket)
     key = hashlib.sha256(json.dumps([str(path.resolve()), body, source, target, seen_in, context["ticket"]],
                                     sort_keys=True).encode()).hexdigest()

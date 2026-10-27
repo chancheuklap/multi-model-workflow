@@ -451,7 +451,7 @@ class Registration(unittest.TestCase):
                 self.assertEqual(rc, 0, err)
                 row = self.fake.repos[target or "o/r"][0]
                 payload = events.parse(row["comments"][0]["body"])[1]
-                self.assertEqual(payload["seen_in"], target or "o/r")
+                self.assertEqual(payload["seen_in"], "o/r")
 
     def test_add_with_ticket_records_ticket_and_parent_spec(self):
         for parent, unreadable in ((76, None), (None, None), (76, "61"), (76, "76")):
@@ -493,9 +493,11 @@ class Registration(unittest.TestCase):
                                worktree=str(self.product), branch="issue-61", base="a"*40)}]
         self.fake.repos["o/r"] = [ticket, issue(76, body="Batch", labels=("mmw:spec",))]
         self.fake.session = ("orca", "t1")
-        rc, out, err = self.run_register("add", str(self.path), env={"MMW_TICKET": "61"})
+        self.path.write_text(problem().replace("该谁修：o/r", "该谁修：MMW"))
+        rc, out, err = self.run_register("add", str(self.path), "--repo", "acme/toolbox",
+                                         env={"MMW_TICKET": "61"})
         self.assertEqual(rc, 0, err)
-        payload = events.parse(self.fake.repos["o/r"][-1]["comments"][0]["body"])[1]
+        payload = events.parse(self.fake.repos["acme/toolbox"][-1]["comments"][0]["body"])[1]
         self.assertEqual((payload["seen_in"], payload["ticket"], payload["spec"], payload["session"], payload["actor"]),
                          ("o/r", 61, 76, "orca:t1", "senior-worker"))
 
