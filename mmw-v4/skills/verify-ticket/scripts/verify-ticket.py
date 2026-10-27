@@ -3186,7 +3186,7 @@ def lint_build_points(body: str) -> list[str]:
         if opened and not (opened.group(2)[0] == "`" and "`" in opened.group(3)):
             fence = (opened.group(2)[0], len(opened.group(2)))
             continue
-        if re.match(r"^\d+[.)]\s+", line):
+        if re.match(r"^ {0,3}[0-9]+[.)]\s+", line):
             points.append([line])
         elif points:
             points[-1].append(line)
@@ -3194,7 +3194,7 @@ def lint_build_points(body: str) -> list[str]:
         return ["## What to build needs at least one numbered point naming an existing AC<n>"]
     findings = []
     for lines in points:
-        named = set(re.findall(r"(?<![\w])AC[0-9]+(?![\w])", "\n".join(lines)))
+        named = set(re.findall(r"(?<![A-Za-z0-9_])AC[0-9]+(?![A-Za-z0-9_])", "\n".join(lines)))
         missing = named - criteria
         if not named:
             findings.append(f"## What to build point {lines[0]} names no AC<n>; "

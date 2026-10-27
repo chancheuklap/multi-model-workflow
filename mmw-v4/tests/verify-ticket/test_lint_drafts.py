@@ -186,6 +186,8 @@ class TestBuildPoints(DraftsFixture, unittest.TestCase):
         cases = [
             ("1. Import the rows. AC1 verifies it.", False, ""),
             ("1) Import the rows.\n   Decided by AC1.", False, ""),
+            ("  1. Import the rows. AC1.", False, ""),
+            ("1. 导入数据，由AC1验证。", False, ""),
             ("1. Import the rows.", True, "Import the rows"),
             ("1. Import the rows. AC9 verifies it.", True, "AC9"),
             ("1. Import the rows. AC1 and AC9 verify it.", True, "AC9"),
