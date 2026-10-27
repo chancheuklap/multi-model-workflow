@@ -76,7 +76,7 @@ MARK = "mmw"
 # must carry, and the fields whose value is one of a closed set. Names are
 # `subject.verb`: a subject from SUBJECTS, a verb in the past tense, lower case, ASCII,
 # no value ever inside the name — ticket numbers, commits, hosts and models are fields.
-SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child", "lesson")
+SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child", "lesson", "lessons")
 
 AGENT_KINDS = ("worker", "reviewer")
 
@@ -107,6 +107,9 @@ RETRO_EVIDENCE = ("complete", "partial")
 LESSON_SOURCES = ("noticed", "owner-correction", "stall", "retro-signal")
 
 EVENTS: dict[str, dict] = {
+    "lessons.merged":    {"stage": "work", "actor": "main",
+                          "required": ("decision", "batch"),
+                          "patterns": {"decision": r"closed|kept|merged:[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*|(?:spec|ticket):[1-9][0-9]*"}},
     "lesson.seen":       {"stage": "work", "actor": "main",
                           "required": ("lesson", "seen_in", "source", "session"),
                           "closed": {"source": LESSON_SOURCES},
@@ -295,6 +298,9 @@ def _check(event: str, payload: dict) -> str | None:
                     f"{', '.join(STALE_REASONS)}")
         if resolution != "stale" and "reason" in payload:
             return "`child.closed` carries `reason` for a non-stale resolution"
+    if event == "lessons.merged":
+        if not isinstance(payload.get("batch"), str) or not payload["batch"].strip():
+            return "`lessons.merged` needs a nonempty string `batch`"
     if event == "lesson.assessed":
         for key in ("reason", "evidence", "request"):
             if not isinstance(payload.get(key), str) or not payload[key].strip():

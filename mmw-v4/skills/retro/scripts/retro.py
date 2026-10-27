@@ -268,6 +268,31 @@ def gather(args):
     return 0
 
 
+def backlog(args):
+    lessons = []
+    assessed = 0
+    for repo in dict.fromkeys(args.repos):
+        for row in register.whole_list(f'repos/{repo}/issues?state=open&labels=mmw%3Alesson&per_page=100'):
+            if 'pull_request' in row or row['state'].lower() != 'open' or 'mmw:lesson' not in labels(row):
+                continue
+            comments, state = history(repo, row['number'])
+            records = [events.parse(c['body'])[1] for c in events.normalise(comments)
+                       if events.parse(c['body'])[0] == 'event']
+            assessments = [r for r in records if r['event'] == 'lesson.assessed']
+            last_merge = max((i for i, r in enumerate(records) if r['event'] == 'lessons.merged'), default=-1)
+            merged = records[last_merge] if last_merge >= 0 else None
+            problem = re.search(r'^## Problem[^\S\n]*\n(.*?)(?=^## |\Z)',
+                                row.get('body') or '', re.M | re.S)
+            lessons.append(dict(repo=repo, number=row['number'],
+                                problem=problem[1].strip() if problem else '',
+                                occurrences=state['occurrences'], assessments=assessments, merged=merged))
+            assessed += sum(r['event'] == 'lesson.assessed' for r in records[last_merge+1:])
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out/'backlog.json').write_text(json.dumps(lessons, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+    print(f'BACKLOG {len(lessons)} open, {assessed} assessed since last merge')
+    return 0
+
+
 def answer_rows(path):
     text = path.read_text(encoding='utf-8')
     rows = []
@@ -355,24 +380,91 @@ def qualifies(occurrences):
     return len(occurrences) >= 2 and any(len(values)>=2 for values in (identities,specs,sessions))
 
 
-def merge_lesson(row,context):
-    source = row['target']
-    target = resolve_issue(row['conclusion'].split(':',1)[1],context)
-    if source == target:
-        raise RetroError('cannot merge a lesson into itself')
-    repo,number = target['repo'],target['number']
-    comments,_ = history(repo,number)
+def lesson_reference(value):
+    match = re.fullmatch(r'([A-Za-z0-9-]+/[A-Za-z0-9._-]+)#([1-9][0-9]*)', value)
+    if not match:
+        raise RetroError(f'{value!r} needs owner/repo#number; correct the decisions file')
+    return dict(repo=register.repository(match[1]), number=int(match[2]))
+
+
+def merge_lesson(source, target, occurrences):
+    repo, number = target['repo'], target['number']
+    comments, _ = history(repo, number)
     saved = {events.parse(c['body'])[1].get('request') for c in comments
-             if events.parse(c['body'])[0]=='event'}
-    for index, occurrence in enumerate(row['occurrences']):
-        occurrence_request = f'merge-{source["repo"]}-{source["number"]}-{index}'
-        if occurrence_request in saved:
+             if events.parse(c['body'])[0] == 'event'}
+    for index, occurrence in enumerate(occurrences):
+        request = f'merge-{source["repo"]}-{source["number"]}-{index}'
+        if request in saved:
             continue
-        body = events.build('lesson.seen',line=f'Merged from {issue_url(source["repo"],source["number"])}',
-                            lesson=number,request=occurrence_request,**occurrence)
-        write(['issue','comment',str(number),'--repo',repo],body)
-    write(['issue','close',str(source['number']),'--repo',source['repo'],
-                      '--reason','duplicate','--duplicate-of',issue_url(repo,number)])
+        body = events.build('lesson.seen', line=f'Merged from {issue_url(source["repo"], source["number"])}',
+                            lesson=number, request=request, **occurrence)
+        write(['issue', 'comment', str(number), '--repo', repo], body)
+
+
+def merge_apply(args):
+    data = json.loads(args.decisions.read_text(encoding='utf-8'))
+    batch = data['batch']
+    rows = data['decisions']
+    if not isinstance(rows, list):
+        raise RetroError('decisions must be a list; correct the decisions file')
+    events.build('lessons.merged', ticket=None, line='Validate batch', decision='kept', batch=batch)
+    plan = []
+    sources = {}
+    for row in rows:
+        source = lesson_reference(row['lesson'])
+        if row['lesson'] in sources:
+            raise RetroError(f'{row["lesson"]} has more than one decision; reconcile the decisions file')
+        sources[row['lesson']] = row['decision']
+        decision, reason = row['decision'], row['reason']
+        if not isinstance(reason, str) or not reason.strip():
+            raise RetroError(f'{row["lesson"]} needs a reason; correct the decisions file')
+        body = events.build('lessons.merged', ticket=None, batch=batch, decision=decision,
+                            line=f'{decision}. {reason}')
+        target = None
+        if decision.startswith('merged:'):
+            target = lesson_reference(decision.split(':', 1)[1])
+            if target == source:
+                raise RetroError('cannot merge a lesson into itself')
+        elif decision not in ('closed', 'kept'):
+            raise RetroError('merge-apply accepts closed, merged:owner/repo#number or kept; record spec/ticket with events.py')
+        current = register.gh_json(['api', f'repos/{source["repo"]}/issues/{source["number"]}'])
+        if 'pull_request' in current or 'mmw:lesson' not in labels(current):
+            raise RetroError(f'{row["lesson"]} is not a lesson; correct the decisions file')
+        comments, state = history(source['repo'], source['number'])
+        completed = [events.parse(c['body'])[1] for c in comments
+                     if events.parse(c['body'])[0] == 'event'
+                     and events.parse(c['body'])[1]['event'] == 'lessons.merged'
+                     and events.parse(c['body'])[1].get('batch') == batch]
+        if completed:
+            if any(r.get('decision') != decision for r in completed):
+                raise RetroError(f'{row["lesson"]} already has another decision for batch {batch}; use a new batch')
+            continue
+        if target:
+            destination = register.gh_json(['api', f'repos/{target["repo"]}/issues/{target["number"]}'])
+            if 'pull_request' in destination or 'mmw:lesson' not in labels(destination):
+                raise RetroError('merge target is not a lesson; correct the decisions file')
+            history(target['repo'], target['number'])
+        plan.append(dict(source=source, target=target, decision=decision, body=body,
+                         occurrences=state['occurrences'], state=current['state']))
+    for row in plan:
+        target = row['target']
+        if target and sources.get(f'{target["repo"]}#{target["number"]}', 'kept') != 'kept':
+            raise RetroError('a merge target is also being closed or merged; choose the final destination in the decisions file')
+    try:
+        for row in plan:
+            source, target = row['source'], row['target']
+            if target:
+                merge_lesson(source, target, row['occurrences'])
+            if row['decision'] != 'kept' and row['state'].lower() != 'closed':
+                command = ['issue', 'close', str(source['number']), '--repo', source['repo']]
+                command += (['--reason', 'duplicate', '--duplicate-of', issue_url(target['repo'], target['number'])]
+                            if target else ['--reason', 'not planned'])
+                write(command)
+            write(['issue', 'comment', str(source['number']), '--repo', source['repo']], row['body'])
+    except (RetroError, events.EventError, OSError, ValueError, KeyError, TypeError) as exc:
+        raise PartialWrite(f'merge-apply incomplete: {exc}; rerun the same decisions file') from None
+    print(f'MERGED {len(plan)} decisions, batch {batch}')
+    return 0
 
 
 def proposal(plan):
@@ -607,6 +699,11 @@ def main(argv=None):
     target.add_argument('--ticket', type=int)
     gathering.add_argument('repos', nargs='+')
     gathering.add_argument('--out', type=Path, required=True)
+    listing = sub.add_parser('backlog')
+    listing.add_argument('repos', nargs='+')
+    listing.add_argument('--out', type=Path, required=True)
+    merging = sub.add_parser('merge-apply')
+    merging.add_argument('decisions', type=Path)
     applying = sub.add_parser('apply')
     applying.add_argument('answers', nargs='+',type=Path)
     applying.add_argument('--context',type=Path)
@@ -615,9 +712,11 @@ def main(argv=None):
     selection.add_argument('--ticket',type=int)
     args = parser.parse_args(argv)
     try:
-        if args.verb == 'gather':
+        if args.verb in ('gather', 'backlog'):
             args.repos = [register.repository(r) for r in args.repos]
-            return gather(args)
+            return gather(args) if args.verb == 'gather' else backlog(args)
+        if args.verb == 'merge-apply':
+            return merge_apply(args)
         return apply_answers(args)
     except PartialWrite as exc:
         print(f'retro: {exc}',file=sys.stderr)
