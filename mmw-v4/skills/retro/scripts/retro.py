@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Expire candidates, gather retrospective evidence, and apply analyst answers.
+"""Gather retrospective evidence and record analyst answers.
 
 Exit 0 completes the command. Exit 1 means some writes may have succeeded.
 Exit 2 refuses without a GitHub write. Never reads conversations or external memory.
@@ -15,7 +15,7 @@ import os
 import re
 import sys
 from contextlib import redirect_stdout
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -61,19 +61,12 @@ def write(args,body=None):
         raise PartialWrite(f'GitHub write incomplete: {exc}; inspect the issue, then rerun the same command') from None
 
 
-def now():
-    value = os.environ.get('MMW_NOW')
-    if not value:
-        return datetime.now(timezone.utc)
-    return timestamp(value)
-
-
 def timestamp(value):
     if not isinstance(value,str):
         raise RetroError(f'{value!r} is not an ISO 8601 timestamp; repair its source')
     parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
     if parsed.tzinfo is None:
-        raise RetroError(f'{value!r} needs an ISO 8601 timezone; correct MMW_NOW or the event')
+        raise RetroError(f'{value!r} needs an ISO 8601 timezone; correct the event')
     return parsed
 
 
@@ -88,24 +81,6 @@ def history(repo, number):
         raise RetroError(f'{repo}#{number} has unreadable events: {state["unreadable"]}; repair the comments')
     return comments, state
 
-
-def expire(repos):
-    cutoff = now() - timedelta(days=30)
-    plans = []
-    for repo in repos:
-        for row in register.issue_list(repo):
-            if row['state'].lower() != 'open' or 'mmw:lesson' not in labels(row) or 'needs-triage' in labels(row):
-                continue
-            _, state = history(repo, row['number'])
-            occurrences = state['occurrences']
-            if occurrences and max(timestamp(o['at']) for o in occurrences) < cutoff:
-                plans.append((repo, row['number']))
-    for repo, number in plans:
-        write(['issue', 'comment', str(number), '--repo', repo],
-                                   '30 天没再出现，自动关闭；再出现会重开')
-        write([ 'issue', 'close', str(number), '--repo', repo, '--reason', 'not planned'])
-        print(f'CLOSED: {repo}#{number}')
-    return 0
 
 ANGLES = {'判断': 'judgement', '环境': 'environment', '流程': 'process'}
 
@@ -133,7 +108,14 @@ def gather(args):
     repo = register.current_repo()
     number = args.spec or args.ticket
     comments, state = history(repo, number)
-    opened = events.newest(comments, 'spec.opened' if args.spec else 'worker.started', 'ticket.claimed')
+    starts = ('spec.opened',) if args.spec else ('worker.started', 'ticket.claimed')
+    receipt = events.newest(comments, 'spec.retroed', 'ticket.retroed')
+    opened = min((record for record in state['events'] if record['event'] in starts
+                  and (not receipt or timestamp(record['at']) > timestamp(receipt['at']))),
+                 key=lambda record: timestamp(record['at']), default=None)
+    if not opened and receipt:
+        source = f'{issue_url(repo,number)}#issuecomment-{receipt["comment"]}'
+        raise RetroError(f'{repo}#{number} has no run start after {source}; start a new run before gathering')
     if not opened or not opened['at']:
         raise RetroError(f'{repo}#{number} has no run start; restore its start event before gathering')
     since = opened['at']
@@ -169,6 +151,10 @@ def gather(args):
             if 'wontfix' in labels(row):
                 context['recurred_after_wontfix'].append(n)
                 items[angle].append(dict(kind='recurred-after-wontfix',source=issue_url(source_repo,n)))
+    run_numbers = [number]
+    if args.spec:
+        children = register.whole_list(f'repos/{repo}/issues/{number}/sub_issues?per_page=100')
+        run_numbers.extend(r['number'] for r in children if 'mmw:ticket' in labels(r))
     for source_repo in args.repos:
         for row in register.issue_list(source_repo):
             if ('mmw:child' not in labels(row) or 'needs-triage' in labels(row)
@@ -176,7 +162,7 @@ def gather(args):
                 continue
             child = register.read_issue(source_repo,row['number'])
             parent = child.get('parent')
-            if not parent:
+            if not parent or source_repo != repo or parent['number'] not in run_numbers:
                 continue
             parent_row = register.read_issue(source_repo,parent['number'])
             if parent_row['state'].lower() != 'closed':
@@ -243,10 +229,6 @@ def gather(args):
                 code = fields.get('问题代号')
                 context['issues'].setdefault(code,dict(repo=source_repo,number=row['number']))
                 context['issues'][source] = dict(repo=source_repo,number=row['number'])
-    run_numbers = [number]
-    if args.spec:
-        children = register.whole_list(f'repos/{repo}/issues/{number}/sub_issues?per_page=100')
-        run_numbers.extend(r['number'] for r in children if 'mmw:ticket' in labels(r))
     for ticket in run_numbers:
         ticket_comments,_ = history(repo,ticket)
         checked.extend(event_comments(ticket_comments,issue_url(repo,ticket),skip=('spec.retroed','ticket.retroed')))
@@ -255,11 +237,21 @@ def gather(args):
             if what!='event' or timestamp(payload['at']) < timestamp(since):
                 continue
             signal = payload['event'] in ('ticket.returned','ticket.bounced','ticket.regressed','worker.lost') or (
-                payload['event']=='child.opened' and payload.get('kind')=='fault') or (
+                payload['event']=='child.opened' and payload.get('kind') in ('fault','contract')) or (
                 payload['event']=='ticket.checked' and payload.get('result')=='handoff')
             if signal:
                 source = f'{issue_url(repo,ticket)}#issuecomment-{c["id"] or c["position"]}'
-                items['process'].append(dict(kind='signal',source=source,event=payload,body=c['body']))
+                item = dict(kind='signal',source=source,event=payload,body=c['body'])
+                if payload['event'] == 'child.opened' and payload['kind'] == 'contract':
+                    child = register.gh_json(['api',f'repos/{repo}/issues/{payload["child"]}'])
+                    item['child_body'] = child['body']
+                    settlement = events.newest(
+                        [comment for comment in ticket_comments
+                         if events.parse(comment['body'])[0] == 'event'
+                         and str(events.parse(comment['body'])[1].get('child')) == str(payload['child'])],
+                        'child.closed')
+                    item['settlement'] = settlement['body'] if settlement else 'not yet settled'
+                items['process'].append(item)
                 if not any(source in m['body'] for m in current_sources):
                     items['process'].append(dict(kind='unregistered-signal',source=source,event=payload['event']))
     args.out.mkdir(parents=True, exist_ok=True)
@@ -273,6 +265,31 @@ def gather(args):
         print(f'{path}\t{len(material)}')
     context['evidence_checked'] = checked
     (args.out/'context.json').write_text(json.dumps(context,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    return 0
+
+
+def backlog(args):
+    lessons = []
+    assessed = 0
+    for repo in dict.fromkeys(args.repos):
+        for row in register.whole_list(f'repos/{repo}/issues?state=open&labels=mmw%3Alesson&per_page=100'):
+            if 'pull_request' in row or row['state'].lower() != 'open' or 'mmw:lesson' not in labels(row):
+                continue
+            comments, state = history(repo, row['number'])
+            records = [events.parse(c['body'])[1] for c in events.normalise(comments)
+                       if events.parse(c['body'])[0] == 'event']
+            assessments = [r for r in records if r['event'] == 'lesson.assessed']
+            last_merge = max((i for i, r in enumerate(records) if r['event'] == 'lessons.merged'), default=-1)
+            merged = records[last_merge] if last_merge >= 0 else None
+            problem = re.search(r'^## Problem[^\S\n]*\n(.*?)(?=^## |\Z)',
+                                row.get('body') or '', re.M | re.S)
+            lessons.append(dict(repo=repo, number=row['number'],
+                                problem=problem[1].strip() if problem else '',
+                                occurrences=state['occurrences'], assessments=assessments, merged=merged))
+            assessed += sum(r['event'] == 'lesson.assessed' for r in records[last_merge+1:])
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out/'backlog.json').write_text(json.dumps(lessons, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+    print(f'BACKLOG {len(lessons)} open, {assessed} assessed since last merge')
     return 0
 
 
@@ -326,31 +343,41 @@ def evidence_source(source):
     raise RetroError(f'evidence URL {source!r} is not a GitHub primary source; supply an issue, commit, or path:line')
 
 
-def check_analysis(row):
-    if row.get('error'):
-        raise RetroError(row['error'])
-    if not row['evidence'].strip():
+def check_evidence(evidence):
+    if not evidence.strip():
         raise RetroError('missing evidence; supply a URL or path:line')
-    if not re.search(r'https?://[^\s|]+|[^\s|]+:[1-9][0-9]*',row['evidence']):
+    if not re.search(r'https?://[^\s|]+|[^\s|]+:[1-9][0-9]*',evidence):
         raise RetroError('evidence needs a URL or path:line')
-    links = re.findall(r'https?://[^\s；;,|)]+|[^\s；;,|()]+:[1-9][0-9]*',row['evidence'].replace('`',''))
+    links = re.findall(r'https?://[^\s；;,|)]+|[^\s；;,|()]+:[1-9][0-9]*',evidence.replace('`',''))
     for link in links:
         try:
             evidence_source(link)
         except (OSError,UnicodeError) as exc:
             raise UnreadableEvidence(link,str(exc)) from None
-    if row['conclusion'] not in ('candidate','propose','reject') and not row['conclusion'].startswith('merge:'):
+
+
+def check_analysis(row):
+    if row.get('error'):
+        raise RetroError(row['error'])
+    check_evidence(row['evidence'])
+    if row['conclusion'] not in ('candidate','propose','reject') and not re.fullmatch(r'merge:\S.*', row['conclusion']):
         raise RetroError('conclusion must be merge:<target>, reject, candidate or propose')
     if not row['code'] or not row['reason']:
         raise RetroError('missing problem code or reason')
 
 
 def resolve_issue(code,context):
+    code = re.sub(r'\s*[（(].*[）)]\s*$', '', code).strip()
     if code in context['issues']:
         return context['issues'][code]
     match = re.fullmatch(r'#?([1-9][0-9]*)',code)
     if match:
         return dict(repo=context['repo'],number=int(match[1]))
+    match = re.fullmatch(r'([A-Za-z0-9-]+/[A-Za-z0-9._-]+)#([1-9][0-9]*)', code)
+    if not match:
+        match = re.fullmatch(r'https://github.com/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/issues/([1-9][0-9]*)/?', code)
+    if match:
+        return dict(repo=register.repository(match[1]), number=int(match[2]))
     raise RetroError(f'unknown problem code {code!r}; use a gathered code or issue URL')
 
 
@@ -363,77 +390,144 @@ def qualifies(occurrences):
     return len(occurrences) >= 2 and any(len(values)>=2 for values in (identities,specs,sessions))
 
 
-def merge_lesson(row,context,request):
-    source = row['target']
-    target = resolve_issue(row['conclusion'].split(':',1)[1],context)
-    if source == target:
-        raise RetroError('cannot merge a lesson into itself')
-    repo,number = target['repo'],target['number']
-    comments,_ = history(repo,number)
+def lesson_reference(value):
+    match = re.fullmatch(r'([A-Za-z0-9-]+/[A-Za-z0-9._-]+)#([1-9][0-9]*)', value)
+    if not match:
+        raise RetroError(f'{value!r} needs owner/repo#number; correct the decisions file')
+    return dict(repo=register.repository(match[1]), number=int(match[2]))
+
+
+def merge_lesson(source, target, occurrences):
+    repo, number = target['repo'], target['number']
+    comments, _ = history(repo, number)
     saved = {events.parse(c['body'])[1].get('request') for c in comments
-             if events.parse(c['body'])[0]=='event'}
-    for index, occurrence in enumerate(row['occurrences']):
-        occurrence_request = f'merge-{source["repo"]}-{source["number"]}-{index}'
-        if occurrence_request in saved:
+             if events.parse(c['body'])[0] == 'event'}
+    for index, occurrence in enumerate(occurrences):
+        request = f'merge-{source["repo"]}-{source["number"]}-{index}'
+        if request in saved:
             continue
-        body = events.build('lesson.seen',line=f'Merged from {issue_url(source["repo"],source["number"])}',
-                            lesson=number,request=occurrence_request,**occurrence)
-        write(['issue','comment',str(number),'--repo',repo],body)
-    plan = row['merge_reopen']
-    if plan is not None:
-        current = register.read_issue(repo,number)
-        if 'wontfix' not in labels(current):
-            if plan['reopen'] and current['state'].lower() == 'closed':
-                write(['issue','reopen',str(number),'--repo',repo])
-            if plan['triage'] and 'needs-triage' not in labels(current):
-                try:
-                    register.ensure_label(repo,'needs-triage')
-                except RetroError as exc:
-                    raise PartialWrite(f'{exc}; rerun apply to finish the merge') from None
-                write(['issue','edit',str(number),'--repo',repo,'--add-label','needs-triage'])
-            if plan['note']:
-                comment_once(repo,number,plan['note'],f'{request}-merge-{repo}-{number}-reopen')
-        if plan['blocked_spec'] is not None:
-            print(f'NOT REOPENED: #{number} sits under spec #{plan["blocked_spec"]}, which has not finished')
-    write(['issue','close',str(source['number']),'--repo',source['repo'],
-                      '--reason','duplicate','--duplicate-of',issue_url(repo,number)])
+        body = events.build('lesson.seen', line=f'Merged from {issue_url(source["repo"], source["number"])}',
+                            lesson=number, request=request, **occurrence)
+        write(['issue', 'comment', str(number), '--repo', repo], body)
 
 
-def proposal(plan):
-    repo = re.search(r'(?:仓库|repository)[:：]\s*([A-Za-z0-9-]+/[A-Za-z0-9._-]+)',plan)
-    path = re.search(r'(?:文件|file)[:：]\s*([^；;\s]+)',plan)
-    playbook = re.search(r'Playbook:\s*([^；;\n]+)',plan)
-    if not repo or not path or not playbook or not re.search(r'(?:加|删|add|remove)[:：]',plan):
-        raise RetroError('proposal needs repository, add/remove, file and Playbook')
-    if Path(path[1]).name in ('AGENTS.md','CLAUDE.md','CODING_STANDARDS.md') or 'nowledgemem' in plan:
-        raise RetroError('proposal targets an owner-managed file or external memory; choose an allowed destination')
-    return dict(repo=register.repository(repo[1]),file=path[1],playbook=playbook[1].strip())
+def merge_apply(args):
+    data = json.loads(args.decisions.read_text(encoding='utf-8'))
+    if not isinstance(data, dict):
+        raise RetroError(f'{args.decisions}: expected a JSON object with batch and decisions; correct the file')
+    for field in ('batch', 'decisions'):
+        if field not in data:
+            raise RetroError(f'{args.decisions}: missing {field}; add the field to the decisions file')
+    batch = data['batch']
+    rows = data['decisions']
+    if not isinstance(rows, list):
+        raise RetroError(f'{args.decisions}: decisions must be a list; correct the file')
+    events.build('lessons.merged', ticket=None, line='Validate batch', decision='kept', batch=batch)
+    plan = []
+    sources = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise RetroError(f'{args.decisions}: decisions[{index}] must be an object; correct the file')
+        for field in ('lesson', 'decision', 'reason'):
+            if not isinstance(row.get(field), str) or not row[field].strip():
+                raise RetroError(f'{args.decisions}: decisions[{index}].{field} needs a nonempty string; correct the file')
+        source = lesson_reference(row['lesson'])
+        source_key = f'{source["repo"]}#{source["number"]}'
+        if source_key in sources:
+            raise RetroError(f'{row["lesson"]} has more than one decision; reconcile the decisions file')
+        sources[source_key] = row['decision']
+        decision, reason = row['decision'], row['reason']
+        body = events.build('lessons.merged', ticket=None, batch=batch, decision=decision,
+                            line=f'{decision}. {reason}')
+        target = None
+        if decision.startswith('merged:'):
+            target = lesson_reference(decision.split(':', 1)[1])
+        elif decision not in ('closed', 'kept'):
+            raise RetroError('merge-apply accepts closed, merged:owner/repo#number or kept; record spec/ticket with events.py')
+        current = register.gh_json(['api', f'repos/{source["repo"]}/issues/{source["number"]}'])
+        if 'pull_request' in current or 'mmw:lesson' not in labels(current):
+            raise RetroError(f'{row["lesson"]} is not a lesson; correct the decisions file')
+        comments, state = history(source['repo'], source['number'])
+        completed = [events.parse(c['body'])[1] for c in comments
+                     if events.parse(c['body'])[0] == 'event'
+                     and events.parse(c['body'])[1]['event'] == 'lessons.merged'
+                     and events.parse(c['body'])[1].get('batch') == batch]
+        if completed:
+            if any(r.get('decision') != decision for r in completed):
+                raise RetroError(f'{row["lesson"]} already has another decision for batch {batch}; use a new batch')
+            continue
+        if target:
+            destination = register.gh_json(['api', f'repos/{target["repo"]}/issues/{target["number"]}'])
+            if 'pull_request' in destination or 'mmw:lesson' not in labels(destination):
+                raise RetroError('merge target is not a lesson; correct the decisions file')
+            if destination['state'].lower() != 'open':
+                raise RetroError(f'{target["repo"]}#{target["number"]} is closed; choose an open merge destination in {args.decisions}')
+            history(target['repo'], target['number'])
+        plan.append(dict(source=source, target=target, decision=decision, body=body,
+                         occurrences=state['occurrences'], state=current['state']))
+    for row in plan:
+        target = row['target']
+        if target and sources.get(f'{target["repo"]}#{target["number"]}', 'kept') != 'kept':
+            raise RetroError('a merge target is also being closed or merged; choose the final destination in the decisions file')
+    try:
+        for row in plan:
+            source, target = row['source'], row['target']
+            if target:
+                merge_lesson(source, target, row['occurrences'])
+            if row['decision'] != 'kept' and row['state'].lower() != 'closed':
+                command = ['issue', 'close', str(source['number']), '--repo', source['repo']]
+                command += (['--reason', 'duplicate', '--duplicate-of', issue_url(target['repo'], target['number'])]
+                            if target else ['--reason', 'not planned'])
+                write(command)
+            write(['issue', 'comment', str(source['number']), '--repo', source['repo']], row['body'])
+    except (RetroError, events.EventError, OSError, ValueError, KeyError, TypeError) as exc:
+        raise PartialWrite(f'merge-apply incomplete: {exc}; rerun the same decisions file') from None
+    print(f'MERGED {len(plan)} decisions, batch {batch}')
+    return 0
 
 
 def new_problems(path):
+    result = dict(problems=[],errors=[],unreadable=[])
     text = path.read_text(encoding='utf-8')
     section = re.search(r'^## Problems[ \t]*\n(.*)\Z',text,re.M|re.S)
     if not section:
         raise RetroError(f'{path} needs ## Problems; write None when there are no new problems')
     content = section[1].strip()
+    if not content:
+        raise RetroError(f'{path} ## Problems is empty; write None or a registration')
     if content == 'None':
-        return []
+        return result
     chunks = re.split(r'^### [^\n]+\n',content,flags=re.M)
-    bodies = []
     for chunk in chunks:
         if not chunk.strip():
             continue
-        body = chunk.strip()
+        body = re.sub(r'^([ \t]*)- (?=(?:问题代号|角度|发生了什么|证据|代价|该谁修)\s*[:：])',
+                      r'\1', chunk.strip(), flags=re.M)
+        body = re.sub(r'^([ \t]*该谁修[ \t]*[:：][ \t]*[^\n]+?)[ \t]*[（(].*[）)][ \t]*$',
+                      r'\1', body, flags=re.M)
         if not body.startswith('## Problem\n'):
             body = '## Problem\n'+body
         fields = register.problem_fields(body)
-        required = ('问题代号','角度','发生了什么','证据','代价','该谁修')
-        if any(not fields.get(k) for k in required):
-            raise RetroError(f'{path} ## Problems lacks a six-field registration; complete it before applying')
-        bodies.append((body,fields))
-    if not bodies:
-        raise RetroError(f'{path} ## Problems is empty; write None or a registration')
-    return bodies
+        try:
+            required = ('问题代号','角度','发生了什么','证据','代价','该谁修')
+            if any(not fields.get(k) for k in required):
+                raise RetroError('lacks a six-field registration; complete the entry before applying')
+            owner = fields['该谁修']
+            register.repository(register.toolbox_repo() if owner in ('MMW','MMW 仓库') else owner)
+            if (fields['角度'] not in ('判断','环境','流程','产品')
+                    or not re.fullmatch(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*',fields['问题代号'])
+                    or len(fields['问题代号']) > 80):
+                raise RetroError('invalid problem code or angle; correct the entry')
+            check_evidence(fields['证据'])
+        except (RetroError,OSError,UnicodeError) as exc:
+            message = f'{path} ## Problems {fields.get("问题代号", chunk.splitlines()[0])}: {exc}'
+            print(message,file=sys.stderr)
+            if isinstance(exc,UnreadableEvidence):
+                result['errors'].append(message)
+                result['unreadable'].append(exc.source)
+            continue
+        result['problems'].append((body,fields))
+    return result
 
 
 def register_new_problem(path,body,fields,context):
@@ -473,89 +567,44 @@ def register_new_problem(path,body,fields,context):
 
 
 def prepare_answers(args,context):
-    valid,errors,problems,unreadable = [],[],[],[]
+    valid,errors,problems,unreadable,unrecorded = [],[],[],[],[]
     for path in args.answers:
-        for body,fields in new_problems(path):
-            owner = fields['该谁修']
-            register.repository(register.toolbox_repo() if owner in ('MMW','MMW 仓库') else owner)
-            if fields['角度'] not in ('判断','环境','流程','产品') or not re.fullmatch(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*',fields['问题代号']):
-                raise RetroError(f'{path} ## Problems has an invalid code or angle')
-            evidence_source(fields['证据'])
-            problems.append((body,fields))
+        new = new_problems(path)
+        problems.extend(new['problems'])
+        errors.extend(new['errors'])
+        unreadable.extend(new['unreadable'])
     for path in args.answers:
         for row in answer_rows(path):
             try:
                 check_analysis(row)
-                if row['conclusion'] == 'propose':
-                    row['proposal'] = proposal(row['plan'])
-                target = resolve_issue(row['code'],context)
-                _,state = history(target['repo'],target['number'])
-                row['target'] = target
-                row['occurrences'] = state['occurrences']
-                row['current'] = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
-                if row['conclusion']=='propose':
-                    body = row['current']['body'].replace('\r\n','\n')
-                    row['proposed_body'],matches = re.subn(
-                        r'(^## Problem[ \t]*\n)(?:[ \t]*\n)*(?:Playbook:[^\n]*\n)?',
-                        lambda m:m[1]+f'Playbook: {row["proposal"]["playbook"]}\n',
-                        body,count=1,flags=re.M)
-                    if matches!=1:
-                        raise RetroError('proposal target has no ## Problem heading; correct its body')
-                if 'mmw:lesson' not in labels(row['current']):
-                    raise RetroError('answer target is not a lesson; product problems and children stay in their workflows')
-                if row['conclusion'].startswith('merge:'):
-                    canonical = resolve_issue(row['conclusion'].split(':',1)[1],context)
-                    row['canonical'] = canonical
-                    if canonical == target:
-                        raise RetroError('cannot merge a lesson into itself')
-                    destination = register.gh_json(['api',f'repos/{canonical["repo"]}/issues/{canonical["number"]}'])
-                    if 'mmw:lesson' not in labels(destination):
-                        raise RetroError('merge target is not a lesson')
-                    row['merge_reopen'] = None
-                    if destination['state'] == 'closed' and any(
-                            timestamp(o['at']) > timestamp(destination['closed_at']) for o in row['occurrences']):
-                        row['merge_reopen'] = register.reopen_plan(canonical['repo'],destination)
-                if row['conclusion'] == 'propose' and row['proposal']['repo'] != target['repo']:
-                    if row['proposal']['repo'] != register.toolbox_repo():
-                        raise RetroError('a proposal transfer must target the installed MMW repository')
-                valid.append(row)
             except RetroError as exc:
                 message = f'{row["path"]}:{row["line"]}: {exc}'
                 print(message,file=sys.stderr)
                 errors.append(message)
                 if isinstance(exc,UnreadableEvidence):
                     unreadable.append(exc.source)
-    groups = {}
-    for row in valid:
-        target = row['target']
-        groups.setdefault((target['repo'],target['number']),[]).append(row)
-    valid = []
-    for group in groups.values():
-        signatures = {(r['conclusion'].split(':',1)[0],
-                       tuple(sorted(r.get('canonical',{}).items())),
-                       r['plan'] if r['conclusion']=='propose' else '') for r in group}
-        if len(signatures)>1:
-            locations = ', '.join(f'{r["path"]}:{r["line"]}' for r in group)
-            message = f'{locations}: conflicting dispositions for one lesson; reconcile the answers'
-            print(message,file=sys.stderr)
-            errors.append(message)
-        else:
-            row = group[0]
-            row['reason'] = '; '.join(dict.fromkeys(r['reason'] for r in group))
+                continue
+            try:
+                target = resolve_issue(row['code'],context)
+            except RetroError as exc:
+                reason = str(exc)
+            else:
+                current = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
+                reason = (None if 'mmw:lesson' in labels(current) else
+                          'answer target is not a lesson; product problems and children stay in their workflows')
+            if reason:
+                unrecorded.append(dict(code=row['code'],conclusion='unrecorded',reason=reason))
+                print(f'{row["path"]}:{row["line"]}: unrecorded: {reason}',file=sys.stderr)
+                continue
+            _,state = history(target['repo'],target['number'])
+            row['target'] = target
+            row['occurrences'] = state['occurrences']
             valid.append(row)
-    if errors and not valid and not problems:
+    if not valid and not problems:
+        print('no recordable answer rows or new problems; correct the answer file',file=sys.stderr)
         return 2
-    for row in valid:
-        if row['conclusion'] != 'candidate' and 'needs-triage' in labels(row['current']):
-            row['conclusion'] = 'candidate'
-            print(f'{row["code"]}: candidate, already awaiting the owner')
-        if row['conclusion'] != 'candidate' and 'wontfix' in labels(row['current']):
-            row['conclusion'] = 'candidate'
-            print(f'{row["code"]}: candidate, owner refusal preserved; recurrence is recorded in the receipt')
-        if row['conclusion'] == 'propose' and not qualifies(row['occurrences']):
-            row['conclusion'] = 'candidate'
-            print(f'{row["code"]}: candidate, fewer than two independent occurrences and no stall or owner correction')
-    return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,done=[])
+    return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,
+                unrecorded=unrecorded,done=[])
 
 
 def comment_once(repo,number,body,request):
@@ -574,28 +623,14 @@ def execute_plan(plan,journal):
     for index,row in enumerate(valid):
         if index in plan['done']:
             continue
-        if row['conclusion'] == 'reject':
-            target = row['target']
-            comment_once(target['repo'],target['number'],row['reason'],f'{request}-reject-{index}')
-            write(['issue','close',str(target['number']),'--repo',target['repo'],'--reason','not planned'])
-        if row['conclusion'].startswith('merge:'):
-            merge_lesson(row,context,request)
-        if row['conclusion'] == 'propose':
-            target = row['target']
-            repo,number = target['repo'],target['number']
-            current = row['current']
-            if row['proposal']['repo'] != repo:
-                transferred = write(['issue','transfer',str(number),row['proposal']['repo'],'--repo',repo])
-                match = re.search(r'https://github.com/([^/]+/[^/]+)/issues/([0-9]+)',transferred)
-                if not match:
-                    raise PartialWrite(f'transfer of {repo}#{number} printed no new URL; inspect its destination before retrying')
-                repo,number = match[1],int(match[2])
-                row['target'] = dict(repo=repo,number=number)
-                save()
-            write(['issue','edit',str(number),'--repo',repo],row['proposed_body'])
-            comment_once(repo,number,row['reason']+'\n\n'+row['plan'],f'{request}-propose-{index}')
-            if 'needs-triage' not in labels(current):
-                write(['issue','edit',str(number),'--repo',repo,'--add-label','needs-triage'])
+        target = row['target']
+        assessment = events.build(
+            'lesson.assessed', ticket=context['ticket'], spec=context['spec'],
+            line=f'{row["conclusion"]}: {row["reason"]}',
+            conclusion=row['conclusion'], reason=row['reason'], evidence=row['evidence'], plan=row['plan'],
+            run=f'{context["repo"]}#{context["spec"] or context["ticket"]}',
+            qualifies=qualifies(row['occurrences']), request=f'{request}-row-{index}')
+        comment_once(target['repo'],target['number'],assessment,f'{request}-row-{index}')
         plan['done'].append(index)
         save()
     if problems:
@@ -613,16 +648,13 @@ def execute_plan(plan,journal):
     counts = dict(merged=sum(r['conclusion'].startswith('merge:') for r in valid),
                   rejected=sum(r['conclusion']=='reject' for r in valid),
                   candidates=sum(r['conclusion']=='candidate' for r in valid),
-                  proposals=[r['target']['number'] for r in valid if r['conclusion']=='propose'])
+                  proposals=sum(r['conclusion']=='propose' for r in valid))
     unreadable = list(dict.fromkeys(context['unreadable_sources'] + plan['unreadable']))
     disposed = []
     for row in valid:
-        conclusion = row['conclusion']
-        if conclusion.startswith('merge:'):
-            target = row['canonical']
-            conclusion = f'merge:{target["repo"]}#{target["number"]}'
-        disposed.append(dict(**row['target'],conclusion=conclusion))
+        disposed.append(dict(**row['target'],conclusion=row['conclusion']))
     disposed.extend(plan.get('registered_problems',[]))
+    disposed.extend(plan.get('unrecorded',[]))
     payload = dict(result='recorded',registered=context['registered'],
                    problems=disposed,
                    recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
@@ -641,7 +673,7 @@ def apply_answers(args):
         raise RetroError('apply target differs from context.json; use the matching gather artifact')
     events.build('spec.retroed' if context['spec'] else 'ticket.retroed',
                  ticket=context['ticket'],spec=context['spec'],line='Validate gather context',
-                 result='recorded',registered=context['registered'],merged=0,rejected=0,candidates=0,proposals=[],
+                 result='recorded',registered=context['registered'],merged=0,rejected=0,candidates=0,proposals=0,
                  recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
                  evidence=context['evidence'],unreadable_sources=context['unreadable_sources'])
     request = hashlib.sha256(json.dumps([context,[(str(p.resolve()),p.read_text(encoding='utf-8'))
@@ -663,14 +695,17 @@ def apply_answers(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='verb', required=True)
-    expiration = sub.add_parser('expire')
-    expiration.add_argument('repos', nargs='+')
     gathering = sub.add_parser('gather')
     target = gathering.add_mutually_exclusive_group(required=True)
     target.add_argument('--spec', type=int)
     target.add_argument('--ticket', type=int)
     gathering.add_argument('repos', nargs='+')
     gathering.add_argument('--out', type=Path, required=True)
+    listing = sub.add_parser('backlog')
+    listing.add_argument('repos', nargs='+')
+    listing.add_argument('--out', type=Path, required=True)
+    merging = sub.add_parser('merge-apply')
+    merging.add_argument('decisions', type=Path)
     applying = sub.add_parser('apply')
     applying.add_argument('answers', nargs='+',type=Path)
     applying.add_argument('--context',type=Path)
@@ -679,11 +714,11 @@ def main(argv=None):
     selection.add_argument('--ticket',type=int)
     args = parser.parse_args(argv)
     try:
-        if args.verb == 'expire':
-            return expire([register.repository(r) for r in args.repos])
-        if args.verb == 'gather':
+        if args.verb in ('gather', 'backlog'):
             args.repos = [register.repository(r) for r in args.repos]
-            return gather(args)
+            return gather(args) if args.verb == 'gather' else backlog(args)
+        if args.verb == 'merge-apply':
+            return merge_apply(args)
         return apply_answers(args)
     except PartialWrite as exc:
         print(f'retro: {exc}',file=sys.stderr)

@@ -38,12 +38,87 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    def test_there_are_twenty_nine_events(self):
-        self.assertEqual(len(events.EVENTS), 29)
+
+    def test_build_strips_terminal_escapes(self):
+        dirty = ("\x1b[32mFAIL\x1b[0m ^[[31mlint^[[0m "
+                 "\\^[[32mpyrefly\\^[[0m "
+                 "\x1b]0;window title\x07tail "
+                 "\x1b]8;;https://example.test\x1b\\link\x1b]8;;\x1b\\")
+        clean = "FAIL lint pyrefly tail link"
+        body = events.build(
+            "ticket.bounced", ticket=61, line=dirty, text=dirty,
+            reason="checks", commit="a" * 40,
+            commands=[{"command": "scripts/check", "tail": dirty,
+                       "details": {"lines": [dirty, 7, None, True]}}])
+        what, payload = events.parse(body)
+        self.assertEqual(what, "event")
+        self.assertEqual(body.split("\n\n<!--", 1)[0], clean + "\n\n" + clean)
+        self.assertEqual(payload["commands"], [{
+            "command": "scripts/check", "tail": clean,
+            "details": {"lines": [clean, 7, None, True]}}])
+        self.assertEqual(events.fold([body])["unreadable"], [])
+
+    def test_build_preserves_caret_regex_text(self):
+        text = "grep '^[[:alpha:]]' x; EXPECT: /^[[:alpha:]]+$/m; x ^[[a-z]] y; echo ^[[A"
+        body = events.build("worker.decided", ticket=61, line=text, text=text,
+                            command=text, expected=text)
+        what, payload = events.parse(body)
+        self.assertEqual(what, "event")
+        self.assertEqual(body.split("\n\n<!--", 1)[0], text + "\n\n" + text)
+        self.assertEqual((payload["command"], payload["expected"]), (text, text))
+
+    def test_there_are_thirty_two_events(self):
+        self.assertEqual(len(events.EVENTS), 32)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",
-                     "ticket.bounced", "ticket.recovered", "spec.retroed"):
+                     "ticket.bounced", "ticket.recovered", "spec.retroed", "spec.checked"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
+
+    def test_lessons_merged_is_an_event(self):
+        for decision in ('closed', 'merged:o/r#90', 'spec:76', 'ticket:61', 'kept'):
+            body = events.build('lessons.merged', ticket=None, line='Batch decision',
+                                decision=decision, batch='backlog-2026-10-27')
+            self.assertEqual(events.parse(body)[1]['decision'], decision)
+            self.assertEqual(events.newest([body], 'lessons.merged')['payload']['batch'],
+                             'backlog-2026-10-27')
+            self.assertEqual(events.fold([body])['unreadable'], [])
+        for fields in ({'decision': 'kept'}, {'batch': 'batch-1'},
+                       {'decision': 'merge:o/r#90', 'batch': 'batch-1'},
+                       {'decision': 'spec:0', 'batch': 'batch-1'},
+                       {'decision': 'kept', 'batch': '   '}):
+            with self.subTest(fields=fields), self.assertRaises(events.EventError):
+                events.build('lessons.merged', ticket=None, line='Batch decision', **fields)
+
+    def test_lesson_assessed_is_an_event(self):
+        full = dict(conclusion="propose", reason="The failure recurred", evidence="README.md:1",
+                    plan="repository: o/r; add: check; file: check.py; Playbook: Bug fix",
+                    run="o/r#76", qualifies=False, request="assessment-1")
+        for conclusion in ("merge:missing-information", "reject", "candidate", "propose"):
+            with self.subTest(conclusion=conclusion):
+                fields = {**full, "conclusion": conclusion, "plan": ""}
+                body = events.build("lesson.assessed", ticket=None, spec=76,
+                                    line=conclusion + ", the failure recurred", **fields)
+                what, payload = events.parse(body)
+                self.assertEqual(what, "event")
+                self.assertEqual({key: payload[key] for key in fields}, fields)
+                self.assertEqual(events.fold([body])["unreadable"], [])
+        for key in full:
+            with self.subTest(missing=key), self.assertRaises(events.EventError):
+                events.build("lesson.assessed", ticket=None, line="Assessment",
+                             **{k: v for k, v in full.items() if k != key})
+        for key, bad in (("conclusion", "close"), ("conclusion", "merge:"),
+                         ("qualifies", "false"), ("run", "76"), ("plan", 4)):
+            with self.subTest(key=key), self.assertRaises(events.EventError):
+                events.build("lesson.assessed", ticket=None, line="Assessment", **{**full, key: bad})
+        counts = dict(result="recorded", registered=0, merged=1, rejected=2, candidates=3,
+                      proposals=4, landed_since_last=0, recurred_after_wontfix=[],
+                      evidence="complete", unreadable_sources=[])
+        for name, context in (("spec.retroed", dict(ticket=None, spec=76)),
+                              ("ticket.retroed", dict(ticket=61))):
+            body = events.build(name, line="Recorded rows", **context, **counts)
+            payload = events.parse(body)[1]
+            self.assertEqual([payload[k] for k in ("merged", "rejected", "candidates", "proposals")],
+                             [1, 2, 3, 4])
 
     def test_lesson_seen_is_validated(self):
         full = dict(lesson=90, seen_in="o/r", source="noticed", session="orca:term_7")
@@ -204,23 +279,23 @@ class TheVocabulary(unittest.TestCase):
 
     def test_retroed_events_carry_counts_not_memory(self):
         full = dict(result='recorded',registered=2,merged=1,rejected=0,candidates=3,
-                    proposals=[90],recurred_after_wontfix=[91],landed_since_last=1,
+                    proposals=1,recurred_after_wontfix=[91],landed_since_last=1,
                     evidence='complete',unreadable_sources=[])
         for name,context in [('spec.retroed',dict(ticket=None,spec=76)),
                              ('ticket.retroed',dict(ticket=61,spec=None))]:
             body = events.build(name,line='Retro recorded',**context,**full)
             self.assertEqual(events.parse(body)[1]['registered'],2)
-            self.assertEqual(events.parse(body)[1]['proposals'],[90])
+            self.assertEqual(events.parse(body)[1]['proposals'],1)
             with self.assertRaises(events.EventError):
                 events.build(name,line='Legacy memory',retro_memory='old',**context,**full)
-            for key in ('registered','merged','rejected','candidates','landed_since_last'):
+            for key in ('registered','merged','rejected','candidates','proposals','landed_since_last'):
                 for bad in (-1,True,'2'):
                     with self.subTest(name=name,key=key,bad=bad), self.assertRaises(events.EventError):
                         events.build(name,line='Invalid count',**context,**{**full,key:bad})
 
     def test_recorded_retro_receipts_require_the_complete_typed_shape(self):
         full = dict(result="recorded", registered=2, merged=0, rejected=0, candidates=0, landed_since_last=0, recurred_after_wontfix=[],
-                    proposals=[431, 432], evidence="complete", unreadable_sources=[])
+                    proposals=2, evidence="complete", unreadable_sources=[])
         body = events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO", **full)
         what, payload = events.parse(body)
         self.assertEqual((what, payload["stage"], payload["actor"], payload["ticket"]),
@@ -255,7 +330,7 @@ class TheVocabulary(unittest.TestCase):
 
     def test_retroed_refuses_a_malformed_problem_entry(self):
         full = dict(result='recorded', registered=0, merged=0, rejected=0,
-                    candidates=0, proposals=[], recurred_after_wontfix=[],
+                    candidates=0, proposals=0, recurred_after_wontfix=[],
                     landed_since_last=0, evidence='complete', unreadable_sources=[])
         for name, context in [('spec.retroed', dict(ticket=None, spec=76)),
                               ('ticket.retroed', dict(ticket=61, spec=None))]:
@@ -265,14 +340,17 @@ class TheVocabulary(unittest.TestCase):
                           {'repo': 'r', 'number': 90, 'conclusion': 'candidate'},
                           {'repo': 'o/r', 'number': True, 'conclusion': 'candidate'},
                           {'repo': 'o/r', 'number': 90, 'conclusion': 'unknown'},
-                          {'repo': 'o/r', 'number': 90, 'conclusion': 'merge:missing'},
+                          {'repo': 'o/r', 'number': 90, 'conclusion': 'merge:'},
+                          {'conclusion': 'unrecorded', 'code': '#91'},
+                          {'conclusion': 'unrecorded', 'code': '', 'reason': 'unknown'},
                           'candidate'):
                 with self.subTest(name=name, entry=entry):
                     with self.assertRaises(events.EventError) as caught:
                         events.build(name, line='Retro', problems=[entry], **context, **full)
                     self.assertIn('problems[0]', str(caught.exception))
             problems = [dict(repo='o/r', number=90, conclusion=c) for c in
-                        ('candidate', 'propose', 'reject', 'registered', 'merge:o/r#91')]
+                        ('candidate', 'propose', 'reject', 'registered', 'merge:o/r#91', 'merge:missing')]
+            problems.append(dict(conclusion='unrecorded', code='signal URL', reason='not a registration'))
             body = events.build(name, line='Retro', problems=problems, **context, **full)
             self.assertEqual(events.parse(body)[1]['problems'], problems)
             legacy = events.build(name, line='Retro', **context, **full)
@@ -543,7 +621,7 @@ class Replays(unittest.TestCase):
                    result="unrecorded", reason="Nowledge Mem write failed")
         latest = ev("spec.retroed", "NIGHT RETRO", ticket=None, spec=76,
                     result="recorded", registered=1, merged=0, rejected=0, candidates=0, landed_since_last=0, recurred_after_wontfix=[],
-                    proposals=[431], evidence="partial",
+                    proposals=1, evidence="partial",
                     unreadable_sources=["ticket #61"])
         prior = [
             comment(1, started()),
@@ -560,7 +638,7 @@ class Replays(unittest.TestCase):
                                        "spec.retroed")["comment"], 20)
         self.assertEqual(events.describe(state["spec_retroed"]),
                          "spec.retroed result=recorded registered=1 merged=0 rejected=0 candidates=0 "
-                         "proposals=431 recurred_after_wontfix=- landed_since_last=0 evidence=partial "
+                         "proposals=1 recurred_after_wontfix=- landed_since_last=0 evidence=partial "
                          "unreadable_sources=ticket #61")
         for key in ("held", "hold_ended", "passed", "returned",
                     "landed", "regressed", "bounced", "outcome", "review", "results",

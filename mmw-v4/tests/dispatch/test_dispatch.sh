@@ -8,6 +8,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|sendintoreuse|briefproblems|briefreport|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh briefbrowsername|briefclosebrowsers|briefclosekillsleftover|sendrefusesclosedbatch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
@@ -26,6 +27,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsmainworktree|finishkeepsunmergedlocalnight
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishsyncsprojectbranch|finishsyncsprojectworktree|finishkeepsunmergedproject
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails|finishcleanupfails
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh prgreen|prnotewhennoci|prdispatchesworkflow|prredandnone
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -60,7 +62,7 @@ fail() { echo "  FAILED: $1" >&2; rc=1; }
 TMP="$(mktemp -d)"
 # A relay left running would go on polling a tracker that is gone, through whatever `gh`
 # is next on PATH.
-trap 'stop_test_listeners; stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
+trap 'stop_test_browsers; stop_test_listeners; stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/paseo-state"
 
 cat > "$TMP/bin/paseo" <<'FAKE'
@@ -912,8 +914,57 @@ print(json.dumps({
 ' ;;
   "pr list --head "*)
     [ "${FAKE_GH_PR-7}" = none ] || printf '%s\n' "${FAKE_GH_PR-7}" ;;
+  "pr list --base "*)
+    if [ -n "${FAKE_GH_PERSIST_PR:-}" ] && [ -f "$MMW_FAKE_PASEO_STATE/pr-open" ]; then
+      echo '[{"url":"https://github.com/o/r/pull/7"}]'
+    else
+      echo '[]'
+    fi ;;
+  "pr create "*)
+    [ -z "${FAKE_GH_PR_CREATE_FAIL:-}" ] || { echo 'HTTP 502' >&2; exit 1; }
+    if [ -n "${FAKE_GH_PERSIST_PR:-}" ]; then
+      [ ! -f "$MMW_FAKE_PASEO_STATE/pr-open" ] || { echo 'already exists' >&2; exit 1; }
+      touch "$MMW_FAKE_PASEO_STATE/pr-open"
+    fi
+    echo 'https://github.com/o/r/pull/7' ;;
   "pr checks "*)
-    [ -z "${FAKE_GH_PR_CHECKS:-}" ] || printf '%s\n' "$FAKE_GH_PR_CHECKS" ;;
+    [ -z "${FAKE_GH_PR_CHECKS_FAIL:-}" ] || { echo 'HTTP 502' >&2; exit 1; }
+    if [ -n "${FAKE_GH_PR_CHECKS_DELAY:-}" ]; then
+      reads="$(cat "$MMW_FAKE_PASEO_STATE/pr-check-reads" 2>/dev/null || echo 0)"
+      reads=$((reads + 1))
+      echo "$reads" > "$MMW_FAKE_PASEO_STATE/pr-check-reads"
+      [ "$reads" -gt "$FAKE_GH_PR_CHECKS_DELAY" ] || FAKE_GH_PR_CHECKS=''
+    fi
+    if [[ "$*" == *"--json name,bucket"* ]] && [[ "$*" != *"--jq"* ]]; then
+      [ -n "${FAKE_GH_PR_CHECKS:-}" ] || { echo 'no checks reported on the branch' >&2; exit 1; }
+      MMW_CHECKS="${FAKE_GH_PR_CHECKS:-}" python3 -c '
+import json, os
+rows = [line.rsplit(" ", 1) for line in os.environ["MMW_CHECKS"].splitlines() if line]
+print(json.dumps([{"name": name, "bucket": bucket} for name, bucket in rows]))'
+    elif [ -n "${FAKE_GH_PR_CHECKS:-}" ]; then
+      printf '%s\n' "$FAKE_GH_PR_CHECKS"
+      if [[ "$*" == *"--watch"* ]] && printf '%s\n' "$FAKE_GH_PR_CHECKS" | grep -Eq ' (fail|cancel)$'; then
+        exit 1
+      fi
+    else
+      echo 'no checks reported on the branch' >&2
+      exit 1
+    fi ;;
+  "workflow run "*)
+    [ -z "${FAKE_GH_WORKFLOW_FAIL:-}" ] || { echo 'workflow refused' >&2; exit 1; }
+    touch "$MMW_FAKE_PASEO_STATE/dispatched-run"
+    [ -n "${FAKE_GH_RUN_NO_URL:-}" ] || echo 'https://github.com/o/r/actions/runs/81' ;;
+  "run list "*)
+    if [ -f "$MMW_FAKE_PASEO_STATE/dispatched-run" ]; then
+      echo '[{"databaseId": 81}, {"databaseId": 80}]'
+    else
+      echo '[{"databaseId": 80}]'
+    fi ;;
+  "run watch "*)
+    [ -z "${FAKE_GH_RUN_WATCH_FAIL:-}" ] || { echo 'watch connection lost' >&2; exit 1; }
+    [ "${FAKE_GH_RUN_CONCLUSION:-success}" = success ] ;;
+  "run view "*)
+    printf '%s\n' "${FAKE_GH_RUN_CONCLUSION:-success}" ;;
   "api graphql "*reviewThreads*)
     [ -z "${FAKE_GH_PR_THREADS:-}" ] || printf '%s\n' "$FAKE_GH_PR_THREADS" ;;
   "api graphql "*)
@@ -1140,6 +1191,50 @@ print(next((t for t in rows if t.get("number") == want), {}).get("title", "a tic
 esac
 FAKE
 
+cat > "$TMP/bin/playwright-cli" <<'FAKE'
+#!/usr/bin/env python3
+import os, subprocess, sys, time
+from pathlib import Path
+
+with open(os.environ["MMW_TEST_LOG"], "a") as log:
+    log.write("playwright-cli" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+if sys.argv[2] == "open":
+    pidfile = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "browser-pids"
+    ready = pidfile.with_name(sys.argv[1][3:] + ".ready")
+    subprocess.Popen([sys.executable, str(Path(__file__).with_name("cliDaemon.js")),
+                      sys.argv[1][3:], str(pidfile), str(ready)],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(200):
+        if ready.exists():
+            break
+        time.sleep(.01)
+    else:
+        sys.exit("fake browser daemon did not start")
+FAKE
+cat > "$TMP/bin/cliDaemon.js" <<'FAKE'
+import os, signal, subprocess, sys, time
+from pathlib import Path
+
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])
+with open(sys.argv[2], 'a') as log:
+    log.write(f'{os.getpid()} {child.pid}\n')
+Path(sys.argv[3]).touch()
+time.sleep(300)
+FAKE
+chmod +x "$TMP/bin/playwright-cli"
+
+stop_test_browsers() {
+  local pid
+  if [ -f "$TMP/paseo-state/browser-pids" ]; then
+    for pid in $(cat "$TMP/paseo-state/browser-pids"); do
+      kill -KILL "$pid" 2>/dev/null || true
+    done
+    rm -f "$TMP/paseo-state/browser-pids"
+  fi
+}
+
 REAL_PYTHON="$(command -v python3)"
 cat > "$TMP/bin/python3" <<WRAPPER
 #!/bin/bash
@@ -1325,7 +1420,9 @@ reset_log() {
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
   rm -f "$MMW_FAKE_PASEO_STATE/comment_reads" "$MMW_FAKE_PASEO_STATE/wait_delivered" \
     "$MMW_FAKE_PASEO_STATE/gh-comments.json" "$MMW_FAKE_PASEO_STATE/runs.jsonl" \
-    "$MMW_FAKE_PASEO_STATE/gh-issue-states.json"
+    "$MMW_FAKE_PASEO_STATE/gh-issue-states.json" \
+    "$MMW_FAKE_PASEO_STATE/dispatched-run" "$MMW_FAKE_PASEO_STATE/pr-check-reads" \
+    "$MMW_FAKE_PASEO_STATE/pr-open"
   echo '[]' > "$MMW_FAKE_HERDR_STATE/agents.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/terminals.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
@@ -2000,15 +2097,15 @@ scenario_checkrepositorycheck() {
 ]
 JSON
 
-  echo "--- check runs scripts/check once in this checkout, uncommitted, with MMW_BASE_REF the base branch"
+  echo "--- check runs scripts/check once in this checkout, uncommitted, with MMW_BASE_REF the project branch"
   rm -f "$TMP/check-base"
   put_check "$TMP/repo" "printf '%s\\n' \"\$MMW_BASE_REF\" >> '$TMP/check-base'"
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "a green scripts/check expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/check-base" 2>/dev/null)" = night ] \
-    || fail "scripts/check should run once with MMW_BASE_REF=night: $(cat "$TMP/check-base" 2>&1)"
+  [ "$(cat "$TMP/check-base" 2>/dev/null)" = origin/proj ] \
+    || fail "scripts/check should run once with MMW_BASE_REF=origin/proj: $(cat "$TMP/check-base" 2>&1)"
 
   echo "--- a red base refuses the night and carries the check's last lines"
   put_check "$TMP/repo" 'echo "FAIL unit 0s"; echo BASE-RED; exit 1'
@@ -2574,6 +2671,239 @@ scenario_integratedirty() {
   [ "$(cat "$TMP/repo/tracked.txt")" = dirty ] || fail "dirty integrate changed the tracked file"
 }
 
+put_env() {
+  mkdir -p "$TMP/repo/scripts"
+  cat > "$TMP/repo/scripts/env" <<'ENV'
+#!/usr/bin/env bash
+printf 'env :: %s :: %s :: %s\n' "$1" "$2" "$PWD" >> "$MMW_TEST_LOG"
+if [ "$1" = "${MMW_TEST_ENV_FAIL:-}" ]; then
+  echo "fixture environment failure for $1" >&2
+  exit 7
+fi
+case "$1" in
+  setup) touch "$2/.setup-ready" ;;
+  up)
+    [ -f "$2/.setup-ready" ] || exit 8
+    touch "$2/.env-ready"
+    echo "test-resource-$(basename "$2")" ;;
+  down) rm -f "$2/.env-ready" ;;
+esac
+ENV
+  chmod +x "$TMP/repo/scripts/env"
+  printf '.setup-ready\n.env-ready\n' >> "$TMP/repo/.gitignore"
+  git -C "$TMP/repo" add scripts/env .gitignore
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'repository environment'
+  git -C "$TMP/repo" push -q origin main
+}
+
+scenario_envstartsetsup() {
+  reset_log
+  fresh_repo
+  put_env
+  local code tree
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/issue-61"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "setup and up should run in the target checkout: $(cat "$MMW_TEST_LOG")"
+  [ -f "$tree/.env-ready" ] || fail 'the worker environment is missing'
+  [ "$(line_of '^env :: up')" -lt "$(line_of 'paseo :: run')" ] \
+    || fail 'the environment should be ready before the worker starts'
+  assert_started || fail "environment output changed the session id: $(cat "$TMP/out")"
+}
+
+scenario_envupfails() {
+  local step code tree
+  for step in setup up; do
+    reset_log
+    fresh_repo
+    put_env
+    tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/issue-61"
+    code="$(run_dispatch env MMW_TEST_ENV_FAIL="$step" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+    [ "$code" = 2 ] || fail "$step failure expected 2, got $code: $(cat "$TMP/err")"
+    grep -qF "scripts/env $step" "$TMP/err" || fail "the failing step is missing"
+    grep -qF "$tree" "$TMP/err" || fail "the failing worktree is missing"
+    grep -qF "fixture environment failure for $step" "$TMP/err" || fail "the script output is missing"
+    never_ran
+    [ "$step" != setup ] || hasnt "env :: up"
+
+    reset_log
+    fresh_repo
+    put_env
+    make_branch issue-61 ticket.txt ticket
+    git -C "$TMP/repo" push -q origin issue-61
+    write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+    tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-main"
+    code="$(run_dispatch env MMW_TEST_ENV_FAIL="$step" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+            bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+    [ "$code" = 2 ] || fail "merge $step failure expected 2, got $code: $(cat "$TMP/err")"
+    grep -qF "scripts/env $step" "$TMP/err" || fail "the failing merge step is missing"
+    grep -qF "$tree" "$TMP/err" || fail "the failing merge worktree is missing"
+    has "env :: down :: $tree :: $tree"
+    hasnt 'ticket.landed'
+    if git -C "$TMP/origin.git" show main:ticket.txt >/dev/null 2>&1; then
+      fail 'environment failure still landed the ticket'
+    fi
+  done
+
+  reset_log
+  fresh_repo
+  put_env
+  put_check "$TMP/repo" 'exit 2'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'unrunnable repository check'
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 1 ] || fail "a repository-check failure must retain land's exit 1, got $code: $(cat "$TMP/err")"
+  hasnt 'ticket.landed'
+}
+
+scenario_envdownonend() {
+  local code tree
+  reset_log
+  fresh_repo
+  put_env
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  seed_workspace 61
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  write_one_passed 61 "$(git -C "$tree" rev-parse HEAD)"
+  code="$(run_dispatch env MMW_TEST_ENV_FAIL=down FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "cleanup failure should not block land: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  grep -qF 'fixture environment failure for down' "$TMP/err" || fail 'cleanup failure was not reported'
+  assert_no_wt 61
+  git -C "$TMP/origin.git" show main:ticket.txt >/dev/null || fail 'the ticket was not landed'
+
+  reset_log
+  fresh_repo
+  put_env
+  write_open_batch
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start before suspend failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
+  [ "$code" = 0 ] || fail "suspend failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  [ ! -f "$tree/.env-ready" ] || fail 'suspend left the resources running'
+  assert_wt 61
+
+  reset_log
+  fresh_repo
+  put_env
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start before retract failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  set_agent_status "$(cat "$TMP/out")" closed
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  assert_no_wt 61
+}
+
+scenario_envmergeworktree() {
+  reset_log
+  fresh_repo
+  put_env
+  put_check "$TMP/repo" 'test -f .env-ready || exit 1
+printf "merge-check :: %s\\n" "$PWD" >> "$MMW_TEST_LOG"'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'check requires environment'
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  seed_workspace 61
+  write_one_passed 61 "$(git -C "$(wt 61)" rev-parse HEAD)"
+  local code tree orphan
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-main"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "land failed: $(cat "$TMP/err")"
+  has "env :: setup :: $tree :: $tree"
+  has "env :: up :: $tree :: $tree"
+  has "merge-check :: $tree"
+  [ "$(line_of '^env :: setup')" -lt "$(line_of '^env :: up')" ] || fail 'setup must precede up'
+  [ "$(line_of '^env :: up')" -lt "$(line_of '^merge-check')" ] || fail 'up must precede merge checks'
+  git -C "$TMP/origin.git" show main:ticket.txt >/dev/null || fail 'merge checks did not allow landing'
+
+  printf '[]\n' > "$TMP/tickets.json"
+  open_night
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 0 ] || fail "reverify preparation failed: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "reverify should prepare its detached merge worktree: $(cat "$MMW_TEST_LOG")"
+
+  orphan="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-retired"
+  git -C "$TMP/repo" worktree add -q --detach "$orphan" origin/main
+  printf '[]\n' > "$TMP/tickets.json"
+  code="$(run_dispatch env MMW_TEST_ENV_FAIL=down FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "orphan cleanup failed: $(cat "$TMP/err")"
+  has "env :: down :: $orphan :: $orphan"
+  [ ! -d "$orphan" ] || fail 'the orphan merge worktree was not removed'
+  grep -qF 'fixture environment failure for down' "$TMP/err" || fail 'merge cleanup failure was hidden'
+
+  setup_finish_closed
+  put_env
+  git -C "$TMP/repo" push -q origin proj
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-night"
+  git -C "$TMP/repo" worktree add -q --detach "$tree" origin/proj
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish cleanup failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  [ ! -d "$tree" ] || fail 'finish left the base merge worktree'
+}
+
+scenario_envrestartaftersuspend() {
+  reset_log
+  fresh_repo
+  put_env
+  write_open_batch
+  local code tree head
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "first start failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  head="$(git -C "$tree" rev-parse HEAD)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
+  [ "$code" = 0 ] || fail "suspend failed: $(cat "$TMP/err")"
+  fake_relay
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "restart failed: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "the standing worktree needs setup and up again: $(cat "$MMW_TEST_LOG")"
+  [ -f "$tree/.env-ready" ] || fail 'restart did not restore the environment'
+  [ "$(git -C "$tree" rev-parse HEAD)" = "$head" ] || fail 'restart changed the ticket work'
+}
+
+scenario_envabsent() {
+  reset_log
+  fresh_repo
+  local code passed
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start without env failed: $(cat "$TMP/err")"
+  assert_started || fail 'start output changed'
+  ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'start without env should be silent'
+  passed="$(git -C "$(wt 61)" rev-parse HEAD)"
+  write_one_passed 61 "$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "land without env failed: $(cat "$TMP/err")"
+  ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'absent env should be silent'
+  assert_no_wt 61
+}
+
 scenario_start_worker() {
   local code
   echo "--- a ticket with no worker label starts one session on the default row and prints its id"
@@ -2826,6 +3156,115 @@ newest_batch() {
 # What the relay keeps for the watch <key>: "runner session", or nothing.
 brief_watch() { watch_main "$1"; }
 
+scenario_briefclosebrowsers() {
+  local code packet batch n
+  packet="$TMP/browser-close.md"
+  echo 'Read the vendor page.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  for n in 1 2; do
+    [ "$(count_of "playwright-cli :: -s=mmw-$batch-$n :: close")" = 1 ] \
+      || fail "brief close did not close browser session $n exactly once"
+  done
+  hasnt 'close-all'
+  hasnt 'kill-all'
+}
+
+scenario_briefclosekillsleftover() {
+  local code packet batch other
+  packet="$TMP/browser-leftover.md"
+  echo 'Read the vendor page.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet")"
+  [ "$code" = 0 ] || fail "send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  other="mmw-19990101-000000-abcd-1"
+  playwright-cli "-s=mmw-$batch-1" open
+  playwright-cli "-s=$other" open
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  python3 - "$MMW_FAKE_PASEO_STATE/browser-pids" <<'PY' || fail "batch browser process isolation failed"
+import subprocess, sys
+from pathlib import Path
+
+rows = [list(map(int, row.split())) for row in Path(sys.argv[1]).read_text().splitlines()]
+assert len(rows) == 2, rows
+def alive(pid):
+    p = subprocess.run(['ps', '-p', str(pid), '-o', 'stat='], capture_output=True, text=True)
+    return p.returncode == 0 and p.stdout.strip() and not p.stdout.strip().startswith('Z')
+assert not any(alive(pid) for pid in rows[0]), f'closed batch processes survived: {rows[0]}'
+assert all(alive(pid) for pid in rows[1]), f'other session was stopped: {rows[1]}'
+PY
+}
+
+scenario_briefbrowsername() {
+  local code packet batch n
+  packet="$TMP/browser-brief.md"
+  printf '%s\n' '## Task' 'Read the vendor page.' '## Known' 'It requires JavaScript.' '## For' 'A source check.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send researcher expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  for n in 1 2; do
+    grep -qF "playwright-cli -s=mmw-$batch-$n" "$STATE_DIR/briefs/$batch/$n/brief.md" \
+      || fail "researcher $n was not given its named browser session"
+  done
+}
+
+scenario_sendrefusesclosedbatch() {
+  local code packet batch pointer valid expected
+  packet="$TMP/previous-answer.md"
+  echo 'Answer the question.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "first send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  pointer="$STATE_DIR/briefs/$batch/1/result.md"
+  echo 'The previous answer.' > "$pointer"
+  printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read [the previous answer]($pointer)." '## For' 'A decision.' > "$packet"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "reference to an open batch was refused: $(cat "$TMP/err")"
+  cat "$packet" > "$TMP/repo/-notes.md"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" -notes.md)"
+  [ "$code" = 0 ] || fail "reference to an open batch in -notes.md was refused: $(cat "$TMP/err")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  valid="$TMP/valid-brief.md"
+  echo 'Answer an independent question.' > "$valid"
+  for pointer in "$pointer" "briefs/$batch/1/result.md" 'briefs/19990101-000000-abcd/1/result.md' \
+      "$STATE_DIR/briefs/$batch:" "briefs/$batch;" "briefs/$batch]"; do
+    expected="$batch"
+    case "$pointer" in *19990101-000000-abcd*) expected=19990101-000000-abcd ;; esac
+    printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read $pointer." '## For' 'A decision.' > "$packet"
+    : > "$MMW_TEST_LOG"
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$valid" "$packet")"
+    [ "$code" = 2 ] || fail "dead batch reference expected 2, got $code: $(cat "$TMP/err")"
+    hasnt 'paseo :: run'
+    grep -qF '## Known' "$TMP/err" || fail "refusal does not explain how to preserve the answer"
+    grep -qF "$expected" "$TMP/err" || fail "refusal does not name batch $expected"
+  done
+  cat "$packet" > "$TMP/repo/-notes.md"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" -notes.md)"
+  [ "$code" = 2 ] || fail "dead batch reference in -notes.md expected 2, got $code: $(cat "$TMP/err")"
+  hasnt 'paseo :: run'
+  grep -qF -- '-notes.md' "$TMP/err" || fail "refusal does not name the leading-dash brief file"
+  grep -qF "$batch" "$TMP/err" || fail "leading-dash brief refusal does not name batch $batch"
+  grep -qF '## Known' "$TMP/err" || fail "leading-dash brief refusal does not explain how to preserve the answer"
+}
+
 scenario_briefproblems() {
   local code packet batch copy
   packet="$TMP/problem-brief.md"
@@ -2948,6 +3387,74 @@ scenario_sendintoreuse() {
     [ "$code" = 0 ] || fail "retry after $failure expected 0, got $code: $(cat "$TMP/err")"
   done
   [ "$rc" -ne 0 ] || echo "a question directory with an answer is refused and an empty one is reused"
+}
+
+scenario_installedrefusessend() {
+  local code installed packet command
+  fresh_repo
+  reset_log
+  installed="$TMP/repo/mmw-v4"
+  mkdir -p "$installed/skills/dispatch"
+  printf '%s\n' "$installed" > "$MMW_HOME/installed-root"
+  packet="$TMP/installed-brief.txt"
+  printf '%s\n' 'Investigate the product.' > "$packet"
+  seed_main_agent agt_main
+  code="$( (cd "$installed/skills/dispatch" && env PASEO_AGENT_ID=agt_main \
+    bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet") \
+    > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 2 ] || fail "send from the installed checkout expected 2, got $code: $(cat "$TMP/err")"
+  grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
+    || fail "the refusal does not name the installed checkout: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+  [ -z "$(newest_batch)" ] || fail "the refused send created a brief batch"
+  hasnt 'gh ::'
+
+  for command in open open-ticket ack advance integrate integrated land start report retract wait resume reverify summary finish suspend route 'brief close'; do
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" $command 76)"
+    [ "$code" = 2 ] || fail "$command from the installed checkout expected 2, got $code"
+    grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
+      || fail "$command did not name the installed checkout: $(cat "$TMP/err")"
+  done
+  never_ran
+  hasnt 'gh ::'
+  rm -f "$MMW_HOME/installed-root"
+}
+
+scenario_installedallowsstatus() {
+  local code
+  fresh_repo
+  reset_log
+  write_open_batch
+  mkdir -p "$TMP/repo/mmw-v4"
+  printf '%s\n' "$TMP/repo/mmw-v4" > "$MMW_HOME/installed-root"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+    bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  [ "$code" = 0 ] || fail "status in the installed checkout expected 0, got $code: $(cat "$TMP/err")"
+  grep -q 'spec #76' "$TMP/out" || fail "status did not print the spec table: $(cat "$TMP/out")"
+  never_ran
+  hasnt 'gh :: issue :: comment'
+  rm -f "$MMW_HOME/installed-root"
+}
+
+scenario_installedothercheckoutsend() {
+  local code installed packet
+  fresh_repo
+  reset_log
+  installed="$TMP/installed checkout"
+  git -C "$TMP/repo" worktree add -q --detach "$installed"
+  mkdir -p "$installed/mmw-v4"
+  printf '%s\n' "$installed/mmw-v4" > "$MMW_HOME/installed-root"
+  packet="$TMP/other-checkout-brief.txt"
+  printf '%s\n' 'Investigate the product.' > "$packet"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" \
+    send researcher --follow "the research skill" "$packet")"
+  [ "$code" = 0 ] || fail "send from another checkout expected 0, got $code: $(cat "$TMP/err")"
+  started_once
+  [ "$(out_json cwd)" = "$(git -C "$TMP/repo" rev-parse --show-toplevel)" ] \
+    || fail "the researcher did not start in the calling checkout: $(out_json cwd)"
+  rm -f "$MMW_HOME/installed-root"
 }
 
 scenario_sendbrief() {
@@ -5576,6 +6083,20 @@ JSON
   grep -q "started 1" "$TMP/err" || fail "the freed ticket was not started: $(cat "$TMP/err")"
 }
 
+scenario_posteventshowsgherror() {
+  reset_log
+  fresh_repo
+  local code
+  code="$(run_dispatch env FAKE_GH_COMMENT_FAILS=1 bash "$DISPATCH" "${TOOLS[@]}" send reviewer 61)"
+  [ "$code" = 2 ] || fail "a refused event write must exit 2, got $code: $(cat "$TMP/err")"
+  grep -q 'reviewer.started' "$TMP/err" \
+    || fail "the refusal must name the event: $(cat "$TMP/err")"
+  grep -Fxq 'HTTP 502' "$TMP/err" \
+    || fail "the refusal must preserve gh stderr: $(cat "$TMP/err")"
+  has "gh :: issue :: comment :: 61 :: --body"
+  has "paseo :: archive :: --force :: agt_run_1"
+}
+
 # A session whose start event cannot be written is a session no command can find, and
 # `advance` would read its ticket as free. It is stopped again, and the start refused.
 scenario_startunrecorded() {
@@ -7011,6 +7532,67 @@ scenario_finishchecksbasepush() {
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "red finish changed project"
 }
 
+# The night's --all record on the base branch's tip after a closing-pass fix.
+all_record() {
+  local tip
+  tip="$(git -C "$TMP/origin.git" rev-parse night)"
+  post_ev 76 spec.checked --ticket '' --spec 76 --line "--all green" --field tier=all \
+    --field "commit=$tip" --field "base=$tip" --field result=met \
+    --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+    --json-field 'steps=["unit"]'
+}
+
+scenario_finishreusesall() {
+  local code
+  setup_finish_over_landing
+  git -C "$TMP/repo" checkout -q night
+  commit_file "$TMP/repo" fix.txt fix "closing-pass fix"
+  git -C "$TMP/repo" push -q origin night
+  git -C "$TMP/repo" checkout -q proj
+
+  echo "--- a tip the night's --all proved is not checked again by finish"
+  all_record
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish over a tip --all proved failed: $(cat "$TMP/err")"
+  [ ! -e "$TMP/check-runs" ] || fail "finish ran the checks on a tree --all had proved"
+  grep -q 'passed --all on this machine' "$TMP/out" || fail "finish does not say which record it used: $(cat "$TMP/out")"
+}
+
+scenario_checkall() {
+  local code tip
+  fresh_repo
+  rm -f "$TMP/check-args"
+  git -C "$TMP/repo" checkout -q -b night main
+  put_check "$TMP/repo" "printf '%s\\n' \"\$*\" >> '$TMP/check-args'; echo 'PASS unit 0s'; exit 0"
+  git -C "$TMP/repo" commit -q -m checks
+  git -C "$TMP/repo" push -q -u origin night
+  tip="$(git -C "$TMP/repo" rev-parse night)"
+  echo '[]' > "$TMP/tickets.json"; reset_log
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=night --field project=main
+
+  echo "--- check-all runs scripts/check --all once on origin/night and records it on the spec"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
+  [ "$code" = 0 ] || fail "check-all expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/check-args")" = "--all" ] || fail "scripts/check was not run with --all once: $(cat "$TMP/check-args")"
+  posted_events 76 tier commit steps | grep -qx "spec.checked tier=all commit=$tip steps=\['unit'\]" \
+    || fail "the --all record is wrong: $(posted_events 76 tier commit steps)"
+
+  echo "--- a second check-all on the same tip runs nothing"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
+  [ "$code" = 0 ] || fail "the second check-all expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(wc -l < "$TMP/check-args" | tr -d ' ')" = 1 ] || fail "check-all ran again on a proved tip"
+
+  echo "--- red is exit 1 and records nothing"
+  git -C "$TMP/repo" checkout -q night
+  put_check "$TMP/repo" "echo 'FAIL unit 0s'; exit 1"
+  git -C "$TMP/repo" commit -q -m red
+  git -C "$TMP/repo" push -q origin night
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
+  [ "$code" = 1 ] || fail "a red --all expected 1, got $code: $(cat "$TMP/err")"
+  [ "$(posted_events 76 | grep -c '^spec.checked' | tr -d ' ')" = 1 ] || fail "a red run was recorded"
+}
+
 scenario_finishrerun() {
   local code dirty first_merge
   setup_finish_closed
@@ -7646,6 +8228,362 @@ setup_checked_ticket() {
   seed_workspace 61
 }
 
+scenario_bounceansitail() {
+  setup_checked_ticket "printf '\033[32mFAIL lint-python\033[0m\n\\^[[32mpyrefly\\^[[0m\n'; exit 1"
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "colour output should bounce and continue: $(cat "$TMP/err")"
+  gh_comments_json 61 | python3 "$EVENTS_PY" fold 61 --comments-file - > "$TMP/fold.json" \
+    || fail "the ticket fold could not read the bounce"
+  MMW_BOUNCE="$(bounced_comment 61)" python3 - "$TMP/fold.json" <<'PYTEST' || fail "the bounce must retain readable check output without colour codes"
+import json, os, sys
+from pathlib import Path
+state = json.loads(Path(sys.argv[1]).read_text())
+assert state["unreadable"] == [], state["unreadable"]
+assert state["bounced"], state
+raw = os.environ["MMW_BOUNCE"].split("<!-- mmw ", 1)[1].rsplit(" -->", 1)[0]
+bounce = json.loads(raw)
+assert bounce["reason"] == "checks", bounce
+assert bounce["commands"][0]["tail"] == "FAIL lint-python\npyrefly", bounce
+PYTEST
+}
+
+setup_landed_criterion_change() {
+  reset_log
+  fresh_repo
+  rm -f "$TMP/selected" "$TMP/unselected" "$TMP/selection"
+  open_night
+  git -C "$TMP/repo" checkout -q -b issue-61
+  mkdir -p "$TMP/repo/tests" "$TMP/repo/unaffected"
+  printf 'echo run >> "%s"\n[ ! -e config-red ] && test "$1" = original && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
+  printf 'echo unexpected-run >> "%s"\n' "$TMP/unselected" > "$TMP/repo/unaffected/other.sh"
+  git -C "$TMP/repo" add tests unaffected
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm named-test
+  local passed code
+  passed="$(git -C "$TMP/repo" rev-parse HEAD)"
+  git -C "$TMP/repo" checkout -q main
+  write_one_passed 61 "$passed"
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows[0]["body"] = """## Acceptance criteria
+
+- [ ] AC1: the named test runs
+  CHECK: bash tests/named.sh original
+  EXPECT: /named-green/
+  EVIDENCE: pending
+- [ ] AC2: an unrelated criterion
+  CHECK: bash unaffected/other.sh
+  EXPECT: /anything/
+  EVIDENCE: pending
+"""
+p.write_text(json.dumps(rows))
+PY
+  seed_workspace 61
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "first ticket must land: $(cat "$TMP/err")"
+  posted_events 61 | grep -qx ticket.landed || fail "first ticket did not land"
+  git -C "$TMP/repo" fetch -q origin
+  if [ "${1:-}" = plural ]; then
+    git -C "$TMP/repo" checkout -q -b issue-60 origin/main
+    commit_file "$TMP/repo" plural.txt harmless second-landed-ticket
+    passed="$(git -C "$TMP/repo" rev-parse HEAD)"
+    git -C "$TMP/repo" checkout -q main
+    MMW_PASS="$(ev ticket.passed 60 'ALL MET' --field branch=issue-60 --field "commit=$passed" --field into=main)" \
+      python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+body = rows[0]["body"].split("- [ ] AC2:")[0].replace("AC1:", "AC3:")
+rows.append({"number": 60, "state": "CLOSED", "labels": [],
+             "closedAt": "2026-09-11T01:30:00Z", "body": body,
+             "comments": [json.loads(os.environ["MMW_PASS"])]})
+p.write_text(json.dumps(rows))
+PY
+    seed_workspace 60
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+    [ "$code" = 0 ] || fail "second ticket must land: $(cat "$TMP/err")"
+    posted_events 60 | grep -qx ticket.landed || fail "second ticket did not land"
+    git -C "$TMP/repo" fetch -q origin
+  fi
+  if [ "${1:-}" = base-red ]; then
+    git -C "$TMP/repo" checkout -q -B main origin/main
+    commit_file "$TMP/repo" config-red red pre-existing-failure
+    git -C "$TMP/repo" push -q origin main
+  fi
+  git -C "$TMP/repo" checkout -q -b issue-62 origin/main
+  printf 'echo run >> "%s"\n[ ! -e config-red ] && test "$1" = renamed && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
+  git -C "$TMP/repo" add tests/named.sh
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm rename-test
+  passed="$(git -C "$TMP/repo" rev-parse HEAD)"
+  git -C "$TMP/repo" checkout -q main
+  MMW_PASS="$(ev ticket.passed 62 'ALL MET' --field branch=issue-62 --field "commit=$passed" --field into=main)" \
+    python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows.append({"number": 62, "state": "CLOSED", "labels": [],
+             "closedAt": "2026-09-11T02:00:00Z", "comments": [json.loads(os.environ["MMW_PASS"])]})
+p.write_text(json.dumps(rows))
+PY
+  seed_workspace 62
+  rm -f "$TMP/unselected"
+}
+
+scenario_advancebreakslandedcriterion() {
+  setup_landed_criterion_change
+  local before code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  if [ "${1:-}" = proof ]; then
+    post_ev 62 ticket.checked --ticket 62 --line 'Repository check' --actor worker --stage close \
+      --field run=repository --field result=met --field tier=default \
+      --field "commit=$(git -C "$(wt 62)" rev-parse HEAD)" --field "base=$before" \
+      --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" --json-field 'steps=["unit"]'
+  fi
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "the broken merge was pushed"
+  posted_events 62 reason | grep -qx 'ticket.bounced reason=breaks-landed-criterion' \
+    || fail "the ticket was not bounced for the landed criterion"
+  [ ! -e "$TMP/unselected" ] || fail "an unselected criterion ran"
+}
+
+scenario_advancelandedredonbaselands() {
+  setup_landed_criterion_change base-red
+  local before passed code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  passed="$(git -C "$(wt 62)" rev-parse HEAD)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "base-red advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the base-red criterion bounced an unrelated merge"
+  gh_comments_json 62 | python3 -c '
+import json, sys
+comments = json.load(sys.stdin)["comments"]
+landed = [c["body"] for c in comments if "Landed criteria red on the base too:" in c["body"]]
+assert len(landed) == 1, comments
+assert "Landed criteria red on the base too: #61 AC1" in landed[0], landed
+payload = json.loads(landed[0].split("<!-- mmw ")[1].split(" -->")[0])
+assert payload["event"] == "ticket.landed", payload
+assert payload["landed_base_red"] == [{"ticket": 61, "ac": "AC1"}], payload
+' || fail "landing omitted the base-red criterion"
+  [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD^)" = "$before" ] || fail "the compared merge was not restored"
+  [ ! -e "$TMP/unselected" ] || fail "an unselected criterion ran"
+}
+
+scenario_advancegateafterproof() {
+  scenario_advancebreakslandedcriterion proof
+  grep -q 'repository checks not run again' "$TMP/out" || fail "the fixture did not reuse the repository proof"
+}
+
+scenario_advancelandedgreenonbasebounces() {
+  scenario_advancebreakslandedcriterion
+}
+
+scenario_advancemovedlandedscript() {
+  setup_landed_criterion_change "${2:-}"
+  git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
+  if [ "${1:-}" = delete ]; then
+    git -C "$(wt 62)" rm -q -f tests/named.sh
+  else
+    mkdir -p "$(wt 62)/moved"
+    git -C "$(wt 62)" mv tests/named.sh moved/named.sh
+  fi
+  git -C "$(wt 62)" -c user.email=t@t -c user.name=t commit -qm move-script
+  local before passed code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  passed="$(git -C "$(wt 62)" rev-parse HEAD)"
+  post_ev 62 ticket.passed --ticket 62 --line 'ALL MET' --field branch=issue-62 --field into=main --field "commit=$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "moving a landed script should bounce, not stop advance: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "the script move was pushed"
+  posted_events 62 reason | grep -qx 'ticket.bounced reason=breaks-landed-criterion' || fail "the moved script did not bounce its ticket"
+}
+
+scenario_advancedeletedlandedscript() {
+  scenario_advancemovedlandedscript delete
+}
+
+scenario_advancebaseredscriptremoved() {
+  local mode
+  for mode in move delete; do
+    scenario_advancemovedlandedscript "$mode" base-red
+  done
+}
+
+scenario_advancebrokenfields() {
+  setup_landed_criterion_change plural
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  MMW_BODY="$(bounced_comment 62)" python3 - <<'PY' || fail "the bounce omitted the broken criterion"
+import json, os
+body = os.environ["MMW_BODY"]
+assert "Broken landed criteria: #61 AC1, #60 AC3." in body.splitlines()[0], body
+payload = json.loads(body.split("<!-- mmw ")[1].split(" -->")[0])
+assert payload["reason"] == "breaks-landed-criterion", payload
+assert payload["broken"] == [{"ticket": 61, "ac": "AC1"}, {"ticket": 60, "ac": "AC3"}], payload
+PY
+}
+
+scenario_advanceunrelatedlands() {
+  setup_landed_criterion_change
+  git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
+  git -C "$(wt 62)" -c user.email=t@t -c user.name=t commit -qm restore-test
+  commit_file "$(wt 62)" notes.txt harmless harmless
+  local passed code
+  passed="$(git -C "$(wt 62)" rev-parse HEAD)"
+  post_ev 62 ticket.passed --ticket 62 --line 'ALL MET' --field branch=issue-62 --field into=main --field "commit=$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "unrelated advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "unrelated change did not land"
+  [ ! -e "$TMP/selected" ] || fail "a landed criterion ran for an unrelated root file"
+  [ ! -e "$TMP/unselected" ] || fail "an unrelated criterion ran"
+}
+
+scenario_recheckred() {
+  setup_landed_criterion_change
+  local before code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 1 ] || fail "recheck should return 1 for the renamed test, got $code: $(cat "$TMP/err")"
+  grep -qx '#61 AC1 red' "$TMP/out" || fail "recheck omitted #61 AC1: $(cat "$TMP/out")"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 1 red of 1' ] || fail "wrong recheck summary: $(cat "$TMP/out")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "recheck pushed the commit"
+  [ ! -e "$TMP/unselected" ] || fail "recheck ran another criterion of the landed ticket"
+}
+
+scenario_recheckbaseredcriterion() {
+  local mode code before
+  for mode in base-red green; do
+    setup_landed_criterion_change "$mode"
+    before="$(git -C "$TMP/origin.git" rev-parse main)"
+    cp "$TMP/tickets.json" "$TMP/tickets-before.json"
+    gh_comments_json 61 > "$TMP/landed-comments-before"
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+    if [ "$mode" = base-red ]; then
+      [ "$code" = 0 ] || fail "an already-red criterion should not block recheck: $(cat "$TMP/err")"
+      grep -qx '#61 AC1 red on the base too' "$TMP/out" || fail "recheck omitted the existing base failure: $(cat "$TMP/out")"
+      [ "$(tail -1 "$TMP/out")" = 'recheck #76: 0 landed criteria green; 1 red on the base too' ] || fail "recheck counted the base-red criterion as green"
+    else
+      [ "$code" = 1 ] || fail "a newly broken criterion should block recheck"
+      grep -qx '#61 AC1 red' "$TMP/out" || fail "recheck omitted the regression"
+    fi
+    gh_comments_json 61 > "$TMP/landed-comments-after"
+    cmp "$TMP/landed-comments-before" "$TMP/landed-comments-after" || fail "recheck commented on the landed ticket"
+    cmp "$TMP/tickets-before.json" "$TMP/tickets.json" || fail "recheck changed ticket state"
+    [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "recheck pushed the candidate"
+    [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD)" = "$(git -C "$TMP/repo" rev-parse issue-62)" ] || fail "recheck did not restore the candidate"
+  done
+}
+
+scenario_recheckgreenrecordsnothing() {
+  setup_landed_criterion_change
+  local before code
+  gh_comments_json 61 > "$TMP/landed-comments-before"
+  cp "$TMP/tickets.json" "$TMP/tickets-before.json"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 1 ] || fail "the red recheck should exit 1"
+  git -C "$TMP/repo" checkout -q -b closing-green origin/main
+  printf '\n' >> "$TMP/repo/tests/named.sh"
+  git -C "$TMP/repo" add tests/named.sh
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm harmless-test-change
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76)"
+  [ "$code" = 0 ] || fail "green recheck failed: $(cat "$TMP/err")"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 1 landed criteria green' ] || fail "the harmless test change was not checked: $(cat "$TMP/out")"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 origin/main)"
+  [ "$code" = 0 ] || fail "empty recheck failed"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 0 landed criteria green' ] || fail "wrong zero-criteria summary"
+  gh_comments_json 61 > "$TMP/landed-comments-after"
+  cmp "$TMP/landed-comments-before" "$TMP/landed-comments-after" || fail "recheck wrote a comment on the landed ticket"
+  cmp "$TMP/tickets-before.json" "$TMP/tickets.json" || fail "recheck changed ticket state or labels"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "recheck pushed a commit"
+  hasnt 'gh :: issue :: edit'
+  hasnt 'gh :: issue :: reopen'
+  hasnt 'gh :: issue :: close'
+  [ ! -e "$TMP/unselected" ] || fail "recheck ran an unselected criterion"
+}
+
+scenario_recheckpathselection() {
+  setup_landed_criterion_change
+  git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
+  mkdir -p "$(wt 62)/tests/deep"
+  printf 'new test\n' > "$(wt 62)/tests/deep/test file.sh"
+  printf 'config\n' > "$(wt 62)/config.json"
+  git -C "$(wt 62)" add tests config.json
+  git -C "$(wt 62)" -c user.email=t@t -c user.name=t commit -qm nested-test
+  python3 - "$TMP/tickets.json" "$TMP/selection" <<'PY'
+import json, shlex, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+paths = ['"tests/deep/test file.sh"', 'tests/deep', 'tests/deep/other.py',
+         'tests', 'tests/deeper', 'config.json', './', 'config.json.bak']
+lines = ["## Acceptance criteria", ""]
+for i, path in enumerate(paths, 1):
+    lines += [f"- [ ] AC{i}: path selection",
+              f"  CHECK: echo AC{i} >> {shlex.quote(sys.argv[2])}; echo green; : {path}",
+              "  EXPECT: /green/", "  EVIDENCE: pending"]
+rows[0]["body"] = "\n".join(lines)
+p.write_text(json.dumps(rows))
+PY
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 0 ] || fail "path-selection recheck failed: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/selection")" = "$(printf 'AC1\nAC2\nAC3\nAC6')" ] \
+    || fail "selection must use only full paths and immediate parents: $(cat "$TMP/selection")"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 4 landed criteria green' ] || fail "wrong selection count"
+}
+
+scenario_recheckcannotrun() {
+  setup_landed_criterion_change
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 missing-commit)"
+  [ "$code" = 2 ] || fail "an unknown commit should exit 2"
+  grep -q missing-commit "$TMP/err" || fail "the unknown commit was not named"
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows[0]["body"] = rows[0]["body"].replace('bash tests/named.sh original', 'no-such-criterion-runner tests/named.sh')
+p.write_text(json.dumps(rows))
+PY
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 2 ] || fail "a CHECK that cannot start should exit 2: $(cat "$TMP/err")"
+  grep -q 'could not start' "$TMP/err" || fail "the unrunnable CHECK was not explained"
+  post_ev 76 spec.closed --ticket '' --spec 76 --line 'Night closed'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 2 ] || fail "a closed night should exit 2"
+  grep -q 'not open' "$TMP/err" || fail "the closed night was not explained"
+}
+
+scenario_recheckbasecannotstart() {
+  setup_landed_criterion_change
+  commit_file "$(wt 62)" criterion-runner ready candidate-runner
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows[0]["body"] = rows[0]["body"].replace(
+    'bash tests/named.sh original',
+    'if [ -e criterion-runner ]; then bash tests/named.sh original; else no-such-criterion-runner tests/named.sh; fi')
+p.write_text(json.dumps(rows))
+PY
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 2 ] || fail "a CHECK that cannot start on the base is not a comparable failure: $(cat "$TMP/out")"
+  grep -q 'could not start on the base' "$TMP/err" || fail "recheck did not explain why it could not compare the base"
+  [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD)" = "$(git -C "$TMP/repo" rev-parse issue-62)" ] || fail "the candidate was not restored after the base refusal"
+}
+
 scenario_advancebouncedchecks() {
   setup_checked_ticket "printf 'red-%s\\n' tail; exit 1"
   local before code
@@ -7658,6 +8596,35 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced reason is wrong: $(posted_events 61 reason commands)"
   posted_events 61 commands | grep -q "red-tail" \
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
+}
+
+scenario_advancebaseredlands() {
+  local code before mode body
+  for mode in base-too merge-only unsupported; do
+    body='if [ "${1:-}" = --step ]; then
+  [ "$2" = unit ] || exit 2
+  [ "$MMW_RED_MODE" != unsupported ] || exit 2
+  if [ "$MMW_RED_MODE" = merge-only ] && [ ! -e ticket.txt ]; then echo "PASS unit 0s"; exit 0; fi
+else
+  echo "PASS lint 0s"
+fi
+echo "FAIL unit 0s"
+exit 1'
+    setup_checked_ticket "$body"
+    before="$(git -C "$TMP/origin.git" rev-parse main)"
+    code="$(run_dispatch env MMW_RED_MODE="$mode" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+      bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+    [ "$code" = 0 ] || fail "$mode advance failed: $(cat "$TMP/err")"
+    if [ "$mode" = base-too ]; then
+      [ "$(git -C "$TMP/origin.git" rev-parse main)" != "$before" ] || fail "base-red ticket did not land"
+      posted_events 61 base_red | grep -qx "ticket.landed base_red=\['unit'\]" || fail "landing omitted base_red"
+      gh_comments_json 61 | python3 -c 'import json, sys; assert any("Red on the base too: unit" in c["body"] for c in json.load(sys.stdin)["comments"])' \
+        || fail "landing omitted the base-red explanation"
+    else
+      [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "$mode merge was pushed"
+      posted_events 61 reason | grep -qx 'ticket.bounced reason=checks' || fail "$mode did not bounce"
+    fi
+  done
 }
 
 # 29 lines, the failing test's name on line 10. The command builds that name at
@@ -7688,7 +8655,7 @@ if not hits:
 # Read the bounce the fake tracker holds, then claim that same ticket. The resume
 # quotes the Failed checks slice of the comment that was posted.
 assert_resume_quotes_posted_bounce() {
-  local n="${1:-61}" body quote out err code commit
+  local n="${1:-61}" body quote out err code commit shape
   body="$(bounced_comment "$n")"
   quote="$(printf '%s\n' "$body" | python3 -c '
 import sys
@@ -7700,8 +8667,18 @@ for line in sys.stdin:
 raise SystemExit(1)
 ')" || fail "the posted bounce has no Failed checks: line: $body"
   commit="$(git -C "$(wt "$n")" rev-parse HEAD)"
+  # A worker's own run records the shape of the criteria it ran; preflight resumes only
+  # from a run whose shape matches the ticket's criteria now.
+  shape="$(cd "$(wt "$n")" && python3 - "$(dirname "$SKILL")/verify-ticket/scripts/verify-ticket.py" "$n" <<'SHAPE'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("vt", sys.argv[1])
+vt = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(vt)
+print(vt.shape_digest(vt.section(vt.fetch_body(int(sys.argv[2])), "Acceptance criteria")))
+SHAPE
+)" || fail "could not read #$n's criteria shape"
   post_ev "$n" ticket.checked --ticket "$n" --line "self run" \
-    --field run=self --field "commit=$commit" --field result=met
+    --field run=self --field "commit=$commit" --field result=met --field "shape=$shape"
   out="$TMP/preflight-$n.out"
   err="$TMP/preflight-$n.err"
   code="$(
@@ -7745,7 +8722,7 @@ scenario_advancebouncedkeepserrors() {
 
 scenario_advancebouncedsteps() {
   local before code body
-  setup_checked_ticket 'echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
+  setup_checked_ticket '[ "${1:-}" != --step ] || exit 2; echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
@@ -7808,6 +8785,71 @@ scenario_advancechecksonce() {
     || fail "the ticket did not land"
   [ "$(wc -l < "$TMP/check-runs" 2>/dev/null | tr -d ' ')" = 1 ] \
     || fail "the merge result of a ticket on an unmoved base was not checked exactly once"
+}
+
+# A green repository check of ticket 61's passed commit, as the worker's run records it:
+# `repository_record <base commit>`.
+repository_record() {
+  post_ev 61 ticket.checked --ticket 61 --line "Repository check" --actor worker --stage close \
+    --field run=repository --field result=met --field tier=default \
+    --field "commit=$(git -C "$TMP/repo" rev-parse issue-61)" --field "base=$1" \
+    --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+    --json-field 'steps=["unit"]' "${@:2}"
+}
+
+scenario_landskipsbaseredproof() {
+  rm -f "$TMP/check-runs"
+  setup_checked_ticket "printf '%s\\n' \"\${1:-default}\" >> '$TMP/check-runs'
+if [ \"\${1:-}\" = --step ]; then [ \"\$2\" = unit ] || exit 2; fi
+echo 'FAIL unit 0s'
+exit 1"
+  local passed base code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  base="$(git -C "$TMP/origin.git" rev-parse main)"
+  repository_record "$base" --json-field 'base_red=["unit"]'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the ticket did not land"
+  [ "$(cat "$TMP/check-runs" 2>/dev/null)" = "$(printf 'default\n--step')" ] \
+    || fail "landing did not check the merge and compare its failed steps on the base"
+  posted_events 61 checked_by | grep '^ticket.landed' | grep -q 'checked_by=None' \
+    || fail "landing reused the worker's base-red record"
+  posted_events 61 base_red | grep -qx "ticket.landed base_red=\['unit'\]" \
+    || fail "landing did not record its own base-red comparison"
+}
+
+scenario_landreusesproof() {
+  rm -f "$TMP/check-runs"
+  setup_checked_ticket "printf 'x\\n' >> '$TMP/check-runs'"
+  local passed code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+
+  echo "--- a base that has not moved since the worker's green run is not checked again"
+  repository_record "$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the ticket did not land"
+  [ ! -e "$TMP/check-runs" ] || fail "the check ran on a tree the worker's record proved"
+  posted_events 61 checked_by | grep '^ticket.landed' | grep -q "checked_by=repository default $passed" \
+    || fail "the landing does not name the record it relied on: $(posted_events 61 checked_by)"
+}
+
+scenario_landrunsonnewbase() {
+  rm -f "$TMP/check-runs"
+  setup_checked_ticket "printf 'x\\n' >> '$TMP/check-runs'"
+  local code
+
+  echo "--- a record against another base proves nothing about this merge, so the check runs once"
+  repository_record "$(git -C "$TMP/repo" rev-parse issue-61)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  [ "$(wc -l < "$TMP/check-runs" 2>/dev/null | tr -d ' ')" = 1 ] \
+    || fail "the check should run once when no record covers the merge"
+  posted_events 61 checked_by | grep '^ticket.landed' | grep -q 'checked_by=None' \
+    || fail "a landing that ran its own check names no record: $(posted_events 61 checked_by)"
 }
 
 scenario_advancebaseref() {
@@ -8997,8 +10039,204 @@ ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard o
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
-ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
-ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
+ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteventshowsgherror"
+ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername briefclosebrowsers briefclosekillsleftover sendrefusesclosedbatch"
+ALL="$ALL envstartsetsup envupfails envdownonend envmergeworktree envrestartaftersuspend envabsent"
+ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
+scenario_prgreen() {
+  local code
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'on: pull_request\n' > "$TMP/repo/.github/workflows/ci.yml"
+  printf 'PR body\n' > "$TMP/body.md"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base main --head night --title 'Night changes' --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "pr expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx 'https://github.com/o/r/pull/7' "$TMP/out" || fail 'PR link was not printed'
+  grep -qx 'checks: green' "$TMP/out" || fail "missing green summary: $(cat "$TMP/out")"
+  has "gh :: pr :: create :: --base :: main :: --head :: night :: --title :: Night changes :: --body-file :: $TMP/body.md"
+  hasnt ' :: --draft'
+  has 'gh :: pr :: checks :: 7 :: --watch'
+  ! grep -q '^NOTE:' "$TMP/out" || fail 'CI runs for main, so no NOTE is expected'
+}
+
+scenario_prnotewhennoci() {
+  local code workflow base pattern ci
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'PR body\n' > "$TMP/body.md"
+  for workflow in \
+    'on: {pull_request: {branches: [main]}}' \
+    $'on:\n  pull_request:\n    branches:\n      - main' \
+    $'on:\n  pull_request:\n    branches-ignore: [night]' ; do
+    printf '%s\n' "$workflow" > "$TMP/repo/.github/workflows/pull-request.yaml"
+    for base in night main; do
+      code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+        --base "$base" --head feature --title Changes --body-file "$TMP/body.md")"
+      [ "$code" = 0 ] || fail "expected 0, got $code: $(cat "$TMP/err")"
+      if [ "$base" = night ]; then
+        grep -qx 'NOTE: GitHub CI does not run for pull requests into night' "$TMP/out" \
+          || fail "missing NOTE for $workflow"
+      else
+        ! grep -q '^NOTE:' "$TMP/out" || fail "unexpected NOTE for main with $workflow"
+      fi
+    done
+  done
+  for workflow in 'on: pull_request' 'on: pull_request # runs on every base' 'on: [push, pull_request]' \
+    $'on:\n  - push\n  - pull_request' '"on": {pull_request: {}}' \
+    $'on:\n  pull_request:\n    branches: []' $'on:\n  pull_request:\n    branches:' ; do
+    printf '%s\n' "$workflow" > "$TMP/repo/.github/workflows/pull-request.yaml"
+    code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+      --base night --head feature --title Changes --body-file "$TMP/body.md")"
+    [ "$code" = 0 ] || fail "expected 0: $(cat "$TMP/err")"
+    ! grep -q '^NOTE:' "$TMP/out" || fail "unexpected NOTE for unrestricted $workflow"
+  done
+  while IFS='|' read -r pattern base ci; do
+    printf 'on: {pull_request: {branches: [%s]}}\n' "$pattern" > "$TMP/repo/.github/workflows/pull-request.yaml"
+    code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+      --base "$base" --head feature --title Changes --body-file "$TMP/body.md")"
+    [ "$code" = 0 ] || fail "branch filter expected 0: $(cat "$TMP/err")"
+    if [ "$ci" = yes ]; then
+      ! grep -q '^NOTE:' "$TMP/out" || fail "$pattern must cover $base"
+    else
+      grep -qx "NOTE: GitHub CI does not run for pull requests into $base" "$TMP/out" \
+        || fail "$pattern must not cover $base"
+    fi
+  done <<'CASES'
+'*'|fix/1|no
+'*'|main|yes
+'**'|fix/1|yes
+'fix/*'|fix/1/extra|no
+'fix/**'|fix/1/extra|yes
+'v[12].[0-9]+.[0-9]+'|v1.10.1|yes
+'v[12].[0-9]+.[0-9]+'|v3.10.1|no
+'releases/**', '!releases/**-alpha'|releases/v1-alpha|no
+CASES
+  printf 'on: *unreadable\n' > "$TMP/repo/.github/workflows/pull-request.yaml"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "unknown workflow should assume CI: $(cat "$TMP/err")"
+  ! grep -q '^NOTE:' "$TMP/out" || fail 'unknown workflow must not assert no CI'
+  grep -q 'pull-request.yaml.*could not read' "$TMP/out" || fail 'unknown workflow must name its file'
+}
+
+scenario_prdispatchesworkflow() {
+  local code
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'PR body\n' > "$TMP/body.md"
+  cat > "$TMP/repo/.github/workflows/ci.yml" <<'YAML'
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      optional:
+        required: false
+YAML
+  printf 'on: workflow_dispatch\n' > "$TMP/repo/.github/workflows/deploy.yaml"
+  cat > "$TMP/repo/.github/workflows/required.yml" <<'YAML'
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        required: true
+YAML
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail "missing workflow result: $(cat "$TMP/out")"
+  grep -q '^skipped deploy.yaml: .*pull_request' "$TMP/out" || fail 'deploy-only workflow must explain skip'
+  grep -q '^skipped required.yml: .*required' "$TMP/out" || fail 'required input must explain skip'
+  has 'gh :: workflow :: run :: ci.yml :: --ref :: feature'
+  has 'gh :: run :: watch :: 81 :: --exit-status'
+  hasnt 'gh :: workflow :: run :: deploy.yaml'
+  hasnt 'gh :: workflow :: run :: required.yml'
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_CONCLUSION=failure \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail "failed fallback run expected 1, got $code"
+  grep -qx 'dispatched ci.yml: failure' "$TMP/out" || fail 'failed fallback must print its conclusion'
+  grep -qx 'https://github.com/o/r/pull/7' "$TMP/out" || fail 'fallback failure must still open the PR'
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_WATCH_FAIL=1 \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail 'a fallback watch failure must exit 1'
+  grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail 'the actual run conclusion must remain visible'
+  grep -q 'watch connection lost' "$TMP/err" || fail 'a failed watch must retain its error'
+  rm "$MMW_FAKE_PASEO_STATE/dispatched-run"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_NO_URL=1 \
+    MMW_PR_CHECKS_GRACE_SECONDS=0 bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "a dispatch without a run URL must find the new run: $(cat "$TMP/err")"
+  grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail 'new workflow run must be watched'
+  hasnt 'gh :: run :: watch :: 80'
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PERSIST_PR=1 FAKE_GH_PR_CHECKS_FAIL=1 \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'a watch failure after opening the PR must exit 2'
+  [ "$(count_of 'gh :: workflow :: run :: ci.yml')" = 1 ] || fail 'the first attempt must dispatch once'
+  code="$(run_dispatch env FAKE_GH_PERSIST_PR=1 FAKE_GH_PR_CHECKS='build pass' \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'an existing PR must be reported before opening another'
+  [ "$(count_of 'gh :: workflow :: run :: ci.yml')" = 1 ] || fail 'retry must not dispatch the workflow twice'
+  grep -q 'https://github.com/o/r/pull/7' "$TMP/err" || fail 'the refusal must identify the existing PR'
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "normal PR CI expected green: $(cat "$TMP/err")"
+  hasnt 'gh :: workflow :: run'
+}
+
+scenario_prredandnone() {
+  local code
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'PR body\n' > "$TMP/body.md"
+  printf 'on: pull_request\n' > "$TMP/repo/.github/workflows/ci.yml"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS=$'build fail\nunit tests cancel' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail "red checks expected 1, got $code"
+  grep -qx 'checks: red build, unit tests' "$TMP/out" || fail "missing red names: $(cat "$TMP/out")"
+  code="$(run_dispatch env MMW_PR_CHECKS_GRACE_SECONDS=0 FAKE_GH_PR_CHECKS='' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail "no checks with expected CI must exit 1, got $code"
+  grep -qx 'checks: none' "$TMP/out" || fail "missing none with expected CI: $(cat "$TMP/out")"
+  reset_log
+  code="$(run_dispatch env MMW_PR_CHECKS_GRACE_SECONDS=3 FAKE_GH_PR_CHECKS_DELAY=2 \
+    FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "delayed checks expected green, got $code: $(cat "$TMP/err")"
+  grep -qx 'checks: green' "$TMP/out" || fail 'checks that appear during grace must be read'
+  [ "$(count_of 'gh :: pr :: checks :: 7 :: --watch')" -ge 2 ] || fail 'no checks must be retried'
+  rm "$TMP/repo/.github/workflows/ci.yml"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='' bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "no CI and no checks expected 0, got $code"
+  grep -qx 'checks: none' "$TMP/out" || fail "missing none without CI: $(cat "$TMP/out")"
+  code="$(run_dispatch bash "$DISPATCH" pr --base main)"
+  [ "$code" = 2 ] || fail 'missing arguments must exit 2'
+  code="$(run_dispatch env FAKE_GH_PR_CREATE_FAIL=1 bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'failed PR creation must exit 2'
+  grep -q 'opening pull request failed' "$TMP/err" || fail 'failed PR must explain why'
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS_FAIL=1 bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'a GitHub failure must not be reported as no checks'
+  grep -q 'HTTP 502' "$TMP/err" || fail 'a check read failure must explain why'
+}
+
+ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall landskipsbaseredproof prgreen prnotewhennoci prdispatchesworkflow prredandnone"
+ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands recheckred recheckgreenrecordsnothing"
+ALL="$ALL advancebaseredlands"
+ALL="$ALL recheckpathselection"
+ALL="$ALL advancegateafterproof recheckcannotrun"
+ALL="$ALL advancemovedlandedscript"
+ALL="$ALL advancedeletedlandedscript"
+ALL="$ALL advancelandedredonbaselands advancelandedgreenonbasebounces recheckbaseredcriterion"
+ALL="$ALL advancebaseredscriptremoved recheckbasecannotstart"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

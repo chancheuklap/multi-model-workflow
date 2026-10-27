@@ -76,7 +76,7 @@ MARK = "mmw"
 # must carry, and the fields whose value is one of a closed set. Names are
 # `subject.verb`: a subject from SUBJECTS, a verb in the past tense, lower case, ASCII,
 # no value ever inside the name — ticket numbers, commits, hosts and models are fields.
-SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child", "lesson")
+SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child", "lesson", "lessons")
 
 AGENT_KINDS = ("worker", "reviewer")
 
@@ -95,29 +95,42 @@ ABANDON_KINDS = ("decision", "failed", "stuck")
 # claim-time run of the criteria at `worker.started.base`.
 # `repo-checks` is the repository's own `checks` of `.mmw/target.json` run at a closeout:
 # no script posts it now, and tickets closed out by MMW v2 carry it, so it stays readable.
-CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline")
+CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline", "repository")
 CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
 CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
-                "baseline": "claim"}
-BOUNCE_REASONS = ("conflict", "checks")
+                "baseline": "claim", "repository": "close"}
+BOUNCE_REASONS = ("conflict", "checks", "breaks-landed-criterion")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
 RETRO_EVIDENCE = ("complete", "partial")
 LESSON_SOURCES = ("noticed", "owner-correction", "stall", "retro-signal")
 
 EVENTS: dict[str, dict] = {
+    "lessons.merged":    {"stage": "work", "actor": "main",
+                          "required": ("decision", "batch"),
+                          "patterns": {"decision": r"closed|kept|merged:[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*|(?:spec|ticket):[1-9][0-9]*"}},
     "lesson.seen":       {"stage": "work", "actor": "main",
                           "required": ("lesson", "seen_in", "source", "session"),
                           "closed": {"source": LESSON_SOURCES},
                           "patterns": {"seen_in": r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+",
                                        "session": r"none|[A-Za-z0-9-]+:[^\s:]+"}},
+    "lesson.assessed":   {"stage": "work", "actor": "main",
+                          "required": ("conclusion", "reason", "evidence", "run", "qualifies", "request"),
+                          "patterns": {"conclusion": r"merge:\S.*|reject|candidate|propose",
+                                       "run": r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*"}},
     "spec.opened":       {"stage": "night",    "actor": "main"},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
     "spec.closed":       {"stage": "night",    "actor": "main"},
     "spec.retroed":      {"stage": "night",    "actor": "main",
                            "required": ("result",),
                            "closed": {"result": RETRO_RESULTS}},
+    # One green run of the repository's check on the night branch, recorded by the run
+    # itself: `tier` `all` at night end, which `finish` reuses when its merge is that tree.
+    "spec.checked":      {"stage": "land",     "actor": "main",
+                          "required": ("tier", "commit", "base", "machine", "result"),
+                          "closed": {"tier": ("default", "all"), "result": ("met",)},
+                          "patterns": {"commit": r"[0-9a-f]{40}", "base": r"[0-9a-f]{40}"}},
     "spec.merged":       {"stage": "land",     "actor": "main",
                           "required": ("into", "project", "merge", "base"),
                           "patterns": {"merge": r"[0-9a-f]{40}",
@@ -239,6 +252,10 @@ RESULTS = {
 
 BLOCK_RE = re.compile(r"<!--\s*" + MARK + r"\b(.*?)-->", re.S)
 OPENER_RE = re.compile(r"<!--\s*" + MARK + r"\b")
+TERMINAL_ESCAPE_RE = re.compile(
+    r"\x1b\].*?(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\\?\^\[\[[0-9;:]*m",
+    re.S,
+)
 COMMENT_ID_RE = re.compile(r"#issuecomment-(\d+)")
 
 
@@ -277,6 +294,11 @@ def _check(event: str, payload: dict) -> str | None:
             missing = [key for key in group if key not in given]
             return (f"`{event}` names {', '.join(given)} without {', '.join(missing)}; "
                     f"they are one thing and come together")
+    if event == "ticket.checked" and "base_red" in payload:
+        steps = payload["base_red"]
+        if not isinstance(steps, list) or any(
+                not isinstance(step, str) or not re.fullmatch(r"\S+", step) for step in steps):
+            return "`ticket.checked` needs `base_red` as a list of step names"
     if event == "child.closed":
         resolution = payload.get("resolution")
         reason = payload.get("reason")
@@ -285,6 +307,17 @@ def _check(event: str, payload: dict) -> str | None:
                     f"{', '.join(STALE_REASONS)}")
         if resolution != "stale" and "reason" in payload:
             return "`child.closed` carries `reason` for a non-stale resolution"
+    if event == "lessons.merged":
+        if not isinstance(payload.get("batch"), str) or not payload["batch"].strip():
+            return "`lessons.merged` needs a nonempty string `batch`"
+    if event == "lesson.assessed":
+        for key in ("reason", "evidence", "request"):
+            if not isinstance(payload.get(key), str) or not payload[key].strip():
+                return f"`lesson.assessed` needs a nonempty string `{key}`"
+        if not isinstance(payload.get("plan"), str):
+            return "`lesson.assessed` needs `plan` as a string, empty when there is no plan"
+        if not isinstance(payload.get("qualifies"), bool):
+            return "`lesson.assessed` needs `qualifies` as a boolean"
     if event == "lesson.seen":
         for key in ("lesson", "spec", "ticket"):
             value = payload.get(key)
@@ -306,8 +339,8 @@ def _check(event: str, payload: dict) -> str | None:
             return f"`{event}` needs a positive integer `{context}`"
         if event == "spec.retroed" and payload.get("ticket") is not None:
             return "`spec.retroed` is a spec event and its `ticket` must be null"
-        counts = ("registered", "merged", "rejected", "candidates", "landed_since_last")
-        success = (*counts, "proposals", "problems", "recurred_after_wontfix", "evidence", "unreadable_sources")
+        counts = ("registered", "merged", "rejected", "candidates", "proposals", "landed_since_last")
+        success = (*counts, "problems", "recurred_after_wontfix", "evidence", "unreadable_sources")
         if payload.get("result") == "unrecorded":
             reason = payload.get("reason")
             if not isinstance(reason, str) or not reason.strip():
@@ -324,23 +357,27 @@ def _check(event: str, payload: dict) -> str | None:
                 if not isinstance(entry, dict):
                     return f"{where} needs repo, number and conclusion; correct the receipt writer"
                 repo, number, conclusion = (entry.get(k) for k in ("repo", "number", "conclusion"))
+                if conclusion == "unrecorded":
+                    if any(not isinstance(entry.get(k), str) or not entry[k].strip()
+                           for k in ("code", "reason")):
+                        return f"{where} unrecorded needs its original code and a reason; correct the receipt writer"
+                    continue
                 if not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+", repo):
                     return f"{where} needs `repo` as owner/repo; correct the receipt writer"
                 if isinstance(number, bool) or not isinstance(number, int) or number < 1:
                     return f"{where} needs a positive integer `number`; correct the receipt writer"
                 if conclusion not in ("propose", "candidate", "reject", "registered", "appended") and (
                         not isinstance(conclusion, str) or not re.fullmatch(
-                            r"merge:[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*", conclusion)):
-                    return f"{where} needs conclusion propose, candidate, reject, registered, appended or merge:owner/repo#number; correct the receipt writer"
+                            r"merge:\S.*", conclusion)):
+                    return f"{where} needs conclusion propose, candidate, reject, registered, appended or merge:<target>; correct the receipt writer"
             for key in counts:
                 count = payload.get(key)
                 if isinstance(count, bool) or not isinstance(count, int) or count < 0:
                     return f"`{event}` needs a non-negative integer `{key}`"
-            for key in ("proposals", "recurred_after_wontfix"):
-                numbers = payload.get(key)
-                if not isinstance(numbers, list) or any(
-                        isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in numbers):
-                    return f"`{event}` needs `{key}` as a list of integer issue numbers"
+            numbers = payload.get("recurred_after_wontfix")
+            if not isinstance(numbers, list) or any(
+                    isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in numbers):
+                return f"`{event}` needs `recurred_after_wontfix` as a list of integer issue numbers"
             evidence = payload.get("evidence")
             if evidence not in RETRO_EVIDENCE:
                 return f"`{event}` has evidence `{evidence}`, which is not one of {', '.join(RETRO_EVIDENCE)}"
@@ -366,7 +403,12 @@ def block(payload: dict) -> str:
     HTML comment early; JSON reads the escape back as the same character.
     """
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    return f"<!-- {MARK} " + text.replace(">", "\\u003e") + " -->"
+    text = text.replace(">", "\\u003e")
+    try:
+        json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise EventError(f"event JSON could not be read back: {exc}") from exc
+    return f"<!-- {MARK} " + text + " -->"
 
 
 def neutralise(prose: str) -> str:
@@ -377,6 +419,16 @@ def neutralise(prose: str) -> str:
     nobody wrote. `&lt;!--` renders as `<!--` for a person and opens nothing.
     """
     return OPENER_RE.sub(lambda m: "&lt;!--" + m.group(0)[4:], prose or "")
+
+
+def strip_terminal_escapes(value):
+    if isinstance(value, str):
+        return TERMINAL_ESCAPE_RE.sub("", value)
+    if isinstance(value, dict):
+        return {key: strip_terminal_escapes(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [strip_terminal_escapes(item) for item in value]
+    return value
 
 
 def build(event: str, *, ticket: int | None, line: str, text: str = "",
@@ -392,7 +444,7 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     table = EVENTS.get(event)
     if table is None:
         raise EventError(f"`{event}` is not an event of this pipeline")
-    first = neutralise(line).strip().splitlines()
+    first = neutralise(strip_terminal_escapes(line)).strip().splitlines()
     if not first or not first[0].strip():
         raise EventError(f"`{event}` needs a first line a person can read")
     payload = {
@@ -407,8 +459,9 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     for key, value in fields.items():
         if key in COMMON:
             raise EventError(f"`{key}` is a common field, not a field of `{event}`")
-        if value is not None and value != "":
+        if value is not None and (value != "" or (event == "lesson.assessed" and key == "plan")):
             payload[key] = value
+    payload = strip_terminal_escapes(payload)
     problem = _check(event, payload)
     if problem:
         raise EventError(problem)
@@ -417,7 +470,7 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     if rest:
         parts.append(rest)
     if text and text.strip():
-        parts += ["", neutralise(text).strip("\n")]
+        parts += ["", neutralise(strip_terminal_escapes(text)).strip("\n")]
     return "\n".join(parts) + "\n\n" + block(payload) + "\n"
 
 

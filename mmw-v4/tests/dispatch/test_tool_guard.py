@@ -12,6 +12,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -101,6 +102,37 @@ def with_command(host: str, command: str) -> dict:
 
 
 # ------------------------------------------------------------------------ cwd names the ticket
+
+
+class TestPullRequestCreation(unittest.TestCase):
+    def test_guard_refuses_gh_pr_create(self):
+        for host in EVENTS:
+            for cwd in ("night-work", f"issue-{TICKET}"):
+                for command in (
+                    "gh pr create --base main --head night --title Changes --body-file body.md",
+                    "echo hi # don't\ngh pr create\n# it's done",
+                    "cat > body.md <<'EOF'\ndon't\nEOF\ngh pr create\n",
+                    "env FOO=1 gh pr create",
+                    "gh -R o/r pr create",
+                    "gh --repo o/r pr create",
+                    "gh --repo=o/r pr create",
+                    "gh -Ro/r pr create",
+                ):
+                    with self.subTest(host=host, cwd=cwd, command=command):
+                        code, answer = call(host, with_command(host, command), cwd_basename=cwd)
+                        self.assertEqual(code, 0)
+                        self.assertIsNotNone(answer)
+                        self.assertEqual(answer["hookSpecificOutput"]["permissionDecision"], "deny")
+                        self.assertIn("dispatch.sh pr --base", reason_of(answer))
+            for command in (
+                "cat > body.md <<'EOF'\nDo not run gh pr create\ngh pr create\nEOF",
+                "echo 'gh pr create'",
+                "gh pr view 7",
+                "bash /skills/dispatch/scripts/dispatch.sh pr --base main --head night --title Changes --body-file body.md",
+            ):
+                with self.subTest(host=host, command=command):
+                    _, answer = call(host, with_command(host, command), cwd_basename="night-work")
+                    self.assertIsNone(answer)
 
 
 class TestCwdNamesTheTicket(unittest.TestCase):
@@ -218,6 +250,32 @@ class TestWhatItStops(unittest.TestCase):
         """A worker opens sub-issues under the spec; those are not the ticket it holds."""
         self.assertFalse(hk.leaves_the_agent_lane("gh issue close 58", TICKET))
         self.assertFalse(hk.leaves_the_agent_lane(f"gh issue close {TICKET}0", TICKET))
+
+    def test_guard_edit_last_is_refused(self):
+        for host in EVENTS:
+            for directory in (f"issue-{TICKET}", "night-76", "workspace"):
+                for command in (
+                    "gh issue comment 64 --edit-last --body correction",
+                    "gh pr comment 64 --body-file report.md --edit-last",
+                    "gh issue comment 64 --edit-last=true --body correction",
+                    "gh -R o/r issue comment 64 --edit-last",
+                    "gh pr --repo=o/r comment 64 --edit-last",
+                    "echo ok; env FOO=1 gh pr comment 64 --edit-last",
+                ):
+                    with self.subTest(host=host, directory=directory, command=command):
+                        code, answer = call(host, with_command(host, command), cwd_basename=directory)
+                        self.assertEqual(code, 0)
+                        self.assertIsNotNone(answer)
+                        self.assertIn("gh api", reason_of(answer))
+                        self.assertIn("comment id", reason_of(answer))
+            for command in (
+                "gh issue comment 64 --body '--edit-last'",
+                "gh pr comment 64 --body='the --edit-last flag is forbidden'",
+                "gh api repos/o/r/issues/comments/123 -X PATCH -f body=correction",
+                "echo 'gh issue comment 64 --edit-last'",
+                "cat <<EOF\ngh pr comment 64 --edit-last\nEOF",
+            ):
+                self.assertEqual(call(host, with_command(host, command)), (0, None))
 
 
 # ------------------------------------------------------------------------ AC3
@@ -397,15 +455,6 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
 
 
 class EndingAProcess(unittest.TestCase):
-    """The third refusal: a run never ends a process it did not start.
-
-    Several tickets are worked on one machine at once. Another run's application is
-    indistinguishable from a stuck one, and on 2026-09-05 a worker ended one to take its
-    ports. The gate refuses the whole family rather than trying to work out whose process
-    it is — the same "refuses rather than checks" the `gh issue close` refusal above is built on,
-    for the same reason: guessing wrong is the outcome the gate exists to prevent.
-    """
-
     def test_the_kill_family_is_refused(self):
         for command in ("kill 123", "kill -9 4321", "pkill -f Electron",
                         "killall Electron", "lsof -ti:5173 | xargs kill -9",
@@ -438,6 +487,93 @@ class EndingAProcess(unittest.TestCase):
                 self.assertIsNone(answer, f"{command} was refused")
 
 
+class TestOwnProcessTree(unittest.TestCase):
+    @contextmanager
+    def host_tree(self, host, *, ps_fails=False):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / host
+            source = sys.executable
+            if sys.platform == "darwin":
+                source = subprocess.check_output(
+                    ["ps", "-p", str(os.getpid()), "-o", "comm="], text=True).strip()
+            shutil.copy(source, executable)
+            cwd = root / f"issue-{TICKET}"
+            cwd.mkdir()
+            child_code = (
+                "import subprocess, sys\n"
+                "leaf = subprocess.Popen([sys.executable, '-c', 'input()'], stdin=subprocess.PIPE)\n"
+                "print(leaf.pid, flush=True)\n"
+                "try: input()\n"
+                "finally: leaf.communicate(b'\\n')\n"
+            )
+            host_code = (
+                "import json, subprocess, sys\n"
+                f"child = subprocess.Popen([{sys.executable!r}, '-c', {child_code!r}], "
+                "stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)\n"
+                "leaf = int(child.stdout.readline())\n"
+                "print(json.dumps([child.pid, leaf]), flush=True)\n"
+                "try:\n"
+                " for line in sys.stdin:\n"
+                f"  run = subprocess.run([{sys.executable!r}, "
+                f"{str(DISPATCH_SCRIPTS / 'tool-guard.py')!r}, 'pretool', {host!r}], "
+                "input=line, capture_output=True, text=True)\n"
+                "  print(json.dumps([run.returncode, run.stdout, run.stderr]), flush=True)\n"
+                "finally: child.communicate('\\n')\n"
+            )
+            env = {**os.environ, "MMW_HOME": str(root / "home"), "PASEO_AGENT_CWD": str(cwd)}
+            if ps_fails:
+                ps = root / "ps"
+                ps.write_text("#!/bin/sh\nexit 1\n")
+                ps.chmod(0o755)
+                env["PATH"] = str(root) + os.pathsep + env["PATH"]
+            process = subprocess.Popen([str(executable), "-c", host_code], cwd=cwd, env=env,
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, text=True)
+            try:
+                targets = json.loads(process.stdout.readline())
+                def hook(command):
+                    process.stdin.write(json.dumps(with_command(host, command)) + "\n")
+                    process.stdin.flush()
+                    code, output, error = json.loads(process.stdout.readline())
+                    self.assertEqual(code, 0, error)
+                    return json.loads(output) if output.strip() else None
+                yield targets, hook
+            finally:
+                process.communicate(timeout=10)
+
+    def test_guard_kill_of_own_process_tree_is_allowed(self):
+        for host in EVENTS:
+            with self.host_tree(host) as (targets, hook):
+                child, leaf = targets
+                for command in (f"kill {child}", f"kill -INT {leaf}",
+                                f"kill -9 {child} {leaf}", f"kill -SIGTERM {leaf}"):
+                    with self.subTest(host=host, command=command):
+                        self.assertIsNone(hook(command))
+
+    def test_guard_kill_outside_own_tree_is_refused(self):
+        neighbor = subprocess.Popen([sys.executable, "-c", "input()"], stdin=subprocess.PIPE)
+        try:
+            for host in EVENTS:
+                with self.host_tree(host) as (targets, hook):
+                    child, leaf = targets
+                    for command in (
+                        f"kill {neighbor.pid}", f"kill {child} {neighbor.pid}",
+                        f"kill {child}; kill {neighbor.pid}", "kill 2147483647", "kill 1",
+                        "pkill -f test", "killall test", "killall5", "kill process-name",
+                        "kill $PID", 'kill "$PID"', "kill $(echo 123)",
+                        "kill -9 -1", "kill 0", "kill -s TERM 123", "kill -BOGUS 123",
+                        "echo 123 | xargs kill", f"kill {child} $PID", f"kill -9 {leaf} >out",
+                    ):
+                        with self.subTest(host=host, command=command):
+                            answer = hook(command)
+                            self.assertIsNotNone(answer)
+                            self.assertIn("this session", reason_of(answer))
+                with self.host_tree(host, ps_fails=True) as (targets, hook):
+                    self.assertIsNotNone(hook(f"kill {targets[0]}"))
+        finally:
+            neighbor.communicate(b"\n", timeout=10)
+
 class TestCommandPrefixes(unittest.TestCase):
     LITERAL_COMMANDS = (
         "grep -n kill x.py",
@@ -466,7 +602,7 @@ class TestCommandPrefixes(unittest.TestCase):
             ("sudo -uwill kill 1", "kill 1"),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_prefix_env_path_and_split_options_keep_command_arguments(self):
         for command, expected in (
@@ -481,7 +617,7 @@ class TestCommandPrefixes(unittest.TestCase):
             ("env -P kill echo ok", None),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_prefix_ticket_commands_are_refused_by_both_hosts(self):
         for command in (
@@ -503,7 +639,7 @@ class TestCommandPrefixes(unittest.TestCase):
         cases.extend((command, None) for command in self.LITERAL_COMMANDS)
         for command, expected in cases:
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_prefix_literal_text_passes_the_hook(self):
         for command in self.LITERAL_COMMANDS:
@@ -538,7 +674,7 @@ class TestCommandPrefixes(unittest.TestCase):
             "command builtin exec -a worker time -p ! { kill 1; })",
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), "kill 1")
+                self.assertEqual(hk.ends_a_process(command, "claude"), "kill 1")
 
     def test_prefix_shell_syntax_exposes_the_termination_command(self):
         for command, expected in (
@@ -565,7 +701,7 @@ class TestCommandPrefixes(unittest.TestCase):
             ("(FLAG=1 >out ! \\\n { OTHER='two words' kill 1; })", "kill 1"),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
 
 class TestBackgroundCommands(unittest.TestCase):
@@ -585,7 +721,7 @@ class TestBackgroundCommands(unittest.TestCase):
             ("bash -c 'a & kill 1'", "kill 1'"),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_background_ampersands_in_data_and_redirections_stay_data(self):
         for command, expected in (
@@ -606,7 +742,7 @@ class TestBackgroundCommands(unittest.TestCase):
             (r"echo a\& kill 1", None),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_background_ticket_close_is_refused(self):
         for command in (f"a & gh issue close {TICKET}",
@@ -624,6 +760,51 @@ class TestBackgroundCommands(unittest.TestCase):
 
 
 class TestQuotedCommands(unittest.TestCase):
+    def test_guard_shell_heredoc_bodies_are_checked_as_code(self):
+        for host in EVENTS:
+            for consumer in ("bash <<EOF", "sh <<EOF", "cat <<EOF | sh",
+                             "env FOO=1 /bin/bash <<EOF"):
+                for body in (f"gh issue close {TICKET}", "kill 1", "rm -rf .",
+                             f"gh pr comment {TICKET} --edit-last"):
+                    for terminator in ("EOF", ""):
+                        command = f"{consumer}\n{body}\n{terminator}"
+                        with self.subTest(host=host, command=command):
+                            self.assertIsNotNone(call(host, with_command(host, command))[1])
+
+    def test_guard_arithmetic_shifts_do_not_hide_later_commands(self):
+        for host in EVENTS:
+            for arithmetic in ("echo $((1<<2))", "echo $((1 << 2))", "((1 << 2))"):
+                for forbidden in (f"gh issue close {TICKET}", "kill 1"):
+                    for tail in ("", "2\n"):
+                        command = f"{arithmetic}\n{forbidden}\n{tail}"
+                        with self.subTest(host=host, command=command):
+                            self.assertIsNotNone(call(host, with_command(host, command))[1])
+
+    def test_guard_a_command_after_the_heredoc_is_checked(self):
+        for command in (
+            f"cat <<EOF\nkill: 'data\nEOF\ngh issue close {TICKET}",
+            f"cat <<-'EOF'\n\tdata\n\tEOF\ngh issue close {TICKET}",
+            f'cat <<"A" <<B\nfirst\nA\nsecond\nB\ngh issue close {TICKET}',
+            f"cat <<EOF; gh issue close {TICKET}\ndata\nEOF",
+            f"echo '<<EOF'\ngh issue close {TICKET}\nEOF",
+            f"echo ok # <<EOF\ngh issue close {TICKET}\nEOF",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    code, answer = call(host, with_command(host, command))
+                    self.assertEqual(code, 0)
+                    self.assertIsNotNone(answer)
+
+    def test_guard_a_heredoc_body_is_data(self):
+        for marker, terminator in (("EOF", "EOF"), ("'EOF'", "EOF"),
+                                   ('"EOF"', "EOF"), ("-EOF", "\tEOF")):
+            command = f"cat <<{marker}\n{{ pid: number; kill: () => boolean }}\n{terminator}\n"
+            for host in EVENTS:
+                with self.subTest(marker=marker, host=host):
+                    self.assertEqual(call(host, with_command(host, command)), (0, None))
+        command = "cat <<A <<-'B'\nkill: 'data\nA\n\tpkill data\n\tB\necho ok"
+        self.assertEqual(call("codex", with_command("codex", command)), (0, None))
+
     def test_quoted_separators_are_not_process_commands(self):
         for command in (
             "rg -n 'tool.guard|kill|refus' x.py",
@@ -638,7 +819,7 @@ class TestQuotedCommands(unittest.TestCase):
             'echo "<< literal; kill 1"',
         ):
             with self.subTest(command=command):
-                self.assertIsNone(hk.ends_a_process(command))
+                self.assertIsNone(hk.ends_a_process(command, "claude"))
 
     def test_quoted_original_command_passes_the_hook(self):
         command = (
@@ -665,7 +846,7 @@ class TestQuotedCommands(unittest.TestCase):
             ('echo "a; kill 1"; pkill x', "pkill x"),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_quoted_text_does_not_close_the_ticket(self):
         command = f"echo 'a; gh issue close {TICKET}'"
@@ -683,7 +864,7 @@ class TestQuotedCommands(unittest.TestCase):
             (" ; ; FLAG=1 kill 1", "kill 1"),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_quoted_unclosed_input_uses_conservative_boundaries(self):
         for command, expected in (
@@ -691,7 +872,7 @@ class TestQuotedCommands(unittest.TestCase):
             ('echo "a; pkill x', "pkill x"),
         ):
             with self.subTest(command=command):
-                self.assertEqual(hk.ends_a_process(command), expected)
+                self.assertEqual(hk.ends_a_process(command, "claude"), expected)
 
     def test_quoted_comment_and_heredoc_text_cannot_hide_commands(self):
         for command in (
@@ -769,6 +950,8 @@ class BriefWorktreeGuard(unittest.TestCase):
             "pull", "stash", "cherry-pick HEAD", "revert HEAD", "am patch", "tag v1",
             "worktree add ../candidate")]
         commands += [
+            "bash <<EOF\ngit commit -m findings\nEOF",
+            "cat <<EOF | sh\ngit commit -m findings\nEOF",
             "env NOTE=1 git commit -m findings", "sudo -n git commit -m findings",
             "command git commit -m findings", "(git commit -m findings)",
             "! { git commit -m findings; }", ">out git commit -m findings",

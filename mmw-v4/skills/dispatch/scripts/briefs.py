@@ -7,6 +7,8 @@
     briefs.py forget --repo O/R --batch B
     briefs.py report --repo O/R --brief B/N --file F --runner R --session S
     briefs.py show --repo O/R --batch B
+    briefs.py check-references --repo O/R FILE...
+    briefs.py close-browsers --repo O/R --batch B
 
 A worker hands its result back on its ticket, and the relay reads the ticket. An advisor, a
 researcher or a candidate has no ticket: it answers one session, the one
@@ -43,11 +45,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import secrets
+import signal
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -173,6 +178,28 @@ def open_batches(state: Path, parent: tuple[str, str] | None = None) -> list[dic
     return out
 
 
+def check_references(state: Path, sources: list[Path]) -> None:
+    """Refuse brief files pointing at closed or missing batch directories."""
+    references = re.compile(
+        r'''(?P<root>[^\s`"'<>()\[\]]*\b''' + re.escape(root(state).name)
+        + r")/(?P<batch>" + BATCH_RE.pattern[1:-1] + r")(?![\w-])")
+    for source in sources:
+        try:
+            text = source.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise Refusal(f"cannot read brief {source}: {exc}; write a readable UTF-8 brief "
+                          f"and send again") from None
+        for match in references.finditer(text):
+            prefix, batch = match.group("root", "batch")
+            directory = (batch_dir(state, batch) if prefix == root(state).name else
+                         Path(prefix).expanduser() / batch)
+            if not directory.is_dir():
+                raise Refusal(f"brief {source} references closed or missing batch {batch} "
+                              f"at {directory}; put that answer's points under `## Known`, "
+                              f"or do not close the earlier batch before the next round. "
+                              f"Nothing was started.")
+
+
 # ----------------------------------------------------------------- writing
 
 def create(state: Path, role: str, count: int, runner: str, session: str,
@@ -283,6 +310,66 @@ def woken(state: Path, batch: str) -> bool:
     return (batch_dir(state, batch) / "woken.json").is_file()
 
 
+def close_browsers(state: Path, batch: str, err=None) -> None:
+    """Close only this batch's researcher browser sessions and surviving daemon trees."""
+    names = [f"mmw-{batch}-{entry['n']}" for entry in briefs_of(state, batch)
+             if entry["role"] == "researcher"]
+    if not names:
+        return
+    err = err if err is not None else sys.stderr
+    for name in names:
+        try:
+            closed = subprocess.run(['playwright-cli', f'-s={name}', 'close'],
+                                    capture_output=True, text=True, timeout=15)
+            if closed.returncode:
+                print(f'briefs: browser close failed for {name}: {closed.stderr.strip()}; '
+                      'checking for surviving daemons', file=err)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            print(f'briefs: browser close failed for {name}: {exc}; '
+                  'checking for surviving daemons', file=err)
+
+    def processes():
+        result = subprocess.run(['ps', '-axo', 'pid=,ppid=,stat=,command='],
+                                capture_output=True, text=True, check=True)
+        rows = {}
+        for line in result.stdout.splitlines():
+            fields = line.split(None, 3)
+            if len(fields) == 4 and fields[0].isdigit() and fields[1].isdigit():
+                rows[int(fields[0])] = (int(fields[1]), fields[2], fields[3])
+        return rows
+
+    try:
+        rows = processes()
+        targets = {pid for pid, (_, _, command) in rows.items()
+                   if any(re.search(r'(?:^|\s)\S*cliDaemon\S*\s+' + re.escape(name)
+                                    + r'(?=\s|$)', command) for name in names)}
+        while True:
+            children = {pid for pid, (parent, _, _) in rows.items() if parent in targets}
+            if children <= targets:
+                break
+            targets |= children
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            for pid in targets:
+                try:
+                    os.kill(pid, sig)
+                except ProcessLookupError:
+                    pass
+            for _ in range(20):
+                current = processes()
+                targets = {pid for pid in targets if pid in current
+                           and not current[pid][1].startswith('Z')}
+                if not targets:
+                    break
+                time.sleep(.05)
+            if not targets:
+                break
+        if targets:
+            raise RuntimeError(f'browser processes still running: {sorted(targets)}')
+    except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+        raise Refusal(f'could not clean browser sessions {names}: {exc}; '
+                      'inspect the named processes and retry brief close') from None
+
+
 def remove(state: Path, batch: str) -> None:
     shutil.rmtree(batch_dir(state, batch), ignore_errors=True)
 
@@ -334,6 +421,14 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("--repo", required=True)
     show.add_argument("--batch", required=True)
 
+    references = sub.add_parser("check-references")
+    references.add_argument("--repo", required=True)
+    references.add_argument("files", nargs="+", type=Path)
+
+    browsers = sub.add_parser("close-browsers")
+    browsers.add_argument("--repo", required=True)
+    browsers.add_argument("--batch", required=True)
+
     args = parser.parse_args(argv)
     try:
         state = state_for(args.repo)
@@ -351,6 +446,8 @@ def main(argv: list[str] | None = None) -> int:
             batch, n = parse_brief(args.brief)
             mark_started(state, batch, n, {k: getattr(args, k) for k in
                                            ("runner", "session", "host", "model", "effort")})
+        elif args.command == "close-browsers":
+            close_browsers(state, args.batch)
         elif args.command == "forget":
             remove(state, batch_dir(state, args.batch).name)
         elif args.command == "report":
@@ -367,6 +464,8 @@ def main(argv: list[str] | None = None) -> int:
                 where = entry["result"] or entry["lost"] or "-"
                 print(f"{args.batch}/{entry['n']}\t{entry['state']}\t{entry['role']}\t"
                       f"{started.get('runner', '-')}\t{started.get('session', '-')}\t{where}")
+        elif args.command == "check-references":
+            check_references(state, args.files)
         return 0
     except Refusal as exc:
         sys.stderr.write(f"briefs: {exc}\n")

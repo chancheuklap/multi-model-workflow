@@ -106,6 +106,6 @@ Comments are a prose surface. Write them clean as you go. Keep a comment only fo
 
 ## Playbooks
 
-Work by the steps of the file your prompt says to follow (only the steps it names, when it names some), or else of the matched playbook.
+Work by the steps of the file your prompt says to follow (only the steps it names, when it names some), or else of the matched playbook. After your context is compacted, read this skill again in full, then the file you work by and every file its current step names, before you take that step.
 
 An agent whose first message names no file to follow owns its task: read `references/owning-a-task.md` in full next, and match the task to a playbook there.

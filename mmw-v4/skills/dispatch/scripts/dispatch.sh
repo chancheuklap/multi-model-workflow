@@ -23,8 +23,11 @@
 #   dispatch.sh status <spec>
 #   dispatch.sh findings <spec>
 #   dispatch.sh reverify <spec>
+#   dispatch.sh recheck <spec> [<commit>]
 #   dispatch.sh summary <spec>
+#   dispatch.sh check-all <spec>
 #   dispatch.sh finish <spec>
+#   dispatch.sh pr --base <b> --head <h> --title <t> --body-file <f>
 #   dispatch.sh suspend <spec>
 #   dispatch.sh route <ticket> <child> fixed
 #   dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
@@ -83,6 +86,11 @@
 # message cannot settle is written in the skill text of the agent that runs the command;
 # `ack` is in SKILL.md under `## On waking`, which every moment shares.
 
+# An optional executable scripts/env runs from each target checkout root with its absolute
+# worktree path. Every worker start and merge checkout runs setup then up. Ticket land,
+# suspend and retract run down; merge checkouts run down before removal. Cleanup failures
+# are reported without blocking the ending. Repositories without scripts/env are silent.
+
 set -uo pipefail
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
@@ -92,6 +100,7 @@ STATUS="$SKILL_ROOT/scripts/status.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 BRIEFS="$SKILL_ROOT/scripts/briefs.py"
+PR="$SKILL_ROOT/scripts/pr.py"
 ROLES_JSON="$SKILL_ROOT/roles.json"
 # Every start prompt carries both: the mode first, then the file the session works by,
 # then that this file is all of its work. Naming a file is what keeps the session out of
@@ -390,7 +399,7 @@ post_event() {
   local issue="$1" body
   shift
   body="$(python3 "$EVENTS" emit "$@")" || return 2
-  gh_ issue comment "$issue" --body "$body" >/dev/null 2>&1 || return 1
+  gh_ issue comment "$issue" --body "$body" >/dev/null || return 1
 }
 
 usage() {
@@ -416,8 +425,11 @@ usage: dispatch.sh send worker|reviewer <n>
        dispatch.sh status <spec>
        dispatch.sh findings <spec>
        dispatch.sh reverify <spec>
+       dispatch.sh recheck <spec> [<commit>]
        dispatch.sh summary <spec>
+       dispatch.sh check-all <spec>
        dispatch.sh finish <spec>
+       dispatch.sh pr --base <b> --head <h> --title <t> --body-file <f>
        dispatch.sh suspend <spec>
        dispatch.sh route <ticket> <child> fixed
        dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
@@ -1199,9 +1211,29 @@ ensure_workspace() {
   printf '%s\t%s\t%s\n' "$dest" "$dest" "$created"
 }
 
+worktree_environment() {
+  local tree="$1"
+  shift
+  [ -e "$tree/scripts/env" ] || return 0
+  python3 - "$VERIFY" "$tree" "$@" <<'PYENV'
+import importlib.util
+import sys
+from pathlib import Path
+
+script, tree, *steps = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("mmw_verify_environment", script)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+for step in steps:
+    if module.run_worktree_environment(Path(tree), step):
+        raise SystemExit(2)
+PYENV
+}
+
 remove_worktree() {
   local root="$1" dest="$2"
   [ -n "$dest" ] || return 0
+  worktree_environment "$dest" down || true
   git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 && return 0
   [ -d "$dest" ] || return 0
   echo "dispatch: could not remove the worktree at $dest" >&2
@@ -1460,6 +1492,13 @@ start_one() {
       || refuse "#${number}'s previous worker was stopped, but its ticket branch was not pushed; reconcile issue-$number with origin/issue-$number and start again"
   fi
 
+  if [ "$kind" = worker ]; then
+    worktree_environment "$cwd" setup up || {
+      worktree_environment "$cwd" down || true
+      return 2
+    }
+  fi
+
   local session
   if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind" \
        "${session_environment[@]+"${session_environment[@]}"}")"; then
@@ -1526,7 +1565,7 @@ start_one() {
 # `<batch>/<n><TAB><session>`. A start the runner refuses is refused once, and every
 # session already started for the batch is stopped and the batch removed.
 brief_footer() {
-  local brief="$1" into="$2" answer="<file>"
+  local brief="$1" into="$2" role="$3" answer="<file>"
   [ -z "$into" ] || answer="$into/brief-${brief##*/}.md"
   printf '%s\n' "---" \
     "This brief is $1. \`## Task\` is the question you answer; \`## Known\` is what the session that sent you already has, so start from it and do not redo it; \`## For\` is what your answer will be used for. The session that sent you waits for your answer and sees nothing else of yours." \
@@ -1535,6 +1574,9 @@ brief_footer() {
     "" \
     "bash $SELF report $brief $answer" \
     ""
+  if [ "$role" = researcher ]; then
+    printf '%s\n' "If a page returns only a JavaScript shell, times out, or returns HTTP 403, read its body with \`playwright-cli -s=mmw-${brief%/*}-${brief##*/}\`. Use this browser session name only; do not start another name."
+  fi
   if [ -n "$into" ]; then
     printf '%s\n' "Put every file you made or saved for this answer (saved sources, images, data, scripts) under $into/brief-${brief##*/}/. Then end your turn."
   else
@@ -1542,8 +1584,6 @@ brief_footer() {
   fi
 }
 
-# Stop every session `brief <batch>` started and close the batch's watch, which removes
-# the batch. Used by `brief close` and by a `brief` that could not start them all.
 close_batch() {
   local batch="$1" repo line name state role runner session rest stopped=0 failed=""
   repo="$(repo_slug)" || return 2
@@ -1556,13 +1596,20 @@ close_batch() {
       failed="$failed $runner:$session"
     fi
   done < <(python3 "$BRIEFS" show --repo "$repo" --batch "$batch" 2>/dev/null)
+  python3 "$BRIEFS" close-browsers --repo "$repo" --batch "$batch" || return 2
+  python3 "$BRIEFS" forget --repo "$repo" --batch "$batch" || return 2
   stop_relay --briefs "$batch"
   case "$?" in 0 | 3) ;; *) return 2 ;; esac
-  python3 "$BRIEFS" forget --repo "$repo" --batch "$batch" || return 2
   echo "dispatch: closed brief batch $batch: $stopped sessions stopped" >&2
   if [ -n "$failed" ]; then
     echo "dispatch: these sessions of batch $batch could not be stopped and still run; end them on their runner by hand:$failed" >&2
   fi
+}
+
+check_brief_references() {
+  local repo
+  repo="$(repo_slug)" || return 2
+  python3 "$BRIEFS" check-references --repo "$repo" -- "$@"
 }
 
 brief_many() {
@@ -1574,6 +1621,7 @@ brief_many() {
     [ -f "$file" ] || refuse "no brief file at $file; write the brief to a file, then send again"
     [ -s "$file" ] || refuse "the brief file $file is empty, and the $role sees the brief and nothing else; write it, then send again"
   done
+  check_brief_references "$@" || exit 2
 
   use_runner "$(tonight_runner)"
   use_catalog_of "$RUNNER_NAME"
@@ -1610,8 +1658,8 @@ brief_many() {
   local n=0 copy prompt session started=()
   for file in "$@"; do
     n=$((n + 1))
-    copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
-            --footer "$(brief_footer "$batch/$n" "$into")")" \
+    copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file="$file" \
+            --footer "$(brief_footer "$batch/$n" "$into" "$role")")" \
       || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
     prompt="Dispatched: $role, brief $copy. $READ_MODE $follows. $WHOLE_TASK"
     # Herdr's session id is basename(cwd) plus the title's last word, so the last word
@@ -1955,6 +2003,19 @@ wait_one() {
 
 # ------------------------------------------------------------------ check
 
+# The base the night-open check compares with: the project branch as origin has it, so
+# the check runs what the night branch adds to the project; the base branch itself when
+# there is no project branch to compare with.
+open_check_base() {
+  local root="$1" into="$2" project="$3"
+  if [ -n "$project" ] && [ "$project" != "$into" ] \
+     && git -C "$root" rev-parse -q --verify "refs/remotes/origin/$project" >/dev/null; then
+    printf 'origin/%s\n' "$project"
+  else
+    printf '%s\n' "$into"
+  fi
+}
+
 check_machine() {
   local spec="$1"
   local failed=0
@@ -1987,7 +2048,7 @@ check_machine() {
   # finds red, or cannot run on, would bounce or stop every ticket; it runs once here, on
   # this checkout as it stands, uncommitted changes included.
   if [ -n "$root" ]; then
-    run_merge_checks "$root" "${into:-HEAD}" "$root" "spec-$spec"
+    run_merge_checks "$root" "$(open_check_base "$root" "${into:-HEAD}" "${project:-}")" "$root" "spec-$spec"
     case "$?" in
       0) echo "scripts/check: green on this checkout" ;;
       1) printf 'dispatch: scripts/check is red on this checkout, so every ticket the night lands would bounce: %s\n' "$MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
@@ -2307,13 +2368,13 @@ sweep_orphan_merge_worktrees() {
   [ -n "$main" ] || return 0
   fetch_origin "$root" || return 1
   state="$(repository_state_dir)" || return 1
-  python3 - "$STATEDIR" "$root" "$main/.worktrees" "$state" <<'PY'
+  python3 - "$STATEDIR" "$root" "$main/.worktrees" "$state" "$VERIFY" <<'PY'
 import importlib.util
 import subprocess
 import sys
 from pathlib import Path
 
-script, root, trees, state = sys.argv[1:]
+script, root, trees, state, verify = sys.argv[1:]
 spec = importlib.util.spec_from_file_location("mmw_statedir", script)
 statedir = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(statedir)
@@ -2329,6 +2390,11 @@ for slug in sorted(slugs - active):
     lock = Path(state) / f"merge-{slug}.lock"
     try:
         with statedir.locked(lock, wait=0, purpose=f"sweeping orphan merge-{slug}"):
+            if (path / "scripts" / "env").exists():
+                env_spec = importlib.util.spec_from_file_location("mmw_verify_environment", verify)
+                environment = importlib.util.module_from_spec(env_spec)
+                env_spec.loader.exec_module(environment)
+                environment.run_worktree_environment(path, "down")
             removed = not path.is_dir() or subprocess.run(
                 ["git", "-C", root, "worktree", "remove", "--force", str(path)],
                 capture_output=True, text=True
@@ -2344,6 +2410,7 @@ PY
 
 # One detached, persistent worktree per base branch. Reset changes tracked files only:
 # ignored dependency directories and caches stay warm between landings.
+# Returns 4 for environment preparation failure, 2 for other preparation failures.
 prepare_merge_worktree() {
   local root="$1" into="$2" main slug dest
   main="$(main_checkout)"
@@ -2364,6 +2431,11 @@ prepare_merge_worktree() {
   git -C "$dest" merge --abort >/dev/null 2>&1 || true
   git -C "$dest" reset --hard "origin/$into" >/dev/null \
     || { echo "dispatch: could not reset $dest to origin/$into" >&2; release_merge_lock; return 2; }
+  worktree_environment "$dest" setup up || {
+    worktree_environment "$dest" down || true
+    release_merge_lock
+    return 4
+  }
   file_merge_worktree "$dest"
   MERGE_ROOT="$dest"
 }
@@ -2453,6 +2525,110 @@ PY
   esac
 }
 
+base_check_steps_red() {
+  local root="$1" base_ref="$2" failed="$3" out
+  out="$(python3 - "$VERIFY" "$root" "$base_ref" "$failed" <<'PY'
+import importlib.util, json, sys
+from pathlib import Path
+
+script, root, base_ref, failed = sys.argv[1:]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+steps = mod.base_red_steps(Path(root), base_ref, json.loads(failed))
+if not steps:
+    sys.exit(1)
+print(json.dumps(steps, separators=(",", ":")))
+PY
+)" || return 1
+  LANDED_BASE_RED="$out"
+}
+
+# Prints `<tier> <commit> <base>` of the newest green record on issue <n> (event
+# `ticket.checked` run `repository`, or `spec.checked`) that proves the default tier of
+# <commit> against <base> on this machine; non-zero when none does. A step so covered
+# has nothing left to prove and runs nothing.
+repository_proof() {
+  local issue="$1" event="$2" commit="$3" base="$4"
+  python3 - "$VERIFY" "$issue" "$event" "$commit" "$base" <<'PY'
+import importlib.util, sys
+from pathlib import Path
+
+script, issue, event, commit, base = sys.argv[1:6]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+proof = mod.covering_proof(mod.fetch_comments(int(issue)), event, commit, base)
+if not proof:
+    sys.exit(1)
+print(proof["tier"], proof["commit"], proof["base"])
+PY
+}
+
+# Runs `scripts/check --all` once on the night branch as origin has it, in the merge
+# worktree, and records a green run on the spec as `spec.checked` tier `all`: the
+# night's audit of every step's declared inputs, and the proof `finish` reuses when its
+# merge is this tree. 0 green, 1 red, 2 not run or not recorded.
+check_all_spec() {
+  local spec="$1" root into out tip
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository"
+  into="$(newest_field "$spec" into spec.opened 2>/dev/null)" || into=""
+  [ -n "$into" ] || refuse "#${spec}'s spec.opened carries no base branch; run open $spec first"
+  export MMW_SPEC="$spec"
+  prepare_merge_worktree "$root" "$into" || exit 2
+  tip="$(git -C "$MERGE_ROOT" rev-parse HEAD)"
+  if repository_proof "$spec" spec.checked "$tip" "$tip" >/dev/null 2>&1; then
+    release_merge_lock
+    echo "check-all #$spec: not run again: origin/$into at ${tip:0:12} already passed --all on this machine"
+    return 0
+  fi
+  out="$(python3 - "$VERIFY" "$MERGE_ROOT" "$root" "$spec" <<'PY'
+import importlib.util, json, sys
+from pathlib import Path
+
+script, root, worktree, spec_number = sys.argv[1:5]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+result = mod.run_repository_check(Path(root), "HEAD", worktree, f"spec-{spec_number}", tier="all")
+print(result["status"])
+print(json.dumps(result["proof"] or {}, separators=(",", ":")))
+print(result["detail"])
+PY
+)" || { release_merge_lock; echo "dispatch: check-all #$spec: $VERIFY could not run scripts/check --all (the reason is above)" >&2; exit 2; }
+  release_merge_lock
+  local status proof detail
+  status="$(printf '%s\n' "$out" | sed -n 1p)"
+  proof="$(printf '%s\n' "$out" | sed -n 2p)"
+  detail="$(printf '%s\n' "$out" | sed -n '3,$p')"
+  case "$status" in
+    pass) ;;
+    red) printf 'check-all #%s: red on origin/%s at %s:\n%s\n' "$spec" "$into" "${tip:0:12}" "$detail"; exit 1 ;;
+    *) printf 'dispatch: check-all #%s: scripts/check --all did not run: %s\n' "$spec" "$detail" >&2; exit 2 ;;
+  esac
+  local -a proof_args=()
+  local field
+  while IFS= read -r field; do
+    proof_args+=(--json-field "$field")
+  done < <(python3 -c 'import json, sys
+for key, value in json.loads(sys.argv[1]).items():
+    print(f"{key}={json.dumps(value)}")' "$proof")
+  if [ "${#proof_args[@]}" -eq 0 ] || ! post_event "$spec" spec.checked --spec "$spec" \
+      --line "--all green on $into at ${tip:0:12}" "${proof_args[@]}" --field result=met; then
+    echo "dispatch: check-all #$spec: --all is green on ${tip:0:12}, but its spec.checked record was not written; run check-all again" >&2
+    exit 2
+  fi
+  echo "check-all #$spec: green on origin/$into at ${tip:0:12}; recorded on #$spec"
+}
+
 # Prints why scripts/check at <root> cannot be run, or nothing when it is an executable
 # file: the same reading `run_repository_check` makes before it runs it.
 repository_check_missing() {
@@ -2520,6 +2696,10 @@ bounce_ticket() {
   if [ "$reason" = conflict ]; then
     text="$text Conflicted files: $(MMW_LIST="$detail" python3 -c 'import json, os; print(", ".join(json.loads(os.environ["MMW_LIST"])))')."
     fields=(--json-field "files=$detail")
+  elif [ "$reason" = breaks-landed-criterion ]; then
+    summary="$(python3 -c 'import json, sys; print(", ".join("#%s %s" % (r["ticket"], r["ac"]) for r in json.loads(sys.argv[1])))' "$detail")" || return 2
+    text="$text Broken landed criteria: $summary."
+    fields=(--json-field "broken=$detail")
   else
     prose_dir="$(mktemp -d)"
     if ! MMW_COMMANDS="$detail" MMW_PREFIX_LEN="${#text}" python3 - "$VERIFY" "$prose_dir" <<'PY'
@@ -2694,12 +2874,17 @@ finish_landing() {
 }
 
 # Merge the exact ticket.passed commit, check the result, then fast-forward origin.
-# 0 merged, 1 bounced, 2 could not complete, 3 was already in origin.
+# 0 merged, 1 bounced, 2 could not complete, 3 was already in origin,
+# 4 environment preparation failed.
+LANDED_BASE_RED="[]"
 land_one_via_origin() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5" mode="${6:-advance}"
   local attempt merge_root base merge_commit landed_base rc files push_error=""
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
-    prepare_merge_worktree "$root" "$into" || return 2
+    LANDED_BASE_RED="[]"
+    LANDED_CRITERIA_BASE_RED="[]"
+    prepare_merge_worktree "$root" "$into"; rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
     merge_root="$MERGE_ROOT"
     base="$(git -C "$merge_root" rev-parse "origin/$into")"
     if git -C "$merge_root" merge-base --is-ancestor "$passed" "origin/$into"; then
@@ -2732,10 +2917,29 @@ land_one_via_origin() {
     fi
     merge_commit="$(git -C "$merge_root" rev-parse HEAD)"
 
-    # The merge result is the tree that lands, so the repository's check runs on it, once
-    # per ticket, whatever ran on the ticket's branch. Only a red tree is the ticket's to
-    # fix; a check that is absent or cannot run here leaves the ticket passed, unbounced.
-    run_merge_checks "$merge_root" "origin/$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
+    # The merge result is the tree that lands. When origin/<into> has not moved since the
+    # worker integrated it, that tree is the passed commit's, and the worker's green run of
+    # it against this very base already proved what this check would: it runs only when
+    # the tree is new. Only a red tree is the ticket's to fix; a check that is absent or
+    # cannot run here leaves the ticket passed, unbounced.
+    LANDED_CHECKED_BY=""
+    if git -C "$merge_root" merge-base --is-ancestor "$base" "$passed" \
+       && LANDED_CHECKED_BY="$(repository_proof "$number" ticket.checked "$passed" "$base")"; then
+      echo "land #$number: repository checks not run again: the merge's tree is ${passed:0:12}, which passed against ${base:0:12} on this machine"
+      rc=0
+    else
+      LANDED_CHECKED_BY=""
+      run_merge_checks "$merge_root" "origin/$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
+    fi
+    if [ "$rc" -eq 1 ]; then
+      git -C "$merge_root" reset --hard "$base" >/dev/null \
+        || { echo "dispatch: could not check out the base $base to compare failed steps" >&2; release_merge_lock; return 2; }
+      if base_check_steps_red "$merge_root" "origin/$into" "$MERGE_CHECKS_FAILED"; then
+        rc=0
+      fi
+      git -C "$merge_root" reset --hard "$merge_commit" >/dev/null \
+        || { echo "dispatch: could not restore merge $merge_commit after comparing the base" >&2; release_merge_lock; return 2; }
+    fi
     if [ "$rc" -eq 1 ]; then
       git -C "$merge_root" reset --hard "origin/$into" >/dev/null
       if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$MERGE_CHECKS_FAILED"; then
@@ -2756,6 +2960,21 @@ land_one_via_origin() {
       return 2
     fi
 
+    MMW_BASE_REF="origin/$into" run_landed_criteria "$merge_root" "$spec" "$base" "$merge_commit"; rc=$?
+    if [ "$rc" -eq 1 ]; then
+      git -C "$merge_root" reset --hard "origin/$into" >/dev/null
+      if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" breaks-landed-criterion "$LANDED_BROKEN"; then
+        release_merge_lock
+        return 2
+      fi
+      release_merge_lock
+      return 1
+    elif [ "$rc" -ne 0 ]; then
+      git -C "$merge_root" reset --hard "origin/$into" >/dev/null
+      release_merge_lock
+      return 2
+    fi
+
     if push_error="$(git -C "$merge_root" push origin "HEAD:$into" 2>&1)"; then
       finish_landing "$root" "$number" "$spec" "$into" "$passed" \
         "$merge_commit" "$base" "$mode"
@@ -2773,7 +2992,7 @@ land_one_via_origin() {
 # landed, and that — not its closing — is what lets the tickets it blocks start: a
 # ticket is cut from the base branch and has to find its blockers' work there.
 record_landed() {
-  local number="$1" spec="${2:-}" into="$3" commit="$4" merge="${5:-}" base="${6:-}" branch line
+  local number="$1" spec="${2:-}" into="$3" commit="$4" merge="${5:-}" base="${6:-}" branch line text=""
   local -a fields
   branch="$(ticket_branch "$number")"
   line="Landed $branch into $into"
@@ -2785,8 +3004,17 @@ record_landed() {
   fields=(--field "branch=$branch" --field "into=$into" --field "commit=$commit")
   [ -z "$merge" ] || fields+=(--field "merge=$merge")
   [ -z "$base" ] || fields+=(--field "base=$base")
+  [ -z "${LANDED_CHECKED_BY:-}" ] || fields+=(--field "checked_by=repository ${LANDED_CHECKED_BY}")
+  if [ "${LANDED_BASE_RED:-[]}" != '[]' ]; then
+    text="Red on the base too: $(python3 -c 'import json, sys; print(", ".join(json.loads(sys.argv[1])))' "$LANDED_BASE_RED")"
+    fields+=(--json-field "base_red=$LANDED_BASE_RED")
+  fi
+  if [ "${LANDED_CRITERIA_BASE_RED:-[]}" != '[]' ]; then
+    text="${text}${text:+$'\n'}Landed criteria red on the base too: $(python3 -c 'import json, sys; print(", ".join("#%s %s" % (r["ticket"], r["ac"]) for r in json.loads(sys.argv[1])))' "$LANDED_CRITERIA_BASE_RED")"
+    fields+=(--json-field "landed_base_red=$LANDED_CRITERIA_BASE_RED")
+  fi
   if ! post_event "$number" ticket.landed --ticket "$number" --spec "$spec" \
-      --line "$line" "${fields[@]}"; then
+      --line "$line" --text-file <(printf '%s\n' "$text") "${fields[@]}"; then
     echo "dispatch: $commit is in origin/$into, but the ticket.landed event on #$number was not written; the tickets it blocks stay blocked until the next advance or land writes it" >&2
     return 1
   fi
@@ -2969,7 +3197,7 @@ land_tickets() {
   plan="$(python3 "$STATUS" --land-plan "${numbers[@]}")" \
     || refuse "could not read $(printf '#%s ' "${numbers[@]}")from the tracker"
 
-  local merged=0 already=0 bounced=0 kept=0 failed=0 number passed into archive_into rc spec
+  local merged=0 already=0 bounced=0 kept=0 failed=0 environment_failed=0 number passed into archive_into rc spec
   local -a landed_numbers=() bounced_numbers=()
   while IFS= read -r number; do
     [ -n "$number" ] || continue
@@ -2987,6 +3215,7 @@ land_tickets() {
         ;;
       1) bounced=$((bounced + 1)); bounced_numbers+=("$number") ;;
       3) already=$((already + 1)); landed_numbers+=("$number") ;;
+      4) failed=$((failed + 1)); environment_failed=1 ;;
       *) failed=$((failed + 1)) ;;
     esac
   done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
@@ -2995,6 +3224,9 @@ land_tickets() {
   # it and preserves its standing worktree for the next start.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
+    local cwd
+    cwd="$(workspace_cwd_for "$number")"
+    [ -z "$cwd" ] || worktree_environment "$cwd" down || true
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       post_event "$number" ticket.released --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Gave the claim on #$number back: its work is over" --field reason=landed \
@@ -3055,6 +3287,7 @@ land_tickets() {
   fi
   sweep_orphan_merge_worktrees "$root" \
     || echo "land: could not sweep orphan merge worktrees" >&2
+  [ "$environment_failed" -eq 0 ] || return 2
   [ "$failed" -eq 0 ] && [ "$relay_left" -eq 0 ] || return 1
 }
 
@@ -3154,6 +3387,12 @@ suspend_night() {
     fi
   done
 
+  for number in $batch; do
+    case " $kept " in *" $number "*) continue ;; esac
+    cwd="$(workspace_cwd_for "$number")"
+    [ -z "$cwd" ] || worktree_environment "$cwd" down || true
+  done
+
   local when commented=0
   when="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   post_event "$spec" spec.suspended --spec "$spec" --line "NIGHT SUSPENDED #$spec" \
@@ -3246,6 +3485,110 @@ recover_ticket() {
   gh_ issue close "$number" --reason completed >/dev/null 2>&1 \
     || { echo "dispatch: #$number is recovered, but it could not be closed, so finish $spec will refuse while it is open" >&2; left=1; }
   return "$left"
+}
+
+LANDED_BROKEN="[]"
+LANDED_CRITERIA_BASE_RED="[]"
+LANDED_CRITERIA_COUNT=0
+recheck_spec() {
+  local spec="$1" ref="${2:-HEAD}" root commit into rc red base_red
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository"
+  commit="$(git -C "$root" rev-parse --verify --end-of-options "$ref^{commit}" 2>/dev/null)" \
+    || refuse "commit $ref does not exist in this repository"
+  into="$(night_into "$spec")" || refuse "the night on #$spec is not open; run open $spec first"
+  prepare_merge_worktree "$root" "$into" || return 2
+  if ! git -C "$MERGE_ROOT" checkout --detach "$commit" >/dev/null 2>&1; then
+    release_merge_lock
+    echo "dispatch: could not check out $commit in $MERGE_ROOT" >&2
+    return 2
+  fi
+  MMW_BASE_REF="origin/$into" run_landed_criteria "$MERGE_ROOT" "$spec" "origin/$into" "$commit"; rc=$?
+  release_merge_lock
+  [ "$rc" -le 1 ] || return 2
+  base_red="$(python3 -c 'import json, sys; rows=json.loads(sys.argv[1]); [print("#%s %s red on the base too" % (r["ticket"], r["ac"])) for r in rows]; print(len(rows))' "$LANDED_CRITERIA_BASE_RED")" || return 2
+  printf '%s\n' "$base_red" | sed '$d'
+  base_red="$(printf '%s\n' "$base_red" | tail -1)"
+  if [ "$rc" -eq 0 ]; then
+    if [ "$base_red" -gt 0 ]; then
+      echo "recheck #$spec: $((LANDED_CRITERIA_COUNT - base_red)) landed criteria green; $base_red red on the base too"
+    else
+      echo "recheck #$spec: $LANDED_CRITERIA_COUNT landed criteria green"
+    fi
+  else
+    red="$(python3 -c 'import json, sys; rows=json.loads(sys.argv[1]); [print("#%s %s red" % (r["ticket"], r["ac"])) for r in rows]; print(len(rows))' "$LANDED_BROKEN")" || return 2
+    printf '%s\n' "$red" | sed '$d'
+    echo "recheck #$spec: $(printf '%s\n' "$red" | tail -1) red of $LANDED_CRITERIA_COUNT"
+  fi
+  return "$rc"
+}
+
+run_landed_criteria() {
+  local root="$1" spec="$2" base="$3" commit="$4" plan out rc
+  LANDED_BROKEN="[]"
+  LANDED_CRITERIA_BASE_RED="[]"
+  LANDED_CRITERIA_COUNT=0
+  [ -n "$spec" ] || return 0
+  plan="$(python3 "$STATUS" --reverify-plan "$spec")" || return 2
+  out="$(MMW_REVERIFY_PLAN="$plan" python3 - "$VERIFY" "$root" "$base" "$commit" <<'PY'
+import contextlib, importlib.util, json, os, subprocess, sys
+from pathlib import Path
+
+script, root, base, commit = sys.argv[1:]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+try:
+    paths = subprocess.run(["git", "diff", "--no-renames", "--name-only", "-z", base, commit], cwd=root,
+                           capture_output=True, text=True, check=True).stdout.rstrip("\0").split("\0")
+    paths = [p for p in paths if p]
+    count, broken, base_red = 0, [], []
+    for line in os.environ["MMW_REVERIFY_PLAN"].splitlines():
+        words = line.split()
+        if len(words) != 2 or words[0] != "REVERIFY":
+            continue
+        number = int(words[1])
+        body = mod.fetch_body(number)
+        ids = mod.affected_criteria(body, paths)
+        if not ids:
+            continue
+        count += len(ids)
+        with contextlib.redirect_stdout(sys.stderr):
+            _, rows = mod.selected_checks(number, ids, body, Path(root))
+        red = [r["id"] for r in rows if not r["ok"]]
+        if red:
+            subprocess.run(["git", "reset", "--hard", base], cwd=root,
+                           capture_output=True, text=True, check=True)
+            try:
+                with contextlib.redirect_stdout(sys.stderr):
+                    _, base_rows = mod.selected_checks(number, red, body, Path(root))
+            finally:
+                subprocess.run(["git", "reset", "--hard", commit], cwd=root,
+                               capture_output=True, text=True, check=True)
+            if any(r["exitCode"] in (126, 127) for r in base_rows):
+                raise ValueError(f"#{number}: a selected CHECK could not start on the base")
+            unavailable = {r["id"] for r in rows if r["exitCode"] in (126, 127)}
+            broken += [{"ticket": number, "ac": r["id"]} for r in base_rows
+                       if r["ok"] or r["id"] in unavailable]
+            base_red += [{"ticket": number, "ac": r["id"]} for r in base_rows
+                         if not r["ok"] and r["id"] not in unavailable]
+    print(count)
+    print(json.dumps(broken, separators=(",", ":")))
+    print(json.dumps(base_red, separators=(",", ":")))
+except (OSError, ValueError, subprocess.CalledProcessError, mod.TrackerReadError) as exc:
+    print(f"dispatch: landed criteria could not run: {exc}", file=sys.stderr)
+    sys.exit(2)
+sys.exit(1 if broken else 0)
+PY
+)"; rc=$?
+  [ "$rc" -le 1 ] || return 2
+  LANDED_CRITERIA_COUNT="$(printf '%s\n' "$out" | sed -n 1p)"
+  LANDED_BROKEN="$(printf '%s\n' "$out" | sed -n 2p)"
+  LANDED_CRITERIA_BASE_RED="$(printf '%s\n' "$out" | sed -n 3p)"
+  return "$rc"
 }
 
 reverify_spec() {
@@ -3549,6 +3892,7 @@ clean_base_merge_worktree() {
   main="$(main_checkout)" || return 0
   dest="$main/.worktrees/merge-$(merge_slug "$into")"
   if [ -e "$dest" ]; then
+    worktree_environment "$dest" down || true
     git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 || {
       echo "dispatch: could not remove $dest; run git worktree remove --force $dest" >&2
       failed=2
@@ -3761,9 +4105,13 @@ finish_spec() {
       # With origin/<project> inside origin/<into>, the merge's tree is origin/<into>'s. When
       # that tip is a ticket's landing, `land` already ran the checks on exactly this tree.
       rc=0
+      tip="$(git -C "$MERGE_ROOT" rev-parse "origin/$into")"
       if git -C "$MERGE_ROOT" merge-base --is-ancestor "$base" "origin/$into" \
          && checked_by="$(landed_tip_ticket "$MERGE_ROOT" "$into")"; then
         echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into, checked when #$checked_by landed"
+      elif git -C "$MERGE_ROOT" merge-base --is-ancestor "$base" "origin/$into" \
+         && repository_proof "$spec" spec.checked "$tip" "$base" >/dev/null; then
+        echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into at ${tip:0:12}, which passed --all on this machine"
       else
         run_merge_checks "$MERGE_ROOT" "origin/$project" "$root" "spec-$spec"; rc=$?
       fi
@@ -3963,6 +4311,10 @@ route_child() {
   echo "route #$child: $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
 }
 
+open_pr() {
+  python3 "$PR" "$@"
+}
+
 # ------------------------------------------------------------------ entry
 
 # `self` reads nothing but this process and its runner, so it answers without models.json:
@@ -3971,8 +4323,6 @@ if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
   own_session
   exit $?
 fi
-
-[ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
 
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
 # positional. A script of another skill is looked up by basename in those directories,
@@ -3999,6 +4349,22 @@ while [ "$#" -gt 0 ]; do
 done
 set -- ${positional[@]+"${positional[@]}"}
 
+case "${1:-}:${2:-}" in
+  check:* | status:* | findings:* | board:* | self:* | brief:show) ;;
+  *)
+  installed_root="$(cat "${MMW_HOME:-$HOME/.mmw}/installed-root" 2>/dev/null)" || installed_root=""
+  if [ -n "$installed_root" ]; then
+    installed_top="$(git -C "$installed_root" rev-parse --show-toplevel 2>/dev/null)" || installed_top=""
+    current_top="$(git rev-parse --show-toplevel 2>/dev/null)" || current_top=""
+    if [ -n "$installed_top" ] && [ "$current_top" = "$installed_top" ]; then
+      refuse "cannot run ${1:-dispatch} from the installed checkout $installed_top; run from the checkout of the repository you want to work on, using the absolute path to this skill's scripts/dispatch.sh, without changing into the skill directory"
+    fi
+  fi
+  ;;
+esac
+
+[ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
+
 tool() {
   local dir
   for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
@@ -4023,6 +4389,10 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
+  pr)
+    shift
+    open_pr "$@"
+    ;;
   board)
     [ "$#" -eq 1 ] || usage
     open_board
@@ -4123,9 +4493,17 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     reverify_spec "$2"
     ;;
+  recheck)
+    [ "$#" -eq 2 ] || [ "$#" -eq 3 ] || usage
+    recheck_spec "$2" "${3:-HEAD}"
+    ;;
   summary)
     [ "$#" -eq 2 ] || usage
     summary_spec "$2"
+    ;;
+  check-all)
+    [ "$#" -eq 2 ] || usage
+    check_all_spec "$2"
     ;;
   finish)
     [ "$#" -eq 2 ] || usage

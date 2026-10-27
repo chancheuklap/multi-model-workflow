@@ -1,0 +1,137 @@
+{
+  "repo": "agentflow-hq/agentflow",
+  "number": 1618,
+  "mode": "spec",
+  "as_of": "2026-10-27T00:00:00Z",
+  "rows": [
+    {
+      "number": 1618,
+      "title": "小鹦鹉单独去字幕，任务队列说真话",
+      "labels": [
+        {
+          "name": "mmw:spec"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-26T09:03:30Z",
+      "updated_at": "2026-10-27T03:56:13Z",
+      "comments": [
+        {
+          "id": 6416721052,
+          "body": "NIGHT OPENED #1618: wake-ups go to the orchestrator, orca session term_a3e808dc-c5a3-493e-ba45-9146295f610a\n\n<!-- mmw {\"v\":1,\"event\":\"spec.opened\",\"stage\":\"night\",\"actor\":\"main\",\"spec\":1618,\"ticket\":null,\"at\":\"2026-10-26T13:05:51Z\",\"runner\":\"orca\",\"session\":\"term_a3e808dc-c5a3-493e-ba45-9146295f610a\",\"into\":\"night-1618\",\"project\":\"standalone-subtitle\"} -->",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1618#issuecomment-6416721052",
+          "created_at": "2026-10-26T13:05:53Z",
+          "updated_at": "2026-10-26T13:05:53Z"
+        },
+        {
+          "id": 6417256081,
+          "body": "NIGHT SUSPENDED #1618\n\n<!-- mmw {\"v\":1,\"event\":\"spec.suspended\",\"stage\":\"night\",\"actor\":\"main\",\"spec\":1618,\"ticket\":null,\"at\":\"2026-10-26T13:31:33Z\",\"suspended_at\":\"2026-10-26T13:31:33Z\"} -->",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1618#issuecomment-6417256081",
+          "created_at": "2026-10-26T13:31:35Z",
+          "updated_at": "2026-10-26T13:31:35Z"
+        },
+        {
+          "id": 6417768653,
+          "body": "NIGHT OPENED #1618: wake-ups go to the orchestrator, orca session term_a3e808dc-c5a3-493e-ba45-9146295f610a\n\n<!-- mmw {\"v\":1,\"event\":\"spec.opened\",\"stage\":\"night\",\"actor\":\"main\",\"spec\":1618,\"ticket\":null,\"at\":\"2026-10-26T13:55:17Z\",\"runner\":\"orca\",\"session\":\"term_a3e808dc-c5a3-493e-ba45-9146295f610a\",\"into\":\"night-1618\",\"project\":\"standalone-subtitle\"} -->",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1618#issuecomment-6417768653",
+          "created_at": "2026-10-26T13:55:19Z",
+          "updated_at": "2026-10-26T13:55:19Z"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "number": 1625,
+      "title": "任务队列按真实成败显示批次，角标只数处理中",
+      "labels": [
+        {
+          "name": "junior-worker"
+        },
+        {
+          "name": "mmw:ticket"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-26T12:34:54Z",
+      "updated_at": "2026-10-27T01:07:04Z",
+      "comments": [
+        {
+          "id": 6416817734,
+          "body": "Opened #1633 (contract): Task-queue feature baseline still specifies the obsolete success banner and unfinished badge\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1618,\"ticket\":1625,\"at\":\"2026-10-26T13:10:39Z\",\"child\":1633,\"kind\":\"contract\",\"title\":\"Task-queue feature baseline still specifies the obsolete success banner and unfinished badge\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1625#issuecomment-6416817734",
+          "created_at": "2026-10-26T13:10:41Z",
+          "updated_at": "2026-10-26T13:10:41Z"
+        }
+      ],
+      "parent": {
+        "number": 1618
+      }
+    },
+    {
+      "number": 1633,
+      "title": "Task-queue feature baseline still specifies the obsolete success banner and unfinished badge",
+      "body": "A `contract` child of #1625.\n\nTask-queue feature baseline still specifies the obsolete success banner and unfinished badge\n\nTicket #1625 Read first names `.agents/skills/verify-parrot/features/task-queue.md` as a baseline. Its Sub-features section says `批次结束显示「✓ 批次完成 — 成功 a · 失败 b · 取消 c」` and `导航上的角标是未完成批次数。` These contradict #1625 What to build 3 and 4 and #1618 Implementation Decisions section 8, which require an outcome-specific end banner and a badge counting only processing batches.\n\nThe feature's history, per-job progress, cancel/retry, summary navigation, output-folder action and e2e recipe remain valid and must be preserved. The worker will implement the explicit ticket and spec requirements and leave the protected verification feature file unchanged. Please reconcile these two feature descriptions with the settled outcome rules. No answer is required to continue implementation.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-26T13:10:37Z",
+      "updated_at": "2026-10-26T13:11:27Z",
+      "comments": [],
+      "parent": {
+        "number": 1625
+      }
+    },
+    {
+      "number": 1626,
+      "title": "Gateway 认得「不含配音」：只去字幕只收擦除加项",
+      "labels": [
+        {
+          "name": "senior-worker"
+        },
+        {
+          "name": "mmw:ticket"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-26T12:35:01Z",
+      "updated_at": "2026-10-27T01:08:19Z",
+      "comments": [
+        {
+          "id": 6416821849,
+          "body": "Opened #1634 (contract): Ticket #1626 CHECK commands suppress the EXPECT summary\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1618,\"ticket\":1626,\"at\":\"2026-10-26T13:10:51Z\",\"child\":1634,\"kind\":\"contract\",\"title\":\"Ticket #1626 CHECK commands suppress the EXPECT summary\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1626#issuecomment-6416821849",
+          "created_at": "2026-10-26T13:10:53Z",
+          "updated_at": "2026-10-26T13:10:53Z"
+        }
+      ],
+      "parent": {
+        "number": 1618
+      }
+    },
+    {
+      "number": 1634,
+      "title": "Ticket #1626 CHECK commands suppress the EXPECT summary",
+      "body": "A `contract` child of #1626.\n\nTicket #1626 CHECK commands suppress the EXPECT summary\n\nAC1 through AC4 use `uv run pytest ... -q -k ...` and require `EXPECT: /^1 passed in /m`.\n\nThe repository pyproject.toml already adds `-q`. Running the exact AC3 command exits 0 but prints only `. [100%]`, with no passing summary. AC1, AC2 and AC4 will also deselect their sibling tests, so even one quiet flag prints `1 passed, N deselected in ...`, not `1 passed in ...`.\n\nPlease change CHECK commands to exact pytest node IDs without the extra `-q`, retaining the behavioral tests and EXPECT regex. For example `uv run pytest tests/billing/test_parrot_erase_only_billing.py::test_erase_only_hold_preholds_only_the_erasure_surcharge`. AC3 likewise uses its exact node ID. No product requirement needs to change. The worker will leave the test runner and published criteria unchanged and continue implementing billing.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-26T13:10:48Z",
+      "updated_at": "2026-10-26T13:13:37Z",
+      "comments": [],
+      "parent": {
+        "number": 1626
+      }
+    }
+  ]
+}

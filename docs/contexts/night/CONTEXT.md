@@ -108,12 +108,20 @@ _Home_: `mmw-v3/skills/dispatch/SKILL.md`
 _Home_: `mmw-v4/skills/dispatch/scripts/briefs.py`
 
 **batch**:
-What one `brief` call starts: its sessions, all of one role, all answering one parent session. The relay watches it as `briefs:<batch>` and wakes the parent once, `brief <batch> done`, when every brief has reported or been found lost; `dispatch.sh brief close <batch>` removes it.
-_Home_: `mmw-v3/skills/dispatch/scripts/briefs.py`
+What one `brief` call starts: its sessions, all of one role, all answering one parent session. The relay watches it as `briefs:<batch>` and wakes the parent once, `brief <batch> done`, when every brief has reported or been found lost; `dispatch.sh brief close <batch>` removes it. Distinct from a **backlog review batch** and from a spec's batch of tickets (`docs/contexts/tickets/CONTEXT.md`).
+_Home_: `mmw-v4/skills/dispatch/scripts/briefs.py`
 
 **`dispatch.sh board`**:
 The command that makes sure the repository's task board is registered and answering and opens it, or prints its URL.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
+
+**`dispatch.sh pr`**:
+The command that opens a ready pull request, reports whether GitHub CI runs for its base branch, and waits for checks.
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`open_pr`)
+
+**`dispatch.sh recheck`**:
+The read-only check of affected landed criteria before a closing-pass push. Unlike `reverify`, it records no results on landed tickets and changes none of their states.
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`recheck_spec`)
 
 **start prompt**:
 The text a session is given when started: to read the `mmw-mode` skill's `SKILL.md` in full first, the playbook it runs on its ticket, then its data: the worker's Memory indexes, the reviewer's base commit. A session `brief` starts is given its role's brief template and the brief file instead.
@@ -204,7 +212,7 @@ The JSON file of **Memory closing** decisions, `{"decisions": [...]}`, that `sum
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **retro**:
-The capability that expires lesson candidates, gathers evidence from a run, and applies analyst dispositions, recording `spec.retroed` or `ticket.retroed`.
+The capability that gathers evidence from a run and records the analyst's assessment of each row on its registration as `lesson.assessed`, recording `spec.retroed` or `ticket.retroed`; and, for a **backlog review batch**, lists the open registrations (`backlog`) and applies the owner's decisions (`merge-apply`).
 _Home_: `mmw-v4/skills/retro/SKILL.md`
 
 **`status.py`**:
@@ -321,26 +329,34 @@ What a lock file in the state directory holds while its lock is taken — the lo
 _Home_: `mmw-v3/skills/dispatch/scripts/statedir.py`
 
 **watchdog**:
-The dispatch skill's `watchdog.py`, one process per repository while a watch is open, running one round every `--poll` seconds (default 60). Each round it checks the relay and asks the runner of each silent held session whether it is alive, posting `worker.lost` or `reviewer.lost` for a stopped one and sending its other **alert**s to the orchestrator as `watchdog:` lines.
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+The dispatch skill's `watchdog.py`, one process per repository while a watch is open, running one round every `--poll` seconds (default 60). Each round it checks the relay, asks the runner of every session still holding a watched ticket and of every unreported brief what that session is doing (the **session table**), and reminds the orchestrator of every ticket waiting on it (the **ticket table**). It posts `worker.lost` or `reviewer.lost` for a stopped session and sends its other **alert**s to the orchestrator as `watchdog:` lines.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
 **liveness layer**:
-The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at an orchestrator's turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking a silent ticket's runner whether its session is still there is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
+The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at an orchestrator's turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking each held session's runner whether it is alive and what it is doing is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
 _Avoid_: layer (unqualified; tickets' **test layer** is a different concept sharing the word)
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
 **alert**:
-One thing the watchdog's second or third layer notices — the relay down or not reading, the tracker unreadable, a ticket's events unreadable, a held ticket with no session to ask, its liveness unknown, or **idle ticket** — sent to the orchestrator directly as a `watchdog:` line, never through the wake queue, and never acked.
+One thing the watchdog's second or third layer notices — the relay down or not reading, the tracker unreadable, a ticket's events unreadable, a held ticket with no session to ask, a session whose liveness or turn state is unknown, a session showing a dialog, a **stuck session**, an **idle session**, or a **ticket waiting on its orchestrator** — sent to the orchestrator directly as a `watchdog:` line, never through the wake queue, and never acked.
 _Avoid_: finding (this repository's other senses: a review finding, a ticket's `finding` child)
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
-**silent**:
-A held ticket whose newest event is at least `--silence` seconds old (default 600), old enough that the watchdog asks its worker's or reviewer's runner whether the session is still there.
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+**worktree activity**:
+The latest commit time or file modification time in the worktree a session's start event or brief batch record names, never earlier than the session's start. What the watchdog reads to tell a session doing work from one doing nothing; a ticket's newest event is not consulted for an idle session.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
-**idle ticket**:
-A **silent** ticket whose newest event is at least `--idle` seconds old (default 3600), whose runner answers `alive`, and whose fold waits on nothing — no live reviewer, not passed — so nothing will ever wake its worker. An **alert**, once per ticket and newest event.
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+**idle session**:
+A session whose runner answers `alive` and `idle` and whose **worktree activity** is at least `--idle` seconds old (default 3600), while no other session's result or landing on its ticket is pending. An **alert**, once per session and activity time.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
+
+**stuck session**:
+A session whose runner answers `working` and that has made no progress for `--stuck` seconds (default 7200), measured from the later of its **worktree activity** and its ticket's newest event, or a brief's send time. An **alert**, once per session and reference time.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
+
+**ticket waiting on its orchestrator**:
+A watched ticket with a `child.opened` that has no `child.closed` on it, or a delivered wake still in the **wake queue**. The watchdog alerts its watch's orchestrator at once and again every `--nudge` seconds (default 1800) until the children are routed and the wakes acked, whether or not a session holds the ticket.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
 **arm**:
 `watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is; when a watchdog process holds its lock and is not healthy, starts nothing and says what fails; otherwise starts one and waits for it to be healthy. What `turn-guard.py` calls when the watchdog is not healthy.
@@ -369,7 +385,7 @@ One `lesson.seen` on a registration, identifying where, when, and in which ticke
 _Home_: `mmw-v4/skills/verify-ticket/scripts/events.py` (`lesson.seen`, `occurrences`)
 
 **复盘**:
-Sorting registered lessons and run signals by judgment, environment, and process, checking whether they still hold, merging duplicate causes, and giving the owner evidence-backed proposals. It reads events, issues, and git, not conversations or external memory.
+Sorting registered lessons and run signals by judgment, environment, and process, checking whether they still hold, and recording each assessment on its registration, where the owner's **backlog review batch** later acts on it. It reads events, issues, and git, not conversations or external memory.
 _Home_: `mmw-v4/skills/retro/SKILL.md`
 
 **gather**:
@@ -390,13 +406,25 @@ _Avoid_: blocking event
 _Home_: `mmw-v4/skills/register-problem/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py`
 
 **proposal**:
-A lesson offered to the owner with its responsible repository, addition or deletion, target file, and landing playbook. It needs two independent occurrences, or one stall or owner's correction. Offering it adds `needs-triage`; it does not authorize implementation.
-_Home_: `mmw-v4/skills/retro/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py` (`proposal`, `qualifies`)
+The analyst's conclusion `propose` on a registration, its plan recorded verbatim in a `lesson.assessed` row; `apply` asks the plan for no particular shape. Whether it qualifies (two independent occurrences, or one stall or owner's correction) is recorded beside it for reference; it changes nothing on the registration and authorizes no implementation.
+_Home_: `mmw-v4/skills/retro/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py` (`qualifies`)
 
 **apply**:
-The retrospective's command that validates answer rows and evidence, then writes merges, rejections, and proposals, registers new signal-derived problems, and records a typed retrospective event. Candidates remain unchanged.
+The retrospective's command that validates answer rows and evidence, records each accepted row as one `lesson.assessed` on the registration it names (a rerun of the same request records nothing twice), registers new signal-derived problems, and records the **retrospective receipt**. It closes, reopens, merges, relabels, edits or transfers no registration.
 _Home_: `mmw-v4/skills/retro/scripts/retro.py` (`apply_answers`)
 
+**`lesson.assessed`**:
+The event `apply` writes on a registration for one accepted answer row: the conclusion as the analyst wrote it (`merge:<target>`, `reject`, `candidate` or `propose`), its reason, evidence and plan, the run it came from, whether it qualifies, and the request that wrote it. A record of judgement, never an action on the registration.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`, `mmw-v4/skills/retro/scripts/retro.py` (`apply`)
+
+**backlog review batch**:
+One owner-approved review of the open problem registrations, run by `playbooks/merging-the-lesson-backlog.md`: the owner decides each root-cause group on one page, and `retro.py merge-apply` carries out the closures, merges and keeps under one batch identifier. Distinct from a brief **batch** and from a spec's batch of tickets.
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/merging-the-lesson-backlog.md`
+
+**`lessons.merged`**:
+The event recording the owner's decision on one registration in a **backlog review batch**: `closed`, `kept`, `merged:<owner/repo#n>`, `spec:<n>` or `ticket:<n>`, with the batch identifier. Assessments counted toward the registration's next review start after it.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`, `mmw-v4/skills/retro/scripts/retro.py` (`merge-apply`)
+
 **retrospective receipt**:
-The `spec.retroed` or `ticket.retroed` event recording counts, proposed issues, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each disposed problem's issue and conclusion. An unrecorded outcome carries only its reason.
+The `spec.retroed` or `ticket.retroed` event recording how many rows were recorded under each conclusion, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each row's registration and conclusion; a row whose code names no registration is listed there with conclusion `unrecorded`, its code as written and the reason, while the receipt itself stays `result=recorded`. A receipt with `result=unrecorded` means the whole retrospective failed to record and carries only its reason.
 _Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`

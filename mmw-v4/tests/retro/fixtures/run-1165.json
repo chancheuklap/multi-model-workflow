@@ -1,0 +1,108 @@
+{
+  "repo": "chancheuklap/multi-model-workflow",
+  "number": 1165,
+  "mode": "ticket",
+  "as_of": "2026-10-27T00:00:00Z",
+  "rows": [
+    {
+      "number": 1165,
+      "title": "candidate 的派发入口和工作提示词分散在 architect、arena、prototype 三处",
+      "labels": [
+        {
+          "name": "senior-worker"
+        },
+        {
+          "name": "mmw:ticket"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-19T06:47:35Z",
+      "updated_at": "2026-10-19T09:37:17Z",
+      "comments": [
+        {
+          "id": 6261975095,
+          "body": "worker started on orca: session term_377f1972-9b5a-4a9b-a4d0-4f8fee661d23, codex gpt-6.1-sol (high)\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\",\"stage\":\"dispatch\",\"actor\":\"main\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T07:25:26Z\",\"session\":\"term_377f1972-9b5a-4a9b-a4d0-4f8fee661d23\",\"runner\":\"orca\",\"machine\":\"Cheuklaps-MacBook-Pro-16.local\",\"host\":\"codex\",\"model\":\"gpt-6.1-sol\",\"effort\":\"high\",\"grade\":\"senior-worker\",\"worktree\":\"/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1165\",\"branch\":\"issue-1165\",\"base\":\"7b43b47d406df2f7a693df1ef5e748e176356364\",\"into\":\"fix-1165\"} -->",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6261975095",
+          "created_at": "2026-10-19T07:25:27Z",
+          "updated_at": "2026-10-19T07:25:27Z"
+        },
+        {
+          "id": 6261981420,
+          "body": "Claimed #1165 on issue-1165 as chancheuklap\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.claimed\",\"stage\":\"intake\",\"actor\":\"worker\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T07:25:46Z\",\"login\":\"chancheuklap\",\"branch\":\"issue-1165\",\"commit\":\"7b43b47d406df2f7a693df1ef5e748e176356364\"} -->\n",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6261981420",
+          "created_at": "2026-10-19T07:25:48Z",
+          "updated_at": "2026-10-19T07:25:48Z"
+        },
+        {
+          "id": 6261992108,
+          "body": "Opened #1166 (contract): AC6 expected output omits four UI steps that the baseline preserves\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T07:26:26Z\",\"child\":1166,\"kind\":\"contract\",\"title\":\"AC6 expected output omits four UI steps that the baseline preserves\"} -->\n",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6261992108",
+          "created_at": "2026-10-19T07:26:27Z",
+          "updated_at": "2026-10-19T07:26:27Z"
+        },
+        {
+          "id": 6262573495,
+          "body": "worker started on orca: session term_32694fc0-29ce-484b-b066-10e6e3190c86, codex gpt-6.1-sol (high)\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\",\"stage\":\"dispatch\",\"actor\":\"main\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T08:03:26Z\",\"session\":\"term_32694fc0-29ce-484b-b066-10e6e3190c86\",\"runner\":\"orca\",\"machine\":\"Cheuklaps-MacBook-Pro-16.local\",\"host\":\"codex\",\"model\":\"gpt-6.1-sol\",\"effort\":\"high\",\"grade\":\"senior-worker\",\"worktree\":\"/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1165\",\"branch\":\"issue-1165\",\"base\":\"7b43b47d406df2f7a693df1ef5e748e176356364\",\"into\":\"fix-1165\"} -->",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6262573495",
+          "created_at": "2026-10-19T08:03:27Z",
+          "updated_at": "2026-10-19T08:03:27Z"
+        },
+        {
+          "id": 6262577843,
+          "body": "Claimed #1165 on issue-1165 as chancheuklap\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.claimed\",\"stage\":\"intake\",\"actor\":\"worker\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T08:03:43Z\",\"login\":\"chancheuklap\",\"branch\":\"issue-1165\",\"commit\":\"242a9f0de0f839984074023884f88c42fa836bd7\"} -->\n",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6262577843",
+          "created_at": "2026-10-19T08:03:44Z",
+          "updated_at": "2026-10-19T08:03:44Z"
+        },
+        {
+          "id": 6262991644,
+          "body": "worker started on orca: session term_fac7c9ea-1ae6-400c-b184-269796400142, codex gpt-6.1-sol (high)\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\",\"stage\":\"dispatch\",\"actor\":\"main\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T08:27:52Z\",\"session\":\"term_fac7c9ea-1ae6-400c-b184-269796400142\",\"runner\":\"orca\",\"machine\":\"Cheuklaps-MacBook-Pro-16.local\",\"host\":\"codex\",\"model\":\"gpt-6.1-sol\",\"effort\":\"high\",\"grade\":\"senior-worker\",\"worktree\":\"/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1165\",\"branch\":\"issue-1165\",\"base\":\"7b43b47d406df2f7a693df1ef5e748e176356364\",\"into\":\"fix-1165\"} -->",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6262991644",
+          "created_at": "2026-10-19T08:27:54Z",
+          "updated_at": "2026-10-19T08:27:54Z"
+        },
+        {
+          "id": 6262996238,
+          "body": "Claimed #1165 on issue-1165 as chancheuklap\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.claimed\",\"stage\":\"intake\",\"actor\":\"worker\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T08:28:08Z\",\"login\":\"chancheuklap\",\"branch\":\"issue-1165\",\"commit\":\"6bbfe5444b0a9d6f13a29a6ce38cfd5b53143480\"} -->\n",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6262996238",
+          "created_at": "2026-10-19T08:28:10Z",
+          "updated_at": "2026-10-19T08:28:10Z"
+        },
+        {
+          "id": 6263406205,
+          "body": "worker started on orca: session term_eb3b72e6-9e1a-43dd-8c9f-ee46befd1db1, codex gpt-6.1-sol (high)\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\",\"stage\":\"dispatch\",\"actor\":\"main\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T08:51:35Z\",\"session\":\"term_eb3b72e6-9e1a-43dd-8c9f-ee46befd1db1\",\"runner\":\"orca\",\"machine\":\"Cheuklaps-MacBook-Pro-16.local\",\"host\":\"codex\",\"model\":\"gpt-6.1-sol\",\"effort\":\"high\",\"grade\":\"senior-worker\",\"worktree\":\"/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1165\",\"branch\":\"issue-1165\",\"base\":\"7b43b47d406df2f7a693df1ef5e748e176356364\",\"into\":\"fix-1165\"} -->",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6263406205",
+          "created_at": "2026-10-19T08:51:36Z",
+          "updated_at": "2026-10-19T08:51:36Z"
+        },
+        {
+          "id": 6263411437,
+          "body": "Claimed #1165 on issue-1165 as chancheuklap\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.claimed\",\"stage\":\"intake\",\"actor\":\"worker\",\"spec\":null,\"ticket\":1165,\"at\":\"2026-10-19T08:51:54Z\",\"login\":\"chancheuklap\",\"branch\":\"issue-1165\",\"commit\":\"2b609aee202dabc1b7410ce9b523532d22fab8c4\"} -->\n",
+          "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1165#issuecomment-6263411437",
+          "created_at": "2026-10-19T08:51:56Z",
+          "updated_at": "2026-10-19T08:51:56Z"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "number": 1166,
+      "title": "AC6 expected output omits four UI steps that the baseline preserves",
+      "body": "A `contract` child of #1165.\n\nAC6 expected output omits four UI steps that the baseline preserves\nAC6 runs `grep -h '^### [0-9]' mmw-v4/skills/prototype/UI.md | tr '\\n' '|'` but expects only steps 2, 3 and 4. The findings baseline says to reorder only Generate radically different variants, Wire them together and Build the floating switcher. It does not delete steps 0, 1, 5 or 6, and What to build requires unnamed sentences to stay byte for byte.\n\nPlease correct EXPECT to the full ordered heading line:\n`### 0. Prepare the local product|### 1. State the question and pick N|### 2. Wire them together|### 3. Build the floating switcher|### 4. Generate radically different variants|### 5. Hand it over and iterate|### 6. Capture the answer at design freeze|`\n\nThe requirement to mount and add the switcher before candidates start still holds. I am continuing the independent text changes without altering the check or the preserved steps.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-19T07:26:22Z",
+      "updated_at": "2026-10-19T07:27:33Z",
+      "comments": [],
+      "parent": {
+        "number": 1165
+      }
+    }
+  ]
+}

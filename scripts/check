@@ -2,10 +2,11 @@
 """This repository's one check: the syntax of the changed files, the shared checks and the
 test suites, in three tiers.
 
-    scripts/check            the default tier: syntax of the files changed against the base,
-                             the always-run group, then the suites MAP selects for the changed paths
+    scripts/check            the default tier: syntax of the files changed against the base, then
+                             each suite whose inputs in MAP hold a changed path
     scripts/check --all      every step runnable on this machine
     scripts/check --staged   the syntax of the staged files; no commit-hook tool is configured here
+    scripts/check --step N[,N...]  only the named steps, without changed-path selection
 
 The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
 Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
@@ -13,6 +14,7 @@ untracked files. There is no dependency install: the repository has no package m
 suites that run under `uv run` resolve their own dependencies, and the browser suites fetch the
 Chromium build their Playwright needs (mmw-v4/tests/lib/ensure_chromium.py).
 
+Before the steps run, one `SELECT <suite>: <changed path> (<input>)` line per selected suite.
 Each step prints `PASS|FAIL|ENV <step> <seconds>s`; a failing step adds its last lines and the
 path of its full log under .scratch/check/, and so does a step that exits 2 (ENV: its suite
 cannot run on this machine, such as Chromium that will not start). The last line is the summary.
@@ -56,6 +58,7 @@ STEPS = {
     "exe-release": ("bash mmw-v4/tests/exe-release/run.sh", ["bash", "python3", "uv"]),
     "install": ("bash mmw-v4/tests/install/run.sh", ["bash", "python3", "uv"]),
     "liveness": ("bash mmw-v4/tests/liveness/run.sh", ["bash", "python3", "uv"]),
+    "session-start": ("bash mmw-v4/tests/session-start/run.sh", ["bash", "python3", "uv"]),
     "reply-check": ("bash mmw-v4/tests/reply-check/run.sh", ["bash", "python3", "uv", "git"]),
     "relay": ("bash mmw-v4/tests/relay/run.sh", ["bash", "python3", "uv"]),
     "setup-mmw": ("bash mmw-v4/tests/setup-mmw/run.sh", ["bash", "python3", "uv", "git"]),
@@ -67,12 +70,13 @@ STEPS = {
     "prompt": ("bash mmw-v4/prompt/tests/run.sh", ["bash", "python3"]),
 }
 
-ALWAYS = ["shared-checks", "lib"]
-
-# A changed path starting with the prefix selects the suites; root TESTING.md points here.
+# Each suite's inputs: a changed path starting with the prefix selects the suites, and a suite
+# no changed path selects does not run. Root TESTING.md points here.
 DISPATCH = "mmw-v4/skills/dispatch/"
 VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
+    # The shared checks read every module path, skill wiring and frontmatter under mmw-v4/.
+    ("mmw-v4/", ["shared-checks"]),
     ("mmw-v4/skills/", ["check-interfaces"]),
     (DISPATCH, ["dispatch"]),
     (DISPATCH + "scripts/relay.py", ["relay"]),
@@ -87,6 +91,8 @@ MAP = [
     (DISPATCH + "scripts/models.py", ["board", "relay"]),
     (DISPATCH + "roles.json", ["board", "relay"]),
     (VERIFY, ["verify-ticket"]),
+    # test_dispatch.sh runs verify-ticket's scripts through --tools.
+    (VERIFY + "scripts/", ["dispatch"]),
     (VERIFY + "scripts/events.py", ["board", "relay", "register-problem", "retro"]),
     (VERIFY + "scripts/issue_tree.py", ["board", "relay"]),
     (VERIFY + "scripts/verify-ticket.py", ["setup-mmw"]),
@@ -96,6 +102,7 @@ MAP = [
     ("mmw-v4/skills/diagram-design/", ["diagram-design"]),
     ("mmw-v4/skills/exe-release/", ["exe-release"]),
     ("mmw-v4/skills/writing-for-agents/scripts/", ["writing-for-agents"]),
+    ("mmw-v4/skills/mmw-mode/scripts/session-start.py", ["session-start", "install"]),
     ("mmw-v4/skills/mmw-mode/scripts/reply-check.py", ["reply-check", "install"]),
     ("docs/contexts/", ["reply-check"]),
     ("mmw-v4/skills/mmw-mode/scripts/worktree-audit.sh", ["worktree-audit"]),
@@ -137,9 +144,15 @@ def staged_paths() -> list[str]:
     return sorted(git("diff", "--cached", "--name-only", "--diff-filter=ACMR").stdout.split())
 
 
-def selected(paths: list[str]) -> list[str]:
-    picked = {name for path in paths for prefix, names in MAP if path.startswith(prefix) for name in names}
-    return [name for name in STEPS if name in picked and name not in ALWAYS]
+def selected(paths: list[str]) -> dict[str, tuple[str, str]]:
+    """Each suite a changed path selects, with the first such path and the input that matched."""
+    picked: dict[str, tuple[str, str]] = {}
+    for path in paths:
+        for prefix, names in MAP:
+            if path.startswith(prefix):
+                for name in names:
+                    picked.setdefault(name, (path, prefix))
+    return {name: picked[name] for name in STEPS if name in picked}
 
 
 def self_check() -> list[str]:
@@ -232,10 +245,15 @@ def cannot_run(reason: str) -> int:
 
 
 def main(argv: list[str]) -> int:
-    tier = {"--staged": "staged", "--all": "all"}.get(argv[0], None) if argv else "default"
-    if tier is None or len(argv) > 1:
-        print("usage: scripts/check [--staged | --all]", file=sys.stderr)
+    tier = {"--staged": "staged", "--all": "all", "--step": "step"}.get(argv[0], None) if argv else "default"
+    if tier is None or len(argv) != (2 if tier == "step" else 1 if argv else 0):
+        print("usage: scripts/check [--staged | --all | --step NAME[,NAME...]]", file=sys.stderr)
         return 2
+    if tier == "step":
+        names = list(dict.fromkeys(argv[1].split(",")))
+        unknown = [name for name in names if name not in STEPS]
+        if unknown:
+            return cannot_run(f"unknown step {', '.join(unknown)}; known steps: {', '.join(STEPS)}")
     started = time.monotonic()
     run = Run()
 
@@ -245,7 +263,10 @@ def main(argv: list[str]) -> int:
         print("no commit-hook tool is configured in this repository; checking the syntax of the staged files")
         run.syntax(staged_paths())
     else:
-        if tier == "all":
+        if tier == "step":
+            paths = []
+            print(f"tier --step: {', '.join(names)}")
+        elif tier == "all":
             names = list(STEPS)
             paths = git("ls-files", "mmw-v4", "scripts").stdout.split()
             print("tier --all: every step")
@@ -257,16 +278,21 @@ def main(argv: list[str]) -> int:
                 paths = changed_paths(base)
             except EnvironmentError as err:
                 return cannot_run(str(err))
-            names = ALWAYS + selected(paths)
-            print(f"tier default, base {base}: {len(paths)} changed paths; steps {', '.join(names)}")
+            chosen = selected(paths)
+            names = list(chosen)
+            print(f"tier default, base {base}: {len(paths)} changed paths; "
+                  f"steps {', '.join(names) or 'none: no suite reads a changed path'}")
+            for name, (path, prefix) in chosen.items():
+                print(f"SELECT {name}: {path} ({prefix})")
         missing = missing_tools(names)
         if missing:
             return cannot_run(f"{', '.join(missing)} not on PATH, needed by "
                               + ", ".join(n for n in names if set(STEPS[n][1]) & set(missing))
                               + "; install it, or run from a shell whose PATH has it")
-        problems = self_check()
-        run.report("self-check", not problems, 0, problems, None)
-        run.syntax(paths)
+        if tier != "step":
+            problems = self_check()
+            run.report("self-check", not problems, 0, problems, None)
+            run.syntax(paths)
         for name in names:
             run.step(name)
         print(f"not run here: {NOT_RUN_HERE}")

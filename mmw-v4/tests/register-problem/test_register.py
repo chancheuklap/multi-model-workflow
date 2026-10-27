@@ -34,7 +34,7 @@ REAL_RUN = subprocess.run
 
 def problem(code="test-compares-empty-lists", angle="判断"):
     return (f"## Problem\n\n问题代号：{code}\n角度：{angle}\n发生了什么：测试比较空列表\n"
-            "证据：tests/test_board.py:193\n代价：看板漏角色仍然通过\n该谁修：MMW 仓库\n")
+            "证据：tests/test_board.py:193\n代价：看板漏角色仍然通过\n该谁修：o/r\n")
 
 
 def issue(number=10, state="open", reason=None, labels=("mmw:lesson",), body=None):
@@ -273,6 +273,18 @@ class Registration(unittest.TestCase):
         self.assertEqual(len(events.fold(row["comments"])["occurrences"]), 1)
         self.assertIn(f"https://github.com/o/r/issues/100#issuecomment-{first_comment}", out)
 
+    def test_one_session_on_two_tickets_adds_two_occurrences(self):
+        self.fake.session = ("orca", "same-session")
+        self.fake.repos["o/r"] = [issue(61, body="First ticket"), issue(62, body="Second ticket")]
+        for ticket in (61, 62, 62):
+            rc, out, err = self.run_register("add", str(self.path), "--ticket", str(ticket))
+            self.assertEqual(rc, 0, err)
+        row = self.fake.repos["o/r"][-1]
+        occurrences = events.fold(row["comments"])["occurrences"]
+        self.assertEqual([(r["session"], r["ticket"]) for r in occurrences],
+                         [("orca:same-session", 61), ("orca:same-session", 62)])
+        self.assertIn("ALREADY RECORDED", out)
+
     def test_registrations_from_two_sessions_add_two_occurrences(self):
         for session in ("first-session", "second-session"):
             self.fake.session = ("orca", session)
@@ -412,6 +424,90 @@ class Registration(unittest.TestCase):
         self.assertIn("installed-root", err)
         self.assertEqual(len(self.fake.calls), before)
 
+    def test_add_refuses_a_registration_for_another_repository(self):
+        env, store = self.cli_environment()
+        for responsible, target, expected in (("other/product", None, "other/product"),
+                                               ("erp-frontend", "o/r", "<owner>/erp-frontend"),
+                                               ("MMW", None, "acme/toolbox"),
+                                               ("MMW 仓库", "o/r", "acme/toolbox")):
+            with self.subTest(responsible=responsible, target=target):
+                self.path.write_text(problem().replace("该谁修：o/r", f"该谁修：{responsible}"))
+                args = ("--repo", target) if target else ()
+                before = store.read_text()
+                run = REAL_RUN([sys.executable, str(SCRIPT), "add", str(self.path), *args],
+                               cwd=self.product, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(run.returncode, 2, run.stderr)
+                self.assertIn("--repo " + expected, run.stderr)
+                self.assertEqual(store.read_text(), before)
+                self.assertFalse((self.home / "state").exists())
+        for responsible, target in (("o/r", None), ("r", "o/r"),
+                                    ("MMW", "acme/toolbox"), ("MMW 仓库", "acme/toolbox"),
+                                    ("由产品团队修复", "o/r")):
+            with self.subTest(accepted=responsible):
+                self.fake = Fake()
+                self.path.write_text(problem().replace("该谁修：o/r", f"该谁修：{responsible}"))
+                args = ("--repo", target) if target else ()
+                rc, out, err = self.run_register("add", str(self.path), *args)
+                self.assertEqual(rc, 0, err)
+                row = self.fake.repos[target or "o/r"][0]
+                payload = events.parse(row["comments"][0]["body"])[1]
+                self.assertEqual(payload["seen_in"], "o/r")
+
+    def test_add_with_ticket_records_ticket_and_parent_spec(self):
+        for parent, unreadable in ((76, None), (None, None), (76, "61"), (76, "76")):
+            with self.subTest(parent=parent, unreadable=unreadable):
+                self.fake = Fake()
+                ticket = issue(61, body="Active ticket", labels=("mmw:ticket",))
+                ticket["parent"] = {"number": parent} if parent else None
+                self.fake.repos["o/r"] = [ticket, issue(76, body="Batch", labels=("mmw:spec",))]
+                if unreadable:
+                    self.fake.fail = lambda c: c[1:4] == ["issue", "view", unreadable]
+                rc, out, err = self.run_register("add", str(self.path), "--ticket", "61",
+                                                 env={"MMW_TICKET": "99", "MMW_SPEC": "98"})
+                self.assertEqual(rc, 0, err)
+                payload = events.parse(self.fake.repos["o/r"][-1]["comments"][0]["body"])[1]
+                self.assertEqual((payload["ticket"], payload["spec"]),
+                                 (61, None if unreadable else parent))
+                if unreadable:
+                    self.assertIn("spec", err)
+                    self.assertIn("o/r#61", err)
+                    self.assertIn("503", err)
+                else:
+                    self.assertEqual(err, "")
+
+    def test_nonpositive_ticket_is_refused_before_any_write(self):
+        env, store = self.cli_environment()
+        env.update(MMW_TICKET="61", MMW_SPEC="76")
+        before = store.read_text()
+        for value in ("0", "-1"):
+            with self.subTest(value=value):
+                run = REAL_RUN([sys.executable, str(SCRIPT), "add", str(self.path), "--ticket", value],
+                               cwd=self.product, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(run.returncode, 2, run.stderr)
+                self.assertIn("--ticket", run.stderr)
+                self.assertIn("positive", run.stderr)
+                self.assertEqual(store.read_text(), before)
+                self.assertFalse((self.home / "state").exists())
+
+    def test_ticket_context_stays_in_product_when_fix_belongs_to_mmw(self):
+        ticket = issue(61, body="Product ticket", labels=("mmw:ticket",))
+        ticket["parent"] = {"number": 76}
+        self.fake.repos["o/r"] = [ticket, issue(76, body="Product spec", labels=("mmw:spec",))]
+        unrelated = issue(61, body="MMW ticket", labels=("mmw:ticket",))
+        unrelated["parent"] = {"number": 98}
+        self.fake.repos["acme/toolbox"] = [unrelated, issue(98, body="MMW spec", labels=("mmw:spec",))]
+        self.path.write_text(problem().replace("该谁修：o/r", "该谁修：MMW"))
+        env, store = self.cli_environment()
+        env.update(MMW_TICKET="99", MMW_SPEC="98")
+        run = REAL_RUN([sys.executable, str(SCRIPT), "add", str(self.path), "--repo", "acme/toolbox",
+                        "--ticket", "61", "--source", "stall"], cwd=self.product,
+                       env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        row = json.loads(store.read_text())["repos"]["acme/toolbox"][-1]
+        payload = events.parse(row["comments"][0]["body"])[1]
+        self.assertEqual((payload["seen_in"], payload["ticket"], payload["spec"], payload["source"]),
+                         ("o/r", 61, 76, "stall"))
+
     def test_occurrence_carries_the_active_ticket_spec_runner_and_role(self):
         ticket = issue(61, body="Active ticket", labels=("mmw:ticket",))
         ticket["parent"] = {"number": 76}
@@ -421,9 +517,11 @@ class Registration(unittest.TestCase):
                                worktree=str(self.product), branch="issue-61", base="a"*40)}]
         self.fake.repos["o/r"] = [ticket, issue(76, body="Batch", labels=("mmw:spec",))]
         self.fake.session = ("orca", "t1")
-        rc, out, err = self.run_register("add", str(self.path), env={"MMW_TICKET": "61"})
+        self.path.write_text(problem().replace("该谁修：o/r", "该谁修：MMW"))
+        rc, out, err = self.run_register("add", str(self.path), "--repo", "acme/toolbox",
+                                         env={"MMW_TICKET": "61"})
         self.assertEqual(rc, 0, err)
-        payload = events.parse(self.fake.repos["o/r"][-1]["comments"][0]["body"])[1]
+        payload = events.parse(self.fake.repos["acme/toolbox"][-1]["comments"][0]["body"])[1]
         self.assertEqual((payload["seen_in"], payload["ticket"], payload["spec"], payload["session"], payload["actor"]),
                          ("o/r", 61, 76, "orca:t1", "senior-worker"))
 
