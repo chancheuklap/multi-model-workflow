@@ -8249,6 +8249,259 @@ assert bounce["commands"][0]["tail"] == "FAIL lint-python\npyrefly", bounce
 PYTEST
 }
 
+setup_landed_criterion_change() {
+  reset_log
+  fresh_repo
+  rm -f "$TMP/selected" "$TMP/unselected" "$TMP/selection"
+  open_night
+  git -C "$TMP/repo" checkout -q -b issue-61
+  mkdir -p "$TMP/repo/tests" "$TMP/repo/unaffected"
+  printf 'echo run >> "%s"\ntest "$1" = original && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
+  printf 'echo unexpected-run >> "%s"\n' "$TMP/unselected" > "$TMP/repo/unaffected/other.sh"
+  git -C "$TMP/repo" add tests unaffected
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm named-test
+  local passed code
+  passed="$(git -C "$TMP/repo" rev-parse HEAD)"
+  git -C "$TMP/repo" checkout -q main
+  write_one_passed 61 "$passed"
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows[0]["body"] = """## Acceptance criteria
+
+- [ ] AC1: the named test runs
+  CHECK: bash tests/named.sh original
+  EXPECT: /named-green/
+  EVIDENCE: pending
+- [ ] AC2: an unrelated criterion
+  CHECK: bash unaffected/other.sh
+  EXPECT: /anything/
+  EVIDENCE: pending
+"""
+p.write_text(json.dumps(rows))
+PY
+  seed_workspace 61
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "first ticket must land: $(cat "$TMP/err")"
+  posted_events 61 | grep -qx ticket.landed || fail "first ticket did not land"
+  git -C "$TMP/repo" fetch -q origin
+  if [ "${1:-}" = plural ]; then
+    git -C "$TMP/repo" checkout -q -b issue-60 origin/main
+    commit_file "$TMP/repo" plural.txt harmless second-landed-ticket
+    passed="$(git -C "$TMP/repo" rev-parse HEAD)"
+    git -C "$TMP/repo" checkout -q main
+    MMW_PASS="$(ev ticket.passed 60 'ALL MET' --field branch=issue-60 --field "commit=$passed" --field into=main)" \
+      python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+body = rows[0]["body"].split("- [ ] AC2:")[0].replace("AC1:", "AC3:")
+rows.append({"number": 60, "state": "CLOSED", "labels": [],
+             "closedAt": "2026-09-11T01:30:00Z", "body": body,
+             "comments": [json.loads(os.environ["MMW_PASS"])]})
+p.write_text(json.dumps(rows))
+PY
+    seed_workspace 60
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+    [ "$code" = 0 ] || fail "second ticket must land: $(cat "$TMP/err")"
+    posted_events 60 | grep -qx ticket.landed || fail "second ticket did not land"
+    git -C "$TMP/repo" fetch -q origin
+  fi
+  git -C "$TMP/repo" checkout -q -b issue-62 origin/main
+  printf 'echo run >> "%s"\ntest "$1" = renamed && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
+  git -C "$TMP/repo" add tests/named.sh
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm rename-test
+  passed="$(git -C "$TMP/repo" rev-parse HEAD)"
+  git -C "$TMP/repo" checkout -q main
+  MMW_PASS="$(ev ticket.passed 62 'ALL MET' --field branch=issue-62 --field "commit=$passed" --field into=main)" \
+    python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows.append({"number": 62, "state": "CLOSED", "labels": [],
+             "closedAt": "2026-09-11T02:00:00Z", "comments": [json.loads(os.environ["MMW_PASS"])]})
+p.write_text(json.dumps(rows))
+PY
+  seed_workspace 62
+  rm -f "$TMP/unselected"
+}
+
+scenario_advancebreakslandedcriterion() {
+  setup_landed_criterion_change
+  local before code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  if [ "${1:-}" = proof ]; then
+    post_ev 62 ticket.checked --ticket 62 --line 'Repository check' --actor worker --stage close \
+      --field run=repository --field result=met --field tier=default \
+      --field "commit=$(git -C "$(wt 62)" rev-parse HEAD)" --field "base=$before" \
+      --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" --json-field 'steps=["unit"]'
+  fi
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance should bounce and continue: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "the broken merge was pushed"
+  posted_events 62 reason | grep -qx 'ticket.bounced reason=breaks-landed-criterion' \
+    || fail "the ticket was not bounced for the landed criterion"
+  [ ! -e "$TMP/unselected" ] || fail "an unselected criterion ran"
+}
+
+scenario_advancegateafterproof() {
+  scenario_advancebreakslandedcriterion proof
+  grep -q 'repository checks not run again' "$TMP/out" || fail "the fixture did not reuse the repository proof"
+}
+
+scenario_advancemovedlandedscript() {
+  setup_landed_criterion_change
+  git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
+  if [ "${1:-}" = delete ]; then
+    git -C "$(wt 62)" rm -q -f tests/named.sh
+  else
+    mkdir -p "$(wt 62)/moved"
+    git -C "$(wt 62)" mv tests/named.sh moved/named.sh
+  fi
+  git -C "$(wt 62)" -c user.email=t@t -c user.name=t commit -qm move-script
+  local before passed code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  passed="$(git -C "$(wt 62)" rev-parse HEAD)"
+  post_ev 62 ticket.passed --ticket 62 --line 'ALL MET' --field branch=issue-62 --field into=main --field "commit=$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "moving a landed script should bounce, not stop advance: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "the script move was pushed"
+  posted_events 62 reason | grep -qx 'ticket.bounced reason=breaks-landed-criterion' || fail "the moved script did not bounce its ticket"
+}
+
+scenario_advancedeletedlandedscript() {
+  scenario_advancemovedlandedscript delete
+}
+
+scenario_advancebrokenfields() {
+  setup_landed_criterion_change plural
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  MMW_BODY="$(bounced_comment 62)" python3 - <<'PY' || fail "the bounce omitted the broken criterion"
+import json, os
+body = os.environ["MMW_BODY"]
+assert "Broken landed criteria: #61 AC1, #60 AC3." in body.splitlines()[0], body
+payload = json.loads(body.split("<!-- mmw ")[1].split(" -->")[0])
+assert payload["reason"] == "breaks-landed-criterion", payload
+assert payload["broken"] == [{"ticket": 61, "ac": "AC1"}, {"ticket": 60, "ac": "AC3"}], payload
+PY
+}
+
+scenario_advanceunrelatedlands() {
+  setup_landed_criterion_change
+  git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
+  git -C "$(wt 62)" -c user.email=t@t -c user.name=t commit -qm restore-test
+  commit_file "$(wt 62)" notes.txt harmless harmless
+  local passed code
+  passed="$(git -C "$(wt 62)" rev-parse HEAD)"
+  post_ev 62 ticket.passed --ticket 62 --line 'ALL MET' --field branch=issue-62 --field into=main --field "commit=$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "unrelated advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "unrelated change did not land"
+  [ ! -e "$TMP/selected" ] || fail "a landed criterion ran for an unrelated root file"
+  [ ! -e "$TMP/unselected" ] || fail "an unrelated criterion ran"
+}
+
+scenario_recheckred() {
+  setup_landed_criterion_change
+  local before code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 1 ] || fail "recheck should return 1 for the renamed test, got $code: $(cat "$TMP/err")"
+  grep -qx '#61 AC1 red' "$TMP/out" || fail "recheck omitted #61 AC1: $(cat "$TMP/out")"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 1 red of 1' ] || fail "wrong recheck summary: $(cat "$TMP/out")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "recheck pushed the commit"
+  [ ! -e "$TMP/unselected" ] || fail "recheck ran another criterion of the landed ticket"
+}
+
+scenario_recheckgreenrecordsnothing() {
+  setup_landed_criterion_change
+  local before code
+  gh_comments_json 61 > "$TMP/landed-comments-before"
+  cp "$TMP/tickets.json" "$TMP/tickets-before.json"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 1 ] || fail "the red recheck should exit 1"
+  git -C "$TMP/repo" checkout -q -b closing-green origin/main
+  printf '\n' >> "$TMP/repo/tests/named.sh"
+  git -C "$TMP/repo" add tests/named.sh
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm harmless-test-change
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76)"
+  [ "$code" = 0 ] || fail "green recheck failed: $(cat "$TMP/err")"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 1 landed criteria green' ] || fail "the harmless test change was not checked: $(cat "$TMP/out")"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 origin/main)"
+  [ "$code" = 0 ] || fail "empty recheck failed"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 0 landed criteria green' ] || fail "wrong zero-criteria summary"
+  gh_comments_json 61 > "$TMP/landed-comments-after"
+  cmp "$TMP/landed-comments-before" "$TMP/landed-comments-after" || fail "recheck wrote a comment on the landed ticket"
+  cmp "$TMP/tickets-before.json" "$TMP/tickets.json" || fail "recheck changed ticket state or labels"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "recheck pushed a commit"
+  hasnt 'gh :: issue :: edit'
+  hasnt 'gh :: issue :: reopen'
+  hasnt 'gh :: issue :: close'
+  [ ! -e "$TMP/unselected" ] || fail "recheck ran an unselected criterion"
+}
+
+scenario_recheckpathselection() {
+  setup_landed_criterion_change
+  git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
+  mkdir -p "$(wt 62)/tests/deep"
+  printf 'new test\n' > "$(wt 62)/tests/deep/test file.sh"
+  printf 'config\n' > "$(wt 62)/config.json"
+  git -C "$(wt 62)" add tests config.json
+  git -C "$(wt 62)" -c user.email=t@t -c user.name=t commit -qm nested-test
+  python3 - "$TMP/tickets.json" "$TMP/selection" <<'PY'
+import json, shlex, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+paths = ['"tests/deep/test file.sh"', 'tests/deep', 'tests/deep/other.py',
+         'tests', 'tests/deeper', 'config.json', './', 'config.json.bak']
+lines = ["## Acceptance criteria", ""]
+for i, path in enumerate(paths, 1):
+    lines += [f"- [ ] AC{i}: path selection",
+              f"  CHECK: echo AC{i} >> {shlex.quote(sys.argv[2])}; echo green; : {path}",
+              "  EXPECT: /green/", "  EVIDENCE: pending"]
+rows[0]["body"] = "\n".join(lines)
+p.write_text(json.dumps(rows))
+PY
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 0 ] || fail "path-selection recheck failed: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/selection")" = "$(printf 'AC1\nAC2\nAC3\nAC6')" ] \
+    || fail "selection must use only full paths and immediate parents: $(cat "$TMP/selection")"
+  [ "$(tail -1 "$TMP/out")" = 'recheck #76: 4 landed criteria green' ] || fail "wrong selection count"
+}
+
+scenario_recheckcannotrun() {
+  setup_landed_criterion_change
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 missing-commit)"
+  [ "$code" = 2 ] || fail "an unknown commit should exit 2"
+  grep -q missing-commit "$TMP/err" || fail "the unknown commit was not named"
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows[0]["body"] = rows[0]["body"].replace('bash tests/named.sh original', 'no-such-criterion-runner tests/named.sh')
+p.write_text(json.dumps(rows))
+PY
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 2 ] || fail "a CHECK that cannot start should exit 2: $(cat "$TMP/err")"
+  grep -q 'could not start' "$TMP/err" || fail "the unrunnable CHECK was not explained"
+  post_ev 76 spec.closed --ticket '' --spec 76 --line 'Night closed'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 2 ] || fail "a closed night should exit 2"
+  grep -q 'not open' "$TMP/err" || fail "the closed night was not explained"
+}
+
 scenario_advancebouncedchecks() {
   setup_checked_ticket "printf 'red-%s\\n' tail; exit 1"
   local before code
@@ -8261,6 +8514,35 @@ scenario_advancebouncedchecks() {
     || fail "ticket.bounced reason is wrong: $(posted_events 61 reason commands)"
   posted_events 61 commands | grep -q "red-tail" \
     || fail "ticket.bounced omits the command tail: $(posted_events 61 commands)"
+}
+
+scenario_advancebaseredlands() {
+  local code before mode body
+  for mode in base-too merge-only unsupported; do
+    body='if [ "${1:-}" = --step ]; then
+  [ "$2" = unit ] || exit 2
+  [ "$MMW_RED_MODE" != unsupported ] || exit 2
+  if [ "$MMW_RED_MODE" = merge-only ] && [ ! -e ticket.txt ]; then echo "PASS unit 0s"; exit 0; fi
+else
+  echo "PASS lint 0s"
+fi
+echo "FAIL unit 0s"
+exit 1'
+    setup_checked_ticket "$body"
+    before="$(git -C "$TMP/origin.git" rev-parse main)"
+    code="$(run_dispatch env MMW_RED_MODE="$mode" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+      bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+    [ "$code" = 0 ] || fail "$mode advance failed: $(cat "$TMP/err")"
+    if [ "$mode" = base-too ]; then
+      [ "$(git -C "$TMP/origin.git" rev-parse main)" != "$before" ] || fail "base-red ticket did not land"
+      posted_events 61 base_red | grep -qx "ticket.landed base_red=\['unit'\]" || fail "landing omitted base_red"
+      gh_comments_json 61 | python3 -c 'import json, sys; assert any("Red on the base too: unit" in c["body"] for c in json.load(sys.stdin)["comments"])' \
+        || fail "landing omitted the base-red explanation"
+    else
+      [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "$mode merge was pushed"
+      posted_events 61 reason | grep -qx 'ticket.bounced reason=checks' || fail "$mode did not bounce"
+    fi
+  done
 }
 
 # 29 lines, the failing test's name on line 10. The command builds that name at
@@ -8358,7 +8640,7 @@ scenario_advancebouncedkeepserrors() {
 
 scenario_advancebouncedsteps() {
   local before code body
-  setup_checked_ticket 'echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
+  setup_checked_ticket '[ "${1:-}" != --step ] || exit 2; echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
@@ -9843,6 +10125,12 @@ scenario_prredandnone() {
 }
 
 ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall prgreen prnotewhennoci prdispatchesworkflow prredandnone"
+ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands recheckred recheckgreenrecordsnothing"
+ALL="$ALL advancebaseredlands"
+ALL="$ALL recheckpathselection"
+ALL="$ALL advancegateafterproof recheckcannotrun"
+ALL="$ALL advancemovedlandedscript"
+ALL="$ALL advancedeletedlandedscript"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
