@@ -20,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -103,7 +104,7 @@ ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
 # `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
 ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
-ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|TIMEOUT):")
+ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|TIMEOUT):")
 # The one attribute gate-check does not know: it is read here and kept out of the ledger.
 TIMEOUT_LINE_RE = re.compile(r"^\s+TIMEOUT:")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
@@ -488,7 +489,7 @@ def owns_globs(body: str) -> list[str]:
     """
     globs = []
     for line in section(body, "Owns"):
-        m = re.match(r"^\s*-\s+(\S+)", line)
+        m = re.match(r"^\s*-\s+([^\s（]+)", line)
         if not m:
             continue
         value = m.group(1)
@@ -1259,9 +1260,8 @@ def spec_judgement(review: str, path: str) -> str | None:
     """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment.
 
     The code-review Spec axis gives each `Outside Owns` file one line that starts with
-    its path and carries exactly one judgement word; that line decides. Without one,
-    the lines that name the path anywhere decide only when they all carry the same
-    single word. `None` when that axis names no line for the file, or its lines carry
+    its path and carries exactly one judgement word; that line decides.
+    `None` when that axis names no line for the file, or its lines carry
     both words or neither — the run does not invent a judgement the reviewer did not
     write.
     """
@@ -1271,7 +1271,7 @@ def spec_judgement(review: str, path: str) -> str | None:
     leads = re.compile(r"^\s*(?:[-*+]|\d+[.)])?\s*[`*_\"']*" + re.escape(path)
                        + r"(?![\w./-])")
     leading = [line for line in naming if leads.match(line)]
-    judgements = {line_judgement(line) for line in (leading or naming)}
+    judgements = {line_judgement(line) for line in leading}
     return judgements.pop() if len(judgements) == 1 else None
 
 
@@ -1505,7 +1505,9 @@ def run_touched(number: int) -> int:
             continue
         prose = []
         for d in mine:
-            prose += ["", d["path"], d["sentence"]]
+            path_line = (d["path"] if d["judgement"] else
+                         f"{d['path']} (REVIEW has no judgement line for it)")
+            prose += ["", path_line, d["sentence"]]
             prose += [x for x in (d["ac"], d["judgement"]) if x]
         post_event(child, "worker.touched",
                    f"#{number} changed {len(mine)} file(s) this ticket owns",
@@ -1568,7 +1570,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
         judged = []
         for path in files:
             judgement = spec_judgement(review, path)
-            judged.append(f"{path} ({judgement})" if judgement else path)
+            judged.append(f"{path} ({judgement or 'REVIEW has no judgement line for it'})")
         outside = "Outside Owns: " + ", ".join(judged)
     else:
         outside = "Outside Owns: None"
@@ -2912,13 +2914,86 @@ def lint_timeouts(body: str) -> list[str]:
     return findings
 
 
-def final_stage(check: str) -> str:
-    """The command whose exit code a CHECK's shell hands back: the text after the last
-    `|`, `;` or `&` the shell reads as a separator.
+def check_runners(check: str) -> set[str]:
+    found = set()
+    prefixes = {'uv': ('run',), 'pnpm': (), 'npx': ()}
+    for stage in shell_stages(check):
+        try:
+            words = shlex.split(stage, comments=True)
+        except ValueError:
+            continue
+        while words:
+            command = Path(words[0]).name
+            if re.match(r'^[A-Za-z_]\w*=', words[0]):
+                words = words[1:]
+            elif re.fullmatch(r'python(?:\d+(?:\.\d+)*)?', command) and words[1:2] == ['-m']:
+                words = words[2:]
+            elif command in prefixes and tuple(words[1:1 + len(prefixes[command])]) == prefixes[command]:
+                words = words[1 + len(prefixes[command]):]
+                if words[:1] == ['exec']:
+                    words = words[1:]
+                while words and words[0] in ('--yes', '-y', '--quiet', '-q', '--silent', '--'):
+                    words = words[1:]
+            else:
+                if command in ('pytest', 'vitest'):
+                    found.add(command)
+                break
+    return found
 
-    Quoting is followed, because a grep pattern holds those characters as often as a
-    shell does: `grep -c 'a\\|b' f` is one command, not two.
-    """
+
+def lint_runner_expectations(body: str) -> list[str]:
+    runners = json.loads((HERE / "runner-summaries.json").read_text(encoding="utf-8"))
+    findings = []
+    for gate_id, check, expect in criteria_lines(body):
+        selected = check_runners(check)
+        if len(selected) > 1:
+            standards = '; '.join(f"{runner} EXPECT: {runners[runner]['expect']}"
+                                  for runner in sorted(selected))
+            findings.append(f"{gate_id}: CHECK runs pytest and vitest; write one criterion "
+                            f"per runner. {standards}")
+            continue
+        for runner in selected:
+            contract = runners[runner]
+            if expect == contract["expect"]:
+                continue
+            script = r'''
+const {expect, samples} = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+try {
+  const parsed = expect.match(/^\/([\s\S]*)\/([a-z]*)$/);
+  const wrong = samples.find(sample => {
+    const matched = parsed
+      ? new RegExp(parsed[1], parsed[2]).test(sample.output)
+      : sample.output.includes(expect);
+    return matched !== sample.success;
+  });
+  console.log(JSON.stringify(wrong ? {
+    reason: wrong.success ? 'rejects success' : 'accepts failure',
+    summary: wrong.summary
+  } : {}));
+} catch (error) {
+  console.log(JSON.stringify({reason: 'is invalid', summary: error.message}));
+}
+'''
+            try:
+                result = subprocess.run(
+                    ["node", "-e", script],
+                    input=json.dumps({"expect": expect, "samples": contract["samples"]}),
+                    capture_output=True, text=True, timeout=10, check=True,
+                )
+                wrong = json.loads(result.stdout)
+                detail = (f" {wrong['reason']}: {wrong['summary']}."
+                          if wrong else " is not the standard pattern.")
+            except (OSError, subprocess.SubprocessError, ValueError) as exc:
+                detail = f" could not be checked against recorded output ({exc})."
+            findings.append(
+                f"{gate_id}: {runner} EXPECT {expect}{detail} The standard EXPECT is "
+                f"mandatory, including for count-pinned patterns and echoed markers. "
+                f"Copy EXPECT: {contract['expect']} from runner-summaries.json.")
+    return findings
+
+
+def shell_stages(check: str) -> list[str]:
+    stages = []
     start, quote, index = 0, "", 0
     while index < len(check):
         char = check[index]
@@ -2933,10 +3008,20 @@ def final_stage(check: str) -> str:
         elif char == "\\":
             index += 2
             continue
-        elif char in "|;&":
+        elif char == "#" and (index == 0 or check[index - 1].isspace()):
+            newline = check.find("\n", index)
+            index = len(check) if newline == -1 else newline
+            continue
+        elif char in "|;&\n":
+            stages.append(check[start:index].strip())
             start = index + 1
         index += 1
-    return check[start:].strip()
+    stages.append(check[start:].strip())
+    return stages
+
+
+def final_stage(check: str) -> str:
+    return shell_stages(check)[-1]
 
 
 def expect_satisfied_by(expect: str, text: str) -> bool:
@@ -3087,6 +3172,41 @@ def parent_order_findings(body: str, spec: int) -> list[str]:
             f"spec's sections after it (`; #{first} Implementation Decisions section <n>`)"]
 
 
+def lint_build_points(body: str) -> list[str]:
+    criteria = {item["id"] for item in parse_criteria(
+        "\n".join(section(body, "Acceptance criteria")))}
+    points: list[list[str]] = []
+    fence = None
+    for line in section(body, "What to build"):
+        if fence is not None:
+            close = FENCE_CLOSE_RE.match(line)
+            if close and close.group(1)[0] == fence[0] and len(close.group(1)) >= fence[1]:
+                fence = None
+            continue
+        opened = FENCE_OPEN_RE.match(line)
+        if opened and not (opened.group(2)[0] == "`" and "`" in opened.group(3)):
+            fence = (opened.group(2)[0], len(opened.group(2)))
+            continue
+        if re.match(r"^ {0,3}[0-9]+[.)]\s+", line):
+            points.append([line])
+        elif points:
+            points[-1].append(line)
+    if not points:
+        return ["## What to build needs at least one numbered point naming an existing AC<n>"]
+    findings = []
+    for lines in points:
+        named = set(re.findall(r"(?<![A-Za-z0-9_])AC[0-9]+(?![A-Za-z0-9_])", "\n".join(lines)))
+        missing = named - criteria
+        if not named:
+            findings.append(f"## What to build point {lines[0]} names no AC<n>; "
+                            "name the criterion that decides this point")
+        elif missing:
+            findings.append(f"## What to build point {lines[0]} names nonexistent "
+                            f"{', '.join(sorted(missing))}; define each in ## Acceptance criteria "
+                            "or correct the reference")
+    return findings
+
+
 def lint_criteria(number: int, body: str, labels: list[str],
                   spec: int | None = None, name: str | None = None) -> int:
     """Everything `--lint` says about one ticket's own text: its worker label, how its
@@ -3146,6 +3266,9 @@ def lint_criteria(number: int, body: str, labels: list[str],
         verdict()
         return 1 if counts["error"] else 0
 
+    for finding in lint_build_points(body):
+        say("error", f"{who} " + finding, "build-point-without-criterion")
+
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
         result = subprocess.run(
@@ -3171,6 +3294,8 @@ def lint_criteria(number: int, body: str, labels: list[str],
 
     for finding in lint_expectations(body):
         say("error", finding, "dollar-without-m")
+    for finding in lint_runner_expectations(body):
+        say("error", finding, "runner-expect")
     for finding in lint_timeouts(body):
         say("error", finding, "bad-timeout")
     for finding in lint_network_stubs(body):
@@ -3316,7 +3441,75 @@ def read_draft(path: Path) -> dict:
             "blocked": blocked}
 
 
-def lint_drafts(spec: int, directory: Path) -> int:
+def runner_summary_present(output: str, contract: dict) -> bool:
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+    return bool(re.search(contract["summary_pattern"], output, re.MULTILINE))
+
+
+def lint_draft_base_checks(drafts: list[dict], root: Path, base: str) -> int:
+    contracts = json.loads((HERE / "runner-summaries.json").read_text(encoding="utf-8"))
+    errors = 0
+    with tempfile.TemporaryDirectory(prefix="mmw-draft-base-") as temporary:
+        tmp = Path(temporary)
+        worktree = tmp / "checkout"
+        try:
+            added = subprocess.run(["git", "worktree", "add", "--detach", str(worktree), base],
+                                   cwd=root, capture_output=True, text=True)
+            if added.returncode:
+                print(f"ERROR --base {base}: {added.stderr.strip()}; nothing ran")
+                return 2
+            for draft in drafts:
+                name, body = draft["name"], draft["body"]
+                items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
+                items = [dict(item, ticked=False, evidence="pending") for item in items
+                         if item["check"]]
+                if not items:
+                    continue
+                ledger_dir = tmp / "ledgers" / name
+                ledger_dir.mkdir(parents=True)
+                ledger = write_ledger(body, ledger_dir,
+                                      [criterion_block(item) for item in items])
+                results_path = ledger_dir / "results.json"
+                env = dict(os.environ, MMW_BASE_REF=base, MMW_TICKET=name)
+                run = subprocess.run(
+                    ["node", str(GATE_CHECK), "--cwd", str(worktree),
+                     "--timeout", str(check_timeout(body)), "--results", str(results_path),
+                     str(ledger)], cwd=worktree, env=env, capture_output=True, text=True)
+                if run.returncode not in (0, 1) or not results_path.is_file():
+                    print(f"  ERROR {name}: gate-check could not run on --base {base} "
+                          f"({run.stdout}{run.stderr}) [base-run]")
+                    errors += 1
+                    continue
+                by_id = {item["id"]: item for item in items}
+                for result in json.loads(results_path.read_text(encoding="utf-8")):
+                    gate_id = result["id"]
+                    outcome = "PASS" if result["ok"] else "FAIL"
+                    print(f"  {name} {gate_id} {outcome} on {base}")
+                    if result["error"]:
+                        print(f"    {result['error']}")
+                    output = result["output"]
+                    for line in output.splitlines()[-5:]:
+                        print("    " + re.sub(
+                            r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]",
+                            " ", line))
+                    if result["ok"]:
+                        print(f"  WARN {name} {gate_id} passes on the base; it is either a pin "
+                              "or a CHECK that cannot see this ticket's work [passes-on-base]")
+                    for runner in check_runners(by_id[gate_id]["check"]):
+                        if not runner_summary_present(output, contracts[runner]):
+                            print(f"  ERROR {name} {gate_id}: {runner} printed no known summary "
+                                  "line; change CHECK to print a runner summary "
+                                  "[no-runner-summary]")
+                            errors += 1
+        except (OSError, ValueError) as exc:
+            print(f"ERROR --base {base}: base run could not complete ({exc}) [base-run]")
+            return 2
+        finally:
+            _remove_baseline_checkout(root, worktree)
+    return 1 if errors else 0
+
+
+def lint_drafts(spec: int, directory: Path, base: str | None = None) -> int:
     """`--lint` over the tickets of a batch before they are published.
 
     Every `*.md` in `directory` is one draft (`read_draft`). Each goes through the same
@@ -3326,6 +3519,14 @@ def lint_drafts(spec: int, directory: Path) -> int:
     against every draft's `## Parent`. The spec itself, and any `#<n>` a draft is
     blocked by, are read from the tracker. What only a published batch can show is
     listed at the end as not checked."""
+    root = repo_root()
+    base = base or f"origin/{current_branch(root)}"
+    resolved = subprocess.run(["git", "rev-parse", "--verify", f"{base}^{{commit}}"],
+                              cwd=root, capture_output=True, text=True)
+    if resolved.returncode:
+        print(f"ERROR --base {base} does not name a commit; set --base to an existing ref; "
+              "nothing ran")
+        return 2
     paths = sorted(directory.glob("*.md"))
     if not paths:
         print(f"  ERROR {directory} holds no `*.md` drafts, so there is nothing to lint  "
@@ -3383,6 +3584,9 @@ def lint_drafts(spec: int, directory: Path) -> int:
         entries.append({"id": name, "dependencies": dependencies})
         if lint_criteria(0, body, draft["labels"], spec=spec, name=name) or bad:
             failed.append(name)
+    base_rc = lint_draft_base_checks(drafts, root, base)
+    if base_rc == 2:
+        return 2
     found: dict[int, dict] = {}
     for entry in entries:
         for dep in entry["dependencies"]:
@@ -3398,7 +3602,7 @@ def lint_drafts(spec: int, directory: Path) -> int:
         print("  - " + line)
     if failed:
         print("  ERROR drafts with findings: " + ", ".join(failed))
-    return 1 if (failed or graph) else 0
+    return 1 if (failed or graph or base_rc) else 0
 
 
 def _draft_dependencies(draft: dict, names: set[str], directory: Path) -> list[int | str]:
@@ -3596,6 +3800,8 @@ def main(argv: list[str] | None = None) -> int:
                              "agent re-running a landed ticket on the base branch")
     parser.add_argument("--review", type=Path, metavar="FILE",
                         help="post the review report on the ticket")
+    parser.add_argument("--base", metavar="REF",
+                        help="with --lint --drafts: run CHECKs on REF, default origin/<current branch>")
     args = parser.parse_args(argv)
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
@@ -3606,6 +3812,8 @@ def main(argv: list[str] | None = None) -> int:
                ("--review", args.review is not None), ("--publish", args.publish)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
+    if args.base is not None and not (args.lint and args.drafts is not None):
+        parser.error("--base belongs to --lint --drafts")
     if args.drafts is not None and not (args.lint or args.publish):
         parser.error("--drafts belongs to --lint or --publish")
     if args.drafts is not None and not args.drafts.is_dir():
@@ -3662,7 +3870,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.publish:
             return run_publish_drafts(args.ticket, args.drafts)
         if args.lint and args.drafts is not None:
-            return lint_drafts(args.ticket, args.drafts)
+            return lint_drafts(args.ticket, args.drafts, args.base)
         if args.lint:
             return run_lint(args.ticket)
         return run_checks(args.ticket, args.reverify, args.actor)

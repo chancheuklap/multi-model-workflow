@@ -19,3 +19,7 @@ Run `bash scripts/dispatch.sh board` from any checkout of the repository. Exit 0
 2. Read what the wake names on the ticket; a ticket's wake carries nothing the tracker does not (**principle-progress-is-what-the-record-says**). For `brief <batch> done`, `bash scripts/dispatch.sh brief show <batch>` lists each brief, its state, and the file its answer is in; read those files.
 3. `bash scripts/dispatch.sh ack <n> <event>` with the ticket and the event the wake named (`bash scripts/dispatch.sh ack brief <batch>` for `brief <batch> done`), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts. A `watchdog:` or `MMW turn guard:` line is not acked.
 4. For each entry in a brief answer's `## Problems`, register it with the register-problem skill's `scripts/register.py add`; `None` needs no registration. Act on it as the step waiting for it says. A batch's answers stay readable until `bash scripts/dispatch.sh brief close <batch>`; close it once no later step reads them. A batch sent with `--into`: once its answers are read, commit that directory on the worktree's branch and push it, before `brief close`.
+
+## Route a child
+
+`bash scripts/dispatch.sh route <ticket> <child> fixed` runs `verify-ticket.py <ticket> --lint` first. If lint exits 1 or 2, route passes on its output and exits 2 without closing the child or recording a resolution. Fix the ticket before retrying.

@@ -31,7 +31,7 @@ A repository whose real tickets run through the pipeline. This repository is one
 _Home_: `AGENTS.md`
 
 **repository root**:
-`git rev-parse --show-toplevel`: the working directory of every `CHECK:` unless a `CWD:` line moves it.
+`git rev-parse --show-toplevel`: the working directory of every `CHECK:`.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **main worktree**:

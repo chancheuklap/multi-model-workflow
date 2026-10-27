@@ -264,11 +264,42 @@ class TestPostsOnlyOnCoveringOpenTickets(unittest.TestCase):
         self.assertNotIn("reasonable", posted[0][1])
         self.assertNotIn("should not", posted[0][1])
 
+    def test_no_judgement_line_in_touched_reports_the_missing_line(self):
+        for prose in ("None", "Decisions: src/helper.py is reasonable.",
+                      "src/other.py: reasonable, and src/helper.py 没有 `should not`"):
+            with self.subTest(prose=prose):
+                review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
+                               "## Spec\n\n" + prose + "\n\n## Tests\n\nNone\n",
+                               base="abcdef0", head="1234567")
+                code, err, posted, _, _ = run_touched(
+                    (SELF_RUN, DECISIONS, review), {80: SIBLING_COVERS})
+                self.assertEqual(code, 0, err)
+                prose, payload = touched(posted[0][1])
+                self.assertIn("src/helper.py (REVIEW has no judgement line for it)", prose)
+                self.assertNotIn("judgement", payload["details"][0])
+
     def test_an_exact_owns_path_is_a_cover(self):
         code, err, posted, _, _ = run_touched(
             (SELF_RUN, DECISIONS, REVIEW), {82: SIBLING_EXACT})
         self.assertEqual(code, 0, err)
         self.assertEqual([n for n, _ in posted], [82])
+
+    def test_owns_note_covers_the_annotated_path(self):
+        for path in ("src/helper.py", "src/**", "`src/helper.py`", "`src/**`"):
+            for note in (" (AC1 only)", " （只限 AC1）", "（只限 AC1）"):
+                with self.subTest(path=path, note=note):
+                    code, err, posted, _, _ = run_touched(
+                        (SELF_RUN, DECISIONS, REVIEW),
+                        {80: "## Owns\n\n- " + path + note + "\n"})
+                    self.assertEqual(code, 0, err)
+                    self.assertEqual([n for n, _ in posted], [80])
+
+    def test_owns_note_attached_ascii_parentheses_belong_to_the_path(self):
+        code, err, posted, _, _ = run_touched(
+            (SELF_RUN, DECISIONS, REVIEW),
+            {80: "## Owns\n\n- src/helper.py(AC1-only)\n"})
+        self.assertEqual(code, 0, err)
+        self.assertEqual(posted, [])
 
     def test_a_closed_sibling_is_skipped(self):
         code, err, posted, _, _ = run_touched(

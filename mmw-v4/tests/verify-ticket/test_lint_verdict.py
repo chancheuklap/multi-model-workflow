@@ -15,7 +15,7 @@ from _load import load
 
 vt = load()
 
-HEAD = "## Parent\n\n#216\n\n## Acceptance criteria\n\n"
+HEAD = "## Parent\n\n#216\n\n## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n"
 CLEAN = (HEAD + "- [ ] AC1: the importer writes six rows\n"
          "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
          "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")
@@ -63,6 +63,12 @@ class TestVerdictLine(unittest.TestCase):
     def test_a_criteria_less_ticket_ends_on_a_verdict_too(self):
         code, lines = lint("## Parent\n\n#216\n", labels=["mmw:ticket", "ready-for-human"])
         self.assertEqual(code, 0)
+        self.assertEqual(lines[-1], "#301 LINT OK")
+
+    def test_a_problem_without_criteria_passes_lint(self):
+        code, lines = lint("## Problem\n\nSomething is wrong.\n",
+                           labels=["mmw:problem"])
+        self.assertEqual(code, 0, "\n".join(lines))
         self.assertEqual(lines[-1], "#301 LINT OK")
 
     def test_a_parent_order_finding_is_counted(self):

@@ -511,7 +511,7 @@ class TestLint(unittest.TestCase):
     def test_the_worker_label_the_tracker_carries_is_what_the_rule_reads(self):
         """A ticket in the agent queue with two worker labels is the worker ERROR, one
         with none a WARN, and it is the labels that decide it, not anything in the body."""
-        body = ticket(
+        body = "## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: node scripts/import.mjs fixtures/valid.json",
             "  EXPECT: /wrote 6 rows/",
@@ -528,7 +528,7 @@ class TestLint(unittest.TestCase):
 
     def test_a_weak_expectation_is_reported_without_failing_the_run(self):
         """A warning is for a person to weigh, so it must not decide the exit code."""
-        code, printed = self.lint(ticket(
+        code, printed = self.lint("## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: node scripts/import.mjs fixtures/valid.json",
             "  EXPECT: ok",
@@ -539,7 +539,7 @@ class TestLint(unittest.TestCase):
 
     def test_a_criterion_with_no_command_fails_the_run(self):
         """Nobody but the ticket's own author decides it, which the section forbids."""
-        code, printed = self.lint(ticket(
+        code, printed = self.lint("## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the wording reads well",
             "  EVIDENCE: pending",
         ))
@@ -549,7 +549,7 @@ class TestLint(unittest.TestCase):
 
     def test_lint_runs_no_check_and_posts_no_comment(self):
         posted: list[str] = []
-        body = ticket(
+        body = "## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: echo LINT-MUST-NOT-RUN-THIS",
             "  EXPECT: ok",
@@ -616,6 +616,25 @@ class TestOutsideOwns(unittest.TestCase):
             fields = vt.outside_owns_fields(4, globs, tmp, "main")
             self.assertEqual(fields, {"outside_owns": []})
             self.assertEqual(vt.outside_owns_text(fields), "Outside Owns: None")
+
+    def test_owns_note_parenthesised_file_does_not_authorise_a_sibling(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            sh = self.repo(tmp)
+            sh("checkout", "-qb", "issue-4")
+            owned = "src/app/(auth)/login/page.tsx"
+            sibling = "src/app/(auth)/login/sibling.tsx"
+            (tmp / owned).parent.mkdir(parents=True)
+            (tmp / owned).write_text("owned\n")
+            (tmp / sibling).write_text("outside\n")
+            sh("add", "-A")
+            sh("commit", "-qm", "write owned file and sibling")
+            for entry in (owned + " (new)", "`" + owned + "` （新文件）",
+                          owned + "（新文件）"):
+                with self.subTest(entry=entry):
+                    globs = vt.owns_globs("## Owns\n\n- " + entry + "\n")
+                    fields = vt.outside_owns_fields(4, globs, tmp, "main")
+                    self.assertEqual(fields, {"outside_owns": [sibling]})
 
     def test_the_list_is_answered_on_the_tickets_own_branch(self):
         with tempfile.TemporaryDirectory() as raw:

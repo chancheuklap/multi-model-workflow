@@ -850,6 +850,15 @@ case "$*" in
     printf '%s\n' "${FAKE_GH_URL:-https://github.com/o/r}" ;;
   "repo view"*)
     printf '%s\n' "${FAKE_GH_REPO:-o/r}" ;;
+  *"--json body -q .body")
+    [ -z "${FAKE_GH_BODY_FAILS:-}" ] || { echo "HTTP 502" >&2; exit 1; }
+    MMW_WANT="$3" python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+want = int(os.environ["MMW_WANT"])
+print(next((t for t in rows if t.get("number") == want), {}).get("body", ""))
+' ;;
   *"--json parent,labels,body"*|*"--json labels,body"*|*"--json labels"|*"--json title,body"|*"--json parent,title"|*"--json labels,title")
     MMW_WANT="$3" python3 -c '
 import json, os
@@ -3898,11 +3907,13 @@ JSON
 # that read the spec off the tree would move #92 under the map. #80 is a ticket already
 # under the spec; #95 is an issue under #61 that no event of #61 names.
 write_route_batch() {
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 18, "state": "OPEN", "labels": ["mmw:map"], "parent": null},
-  {"number": 76, "state": "OPEN", "labels": ["mmw:spec"], "parent": {"number": 18}},
-  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "mmw:ticket"], "parent": {"number": 76},
+  {"number": 76, "state": "OPEN", "labels": ["mmw:spec"], "parent": {"number": 18}, "children": [61]},
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker", "mmw:ticket"], "parent": {"number": 76},
+   "body": "## Parent\\n\\n#76, Implementation Decisions section 1\\n\\n## What to build\\n\\n1. Export the report. AC1.\\n\\n## Acceptance criteria\\n\\n- [ ] AC1: report exports\\n  CHECK: echo report-ok\\n  EXPECT: report-ok\\n  EVIDENCE: pending\\n",
    "comments": [$(ev child.opened 61 "Opened #90 (finding)" --spec 76 --field child=90 --field kind=finding),
                 $(ev child.opened 61 "Opened #91 (finding)" --spec 76 --field child=91 --field kind=finding),
                 $(ev child.opened 61 "Opened #92 (finding)" --spec 76 --field child=92 --field kind=finding),
@@ -4073,6 +4084,38 @@ scenario_missingverifyticket() {
   hasnt "gh :: issue :: comment"
 }
 
+scenario_routelint() {
+  local code
+  reset_log
+  fresh_repo
+  write_route_batch
+  python3 - "$TMP/tickets.json" <<'PYFIX'
+import json, sys
+p = sys.argv[1]
+rows = json.load(open(p))
+ticket = next(row for row in rows if row["number"] == 61)
+ticket["body"] = ("## Parent\n\n#76, Implementation Decisions section 1\n\n"
+                  "## What to build\n\n1. Export the report.\n\n"
+                  "## Acceptance criteria\n\n- [ ] AC1: report exports\n"
+                  "  CHECK: echo report-ok\n  EXPECT: report-ok\n  EVIDENCE: pending\n")
+json.dump(rows, open(p, "w"))
+PYFIX
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 fixed)"
+  [ "$code" = 2 ] || fail "route fixed on a lint error expected 2, got $code: $(cat "$TMP/out") $(cat "$TMP/err")"
+  grep -q 'build-point-without-criterion' "$TMP/out" "$TMP/err" || fail "lint rule not passed through"
+  grep -q 'Export the report' "$TMP/out" "$TMP/err" || fail "missing build point not named"
+  hasnt "gh :: issue :: close"
+  hasnt "gh :: issue :: edit"
+  hasnt "gh :: issue :: comment"
+  [ -z "$(posted_events 61)" ] || fail "refused route recorded an event"
+  code="$(route_in env FAKE_GH_BODY_FAILS=1 bash "$DISPATCH" "${TOOLS[@]}" route 61 90 fixed)"
+  [ "$code" = 2 ] || fail "route fixed when lint cannot read expected 2, got $code"
+  grep -q 'HTTP 502' "$TMP/out" "$TMP/err" || fail "tracker error not passed through"
+  hasnt "gh :: issue :: close"
+  hasnt "gh :: issue :: comment"
+  echo "route fixed refused on a lint error and closed nothing"
+}
+
 scenario_route() {
   local code
   reset_log
@@ -4080,7 +4123,7 @@ scenario_route() {
   write_route_batch
   echo "--- fixed: the child is closed as completed and child.closed goes on its ticket"
   code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 fixed)"
-  [ "$code" = 0 ] || fail "route fixed expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "route fixed expected exit 0, got $code: $(cat "$TMP/out") $(cat "$TMP/err")"
   has "gh :: issue :: close :: 90 :: --reason :: completed"
 
   echo "--- stale: closed as not planned"
@@ -8953,7 +8996,7 @@ PY
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landedkeepsunmergedlocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
-ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
+ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
 
