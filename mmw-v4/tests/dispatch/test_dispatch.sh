@@ -8235,6 +8235,29 @@ PY
   [ "$code" = 0 ] || fail "first ticket must land: $(cat "$TMP/err")"
   posted_events 61 | grep -qx ticket.landed || fail "first ticket did not land"
   git -C "$TMP/repo" fetch -q origin
+  if [ "${1:-}" = plural ]; then
+    git -C "$TMP/repo" checkout -q -b issue-60 origin/main
+    commit_file "$TMP/repo" plural.txt harmless second-landed-ticket
+    passed="$(git -C "$TMP/repo" rev-parse HEAD)"
+    git -C "$TMP/repo" checkout -q main
+    MMW_PASS="$(ev ticket.passed 60 'ALL MET' --field branch=issue-60 --field "commit=$passed" --field into=main)" \
+      python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+body = rows[0]["body"].split("- [ ] AC2:")[0].replace("AC1:", "AC3:")
+rows.append({"number": 60, "state": "CLOSED", "labels": [],
+             "closedAt": "2026-09-11T01:30:00Z", "body": body,
+             "comments": [json.loads(os.environ["MMW_PASS"])]})
+p.write_text(json.dumps(rows))
+PY
+    seed_workspace 60
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+    [ "$code" = 0 ] || fail "second ticket must land: $(cat "$TMP/err")"
+    posted_events 60 | grep -qx ticket.landed || fail "second ticket did not land"
+    git -C "$TMP/repo" fetch -q origin
+  fi
   git -C "$TMP/repo" checkout -q -b issue-62 origin/main
   printf 'echo run >> "%s"\ntest "$1" = renamed && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
   git -C "$TMP/repo" add tests/named.sh
@@ -8303,17 +8326,17 @@ scenario_advancedeletedlandedscript() {
 }
 
 scenario_advancebrokenfields() {
-  setup_landed_criterion_change
+  setup_landed_criterion_change plural
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
   MMW_BODY="$(bounced_comment 62)" python3 - <<'PY' || fail "the bounce omitted the broken criterion"
 import json, os
 body = os.environ["MMW_BODY"]
-assert "Broken landed criteria: #61 AC1." in body.splitlines()[0], body
+assert "Broken landed criteria: #61 AC1, #60 AC3." in body.splitlines()[0], body
 payload = json.loads(body.split("<!-- mmw ")[1].split(" -->")[0])
 assert payload["reason"] == "breaks-landed-criterion", payload
-assert payload["broken"] == [{"ticket": 61, "ac": "AC1"}], payload
+assert payload["broken"] == [{"ticket": 61, "ac": "AC1"}, {"ticket": 60, "ac": "AC3"}], payload
 PY
 }
 
@@ -9869,8 +9892,8 @@ ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands
 ALL="$ALL advancebaseredlands"
 ALL="$ALL recheckpathselection"
 ALL="$ALL advancegateafterproof recheckcannotrun"
-
-ALL="$ALL advancemovedlandedscript advancedeletedlandedscript"
+ALL="$ALL advancemovedlandedscript"
+ALL="$ALL advancedeletedlandedscript"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
