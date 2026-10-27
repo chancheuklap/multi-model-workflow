@@ -3534,7 +3534,7 @@ mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 try:
-    paths = subprocess.run(["git", "diff", "--name-only", "-z", base, commit], cwd=root,
+    paths = subprocess.run(["git", "diff", "--no-renames", "--name-only", "-z", base, commit], cwd=root,
                            capture_output=True, text=True, check=True).stdout.rstrip("\0").split("\0")
     paths = [p for p in paths if p]
     count, broken = 0, []
@@ -3550,6 +3550,18 @@ try:
         count += len(ids)
         with contextlib.redirect_stdout(sys.stderr):
             _, rows = mod.selected_checks(number, ids, body, Path(root))
+        unavailable = [r["id"] for r in rows if r["exitCode"] in (126, 127)]
+        if unavailable:
+            subprocess.run(["git", "reset", "--hard", base], cwd=root,
+                           capture_output=True, text=True, check=True)
+            try:
+                with contextlib.redirect_stdout(sys.stderr):
+                    _, base_rows = mod.selected_checks(number, unavailable, body, Path(root))
+            finally:
+                subprocess.run(["git", "reset", "--hard", commit], cwd=root,
+                               capture_output=True, text=True, check=True)
+            if any(r["exitCode"] in (126, 127) for r in base_rows):
+                raise ValueError(f"#{number}: a selected CHECK could not start on the base either")
         broken += [{"ticket": number, "ac": r["id"]} for r in rows if not r["ok"]]
     print(count)
     print(json.dumps(broken, separators=(",", ":")))

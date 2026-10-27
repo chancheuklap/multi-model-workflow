@@ -1901,8 +1901,6 @@ def selected_checks(number: int, ids: list[str], body: str, root: Path) -> tuple
         rows = json.loads(results.read_text())
         if {r["id"] for r in rows} != set(ids):
             raise ValueError(f"#{number}: selected criteria did not all run")
-        if any(r["exitCode"] in (None, 126, 127) for r in rows):
-            raise ValueError(f"#{number}: a selected CHECK could not start")
         return result.returncode, rows
 
 

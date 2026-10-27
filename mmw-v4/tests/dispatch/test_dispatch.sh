@@ -8278,6 +8278,30 @@ scenario_advancegateafterproof() {
   grep -q 'repository checks not run again' "$TMP/out" || fail "the fixture did not reuse the repository proof"
 }
 
+scenario_advancemovedlandedscript() {
+  setup_landed_criterion_change
+  git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
+  if [ "${1:-}" = delete ]; then
+    git -C "$(wt 62)" rm -q -f tests/named.sh
+  else
+    mkdir -p "$(wt 62)/moved"
+    git -C "$(wt 62)" mv tests/named.sh moved/named.sh
+  fi
+  git -C "$(wt 62)" -c user.email=t@t -c user.name=t commit -qm move-script
+  local before passed code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  passed="$(git -C "$(wt 62)" rev-parse HEAD)"
+  post_ev 62 ticket.passed --ticket 62 --line 'ALL MET' --field branch=issue-62 --field into=main --field "commit=$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "moving a landed script should bounce, not stop advance: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "the script move was pushed"
+  posted_events 62 reason | grep -qx 'ticket.bounced reason=breaks-landed-criterion' || fail "the moved script did not bounce its ticket"
+}
+
+scenario_advancedeletedlandedscript() {
+  scenario_advancemovedlandedscript delete
+}
+
 scenario_advancebrokenfields() {
   setup_landed_criterion_change
   local code
@@ -9845,6 +9869,8 @@ ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands
 ALL="$ALL advancebaseredlands"
 ALL="$ALL recheckpathselection"
 ALL="$ALL advancegateafterproof recheckcannotrun"
+
+ALL="$ALL advancemovedlandedscript advancedeletedlandedscript"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
