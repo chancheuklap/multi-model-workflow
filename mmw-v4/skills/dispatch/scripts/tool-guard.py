@@ -669,11 +669,17 @@ def run_pretool(event: dict, host: str) -> int:
     command = command_of(event)
     if command is None:
         return 0
-    if any(re.match(r"gh\s+pr\s+create\b", run) for run in runs(command)):
-        refuse("Open the pull request with `dispatch.sh pr --base <b> --head <h> "
-               "--title <t> --body-file <f>`. It reports whether CI runs for the base "
-               "branch and waits for the check results.")
-        return 0
+    for run in runs(command):
+        words = shell_words(run)[1:]
+        while words and (words[0] in ("-R", "--repo") or words[0].startswith(("-R", "--repo="))):
+            option = words.pop(0)
+            if option in ("-R", "--repo"):
+                words = words[1:]
+        if words[:2] == ["pr", "create"]:
+            refuse("Open the pull request with `dispatch.sh pr --base <b> --head <h> "
+                   "--title <t> --body-file <f>`. It reports whether CI runs for the base "
+                   "branch and waits for the check results.")
+            return 0
     comment = edits_last_comment(command)
     if comment is not None:
         refuse(f"Refused `{comment}`. All agents share one GitHub account, so the last "

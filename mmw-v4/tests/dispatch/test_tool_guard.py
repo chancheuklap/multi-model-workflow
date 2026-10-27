@@ -113,6 +113,10 @@ class TestPullRequestCreation(unittest.TestCase):
                     "echo hi # don't\ngh pr create\n# it's done",
                     "cat > body.md <<'EOF'\ndon't\nEOF\ngh pr create\n",
                     "env FOO=1 gh pr create",
+                    "gh -R o/r pr create",
+                    "gh --repo o/r pr create",
+                    "gh --repo=o/r pr create",
+                    "gh -Ro/r pr create",
                 ):
                     with self.subTest(host=host, cwd=cwd, command=command):
                         code, answer = call(host, with_command(host, command), cwd_basename=cwd)
