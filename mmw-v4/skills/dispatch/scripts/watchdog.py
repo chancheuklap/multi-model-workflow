@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The watchdog: the second and third layers of liveness for one repository's open watches.
 
-    watchdog.py run --repo O/R [--poll S] [--silence S] [--idle S] [--once]
+    watchdog.py run --repo O/R [--poll S] [--silence S] [--idle S] [--stuck S] [--nudge S] [--once]
     watchdog.py arm --repo O/R [--wait S]
     watchdog.py status --repo O/R
 
@@ -15,7 +15,7 @@ This process is what notices. It costs no tokens and holds no session: it reads 
 file: a hook on each orchestrator's own turn end that re-arms this process and will not let
 that turn end while tickets are held and this process is not healthy. This file is the
 second layer (it beats, it watches the relay) and the third (it asks a silent ticket's
-runner whether its worker is still there). When this process dies, the first layer finds
+runner what its sessions are doing). When this process dies, the first layer finds
 out at an orchestrator's next turn end; there is no fourth layer, so a crash of the host a
 orchestrator runs in is found by a person.
 
@@ -41,54 +41,54 @@ watch is open this process writes a last heartbeat saying so and exits.
    a cycle without stopping it, and a relay that has not cycled or polled yet is given its
    grace from the moment it started. A beat with no cycle stamp was written by a relay
    older than that field, and its last good poll then answers both questions.
-2. Every watched ticket is read in full and folded (`events.py` of the verify-ticket
-   skill). A ticket not held is skipped. A held ticket whose newest event is less than
-   `--silence` seconds old (default 600) is skipped.
-3. Every other held ticket is silent. For each session that still holds a silent
-   ticket — the (runner, session) pair of every `worker.started`,
-   `reviewer.started` no later event has ended, less a reviewer whose result is already
-   on the ticket after its start — this asks that
-   session's own runner, and no other runner, `runners/<runner>.sh liveness <session>`:
+2. Every watched ticket is read in full and folded. The session table covers every
+   worker or reviewer still holding a ticket, plus every unreported brief of a watched
+   batch. Each session's own runner is asked `liveness <session>` first:
 
-       alive     nothing
-       stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`
-                 or `reviewer.lost`. They are the only events not written
-                 by the agent they are about, and this process is their one writer. Each
-                 ends that session's hold; the relay wakes the orchestrator on
-                 `worker.lost`, and the ticket's worker on `reviewer.lost`, so a worker
-                 asleep on a reviewer that died is woken to start another.
-       unknown   recorded as unknown in the heartbeat, and an alert. Never rendered as
-                 alive, never a `*.lost`: an answer the adapter could not give — or a
-                 missing adapter, a non-zero exit, a timeout — is not a death.
+       stopped   post `<kind>.lost` on the ticket, or mark a brief lost
+       unknown   record unknown and alert, never post a lost event
+       alive     ask the same runner `state <session>`
 
-   A silent ticket held by no session to ask (a claim no start names, or only sessions
-   whose results are in) is an alert too. So is a ticket whose events cannot be read.
-4. Every brief of a watched batch that has neither reported nor been marked lost: its
-   runner is asked `liveness` of its session, every round. `stopped` marks the brief
-   lost (`lost.json` in its directory), which the relay counts as done, so the session
-   that briefed it is woken with the rest of the batch and reads who was lost. `alive` and
-   `unknown` leave it open; a brief whose session ends its turn without reporting is the
-   turn guard's to catch.
-5. A silent ticket whose newest event is at least `--idle` seconds old (default 3600),
-   whose worker's runner answered `alive`, and whose fold shows it waiting for nothing —
-   no live reviewer, not `passed` — is an alert: its
-   worker is there and nothing will ever wake it (a worker that ended its turn with no
-   result, say). Once per ticket and newest event.
+   A session started on another machine is unknown and is never asked here. A runner
+   that cannot be called, times out, exits nonzero or returns an invalid answer is unknown.
+   The turn state determines the session table's result:
+
+       dialog<TAB>line   alert with that screen line in this round
+       unknown          record unknown and alert, never post a lost event
+       stopped          post `<kind>.lost`, or mark a brief lost
+       working          alert once if no worktree activity for `--stuck` seconds (7200)
+       idle             alert once after `--idle` seconds (3600) without worktree activity,
+                        unless another session's result or landing is pending
+
+   Worktree activity is the latest commit time or file modification time in the worktree
+   named by the session's start event or brief batch record, bounded below by its start
+   time. An idle host with worktree activity within `--idle` is working. Idle and stuck
+   alerts are keyed by session and latest activity, not ticket events. `--silence` is
+   accepted for existing invocations but does not gate this table. A hold with no session
+   to ask is unknown, and unreadable events are an alert.
+3. The ticket table is independent of the session table and of holds. A `child.opened`
+   without a `child.closed`, or a delivered row still in `queue.jsonl`, means the ticket
+   is waiting on its orchestrator. Alert immediately, then every `--nudge` seconds (1800)
+   until its children are routed and its delivered wakes are acked. Routing is read only
+   from `child.closed` on the parent, not from the child issue's open or closed state.
+   Each reminder goes only to the orchestrator of that ticket's watch.
 
 **Alerts wake the orchestrator directly**, through the `send` of the runner that
 orchestrator runs in, one message on one line, each alert in it beginning `watchdog:`. Not
 through the relay's queue: the relay may be the thing that is down. An alert about a
 ticket goes to the orchestrator of the watch the ticket belongs to; `relay down`, `relay not
-reading` and `cannot read the tracker` go to every watch's orchestrator. Each alert is sent
-to each of its orchestrators once — keyed by that orchestrator, what the alert is about, and
-the ticket's newest event or the relay's last good poll — and never again for the same
-stretch, across restarts of this process. A relay that goes from not reading to down is an
+reading` and `cannot read the tracker` go to every watch's orchestrator. Session and relay
+alerts are sent to each orchestrator once per key, across restarts.
+Ticket reminders retain their last successful delivery time across restarts and repeat
+only after `--nudge`. Unsent alerts are rechecked each round, so a resolved condition is
+not delivered later. A relay that goes from not reading to down is an
 alert of its own: the key carries which of the two it is. What `send` answered decides what happens next:
 
     0      delivered and a turn started. This process exits once the round's sends are
            done: that orchestrator is now in a turn, and that turn's end re-arms it
            (one-shot, re-armed by the hook)
-    4      handed over, not confirmed: not sent again, and this process keeps running
+    4      handed over, not confirmed: once-only alerts are not sent again; ticket
+           reminders wait `--nudge`, and this process keeps running
     3, 5+  nothing was sent: kept, and sent again next round
     2      that orchestrator's session is gone: recorded, kept, nobody to tell
 
@@ -99,14 +99,13 @@ The alerts exactly:
               recovers on its own with the first read that works, so opening the night
               again replaces nothing; details: python3 <this file> status --repo <repo>
     watchdog: #<n> events unreadable
-    watchdog: #<n> is held with no session to ask, silent since <time>
-    watchdog: #<n> liveness unknown: <runner> could not say whether the <kind> session
-              <session> is alive; silent since <time>
-    watchdog: #<n> liveness unknown: the <kind> session <session> was started on
-              <machine>, not on <this machine>, and only that machine can ask <runner>;
-              silent since <time>
-    watchdog: #<n> silent since <time> with nothing to wait on: its worker <session> on
-              <runner> is alive, and no reviewer is pending
+    watchdog: #<n> is held with no session to ask
+    watchdog: <ticket or brief> liveness unknown: the <kind> session <session> on <runner> <why>
+    watchdog: <ticket or brief> <kind> session <session> on <runner> is on a dialog: <line>
+    watchdog: <ticket or brief> silent since <time> with nothing to wait on
+    watchdog: <ticket or brief> <kind> session <session> on <runner> has a stuck turn
+    watchdog: #<n> is waiting on the orchestrator: <unrouted children or unacked wakes>
+    watchdog: wake queue unreadable: <what failed>
     watchdog: cannot read the tracker since <time>: <what failed>
 
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
@@ -139,11 +138,12 @@ Files in the state directory, beside the relay's:
 
     watchdog.lock   held for as long as a `run` runs: one watchdog per repository
     watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance, silence,
-                    idle, watches (the open watches as last read, with their orchestrators),
+                    idle, stuck, nudge, watches (the open watches as last read, with their orchestrators),
                     held, briefs (each open brief, `<batch>/<n>`), unknown,
                     lost, relay, read_at, read_failure, pending
                     (alerts not yet sent, each with the runner and session it is for),
-                    reported ([runner, session, key] of each alert sent), main (per
+                    reported ([runner, session, key] of each once-only alert sent),
+                    nudged (last delivery times of repeating ticket reminders), main (per
                     orchestrator, why its alerts could not be sent), closed, reads (billed and
                     not-modified comment-list reads since this process started; null for a
                     `Board` that does not count them)
@@ -188,6 +188,8 @@ events = relay_mod.events
 DEFAULT_POLL = 60
 DEFAULT_SILENCE = 600
 DEFAULT_IDLE = 3600
+DEFAULT_STUCK = 7200
+DEFAULT_NUDGE = 1800
 BASE_TOLERANCE = 300
 ARM_WAIT = 5.0
 ADAPTER_TIMEOUT = 60
@@ -278,47 +280,16 @@ def stale(beat: dict | None, now: datetime) -> bool:
     return at is None or (now - at).total_seconds() > tolerance((beat or {}).get("poll"))
 
 
-def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> dict:
-    """What one ticket's fold says the third layer should do with it.
-
-        {"state": "unreadable"}                        a comment's event cannot be read
-        {"state": "free"}                              no hold on it
-        {"state": "recent", "since": T}                newest event younger than `silence`
-        {"state": "silent", "since": T, "sessions": [...], "comment": C, "idle": B}
-                                                       held and silent; `sessions` is every
-                                                       (kind, runner, session) to ask;
-                                                       `idle` when its newest event is at
-                                                       least `idle` old and it waits for
-                                                       nothing: no live reviewer and
-                                                       no pass
-    """
+def judge(fold: dict) -> dict:
+    """The ticket's holds, independent of event age and runner state."""
     if fold.get("unreadable"):
         return {"state": "unreadable",
                 "comments": [item.get("comment") for item in fold["unreadable"]]}
     if not fold.get("held"):
         return {"state": "free"}
     last = fold.get("last") or {}
-    since = last.get("at")
-    at = parse_iso(since)
-    if at is not None and (now - at).total_seconds() < silence:
-        return {"state": "recent", "since": since}
-    helpers = [r for r in fold.get("holders") or [] if r.get("kind") == "reviewer"]
-    quiet = at is not None and (now - at).total_seconds() >= idle
-    return {"state": "silent", "since": since, "sessions": to_ask(fold),
-            "comment": last.get("comment"),
-            "idle": quiet and not helpers and not fold.get("passed")}
-
-
-def to_ask(fold: dict) -> list[tuple[str, str, str, str]]:
-    """(kind, runner, session, machine) of every session still holding the ticket. A
-    reviewer's result ends its own hold in the fold, so one whose result is
-    in is not among them: its process ending is not a loss."""
-    out = []
-    for record in fold.get("holders") or []:
-        kind, runner, session = record.get("kind"), record.get("runner"), record.get("session")
-        if kind and runner and session:
-            out.append((kind, runner, session, record.get("machine") or ""))
-    return out
+    return {"state": "held", "since": last.get("at"), "comment": last.get("comment"),
+            "sessions": fold.get("holders") or [], "passed": bool(fold.get("passed"))}
 
 
 def night_open(state: Path) -> bool:
@@ -450,6 +421,51 @@ def ask_liveness(runner: str, session: str) -> str:
     return answer if run.returncode == 0 and answer in ANSWERS else "unknown"
 
 
+def ask_state(runner: str, session: str) -> str:
+    """The runner's turn state, including the screen line for a dialog."""
+    adapter = runners_dir() / f"{runner}.sh"
+    if not runner or not adapter.is_file():
+        return "unknown"
+    try:
+        run = subprocess.run(["bash", str(adapter), "state", session], capture_output=True,
+                             text=True, env=relay_mod.quiet_env(), timeout=ADAPTER_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    answer = (run.stdout or "").strip()
+    if run.returncode == 0 and "\n" not in answer:
+        if answer in ("working", "idle", "stopped", "unknown"):
+            return answer
+        if answer.startswith("dialog\t") and answer.partition("\t")[2].strip():
+            return answer
+    return "unknown"
+
+
+def worktree_activity(worktree: str | None, started: str | None) -> datetime:
+    """Latest commit or file modification, never earlier than session start."""
+    latest = parse_iso(started) or datetime.min.replace(tzinfo=timezone.utc)
+    if not worktree:
+        return latest
+    try:
+        commit = subprocess.run(["git", "-C", worktree, "log", "-1", "--format=%ct"],
+                                capture_output=True, text=True, timeout=ADAPTER_TIMEOUT)
+        if commit.returncode == 0 and commit.stdout.strip():
+            latest = max(latest, datetime.fromtimestamp(int(commit.stdout.strip()), timezone.utc))
+        files = subprocess.run(["git", "-C", worktree, "ls-files", "-z", "--cached",
+                                "--others"], capture_output=True,
+                               text=True, timeout=ADAPTER_TIMEOUT)
+        if files.returncode == 0:
+            for name in files.stdout.split("\0"):
+                if name:
+                    try:
+                        latest = max(latest, datetime.fromtimestamp(
+                            (Path(worktree) / name).lstat().st_mtime, timezone.utc))
+                    except OSError:
+                        pass
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+    return latest
+
+
 def send_to(runner: str, session: str, text: str) -> int:
     """`runners/<runner>.sh send <session> <text>`; its exit code, or 5 when the adapter
     gave none (missing, could not be run, did not answer)."""
@@ -517,7 +533,7 @@ class Watchdog:
                  post: Callable[..., tuple[bool, str]] = post_lost,
                  clock: Callable[[], datetime] = now_utc,
                  poll: int = DEFAULT_POLL, silence: int = DEFAULT_SILENCE,
-                 idle: int = DEFAULT_IDLE,
+                 idle: int = DEFAULT_IDLE, stuck: int = DEFAULT_STUCK, nudge: int = DEFAULT_NUDGE,
                  pid: int | None = None, identity: str | None = None,
                  machine: str | None = None, err=None):
         self.state = Path(state)
@@ -528,8 +544,9 @@ class Watchdog:
         self.post = post
         self.clock = clock
         self.poll = poll
-        self.silence = silence
         self.idle = idle
+        self.stuck = stuck
+        self.nudge = nudge
         self.pid = pid if pid is not None else os.getpid()
         self.identity = identity if identity is not None else statedir.own_identity()
         self.machine = machine if machine is not None else socket.gethostname()
@@ -539,6 +556,7 @@ class Watchdog:
         self.beat = {
             "pid": self.pid, "identity": self.identity, "started": iso(self.clock()),
             "poll": poll, "tolerance": tolerance(poll), "silence": silence, "idle": idle,
+            "stuck": stuck, "nudge": nudge,
             "round": 0,
             "watches": previous.get("watches") if isinstance(previous.get("watches"), dict) else {},
             "held": None, "briefs": [], "unknown": {}, "lost": {}, "relay": None,
@@ -546,6 +564,7 @@ class Watchdog:
                         if isinstance(p, dict) and p.get("runner") and p.get("session")],
             "reported": [r for r in previous.get("reported") or []
                          if isinstance(r, list) and len(r) == 3],
+            "nudged": previous.get("nudged") or {},
             "main": None, "closed": None, "machine": self.machine,
             # The last round that read every ticket. While reads are failing it is carried
             # across restarts, so a restart does not wipe out how long the tracker has gone
@@ -632,6 +651,14 @@ class Watchdog:
                 "to": everyone,
             })
 
+        try:
+            wakes = relay_mod.Relay(self.state).rows()
+        except (relay_mod.Refusal, LockHeld) as exc:
+            wakes = []
+            failures.append(f"the wake queue: {exc}")
+            findings.append({"key": f"queue:{exc}",
+                             "text": f"watchdog: wake queue unreadable: {' '.join(str(exc).split())}",
+                             "to": everyone})
         tickets = self.watched(watches, failures)
         read_all = not failures
         held: list[int] = []
@@ -646,7 +673,8 @@ class Watchdog:
                 read_all = False
                 continue
             fold = events.fold(comments, issue=number)
-            verdict = judge(fold, now, self.silence, self.idle)
+            verdict = judge(fold)
+            self._waiting(number, home, fold, wakes, findings)
             state = verdict["state"]
             if state == "unreadable":
                 held.append(number)
@@ -657,15 +685,13 @@ class Watchdog:
                                  "to": to})
             elif state == "free":
                 pass
-            elif state == "recent":
-                held.append(number)
             else:
                 held.append(number)
-                self._silent(number, home["spec"], verdict, unknown, findings, to)
+                self._sessions(number, home["spec"], verdict, unknown, findings, to)
             self.beat["unknown"] = unknown
             self.write_beat()
 
-        self.beat["briefs"] = self._briefs(watches)
+        self.beat["briefs"] = self._briefs(watches, unknown, findings)
         # A round that could not read every ticket does not know that nothing is held.
         self.beat.update(held=held if read_all else (held or None), unknown=unknown)
         if read_all:
@@ -682,69 +708,99 @@ class Watchdog:
                             f"leave credential repair to the user",
                     "to": everyone,
                 })
-        woke = self._report(findings, everyone)
+        woke = self._report(findings)
         self.write_beat()
         return "woke" if woke else "watching"
 
-    def _read_quiet(self, name: str) -> dict:
-        try:
-            value = self._read(name, {})
-        except ValueError:
-            return {}
-        return value if isinstance(value, dict) else {}
+    def _waiting(self, number: int, home: dict, fold: dict, wakes: list[dict],
+                 findings: list[dict]) -> None:
+        children = [str(c["child"]) for c in (fold.get("children") or {}).values()
+                    if c.get("opened") and not c.get("resolution")]
+        delivered = [str(w["seq"]) for w in wakes if w.get("ticket") == number
+                     and w.get("watch") == home["key"] and w.get("delivered")]
+        reasons = []
+        if children:
+            reasons.append(f"unrouted children {', '.join(children)}")
+        if delivered:
+            reasons.append(f"unacked delivered wakes {', '.join(delivered)}")
+        if reasons:
+            findings.append({"key": f"wait:{home['key']}:{number}", "repeat": True,
+                             "text": f"watchdog: #{number} is waiting on the orchestrator: "
+                                     f"{'; '.join(reasons)}; read the ticket, route its children "
+                                     f"and have each recipient ack its wake through dispatch.sh",
+                             "to": [home["main"]]})
 
-    def _silent(self, number: int, spec: int | None, verdict: dict, unknown: dict,
-                findings: list[dict], to: list[tuple[str, str]]) -> None:
-        """The third layer, for one held and silent ticket."""
-        since = verdict.get("since")
-        if not verdict["sessions"]:
-            unknown[str(number)] = {"why": "held by no session to ask", "since": since}
-            findings.append({
-                "key": f"unheld:{number}:{verdict.get('comment')}",
-                "text": f"watchdog: #{number} is held with no session to ask, silent "
-                        f"since {since or 'an unknown time'}; read status, and when "
-                        f"nothing works the ticket, dispatch.sh retract {number}",
-                "to": to,
-            })
-            return
-        for kind, runner, session, machine in verdict["sessions"]:
+    def _observe(self, record: dict) -> str:
+        if record.get("machine", self.machine) != self.machine:
+            return "unknown"
+        answer = self.ask(record.get("runner") or "", record.get("session") or "")
+        self.write_beat()
+        if answer != "alive":
+            return answer if answer == "stopped" else "unknown"
+        answer = ask_state(record.get("runner") or "", record.get("session") or "")
+        self.write_beat()
+        return answer
+
+    def _session_alert(self, record: dict, answer: str, label: str, unknown: dict,
+                       findings: list[dict], to: list[tuple[str, str]], waiting: bool,
+                       revision: int | str | None) -> None:
+        kind, runner, session = record["kind"], record.get("runner"), record.get("session")
+        machine = record.get("machine", self.machine)
+        activity = worktree_activity(record.get("worktree"),
+                                     record.get("started_at") or record.get("at"))
+        since = iso(activity)
+        key = f"{label}:{kind}:{runner}:{session}"
+        if answer == "unknown":
+            entry = unknown.setdefault(label.lstrip("#"), {"sessions": [], "since": since,
+                                                          "why": "the runner could not say"})
+            details = {"kind": kind, "runner": runner, "session": session}
             if machine != self.machine:
-                # A runner answers for its own machine: asked here about a session started
-                # elsewhere it would say `stopped` of a worker that is alive.
-                entry = unknown.setdefault(str(number), {"sessions": [], "since": since,
-                                                         "why": "the runner could not say"})
-                entry["sessions"].append({"kind": kind, "runner": runner, "session": session,
-                                          "machine": machine})
-                findings.append({
-                    "key": f"elsewhere:{number}:{kind}:{runner}:{session}:{verdict.get('comment')}",
-                    "text": f"watchdog: #{number} liveness unknown: the {kind} session "
-                            f"{session} was started on {machine or 'an unrecorded machine'}, "
-                            f"not on {self.machine}, and only that machine can ask {runner}; "
-                            f"silent since {since or 'an unknown time'}; dispatch.sh resume "
-                            f"{number} \"Say in one line where you are, then continue\", and "
-                            f"act on its exit as the Run a night playbook's Exit codes of resume says",
-                    "to": to,
-                })
-                continue
-            answer = self.ask(runner, session)
-            self.write_beat()
-            if answer == "alive":
-                if kind == "worker" and verdict.get("idle"):
-                    # Alive, and nothing it waits on will ever land: nobody is coming to wake it.
-                    findings.append({
-                        "key": f"idle:{number}:{verdict.get('comment')}",
-                        "text": f"watchdog: #{number} silent since {since} with nothing to wait "
-                                f"on: its worker {session} on {runner} is alive, and no "
-                                f"reviewer is pending; dispatch.sh resume "
-                                f"{number} \"You ended your turn with no result on the "
-                                f"ticket. Carry on from where its events say you are. If "
-                                f"something outside your code stops you, open a fault "
-                                f"sub-issue saying what you ran and what you saw, then "
-                                f"stop; if only a person can settle it, open a decision "
-                                f"sub-issue, take the default and carry on.\"",
-                        "to": to,
-                    })
-                continue
+                details["machine"] = machine
+                why = (f"was started on {machine or 'an unrecorded machine'}, not on "
+                       f"{self.machine}, and only that machine can ask {runner}")
+            else:
+                why = "has unknown liveness or turn state"
+            entry["sessions"].append(details)
+            findings.append({"key": f"unknown:{key}:{revision}",
+                             "text": f"watchdog: {label} liveness unknown: the {kind} session "
+                                     f"{session} on {runner} {why}; inspect that session "
+                                     f"through its runner before resuming it",
+                             "to": to})
+        elif answer.startswith("dialog\t"):
+            line = " ".join(answer.partition("\t")[2].split())
+            findings.append({"key": f"dialog:{key}:{line}",
+                             "text": f"watchdog: {label} {kind} session {session} on {runner} "
+                                     f"is on a dialog: {line}; resolve that dialog on its runner",
+                             "to": to})
+        elif answer == "idle" and not waiting and (self.clock() - activity).total_seconds() >= self.idle:
+            findings.append({"key": f"idle:{key}:{since}",
+                             "text": f"watchdog: {label} silent since {since} with nothing to "
+                                     f"wait on: its {kind} {session} on {runner} is idle; "
+                                     f"resume that session through dispatch.sh",
+                             "to": to})
+        elif answer == "working" and (self.clock() - activity).total_seconds() >= self.stuck:
+            findings.append({"key": f"stuck:{key}:{since}",
+                             "text": f"watchdog: {label} {kind} session {session} on {runner} "
+                                     f"has a stuck turn with no worktree activity since {since}; "
+                                     f"inspect its running tool through the runner",
+                             "to": to})
+
+    def _sessions(self, number: int, spec: int | None, verdict: dict, unknown: dict,
+                  findings: list[dict], to: list[tuple[str, str]]) -> None:
+        records = verdict["sessions"]
+        since = verdict.get("since")
+        if not records:
+            unknown[str(number)] = {"why": "held by no session to ask", "since": since}
+            findings.append({"key": f"unheld:{number}:{verdict.get('comment')}",
+                             "text": f"watchdog: #{number} is held with no session to ask; "
+                                     f"read its events before dispatch.sh retract {number}",
+                             "to": to})
+            return
+        observed = [(r, self._observe(r)) for r in records]
+        reviewer_pending = any(r["kind"] == "reviewer" and answer != "stopped"
+                               for r, answer in observed)
+        for record, answer in observed:
+            kind, runner, session = record["kind"], record.get("runner"), record.get("session")
             if answer == "stopped":
                 posted, why = self.post(self.repo, kind, number, spec, runner, session, since)
                 if posted:
@@ -758,57 +814,54 @@ class Watchdog:
                                    f"#{number} stopped, and {kind}.lost could not be posted: "
                                    f"{why}; it is tried again next round\n")
                 continue
-            entry = unknown.setdefault(str(number), {"sessions": [], "since": since,
-                                                     "why": "the runner could not say"})
-            entry["sessions"].append({"kind": kind, "runner": runner, "session": session})
-            findings.append({
-                "key": f"unknown:{number}:{kind}:{runner}:{session}:{verdict.get('comment')}",
-                "text": f"watchdog: #{number} liveness unknown: {runner} could not say whether "
-                        f"the {kind} session {session} is alive; silent since "
-                        f"{since or 'an unknown time'}; dispatch.sh resume {number} \"Say "
-                        f"in one line where you are, then continue\", and act on its exit "
-                        f"as the Run a night playbook's Exit codes of resume says",
-                "to": to,
-            })
+            waiting = verdict["passed"] or (kind == "worker" and reviewer_pending)
+            self._session_alert(record, answer, f"#{number}", unknown, findings, to, waiting,
+                                verdict.get("comment"))
 
-    def _briefs(self, watches: dict[str, dict]) -> list[str]:
-        """Step 4, for the briefs of every watched batch: a session its runner answers
-        `stopped` is marked lost. Returns the briefs still open, as `<batch>/<n>`."""
-        batches = {entry["briefs"] for entry in watches.values() if entry.get("briefs")}
+    def _briefs(self, watches: dict[str, dict], unknown: dict, findings: list[dict]) -> list[str]:
+        batches = {entry["briefs"]: entry for entry in watches.values() if entry.get("briefs")}
         still: list[str] = []
         for child in briefs.open_children(self.state):
             if child["batch"] not in batches:
                 continue
             name = f"{child['batch']}/{child['n']}"
+            batch = briefs.batch_record(self.state, child["batch"]) or {}
+            record = {**child, "kind": batch.get("role") or "researcher",
+                      "worktree": child.get("worktree") or batch.get("worktree")}
             runner, session = child.get("runner") or "", child.get("session") or ""
-            answer = self.ask(runner, session)
-            self.write_beat()
+            answer = self._observe(record)
             if answer == "stopped":
                 why = (f"{runner} answered that its session {session} is stopped, and it had "
                        f"not reported")
                 if briefs.mark_lost(self.state, child["batch"], child["n"], why):
                     self.err.write(f"watchdog: brief {name} marked lost: {why}\n")
                 continue
+            waiting = any(not briefs.complete(self.state, b["batch"])
+                          for b in briefs.open_batches(self.state, (runner, session)))
+            self._session_alert(record, answer, f"brief {name}", unknown, findings,
+                                [relay_mod.main_of(batches[child["batch"]])], waiting, child.get("at"))
             still.append(name)
         return still
 
-    def _report(self, findings: list[dict], everyone: list[tuple[str, str]]) -> bool:
+    def _report(self, findings: list[dict]) -> bool:
         """Send each orchestrator what has not been sent to it. True when a turn started on
         one of them. An alert kept for a session that is the orchestrator of no open watch
         any more is let go: there is nobody left to tell."""
         reported = [r for r in self.beat.get("reported") or [] if isinstance(r, list) and len(r) == 3]
         done = {tuple(r) for r in reported}
-        mains = set(everyone)
-        pending = [p for p in self.beat.get("pending") or []
-                   if (p.get("runner"), p.get("session"), p.get("key")) not in done
-                   and (p.get("runner"), p.get("session")) in mains]
-        keys = {(p["runner"], p["session"], p["key"]) for p in pending}
+        nudged = self.beat["nudged"]
+        pending = []
+        keys = set()
         for finding in findings:
             for runner, session in finding["to"]:
                 mark = (runner, session, finding["key"])
+                last = parse_iso(nudged.get(json.dumps(mark))) if finding.get("repeat") else None
+                if last is not None and (self.clock() - last).total_seconds() < self.nudge:
+                    continue
                 if mark not in done and mark not in keys:
                     pending.append({"key": finding["key"], "text": finding["text"],
-                                    "runner": runner, "session": session})
+                                    "runner": runner, "session": session,
+                                    "repeat": bool(finding.get("repeat"))})
                     keys.add(mark)
         self.beat["pending"] = pending
         if not pending:
@@ -825,7 +878,12 @@ class Watchdog:
             text = " | ".join(p["text"] for p in items)
             code = self.send(runner, session, text)
             if code in (0, 4):
-                reported.extend([runner, session, p["key"]] for p in items)
+                for p in items:
+                    mark = [runner, session, p["key"]]
+                    if p.get("repeat"):
+                        nudged[json.dumps(mark)] = iso(self.clock())
+                    else:
+                        reported.append(mark)
                 woke = woke or code == 0
                 continue
             kept.extend(items)
@@ -932,7 +990,8 @@ def cmd_run(args) -> int:
         with statedir.locked(state / "watchdog.lock", wait=0, purpose=f"watchdog for {args.repo}"):
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-            dog = Watchdog(state, args.repo, poll=args.poll, silence=args.silence, idle=args.idle)
+            dog = Watchdog(state, args.repo, poll=args.poll, silence=args.silence, idle=args.idle,
+                           stuck=args.stuck, nudge=args.nudge)
             dog.write_beat()
             while True:
                 outcome = dog.round()
@@ -977,6 +1036,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--poll", type=positive_int, default=DEFAULT_POLL)
     run.add_argument("--silence", type=positive_int, default=DEFAULT_SILENCE)
     run.add_argument("--idle", type=positive_int, default=DEFAULT_IDLE)
+    run.add_argument("--stuck", type=positive_int, default=DEFAULT_STUCK)
+    run.add_argument("--nudge", type=positive_int, default=DEFAULT_NUDGE)
     run.add_argument("--once", action="store_true")
     run.set_defaults(fn=cmd_run)
 

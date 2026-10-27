@@ -1,11 +1,12 @@
 """Tests for the three layers of liveness: turn-guard.py's predicate, watchdog.py's
-heartbeat, tolerance and lock, and the third layer's three answers. No tracker, no runner,
+heartbeat, tolerance and lock, session states and repeating ticket reminders. No tracker, no runner,
 no network, no waiting for a real poll.
 
 The seam is this machine's state directory plus the runner: `MMW_HOME` points at a
 temporary directory holding the heartbeat, the locks and the relay's files, the board is a
-fake `Board` answering from a dict of comments, and the runner's `liveness` and `send`
-verbs, and the `worker.lost` post, are functions here that record what they were handed.
+fake `Board` answering from a dict of comments. The runner's `liveness` and `send`
+verbs and the `worker.lost` post record their calls. Temporary runner scripts answer
+`state`, and temporary git repositories supply commit times and file modification times.
 What is asserted is what an outsider sees: whether a turn end is blocked, whether a
 watchdog reads as healthy, what was posted on which ticket, who was asked, and what the
 orchestrator was sent.
@@ -287,34 +288,23 @@ class Judge(unittest.TestCase):
     def test_a_ticket_nobody_holds_is_free(self):
         f = self.fold(comment(1, "worker.started", 61, T0, runner="orca", session="t1"),
                       comment(2, "ticket.landed", 61, T0))
-        self.assertEqual(dog.judge(f, T0 + timedelta(hours=5), 600)["state"], "free")
+        self.assertEqual(dog.judge(f)["state"], "free")
 
-    def test_a_recent_event_is_not_silence(self):
+    def test_a_recent_event_still_needs_the_session_table(self):
         f = self.fold(comment(1, "worker.started", 61, T0, runner="orca", session="t1"))
-        self.assertEqual(dog.judge(f, T0 + timedelta(seconds=599), 600)["state"], "recent")
-        verdict = dog.judge(f, T0 + timedelta(seconds=600), 600)
-        self.assertEqual(verdict["state"], "silent")
-        self.assertEqual(verdict["sessions"], [("worker", "orca", "t1", HERE_MACHINE)])
+        self.assertEqual(dog.judge(f)["state"], "held")
 
     def test_only_the_live_workers_pair_is_named(self):
         f = self.fold(comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
                       comment(2, "worker.replaced", 61, T0, runner="herdr", session="h1"),
                       comment(3, "worker.started", 61, T0, runner="orca", session="t2"))
-        self.assertEqual(dog.judge(f, T0 + timedelta(hours=1), 600)["sessions"],
+        self.assertEqual([(r["kind"], r["runner"], r["session"], r["machine"])
+                          for r in dog.judge(f)["sessions"]],
                          [("worker", "orca", "t2", HERE_MACHINE)])
 
     def test_an_unreadable_event_is_its_own_answer(self):
         f = events.fold(["prose", "x\n\n<!-- mmw {not json} -->"], issue=61)
-        self.assertEqual(dog.judge(f, T0, 600)["state"], "unreadable")
-
-    def test_idle_is_a_worker_alone_quiet_past_the_idle_time_with_nothing_to_wait_on(self):
-        started = comment(1, "worker.started", 61, T0, runner="orca", session="t1")
-        self.assertFalse(dog.judge(self.fold(started), T0 + timedelta(seconds=3599), 600, 3600)["idle"])
-        self.assertTrue(dog.judge(self.fold(started), T0 + timedelta(seconds=3600), 600, 3600)["idle"])
-        reviewer = comment(2, "reviewer.started", 61, T0, runner="orca", session="rv")
-        self.assertFalse(dog.judge(self.fold(started, reviewer), T0 + timedelta(hours=2), 600, 3600)["idle"])
-        passed = comment(2, "ticket.passed", 61, T0)
-        self.assertFalse(dog.judge(self.fold(started, passed), T0 + timedelta(hours=2), 600, 3600)["idle"])
+        self.assertEqual(dog.judge(f)["state"], "unreadable")
 
 
 class Rounds(StateCase):
@@ -338,6 +328,16 @@ class Rounds(StateCase):
         self.send = Recorder(default=0)
         self.post = Recorder(default=(True, ""))
         self.clock = Clock()
+        self.runners = Path(self.tmp.name) / "runners"
+        self.runners.mkdir()
+        for runner in ("orca", "herdr"):
+            (self.runners / f"{runner}.sh").write_text(
+                'if [ "$1" = state ]; then cat "$(dirname "$0")/$2.state"; else exit 3; fi\n')
+        for session in ("h1", "rv", "rv2", "h70"):
+            (self.runners / f"{session}.state").write_text("idle\n")
+        runner_env = mock.patch.dict(os.environ, {"MMW_RUNNERS_DIR": str(self.runners)})
+        runner_env.start()
+        self.addCleanup(runner_env.stop)
 
     def watchdog(self) -> "dog.Watchdog":
         return dog.Watchdog(self.state, "o/r", board=self.board, ask=self.ask, send=self.send,
@@ -348,6 +348,186 @@ class Rounds(StateCase):
     def silent_worker(self, runner="herdr", session="h1"):
         self.board.tickets[61] = [comment(1, "worker.started", 61, self.SILENT, runner=runner,
                                           session=session)]
+
+    def repository(self, commit_at):
+        repo = Path(self.tmp.name) / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@example.com"], check=True)
+        subprocess.run(["git", "-C", str(repo), "config", "user.name", "Test"], check=True)
+        (repo / "work.txt").write_text("work\n")
+        subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(repo), "commit", "-qm", "work"], check=True,
+                       env={**os.environ, "GIT_AUTHOR_DATE": stamp(commit_at),
+                            "GIT_COMMITTER_DATE": stamp(commit_at)})
+        os.utime(repo / "work.txt", (commit_at.timestamp(), commit_at.timestamp()))
+        return repo
+
+    def test_table_a_busy_worker_with_a_new_commit_is_not_reported(self):
+        repo = self.repository(T0 - timedelta(seconds=1))
+        old = (T0 - timedelta(hours=3)).timestamp()
+        os.utime(repo / "work.txt", (old, old))
+        self.board.tickets[61] = [comment(1, "worker.started", 61,
+                                          T0 - timedelta(hours=3), runner="herdr",
+                                          session="h1", worktree=str(repo))]
+        self.watchdog().round()
+        self.assertEqual((self.send.calls, self.post.calls), ([], []))
+        self.clock.moment += timedelta(seconds=3600)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.send.default = 3
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.clock.moment += timedelta(seconds=1)
+        os.utime(repo / "work.txt", (self.clock().timestamp(), self.clock().timestamp()))
+        self.send.default = 4
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1, "new file activity cancels the unsent idle alert")
+
+    def test_table_a_reviewer_on_a_dialog_is_reported_with_its_line(self):
+        self.children()
+        self.board.tickets[61][-1] = comment(2, "reviewer.started", 61, T0,
+                                             runner="orca", session="rv")
+        (self.runners / "rv.state").write_text("dialog\tTrust this folder?\n")
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
+        self.assertIn("reviewer", self.send.calls[0][2])
+        self.assertIn("rv", self.send.calls[0][2])
+        self.assertIn("Trust this folder?", self.send.calls[0][2])
+        self.assertNotIn("\n", self.send.calls[0][2])
+        self.assertEqual(self.post.calls, [])
+
+    def test_table_an_idle_session_is_reported_once(self):
+        self.idle_worker()
+        self.send.default = 4
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.board.tickets[61].append(comment(2, "worker.decided", 61, T0))
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
+        self.assertIn("h1", self.send.calls[0][2])
+        self.send.calls.clear()
+        (self.state / "watchdog.json").unlink()
+        self.idle_worker(comment(2, "reviewer.started", 61, self.IDLE,
+                                 runner="orca", session="rv"))
+        (self.runners / "rv.state").write_text("working\n")
+        self.watchdog().round()
+        self.assertEqual(self.send.calls, [])
+
+    def test_table_an_unknown_state_is_reported_never_lost(self):
+        self.silent_worker()
+        for answer in ("unknown", "nonsense", "working\nidle", "dialog\t"):
+            with self.subTest(answer=answer):
+                self.send.calls.clear()
+                (self.state / "watchdog.json").unlink(missing_ok=True)
+                (self.runners / "h1.state").write_text(answer + "\n")
+                self.watchdog().round()
+                self.assertEqual(len(self.send.calls), 1)
+                self.assertIn("unknown", self.send.calls[0][2])
+                self.assertIn("h1", self.send.calls[0][2])
+                self.assertEqual(self.post.calls, [])
+
+    def test_table_a_stuck_turn_is_reported_once(self):
+        self.board.tickets[61] = [comment(1, "worker.started", 61,
+                                          T0 - timedelta(seconds=7200), runner="herdr",
+                                          session="h1")]
+        (self.runners / "h1.state").write_text("working\n")
+        self.send.default = 4
+        self.clock.moment = T0 - timedelta(seconds=1)
+        self.watchdog().round()
+        self.assertEqual(self.send.calls, [])
+        self.clock.moment = T0
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertIn("h1", self.send.calls[0][2])
+        self.assertIn("stuck", self.send.calls[0][2])
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+
+    def test_table_an_unrouted_child_is_reported_again_each_nudge(self):
+        self.silent_worker()
+        self.board.tickets[61].append(comment(2, "child.opened", 61, T0,
+                                             child=1373, kind="contract", title="contract"))
+        self.send.default = 4
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertIn("1373", self.send.calls[0][2])
+        self.clock.moment = T0 + timedelta(seconds=60)
+        with mock.patch.object(self.board, "comments", side_effect=dog.relay_mod.PollError("HTTP 502")):
+            self.watchdog().round()
+        self.clock.moment = T0 + timedelta(seconds=120)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1, "a failed read must not reset the nudge timer")
+        self.clock.moment = T0 + timedelta(seconds=1799)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.clock.moment = T0 + timedelta(seconds=1800)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 2)
+        self.assertTrue(all(c[:2] == ("orca", "term_main") for c in self.send.calls))
+        self.assertTrue(all("#61" in c[2] for c in self.send.calls))
+
+    def test_table_an_unacked_wake_is_reported_again_each_nudge(self):
+        (self.state / "queue.jsonl").write_text(json.dumps({
+            "seq": 1, "ticket": 61, "event": "reviewer.reported", "to": "worker",
+            "watch": "spec:7", "runner": "herdr", "session": "h1",
+            "at": stamp(T0), "delivered": stamp(T0)}) + "\n")
+        self.send.default = 4
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
+        self.assertIn("#61", self.send.calls[0][2])
+        self.assertIn("unacked", self.send.calls[0][2])
+        self.clock.moment = T0 + timedelta(seconds=1799)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.clock.moment = T0 + timedelta(seconds=1800)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 2)
+        (self.state / "queue.jsonl").write_text("")
+        self.clock.moment += timedelta(seconds=1800)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 2)
+
+    def test_table_an_idle_researcher_is_reported(self):
+        with mock.patch.object(dog.briefs, "now_iso", return_value=stamp(self.IDLE)):
+            batch = dog.briefs.create(self.state, "researcher", 1,
+                                      MAIN["runner"], MAIN["session"],
+                                      worktree=Path(self.tmp.name) / "missing-repo")
+            dog.briefs.mark_started(self.state, batch, 1, {
+                "runner": "herdr", "session": "h1", "machine": HERE_MACHINE})
+        self.write("watches.json", {f"briefs:{batch}": {"briefs": batch, **MAIN}})
+        self.send.default = 4
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertIn(f"brief {batch}/1", self.send.calls[0][2])
+        self.assertIn("researcher", self.send.calls[0][2])
+        self.assertIn("h1", self.send.calls[0][2])
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertEqual(dog.briefs.briefs_of(self.state, batch)[0]["state"], "open")
+
+    def test_table_a_routed_child_is_not_reported_again(self):
+        self.silent_worker()
+        (self.runners / "h1.state").write_text("working\n")
+        self.board.tickets[61].append(comment(2, "child.opened", 61, T0,
+                                             child=1373, kind="contract", title="contract"))
+        self.send.default = 4
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.board.tickets[61].append(comment(3, "child.closed", 61, T0,
+                                             child=1373, resolution="fixed"))
+        self.clock.moment += timedelta(seconds=1800)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
 
     def heartbeat(self) -> dict:
         return json.loads((self.state / "watchdog.json").read_text())
@@ -474,11 +654,11 @@ class Rounds(StateCase):
         beat = self.heartbeat()
         self.assertTrue(dog.health({"pid": beat["pid"], "identity": beat["identity"]}, beat, T0)[0])
 
-    def test_a_recent_ticket_is_not_asked(self):
+    def test_a_recent_ticket_is_asked(self):
         self.board.tickets[61] = [comment(1, "worker.started", 61, T0 - timedelta(minutes=2),
                                           runner="herdr", session="h1")]
         self.watchdog().round()
-        self.assertEqual(self.ask.calls, [])
+        self.assertEqual(self.ask.calls, [("herdr", "h1")])
 
     def test_a_held_ticket_with_no_worker_session_is_reported(self):
         self.board.tickets[61] = [comment(1, "ticket.claimed", 61, self.SILENT)]
@@ -493,7 +673,7 @@ class Rounds(StateCase):
         self.assertEqual(self.watchdog().round(), "watching")
         self.watchdog().round()  # a new watchdog process reads what was reported
         self.assertEqual(len(self.send.calls), 1)
-        # A new event starts a new stretch: silent again, asked again, reported again.
+        # An unknown runner answer is reported again after a new ticket event.
         self.board.tickets[61].append(comment(2, "worker.decided", 61, self.SILENT))
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 2)
@@ -634,7 +814,7 @@ class Rounds(StateCase):
         self.assertTrue(text.startswith("watchdog: #61 silent since 2026-09-10T00:00:00Z"), text)
         self.assertIn("h1", text.split())
         self.assertIn("herdr", text.split())
-        self.assertIn("dispatch.sh resume 61", text)
+        self.assertIn("dispatch.sh", text)
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1, "once per ticket and newest event")
 
@@ -652,6 +832,7 @@ class Rounds(StateCase):
                 self.send.calls.clear()
                 (self.state / "watchdog.json").unlink(missing_ok=True)
                 self.idle_worker(extra)
+                (self.runners / "rv.state").write_text("working\n")
                 self.watchdog().round()
                 self.assertEqual(self.send.calls, [])
 
