@@ -240,7 +240,7 @@ RESULTS = {
 BLOCK_RE = re.compile(r"<!--\s*" + MARK + r"\b(.*?)-->", re.S)
 OPENER_RE = re.compile(r"<!--\s*" + MARK + r"\b")
 TERMINAL_ESCAPE_RE = re.compile(
-    r"\x1b\].*?(?:\x07|\x1b\\)|(?:\x1b\[|\\?\^\[\[)[0-?]*[ -/]*[@-~]",
+    r"\x1b\].*?(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\\?\^\[\[[0-9;:]*m",
     re.S,
 )
 COMMENT_ID_RE = re.compile(r"#issuecomment-(\d+)")

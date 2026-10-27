@@ -58,6 +58,15 @@ class TheVocabulary(unittest.TestCase):
             "details": {"lines": [clean, 7, None, True]}}])
         self.assertEqual(events.fold([body])["unreadable"], [])
 
+    def test_build_preserves_caret_regex_text(self):
+        text = "grep '^[[:alpha:]]' x; EXPECT: /^[[:alpha:]]+$/m; x ^[[a-z]] y; echo ^[[A"
+        body = events.build("worker.decided", ticket=61, line=text, text=text,
+                            command=text, expected=text)
+        what, payload = events.parse(body)
+        self.assertEqual(what, "event")
+        self.assertEqual(body.split("\n\n<!--", 1)[0], text + "\n\n" + text)
+        self.assertEqual((payload["command"], payload["expected"]), (text, text))
+
     def test_there_are_twenty_nine_events(self):
         self.assertEqual(len(events.EVENTS), 29)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",
