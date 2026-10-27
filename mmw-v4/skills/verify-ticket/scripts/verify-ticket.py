@@ -434,20 +434,28 @@ def fetch_outsider(number: int) -> dict:
 
 
 def section(body: str, heading: str) -> list[str]:
-    """The lines under `## <heading>`, up to the next `## ` heading."""
-    lines = body.splitlines()
-    start = None
-    for i, line in enumerate(lines):
-        if line.strip() == f"## {heading}":
-            start = i + 1
-            break
-    if start is None:
-        return []
+    """Lines under an unfenced `## <heading>`, up to the next unfenced heading."""
+    active = False
+    fence = None
     out = []
-    for line in lines[start:]:
-        if line.startswith("## "):
+    for line in body.splitlines():
+        if fence is not None:
+            if active:
+                out.append(line)
+            close = FENCE_CLOSE_RE.match(line)
+            if close and close.group(1)[0] == fence[0] and len(close.group(1)) >= fence[1]:
+                fence = None
+            continue
+        opened = FENCE_OPEN_RE.match(line)
+        if opened and not (opened.group(2)[0] == "`" and "`" in opened.group(3)):
+            fence = (opened.group(2)[0], len(opened.group(2)))
+        elif active and line.startswith("## "):
             break
-        out.append(line)
+        elif not active and line.strip() == f"## {heading}":
+            active = True
+            continue
+        if active:
+            out.append(line)
     while out and not out[0].strip():
         out.pop(0)
     while out and not out[-1].strip():
