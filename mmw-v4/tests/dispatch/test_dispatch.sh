@@ -3907,6 +3907,7 @@ JSON
 # that read the spec off the tree would move #92 under the map. #80 is a ticket already
 # under the spec; #95 is an issue under #61 that no event of #61 names.
 write_route_batch() {
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 18, "state": "OPEN", "labels": ["mmw:map"], "parent": null},
