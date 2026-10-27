@@ -5644,6 +5644,20 @@ JSON
   grep -q "started 1" "$TMP/err" || fail "the freed ticket was not started: $(cat "$TMP/err")"
 }
 
+scenario_posteventshowsgherror() {
+  reset_log
+  fresh_repo
+  local code
+  code="$(run_dispatch env FAKE_GH_COMMENT_FAILS=1 bash "$DISPATCH" "${TOOLS[@]}" send reviewer 61)"
+  [ "$code" = 2 ] || fail "a refused event write must exit 2, got $code: $(cat "$TMP/err")"
+  grep -q 'reviewer.started' "$TMP/err" \
+    || fail "the refusal must name the event: $(cat "$TMP/err")"
+  grep -Fxq 'HTTP 502' "$TMP/err" \
+    || fail "the refusal must preserve gh stderr: $(cat "$TMP/err")"
+  has "gh :: issue :: comment :: 61 :: --body"
+  has "paseo :: archive :: --force :: agt_run_1"
+}
+
 # A session whose start event cannot be written is a session no command can find, and
 # `advance` would read its ticket as free. It is stopped again, and the start refused.
 scenario_startunrecorded() {
@@ -9096,7 +9110,7 @@ ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard o
 ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
-ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail"
+ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteventshowsgherror"
 ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
 ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 
