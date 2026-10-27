@@ -356,27 +356,16 @@ None
         self.assertNotIn("(reasonable)", text)
         self.assertNotIn("(should not)", text)
 
-    def test_a_negated_should_not_on_a_summary_line_is_no_veto(self):
-        """A reviewer who folds every decision into one line and closes it with
-        `No should not.` judged the file reasonable (agentflow #1052)."""
-        folded = event("reviewer.reported", """REVIEW abcdef0..1234567
-
-## In-ticket
-
-None
-
-## Spec
-
-Decisions: every decision the worker made on its own was judged reasonable (picking the existing helper; editing src/helper.py outside Owns). No should not.
-
-## Tests
-
-None
-""", base="abcdef0", head="1234567")
-        code, err, text, _ = run_draft((FILES_RUN, folded, DECISIONS))
-        self.assertEqual(code, 0, err)
-        self.assertIn("Outside Owns: src/helper.py (reasonable)", text)
-        self.assertNotIn("(should not)", text)
+    def test_no_judgement_line_in_draft_reports_the_missing_line(self):
+        for prose in ("None", "Decisions: src/helper.py is reasonable. No should not.",
+                      "src/other.py: reasonable, and src/helper.py 没有 `should not`"):
+            with self.subTest(prose=prose):
+                review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
+                               "## In-ticket\n\nNone\n\n## Spec\n\n" + prose +
+                               "\n\n## Tests\n\nNone\n", base="abcdef0", head="1234567")
+                code, err, text, _ = run_draft((FILES_RUN, review, DECISIONS))
+                self.assertEqual(code, 0, err)
+                self.assertIn("Outside Owns: src/helper.py (REVIEW has no judgement line for it)", text)
 
     def test_a_line_carrying_both_words_invents_no_judgement(self):
         both = event("reviewer.reported", """REVIEW abcdef0..1234567
