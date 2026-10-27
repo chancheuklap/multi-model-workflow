@@ -31,11 +31,11 @@ The repository holding what needs to change owns the registration. MMW skills, p
 
 Verification-tool problems specific to one product's environment tool or `verify-<product>` are registered in the product repository; problems shared by similar products are registered in MMW.
 
-1. Search first with `python3 "$HOME/.agents/skills/register-problem/scripts/register.py" find <keywords>`. For another target repository, pass `--repo <owner/repo>`. Read the matches before choosing a problem code. Different wording can describe the same problem.
+1. Search first with `python3 <this skill's directory>/scripts/register.py find <keywords>`. For another target repository, pass `--repo <owner/repo>`. Read the matches before choosing a problem code. Different wording can describe the same problem.
    Done when you have checked the matches and reused the existing code where the problem is the same.
 2. Write a file with `## Problem` and six fields: 问题代号, 角度, 发生了什么, 证据, 代价, 该谁修. Use a lower-case hyphenated English phrase of at most 80 characters for 问题代号. Use 判断, 环境, or 流程 for a lesson, or 产品 for a product problem. Keep the angle in the body, without an angle label. You may add one suggested direction.
    Done when all six fields identify one problem and its evidence, cost, and responsible repository.
-3. Run `python3 "$HOME/.agents/skills/register-problem/scripts/register.py" add <file>` from the repository where the problem occurred. Pass `--repo <owner/repo>` for the repository that owns the fix. When registering an occurrence on a ticket, pass `--ticket <n>` to record that ticket and read its parent spec. Use `--source owner-correction` for an owner's correction, `--source stall` for a stall, or `--source retro-signal` for evidence found during the retrospective. Ordinary discoveries need no source flag. Follow stderr when a write is incomplete, and rerun the same command to finish it.
+3. Run `python3 <this skill's directory>/scripts/register.py add <file>` from the repository where the problem occurred. Pass `--repo <owner/repo>` for the repository that owns the fix. When registering an occurrence on a ticket, pass `--ticket <n>` to record that ticket and read its parent spec. Use `--source owner-correction` for an owner's correction, `--source stall` for a stall, or `--source retro-signal` for evidence found during the retrospective. Ordinary discoveries need no source flag. Follow stderr when a write is incomplete, and rerun the same command to finish it.
    Done when the command exits 0 and names the issue it opened or appended to. Return that issue to the caller. If the command cannot complete, return its reason with the evidence rather than claiming a registration exists.
 
 Example:
