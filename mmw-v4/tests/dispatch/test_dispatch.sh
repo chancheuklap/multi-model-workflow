@@ -961,6 +961,7 @@ print(json.dumps([{"name": name, "bucket": bucket} for name, bucket in rows]))'
       echo '[{"databaseId": 80}]'
     fi ;;
   "run watch "*)
+    [ -z "${FAKE_GH_RUN_WATCH_FAIL:-}" ] || { echo 'watch connection lost' >&2; exit 1; }
     [ "${FAKE_GH_RUN_CONCLUSION:-success}" = success ] ;;
   "run view "*)
     printf '%s\n' "${FAKE_GH_RUN_CONCLUSION:-success}" ;;
@@ -9774,6 +9775,11 @@ YAML
   [ "$code" = 1 ] || fail "failed fallback run expected 1, got $code"
   grep -qx 'dispatched ci.yml: failure' "$TMP/out" || fail 'failed fallback must print its conclusion'
   grep -qx 'https://github.com/o/r/pull/7' "$TMP/out" || fail 'fallback failure must still open the PR'
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_WATCH_FAIL=1 \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail 'a fallback watch failure must exit 1'
+  grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail 'the actual run conclusion must remain visible'
+  grep -q 'watch connection lost' "$TMP/err" || fail 'a failed watch must retain its error'
   rm "$MMW_FAKE_PASEO_STATE/dispatched-run"
   code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_NO_URL=1 \
     MMW_PR_CHECKS_GRACE_SECONDS=0 bash "$DISPATCH" pr \

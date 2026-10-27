@@ -4385,6 +4385,9 @@ def dispatch_workflow(workflow, head, grace):
         if not conclusion:
             raise ValueError(f"workflow run {run} returned no conclusion")
         print(f"dispatched {filename}: {conclusion}", flush=True)
+        if watched.returncode and (watched.stderr.strip() or conclusion in ("success", "neutral", "skipped")):
+            detail = (watched.stderr or watched.stdout).strip() or f"exit {watched.returncode}"
+            print(f"dispatch: watching workflow run {run} failed: {detail}", file=sys.stderr)
         return watched.returncode == 0 and conclusion in ("success", "neutral", "skipped")
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"dispatched {filename}: failed ({error})", flush=True)
