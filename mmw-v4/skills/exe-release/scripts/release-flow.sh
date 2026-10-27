@@ -1330,6 +1330,8 @@ cmd_abort() {
   echo "ABORTED:no delivery record written; the state of this round is kept at $keep"
 }
 
+# Delivery records span tasks in the main checkout and can include unrelated products.
+# Reading every record would mistake stale unrelated deliveries for members of this release.
 cmd_same_commit() {
   local scope=""
   if [ "${1:-}" = "--scope" ]; then
