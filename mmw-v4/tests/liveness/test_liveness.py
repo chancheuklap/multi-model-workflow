@@ -535,6 +535,23 @@ class Rounds(StateCase):
         self.assertEqual([c[1] for c in self.post.calls], ["reviewer"])
         self.assertEqual(self.send.calls, [], "reviewer.lost wakes the worker through the relay")
 
+    def test_future_file_times_do_not_hide_idle_or_stuck_sessions(self):
+        started = T0 - timedelta(hours=3)
+        repo = self.repository(started)
+        future = (T0 + timedelta(days=30)).timestamp()
+        os.utime(repo / "work.txt", (future, future))
+        self.board.tickets[61] = [comment(1, "worker.started", 61, started,
+                                          runner="herdr", session="h1", worktree=str(repo))]
+        for state in ("idle", "working"):
+            with self.subTest(state=state):
+                (self.state / "watchdog.json").unlink(missing_ok=True)
+                self.send.calls.clear()
+                (self.runners / "h1.state").write_text(state + "\n")
+                self.watchdog().round()
+                self.assertEqual(len(self.send.calls), 1)
+                self.assertIn("h1", self.send.calls[0][2])
+                self.assertIn("idle" if state == "idle" else "stuck", self.send.calls[0][2])
+
     def heartbeat(self) -> dict:
         return json.loads((self.state / "watchdog.json").read_text())
 

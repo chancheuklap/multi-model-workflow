@@ -438,7 +438,7 @@ def ask_state(runner: str, session: str) -> str:
     return "unknown"
 
 
-def worktree_activity(worktree: str | None, started: str | None) -> datetime:
+def worktree_activity(worktree: str | None, started: str | None, now: datetime) -> datetime:
     latest = parse_iso(started) or datetime.min.replace(tzinfo=timezone.utc)
     if not worktree:
         return latest
@@ -446,7 +446,9 @@ def worktree_activity(worktree: str | None, started: str | None) -> datetime:
         commit = subprocess.run(["git", "-C", worktree, "log", "-1", "--format=%ct"],
                                 capture_output=True, text=True, timeout=ADAPTER_TIMEOUT)
         if commit.returncode == 0 and commit.stdout.strip():
-            latest = max(latest, datetime.fromtimestamp(int(commit.stdout.strip()), timezone.utc))
+            at = datetime.fromtimestamp(int(commit.stdout.strip()), timezone.utc)
+            if at <= now:
+                latest = max(latest, at)
         files = subprocess.run(["git", "-C", worktree, "ls-files", "-z", "--cached",
                                 "--others"], capture_output=True,
                                text=True, timeout=ADAPTER_TIMEOUT)
@@ -454,8 +456,10 @@ def worktree_activity(worktree: str | None, started: str | None) -> datetime:
             for name in files.stdout.split("\0"):
                 if name:
                     try:
-                        latest = max(latest, datetime.fromtimestamp(
-                            (Path(worktree) / name).lstat().st_mtime, timezone.utc))
+                        at = datetime.fromtimestamp((Path(worktree) / name).lstat().st_mtime,
+                                                    timezone.utc)
+                        if at <= now:
+                            latest = max(latest, at)
                     except OSError:
                         pass
     except (OSError, ValueError, subprocess.SubprocessError):
@@ -747,7 +751,7 @@ class Watchdog:
             waiting = any(not briefs.complete(self.state, b["batch"])
                           for b in briefs.open_batches(self.state, (runner, session)))
         activity = worktree_activity(record.get("worktree"),
-                                     record.get("started_at") or record.get("at"))
+                                     record.get("started_at") or record.get("at"), self.clock())
         since = iso(activity)
         key = f"{label}:{kind}:{runner}:{session}"
         if answer == "unknown":
