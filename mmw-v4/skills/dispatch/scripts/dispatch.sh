@@ -2473,6 +2473,7 @@ PY
 
 # One detached, persistent worktree per base branch. Reset changes tracked files only:
 # ignored dependency directories and caches stay warm between landings.
+# Returns 4 for environment preparation failure, 2 for other preparation failures.
 prepare_merge_worktree() {
   local root="$1" into="$2" main slug dest
   main="$(main_checkout)"
@@ -2496,7 +2497,7 @@ prepare_merge_worktree() {
   worktree_environment "$dest" setup up || {
     worktree_environment "$dest" down || true
     release_merge_lock
-    return 2
+    return 4
   }
   file_merge_worktree "$dest"
   MERGE_ROOT="$dest"
@@ -2828,12 +2829,14 @@ finish_landing() {
 }
 
 # Merge the exact ticket.passed commit, check the result, then fast-forward origin.
-# 0 merged, 1 bounced, 2 could not complete, 3 was already in origin.
+# 0 merged, 1 bounced, 2 could not complete, 3 was already in origin,
+# 4 environment preparation failed.
 land_one_via_origin() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5" mode="${6:-advance}"
   local attempt merge_root base merge_commit landed_base rc files push_error=""
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
-    prepare_merge_worktree "$root" "$into" || return 2
+    prepare_merge_worktree "$root" "$into"; rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
     merge_root="$MERGE_ROOT"
     base="$(git -C "$merge_root" rev-parse "origin/$into")"
     if git -C "$merge_root" merge-base --is-ancestor "$passed" "origin/$into"; then
@@ -3103,7 +3106,7 @@ land_tickets() {
   plan="$(python3 "$STATUS" --land-plan "${numbers[@]}")" \
     || refuse "could not read $(printf '#%s ' "${numbers[@]}")from the tracker"
 
-  local merged=0 already=0 bounced=0 kept=0 failed=0 could_not_land=0 number passed into archive_into rc spec
+  local merged=0 already=0 bounced=0 kept=0 failed=0 environment_failed=0 number passed into archive_into rc spec
   local -a landed_numbers=() bounced_numbers=()
   while IFS= read -r number; do
     [ -n "$number" ] || continue
@@ -3121,7 +3124,7 @@ land_tickets() {
         ;;
       1) bounced=$((bounced + 1)); bounced_numbers+=("$number") ;;
       3) already=$((already + 1)); landed_numbers+=("$number") ;;
-      2) failed=$((failed + 1)); could_not_land=1 ;;
+      4) failed=$((failed + 1)); environment_failed=1 ;;
       *) failed=$((failed + 1)) ;;
     esac
   done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
@@ -3193,7 +3196,7 @@ land_tickets() {
   fi
   sweep_orphan_merge_worktrees "$root" \
     || echo "land: could not sweep orphan merge worktrees" >&2
-  [ "$could_not_land" -eq 0 ] || return 2
+  [ "$environment_failed" -eq 0 ] || return 2
   [ "$failed" -eq 0 ] && [ "$relay_left" -eq 0 ] || return 1
 }
 

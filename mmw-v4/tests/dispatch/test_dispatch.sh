@@ -2693,6 +2693,20 @@ scenario_envupfails() {
       fail 'environment failure still landed the ticket'
     fi
   done
+
+  reset_log
+  fresh_repo
+  put_env
+  put_check "$TMP/repo" 'exit 2'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'unrunnable repository check'
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 1 ] || fail "a repository-check failure must retain land's exit 1, got $code: $(cat "$TMP/err")"
+  hasnt 'ticket.landed'
 }
 
 scenario_envdownonend() {
