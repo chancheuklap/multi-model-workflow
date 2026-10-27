@@ -804,6 +804,12 @@ class Relay:
         for entry in entries:
             if entry.get("briefs"):
                 try:
+                    briefs.close_browsers(self.state, entry["briefs"], err=self.out)
+                except briefs.Refusal as exc:
+                    self.out.write(f"relay: browser cleanup failed for batch {entry['briefs']}: "
+                                   f"{exc}; removing its records anyway\n")
+                    self.out.flush()
+                try:
                     briefs.remove(self.state, entry["briefs"])
                 except briefs.Refusal:
                     pass

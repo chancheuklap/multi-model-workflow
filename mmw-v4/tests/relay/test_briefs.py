@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import sys
 import os
+import json
 import subprocess
 import unittest
+from unittest import mock
 from datetime import timedelta
 from pathlib import Path
 
@@ -30,6 +32,18 @@ class BriefCase(RelayCase):
 
     def setUp(self):
         super().setUp()
+        self.browser_calls = Path(self.tmp.name) / "browser-calls.jsonl"
+        self.browser_calls.write_text("")
+        self.browser_bin = Path(self.tmp.name) / "bin"
+        self.browser_bin.mkdir()
+        cli = self.browser_bin / "playwright-cli"
+        cli.write_text(f"#!{sys.executable}\nimport json, sys\n"
+                       f"with open({str(self.browser_calls)!r}, 'a') as log:\n"
+                       f"    log.write(json.dumps(sys.argv[1:]) + '\\n')\n")
+        cli.chmod(0o755)
+        patch = mock.patch.dict(os.environ, {"PATH": f"{self.browser_bin}:{os.environ['PATH']}"})
+        patch.start()
+        self.addCleanup(patch.stop)
         self.batch = briefs.create(self.state, "researcher", 2, *PARENT)
         for n, session in ((1, "agt_r1"), (2, "agt_r2")):
             briefs.mark_started(self.state, self.batch, n, {
@@ -194,6 +208,52 @@ class BatchWakeTest(BriefCase):
 
 
 class BatchWatchTest(BriefCase):
+    def test_removing_an_abandoned_batch_closes_its_browsers(self):
+        cli = self.browser_bin / "playwright-cli"
+        cli.write_text(cli.read_text() + "sys.stderr.write('close refused\\n')\nsys.exit(1)\n")
+        other = briefs.create(self.state, "researcher", 1, "orca", "other-parent")
+        self.relay.open_watch({"briefs": other}, "orca", "other-parent")
+        processes = []
+        for marker, name in (("cliDaemon.js", f"mmw-{self.batch}-1"),
+                             ("cliDaemon.js", f"mmw-{self.batch}-2"),
+                             ("cliDaemon.js", f"mmw-{other}-1"),
+                             ("cliDaemon.js", f"mmw-{self.batch}-10"),
+                             ("unrelated.js", f"mmw-{self.batch}-1")):
+            process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)",
+                                        marker, name])
+            processes.append(process)
+            self.addCleanup(process.wait)
+            self.addCleanup(process.kill)
+        self.ask.answers[PARENT] = "stopped"
+        self.relay.check_mains()
+        self.clock.moment += timedelta(seconds=relay.MAIN_GONE_AFTER)
+        self.relay.check_mains()
+        self.assertFalse(briefs.batch_dir(self.state, self.batch).exists())
+        self.assertIsNotNone(briefs.batch_record(self.state, other))
+        for process in processes[:2]:
+            self.assertIsNotNone(process.poll(), "abandoned batch browser survived")
+        for process in processes[2:]:
+            self.assertIsNone(process.poll(), "another browser or unrelated process was stopped")
+        calls = [json.loads(line) for line in self.browser_calls.read_text().splitlines()]
+        self.assertEqual(calls, [[f"-s=mmw-{self.batch}-1", "close"],
+                                 [f"-s=mmw-{self.batch}-2", "close"]])
+        self.assertIn(f"browser close failed for mmw-{self.batch}-1", self.out.getvalue())
+
+    def test_browser_cleanup_failure_is_logged_without_keeping_abandoned_batches(self):
+        ps = self.browser_bin / "ps"
+        ps.write_text("#!/bin/sh\nexit 1\n")
+        ps.chmod(0o755)
+        other = briefs.create(self.state, "researcher", 1, *PARENT)
+        self.relay.open_watch({"briefs": other}, *PARENT)
+        self.ask.answers[PARENT] = "stopped"
+        self.relay.check_mains()
+        self.clock.moment += timedelta(seconds=relay.MAIN_GONE_AFTER)
+        self.relay.check_mains()
+        for batch in (self.batch, other):
+            self.assertIsNone(briefs.batch_record(self.state, batch))
+            self.assertNotIn(f"briefs:{batch}", self.watches())
+            self.assertIn(f"browser cleanup failed for batch {batch}", self.out.getvalue())
+
     def test_open_batches_are_found_by_their_parent(self):
         other_runner = briefs.create(self.state, "candidate", 1, "paseo", PARENT[1])
         other_session = briefs.create(self.state, "candidate", 1, PARENT[0], "another")
