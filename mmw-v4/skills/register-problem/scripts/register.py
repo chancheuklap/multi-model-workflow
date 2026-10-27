@@ -208,7 +208,7 @@ def unfinished_spec(repo, number):
     return None
 
 
-def add_problem(path, source, target, repos):
+def add_problem(path, source, target, repos, ticket):
     body = path.read_text(encoding="utf-8")
     fields = problem_fields(body)
     required = ("问题代号", "角度", "发生了什么", "证据", "代价", "该谁修")
@@ -221,9 +221,18 @@ def add_problem(path, source, target, repos):
                                 "the limit is 80; shorten the code before registering")
     if fields["角度"] not in ("判断", "环境", "流程", "产品"):
         raise RegistrationError(f"{path}'s 角度 must be 判断、环境、流程 or 产品")
+    responsible = fields["该谁修"]
+    if responsible in ("MMW", "MMW 仓库"):
+        responsible = toolbox_repo()
+    named_repo = re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?", responsible)
+    expected = target if "/" in responsible else target.split("/")[1]
+    if named_repo and responsible.casefold() != expected.casefold():
+        destination = responsible if "/" in responsible else f"<owner>/{responsible}"
+        raise RegistrationError(f"{path}'s 该谁修 names {responsible}, but the target is {target}; "
+                                f"add --repo {destination} to register where the fix belongs")
     seen_in = current_repo()
-    context = registration_context(seen_in)
-    key = hashlib.sha256(json.dumps([str(path.resolve()), body, source, target, seen_in],
+    context = registration_context(seen_in, ticket)
+    key = hashlib.sha256(json.dumps([str(path.resolve()), body, source, target, seen_in, context["ticket"]],
                                     sort_keys=True).encode()).hexdigest()
     directory = statedir.state_dir(toolbox_repo()) / "registrations"
     directory.mkdir(parents=True, exist_ok=True)
@@ -248,24 +257,30 @@ def add_problem(path, source, target, repos):
         return finish_registration(receipt, pending, fields, body, source, seen_in, rows)
 
 
-def registration_context(repo):
+def registration_context(repo, explicit_ticket):
     session_pair = verify.own_session()
     session = ":".join(session_pair) if session_pair else "none"
-    ticket = os.environ.get("MMW_TICKET")
+    ticket = explicit_ticket if explicit_ticket is not None else os.environ.get("MMW_TICKET")
     if not ticket:
         branch = command(["git", "branch", "--show-current"]).strip()
         match = re.fullmatch(r"(?:issue|fix)-(\d+)", branch)
         ticket = match[1] if match else None
-    spec = os.environ.get("MMW_SPEC")
+    spec = None if explicit_ticket is not None else os.environ.get("MMW_SPEC")
     actor = "main"
     if ticket:
         ticket = int(ticket)
-        row = read_issue(repo, ticket)
-        parent = row.get("parent")
-        if spec is None and parent:
-            parent_row = read_issue(repo, parent["number"])
-            if "mmw:spec" in {l["name"] for l in parent_row["labels"]}:
-                spec = parent["number"]
+        try:
+            row = read_issue(repo, ticket)
+            parent = row.get("parent")
+            if spec is None and parent:
+                parent_row = read_issue(repo, parent["number"])
+                if "mmw:spec" in {l["name"] for l in parent_row["labels"]}:
+                    spec = parent["number"]
+        except RegistrationError as exc:
+            if explicit_ticket is None:
+                raise
+            print(f"register: could not read parent spec for {repo}#{ticket}: {exc}; "
+                  "recording spec=null", file=sys.stderr)
         history = comments(repo, ticket)
         state = events.fold(history, issue=ticket)
         if state["unreadable"]:
@@ -353,7 +368,9 @@ def finish_registration(receipt, pending, fields, body, source, seen_in, matches
         if session != "none":
             for comment in history:
                 what, payload = events.parse(comment["body"])
-                if what == "event" and payload["event"] == "lesson.seen" and payload["session"] == session:
+                if (what == "event" and payload["event"] == "lesson.seen"
+                        and (payload["session"], payload["ticket"])
+                        == (session, receipt["context"]["ticket"])):
                     duplicate = comment
                     break
         recorded = any(events.parse(c["body"])[0] == "event" and
@@ -406,15 +423,18 @@ def main(argv=None):
     add = sub.add_parser("add", help="register a six-field ## Problem file")
     add.add_argument("file", type=Path)
     add.add_argument("--repo")
+    add.add_argument("--ticket", type=int, help="originating ticket; read its parent spec")
     add.add_argument("--source", choices=events.LESSON_SOURCES, default="noticed")
     args = parser.parse_args(argv)
+    if args.command == "add" and args.ticket is not None and args.ticket <= 0:
+        parser.error("--ticket must be a positive issue number")
     try:
         toolbox = toolbox_repo()
         target = repository(args.repo) if args.repo else current_repo()
         repos = list(dict.fromkeys((target, toolbox)))
         if args.command == "find":
             return find(args.words, repos)
-        return add_problem(args.file, args.source, target, repos)
+        return add_problem(args.file, args.source, target, repos, args.ticket)
     except (RegistrationError, statedir.LockHeld, events.EventError, OSError, ValueError, KeyError) as exc:
         print(f"register: {exc}", file=sys.stderr)
         return 2
