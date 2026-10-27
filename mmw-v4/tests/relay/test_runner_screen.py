@@ -10,7 +10,7 @@ import unittest
 RUNNERS = Path(__file__).resolve().parents[2] / "skills/dispatch/scripts/runners"
 SESSION = "term_screen"
 FAKE_ORCA = r'''
-import json, os, sys
+import json, os, sys, time
 from pathlib import Path
 args = sys.argv[1:]
 with Path(os.environ["SCREEN_LOG"]).open("a") as log:
@@ -28,7 +28,13 @@ elif verb == "wait":
         print(os.environ.get("SCREEN_PROBE", "{}"))
         sys.exit(0)
 elif verb == "read":
-    print(os.environ["SCREEN_READ"])
+    with Path(os.environ["SCREEN_READ_TIMES"]).open("a") as times:
+        times.write(str(time.monotonic()) + "\n")
+    screens = json.loads(os.environ["SCREEN_READS"])
+    count = Path(os.environ["SCREEN_READ_COUNT"])
+    n = int(count.read_text()) if count.exists() else 0
+    count.write_text(str(n + 1))
+    print(screens[min(n, len(screens) - 1)])
     sys.exit(int(os.environ.get("SCREEN_READ_EXIT", "0")))
 elif verb == "close":
     answer = {"ok": True}
@@ -51,9 +57,14 @@ class RunnerScreen(unittest.TestCase):
     def run_orca(self, verb, screen, probe="{}", read_exit=0,
                  exit_probe='{"error":{"code":"timeout"}}'):
         self.log.unlink(missing_ok=True)
+        (self.root / "read-count").unlink(missing_ok=True)
+        (self.root / "read-times").unlink(missing_ok=True)
         env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"],
                    MMW_HOME=str(self.root / "mmw-home"), SCREEN_LOG=str(self.log),
-                   SCREEN_READ=screen, SCREEN_PROBE=probe, SCREEN_READ_EXIT=str(read_exit),
+                   SCREEN_READS=json.dumps(screen if isinstance(screen, list) else [screen]),
+                   SCREEN_READ_COUNT=str(self.root / "read-count"),
+                   SCREEN_READ_TIMES=str(self.root / "read-times"),
+                   SCREEN_PROBE=probe, SCREEN_READ_EXIT=str(read_exit),
                    SCREEN_EXIT_PROBE=exit_probe)
         args = ["--host", "codex", "--model", "gpt-6.1-sol", "--effort", "medium",
                 "--cwd", str(self.root), "--prompt", "Work the ticket"] if verb == "start" else [SESSION]
@@ -71,14 +82,14 @@ class RunnerScreen(unittest.TestCase):
         self.assertFalse(any(call[:2] == ["terminal", "close"] for call in calls))
 
     def test_screen_start_refuses_on_a_listed_dialog(self):
-        screens = ["Do you trust this folder?", "Allow external imports?", "Trust this folder?"]
+        screens = ["Trust this folder?", "Quick safety check: trust this folder?", "allow external imports"]
         waits = [{"error": {"code": "timeout"}},
                  {"result": {"wait": {"satisfied": False, "status": "running"}}}]
         for text, wait in ((text, wait) for text in screens for wait in waits):
             with self.subTest(text=text, wait=wait):
                 line = "  > " + text
                 result, calls = self.run_orca(
-                    "start", self.screen("Welcome", line, "Enter to confirm"),
+                    "start", self.screen("Welcome", line, "› 1. Trust and continue"),
                     json.dumps({"result": {"wait": {"satisfied": False, "status": "running"}}}),
                     exit_probe=json.dumps(wait))
                 self.assertEqual((result.returncode, result.stdout), (1, ""), result.stderr)
@@ -101,12 +112,15 @@ class RunnerScreen(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stdout), (0, expected + "\n"), result.stderr)
 
     def test_screen_state_reports_a_dialog(self):
-        for text in ["Do you trust this folder?", "Allow external imports?", "Trust this folder?"]:
+        for text in ["Trust this folder?", "Quick safety check: trust this folder?", "allow external imports"]:
             with self.subTest(text=text):
                 line = "  > " + text
-                result, _ = self.run_orca("state", self.screen("Welcome", line),
+                result, _ = self.run_orca("state", self.screen("Welcome", line, "› 1. Trust and continue"),
                                          json.dumps({"error": {"code": "timeout"}}))
                 self.assertEqual((result.returncode, result.stdout), (0, "dialog\t" + line + "\n"), result.stderr)
+                reads = [float(stamp) for stamp in (self.root / "read-times").read_text().splitlines()]
+                self.assertEqual(len(reads), 2)
+                self.assertGreaterEqual(reads[1] - reads[0], 2)
 
     def test_screen_state_does_not_guess_from_unreadable_answers(self):
         for screen, probe, read_exit in [
@@ -141,3 +155,23 @@ class RunnerScreen(unittest.TestCase):
                     result = subprocess.run(["bash", str(RUNNERS / (runner + ".sh")), "state", SESSION],
                                             env=env, text=True, capture_output=True, timeout=10)
                     self.assertEqual((result.returncode, result.stdout), (0, expected + "\n"), result.stderr)
+
+    def test_screen_ordinary_output_is_not_a_dialog(self):
+        question = "Trust this folder?"
+        option = "› 1. Trust and continue"
+        candidates = [
+            [self.screen("A tool mentions " + question), self.screen("Tool finished")],
+            [self.screen(question, option), self.screen("Working on the ticket")],
+            [self.screen(question, option, *[f"output {n}" for n in range(15)])],
+            [self.screen(question)],
+            [self.screen(question, "    ", option),
+             self.screen(question, "    ", option, "More tool output")],
+        ]
+        probe = json.dumps({"result": {"wait": {"satisfied": False, "status": "running"}}})
+        for verb in ("start", "state"):
+            for screens in candidates:
+                with self.subTest(verb=verb, screens=screens):
+                    result, calls = self.run_orca(verb, screens, probe)
+                    expected = SESSION if verb == "start" else "working"
+                    self.assertEqual((result.returncode, result.stdout), (0, expected + "\n"), result.stderr)
+                    self.assertFalse(any(call[:2] == ["terminal", "close"] for call in calls))

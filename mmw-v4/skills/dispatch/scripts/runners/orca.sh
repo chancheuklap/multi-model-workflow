@@ -33,9 +33,11 @@
 # host the terminal's own process, so the terminal ends when the host does: that is how
 # start sees a host that quit, and how `liveness` answers `stopped` for one.
 # After the create, start waits up to 3 s for the terminal to exit. A wait that times out
-# is a host that is running. Before printing its handle, start reads the screen once.
-# A line containing a substring from dialogs.txt refuses the start, closes the terminal,
-# and prints that line followed by instructions to trust the directory once.
+# is a host that is running. Before printing its handle, start checks the screen.
+# A question from dialogs.txt and a numbered option must appear among the last 15
+# non-empty lines, with identical screen contents on a second read 2 s later.
+# A confirmed dialog refuses the start, closes the terminal, and prints its question
+# line followed by instructions to trust the directory once.
 # An exit in that time (satisfied,
 # status `exited`, or the handle stale or not writable) is a host that quit at once: the
 # refusal carries the terminal's last lines (`terminal read`, `result.terminal.tail`),
@@ -362,20 +364,34 @@ screen_dialog() {
   local json
   json="$(orca_ terminal read --terminal "$1" --json 2>/dev/null)" || return 2
   printf '%s' "$json" | python3 -c '
-import json, sys
+import json, os, re, subprocess, sys, time
 from pathlib import Path
+
+def screen(raw):
+    lines = json.loads(raw)["result"]["terminal"]["tail"]
+    if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines):
+        raise ValueError("terminal tail is not a list of lines")
+    return lines
+
 try:
     patterns = Path(sys.argv[1]).read_text().splitlines()
-    lines = json.load(sys.stdin)["result"]["terminal"]["tail"]
-    if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines):
-        sys.exit(2)
-    for line in lines:
-        if any(pattern and pattern in line for pattern in patterns):
-            print(line)
-            break
+    first = screen(sys.stdin.read())
+    recent = [line for line in first if line.strip()][-15:]
+    question = next((line for line in recent
+                     if any(pattern and pattern in line for pattern in patterns)), "")
+    if not question or not any(re.match(r"^\s*[›❯>]?\s*[0-9]+\.\s+\S", line)
+                               for line in recent):
+        sys.exit(0)
+    time.sleep(2)
+    env = {key: value for key, value in os.environ.items()
+           if key not in ("CLICOLOR_FORCE", "CLICOLOR")}
+    second = subprocess.run(["orca", "terminal", "read", "--terminal", sys.argv[2], "--json"],
+                            env=env, capture_output=True, text=True, check=True)
+    if screen(second.stdout) == first:
+        print(question)
 except Exception:
     sys.exit(2)
-' "$HERE/dialogs.txt"
+' "$HERE/dialogs.txt" "$1"
 }
 
 refuse_dialog() {
