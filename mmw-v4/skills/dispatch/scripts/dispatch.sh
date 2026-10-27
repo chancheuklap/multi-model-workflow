@@ -4295,13 +4295,12 @@ class Workflow:
         return None
 
 
-def read_workflow(path, base):
+def read_workflow_triggers(path, base):
     try:
         lines = []
         for raw in path.read_text().splitlines():
             if not raw.strip() or raw.lstrip().startswith("#"):
                 continue
-            # Only the trigger block is parsed. Job scripts are arbitrary YAML scalars.
             if re.match(r'''^(?:on|'on'|"on")\s*:''', raw):
                 if lines:
                     raise ValueError("duplicate on key")
@@ -4388,7 +4387,7 @@ def main():
     root = Path(require(subprocess.run(["git", "rev-parse", "--show-toplevel"],
                                       capture_output=True, text=True), "finding repository"))
     directory = root / ".github/workflows"
-    workflows = [read_workflow(path, args.base) for path in sorted(directory.glob("*"))
+    workflows = [read_workflow_triggers(path, args.base) for path in sorted(directory.glob("*"))
                  if path.suffix in (".yml", ".yaml")]
     has_ci = any(workflow.covers(args.base) for workflow in workflows)
     fallback_ok = True
