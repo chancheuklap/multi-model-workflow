@@ -1,5 +1,3 @@
-"""Read first baselines must not require the owner's claude.ai login."""
-
 import io
 import unittest
 from contextlib import redirect_stdout
