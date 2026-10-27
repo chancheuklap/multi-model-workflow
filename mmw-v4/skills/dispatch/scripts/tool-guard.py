@@ -34,7 +34,7 @@ ticket `<n>`, and every session a runner starts on a ticket — worker and revie
 runs in that worktree, with nobody at its screen. Any other basename is not a
 ticket worktree and is not refused by those gates. They ask no runner.
 
-Brief git writes, worktree deletions and `gh issue comment` or `gh pr comment` with
+Direct `gh pr create`, brief git writes, worktree deletions and `gh issue comment` or `gh pr comment` with
 `--edit-last` are guarded in every directory. All agents share one GitHub account.
 edit an existing comment by its id with `gh api`, never by its position.
 Commands without a git write ask no runner. File writes remain allowed so candidates
@@ -668,6 +668,11 @@ def removal_refusal(piece: str, paths: list[Path]) -> str | None:
 def run_pretool(event: dict, host: str) -> int:
     command = command_of(event)
     if command is None:
+        return 0
+    if any(re.match(r"gh\s+pr\s+create\b", run) for run in runs(command)):
+        refuse("Open the pull request with `dispatch.sh pr --base <b> --head <h> "
+               "--title <t> --body-file <f>`. It reports whether CI runs for the base "
+               "branch and waits for the check results.")
         return 0
     comment = edits_last_comment(command)
     if comment is not None:
