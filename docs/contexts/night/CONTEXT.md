@@ -108,8 +108,8 @@ _Home_: `mmw-v3/skills/dispatch/SKILL.md`
 _Home_: `mmw-v4/skills/dispatch/scripts/briefs.py`
 
 **batch**:
-What one `brief` call starts: its sessions, all of one role, all answering one parent session. The relay watches it as `briefs:<batch>` and wakes the parent once, `brief <batch> done`, when every brief has reported or been found lost; `dispatch.sh brief close <batch>` removes it.
-_Home_: `mmw-v3/skills/dispatch/scripts/briefs.py`
+What one `brief` call starts: its sessions, all of one role, all answering one parent session. The relay watches it as `briefs:<batch>` and wakes the parent once, `brief <batch> done`, when every brief has reported or been found lost; `dispatch.sh brief close <batch>` removes it. Distinct from a **backlog review batch** and from a spec's batch of tickets (`docs/contexts/tickets/CONTEXT.md`).
+_Home_: `mmw-v4/skills/dispatch/scripts/briefs.py`
 
 **`dispatch.sh board`**:
 The command that makes sure the repository's task board is registered and answering and opens it, or prints its URL.
@@ -204,7 +204,7 @@ The JSON file of **Memory closing** decisions, `{"decisions": [...]}`, that `sum
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **retro**:
-The capability that expires lesson candidates, gathers evidence from a run, and applies analyst dispositions, recording `spec.retroed` or `ticket.retroed`.
+The capability that gathers evidence from a run and records the analyst's assessment of each row on its registration as `lesson.assessed`, recording `spec.retroed` or `ticket.retroed`; and, for a **backlog review batch**, lists the open registrations (`backlog`) and applies the owner's decisions (`merge-apply`).
 _Home_: `mmw-v4/skills/retro/SKILL.md`
 
 **`status.py`**:
@@ -369,7 +369,7 @@ One `lesson.seen` on a registration, identifying where, when, and in which ticke
 _Home_: `mmw-v4/skills/verify-ticket/scripts/events.py` (`lesson.seen`, `occurrences`)
 
 **复盘**:
-Sorting registered lessons and run signals by judgment, environment, and process, checking whether they still hold, merging duplicate causes, and giving the owner evidence-backed proposals. It reads events, issues, and git, not conversations or external memory.
+Sorting registered lessons and run signals by judgment, environment, and process, checking whether they still hold, and recording each assessment on its registration, where the owner's **backlog review batch** later acts on it. It reads events, issues, and git, not conversations or external memory.
 _Home_: `mmw-v4/skills/retro/SKILL.md`
 
 **gather**:
@@ -390,13 +390,25 @@ _Avoid_: blocking event
 _Home_: `mmw-v4/skills/register-problem/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py`
 
 **proposal**:
-A lesson offered to the owner with its responsible repository, addition or deletion, target file, and landing playbook. It needs two independent occurrences, or one stall or owner's correction. Offering it adds `needs-triage`; it does not authorize implementation.
+The analyst's conclusion `propose` on a registration, with its responsible repository, addition or deletion, target file, and landing playbook, recorded as a `lesson.assessed` row. Whether it qualifies (two independent occurrences, or one stall or owner's correction) is recorded beside it for reference; it changes nothing on the registration and authorizes no implementation.
 _Home_: `mmw-v4/skills/retro/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py` (`proposal`, `qualifies`)
 
 **apply**:
-The retrospective's command that validates answer rows and evidence, then writes merges, rejections, and proposals, registers new signal-derived problems, and records a typed retrospective event. Candidates remain unchanged.
+The retrospective's command that validates answer rows and evidence, records each accepted row as one `lesson.assessed` on the registration it names (a rerun of the same request records nothing twice), registers new signal-derived problems, and records the **retrospective receipt**. It closes, reopens, merges, relabels, edits or transfers no registration.
 _Home_: `mmw-v4/skills/retro/scripts/retro.py` (`apply_answers`)
 
+**`lesson.assessed`**:
+The event `apply` writes on a registration for one accepted answer row: the conclusion as the analyst wrote it (`merge:<target>`, `reject`, `candidate` or `propose`), its reason, evidence and plan, the run it came from, whether it qualifies, and the request that wrote it. A record of judgement, never an action on the registration.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`, `mmw-v4/skills/retro/scripts/retro.py` (`apply`)
+
+**backlog review batch**:
+One owner-approved review of the open problem registrations, run by `playbooks/merging-the-lesson-backlog.md`: the owner decides each root-cause group on one page, and `retro.py merge-apply` carries out the closures, merges and keeps under one batch identifier. Distinct from a brief **batch** and from a spec's batch of tickets.
+_Home_: `mmw-v4/skills/mmw-mode/playbooks/merging-the-lesson-backlog.md`
+
+**`lessons.merged`**:
+The event recording the owner's decision on one registration in a **backlog review batch**: `closed`, `kept`, `merged:<owner/repo#n>`, `spec:<n>` or `ticket:<n>`, with the batch identifier. Assessments counted toward the registration's next review start after it.
+_Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`, `mmw-v4/skills/retro/scripts/retro.py` (`merge-apply`)
+
 **retrospective receipt**:
-The `spec.retroed` or `ticket.retroed` event recording counts, proposed issues, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each disposed problem's issue and conclusion. An unrecorded outcome carries only its reason.
+The `spec.retroed` or `ticket.retroed` event recording how many rows were recorded under each conclusion, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each row's registration and conclusion. An unrecorded outcome carries only its reason.
 _Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`
