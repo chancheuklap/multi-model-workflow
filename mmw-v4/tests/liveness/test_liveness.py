@@ -527,6 +527,14 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1)
 
+    def test_a_worker_waits_for_the_lost_reviewer_wake(self):
+        self.idle_worker(comment(2, "reviewer.started", 61, self.IDLE,
+                                 runner="orca", session="rv"))
+        self.ask.answers[("orca", "rv")] = "stopped"
+        self.watchdog().round()
+        self.assertEqual([c[1] for c in self.post.calls], ["reviewer"])
+        self.assertEqual(self.send.calls, [], "reviewer.lost wakes the worker through the relay")
+
     def heartbeat(self) -> dict:
         return json.loads((self.state / "watchdog.json").read_text())
 

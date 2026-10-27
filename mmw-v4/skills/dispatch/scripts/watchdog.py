@@ -797,8 +797,7 @@ class Watchdog:
                              "to": to})
             return
         observed = [(r, self._observe(r)) for r in records]
-        reviewer_pending = any(r["kind"] == "reviewer" and answer != "stopped"
-                               for r, answer in observed)
+        reviewer_pending = any(r["kind"] == "reviewer" for r in records)
         for record, answer in observed:
             kind, runner, session = record["kind"], record.get("runner"), record.get("session")
             if answer == "stopped":
