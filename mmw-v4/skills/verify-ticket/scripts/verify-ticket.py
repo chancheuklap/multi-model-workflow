@@ -104,7 +104,7 @@ ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
 # `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
 ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
-ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|TIMEOUT):")
+ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|TIMEOUT):")
 # The one attribute gate-check does not know: it is read here and kept out of the ledger.
 TIMEOUT_LINE_RE = re.compile(r"^\s+TIMEOUT:")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
