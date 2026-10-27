@@ -51,6 +51,29 @@ class BriefCase(RelayCase):
 class CopyTest(BriefCase):
     """`briefs.py brief`: the file a child is pointed at is the brief, then how to report."""
 
+    def test_briefs_checks_references_to_closed_batches(self):
+        source = Path(self.tmp.name) / "follow-up.md"
+        for batch, code in ((self.batch, 0), ("19990101-000000-abcd", 2)):
+            for pointer in (f"briefs/{batch}/1/result.md",
+                            str(briefs.batch_dir(self.state, batch) / "1/result.md")):
+                source.write_text(f"Read [the answer]({pointer}).\n")
+                run = subprocess.run(
+                    [sys.executable, briefs.__file__, "check-references", "--repo", "o/r",
+                     str(source)], capture_output=True, text=True)
+                self.assertEqual(run.returncode, code, run.stderr)
+                if code:
+                    self.assertIn(str(source), run.stderr)
+                    self.assertIn(batch, run.stderr)
+                    self.assertIn("## Known", run.stderr)
+                    self.assertTrue(run.stderr.isascii(), run.stderr)
+        briefs.remove(self.state, self.batch)
+        source.write_text(f"Read briefs/{self.batch}/1/result.md.\n")
+        run = subprocess.run(
+            [sys.executable, briefs.__file__, "check-references", "--repo", "o/r",
+             str(source)], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 2)
+        self.assertIn(self.batch, run.stderr)
+
     def test_the_copy_is_the_brief_then_the_footer(self):
         source = Path(self.tmp.name) / "brief.txt"
         source.write_text("what to find out\n\n")

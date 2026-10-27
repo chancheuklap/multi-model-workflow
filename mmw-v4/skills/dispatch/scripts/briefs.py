@@ -7,6 +7,7 @@
     briefs.py forget --repo O/R --batch B
     briefs.py report --repo O/R --brief B/N --file F --runner R --session S
     briefs.py show --repo O/R --batch B
+    briefs.py check-references --repo O/R FILE...
 
 A worker hands its result back on its ticket, and the relay reads the ticket. An advisor, a
 researcher or a candidate has no ticket: it answers one session, the one
@@ -173,6 +174,28 @@ def open_batches(state: Path, parent: tuple[str, str] | None = None) -> list[dic
     return out
 
 
+def check_references(state: Path, sources: list[Path]) -> None:
+    """Refuse brief files pointing at closed or missing batch directories."""
+    references = re.compile(
+        r'''(?P<root>[^\s`"'<>()\[\]]*\b''' + re.escape(root(state).name)
+        + r")/(?P<batch>" + BATCH_RE.pattern[1:-1] + r")(?![\w-])")
+    for source in sources:
+        try:
+            text = source.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise Refusal(f"cannot read brief {source}: {exc}; write a readable UTF-8 brief "
+                          f"and send again") from None
+        for match in references.finditer(text):
+            prefix, batch = match.group("root", "batch")
+            directory = (batch_dir(state, batch) if prefix == root(state).name else
+                         Path(prefix).expanduser() / batch)
+            if not directory.is_dir():
+                raise Refusal(f"brief {source} references closed or missing batch {batch} "
+                              f"at {directory}; put that answer's points under `## Known`, "
+                              f"or do not close the earlier batch before the next round. "
+                              f"Nothing was started.")
+
+
 # ----------------------------------------------------------------- writing
 
 def create(state: Path, role: str, count: int, runner: str, session: str,
@@ -334,6 +357,10 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("--repo", required=True)
     show.add_argument("--batch", required=True)
 
+    references = sub.add_parser("check-references")
+    references.add_argument("--repo", required=True)
+    references.add_argument("files", nargs="+", type=Path)
+
     args = parser.parse_args(argv)
     try:
         state = state_for(args.repo)
@@ -367,6 +394,8 @@ def main(argv: list[str] | None = None) -> int:
                 where = entry["result"] or entry["lost"] or "-"
                 print(f"{args.batch}/{entry['n']}\t{entry['state']}\t{entry['role']}\t"
                       f"{started.get('runner', '-')}\t{started.get('session', '-')}\t{where}")
+        elif args.command == "check-references":
+            check_references(state, args.files)
         return 0
     except Refusal as exc:
         sys.stderr.write(f"briefs: {exc}\n")

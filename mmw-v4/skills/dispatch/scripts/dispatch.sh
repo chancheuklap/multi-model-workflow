@@ -1666,26 +1666,9 @@ close_batch() {
 }
 
 check_brief_references() {
-  local state
-  state="$(repository_state_dir)" || return 2
-  python3 - "$state" "$@" <<'PY'
-import re, sys
-from pathlib import Path
-
-state = Path(sys.argv[1])
-references = re.compile(r'''(?P<root>[^\s`"'<>()\[\]]*\bbriefs)/(?P<batch>[0-9]{8}-[0-9]{6}-[0-9a-f]{4})(?![\w-])''')
-for source in sys.argv[2:]:
-    try:
-        text = Path(source).read_text(encoding='utf-8')
-    except (OSError, UnicodeError) as exc:
-        sys.exit(f'dispatch: cannot read brief {source}: {exc}; write a readable UTF-8 brief and send again')
-    for match in references.finditer(text):
-        root, batch = match.group('root', 'batch')
-        directory = (state / root if root == 'briefs' else Path(root).expanduser()) / batch
-        if not directory.is_dir():
-            sys.exit(f'dispatch: brief {source} references closed or missing batch {batch} at {directory}; '
-                     '把那份答案的要点写进 `## Known`，或在下一轮回答之前不要关闭上一批。 Nothing was started.')
-PY
+  local repo
+  repo="$(repo_slug)" || return 2
+  python3 "$BRIEFS" check-references --repo "$repo" "$@"
 }
 
 brief_many() {
