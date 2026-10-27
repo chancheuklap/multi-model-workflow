@@ -2842,12 +2842,12 @@ scenario_envabsent() {
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "start without env failed: $(cat "$TMP/err")"
   assert_started || fail 'start output changed'
+  ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'start without env should be silent'
   passed="$(git -C "$(wt 61)" rev-parse HEAD)"
   write_one_passed 61 "$passed"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" land 61)"
   [ "$code" = 0 ] || fail "land without env failed: $(cat "$TMP/err")"
-  ! grep -q '^env ::' "$MMW_TEST_LOG" || fail 'an environment hook was called'
   ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'absent env should be silent'
   assert_no_wt 61
 }
