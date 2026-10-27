@@ -9,8 +9,10 @@ directory in `cwd`. A null reply has no text to check and ends the turn. Ticket 
 guard's own_brief and is_main predicates, without arming a watchdog or writing state.
 
 A hit maps the phrase to its replacement instruction. Pointer phrases call for the content
-itself in place. Chinese _Avoid_ wordings in docs/contexts/*/CONTEXT.md call for the entry's
-name. English wordings and parenthesized qualifications are not matched. The repository is
+itself in place. Chinese _Avoid_ wordings call for the entry's name. MMW's own
+docs/contexts/*/CONTEXT.md files load first, then every CONTEXT.md in the working repository,
+excluding .git, node_modules and .worktrees. The working repository's wording wins.
+English wordings and parenthesized qualifications are not matched. The repository is
 the nearest parent with a .git entry, or cwd when there is none. No glossary is required.
 
 Exit 0 allows the stop. Exit 2 lists the hits and replacements on stderr, which both hosts
@@ -44,6 +46,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -58,8 +61,15 @@ POINTERS = re.compile(
 
 def avoided_wordings(cwd: Path) -> dict[str, str]:
     repo = next((path for path in (cwd, *cwd.parents) if (path / ".git").exists()), cwd)
+    mmw = Path(__file__).resolve().parents[4]
+    paths = sorted(mmw.glob("docs/contexts/*/CONTEXT.md"))
+    for directory, children, files in os.walk(repo):
+        children[:] = sorted(name for name in children
+                             if name not in {".git", "node_modules", ".worktrees"})
+        if "CONTEXT.md" in files:
+            paths.append(Path(directory) / "CONTEXT.md")
     avoided = {}
-    for path in sorted(repo.glob("docs/contexts/*/CONTEXT.md")):
+    for path in paths:
         term = None
         try:
             lines = path.read_text(encoding="utf-8").splitlines()

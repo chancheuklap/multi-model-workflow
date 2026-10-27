@@ -55,6 +55,29 @@ class ReplyCheck(unittest.TestCase):
         path.write_text(text)
         return path
 
+    def test_mmw_glossary_applies_in_another_repository(self):
+        for host in ("claude", "codex"):
+            run = self.run_hook("规格和工单已写好，任务板不变。", host)
+            self.assertEqual(run.returncode, 2, run.stderr)
+            self.assertIn("use spec", run.stderr)
+            self.assertIn("use ticket", run.stderr)
+            self.assertNotIn("任务", run.stderr)
+
+    def test_mmw_glossary_yields_to_nested_product_context(self):
+        path = self.repo / "src/modules/orders/CONTEXT.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("**order plan**:\n_Avoid_: 规格, 订单方案\n")
+        for ignored in (".git", "node_modules", ".worktrees"):
+            context = self.repo / ignored / "nested/CONTEXT.md"
+            context.parent.mkdir(parents=True)
+            context.write_text("**ignored**:\n_Avoid_: 规格, 忽略用词\n")
+        for host in ("claude", "codex"):
+            run = self.run_hook("规格和订单方案已写好。", host, cwd=path.parent)
+            self.assertEqual(run.returncode, 2, run.stderr)
+            self.assertIn("'规格': use order plan", run.stderr)
+            self.assertIn("'订单方案': use order plan", run.stderr)
+            self.assertEqual(self.run_hook("忽略用词", host).returncode, 0)
+
     def test_a_reply_pointing_back_is_blocked(self):
         phrases = ("上一条", "上面列的", "前面列的", "如上", "见上", "上文", "前文",
                    "the ones above", "as above", "see above", "point 2", "Point 13")
