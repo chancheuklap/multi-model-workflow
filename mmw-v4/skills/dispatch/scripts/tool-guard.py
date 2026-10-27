@@ -34,9 +34,11 @@ ticket `<n>`, and every session a runner starts on a ticket — worker and revie
 runs in that worktree, with nobody at its screen. Any other basename is not a
 ticket worktree and is not refused by those gates. They ask no runner.
 
-Brief git writes and worktree deletions are guarded in every directory. Commands without
-a git write ask no runner. File writes remain allowed so candidates can write into
-the sender's checkout. Batch records keep the sender's worktree protected until
+Brief git writes, worktree deletions and `gh issue comment` or `gh pr comment` with
+`--edit-last` are guarded in every directory. All agents share one GitHub account.
+edit an existing comment by its id with `gh api`, never by its position.
+Commands without a git write ask no runner. File writes remain allowed so candidates
+can write into the sender's checkout. Batch records keep the sender's worktree protected until
 `dispatch.sh brief close <batch>` removes them, even after the children report.
 Deletion also protects this process's working directory and its ancestors.
 """
