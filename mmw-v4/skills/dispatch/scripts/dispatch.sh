@@ -2890,6 +2890,7 @@ land_one_via_origin() {
   local attempt merge_root base merge_commit landed_base rc files push_error=""
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
     LANDED_BASE_RED="[]"
+    LANDED_CRITERIA_BASE_RED="[]"
     prepare_merge_worktree "$root" "$into"; rc=$?
     [ "$rc" -eq 0 ] || return "$rc"
     merge_root="$MERGE_ROOT"
@@ -3015,6 +3016,10 @@ record_landed() {
   if [ "${LANDED_BASE_RED:-[]}" != '[]' ]; then
     text="Red on the base too: $(python3 -c 'import json, sys; print(", ".join(json.loads(sys.argv[1])))' "$LANDED_BASE_RED")"
     fields+=(--json-field "base_red=$LANDED_BASE_RED")
+  fi
+  if [ "${LANDED_CRITERIA_BASE_RED:-[]}" != '[]' ]; then
+    text="${text}${text:+$'\n'}Landed criteria red on the base too: $(python3 -c 'import json, sys; print(", ".join("#%s %s" % (r["ticket"], r["ac"]) for r in json.loads(sys.argv[1])))' "$LANDED_CRITERIA_BASE_RED")"
+    fields+=(--json-field "landed_base_red=$LANDED_CRITERIA_BASE_RED")
   fi
   if ! post_event "$number" ticket.landed --ticket "$number" --spec "$spec" \
       --line "$line" --text-file <(printf '%s\n' "$text") "${fields[@]}"; then
@@ -3491,9 +3496,10 @@ recover_ticket() {
 }
 
 LANDED_BROKEN="[]"
+LANDED_CRITERIA_BASE_RED="[]"
 LANDED_CRITERIA_COUNT=0
 recheck_spec() {
-  local spec="$1" ref="${2:-HEAD}" root commit into rc red
+  local spec="$1" ref="${2:-HEAD}" root commit into rc red base_red
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository"
@@ -3509,8 +3515,15 @@ recheck_spec() {
   MMW_BASE_REF="origin/$into" run_landed_criteria "$MERGE_ROOT" "$spec" "origin/$into" "$commit"; rc=$?
   release_merge_lock
   [ "$rc" -le 1 ] || return 2
+  base_red="$(python3 -c 'import json, sys; rows=json.loads(sys.argv[1]); [print("#%s %s red on the base too" % (r["ticket"], r["ac"])) for r in rows]; print(len(rows))' "$LANDED_CRITERIA_BASE_RED")" || return 2
+  printf '%s\n' "$base_red" | sed '$d'
+  base_red="$(printf '%s\n' "$base_red" | tail -1)"
   if [ "$rc" -eq 0 ]; then
-    echo "recheck #$spec: $LANDED_CRITERIA_COUNT landed criteria green"
+    if [ "$base_red" -gt 0 ]; then
+      echo "recheck #$spec: $((LANDED_CRITERIA_COUNT - base_red)) landed criteria green; $base_red red on the base too"
+    else
+      echo "recheck #$spec: $LANDED_CRITERIA_COUNT landed criteria green"
+    fi
   else
     red="$(python3 -c 'import json, sys; rows=json.loads(sys.argv[1]); [print("#%s %s red" % (r["ticket"], r["ac"])) for r in rows]; print(len(rows))' "$LANDED_BROKEN")" || return 2
     printf '%s\n' "$red" | sed '$d'
@@ -3522,6 +3535,7 @@ recheck_spec() {
 run_landed_criteria() {
   local root="$1" spec="$2" base="$3" commit="$4" plan out rc
   LANDED_BROKEN="[]"
+  LANDED_CRITERIA_BASE_RED="[]"
   LANDED_CRITERIA_COUNT=0
   [ -n "$spec" ] || return 0
   plan="$(python3 "$STATUS" --reverify-plan "$spec")" || return 2
@@ -3539,7 +3553,7 @@ try:
     paths = subprocess.run(["git", "diff", "--no-renames", "--name-only", "-z", base, commit], cwd=root,
                            capture_output=True, text=True, check=True).stdout.rstrip("\0").split("\0")
     paths = [p for p in paths if p]
-    count, broken = 0, []
+    count, broken, base_red = 0, [], []
     for line in os.environ["MMW_REVERIFY_PLAN"].splitlines():
         words = line.split()
         if len(words) != 2 or words[0] != "REVERIFY":
@@ -3552,21 +3566,26 @@ try:
         count += len(ids)
         with contextlib.redirect_stdout(sys.stderr):
             _, rows = mod.selected_checks(number, ids, body, Path(root))
-        unavailable = [r["id"] for r in rows if r["exitCode"] in (126, 127)]
-        if unavailable:
+        red = [r["id"] for r in rows if not r["ok"]]
+        if red:
             subprocess.run(["git", "reset", "--hard", base], cwd=root,
                            capture_output=True, text=True, check=True)
             try:
                 with contextlib.redirect_stdout(sys.stderr):
-                    _, base_rows = mod.selected_checks(number, unavailable, body, Path(root))
+                    _, base_rows = mod.selected_checks(number, red, body, Path(root))
             finally:
                 subprocess.run(["git", "reset", "--hard", commit], cwd=root,
                                capture_output=True, text=True, check=True)
             if any(r["exitCode"] in (126, 127) for r in base_rows):
-                raise ValueError(f"#{number}: a selected CHECK could not start on the base either")
-        broken += [{"ticket": number, "ac": r["id"]} for r in rows if not r["ok"]]
+                raise ValueError(f"#{number}: a selected CHECK could not start on the base")
+            unavailable = {r["id"] for r in rows if r["exitCode"] in (126, 127)}
+            broken += [{"ticket": number, "ac": r["id"]} for r in base_rows
+                       if r["ok"] or r["id"] in unavailable]
+            base_red += [{"ticket": number, "ac": r["id"]} for r in base_rows
+                         if not r["ok"] and r["id"] not in unavailable]
     print(count)
     print(json.dumps(broken, separators=(",", ":")))
+    print(json.dumps(base_red, separators=(",", ":")))
 except (OSError, ValueError, subprocess.CalledProcessError, mod.TrackerReadError) as exc:
     print(f"dispatch: landed criteria could not run: {exc}", file=sys.stderr)
     sys.exit(2)
@@ -3576,6 +3595,7 @@ PY
   [ "$rc" -le 1 ] || return 2
   LANDED_CRITERIA_COUNT="$(printf '%s\n' "$out" | sed -n 1p)"
   LANDED_BROKEN="$(printf '%s\n' "$out" | sed -n 2p)"
+  LANDED_CRITERIA_BASE_RED="$(printf '%s\n' "$out" | sed -n 3p)"
   return "$rc"
 }
 

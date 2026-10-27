@@ -8256,7 +8256,7 @@ setup_landed_criterion_change() {
   open_night
   git -C "$TMP/repo" checkout -q -b issue-61
   mkdir -p "$TMP/repo/tests" "$TMP/repo/unaffected"
-  printf 'echo run >> "%s"\ntest "$1" = original && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
+  printf 'echo run >> "%s"\n[ ! -e config-red ] && test "$1" = original && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
   printf 'echo unexpected-run >> "%s"\n' "$TMP/unselected" > "$TMP/repo/unaffected/other.sh"
   git -C "$TMP/repo" add tests unaffected
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm named-test
@@ -8310,8 +8310,13 @@ PY
     posted_events 60 | grep -qx ticket.landed || fail "second ticket did not land"
     git -C "$TMP/repo" fetch -q origin
   fi
+  if [ "${1:-}" = base-red ]; then
+    git -C "$TMP/repo" checkout -q -B main origin/main
+    commit_file "$TMP/repo" config-red red pre-existing-failure
+    git -C "$TMP/repo" push -q origin main
+  fi
   git -C "$TMP/repo" checkout -q -b issue-62 origin/main
-  printf 'echo run >> "%s"\ntest "$1" = renamed && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
+  printf 'echo run >> "%s"\n[ ! -e config-red ] && test "$1" = renamed && echo named-green\n' "$TMP/selected" > "$TMP/repo/tests/named.sh"
   git -C "$TMP/repo" add tests/named.sh
   git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm rename-test
   passed="$(git -C "$TMP/repo" rev-parse HEAD)"
@@ -8348,13 +8353,39 @@ scenario_advancebreakslandedcriterion() {
   [ ! -e "$TMP/unselected" ] || fail "an unselected criterion ran"
 }
 
+scenario_advancelandedredonbaselands() {
+  setup_landed_criterion_change base-red
+  local before passed code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  passed="$(git -C "$(wt 62)" rev-parse HEAD)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "base-red advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the base-red criterion bounced an unrelated merge"
+  gh_comments_json 62 | python3 -c '
+import json, sys
+comments = json.load(sys.stdin)["comments"]
+landed = [c["body"] for c in comments if "Landed criteria red on the base too:" in c["body"]]
+assert len(landed) == 1, comments
+assert "Landed criteria red on the base too: #61 AC1" in landed[0], landed
+payload = json.loads(landed[0].split("<!-- mmw ")[1].split(" -->")[0])
+assert payload["event"] == "ticket.landed", payload
+assert payload["landed_base_red"] == [{"ticket": 61, "ac": "AC1"}], payload
+' || fail "landing omitted the base-red criterion"
+  [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD^)" = "$before" ] || fail "the compared merge was not restored"
+  [ ! -e "$TMP/unselected" ] || fail "an unselected criterion ran"
+}
+
 scenario_advancegateafterproof() {
   scenario_advancebreakslandedcriterion proof
   grep -q 'repository checks not run again' "$TMP/out" || fail "the fixture did not reuse the repository proof"
 }
 
+scenario_advancelandedgreenonbasebounces() {
+  scenario_advancebreakslandedcriterion
+}
+
 scenario_advancemovedlandedscript() {
-  setup_landed_criterion_change
+  setup_landed_criterion_change "${2:-}"
   git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
   if [ "${1:-}" = delete ]; then
     git -C "$(wt 62)" rm -q -f tests/named.sh
@@ -8375,6 +8406,13 @@ scenario_advancemovedlandedscript() {
 
 scenario_advancedeletedlandedscript() {
   scenario_advancemovedlandedscript delete
+}
+
+scenario_advancebaseredscriptremoved() {
+  local mode
+  for mode in move delete; do
+    scenario_advancemovedlandedscript "$mode" base-red
+  done
 }
 
 scenario_advancebrokenfields() {
@@ -8417,6 +8455,30 @@ scenario_recheckred() {
   [ "$(tail -1 "$TMP/out")" = 'recheck #76: 1 red of 1' ] || fail "wrong recheck summary: $(cat "$TMP/out")"
   [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "recheck pushed the commit"
   [ ! -e "$TMP/unselected" ] || fail "recheck ran another criterion of the landed ticket"
+}
+
+scenario_recheckbaseredcriterion() {
+  local mode code before
+  for mode in base-red green; do
+    setup_landed_criterion_change "$mode"
+    before="$(git -C "$TMP/origin.git" rev-parse main)"
+    cp "$TMP/tickets.json" "$TMP/tickets-before.json"
+    gh_comments_json 61 > "$TMP/landed-comments-before"
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+    if [ "$mode" = base-red ]; then
+      [ "$code" = 0 ] || fail "an already-red criterion should not block recheck: $(cat "$TMP/err")"
+      grep -qx '#61 AC1 red on the base too' "$TMP/out" || fail "recheck omitted the existing base failure: $(cat "$TMP/out")"
+      [ "$(tail -1 "$TMP/out")" = 'recheck #76: 0 landed criteria green; 1 red on the base too' ] || fail "recheck counted the base-red criterion as green"
+    else
+      [ "$code" = 1 ] || fail "a newly broken criterion should block recheck"
+      grep -qx '#61 AC1 red' "$TMP/out" || fail "recheck omitted the regression"
+    fi
+    gh_comments_json 61 > "$TMP/landed-comments-after"
+    cmp "$TMP/landed-comments-before" "$TMP/landed-comments-after" || fail "recheck commented on the landed ticket"
+    cmp "$TMP/tickets-before.json" "$TMP/tickets.json" || fail "recheck changed ticket state"
+    [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "recheck pushed the candidate"
+    [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD)" = "$(git -C "$TMP/repo" rev-parse issue-62)" ] || fail "recheck did not restore the candidate"
+  done
 }
 
 scenario_recheckgreenrecordsnothing() {
@@ -8500,6 +8562,26 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
   [ "$code" = 2 ] || fail "a closed night should exit 2"
   grep -q 'not open' "$TMP/err" || fail "the closed night was not explained"
+}
+
+scenario_recheckbasecannotstart() {
+  setup_landed_criterion_change
+  commit_file "$(wt 62)" criterion-runner ready candidate-runner
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows[0]["body"] = rows[0]["body"].replace(
+    'bash tests/named.sh original',
+    'if [ -e criterion-runner ]; then bash tests/named.sh original; else no-such-criterion-runner tests/named.sh; fi')
+p.write_text(json.dumps(rows))
+PY
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 2 ] || fail "a CHECK that cannot start on the base is not a comparable failure: $(cat "$TMP/out")"
+  grep -q 'could not start on the base' "$TMP/err" || fail "recheck did not explain why it could not compare the base"
+  [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD)" = "$(git -C "$TMP/repo" rev-parse issue-62)" ] || fail "the candidate was not restored after the base refusal"
 }
 
 scenario_advancebouncedchecks() {
@@ -10131,6 +10213,8 @@ ALL="$ALL recheckpathselection"
 ALL="$ALL advancegateafterproof recheckcannotrun"
 ALL="$ALL advancemovedlandedscript"
 ALL="$ALL advancedeletedlandedscript"
+ALL="$ALL advancelandedredonbaselands advancelandedgreenonbasebounces recheckbaseredcriterion"
+ALL="$ALL advancebaseredscriptremoved recheckbasecannotstart"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

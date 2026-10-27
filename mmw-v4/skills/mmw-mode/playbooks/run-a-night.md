@@ -109,7 +109,9 @@ Exits 4 and 2 name their next step on stderr. When you run `resume` again after 
 
 Register stalls found here as [3. Each time something wakes you](#3-each-time-something-wakes-you) says.
 
-The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go straight to the run of `scripts/check --all` at the end of this step.
+The frontier is empty and `status` shows no live agent. Read every `ticket.landed` event from this night. Every step named under `Red on the base too:` and every criterion named under `Landed criteria red on the base too:` is a finding to fix before the night's full check. These are the event's `base_red` step names and `landed_base_red` ticket-and-criterion pairs. For each failure without an open finding, run `verify-ticket.py <n> --sub-issue finding <file>` on the ticket whose landing reported it. Name the failed step or criterion and the landing event in the child's body. Fixing an already-red step can expose a new failure that landed inside that step. Fix that failure too before the full check.
+
+If this spec's tickets still hold open findings, route **exactly those**. These are the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution`. If there are none, go straight to the run of `scripts/check --all` at the end of this step.
 
 List the open findings with `dispatch.sh findings <spec>` and route exactly those. A finding wakes nobody, so the ones you were woken about are no measure of what exists.
 
