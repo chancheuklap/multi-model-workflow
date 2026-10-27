@@ -398,6 +398,17 @@ class Rounds(StateCase):
         (self.runners / "rv.state").write_text("working\n")
         self.watchdog().round()
         self.assertEqual(self.send.calls, [])
+        self.idle_worker()
+        self.write("watchdog.json", {})
+        with mock.patch.object(dog.briefs, "now_iso", return_value=stamp(self.IDLE)):
+            batch = dog.briefs.create(self.state, "researcher", 1, "herdr", "h1",
+                                      worktree=Path(self.tmp.name) / "missing-repo")
+            dog.briefs.mark_started(self.state, batch, 1, {"runner": "orca", "session": "rv"})
+        self.write("watches.json", {
+            "spec:7": {"spec": 7, **MAIN},
+            f"briefs:{batch}": {"briefs": batch, "runner": "herdr", "session": "h1"}})
+        self.watchdog().round()
+        self.assertEqual(self.send.calls, [], "a worker waiting on a brief is not idle")
 
     def test_table_an_unknown_state_is_reported_never_lost(self):
         self.silent_worker()
@@ -499,6 +510,7 @@ class Rounds(StateCase):
         self.assertEqual(dog.briefs.briefs_of(self.state, batch)[0]["state"], "open")
 
     def test_table_a_routed_child_is_not_reported_again(self):
+        self.board.spec_children[61] = [(1373, "open")]
         self.silent_worker()
         (self.runners / "h1.state").write_text("working\n")
         self.board.tickets[61].append(comment(2, "child.opened", 61, T0,

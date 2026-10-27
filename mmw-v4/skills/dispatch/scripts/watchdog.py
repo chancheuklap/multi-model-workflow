@@ -743,6 +743,9 @@ class Watchdog:
                        revision: int | str | None) -> None:
         kind, runner, session = record["kind"], record.get("runner"), record.get("session")
         machine = record.get("machine", self.machine)
+        if answer == "idle" and not waiting:
+            waiting = any(not briefs.complete(self.state, b["batch"])
+                          for b in briefs.open_batches(self.state, (runner, session)))
         activity = worktree_activity(record.get("worktree"),
                                      record.get("started_at") or record.get("at"))
         since = iso(activity)
@@ -833,10 +836,8 @@ class Watchdog:
                 if briefs.mark_lost(self.state, child["batch"], child["n"], why):
                     self.err.write(f"watchdog: brief {name} marked lost: {why}\n")
                 continue
-            waiting = any(not briefs.complete(self.state, b["batch"])
-                          for b in briefs.open_batches(self.state, (runner, session)))
             self._session_alert(record, answer, f"brief {name}", unknown, findings,
-                                [relay_mod.main_of(batches[child["batch"]])], waiting, child.get("at"))
+                                [relay_mod.main_of(batches[child["batch"]])], False, child.get("at"))
             still.append(name)
         return still
 
