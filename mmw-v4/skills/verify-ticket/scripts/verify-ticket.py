@@ -3246,7 +3246,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
                 say("error", f"{who} " + finding, "parent-order")
 
     for line in section(body, "Read first"):
-        if re.search(r"https?://claude\.ai(?=[/:?#\s)\]>]|$)", line, re.I):
+        if re.search(r"(?<![\w.-])(?:www\.)?claude\.ai(?![\w-]|\.[\w-])", line, re.I):
             say("error", f"{who} ## Read first line `{line}` links to claude.ai; "
                 "copy what the page settles into a file in the repository, commit it, "
                 "and cite that path", "unreadable-read-first")

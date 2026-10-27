@@ -21,6 +21,17 @@ class TestReadFirst(DraftsFixture, unittest.TestCase):
             "- [Winner](https://claude.ai/artifact/winner), baseline.",
             "- https://claude.ai/code/artifact/second, baseline.",
             "- <https://claude.ai/chat/third>, decision.",
+            "- claude.ai/artifact/bare, baseline.",
+            "- www.claude.ai/artifact/bare, baseline.",
+            "- https://www.claude.ai/code/artifact/winner, baseline.",
+            "- HTTP://CLAUDE.AI/artifact/winner, baseline.",
+            "- https://user@claude.ai/artifact/winner, baseline.",
+            "- https://claude.ai.",
+            "- https://claude.ai,",
+            "- https://claude.ai;",
+            '- "https://claude.ai"',
+            "- 'https://claude.ai'",
+            "- **https://claude.ai**",
         ]
         body = ("## What to build\n\n1. Import the rows. AC1.\n\n"
                 "## Read first\n\n" + "\n".join(lines) + "\n\n" + CRITERION)
@@ -53,6 +64,8 @@ class TestReadFirst(DraftsFixture, unittest.TestCase):
         body = ("## Problem\n\nSource https://claude.ai/artifact/quoted\n\n"
                 "## Read first\n\n- `efforts/owner-page.md`, baseline.\n"
                 "- [Other site](https://claude.ai.example.org/artifact/winner).\n\n"
+                "- notclaude.ai/artifact/winner\n"
+                "- www.claude.ai.example.org/artifact/winner\n"
                 "## What to build\n\n1. Import the rows. AC1.\n\n"
                 "Quoted source https://claude.ai/code/artifact/quoted\n\n" + CRITERION)
         code, printed = self.lint_published(body)
