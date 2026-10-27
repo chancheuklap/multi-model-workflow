@@ -2300,12 +2300,6 @@ RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment
 
 
 def failed_checks_quote(record: dict | None) -> str | None:
-    """The failed-check or broken-criterion slice quoted on the resume's next line.
-
-    The token stays on the event's first line. A line that begins with it is quoted
-    whole; otherwise the quote runs from the token to the end of that line. A conflict
-    bounce has no such line.
-    """
     body = (record or {}).get("body") or ""
     for line in body.splitlines():
         stripped = line.strip()
@@ -2319,12 +2313,6 @@ def failed_checks_quote(record: dict | None) -> str | None:
 
 
 def resume_at(comments: list[str], head: str) -> str | None:
-    """Where a worker re-entering this ticket picks up: a step of `RESUME_STEPS`, named
-    by its title, and the events that put it there. None for a ticket that carries no
-    run of the worker's own, no `worker.decided`, no review and no worker reverify — a
-    fresh claim, not a resume. A checks or landed-criterion bounce adds its failure
-    quote on a second line, so the next turn sees what the merge broke.
-    """
     integrate, decisions, start_reviewer, read_review, audit, final_run = RESUME_STEPS
     self_run = newest_run(comments, "self")
     reviewed = events.newest(comments, "reviewer.reported")
