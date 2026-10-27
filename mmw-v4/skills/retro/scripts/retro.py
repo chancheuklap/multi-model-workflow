@@ -133,7 +133,14 @@ def gather(args):
     repo = register.current_repo()
     number = args.spec or args.ticket
     comments, state = history(repo, number)
-    opened = events.newest(comments, 'spec.opened' if args.spec else 'worker.started', 'ticket.claimed')
+    starts = ('spec.opened',) if args.spec else ('worker.started', 'ticket.claimed')
+    receipt = events.newest(comments, 'spec.retroed', 'ticket.retroed')
+    opened = min((record for record in state['events'] if record['event'] in starts
+                  and (not receipt or timestamp(record['at']) > timestamp(receipt['at']))),
+                 key=lambda record: timestamp(record['at']), default=None)
+    if not opened and receipt:
+        source = f'{issue_url(repo,number)}#issuecomment-{receipt["comment"]}'
+        raise RetroError(f'{repo}#{number} has no run start after {source}; start a new run before gathering')
     if not opened or not opened['at']:
         raise RetroError(f'{repo}#{number} has no run start; restore its start event before gathering')
     since = opened['at']
@@ -169,6 +176,10 @@ def gather(args):
             if 'wontfix' in labels(row):
                 context['recurred_after_wontfix'].append(n)
                 items[angle].append(dict(kind='recurred-after-wontfix',source=issue_url(source_repo,n)))
+    run_numbers = [number]
+    if args.spec:
+        children = register.whole_list(f'repos/{repo}/issues/{number}/sub_issues?per_page=100')
+        run_numbers.extend(r['number'] for r in children if 'mmw:ticket' in labels(r))
     for source_repo in args.repos:
         for row in register.issue_list(source_repo):
             if ('mmw:child' not in labels(row) or 'needs-triage' in labels(row)
@@ -176,7 +187,7 @@ def gather(args):
                 continue
             child = register.read_issue(source_repo,row['number'])
             parent = child.get('parent')
-            if not parent:
+            if not parent or source_repo != repo or parent['number'] not in run_numbers:
                 continue
             parent_row = register.read_issue(source_repo,parent['number'])
             if parent_row['state'].lower() != 'closed':
@@ -243,10 +254,6 @@ def gather(args):
                 code = fields.get('问题代号')
                 context['issues'].setdefault(code,dict(repo=source_repo,number=row['number']))
                 context['issues'][source] = dict(repo=source_repo,number=row['number'])
-    run_numbers = [number]
-    if args.spec:
-        children = register.whole_list(f'repos/{repo}/issues/{number}/sub_issues?per_page=100')
-        run_numbers.extend(r['number'] for r in children if 'mmw:ticket' in labels(r))
     for ticket in run_numbers:
         ticket_comments,_ = history(repo,ticket)
         checked.extend(event_comments(ticket_comments,issue_url(repo,ticket),skip=('spec.retroed','ticket.retroed')))
@@ -255,11 +262,21 @@ def gather(args):
             if what!='event' or timestamp(payload['at']) < timestamp(since):
                 continue
             signal = payload['event'] in ('ticket.returned','ticket.bounced','ticket.regressed','worker.lost') or (
-                payload['event']=='child.opened' and payload.get('kind')=='fault') or (
+                payload['event']=='child.opened' and payload.get('kind') in ('fault','contract')) or (
                 payload['event']=='ticket.checked' and payload.get('result')=='handoff')
             if signal:
                 source = f'{issue_url(repo,ticket)}#issuecomment-{c["id"] or c["position"]}'
-                items['process'].append(dict(kind='signal',source=source,event=payload,body=c['body']))
+                item = dict(kind='signal',source=source,event=payload,body=c['body'])
+                if payload['event'] == 'child.opened' and payload['kind'] == 'contract':
+                    child = register.gh_json(['api',f'repos/{repo}/issues/{payload["child"]}'])
+                    item['child_body'] = child['body']
+                    settlement = events.newest(
+                        [comment for comment in ticket_comments
+                         if events.parse(comment['body'])[0] == 'event'
+                         and events.parse(comment['body'])[1].get('child') == payload['child']],
+                        'child.closed')
+                    item['settlement'] = settlement['body'] if settlement else 'not yet settled'
+                items['process'].append(item)
                 if not any(source in m['body'] for m in current_sources):
                     items['process'].append(dict(kind='unregistered-signal',source=source,event=payload['event']))
     args.out.mkdir(parents=True, exist_ok=True)

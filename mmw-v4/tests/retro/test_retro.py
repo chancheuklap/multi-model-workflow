@@ -182,6 +182,101 @@ class Commands(unittest.TestCase):
         os.chdir(self.root)
         self.addCleanup(os.chdir, self.previous)
 
+    def test_gather_window_starts_at_the_first_claim(self):
+        self.start_run()
+        bodies = [events.build('ticket.claimed', ticket=61, line='Claimed',
+                               at=f'2026-09-{day:02}T00:00:00Z') for day in (1, 3, 5, 7)]
+        bodies.insert(1, events.build('child.opened', ticket=61, child=91, kind='fault',
+                                    title='First round failure', line='Fault', at='2026-09-02T00:00:00Z'))
+        self.fake.rows[61] = issue(61, labels=('mmw:ticket',), bodies=bodies)
+        rc, out, err = self.run_command('gather', '--ticket', '61', REPO, '--out', str(self.root/'materials'))
+        self.assertEqual(rc, 0, err)
+        context = json.loads((self.root/'materials/context.json').read_text())
+        self.assertEqual(context['since'], '2026-09-01T00:00:00Z')
+        material = json.loads((self.root/'materials/process.md').read_text().split('\n\n', 1)[1])
+        self.assertEqual([r['event']['child'] for r in material if r['kind'] == 'signal'], [91])
+
+    def test_gather_window_covers_the_half_before_a_suspend(self):
+        self.start_run()
+        self.fake.rows[76]['comments'].extend([
+            dict(id=2, body=events.build('spec.suspended', spec=76, ticket=None, line='Suspended',
+                                         at='2026-09-14T00:00:00Z')),
+            dict(id=3, body=events.build('spec.opened', spec=76, ticket=None, line='Resumed',
+                                         at='2026-09-15T00:00:00Z'))])
+        self.fake.rows[90]['created_at'] = '2026-09-13T00:00:00Z'
+        rc, out, err = self.run_command('gather', '--spec', '76', REPO, '--out', str(self.root/'materials'))
+        self.assertEqual(rc, 0, err)
+        context = json.loads((self.root/'materials/context.json').read_text())
+        self.assertEqual(context['since'], '2026-09-01T00:00:00Z')
+        self.assertEqual(context['registered'], 1)
+        material = json.loads((self.root/'materials/environment.md').read_text().split('\n\n', 1)[1])
+        self.assertEqual([r['kind'] for r in material], ['registration'])
+
+    def test_gather_window_starts_after_the_last_retrospective(self):
+        self.start_run()
+        receipt = events.build('ticket.retroed', ticket=61, line='Earlier receipt',
+                               at='2026-09-10T00:00:00Z', result='recorded', registered=0,
+                               merged=0, rejected=0, candidates=0, proposals=[],
+                               recurred_after_wontfix=[], landed_since_last=0,
+                               evidence='complete', unreadable_sources=[])
+        bodies = [events.build('ticket.claimed', ticket=61, line='Claimed', at='2026-09-01T00:00:00Z'),
+                  receipt,
+                  events.build('ticket.claimed', ticket=61, line='Restarted', at='2026-09-11T00:00:00Z'),
+                  events.build('ticket.claimed', ticket=61, line='Retry', at='2026-09-14T00:00:00Z')]
+        self.fake.rows[61] = issue(61, labels=('mmw:ticket',), bodies=bodies)
+        self.fake.rows[90]['comments'].append(dict(id=2, body=seen(at='2026-09-05T00:00:00Z')))
+        rc, out, err = self.run_command('gather', '--ticket', '61', REPO, '--out', str(self.root/'materials'))
+        self.assertEqual(rc, 0, err)
+        context = json.loads((self.root/'materials/context.json').read_text())
+        self.assertEqual(context['since'], '2026-09-11T00:00:00Z')
+        self.assertIn('missing-information', context['issues'])
+
+    def test_gather_refuses_when_nothing_started_since_the_receipt(self):
+        self.start_run()
+        self.fake.rows[76]['comments'].append(dict(id=812, body=events.build(
+            'spec.retroed', spec=76, ticket=None, line='Already reviewed',
+            at='2026-09-15T00:00:00Z', result='recorded', registered=0,
+            merged=0, rejected=0, candidates=0, proposals=[], recurred_after_wontfix=[],
+            landed_since_last=0, evidence='complete', unreadable_sources=[])))
+        rc, out, err = self.run_command('gather', '--spec', '76', REPO, '--out', str(self.root/'materials'))
+        self.assertEqual(rc, 2, err)
+        self.assertIn('https://github.com/o/r/issues/76#issuecomment-812', err)
+        self.assertFalse((self.root/'materials').exists())
+
+    def test_gather_orphans_are_this_runs_only(self):
+        self.start_run()
+        self.fake.rows[61] = issue(61, labels=('mmw:ticket',), state='closed', parent=dict(number=76))
+        self.fake.rows[62] = issue(62, labels=('mmw:ticket',), state='closed')
+        self.fake.rows[91] = issue(91, labels=('mmw:child',), parent=dict(number=61))
+        self.fake.rows[92] = issue(92, labels=('mmw:child',), parent=dict(number=62))
+        rc, out, err = self.run_command('gather', '--spec', '76', REPO, '--out', str(self.root/'materials'))
+        self.assertEqual(rc, 0, err)
+        material = json.loads((self.root/'materials/process.md').read_text().split('\n\n', 1)[1])
+        self.assertEqual([r['source'] for r in material if r['kind'] == 'orphaned-child'],
+                         ['https://github.com/o/r/issues/91'])
+
+    def test_gather_lists_contract_children_with_their_settlement(self):
+        self.start_run()
+        self.fake.rows[61] = issue(61, labels=('mmw:ticket',), parent=dict(number=76), bodies=[
+            events.build('child.opened', ticket=61, child=91, kind='contract', line='Missing case',
+                         at='2026-09-02T00:00:00Z'),
+            events.build('child.closed', ticket=61, child=91, resolution='fixed',
+                         line='The orchestrator added the missing case', at='2026-09-03T00:00:00Z'),
+            events.build('child.opened', ticket=61, child=92, kind='contract', line='Another gap',
+                         at='2026-09-04T00:00:00Z')])
+        self.fake.rows[91] = issue(91, labels=('mmw:child',), parent=dict(number=61))
+        self.fake.rows[92] = issue(92, labels=('mmw:child',), parent=dict(number=61))
+        rc, out, err = self.run_command('gather', '--spec', '76', REPO, '--out', str(self.root/'materials'))
+        self.assertEqual(rc, 0, err)
+        self.assertTrue((self.root/'materials/process.md').exists(), 'contract signals produce process materials')
+        material = json.loads((self.root/'materials/process.md').read_text().split('\n\n', 1)[1])
+        signals = [r for r in material if r['kind'] == 'signal']
+        self.assertEqual([r['event']['child'] for r in signals], [91, 92])
+        self.assertEqual(signals[0]['child_body'], self.fake.rows[91]['body'])
+        self.assertEqual(signals[0]['settlement'], self.fake.rows[61]['comments'][1]['body'])
+        self.assertEqual(signals[1]['child_body'], self.fake.rows[92]['body'])
+        self.assertIn('not yet settled', signals[1]['settlement'])
+
     def test_gather_writes_only_the_angles_with_material(self):
         self.start_run()
         rc, out, err = self.run_command('gather','--spec','76',REPO,'--out',str(self.root/'materials'))
@@ -193,7 +288,7 @@ class Commands(unittest.TestCase):
 
     def test_gather_lists_an_orphaned_child(self):
         self.start_run()
-        self.fake.rows[61] = issue(61, labels=('mmw:ticket',),state='closed')
+        self.fake.rows[61] = issue(61, labels=('mmw:ticket',),state='closed',parent=dict(number=76))
         self.fake.rows[91] = issue(91,labels=('mmw:child',),parent=dict(number=61))
         self.fake.rows[92] = issue(92,labels=('mmw:child',),parent=dict(number=61))
         self.fake.rows[61]['comments'].append(dict(id=1,body=events.build('child.closed',ticket=61,child=92,resolution='fixed',line='Resolved child')))
@@ -209,7 +304,7 @@ class Commands(unittest.TestCase):
 
     def test_gather_excludes_needs_triage_children_but_lists_orphans(self):
         self.start_run()
-        self.fake.rows[61] = issue(61, labels=('mmw:ticket',),state='closed')
+        self.fake.rows[61] = issue(61, labels=('mmw:ticket',),state='closed',parent=dict(number=76))
         self.fake.rows[91] = issue(91,labels=('mmw:child','needs-triage'),parent=dict(number=61))
         self.fake.rows[92] = issue(92,labels=('mmw:child',),parent=dict(number=61))
         rc,out,err = self.run_command('gather','--spec','76',REPO,'--out',str(self.root/'materials'))
