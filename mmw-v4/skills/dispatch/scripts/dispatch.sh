@@ -1577,8 +1577,6 @@ brief_footer() {
   fi
 }
 
-# Stop every session `brief <batch>` started and remove its batch and watch. Used by
-# `brief close` and by a `brief` that could not start them all.
 close_batch() {
   local batch="$1" repo line name state role runner session rest stopped=0 failed=""
   repo="$(repo_slug)" || return 2
