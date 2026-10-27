@@ -1,5 +1,5 @@
 {
   "url": "https://github.com/agentflow-hq/agentflow/issues/1349",
-  "query": "userContentEdits(first:1).nodes[0].diff",
-  "editedAt": "2026-10-19T08:56:49Z"
+  "query": "userContentEdits(last:1).nodes[0].diff",
+  "editedAt": "2026-10-19T07:22:03Z"
 }

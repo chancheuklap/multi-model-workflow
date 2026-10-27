@@ -19,11 +19,29 @@ def summaries():
     return json.loads(SUMMARIES.read_text())
 
 
+def expect_matches(expect, output):
+    script = r'''const {expect, output} = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+const [, source, flags] = expect.match(/^\/([\s\S]*)\/([a-z]*)$/);
+console.log(JSON.stringify(new RegExp(source, flags).test(output)));'''
+    result = subprocess.run(['node', '-e', script], text=True, capture_output=True,
+                            check=True, input=json.dumps({'expect': expect, 'output': output}))
+    return json.loads(result.stdout)
+
+
+def assert_wrong_summary(case, runner, expect, error):
+    named = [sample for sample in summaries()[runner]['samples'] if sample['summary'] in error]
+    case.assertTrue(named, error)
+    for sample in named:
+        case.assertNotEqual(expect_matches(expect, sample['output']), sample['success'], error)
+
+
 def ticket(check, expect):
+    command = ('  CHECK:\n  ```sh\n' + '\n'.join('  ' + line for line in check.splitlines())
+               + '\n  ```' if '\n' in check else '  CHECK: ' + check)
     return ('## Parent\n\n#555, Implementation Decisions section 1\n\n'
             '## Acceptance criteria\n\n'
             '- [ ] AC1: the selected behaviour passes\n'
-            f'  CHECK: {check}\n  EXPECT: {expect}\n  EVIDENCE: pending\n')
+            f'{command}\n  EXPECT: {expect}\n  EVIDENCE: pending\n')
 
 
 def lint(body, draft=False):
@@ -80,8 +98,7 @@ console.log(JSON.stringify(rows.map(row => {
                     self.assertIn('ERROR', error)
                     self.assertIn('AC1', error)
                     self.assertIn(summaries()[runner]['expect'], error)
-                    self.assertTrue('rejects success' in error or 'accepts failure' in error, error)
-                    self.assertIn('mandatory', error)
+                    assert_wrong_summary(self, runner, expect, error)
 
     def test_lint_runner_expect_accepts_standards_on_drafts_and_published_tickets(self):
         for runner, data in summaries().items():
@@ -100,33 +117,77 @@ console.log(JSON.stringify(rows.map(row => {
                 code, output = lint(ticket(f'{runner} run', equivalent))
                 self.assertEqual(code, 1, output)
                 self.assertIn('[runner-expect]', output)
-                self.assertIn('mandatory', output)
                 self.assertIn(standard, output)
 
-    def test_lint_runner_expect_uses_javascript_flags_and_full_output(self):
+    def test_lint_runner_expect_reports_output_using_javascript_regex_flags(self):
         for expect in [summaries()['pytest']['expect'].removesuffix('m'),
-                       r'/(?<count>\d+) passed/u', '/[/m']:
+                       r'/(?<count>\d+) passed/u']:
             with self.subTest(expect=expect):
                 code, output = lint(ticket('uv run pytest -q', expect))
                 self.assertEqual(code, 1, output)
-                self.assertIn('[runner-expect]', output)
+                error = next(line for line in output.splitlines() if '[runner-expect]' in line)
+                assert_wrong_summary(self, 'pytest', expect, error)
+
+    def test_lint_runner_expect_checks_commands_behind_prefixes_and_in_each_stage(self):
+        for check in ['pytest -q', 'uv run pytest -q', 'python -m pytest',
+                      'uv run python3 -m pytest', 'pnpm vitest run', 'npx vitest run',
+                      'pnpm exec vitest run', 'echo ready && pytest -q | cat',
+                      'echo ready; npx vitest run', 'echo "x;vitest"\npytest -q']:
+            for draft in (False, True):
+                with self.subTest(check=check, draft=draft):
+                    code, output = lint(ticket(check, '/OK/'), draft)
+                    self.assertEqual(code, 1, output)
+                    self.assertIn('[runner-expect]', output)
+
+    def test_lint_runner_expect_ignores_runner_names_used_only_as_arguments(self):
+        for check in ['grep -q vitest package.json && echo OK', 'pip install pytest',
+                      'echo "pytest; vitest"', 'python report.py --runner pytest',
+                      'echo "x|vitest" | grep pytest', 'cat pytest-results.txt',
+                      'uv run report.py pytest', 'pnpm exec report vitest',
+                      'echo OK # pytest; vitest', 'echo OK # ;pytest\necho ready']:
+            for draft in (False, True):
+                with self.subTest(check=check, draft=draft):
+                    code, output = lint(ticket(check, '/OK/'), draft)
+                    self.assertEqual(code, 0, output)
+                    self.assertNotIn('[runner-expect]', output)
+
+    def test_lint_runner_expect_requires_separate_criteria_for_different_runners(self):
+        for check in ['pytest a && pnpm vitest run', 'uv run pytest | npx vitest run',
+                      'python -m pytest\npnpm exec vitest run']:
+            with self.subTest(check=check):
+                code, output = lint(ticket(check, summaries()['pytest']['expect']))
+                self.assertEqual(code, 1, output)
+                error = next(line for line in output.splitlines() if '[runner-expect]' in line)
+                self.assertIn('one criterion per runner', error)
+                self.assertIn(summaries()['pytest']['expect'], error)
+                self.assertIn(summaries()['vitest']['expect'], error)
 
     def test_lint_runner_expect_leaves_other_commands_unchanged(self):
         code, output = lint(ticket('node scripts/import.mjs', '/^6 rows$/m'))
         self.assertEqual(code, 0, output)
         self.assertNotIn('[runner-expect]', output)
 
-    def test_replay_runner_expect_reports_pytest_criteria_from_original_bodies(self):
-        for number in (1349, 1125):
+    def test_replay_runner_expect_reports_original_pytest_patterns_and_wrong_lines(self):
+        cases = [(1349, 'AC1', 24, r'/=+ \d+ passed(, \d+ deselected)? in [0-9.]+s =+/',
+                  'test_cases.py::test_pass'),
+                 (1125, 'AC9', 9, r'/^\d+ passed(, \d+ warnings?)? in [0-9.]+s$/m',
+                  'test_cases.py::test_long')]
+        data = summaries()['pytest']
+        for number, gate_id, count, original, target in cases:
             body = (FIXTURES / f'agentflow-{number}.md').read_text()
             with self.subTest(issue=number):
+                metadata = json.loads((FIXTURES / f'agentflow-{number}.json').read_text())
+                self.assertEqual(metadata['query'], 'userContentEdits(last:1).nodes[0].diff')
                 code, output = lint(body)
                 self.assertEqual(code, 1, output)
-                errors = '\n'.join(line for line in output.splitlines() if '[runner-expect]' in line)
-                for gate_id, check, _ in vt.criteria_lines(body):
-                    if 'pytest' in check:
-                        self.assertIn(gate_id + ':', errors)
-                self.assertIn(summaries()['pytest']['expect'], errors)
+                errors = [line for line in output.splitlines() if '[runner-expect]' in line]
+                self.assertEqual(len(errors), count)
+                error = next(line for line in errors if f'ERROR {gate_id}:' in line)
+                self.assertIn(original, error)
+                assert_wrong_summary(self, 'pytest', original, error)
+                sample = next(sample for sample in data['samples']
+                              if sample['command'].endswith('-q ' + target))
+                self.assertFalse(expect_matches(original, sample['output']))
 
 
 if __name__ == '__main__':

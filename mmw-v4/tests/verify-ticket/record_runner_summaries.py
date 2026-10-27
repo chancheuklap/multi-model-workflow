@@ -65,12 +65,31 @@ def test_error(broken):
 def test_long():
     time.sleep(61)
 ''')
+        (root / 'test_subtests.py').write_text('''import pytest
+
+def test_subtests(subtests):
+    for number in (1, 2):
+        with subtests.test(number=number):
+            assert number > 0
+
+def test_subtest_failure(subtests):
+    with subtests.test():
+        assert False
+
+def test_subtest_skipped(subtests):
+    with subtests.test():
+        pytest.skip("recorded subtest skip")
+''')
         (root / 'empty').mkdir()
         (root / 'cases.test.js').write_text('''test('selected', () => expect(1).toBe(1));
 for (let n = 0; n < 5; n++) test(`other ${n}`, () => expect(1).toBe(1));
 ''')
         (root / 'failed.test.js').write_text("test('failure', () => expect(1).toBe(2));\ntest('pass', () => expect(1).toBe(1));\n")
         (root / 'only-failed.test.js').write_text("test('failure', () => expect(1).toBe(2));\n")
+        (root / 'todo.test.js').write_text("test('pass', () => expect(1).toBe(1));\ntest.todo('later');\n")
+        (root / 'todo-skip.test.js').write_text("test('pass', () => expect(1).toBe(1));\ntest.todo('later');\ntest.skip('skip', () => {});\n")
+        (root / 'todo-only.test.js').write_text("test.todo('later');\n")
+        (root / 'skip-only.test.js').write_text("test.skip('skip', () => {});\n")
         cases = []
         for quiet in ([], ['-q']):
             for selector, success in [('pass or warning or xfail or xpass', True),
@@ -82,11 +101,21 @@ for (let n = 0; n < 5; n++) test(`other ${n}`, () => expect(1).toBe(1));
             for name in ('pass', 'warning', 'xfail', 'xpass'):
                 cases.append(('pytest', root, quiet + [f'test_cases.py::test_{name}'], True))
             cases.append(('pytest', root, quiet + ['empty'], False))
+        for quiet in ([], ['-q']):
+            cases.append(('pytest', root, quiet + ['test_cases.py::test_long'], True))
+            for name, success in [('subtests', True), ('subtest_failure', False),
+                                  ('subtest_skipped', False)]:
+                if quiet or name != 'subtest_skipped':
+                    cases.append(('pytest', root, quiet + [f'test_subtests.py::test_{name}'], success))
         cases += [('vitest', root, ['cases.test.js'], True),
                   ('vitest', root, ['cases.test.js', '-t', 'selected'], True),
                   ('vitest', root, ['failed.test.js'], False),
                   ('vitest', root, ['only-failed.test.js'], False),
-                  ('vitest', root, ['missing.test.js'], False)]
+                  ('vitest', root, ['missing.test.js'], False),
+                  ('vitest', root, ['todo.test.js'], True),
+                  ('vitest', root, ['todo-skip.test.js'], True),
+                  ('vitest', root, ['todo-only.test.js'], True),
+                  ('vitest', root, ['skip-only.test.js'], True)]
         with ThreadPoolExecutor(max_workers=6) as pool:
             results = list(pool.map(lambda case: record(*case), cases))
         for runner, version in [('pytest', '9.1.1'), ('vitest', '5.0.5')]:

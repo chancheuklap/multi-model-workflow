@@ -9,7 +9,7 @@
 3. **删除开发验收请求头，客户端和 Gateway 两侧一起删。** 客户端的 `PARROT_DUBBING_LOCAL_ACCEPTANCE` 环境变量和 `X-AgentFlow-Local-Acceptance` 请求头；Gateway 的 `AGENTFLOW_LOCAL_CLIENT_ACCEPTANCE` 环境变量、对这个请求头的识别和 `local_acceptance` 分支；`docker/compose.local-prod.yml` 里的这个环境变量。源码运行版今后靠第 1 点的声明拿到 `parrot_dubbing-config-v2`，由 AC6 判定。用到这个环境变量的测试一并改写（`tests/contracts/test_parrot_error_reporting_wire.py`、`tests/parrot/test_parrot_runtime_policy_refresh.py` 的 `test_源码运行仅明确本地验收时声明新配置合同`）。
 4. **防止下次遗漏的两项检查（#1123 第 5 节）。** 新建 `tests/contracts/test_config_contract_declaration.py`：
    - 每个已上线产品，客户端声明的最高一档合同在该产品 Adapter 的合同元组里，由 AC7 判定；
-   - 小鹦鹉声明的每一档合同，在 Adapter 的目录批次映射里对应的每个音色，在 `src/parrot_dubbing/assets/voice-previews/` 里都有以该音色 `voice_id` 命名的试听文件，由 AC8 判定。例外只有 `tests/parrot/test_voice_preview.py` 的 `_PREVIEW_MISSING_ALLOWED`，测试从那里导入这个集合，不另抄一份。
+   - 小鹦鹉声明的每一档合同，在 Adapter 的目录批次映射里对应的每个音色，在 `src/parrot_dubbing/assets/voice-previews/` 里都有以该音色 `voice_id` 命名的试听文件，由 AC8 判定。
    两项都从权威源读出比对，不在测试里抄一份列表（`TESTING.md` › 写作规则 5）。
 
 ## Read first
@@ -68,12 +68,12 @@
   CHECK: uv run pytest tests/contracts/test_config_contract_declaration.py -k "客户端声明的最高合同Gateway都认识"
   EXPECT: /^1 passed(, \d+ deselected)?(, \d+ warnings?)? in [0-9.]+s$/m
   EVIDENCE: pending
-- [ ] AC8: 小鹦鹉声明的每一档合同所含的每个音色，在客户端源码里都有试听文件（`_PREVIEW_MISSING_ALLOWED` 的两个通用兜底音色除外）
+- [ ] AC8: 小鹦鹉声明的每一档合同所含的每个音色，在客户端源码里都有试听文件
   CHECK: uv run pytest tests/contracts/test_config_contract_declaration.py -k "小鹦鹉声明的每档合同所含音色都有试听文件"
   EXPECT: /^1 passed(, \d+ deselected)?(, \d+ warnings?)? in [0-9.]+s$/m
   EVIDENCE: pending
 - [ ] AC9: 小鹦鹉报错上报合同测试和 Gateway 运行时策略下发测试全部通过
   CHECK: uv run pytest tests/contracts/test_parrot_error_reporting_wire.py tests/gateway/test_runtime_policy_fail_loud.py
-  EXPECT: /^\d+ passed(, \d+ warnings?)? in [0-9.]+s( \([0-9:]+\))?$/m
+  EXPECT: /^\d+ passed(, \d+ warnings?)? in [0-9.]+s$/m
   EVIDENCE: pending
   TIMEOUT: 1200

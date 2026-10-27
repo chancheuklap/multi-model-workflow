@@ -42,7 +42,7 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
 
 ## Acceptance criteria
 
-When `CHECK:` contains `pytest` or `vitest`, copy that runner's `expect` value unchanged from the verify-ticket skill's `runner-summaries.json` in its scripts directory, including its flags. That file is the only home of the standard `EXPECT:` patterns. Do not hand-write a pattern, pin it to a test count, or replace it with a marker the command echoes. `--lint` rejects those alternatives with `runner-expect`.
+When a `CHECK:` stage runs `pytest` or `vitest` as its command, copy that runner's `expect` value unchanged from the verify-ticket skill's `runner-summaries.json` in its scripts directory, including its flags. That file is the only home of the standard `EXPECT:` patterns. A command behind `uv run`, `pnpm`, `npx` or `python -m` counts. A runner name used only as an argument does not. Split a criterion that runs both runners into one criterion per runner. Do not hand-write a pattern, pin it to a test count, or replace it with a marker the command echoes. `--lint` rejects those alternatives with `runner-expect`.
 
 For a UI acceptance criterion, copy the whole `CHECK:` line and any `TIMEOUT:` from the `verify-<product>` skill's Launch. The acceptance CHECK runs only this ticket's own new test file under `tests/e2e/<product>/`, registered on the affected feature file's `Tests:` line. For runners other than pytest and Vitest, copy `EXPECT:` from the passing e2e summary line. Keep `EVIDENCE: pending`; `verify-ticket.py --closeout` replaces it. The test file itself has no evidence label. For a UI pin, use Launch's CHECK line aimed at the existing test file registered in the feature map.
 

@@ -14,14 +14,14 @@ The graph it checks is the tracker's blocking edges, the same ones `--preflight`
 
 ## Runner EXPECT standards
 
-`runner-expect` is an `ERROR` on drafts and published tickets when a `CHECK:` contains `pytest` or `vitest` but its `EXPECT:` is not that runner's standard. The error names a real summary the pattern rejects on success or accepts on failure, when one exists, and prints the standard to copy. Count-pinned patterns and markers echoed by the command are not substitutes.
+`runner-expect` is an `ERROR` on drafts and published tickets when a `CHECK:` stage runs `pytest` or `vitest` as its command but its `EXPECT:` is not that runner's standard. The error names a real summary the pattern rejects on success or accepts on failure, when one exists, and prints the standard to copy. Count-pinned patterns and markers echoed by the command are not substitutes. Commands behind `uv run`, `pnpm`, `npx` and `python -m` count. A runner name used only as an argument, such as `grep -q vitest package.json`, does not. A criterion running both runners gets `runner-expect` and must be split into one criterion per runner.
 
 [runner-summaries.json](../scripts/runner-summaries.json) is the only home of the standard patterns and their real-run samples. Each sample records its command, output, exit code and acceptance outcome. Each runner names its version and the script that recorded its samples.
 
 | Runner | Standard EXPECT to copy | Acceptance outcome |
 | --- | --- | --- |
-| pytest | `pytest.expect` in `runner-summaries.json` | Passed, xfailed and xpassed count as success. Skipped, failed, error and no tests ran count as failure. |
-| Vitest | `vitest.expect` in `runner-summaries.json` | Passed with filtered skipped tests counts as success. Failed and No test files found count as failure. |
+| pytest | `pytest.expect` in `runner-summaries.json` | Passed, passed subtests, xfailed and xpassed count as success. Skipped, failed, error and no tests ran count as failure. |
+| Vitest | `vitest.expect` in `runner-summaries.json` | Passed, skipped and todo count as success. Failed and No test files found count as failure. |
 
 Copy the value unchanged, including its flags. Do not write another pattern from a sample output line.
 
