@@ -25,8 +25,7 @@ const HELP = `usage: gate-check.mjs [--reverify] [--timeout S] [--cwd DIR] [--re
   (default)       run the CHECK of every unmet criterion and update its ledger
   --reverify      run every criterion with a CHECK, met ones included
   --timeout S     per-check timeout, integer seconds 1..86400 (default 120)
-  --cwd DIR       directory a CHECK runs in (default: beside its ledger);
-                  a criterion's CWD attribute is resolved against it
+  --cwd DIR       directory a CHECK runs in (default: beside its ledger)
 
   --results FILE  write each run result and its captured output as JSON
 
@@ -168,11 +167,6 @@ function prepareCriterionDir() {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "PATH"), pathValue, "utf8");
-}
-
-function resolvedGateCwd(gate, file) {
-  const base = defaultCwd || dirname(file);
-  return gate.cwd ? resolve(base, gate.cwd) : base;
 }
 
 // An EXPECT regex runs in a disposable worker so catastrophic backtracking cannot
@@ -334,13 +328,7 @@ for (const ledger of ledgers) {
     if (ledger.doc.abandoned.has(gate.id) || !gate.check) continue;
     const state = gateState(gate, ledger.doc.abandoned);
     if (!opt.reverify && state === "met") continue;
-    const cwd = resolvedGateCwd(gate, ledger.file);
-    try {
-      if (!statSync(cwd).isDirectory()) failUsage("gate " + qualify(ledger.file, gate.id) + " CWD is not a directory: " + cwd);
-    } catch (error) {
-      if (error.code === "ENOENT") failUsage("gate " + qualify(ledger.file, gate.id) + " CWD does not exist: " + cwd);
-      failUsage("cannot inspect gate CWD " + cwd + ": " + error.message);
-    }
+    const cwd = defaultCwd || dirname(ledger.file);
     pending.push({
       file: ledger.file,
       gate,
