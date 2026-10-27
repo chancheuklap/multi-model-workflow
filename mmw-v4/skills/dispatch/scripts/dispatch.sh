@@ -83,6 +83,11 @@
 # message cannot settle is written in the skill text of the agent that runs the command;
 # `ack` is in SKILL.md under `## On waking`, which every moment shares.
 
+# An optional executable scripts/env runs from each target checkout root with its absolute
+# worktree path. Every worker start and merge checkout runs setup then up. Ticket land,
+# suspend and retract run down; merge checkouts run down before removal. Cleanup failures
+# are reported without blocking the ending. Repositories without scripts/env are silent.
+
 set -uo pipefail
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
@@ -1199,9 +1204,29 @@ ensure_workspace() {
   printf '%s\t%s\t%s\n' "$dest" "$dest" "$created"
 }
 
+worktree_environment() {
+  local tree="$1"
+  shift
+  [ -e "$tree/scripts/env" ] || return 0
+  python3 - "$VERIFY" "$tree" "$@" <<'PYENV'
+import importlib.util
+import sys
+from pathlib import Path
+
+script, tree, *steps = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("mmw_verify_environment", script)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+for step in steps:
+    if module.run_worktree_environment(Path(tree), step):
+        raise SystemExit(2)
+PYENV
+}
+
 remove_worktree() {
   local root="$1" dest="$2"
   [ -n "$dest" ] || return 0
+  worktree_environment "$dest" down || true
   git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 && return 0
   [ -d "$dest" ] || return 0
   echo "dispatch: could not remove the worktree at $dest" >&2
@@ -1458,6 +1483,13 @@ start_one() {
   if [ "$publish" = 1 ]; then
     push_ticket_branch "$number" "$cwd" \
       || refuse "#${number}'s previous worker was stopped, but its ticket branch was not pushed; reconcile issue-$number with origin/issue-$number and start again"
+  fi
+
+  if [ "$kind" = worker ]; then
+    worktree_environment "$cwd" setup up || {
+      worktree_environment "$cwd" down || true
+      return 2
+    }
   fi
 
   local session
@@ -2399,13 +2431,13 @@ sweep_orphan_merge_worktrees() {
   [ -n "$main" ] || return 0
   fetch_origin "$root" || return 1
   state="$(repository_state_dir)" || return 1
-  python3 - "$STATEDIR" "$root" "$main/.worktrees" "$state" <<'PY'
+  python3 - "$STATEDIR" "$root" "$main/.worktrees" "$state" "$VERIFY" <<'PY'
 import importlib.util
 import subprocess
 import sys
 from pathlib import Path
 
-script, root, trees, state = sys.argv[1:]
+script, root, trees, state, verify = sys.argv[1:]
 spec = importlib.util.spec_from_file_location("mmw_statedir", script)
 statedir = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(statedir)
@@ -2421,6 +2453,11 @@ for slug in sorted(slugs - active):
     lock = Path(state) / f"merge-{slug}.lock"
     try:
         with statedir.locked(lock, wait=0, purpose=f"sweeping orphan merge-{slug}"):
+            if (path / "scripts" / "env").exists():
+                env_spec = importlib.util.spec_from_file_location("mmw_verify_environment", verify)
+                environment = importlib.util.module_from_spec(env_spec)
+                env_spec.loader.exec_module(environment)
+                environment.run_worktree_environment(path, "down")
             removed = not path.is_dir() or subprocess.run(
                 ["git", "-C", root, "worktree", "remove", "--force", str(path)],
                 capture_output=True, text=True
@@ -2436,6 +2473,7 @@ PY
 
 # One detached, persistent worktree per base branch. Reset changes tracked files only:
 # ignored dependency directories and caches stay warm between landings.
+# Returns 4 for environment preparation failure, 2 for other preparation failures.
 prepare_merge_worktree() {
   local root="$1" into="$2" main slug dest
   main="$(main_checkout)"
@@ -2456,6 +2494,11 @@ prepare_merge_worktree() {
   git -C "$dest" merge --abort >/dev/null 2>&1 || true
   git -C "$dest" reset --hard "origin/$into" >/dev/null \
     || { echo "dispatch: could not reset $dest to origin/$into" >&2; release_merge_lock; return 2; }
+  worktree_environment "$dest" setup up || {
+    worktree_environment "$dest" down || true
+    release_merge_lock
+    return 4
+  }
   file_merge_worktree "$dest"
   MERGE_ROOT="$dest"
 }
@@ -2786,12 +2829,14 @@ finish_landing() {
 }
 
 # Merge the exact ticket.passed commit, check the result, then fast-forward origin.
-# 0 merged, 1 bounced, 2 could not complete, 3 was already in origin.
+# 0 merged, 1 bounced, 2 could not complete, 3 was already in origin,
+# 4 environment preparation failed.
 land_one_via_origin() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5" mode="${6:-advance}"
   local attempt merge_root base merge_commit landed_base rc files push_error=""
   for ((attempt = 1; attempt <= MERGE_TRIES; attempt++)); do
-    prepare_merge_worktree "$root" "$into" || return 2
+    prepare_merge_worktree "$root" "$into"; rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
     merge_root="$MERGE_ROOT"
     base="$(git -C "$merge_root" rev-parse "origin/$into")"
     if git -C "$merge_root" merge-base --is-ancestor "$passed" "origin/$into"; then
@@ -3061,7 +3106,7 @@ land_tickets() {
   plan="$(python3 "$STATUS" --land-plan "${numbers[@]}")" \
     || refuse "could not read $(printf '#%s ' "${numbers[@]}")from the tracker"
 
-  local merged=0 already=0 bounced=0 kept=0 failed=0 number passed into archive_into rc spec
+  local merged=0 already=0 bounced=0 kept=0 failed=0 environment_failed=0 number passed into archive_into rc spec
   local -a landed_numbers=() bounced_numbers=()
   while IFS= read -r number; do
     [ -n "$number" ] || continue
@@ -3079,6 +3124,7 @@ land_tickets() {
         ;;
       1) bounced=$((bounced + 1)); bounced_numbers+=("$number") ;;
       3) already=$((already + 1)); landed_numbers+=("$number") ;;
+      4) failed=$((failed + 1)); environment_failed=1 ;;
       *) failed=$((failed + 1)) ;;
     esac
   done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
@@ -3087,6 +3133,9 @@ land_tickets() {
   # it and preserves its standing worktree for the next start.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
     case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
+    local cwd
+    cwd="$(workspace_cwd_for "$number")"
+    [ -z "$cwd" ] || worktree_environment "$cwd" down || true
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       post_event "$number" ticket.released --ticket "$number" --spec "$(ticket_spec "$number")" \
           --line "Gave the claim on #$number back: its work is over" --field reason=landed \
@@ -3147,6 +3196,7 @@ land_tickets() {
   fi
   sweep_orphan_merge_worktrees "$root" \
     || echo "land: could not sweep orphan merge worktrees" >&2
+  [ "$environment_failed" -eq 0 ] || return 2
   [ "$failed" -eq 0 ] && [ "$relay_left" -eq 0 ] || return 1
 }
 
@@ -3244,6 +3294,12 @@ suspend_night() {
       push_failed="$push_failed $number"
       left=$((left + 1))
     fi
+  done
+
+  for number in $batch; do
+    case " $kept " in *" $number "*) continue ;; esac
+    cwd="$(workspace_cwd_for "$number")"
+    [ -z "$cwd" ] || worktree_environment "$cwd" down || true
   done
 
   local when commented=0
@@ -3641,6 +3697,7 @@ clean_base_merge_worktree() {
   main="$(main_checkout)" || return 0
   dest="$main/.worktrees/merge-$(merge_slug "$into")"
   if [ -e "$dest" ]; then
+    worktree_environment "$dest" down || true
     git -C "$root" worktree remove --force "$dest" >/dev/null 2>&1 || {
       echo "dispatch: could not remove $dest; run git worktree remove --force $dest" >&2
       failed=2

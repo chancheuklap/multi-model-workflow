@@ -2619,6 +2619,239 @@ scenario_integratedirty() {
   [ "$(cat "$TMP/repo/tracked.txt")" = dirty ] || fail "dirty integrate changed the tracked file"
 }
 
+put_env() {
+  mkdir -p "$TMP/repo/scripts"
+  cat > "$TMP/repo/scripts/env" <<'ENV'
+#!/usr/bin/env bash
+printf 'env :: %s :: %s :: %s\n' "$1" "$2" "$PWD" >> "$MMW_TEST_LOG"
+if [ "$1" = "${MMW_TEST_ENV_FAIL:-}" ]; then
+  echo "fixture environment failure for $1" >&2
+  exit 7
+fi
+case "$1" in
+  setup) touch "$2/.setup-ready" ;;
+  up)
+    [ -f "$2/.setup-ready" ] || exit 8
+    touch "$2/.env-ready"
+    echo "test-resource-$(basename "$2")" ;;
+  down) rm -f "$2/.env-ready" ;;
+esac
+ENV
+  chmod +x "$TMP/repo/scripts/env"
+  printf '.setup-ready\n.env-ready\n' >> "$TMP/repo/.gitignore"
+  git -C "$TMP/repo" add scripts/env .gitignore
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'repository environment'
+  git -C "$TMP/repo" push -q origin main
+}
+
+scenario_envstartsetsup() {
+  reset_log
+  fresh_repo
+  put_env
+  local code tree
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/issue-61"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "setup and up should run in the target checkout: $(cat "$MMW_TEST_LOG")"
+  [ -f "$tree/.env-ready" ] || fail 'the worker environment is missing'
+  [ "$(line_of '^env :: up')" -lt "$(line_of 'paseo :: run')" ] \
+    || fail 'the environment should be ready before the worker starts'
+  assert_started || fail "environment output changed the session id: $(cat "$TMP/out")"
+}
+
+scenario_envupfails() {
+  local step code tree
+  for step in setup up; do
+    reset_log
+    fresh_repo
+    put_env
+    tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/issue-61"
+    code="$(run_dispatch env MMW_TEST_ENV_FAIL="$step" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+    [ "$code" = 2 ] || fail "$step failure expected 2, got $code: $(cat "$TMP/err")"
+    grep -qF "scripts/env $step" "$TMP/err" || fail "the failing step is missing"
+    grep -qF "$tree" "$TMP/err" || fail "the failing worktree is missing"
+    grep -qF "fixture environment failure for $step" "$TMP/err" || fail "the script output is missing"
+    never_ran
+    [ "$step" != setup ] || hasnt "env :: up"
+
+    reset_log
+    fresh_repo
+    put_env
+    make_branch issue-61 ticket.txt ticket
+    git -C "$TMP/repo" push -q origin issue-61
+    write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+    tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-main"
+    code="$(run_dispatch env MMW_TEST_ENV_FAIL="$step" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+            bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+    [ "$code" = 2 ] || fail "merge $step failure expected 2, got $code: $(cat "$TMP/err")"
+    grep -qF "scripts/env $step" "$TMP/err" || fail "the failing merge step is missing"
+    grep -qF "$tree" "$TMP/err" || fail "the failing merge worktree is missing"
+    has "env :: down :: $tree :: $tree"
+    hasnt 'ticket.landed'
+    if git -C "$TMP/origin.git" show main:ticket.txt >/dev/null 2>&1; then
+      fail 'environment failure still landed the ticket'
+    fi
+  done
+
+  reset_log
+  fresh_repo
+  put_env
+  put_check "$TMP/repo" 'exit 2'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'unrunnable repository check'
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 1 ] || fail "a repository-check failure must retain land's exit 1, got $code: $(cat "$TMP/err")"
+  hasnt 'ticket.landed'
+}
+
+scenario_envdownonend() {
+  local code tree
+  reset_log
+  fresh_repo
+  put_env
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  seed_workspace 61
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  write_one_passed 61 "$(git -C "$tree" rev-parse HEAD)"
+  code="$(run_dispatch env MMW_TEST_ENV_FAIL=down FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "cleanup failure should not block land: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  grep -qF 'fixture environment failure for down' "$TMP/err" || fail 'cleanup failure was not reported'
+  assert_no_wt 61
+  git -C "$TMP/origin.git" show main:ticket.txt >/dev/null || fail 'the ticket was not landed'
+
+  reset_log
+  fresh_repo
+  put_env
+  write_open_batch
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start before suspend failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
+  [ "$code" = 0 ] || fail "suspend failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  [ ! -f "$tree/.env-ready" ] || fail 'suspend left the resources running'
+  assert_wt 61
+
+  reset_log
+  fresh_repo
+  put_env
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start before retract failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  set_agent_status "$(cat "$TMP/out")" closed
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" retract 61)"
+  [ "$code" = 0 ] || fail "retract failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  assert_no_wt 61
+}
+
+scenario_envmergeworktree() {
+  reset_log
+  fresh_repo
+  put_env
+  put_check "$TMP/repo" 'test -f .env-ready || exit 1
+printf "merge-check :: %s\\n" "$PWD" >> "$MMW_TEST_LOG"'
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -qm 'check requires environment'
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q origin issue-61
+  seed_workspace 61
+  write_one_passed 61 "$(git -C "$(wt 61)" rev-parse HEAD)"
+  local code tree orphan
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-main"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "land failed: $(cat "$TMP/err")"
+  has "env :: setup :: $tree :: $tree"
+  has "env :: up :: $tree :: $tree"
+  has "merge-check :: $tree"
+  [ "$(line_of '^env :: setup')" -lt "$(line_of '^env :: up')" ] || fail 'setup must precede up'
+  [ "$(line_of '^env :: up')" -lt "$(line_of '^merge-check')" ] || fail 'up must precede merge checks'
+  git -C "$TMP/origin.git" show main:ticket.txt >/dev/null || fail 'merge checks did not allow landing'
+
+  printf '[]\n' > "$TMP/tickets.json"
+  open_night
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 0 ] || fail "reverify preparation failed: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "reverify should prepare its detached merge worktree: $(cat "$MMW_TEST_LOG")"
+
+  orphan="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-retired"
+  git -C "$TMP/repo" worktree add -q --detach "$orphan" origin/main
+  printf '[]\n' > "$TMP/tickets.json"
+  code="$(run_dispatch env MMW_TEST_ENV_FAIL=down FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "orphan cleanup failed: $(cat "$TMP/err")"
+  has "env :: down :: $orphan :: $orphan"
+  [ ! -d "$orphan" ] || fail 'the orphan merge worktree was not removed'
+  grep -qF 'fixture environment failure for down' "$TMP/err" || fail 'merge cleanup failure was hidden'
+
+  setup_finish_closed
+  put_env
+  git -C "$TMP/repo" push -q origin proj
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/merge-night"
+  git -C "$TMP/repo" worktree add -q --detach "$tree" origin/proj
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish cleanup failed: $(cat "$TMP/err")"
+  has "env :: down :: $tree :: $tree"
+  [ ! -d "$tree" ] || fail 'finish left the base merge worktree'
+}
+
+scenario_envrestartaftersuspend() {
+  reset_log
+  fresh_repo
+  put_env
+  write_open_batch
+  local code tree head
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "first start failed: $(cat "$TMP/err")"
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  head="$(git -C "$tree" rev-parse HEAD)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" suspend 76)"
+  [ "$code" = 0 ] || fail "suspend failed: $(cat "$TMP/err")"
+  fake_relay
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "restart failed: $(cat "$TMP/err")"
+  [ "$(grep '^env ::' "$MMW_TEST_LOG")" = "$(printf 'env :: setup :: %s :: %s\nenv :: up :: %s :: %s' "$tree" "$tree" "$tree" "$tree")" ] \
+    || fail "the standing worktree needs setup and up again: $(cat "$MMW_TEST_LOG")"
+  [ -f "$tree/.env-ready" ] || fail 'restart did not restore the environment'
+  [ "$(git -C "$tree" rev-parse HEAD)" = "$head" ] || fail 'restart changed the ticket work'
+}
+
+scenario_envabsent() {
+  reset_log
+  fresh_repo
+  local code passed
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start without env failed: $(cat "$TMP/err")"
+  assert_started || fail 'start output changed'
+  ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'start without env should be silent'
+  passed="$(git -C "$(wt 61)" rev-parse HEAD)"
+  write_one_passed 61 "$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "land without env failed: $(cat "$TMP/err")"
+  ! grep -q 'scripts/env' "$TMP/out" "$TMP/err" || fail 'absent env should be silent'
+  assert_no_wt 61
+}
+
 scenario_start_worker() {
   local code
   echo "--- a ticket with no worker label starts one session on the default row and prints its id"
@@ -9255,6 +9488,7 @@ ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryhold
 ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteventshowsgherror"
 ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername briefclosebrowsers briefclosekillsleftover sendrefusesclosedbatch"
+ALL="$ALL envstartsetsup envupfails envdownonend envmergeworktree envrestartaftersuspend envabsent"
 ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 
 case " $ALL all " in
