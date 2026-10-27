@@ -147,30 +147,6 @@ class Commands(unittest.TestCase):
             rc = retro.main(list(args))
         return rc, out.getvalue(), err.getvalue()
 
-    def test_a_lesson_unseen_for_thirty_days_expires(self):
-        rc, out, err = self.run_command('expire', REPO)
-        self.assertEqual(rc, 0, err)
-        self.assertEqual(self.fake.rows[90]['state'], 'closed')
-        self.assertEqual(self.fake.rows[90]['state_reason'], 'not planned')
-        self.assertIn('30 天没再出现', self.fake.rows[90]['comments'][-1]['body'])
-        self.assertIn('#90', out)
-
-    def test_a_recently_seen_lesson_stays_open(self):
-        self.fake.rows[91] = issue(91, bodies=[seen(at='2026-09-15T00:00:00Z')])
-        rc, out, err = self.run_command('expire', REPO)
-        self.assertEqual(rc, 0, err)
-        self.assertEqual(self.fake.rows[91]['state'], 'open')
-        self.assertEqual(self.fake.rows[90]['state'], 'closed')
-        self.assertEqual(out.count('CLOSED:'), 1)
-
-    def test_expire_leaves_what_awaits_the_owner_and_problems(self):
-        self.fake.rows[91] = issue(91, bodies=[seen()], labels=('mmw:lesson','needs-triage'))
-        self.fake.rows[92] = issue(92, bodies=[seen()], labels=('mmw:problem',))
-        self.fake.rows[93] = issue(93, bodies=[seen()], labels=('mmw:child',))
-        rc, out, err = self.run_command('expire', REPO)
-        self.assertEqual(rc, 0, err)
-        self.assertEqual([self.fake.rows[n]['state'] for n in (90,91,92,93)], ['closed','open','open','open'])
-
     def start_run(self):
         self.fake.rows[76] = issue(76, labels=('mmw:spec',), bodies=[events.build('spec.opened', ticket=None, spec=76, line='Opened', at='2026-09-01T00:00:00Z')])
         REAL_RUN(['git','init','-q',str(self.root)],check=True)
@@ -217,7 +193,7 @@ class Commands(unittest.TestCase):
         self.start_run()
         receipt = events.build('ticket.retroed', ticket=61, line='Earlier receipt',
                                at='2026-09-10T00:00:00Z', result='recorded', registered=0,
-                               merged=0, rejected=0, candidates=0, proposals=[],
+                               merged=0, rejected=0, candidates=0, proposals=0,
                                recurred_after_wontfix=[], landed_since_last=0,
                                evidence='complete', unreadable_sources=[])
         bodies = [events.build('ticket.claimed', ticket=61, line='Claimed', at='2026-09-01T00:00:00Z'),
@@ -237,7 +213,7 @@ class Commands(unittest.TestCase):
         self.fake.rows[76]['comments'].append(dict(id=812, body=events.build(
             'spec.retroed', spec=76, ticket=None, line='Already reviewed',
             at='2026-09-15T00:00:00Z', result='recorded', registered=0,
-            merged=0, rejected=0, candidates=0, proposals=[], recurred_after_wontfix=[],
+            merged=0, rejected=0, candidates=0, proposals=0, recurred_after_wontfix=[],
             landed_since_last=0, evidence='complete', unreadable_sources=[])))
         rc, out, err = self.run_command('gather', '--spec', '76', REPO, '--out', str(self.root/'materials'))
         self.assertEqual(rc, 2, err)
@@ -386,6 +362,101 @@ class Commands(unittest.TestCase):
         (self.root/'context.json').write_text(json.dumps(context))
         return str(path)
 
+    def assessment_answer(self):
+        self.start_run()
+        REAL_RUN(['git','remote','add','origin','https://github.com/mmw/toolbox.git'],check=True)
+        marker = self.root/'home/installed-root'
+        marker.parent.mkdir(parents=True)
+        marker.write_text(str(self.root))
+        for number in (91, 92, 93, 94):
+            self.fake.rows[number] = issue(number, bodies=[seen()])
+        self.fake.rows[91]['comments'].append(dict(id=2,body=seen(ticket=62)))
+        self.fake.rows[92]['labels'].append(dict(name='needs-triage'))
+        self.fake.rows[94].update(state='closed',state_reason='completed',closed_at='2026-09-12T00:00:00Z')
+        path = Path(self.answer('reject'))
+        path.write_text(path.read_text().replace('## Problems',
+            '| 91 | merge:94 | 同一根因 | README.md:1 | |\n'
+            '| 92 | propose | 需要检查 | README.md:1 | 仓库：mmw/toolbox；加：检查；文件：check.py；Playbook: Bug fix |\n'
+            '| 93 | candidate | 待积累 | README.md:1 | |\n'
+            '| 93 | candidate | 另一角度 | README.md:1 | 继续观察 |\n\n## Problems'))
+        return str(path)
+
+    def test_apply_changes_no_registration_state(self):
+        path = self.assessment_answer()
+        self.fake.rows[92]['comments'] = [dict(id=1,body=seen(source='stall'))]
+        self.fake.rows[92]['labels'] = [dict(name='mmw:lesson')]
+        before = {n: {k: v for k,v in row.items() if k != 'comments'}
+                  for n,row in self.fake.rows.items()}
+        before = json.loads(json.dumps(before))
+        rc,out,err = self.run_process('apply',path)
+        self.assertEqual(rc,0,err)
+        forbidden = [call for call in self.fake.calls
+                     if call[1:3] in (['issue','close'], ['issue','reopen'], ['issue','transfer'],
+                                      ['issue','edit'], ['label','create'])]
+        self.assertEqual(forbidden, [])
+        after = {str(n): {k: v for k,v in row.items() if k != 'comments'}
+                 for n,row in self.fake.rows.items()}
+        self.assertEqual(after, before)
+        self.assertEqual(events.fold(self.fake.rows[94]['comments'])['occurrences'],
+                         events.fold([seen()])['occurrences'])
+
+    def test_apply_records_each_row_as_lesson_assessed(self):
+        path = self.assessment_answer()
+        rc,out,err = self.run_process('apply',path)
+        self.assertEqual(rc,0,err)
+        rows = {n: [events.parse(c['body'])[1] for c in self.fake.rows[n]['comments']
+                    if events.parse(c['body'])[0] == 'event'
+                    and events.parse(c['body'])[1]['event'] == 'lesson.assessed']
+                for n in (90, 91, 92, 93)}
+        self.assertEqual([len(rows[n]) for n in (90,91,92,93)], [1,1,1,2])
+        expected = [('reject', '检查仍不可靠', '', False),
+                    ('merge:94', '同一根因', '', True),
+                    ('propose', '需要检查', '仓库：mmw/toolbox；加：检查；文件：check.py；Playbook: Bug fix', False),
+                    ('candidate', '待积累', '', False),
+                    ('candidate', '另一角度', '继续观察', False)]
+        for record, (conclusion, reason, plan, qualified) in zip(
+                [r for group in rows.values() for r in group], expected):
+            self.assertEqual({k:record[k] for k in ('conclusion','reason','evidence','plan','run','qualifies')},
+                             dict(conclusion=conclusion, reason=reason, evidence='README.md:1',
+                                  plan=plan, run='o/r#76', qualifies=qualified))
+            self.assertTrue(record['request'])
+        for number in rows:
+            for comment in self.fake.rows[number]['comments'][1:]:
+                if events.parse(comment['body'])[1]['event'] == 'lesson.assessed':
+                    record = events.parse(comment['body'])[1]
+                    self.assertIn(record['conclusion'], comment['body'].splitlines()[0])
+                    self.assertIn(record['reason'], comment['body'].splitlines()[0])
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual([receipt[k] for k in ('merged','rejected','candidates','proposals')], [1,1,2,1])
+        self.assertEqual(receipt['problems'], [
+            dict(repo='o/r',number=90,conclusion='reject'),
+            dict(repo='o/r',number=91,conclusion='merge:o/r#94'),
+            dict(repo='o/r',number=92,conclusion='propose'),
+            dict(repo='o/r',number=93,conclusion='candidate'),
+            dict(repo='o/r',number=93,conclusion='candidate')])
+
+    def test_apply_rerun_records_nothing_twice(self):
+        path = self.assessment_answer()
+        original = self.fake
+        def lose_assessment_response(args, **kwargs):
+            result = original(args, **kwargs)
+            if args[:4] == ['gh','issue','comment','91']:
+                return subprocess.CompletedProcess(args,1,'','assessment response lost')
+            return result
+        self.fake = lose_assessment_response
+        rc,out,err = self.run_command('apply',path)
+        self.assertEqual(rc,1,err)
+        self.fake = original
+        for _ in range(2):
+            rc,out,err = self.run_process('apply',path)
+            self.assertEqual(rc,0,err)
+        records = [events.parse(c['body'])[1] for row in self.fake.rows.values()
+                   for c in row['comments'] if events.parse(c['body'])[0] == 'event']
+        assessments = [r for r in records if r['event'] == 'lesson.assessed']
+        self.assertEqual(len(assessments),5)
+        self.assertEqual(len({r['request'] for r in assessments}),5)
+        self.assertEqual(len([r for r in records if r['event'] == 'spec.retroed']),1)
+
     def test_apply_refuses_a_row_without_evidence(self):
         self.start_run()
         path = self.answer('reject',evidence='')
@@ -394,157 +465,6 @@ class Commands(unittest.TestCase):
         self.assertIn('answer.md:3',err)
         self.assertIn('evidence',err)
         self.assertEqual(self.fake.rows[90]['state'],'open')
-
-    def test_a_single_occurrence_is_kept_as_a_candidate(self):
-        self.start_run()
-        rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
-        self.assertEqual(rc,0,err)
-        self.assertNotIn({'name':'needs-triage'},self.fake.rows[90]['labels'])
-        self.assertIn('candidate',out)
-        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
-        self.assertEqual(receipt['candidates'],1)
-        self.assertEqual(receipt['proposals'],[])
-
-    def test_a_twice_seen_lesson_is_proposed_with_its_playbook(self):
-        self.start_run()
-        self.fake.rows[90] = issue(bodies=[seen(),seen(ticket=62)])
-        rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
-        self.assertEqual(rc,0,err)
-        self.assertIn({'name':'needs-triage'},self.fake.rows[90]['labels'])
-        self.assertEqual(self.fake.rows[90]['body'].splitlines()[:2],['## Problem','Playbook: Stop a repeated mistake'])
-
-    def test_an_owner_correction_is_proposed_at_once(self):
-        self.start_run()
-        self.fake.rows[90] = issue(bodies=[seen(source='owner-correction')])
-        rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
-        self.assertEqual(rc,0,err)
-        self.assertIn({'name':'needs-triage'},self.fake.rows[90]['labels'])
-
-    def test_a_merged_lesson_moves_its_occurrences(self):
-        self.start_run()
-        self.fake.rows[90] = issue(bodies=[seen(),seen(ticket=62)])
-        self.fake.rows[91] = issue(91,bodies=[])
-        rc,out,err = self.run_command('apply',self.answer('merge:91'))
-        self.assertEqual(rc,0,err)
-        self.assertEqual(self.fake.rows[90]['state'],'closed')
-        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
-        self.assertEqual(self.fake.rows[90]['duplicate_of'],'https://github.com/o/r/issues/91')
-        moved = [events.parse(c['body'])[1] for c in self.fake.rows[91]['comments']]
-        self.assertEqual([r['ticket'] for r in moved],[61,62])
-        self.assertEqual([r['lesson'] for r in moved],[91,91])
-
-    def test_a_merge_after_the_fix_reopens_the_target(self):
-        self.start_run()
-        self.fake.rows[90] = issue(bodies=[seen(at='2026-09-11T00:00:00Z'),
-                                         seen(ticket=62,at='2026-09-13T00:00:00Z')])
-        self.fake.rows[91] = issue(91,state='closed')
-        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
-        rc,out,err = self.run_process('apply',self.answer('merge:91'))
-        self.assertEqual(rc,0,err)
-        target = self.fake.rows[91]
-        self.assertEqual(target['state'],'open')
-        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'needs-triage'}])
-        self.assertEqual(len([c for c in target['comments'] if '修了又犯' in c['body']]),1)
-        moved = events.fold(target['comments'],issue=91)['occurrences']
-        self.assertEqual([o['at'] for o in moved],['2026-09-11T00:00:00Z','2026-09-13T00:00:00Z'])
-        self.assertEqual(self.fake.rows[90]['duplicate_of'],'https://github.com/o/r/issues/91')
-
-    def test_a_merge_into_a_refused_lesson_keeps_it_closed(self):
-        self.start_run()
-        self.fake.rows[91] = issue(91,state='closed',labels=('mmw:lesson','wontfix'))
-        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
-        rc,out,err = self.run_command('apply',self.answer('merge:91'))
-        self.assertEqual(rc,0,err)
-        target = self.fake.rows[91]
-        self.assertEqual(target['state'],'closed')
-        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'wontfix'}])
-        moved = events.fold(target['comments'],issue=91)['occurrences']
-        self.assertEqual([o['at'] for o in moved],['2026-09-13T00:00:00Z'])
-        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
-
-    def test_a_merge_into_a_ticket_of_an_unfinished_spec_does_not_reopen(self):
-        self.start_run()
-        self.fake.rows[91] = issue(91,state='closed',parent=dict(number=76))
-        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
-        rc,out,err = self.run_command('apply',self.answer('merge:91'))
-        self.assertEqual(rc,0,err)
-        target = self.fake.rows[91]
-        self.assertEqual(target['state'],'closed')
-        self.assertEqual(target['labels'],[{'name':'mmw:lesson'}])
-        moved = events.fold(target['comments'],issue=91)['occurrences']
-        self.assertEqual([o['at'] for o in moved],['2026-09-13T00:00:00Z'])
-        self.assertIn('#76, which has not finished',out)
-        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
-
-    def test_a_merge_of_older_occurrences_only_adds_history(self):
-        self.start_run()
-        self.fake.rows[90] = issue(bodies=[seen(at='2026-09-11T00:00:00Z'),
-                                         seen(ticket=62,at='2026-09-12T00:00:00Z')])
-        self.fake.rows[91] = issue(91,state='closed')
-        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-13T00:00:00Z')
-        rc,out,err = self.run_command('apply',self.answer('merge:91'))
-        self.assertEqual(rc,0,err)
-        target = self.fake.rows[91]
-        self.assertEqual(target['state'],'closed')
-        self.assertEqual(target['labels'],[{'name':'mmw:lesson'}])
-        moved = events.fold(target['comments'],issue=91)['occurrences']
-        self.assertEqual([o['at'] for o in moved],['2026-09-11T00:00:00Z','2026-09-12T00:00:00Z'])
-        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
-
-    def test_a_reopening_merge_applied_twice_reopens_once(self):
-        self.start_run()
-        self.fake.rows[91] = issue(91,state='closed')
-        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
-        path = self.answer('merge:91')
-        original = self.fake
-        def lose_reopen_response(args,**kwargs):
-            result = original(args,**kwargs)
-            if args[:3] == ['gh','issue','reopen']:
-                return subprocess.CompletedProcess(args,1,'','reopen response lost')
-            return result
-        self.fake = lose_reopen_response
-        rc,out,err = self.run_command('apply',path)
-        self.assertEqual(rc,1,err)
-        self.fake = original
-        for _ in range(2):
-            rc,out,err = self.run_command('apply',path)
-            self.assertEqual(rc,0,err)
-        target = self.fake.rows[91]
-        self.assertEqual(target['state'],'open')
-        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'needs-triage'}])
-        self.assertEqual(len([c for c in target['comments'] if '修了又犯' in c['body']]),1)
-        moved = events.fold(target['comments'],issue=91)['occurrences']
-        self.assertEqual([o['at'] for o in moved],['2026-09-13T00:00:00Z'])
-        self.assertEqual(len([a for a in self.fake.calls if a[:3] == ['gh','issue','reopen']]),1)
-        self.assertEqual(self.fake.rows[90]['state_reason'],'duplicate')
-
-    def test_two_merges_reopen_the_same_target_once(self):
-        self.start_run()
-        self.fake.rows[91] = issue(91,state='closed')
-        self.fake.rows[91].update(state_reason='completed',closed_at='2026-09-12T00:00:00Z')
-        self.fake.rows[92] = issue(92,bodies=[seen(ticket=62)])
-        path = self.answer('merge:91')
-        Path(path).write_text(Path(path).read_text().replace(
-            '## Problems','| 92 | merge:91 | 同一个问题 | README.md:1 | |\n\n## Problems'))
-        for _ in range(2):
-            rc,out,err = self.run_command('apply',path)
-            self.assertEqual(rc,0,err)
-        target = self.fake.rows[91]
-        self.assertEqual(target['state'],'open')
-        self.assertEqual(target['labels'],[{'name':'mmw:lesson'},{'name':'needs-triage'}])
-        self.assertEqual(len([c for c in target['comments'] if '修了又犯' in c['body']]),1)
-        moved = events.fold(target['comments'],issue=91)['occurrences']
-        self.assertEqual([o['ticket'] for o in moved],[61,62])
-        self.assertEqual(len([a for a in self.fake.calls if a[:3] == ['gh','issue','reopen']]),1)
-        self.assertEqual([self.fake.rows[n]['state_reason'] for n in (90,92)],['duplicate','duplicate'])
-
-    def test_a_rejected_lesson_is_closed_with_its_reason(self):
-        self.start_run()
-        rc,out,err = self.run_command('apply',self.answer('reject'))
-        self.assertEqual(rc,0,err)
-        self.assertEqual(self.fake.rows[90]['state'],'closed')
-        self.assertEqual(self.fake.rows[90]['state_reason'],'not planned')
-        self.assertIn('检查仍不可靠',self.fake.rows[90]['comments'][-1]['body'])
 
     def test_gather_exposes_unregistered_stalls_and_related_closed_lessons(self):
         self.start_run()
@@ -659,19 +579,6 @@ class Commands(unittest.TestCase):
         self.assertEqual(receipt['evidence'],'partial')
         self.assertIn('answer.md:3',err)
 
-    def test_a_failed_write_reports_partial_not_untouched(self):
-        self.start_run()
-        original = self.fake
-        def fail_close(args,**kwargs):
-            if args[:3]==['gh','issue','close']:
-                return subprocess.CompletedProcess(args,1,'','close denied')
-            return original(args,**kwargs)
-        self.fake = fail_close
-        rc,out,err = self.run_command('apply',self.answer('reject'))
-        self.assertEqual(rc,1)
-        self.assertIn('close denied',err)
-        self.assertIn('检查仍不可靠',original.rows[90]['comments'][-1]['body'])
-
     def test_gather_reports_approved_closed_lessons_without_a_commit(self):
         self.start_run()
         self.fake.rows[91] = issue(91,labels=('mmw:ticket',),state='closed',bodies=[seen(ticket=40,spec=70)])
@@ -682,7 +589,7 @@ class Commands(unittest.TestCase):
         self.assertIn('approved-without-commit',material)
         self.assertIn('https://github.com/o/r/issues/91',material)
 
-    def test_proposals_wrongly_registered_in_the_product_are_transferred(self):
+    def test_a_cross_repository_proposal_stays_on_its_registration(self):
         self.start_run()
         REAL_RUN(['git','remote','add','origin','https://github.com/mmw/toolbox.git'],check=True)
         marker = self.root/'home/installed-root'
@@ -691,9 +598,10 @@ class Commands(unittest.TestCase):
         self.fake.rows[90] = issue(bodies=[seen(source='stall')])
         rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：mmw/toolbox；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
         self.assertEqual(rc,0,err)
-        self.assertEqual(self.fake.rows[99].get('transferred_to'),'mmw/toolbox')
+        self.assertNotIn(99,self.fake.rows)
+        self.assertEqual(self.fake.rows[90]['state'],'open')
         receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
-        self.assertEqual(receipt['problems'], [dict(repo='mmw/toolbox', number=99, conclusion='propose')])
+        self.assertEqual(receipt['problems'], [dict(repo='o/r', number=90, conclusion='propose')])
 
     def test_new_problems_are_registered_from_the_answer(self):
         self.start_run()
@@ -726,6 +634,9 @@ from test_retro import Fake
 path=Path({str(data)!r})
 fake=Fake(json.loads(path.read_text()), repo={self.fake.repo!r})
 result=fake(['gh',*sys.argv[1:]])
+with Path({str(self.root/'calls.jsonl')!r}).open('a') as log:
+    for call in fake.calls:
+        log.write(json.dumps(call)+'\\n')
 path.write_text(json.dumps(list(fake.rows.values())))
 sys.stdout.write(result.stdout)
 sys.stderr.write(result.stderr)
@@ -733,17 +644,13 @@ sys.exit(result.returncode)
 ''')
         gh.chmod(0o755)
         env = dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'])
+        (self.root/'calls.jsonl').write_text('')
         result = REAL_RUN([os.sys.executable,str(SCRIPT),*args],env=env,capture_output=True,text=True)
+        self.fake.calls.extend(json.loads(line) for line in (self.root/'calls.jsonl').read_text().splitlines())
         self.fake.rows = {r['number']:r for r in json.loads(data.read_text())}
         return result.returncode, result.stdout, result.stderr
 
-    def test_expire_runs_as_a_process_against_a_fake_tracker(self):
-        rc,out,err = self.run_process('expire',REPO)
-        self.assertEqual(rc,0,err)
-        self.assertEqual(self.fake.rows[90]['state_reason'],'not planned')
-        self.assertIn('#90',out)
-
-    def test_recurrence_after_refusal_is_a_reminder_not_a_reproposal(self):
+    def test_recurrence_after_refusal_records_the_analyst_conclusion(self):
         self.start_run()
         self.fake.rows[90] = issue(bodies=[seen(source='owner-correction')],labels=('mmw:lesson','wontfix'),state='closed')
         rc,out,err = self.run_command('gather','--spec','76',REPO,'--out',str(self.root/'materials'))
@@ -755,8 +662,8 @@ sys.exit(result.returncode)
         self.assertEqual(self.fake.rows[90]['state'],'closed')
         self.assertNotIn({'name':'needs-triage'},self.fake.rows[90]['labels'])
         receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
-        self.assertEqual(receipt['candidates'],1)
-        self.assertEqual(receipt['proposals'],[])
+        self.assertEqual(receipt['candidates'],0)
+        self.assertEqual(receipt['proposals'],1)
 
     def test_a_ticket_retrospective_is_recorded_on_that_ticket(self):
         self.start_run()
@@ -771,16 +678,6 @@ sys.exit(result.returncode)
         self.assertEqual(receipt['event'],'ticket.retroed')
         self.assertEqual(receipt['ticket'],61)
         self.assertEqual(receipt['problems'], [dict(repo=REPO, number=90, conclusion='candidate')])
-
-    def test_merging_old_occurrences_does_not_expire_a_recently_seen_target(self):
-        self.start_run()
-        self.fake.rows[90] = issue(bodies=[seen(at='2026-09-01T00:00:00Z')])
-        self.fake.rows[91] = issue(91,bodies=[seen(at='2026-10-09T00:00:00Z')])
-        rc,out,err = self.run_command('apply',self.answer('merge:91'))
-        self.assertEqual(rc,0,err)
-        rc,out,err = self.run_command('expire',REPO)
-        self.assertEqual(rc,0,err)
-        self.assertEqual(self.fake.rows[91]['state'],'open')
 
     def test_a_bad_url_rejects_only_its_row_with_a_location(self):
         self.start_run()
@@ -806,22 +703,28 @@ sys.exit(result.returncode)
         self.assertIn('answer.md:3',err)
         self.assertIn('answer.md:5',err)
 
-    def test_proposal_writes_its_playbook_in_a_crlf_body(self):
+    def test_proposal_preserves_the_registration_body(self):
         self.start_run()
         self.fake.rows[90] = issue(bodies=[seen(source='stall')])
-        self.fake.rows[90]['body'] = self.fake.rows[90]['body'].replace('\n','\r\n')
+        original = self.fake.rows[90]['body'].replace('\n','\r\n')
+        self.fake.rows[90]['body'] = original
         rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
         self.assertEqual(rc,0,err)
-        self.assertEqual(self.fake.rows[90]['body'].splitlines()[:2],['## Problem','Playbook: Stop a repeated mistake'])
+        self.assertEqual(self.fake.rows[90]['body'], original)
 
-    def test_proposal_without_a_problem_heading_is_refused_before_writing(self):
+    def test_invalid_proposals_and_non_lesson_targets_are_refused(self):
         self.start_run()
-        self.fake.rows[90] = issue(bodies=[seen(source='stall')])
-        self.fake.rows[90]['body'] = 'Wrong heading\n'
-        rc,out,err = self.run_command('apply',self.answer('propose',plan='仓库：o/r；加：检查；文件：check.py；Playbook: Stop a repeated mistake'))
+        for plan in ('加：检查；文件：check.py；Playbook: Bug fix',
+                     '仓库：o/r；加：检查；Playbook: Bug fix',
+                     '仓库：o/r；加：检查；文件：AGENTS.md；Playbook: Bug fix'):
+            with self.subTest(plan=plan):
+                rc,out,err = self.run_command('apply',self.answer('propose',plan=plan))
+                self.assertEqual(rc,2,err)
+                self.assertEqual(len(self.fake.rows[90]['comments']),1)
+        self.fake.rows[90]['labels'] = [dict(name='mmw:ticket')]
+        rc,out,err = self.run_command('apply',self.answer('candidate'))
         self.assertEqual(rc,2,err)
-        self.assertEqual(self.fake.rows[90]['labels'],[{'name':'mmw:lesson'}])
-        self.assertIn('answer.md:3',err)
+        self.assertIn('not a lesson',err)
 
     def test_retry_after_receipt_failure_keeps_proposals_and_does_not_repeat_rejections(self):
         self.start_run()
@@ -841,7 +744,7 @@ sys.exit(result.returncode)
         rc,out,err = self.run_command('apply',path)
         self.assertEqual(rc,0,err)
         receipt = events.parse(original.rows[76]['comments'][-1]['body'])[1]
-        self.assertEqual(receipt['proposals'],[90])
+        self.assertEqual(receipt['proposals'],1)
         self.assertEqual(receipt['candidates'],0)
         self.assertEqual(len([c for c in original.rows[91]['comments'] if '已不成立' in c['body']]),1)
         rc,out,err = self.run_command('apply',path)
@@ -870,4 +773,4 @@ sys.exit(result.returncode)
         receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
         self.assertEqual(receipt['registered'],1)
         self.assertEqual(receipt['candidates'],1)
-        self.assertEqual(receipt['proposals'],[])
+        self.assertEqual(receipt['proposals'],0)
