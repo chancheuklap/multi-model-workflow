@@ -27,6 +27,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsmainworktree|finishkeepsunmergedlocalnight
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishsyncsprojectbranch|finishsyncsprojectworktree|finishkeepsunmergedproject
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails|finishcleanupfails
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh prgreen|prnotewhennoci|prdispatchesworkflow|prredandnone
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -913,8 +914,57 @@ print(json.dumps({
 ' ;;
   "pr list --head "*)
     [ "${FAKE_GH_PR-7}" = none ] || printf '%s\n' "${FAKE_GH_PR-7}" ;;
+  "pr list --base "*)
+    if [ -n "${FAKE_GH_PERSIST_PR:-}" ] && [ -f "$MMW_FAKE_PASEO_STATE/pr-open" ]; then
+      echo '[{"url":"https://github.com/o/r/pull/7"}]'
+    else
+      echo '[]'
+    fi ;;
+  "pr create "*)
+    [ -z "${FAKE_GH_PR_CREATE_FAIL:-}" ] || { echo 'HTTP 502' >&2; exit 1; }
+    if [ -n "${FAKE_GH_PERSIST_PR:-}" ]; then
+      [ ! -f "$MMW_FAKE_PASEO_STATE/pr-open" ] || { echo 'already exists' >&2; exit 1; }
+      touch "$MMW_FAKE_PASEO_STATE/pr-open"
+    fi
+    echo 'https://github.com/o/r/pull/7' ;;
   "pr checks "*)
-    [ -z "${FAKE_GH_PR_CHECKS:-}" ] || printf '%s\n' "$FAKE_GH_PR_CHECKS" ;;
+    [ -z "${FAKE_GH_PR_CHECKS_FAIL:-}" ] || { echo 'HTTP 502' >&2; exit 1; }
+    if [ -n "${FAKE_GH_PR_CHECKS_DELAY:-}" ]; then
+      reads="$(cat "$MMW_FAKE_PASEO_STATE/pr-check-reads" 2>/dev/null || echo 0)"
+      reads=$((reads + 1))
+      echo "$reads" > "$MMW_FAKE_PASEO_STATE/pr-check-reads"
+      [ "$reads" -gt "$FAKE_GH_PR_CHECKS_DELAY" ] || FAKE_GH_PR_CHECKS=''
+    fi
+    if [[ "$*" == *"--json name,bucket"* ]] && [[ "$*" != *"--jq"* ]]; then
+      [ -n "${FAKE_GH_PR_CHECKS:-}" ] || { echo 'no checks reported on the branch' >&2; exit 1; }
+      MMW_CHECKS="${FAKE_GH_PR_CHECKS:-}" python3 -c '
+import json, os
+rows = [line.rsplit(" ", 1) for line in os.environ["MMW_CHECKS"].splitlines() if line]
+print(json.dumps([{"name": name, "bucket": bucket} for name, bucket in rows]))'
+    elif [ -n "${FAKE_GH_PR_CHECKS:-}" ]; then
+      printf '%s\n' "$FAKE_GH_PR_CHECKS"
+      if [[ "$*" == *"--watch"* ]] && printf '%s\n' "$FAKE_GH_PR_CHECKS" | grep -Eq ' (fail|cancel)$'; then
+        exit 1
+      fi
+    else
+      echo 'no checks reported on the branch' >&2
+      exit 1
+    fi ;;
+  "workflow run "*)
+    [ -z "${FAKE_GH_WORKFLOW_FAIL:-}" ] || { echo 'workflow refused' >&2; exit 1; }
+    touch "$MMW_FAKE_PASEO_STATE/dispatched-run"
+    [ -n "${FAKE_GH_RUN_NO_URL:-}" ] || echo 'https://github.com/o/r/actions/runs/81' ;;
+  "run list "*)
+    if [ -f "$MMW_FAKE_PASEO_STATE/dispatched-run" ]; then
+      echo '[{"databaseId": 81}, {"databaseId": 80}]'
+    else
+      echo '[{"databaseId": 80}]'
+    fi ;;
+  "run watch "*)
+    [ -z "${FAKE_GH_RUN_WATCH_FAIL:-}" ] || { echo 'watch connection lost' >&2; exit 1; }
+    [ "${FAKE_GH_RUN_CONCLUSION:-success}" = success ] ;;
+  "run view "*)
+    printf '%s\n' "${FAKE_GH_RUN_CONCLUSION:-success}" ;;
   "api graphql "*reviewThreads*)
     [ -z "${FAKE_GH_PR_THREADS:-}" ] || printf '%s\n' "$FAKE_GH_PR_THREADS" ;;
   "api graphql "*)
@@ -1370,7 +1420,9 @@ reset_log() {
   echo '[]' > "$MMW_FAKE_PASEO_STATE/agents.json"
   rm -f "$MMW_FAKE_PASEO_STATE/comment_reads" "$MMW_FAKE_PASEO_STATE/wait_delivered" \
     "$MMW_FAKE_PASEO_STATE/gh-comments.json" "$MMW_FAKE_PASEO_STATE/runs.jsonl" \
-    "$MMW_FAKE_PASEO_STATE/gh-issue-states.json"
+    "$MMW_FAKE_PASEO_STATE/gh-issue-states.json" \
+    "$MMW_FAKE_PASEO_STATE/dispatched-run" "$MMW_FAKE_PASEO_STATE/pr-check-reads" \
+    "$MMW_FAKE_PASEO_STATE/pr-open"
   echo '[]' > "$MMW_FAKE_HERDR_STATE/agents.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/terminals.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
@@ -9909,7 +9961,192 @@ ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteve
 ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername briefclosebrowsers briefclosekillsleftover sendrefusesclosedbatch"
 ALL="$ALL envstartsetsup envupfails envdownonend envmergeworktree envrestartaftersuspend envabsent"
 ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
-ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall landskipsbaseredproof"
+scenario_prgreen() {
+  local code
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'on: pull_request\n' > "$TMP/repo/.github/workflows/ci.yml"
+  printf 'PR body\n' > "$TMP/body.md"
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base main --head night --title 'Night changes' --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "pr expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx 'https://github.com/o/r/pull/7' "$TMP/out" || fail 'PR link was not printed'
+  grep -qx 'checks: green' "$TMP/out" || fail "missing green summary: $(cat "$TMP/out")"
+  has "gh :: pr :: create :: --base :: main :: --head :: night :: --title :: Night changes :: --body-file :: $TMP/body.md"
+  hasnt ' :: --draft'
+  has 'gh :: pr :: checks :: 7 :: --watch'
+  ! grep -q '^NOTE:' "$TMP/out" || fail 'CI runs for main, so no NOTE is expected'
+}
+
+scenario_prnotewhennoci() {
+  local code workflow base pattern ci
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'PR body\n' > "$TMP/body.md"
+  for workflow in \
+    'on: {pull_request: {branches: [main]}}' \
+    $'on:\n  pull_request:\n    branches:\n      - main' \
+    $'on:\n  pull_request:\n    branches-ignore: [night]' ; do
+    printf '%s\n' "$workflow" > "$TMP/repo/.github/workflows/pull-request.yaml"
+    for base in night main; do
+      code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+        --base "$base" --head feature --title Changes --body-file "$TMP/body.md")"
+      [ "$code" = 0 ] || fail "expected 0, got $code: $(cat "$TMP/err")"
+      if [ "$base" = night ]; then
+        grep -qx 'NOTE: GitHub CI does not run for pull requests into night' "$TMP/out" \
+          || fail "missing NOTE for $workflow"
+      else
+        ! grep -q '^NOTE:' "$TMP/out" || fail "unexpected NOTE for main with $workflow"
+      fi
+    done
+  done
+  for workflow in 'on: pull_request' 'on: pull_request # runs on every base' 'on: [push, pull_request]' \
+    $'on:\n  - push\n  - pull_request' '"on": {pull_request: {}}' \
+    $'on:\n  pull_request:\n    branches: []' $'on:\n  pull_request:\n    branches:' ; do
+    printf '%s\n' "$workflow" > "$TMP/repo/.github/workflows/pull-request.yaml"
+    code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+      --base night --head feature --title Changes --body-file "$TMP/body.md")"
+    [ "$code" = 0 ] || fail "expected 0: $(cat "$TMP/err")"
+    ! grep -q '^NOTE:' "$TMP/out" || fail "unexpected NOTE for unrestricted $workflow"
+  done
+  while IFS='|' read -r pattern base ci; do
+    printf 'on: {pull_request: {branches: [%s]}}\n' "$pattern" > "$TMP/repo/.github/workflows/pull-request.yaml"
+    code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+      --base "$base" --head feature --title Changes --body-file "$TMP/body.md")"
+    [ "$code" = 0 ] || fail "branch filter expected 0: $(cat "$TMP/err")"
+    if [ "$ci" = yes ]; then
+      ! grep -q '^NOTE:' "$TMP/out" || fail "$pattern must cover $base"
+    else
+      grep -qx "NOTE: GitHub CI does not run for pull requests into $base" "$TMP/out" \
+        || fail "$pattern must not cover $base"
+    fi
+  done <<'CASES'
+'*'|fix/1|no
+'*'|main|yes
+'**'|fix/1|yes
+'fix/*'|fix/1/extra|no
+'fix/**'|fix/1/extra|yes
+'v[12].[0-9]+.[0-9]+'|v1.10.1|yes
+'v[12].[0-9]+.[0-9]+'|v3.10.1|no
+'releases/**', '!releases/**-alpha'|releases/v1-alpha|no
+CASES
+  printf 'on: *unreadable\n' > "$TMP/repo/.github/workflows/pull-request.yaml"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "unknown workflow should assume CI: $(cat "$TMP/err")"
+  ! grep -q '^NOTE:' "$TMP/out" || fail 'unknown workflow must not assert no CI'
+  grep -q 'pull-request.yaml.*could not read' "$TMP/out" || fail 'unknown workflow must name its file'
+}
+
+scenario_prdispatchesworkflow() {
+  local code
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'PR body\n' > "$TMP/body.md"
+  cat > "$TMP/repo/.github/workflows/ci.yml" <<'YAML'
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      optional:
+        required: false
+YAML
+  printf 'on: workflow_dispatch\n' > "$TMP/repo/.github/workflows/deploy.yaml"
+  cat > "$TMP/repo/.github/workflows/required.yml" <<'YAML'
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        required: true
+YAML
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail "missing workflow result: $(cat "$TMP/out")"
+  grep -q '^skipped deploy.yaml: .*pull_request' "$TMP/out" || fail 'deploy-only workflow must explain skip'
+  grep -q '^skipped required.yml: .*required' "$TMP/out" || fail 'required input must explain skip'
+  has 'gh :: workflow :: run :: ci.yml :: --ref :: feature'
+  has 'gh :: run :: watch :: 81 :: --exit-status'
+  hasnt 'gh :: workflow :: run :: deploy.yaml'
+  hasnt 'gh :: workflow :: run :: required.yml'
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_CONCLUSION=failure \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail "failed fallback run expected 1, got $code"
+  grep -qx 'dispatched ci.yml: failure' "$TMP/out" || fail 'failed fallback must print its conclusion'
+  grep -qx 'https://github.com/o/r/pull/7' "$TMP/out" || fail 'fallback failure must still open the PR'
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_WATCH_FAIL=1 \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail 'a fallback watch failure must exit 1'
+  grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail 'the actual run conclusion must remain visible'
+  grep -q 'watch connection lost' "$TMP/err" || fail 'a failed watch must retain its error'
+  rm "$MMW_FAKE_PASEO_STATE/dispatched-run"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' FAKE_GH_RUN_NO_URL=1 \
+    MMW_PR_CHECKS_GRACE_SECONDS=0 bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "a dispatch without a run URL must find the new run: $(cat "$TMP/err")"
+  grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail 'new workflow run must be watched'
+  hasnt 'gh :: run :: watch :: 80'
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PERSIST_PR=1 FAKE_GH_PR_CHECKS_FAIL=1 \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'a watch failure after opening the PR must exit 2'
+  [ "$(count_of 'gh :: workflow :: run :: ci.yml')" = 1 ] || fail 'the first attempt must dispatch once'
+  code="$(run_dispatch env FAKE_GH_PERSIST_PR=1 FAKE_GH_PR_CHECKS='build pass' \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'an existing PR must be reported before opening another'
+  [ "$(count_of 'gh :: workflow :: run :: ci.yml')" = 1 ] || fail 'retry must not dispatch the workflow twice'
+  grep -q 'https://github.com/o/r/pull/7' "$TMP/err" || fail 'the refusal must identify the existing PR'
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "normal PR CI expected green: $(cat "$TMP/err")"
+  hasnt 'gh :: workflow :: run'
+}
+
+scenario_prredandnone() {
+  local code
+  rm -rf "$TMP/repo/.github/workflows"
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'PR body\n' > "$TMP/body.md"
+  printf 'on: pull_request\n' > "$TMP/repo/.github/workflows/ci.yml"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS=$'build fail\nunit tests cancel' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail "red checks expected 1, got $code"
+  grep -qx 'checks: red build, unit tests' "$TMP/out" || fail "missing red names: $(cat "$TMP/out")"
+  code="$(run_dispatch env MMW_PR_CHECKS_GRACE_SECONDS=0 FAKE_GH_PR_CHECKS='' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 1 ] || fail "no checks with expected CI must exit 1, got $code"
+  grep -qx 'checks: none' "$TMP/out" || fail "missing none with expected CI: $(cat "$TMP/out")"
+  reset_log
+  code="$(run_dispatch env MMW_PR_CHECKS_GRACE_SECONDS=3 FAKE_GH_PR_CHECKS_DELAY=2 \
+    FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "delayed checks expected green, got $code: $(cat "$TMP/err")"
+  grep -qx 'checks: green' "$TMP/out" || fail 'checks that appear during grace must be read'
+  [ "$(count_of 'gh :: pr :: checks :: 7 :: --watch')" -ge 2 ] || fail 'no checks must be retried'
+  rm "$TMP/repo/.github/workflows/ci.yml"
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS='' bash "$DISPATCH" pr \
+    --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "no CI and no checks expected 0, got $code"
+  grep -qx 'checks: none' "$TMP/out" || fail "missing none without CI: $(cat "$TMP/out")"
+  code="$(run_dispatch bash "$DISPATCH" pr --base main)"
+  [ "$code" = 2 ] || fail 'missing arguments must exit 2'
+  code="$(run_dispatch env FAKE_GH_PR_CREATE_FAIL=1 bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'failed PR creation must exit 2'
+  grep -q 'opening pull request failed' "$TMP/err" || fail 'failed PR must explain why'
+  code="$(run_dispatch env FAKE_GH_PR_CHECKS_FAIL=1 bash "$DISPATCH" pr \
+    --base main --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'a GitHub failure must not be reported as no checks'
+  grep -q 'HTTP 502' "$TMP/err" || fail 'a check read failure must explain why'
+}
+
+ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall landskipsbaseredproof prgreen prnotewhennoci prdispatchesworkflow prredandnone"
 ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands recheckred recheckgreenrecordsnothing"
 ALL="$ALL advancebaseredlands"
 ALL="$ALL recheckpathselection"
