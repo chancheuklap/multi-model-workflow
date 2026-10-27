@@ -152,11 +152,11 @@ class BoardDataTest(unittest.TestCase):
                            result="unrecorded", reason="Nowledge Mem write failed")
         recorded = event("spec.retroed", 10, id=1002, event_ticket=None, result="recorded",
                          registered=1, merged=0, rejected=0, candidates=0,
-                         landed_since_last=0, recurred_after_wontfix=[], proposals=[430],
+                         landed_since_last=0, recurred_after_wontfix=[], proposals=1,
                          evidence="complete", unreadable_sources=[])
         folded = board_data.events.fold([recorded, unrecorded], 10)
         self.assertEqual(folded["spec_retroed"]["payload"]["result"], "recorded")
-        self.assertEqual(folded["spec_retroed"]["payload"]["proposals"], [430])
+        self.assertEqual(folded["spec_retroed"]["payload"]["proposals"], 1)
 
     def test_every_comment_page_is_read_and_cached_by_etag(self):
         calls = []

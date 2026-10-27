@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Expire candidates, gather retrospective evidence, and apply analyst answers.
+"""Gather retrospective evidence and record analyst answers.
 
 Exit 0 completes the command. Exit 1 means some writes may have succeeded.
 Exit 2 refuses without a GitHub write. Never reads conversations or external memory.
@@ -15,7 +15,7 @@ import os
 import re
 import sys
 from contextlib import redirect_stdout
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -61,13 +61,6 @@ def write(args,body=None):
         raise PartialWrite(f'GitHub write incomplete: {exc}; inspect the issue, then rerun the same command') from None
 
 
-def now():
-    value = os.environ.get('MMW_NOW')
-    if not value:
-        return datetime.now(timezone.utc)
-    return timestamp(value)
-
-
 def timestamp(value):
     if not isinstance(value,str):
         raise RetroError(f'{value!r} is not an ISO 8601 timestamp; repair its source')
@@ -88,24 +81,6 @@ def history(repo, number):
         raise RetroError(f'{repo}#{number} has unreadable events: {state["unreadable"]}; repair the comments')
     return comments, state
 
-
-def expire(repos):
-    cutoff = now() - timedelta(days=30)
-    plans = []
-    for repo in repos:
-        for row in register.issue_list(repo):
-            if row['state'].lower() != 'open' or 'mmw:lesson' not in labels(row) or 'needs-triage' in labels(row):
-                continue
-            _, state = history(repo, row['number'])
-            occurrences = state['occurrences']
-            if occurrences and max(timestamp(o['at']) for o in occurrences) < cutoff:
-                plans.append((repo, row['number']))
-    for repo, number in plans:
-        write(['issue', 'comment', str(number), '--repo', repo],
-                                   '30 天没再出现，自动关闭；再出现会重开')
-        write([ 'issue', 'close', str(number), '--repo', repo, '--reason', 'not planned'])
-        print(f'CLOSED: {repo}#{number}')
-    return 0
 
 ANGLES = {'判断': 'judgement', '环境': 'environment', '流程': 'process'}
 
@@ -380,7 +355,7 @@ def qualifies(occurrences):
     return len(occurrences) >= 2 and any(len(values)>=2 for values in (identities,specs,sessions))
 
 
-def merge_lesson(row,context,request):
+def merge_lesson(row,context):
     source = row['target']
     target = resolve_issue(row['conclusion'].split(':',1)[1],context)
     if source == target:
@@ -396,22 +371,6 @@ def merge_lesson(row,context,request):
         body = events.build('lesson.seen',line=f'Merged from {issue_url(source["repo"],source["number"])}',
                             lesson=number,request=occurrence_request,**occurrence)
         write(['issue','comment',str(number),'--repo',repo],body)
-    plan = row['merge_reopen']
-    if plan is not None:
-        current = register.read_issue(repo,number)
-        if 'wontfix' not in labels(current):
-            if plan['reopen'] and current['state'].lower() == 'closed':
-                write(['issue','reopen',str(number),'--repo',repo])
-            if plan['triage'] and 'needs-triage' not in labels(current):
-                try:
-                    register.ensure_label(repo,'needs-triage')
-                except RetroError as exc:
-                    raise PartialWrite(f'{exc}; rerun apply to finish the merge') from None
-                write(['issue','edit',str(number),'--repo',repo,'--add-label','needs-triage'])
-            if plan['note']:
-                comment_once(repo,number,plan['note'],f'{request}-merge-{repo}-{number}-reopen')
-        if plan['blocked_spec'] is not None:
-            print(f'NOT REOPENED: #{number} sits under spec #{plan["blocked_spec"]}, which has not finished')
     write(['issue','close',str(source['number']),'--repo',source['repo'],
                       '--reason','duplicate','--duplicate-of',issue_url(repo,number)])
 
@@ -510,14 +469,6 @@ def prepare_answers(args,context):
                 row['target'] = target
                 row['occurrences'] = state['occurrences']
                 row['current'] = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
-                if row['conclusion']=='propose':
-                    body = row['current']['body'].replace('\r\n','\n')
-                    row['proposed_body'],matches = re.subn(
-                        r'(^## Problem[ \t]*\n)(?:[ \t]*\n)*(?:Playbook:[^\n]*\n)?',
-                        lambda m:m[1]+f'Playbook: {row["proposal"]["playbook"]}\n',
-                        body,count=1,flags=re.M)
-                    if matches!=1:
-                        raise RetroError('proposal target has no ## Problem heading; correct its body')
                 if 'mmw:lesson' not in labels(row['current']):
                     raise RetroError('answer target is not a lesson; product problems and children stay in their workflows')
                 if row['conclusion'].startswith('merge:'):
@@ -528,10 +479,6 @@ def prepare_answers(args,context):
                     destination = register.gh_json(['api',f'repos/{canonical["repo"]}/issues/{canonical["number"]}'])
                     if 'mmw:lesson' not in labels(destination):
                         raise RetroError('merge target is not a lesson')
-                    row['merge_reopen'] = None
-                    if destination['state'] == 'closed' and any(
-                            timestamp(o['at']) > timestamp(destination['closed_at']) for o in row['occurrences']):
-                        row['merge_reopen'] = register.reopen_plan(canonical['repo'],destination)
                 if row['conclusion'] == 'propose' and row['proposal']['repo'] != target['repo']:
                     if row['proposal']['repo'] != register.toolbox_repo():
                         raise RetroError('a proposal transfer must target the installed MMW repository')
@@ -557,21 +504,9 @@ def prepare_answers(args,context):
             print(message,file=sys.stderr)
             errors.append(message)
         else:
-            row = group[0]
-            row['reason'] = '; '.join(dict.fromkeys(r['reason'] for r in group))
-            valid.append(row)
+            valid.extend(group)
     if errors and not valid and not problems:
         return 2
-    for row in valid:
-        if row['conclusion'] != 'candidate' and 'needs-triage' in labels(row['current']):
-            row['conclusion'] = 'candidate'
-            print(f'{row["code"]}: candidate, already awaiting the owner')
-        if row['conclusion'] != 'candidate' and 'wontfix' in labels(row['current']):
-            row['conclusion'] = 'candidate'
-            print(f'{row["code"]}: candidate, owner refusal preserved; recurrence is recorded in the receipt')
-        if row['conclusion'] == 'propose' and not qualifies(row['occurrences']):
-            row['conclusion'] = 'candidate'
-            print(f'{row["code"]}: candidate, fewer than two independent occurrences and no stall or owner correction')
     return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,done=[])
 
 
@@ -591,28 +526,14 @@ def execute_plan(plan,journal):
     for index,row in enumerate(valid):
         if index in plan['done']:
             continue
-        if row['conclusion'] == 'reject':
-            target = row['target']
-            comment_once(target['repo'],target['number'],row['reason'],f'{request}-reject-{index}')
-            write(['issue','close',str(target['number']),'--repo',target['repo'],'--reason','not planned'])
-        if row['conclusion'].startswith('merge:'):
-            merge_lesson(row,context,request)
-        if row['conclusion'] == 'propose':
-            target = row['target']
-            repo,number = target['repo'],target['number']
-            current = row['current']
-            if row['proposal']['repo'] != repo:
-                transferred = write(['issue','transfer',str(number),row['proposal']['repo'],'--repo',repo])
-                match = re.search(r'https://github.com/([^/]+/[^/]+)/issues/([0-9]+)',transferred)
-                if not match:
-                    raise PartialWrite(f'transfer of {repo}#{number} printed no new URL; inspect its destination before retrying')
-                repo,number = match[1],int(match[2])
-                row['target'] = dict(repo=repo,number=number)
-                save()
-            write(['issue','edit',str(number),'--repo',repo],row['proposed_body'])
-            comment_once(repo,number,row['reason']+'\n\n'+row['plan'],f'{request}-propose-{index}')
-            if 'needs-triage' not in labels(current):
-                write(['issue','edit',str(number),'--repo',repo,'--add-label','needs-triage'])
+        target = row['target']
+        assessment = events.build(
+            'lesson.assessed', ticket=context['ticket'], spec=context['spec'],
+            line=f'{row["conclusion"]}: {row["reason"]}',
+            conclusion=row['conclusion'], reason=row['reason'], evidence=row['evidence'], plan=row['plan'],
+            run=f'{context["repo"]}#{context["spec"] or context["ticket"]}',
+            qualifies=qualifies(row['occurrences']), request=f'{request}-row-{index}')
+        comment_once(target['repo'],target['number'],assessment,f'{request}-row-{index}')
         plan['done'].append(index)
         save()
     if problems:
@@ -630,7 +551,7 @@ def execute_plan(plan,journal):
     counts = dict(merged=sum(r['conclusion'].startswith('merge:') for r in valid),
                   rejected=sum(r['conclusion']=='reject' for r in valid),
                   candidates=sum(r['conclusion']=='candidate' for r in valid),
-                  proposals=[r['target']['number'] for r in valid if r['conclusion']=='propose'])
+                  proposals=sum(r['conclusion']=='propose' for r in valid))
     unreadable = list(dict.fromkeys(context['unreadable_sources'] + plan['unreadable']))
     disposed = []
     for row in valid:
@@ -658,7 +579,7 @@ def apply_answers(args):
         raise RetroError('apply target differs from context.json; use the matching gather artifact')
     events.build('spec.retroed' if context['spec'] else 'ticket.retroed',
                  ticket=context['ticket'],spec=context['spec'],line='Validate gather context',
-                 result='recorded',registered=context['registered'],merged=0,rejected=0,candidates=0,proposals=[],
+                 result='recorded',registered=context['registered'],merged=0,rejected=0,candidates=0,proposals=0,
                  recurred_after_wontfix=context['recurred_after_wontfix'],landed_since_last=context['landed_since_last'],
                  evidence=context['evidence'],unreadable_sources=context['unreadable_sources'])
     request = hashlib.sha256(json.dumps([context,[(str(p.resolve()),p.read_text(encoding='utf-8'))
@@ -680,8 +601,6 @@ def apply_answers(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='verb', required=True)
-    expiration = sub.add_parser('expire')
-    expiration.add_argument('repos', nargs='+')
     gathering = sub.add_parser('gather')
     target = gathering.add_mutually_exclusive_group(required=True)
     target.add_argument('--spec', type=int)
@@ -696,8 +615,6 @@ def main(argv=None):
     selection.add_argument('--ticket',type=int)
     args = parser.parse_args(argv)
     try:
-        if args.verb == 'expire':
-            return expire([register.repository(r) for r in args.repos])
         if args.verb == 'gather':
             args.repos = [register.repository(r) for r in args.repos]
             return gather(args)

@@ -112,6 +112,10 @@ EVENTS: dict[str, dict] = {
                           "closed": {"source": LESSON_SOURCES},
                           "patterns": {"seen_in": r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+",
                                        "session": r"none|[A-Za-z0-9-]+:[^\s:]+"}},
+    "lesson.assessed":   {"stage": "work", "actor": "main",
+                          "required": ("conclusion", "reason", "evidence", "run", "qualifies", "request"),
+                          "patterns": {"conclusion": r"merge:[^\s]+|reject|candidate|propose",
+                                       "run": r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+#[1-9][0-9]*"}},
     "spec.opened":       {"stage": "night",    "actor": "main"},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
     "spec.closed":       {"stage": "night",    "actor": "main"},
@@ -291,6 +295,14 @@ def _check(event: str, payload: dict) -> str | None:
                     f"{', '.join(STALE_REASONS)}")
         if resolution != "stale" and "reason" in payload:
             return "`child.closed` carries `reason` for a non-stale resolution"
+    if event == "lesson.assessed":
+        for key in ("reason", "evidence", "request"):
+            if not isinstance(payload.get(key), str) or not payload[key].strip():
+                return f"`lesson.assessed` needs a nonempty string `{key}`"
+        if not isinstance(payload.get("plan"), str):
+            return "`lesson.assessed` needs `plan` as a string, empty when there is no plan"
+        if not isinstance(payload.get("qualifies"), bool):
+            return "`lesson.assessed` needs `qualifies` as a boolean"
     if event == "lesson.seen":
         for key in ("lesson", "spec", "ticket"):
             value = payload.get(key)
@@ -312,8 +324,8 @@ def _check(event: str, payload: dict) -> str | None:
             return f"`{event}` needs a positive integer `{context}`"
         if event == "spec.retroed" and payload.get("ticket") is not None:
             return "`spec.retroed` is a spec event and its `ticket` must be null"
-        counts = ("registered", "merged", "rejected", "candidates", "landed_since_last")
-        success = (*counts, "proposals", "problems", "recurred_after_wontfix", "evidence", "unreadable_sources")
+        counts = ("registered", "merged", "rejected", "candidates", "proposals", "landed_since_last")
+        success = (*counts, "problems", "recurred_after_wontfix", "evidence", "unreadable_sources")
         if payload.get("result") == "unrecorded":
             reason = payload.get("reason")
             if not isinstance(reason, str) or not reason.strip():
@@ -342,7 +354,7 @@ def _check(event: str, payload: dict) -> str | None:
                 count = payload.get(key)
                 if isinstance(count, bool) or not isinstance(count, int) or count < 0:
                     return f"`{event}` needs a non-negative integer `{key}`"
-            for key in ("proposals", "recurred_after_wontfix"):
+            for key in ("recurred_after_wontfix",):
                 numbers = payload.get(key)
                 if not isinstance(numbers, list) or any(
                         isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in numbers):
@@ -413,7 +425,7 @@ def build(event: str, *, ticket: int | None, line: str, text: str = "",
     for key, value in fields.items():
         if key in COMMON:
             raise EventError(f"`{key}` is a common field, not a field of `{event}`")
-        if value is not None and value != "":
+        if value is not None and (value != "" or (event == "lesson.assessed" and key == "plan")):
             payload[key] = value
     problem = _check(event, payload)
     if problem:
