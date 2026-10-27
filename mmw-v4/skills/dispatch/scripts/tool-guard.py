@@ -142,6 +142,57 @@ PREFIX_COMMANDS = {
 WORD = re.compile(SHELL_WORD)
 
 
+def strip_heredocs(command: str) -> str:
+    result = []
+    pending: list[tuple[str, bool]] = []
+    quote = None
+    offset = 0
+    while offset < len(command):
+        char = command[offset]
+        if char == "\\" and quote != "'":
+            result.append(command[offset:offset + 2])
+            offset += 2
+            continue
+        if char == quote:
+            quote = None
+        elif quote is None and char in "\"'":
+            quote = char
+        elif quote is None and char == "#" and (
+            offset == 0 or command[offset - 1].isspace() or command[offset - 1] in ";&|()"
+        ):
+            end = command.find("\n", offset)
+            if end == -1:
+                result.append(command[offset:])
+                break
+            result.append(command[offset:end])
+            offset = end
+            continue
+        elif quote is None and command.startswith("<<<", offset):
+            result.append("<<<")
+            offset += 3
+            continue
+        elif quote is None and command.startswith("<<", offset):
+            marker = re.match(r"<<(-?)[ \t]*(" + SHELL_WORD + ")", command[offset:])
+            if marker:
+                pending.append((shlex.split(marker[2])[0], bool(marker[1])))
+                result.append(" ")
+                offset += marker.end()
+                continue
+        result.append(char)
+        offset += 1
+        if char == "\n" and quote is None:
+            for delimiter, tabs in pending:
+                while offset < len(command):
+                    end = command.find("\n", offset)
+                    end = len(command) if end == -1 else end
+                    line = command[offset:end]
+                    offset = min(end + 1, len(command))
+                    if (line.lstrip("\t") if tabs else line) == delimiter:
+                        break
+            pending.clear()
+    return "".join(result)
+
+
 def strip_command_prefixes(piece: str) -> str:
     while True:
         piece = LEADING_SYNTAX.sub("", piece).strip()
@@ -205,6 +256,7 @@ def strip_command_prefixes(piece: str) -> str:
 
 
 def pieces(command: str, strip_prefixes: bool = True) -> list[str]:
+    command = strip_heredocs(command)
     parts = []
     quote = None
     start = offset = 0

@@ -624,6 +624,31 @@ class TestBackgroundCommands(unittest.TestCase):
 
 
 class TestQuotedCommands(unittest.TestCase):
+    def test_guard_a_command_after_the_heredoc_is_checked(self):
+        for command in (
+            f"cat <<EOF\nkill: 'data\nEOF\ngh issue close {TICKET}",
+            f"cat <<-'EOF'\n\tdata\n\tEOF\ngh issue close {TICKET}",
+            f'cat <<"A" <<B\nfirst\nA\nsecond\nB\ngh issue close {TICKET}',
+            f"cat <<EOF; gh issue close {TICKET}\ndata\nEOF",
+            f"echo '<<EOF'\ngh issue close {TICKET}\nEOF",
+            f"echo ok # <<EOF\ngh issue close {TICKET}\nEOF",
+        ):
+            for host in EVENTS:
+                with self.subTest(command=command, host=host):
+                    code, answer = call(host, with_command(host, command))
+                    self.assertEqual(code, 0)
+                    self.assertIsNotNone(answer)
+
+    def test_guard_a_heredoc_body_is_data(self):
+        for marker, terminator in (("EOF", "EOF"), ("'EOF'", "EOF"),
+                                   ('"EOF"', "EOF"), ("-EOF", "\tEOF")):
+            command = f"cat <<{marker}\n{{ pid: number; kill: () => boolean }}\n{terminator}\n"
+            for host in EVENTS:
+                with self.subTest(marker=marker, host=host):
+                    self.assertEqual(call(host, with_command(host, command)), (0, None))
+        command = "cat <<A <<-'B'\nkill: 'data\nA\n\tpkill data\n\tB\necho ok"
+        self.assertEqual(call("codex", with_command("codex", command)), (0, None))
+
     def test_quoted_separators_are_not_process_commands(self):
         for command in (
             "rg -n 'tool.guard|kill|refus' x.py",
