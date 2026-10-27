@@ -321,26 +321,34 @@ What a lock file in the state directory holds while its lock is taken — the lo
 _Home_: `mmw-v3/skills/dispatch/scripts/statedir.py`
 
 **watchdog**:
-The dispatch skill's `watchdog.py`, one process per repository while a watch is open, running one round every `--poll` seconds (default 60). Each round it checks the relay and asks the runner of each silent held session whether it is alive, posting `worker.lost` or `reviewer.lost` for a stopped one and sending its other **alert**s to the orchestrator as `watchdog:` lines.
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+The dispatch skill's `watchdog.py`, one process per repository while a watch is open, running one round every `--poll` seconds (default 60). Each round it checks the relay, asks the runner of every session still holding a watched ticket and of every unreported brief what that session is doing (the **session table**), and reminds the orchestrator of every ticket waiting on it (the **ticket table**). It posts `worker.lost` or `reviewer.lost` for a stopped session and sends its other **alert**s to the orchestrator as `watchdog:` lines.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
 **liveness layer**:
-The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at an orchestrator's turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking a silent ticket's runner whether its session is still there is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
+The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at an orchestrator's turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking each held session's runner whether it is alive and what it is doing is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
 _Avoid_: layer (unqualified; tickets' **test layer** is a different concept sharing the word)
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
 **alert**:
-One thing the watchdog's second or third layer notices — the relay down or not reading, the tracker unreadable, a ticket's events unreadable, a held ticket with no session to ask, its liveness unknown, or **idle ticket** — sent to the orchestrator directly as a `watchdog:` line, never through the wake queue, and never acked.
+One thing the watchdog's second or third layer notices — the relay down or not reading, the tracker unreadable, a ticket's events unreadable, a held ticket with no session to ask, a session whose liveness or turn state is unknown, a session showing a dialog, a **stuck session**, an **idle session**, or a **ticket waiting on its orchestrator** — sent to the orchestrator directly as a `watchdog:` line, never through the wake queue, and never acked.
 _Avoid_: finding (this repository's other senses: a review finding, a ticket's `finding` child)
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
-**silent**:
-A held ticket whose newest event is at least `--silence` seconds old (default 600), old enough that the watchdog asks its worker's or reviewer's runner whether the session is still there.
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+**worktree activity**:
+The latest commit time or file modification time in the worktree a session's start event or brief batch record names, never earlier than the session's start. What the watchdog reads to tell a session doing work from one doing nothing; a ticket's newest event is not consulted for an idle session.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
-**idle ticket**:
-A **silent** ticket whose newest event is at least `--idle` seconds old (default 3600), whose runner answers `alive`, and whose fold waits on nothing — no live reviewer, not passed — so nothing will ever wake its worker. An **alert**, once per ticket and newest event.
-_Home_: `mmw-v3/skills/dispatch/scripts/watchdog.py`
+**idle session**:
+A session whose runner answers `alive` and `idle` and whose **worktree activity** is at least `--idle` seconds old (default 3600), while no other session's result or landing on its ticket is pending. An **alert**, once per session and activity time.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
+
+**stuck session**:
+A session whose runner answers `working` and that has made no progress for `--stuck` seconds (default 7200), measured from the later of its **worktree activity** and its ticket's newest event, or a brief's send time. An **alert**, once per session and reference time.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
+
+**ticket waiting on its orchestrator**:
+A watched ticket with a `child.opened` that has no `child.closed` on it, or a delivered wake still in the **wake queue**. The watchdog alerts its watch's orchestrator at once and again every `--nudge` seconds (default 1800) until the children are routed and the wakes acked, whether or not a session holds the ticket.
+_Home_: `mmw-v4/skills/dispatch/scripts/watchdog.py`
 
 **arm**:
 `watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is; when a watchdog process holds its lock and is not healthy, starts nothing and says what fails; otherwise starts one and waits for it to be healthy. What `turn-guard.py` calls when the watchdog is not healthy.
