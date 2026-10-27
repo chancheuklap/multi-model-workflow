@@ -56,7 +56,7 @@ class OrcaSend(unittest.TestCase):
                    MMW_HOME=str(self.root / "mmw-home"),
                    FAKE_ORCA_LOG=str(self.log), FAKE_ORCA_PROBE=probe,
                    FAKE_ORCA_IDENTITY=json.dumps(identity if identity is not None else {
-                       "agentIdentity": "codex"}),
+                       "agentIdentity": "claude"}),
                    FAKE_ORCA_PROBE_EXIT=str(probe_exit),
                    FAKE_ORCA_COUNT=str(self.root / "count"),
                    FAKE_ORCA_SENDS=json.dumps(answers if answers is not None else [
@@ -66,7 +66,7 @@ class OrcaSend(unittest.TestCase):
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
         return result, calls
 
-    def test_send_types_nothing_while_the_program_is_mid_turn(self):
+    def test_send_to_claude_mid_turn_still_waits(self):
         probes = [
             (json.dumps({"result": {"wait": {"satisfied": False, "status": "running"}}}), 0),
             (json.dumps({"error": {"code": "timeout"}}), 1),
@@ -76,6 +76,14 @@ class OrcaSend(unittest.TestCase):
                 result, calls = self.send(probe, ["input_accepted"], code)
                 sends = [call for call in calls if call[:2] == ["terminal", "send"]]
                 self.assertEqual((result.returncode, sends), (3, []), result.stderr)
+
+    def test_send_to_codex_mid_turn_is_delivered(self):
+        probe = json.dumps({"result": {"wait": {"satisfied": False, "status": "running"}}})
+        result, calls = self.send(probe, ["input_accepted", "turn_started"],
+                                  identity={"agentIdentity": "codex"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_sent(calls)
+        self.assertFalse(any(call[:2] == ["terminal", "wait"] for call in calls))
 
     def assert_sent(self, calls):
         sends = [call for call in calls if call[:2] == ["terminal", "send"]]

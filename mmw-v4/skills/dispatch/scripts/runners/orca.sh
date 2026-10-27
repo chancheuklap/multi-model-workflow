@@ -66,10 +66,11 @@
 # Before typing, send reads agentIdentity from the handle's `terminal list` row.
 # The recovery fields follow Orca 1.4.235. UUID replay and list-row identity were
 # measured on Orca 1.4.232, 2026-10-21, as recorded in ticket #1211 and its reproduction.
-# With an identity, an unsatisfied tui-idle probe or timeout means busy. Without an
-# identity, send types as usual. Orca 1.4.227 reports identities
+# Codex skips the tui-idle probe. For other identities, an unsatisfied probe or
+# timeout means busy. Without an identity, send types as usual. Orca 1.4.227 reports identities
 # for its watched agents but none for a plain shell; tui-idle timeouts alone cannot
 # distinguish the two (checked 2026-10-19).
+# Codex mid-turn delivery: Orca 1.4.232, codex-cli 0.163.0, 2026-10-27: tui-idle timed out; input_accepted without turn_started; the self-sent probe reached the active turn.
 # state prints working, idle, dialog<TAB>screen-line, stopped, or unknown. It reads
 # terminal wait --for tui-idle and terminal read with the same dialogs.txt as start.
 # A terminal without an agent identity cannot prove a turn state. Unreadable answers
@@ -532,7 +533,7 @@ send() {
       exit 3
       ;;
   esac
-  if [ -n "$identity" ]; then
+  if [ -n "$identity" ] && [ "$identity" != codex ]; then
     out="$(orca_ terminal wait --terminal "$ident" --for tui-idle \
           --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true
     if [ "$(printf '%s' "$out" | parse_json idle)" = busy ]; then
