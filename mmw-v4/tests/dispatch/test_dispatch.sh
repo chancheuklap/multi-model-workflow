@@ -2950,6 +2950,74 @@ scenario_sendintoreuse() {
   [ "$rc" -ne 0 ] || echo "a question directory with an answer is refused and an empty one is reused"
 }
 
+scenario_installedrefusessend() {
+  local code installed packet command
+  fresh_repo
+  reset_log
+  installed="$TMP/repo/mmw-v4"
+  mkdir -p "$installed/skills/dispatch"
+  printf '%s\n' "$installed" > "$MMW_HOME/installed-root"
+  packet="$TMP/installed-brief.txt"
+  printf '%s\n' 'Investigate the product.' > "$packet"
+  seed_main_agent agt_main
+  code="$( (cd "$installed/skills/dispatch" && env PASEO_AGENT_ID=agt_main \
+    bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet") \
+    > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  [ "$code" = 2 ] || fail "send from the installed checkout expected 2, got $code: $(cat "$TMP/err")"
+  grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
+    || fail "the refusal does not name the installed checkout: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+  [ -z "$(newest_batch)" ] || fail "the refused send created a brief batch"
+  hasnt 'gh ::'
+
+  for command in open open-ticket ack advance integrate integrated land start report retract wait resume reverify summary finish suspend route 'brief close'; do
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" $command 76)"
+    [ "$code" = 2 ] || fail "$command from the installed checkout expected 2, got $code"
+    grep -qF "$(git -C "$installed" rev-parse --show-toplevel)" "$TMP/err" \
+      || fail "$command did not name the installed checkout: $(cat "$TMP/err")"
+  done
+  never_ran
+  hasnt 'gh ::'
+  rm -f "$MMW_HOME/installed-root"
+}
+
+scenario_installedallowsstatus() {
+  local code
+  fresh_repo
+  reset_log
+  write_open_batch
+  mkdir -p "$TMP/repo/mmw-v4"
+  printf '%s\n' "$TMP/repo/mmw-v4" > "$MMW_HOME/installed-root"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+    bash "$DISPATCH" "${TOOLS[@]}" status 76)"
+  [ "$code" = 0 ] || fail "status in the installed checkout expected 0, got $code: $(cat "$TMP/err")"
+  grep -q 'spec #76' "$TMP/out" || fail "status did not print the spec table: $(cat "$TMP/out")"
+  never_ran
+  hasnt 'gh :: issue :: comment'
+  rm -f "$MMW_HOME/installed-root"
+}
+
+scenario_installedothercheckoutsend() {
+  local code installed packet
+  fresh_repo
+  reset_log
+  installed="$TMP/installed checkout"
+  git -C "$TMP/repo" worktree add -q --detach "$installed"
+  mkdir -p "$installed/mmw-v4"
+  printf '%s\n' "$installed/mmw-v4" > "$MMW_HOME/installed-root"
+  packet="$TMP/other-checkout-brief.txt"
+  printf '%s\n' 'Investigate the product.' > "$packet"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" \
+    send researcher --follow "the research skill" "$packet")"
+  [ "$code" = 0 ] || fail "send from another checkout expected 0, got $code: $(cat "$TMP/err")"
+  started_once
+  [ "$(out_json cwd)" = "$(git -C "$TMP/repo" rev-parse --show-toplevel)" ] \
+    || fail "the researcher did not start in the calling checkout: $(out_json cwd)"
+  rm -f "$MMW_HOME/installed-root"
+}
+
 scenario_sendbrief() {
   local code packet second batch dest copy
   packet="$TMP/packet.txt"
@@ -9009,6 +9077,7 @@ ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryhold
 ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
+ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
