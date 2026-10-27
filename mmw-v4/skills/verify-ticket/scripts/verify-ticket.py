@@ -2244,7 +2244,15 @@ def run_preflight(number: int) -> int:
     run_baseline_if_needed(number, root)
     print(f"READY: #{number} claimed on issue-{number}")
     try:
-        resume = resume_at(fetch_comments(number), git("rev-parse", "HEAD", cwd=root))
+        comments = fetch_comments(number)
+        own_run = newest_run(comments, "self")
+        if own_run is not None and own_run["payload"].get("shape") != shape_digest(
+                section(fetch_body(number), "Acceptance criteria")):
+            resume = None
+            sys.stderr.write(f"#{number}: acceptance criteria were recut since your newest "
+                             f"own run; read the ticket and start from the code step\n")
+        else:
+            resume = resume_at(comments, git("rev-parse", "HEAD", cwd=root))
     except TrackerReadError as exc:
         resume = None
         sys.stderr.write(f"#{number}: could not read where to resume ({exc}); read the "
