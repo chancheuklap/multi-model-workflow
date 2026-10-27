@@ -354,11 +354,10 @@ def _check(event: str, payload: dict) -> str | None:
                 count = payload.get(key)
                 if isinstance(count, bool) or not isinstance(count, int) or count < 0:
                     return f"`{event}` needs a non-negative integer `{key}`"
-            for key in ("recurred_after_wontfix",):
-                numbers = payload.get(key)
-                if not isinstance(numbers, list) or any(
-                        isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in numbers):
-                    return f"`{event}` needs `{key}` as a list of integer issue numbers"
+            numbers = payload.get("recurred_after_wontfix")
+            if not isinstance(numbers, list) or any(
+                    isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in numbers):
+                return f"`{event}` needs `recurred_after_wontfix` as a list of integer issue numbers"
             evidence = payload.get("evidence")
             if evidence not in RETRO_EVIDENCE:
                 return f"`{event}` has evidence `{evidence}`, which is not one of {', '.join(RETRO_EVIDENCE)}"

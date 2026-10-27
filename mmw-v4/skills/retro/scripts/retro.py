@@ -66,7 +66,7 @@ def timestamp(value):
         raise RetroError(f'{value!r} is not an ISO 8601 timestamp; repair its source')
     parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
     if parsed.tzinfo is None:
-        raise RetroError(f'{value!r} needs an ISO 8601 timezone; correct MMW_NOW or the event')
+        raise RetroError(f'{value!r} needs an ISO 8601 timezone; correct the event')
     return parsed
 
 
