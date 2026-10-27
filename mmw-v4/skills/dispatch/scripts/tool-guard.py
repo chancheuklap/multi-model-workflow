@@ -140,13 +140,15 @@ PREFIX_COMMANDS = {
     "nice": ("n", ("--adjustment",)),
 }
 WORD = re.compile(SHELL_WORD)
+SHELLS = ("sh", "bash", "dash", "ksh", "zsh")
 
 
 def strip_heredocs(command: str) -> str:
     result = []
     pending: list[tuple[str, bool]] = []
     quote = None
-    offset = 0
+    arithmetic = 0
+    header_start = offset = 0
     while offset < len(command):
         char = command[offset]
         if char == "\\" and quote != "'":
@@ -157,6 +159,13 @@ def strip_heredocs(command: str) -> str:
             quote = None
         elif quote is None and char in "\"'":
             quote = char
+        elif quote is None and command.startswith("((", offset):
+            arithmetic += 2
+            result.append("((")
+            offset += 2
+            continue
+        elif quote is None and arithmetic and char in "()":
+            arithmetic += 1 if char == "(" else -1
         elif quote is None and char == "#" and (
             offset == 0 or command[offset - 1].isspace() or command[offset - 1] in ";&|()"
         ):
@@ -171,7 +180,7 @@ def strip_heredocs(command: str) -> str:
             result.append("<<<")
             offset += 3
             continue
-        elif quote is None and command.startswith("<<", offset):
+        elif quote is None and not arithmetic and command.startswith("<<", offset):
             marker = re.match(r"<<(-?)[ \t]*(" + SHELL_WORD + ")", command[offset:])
             if marker:
                 pending.append((shlex.split(marker[2])[0], bool(marker[1])))
@@ -181,16 +190,29 @@ def strip_heredocs(command: str) -> str:
         result.append(char)
         offset += 1
         if char == "\n" and quote is None:
+            body_start = offset
+            shell_input = pending and any(
+                words and os.path.basename(words[0]) in SHELLS
+                for piece in pieces(command[header_start:offset - 1])
+                for words in [shell_words(piece)]
+            )
             for delimiter, tabs in pending:
+                terminated = False
                 while offset < len(command):
                     end = command.find("\n", offset)
                     end = len(command) if end == -1 else end
                     line = command[offset:end]
                     offset = min(end + 1, len(command))
                     if (line.lstrip("\t") if tabs else line) == delimiter:
+                        terminated = True
                         break
+                if not terminated:
+                    return command
+            if shell_input:
+                result.append(command[body_start:offset])
             pending.clear()
-    return "".join(result)
+            header_start = offset
+    return command if pending else "".join(result)
 
 
 def strip_command_prefixes(piece: str) -> str:
@@ -276,7 +298,7 @@ def pieces(command: str, strip_prefixes: bool = True) -> list[str]:
                 words = shlex.split(prefix)
             except ValueError:
                 break
-            if words and os.path.basename(words[0]) in ("sh", "bash", "dash", "ksh", "zsh"):
+            if words and os.path.basename(words[0]) in SHELLS:
                 break
             quote = char
         else:

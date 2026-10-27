@@ -729,6 +729,26 @@ class TestBackgroundCommands(unittest.TestCase):
 
 
 class TestQuotedCommands(unittest.TestCase):
+    def test_guard_shell_heredoc_bodies_are_checked_as_code(self):
+        for host in EVENTS:
+            for consumer in ("bash <<EOF", "sh <<EOF", "cat <<EOF | sh",
+                             "env FOO=1 /bin/bash <<EOF"):
+                for body in (f"gh issue close {TICKET}", "kill 1", "rm -rf .",
+                             f"gh pr comment {TICKET} --edit-last"):
+                    for terminator in ("EOF", ""):
+                        command = f"{consumer}\n{body}\n{terminator}"
+                        with self.subTest(host=host, command=command):
+                            self.assertIsNotNone(call(host, with_command(host, command))[1])
+
+    def test_guard_arithmetic_shifts_do_not_hide_later_commands(self):
+        for host in EVENTS:
+            for arithmetic in ("echo $((1<<2))", "echo $((1 << 2))", "((1 << 2))"):
+                for forbidden in (f"gh issue close {TICKET}", "kill 1"):
+                    for tail in ("", "2\n"):
+                        command = f"{arithmetic}\n{forbidden}\n{tail}"
+                        with self.subTest(host=host, command=command):
+                            self.assertIsNotNone(call(host, with_command(host, command))[1])
+
     def test_guard_a_command_after_the_heredoc_is_checked(self):
         for command in (
             f"cat <<EOF\nkill: 'data\nEOF\ngh issue close {TICKET}",
@@ -899,6 +919,8 @@ class BriefWorktreeGuard(unittest.TestCase):
             "pull", "stash", "cherry-pick HEAD", "revert HEAD", "am patch", "tag v1",
             "worktree add ../candidate")]
         commands += [
+            "bash <<EOF\ngit commit -m findings\nEOF",
+            "cat <<EOF | sh\ngit commit -m findings\nEOF",
             "env NOTE=1 git commit -m findings", "sudo -n git commit -m findings",
             "command git commit -m findings", "(git commit -m findings)",
             "! { git commit -m findings; }", ">out git commit -m findings",
