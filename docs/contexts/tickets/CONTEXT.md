@@ -26,6 +26,7 @@ _Home_: `mmw-v4/skills/mmw-mode/references/github-issues.md`
 
 **spec**:
 A container for a batch of tickets, not a piece of work: an issue labelled `mmw:spec`, in the shape of **The spec template** of the `Write a spec` playbook, which writes it and publishes it with `verify-ticket.py --publish --spec-body`. A spec published from a wayfinder map is a native sub-issue of that map.
+_Avoid_: 规格
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **`## Implementation Decisions`**:
@@ -76,6 +77,7 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/write-a-spec.md`
 
 **ticket**:
 An issue that is a native sub-issue of its spec, in the **ticket format** and labelled `mmw:ticket`: one vertical slice a worker takes from claim to close.
+_Avoid_: 工单
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **batch**:
