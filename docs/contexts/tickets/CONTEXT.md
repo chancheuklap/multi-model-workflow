@@ -145,7 +145,7 @@ The shell command that decides a criterion, run in its own shell at the reposito
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`EXPECT:`**:
-The string, or `/…/flags` regex, the `CHECK:` output must contain: a **success-only marker**, the line the precedent prints only when it passed.
+The string, or `/…/flags` regex, the `CHECK:` output must contain: a **success-only marker**, the line the precedent prints only when it passed. For a `CHECK:` stage that runs pytest or Vitest it is that runner's standard pattern, whose one home is the verify-ticket skill's `scripts/runner-summaries.json`.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`EVIDENCE:`**:
