@@ -440,6 +440,39 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1)
 
+    def test_table_a_resumed_turn_starts_its_stuck_clock_anew(self):
+        started = T0 - timedelta(hours=3)
+        repo = self.repository(started)
+        self.board.tickets[61] = [
+            comment(1, "worker.started", 61, started, runner="herdr", session="h1", worktree=str(repo)),
+            comment(2, "worker.resumed", 61, T0, runner="herdr", session="h1")]
+        (self.runners / "h1.state").write_text("working\n")
+        self.send.default = 4
+        for elapsed in (0, 7199):
+            self.clock.moment = T0 + timedelta(seconds=elapsed)
+            self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+            self.watchdog().round()
+            self.assertEqual(self.send.calls, [], "the resumed turn has not reached --stuck")
+        self.clock.moment = T0 + timedelta(seconds=7200)
+        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertIn("stuck", self.send.calls[0][2])
+        self.assertIn(stamp(T0), self.send.calls[0][2])
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.board.tickets[61].append(comment(3, "worker.decided", 61, self.clock()))
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1, "any newest ticket event resets the stuck clock")
+        changed = T0 + timedelta(seconds=7201)
+        os.utime(repo / "work.txt", (changed.timestamp(), changed.timestamp()))
+        for elapsed, expected in ((14400, 1), (14401, 2)):
+            self.clock.moment = T0 + timedelta(seconds=elapsed)
+            self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
+            self.watchdog().round()
+            self.assertEqual(len(self.send.calls), expected, "later worktree activity wins")
+        self.assertIn(stamp(changed), self.send.calls[-1][2])
+
     def test_table_an_unrouted_child_is_reported_again_each_nudge(self):
         self.silent_worker()
         (self.runners / "h1.state").write_text("working\n")

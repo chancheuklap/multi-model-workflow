@@ -56,15 +56,17 @@ watch is open this process writes a last heartbeat saying so and exits.
        dialog<TAB>line   alert with that screen line in this round
        unknown          record unknown and alert, never post a lost event
        stopped          post `<kind>.lost`, or mark a brief lost
-       working          alert once if no worktree activity for `--stuck` seconds (7200)
+       working          alert once if no progress for `--stuck` seconds (7200)
        idle             alert once after `--idle` seconds (3600) without worktree activity,
                         unless another session's result or landing is pending
 
    Worktree activity is the latest commit time or file modification time in the worktree
    named by the session's start event or brief batch record, bounded below by its start
-   time. An idle host with worktree activity within `--idle` is working. Idle and stuck
-   alerts are keyed by session and latest activity, not ticket events. `--silence` is
-   accepted for existing invocations but does not gate this table. A hold with no session
+   time. An idle host with worktree activity within `--idle` is working. Idle alerts use
+   only that activity. Stuck alerts use the later of worktree activity and the ticket's
+   newest event, or the brief's send time. Each alert's key includes its session and its
+   activity reference time, so a new event can start a new stuck interval across restarts.
+   `--silence` is accepted for existing invocations but does not gate this table. A hold with no session
    to ask is unknown, and unreadable events are an alert.
 3. The ticket table is independent of the session table and of holds. A `child.opened`
    without a `child.closed`, or a delivered row still in `queue.jsonl`, means the ticket
@@ -744,7 +746,7 @@ class Watchdog:
 
     def _session_alert(self, record: dict, answer: str, label: str, unknown: dict,
                        findings: list[dict], to: list[tuple[str, str]], waiting: bool,
-                       revision: int | str | None) -> None:
+                       progress: dict) -> None:
         kind, runner, session = record["kind"], record.get("runner"), record.get("session")
         machine = record.get("machine", self.machine)
         if answer == "idle" and not waiting:
@@ -765,7 +767,7 @@ class Watchdog:
             else:
                 why = "has unknown liveness or turn state"
             entry["sessions"].append(details)
-            findings.append({"key": f"unknown:{key}:{revision}",
+            findings.append({"key": f"unknown:{key}:{progress.get('comment')}",
                              "text": f"watchdog: {label} liveness unknown: the {kind} session "
                                      f"{session} on {runner} {why}; inspect that session "
                                      f"through its runner before resuming it",
@@ -782,10 +784,14 @@ class Watchdog:
                                      f"wait on: its {kind} {session} on {runner} is idle; "
                                      f"resume that session through dispatch.sh",
                              "to": to})
-        elif answer == "working" and (self.clock() - activity).total_seconds() >= self.stuck:
+        elif answer == "working":
+            activity = max(activity, parse_iso(progress.get("since")) or activity)
+            if (self.clock() - activity).total_seconds() < self.stuck:
+                return
+            since = iso(activity)
             findings.append({"key": f"stuck:{key}:{since}",
                              "text": f"watchdog: {label} {kind} session {session} on {runner} "
-                                     f"has a stuck turn with no worktree activity since {since}; "
+                                     f"has a stuck turn with no progress since {since}; "
                                      f"inspect its running tool through the runner",
                              "to": to})
 
@@ -818,8 +824,7 @@ class Watchdog:
                                    f"{why}; it is tried again next round\n")
                 continue
             waiting = verdict["passed"] or (kind == "worker" and reviewer_pending)
-            self._session_alert(record, answer, f"#{number}", unknown, findings, to, waiting,
-                                verdict.get("comment"))
+            self._session_alert(record, answer, f"#{number}", unknown, findings, to, waiting, verdict)
 
     def _briefs(self, watches: dict[str, dict], unknown: dict, findings: list[dict]) -> list[str]:
         batches = {entry["briefs"]: entry for entry in watches.values() if entry.get("briefs")}
@@ -840,7 +845,8 @@ class Watchdog:
                     self.err.write(f"watchdog: brief {name} marked lost: {why}\n")
                 continue
             self._session_alert(record, answer, f"brief {name}", unknown, findings,
-                                [relay_mod.main_of(batches[child["batch"]])], False, child.get("at"))
+                                [relay_mod.main_of(batches[child["batch"]])], False,
+                                {"since": child.get("at"), "comment": child.get("at")})
             still.append(name)
         return still
 
