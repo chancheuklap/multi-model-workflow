@@ -29,6 +29,10 @@ A failed base check alone is not a lint error. New behaviour is expected to fail
 
 `dispatch.sh route <ticket> <child> fixed` runs `verify-ticket.py <ticket> --lint` before closing the child or recording its resolution. If lint exits 1 or 2, route passes on its output, exits 2, and closes and records nothing. Correct the ticket and retry the route command.
 
+## Read first sources workers can open
+
+`unreadable-read-first` is an `ERROR` on drafts and published tickets for each line under `## Read first` that links to `claude.ai`, including `/artifact/` and `/code/artifact/` paths. The error names the line and asks the author to copy what the page settles into a file in the repository, commit it, and cite that path. Links to `claude.ai` elsewhere in the ticket do not raise this error.
+
 ## Runner EXPECT standards
 
 `runner-expect` is an `ERROR` on drafts and published tickets when a `CHECK:` stage runs `pytest` or `vitest` as its command but its `EXPECT:` is not that runner's standard. The error names a real summary the pattern rejects on success or accepts on failure, when one exists, and prints the standard to copy. Count-pinned patterns and markers echoed by the command are not substitutes. Commands behind `uv run`, `pnpm`, `npx` and `python -m` count. A runner name used only as an argument, such as `grep -q vitest package.json`, does not. A criterion running both runners gets `runner-expect` and must be split into one criterion per runner.

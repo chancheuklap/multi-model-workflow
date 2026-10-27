@@ -1,0 +1,20 @@
+### Merging the lesson backlog
+
+**You own one batch review of open problem registrations, from the backlog to the owner's decisions recorded on each registration.** Run when the owner asks to merge registrations, including when the owner accepts Retrospective's suggestion. Only the owner or a session the owner has approved runs this playbook. A threshold suggestion is not approval.
+
+`retro.py` below is the installed `retro` skill's `scripts/retro.py`. Use the installed skills, including the `verify-ticket` skill's `scripts/events.py` for event comments. In a self-hosted run, the repository's `AGENTS.md` `## Self-hosting boundary` keeps that runtime frozen. Do not close or merge registrations, or open specs or tickets, until the owner has decided.
+
+1. **Read the backlog.** Run `retro.py backlog <distinct owner/repo>… --out <material directory>` for MMW and the product repositories in scope. Read every registration's `## Problem`, occurrences and all `lesson.assessed` records in `backlog.json`, including its latest `lessons.merged` decision. Choose one batch identifier and preserve it with the material.
+   Done when every open registration in scope has been read and the batch identifier is recorded.
+2. **Check what still holds.** Compare each problem with the current code in the repository responsible for it. Record the evidence for whether the problem remains. Put fixed or no-longer-applicable problems in the group recommended for closure.
+   Done when each registration has a current-code judgement and supporting evidence.
+3. **Group by root cause.** Group registrations that share a root cause. Write one recommendation per group, with a reason. Recommend closure, merging into a named registration, a spec, or one ticket; keep a registration open when the evidence does not yet justify action. Choose the final destination for each merge, rather than a chain of registrations being closed in the same batch.
+   Done when every registration belongs to a group with a recommendation.
+4. **Get the owner's decisions.** Use the **diagram-design** skill to draw one page with the root-cause groups, evidence, and recommendation for each group. Show the page to the owner for one batch decision. Record what the owner decides for each registration, including any registration kept open. Wait for the owner's decisions before the next step.
+   Done when the owner has decided the batch and the decisions are preserved beside the material.
+5. **Apply the approved decisions.** Write the approved closures, merges, and keeps into the `merge-apply` decisions JSON described in the retro skill's `## Commands`. Use the recorded batch identifier. Run `retro.py merge-apply <decisions file>`. On an incomplete write, inspect the named failure and rerun the same file. For an approved spec, follow **To spec**. For an approved ticket, follow the playbook that delivers that work. Preserve each created issue's repository and number with the batch material.
+   Done when the approved closures, merges, and keeps have been applied, and every approved spec or ticket has been published.
+6. **Record every outcome.** Check that every registration handled by `merge-apply` has its `lessons.merged` event for this batch. For registrations resulting in a spec or ticket, use `events.py emit lessons.merged --line <decision and reason> --field decision=spec:<number> --field batch=<batch>` or `decision=ticket:<number>`, then post that body on the registration with `gh issue comment --repo <owner/repo> <number> --body-file <file>`. Include the created issue's full link in the prose. Read the registration first and skip an event already recorded for this batch. `lessons.merged` marks each registration's next assessment-count starting point.
+   Done when every reviewed registration has one recorded decision for this batch, with links to any resulting work.
+
+**Reply:** link the decision page and batch material. Summarize closures, merges, keeps, and created specs or tickets, with any incomplete action and its cause. Say what remains open.

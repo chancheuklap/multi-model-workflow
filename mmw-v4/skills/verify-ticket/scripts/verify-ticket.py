@@ -25,8 +25,9 @@ import importlib.util
 import json
 import os
 import re
-import shutil
 import shlex
+import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -440,20 +441,27 @@ def fetch_outsider(number: int) -> dict:
 
 
 def section(body: str, heading: str) -> list[str]:
-    """The lines under `## <heading>`, up to the next `## ` heading."""
-    lines = body.splitlines()
-    start = None
-    for i, line in enumerate(lines):
-        if line.strip() == f"## {heading}":
-            start = i + 1
-            break
-    if start is None:
-        return []
+    active = False
+    fence = None
     out = []
-    for line in lines[start:]:
-        if line.startswith("## "):
+    for line in body.splitlines():
+        if fence is not None:
+            if active:
+                out.append(line)
+            close = FENCE_CLOSE_RE.match(line)
+            if close and close.group(1)[0] == fence[0] and len(close.group(1)) >= fence[1]:
+                fence = None
+            continue
+        opened = FENCE_OPEN_RE.match(line)
+        if opened and not (opened.group(2)[0] == "`" and "`" in opened.group(3)):
+            fence = (opened.group(2)[0], len(opened.group(2)))
+        elif active and line.startswith("## "):
             break
-        out.append(line)
+        elif not active and line.rstrip() == f"## {heading}":
+            active = True
+            continue
+        if active:
+            out.append(line)
     while out and not out[0].strip():
         out.pop(0)
     while out and not out[-1].strip():
@@ -956,6 +964,11 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         if reverify.get("commit") != git("rev-parse", "HEAD"):
             problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
+        elif ((root := repo_root()) is not None and not repository_check_missing(root)
+              and not repository_passed(comments, git("rev-parse", "HEAD"))):
+            problems.append("the ticket carries no green repository check of HEAD. Commit "
+                            "everything, run `--reverify --actor worker`, and fix what the "
+                            "repository check reports")
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
         # then what stands is a verification of something else, and the final run runs again.
@@ -1330,15 +1343,12 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
 
 
 def require_in_ticket(review: str, comment: int | str | None, number: int) -> None:
-    """Refuse a review report that carries no `## In-ticket` heading: the reviewer posts
-    one whatever it found, `None` included, so a report without one stopped before any
-    axis ran (a commit that does not resolve, an empty diff) and reviewed nothing."""
-    if any(line.strip() == "## In-ticket" for line in review.splitlines()):
+    if section(review, "In-ticket"):
         return
     first = review.splitlines()[0] if review else "(empty)"
     raise ValueError(
-        f"the newest review report (comment {comment}, `{first[:80]}`) has no ## In-ticket "
-        f"section, so nothing reviewed this ticket and it cannot close as reviewed; open a "
+        f"the newest review report (comment {comment}, `{first[:80]}`) has no readable ## In-ticket "
+        f"content, so it cannot close as reviewed; open a "
         f"fault child with `verify-ticket.py {number} --sub-issue fault <file>`, its body "
         f"the report, and stop")
 
@@ -1926,7 +1936,62 @@ def _run_checks(number: int, reverify: bool,
         recorded = False
     else:
         recorded = True
-    return result.returncode if recorded else NOT_RECORDED
+    code = result.returncode if recorded else NOT_RECORDED
+    if worker and code in (0, 1) and worker_repository_check(number, root, into, comments) == 1:
+        code = 1
+    return code
+
+
+def worker_repository_check(number: int, root: Path, into: str | None,
+                            comments: list) -> int:
+    """Run the repository's default tier on the worker's tree, against the base branch it
+    integrated, and record a green run on the ticket as `ticket.checked` run `repository`.
+    This is the run land reuses when the base branch has not moved since. 0 green, or
+    already proven by a record of this exact tree and base; 1 red; 2 not proven (this
+    machine cannot run it, or the tree has files no commit holds)."""
+    if not into or repository_check_missing(root):
+        return 0
+    base_ref = f"origin/{into}"
+    identity = tree_identity(root, base_ref)
+    if identity and covering_proof(comments, "ticket.checked", *identity):
+        print(f"#{number}: the repository check is not run again: {identity[0][:12]} "
+              f"against {identity[1][:12]} already passed on this machine.")
+        return 0
+    checked = run_repository_check(root, base_ref, root, number)
+    if checked["status"] == "red":
+        print(f"#{number}: the repository check is red.\n{checked['detail']}")
+        return 1
+    if checked["status"] != "pass":
+        print(f"#{number}: the repository check proved nothing: {checked['detail']}")
+        return 2
+    proof = checked["proof"]
+    if proof is None:
+        print(f"#{number}: the repository check is green, but the tree had uncommitted or "
+              "untracked files, so it proves no commit. Commit them and run again.")
+        return 2
+    try:
+        post_event(number, "ticket.checked",
+                   f"Repository check on {proof['commit'][:12]} against "
+                   f"{proof['base'][:12]}: green, {len(proof['steps'])} steps",
+                   run="repository", result="met", actor="worker",
+                   stage=events.checked_stage("repository", "worker"), **proof)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        sys.stderr.write(f"#{number}: the repository check is green on "
+                         f"{proof['commit'][:12]}, but its ticket.checked event could not "
+                         f"be written ({exc}). Run again once the tracker takes comments.\n")
+        return 2
+    return 0
+
+
+def repository_passed(comments: list, commit: str) -> bool:
+    """Whether a green repository check of `commit` is recorded on the ticket."""
+    for comment in events.normalise(comments):
+        what, payload = events.parse(comment["body"])
+        if (what == "event" and payload["event"] == "ticket.checked"
+                and payload.get("run") == "repository" and payload.get("result") == "met"
+                and payload.get("commit") == commit):
+            return True
+    return False
 
 
 # The exit of a run whose criteria ran and whose result could not be written on the
@@ -2374,6 +2439,7 @@ FAILURE_LINES = HERE / "gate-check" / "lib" / "failure-lines.mjs"
 # lands. It exits 0 green, 1 red, 2 when this machine cannot run it.
 REPOSITORY_CHECK = Path("scripts") / "check"
 FAIL_STEP_RE = re.compile(r"^FAIL\s+(\S+)", re.M)
+PASS_STEP_RE = re.compile(r"^PASS\s+(\S+)", re.M)
 
 
 def repository_check_missing(root: Path) -> str | None:
@@ -2588,20 +2654,23 @@ def checks_bounce_prose(rows: list | None, prefix_len: int = 0) -> dict:
     return {"summary": summary, "rest": rest, "commands": commands}
 
 
-def _run(path: Path, root: Path, env: dict) -> tuple[int, str]:
+def _run(path: Path, root: Path, env: dict, *args: str) -> tuple[int, str]:
     """`(exit code, combined output)` of one run, however long it takes: no time limit
     turns a slow test into a failure."""
-    proc = subprocess.run([str(path)], cwd=root, env=env, stdout=subprocess.PIPE,
+    proc = subprocess.run([str(path), *args], cwd=root, env=env, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, text=True, errors="replace")
     return proc.returncode, proc.stdout or ""
 
 
 def run_repository_check(root: Path | str, base_ref: str,
                          worktree: Path | str | None = None,
-                         ticket: str | int | None = None) -> dict:
-    """Run the default tier of `scripts/check` at `root` with `MMW_BASE_REF=base_ref`.
+                         ticket: str | int | None = None, tier: str = "default") -> dict:
+    """Run one tier of `scripts/check` at `root` with `MMW_BASE_REF=base_ref`: the
+    default tier, or `--all` when `tier` is `all`.
 
-    Returns `{"status", "failed", "detail"}`. `status` is `pass` (exit 0), `red` (exit 1), `cannot-run`
+    Returns `{"status", "failed", "detail", "proof"}`. `proof` is what a green run proved,
+    the fields of its record (`proof_fields`), or None: a run on a tree with uncommitted
+    or untracked files proved nothing about any commit. `status` is `pass` (exit 0), `red` (exit 1), `cannot-run`
     (exit 2, any other exit, or the script would not start: this machine cannot run
     it, which says nothing about the tree) or `missing` (no executable `scripts/check`).
     `failed` is one row for a red run: `command`, `tail` (the excerpt), `exit`, `steps`
@@ -2612,17 +2681,21 @@ def run_repository_check(root: Path | str, base_ref: str,
     root = Path(root)
     missing = repository_check_missing(root)
     if missing:
-        return {"status": "missing", "failed": [], "detail": missing}
+        return {"status": "missing", "failed": [], "detail": missing, "proof": None}
     path = root / REPOSITORY_CHECK
     env = os.environ.copy()
     env["MMW_BASE_REF"] = base_ref
+    before = tree_identity(root, base_ref)
     try:
-        code, output = _run(path, root, env)
+        code, output = _run(path, root, env, *(["--all"] if tier == "all" else []))
     except OSError as exc:
         return {"status": "cannot-run", "failed": [],
-                "detail": f"{path} could not be started: {exc}"}
+                "detail": f"{path} could not be started: {exc}", "proof": None}
     if code == 0:
-        return {"status": "pass", "failed": [], "detail": ""}
+        proof = None
+        if before is not None and tree_identity(root, base_ref) == before:
+            proof = proof_fields(tier, *before, PASS_STEP_RE.findall(output))
+        return {"status": "pass", "failed": [], "detail": "", "proof": proof}
     log = _write_check_log(worktree, ticket, 1, output, [False])
     excerpt = _cap_excerpt(_checks_excerpt(output))
     where = f"; full output in {Path(worktree) / log}" if log else ""
@@ -2630,12 +2703,56 @@ def run_repository_check(root: Path | str, base_ref: str,
         row = _failed_row(str(REPOSITORY_CHECK), excerpt, code, log)
         row["steps"] = FAIL_STEP_RE.findall(output)
         heading = _check_heading(row)
-        return {"status": "red", "failed": [row],
+        return {"status": "red", "failed": [row], "proof": None,
                 "detail": f"{heading} in {root}{where}:\n{excerpt}".rstrip()}
     what = ("exited 2: this machine cannot run it" if code == 2 else
             f"exited {code}, which is none of 0 (green), 1 (red) and 2 (cannot run)")
-    return {"status": "cannot-run", "failed": [],
+    return {"status": "cannot-run", "failed": [], "proof": None,
             "detail": f"{path} {what}{where}:\n{excerpt}".rstrip()}
+
+
+def tree_identity(root: Path, base_ref: str) -> tuple[str, str] | None:
+    """`(commit, base commit)` of a clean checkout at `root`, or None: a checkout with
+    uncommitted or untracked files is a tree no commit names, and an unreadable ref
+    names nothing."""
+    try:
+        status = subprocess.run(["git", "status", "--porcelain"], cwd=root,
+                                capture_output=True, text=True, check=True).stdout
+        head = git("rev-parse", "HEAD", cwd=root)
+        base = git("rev-parse", "--verify", f"{base_ref}^{{commit}}", cwd=root)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    if status.strip() or not all(re.fullmatch(r"[0-9a-f]{40}", v or "") for v in (head, base)):
+        return None
+    return head, base
+
+
+def proof_fields(tier: str, commit: str, base: str, steps: list[str]) -> dict:
+    """The record of one green run: which tree, compared with which base, which tier, on
+    which machine, and the steps it ran. A record proves only what that exact run saw."""
+    return {"tier": tier, "commit": commit, "base": base,
+            "machine": socket.gethostname(), "steps": steps}
+
+
+def covering_proof(comments: list, event: str, commit: str, base: str) -> dict | None:
+    """The newest green record among `comments` that proves the default tier of `commit`
+    against `base` on this machine: a default-tier record of that exact commit and base,
+    or an `all` record of that commit with any base, since `--all` runs everything any
+    selection can. None when no record covers it; the step then runs."""
+    machine = socket.gethostname()
+    found = None
+    for comment in events.normalise(comments):
+        what, payload = events.parse(comment["body"])
+        if what != "event" or payload["event"] != event:
+            continue
+        if event == "ticket.checked" and payload.get("run") != "repository":
+            continue
+        if (payload.get("result") == "met" and payload.get("commit") == commit
+                and payload.get("machine") == machine
+                and (payload.get("tier") == "all"
+                     or (payload.get("tier") == "default" and payload.get("base") == base))):
+            found = payload
+    return found
 
 
 def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
@@ -3290,6 +3407,12 @@ def lint_criteria(number: int, body: str, labels: list[str],
         if spec is not None:
             for finding in parent_order_findings(body, spec):
                 say("error", f"{who} " + finding, "parent-order")
+
+    for line in section(body, "Read first"):
+        if re.search(r"(?<![\w.-])(?:www\.)?claude\.ai(?![\w-]|\.[\w-])", line, re.I):
+            say("error", f"{who} ## Read first line `{line}` links to claude.ai; "
+                "copy what the page settles into a file in the repository, commit it, "
+                "and cite that path", "unreadable-read-first")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and

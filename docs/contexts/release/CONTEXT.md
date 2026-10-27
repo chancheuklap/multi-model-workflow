@@ -49,7 +49,7 @@ What `close` leaves once a product's release loop ships: the product's name, the
 _Home_: `mmw-v3/skills/exe-release/scripts/release-flow.sh`
 
 **same-commit check**:
-`release-flow.sh same-commit <product>...`, run once every product on a run's list has shipped: it prints `OK <product>` when that product's delivery record matches the current HEAD and `MISMATCH <product> <commit>` when it does not, so a shipped set is never a mix of commits.
+`release-flow.sh same-commit [--scope <package scope file>] <product>...`, run once every product on a run's list has shipped. Without `--scope` it prints `OK <product>` when that product's delivery record matches the current HEAD and `MISMATCH <product> <commit>` when it does not. With `--scope` an older delivery is also `OK <product> (inputs unchanged since <commit>)` when no path changed since that commit belongs to that product or to every product; a changed input of its own or a shared one, a path the file classifies nowhere, a product the file does not list, a missing record or an unreadable commit is a `MISMATCH`, and the line names the path or the reason. Either way a shipped set is never a mix of packaging inputs.
 _Home_: `mmw-v3/skills/exe-release/SKILL.md`, `mmw-v3/skills/exe-release/scripts/release-flow.sh`
 
 **release receipt**:
