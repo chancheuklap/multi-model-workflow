@@ -340,14 +340,17 @@ class TheVocabulary(unittest.TestCase):
                           {'repo': 'r', 'number': 90, 'conclusion': 'candidate'},
                           {'repo': 'o/r', 'number': True, 'conclusion': 'candidate'},
                           {'repo': 'o/r', 'number': 90, 'conclusion': 'unknown'},
-                          {'repo': 'o/r', 'number': 90, 'conclusion': 'merge:missing'},
+                          {'repo': 'o/r', 'number': 90, 'conclusion': 'merge:'},
+                          {'conclusion': 'unrecorded', 'code': '#91'},
+                          {'conclusion': 'unrecorded', 'code': '', 'reason': 'unknown'},
                           'candidate'):
                 with self.subTest(name=name, entry=entry):
                     with self.assertRaises(events.EventError) as caught:
                         events.build(name, line='Retro', problems=[entry], **context, **full)
                     self.assertIn('problems[0]', str(caught.exception))
             problems = [dict(repo='o/r', number=90, conclusion=c) for c in
-                        ('candidate', 'propose', 'reject', 'registered', 'merge:o/r#91')]
+                        ('candidate', 'propose', 'reject', 'registered', 'merge:o/r#91', 'merge:missing')]
+            problems.append(dict(conclusion='unrecorded', code='signal URL', reason='not a registration'))
             body = events.build(name, line='Retro', problems=problems, **context, **full)
             self.assertEqual(events.parse(body)[1]['problems'], problems)
             legacy = events.build(name, line='Retro', **context, **full)

@@ -406,8 +406,8 @@ _Avoid_: blocking event
 _Home_: `mmw-v4/skills/register-problem/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py`
 
 **proposal**:
-The analyst's conclusion `propose` on a registration, with its responsible repository, addition or deletion, target file, and landing playbook, recorded as a `lesson.assessed` row. Whether it qualifies (two independent occurrences, or one stall or owner's correction) is recorded beside it for reference; it changes nothing on the registration and authorizes no implementation.
-_Home_: `mmw-v4/skills/retro/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py` (`proposal`, `qualifies`)
+The analyst's conclusion `propose` on a registration, its plan recorded verbatim in a `lesson.assessed` row; `apply` asks the plan for no particular shape. Whether it qualifies (two independent occurrences, or one stall or owner's correction) is recorded beside it for reference; it changes nothing on the registration and authorizes no implementation.
+_Home_: `mmw-v4/skills/retro/SKILL.md`, `mmw-v4/skills/retro/scripts/retro.py` (`qualifies`)
 
 **apply**:
 The retrospective's command that validates answer rows and evidence, records each accepted row as one `lesson.assessed` on the registration it names (a rerun of the same request records nothing twice), registers new signal-derived problems, and records the **retrospective receipt**. It closes, reopens, merges, relabels, edits or transfers no registration.
@@ -426,5 +426,5 @@ The event recording the owner's decision on one registration in a **backlog revi
 _Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`, `mmw-v4/skills/retro/scripts/retro.py` (`merge-apply`)
 
 **retrospective receipt**:
-The `spec.retroed` or `ticket.retroed` event recording how many rows were recorded under each conclusion, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each row's registration and conclusion. An unrecorded outcome carries only its reason.
+The `spec.retroed` or `ticket.retroed` event recording how many rows were recorded under each conclusion, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each row's registration and conclusion; a row whose code names no registration is listed there with conclusion `unrecorded`, its code as written and the reason, while the receipt itself stays `result=recorded`. A receipt with `result=unrecorded` means the whole retrospective failed to record and carries only its reason.
 _Home_: `mmw-v4/skills/verify-ticket/scripts/events.py`
