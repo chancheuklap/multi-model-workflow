@@ -966,7 +966,7 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
             problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
         elif ((root := repo_root()) is not None and not repository_check_missing(root)
-              and not repository_passed(comments, git("rev-parse", "HEAD"))):
+              and not repository_allows_closeout(comments, git("rev-parse", "HEAD"))):
             problems.append("the ticket carries no green repository check of HEAD. Commit "
                             "everything, run `--reverify --actor worker`, and fix what the "
                             "repository check reports. For a `base_red` record, open a "
@@ -1994,12 +1994,6 @@ def _run_checks(number: int, reverify: bool,
 
 def worker_repository_check(number: int, root: Path, into: str | None,
                             comments: list) -> int:
-    """Run the repository's default tier on the worker's tree, against the base branch it
-    integrated, and record an acceptable run as `ticket.checked` run `repository`.
-    A run red only on steps red on the base too carries `base_red` and needs a finding
-    before closeout; landing cannot reuse it as green proof. 0 green or base-red-only,
-    or already proven by a record of this exact tree and base; 1 red; 2 not proven (this
-    machine cannot run it, or the tree has files no commit holds)."""
     if not into or repository_check_missing(root):
         return 0
     base_ref = f"origin/{into}"
@@ -2044,7 +2038,6 @@ def worker_repository_check(number: int, root: Path, into: str | None,
 
 
 def base_repository_steps_red(root: Path, base_ref: str, base: str, steps: list[str]) -> bool:
-    """Whether every named step explicitly fails in a detached checkout of `base`."""
     with tempfile.TemporaryDirectory(prefix="mmw-worker-base-") as tmp:
         checkout = Path(tmp) / "base"
         added = subprocess.run(["git", "worktree", "add", "--detach", str(checkout), base],
@@ -2070,11 +2063,7 @@ def base_repository_steps_red(root: Path, base_ref: str, base: str, steps: list[
         return red
 
 
-def repository_passed(comments: list, commit: str) -> bool:
-    """Whether the latest repository record of `commit` permits closeout.
-
-    An inherited failure needs a finding opened after that repository record.
-    """
+def repository_allows_closeout(comments: list, commit: str) -> bool:
     repository = None
     last_finding = -1
     for position, comment in enumerate(events.normalise(comments)):
@@ -2814,8 +2803,6 @@ def tree_identity(root: Path, base_ref: str) -> tuple[str, str] | None:
 
 
 def proof_fields(tier: str, commit: str, base: str, steps: list[str]) -> dict:
-    """The identity of one run: which tree, compared with which base, which tier, on
-    which machine, and the steps it ran. A record proves only what that exact run saw."""
     return {"tier": tier, "commit": commit, "base": base,
             "machine": socket.gethostname(), "steps": steps}
 
