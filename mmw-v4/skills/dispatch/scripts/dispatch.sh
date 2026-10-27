@@ -3574,11 +3574,13 @@ try:
             finally:
                 subprocess.run(["git", "reset", "--hard", commit], cwd=root,
                                capture_output=True, text=True, check=True)
+            if any(r["exitCode"] in (126, 127) for r in base_rows):
+                raise ValueError(f"#{number}: a selected CHECK could not start on the base")
             unavailable = {r["id"] for r in rows if r["exitCode"] in (126, 127)}
-            if any(r["id"] in unavailable and r["exitCode"] in (126, 127) for r in base_rows):
-                raise ValueError(f"#{number}: a selected CHECK could not start on the base either")
-            broken += [{"ticket": number, "ac": r["id"]} for r in base_rows if r["ok"]]
-            base_red += [{"ticket": number, "ac": r["id"]} for r in base_rows if not r["ok"]]
+            broken += [{"ticket": number, "ac": r["id"]} for r in base_rows
+                       if r["ok"] or r["id"] in unavailable]
+            base_red += [{"ticket": number, "ac": r["id"]} for r in base_rows
+                         if not r["ok"] and r["id"] not in unavailable]
     print(count)
     print(json.dumps(broken, separators=(",", ":")))
     print(json.dumps(base_red, separators=(",", ":")))

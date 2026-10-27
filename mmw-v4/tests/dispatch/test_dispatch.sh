@@ -8333,7 +8333,7 @@ scenario_advancelandedgreenonbasebounces() {
 }
 
 scenario_advancemovedlandedscript() {
-  setup_landed_criterion_change
+  setup_landed_criterion_change "${2:-}"
   git -C "$(wt 62)" checkout -q origin/main -- tests/named.sh
   if [ "${1:-}" = delete ]; then
     git -C "$(wt 62)" rm -q -f tests/named.sh
@@ -8354,6 +8354,13 @@ scenario_advancemovedlandedscript() {
 
 scenario_advancedeletedlandedscript() {
   scenario_advancemovedlandedscript delete
+}
+
+scenario_advancebaseredscriptremoved() {
+  local mode
+  for mode in move delete; do
+    scenario_advancemovedlandedscript "$mode" base-red
+  done
 }
 
 scenario_advancebrokenfields() {
@@ -8503,6 +8510,26 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
   [ "$code" = 2 ] || fail "a closed night should exit 2"
   grep -q 'not open' "$TMP/err" || fail "the closed night was not explained"
+}
+
+scenario_recheckbasecannotstart() {
+  setup_landed_criterion_change
+  commit_file "$(wt 62)" criterion-runner ready candidate-runner
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+rows = json.loads(p.read_text())
+rows[0]["body"] = rows[0]["body"].replace(
+    'bash tests/named.sh original',
+    'if [ -e criterion-runner ]; then bash tests/named.sh original; else no-such-criterion-runner tests/named.sh; fi')
+p.write_text(json.dumps(rows))
+PY
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" recheck 76 issue-62)"
+  [ "$code" = 2 ] || fail "a CHECK that cannot start on the base is not a comparable failure: $(cat "$TMP/out")"
+  grep -q 'could not start on the base' "$TMP/err" || fail "recheck did not explain why it could not compare the base"
+  [ "$(git -C "$TMP/repo/.worktrees/merge-main" rev-parse HEAD)" = "$(git -C "$TMP/repo" rev-parse issue-62)" ] || fail "the candidate was not restored after the base refusal"
 }
 
 scenario_advancebouncedchecks() {
@@ -9950,6 +9977,7 @@ ALL="$ALL advancegateafterproof recheckcannotrun"
 ALL="$ALL advancemovedlandedscript"
 ALL="$ALL advancedeletedlandedscript"
 ALL="$ALL advancelandedredonbaselands advancelandedgreenonbasebounces recheckbaseredcriterion"
+ALL="$ALL advancebaseredscriptremoved recheckbasecannotstart"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;
