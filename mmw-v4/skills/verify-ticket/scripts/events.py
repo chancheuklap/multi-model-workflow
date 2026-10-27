@@ -100,7 +100,7 @@ CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
 CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
                 "baseline": "claim", "repository": "close"}
-BOUNCE_REASONS = ("conflict", "checks")
+BOUNCE_REASONS = ("conflict", "checks", "breaks-landed-criterion")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
 RETRO_EVIDENCE = ("complete", "partial")
@@ -294,6 +294,11 @@ def _check(event: str, payload: dict) -> str | None:
             missing = [key for key in group if key not in given]
             return (f"`{event}` names {', '.join(given)} without {', '.join(missing)}; "
                     f"they are one thing and come together")
+    if event == "ticket.checked" and "base_red" in payload:
+        steps = payload["base_red"]
+        if not isinstance(steps, list) or any(
+                not isinstance(step, str) or not re.fullmatch(r"\S+", step) for step in steps):
+            return "`ticket.checked` needs `base_red` as a list of step names"
     if event == "child.closed":
         resolution = payload.get("resolution")
         reason = payload.get("reason")
