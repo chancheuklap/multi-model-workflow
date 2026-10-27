@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
-# Orca adapter: the runner adapter's three core verbs (`start`, `send`, `liveness`), `stop`, and `self`.
+# Orca adapter: the runner adapter's `start`, `send`, `liveness`, `state`, `stop`, and `self` verbs.
 #
 #   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT
 #   runners/orca.sh send <session-id> <text>
 #   runners/orca.sh liveness <session-id>
+#   runners/orca.sh state <session-id>
 #   runners/orca.sh stop <session-id>
 #   runners/orca.sh self
 #   runners/orca.sh attach --cwd DIR [--issue N] [--under-caller]
@@ -32,7 +33,10 @@
 # host the terminal's own process, so the terminal ends when the host does: that is how
 # start sees a host that quit, and how `liveness` answers `stopped` for one.
 # After the create, start waits up to 3 s for the terminal to exit. A wait that times out
-# is a host that is running, and the handle is printed. An exit in that time (satisfied,
+# is a host that is running. Before printing its handle, start reads the screen once.
+# A line containing a substring from dialogs.txt refuses the start, closes the terminal,
+# and prints that line followed by instructions to trust the directory once.
+# An exit in that time (satisfied,
 # status `exited`, or the handle stale or not writable) is a host that quit at once: the
 # refusal carries the terminal's last lines (`terminal read`, `result.terminal.tail`),
 # which Orca 1.4.199 has already emptied once the terminal exited, so it also gives the
@@ -64,6 +68,10 @@
 # identity, send types as usual. Orca 1.4.227 reports identities
 # for its watched agents but none for a plain shell; tui-idle timeouts alone cannot
 # distinguish the two (checked 2026-10-19).
+# state prints working, idle, dialog<TAB>screen-line, stopped, or unknown. It reads
+# terminal wait --for tui-idle and terminal read with the same dialogs.txt as start.
+# A terminal without an agent identity cannot prove a turn state. Unreadable answers
+# produce unknown rather than a guessed state.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout. A running process
 # and an idle UI are two fields; idle is not what this verb answers.
 # stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
@@ -109,6 +117,7 @@ usage() {
   echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT" >&2
   echo "       runners/orca.sh send <session-id> <text>" >&2
   echo "       runners/orca.sh liveness <session-id>" >&2
+  echo "       runners/orca.sh state <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
   echo "       runners/orca.sh self" >&2
   echo "       runners/orca.sh attach --cwd DIR [--issue N] [--under-caller]" >&2
@@ -349,6 +358,39 @@ except Exception:
 '
 }
 
+screen_dialog() {
+  local json
+  json="$(orca_ terminal read --terminal "$1" --json 2>/dev/null)" || return 2
+  printf '%s' "$json" | python3 -c '
+import json, sys
+from pathlib import Path
+try:
+    patterns = Path(sys.argv[1]).read_text().splitlines()
+    lines = json.load(sys.stdin)["result"]["terminal"]["tail"]
+    if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines):
+        sys.exit(2)
+    for line in lines:
+        if any(pattern and pattern in line for pattern in patterns):
+            print(line)
+            break
+except Exception:
+    sys.exit(2)
+' "$HERE/dialogs.txt"
+}
+
+refuse_dialog() {
+  local handle="$1" cwd="$2" dialog
+  dialog="$(screen_dialog "$handle")" || {
+    echo "runners/orca.sh: could not inspect terminal $handle for dialogs using $HERE/dialogs.txt; the session is running, inspect its screen manually" >&2
+    return 0
+  }
+  [ -n "$dialog" ] || return 0
+  orca_ terminal close --terminal "$handle" --json >/dev/null 2>&1 || true
+  printf '%s\n' "$dialog" >&2
+  printf 'Start the host manually in %s and confirm trust once, then retry dispatch.\n' "$cwd" >&2
+  exit 1
+}
+
 start() {
   local host="" model="" effort="" cwd="" prompt="" title=""
   local -a environment=()
@@ -433,6 +475,7 @@ except Exception:
   satisfied="${rest%%	*}"
   status="$(printf '%s' "${rest#*	}" | tr '[:upper:]' '[:lower:]')"
   if [ "$code" = timeout ]; then
+    refuse_dialog "$handle" "$abs"
     printf '%s\n' "$handle"
     exit 0
   fi
@@ -451,6 +494,7 @@ except Exception:
   local answer
   answer="$(bash "$0" liveness "$handle" 2>/dev/null)" || answer=""
   if [ "$answer" = alive ]; then
+    refuse_dialog "$handle" "$abs"
     printf '%s\n' "$handle"
     exit 0
   fi
@@ -535,6 +579,48 @@ send() {
   echo "runners/orca.sh: terminal send to $ident answered with no stage this can read; the text may be in the terminal: $warning" >&2
   printf '%s\n' unknown
   exit 4
+}
+
+state() {
+  local ident="${1:-}" identity rc out info code rest status turn dialog
+  [ -n "$ident" ] || usage
+  identity="$(list_row "$ident")"
+  rc=$?
+  case "$rc" in
+    1) printf '%s\n' stopped; return ;;
+    2) printf '%s\n' unknown; return ;;
+  esac
+  out="$(orca_ terminal wait --terminal "$ident" --for tui-idle \
+         --timeout-ms "$LIVENESS_WAIT_MS" --json 2>&1)" || true
+  info="$(printf '%s' "$out" | parse_json wait)" || info=""
+  code="${info%%$'\t'*}"
+  rest="${info#*$'\t'}"
+  status="${rest#*$'\t'}"
+  case "$code" in
+    terminal_handle_stale|terminal_not_writable) printf '%s\n' stopped; return ;;
+  esac
+  if [ "$status" = exited ]; then
+    printf '%s\n' stopped
+    return
+  fi
+  dialog="$(screen_dialog "$ident")" || {
+    printf '%s\n' unknown
+    return
+  }
+  if [ -n "$dialog" ]; then
+    printf 'dialog\t%s\n' "$dialog"
+    return
+  fi
+  if [ -z "$identity" ]; then
+    printf '%s\n' unknown
+    return
+  fi
+  turn="$(printf '%s' "$out" | parse_json idle)" || turn=unknown
+  case "$turn" in
+    busy) printf '%s\n' working ;;
+    idle) printf '%s\n' idle ;;
+    *) printf '%s\n' unknown ;;
+  esac
 }
 
 liveness() {
@@ -633,6 +719,7 @@ case "$verb" in
   start) start "$@" ;;
   send) send "$@" ;;
   liveness) liveness "$@" ;;
+  state) state "$@" ;;
   stop) stop "$@" ;;
   self) self_ ;;
   attach) attach "$@" ;;
