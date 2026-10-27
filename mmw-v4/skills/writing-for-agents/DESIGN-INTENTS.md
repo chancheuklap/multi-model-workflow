@@ -74,7 +74,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 29. **Proof happens on the real product, from every entry of the feature.**
     Home: `principle-prove-it-works`; the `control-cli` and `control-ui` skills; the `create-verification-skill` skill.
 30. **The writer is not the judge, and a conclusion is judged once.**
-    Home: **Work a ticket**; the `code-review` skill; **One ticket**; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Editing`.
+    Home: **Work a ticket**; the `code-review` skill; **One ticket**; **Authoring or modifying a skill**'s **Prove it, once**; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Editing`.
 31. **Start from what exists, then decide whether to write;** less code, deep modules, delete before changing, no defence for what has not happened; the weight of the process follows the size of the task.
     Home: `principle-start-from-what-exists`; `principle-laziness-protocol`; the `codebase-design` skill; **Feature**; **Improve the architecture** (M4's survey for deepening).
 
@@ -134,7 +134,7 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P38 (the rest) | The user selects the mode from the menu before each message, relying on the host to attach the skill | The mode's own description asks for the read, on every host (5, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
 | M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
-| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket: the session writes the plan, the owner says go, a worker writes the change (1, 23, 30); direct-commit exceptions are listed only in the `mmw-mode` skill's `references/owning-a-task.md` `## Playbooks` |
+| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket and the owner's go: a worker writes code and scripts; skill text one ticket carries is written by the Authoring session and judged by a fresh agent's walk, not a reviewer (1, 18, 23, 30); direct-commit exceptions are listed only in the `mmw-mode` skill's `references/owning-a-task.md` `## Playbooks` |
 | M17 (the rest) | The person confirms the seams | A seam is an engineering decision (3, 21) |
 | M21 | No runtime; the person triggers every step | Mechanical rules are enforced by scripts, and the night is driven by the machine (36) |
 | M22 | Very short skills that leave the how to the model | Copied skills keep upstream's text; a playbook must finish at night with nobody to ask, so each step states its criterion (22, 17) |
