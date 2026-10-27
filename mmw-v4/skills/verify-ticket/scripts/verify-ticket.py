@@ -434,7 +434,6 @@ def fetch_outsider(number: int) -> dict:
 
 
 def section(body: str, heading: str) -> list[str]:
-    """Lines under an unfenced `## <heading>`, up to the next unfenced heading."""
     active = False
     fence = None
     out = []
