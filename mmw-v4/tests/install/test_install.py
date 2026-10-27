@@ -141,6 +141,44 @@ class InstallTest(unittest.TestCase):
     def link(self, name, where=".agents/skills"):
         return os.readlink(self.home / where / name)
 
+    def test_session_start_is_merged_trusted_and_checked(self):
+        other = {"matcher": "startup", "hooks": [
+            {"type": "command", "command": "other-session-start"}]}
+        configs = (("claude", self.home / ".claude/settings.json"),
+                   ("codex", self.home / ".codex/hooks.json"))
+        for host, config in configs:
+            data = json.loads(config.read_text()) if config.exists() else {}
+            data.setdefault("hooks", {})["SessionStart"] = [other]
+            config.write_text(json.dumps(data))
+        for _ in range(2):
+            install = self.run_install("v4")
+            self.assertEqual(install.returncode, 0, install.stderr)
+        for host, config in configs:
+            data = json.loads(config.read_text())
+            groups = data["hooks"]["SessionStart"]
+            self.assertIn(other, groups)
+            expected = f"python3 '{self.home}/.agents/skills/mmw-mode/scripts/session-start.py' {host}"
+            ours = [(i, g) for i, g in enumerate(groups)
+                    if any(h["command"] == expected for h in g["hooks"])]
+            self.assertEqual(len(ours), 1, groups)
+            index, group = ours[0]
+            self.assertEqual(group.get("matcher"),
+                             "startup|resume|clear|compact" if host == "claude" else None)
+            if host == "codex":
+                key = f"{config}:session_start:{index}:0"
+                trust = tomllib.loads((self.home / ".codex/config.toml").read_text())
+                self.assertRegex(trust["hooks"]["state"][key]["trusted_hash"], r"^sha256:[0-9a-f]{64}$")
+            data["hooks"]["SessionStart"].remove(group)
+            config.write_text(json.dumps(data))
+            before = config.read_bytes()
+            check = self.run_install("v4", "--check")
+            self.assertEqual(check.returncode, 1, check.stderr)
+            self.assertIn("SessionStart", check.stderr)
+            self.assertEqual(config.read_bytes(), before)
+            data["hooks"]["SessionStart"].append(group)
+            config.write_text(json.dumps(data))
+        self.assertEqual(self.run_install("v4", "--check").returncode, 0)
+
     def test_reply_check_is_registered_trusted_and_reported_when_missing(self):
         install = self.run_install("v4")
         self.assertEqual(install.returncode, 0, install.stderr)

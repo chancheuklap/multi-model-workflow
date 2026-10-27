@@ -1,6 +1,6 @@
 # Steer with principle names
 
-The skill set has 34 principles, each a skill of its own under `skills/principle-<slug>/`. The `## Principles` section of the `mmw-mode` skill ([mmw-mode](../../skills/mmw-mode/SKILL.md)) indexes them: one line per principle, naming when it applies and the rule. Every session reads that index with the mode. A session reads a principle's own file in full when it applies it, and its reply names each principle that shaped a decision and the choice it changed. The mode allows a session to cite only a principle whose file it read in that session.
+The skill set has 35 principles, each a skill of its own under `skills/principle-<slug>/`. The `## Principles` section of the `mmw-mode` skill ([mmw-mode](../../skills/mmw-mode/SKILL.md)) indexes them: one line per principle, naming when it applies and the rule. Every session reads that index with the mode. A session reads a principle's own file in full when it applies it, and its reply names each principle that shaped a decision and the choice it changed. The mode allows a session to cite only a principle whose file it read in that session.
 
 You do not invoke principles. Their names are for steering. Each name points at a complete rule the session already has an index line for, so one phrase redirects the work more precisely than a paragraph of instructions.
 
@@ -26,7 +26,7 @@ separate before serializing shared state. give each attempt its own worktree, no
 
 Each phrase works because the rule behind it is specific. The session still has to say, in its reply, which decision the rule changed. A principle cited with no decision behind it was named, not applied.
 
-## The 33, by the mode's groups
+## The 35, by the mode's groups
 
 Each line below gives the rule as the mode's index and the principle's own file state it. The frontmatter `description` of every principle is the same sentence (`Run only when the user, mmw-mode or another skill names it`), because a principle is reached through its index line, not by its description.
 
@@ -84,6 +84,7 @@ How work is shared between sessions.
 
 How anything another reader picks up is written.
 
+- [Everything at Hand](../../skills/principle-everything-at-hand/SKILL.md). Making any page or diagram for a person, put everything needed to understand each place where the reader looks at that place.
 - [Write for Where It Is Read](../../skills/principle-write-for-where-it-is-read/SKILL.md). Before writing a brief, a spec, a ticket, a document or a script's output, name who reads it, what they are doing then, and what they can see.
 - [Anchor Every Reference](../../skills/principle-anchor-every-reference/SKILL.md). Name every file, section, rule or event by its path plus heading, identifier or rule number, the same way each time.
 - [Files Describe the Present](../../skills/principle-files-describe-the-present/SKILL.md). A file says only what is true now; what changed and why goes in the commit message and the reply.
