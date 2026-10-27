@@ -90,6 +90,8 @@ MAP = [
     (DISPATCH + "scripts/models.py", ["board", "relay"]),
     (DISPATCH + "roles.json", ["board", "relay"]),
     (VERIFY, ["verify-ticket"]),
+    # test_dispatch.sh runs verify-ticket's scripts through --tools.
+    (VERIFY + "scripts/", ["dispatch"]),
     (VERIFY + "scripts/events.py", ["board", "relay", "register-problem", "retro"]),
     (VERIFY + "scripts/issue_tree.py", ["board", "relay"]),
     (VERIFY + "scripts/verify-ticket.py", ["setup-mmw"]),
