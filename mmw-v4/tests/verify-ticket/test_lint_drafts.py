@@ -8,6 +8,9 @@ published batch can show. The spec is the one tracker read, and it is patched he
 """
 
 import io
+import json
+import shlex
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -41,6 +44,16 @@ class DraftsFixture:
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
+        self.root = self.dir / "repo"
+        subprocess.run(["git", "init", str(self.root)], check=True, capture_output=True)
+        for key, value in (("user.email", "test@example.com"), ("user.name", "Test")):
+            subprocess.run(["git", "config", key, value], cwd=self.root, check=True)
+        scripts = self.root / "scripts"
+        scripts.mkdir()
+        (scripts / "import.mjs").write_text('console.log("6 rows");')
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True)
+        subprocess.run(["git", "commit", "-m", "base"], cwd=self.root,
+                       check=True, capture_output=True)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -53,7 +66,8 @@ class DraftsFixture:
             if n == SPEC and spec_body is not None:
                 return spec_body
             raise vt.TrackerReadError(n, "body", "offline")
-        with mock.patch.object(vt, "fetch_body", side_effect=body), \
+        with mock.patch.object(vt, "repo_root", return_value=self.root), \
+             mock.patch.object(vt, "fetch_body", side_effect=body), \
              mock.patch.object(vt, "fetch_outsider",
                                side_effect=outsider or (lambda n: {"spec": None, "state": ""})), \
              mock.patch.object(vt, "fetch_sub_issues",
@@ -61,7 +75,7 @@ class DraftsFixture:
              mock.patch.object(vt, "fetch_blocked_by",
                                side_effect=AssertionError("drafts mode reads no tracker link")):
             with redirect_stdout(io.StringIO()) as out:
-                code = vt.main([str(SPEC), "--lint", "--drafts", str(self.dir)])
+                code = vt.main([str(SPEC), "--lint", "--drafts", str(self.dir), "--base", "HEAD"])
         return code, out.getvalue()
 
 
@@ -150,6 +164,135 @@ class TestDrafts(DraftsFixture, unittest.TestCase):
             with self.assertRaises(SystemExit):
                 vt.main([str(SPEC), "--drafts", str(self.dir)])
         self.assertIn("--drafts", err.getvalue())
+
+
+class TestDraftBase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name)
+        self.root = self.home / "repo"
+        self.origin = self.home / "origin.git"
+        self.git("init", "--bare", str(self.origin), cwd=self.home)
+        self.git("clone", str(self.origin), str(self.root), cwd=self.home)
+        self.git("checkout", "-b", "project")
+        self.git("config", "user.email", "test@example.com")
+        self.git("config", "user.name", "Test")
+        self.calls = self.home / "calls"
+        script = ("#!/usr/bin/env python3\nimport os, sys\n"
+                  f"with open({str(self.calls)!r}, 'a') as f: "
+                  "f.write(os.environ['MMW_TICKET'] + ':' + os.environ['MMW_BASE_REF'] + '\\n')\n"
+                  "print('old-line')\n"
+                  "print('tail-1\\ntail-2\\ntail-3\\ntail-4')\n"
+                  "print(sys.argv[1])\nsys.exit(int(sys.argv[2]))\n")
+        (self.root / "check.py").write_text(script)
+        for runner in ("pytest", "vitest"):
+            path = self.root / runner
+            path.write_text('#!/bin/sh\nexec python3 check.py "$@"\n')
+            path.chmod(0o755)
+        self.git("add", ".")
+        self.git("commit", "-m", "base")
+        self.git("push", "origin", "project")
+        self.drafts = self.home / "drafts"
+        self.drafts.mkdir()
+
+    def git(self, *args, cwd=None):
+        return subprocess.check_output(["git", *args], cwd=cwd or self.root,
+                                       stderr=subprocess.STDOUT, text=True)
+
+    def write(self, name="T1", check="python3 check.py base-ok 1", expect="/^base-ok$/m"):
+        criteria = ("## Acceptance criteria\n\n- [ ] AC1: base result\n"
+                    f"  CHECK: {check}\n  EXPECT: {expect}\n  EVIDENCE: pending\n")
+        (self.drafts / f"{name}.md").write_text(draft(criteria=criteria))
+
+    def lint(self, *extra):
+        with mock.patch.object(vt, "repo_root", return_value=self.root), \
+             mock.patch.object(vt, "fetch_body", return_value=SPEC_BODY), \
+             redirect_stdout(io.StringIO()) as out:
+            code = vt.main([str(SPEC), "--lint", "--drafts", str(self.drafts), *extra])
+        return code, out.getvalue()
+
+    def test_drafts_base_run(self):
+        self.write()
+        self.write("T2", "python3 check.py another 0", "/^missing$/m")
+        (self.root / "check.py").write_text("raise RuntimeError('working checkout')")
+        head = self.git("rev-parse", "HEAD")
+        code, out = self.lint()
+        self.assertEqual(code, 0, out)
+        self.assertIn("T1 AC1 FAIL on origin/project", out)
+        self.assertIn("T2 AC1 FAIL on origin/project", out)
+        self.assertIn("tail-1\n", out)
+        self.assertIn("base-ok", out)
+        self.assertNotIn("old-line", out)
+        self.assertNotIn("working checkout", out)
+        self.assertEqual(self.calls.read_text().splitlines(),
+                         ["T1:origin/project", "T2:origin/project"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), head)
+        self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
+
+    def test_drafts_base_run_explicit_and_missing_ref(self):
+        self.write()
+        code, out = self.lint("--base", "missing-ref")
+        self.assertEqual(code, 2, out)
+        self.assertIn("--base", out)
+        self.assertFalse(self.calls.exists())
+        code, out = self.lint("--base", "HEAD")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.calls.read_text().splitlines(), ["T1:HEAD"])
+
+    def test_passes_on_base(self):
+        self.write(check="python3 check.py base-ok 0")
+        code, out = self.lint()
+        self.assertEqual(code, 0, out)
+        self.assertIn("WARN", out)
+        self.assertIn("[passes-on-base]", out)
+        self.assertIn("T1 AC1 PASS on origin/project", out)
+        self.assertIn("tail-1\n", out)
+
+    def test_no_runner_summary(self):
+        standards = json.loads((vt.HERE / "runner-summaries.json").read_text())
+        for runner, contract in standards.items():
+            for output in ("quiet", *[s["summary"] for s in contract["samples"]]):
+                with self.subTest(runner=runner, output=output):
+                    self.write(check=f"./{runner} {shlex.quote(output)} 1",
+                               expect=contract["expect"])
+                    code, out = self.lint()
+                    self.assertEqual("[no-runner-summary]" in out, output == "quiet", out)
+                    self.assertEqual(code, 1 if output == "quiet" else 0, out)
+
+    def test_published_lint_runs_nothing(self):
+        self.write()
+        body = vt.read_draft(self.drafts / "T1.md")["body"]
+        with mock.patch.object(vt, "fetch_body", return_value=body), \
+             mock.patch.object(vt, "fetch_ticket", return_value={"labels": [{"name": "mmw:ticket"}]}), \
+             mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[77]), \
+             mock.patch.object(vt, "fetch_blocked_by", return_value=[]), \
+             mock.patch.object(vt, "repo_root", return_value=self.root), \
+             redirect_stdout(io.StringIO()) as out:
+            code = vt.main(["77", "--lint"])
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertFalse(self.calls.exists())
+        with mock.patch.object(vt, "fetch_body", side_effect=lambda n: SPEC_BODY if n == SPEC else body), \
+             mock.patch.object(vt, "fetch_ticket", side_effect=lambda n: {
+                 "labels": [{"name": "mmw:spec" if n == SPEC else "mmw:ticket"}]}), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[77]), \
+             mock.patch.object(vt, "fetch_blocked_by", return_value=[]), \
+             mock.patch.object(vt, "fetch_parent", return_value=SPEC), \
+             mock.patch.object(vt, "repo_root", return_value=self.root), \
+             redirect_stdout(io.StringIO()) as out:
+            code = vt.main([str(SPEC), "--lint"])
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertFalse(self.calls.exists())
+
+    def test_drafts_base_run_timeout(self):
+        self.write(check="python3 -c 'import time; print(42, flush=True); time.sleep(10)'")
+        with mock.patch.object(vt, "DEFAULT_TIMEOUT", 1):
+            code, out = self.lint()
+        self.assertEqual(code, 0, out)
+        self.assertIn("timed out after 1s", out)
+        self.assertIn("T1 AC1 FAIL on origin/project", out)
+        self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
 
 if __name__ == "__main__":

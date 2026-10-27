@@ -12,6 +12,17 @@ A draft is one file `<draft name>.md` in a directory of its own: the header line
 
 The graph it checks is the tracker's blocking edges, the same ones `--preflight` refuses on and `advance` dispatches from, so an edge is fixed there, not in a ticket body. The batch is ready when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
+## Run draft checks on the base
+
+`--lint --drafts <dir> --base <ref>` runs every draft's `CHECK:` once through gate-check in a throwaway detached checkout. The default ref is `origin/<current checkout branch>`, the project branch. If the ref does not exist, lint exits 2, names `--base`, and runs nothing. Pass `--base <ref>` to select an existing base explicitly.
+
+Each draft uses its `TIMEOUT:` limit, with `MMW_BASE_REF` set to the selected ref and `MMW_TICKET` set to its draft name. The checkout is removed after the run. For every criterion, lint prints `PASS` or `FAIL` on the base and the last five lines of captured output.
+
+- `passes-on-base` is a `WARN` when both the exit code and `EXPECT:` pass on the base. The criterion is either a pin or a `CHECK:` that cannot see this ticket's work. Read the warning and either fix the command or keep the pin on purpose.
+- `no-runner-summary` is an `ERROR` when a `CHECK:` runs pytest or Vitest but prints none of that runner's known summary forms from [runner-summaries.json](../scripts/runner-summaries.json). Success and failure summaries both count. pytest's `no tests ran` and Vitest's `No test files found` count as failure summaries when a ticket's test file does not exist on the base.
+
+A failed base check alone is not a lint error. New behaviour is expected to fail there. Published-ticket and published-spec `--lint` runs only static checks and never runs acceptance commands on a base.
+
 ## Runner EXPECT standards
 
 `runner-expect` is an `ERROR` on drafts and published tickets when a `CHECK:` stage runs `pytest` or `vitest` as its command but its `EXPECT:` is not that runner's standard. The error names a real summary the pattern rejects on success or accepts on failure, when one exists, and prints the standard to copy. Count-pinned patterns and markers echoed by the command are not substitutes. Commands behind `uv run`, `pnpm`, `npx` and `python -m` count. A runner name used only as an argument, such as `grep -q vitest package.json`, does not. A criterion running both runners gets `runner-expect` and must be split into one criterion per runner.
@@ -25,4 +36,4 @@ The graph it checks is the tracker's blocking edges, the same ones `--preflight`
 
 Copy the value unchanged, including its flags. Do not write another pattern from a sample output line.
 
-Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2: nothing was read, because the tracker did not answer (stderr says `retry the same command`); run the same command again once it answers.
+Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2 on drafts also reports an unavailable `--base` or a base checkout that could not run. Fix the named ref or checkout failure and retry. Exit 2 from a tracker read means nothing was read, because the tracker did not answer (stderr says `retry the same command`); run the same command again once it answers.

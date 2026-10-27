@@ -20,7 +20,7 @@ import {
 import { failureOutput } from "./lib/failure-lines.mjs";
 import { terminateProcessTree } from "./lib/process-tree.mjs";
 
-const HELP = `usage: gate-check.mjs [--reverify] [--timeout S] [--cwd DIR] file ...
+const HELP = `usage: gate-check.mjs [--reverify] [--timeout S] [--cwd DIR] [--results FILE] file ...
 
   (default)       run the CHECK of every unmet criterion and update its ledger
   --reverify      run every criterion with a CHECK, met ones included
@@ -28,12 +28,14 @@ const HELP = `usage: gate-check.mjs [--reverify] [--timeout S] [--cwd DIR] file 
   --cwd DIR       directory a CHECK runs in (default: beside its ledger);
                   a criterion's CWD attribute is resolved against it
 
+  --results FILE  write each run result and its captured output as JSON
+
 A CHECK runs as written, in /bin/sh, with the inherited environment.
 
 exit codes: 0 all met; 1 unmet or abandoned; 2 usage, parse or infrastructure.`;
 
 const FLAG_OPTIONS = new Set(["--reverify", "--help", "-h"]);
-const VALUE_OPTIONS = new Set(["--timeout", "--cwd"]);
+const VALUE_OPTIONS = new Set(["--timeout", "--cwd", "--results"]);
 const SHELL = "/bin/sh";
 const MAX_OUTPUT_BYTES = MAX_CHECK_OUTPUT_BYTES;
 const REGEX_TIMEOUT_MS = 250;
@@ -355,6 +357,16 @@ for (const task of pending) {
 }
 const results = [];
 for (const task of pending) results.push(await runCheck(task));
+if (opt.results) {
+  try {
+    writeFileSync(resolve(opt.results), JSON.stringify(results.map((result) => ({
+      id: result.gate.id, ok: result.ok, output: result.output,
+      exitCode: result.exitCode, error: result.error,
+    }))));
+  } catch (error) {
+    failUsage("cannot write --results " + opt.results + ": " + error.message);
+  }
+}
 for (const result of results) {
   const fingerprint = result.outputFingerprint;
   const logPath = result.ok ? null : saveFailureLog(result);

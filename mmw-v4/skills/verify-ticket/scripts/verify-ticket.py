@@ -3402,7 +3402,82 @@ def read_draft(path: Path) -> dict:
             "blocked": blocked}
 
 
-def lint_drafts(spec: int, directory: Path) -> int:
+def runner_summary_present(output: str, contract: dict) -> bool:
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+    for sample in contract["samples"]:
+        parts = re.split(r"(\d+(?:\.\d+)?)", sample["summary"].strip())
+        pattern = "".join(r"\d+(?:\.\d+)?" if i % 2 else re.escape(part)
+                          for i, part in enumerate(parts))
+        pattern = re.sub(r"=+", "=+", pattern).replace(r"\ ", r"[ \t]+")
+        if re.search(r"^[ \t]*" + pattern + r"[ \t]*$", output, re.MULTILINE):
+            return True
+    return False
+
+
+def lint_draft_base_checks(drafts: list[dict], root: Path, base: str) -> int:
+    contracts = json.loads((HERE / "runner-summaries.json").read_text(encoding="utf-8"))
+    errors = 0
+    with tempfile.TemporaryDirectory(prefix="mmw-draft-base-") as temporary:
+        tmp = Path(temporary)
+        worktree = tmp / "checkout"
+        try:
+            added = subprocess.run(["git", "worktree", "add", "--detach", str(worktree), base],
+                                   cwd=root, capture_output=True, text=True)
+            if added.returncode:
+                print(f"ERROR --base {base}: {added.stderr.strip()}; nothing ran")
+                return 2
+            for draft in drafts:
+                name, body = draft["name"], draft["body"]
+                items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
+                items = [dict(item, ticked=False, evidence="pending") for item in items
+                         if item["check"]]
+                if not items:
+                    continue
+                ledger_dir = tmp / name
+                ledger_dir.mkdir()
+                ledger = write_ledger(body, ledger_dir,
+                                      [criterion_block(item) for item in items])
+                results_path = ledger_dir / "results.json"
+                env = dict(os.environ, MMW_BASE_REF=base, MMW_TICKET=name)
+                run = subprocess.run(
+                    ["node", str(GATE_CHECK), "--cwd", str(worktree),
+                     "--timeout", str(check_timeout(body)), "--results", str(results_path),
+                     str(ledger)], cwd=worktree, env=env, capture_output=True, text=True)
+                if run.returncode not in (0, 1) or not results_path.is_file():
+                    print(f"  ERROR {name}: gate-check could not run on --base {base} "
+                          f"({run.stdout}{run.stderr}) [base-run]")
+                    errors += 1
+                    continue
+                by_id = {item["id"]: item for item in items}
+                for result in json.loads(results_path.read_text(encoding="utf-8")):
+                    gate_id = result["id"]
+                    outcome = "PASS" if result["ok"] else "FAIL"
+                    print(f"  {name} {gate_id} {outcome} on {base}")
+                    if result["error"]:
+                        print(f"    {result['error']}")
+                    output = result["output"]
+                    for line in output.splitlines()[-5:]:
+                        print("    " + re.sub(
+                            r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]",
+                            " ", line))
+                    if result["ok"]:
+                        print(f"  WARN {name} {gate_id} passes on the base; it is either a pin "
+                              "or a CHECK that cannot see this ticket's work [passes-on-base]")
+                    for runner in check_runners(by_id[gate_id]["check"]):
+                        if not runner_summary_present(output, contracts[runner]):
+                            print(f"  ERROR {name} {gate_id}: {runner} printed no known summary "
+                                  "line; change CHECK to print a runner summary "
+                                  "[no-runner-summary]")
+                            errors += 1
+        except (OSError, ValueError) as exc:
+            print(f"ERROR --base {base}: base run could not complete ({exc}) [base-run]")
+            return 2
+        finally:
+            _remove_baseline_checkout(root, worktree)
+    return 1 if errors else 0
+
+
+def lint_drafts(spec: int, directory: Path, base: str | None = None) -> int:
     """`--lint` over the tickets of a batch before they are published.
 
     Every `*.md` in `directory` is one draft (`read_draft`). Each goes through the same
@@ -3412,6 +3487,14 @@ def lint_drafts(spec: int, directory: Path) -> int:
     against every draft's `## Parent`. The spec itself, and any `#<n>` a draft is
     blocked by, are read from the tracker. What only a published batch can show is
     listed at the end as not checked."""
+    root = repo_root()
+    base = base or f"origin/{current_branch(root)}"
+    resolved = subprocess.run(["git", "rev-parse", "--verify", f"{base}^{{commit}}"],
+                              cwd=root, capture_output=True, text=True)
+    if resolved.returncode:
+        print(f"ERROR --base {base} does not name a commit; set --base to an existing ref; "
+              "nothing ran")
+        return 2
     paths = sorted(directory.glob("*.md"))
     if not paths:
         print(f"  ERROR {directory} holds no `*.md` drafts, so there is nothing to lint  "
@@ -3469,6 +3552,9 @@ def lint_drafts(spec: int, directory: Path) -> int:
         entries.append({"id": name, "dependencies": dependencies})
         if lint_criteria(0, body, draft["labels"], spec=spec, name=name) or bad:
             failed.append(name)
+    base_rc = lint_draft_base_checks(drafts, root, base)
+    if base_rc == 2:
+        return 2
     found: dict[int, dict] = {}
     for entry in entries:
         for dep in entry["dependencies"]:
@@ -3484,7 +3570,7 @@ def lint_drafts(spec: int, directory: Path) -> int:
         print("  - " + line)
     if failed:
         print("  ERROR drafts with findings: " + ", ".join(failed))
-    return 1 if (failed or graph) else 0
+    return 1 if (failed or graph or base_rc) else 0
 
 
 def _draft_dependencies(draft: dict, names: set[str], directory: Path) -> list[int | str]:
@@ -3682,6 +3768,8 @@ def main(argv: list[str] | None = None) -> int:
                              "agent re-running a landed ticket on the base branch")
     parser.add_argument("--review", type=Path, metavar="FILE",
                         help="post the review report on the ticket")
+    parser.add_argument("--base", metavar="REF",
+                        help="with --lint --drafts: run CHECKs on REF, default origin/<current branch>")
     args = parser.parse_args(argv)
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
@@ -3692,6 +3780,8 @@ def main(argv: list[str] | None = None) -> int:
                ("--review", args.review is not None), ("--publish", args.publish)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
+    if args.base is not None and not (args.lint and args.drafts is not None):
+        parser.error("--base belongs to --lint --drafts")
     if args.drafts is not None and not (args.lint or args.publish):
         parser.error("--drafts belongs to --lint or --publish")
     if args.drafts is not None and not args.drafts.is_dir():
@@ -3748,7 +3838,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.publish:
             return run_publish_drafts(args.ticket, args.drafts)
         if args.lint and args.drafts is not None:
-            return lint_drafts(args.ticket, args.drafts)
+            return lint_drafts(args.ticket, args.drafts, args.base)
         if args.lint:
             return run_lint(args.ticket)
         return run_checks(args.ticket, args.reverify, args.actor)
