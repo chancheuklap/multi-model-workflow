@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Run a ticket's acceptance criteria and post the result back to the ticket.
 
-The ticket is the only state. Every run reads the `## Acceptance criteria` and
+The ticket is the only state. A normal run reads the `## Acceptance criteria` and
 `## Owns` sections fresh from the issue, writes them to a ledger, hands
 that ledger to unlazy's `gate-check`, and posts the result back as one
 `ticket.checked` event. Nothing is cached. The ledger is removed when the run
 ends. Each run replaces `.scratch/criteria/<ticket>/`, and a failing criterion's
 output is `<id>.log` in that directory.
+`--only AC...` runs just the selected criteria without writing to the tracker.
 
 Claim-time baseline checkouts run their optional executable `scripts/env setup <worktree>`
 and `up <worktree>` before criteria, then `down <worktree>` before removal, including a
@@ -1856,6 +1857,55 @@ def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
     return _run_checks(number, reverify, actor, fetch_body(number), repo_root())
 
 
+def affected_criteria(body: str, paths: list[str]) -> list[str]:
+    patterns = []
+    for path in paths:
+        patterns.append(r"(?<![\w./-])(?:\./)?" + re.escape(path) + r"(?![\w./-])")
+        parent = path.rpartition("/")[0]
+        if parent:
+            patterns.append(r"(?<![\w./-])(?:\./)?" + re.escape(parent) + r"(?:/|(?![\w.-]))")
+    if not patterns:
+        return []
+    mentioned = re.compile("|".join(patterns))
+    return [c["id"] for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))
+            if mentioned.search(c["check"])]
+
+
+def selected_checks(number: int, ids: list[str], body: str, root: Path) -> tuple[int, list[dict]]:
+    """Run only these criteria, including ticked ones, without tracker writes."""
+    criteria = parse_criteria("\n".join(section(body, "Acceptance criteria")))
+    found = {c["id"] for c in criteria}
+    missing = set(ids) - found
+    if missing or not ids:
+        raise ValueError(f"#{number}: unknown or empty criterion selection: {', '.join(sorted(missing))}")
+    lines = []
+    for c in criteria:
+        if c["id"] not in ids:
+            continue
+        if not c["check"] or not c["expect"] or c["stray"]:
+            raise ValueError(f"#{number} {c['id']}: CHECK or EXPECT is missing or malformed")
+        lines += [f"- [ ] {c['id']}: selected criterion", "  CHECK:"]
+        fence = "`" * max(3, max((len(m[0]) + 1 for m in re.finditer(r'`+', c["check"])), default=3))
+        lines += [f"  {fence}sh", *("  " + row for row in c["check"].splitlines()),
+                  f"  {fence}", f"  EXPECT: {c['expect']}", "  EVIDENCE: pending"]
+    with tempfile.TemporaryDirectory(prefix="verify-selected-") as tmp:
+        ledger = write_ledger(body, Path(tmp), lines)
+        results = Path(tmp) / "results.json"
+        cmd = ["node", str(GATE_CHECK), "--reverify", "--cwd", str(root),
+               "--timeout", str(check_timeout(body)), "--results", str(results), str(ledger)]
+        result = subprocess.run(cmd, cwd=root, env=criterion_environment(number, None),
+                                capture_output=True, text=True)
+        sys.stdout.write((result.stdout or "") + (result.stderr or ""))
+        if result.returncode not in (0, 1) or not results.is_file():
+            raise ValueError(f"#{number}: selected criteria could not run (exit {result.returncode})")
+        rows = json.loads(results.read_text())
+        if {r["id"] for r in rows} != set(ids):
+            raise ValueError(f"#{number}: selected criteria did not all run")
+        if any(r["exitCode"] in (None, 126, 127) for r in rows):
+            raise ValueError(f"#{number}: a selected CHECK could not start")
+        return result.returncode, rows
+
+
 def criterion_environment(number: int, into: str | None) -> dict[str, str]:
     env = os.environ.copy()
     env["MMW_TICKET"] = str(number)
@@ -2250,7 +2300,7 @@ RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment
 
 
 def failed_checks_quote(record: dict | None) -> str | None:
-    """The `Failed checks:` slice of a bounce, quoted verbatim on the resume's next line.
+    """The failed-check or broken-criterion slice quoted on the resume's next line.
 
     The token stays on the event's first line. A line that begins with it is quoted
     whole; otherwise the quote runs from the token to the end of that line. A conflict
@@ -2259,11 +2309,12 @@ def failed_checks_quote(record: dict | None) -> str | None:
     body = (record or {}).get("body") or ""
     for line in body.splitlines():
         stripped = line.strip()
-        if stripped.startswith("Failed checks:"):
-            return stripped
-        at = line.find("Failed checks:")
-        if at >= 0:
-            return line[at:]
+        for token in ("Failed checks:", "Broken landed criteria:"):
+            if stripped.startswith(token):
+                return stripped
+            at = line.find(token)
+            if at >= 0:
+                return line[at:]
     return None
 
 
@@ -2271,8 +2322,8 @@ def resume_at(comments: list[str], head: str) -> str | None:
     """Where a worker re-entering this ticket picks up: a step of `RESUME_STEPS`, named
     by its title, and the events that put it there. None for a ticket that carries no
     run of the worker's own, no `worker.decided`, no review and no worker reverify — a
-    fresh claim, not a resume. A checks bounce adds a second line, the `Failed checks:`
-    quote, so the next turn sees which commands failed.
+    fresh claim, not a resume. A checks or landed-criterion bounce adds its failure
+    quote on a second line, so the next turn sees what the merge broke.
     """
     integrate, decisions, start_reviewer, read_review, audit, final_run = RESUME_STEPS
     self_run = newest_run(comments, "self")
@@ -3926,6 +3977,8 @@ def main(argv: list[str] | None = None) -> int:
                              "is about; omit only for --publish --spec-body")
     parser.add_argument("--reverify", action="store_true",
                         help="re-run every criterion, including the ones already ticked")
+    parser.add_argument("--only", nargs="+", metavar="AC",
+                        help="run only these criteria without recording anything on the tracker")
     parser.add_argument("--lint", action="store_true",
                         help="audit how the criteria are written; runs no CHECK, posts no comment")
     parser.add_argument("--drafts", type=Path, metavar="DIR",
@@ -3973,7 +4026,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="with --lint --drafts: run CHECKs on REF, default origin/<current branch>")
     args = parser.parse_args(argv)
     chosen = [name for name, on in
-              (("--lint", args.lint), ("--reverify", args.reverify),
+              (("--lint", args.lint), ("--reverify", args.reverify), ("--only", args.only is not None),
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
                ("--decisions", args.decisions is not None), ("--touched", args.touched),
                ("--draft", args.draft is not None),
@@ -4013,6 +4066,11 @@ def main(argv: list[str] | None = None) -> int:
     elif args.ticket is None:
         parser.error("a ticket number is required")
     try:
+        if args.only is not None:
+            try:
+                return selected_checks(args.ticket, args.only, fetch_body(args.ticket), repo_root())[0]
+            except (OSError, ValueError) as exc:
+                return refuse(str(exc))
         if args.publish and args.spec_body is not None:
             return run_publish_spec(args.spec_body, args.title, args.map)
         if args.preflight:

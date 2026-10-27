@@ -23,6 +23,7 @@
 #   dispatch.sh status <spec>
 #   dispatch.sh findings <spec>
 #   dispatch.sh reverify <spec>
+#   dispatch.sh recheck <spec> [<commit>]
 #   dispatch.sh summary <spec>
 #   dispatch.sh check-all <spec>
 #   dispatch.sh finish <spec>
@@ -422,6 +423,7 @@ usage: dispatch.sh send worker|reviewer <n>
        dispatch.sh status <spec>
        dispatch.sh findings <spec>
        dispatch.sh reverify <spec>
+       dispatch.sh recheck <spec> [<commit>]
        dispatch.sh summary <spec>
        dispatch.sh check-all <spec>
        dispatch.sh finish <spec>
@@ -2700,6 +2702,10 @@ bounce_ticket() {
   if [ "$reason" = conflict ]; then
     text="$text Conflicted files: $(MMW_LIST="$detail" python3 -c 'import json, os; print(", ".join(json.loads(os.environ["MMW_LIST"])))')."
     fields=(--json-field "files=$detail")
+  elif [ "$reason" = breaks-landed-criterion ]; then
+    summary="$(python3 -c 'import json, sys; print(", ".join("#%s %s" % (r["ticket"], r["ac"]) for r in json.loads(sys.argv[1])))' "$detail")" || return 2
+    text="$text Broken landed criteria: $summary."
+    fields=(--json-field "broken=$detail")
   else
     prose_dir="$(mktemp -d)"
     if ! MMW_COMMANDS="$detail" MMW_PREFIX_LEN="${#text}" python3 - "$VERIFY" "$prose_dir" <<'PY'
@@ -2956,6 +2962,21 @@ land_one_via_origin() {
         printf 'dispatch: #%s is not landed, and stays passed rather than bounced: %s\nFix that on this machine; the ticket needs nothing\n' \
           "$number" "$MERGE_CHECKS_DETAIL" >&2
       fi
+      return 2
+    fi
+
+    MMW_BASE_REF="origin/$into" run_landed_criteria "$merge_root" "$spec" "$base" "$merge_commit"; rc=$?
+    if [ "$rc" -eq 1 ]; then
+      git -C "$merge_root" reset --hard "origin/$into" >/dev/null
+      if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" breaks-landed-criterion "$LANDED_BROKEN"; then
+        release_merge_lock
+        return 2
+      fi
+      release_merge_lock
+      return 1
+    elif [ "$rc" -ne 0 ]; then
+      git -C "$merge_root" reset --hard "origin/$into" >/dev/null
+      release_merge_lock
       return 2
     fi
 
@@ -3465,6 +3486,83 @@ recover_ticket() {
   gh_ issue close "$number" --reason completed >/dev/null 2>&1 \
     || { echo "dispatch: #$number is recovered, but it could not be closed, so finish $spec will refuse while it is open" >&2; left=1; }
   return "$left"
+}
+
+LANDED_BROKEN="[]"
+LANDED_CRITERIA_COUNT=0
+recheck_spec() {
+  local spec="$1" ref="${2:-HEAD}" root commit into rc red
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository"
+  commit="$(git -C "$root" rev-parse --verify --end-of-options "$ref^{commit}" 2>/dev/null)" \
+    || refuse "commit $ref does not exist in this repository"
+  into="$(night_into "$spec")" || refuse "the night on #$spec is not open; run open $spec first"
+  prepare_merge_worktree "$root" "$into" || return 2
+  if ! git -C "$MERGE_ROOT" checkout --detach "$commit" >/dev/null 2>&1; then
+    release_merge_lock
+    echo "dispatch: could not check out $commit in $MERGE_ROOT" >&2
+    return 2
+  fi
+  MMW_BASE_REF="origin/$into" run_landed_criteria "$MERGE_ROOT" "$spec" "origin/$into" "$commit"; rc=$?
+  release_merge_lock
+  [ "$rc" -le 1 ] || return 2
+  if [ "$rc" -eq 0 ]; then
+    echo "recheck #$spec: $LANDED_CRITERIA_COUNT landed criteria green"
+  else
+    red="$(python3 -c 'import json, sys; rows=json.loads(sys.argv[1]); [print("#%s %s red" % (r["ticket"], r["ac"])) for r in rows]; print(len(rows))' "$LANDED_BROKEN")" || return 2
+    printf '%s\n' "$red" | sed '$d'
+    echo "recheck #$spec: $(printf '%s\n' "$red" | tail -1) red of $LANDED_CRITERIA_COUNT"
+  fi
+  return "$rc"
+}
+
+run_landed_criteria() {
+  local root="$1" spec="$2" base="$3" commit="$4" plan out rc
+  LANDED_BROKEN="[]"
+  LANDED_CRITERIA_COUNT=0
+  [ -n "$spec" ] || return 0
+  plan="$(python3 "$STATUS" --reverify-plan "$spec")" || return 2
+  out="$(MMW_REVERIFY_PLAN="$plan" python3 - "$VERIFY" "$root" "$base" "$commit" <<'PY'
+import contextlib, importlib.util, json, os, subprocess, sys
+from pathlib import Path
+
+script, root, base, commit = sys.argv[1:]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+try:
+    paths = subprocess.run(["git", "diff", "--name-only", "-z", base, commit], cwd=root,
+                           capture_output=True, text=True, check=True).stdout.rstrip("\0").split("\0")
+    paths = [p for p in paths if p]
+    count, broken = 0, []
+    for line in os.environ["MMW_REVERIFY_PLAN"].splitlines():
+        words = line.split()
+        if len(words) != 2 or words[0] != "REVERIFY":
+            continue
+        number = int(words[1])
+        body = mod.fetch_body(number)
+        ids = mod.affected_criteria(body, paths)
+        if not ids:
+            continue
+        count += len(ids)
+        with contextlib.redirect_stdout(sys.stderr):
+            _, rows = mod.selected_checks(number, ids, body, Path(root))
+        broken += [{"ticket": number, "ac": r["id"]} for r in rows if not r["ok"]]
+    print(count)
+    print(json.dumps(broken, separators=(",", ":")))
+except (OSError, ValueError, subprocess.CalledProcessError, mod.TrackerReadError) as exc:
+    print(f"dispatch: landed criteria could not run: {exc}", file=sys.stderr)
+    sys.exit(2)
+sys.exit(1 if broken else 0)
+PY
+)"; rc=$?
+  [ "$rc" -le 1 ] || return 2
+  LANDED_CRITERIA_COUNT="$(printf '%s\n' "$out" | sed -n 1p)"
+  LANDED_BROKEN="$(printf '%s\n' "$out" | sed -n 2p)"
+  return "$rc"
 }
 
 reverify_spec() {
@@ -4360,6 +4458,10 @@ case "${1:-}" in
   reverify)
     [ "$#" -eq 2 ] || usage
     reverify_spec "$2"
+    ;;
+  recheck)
+    [ "$#" -eq 2 ] || [ "$#" -eq 3 ] || usage
+    recheck_spec "$2" "${3:-HEAD}"
     ;;
   summary)
     [ "$#" -eq 2 ] || usage

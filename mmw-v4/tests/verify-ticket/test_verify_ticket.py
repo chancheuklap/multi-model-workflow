@@ -72,6 +72,21 @@ class TestWorkerRunWithoutStarted(LedgerRun):
         self.assertEqual(payload["outside_owns_unchecked"], "issue-1")
 
 
+class TestSelectedCriteria(unittest.TestCase):
+    def test_only_runs_the_named_criteria_without_tracker_writes(self):
+        body = ticket(
+            "- [x] AC1: selected", "  CHECK: printf 'selected-green'", "  EXPECT: selected-green",
+            "  EVIDENCE: old", "- [ ] AC2: not selected", "  CHECK: touch should-not-run",
+            "  EXPECT: impossible", "  EVIDENCE: pending")
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(vt, "fetch_body", return_value=body), \
+             mock.patch.object(vt, "repo_root", return_value=Path(tmp)), \
+             mock.patch.object(vt, "post_comment") as post, redirect_stdout(io.StringIO()):
+            self.assertEqual(vt.main(["61", "--only", "AC1"]), 0)
+            self.assertFalse((Path(tmp) / "should-not-run").exists())
+            post.assert_not_called()
+
+
 class TestACheckMaySpanLines(LedgerRun):
     """A CHECK is a shell command; a command longer than a line goes in a fenced block."""
 

@@ -115,6 +115,10 @@ _Home_: `mmw-v4/skills/dispatch/scripts/briefs.py`
 The command that makes sure the repository's task board is registered and answering and opens it, or prints its URL.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
+**`dispatch.sh recheck`**:
+`dispatch.sh recheck <spec> [<commit>]` runs the affected criteria of this night's landed tickets in the merge worktree, without writing on those tickets. The commit defaults to the caller's `HEAD`. It compares the commit with `origin/<base branch>` and selects criteria whose `CHECK:` mentions a changed path or its immediate parent directory. It exits 0 when the selected criteria pass, 1 when any fail, and 2 when the run cannot start. Closing-pass fixes run it before pushing.
+_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`recheck_spec`)
+
 **start prompt**:
 The text a session is given when started: to read the `mmw-mode` skill's `SKILL.md` in full first, the playbook it runs on its ticket, then its data: the worker's Memory indexes, the reviewer's base commit. A session `brief` starts is given its role's brief template and the brief file instead.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
