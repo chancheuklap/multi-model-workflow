@@ -1,9 +1,3 @@
-"""The setup-mmw scripts against a fake tracker.
-
-Most cases fake git too. Environment probes use real temporary git repositories and a
-committed scripts/env that logs calls and prints chosen resource names. Nothing reaches
-GitHub or the machine's installed runtime.
-"""
 import importlib.util
 import io
 import json
