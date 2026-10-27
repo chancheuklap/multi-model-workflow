@@ -52,4 +52,4 @@ Example:
 建议：做成检查（加）：一个测试如果没比较到任何东西，就判失败
 ```
 
-A second occurrence with the same cause reuses this code, even in another ticket. The same session on the same ticket adds no duplicate occurrence. It belongs on the same issue rather than in a new registration.
+A second occurrence with the same cause reuses this code, even in another ticket. It belongs on the same issue rather than in a new registration.

@@ -468,10 +468,34 @@ class Registration(unittest.TestCase):
                 payload = events.parse(self.fake.repos["o/r"][-1]["comments"][0]["body"])[1]
                 self.assertEqual((payload["ticket"], payload["spec"]),
                                  (61, None if unreadable else parent))
+                if unreadable:
+                    self.assertIn("spec", err)
+                    self.assertIn("o/r#61", err)
+                    self.assertIn("503", err)
+                else:
+                    self.assertEqual(err, "")
 
-        self.fake = Fake()
+    def test_nonpositive_ticket_is_refused_before_any_write(self):
+        env, store = self.cli_environment()
+        env.update(MMW_TICKET="61", MMW_SPEC="76")
+        before = store.read_text()
+        for value in ("0", "-1"):
+            with self.subTest(value=value):
+                run = REAL_RUN([sys.executable, str(SCRIPT), "add", str(self.path), "--ticket", value],
+                               cwd=self.product, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(run.returncode, 2, run.stderr)
+                self.assertIn("--ticket", run.stderr)
+                self.assertIn("positive", run.stderr)
+                self.assertEqual(store.read_text(), before)
+                self.assertFalse((self.home / "state").exists())
+
+    def test_ticket_context_stays_in_product_when_fix_belongs_to_mmw(self):
+        ticket = issue(61, body="Product ticket", labels=("mmw:ticket",))
         ticket["parent"] = {"number": 76}
-        self.fake.repos["acme/toolbox"] = [ticket, issue(76, body="Batch", labels=("mmw:spec",))]
+        self.fake.repos["o/r"] = [ticket, issue(76, body="Product spec", labels=("mmw:spec",))]
+        unrelated = issue(61, body="MMW ticket", labels=("mmw:ticket",))
+        unrelated["parent"] = {"number": 98}
+        self.fake.repos["acme/toolbox"] = [unrelated, issue(98, body="MMW spec", labels=("mmw:spec",))]
         self.path.write_text(problem().replace("该谁修：o/r", "该谁修：MMW"))
         env, store = self.cli_environment()
         env.update(MMW_TICKET="99", MMW_SPEC="98")
@@ -482,7 +506,7 @@ class Registration(unittest.TestCase):
         row = json.loads(store.read_text())["repos"]["acme/toolbox"][-1]
         payload = events.parse(row["comments"][0]["body"])[1]
         self.assertEqual((payload["seen_in"], payload["ticket"], payload["spec"], payload["source"]),
-                         ("acme/toolbox", 61, 76, "stall"))
+                         ("o/r", 61, 76, "stall"))
 
     def test_occurrence_carries_the_active_ticket_spec_runner_and_role(self):
         ticket = issue(61, body="Active ticket", labels=("mmw:ticket",))

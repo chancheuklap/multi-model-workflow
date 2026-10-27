@@ -230,7 +230,7 @@ def add_problem(path, source, target, repos, ticket):
         destination = responsible if "/" in responsible else f"<owner>/{responsible}"
         raise RegistrationError(f"{path}'s 该谁修 names {responsible}, but the target is {target}; "
                                 f"add --repo {destination} to register where the fix belongs")
-    seen_in = target if ticket is not None else current_repo()
+    seen_in = current_repo()
     context = registration_context(seen_in, ticket)
     key = hashlib.sha256(json.dumps([str(path.resolve()), body, source, target, seen_in, context["ticket"]],
                                     sort_keys=True).encode()).hexdigest()
@@ -276,9 +276,11 @@ def registration_context(repo, explicit_ticket):
                 parent_row = read_issue(repo, parent["number"])
                 if "mmw:spec" in {l["name"] for l in parent_row["labels"]}:
                     spec = parent["number"]
-        except RegistrationError:
+        except RegistrationError as exc:
             if explicit_ticket is None:
                 raise
+            print(f"register: could not read parent spec for {repo}#{ticket}: {exc}; "
+                  "recording spec=null", file=sys.stderr)
         history = comments(repo, ticket)
         state = events.fold(history, issue=ticket)
         if state["unreadable"]:
@@ -424,6 +426,8 @@ def main(argv=None):
     add.add_argument("--ticket", type=int, help="originating ticket; read its parent spec")
     add.add_argument("--source", choices=events.LESSON_SOURCES, default="noticed")
     args = parser.parse_args(argv)
+    if args.command == "add" and args.ticket is not None and args.ticket <= 0:
+        parser.error("--ticket must be a positive issue number")
     try:
         toolbox = toolbox_repo()
         target = repository(args.repo) if args.repo else current_repo()
