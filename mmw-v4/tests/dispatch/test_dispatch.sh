@@ -1991,15 +1991,15 @@ scenario_checkrepositorycheck() {
 ]
 JSON
 
-  echo "--- check runs scripts/check once in this checkout, uncommitted, with MMW_BASE_REF the base branch"
+  echo "--- check runs scripts/check once in this checkout, uncommitted, with MMW_BASE_REF the project branch"
   rm -f "$TMP/check-base"
   put_check "$TMP/repo" "printf '%s\\n' \"\$MMW_BASE_REF\" >> '$TMP/check-base'"
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "a green scripts/check expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/check-base" 2>/dev/null)" = night ] \
-    || fail "scripts/check should run once with MMW_BASE_REF=night: $(cat "$TMP/check-base" 2>&1)"
+  [ "$(cat "$TMP/check-base" 2>/dev/null)" = origin/proj ] \
+    || fail "scripts/check should run once with MMW_BASE_REF=origin/proj: $(cat "$TMP/check-base" 2>&1)"
 
   echo "--- a red base refuses the night and carries the check's last lines"
   put_check "$TMP/repo" 'echo "FAIL unit 0s"; echo BASE-RED; exit 1'
@@ -6968,6 +6968,67 @@ scenario_finishchecksbasepush() {
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "red finish changed project"
 }
 
+# The night's --all record on the base branch's tip after a closing-pass fix.
+all_record() {
+  local tip
+  tip="$(git -C "$TMP/origin.git" rev-parse night)"
+  post_ev 76 spec.checked --ticket '' --spec 76 --line "--all green" --field tier=all \
+    --field "commit=$tip" --field "base=$tip" --field result=met \
+    --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+    --json-field 'steps=["unit"]'
+}
+
+scenario_finishreusesall() {
+  local code
+  setup_finish_over_landing
+  git -C "$TMP/repo" checkout -q night
+  commit_file "$TMP/repo" fix.txt fix "closing-pass fix"
+  git -C "$TMP/repo" push -q origin night
+  git -C "$TMP/repo" checkout -q proj
+
+  echo "--- a tip the night's --all proved is not checked again by finish"
+  all_record
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 0 ] || fail "finish over a tip --all proved failed: $(cat "$TMP/err")"
+  [ ! -e "$TMP/check-runs" ] || fail "finish ran the checks on a tree --all had proved"
+  grep -q 'passed --all on this machine' "$TMP/out" || fail "finish does not say which record it used: $(cat "$TMP/out")"
+}
+
+scenario_checkall() {
+  local code tip
+  fresh_repo
+  rm -f "$TMP/check-args"
+  git -C "$TMP/repo" checkout -q -b night main
+  put_check "$TMP/repo" "printf '%s\\n' \"\$*\" >> '$TMP/check-args'; echo 'PASS unit 0s'; exit 0"
+  git -C "$TMP/repo" commit -q -m checks
+  git -C "$TMP/repo" push -q -u origin night
+  tip="$(git -C "$TMP/repo" rev-parse night)"
+  echo '[]' > "$TMP/tickets.json"; reset_log
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=night --field project=main
+
+  echo "--- check-all runs scripts/check --all once on origin/night and records it on the spec"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
+  [ "$code" = 0 ] || fail "check-all expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/check-args")" = "--all" ] || fail "scripts/check was not run with --all once: $(cat "$TMP/check-args")"
+  posted_events 76 tier commit steps | grep -qx "spec.checked tier=all commit=$tip steps=\['unit'\]" \
+    || fail "the --all record is wrong: $(posted_events 76 tier commit steps)"
+
+  echo "--- a second check-all on the same tip runs nothing"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
+  [ "$code" = 0 ] || fail "the second check-all expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(wc -l < "$TMP/check-args" | tr -d ' ')" = 1 ] || fail "check-all ran again on a proved tip"
+
+  echo "--- red is exit 1 and records nothing"
+  git -C "$TMP/repo" checkout -q night
+  put_check "$TMP/repo" "echo 'FAIL unit 0s'; exit 1"
+  git -C "$TMP/repo" commit -q -m red
+  git -C "$TMP/repo" push -q origin night
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
+  [ "$code" = 1 ] || fail "a red --all expected 1, got $code: $(cat "$TMP/err")"
+  [ "$(posted_events 76 | grep -c '^spec.checked' | tr -d ' ')" = 1 ] || fail "a red run was recorded"
+}
+
 scenario_finishrerun() {
   local code dirty first_merge
   setup_finish_closed
@@ -7765,6 +7826,49 @@ scenario_advancechecksonce() {
     || fail "the ticket did not land"
   [ "$(wc -l < "$TMP/check-runs" 2>/dev/null | tr -d ' ')" = 1 ] \
     || fail "the merge result of a ticket on an unmoved base was not checked exactly once"
+}
+
+# A green repository check of ticket 61's passed commit, as the worker's run records it:
+# `repository_record <base commit>`.
+repository_record() {
+  post_ev 61 ticket.checked --ticket 61 --line "Repository check" --actor worker --stage close \
+    --field run=repository --field result=met --field tier=default \
+    --field "commit=$(git -C "$TMP/repo" rev-parse issue-61)" --field "base=$1" \
+    --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+    --json-field 'steps=["unit"]'
+}
+
+scenario_landreusesproof() {
+  rm -f "$TMP/check-runs"
+  setup_checked_ticket "printf 'x\\n' >> '$TMP/check-runs'"
+  local passed code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+
+  echo "--- a base that has not moved since the worker's green run is not checked again"
+  repository_record "$(git -C "$TMP/origin.git" rev-parse main)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the ticket did not land"
+  [ ! -e "$TMP/check-runs" ] || fail "the check ran on a tree the worker's record proved"
+  posted_events 61 checked_by | grep '^ticket.landed' | grep -q "checked_by=repository default $passed" \
+    || fail "the landing does not name the record it relied on: $(posted_events 61 checked_by)"
+}
+
+scenario_landrunsonnewbase() {
+  rm -f "$TMP/check-runs"
+  setup_checked_ticket "printf 'x\\n' >> '$TMP/check-runs'"
+  local code
+
+  echo "--- a record against another base proves nothing about this merge, so the check runs once"
+  repository_record "$(git -C "$TMP/repo" rev-parse issue-61)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance failed: $(cat "$TMP/err")"
+  [ "$(wc -l < "$TMP/check-runs" 2>/dev/null | tr -d ' ')" = 1 ] \
+    || fail "the check should run once when no record covers the merge"
+  posted_events 61 checked_by | grep '^ticket.landed' | grep -q 'checked_by=None' \
+    || fail "a landing that ran its own check names no record: $(posted_events 61 checked_by)"
 }
 
 scenario_advancebaseref() {
@@ -8956,6 +9060,7 @@ ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryhold
 ALL="$ALL routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig"
 ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
+ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall"
 
 case " $ALL all " in
   *" ${1:-} "*) ;;

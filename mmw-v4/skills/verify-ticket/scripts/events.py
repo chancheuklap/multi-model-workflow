@@ -95,11 +95,11 @@ ABANDON_KINDS = ("decision", "failed", "stuck")
 # claim-time run of the criteria at `worker.started.base`.
 # `repo-checks` is the repository's own `checks` of `.mmw/target.json` run at a closeout:
 # no script posts it now, and tickets closed out by MMW v2 carry it, so it stays readable.
-CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline")
+CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline", "repository")
 CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
 CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
-                "baseline": "claim"}
+                "baseline": "claim", "repository": "close"}
 BOUNCE_REASONS = ("conflict", "checks")
 STALE_REASONS = ("invalid", "fixed-elsewhere")
 RETRO_RESULTS = ("recorded", "unrecorded")
@@ -118,6 +118,12 @@ EVENTS: dict[str, dict] = {
     "spec.retroed":      {"stage": "night",    "actor": "main",
                            "required": ("result",),
                            "closed": {"result": RETRO_RESULTS}},
+    # One green run of the repository's check on the night branch, recorded by the run
+    # itself: `tier` `all` at night end, which `finish` reuses when its merge is that tree.
+    "spec.checked":      {"stage": "land",     "actor": "main",
+                          "required": ("tier", "commit", "base", "machine", "result"),
+                          "closed": {"tier": ("default", "all"), "result": ("met",)},
+                          "patterns": {"commit": r"[0-9a-f]{40}", "base": r"[0-9a-f]{40}"}},
     "spec.merged":       {"stage": "land",     "actor": "main",
                           "required": ("into", "project", "merge", "base"),
                           "patterns": {"merge": r"[0-9a-f]{40}",
