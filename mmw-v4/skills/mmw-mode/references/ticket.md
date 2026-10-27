@@ -73,7 +73,7 @@ The last step of every playbook that opens a ticket. Handing it back is the mome
 - **Change it.** Edit the ticket, and hand it back again.
 - **Not yet.** It already carries `needs-triage`. Do nothing.
 - **No.** `gh issue edit <n> --add-label wontfix`, then `gh issue close <n> --reason "not planned"`.
-- **Go.** Run One ticket (`../playbooks/one-ticket.md`) on it.
+- **Go.** Run One ticket (`../playbooks/one-ticket.md`) on it; for skill text an Authoring session wrote with no script, run what that playbook's **Hand it back** step says instead.
 - **Too big for one ticket.** Run To spec (`../playbooks/to-spec.md`), then close the ticket with a comment linking the spec. `fix-<n>` stays.
 
 A criterion may carry a fifth line, `TIMEOUT: <seconds>`, when its `CHECK:` needs longer than the 600 seconds every `CHECK:` gets by default. The largest `TIMEOUT:` on a ticket applies to all its criteria, in every run. A `CHECK:` runs with `$MMW_TICKET` set to the ticket's number and, once a worker has started on the ticket, `$MMW_BASE_REF` set to `origin/<the branch the ticket merges into>`, so a command can name either without writing it in.

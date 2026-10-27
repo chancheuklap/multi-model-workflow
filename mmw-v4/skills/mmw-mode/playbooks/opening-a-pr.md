@@ -2,7 +2,7 @@
 
 **You own one pull request, from its text to its merge on the owner's yes.**
 
-Run by One ticket step 6 and Run a night step 6, once the change has landed on its branch: `fix-<n>` for one ticket, the night's branch for a night. Run also by Authoring or modifying a skill step 6 for skill text its session wrote on `fix-<n>`, with nothing to land. The pull request opens from that branch on origin as it stands. Its commits are the workers' and the merges `land` recorded, so nothing here rebases or rewrites them. Use GitHub CLI (`gh`) for every operation.
+Run by One ticket step 6 and Run a night step 6, once the change has landed on its branch: `fix-<n>` for one ticket, the night's branch for a night. Run also by Authoring or modifying a skill step 6 for skill text its session wrote on `fix-<n>`, with nothing to land and no retrospective. The pull request opens from that branch on origin as it stands. Its commits are the workers' and the merges `land` recorded, so nothing here rebases or rewrites them. Use GitHub CLI (`gh`) for every operation.
 
 When the owner approves landing a project branch into the branch it was cut from, the pull request opens from the project branch to that branch: in steps 2 to 4, `<project branch>` stands for the branch it was cut from, the night's branch or `fix-<n>` stands for the project branch, and there is no `fix-<n>` worktree to remove. Before step 1, run `git fetch origin`, then review `git diff origin/<that branch>...origin/<project branch>` whole against the rules in force, every file included, those of nights merged earlier too, and check each sentence of the body that says something ships or is unaffected against the paths in that diff. Merge it without `--delete-branch`, then delete the project branch on origin only (`git push origin --delete <project branch>`), keeping the local one, as `finish` does for a night's branches (ADR 0052).
 
@@ -30,7 +30,7 @@ When the owner approves landing a project branch into the branch it was cut from
 - Each landing's recorded compare link.
 - The calling playbook's check summary lines: a night's `scripts/check --all` line and each product-target e2e summary line.
 - Each open child, handed-back ticket or finding awaiting the owner, with its number and state.
-- The retrospective receipt's link and count of new proposals, or its recorded failure.
+- The retrospective receipt's link and count of new proposals, or its recorded failure; for skill text a session wrote, `no retrospective: no worker ran`.
 - At night, the `NIGHT SUMMARY` verbatim.
 
 **The owner's page.** One page is the owner's reading and decision place for this pull request. Publish it as the **diagram-design** skill's `SKILL.md` `### Where the page goes` says. Keep its address on line 1 of **The record**. Each block carries only what the owner decides or needs to know about this pull request. Link what a ticket, issue or **The record** already holds rather than retelling it. A block with nothing to show is one line saying so. Use the same six blocks, in this order, on every pull request:
