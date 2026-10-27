@@ -6,7 +6,7 @@
 #   stage       run|done|fail  -- run 失败时自己接着分诊派发、计轮次，再返回
 #   round next  轮账;到 max_rounds 自动 surface 熔断
 #   surface|resume|close|abort  -- close refuses a release loop that is not DONE (pause or unfinished stages)
-#   same-commit <product>...   逐个比对交付记录的 source_commit 是否等于当前 HEAD
+#   same-commit [--scope <file>] <product>...   比对交付提交或 scope 所列的打包输入
 #   receipt     从 attempt_ledger 渲染已试动作
 #   dispatch    --stage <n> --findings <p>  收敛护栏 + 按 tier 处置(P2 derive 自动提交/P1 写简报交人/P0 停)
 #
@@ -49,7 +49,7 @@ release-flow.sh where
 release-flow.sh stage run|done|fail
 release-flow.sh round next
 release-flow.sh surface|resume|close|abort
-release-flow.sh same-commit <product> [<product> ...]
+release-flow.sh same-commit [--scope <file>] <product> [<product> ...]
 release-flow.sh receipt
 release-flow.sh dispatch --stage <n> --findings <path>
 
@@ -1330,20 +1330,58 @@ cmd_abort() {
   echo "ABORTED:no delivery record written; the state of this round is kept at $keep"
 }
 
-# 逐个比对本轮清单上的产品:交付记录必须来自当前 HEAD,否则这一批包里混着不同版本的代码。
-# 只读调用方点名的产品——真实记录跨仓库、跨任务混在一起(main worktree 的 delivered/ 里
-# 常年躺着别的产品最后一次出包的记录),读全部会把无关产品的陈旧记录当成这一批的一部分。
 cmd_same_commit() {
-  [ $# -gt 0 ] || die "usage: same-commit <product> [<product> ...]"
-  local main head product record commit
+  local scope=""
+  if [ "${1:-}" = "--scope" ]; then
+    [ -n "${2:-}" ] || die "--scope requires a release package scope file"
+    scope="$2"
+    shift 2
+    jq -e '
+      def paths: type == "array" and all(.[]; type == "string");
+      (.all_products_paths | paths) and (.ignored_paths | paths) and
+      (.products | type == "array" and all(.[];
+        (.product | type == "string") and (.paths | paths)))
+    ' "$scope" >/dev/null || die "invalid release package scope file: $scope"
+  fi
+  [ $# -gt 0 ] || die "usage: same-commit [--scope <file>] <product> [<product> ...]"
+  local main head product record commit path glob mismatch
+  local affected=() classified=()
   main="$(main_root)" || die "not inside a git repository"
   head="$(git rev-parse HEAD 2>/dev/null)" || die "not inside a git repository"
   for product in "$@"; do
     record="$main/$RELEASE_SUBDIR/delivered/$product.json"
     commit=""
     [ -f "$record" ] && commit="$(jq -r '.source_commit // empty' "$record" 2>/dev/null || true)"
-    if [ "$commit" = "$head" ]; then
+    if [ -n "$scope" ] && ! jq -e --arg p "$product" 'any(.products[]; .product == $p)' "$scope" >/dev/null; then
+      echo "MISMATCH $product ${commit:-none} (product not listed in $scope)"
+    elif [ "$commit" = "$head" ]; then
       echo "OK $product"
+    elif [ -n "$scope" ] && [ -n "$commit" ] && git cat-file -e "$commit^{commit}" 2>/dev/null; then
+      affected=()
+      while IFS= read -r glob; do affected+=("$glob"); done < <(
+        jq -r --arg p "$product" '.all_products_paths[], (.products[] | select(.product == $p) | .paths[])' "$scope"
+      )
+      classified=()
+      while IFS= read -r glob; do classified+=("$glob"); done < <(
+        jq -r '.ignored_paths[], (.products[] | .paths[])' "$scope"
+      )
+      mismatch=""
+      while IFS= read -r -d '' path; do
+        for glob in "${affected[@]-}"; do
+          if [ -n "$glob" ] && [[ "$path" == $glob ]]; then mismatch="$path"; break; fi
+        done
+        [ -z "$mismatch" ] || break
+        mismatch="$path"
+        for glob in "${classified[@]-}"; do
+          if [ -n "$glob" ] && [[ "$path" == $glob ]]; then mismatch=""; break; fi
+        done
+        [ -z "$mismatch" ] || break
+      done < <(git diff --name-only --no-renames -z "$commit" "$head" --)
+      if [ -n "$mismatch" ]; then
+        echo "MISMATCH $product $commit ($mismatch)"
+      else
+        echo "OK $product (inputs unchanged since $commit)"
+      fi
     else
       echo "MISMATCH $product ${commit:-none}"
     fi
