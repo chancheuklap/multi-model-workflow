@@ -12,12 +12,10 @@ form. So every host asks this file before calling its question tool, and this fi
 refuses the call and says where the question goes instead — the default taken and
 recorded, or `ABANDON: AC<n> decision` with a sub-issue.
 
-Ending a process is never this session's to do. Several runs share one machine, and
-another run's application is indistinguishable from a stuck one, so a session that is
-free to end what looks stuck is free to end a neighbour's work one second before it
-finished. A run stops its own product as its `verify-<product>` skill says;
-everything else is somebody else's, and a run that cannot reach its product
-reports the ticket blocked rather than clearing the way to it.
+Several runs share one machine. A session may end processes in its own host's process
+tree with `kill [-<signal>] <pid>...`, but never a neighbour's or an unreadable tree.
+The host is this hook's nearest ancestor whose executable basename equals <host>.
+Host process names: claude and codex, checked with live ps comm on 2026-10-27.
 
     tool-guard.py pretool <host>    the host is about to run a shell command
     tool-guard.py question <host>   the host is about to ask the user a question
@@ -50,6 +48,8 @@ import json
 import os
 import re
 import shlex
+import signal
+import subprocess
 import sys
 from pathlib import Path
 
@@ -312,12 +312,52 @@ ENDS_A_PROCESS = re.compile(r"^(kill|pkill|killall|killall5)\b")
 XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
 
 
-def ends_a_process(command: str) -> str | None:
-    """The piece of `command` that would end a process, or `None`."""
+def ends_a_process(command: str, host: str) -> str | None:
+    """The first termination command not proven to belong to this session."""
     for piece in pieces(command):
-        if ENDS_A_PROCESS.match(piece) or XARGS_KILL.match(piece):
+        if (ENDS_A_PROCESS.match(piece) or XARGS_KILL.match(piece)) \
+                and not kills_own_processes(piece, host):
             return piece
     return None
+
+
+def kills_own_processes(piece: str, host: str) -> bool:
+    words = shell_words(piece)
+    if not words or words[0] != "kill":
+        return False
+    targets = words[1:]
+    if targets and targets[0].startswith("-"):
+        value = targets.pop(0)[1:]
+        try:
+            if value != "0":
+                signal.Signals(int(value)) if value.isascii() and value.isdecimal() else signal.Signals[
+                    value if value.startswith("SIG") else "SIG" + value]
+        except (ValueError, KeyError):
+            return False
+    if not targets or any(re.fullmatch(r"[0-9]+", pid) is None for pid in targets):
+        return False
+    try:
+        targets = [int(pid) for pid in targets]
+        rows = subprocess.run(["ps", "-axo", "pid=,ppid=,comm="], capture_output=True,
+                              text=True, check=True).stdout.splitlines()
+        processes = {}
+        for row in rows:
+            pid, parent, executable = row.split(None, 2)
+            processes[int(pid)] = (int(parent), os.path.basename(executable))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+
+    def ancestors(pid):
+        seen = set()
+        while pid in processes and pid not in seen:
+            seen.add(pid)
+            yield pid
+            pid = processes[pid][0]
+
+    owner = next((pid for pid in ancestors(os.getppid()) if processes[pid][1] == host), None)
+    return owner is not None and all(
+        pid in processes and owner in ancestors(processes[pid][0]) for pid in targets
+    )
 
 
 def runs(command: str) -> list[str]:
@@ -367,7 +407,8 @@ def no_kill(piece: str) -> str:
     improvise, and on 2026-09-05 three of them improvised three different wrong answers
     to one correct error message.
     """
-    return (f"Refused `{piece}`. A run never ends a process it did not start. Stop your "
+    return (f"Refused `{piece}`. Only processes started by this session may be ended. "
+            "Use kill [-<signal>] <numeric pid>... with a readable ancestry to this host. Stop your "
             "own product as its verify-<product> skill says; if it is unreachable, report "
             "the ticket blocked and stop.")
 
@@ -580,13 +621,13 @@ def removal_refusal(piece: str, paths: list[Path]) -> str | None:
     return None
 
 
-def run_pretool(event: dict) -> int:
+def run_pretool(event: dict, host: str) -> int:
     command = command_of(event)
     if command is None:
         return 0
     number = governed_ticket()
     if number is not None:
-        piece = ends_a_process(command)
+        piece = ends_a_process(command, host)
         if piece is not None:
             refuse(no_kill(piece))
             return 0
@@ -626,7 +667,7 @@ def main(argv: list[str] | None = None) -> int:
     event = read_event()
     if argv[0] == "question":
         return run_question(argv[1], event)
-    return run_pretool(event)
+    return run_pretool(event, argv[1])
 
 
 if __name__ == "__main__":
