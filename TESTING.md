@@ -28,6 +28,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 - A passing suite's last line is `all passed` (`全过` for `exe-release`).
 - `diagram-design` and `verify-ticket` take `-k <pattern>`, the substring or glob `python3 -m unittest -k` accepts (`mmw-v4/tests/lib/parse_k.sh`); under `-k` the `verify-ticket` suite skips its node half. `setup-mmw` takes a bare name pattern.
 - One dispatch scenario: `bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario>`, `all` for every one; its header lists them, and a passing scenario's last line is its EXPECT string. `mmw-v4/tests/relay/test_relay.sh` takes the same argument.
+- `scripts/check --step <name>[,<name>…]` runs only the named steps without selecting by changed paths. An unknown name exits 2 and lists the known names.
 - `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` prints `INTERFACES OK`.
 
 ## Stubbed boundaries
