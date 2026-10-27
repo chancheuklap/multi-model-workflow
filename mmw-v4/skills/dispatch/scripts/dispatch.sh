@@ -3972,8 +3972,6 @@ if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
   exit $?
 fi
 
-[ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
-
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
 # positional. A script of another skill is looked up by basename in those directories,
 # in the order given.
@@ -3998,6 +3996,22 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 set -- ${positional[@]+"${positional[@]}"}
+
+case "${1:-}:${2:-}" in
+  check:* | status:* | findings:* | board:* | self:* | brief:show) ;;
+  *)
+  installed_root="$(cat "${MMW_HOME:-$HOME/.mmw}/installed-root" 2>/dev/null)" || installed_root=""
+  if [ -n "$installed_root" ]; then
+    installed_top="$(git -C "$installed_root" rev-parse --show-toplevel 2>/dev/null)" || installed_top=""
+    current_top="$(git rev-parse --show-toplevel 2>/dev/null)" || current_top=""
+    if [ -n "$installed_top" ] && [ "$current_top" = "$installed_top" ]; then
+      refuse "cannot run ${1:-dispatch} from the installed checkout $installed_top; run from the checkout of the repository you want to work on, using the absolute path to this skill's scripts/dispatch.sh, without changing into the skill directory"
+    fi
+  fi
+  ;;
+esac
+
+[ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
 
 tool() {
   local dir
