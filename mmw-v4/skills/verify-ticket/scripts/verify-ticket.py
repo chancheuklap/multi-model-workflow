@@ -104,7 +104,7 @@ ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
 # `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
 ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
-ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|CWD|TIMEOUT):")
+ATTR_LINE_RE = re.compile(r"^\s+(CHECK|EXPECT|EVIDENCE|TIMEOUT):")
 # The one attribute gate-check does not know: it is read here and kept out of the ledger.
 TIMEOUT_LINE_RE = re.compile(r"^\s+TIMEOUT:")
 FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
@@ -489,7 +489,7 @@ def owns_globs(body: str) -> list[str]:
     """
     globs = []
     for line in section(body, "Owns"):
-        m = re.match(r"^\s*-\s+(\S+)", line)
+        m = re.match(r"^\s*-\s+([^\s（]+)", line)
         if not m:
             continue
         value = m.group(1)
@@ -1260,9 +1260,8 @@ def spec_judgement(review: str, path: str) -> str | None:
     """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment.
 
     The code-review Spec axis gives each `Outside Owns` file one line that starts with
-    its path and carries exactly one judgement word; that line decides. Without one,
-    the lines that name the path anywhere decide only when they all carry the same
-    single word. `None` when that axis names no line for the file, or its lines carry
+    its path and carries exactly one judgement word; that line decides.
+    `None` when that axis names no line for the file, or its lines carry
     both words or neither — the run does not invent a judgement the reviewer did not
     write.
     """
@@ -1272,7 +1271,7 @@ def spec_judgement(review: str, path: str) -> str | None:
     leads = re.compile(r"^\s*(?:[-*+]|\d+[.)])?\s*[`*_\"']*" + re.escape(path)
                        + r"(?![\w./-])")
     leading = [line for line in naming if leads.match(line)]
-    judgements = {line_judgement(line) for line in (leading or naming)}
+    judgements = {line_judgement(line) for line in leading}
     return judgements.pop() if len(judgements) == 1 else None
 
 
@@ -1506,7 +1505,9 @@ def run_touched(number: int) -> int:
             continue
         prose = []
         for d in mine:
-            prose += ["", d["path"], d["sentence"]]
+            path_line = (d["path"] if d["judgement"] else
+                         f"{d['path']} (REVIEW has no judgement line for it)")
+            prose += ["", path_line, d["sentence"]]
             prose += [x for x in (d["ac"], d["judgement"]) if x]
         post_event(child, "worker.touched",
                    f"#{number} changed {len(mine)} file(s) this ticket owns",
@@ -1569,7 +1570,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
         judged = []
         for path in files:
             judgement = spec_judgement(review, path)
-            judged.append(f"{path} ({judgement})" if judgement else path)
+            judged.append(f"{path} ({judgement or 'REVIEW has no judgement line for it'})")
         outside = "Outside Owns: " + ", ".join(judged)
     else:
         outside = "Outside Owns: None"

@@ -21,8 +21,8 @@ export function readLedger(path) {
 }
 
 const GATE_RE = /^- \[( |x|X)\] (.*)$/;
-const ATTR_RE = /^(\s+)(CHECK|EXPECT|EVIDENCE|CWD):\s?(.*)$/;
-const UNINDENTED_ATTR_RE = /^(CHECK|EXPECT|EVIDENCE|CWD):\s?(.*)$/;
+const ATTR_RE = /^(\s+)(CHECK|EXPECT|EVIDENCE):\s?(.*)$/;
+const UNINDENTED_ATTR_RE = /^(CHECK|EXPECT|EVIDENCE):\s?(.*)$/;
 const ABANDON_RE = /^ABANDON:\s*(\S*)\s*(.*)$/;
 const INDENTED_ABANDON_RE = /^\s+ABANDON:/;
 const FENCE_OPEN_RE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
