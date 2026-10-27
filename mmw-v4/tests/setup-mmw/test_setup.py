@@ -443,7 +443,7 @@ class TestCheck(unittest.TestCase):
         sys.modules.pop("labels", None)
         return code, out.getvalue()
 
-    def env_repository(self, resource='"shared-db"', fail=""):
+    def env_repository(self, resource='"shared-db"', fail="", failure_message="fixture failure"):
         self.set_up_repository()
         self.log = self.root / "env-calls.jsonl"
         script = self.root / "scripts" / "env"
@@ -454,7 +454,7 @@ class TestCheck(unittest.TestCase):
             f"with open({str(self.log)!r}, 'a') as log:\n"
             "    log.write(json.dumps([verb, tree, str(pathlib.Path.cwd())]) + '\\n')\n"
             f"if verb == {fail!r}:\n"
-            "    print('fixture failure', file=sys.stderr)\n"
+            f"    print({failure_message!r}, file=sys.stderr)\n"
             "    sys.exit(1)\n"
             f"if verb == 'up': print({resource})\n")
         script.chmod(0o755)
@@ -489,6 +489,12 @@ class TestCheck(unittest.TestCase):
         code, out = self.run_check(boundary)
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"(?m)^missing +repository +scripts/env:.*scripts/env up")
+
+    def test_env_failure_without_message_reports_exit(self):
+        boundary = self.env_repository(fail="setup", failure_message=" ")
+        code, out = self.run_check(boundary)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +scripts/env:.*scripts/env setup.*exit 1")
 
     def test_env_probe_cleans_up(self):
         for failure in ("", "setup", "up", "down"):

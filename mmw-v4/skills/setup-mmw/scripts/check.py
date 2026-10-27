@@ -41,7 +41,7 @@ def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
 
 
 def reason(proc: subprocess.CompletedProcess) -> str:
-    return (proc.stderr or proc.stdout or f"exit {proc.returncode}").strip().splitlines()[-1]
+    return (proc.stderr.strip() or proc.stdout.strip() or f"exit {proc.returncode}").splitlines()[-1]
 
 
 class Report:
