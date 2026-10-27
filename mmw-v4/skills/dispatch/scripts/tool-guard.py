@@ -313,7 +313,6 @@ XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
 
 
 def ends_a_process(command: str, host: str) -> str | None:
-    """The first termination command not proven to belong to this session."""
     for piece in pieces(command):
         if (ENDS_A_PROCESS.match(piece) or XARGS_KILL.match(piece)) \
                 and not kills_own_processes(piece, host):

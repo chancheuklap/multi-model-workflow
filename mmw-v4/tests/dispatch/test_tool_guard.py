@@ -424,8 +424,6 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
 
 
 class EndingAProcess(unittest.TestCase):
-    """Only a numeric kill with proven session ancestry may pass."""
-
     def test_the_kill_family_is_refused(self):
         for command in ("kill 123", "kill -9 4321", "pkill -f Electron",
                         "killall Electron", "lsof -ti:5173 | xargs kill -9",
