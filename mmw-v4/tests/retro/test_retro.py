@@ -649,6 +649,10 @@ class Commands(unittest.TestCase):
             dict(repo='o/r', number=90, conclusion='reject')])
         self.assertFalse(any(c[1:3] in (['issue','edit'], ['issue','close'],
                                        ['issue','reopen'], ['issue','transfer']) for c in self.fake.calls))
+        writes = [(c[c.index('--repo')+1], int(c[3])) for c in self.fake.calls
+                  if c[1:3] == ['issue', 'comment']]
+        self.assertEqual(writes, [('o/r', 90), ('o/r', 91), ('other/product', 92),
+                                  ('other/product', 93), ('o/r', 94), ('o/r', 90), ('o/r', 76)])
         self.fake.calls.clear()
         rc, out, err = self.run_process('apply', str(path))
         self.assertEqual(rc, 0, err)
@@ -675,6 +679,41 @@ class Commands(unittest.TestCase):
             self.assertEqual(entry['conclusion'], 'unrecorded')
             self.assertTrue(entry['reason'])
 
+    def test_apply_retries_a_failed_registration_lookup(self):
+        self.start_run()
+        self.fake.rows[91] = issue(91)
+        path = Path(self.answer())
+        path.write_text(path.read_text().replace('## Problems',
+            '| #91 | candidate | 另一条登记 | README.md:1 | |\n\n## Problems'))
+        tracker = self.fake
+        def unavailable(args, **kwargs):
+            if args[:4] == ['gh', 'issue', 'view', '90']:
+                return subprocess.CompletedProcess(args, 1, '', 'GitHub unavailable')
+            return tracker(args, **kwargs)
+        self.fake = unavailable
+        rc, out, err = self.run_command('apply', str(path))
+        self.assertEqual(rc, 2, err)
+        self.assertIn('GitHub unavailable', err)
+        self.assertFalse(any(c[1:3] == ['issue', 'comment'] for c in tracker.calls))
+        self.fake = tracker
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        for number in (90, 91):
+            self.assertEqual(len([c for c in self.fake.rows[number]['comments']
+                                  if events.parse(c['body'])[1]['event'] == 'lesson.assessed']), 1)
+
+    def test_apply_requires_an_explicit_problems_section(self):
+        self.start_run()
+        path = Path(self.answer())
+        table = path.read_text().split('## Problems')[0]
+        for section in ('', '## Problems\n'):
+            with self.subTest(section=section):
+                path.write_text(table + section)
+                rc, out, err = self.run_command('apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertIn('## Problems', err)
+                self.assertFalse(any(c[1:3] == ['issue', 'comment'] for c in self.fake.calls))
+
     def test_apply_reads_loose_problem_entries(self):
         self.start_run()
         REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
@@ -686,7 +725,7 @@ class Commands(unittest.TestCase):
             '## Problems\n### unreadable\n- 问题代号：broken-entry\n'
             '- 角度：流程\n- 该谁修：o/r\n'
             '### loose-fault\n- 问题代号：loose-fault\n- 角度：流程\n'
-            '- 发生了什么：工具拒绝了正常请求\n- 证据：README.md:1\n'
+            '- 发生了什么：工具拒绝了正常请求\n- 证据：`README.md:1`；https://github.com/o/r/issues/90\n'
             '- 代价：工作停下\n- 该谁修：o/r (由工具仓库处理)\n'
             '### bad-owner\n问题代号：bad-owner\n角度：流程\n发生了什么：没有目标仓库\n'
             '证据：README.md:1\n代价：工作停下\n该谁修：不知道\n'
@@ -705,6 +744,23 @@ class Commands(unittest.TestCase):
         receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
         self.assertEqual(receipt['registered'], 2)
         self.assertEqual(receipt['candidates'], 1)
+
+    def test_apply_marks_unreadable_new_problem_evidence(self):
+        self.start_run()
+        path = Path(self.answer())
+        path.write_text(path.read_text().replace('## Problems\nNone',
+            '## Problems\n### missing-source\n问题代号：missing-source\n角度：流程\n'
+            '发生了什么：证据文件无法读取\n证据：README.md:1；absent.md:1\n'
+            '代价：不能核实结论\n该谁修：o/r\n'))
+        rc, out, err = self.run_process('apply', str(path))
+        self.assertEqual(rc, 1, err)
+        self.assertIn('absent.md:1', err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['candidates'], 1)
+        self.assertEqual(receipt['registered'], 0)
+        self.assertEqual(receipt['evidence'], 'partial')
+        self.assertEqual(receipt['unreadable_sources'], ['absent.md:1'])
+        self.assertFalse(any(c[1:3] == ['issue', 'create'] for c in self.fake.calls))
 
     def test_apply_rerun_records_nothing_twice(self):
         path = self.assessment_answer()

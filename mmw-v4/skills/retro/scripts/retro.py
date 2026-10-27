@@ -343,19 +343,23 @@ def evidence_source(source):
     raise RetroError(f'evidence URL {source!r} is not a GitHub primary source; supply an issue, commit, or path:line')
 
 
-def check_analysis(row):
-    if row.get('error'):
-        raise RetroError(row['error'])
-    if not row['evidence'].strip():
+def check_evidence(evidence):
+    if not evidence.strip():
         raise RetroError('missing evidence; supply a URL or path:line')
-    if not re.search(r'https?://[^\s|]+|[^\s|]+:[1-9][0-9]*',row['evidence']):
+    if not re.search(r'https?://[^\s|]+|[^\s|]+:[1-9][0-9]*',evidence):
         raise RetroError('evidence needs a URL or path:line')
-    links = re.findall(r'https?://[^\s；;,|)]+|[^\s；;,|()]+:[1-9][0-9]*',row['evidence'].replace('`',''))
+    links = re.findall(r'https?://[^\s；;,|)]+|[^\s；;,|()]+:[1-9][0-9]*',evidence.replace('`',''))
     for link in links:
         try:
             evidence_source(link)
         except (OSError,UnicodeError) as exc:
             raise UnreadableEvidence(link,str(exc)) from None
+
+
+def check_analysis(row):
+    if row.get('error'):
+        raise RetroError(row['error'])
+    check_evidence(row['evidence'])
     if row['conclusion'] not in ('candidate','propose','reject') and not re.fullmatch(r'merge:\S.*', row['conclusion']):
         raise RetroError('conclusion must be merge:<target>, reject, candidate or propose')
     if not row['code'] or not row['reason']:
@@ -483,16 +487,17 @@ def merge_apply(args):
 
 
 def new_problems(path):
+    result = dict(problems=[],errors=[],unreadable=[])
     text = path.read_text(encoding='utf-8')
     section = re.search(r'^## Problems[ \t]*\n(.*)\Z',text,re.M|re.S)
     if not section:
-        print(f'{path} needs ## Problems; write None when there are no new problems',file=sys.stderr)
-        return []
+        raise RetroError(f'{path} needs ## Problems; write None when there are no new problems')
     content = section[1].strip()
+    if not content:
+        raise RetroError(f'{path} ## Problems is empty; write None or a registration')
     if content == 'None':
-        return []
+        return result
     chunks = re.split(r'^### [^\n]+\n',content,flags=re.M)
-    bodies = []
     for chunk in chunks:
         if not chunk.strip():
             continue
@@ -513,14 +518,16 @@ def new_problems(path):
                     or not re.fullmatch(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*',fields['问题代号'])
                     or len(fields['问题代号']) > 80):
                 raise RetroError('invalid problem code or angle; correct the entry')
-            evidence_source(fields['证据'])
+            check_evidence(fields['证据'])
         except (RetroError,OSError,UnicodeError) as exc:
-            print(f'{path} ## Problems {fields.get("问题代号", chunk.splitlines()[0])}: {exc}',file=sys.stderr)
+            message = f'{path} ## Problems {fields.get("问题代号", chunk.splitlines()[0])}: {exc}'
+            print(message,file=sys.stderr)
+            if isinstance(exc,UnreadableEvidence):
+                result['errors'].append(message)
+                result['unreadable'].append(exc.source)
             continue
-        bodies.append((body,fields))
-    if not content:
-        print(f'{path} ## Problems is empty; write None or a registration',file=sys.stderr)
-    return bodies
+        result['problems'].append((body,fields))
+    return result
 
 
 def register_new_problem(path,body,fields,context):
@@ -562,30 +569,37 @@ def register_new_problem(path,body,fields,context):
 def prepare_answers(args,context):
     valid,errors,problems,unreadable,unrecorded = [],[],[],[],[]
     for path in args.answers:
-        problems.extend(new_problems(path))
+        new = new_problems(path)
+        problems.extend(new['problems'])
+        errors.extend(new['errors'])
+        unreadable.extend(new['unreadable'])
     for path in args.answers:
         for row in answer_rows(path):
             try:
                 check_analysis(row)
-                try:
-                    target = resolve_issue(row['code'],context)
-                    current = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
-                    if 'mmw:lesson' not in labels(current):
-                        raise RetroError('answer target is not a lesson; product problems and children stay in their workflows')
-                except RetroError as exc:
-                    unrecorded.append(dict(code=row['code'],conclusion='unrecorded',reason=str(exc)))
-                    print(f'{row["path"]}:{row["line"]}: unrecorded: {exc}',file=sys.stderr)
-                    continue
-                _,state = history(target['repo'],target['number'])
-                row['target'] = target
-                row['occurrences'] = state['occurrences']
-                valid.append(row)
             except RetroError as exc:
                 message = f'{row["path"]}:{row["line"]}: {exc}'
                 print(message,file=sys.stderr)
                 errors.append(message)
                 if isinstance(exc,UnreadableEvidence):
                     unreadable.append(exc.source)
+                continue
+            try:
+                target = resolve_issue(row['code'],context)
+            except RetroError as exc:
+                reason = str(exc)
+            else:
+                current = register.gh_json(['issue','view',str(target['number']),'--repo',target['repo'],'--json','body,labels,state'])
+                reason = (None if 'mmw:lesson' in labels(current) else
+                          'answer target is not a lesson; product problems and children stay in their workflows')
+            if reason:
+                unrecorded.append(dict(code=row['code'],conclusion='unrecorded',reason=reason))
+                print(f'{row["path"]}:{row["line"]}: unrecorded: {reason}',file=sys.stderr)
+                continue
+            _,state = history(target['repo'],target['number'])
+            row['target'] = target
+            row['occurrences'] = state['occurrences']
+            valid.append(row)
     if not valid and not problems:
         print('no recordable answer rows or new problems; correct the answer file',file=sys.stderr)
         return 2
