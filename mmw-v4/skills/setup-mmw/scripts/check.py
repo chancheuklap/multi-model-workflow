@@ -239,7 +239,6 @@ def check_env(report: Report, root: Path):
         report.add("ok", "repository", "scripts/env", "two worktrees use separate resources; probe cleaned up")
 
 
-
 def check_testing(report: Report, root: Path):
     if (root / "TESTING.md").is_file():
         report.add("ok", "repository", "TESTING.md", "present")

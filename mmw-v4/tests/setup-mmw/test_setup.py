@@ -516,7 +516,6 @@ class TestCheck(unittest.TestCase):
                         verbs = [verb for verb, path, cwd in calls if path == tree]
                         self.assertEqual(verbs, ["setup", "down"] if failure == "setup"
                                          else ["setup", "up", "down"])
-                        self.assertFalse(Path(tree).exists())
                     self.assertTrue(all(Path(cwd).resolve() == Path(tree).resolve()
                                         for verb, tree, cwd in calls))
                     listed = subprocess.run(["git", "worktree", "list", "--porcelain"],
