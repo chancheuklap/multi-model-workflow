@@ -100,6 +100,7 @@ STATUS="$SKILL_ROOT/scripts/status.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 BRIEFS="$SKILL_ROOT/scripts/briefs.py"
+PR="$SKILL_ROOT/scripts/pr.py"
 ROLES_JSON="$SKILL_ROOT/roles.json"
 # Every start prompt carries both: the mode first, then the file the session works by,
 # then that this file is all of its work. Naming a file is what keeps the session out of
@@ -4300,7 +4301,7 @@ route_child() {
 }
 
 open_pr() {
-  python3 "$SKILL_ROOT/scripts/pr.py" "$@"
+  python3 "$PR" "$@"
 }
 
 # ------------------------------------------------------------------ entry
