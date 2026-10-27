@@ -484,6 +484,12 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertRegex(out, r"(?m)^ok +repository +scripts/env:")
 
+    def test_env_row_missing_when_up_names_no_resources(self):
+        boundary = self.env_repository(resource=repr(" \t "))
+        code, out = self.run_check(boundary)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"(?m)^missing +repository +scripts/env:.*scripts/env up")
+
     def test_env_probe_cleans_up(self):
         for failure in ("", "setup", "up", "down"):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:

@@ -216,7 +216,11 @@ def check_env(report: Report, root: Path):
                         errors.append(f"scripts/env {verb} {tree} failed: {reason(proc)}")
                         break
                     if verb == "up":
-                        resources.append({line.strip() for line in proc.stdout.splitlines() if line.strip()})
+                        names = {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+                        if not names:
+                            errors.append(f"scripts/env up {tree} printed no resource names; "
+                                          "print one resource name per line in scripts/env")
+                        resources.append(names)
             if len(resources) == 2:
                 shared = resources[0] & resources[1]
                 if shared:
