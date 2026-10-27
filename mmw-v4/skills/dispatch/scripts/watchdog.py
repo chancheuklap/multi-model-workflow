@@ -281,7 +281,6 @@ def stale(beat: dict | None, now: datetime) -> bool:
 
 
 def judge(fold: dict) -> dict:
-    """The ticket's holds, independent of event age and runner state."""
     if fold.get("unreadable"):
         return {"state": "unreadable",
                 "comments": [item.get("comment") for item in fold["unreadable"]]}
@@ -422,7 +421,6 @@ def ask_liveness(runner: str, session: str) -> str:
 
 
 def ask_state(runner: str, session: str) -> str:
-    """The runner's turn state, including the screen line for a dialog."""
     adapter = runners_dir() / f"{runner}.sh"
     if not runner or not adapter.is_file():
         return "unknown"
@@ -441,7 +439,6 @@ def ask_state(runner: str, session: str) -> str:
 
 
 def worktree_activity(worktree: str | None, started: str | None) -> datetime:
-    """Latest commit or file modification, never earlier than session start."""
     latest = parse_iso(started) or datetime.min.replace(tzinfo=timezone.utc)
     if not worktree:
         return latest

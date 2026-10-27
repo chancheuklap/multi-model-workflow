@@ -1,19 +1,3 @@
-"""Tests for the three layers of liveness: turn-guard.py's predicate, watchdog.py's
-heartbeat, tolerance and lock, session states and repeating ticket reminders. No tracker, no runner,
-no network, no waiting for a real poll.
-
-The seam is this machine's state directory plus the runner: `MMW_HOME` points at a
-temporary directory holding the heartbeat, the locks and the relay's files, the board is a
-fake `Board` answering from a dict of comments. The runner's `liveness` and `send`
-verbs and the `worker.lost` post record their calls. Temporary runner scripts answer
-`state`, and temporary git repositories supply commit times and file modification times.
-What is asserted is what an outsider sees: whether a turn end is blocked, whether a
-watchdog reads as healthy, what was posted on which ticket, who was asked, and what the
-orchestrator was sent.
-
-    python3 -m unittest discover -s mmw-v4/tests/liveness -p 'test_*.py'
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -673,7 +657,6 @@ class Rounds(StateCase):
         self.assertEqual(self.watchdog().round(), "watching")
         self.watchdog().round()  # a new watchdog process reads what was reported
         self.assertEqual(len(self.send.calls), 1)
-        # An unknown runner answer is reported again after a new ticket event.
         self.board.tickets[61].append(comment(2, "worker.decided", 61, self.SILENT))
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 2)
