@@ -14,7 +14,11 @@ A reference to the parent spec on the tracker, followed by the numbered Implemen
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph. A choice the user settled in the quiz of To tickets step 7 is a point of its own here, stated as the ticket's decision.
+Open with one sentence: the one action the product's user takes, and what they see once this ticket is done.
+
+For each step of a wide refactor's expand–contract sequence and the final UI ticket that only removes mount points, open instead with one sentence naming the sequence and its step, either expand, migrate, contract, or mount-point removal.
+
+Then write the end-to-end behaviour as numbered points, not layer-by-layer implementation, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph. A choice the user settled in the quiz of To tickets step 7 is a point of its own here, stated as the ticket's decision.
 
 ## Read first
 
