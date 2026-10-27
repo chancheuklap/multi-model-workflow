@@ -15,7 +15,7 @@ from _load import load
 
 vt = load()
 
-HEAD = "## Parent\n\n#216\n\n## Acceptance criteria\n\n"
+HEAD = "## Parent\n\n#216\n\n## What to build\n\n1. Import the rows. AC1.\n\n## Acceptance criteria\n\n"
 CLEAN = (HEAD + "- [ ] AC1: the importer writes six rows\n"
          "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
          "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")

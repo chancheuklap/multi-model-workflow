@@ -35,6 +35,8 @@ LABELS = "mmw:ticket, ready-for-agent, junior-worker"
 
 def draft(blocked="(none)", parent="#555, Implementation Decisions section 1",
           criteria=CRITERION, labels=LABELS, title="A ticket"):
+    if "## What to build" not in criteria:
+        criteria = "## What to build\n\n1. Import the rows. AC1.\n\n" + criteria
     return (f"TITLE: {title}\nLABELS: {labels}\nBLOCKED BY: {blocked}\n"
             f"WORKER LINE: junior, a note the lint does not read\n---\n"
             f"## Parent\n\n{parent}\n\n{criteria}")
@@ -164,6 +166,54 @@ class TestDrafts(DraftsFixture, unittest.TestCase):
             with self.assertRaises(SystemExit):
                 vt.main([str(SPEC), "--drafts", str(self.dir)])
         self.assertIn("--drafts", err.getvalue())
+
+
+class TestBuildPoints(DraftsFixture, unittest.TestCase):
+    def test_replay_build_points(self):
+        fixtures = Path(__file__).parent / "fixtures"
+        for ticket, missing_point in ((65, "共用请求"), (66, "FormData"), (68, "Blob")):
+            with self.subTest(ticket=ticket):
+                body = (fixtures / f"erp-frontend-{ticket}.md").read_text()
+                with redirect_stdout(io.StringIO()) as out:
+                    code = vt.lint_criteria(ticket, body, LABELS.split(", "))
+                self.assertEqual(code, 1, out.getvalue())
+                errors = [line for line in out.getvalue().splitlines()
+                          if "[build-point-without-criterion]" in line]
+                self.assertTrue(any(missing_point in line for line in errors), errors)
+                self.assertTrue(all("ERROR" in line for line in errors), errors)
+
+    def test_build_point_without_criterion(self):
+        cases = [
+            ("1. Import the rows. AC1 verifies it.", False, ""),
+            ("1) Import the rows.\n   Decided by AC1.", False, ""),
+            ("1. Import the rows.", True, "Import the rows"),
+            ("1. Import the rows. AC9 verifies it.", True, "AC9"),
+            ("1. Import the rows. AC1 and AC9 verify it.", True, "AC9"),
+            ("Import the rows. AC1 verifies it.", True, "numbered point"),
+            ("", True, "numbered point"),
+            ("```\n1. Example only. AC1.\n```", True, "numbered point"),
+            ("1. Import the rows.\n\n2. Publish the rows. AC1.", True, "Import the rows"),
+        ]
+        for points, error, fact in cases:
+            with self.subTest(points=points):
+                body = ("## What to build\n\n" + points + "\n\n" + CRITERION)
+                self.write("T1", draft(criteria=body))
+                code, printed = self.lint()
+                self.assertEqual(code, int(error), printed)
+                self.assertEqual("[build-point-without-criterion]" in printed, error, printed)
+                if error:
+                    self.assertIn(fact, printed)
+                    self.assertIn("ERROR", printed)
+                with mock.patch.object(vt, "fetch_body", return_value=body), \
+                     mock.patch.object(vt, "fetch_ticket", return_value={
+                         "labels": [{"name": x.strip()} for x in LABELS.split(",")]}), \
+                     mock.patch.object(vt, "fetch_parent", return_value=None), \
+                     mock.patch.object(vt, "fetch_sub_issues", return_value=[]), \
+                     mock.patch.object(vt, "repo_root", return_value=self.root), \
+                     redirect_stdout(io.StringIO()) as out:
+                    code = vt.main(["77", "--lint"])
+                self.assertEqual(code, int(error), out.getvalue())
+                self.assertEqual("[build-point-without-criterion]" in out.getvalue(), error)
 
 
 class TestDraftBase(unittest.TestCase):

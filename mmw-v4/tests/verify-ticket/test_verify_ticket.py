@@ -511,7 +511,7 @@ class TestLint(unittest.TestCase):
     def test_the_worker_label_the_tracker_carries_is_what_the_rule_reads(self):
         """A ticket in the agent queue with two worker labels is the worker ERROR, one
         with none a WARN, and it is the labels that decide it, not anything in the body."""
-        body = ticket(
+        body = "## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: node scripts/import.mjs fixtures/valid.json",
             "  EXPECT: /wrote 6 rows/",
@@ -528,7 +528,7 @@ class TestLint(unittest.TestCase):
 
     def test_a_weak_expectation_is_reported_without_failing_the_run(self):
         """A warning is for a person to weigh, so it must not decide the exit code."""
-        code, printed = self.lint(ticket(
+        code, printed = self.lint("## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: node scripts/import.mjs fixtures/valid.json",
             "  EXPECT: ok",
@@ -539,7 +539,7 @@ class TestLint(unittest.TestCase):
 
     def test_a_criterion_with_no_command_fails_the_run(self):
         """Nobody but the ticket's own author decides it, which the section forbids."""
-        code, printed = self.lint(ticket(
+        code, printed = self.lint("## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the wording reads well",
             "  EVIDENCE: pending",
         ))
@@ -549,7 +549,7 @@ class TestLint(unittest.TestCase):
 
     def test_lint_runs_no_check_and_posts_no_comment(self):
         posted: list[str] = []
-        body = ticket(
+        body = "## What to build\n\n1. Import the rows. AC1.\n\n" + ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: echo LINT-MUST-NOT-RUN-THIS",
             "  EXPECT: ok",
