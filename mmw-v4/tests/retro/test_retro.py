@@ -41,7 +41,8 @@ def issue(number=90, angle='环境', bodies=None, labels=('mmw:lesson',), state=
 
 
 class Fake:
-    def __init__(self, rows):
+    def __init__(self, rows, repo=REPO):
+        self.repo = repo
         self.rows = {r['number']: r for r in rows}
         self.calls = []
 
@@ -52,7 +53,7 @@ class Fake:
         a = args[1:]
         out = ''
         if a[:2] == ['repo', 'view']:
-            out = json.dumps(dict(nameWithOwner=REPO))
+            out = json.dumps(dict(nameWithOwner=self.repo))
         elif a[0] == 'api':
             endpoint = a[1]
             if endpoint == 'graphql':
@@ -276,6 +277,30 @@ class Commands(unittest.TestCase):
         self.assertEqual(signals[0]['settlement'], self.fake.rows[61]['comments'][1]['body'])
         self.assertEqual(signals[1]['child_body'], self.fake.rows[92]['body'])
         self.assertIn('not yet settled', signals[1]['settlement'])
+
+    def test_gather_replays_the_three_real_misses(self):
+        self.start_run()
+        cases = [(1165, '2026-10-19T07:25:26Z', {1166}),
+                 (1618, '2026-10-26T13:05:51Z', {1633, 1634}),
+                 (1418, '2026-10-21T11:24:21Z', {1431, 1432, 1435, 1436, 1437, 1440})]
+        for number, since, children in cases:
+            with self.subTest(run=number):
+                fixture = json.loads((Path(__file__).parent/'fixtures'/f'run-{number}.json').read_text())
+                self.fake = Fake(fixture['rows'], repo=fixture['repo'])
+                material_dir = self.root/f'materials-{number}'
+                with patch.dict(os.environ, MMW_NOW=fixture['as_of']):
+                    rc, out, err = self.run_process('gather', f'--{fixture["mode"]}', str(number),
+                                                    fixture['repo'], '--out', str(material_dir))
+                self.assertEqual(rc, 0, err)
+                context = json.loads((material_dir/'context.json').read_text())
+                self.assertEqual(context['since'], since)
+                self.assertTrue((material_dir/'process.md').exists(), 'real missed contracts produce material')
+                material = json.loads((material_dir/'process.md').read_text().split('\n\n', 1)[1])
+                signals = [r for r in material if r['kind'] == 'signal']
+                self.assertEqual({r['event']['child'] for r in signals}, children)
+                for signal in signals:
+                    child = self.fake.rows[signal['event']['child']]
+                    self.assertEqual(signal['child_body'], child['body'])
 
     def test_gather_writes_only_the_angles_with_material(self):
         self.start_run()
@@ -675,14 +700,14 @@ class Commands(unittest.TestCase):
         data = self.root/'tracker.json'
         data.write_text(json.dumps(list(self.fake.rows.values())))
         binary = self.root/'bin'
-        binary.mkdir()
+        binary.mkdir(exist_ok=True)
         gh = binary/'gh'
         gh.write_text('#!'+os.sys.executable+'\n'+f'''import sys,json
 from pathlib import Path
 sys.path.insert(0,{str(Path(__file__).parent)!r})
 from test_retro import Fake
 path=Path({str(data)!r})
-fake=Fake(json.loads(path.read_text()))
+fake=Fake(json.loads(path.read_text()), repo={self.fake.repo!r})
 result=fake(['gh',*sys.argv[1:]])
 path.write_text(json.dumps(list(fake.rows.values())))
 sys.stdout.write(result.stdout)
