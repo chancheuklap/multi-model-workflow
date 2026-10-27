@@ -200,9 +200,11 @@ class TestDraftBase(unittest.TestCase):
         return subprocess.check_output(["git", *args], cwd=cwd or self.root,
                                        stderr=subprocess.STDOUT, text=True)
 
-    def write(self, name="T1", check="python3 check.py base-ok 1", expect="/^base-ok$/m"):
+    def write(self, name="T1", check="python3 check.py base-ok 1", expect="/^base-ok$/m", timeout=""):
         criteria = ("## Acceptance criteria\n\n- [ ] AC1: base result\n"
                     f"  CHECK: {check}\n  EXPECT: {expect}\n  EVIDENCE: pending\n")
+        if timeout:
+            criteria += f"  TIMEOUT: {timeout}\n"
         (self.drafts / f"{name}.md").write_text(draft(criteria=criteria))
 
     def lint(self, *extra):
@@ -225,6 +227,7 @@ class TestDraftBase(unittest.TestCase):
         self.assertIn("base-ok", out)
         self.assertNotIn("old-line", out)
         self.assertNotIn("working checkout", out)
+        self.assertNotIn("[passes-on-base]", out)
         self.assertEqual(self.calls.read_text().splitlines(),
                          ["T1:origin/project", "T2:origin/project"])
         self.assertEqual(self.git("rev-parse", "HEAD"), head)
@@ -302,11 +305,12 @@ class TestDraftBase(unittest.TestCase):
         self.assertEqual(self.calls.read_text().splitlines(), ["checkout:origin/project"])
 
     def test_drafts_base_run_timeout(self):
-        self.write(check="python3 -c 'import time; print(42, flush=True); time.sleep(10)'")
+        self.write(check="python3 -c 'import time; print(42, flush=True); time.sleep(10)'",
+                   timeout="2")
         with mock.patch.object(vt, "DEFAULT_TIMEOUT", 1):
             code, out = self.lint()
         self.assertEqual(code, 0, out)
-        self.assertIn("timed out after 1s", out)
+        self.assertIn("timed out after 2s", out)
         self.assertIn("T1 AC1 FAIL on origin/project", out)
         self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
