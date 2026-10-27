@@ -1,0 +1,244 @@
+{
+  "repo": "agentflow-hq/agentflow",
+  "number": 1418,
+  "mode": "spec",
+  "as_of": "2026-10-27T00:00:00Z",
+  "rows": [
+    {
+      "number": 1418,
+      "title": "Spec：小鹦鹉字幕擦除免费试用与真实样本采集",
+      "labels": [
+        {
+          "name": "mmw:spec"
+        }
+      ],
+      "state": "open",
+      "state_reason": null,
+      "created_at": "2026-10-21T10:34:11Z",
+      "updated_at": "2026-10-22T06:04:38Z",
+      "comments": [
+        {
+          "id": 6314726116,
+          "body": "NIGHT OPENED #1418: wake-ups go to the orchestrator, orca session term_6b4e890f-e879-49da-a221-20e70f4c45eb\n\n<!-- mmw {\"v\":1,\"event\":\"spec.opened\",\"stage\":\"night\",\"actor\":\"main\",\"spec\":1418,\"ticket\":null,\"at\":\"2026-10-21T11:24:21Z\",\"runner\":\"orca\",\"session\":\"term_6b4e890f-e879-49da-a221-20e70f4c45eb\",\"into\":\"night-1418\",\"project\":\"parrot-subtitle-sampling\"} -->",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1418#issuecomment-6314726116",
+          "created_at": "2026-10-21T11:24:22Z",
+          "updated_at": "2026-10-21T11:24:22Z"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "number": 1419,
+      "title": "零价：唯一写入口、预扣锁价和小鹦鹉本机后端接受擦除加项为 0",
+      "labels": [
+        {
+          "name": "senior-worker"
+        },
+        {
+          "name": "mmw:ticket"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T10:48:51Z",
+      "updated_at": "2026-10-21T23:20:41Z",
+      "comments": [
+        {
+          "id": 6315036006,
+          "body": "Opened #1431 (contract): #1419 AC6 also needs the local pricing endpoint to accept zero outside Owns\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1418,\"ticket\":1419,\"at\":\"2026-10-21T11:41:35Z\",\"child\":1431,\"kind\":\"contract\",\"title\":\"#1419 AC6 also needs the local pricing endpoint to accept zero outside Owns\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1419#issuecomment-6315036006",
+          "created_at": "2026-10-21T11:41:37Z",
+          "updated_at": "2026-10-21T11:41:37Z"
+        },
+        {
+          "id": 6315091207,
+          "body": "Opened #1432 (contract): #1419 zero-price publication needs a supported new-client proof that can initialize its startup frame\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1418,\"ticket\":1419,\"at\":\"2026-10-21T11:44:43Z\",\"child\":1432,\"kind\":\"contract\",\"title\":\"#1419 zero-price publication needs a supported new-client proof that can initialize its startup frame\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1419#issuecomment-6315091207",
+          "created_at": "2026-10-21T11:44:44Z",
+          "updated_at": "2026-10-21T11:44:44Z"
+        }
+      ],
+      "parent": {
+        "number": 1418
+      }
+    },
+    {
+      "number": 1422,
+      "title": "Gateway 擦除样本登记链：登记、签发、确认、丢弃四个接口与样本表",
+      "labels": [
+        {
+          "name": "senior-worker"
+        },
+        {
+          "name": "mmw:ticket"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T10:49:11Z",
+      "updated_at": "2026-10-21T23:24:33Z",
+      "comments": [
+        {
+          "id": 6321190140,
+          "body": "Opened #1435 (contract): Cloud preparation must authorize samples/* in the shared development bucket\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1418,\"ticket\":1422,\"at\":\"2026-10-21T16:36:03Z\",\"child\":1435,\"kind\":\"contract\",\"title\":\"Cloud preparation must authorize samples/* in the shared development bucket\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1422#issuecomment-6321190140",
+          "created_at": "2026-10-21T16:36:04Z",
+          "updated_at": "2026-10-21T16:36:04Z"
+        },
+        {
+          "id": 6321802213,
+          "body": "Opened #1436 (contract): Re-signing with a shorter lifetime must not let cleanup outlive an older valid PUT URL\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1418,\"ticket\":1422,\"at\":\"2026-10-21T17:04:38Z\",\"child\":1436,\"kind\":\"contract\",\"title\":\"Re-signing with a shorter lifetime must not let cleanup outlive an older valid PUT URL\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1422#issuecomment-6321802213",
+          "created_at": "2026-10-21T17:04:39Z",
+          "updated_at": "2026-10-21T17:04:39Z"
+        },
+        {
+          "id": 6322809818,
+          "body": "Opened #1437 (contract): #1422 review regression checks lack acceptance coverage for integer overflow and storage error logs\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1418,\"ticket\":1422,\"at\":\"2026-10-21T17:54:39Z\",\"child\":1437,\"kind\":\"contract\",\"title\":\"#1422 review regression checks lack acceptance coverage for integer overflow and storage error logs\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1422#issuecomment-6322809818",
+          "created_at": "2026-10-21T17:54:40Z",
+          "updated_at": "2026-10-21T17:54:40Z"
+        }
+      ],
+      "parent": {
+        "number": 1418
+      }
+    },
+    {
+      "number": 1426,
+      "title": "Gateway 擦除样本每日清理：作废、删孤立对象并留删除记录",
+      "labels": [
+        {
+          "name": "senior-worker"
+        },
+        {
+          "name": "mmw:ticket"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T10:49:35Z",
+      "updated_at": "2026-10-21T23:33:27Z",
+      "comments": [
+        {
+          "id": 6325809782,
+          "body": "Opened #1440 (contract): Give the required 03:30 sample sweep its own acceptance check\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1418,\"ticket\":1426,\"at\":\"2026-10-21T20:27:16Z\",\"child\":1440,\"kind\":\"contract\",\"title\":\"Give the required 03:30 sample sweep its own acceptance check\"} -->\n",
+          "html_url": "https://github.com/agentflow-hq/agentflow/issues/1426#issuecomment-6325809782",
+          "created_at": "2026-10-21T20:27:17Z",
+          "updated_at": "2026-10-21T20:27:17Z"
+        }
+      ],
+      "parent": {
+        "number": 1418
+      }
+    },
+    {
+      "number": 1431,
+      "title": "#1419 AC6 also needs the local pricing endpoint to accept zero outside Owns",
+      "body": "A `contract` child of #1419.\n\n#1419 AC6 also needs the local pricing endpoint to accept zero outside Owns\n\n## Contract gap\n\n#1419 What to build item 1 and #1418 Implementation Decisions section 2 name three zero-price rejection points. #1419 Owns includes `src/parrot_dubbing/runtime_policy.py`, but not `src/parrot_dubbing/api/config_routes.py`.\n\n`src/parrot_dubbing/api/config_routes.py` `_pricing_response_from_snapshot` independently rejects every surcharge where `amount <= 0`. `GET /api/config/pricing` calls that reader directly. Accepting the snapshot in the strict reader alone cannot satisfy AC6, which requires the local quote to return zero. The new committed-first test `test_local_quote_reads_zero_surcharge` exercises snapshot acceptance followed by this real HTTP endpoint.\n\nThe settled behavior still holds. All three tiers accept explicit nonnegative integers. Missing tiers, booleans, non-integers and negative amounts remain errors. The dubbing price remains positive. The pricing dialog stays unchanged, and no production prices change.\n\n## Requested correction\n\nAssign `src/parrot_dubbing/api/config_routes.py` to #1419 and include this fourth reader in #1418 section 2. Confirm no sibling ticket owns the same file. The worker will leave that file unchanged until the correction is settled and continue independent work in the current Owns.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T11:41:33Z",
+      "updated_at": "2026-10-21T11:44:44Z",
+      "comments": [],
+      "parent": {
+        "number": 1419
+      }
+    },
+    {
+      "number": 1432,
+      "title": "#1419 zero-price publication needs a supported new-client proof that can initialize its startup frame",
+      "body": "A `contract` child of #1419.\n\n#1419 zero-price publication needs a supported new-client proof that can initialize its startup frame\n\n## Missing test setup\n\n#1419 AC1 requires publishing zero through the single writer. #1418 Implementation Decisions section 2 also requires preserving the released-client proof that rejects zero while an incompatible old client is supported. Both requirements must remain intact.\n\nThe existing billing example uses the historical release inventory from `tests/contracts/test_server_values_consumer_proof.py` `_inventory`. Its Parrot release is 1.1.1, whose real price reader rejects zero. Using that inventory cannot exercise successful zero publication. Excluding all Parrot releases also fails with `no_supported_release_evidence`, as intended.\n\nI attempted the existing `_archived_release` helper with the current branch source at HEAD, its actual package version 1.2.9 and `PARROT_STRICT_CONFIG_CONTRACT`, plus the historical Hedgehog archive. The synthetic installer remains the repository's existing test mechanism. No proof reader or validator was replaced. Even publishing the support-floor change before attempting zero fails because the current source consumer cannot initialize:\n\n```text\ngateway.server_values.PublishRefused: consumer proof failed for candidate keys ['parrot_dubbing.min_supported_client_version']: serving parrot_dubbing/1.2.9: consumer_materialization_failed\nFile \".../src/shared/billing_contracts.py\", line 25, in <module>\n    _billing_contract_log = _get_logger(__name__)\nFile \".../src/shared/logger.py\", line 470, in get_logger\n    raise RuntimeError(\"Logging requires an installed startup or server-value frame\")\nRuntimeError: Logging requires an installed startup or server-value frame\n```\n\nReproduction is the uncommitted `tests/billing/test_parrot_zero_erasure_surcharge.py` on `issue-1419`, command `uv run pytest tests/billing/test_parrot_zero_erasure_surcharge.py -k zero_surcharge_publishes -rs`. The fixture reads the fixed production copy through existing support functions and uses the real single writer and real publication proof. This failure is setup, not valid test-first red evidence for zero publication.\n\n`scripts/ops/client_release_consumer_check.py` `_CONSUMER` imports the archived pricing reader before installing the new client's required startup frame. This script is outside #1419 Owns. The worker has not edited it, weakened the proof, or represented a historical client as accepting zero.\n\n## Requested correction\n\nSpecify the sanctioned new-client evidence setup for AC1, AC4 and AC5. If the current release-consumer reader needs startup-frame support, assign the fix with the necessary ownership and criteria. Preserve the old-client refusal, real consumer execution and exact candidate proof. #1431 independently covers the current pricing reader's rejection of zero after startup succeeds.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T11:44:39Z",
+      "updated_at": "2026-10-21T11:48:43Z",
+      "comments": [],
+      "parent": {
+        "number": 1419
+      }
+    },
+    {
+      "number": 1435,
+      "title": "Cloud preparation must authorize samples/* in the shared development bucket",
+      "body": "A `contract` child of #1422.\n\nCloud preparation must authorize samples/* in the shared development bucket\n\n## Contract gap\n\n#1422 What to build item 7 and #1418 Implementation Decisions section 9 require local-prod ERASE_SAMPLES_* to use the existing work-monitor development bucket. #1418 Implementation Decisions section 7 and 1302-sample-registration-design.md ## 2 require object keys under samples/, without an environment prefix.\n\nThe development RAM policy generated by scripts/ops/work_monitor_storage_setup.sh policy_json grants object actions only on acs:oss:*:*:<bucket>/work-monitor/* and restricts ListObjects to work-monitor/*. scripts/dev/macos/local_prod_sim.py diagnostics_storage_env_lines documents the same prefix restriction. These repository sources therefore do not provide permission for the required samples/ keys. This is evidence about the setup recipe, not a claim that the live RAM policy was inspected.\n\nThe cloud-preparation ticket must explicitly grant the development credential PutObject, HeadObject, ListObjects and DeleteObject for samples/*, or install a dedicated development credential with that permission. It must run the gated erase-sample real-bucket test with that credential before Gateway release and Win-PC acceptance.\n\nThe settled independent production bucket, shared development bucket, samples/ object keys, permanent confirmed-file retention and dedicated production credentials all still hold. This does not block building the Gateway API and its isolated tests. No production or RAM policy was changed by this worker.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T16:35:59Z",
+      "updated_at": "2026-10-21T16:37:41Z",
+      "comments": [],
+      "parent": {
+        "number": 1422
+      }
+    },
+    {
+      "number": 1436,
+      "title": "Re-signing with a shorter lifetime must not let cleanup outlive an older valid PUT URL",
+      "body": "A `contract` child of #1422.\n\nRe-signing with a shorter lifetime must not let cleanup outlive an older valid PUT URL\n\n## Contract gap\n\n1302-sample-registration-design.md ## 4 says each upload-url call issues a new PUT address and records last_url_expires_at. Its address-lifetime formula uses the current upload rate. The same baseline ## 7 and #1418 Implementation Decisions section 8 permit deleting an unconfirmed terminal sample's object once last_url_expires_at has passed, on the premise that no issued URL can write the object again.\n\nThe missing case is a re-sign after the server upload rate increases. A first URL can last 604740 seconds. A subsequent URL for the same declared object can last 909 seconds. Recording only the newer URL's expiration permits cleanup while the older URL is still valid. An old in-flight PUT can then recreate the object after cleanup marked it deleted. The object key is registered, so the unregistered-object sweep cannot identify that recreation as an orphan.\n\nSuggested correction is to retain the maximum expiration across every issued URL in sample_file.last_url_expires_at, while returning each newly issued URL's actual expiration unchanged. The signing update would use GREATEST(existing expiration, new expiration). A Gateway test should issue a long-lived URL, publish a higher rate, re-sign the same file, and verify that cleanup's stored expiration still covers the older URL. A criterion should pin this safety property.\n\nThe fixed key, immutable MD5, per-call lifetime formula, sign_count, returned expiry and all confirmed-file retention rules still hold. The other implementation work and checks can continue. No baseline file or ticket body was changed by this worker.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T17:04:35Z",
+      "updated_at": "2026-10-21T17:11:50Z",
+      "comments": [],
+      "parent": {
+        "number": 1422
+      }
+    },
+    {
+      "number": 1437,
+      "title": "#1422 review regression checks lack acceptance coverage for integer overflow and storage error logs",
+      "body": "A `contract` child of #1422.\n\n#1422 review regression checks lack acceptance coverage for integer overflow and storage error logs\n\nThe review of #1422 held two correctness findings inside its Owns. The sources remain unchanged otherwise: strict request validation, integer database columns, one HEAD for confirmation, and the existing storage error status codes all still hold.\n\n1. `src/shared/contracts/erase_samples.py` accepts three request integers above PostgreSQL integer maximum 2147483647. `billing_attempt_no`, `residual_candidate_count`, and `source_duration_ms` then reach the INSERT and raise an uncaught 500. Add a criterion that maximum values register, and maximum+1 returns 422 with no sample written, through the existing Gateway seam. Proposed CHECK uses `-k registration_integer_bounds` in `tests/gateway/test_erase_sample_registration.py`.\n2. Missing storage environment variables and OSS signing/HEAD failures return 503/502 without an operator error log. Add a criterion that these responses preserve state and emit an error identifying the failed storage operation without leaking credentials. Proposed CHECK uses `-k storage_failures_are_logged` in the same file.\n\nThe test-behavior-not-implementation skill requires a missing regression criterion to be raised rather than silently adding review-only tests. Please authorize these focused cases in #1422 and its acceptance criteria. The worker continues the existing AC5 and AC14 test corrections meanwhile. No schema, product scope, production configuration, or client protocol change is needed.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T17:54:36Z",
+      "updated_at": "2026-10-21T17:55:43Z",
+      "comments": [],
+      "parent": {
+        "number": 1422
+      }
+    },
+    {
+      "number": 1440,
+      "title": "Give the required 03:30 sample sweep its own acceptance check",
+      "body": "A `contract` child of #1426.\n\nGive the required 03:30 sample sweep its own acceptance check\n\n#1426 What to build item 1 requires `erase_sample_sweep` to run every day at 03:30 Beijing time on the existing scheduler with a dedicated lock. #1418 Implementation Decisions section 8 and `efforts/parrot-erase-samples/research/1302-sample-registration-design.md` section 7 settle the same behavior. That requirement remains unchanged.\n\nNo acceptance criterion explicitly covers the schedule. The worker originally gave the scheduler test an upload-shutdown name so AC1's `-k \"switch_off_voids_open_samples\"` also selected it. The reviewer correctly found that the name did not describe its actual behavior. The review fix retains the test and renames it to `test_sample_cleanup_runs_daily_at_0330_beijing`. The real scheduler's next fire time is checked both at 03:30 and after that instant, when it must advance to the following day.\n\nAC1's existing CHECK remains correct for AC1's upload-shutdown behavior, but no longer selects the independently named scheduler test. The worker is not editing the published ticket or its CHECK commands.\n\nPlease add an explicit acceptance criterion for item 1, retaining all six existing criteria and all settled cleanup behavior. Its CHECK can use the existing local test database configuration and run:\n\n```sh\nuv run pytest tests/gateway/test_erase_sample_sweep.py -k \"sample_cleanup_runs_daily_at_0330_beijing\" -rs\n```\n\nUse the existing passed-count EXPECT expression. The scheduler test has passed in the focused run together with the new exact-expiry boundary cases, with `3 passed, 32 deselected in 15.67s`.\n\nThis does not block the implementation or the remaining acceptance criteria. The worker continues its review fixes and final verification. No change to tests/support/gateway_test_support.py is requested.\n",
+      "labels": [
+        {
+          "name": "mmw:child"
+        }
+      ],
+      "state": "closed",
+      "state_reason": "completed",
+      "created_at": "2026-10-21T20:27:13Z",
+      "updated_at": "2026-10-21T20:28:47Z",
+      "comments": [],
+      "parent": {
+        "number": 1426
+      }
+    }
+  ]
+}
