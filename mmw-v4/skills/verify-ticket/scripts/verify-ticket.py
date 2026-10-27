@@ -3244,10 +3244,6 @@ def lint_criteria(number: int, body: str, labels: list[str],
             for finding in parent_order_findings(body, spec):
                 say("error", f"{who} " + finding, "parent-order")
 
-    if "ready-for-human" not in labels or section(body, "Acceptance criteria"):
-        for finding in lint_build_points(body):
-            say("error", f"{who} " + finding, "build-point-without-criterion")
-
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
     # saying "zero live gates" would report the ticket's correct shape as a fault.
@@ -3268,6 +3264,9 @@ def lint_criteria(number: int, body: str, labels: list[str],
         report_worker_and_parent()
         verdict()
         return 1 if counts["error"] else 0
+
+    for finding in lint_build_points(body):
+        say("error", f"{who} " + finding, "build-point-without-criterion")
 
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))

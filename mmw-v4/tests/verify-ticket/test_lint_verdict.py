@@ -65,6 +65,12 @@ class TestVerdictLine(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(lines[-1], "#301 LINT OK")
 
+    def test_a_problem_without_criteria_passes_lint(self):
+        code, lines = lint("## Problem\n\nSomething is wrong.\n",
+                           labels=["mmw:problem"])
+        self.assertEqual(code, 0, "\n".join(lines))
+        self.assertEqual(lines[-1], "#301 LINT OK")
+
     def test_a_parent_order_finding_is_counted(self):
         body = CLEAN.replace("#216", "#318 Implementation Decisions section 4; #216")
         code, lines = lint(body, spec=216)

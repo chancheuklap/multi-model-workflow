@@ -25,7 +25,7 @@ A failed base check alone is not a lint error. New behaviour is expected to fail
 
 ## Build points name their criteria
 
-`build-point-without-criterion` is an `ERROR` on drafts and published tickets when a numbered point under `## What to build` names no `AC<n>`, or names an `AC<n>` absent from `## Acceptance criteria`. The error identifies the point and any nonexistent criterion. `## What to build` must contain at least one numbered point. A `ready-for-human` ticket without acceptance criteria is exempt.
+`build-point-without-criterion` is an `ERROR` on drafts and published tickets when a numbered point under `## What to build` names no `AC<n>`, or names an `AC<n>` absent from `## Acceptance criteria`. The error identifies the point and any nonexistent criterion. `## What to build` must contain at least one numbered point. Tickets without acceptance criteria, including `mmw:problem` drafts and `ready-for-human` tickets, are exempt. A `ready-for-agent` ticket without acceptance criteria still fails with `no-criteria`.
 
 `dispatch.sh route <ticket> <child> fixed` runs `verify-ticket.py <ticket> --lint` before closing the child or recording its resolution. If lint exits 1 or 2, route passes on its output, exits 2, and closes and records nothing. Correct the ticket and retry the route command.
 

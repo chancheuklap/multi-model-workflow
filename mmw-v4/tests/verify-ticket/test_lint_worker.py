@@ -54,8 +54,7 @@ class TestAnAgentTicketNeedsItsCriteria(unittest.TestCase):
         code, out = self.lint(AGENT + ["junior-worker"])
         self.assertEqual(code, 1, out)
         self.assertIn("ERROR", out)
-        self.assertIn("#301 LINT FINDINGS: 2 error(s)", out)
-        self.assertIn("[build-point-without-criterion]", out)
+        self.assertIn("[no-criteria]", out)
 
     def test_a_person_ticket_without_the_section_is_clean(self):
         code, out = self.lint(["ready-for-human"])
