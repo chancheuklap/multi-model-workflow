@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Read-only check of everything the landing pipeline needs once per repository and machine.
+"""Check of everything the landing pipeline needs once per repository and machine.
 
     python3 check.py
 
-Run from inside a clone. Writes nothing: not to the repository, the tracker or the machine. One line per item, `<status> <layer> <item>: <detail>`, then one summary line:
+Run from inside a clone. The isolation probe creates and removes two temporary worktrees
+and their test resources. Apart from that probe, the check writes nothing to the repository,
+the tracker or the machine. Cleanup failures appear in the scripts/env row.
+One line per item, `<status> <layer> <item>: <detail>`, then one summary line:
 
     ok         the item is in place
     missing    the pipeline cannot use this repository until it is; the detail says what fixes it
@@ -20,8 +23,10 @@ installs nothing on the machine.
 """
 import json
 import os
+import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -178,6 +183,59 @@ def check_repository_check(report: Report, root: Path):
         report.add("ok", "repository", "scripts/check", "present and executable")
 
 
+def check_env(report: Report, root: Path):
+    compose = any((root / name).is_file() for name in
+                  ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"))
+    testing = root / "TESTING.md"
+    words = testing.read_text() if testing.is_file() else ""
+    needed = compose or re.search(
+        r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?|数据库|端口|容器)\b",
+        words, re.IGNORECASE)
+    if not (root / "scripts" / "env").exists():
+        if needed:
+            report.add("missing", "repository", "scripts/env",
+                       "测试用到数据库或容器，而没有 scripts/env；每个工作树需要自己的资源")
+        else:
+            report.add("ok", "repository", "scripts/env", "not needed; no database or container test resources declared")
+        return
+    resources: list[set[str]] = []
+    errors: list[str] = []
+    trees: list[Path] = []
+    with tempfile.TemporaryDirectory(prefix="mmw-env-probe-") as temporary:
+        try:
+            for name in ("one", "two"):
+                tree = Path(temporary) / name
+                added = run(["git", "worktree", "add", "--detach", str(tree), "HEAD"], cwd=root)
+                if added.returncode != 0:
+                    errors.append(f"worktree add {tree} failed: {reason(added)}")
+                    continue
+                trees.append(tree)
+                for verb in ("setup", "up"):
+                    proc = run([str(tree / "scripts" / "env"), verb, str(tree)], cwd=tree)
+                    if proc.returncode != 0:
+                        errors.append(f"scripts/env {verb} {tree} failed: {reason(proc)}")
+                        break
+                    if verb == "up":
+                        resources.append({line.strip() for line in proc.stdout.splitlines() if line.strip()})
+            if len(resources) == 2:
+                shared = resources[0] & resources[1]
+                if shared:
+                    errors.append("shared resources: " + ", ".join(sorted(shared)))
+        finally:
+            for tree in trees:
+                proc = run([str(tree / "scripts" / "env"), "down", str(tree)], cwd=tree)
+                if proc.returncode != 0:
+                    errors.append(f"scripts/env down {tree} failed: {reason(proc)}")
+                removed = run(["git", "worktree", "remove", "--force", str(tree)], cwd=root)
+                if removed.returncode != 0:
+                    errors.append(f"worktree remove {tree} failed: {reason(removed)}")
+    if errors:
+        report.add("missing", "repository", "scripts/env", "; ".join(errors))
+    else:
+        report.add("ok", "repository", "scripts/env", "two worktrees use separate resources; probe cleaned up")
+
+
+
 def check_testing(report: Report, root: Path):
     if (root / "TESTING.md").is_file():
         report.add("ok", "repository", "TESTING.md", "present")
@@ -237,6 +295,7 @@ def main() -> int:
     check_labels(report)
     check_repository_check(report, root)
     check_testing(report, root)
+    check_env(report, root)
     check_claude_md(report, root)
     check_install(report)
     report.print()
