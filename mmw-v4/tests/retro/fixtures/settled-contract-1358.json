@@ -1,0 +1,16 @@
+[
+  {
+    "id": 6440681473,
+    "body": "Opened #1358 (contract): The #1165 real-history replay asks for a fault child that does not exist\n\n<!-- mmw {\"v\":1,\"event\":\"child.opened\",\"stage\":\"work\",\"actor\":\"worker\",\"spec\":1345,\"ticket\":1350,\"at\":\"2026-10-27T11:23:30Z\",\"child\":1358,\"kind\":\"contract\",\"title\":\"The #1165 real-history replay asks for a fault child that does not exist\"} -->\n",
+    "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1350#issuecomment-6440681473",
+    "created_at": "2026-10-27T11:23:31Z",
+    "updated_at": "2026-10-27T11:23:31Z"
+  },
+  {
+    "id": 6440755647,
+    "body": "Fixed #1358 on the closing pass\n\n<!-- mmw {\"v\":1,\"event\":\"child.closed\",\"stage\":\"close\",\"actor\":\"main\",\"spec\":1345,\"ticket\":1350,\"at\":\"2026-10-27T11:27:34Z\",\"child\":\"1358\",\"resolution\":\"fixed\",\"commit\":\"8caca26bd5c6aecd63bdb9536e1cb60885e2eb8f\"} -->",
+    "html_url": "https://github.com/chancheuklap/multi-model-workflow/issues/1350#issuecomment-6440755647",
+    "created_at": "2026-10-27T11:27:35Z",
+    "updated_at": "2026-10-27T11:27:35Z"
+  }
+]
