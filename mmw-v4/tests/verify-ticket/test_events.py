@@ -38,10 +38,10 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    def test_there_are_twenty_nine_events(self):
-        self.assertEqual(len(events.EVENTS), 29)
+    def test_there_are_thirty_events(self):
+        self.assertEqual(len(events.EVENTS), 30)
         for name in ("ticket.checked", "worker.touched", "reviewer.lost",
-                     "ticket.bounced", "ticket.recovered", "spec.retroed"):
+                     "ticket.bounced", "ticket.recovered", "spec.retroed", "spec.checked"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
 

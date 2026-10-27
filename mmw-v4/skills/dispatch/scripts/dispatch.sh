@@ -24,6 +24,7 @@
 #   dispatch.sh findings <spec>
 #   dispatch.sh reverify <spec>
 #   dispatch.sh summary <spec>
+#   dispatch.sh check-all <spec>
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
 #   dispatch.sh route <ticket> <child> fixed
@@ -417,6 +418,7 @@ usage: dispatch.sh send worker|reviewer <n>
        dispatch.sh findings <spec>
        dispatch.sh reverify <spec>
        dispatch.sh summary <spec>
+       dispatch.sh check-all <spec>
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
        dispatch.sh route <ticket> <child> fixed
@@ -1955,6 +1957,19 @@ wait_one() {
 
 # ------------------------------------------------------------------ check
 
+# The base the night-open check compares with: the project branch as origin has it, so
+# the check runs what the night branch adds to the project; the base branch itself when
+# there is no project branch to compare with.
+open_check_base() {
+  local root="$1" into="$2" project="$3"
+  if [ -n "$project" ] && [ "$project" != "$into" ] \
+     && git -C "$root" rev-parse -q --verify "refs/remotes/origin/$project" >/dev/null; then
+    printf 'origin/%s\n' "$project"
+  else
+    printf '%s\n' "$into"
+  fi
+}
+
 check_machine() {
   local spec="$1"
   local failed=0
@@ -1987,7 +2002,7 @@ check_machine() {
   # finds red, or cannot run on, would bounce or stop every ticket; it runs once here, on
   # this checkout as it stands, uncommitted changes included.
   if [ -n "$root" ]; then
-    run_merge_checks "$root" "${into:-HEAD}" "$root" "spec-$spec"
+    run_merge_checks "$root" "$(open_check_base "$root" "${into:-HEAD}" "${project:-}")" "$root" "spec-$spec"
     case "$?" in
       0) echo "scripts/check: green on this checkout" ;;
       1) printf 'dispatch: scripts/check is red on this checkout, so every ticket the night lands would bounce: %s\n' "$MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
@@ -2453,6 +2468,89 @@ PY
   esac
 }
 
+# Prints `<tier> <commit> <base>` of the newest green record on issue <n> (event
+# `ticket.checked` run `repository`, or `spec.checked`) that proves the default tier of
+# <commit> against <base> on this machine; non-zero when none does. A step so covered
+# has nothing left to prove and runs nothing.
+repository_proof() {
+  local issue="$1" event="$2" commit="$3" base="$4"
+  python3 - "$VERIFY" "$issue" "$event" "$commit" "$base" <<'PY'
+import importlib.util, sys
+from pathlib import Path
+
+script, issue, event, commit, base = sys.argv[1:6]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+proof = mod.covering_proof(mod.fetch_comments(int(issue)), event, commit, base)
+if not proof:
+    sys.exit(1)
+print(proof["tier"], proof["commit"], proof["base"])
+PY
+}
+
+# Runs `scripts/check --all` once on the night branch as origin has it, in the merge
+# worktree, and records a green run on the spec as `spec.checked` tier `all`: the
+# night's audit of every step's declared inputs, and the proof `finish` reuses when its
+# merge is this tree. 0 green, 1 red, 2 not run or not recorded.
+check_all_spec() {
+  local spec="$1" root into out tip
+  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository"
+  into="$(newest_field "$spec" into spec.opened 2>/dev/null)" || into=""
+  [ -n "$into" ] || refuse "#${spec}'s spec.opened carries no base branch; run open $spec first"
+  export MMW_SPEC="$spec"
+  prepare_merge_worktree "$root" "$into" || exit 2
+  tip="$(git -C "$MERGE_ROOT" rev-parse HEAD)"
+  if repository_proof "$spec" spec.checked "$tip" "$tip" >/dev/null 2>&1; then
+    release_merge_lock
+    echo "check-all #$spec: not run again: origin/$into at ${tip:0:12} already passed --all on this machine"
+    return 0
+  fi
+  out="$(python3 - "$VERIFY" "$MERGE_ROOT" "$root" "$spec" <<'PY'
+import importlib.util, json, sys
+from pathlib import Path
+
+script, root, worktree, spec_number = sys.argv[1:5]
+sys.path.insert(0, str(Path(script).resolve().parent))
+spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+result = mod.run_repository_check(Path(root), "HEAD", worktree, f"spec-{spec_number}", tier="all")
+print(result["status"])
+print(json.dumps(result["proof"] or {}, separators=(",", ":")))
+print(result["detail"])
+PY
+)" || { release_merge_lock; echo "dispatch: check-all #$spec: $VERIFY could not run scripts/check --all (the reason is above)" >&2; exit 2; }
+  release_merge_lock
+  local status proof detail
+  status="$(printf '%s\n' "$out" | sed -n 1p)"
+  proof="$(printf '%s\n' "$out" | sed -n 2p)"
+  detail="$(printf '%s\n' "$out" | sed -n '3,$p')"
+  case "$status" in
+    pass) ;;
+    red) printf 'check-all #%s: red on origin/%s at %s:\n%s\n' "$spec" "$into" "${tip:0:12}" "$detail"; exit 1 ;;
+    *) printf 'dispatch: check-all #%s: scripts/check --all did not run: %s\n' "$spec" "$detail" >&2; exit 2 ;;
+  esac
+  local -a proof_args=()
+  local field
+  while IFS= read -r field; do
+    proof_args+=(--json-field "$field")
+  done < <(python3 -c 'import json, sys
+for key, value in json.loads(sys.argv[1]).items():
+    print(f"{key}={json.dumps(value)}")' "$proof")
+  if [ "${#proof_args[@]}" -eq 0 ] || ! post_event "$spec" spec.checked --spec "$spec" \
+      --line "--all green on $into at ${tip:0:12}" "${proof_args[@]}" --field result=met; then
+    echo "dispatch: check-all #$spec: --all is green on ${tip:0:12}, but its spec.checked record was not written; run check-all again" >&2
+    exit 2
+  fi
+  echo "check-all #$spec: green on origin/$into at ${tip:0:12}; recorded on #$spec"
+}
+
 # Prints why scripts/check at <root> cannot be run, or nothing when it is an executable
 # file: the same reading `run_repository_check` makes before it runs it.
 repository_check_missing() {
@@ -2732,10 +2830,20 @@ land_one_via_origin() {
     fi
     merge_commit="$(git -C "$merge_root" rev-parse HEAD)"
 
-    # The merge result is the tree that lands, so the repository's check runs on it, once
-    # per ticket, whatever ran on the ticket's branch. Only a red tree is the ticket's to
-    # fix; a check that is absent or cannot run here leaves the ticket passed, unbounced.
-    run_merge_checks "$merge_root" "origin/$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
+    # The merge result is the tree that lands. When origin/<into> has not moved since the
+    # worker integrated it, that tree is the passed commit's, and the worker's green run of
+    # it against this very base already proved what this check would: it runs only when
+    # the tree is new. Only a red tree is the ticket's to fix; a check that is absent or
+    # cannot run here leaves the ticket passed, unbounced.
+    LANDED_CHECKED_BY=""
+    if git -C "$merge_root" merge-base --is-ancestor "$base" "$passed" \
+       && LANDED_CHECKED_BY="$(repository_proof "$number" ticket.checked "$passed" "$base")"; then
+      echo "land #$number: repository checks not run again: the merge's tree is ${passed:0:12}, which passed against ${base:0:12} on this machine"
+      rc=0
+    else
+      LANDED_CHECKED_BY=""
+      run_merge_checks "$merge_root" "origin/$into" "$root/.worktrees/issue-$number" "$number"; rc=$?
+    fi
     if [ "$rc" -eq 1 ]; then
       git -C "$merge_root" reset --hard "origin/$into" >/dev/null
       if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$MERGE_CHECKS_FAILED"; then
@@ -2785,6 +2893,7 @@ record_landed() {
   fields=(--field "branch=$branch" --field "into=$into" --field "commit=$commit")
   [ -z "$merge" ] || fields+=(--field "merge=$merge")
   [ -z "$base" ] || fields+=(--field "base=$base")
+  [ -z "${LANDED_CHECKED_BY:-}" ] || fields+=(--field "checked_by=repository ${LANDED_CHECKED_BY}")
   if ! post_event "$number" ticket.landed --ticket "$number" --spec "$spec" \
       --line "$line" "${fields[@]}"; then
     echo "dispatch: $commit is in origin/$into, but the ticket.landed event on #$number was not written; the tickets it blocks stay blocked until the next advance or land writes it" >&2
@@ -3761,9 +3870,13 @@ finish_spec() {
       # With origin/<project> inside origin/<into>, the merge's tree is origin/<into>'s. When
       # that tip is a ticket's landing, `land` already ran the checks on exactly this tree.
       rc=0
+      tip="$(git -C "$MERGE_ROOT" rev-parse "origin/$into")"
       if git -C "$MERGE_ROOT" merge-base --is-ancestor "$base" "origin/$into" \
          && checked_by="$(landed_tip_ticket "$MERGE_ROOT" "$into")"; then
         echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into, checked when #$checked_by landed"
+      elif git -C "$MERGE_ROOT" merge-base --is-ancestor "$base" "origin/$into" \
+         && repository_proof "$spec" spec.checked "$tip" "$base" >/dev/null; then
+        echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into at ${tip:0:12}, which passed --all on this machine"
       else
         run_merge_checks "$MERGE_ROOT" "origin/$project" "$root" "spec-$spec"; rc=$?
       fi
@@ -4126,6 +4239,10 @@ case "${1:-}" in
   summary)
     [ "$#" -eq 2 ] || usage
     summary_spec "$2"
+    ;;
+  check-all)
+    [ "$#" -eq 2 ] || usage
+    check_all_spec "$2"
     ;;
   finish)
     [ "$#" -eq 2 ] || usage
