@@ -96,10 +96,6 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 The final ticket of an expand-contract sequence whose migrate batches cannot each stay green alone: they share an integration branch and all block this ticket, where green is promised.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
 
-**prefactor ticket**:
-The ticket cut ahead of several tickets that would otherwise all edit the same registration files: it owns those files and lands in one pass the entries they need, each naming a placeholder the ticket behind it fills, so each of those tickets is blocked by it alone.
-_Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`
-
 **ticket format**:
 The `verify-ticket` skill's `references/ticket-format.md`: a ticket's sections, `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`, how each criterion is written, and its labels. `verify-ticket.py` runs what it describes, so the Cut tickets and Bug fix playbooks write every ticket in it.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
