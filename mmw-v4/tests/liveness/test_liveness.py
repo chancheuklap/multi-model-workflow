@@ -442,6 +442,7 @@ class Rounds(StateCase):
 
     def test_table_an_unrouted_child_is_reported_again_each_nudge(self):
         self.silent_worker()
+        (self.runners / "h1.state").write_text("working\n")
         self.board.tickets[61].append(comment(2, "child.opened", 61, T0,
                                              child=1373, kind="contract", title="contract"))
         self.send.default = 4
@@ -464,7 +465,8 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 2)
         self.assertTrue(all(c[:2] == ("orca", "term_main") for c in self.send.calls))
-        self.assertTrue(all("#61" in c[2] for c in self.send.calls))
+        self.assertTrue(all("#61" in c[2] and "unrouted children 1373" in c[2]
+                            for c in self.send.calls))
 
     def test_table_an_unacked_wake_is_reported_again_each_nudge(self):
         (self.state / "queue.jsonl").write_text(json.dumps({
