@@ -8,6 +8,7 @@
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|sendintoreuse|briefproblems|briefreport|retract
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh briefbrowsername|briefclosebrowsers|briefclosekillsleftover|sendrefusesclosedbatch
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
@@ -60,7 +61,7 @@ fail() { echo "  FAILED: $1" >&2; rc=1; }
 TMP="$(mktemp -d)"
 # A relay left running would go on polling a tracker that is gone, through whatever `gh`
 # is next on PATH.
-trap 'stop_test_listeners; stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
+trap 'stop_test_browsers; stop_test_listeners; stop_test_boards; no_relay; rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/paseo-state"
 
 cat > "$TMP/bin/paseo" <<'FAKE'
@@ -1139,6 +1140,50 @@ print(next((t for t in rows if t.get("number") == want), {}).get("title", "a tic
   *) echo '{}' ;;
 esac
 FAKE
+
+cat > "$TMP/bin/playwright-cli" <<'FAKE'
+#!/usr/bin/env python3
+import os, subprocess, sys, time
+from pathlib import Path
+
+with open(os.environ["MMW_TEST_LOG"], "a") as log:
+    log.write("playwright-cli" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+if sys.argv[2] == "open":
+    pidfile = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "browser-pids"
+    ready = pidfile.with_name(sys.argv[1][3:] + ".ready")
+    subprocess.Popen([sys.executable, str(Path(__file__).with_name("cliDaemon.js")),
+                      sys.argv[1][3:], str(pidfile), str(ready)],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(200):
+        if ready.exists():
+            break
+        time.sleep(.01)
+    else:
+        sys.exit("fake browser daemon did not start")
+FAKE
+cat > "$TMP/bin/cliDaemon.js" <<'FAKE'
+import os, signal, subprocess, sys, time
+from pathlib import Path
+
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])
+with open(sys.argv[2], 'a') as log:
+    log.write(f'{os.getpid()} {child.pid}\n')
+Path(sys.argv[3]).touch()
+time.sleep(300)
+FAKE
+chmod +x "$TMP/bin/playwright-cli"
+
+stop_test_browsers() {
+  local pid
+  if [ -f "$TMP/paseo-state/browser-pids" ]; then
+    for pid in $(cat "$TMP/paseo-state/browser-pids"); do
+      kill -KILL "$pid" 2>/dev/null || true
+    done
+    rm -f "$TMP/paseo-state/browser-pids"
+  fi
+}
 
 REAL_PYTHON="$(command -v python3)"
 cat > "$TMP/bin/python3" <<WRAPPER
@@ -2825,6 +2870,102 @@ newest_batch() {
 
 # What the relay keeps for the watch <key>: "runner session", or nothing.
 brief_watch() { watch_main "$1"; }
+
+scenario_briefclosebrowsers() {
+  local code packet batch n
+  packet="$TMP/browser-close.md"
+  echo 'Read the vendor page.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  for n in 1 2; do
+    [ "$(count_of "playwright-cli :: -s=mmw-$batch-$n :: close")" = 1 ] \
+      || fail "brief close did not close browser session $n exactly once"
+  done
+  hasnt 'close-all'
+  hasnt 'kill-all'
+  [ ! -d "$STATE_DIR/briefs/$batch" ] || fail "closed batch directory remains"
+}
+
+scenario_briefclosekillsleftover() {
+  local code packet batch other
+  packet="$TMP/browser-leftover.md"
+  echo 'Read the vendor page.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet")"
+  [ "$code" = 0 ] || fail "send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  other="mmw-19990101-000000-abcd-1"
+  playwright-cli "-s=mmw-$batch-1" open
+  playwright-cli "-s=$other" open
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  python3 - "$MMW_FAKE_PASEO_STATE/browser-pids" <<'PY' || fail "batch browser process isolation failed"
+import subprocess, sys
+from pathlib import Path
+
+rows = [list(map(int, row.split())) for row in Path(sys.argv[1]).read_text().splitlines()]
+assert len(rows) == 2, rows
+def alive(pid):
+    p = subprocess.run(['ps', '-p', str(pid), '-o', 'stat='], capture_output=True, text=True)
+    return p.returncode == 0 and p.stdout.strip() and not p.stdout.strip().startswith('Z')
+assert not any(alive(pid) for pid in rows[0]), f'closed batch processes survived: {rows[0]}'
+assert all(alive(pid) for pid in rows[1]), f'other session was stopped: {rows[1]}'
+PY
+}
+
+scenario_briefbrowsername() {
+  local code packet batch n
+  packet="$TMP/browser-brief.md"
+  printf '%s\n' '## Task' 'Read the vendor page.' '## Known' 'It requires JavaScript.' '## For' 'A source check.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send researcher expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  for n in 1 2; do
+    grep -qF "playwright-cli -s=mmw-$batch-$n" "$STATE_DIR/briefs/$batch/$n/brief.md" \
+      || fail "researcher $n was not given its named browser session"
+  done
+}
+
+scenario_sendrefusesclosedbatch() {
+  local code packet batch pointer valid
+  packet="$TMP/previous-answer.md"
+  echo 'Answer the question.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "first send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  pointer="$STATE_DIR/briefs/$batch/1/result.md"
+  echo 'The previous answer.' > "$pointer"
+  printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read [the previous answer]($pointer)." '## For' 'A decision.' > "$packet"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$packet")"
+  [ "$code" = 0 ] || fail "reference to an open batch was refused: $(cat "$TMP/err")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "brief close expected 0, got $code: $(cat "$TMP/err")"
+  valid="$TMP/valid-brief.md"
+  echo 'Answer an independent question.' > "$valid"
+  for pointer in "$pointer" "briefs/$batch/1/result.md" 'briefs/19990101-000000-abcd/1/result.md'; do
+    printf '%s\n' '## Task' 'Continue the investigation.' '## Known' "Read $pointer." '## For' 'A decision.' > "$packet"
+    : > "$MMW_TEST_LOG"
+    code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send advisor --follow "the advisor skill" "$valid" "$packet")"
+    [ "$code" = 2 ] || fail "dead batch reference expected 2, got $code: $(cat "$TMP/err")"
+    hasnt 'paseo :: run'
+    grep -qF '## Known' "$TMP/err" || fail "refusal does not explain how to preserve the answer"
+    grep -qF "$batch" "$TMP/err" || case "$pointer" in *19990101*) ;; *) fail "refusal does not name the closed batch" ;; esac
+  done
+}
 
 scenario_briefproblems() {
   local code packet batch copy
@@ -9111,7 +9252,7 @@ ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproj
 ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
 ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteventshowsgherror"
-ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse"
+ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername briefclosebrowsers briefclosekillsleftover sendrefusesclosedbatch"
 ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 
 case " $ALL all " in
