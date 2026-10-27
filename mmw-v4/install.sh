@@ -2,7 +2,7 @@
 # 把 MMW v4 装到本机，让每个 host 都读得到。下面几样，全部指向运行本脚本的这个 checkout 的 mmw-v4/：
 #
 #   技能              skills/ 下每个带 SKILL.md 的目录，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   hook              dispatch 的 tool-guard.py、turn-guard.py 与 mmw-mode 的 reply-check.py，写进各 host 自己的配置
+#   hook              dispatch 的 tool-guard.py、turn-guard.py 与 mmw-mode 的 reply-check.py、session-start.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md：Claude Code 读软链，Codex 读 prompt/render.py 写出的 AGENTS.md
 #   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex 的 AGENTS.md
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
@@ -21,8 +21,8 @@
 # checkout 的 mmw-v3/。
 #
 # 从 v3 换到 v4：在装着的 checkout 里跑一次本脚本。同名的 v3、v2 技能软链原地换成指向 mmw-v4；
-# 只有 v3 有的技能软链摘掉，两版不混装；v3 的 mode-hook.py 登记摘掉（v4 由 mmw-mode 的
-# description 让会话先读它）。退回 v3：install.sh --back，见下面 --back 一段。
+# 只有 v3 有的技能软链摘掉，两版不混装；v3 的 mode-hook.py 登记摘掉，由 session-start.py
+# 提醒会话先读 mmw-mode。退回 v3：install.sh --back，见下面 --back 一段。
 #
 # 本机装的是哪一份，只由这一次显式的安装决定。别的 checkout 跑 --check 只核对（见下面
 # installed-root 一段），dispatch.sh check 也只跑 --check，把缺的报出来。
@@ -271,11 +271,12 @@ done
 
 # ---------------- hook ----------------
 
-# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。四样，
+# 技能是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。五样，
 # claude 与 codex 各装一份：dispatch 的 tool-guard.py 的 pretool gate 与 question gate，同一技能的
 # turn-guard.py 与 mmw-mode 的 reply-check.py 挂在回合结束的 Stop 上。每一处都写进 host 的 JSON 配置，指向 ~/.agents/skills
-# 下的脚本：那已经是指回仓库的软链，所以改脚本不用重装。v3 挂在 SessionStart 上的 mode-hook.py
-# 不再装，下面的清扫把它摘掉；本仓库从前写进 ~/.cursor、~/.grok 的处理器也由它摘掉。
+# 下的脚本：那已经是指回仓库的软链，所以改脚本不用重装。mmw-mode 的 session-start.py
+# 挂在 SessionStart 上。v3 的 mode-hook.py 不再装，下面的清扫把它摘掉；本仓库从前写进
+# ~/.cursor、~/.grok 的处理器也由它摘掉。
 #
 # 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
@@ -288,6 +289,7 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_HOOK="$NEUTRAL_DIR/dispatch/scripts/tool-guard.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_REPLY_CHECK="$NEUTRAL_DIR/mmw-mode/scripts/reply-check.py" \
+  MMW_SESSION_START="$NEUTRAL_DIR/mmw-mode/scripts/session-start.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
@@ -318,6 +320,7 @@ GUARD_TIMEOUT = 30
 STOP = f"python3 '{guard}' stop "
 reply_check = os.environ["MMW_REPLY_CHECK"]
 REPLY_STOP = f"python3 '{reply_check}' stop "
+SESSION_START = f"python3 '{os.environ['MMW_SESSION_START']}' "
 
 
 def for_host(host, command):
@@ -498,6 +501,10 @@ def point(host_home, path, label, actions, command=None):
 
 
 for host, host_home, path in grouped_hosts:
+    matcher = "startup|resume|clear|compact" if host == "claude" else None
+    command = for_host(host, SESSION_START)
+    point(host_home, path, "SessionStart session-start.py",
+          grouped(path, "SessionStart", matcher, command), command)
     point(host_home, path, "PreToolUse Bash",
           grouped(path, "PreToolUse", "Bash", for_host(host, COMMAND)), for_host(host, COMMAND))
     point(host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
