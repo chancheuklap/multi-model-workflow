@@ -55,15 +55,15 @@ Done when `bash scripts/release-flow.sh close` succeeded for every product on th
 
 ## 4. Same-commit check
 
-A set whose packages come from different commits is two versions of the product: whoever installs more than one gets a combination nobody built or tested together.
+A set whose packages were built from different inputs is two versions of the product: whoever installs more than one gets a combination nobody built or tested together. A package whose inputs have not changed since it shipped is already part of this set, and building it again only spends a version number and a round of install testing.
 
 After every product on the step 2 list has shipped, run:
 
 ```bash
-bash scripts/release-flow.sh same-commit <product> [<product> ...]
+bash scripts/release-flow.sh same-commit [--scope <package scope file>] <product> [<product> ...]
 ```
 
-with exactly the products on that list. It prints `OK <product>` or `MISMATCH <product> <commit>` for each. Reship each `MISMATCH` (back to step 3), then run it again — a reship can itself move HEAD.
+with exactly the products on that list, and with `--scope` when the repository has a release package scope file, the file that lists which paths each product is built from. It prints `OK <product>` or `MISMATCH <product> <commit>` for each. With `--scope`, a product shipped from an older commit is `OK` when no path changed since that commit belongs to that product or to every product, and the line says so; a changed path the file classifies nowhere is a `MISMATCH`. Reship each `MISMATCH` (back to step 3), then run it again — a reship can itself move HEAD.
 
 Done when it prints `OK` for every product on the step 2 list.
 

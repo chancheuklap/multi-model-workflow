@@ -50,6 +50,10 @@ run() {
   rm -f "$out"
 }
 
+for case_name in unchangedinputsok changedinputsmismatch unclassifiedpathmismatch noscopestrict; do
+  run "$case_name" bash "$HERE/test_same_inputs.sh" "$case_name"
+done
+
 run "引擎状态机" bash "$HERE/test_release_flow.sh"
 run "失败分级" bash "$HERE/test_release_classify.sh"
 run "派发:derive 提交、P0 直接 PAUSE、收敛护栏" bash "$HERE/test_release_dispatch.sh"

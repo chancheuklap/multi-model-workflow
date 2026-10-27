@@ -435,20 +435,27 @@ def fetch_outsider(number: int) -> dict:
 
 
 def section(body: str, heading: str) -> list[str]:
-    """The lines under `## <heading>`, up to the next `## ` heading."""
-    lines = body.splitlines()
-    start = None
-    for i, line in enumerate(lines):
-        if line.strip() == f"## {heading}":
-            start = i + 1
-            break
-    if start is None:
-        return []
+    active = False
+    fence = None
     out = []
-    for line in lines[start:]:
-        if line.startswith("## "):
+    for line in body.splitlines():
+        if fence is not None:
+            if active:
+                out.append(line)
+            close = FENCE_CLOSE_RE.match(line)
+            if close and close.group(1)[0] == fence[0] and len(close.group(1)) >= fence[1]:
+                fence = None
+            continue
+        opened = FENCE_OPEN_RE.match(line)
+        if opened and not (opened.group(2)[0] == "`" and "`" in opened.group(3)):
+            fence = (opened.group(2)[0], len(opened.group(2)))
+        elif active and line.startswith("## "):
             break
-        out.append(line)
+        elif not active and line.rstrip() == f"## {heading}":
+            active = True
+            continue
+        if active:
+            out.append(line)
     while out and not out[0].strip():
         out.pop(0)
     while out and not out[-1].strip():
@@ -1330,15 +1337,12 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
 
 
 def require_in_ticket(review: str, comment: int | str | None, number: int) -> None:
-    """Refuse a review report that carries no `## In-ticket` heading: the reviewer posts
-    one whatever it found, `None` included, so a report without one stopped before any
-    axis ran (a commit that does not resolve, an empty diff) and reviewed nothing."""
-    if any(line.strip() == "## In-ticket" for line in review.splitlines()):
+    if section(review, "In-ticket"):
         return
     first = review.splitlines()[0] if review else "(empty)"
     raise ValueError(
-        f"the newest review report (comment {comment}, `{first[:80]}`) has no ## In-ticket "
-        f"section, so nothing reviewed this ticket and it cannot close as reviewed; open a "
+        f"the newest review report (comment {comment}, `{first[:80]}`) has no readable ## In-ticket "
+        f"content, so it cannot close as reviewed; open a "
         f"fault child with `verify-ticket.py {number} --sub-issue fault <file>`, its body "
         f"the report, and stop")
 
@@ -3357,6 +3361,12 @@ def lint_criteria(number: int, body: str, labels: list[str],
         if spec is not None:
             for finding in parent_order_findings(body, spec):
                 say("error", f"{who} " + finding, "parent-order")
+
+    for line in section(body, "Read first"):
+        if re.search(r"(?<![\w.-])(?:www\.)?claude\.ai(?![\w-]|\.[\w-])", line, re.I):
+            say("error", f"{who} ## Read first line `{line}` links to claude.ai; "
+                "copy what the page settles into a file in the repository, commit it, "
+                "and cite that path", "unreadable-read-first")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
