@@ -34,11 +34,13 @@ Horizontal slices fail for five reasons:
 - A horizontal ticket's acceptance checks prove that one layer works, not that the user can use the product.
 - Splitting by layer does not buy parallel work when each layer still waits for the previous one, and only adds hand-offs.
 
-For UI work, each slice combines its part of the prototype front end with the interfaces, back end, database and tests it needs. The first slice owns any shared page skeleton; the others are blocked by it. The final ticket only removes mount points and is blocked by every slice. With only one ticket, remove the mount points in its last commit.
+For UI work, each slice combines its part of the prototype front end with the interfaces, back end, database and tests it needs. The first slice owns any shared page skeleton; the others are blocked by it. The final ticket only removes mount points and is blocked by every slice. It is the contract step of the prototype's integration, an exception to vertical slicing. With only one ticket, remove the mount points in its last commit.
 
 Split a vertical ticket into narrower vertical tickets where they can run at the same time, or where one ticket's criteria can fail without the other's. Every resulting ticket still completes a user action and its visible result. Keep together what would write the same files, since splitting that only adds an edge. Write a release order such as "the gateway ships first" inside the vertical ticket's **What to build**, never as a ticket of its own.
 
-**Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
+**Wide refactors are the other exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
+
+Each expand–contract step and the final mount-point removal ticket opens **What to build** with one sentence naming its sequence and its step, either expand, migrate, contract, or mount-point removal, instead of a user action and visible result.
 
 #### Acceptance criteria
 
@@ -114,7 +116,7 @@ Hold this turn until it returns; where the host runs subagents in the background
 Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
 
 - **Title**: short descriptive name
-- **Customer action**: the opening sentence of **What to build**, naming the one action the product's user takes and what they see. A ticket that cannot state it is a horizontal slice and goes back to step 3.
+- **Customer action**: the opening sentence of **What to build**, naming the one action the product's user takes and what they see, or the sequence and step for an exception named in **Vertical slices**. A ticket that can state neither is a horizontal slice and goes back to step 3.
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
 - **Worker**: `junior-worker` or `senior-worker`, and the one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
@@ -134,7 +136,7 @@ Write each answered choice that only changes what one ticket delivers into that 
 
 #### Read-back
 
-Check that each published ticket's **What to build** opens with the sentence naming the one action the product's user takes and what they see once the ticket is done.
+For each published ticket an agent works, check that **What to build** opens with the sentence naming the one action the product's user takes and what they see once the ticket is done, or the sequence and step for an exception named in **Vertical slices**. Check `ready-for-human` tickets against the five things in `../references/person-ticket.md`, not this opening sentence.
 
 Read the lint `--publish` ran on the published spec as the `verify-ticket` skill's `references/linting.md` says: no `ERROR`, and every `WARN` read once and either fixed or kept on purpose. The drafts runs of steps 6 and 7 do not stand in for it: only this run sees the tracker's labels, sub-issues and blocking edges. Fix each `ERROR` on its ticket and run `verify-ticket.py <spec> --lint` again. Then fetch each `ready-for-human` ticket again and check it holds all of **the five things** in `../references/person-ticket.md`, because no agent can repair one. Checking sub-issues, labels and blockers by hand again found nothing across 158 published tickets; the publish command and this lint hold them.
 
