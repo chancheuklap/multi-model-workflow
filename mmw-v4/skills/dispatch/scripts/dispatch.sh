@@ -4407,6 +4407,13 @@ def main():
     workflows = [read_workflow_triggers(path, args.base) for path in sorted(directory.glob("*"))
                  if path.suffix in (".yml", ".yaml")]
     has_ci = any(workflow.covers(args.base) for workflow in workflows)
+    existing = json.loads(require(gh("pr", "list", "--base", args.base, "--head", args.head,
+                                     "--state", "open", "--json", "url"), "finding existing pull requests"))
+    if not isinstance(existing, list):
+        raise ValueError("gh pr list returned an unreadable pull request list")
+    if existing:
+        raise ValueError(f"pull request already exists at {existing[0]['url']}; no workflows were dispatched; "
+                         "read its checks with gh pr checks <url> --watch instead of opening it again")
     fallback_ok = True
     if not has_ci:
         print(f"NOTE: GitHub CI does not run for pull requests into {args.base}", flush=True)

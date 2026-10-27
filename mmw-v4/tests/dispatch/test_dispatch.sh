@@ -914,8 +914,18 @@ print(json.dumps({
 ' ;;
   "pr list --head "*)
     [ "${FAKE_GH_PR-7}" = none ] || printf '%s\n' "${FAKE_GH_PR-7}" ;;
+  "pr list --base "*)
+    if [ -n "${FAKE_GH_PERSIST_PR:-}" ] && [ -f "$MMW_FAKE_PASEO_STATE/pr-open" ]; then
+      echo '[{"url":"https://github.com/o/r/pull/7"}]'
+    else
+      echo '[]'
+    fi ;;
   "pr create "*)
     [ -z "${FAKE_GH_PR_CREATE_FAIL:-}" ] || { echo 'HTTP 502' >&2; exit 1; }
+    if [ -n "${FAKE_GH_PERSIST_PR:-}" ]; then
+      [ ! -f "$MMW_FAKE_PASEO_STATE/pr-open" ] || { echo 'already exists' >&2; exit 1; }
+      touch "$MMW_FAKE_PASEO_STATE/pr-open"
+    fi
     echo 'https://github.com/o/r/pull/7' ;;
   "pr checks "*)
     [ -z "${FAKE_GH_PR_CHECKS_FAIL:-}" ] || { echo 'HTTP 502' >&2; exit 1; }
@@ -1410,7 +1420,8 @@ reset_log() {
   rm -f "$MMW_FAKE_PASEO_STATE/comment_reads" "$MMW_FAKE_PASEO_STATE/wait_delivered" \
     "$MMW_FAKE_PASEO_STATE/gh-comments.json" "$MMW_FAKE_PASEO_STATE/runs.jsonl" \
     "$MMW_FAKE_PASEO_STATE/gh-issue-states.json" \
-    "$MMW_FAKE_PASEO_STATE/dispatched-run" "$MMW_FAKE_PASEO_STATE/pr-check-reads"
+    "$MMW_FAKE_PASEO_STATE/dispatched-run" "$MMW_FAKE_PASEO_STATE/pr-check-reads" \
+    "$MMW_FAKE_PASEO_STATE/pr-open"
   echo '[]' > "$MMW_FAKE_HERDR_STATE/agents.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/terminals.json"
   echo '[]' > "$MMW_FAKE_ORCA_STATE/setups.json"
@@ -9770,6 +9781,16 @@ YAML
   [ "$code" = 0 ] || fail "a dispatch without a run URL must find the new run: $(cat "$TMP/err")"
   grep -qx 'dispatched ci.yml: success' "$TMP/out" || fail 'new workflow run must be watched'
   hasnt 'gh :: run :: watch :: 80'
+  reset_log
+  code="$(run_dispatch env FAKE_GH_PERSIST_PR=1 FAKE_GH_PR_CHECKS_FAIL=1 \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'a watch failure after opening the PR must exit 2'
+  [ "$(count_of 'gh :: workflow :: run :: ci.yml')" = 1 ] || fail 'the first attempt must dispatch once'
+  code="$(run_dispatch env FAKE_GH_PERSIST_PR=1 FAKE_GH_PR_CHECKS='build pass' \
+    bash "$DISPATCH" pr --base night --head feature --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'an existing PR must be reported before opening another'
+  [ "$(count_of 'gh :: workflow :: run :: ci.yml')" = 1 ] || fail 'retry must not dispatch the workflow twice'
+  grep -q 'https://github.com/o/r/pull/7' "$TMP/err" || fail 'the refusal must identify the existing PR'
   reset_log
   code="$(run_dispatch env FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
     --base main --head feature --title Changes --body-file "$TMP/body.md")"
