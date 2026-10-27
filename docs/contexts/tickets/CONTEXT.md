@@ -139,24 +139,20 @@ _Home_: `mmw-v3/skills/mmw-mode/playbooks/cut-tickets.md`, `mmw-v3/skills/verify
 ### Acceptance criteria
 
 **acceptance criterion**:
-One standard on a ticket (a criterion), decided by one command: the lines `- [ ] AC<n>:`, `CHECK:`, `EXPECT:` and `EVIDENCE:`, with `CWD:` and `TIMEOUT:` optional. A judgement no command decides is not one.
+One standard on a ticket (a criterion), decided by one command: the lines `- [ ] AC<n>:`, `CHECK:`, `EXPECT:` and `EVIDENCE:`, with `TIMEOUT:` optional. A judgement no command decides is not one.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`CHECK:`**:
-The shell command that decides a criterion, run in its own shell at the repository root (or `CWD:`) with no agent in between. A multi-line command is a **fenced block** directly under it.
+The shell command that decides a criterion, run in its own shell at the repository root with no agent in between. A multi-line command is a **fenced block** directly under it.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`EXPECT:`**:
-The string, or `/…/flags` regex, the `CHECK:` output must contain: a **success-only marker**, the line the precedent prints only when it passed.
+The string, or `/…/flags` regex, the `CHECK:` output must contain: a **success-only marker**, the line the precedent prints only when it passed. For a `CHECK:` stage that runs pytest or Vitest it is that runner's standard pattern, whose one home is the verify-ticket skill's `scripts/runner-summaries.json`.
 _Home_: `mmw-v3/skills/verify-ticket/references/ticket-format.md`
 
 **`EVIDENCE:`**:
 The criterion line gate-check writes: `pending` until the criterion runs, then one line of fact about the run, which on a pass fingerprints the definition that passed. The checkbox, not this line, decides whether the criterion is met.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
-
-**`CWD:`**:
-The optional criterion line naming the working directory `CHECK:` runs in.
-_Home_: `mmw-v3/skills/verify-ticket/scripts/gate-check/lib/gates.mjs`
 
 **`TIMEOUT:`**:
 The optional criterion line `TIMEOUT: <seconds>` raising how long its `CHECK:` may run. `verify-ticket.py` reads it and keeps it out of the ledger.

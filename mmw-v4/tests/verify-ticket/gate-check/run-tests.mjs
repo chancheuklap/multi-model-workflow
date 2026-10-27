@@ -187,10 +187,11 @@ test("state: unmet gates are reported with file-qualified ids", async () => {
   } finally { s.cleanup(); }
 });
 
-test("checks: CWD runs a check in the directory it names", async () => {
+test("checks: a removed CWD attribute cannot change the check directory", async () => {
   const s = sandbox();
   try {
-    s.write("sub/marker.txt", "here\n");
+    s.write("marker.txt", "here\n");
+    s.write("sub/marker.txt", "wrong-directory\n");
     s.write("GATES.md", "# Gates\n\n" +
       "- [ ] G1: in sub\n  CHECK: " + nodeEval("console.log(require('fs').readFileSync('marker.txt','utf8'))") +
       "\n  EXPECT: here\n  CWD: sub\n  EVIDENCE: pending\n");
@@ -312,9 +313,10 @@ test("evidence: a long transcript cannot truncate the definition or output diges
       "segment-" + String(index).padStart(2, "0") + "-" + "x".repeat(18)).join("/");
     s.write(deep + "/check.mjs", "console.log('LONG-OK');\n");
     s.write("GATES.md", gate("G1", "long evidence transcript",
-      JSON.stringify(process.execPath) + " check.mjs", "LONG-OK").replace("  EVIDENCE:", "  CWD: " + deep + "\n  EVIDENCE:"));
+      JSON.stringify(process.execPath) + " check.mjs", "LONG-OK"));
     const longPath = Array(120).fill(dirname(process.execPath)).join(delimiter);
-    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir, env: { PATH: longPath } });
+    const r = await run(GATE_CHECK, ["--cwd", join(s.dir, deep), join(s.dir, "GATES.md")],
+      { cwd: s.dir, env: { PATH: longPath } });
     assert(r.code === 0, r.out);
     const line = s.read("GATES.md").split(/\r?\n/).find((l) => l.includes("EVIDENCE:"));
     assert(line.length <= "  EVIDENCE: ".length + 900, "evidence cap exceeded: " + line.length);
