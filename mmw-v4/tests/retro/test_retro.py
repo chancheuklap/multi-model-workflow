@@ -806,6 +806,34 @@ class Commands(unittest.TestCase):
         self.assertIn('https://github.com/o/r/issues/92',material)
         self.assertIn('closed',material)
 
+    def test_apply_records_a_zero_row_receipt_for_an_empty_answer(self):
+        self.start_run()
+        path = Path(self.answer())
+        path.write_text('| 代号 | 结论 | 理由 | 证据 | 方案 |\n'
+                        '| --- | --- | --- | --- | --- |\n\n## Problems\nNone\n')
+        rc, out, err = self.run_command('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['event'], 'spec.retroed')
+        self.assertEqual(receipt['result'], 'recorded')
+        self.assertEqual(receipt['problems'], [])
+        self.assertEqual([receipt[k] for k in ('merged', 'rejected', 'candidates', 'proposals', 'registered')],
+                         [0, 0, 0, 0, 0])
+
+    def test_apply_records_a_receipt_when_every_row_is_unrecorded(self):
+        self.start_run()
+        self.fake.rows[90]['labels'] = [dict(name='mmw:ticket')]
+        rc, out, err = self.run_command('apply', self.answer())
+        self.assertEqual(rc, 0, err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['event'], 'spec.retroed')
+        self.assertEqual(receipt['result'], 'recorded')
+        self.assertEqual(receipt['problems'], [dict(
+            code='missing-information', conclusion='unrecorded',
+            reason='answer target is not a lesson; product problems and children stay in their workflows')])
+        self.assertEqual([receipt[k] for k in ('merged', 'rejected', 'candidates', 'proposals', 'registered')],
+                         [0, 0, 0, 0, 0])
+
     def test_apply_records_a_typed_retrospective_receipt(self):
         self.start_run()
         rc,out,err = self.run_command('apply',self.answer('candidate'))
