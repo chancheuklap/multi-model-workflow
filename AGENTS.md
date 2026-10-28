@@ -10,7 +10,7 @@ Only `mmw-v4/` is live. `mmw-v3/`, `mmw-v2/`, `archive/`, `deprecated/`, `mmw-v4
 
 The skills in this repository are deliverables, not the working instructions of an agent working on it.
 
-No part of MMW v4 may become reliable or complete by growing more complex; that only makes it more tedious and rigid. Before fixing or adding anything, ask whether the main path already catches the failure, even later. If it does, delete the extra layer rather than add a gate, field, command, fallback or rule. A real incident alone does not justify a layer.
+No part of MMW v4 may become reliable or complete by growing more complex; that only makes it more tedious and rigid. Before fixing a break, read the whole source of the chain around it, work out what each step was meant to do and what it actually does, and look for a step that is redundant, duplicated, wrong, or costs more than it returns: such a step is deleted or reshaped, not repaired. Before fixing or adding anything, ask whether the main path already catches the failure, even later. If it does, delete the extra layer rather than add a gate, field, command, fallback or rule. A real incident alone does not justify a layer.
 
 This repository consumes its own pipeline for one product, the task board in `mmw-v4/board/`. Tickets about the board run from here. Personal use, no CI, tests run by hand.
 
