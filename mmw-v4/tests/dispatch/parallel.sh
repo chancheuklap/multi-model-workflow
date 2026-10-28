@@ -22,12 +22,14 @@ run_scenarios() {
     return 2
   fi
   for name in "${wanted[@]}"; do
-    case " ${scenarios[*]} " in
-      *" $name "*) ;;
-      *)
-        echo "unknown scenario '$name'; known names: ${scenarios[*]}" >&2
-        return 2 ;;
-    esac
+    local known=0
+    for fn in "${scenarios[@]}"; do
+      if [ "$fn" = "$name" ]; then known=1; break; fi
+    done
+    if [ "$known" -eq 0 ]; then
+      echo "unknown scenario '$name'; known names: ${scenarios[*]}" >&2
+      return 2
+    fi
   done
 
   if [ "${#wanted[@]}" -eq 1 ]; then

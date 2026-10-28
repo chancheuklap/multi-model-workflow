@@ -51,10 +51,12 @@ PY
 rm "$TMP/overlap" "$TMP/alpha-done"
 MMW_TEST_JOBS=2 bash "$TMP/scenarios.sh" all > "$TMP/all" 2>&1 && { echo 'all hid a failure' >&2; exit 1; }
 grep -qx 'PASS omega' "$TMP/all"
-code=0
-bash "$TMP/scenarios.sh" nosuchscenario > "$TMP/unknown" 2>&1 || code=$?
-[ "$code" -eq 2 ]
-grep -q 'alpha' "$TMP/unknown"
+for unknown in nosuchscenario 'alpha broken'; do
+  code=0
+  bash "$TMP/scenarios.sh" "$unknown" > "$TMP/unknown" 2>&1 || code=$?
+  [ "$code" -eq 2 ] || { cat "$TMP/unknown"; echo "unknown name exited $code, expected 2" >&2; exit 1; }
+  grep -q 'alpha' "$TMP/unknown"
+done
 code=0
 MMW_TEST_JOBS=0 bash "$TMP/scenarios.sh" alpha omega > "$TMP/jobs" 2>&1 || code=$?
 [ "$code" -eq 2 ]
