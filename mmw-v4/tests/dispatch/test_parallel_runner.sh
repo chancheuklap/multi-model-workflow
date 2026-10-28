@@ -11,30 +11,16 @@ set -uo pipefail
 rc=0
 scenario_alpha() {
   echo 'alpha output starts'
-  touch "$FIXTURE_STATE/alpha-ready"
-  for ((i=0; i<100; i++)); do
-    if [ -f "$FIXTURE_STATE/overlap" ]; then
-      touch "$FIXTURE_STATE/alpha-done"
-      echo 'alpha saw overlap'
-      return 0
-    fi
-    sleep .01
-  done
-  echo 'alpha did not overlap' >&2
-  return 1
+  echo ready > "$FIXTURE_STATE/alpha-ready"
+  read -r ready < "$FIXTURE_STATE/overlap"
+  touch "$FIXTURE_STATE/alpha-done"
+  echo 'alpha saw overlap'
 }
 scenario_beta() {
   echo 'beta output starts'
-  touch "$FIXTURE_STATE/overlap"
-  for ((i=0; i<100; i++)); do
-    if [ -f "$FIXTURE_STATE/alpha-ready" ]; then
-      echo 'beta saw overlap'
-      return 0
-    fi
-    sleep .01
-  done
-  echo 'beta did not overlap' >&2
-  return 1
+  read -r ready < "$FIXTURE_STATE/alpha-ready"
+  echo ready > "$FIXTURE_STATE/overlap"
+  echo 'beta saw overlap'
 }
 scenario_broken() {
   echo 'broken diagnostic' >&2
@@ -48,10 +34,28 @@ needs_exclusive_ports() { [ "$1" = omega ]; }
 source "$RUNNER_UNDER_TEST"
 run_scenarios "$0" "$@"
 FIXTURE
+run_fixture() {
+  python3 - "$TMP/scenarios.sh" "$@" <<'PYFIXTURE'
+import os
+import signal
+import subprocess
+import sys
+
+process = subprocess.Popen(["bash", *sys.argv[1:]], start_new_session=True)
+try:
+    sys.exit(process.wait(timeout=10))
+except subprocess.TimeoutExpired:
+    os.killpg(process.pid, signal.SIGKILL)
+    process.wait()
+    print("fixture scenarios did not complete their overlap handshake within 10 seconds", file=sys.stderr)
+    sys.exit(2)
+PYFIXTURE
+}
+mkfifo "$TMP/alpha-ready" "$TMP/overlap"
 code=0
-MMW_TEST_JOBS=2 bash "$TMP/scenarios.sh" alpha beta broken omega > "$TMP/out" 2>&1 || code=$?
-[ -f "$MMW_TEST_BOARD_LOCK" ] || { cat "$TMP/out"; echo "runner ignored fixture port lock $MMW_TEST_BOARD_LOCK" >&2; exit 1; }
+MMW_TEST_JOBS=2 run_fixture alpha beta broken omega > "$TMP/out" 2>&1 || code=$?
 [ "$code" -eq 1 ] || { cat "$TMP/out"; echo "expected exit 1, got $code" >&2; exit 1; }
+[ -f "$MMW_TEST_BOARD_LOCK" ] || { cat "$TMP/out"; echo "runner ignored fixture port lock $MMW_TEST_BOARD_LOCK" >&2; exit 1; }
 python3 - "$TMP/out" <<'PY'
 from pathlib import Path
 import sys
@@ -65,7 +69,8 @@ assert '=== omega\nomega output\nPASS omega\n' in out, out
 assert out.index('FAIL broken') < out.rindex('broken diagnostic'), out
 PY
 rm "$TMP/overlap" "$TMP/alpha-done" "$TMP/alpha-ready"
-MMW_TEST_JOBS=2 bash "$TMP/scenarios.sh" all > "$TMP/all" 2>&1 && { echo 'all hid a failure' >&2; exit 1; }
+mkfifo "$TMP/alpha-ready" "$TMP/overlap"
+MMW_TEST_JOBS=2 run_fixture all > "$TMP/all" 2>&1 && { echo 'all hid a failure' >&2; exit 1; }
 grep -qx 'PASS omega' "$TMP/all" || { cat "$TMP/all"; echo 'all did not report PASS omega' >&2; exit 1; }
 for unknown in nosuchscenario 'alpha broken'; do
   code=0
