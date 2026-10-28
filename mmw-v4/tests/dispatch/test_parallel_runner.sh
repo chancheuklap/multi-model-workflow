@@ -95,4 +95,32 @@ assert len(lines) == 8, lines
 for start, end in zip(lines[::2], lines[1::2]):
     assert start.startswith("start ") and end == start.replace("start ", "end "), f"suite port users overlapped: {lines}"
 PYLOCKTEST
+python3 - "$TMP" <<'PYINTERRUPT'
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+root = Path(sys.argv[1])
+fixture = root / "interrupt.sh"
+log = root / "started.log"
+fixture.write_text('#!/usr/bin/env bash\nset -uo pipefail\nwork() { echo "$1" >> "$FIXTURE_STATE/started.log"; sleep .3; }\nscenario_a() { work a; }\nscenario_b() { work b; }\nscenario_c() { work c; }\nscenario_d() { work d; }\nsource "$RUNNER_UNDER_TEST"\nrun_scenarios "$0" "$@"\n')
+process = subprocess.Popen(["bash", str(fixture), "all"], env=dict(os.environ, MMW_TEST_JOBS="1"),
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+try:
+    deadline = time.monotonic() + 3
+    while not log.exists():
+        assert time.monotonic() < deadline, "interrupt fixture never started"
+        time.sleep(.01)
+    os.killpg(process.pid, signal.SIGINT)
+    output, _ = process.communicate(timeout=3)
+    assert process.returncode != 0, output.decode()
+    assert log.read_text().splitlines() == ["a"], f"interrupted run started queued scenarios: {log.read_text()}"
+finally:
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait()
+PYINTERRUPT
 echo 'parallel runner reports failures'

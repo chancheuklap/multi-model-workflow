@@ -55,11 +55,14 @@ run_scenarios() {
     fi
   done
   python3 - "$script" "${#parallel[@]}" ${parallel[@]+"${parallel[@]}"} ${serial[@]+"${serial[@]}"} <<'PY'
-import concurrent.futures
+from collections import deque
 import fcntl
 import os
+import signal
 import subprocess
 import sys
+import tempfile
+import time
 
 script = sys.argv[1]
 count = int(sys.argv[2])
@@ -71,34 +74,74 @@ if not raw_jobs.isascii() or not raw_jobs.isdecimal() or int(raw_jobs) < 1:
     sys.exit(2)
 
 
-def run(name):
-    result = subprocess.run(["bash", script, name], stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, env=environment)
-    return name, result.returncode, result.stdout
-
-
 failed = []
 
 
-def report(result):
-    name, code, output = result
+def report(name, code, output):
     if code:
-        failed.append(result)
+        failed.append((name, code, output))
     else:
         sys.stdout.buffer.write(output)
         sys.stdout.buffer.flush()
 
 
+def run_group(names, limit, environment):
+    pending = deque(names)
+    active = []
+    try:
+        while pending or active:
+            while pending and len(active) < limit:
+                name = pending.popleft()
+                output = tempfile.TemporaryFile()
+                process = subprocess.Popen(["bash", script, name], stdout=output,
+                                           stderr=subprocess.STDOUT, env=environment,
+                                           start_new_session=True)
+                active.append((name, process, output))
+            for job in active[:]:
+                name, process, output = job
+                code = process.poll()
+                if code is not None:
+                    active.remove(job)
+                    output.seek(0)
+                    report(name, code, output.read())
+                    output.close()
+            if active:
+                time.sleep(.02)
+    finally:
+        for _, process, _ in active:
+            if process.poll() is None:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+        deadline = time.monotonic() + 5
+        while any(process.poll() is None for _, process, _ in active) and time.monotonic() < deadline:
+            time.sleep(.02)
+        for _, process, output in active:
+            if process.poll() is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            process.wait()
+            output.close()
+
+
+def interrupt(signum, frame):
+    raise KeyboardInterrupt
+
+
+signal.signal(signal.SIGTERM, interrupt)
 environment = dict(os.environ, MMW_TEST_BOARD_LOCK=f"/tmp/mmw-dispatch-board-ports-{os.getuid()}.lock")
-with concurrent.futures.ThreadPoolExecutor(max_workers=int(raw_jobs)) as pool:
-    for future in concurrent.futures.as_completed(pool.submit(run, name) for name in parallel):
-        report(future.result())
-if serial:
-    with open(environment["MMW_TEST_BOARD_LOCK"], "a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        environment["MMW_TEST_BOARD_LOCK_HELD"] = "1"
-        for name in serial:
-            report(run(name))
+try:
+    run_group(parallel, int(raw_jobs), environment)
+    if serial:
+        with open(environment["MMW_TEST_BOARD_LOCK"], "a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            environment["MMW_TEST_BOARD_LOCK_HELD"] = "1"
+            run_group(serial, 1, environment)
+except KeyboardInterrupt:
+    sys.exit("Interrupted: stopped active scenarios and discarded queued scenarios")
 for name, code, output in failed:
     print(f"FAIL {name} (exit {code})", flush=True)
     sys.stdout.buffer.write(output)
