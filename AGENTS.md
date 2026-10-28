@@ -10,6 +10,8 @@ Only `mmw-v4/` is live. `mmw-v3/`, `mmw-v2/`, `archive/`, `deprecated/`, `mmw-v4
 
 The skills in this repository are deliverables, not the working instructions of an agent working on it.
 
+No part of MMW v4 may become reliable or complete by growing more complex; that only makes it more tedious and rigid. Before fixing or adding anything, ask whether the main path already catches the failure, even later. If it does, delete the extra layer rather than add a gate, field, command, fallback or rule. A real incident alone does not justify a layer.
+
 This repository consumes its own pipeline for one product, the task board in `mmw-v4/board/`. Tickets about the board run from here. Personal use, no CI, tests run by hand.
 
 Runtime is bash and the `python3` standard library. No package manager, no build step.
