@@ -187,19 +187,21 @@ def check_env(report: Report, root: Path):
     compose = any((root / name).is_file() for name in
                   ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"))
     if not (root / "scripts" / "env").exists():
-        tracked = run(["git", "ls-files", "-z"], cwd=root)
-        if tracked.returncode != 0:
-            report.add("unchecked", "repository", "scripts/env",
-                       f"git ls-files failed: {reason(tracked)}; restore access to the git index and rerun")
-            return
-        test_dirs = {"test", "tests", "__tests__", "spec", "e2e"}
-        sources = {root / "scripts" / "check"}
-        sources.update(root / name for name in tracked.stdout.split("\0")
-                       if name and test_dirs.intersection(Path(name).parts[:-1]))
-        needed = compose or any(
-            re.search(r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?)\b|数据库|端口|容器",
-                      path.read_text(errors="replace"), re.IGNORECASE)
-            for path in sources if path.is_file())
+        needed = compose
+        if not needed:
+            tracked = run(["git", "ls-files", "-z"], cwd=root)
+            if tracked.returncode != 0:
+                report.add("unchecked", "repository", "scripts/env",
+                           f"git ls-files failed: {reason(tracked)}; restore access to the git index and rerun")
+                return
+            test_dirs = {"test", "tests", "__tests__", "spec", "e2e"}
+            sources = {root / "scripts" / "check"}
+            sources.update(root / name for name in tracked.stdout.split("\0")
+                           if name and test_dirs.intersection(Path(name).parts[:-1]))
+            needed = any(
+                re.search(r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?)\b|数据库|端口|容器",
+                          path.read_text(errors="replace"), re.IGNORECASE)
+                for path in sources if path.is_file())
         if needed:
             report.add("missing", "repository", "scripts/env",
                        "测试用到数据库或容器，而没有 scripts/env；每个工作树需要自己的资源")

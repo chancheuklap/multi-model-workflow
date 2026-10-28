@@ -578,7 +578,14 @@ class TestCheck(unittest.TestCase):
             with self.subTest(compose=name):
                 compose = self.root / name
                 compose.write_text("services: {}\n")
-                code, out = self.run_check(Fake(root=self.root))
+                fake = Fake(root=self.root)
+
+                def failing_index(cmd, **kwargs):
+                    if cmd[:2] == ["git", "ls-files"]:
+                        return done(cmd, 1, err="index unavailable")
+                    return fake(cmd, **kwargs)
+
+                code, out = self.run_check(failing_index)
                 self.assertEqual(code, 1, out)
                 self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
                 compose.unlink()
