@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Times `test_dispatch.sh all` as the dispatch suite runs it, and counts its PASS lines
+# Times `test_dispatch.sh all` as run.sh runs it, from the tests directory, and counts its PASS lines
 # against the scenario functions the file defines.
 #
 #   bash mmw-v4/tests/dispatch/bench_suite.sh [target seconds]
@@ -12,9 +12,9 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 target="${1:-180}"
 defined="$(grep -cE '^scenario_[A-Za-z0-9_]+\(\)' "$HERE/test_dispatch.sh")"
 start="$(date +%s)"
-out="$(env -u MMW_SPEC -u MMW_TICKET -u MMW_TASK_SCOPE -u MMW_KIND -u MMW_EVENTS_PY \
+out="$(cd "$HERE" && env -u MMW_SPEC -u MMW_TICKET -u MMW_TASK_SCOPE -u MMW_KIND -u MMW_EVENTS_PY \
   -u PASEO_AGENT_ID -u ORCA_TERMINAL_HANDLE -u HERDR_PANE_ID \
-  bash "$HERE/test_dispatch.sh" all 2>&1)"
+  bash ./test_dispatch.sh all 2>&1)"
 code=$?
 seconds=$(( $(date +%s) - start ))
 passed="$(grep -c '^PASS ' <<<"$out")"
