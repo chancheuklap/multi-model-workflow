@@ -60,4 +60,39 @@ done
 code=0
 MMW_TEST_JOBS=0 bash "$TMP/scenarios.sh" alpha omega > "$TMP/jobs" 2>&1 || code=$?
 [ "$code" -eq 2 ]
+python3 - "$TMP" <<'PYLOCKTEST'
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+root = Path(sys.argv[1])
+fixture = root / "ports.sh"
+log = root / "ports.log"
+fixture.write_text('#!/usr/bin/env bash\nset -uo pipefail\nport_user() {\n  echo "start $$" >> "$FIXTURE_STATE/ports.log"\n  sleep .2\n  echo "end $$" >> "$FIXTURE_STATE/ports.log"\n}\nscenario_first() { port_user; }\nscenario_second() { port_user; }\nneeds_exclusive_ports() { return 0; }\nsource "$RUNNER_UNDER_TEST"\nrun_scenarios "$0" "$@"\n')
+first = subprocess.Popen(["bash", str(fixture), "first", "second"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+try:
+    deadline = time.monotonic() + 3
+    while not log.exists():
+        assert time.monotonic() < deadline, "first port scenario never started"
+        time.sleep(.01)
+    second = subprocess.Popen(["bash", str(fixture), "first", "second"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    try:
+        for process in (first, second):
+            output, _ = process.communicate(timeout=5)
+            assert process.returncode == 0, output.decode()
+    finally:
+        if second.poll() is None:
+            second.kill()
+            second.wait()
+finally:
+    if first.poll() is None:
+        first.kill()
+        first.wait()
+lines = log.read_text().splitlines()
+assert len(lines) == 8, lines
+for start, end in zip(lines[::2], lines[1::2]):
+    assert start.startswith("start ") and end == start.replace("start ", "end "), f"suite port users overlapped: {lines}"
+PYLOCKTEST
 echo 'parallel runner reports failures'

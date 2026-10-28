@@ -56,10 +56,10 @@ run_scenarios() {
   done
   python3 - "$script" "${#parallel[@]}" ${parallel[@]+"${parallel[@]}"} ${serial[@]+"${serial[@]}"} <<'PY'
 import concurrent.futures
+import fcntl
 import os
 import subprocess
 import sys
-import tempfile
 
 script = sys.argv[1]
 count = int(sys.argv[2])
@@ -89,13 +89,16 @@ def report(result):
         sys.stdout.buffer.flush()
 
 
-with tempfile.TemporaryDirectory(prefix="mmw-dispatch-run-") as directory:
-    environment = dict(os.environ, MMW_TEST_BOARD_LOCK=os.path.join(directory, "board-ports.lock"))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=int(raw_jobs)) as pool:
-        for future in concurrent.futures.as_completed(pool.submit(run, name) for name in parallel):
-            report(future.result())
-    for name in serial:
-        report(run(name))
+environment = dict(os.environ, MMW_TEST_BOARD_LOCK=f"/tmp/mmw-dispatch-board-ports-{os.getuid()}.lock")
+with concurrent.futures.ThreadPoolExecutor(max_workers=int(raw_jobs)) as pool:
+    for future in concurrent.futures.as_completed(pool.submit(run, name) for name in parallel):
+        report(future.result())
+if serial:
+    with open(environment["MMW_TEST_BOARD_LOCK"], "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        environment["MMW_TEST_BOARD_LOCK_HELD"] = "1"
+        for name in serial:
+            report(run(name))
 for name, code, output in failed:
     print(f"FAIL {name} (exit {code})", flush=True)
     sys.stdout.buffer.write(output)

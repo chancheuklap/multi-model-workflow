@@ -1217,7 +1217,7 @@ cat > "$TMP/bin/python3" <<WRAPPER
 for a in "\$@"; do
   case "\$a" in
     *supervisor.py)
-      if [ -n "\${MMW_TEST_BOARD_LOCK:-}" ]; then
+      if [ -n "\${MMW_TEST_BOARD_LOCK:-}" ] && [ "\${MMW_TEST_BOARD_LOCK_HELD:-0}" != 1 ]; then
         exec "$REAL_PYTHON" - "\$@" <<'PYLOCK'
 import fcntl, os, subprocess, sys
 # Separate test registries still allocate ports in the same machine-wide namespace.
