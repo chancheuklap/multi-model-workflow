@@ -714,6 +714,31 @@ class Commands(unittest.TestCase):
                 self.assertIn('## Problems', err)
                 self.assertFalse(any(c[1:3] == ['issue', 'comment'] for c in self.fake.calls))
 
+    def test_apply_refuses_an_answer_without_an_analysis_table(self):
+        self.start_run()
+        path = Path(self.answer())
+        for content in ('No problems found.', '- No problems found.',
+                        '｜ 代号 ｜ 结论 ｜ 理由 ｜ 证据 ｜ 方案 ｜', ''):
+            with self.subTest(content=content):
+                path.write_text(content + '\n\n## Problems\nNone\n')
+                rc, out, err = self.run_command('apply', str(path))
+                self.assertEqual(rc, 2, err)
+                self.assertIn('answer.md', err)
+                self.assertIn('table', err)
+                self.assertFalse(any(c[1:3] == ['issue', 'comment'] for c in self.fake.calls))
+
+    def test_apply_refuses_an_empty_table_with_only_malformed_problems(self):
+        self.start_run()
+        path = Path(self.answer())
+        path.write_text('| 代号 | 结论 | 理由 | 证据 | 方案 |\n'
+                        '| --- | --- | --- | --- | --- |\n\n'
+                        '## Problems\n### bad\n问题代号：bad\n角度：流程\n')
+        rc, out, err = self.run_command('apply', str(path))
+        self.assertEqual(rc, 2, err)
+        self.assertIn('answer.md', err)
+        self.assertIn('## Problems bad', err)
+        self.assertFalse(any(c[1:3] == ['issue', 'comment'] for c in self.fake.calls))
+
     def test_apply_reads_loose_problem_entries(self):
         self.start_run()
         REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
@@ -805,6 +830,34 @@ class Commands(unittest.TestCase):
         self.assertIn('ticket.returned',material)
         self.assertIn('https://github.com/o/r/issues/92',material)
         self.assertIn('closed',material)
+
+    def test_apply_records_a_zero_row_receipt_for_an_empty_answer(self):
+        self.start_run()
+        path = Path(self.answer())
+        path.write_text('| 代号 | 结论 | 理由 | 证据 | 方案 |\n'
+                        '| --- | --- | --- | --- | --- |\n\n## Problems\nNone\n')
+        rc, out, err = self.run_command('apply', str(path))
+        self.assertEqual(rc, 0, err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['event'], 'spec.retroed')
+        self.assertEqual(receipt['result'], 'recorded')
+        self.assertEqual(receipt['problems'], [])
+        self.assertEqual([receipt[k] for k in ('merged', 'rejected', 'candidates', 'proposals', 'registered')],
+                         [0, 0, 0, 0, 0])
+
+    def test_apply_records_a_receipt_when_every_row_is_unrecorded(self):
+        self.start_run()
+        self.fake.rows[90]['labels'] = [dict(name='mmw:ticket')]
+        rc, out, err = self.run_command('apply', self.answer())
+        self.assertEqual(rc, 0, err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['event'], 'spec.retroed')
+        self.assertEqual(receipt['result'], 'recorded')
+        self.assertEqual(receipt['problems'], [dict(
+            code='missing-information', conclusion='unrecorded',
+            reason='answer target is not a lesson; product problems and children stay in their workflows')])
+        self.assertEqual([receipt[k] for k in ('merged', 'rejected', 'candidates', 'proposals', 'registered')],
+                         [0, 0, 0, 0, 0])
 
     def test_apply_records_a_typed_retrospective_receipt(self):
         self.start_run()
@@ -1031,8 +1084,12 @@ sys.exit(result.returncode)
         self.start_run()
         self.fake.rows[90]['labels'] = [dict(name='mmw:ticket')]
         rc,out,err = self.run_command('apply',self.answer('candidate'))
-        self.assertEqual(rc,2,err)
+        self.assertEqual(rc,0,err)
         self.assertIn('not a lesson',err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['problems'], [dict(
+            code='missing-information', conclusion='unrecorded',
+            reason='answer target is not a lesson; product problems and children stay in their workflows')])
 
     def test_retry_after_receipt_failure_keeps_proposals_and_does_not_repeat_rejections(self):
         self.start_run()
