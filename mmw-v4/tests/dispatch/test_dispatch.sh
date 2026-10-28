@@ -1,34 +1,9 @@
 #!/usr/bin/env bash
 #
-# Tests for dispatch.sh. One scenario per run:
+# Tests for dispatch.sh. Run named scenarios or all:
 #
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh check|advance|advancedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce|advancecapbadconfig
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|sendintoreuse|briefproblems|briefreport|retract
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh briefbrowsername|briefclosebrowsers|briefclosekillsleftover|sendrefusesclosedbatch
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh orcaclosed
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh sweepsorphanmerge|sweepkeepslockedmerge|sweepsstalemergelock|sweepkeepsheldmergelock
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh landeddeletesbranch|landedkeepsunmergedlocalbranch|regressedrestart
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsmainworktree|finishkeepsunmergedlocalnight
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishsyncsprojectbranch|finishsyncsprojectworktree|finishkeepsunmergedproject
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails|finishcleanupfails
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh prgreen|prnotewhennoci|prdispatchesworkflow|prredandnone
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh all
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario> [<scenario> ...]|all
+#   An unknown scenario prints the known names and exits 2.
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
 # real ones on PATH and write every call they receive to a log, one call per line,
@@ -56,6 +31,7 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL="$(dirname "$(dirname "$HERE")")/skills/dispatch"
 DISPATCH="$SKILL/scripts/dispatch.sh"
 
+setup_fixture() {
 rc=0
 fail() { echo "  FAILED: $1" >&2; rc=1; }
 
@@ -1240,6 +1216,17 @@ cat > "$TMP/bin/python3" <<WRAPPER
 #!/bin/bash
 for a in "\$@"; do
   case "\$a" in
+    *supervisor.py)
+      if [ -n "\${MMW_TEST_BOARD_LOCK:-}" ] && [ "\${MMW_TEST_BOARD_LOCK_HELD:-0}" != 1 ]; then
+        exec "$REAL_PYTHON" - "\$@" <<'PYLOCK'
+import fcntl, os, subprocess, sys
+# Separate test registries still allocate ports in the same machine-wide namespace.
+with open(os.environ["MMW_TEST_BOARD_LOCK"], "a") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    sys.exit(subprocess.call([sys.executable, *sys.argv[1:]]))
+PYLOCK
+      fi
+      ;;
     *status.py)
       flags=""
       for b in "\$@"; do
@@ -1984,6 +1971,8 @@ skill_copy_for() {
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
   printf '%s\n' "$copy"
+}
+
 }
 
 # ------------------------------------------------------------------ scenarios
@@ -10035,14 +10024,6 @@ PY
   no_relay
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landedkeepsunmergedlocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
-ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
-ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
-ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteventshowsgherror"
-ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername briefclosebrowsers briefclosekillsleftover sendrefusesclosedbatch"
-ALL="$ALL envstartsetsup envupfails envdownonend envmergeworktree envrestartaftersuspend envabsent"
-ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 scenario_prgreen() {
   local code
   rm -rf "$TMP/repo/.github/workflows"
@@ -10228,47 +10209,10 @@ scenario_prredandnone() {
   grep -q 'HTTP 502' "$TMP/err" || fail 'a check read failure must explain why'
 }
 
-ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall landskipsbaseredproof prgreen prnotewhennoci prdispatchesworkflow prredandnone"
-ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands recheckred recheckgreenrecordsnothing"
-ALL="$ALL advancebaseredlands"
-ALL="$ALL recheckpathselection"
-ALL="$ALL advancegateafterproof recheckcannotrun"
-ALL="$ALL advancemovedlandedscript"
-ALL="$ALL advancedeletedlandedscript"
-ALL="$ALL advancelandedredonbaselands advancelandedgreenonbasebounces recheckbaseredcriterion"
-ALL="$ALL advancebaseredscriptremoved recheckbasecannotstart"
 
-case " $ALL all " in
-  *" ${1:-} "*) ;;
-  *)
-    echo "usage: test_dispatch.sh $(echo "$ALL" | tr ' ' '|')|all" >&2
-    exit 2 ;;
-esac
-case "$1" in
-  all) wanted="$ALL" ;;
-  *) wanted="$1" ;;
-esac
-
-fn_for() {
-  case "$1" in
-    start-worker) echo scenario_start_worker ;;
-    start-reviewer) echo scenario_start_reviewer ;;
-    *) echo "scenario_$1" ;;
-  esac
+needs_exclusive_ports() {
+  case "$1" in board*) return 0 ;; *) return 1 ;; esac
 }
 
-for name in $wanted; do
-  echo "=== $name"
-  declare -F "$(fn_for "$name")" >/dev/null \
-    || { echo "$name failed: this file has no $(fn_for "$name")" >&2; exit 1; }
-  "$(fn_for "$name")"
-  code=$?
-  [ "$code" -eq 0 ] \
-    || { echo "$name failed: $(fn_for "$name") exited $code without reporting" >&2; exit 1; }
-  if [ "$rc" -eq 0 ]; then
-    echo "PASS $name"
-  else
-    echo "$name failed" >&2
-    exit 1
-  fi
-done
+source "$HERE/parallel.sh"
+run_scenarios "$0" "$@"
