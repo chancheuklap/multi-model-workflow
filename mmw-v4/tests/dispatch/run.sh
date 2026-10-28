@@ -49,6 +49,8 @@ else
 fi
 
 echo
+bash "$HERE/test_parallel_runner.sh" || rc=1
+
 echo "### dispatch.sh"
 # dispatch.sh asks git about the current checkout, so this one runs with the tests
 # directory as its working directory rather than wherever run.sh was called from.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Tests for dispatch.sh. Run one scenario or all:
+# Tests for dispatch.sh. Run named scenarios or all:
 #
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario>|all
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario> [<scenario> ...]|all
 #   An unknown scenario prints the known names and exits 2.
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -31,6 +31,7 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL="$(dirname "$(dirname "$HERE")")/skills/dispatch"
 DISPATCH="$SKILL/scripts/dispatch.sh"
 
+setup_fixture() {
 rc=0
 fail() { echo "  FAILED: $1" >&2; rc=1; }
 
@@ -1959,6 +1960,8 @@ skill_copy_for() {
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
   printf '%s\n' "$copy"
+}
+
 }
 
 # ------------------------------------------------------------------ scenarios
@@ -10196,46 +10199,10 @@ scenario_prredandnone() {
 }
 
 
-scenarios=()
-while read -r _ _ fn; do
-  case "$fn" in
-    scenario_start_worker) scenarios+=(start-worker) ;;
-    scenario_start_reviewer) scenarios+=(start-reviewer) ;;
-    scenario_*) scenarios+=("${fn#scenario_}") ;;
-  esac
-done < <(declare -F)
-
-case " ${scenarios[*]} all " in
-  *" ${1:-} "*) ;;
-  *)
-    echo "usage: test_dispatch.sh $(IFS='|'; echo "${scenarios[*]}")|all" >&2
-    exit 2 ;;
-esac
-case "$1" in
-  all) wanted="${scenarios[*]}" ;;
-  *) wanted="$1" ;;
-esac
-
-fn_for() {
-  case "$1" in
-    start-worker) echo scenario_start_worker ;;
-    start-reviewer) echo scenario_start_reviewer ;;
-    *) echo "scenario_$1" ;;
-  esac
+is_serial() {
+  # Opening a watch can start a board, whose port allocation is machine-wide.
+  case "$1" in board*|open*) return 0 ;; *) return 1 ;; esac
 }
 
-for name in $wanted; do
-  echo "=== $name"
-  declare -F "$(fn_for "$name")" >/dev/null \
-    || { echo "$name failed: this file has no $(fn_for "$name")" >&2; exit 1; }
-  "$(fn_for "$name")"
-  code=$?
-  [ "$code" -eq 0 ] \
-    || { echo "$name failed: $(fn_for "$name") exited $code without reporting" >&2; exit 1; }
-  if [ "$rc" -eq 0 ]; then
-    echo "PASS $name"
-  else
-    echo "$name failed" >&2
-    exit 1
-  fi
-done
+source "$HERE/parallel.sh"
+run_scenarios "$0" "$@"
