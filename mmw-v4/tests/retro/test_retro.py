@@ -1059,8 +1059,12 @@ sys.exit(result.returncode)
         self.start_run()
         self.fake.rows[90]['labels'] = [dict(name='mmw:ticket')]
         rc,out,err = self.run_command('apply',self.answer('candidate'))
-        self.assertEqual(rc,2,err)
+        self.assertEqual(rc,0,err)
         self.assertIn('not a lesson',err)
+        receipt = events.parse(self.fake.rows[76]['comments'][-1]['body'])[1]
+        self.assertEqual(receipt['problems'], [dict(
+            code='missing-information', conclusion='unrecorded',
+            reason='answer target is not a lesson; product problems and children stay in their workflows')])
 
     def test_retry_after_receipt_failure_keeps_proposals_and_does_not_repeat_rejections(self):
         self.start_run()

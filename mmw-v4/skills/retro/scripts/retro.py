@@ -600,7 +600,7 @@ def prepare_answers(args,context):
             row['target'] = target
             row['occurrences'] = state['occurrences']
             valid.append(row)
-    if not valid and not problems:
+    if errors and not valid and not unrecorded and not problems:
         print('no recordable answer rows or new problems; correct the answer file',file=sys.stderr)
         return 2
     return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,
