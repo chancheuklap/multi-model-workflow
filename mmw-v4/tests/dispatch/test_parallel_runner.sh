@@ -10,6 +10,7 @@ set -uo pipefail
 rc=0
 scenario_alpha() {
   echo 'alpha output starts'
+  touch "$FIXTURE_STATE/alpha-ready"
   for ((i=0; i<100; i++)); do
     if [ -f "$FIXTURE_STATE/overlap" ]; then
       touch "$FIXTURE_STATE/alpha-done"
@@ -21,8 +22,20 @@ scenario_alpha() {
   echo 'alpha did not overlap' >&2
   return 1
 }
-scenario_broken() {
+scenario_beta() {
+  echo 'beta output starts'
   touch "$FIXTURE_STATE/overlap"
+  for ((i=0; i<100; i++)); do
+    if [ -f "$FIXTURE_STATE/alpha-ready" ]; then
+      echo 'beta saw overlap'
+      return 0
+    fi
+    sleep .01
+  done
+  echo 'beta did not overlap' >&2
+  return 1
+}
+scenario_broken() {
   echo 'broken diagnostic' >&2
   return 7
 }
@@ -35,31 +48,32 @@ source "$RUNNER_UNDER_TEST"
 run_scenarios "$0" "$@"
 FIXTURE
 code=0
-MMW_TEST_JOBS=2 bash "$TMP/scenarios.sh" alpha broken omega > "$TMP/out" 2>&1 || code=$?
+MMW_TEST_JOBS=2 bash "$TMP/scenarios.sh" alpha beta broken omega > "$TMP/out" 2>&1 || code=$?
 [ "$code" -eq 1 ] || { cat "$TMP/out"; echo "expected exit 1, got $code" >&2; exit 1; }
 python3 - "$TMP/out" <<'PY'
 from pathlib import Path
 import sys
 out = Path(sys.argv[1]).read_text()
-for text in ('PASS alpha', 'PASS omega', 'FAIL broken', 'broken diagnostic', 'alpha saw overlap'):
+for text in ('PASS alpha', 'PASS beta', 'PASS omega', 'FAIL broken', 'broken diagnostic', 'alpha saw overlap'):
     assert text in out, f'missing {text}:\n{out}'
 assert 'alpha did not overlap' not in out, out
 assert '=== alpha\nalpha output starts\nalpha saw overlap\nPASS alpha\n' in out, out
+assert '=== beta\nbeta output starts\nbeta saw overlap\nPASS beta\n' in out, out
 assert '=== omega\nomega output\nPASS omega\n' in out, out
 assert out.index('FAIL broken') < out.rindex('broken diagnostic'), out
 PY
-rm "$TMP/overlap" "$TMP/alpha-done"
+rm "$TMP/overlap" "$TMP/alpha-done" "$TMP/alpha-ready"
 MMW_TEST_JOBS=2 bash "$TMP/scenarios.sh" all > "$TMP/all" 2>&1 && { echo 'all hid a failure' >&2; exit 1; }
-grep -qx 'PASS omega' "$TMP/all"
+grep -qx 'PASS omega' "$TMP/all" || { cat "$TMP/all"; echo 'all did not report PASS omega' >&2; exit 1; }
 for unknown in nosuchscenario 'alpha broken'; do
   code=0
   bash "$TMP/scenarios.sh" "$unknown" > "$TMP/unknown" 2>&1 || code=$?
   [ "$code" -eq 2 ] || { cat "$TMP/unknown"; echo "unknown name exited $code, expected 2" >&2; exit 1; }
-  grep -q 'alpha' "$TMP/unknown"
+  grep -q 'alpha' "$TMP/unknown" || { cat "$TMP/unknown"; echo 'unknown-name error omitted known scenario alpha' >&2; exit 1; }
 done
 code=0
 MMW_TEST_JOBS=0 bash "$TMP/scenarios.sh" alpha omega > "$TMP/jobs" 2>&1 || code=$?
-[ "$code" -eq 2 ]
+[ "$code" -eq 2 ] || { cat "$TMP/jobs"; echo "invalid MMW_TEST_JOBS exited $code, expected 2" >&2; exit 1; }
 python3 - "$TMP" <<'PYLOCKTEST'
 import os
 from pathlib import Path
@@ -70,7 +84,19 @@ import time
 root = Path(sys.argv[1])
 fixture = root / "ports.sh"
 log = root / "ports.log"
-fixture.write_text('#!/usr/bin/env bash\nset -uo pipefail\nport_user() {\n  echo "start $$" >> "$FIXTURE_STATE/ports.log"\n  sleep .2\n  echo "end $$" >> "$FIXTURE_STATE/ports.log"\n}\nscenario_first() { port_user; }\nscenario_second() { port_user; }\nneeds_exclusive_ports() { return 0; }\nsource "$RUNNER_UNDER_TEST"\nrun_scenarios "$0" "$@"\n')
+fixture.write_text("""#!/usr/bin/env bash
+set -uo pipefail
+port_user() {
+  echo "start $$" >> "$FIXTURE_STATE/ports.log"
+  sleep .2
+  echo "end $$" >> "$FIXTURE_STATE/ports.log"
+}
+scenario_first() { port_user; }
+scenario_second() { port_user; }
+needs_exclusive_ports() { return 0; }
+source "$RUNNER_UNDER_TEST"
+run_scenarios "$0" "$@"
+""")
 first = subprocess.Popen(["bash", str(fixture), "first", "second"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 try:
     deadline = time.monotonic() + 3
@@ -106,7 +132,16 @@ import time
 root = Path(sys.argv[1])
 fixture = root / "interrupt.sh"
 log = root / "started.log"
-fixture.write_text('#!/usr/bin/env bash\nset -uo pipefail\nwork() { echo "$1" >> "$FIXTURE_STATE/started.log"; sleep .3; }\nscenario_a() { work a; }\nscenario_b() { work b; }\nscenario_c() { work c; }\nscenario_d() { work d; }\nsource "$RUNNER_UNDER_TEST"\nrun_scenarios "$0" "$@"\n')
+fixture.write_text("""#!/usr/bin/env bash
+set -uo pipefail
+work() { echo "$1" >> "$FIXTURE_STATE/started.log"; sleep .3; }
+scenario_a() { work a; }
+scenario_b() { work b; }
+scenario_c() { work c; }
+scenario_d() { work d; }
+source "$RUNNER_UNDER_TEST"
+run_scenarios "$0" "$@"
+""")
 process = subprocess.Popen(["bash", str(fixture), "all"], env=dict(os.environ, MMW_TEST_JOBS="1"),
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
 try:
