@@ -1,34 +1,9 @@
 #!/usr/bin/env bash
 #
-# Tests for dispatch.sh. One scenario per run:
+# Tests for dispatch.sh. Run one scenario or all:
 #
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh check|advance|advancedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh advancecap|advancecapbounce|advancecapbadconfig
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|send|sendbrief|sendinto|sendintorefused|sendintoreuse|briefproblems|briefreport|retract
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh briefbrowsername|briefclosebrowsers|briefclosekillsleftover|sendrefusesclosedbatch
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh route|routeonekind|routerefusesmapspec|specfield|suspend|status
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh runnerparity|herdrworkingsend|herdrliveness
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh orcaclosed
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh sweepsorphanmerge|sweepkeepslockedmerge|sweepsstalemergelock|sweepkeepsheldmergelock
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh landeddeletesbranch|landedkeepsunmergedlocalbranch|regressedrestart
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishkeepslocalnight|finishrestoreslocalnight|finishleavescheckedoutnight|finishkeepsmainworktree|finishkeepsunmergedlocalnight
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishsyncsprojectbranch|finishsyncsprojectworktree|finishkeepsunmergedproject
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh finishclosesspec|finishclosespecfails|finishcleanupfails
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh prgreen|prnotewhennoci|prdispatchesworkflow|prredandnone
-#   bash mmw-v4/tests/dispatch/test_dispatch.sh all
+#   bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario>|all
+#   An unknown scenario prints the known names and exits 2.
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
 # real ones on PATH and write every call they receive to a log, one call per line,
@@ -10035,14 +10010,6 @@ PY
   no_relay
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checkrepositorycheck checknoorigin checknopush checkbasemissing checklocalahead advance advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advancebouncedkeepserrors advancebouncedsteps advancebouncedsavesoutput advancechecksonce advancebaseref advancenochecks advancecheckcannotrun advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landedkeepsunmergedlocalbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions sweepsorphanmerge sweepkeepslockedmerge sweepsstalemergelock sweepkeepsheldmergelock landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused archiveunlandedkeepsbranch regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate land start-worker start-reviewer send sendbrief briefreport startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy route specfield suspend suspendpushes handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcaclosed worktreegit worktreegoverned paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket openticketnocheck opentakeover ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
-ALL="$ALL findings integratedsincestart advancerestoreswatch openbasefollowsproject openbaseprojectconflict"
-ALL="$ALL openprojectpastdefault startstrayworkspace summarycloseout summaryholdsfindings openprojecthead finishsyncsprojectbranch finishsyncsprojectworktree finishkeepsunmergedproject finishclosesspec finishclosespecfails finishcleanupfails finishkeepslocalnight finishrestoreslocalnight finishleavescheckedoutnight finishkeepsmainworktree finishkeepsunmergedlocalnight finishmerges finishcleans finishkeepssession finishrefuses finishrefusesnopr finishrefusesredpr finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishnocheck finishskipschecked finishchecksbasepush finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
-ALL="$ALL routelint routeonekind routerefusesmapspec routenospec missingverifyticket"
-ALL="$ALL advancecap advancecapbounce advancecapbadconfig bounceansitail posteventshowsgherror"
-ALL="$ALL briefproblems sendinto sendintorefused sendintoreuse briefbrowsername briefclosebrowsers briefclosekillsleftover sendrefusesclosedbatch"
-ALL="$ALL envstartsetsup envupfails envdownonend envmergeworktree envrestartaftersuspend envabsent"
-ALL="$ALL installedrefusessend installedallowsstatus installedothercheckoutsend"
 scenario_prgreen() {
   local code
   rm -rf "$TMP/repo/.github/workflows"
@@ -10228,24 +10195,24 @@ scenario_prredandnone() {
   grep -q 'HTTP 502' "$TMP/err" || fail 'a check read failure must explain why'
 }
 
-ALL="$ALL landreusesproof landrunsonnewbase finishreusesall checkall landskipsbaseredproof prgreen prnotewhennoci prdispatchesworkflow prredandnone"
-ALL="$ALL advancebreakslandedcriterion advancebrokenfields advanceunrelatedlands recheckred recheckgreenrecordsnothing"
-ALL="$ALL advancebaseredlands"
-ALL="$ALL recheckpathselection"
-ALL="$ALL advancegateafterproof recheckcannotrun"
-ALL="$ALL advancemovedlandedscript"
-ALL="$ALL advancedeletedlandedscript"
-ALL="$ALL advancelandedredonbaselands advancelandedgreenonbasebounces recheckbaseredcriterion"
-ALL="$ALL advancebaseredscriptremoved recheckbasecannotstart"
 
-case " $ALL all " in
+scenarios=()
+while read -r _ _ fn; do
+  case "$fn" in
+    scenario_start_worker) scenarios+=(start-worker) ;;
+    scenario_start_reviewer) scenarios+=(start-reviewer) ;;
+    scenario_*) scenarios+=("${fn#scenario_}") ;;
+  esac
+done < <(declare -F)
+
+case " ${scenarios[*]} all " in
   *" ${1:-} "*) ;;
   *)
-    echo "usage: test_dispatch.sh $(echo "$ALL" | tr ' ' '|')|all" >&2
+    echo "usage: test_dispatch.sh $(IFS='|'; echo "${scenarios[*]}")|all" >&2
     exit 2 ;;
 esac
 case "$1" in
-  all) wanted="$ALL" ;;
+  all) wanted="${scenarios[*]}" ;;
   *) wanted="$1" ;;
 esac
 

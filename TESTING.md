@@ -27,7 +27,7 @@ How this repository's tests run. Whoever writes a spec or a ticket draws the sea
 - One suite: `bash mmw-v4/tests/<name>/run.sh`; the prompt renderer's: `bash mmw-v4/prompt/tests/run.sh`. There is no aggregate runner of the suites; `scripts/check` runs the ones a change needs, and `scripts/check --all` every one. Each `run.sh` header names what it tests and the tools it needs; every suite needs `uv` for the shared frontmatter check.
 - A passing suite's last line is `all passed` (`全过` for `exe-release`).
 - `diagram-design` and `verify-ticket` take `-k <pattern>`, the substring or glob `python3 -m unittest -k` accepts (`mmw-v4/tests/lib/parse_k.sh`); under `-k` the `verify-ticket` suite skips its node half. `setup-mmw` takes a bare name pattern.
-- One dispatch scenario: `bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario>`, `all` for every one; its header lists them, and a passing scenario's last line is its EXPECT string. `mmw-v4/tests/relay/test_relay.sh` takes the same argument.
+- One dispatch scenario: `bash mmw-v4/tests/dispatch/test_dispatch.sh <scenario>`, `all` for every one; an unknown name lists the names discovered from its scenario functions, and a passing scenario's last line is its EXPECT string. `mmw-v4/tests/relay/test_relay.sh` takes the same argument.
 - `scripts/check --step <name>[,<name>…]` runs only the named steps without selecting by changed paths. An unknown name exits 2 and lists the known names.
 - `python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py` prints `INTERFACES OK`.
 
