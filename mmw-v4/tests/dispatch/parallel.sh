@@ -132,12 +132,25 @@ def interrupt(signum, frame):
 
 
 signal.signal(signal.SIGTERM, interrupt)
-environment = dict(os.environ, MMW_TEST_BOARD_LOCK=f"/tmp/mmw-dispatch-board-ports-{os.getuid()}.lock")
+environment = dict(os.environ)
+environment.setdefault("MMW_TEST_BOARD_LOCK", f"/tmp/mmw-dispatch-board-ports-{os.getuid()}.lock")
 try:
     run_group(parallel, int(raw_jobs), environment)
     if serial:
         with open(environment["MMW_TEST_BOARD_LOCK"], "a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+            deadline = time.monotonic() + 60
+            waiting = False
+            while True:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if not waiting:
+                        print(f"Waiting for dispatch board port lock {lock.name}", file=sys.stderr, flush=True)
+                        waiting = True
+                    if time.monotonic() >= deadline:
+                        sys.exit(f"Dispatch board port lock {lock.name} stayed busy for 60 seconds; stop the other suite before retrying {script}")
+                    time.sleep(.02)
             environment["MMW_TEST_BOARD_LOCK_HELD"] = "1"
             run_group(serial, 1, environment)
 except KeyboardInterrupt:

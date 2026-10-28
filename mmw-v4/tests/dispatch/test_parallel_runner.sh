@@ -4,6 +4,7 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export RUNNER_UNDER_TEST="$HERE/parallel.sh" FIXTURE_STATE="$TMP"
+export MMW_TEST_BOARD_LOCK="$TMP/ports.lock"
 cat > "$TMP/scenarios.sh" <<'FIXTURE'
 #!/usr/bin/env bash
 set -uo pipefail
@@ -49,6 +50,7 @@ run_scenarios "$0" "$@"
 FIXTURE
 code=0
 MMW_TEST_JOBS=2 bash "$TMP/scenarios.sh" alpha beta broken omega > "$TMP/out" 2>&1 || code=$?
+[ -f "$MMW_TEST_BOARD_LOCK" ] || { cat "$TMP/out"; echo "runner ignored fixture port lock $MMW_TEST_BOARD_LOCK" >&2; exit 1; }
 [ "$code" -eq 1 ] || { cat "$TMP/out"; echo "expected exit 1, got $code" >&2; exit 1; }
 python3 - "$TMP/out" <<'PY'
 from pathlib import Path
