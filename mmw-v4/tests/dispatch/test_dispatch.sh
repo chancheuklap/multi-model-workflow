@@ -1216,6 +1216,17 @@ cat > "$TMP/bin/python3" <<WRAPPER
 #!/bin/bash
 for a in "\$@"; do
   case "\$a" in
+    *supervisor.py)
+      if [ -n "\${MMW_TEST_BOARD_LOCK:-}" ]; then
+        exec "$REAL_PYTHON" - "\$@" <<'PYLOCK'
+import fcntl, os, subprocess, sys
+# Separate test registries still allocate ports in the same machine-wide namespace.
+with open(os.environ["MMW_TEST_BOARD_LOCK"], "a") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    sys.exit(subprocess.call([sys.executable, *sys.argv[1:]]))
+PYLOCK
+      fi
+      ;;
     *status.py)
       flags=""
       for b in "\$@"; do
@@ -10200,8 +10211,8 @@ scenario_prredandnone() {
 
 
 is_serial() {
-  # Opening a watch can start a board, whose port allocation is machine-wide.
-  case "$1" in board*|open*) return 0 ;; *) return 1 ;; esac
+  # The allocation test predicts the next free ports before it starts a board.
+  case "$1" in board*) return 0 ;; *) return 1 ;; esac
 }
 
 source "$HERE/parallel.sh"

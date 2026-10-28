@@ -57,6 +57,7 @@ import concurrent.futures
 import os
 import subprocess
 import sys
+import tempfile
 
 script = sys.argv[1]
 count = int(sys.argv[2])
@@ -70,7 +71,7 @@ if not raw_jobs.isascii() or not raw_jobs.isdecimal() or int(raw_jobs) < 1:
 
 def run(name):
     result = subprocess.run(["bash", script, name], stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT)
+                            stderr=subprocess.STDOUT, env=environment)
     return name, result.returncode, result.stdout
 
 
@@ -86,11 +87,13 @@ def report(result):
         sys.stdout.buffer.flush()
 
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=int(raw_jobs)) as pool:
-    for future in concurrent.futures.as_completed(pool.submit(run, name) for name in parallel):
-        report(future.result())
-for name in serial:
-    report(run(name))
+with tempfile.TemporaryDirectory(prefix="mmw-dispatch-run-") as directory:
+    environment = dict(os.environ, MMW_TEST_BOARD_LOCK=os.path.join(directory, "board-ports.lock"))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(raw_jobs)) as pool:
+        for future in concurrent.futures.as_completed(pool.submit(run, name) for name in parallel):
+            report(future.result())
+    for name in serial:
+        report(run(name))
 for name, code, output in failed:
     print(f"FAIL {name} (exit {code})", flush=True)
     sys.stdout.buffer.write(output)
