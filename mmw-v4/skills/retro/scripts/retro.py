@@ -296,10 +296,13 @@ def backlog(args):
 def answer_rows(path):
     text = path.read_text(encoding='utf-8')
     rows = []
+    header = False
     for line_number,line in enumerate(text.splitlines(),1):
         if not line.lstrip().startswith('|'):
             continue
         cells = [c.strip() for c in re.split(r'(?<!\\)\|',line.strip().strip('|'))]
+        if cells == ['代号', '结论', '理由', '证据', '方案']:
+            header = True
         if cells[0] == '代号' or all(re.fullmatch(r'[: -]+',c) for c in cells):
             continue
         if len(cells) != 5:
@@ -307,6 +310,8 @@ def answer_rows(path):
         else:
             rows.append(dict(path=str(path),line=line_number,code=cells[0],conclusion=cells[1],
                              reason=cells[2],evidence=cells[3],plan=cells[4]))
+    if not rows and not header:
+        raise RetroError(f'{path} has no analysis table; add the 代号 | 结论 | 理由 | 证据 | 方案 header')
     return rows
 
 
@@ -487,7 +492,7 @@ def merge_apply(args):
 
 
 def new_problems(path):
-    result = dict(problems=[],errors=[],unreadable=[])
+    result = dict(problems=[],errors=[],unreadable=[],refused=[])
     text = path.read_text(encoding='utf-8')
     section = re.search(r'^## Problems[ \t]*\n(.*)\Z',text,re.M|re.S)
     if not section:
@@ -522,6 +527,7 @@ def new_problems(path):
         except (RetroError,OSError,UnicodeError) as exc:
             message = f'{path} ## Problems {fields.get("问题代号", chunk.splitlines()[0])}: {exc}'
             print(message,file=sys.stderr)
+            result['refused'].append(message)
             if isinstance(exc,UnreadableEvidence):
                 result['errors'].append(message)
                 result['unreadable'].append(exc.source)
@@ -568,11 +574,13 @@ def register_new_problem(path,body,fields,context):
 
 def prepare_answers(args,context):
     valid,errors,problems,unreadable,unrecorded = [],[],[],[],[]
+    refused_problems = []
     for path in args.answers:
         new = new_problems(path)
         problems.extend(new['problems'])
         errors.extend(new['errors'])
         unreadable.extend(new['unreadable'])
+        refused_problems.extend(new['refused'])
     for path in args.answers:
         for row in answer_rows(path):
             try:
@@ -600,7 +608,7 @@ def prepare_answers(args,context):
             row['target'] = target
             row['occurrences'] = state['occurrences']
             valid.append(row)
-    if errors and not valid and not unrecorded and not problems:
+    if (errors or refused_problems) and not valid and not unrecorded and not problems:
         print('no recordable answer rows or new problems; correct the answer file',file=sys.stderr)
         return 2
     return dict(context=context,rows=valid,errors=errors,problems=problems,unreadable=unreadable,
