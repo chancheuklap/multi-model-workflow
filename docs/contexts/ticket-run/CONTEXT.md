@@ -238,7 +238,7 @@ The one conclusion the reviewer renders on each axis finding by rereading the ci
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/review-a-ticket.md`
 
 **review category**:
-The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: the principle it applies, without the `principle-` prefix (`fail-loudly`); the bug from the Correctness axis's checklist; its Spec kind; or `documented-standard` for a breach of a decision, term, rule or fact the repository documents (an ADR, the glossary, `CONTRIBUTING.md`, `TESTING.md`). Distinct from the retro's categories (`retro.py` `CATEGORIES`).
+The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: the principle it applies, without the `principle-` prefix (`fail-loudly`); the bug from the Correctness axis's checklist; its Spec kind; or `documented-standard` for a breach of a decision, term, rule or fact the repository documents (an ADR, the glossary, `CONTRIBUTING.md`). Distinct from the retro's categories (`retro.py` `CATEGORIES`).
 _Home_: `mmw-v4/skills/code-review/references/session.md`
 
 **review finding**:

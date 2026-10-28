@@ -71,7 +71,7 @@ STEPS = {
 }
 
 # Each suite's inputs: a changed path starting with the prefix selects the suites, and a suite
-# no changed path selects does not run. Root TESTING.md points here.
+# no changed path selects does not run.
 DISPATCH = "mmw-v4/skills/dispatch/"
 VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
