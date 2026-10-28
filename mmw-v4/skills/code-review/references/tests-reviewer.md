@@ -22,17 +22,13 @@ With a request file in place of a ticket, every test file in the diff is your sc
 
 When your scope is empty, report one line, `no test-backed criteria in this change`, and stop. There is nothing here for this axis.
 
-## 2. Read the repository's `TESTING.md` as facts
-
-`TESTING.md` at the repository root says how tests run here: where they live and in which layers, how one is run, which external boundaries are stood in for and how, how a test puts the system into the state it needs. Read it before you read the cases in scope, as facts to judge them by. A case that contradicts it (a stand-in for a boundary it says runs for real, a case in a layer it does not name) is a finding named `documented-standard`: cite the file and the line. The tests it lists as written that way on purpose are not reported, whatever a principle says of them. When the repository has no `TESTING.md`, judge by the principles alone and say so in one line of your report.
-
-## 3. Judge each case by these principles
+## 2. Judge each case by these principles
 
 Read **principle-test-behavior-not-implementation** in full and ask its **In a diff:** lines of every case in scope, the first one first: a case that cannot fail is the finding whatever else it is. Read **principle-fix-root-causes** for a change that loosens or bends an existing check, and **principle-boundary-discipline** for where a stand-in sits and what it stands in for. Each finding is a judgement call, names the principle and the line it matches, and quotes the assertion it is about.
 
-## 4. Report
+## 3. Report
 
-One entry per review finding: the file and its `path:line`, the case name, which principle line or which line of `TESTING.md`, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+One entry per review finding: the file and its `path:line`, the case name, which principle line, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## Two things this axis never reports
 
