@@ -572,6 +572,36 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertRegex(out, r"(?m)^ok +repository +scripts/env:")
 
+    def test_env_row_reports_unreadable_sources_without_losing_other_rows(self):
+        self.set_up_repository()
+        (self.root / "tests").mkdir()
+        test = self.root / "tests" / "resources.py"
+        test.write_text("port = 5432\n")
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True, capture_output=True)
+        subprocess.run(["git", "add", str(test)], cwd=self.root, check=True, capture_output=True)
+        real_run = subprocess.run
+        fake = Fake(root=self.root)
+
+        def boundary(cmd, **kwargs):
+            if cmd[:2] == ["git", "ls-files"]:
+                return real_run(cmd, **kwargs)
+            return fake(cmd, **kwargs)
+
+        for source in (test, self.root / "scripts" / "check"):
+            with self.subTest(source=source):
+                mode = source.stat().st_mode
+                source.chmod(0o111)
+                try:
+                    code, out = self.run_check(boundary)
+                    self.assertRegex(out, r"(?m)^unchecked +repository +scripts/env:")
+                    self.assertIn(str(source), out)
+                    self.assertIn("Permission denied", out)
+                    self.assertRegex(out, r"(?m)^ok +machine +install:")
+                    self.assertIn("SETUP OK", out)
+                finally:
+                    source.chmod(mode)
+            test.write_text("Tests use files.\n")
+
     def test_env_row_missing_without_scripts_env(self):
         self.set_up_repository()
         for name in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):

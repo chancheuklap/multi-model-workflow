@@ -198,10 +198,19 @@ def check_env(report: Report, root: Path):
             sources = {root / "scripts" / "check"}
             sources.update(root / name for name in tracked.stdout.split("\0")
                            if name and test_dirs.intersection(Path(name).parts[:-1]))
-            needed = any(
-                re.search(r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?)\b|数据库|端口|容器",
-                          path.read_text(errors="replace"), re.IGNORECASE)
-                for path in sources if path.is_file())
+            for path in sources:
+                if not path.is_file():
+                    continue
+                try:
+                    words = path.read_text(errors="replace")
+                except OSError as exc:
+                    report.add("unchecked", "repository", "scripts/env",
+                               f"cannot read {path}: {exc}; restore read access and rerun")
+                    return
+                if re.search(r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?)\b|数据库|端口|容器",
+                             words, re.IGNORECASE):
+                    needed = True
+                    break
         if needed:
             report.add("missing", "repository", "scripts/env",
                        "测试用到数据库或容器，而没有 scripts/env；每个工作树需要自己的资源")
