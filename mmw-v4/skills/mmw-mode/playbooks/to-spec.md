@@ -22,7 +22,7 @@ One spec: write it. Several, or a reference that already carries a **spec divisi
 
 #### Seams
 
-Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better. The ideal number is one. The repository's `TESTING.md` says which test layers exist, which external seams may be stubbed and how tests run; the seam and `## Testing Decisions` draw on it.
+Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better. The ideal number is one.
 
 A seam says where a test **observes**. Ask the other half in the same breath: for each state this feature's behaviour turns on, can a test put the system into that state through the seam you picked? Where the seam does not reach, say what would, and whether that thing ships.
 

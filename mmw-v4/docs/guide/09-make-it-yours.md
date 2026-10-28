@@ -110,7 +110,7 @@ The [correct](../../skills/correct/SKILL.md) skill reads recent commits, reverts
 3. Catch it with a test.
 4. Write a rule, last, and only for a judgement call, because nothing fails when an agent skips a rule.
 
-It writes no fix itself. It writes the plan and its acceptance criteria into a ticket and hands it back to you, naming the check to add and the real past commit the check must first fail on; after your Go, a worker builds it. A rule goes into a principle, `TESTING.md`, the glossary or an ADR, never into `AGENTS.md` or `CLAUDE.md`. A class whose rule is written down and enforced by nothing counts as a repeat. Started from a registered lesson, it counts that lesson's occurrences; named by you with no registration, it finds the classes from history on its own.
+It writes no fix itself. It writes the plan and its acceptance criteria into a ticket and hands it back to you, naming the check to add and the real past commit the check must first fail on; after your Go, a worker builds it. A rule goes into a principle, the glossary or an ADR, never into `AGENTS.md` or `CLAUDE.md`. A class whose rule is written down and enforced by nothing counts as a repeat. Started from a registered lesson, it counts that lesson's occurrences; named by you with no registration, it finds the classes from history on its own.
 
 Retrospective proposes improvements for your decision; `correct` plans the change that keeps a class of mistake from coming back, for a worker to build.
 

@@ -27,7 +27,7 @@ Before handing work back, ask yourself:
 
 ## Register where the fix belongs
 
-The repository holding what needs to change owns the registration. MMW skills, playbooks, and scripts belong in the MMW repository. Product code and the product repository's `TESTING.md`, glossary, and ADRs belong in the product repository.
+The repository holding what needs to change owns the registration. MMW skills, playbooks, and scripts belong in the MMW repository. Product code and the product repository's glossary and ADRs belong in the product repository.
 
 Verification-tool problems specific to one product's environment tool or `verify-<product>` are registered in the product repository; problems shared by similar products are registered in MMW.
 

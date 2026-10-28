@@ -119,6 +119,8 @@ class Fake:
         if cmd[1:3] == ["check-ignore", "-q"]:
             probe = cmd[3]
             return done(cmd, 0 if any(probe.startswith(d) for d in self.ignored) else 1)
+        if cmd[1:] == ["ls-files", "-z"]:
+            return done(cmd)
         raise AssertionError(f"unexpected git {cmd}")
 
     def writes(self):
@@ -431,7 +433,6 @@ class TestCheck(unittest.TestCase):
         (self.root / "scripts").mkdir()
         (self.root / "scripts" / "check").write_text("#!/usr/bin/env bash\nexit 0\n")
         (self.root / "scripts" / "check").chmod(0o755)
-        (self.root / "TESTING.md").write_text("# Testing\n")
         (self.root / "CLAUDE.md").write_text("@AGENTS.md\n")
 
     def run_check(self, fake):
@@ -524,34 +525,104 @@ class TestCheck(unittest.TestCase):
                 finally:
                     self.root = original
 
+    def test_env_row_reads_the_tests_not_testing_md(self):
+        self.set_up_repository()
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True, capture_output=True)
+        real_run = subprocess.run
+        fake = Fake(root=self.root)
+
+        def boundary(cmd, **kwargs):
+            if cmd[:2] == ["git", "ls-files"]:
+                return real_run(cmd, **kwargs)
+            return fake(cmd, **kwargs)
+
+        for directory in ("test", "tests", "__tests__", "spec", "e2e"):
+            path = self.root / "packages" / "a" / directory / "nested" / "resource test.py"
+            path.parent.mkdir(parents=True)
+            path.write_text("Tests use Postgres.\n")
+            subprocess.run(["git", "add", str(path)], cwd=self.root, check=True, capture_output=True)
+            with self.subTest(directory=directory):
+                code, out = self.run_check(boundary)
+                self.assertEqual(code, 1, out)
+                self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
+            subprocess.run(["git", "rm", "-f", str(path)], cwd=self.root, check=True, capture_output=True)
+
+        path = self.root / "tests" / "resources.py"
+        path.parent.mkdir()
+        path.touch()
+        subprocess.run(["git", "add", str(path)], cwd=self.root, check=True, capture_output=True)
+        for source in (path, self.root / "scripts" / "check"):
+            for word in ("Postgres", "POSTGRESQL", "mysql", "Redis", "Docker", "database",
+                         "databases", "container", "containers", "port", "ports", "数据库", "端口", "容器",
+                         "测试用到数据库和容器", "测试使用端口", "测试用到数据库。", "测试使用数据库进行"):
+                with self.subTest(source=source, word=word):
+                    source.write_text(f"Tests use {word}.\n")
+                    code, out = self.run_check(boundary)
+                    self.assertEqual(code, 1, out)
+                    self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
+            source.write_text("Tests use files. Export reports.\n")
+
+        for name in ("TESTING.md", "docs/database.md", "testing/resources.py", "tests/untracked.py"):
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("Tests use database containers and ports.\n")
+            if name != "tests/untracked.py":
+                subprocess.run(["git", "add", str(path)], cwd=self.root, check=True, capture_output=True)
+        code, out = self.run_check(boundary)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +scripts/env:")
+
+    def test_env_row_reports_unreadable_sources_without_losing_other_rows(self):
+        self.set_up_repository()
+        (self.root / "tests").mkdir()
+        test = self.root / "tests" / "resources.py"
+        test.write_text("port = 5432\n")
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True, capture_output=True)
+        subprocess.run(["git", "add", str(test)], cwd=self.root, check=True, capture_output=True)
+        real_run = subprocess.run
+        fake = Fake(root=self.root)
+
+        def boundary(cmd, **kwargs):
+            if cmd[:2] == ["git", "ls-files"]:
+                return real_run(cmd, **kwargs)
+            return fake(cmd, **kwargs)
+
+        for source in (test, self.root / "scripts" / "check"):
+            with self.subTest(source=source):
+                mode = source.stat().st_mode
+                source.chmod(0o111)
+                try:
+                    code, out = self.run_check(boundary)
+                    self.assertRegex(out, r"(?m)^unchecked +repository +scripts/env:")
+                    self.assertIn(str(source), out)
+                    self.assertIn("Permission denied", out)
+                    self.assertRegex(out, r"(?m)^ok +machine +install:")
+                    self.assertIn("SETUP OK", out)
+                finally:
+                    source.chmod(mode)
+            test.write_text("Tests use files.\n")
+
     def test_env_row_missing_without_scripts_env(self):
         self.set_up_repository()
-        for word in ("Postgres", "POSTGRESQL", "mysql", "Redis", "Docker", "database",
-                     "databases", "container", "containers", "port", "ports", "数据库", "端口", "容器"):
-            with self.subTest(word=word):
-                (self.root / "TESTING.md").write_text(f"Tests use {word}.\n")
-                code, out = self.run_check(Fake(root=self.root))
-                self.assertEqual(code, 1, out)
-                self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
-        for prose in ("测试用到数据库和容器", "测试使用端口", "测试用到数据库。", "测试使用数据库进行"):
-            with self.subTest(prose=prose):
-                (self.root / "TESTING.md").write_text(prose)
-                code, out = self.run_check(Fake(root=self.root))
-                self.assertEqual(code, 1, out)
-                self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
-        (self.root / "TESTING.md").unlink()
         for name in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
             with self.subTest(compose=name):
                 compose = self.root / name
                 compose.write_text("services: {}\n")
-                code, out = self.run_check(Fake(root=self.root))
+                fake = Fake(root=self.root)
+
+                def failing_index(cmd, **kwargs):
+                    if cmd[:2] == ["git", "ls-files"]:
+                        return done(cmd, 1, err="index unavailable")
+                    return fake(cmd, **kwargs)
+
+                code, out = self.run_check(failing_index)
                 self.assertEqual(code, 1, out)
                 self.assertRegex(out, r"(?m)^missing +repository +scripts/env:")
                 compose.unlink()
 
     def test_env_row_ok_when_not_needed(self):
         self.set_up_repository()
-        (self.root / "TESTING.md").write_text("Tests use files. Export reports.\n")
+        (self.root / "scripts" / "check").write_text("Tests use files. Export reports.\n")
         code, out = self.run_check(Fake(root=self.root))
         self.assertEqual(code, 0, out)
         self.assertRegex(out, r"(?m)^ok +repository +scripts/env:")
@@ -564,15 +635,21 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertTrue(out.rstrip().endswith("SETUP OK"), out)
 
-    def test_a_bare_repository_lists_every_repository_item_missing_and_writes_nothing(self):
+    def test_check_has_no_testing_md_row(self):
         fake = Fake(root=self.root, labels_have={}, ignored=())
         code, out = self.run_check(fake)
         self.assertEqual(code, 1)
-        for item in ("labels", ".gitignore", "scripts/check", "TESTING.md", "CLAUDE.md"):
+        for item in ("labels", ".gitignore", "scripts/check", "CLAUDE.md"):
             self.assertRegex(out, rf"(?m)^missing +repository +{item}:", item)
-        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 5 missing"), out)
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 4 missing"), out)
+        self.assertNotIn("TESTING.md", out)
         self.assertEqual(fake.writes(), [])
         self.assertEqual(fake.labels_have, {})
+        (self.root / "TESTING.md").write_text("Tests use files.\n")
+        code, out = self.run_check(fake)
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("TESTING.md", out)
+        self.assertTrue(out.rstrip().endswith("SETUP INCOMPLETE 4 missing"), out)
 
     def test_a_check_that_cannot_be_run_is_missing(self):
         self.set_up_repository()
