@@ -10210,8 +10210,7 @@ scenario_prredandnone() {
 }
 
 
-is_serial() {
-  # The allocation test predicts the next free ports before it starts a board.
+needs_exclusive_ports() {
   case "$1" in board*) return 0 ;; *) return 1 ;; esac
 }
 

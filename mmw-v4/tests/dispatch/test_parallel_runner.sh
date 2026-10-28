@@ -30,7 +30,7 @@ scenario_omega() {
   [ -f "$FIXTURE_STATE/alpha-done" ] || return 1
   echo 'omega output'
 }
-is_serial() { [ "$1" = omega ]; }
+needs_exclusive_ports() { [ "$1" = omega ]; }
 source "$RUNNER_UNDER_TEST"
 run_scenarios "$0" "$@"
 FIXTURE

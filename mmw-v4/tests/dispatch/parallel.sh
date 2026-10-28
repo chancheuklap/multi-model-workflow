@@ -48,7 +48,7 @@ run_scenarios() {
   fi
 
   for name in "${wanted[@]}"; do
-    if declare -F is_serial >/dev/null && is_serial "$name"; then
+    if declare -F needs_exclusive_ports >/dev/null && needs_exclusive_ports "$name"; then
       serial+=("$name")
     else
       parallel+=("$name")
