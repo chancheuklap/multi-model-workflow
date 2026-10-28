@@ -160,4 +160,59 @@ finally:
         os.killpg(process.pid, signal.SIGKILL)
         process.wait()
 PYINTERRUPT
+python3 - "$TMP" <<'PYKILL'
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+root = Path(sys.argv[1])
+fixture = root / "killed.sh"
+pids = root / "killed-pids"
+fixture.write_text("""#!/usr/bin/env bash
+set -uo pipefail
+work() {
+  echo "$$" >> "$FIXTURE_STATE/killed-pids"
+  sleep 60 &
+  echo "$!" >> "$FIXTURE_STATE/killed-pids"
+  wait
+}
+scenario_a() { work; }
+scenario_b() { work; }
+source "$RUNNER_UNDER_TEST"
+run_scenarios "$0" "$@"
+""")
+def running(pid):
+    result = subprocess.run(["ps", "-p", str(pid), "-o", "stat="], capture_output=True, text=True)
+    return result.returncode == 0 and not result.stdout.lstrip().startswith("Z")
+
+process = subprocess.Popen(["bash", str(fixture), "all"], env=dict(os.environ, MMW_TEST_JOBS="2"),
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+owned = []
+try:
+    deadline = time.monotonic() + 5
+    while not pids.exists() or len(pids.read_text().splitlines()) < 4:
+        assert time.monotonic() < deadline, "forced-timeout scenarios never started"
+        time.sleep(.01)
+    owned = [int(pid) for pid in pids.read_text().splitlines()]
+    os.killpg(process.pid, signal.SIGKILL)
+    process.wait(timeout=3)
+    deadline = time.monotonic() + 3
+    while any(running(pid) for pid in owned) and time.monotonic() < deadline:
+        time.sleep(.02)
+    assert not any(running(pid) for pid in owned), f"forced timeout left scenario processes alive: {owned}"
+finally:
+    if pids.exists():
+        owned = [int(pid) for pid in pids.read_text().splitlines()]
+    for pid in owned:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait()
+PYKILL
 echo 'parallel runner reports failures'

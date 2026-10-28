@@ -94,8 +94,7 @@ def run_group(names, limit, environment):
                 name = pending.popleft()
                 output = tempfile.TemporaryFile()
                 process = subprocess.Popen(["bash", script, name], stdout=output,
-                                           stderr=subprocess.STDOUT, env=environment,
-                                           start_new_session=True)
+                                           stderr=subprocess.STDOUT, env=environment)
                 active.append((name, process, output))
             for job in active[:]:
                 name, process, output = job
@@ -108,23 +107,35 @@ def run_group(names, limit, environment):
             if active:
                 time.sleep(.02)
     finally:
-        for _, process, _ in active:
-            if process.poll() is None:
+        if active:
+            owned = {process.pid for _, process, _ in active if process.poll() is None}
+            rows = subprocess.check_output(["ps", "-e", "-o", "pid=", "-o", "ppid="], text=True)
+            children = {}
+            for row in rows.splitlines():
+                pid, parent = map(int, row.split())
+                children.setdefault(parent, []).append(pid)
+            pending = list(owned)
+            while pending:
+                for pid in children.get(pending.pop(), []):
+                    if pid not in owned:
+                        owned.add(pid)
+                        pending.append(pid)
+            for pid in owned:
                 try:
-                    os.killpg(process.pid, signal.SIGTERM)
+                    os.kill(pid, signal.SIGTERM)
                 except ProcessLookupError:
                     pass
-        deadline = time.monotonic() + 5
-        while any(process.poll() is None for _, process, _ in active) and time.monotonic() < deadline:
-            time.sleep(.02)
-        for _, process, output in active:
-            if process.poll() is None:
+            deadline = time.monotonic() + 5
+            while any(process.poll() is None for _, process, _ in active) and time.monotonic() < deadline:
+                time.sleep(.02)
+            for pid in owned:
                 try:
-                    os.killpg(process.pid, signal.SIGKILL)
+                    os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-            process.wait()
-            output.close()
+            for _, process, output in active:
+                process.wait()
+                output.close()
 
 
 def interrupt(signum, frame):
