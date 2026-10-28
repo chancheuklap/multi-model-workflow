@@ -119,7 +119,7 @@ _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 
 **`mmw-v3/tests/<name>/run.sh`**:
 The hand-run test entry point of one skill or subsystem, one directory each under `mmw-v3/tests/`. There is no aggregate test runner.
-_Home_: `TESTING.md`
+_Home_: each suite's `run.sh` header
 
 **`disable-model-invocation` pairing**:
 The rule that a skill's frontmatter `disable-model-invocation: true` (read by Claude Code) and its `agents/openai.yaml` `policy.allow_implicit_invocation: false` (read by Codex) say the same thing — the skill fires only when the user names it — and change together, on the two skills only the person starts: `teach`, `wait-what`. Touching one without the other leaves a skill user-invoked on half the hosts and model-invoked on the rest.
@@ -183,7 +183,7 @@ The prefixes of `install.sh --check`'s lines: `缺` for an item missing, or diff
 _Home_: `mmw-v3/install.sh`
 
 **`MMW_INSTALL_HOME`**:
-A test-only variable, `TESTING.md`'s own **test seam**, that moves every path `install.sh` and `render.py` read or write under it and skips `launchctl` and `paseo reload`. Distinct from `MMW_HOME`, where `models.json`, the leases and the state directories live.
+A test-only variable, a **test seam**, that moves every path `install.sh` and `render.py` read or write under it and skips `launchctl` and `paseo reload`. Distinct from `MMW_HOME`, where `models.json`, the leases and the state directories live.
 _Home_: `mmw-v3/install.sh`
 
 **`--tools`**:
@@ -220,7 +220,7 @@ _Home_: `mmw-v4/skills/principle-fail-loudly/SKILL.md`, `mmw-v3/skills/ui-accept
 
 **shared checks**:
 The four checks in `mmw-v4/tests/lib/` that every suite runs before its own tests. Distinct from the suite's tests of one skill or subsystem.
-_Home_: `TESTING.md`
+_Home_: `mmw-v4/tests/lib/run.sh`
 
 **verify-this**:
 The skill that proves or disproves one claim and returns exactly one of `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE`. Distinct from a **feature map review**.

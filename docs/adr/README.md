@@ -56,8 +56,8 @@
 | [0035](0035-a-nights-memory-stays-in-its-repository.md) | 一夜的 Memory 只写进本仓库的 Space：开夜的会话 `NMEM_SPACE` 不对就拒绝开夜；Nowledge Mem 列不全记录时，夜照样关，不做 Memory 收尾 | 2026-10-06 | 无 | 0037、0051（Memory 收尾） |
 | [0036](0036-rollback-to-v2-is-one-install.md) | 从 v3 退回 v2，是在装着的 checkout 里跑一次 `bash mmw-v2/install.sh`；`mmw-v2/` 因此是退路，不只是历史 | 2026-10-07 | 0032 | 无 |
 | [0037](0037-the-session-space-is-installed-per-machine.md) | 终端里的 `NMEM_SPACE` 由 `mmw-v3/install.sh` 每台机器装一次；仓库的 Space 仍由 `setup-mmw` 建，它只报告会话的 `NMEM_SPACE` 对不对 | 2026-10-07 | 0035 | 无 |
-| [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 0056 |
-| [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 0051（复盘提案写入编码规范） |
+| [0038](0038-repository-files-are-layered-by-lifetime.md) | MMW 写进产品仓库的文件按时效分处放：通用约定在仓库根，MMW 会执行的产品答案在 `.mmw/`，一次开发的全部文件在 `efforts/<effort>/`，临时文件不进仓库 | 2026-10-07 | 无 | 0056、0060 |
+| [0039](0039-one-coding-standards-file-per-repository.md) | 每个仓库根目录的 `CODING_STANDARDS.md` 是它审查规则的唯一来源，由 setup-mmw 从模板抄入起头，此后只随本仓库的 retro 提案改；`TESTING.md` 由改变测试做法的改动当场改，retro 补漏 | 2026-10-08 | 无 | 0051（复盘提案写入编码规范）、0060 |
 | [0040](0040-writing-rules-live-in-writing-for-agents.md) | 技能文字的写作规则都在 `writing-for-agents` 技能里；改技能一律从 Authoring or modifying a skill 开始，一个会话做不完的由它交给 Write a spec | 2026-10-08 | 0032 | 0046、0054 |
 | [0041](0041-feature-map.md) | feature map 是按产品放的常驻文件，放在 `docs/features/<产品>/`，由 lint、同一提交和定期复核保持为真，night 里只有脚本是通过条件 | 2026-10-08 | 无 | 0044、0048 |
 | [0042](0042-several-products-in-one-repository.md) | 一个仓库里每个产品占 `.mmw/<产品>/`，一次运行仍只租一个按产品分段的 lease，control-ui 与 control-cli 是 ui-acceptance 的 reference 而不是 skill | 2026-10-08 | 无 | 0048 |
@@ -78,6 +78,7 @@
 | [0057](0057-every-effort-has-its-own-branch.md) | 每个 effort 从开始起就有自己的 effort branch，原型和所有 brief 会话写出的文件都提交在它上面，只经主人接受的 PR 进 project branch | 2026-10-19 | 无 | 无 |
 | [0058](0058-research-answers-live-in-the-effort-directory.md) | Effort 内的研究答案原样保存在每个问题的目录，由派出会话提交，票的 resolution comment 指向答案文件 | 2026-10-25 | 0056 | 无 |
 | [0059](0059-skill-text-is-written-by-the-session.md) | 一张票装得下的技能文字由 Authoring 会话自己写，新 agent 的试走当裁判；脚本仍交 worker | 2026-10-27 | 0054 | 无 |
+| [0060](0060-no-testing-md.md) | MMW v4 不再有 `TESTING.md`：没有技能写它、读它或检查它，一个仓库的测试怎么跑只看测试文件和 `scripts/check` | 2026-10-28 | 0038、0039 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
