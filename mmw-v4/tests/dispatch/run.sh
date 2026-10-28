@@ -3,12 +3,15 @@
 #
 #   bash mmw-v4/tests/dispatch/run.sh
 #
-# Two engines:
+# MMW_TEST_JOBS overrides the CPU-count scenario concurrency.
+#
+# Test programs:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
 #   test_profiles.py    unittest, models.bypass_argv, catalog match, create_agent settings, CLI scan
 #   test_tool_guard.py  unittest, host payloads against dispatch's command guard
 #   test_check_interfaces.py  unittest, check-interfaces.py on the set as it is and broken one way per case
+#   test_parallel_runner.sh  fixture scenarios, grouped output, failure and process cleanup
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
 # None needs the tracker, a terminal or a browser.
@@ -49,6 +52,16 @@ else
 fi
 
 echo
+echo "### parallel runner"
+if bash "$HERE/test_parallel_runner.sh"; then
+  echo "### parallel runner passed"
+else
+  echo "### parallel runner failed" >&2
+  rc=1
+fi
+
+echo
+
 echo "### dispatch.sh"
 # dispatch.sh asks git about the current checkout, so this one runs with the tests
 # directory as its working directory rather than wherever run.sh was called from.
