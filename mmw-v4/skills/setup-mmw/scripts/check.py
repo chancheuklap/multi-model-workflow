@@ -186,17 +186,36 @@ def check_repository_check(report: Report, root: Path):
 def check_env(report: Report, root: Path):
     compose = any((root / name).is_file() for name in
                   ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"))
-    testing = root / "TESTING.md"
-    words = testing.read_text() if testing.is_file() else ""
-    needed = compose or re.search(
-        r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?)\b|数据库|端口|容器",
-        words, re.IGNORECASE)
     if not (root / "scripts" / "env").exists():
+        needed = compose
+        if not needed:
+            tracked = run(["git", "ls-files", "-z"], cwd=root)
+            if tracked.returncode != 0:
+                report.add("unchecked", "repository", "scripts/env",
+                           f"git ls-files failed: {reason(tracked)}; restore access to the git index and rerun")
+                return
+            test_dirs = {"test", "tests", "__tests__", "spec", "e2e"}
+            sources = {root / "scripts" / "check"}
+            sources.update(root / name for name in tracked.stdout.split("\0")
+                           if name and test_dirs.intersection(Path(name).parts[:-1]))
+            for path in sources:
+                if not path.is_file():
+                    continue
+                try:
+                    words = path.read_text(errors="replace")
+                except OSError as exc:
+                    report.add("unchecked", "repository", "scripts/env",
+                               f"cannot read {path}: {exc}; restore read access and rerun")
+                    return
+                if re.search(r"\b(?:postgres|postgresql|mysql|redis|docker|databases?|containers?|ports?)\b|数据库|端口|容器",
+                             words, re.IGNORECASE):
+                    needed = True
+                    break
         if needed:
             report.add("missing", "repository", "scripts/env",
                        "测试用到数据库或容器，而没有 scripts/env；每个工作树需要自己的资源")
         else:
-            report.add("ok", "repository", "scripts/env", "not needed; no database or container test resources declared")
+            report.add("ok", "repository", "scripts/env", "not needed; no database or container test resources")
         return
     resources: list[set[str]] = []
     errors: list[str] = []
@@ -237,15 +256,6 @@ def check_env(report: Report, root: Path):
         report.add("missing", "repository", "scripts/env", "; ".join(errors))
     else:
         report.add("ok", "repository", "scripts/env", "two worktrees use separate resources; probe cleaned up")
-
-
-def check_testing(report: Report, root: Path):
-    if (root / "TESTING.md").is_file():
-        report.add("ok", "repository", "TESTING.md", "present")
-    else:
-        report.add("missing", "repository", "TESTING.md",
-                   "absent; a spec's or a ticket's seam has no test facts to draw on, "
-                   "and the reviewer's Tests axis reads none")
 
 
 def check_claude_md(report: Report, root: Path):
@@ -297,7 +307,6 @@ def main() -> int:
     check_ignored(report, root)
     check_labels(report)
     check_repository_check(report, root)
-    check_testing(report, root)
     check_env(report, root)
     check_claude_md(report, root)
     check_install(report)
