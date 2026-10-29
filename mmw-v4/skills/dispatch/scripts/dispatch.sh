@@ -850,8 +850,6 @@ open_night() {
     refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
   fi
   # Every other process a night needs starts itself: `open` starts the relay, and the
-  # turn guard arms the watchdog.
-  # Every other process a night needs starts itself: `open` starts the relay, and the
   # turn guard arms the watchdog. The task board was the one thing somebody had to
   # remember, and it is the only one of the three whose output is for a person — the
   # relay's and the watchdog's are for the orchestrator. A board that will not start is
