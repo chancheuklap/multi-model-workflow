@@ -42,7 +42,7 @@ A failed base check alone is not a lint error. New behaviour is expected to fail
 | Runner | Standard EXPECT to copy | Acceptance outcome |
 | --- | --- | --- |
 | pytest | `pytest.expect` in `runner-summaries.json` | Passed, passed subtests, xfailed and xpassed count as success. Skipped, failed, error and no tests ran count as failure. |
-| Vitest | `vitest.expect` in `runner-summaries.json` | Passed, skipped and todo count as success. Failed and No test files found count as failure. |
+| Vitest | `vitest.expect` in `runner-summaries.json` | Passed counts as success, with skipped and todo allowed beside it. Failed, No test files found, and a summary with no passed test count as failure. |
 
 Copy the value unchanged, including its flags. Do not write another pattern from a sample output line.
 
