@@ -140,7 +140,7 @@ _Home_: `mmw-v3/skills/dispatch/references/editing-models.md`, `mmw-v3/skills/di
 ### The night's commands
 
 **check**:
-`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows, the worker-grade labels, and one run of `scripts/check`'s default tier in the calling checkout.
+`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows, the worker-grade labels, and whether the repository has an executable `scripts/check`. It runs no tier of `scripts/check`.
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **repository Space**:
@@ -192,7 +192,7 @@ _Home_: `docs/contexts/night/how-it-works.md`
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **summary**:
-`dispatch.sh summary <spec> --memory-decisions <file>`, or `summary <spec> --memory-unavailable` while Nowledge Mem does not answer: once nothing of the night is left running or unrouted, posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch. It refuses, with nothing posted, while the batch holds a finding no `child.closed` accounts for, by the last count on its own `Findings routed:` line.
+`dispatch.sh summary <spec> --memory-decisions <file>`, or `summary <spec> --memory-unavailable` while Nowledge Mem does not answer: once nothing of the night is left running or unrouted, runs `scripts/check --all` on `origin/<into>` in the merge worktree, reusing a green `spec.checked` for that commit on this machine, then posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch. It refuses, with nothing posted, while the batch holds a finding no `child.closed` accounts for, by the last count on its own `Findings routed:` line.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **Memory closing**:

@@ -1080,6 +1080,7 @@ print(json.dumps({
     "assignees": [{"login": n} for n in found.get("assignees", [])],
     "blockedBy": {"nodes": found.get("blockedBy", [])},
     "comments": [{"body": b} for b in list(found.get("comments", [])) + posted],
+    "body": found.get("body", ""),
     "title": found.get("title", "a ticket"),
     "createdAt": found.get("createdAt", "2026-08-30T00:00:00Z"),
     "closedAt": found.get("closedAt", ""),
@@ -2076,7 +2077,7 @@ json.dump(catalog, open(sys.argv[2], "w"))
     || fail "the refusal should name the runner: $(cat "$TMP/err")"
 }
 
-scenario_checkrepositorycheck() {
+scenario_checkrunsnocheck() {
   local copy code
   copy="$(skill_copy_for check)"
   fresh_project_night
@@ -2086,29 +2087,21 @@ scenario_checkrepositorycheck() {
 ]
 JSON
 
-  echo "--- check runs scripts/check once in this checkout, uncommitted, with MMW_BASE_REF the project branch"
+  echo "--- check opens no repository-check run, even with uncommitted changes"
   rm -f "$TMP/check-base"
   put_check "$TMP/repo" "printf '%s\\n' \"\$MMW_BASE_REF\" >> '$TMP/check-base'"
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 0 ] || fail "a green scripts/check expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/check-base" 2>/dev/null)" = origin/proj ] \
-    || fail "scripts/check should run once with MMW_BASE_REF=origin/proj: $(cat "$TMP/check-base" 2>&1)"
+  [ "$code" = 0 ] || fail "check on a ready repository expected 0, got $code: $(cat "$TMP/err")"
+  [ ! -e "$TMP/check-base" ] || fail "check must not run scripts/check: $(cat "$TMP/check-base")"
+}
 
-  echo "--- a red base refuses the night and carries the check's last lines"
-  put_check "$TMP/repo" 'echo "FAIL unit 0s"; echo BASE-RED; exit 1'
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 2 ] || fail "a red base expected 2, got $code: $(cat "$TMP/err")"
-  grep -q 'BASE-RED' "$TMP/err" || fail "the refusal omits the check's output: $(cat "$TMP/err")"
-
-  echo "--- a check this machine cannot run refuses the night"
-  put_check "$TMP/repo" 'echo "no-uv-here" >&2; exit 2'
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 2 ] || fail "exit 2 from scripts/check expected 2, got $code: $(cat "$TMP/err")"
-  grep -q 'no-uv-here' "$TMP/err" || fail "the refusal omits the check's output: $(cat "$TMP/err")"
+scenario_checkrefusesnocheck() {
+  local copy code
+  copy="$(skill_copy_for check)"
+  fresh_project_night
+  echo '[]' > "$TMP/tickets.json"
 
   echo "--- a scripts/check that is not executable, or absent, refuses the night"
   chmod -x "$TMP/repo/scripts/check"
@@ -4093,7 +4086,7 @@ JSON
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
   echo "--- without a reverify of the base branch, summary refuses before it posts or closes the watch"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+          bash "$copy/scripts/dispatch.sh" --tools "$(dirname "$SKILL")/verify-ticket/scripts" summary 76)"
   [ "$code" = 2 ] || fail "missing reverify expected exit 2, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: comment :: 76 :: --body"
 
@@ -4110,7 +4103,7 @@ JSON
   commit_file "$other" after-reverify.txt changed after-reverify
   git -C "$other" push -q origin main
   code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76) \
+          bash "$copy/scripts/dispatch.sh" --tools "$(dirname "$SKILL")/verify-ticket/scripts" summary 76) \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "an origin advance after reverify expected exit 2, got $code"
   grep -q "$(git -C "$TMP/origin.git" rev-parse main)" "$TMP/err" \
@@ -4122,7 +4115,7 @@ JSON
   [ "$code" = 0 ] || fail "second reverify expected exit 0: $(cat "$TMP/err")"
   : > "$MMW_TEST_LOG"; : > "$MMW_GH_LAST_BODY"
   code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76) \
+          bash "$copy/scripts/dispatch.sh" --tools "$(dirname "$SKILL")/verify-ticket/scripts" summary 76) \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
@@ -4141,14 +4134,14 @@ JSON
   fake_relay
   [ -n "$(relay_now)" ] || fail "the stand-in relay should be running before summary"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+          bash "$copy/scripts/dispatch.sh" --tools "$(dirname "$SKILL")/verify-ticket/scripts" summary 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
   fake_relay '{"spec": 80}'
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+          bash "$copy/scripts/dispatch.sh" --tools "$(dirname "$SKILL")/verify-ticket/scripts" summary 76)"
   [ "$code" = 0 ] || fail "a relay watching another spec is not this summary's failure, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 80}'*) ;; *) fail "a relay watching spec 80 should be left running: $(relay_now)" ;; esac
   no_relay
@@ -7547,39 +7540,159 @@ scenario_finishreusesall() {
   grep -q 'passed --all on this machine' "$TMP/out" || fail "finish does not say which record it used: $(cat "$TMP/out")"
 }
 
-scenario_checkall() {
+scenario_checkallisgone() {
+  local code
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
+  [ "$code" = 2 ] || fail "an unknown command expected 2, got $code"
+  grep -q '^usage:' "$TMP/err" || fail "an unknown command must print usage"
+  if grep -q 'check-all' "$TMP/err"; then fail "usage still lists check-all"; fi
+}
+
+summary_check_fixture() {
+  fresh_repo
+  rm -f "$TMP/check-args"
+  git -C "$TMP/repo" checkout -q -b night main
+  put_check "$TMP/repo" "printf '%s\\n' \"\$*\" >> '$TMP/check-args'
+$1"
+  git -C "$TMP/repo" commit -q -m checks
+  git -C "$TMP/repo" push -q -u origin night
+  echo '[]' > "$TMP/tickets.json"
+  reset_log
+  summary_ready_fixture 76 night
+}
+
+scenario_summaryreusesspecchecked() {
+  local code
+  summary_check_fixture "echo 'FAIL unit 0s'; exit 1"
+  all_record
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 0 ] || fail "summary should reuse spec.checked: $(cat "$TMP/err")"
+  [ ! -e "$TMP/check-args" ] || fail "summary ran --all on a proved commit"
+  [ "$(posted_events 76 | grep -c '^spec.checked')" = 1 ] || fail "summary wrote a second spec.checked"
+  grep -q '^CHECK PASS all:' "$TMP/out" || fail "summary must print the reused full-check summary: $(cat "$TMP/out")"
+}
+
+scenario_summaryrefusesredall() {
+  local code kind body
+  for kind in red missing cannot-run; do
+    case "$kind" in
+      red) body="echo 'FAIL unit 0s'; echo 'FAIL lint 0s'; exit 1" ;;
+      missing) body='exit 0' ;;
+      cannot-run) body='echo missing-compiler >&2; exit 2' ;;
+    esac
+    summary_check_fixture "$body"
+    if [ "$kind" = missing ]; then
+      git -C "$TMP/repo" rm -q scripts/check
+      git -C "$TMP/repo" commit -q -m missing
+      git -C "$TMP/repo" push -q origin night
+    fi
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+    [ "$code" = 2 ] || fail "$kind full check should refuse summary, got $code: $(cat "$TMP/err")"
+    [ "$(posted_events 76)" = spec.opened ] || fail "$kind check posted an event: $(posted_events 76)"
+    case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "$kind check closed the watch" ;; esac
+    case "$kind" in
+      red) grep -q unit "$TMP/err" && grep -q lint "$TMP/err" || fail "summary must name every red step" ;;
+      missing) grep -q scripts/check "$TMP/err" || fail "summary must name the missing checker" ;;
+      cannot-run) grep -q missing-compiler "$TMP/err" || fail "summary must name the missing tool" ;;
+    esac
+  done
+}
+
+scenario_summarye2eredopenticket() {
+  local code
+  summary_check_fixture "echo 'FAIL e2e-board 3s'; echo 'checks: 1 failed'; exit 1"
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number":61,"state":"OPEN","labels":["needs-triage"],
+  "body":"## Acceptance criteria\n- [ ] AC1: board\n  CHECK: run tests/e2e/board/screen.test.ts\n  EXPECT: green"}]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 0 ] || fail "an unfinished UI ticket should allow summary: $(cat "$TMP/err")"
+  [ "$(posted_events 76 | tail -1)" = spec.closed ] || fail "summary did not close"
+  if posted_events 76 | grep -q '^spec.checked'; then fail "a red full check must not be recorded green"; fi
+  grep -q 'e2e-board.*#61' "$MMW_GH_LAST_BODY" || fail "summary must name the red step and its open ticket: $(cat "$MMW_GH_LAST_BODY")"
+  [ -z "$(relay_now)" ] || fail "summary did not close the watch"
+}
+
+scenario_summarye2eredrefuses() {
+  local code variant
+  for variant in none closed prose different-product mixed uncovered-product env; do
+    summary_check_fixture "echo 'FAIL e2e-board 3s'; echo 'checks: 1 failed'; exit 1"
+    python3 - "$variant" "$TMP/tickets.json" <<'PY'
+import json, sys
+variant, path = sys.argv[1:]
+body = '## Acceptance criteria\n- [ ] AC1: UI\n  CHECK: run tests/e2e/board/screen.test.ts\n  EXPECT: green'
+if variant == 'prose':
+    body = '## Notes\nThe tests/e2e/board/ directory has tests.'
+if variant == 'different-product':
+    body = body.replace('/board/', '/other/')
+rows = [] if variant == 'none' else [dict(number=61, state='CLOSED' if variant == 'closed' else 'OPEN', labels=['needs-triage'], body=body)]
+json.dump(rows, open(path, 'w'))
+PY
+    if [ "$variant" = uncovered-product ]; then
+      put_check "$TMP/repo" "echo 'FAIL e2e-board 3s'; echo 'FAIL e2e-other 1s'; exit 1"
+      git -C "$TMP/repo" commit -q -m uncovered
+      git -C "$TMP/repo" push -q origin night
+    fi
+    if [ "$variant" = env ]; then
+      put_check "$TMP/repo" "echo 'FAIL e2e-board 3s'; echo 'ENV unit 1s'; echo 'CHECK FAIL all: 1 of 2 steps red (e2e-board); cannot run here: unit'; exit 1"
+      git -C "$TMP/repo" commit -q -m env
+      git -C "$TMP/repo" push -q origin night
+    fi
+    if [ "$variant" = mixed ]; then
+      put_check "$TMP/repo" "echo 'FAIL e2e-board 3s'; echo 'FAIL unit 1s'; exit 1"
+      git -C "$TMP/repo" commit -q -m mixed
+      git -C "$TMP/repo" push -q origin night
+    fi
+    code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+    [ "$code" = 2 ] || fail "$variant must refuse summary, got $code: $(cat "$TMP/err")"
+    [ "$(posted_events 76)" = spec.opened ] || fail "$variant posted an event: $(posted_events 76)"
+    case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "$variant closed the watch" ;; esac
+    grep -q e2e-board "$TMP/err" || fail "$variant must name the red step"
+    if [ "$variant" = env ]; then
+      grep -q 'ENV unit' "$TMP/err" || fail "summary must name the suite that could not run"
+    fi
+  done
+}
+
+scenario_summaryprintse2esteps() {
+  local code
+  summary_check_fixture "echo 'PASS e2e-board 3s'; echo 'PASS e2e-editor 4s'; echo 'checks: all green'; exit 0"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 0 ] || fail "green summary expected 0: $(cat "$TMP/err")"
+  grep -qx 'PASS e2e-board 3s' "$TMP/out" && grep -qx 'PASS e2e-editor 4s' "$TMP/out" \
+    || fail "summary must print each passing product step: $(cat "$TMP/out")"
+  summary_ready_fixture 76 night
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 0 ] || fail "reused green summary expected 0: $(cat "$TMP/err")"
+  grep -q '^PASS e2e-board ' "$TMP/out" && grep -q '^PASS e2e-editor ' "$TMP/out" \
+    || fail "summary must print each reused product result: $(cat "$TMP/out")"
+  [ "$(wc -l < "$TMP/check-args" | tr -d ' ')" = 1 ] || fail "printing reused steps ran --all again"
+  summary_check_fixture "echo 'PASS e2e-editor 4s'; echo 'FAIL e2e-board 3s'; echo 'checks: 1 failed'; exit 1"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 2 ] || fail "red summary expected 2: $(cat "$TMP/err")"
+  grep -qx 'FAIL e2e-board 3s' "$TMP/out" && grep -qx 'PASS e2e-editor 4s' "$TMP/out" \
+    || fail "summary must print each product step even when refusing: $(cat "$TMP/out")"
+}
+
+scenario_summaryrunsall() {
   local code tip
   fresh_repo
   rm -f "$TMP/check-args"
   git -C "$TMP/repo" checkout -q -b night main
-  put_check "$TMP/repo" "printf '%s\\n' \"\$*\" >> '$TMP/check-args'; echo 'PASS unit 0s'; exit 0"
+  put_check "$TMP/repo" "printf '%s\\n' \"\$*\" >> '$TMP/check-args'; echo 'PASS unit 0s'; echo 'checks: all green'; exit 0"
   git -C "$TMP/repo" commit -q -m checks
   git -C "$TMP/repo" push -q -u origin night
   tip="$(git -C "$TMP/repo" rev-parse night)"
   echo '[]' > "$TMP/tickets.json"; reset_log
-  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
-    --field runner=paseo --field session=agt_main --field into=night --field project=main
-
-  echo "--- check-all runs scripts/check --all once on origin/night and records it on the spec"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
-  [ "$code" = 0 ] || fail "check-all expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/check-args")" = "--all" ] || fail "scripts/check was not run with --all once: $(cat "$TMP/check-args")"
+  summary_ready_fixture 76 night
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 0 ] || fail "summary expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/check-args" 2>/dev/null)" = "--all" ] || fail "scripts/check was not run with --all once"
   posted_events 76 tier commit steps | grep -qx "spec.checked tier=all commit=$tip steps=\['unit'\]" \
     || fail "the --all record is wrong: $(posted_events 76 tier commit steps)"
-
-  echo "--- a second check-all on the same tip runs nothing"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
-  [ "$code" = 0 ] || fail "the second check-all expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(wc -l < "$TMP/check-args" | tr -d ' ')" = 1 ] || fail "check-all ran again on a proved tip"
-
-  echo "--- red is exit 1 and records nothing"
-  git -C "$TMP/repo" checkout -q night
-  put_check "$TMP/repo" "echo 'FAIL unit 0s'; exit 1"
-  git -C "$TMP/repo" commit -q -m red
-  git -C "$TMP/repo" push -q origin night
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" check-all 76)"
-  [ "$code" = 1 ] || fail "a red --all expected 1, got $code: $(cat "$TMP/err")"
-  [ "$(posted_events 76 | grep -c '^spec.checked' | tr -d ' ')" = 1 ] || fail "a red run was recorded"
+  [ "$(posted_events 76 | tail -2 | tr '\n' ' ')" = 'spec.checked spec.closed ' ] \
+    || fail "summary must record the green check before closing: $(posted_events 76)"
+  grep -qx 'checks: all green' "$TMP/out" || fail "the check summary line is missing: $(cat "$TMP/out")"
 }
 
 scenario_finishrerun() {
