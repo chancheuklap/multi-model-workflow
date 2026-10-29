@@ -61,8 +61,9 @@ Install any missing `e2e` and `@e2e-dev/web` packages in the product repository'
 with its package manager. When the repository has no package manager, put them
 in `tests/e2e/<product>/package.json` with its lockfile. Use
 `npm ci --prefix tests/e2e/<product>` and
-`npm exec --prefix tests/e2e/<product> --` in CHECK lines, and exclude
-`tests/e2e/` from the repository's own unified checks.
+`npm exec --prefix tests/e2e/<product> --` in CHECK lines. The default tier of
+`scripts/check` never selects `tests/e2e/`; only its `--all` step
+`e2e-<product>` runs those tests.
 The CHECK installs dependencies in an empty checkout;
 the repository's lockfile pins the versions, and collaborators without MMW can
 run them. The packages have no post-install script. Write
@@ -155,7 +156,7 @@ Launch gives the entire CHECK line for a ticket to copy. For example:
 pnpm install --frozen-lockfile --silent && npx e2e run <file> --config tests/e2e/<product>/e2e.config.ts --target product --trace on --output .e2e/<test file name>
 ```
 
-Use the repository's own dependency install first: claim-time checks run in a
+Use the repository's own dependency install first: any `CHECK:` may run in a
 new checkout with nothing installed. Add any preparation the target's
 `app.command` does not perform, such as a build, between install and e2e.
 Write `<file>` relative to `tests/e2e/<product>/`, for example `search.e2e.ts`.
@@ -166,11 +167,19 @@ Each criterion needs its own output: e2e clears the previous results on every
 run. `--output .e2e/<test file name>` puts its trace under
 `tests/e2e/<product>/.e2e/<test file name>/results/<test>/trace.md`.
 
+Add an `e2e-<product>` step to the repository's `scripts/check`, selected only
+by `--all`, never by changed paths in the default tier. Use Launch's dependency
+install and preparation that `app.command` does not perform, including a build
+when needed. Then run every e2e test against `product`, without a file filter:
+
+- Root e2e package: `npx e2e run --config tests/e2e/<product>/e2e.config.ts --target product`.
+- Nested e2e package: `npm exec --prefix tests/e2e/<product> -- e2e run --config tests/e2e/<product>/e2e.config.ts --target product`.
+
 Measure the entire CHECK line in a fresh checkout: dependency install,
 preparation, cold back-end startup, and the test run together. Only when it
 exceeds 600 seconds, write `TIMEOUT: <seconds>` from that measured time, in
 the format of the mmw-mode skill's `references/ticket.md`. TIMEOUT governs
-the whole CHECK; preflight's back-end stack is cold in its new checkout.
+the whole CHECK, including cold back-end startup in a new checkout.
 
 Proof standards, for the Evidence section: exercise the real user path,
 not internal setters or test-only endpoints; capture the action and the
@@ -265,7 +274,8 @@ will not. Those steps stay unverified until a run on the real target covers them
 
 Commit the generated skill, feature map, the relative
 `.claude/skills/verify-<product>` link when created, root `.gitignore` line, tests and
-config under `tests/e2e/`, and dependency manifest and lockfile changes. When
+config under `tests/e2e/`, dependency manifest and lockfile changes, and the
+`e2e-<product>` step in `scripts/check`. When
 generation is part of a prototype effort, commit these and the product
 environment tool on the effort branch so they merge with its PR. Outside an
 effort, commit directly on the current checkout's project branch without a

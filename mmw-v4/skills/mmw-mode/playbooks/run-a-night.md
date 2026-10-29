@@ -37,9 +37,9 @@ Run `check` and `open` from a checkout on the night's base branch: the current c
 dispatch.sh check <spec>
 ```
 
-`check` also needs an executable `scripts/check` at the repository root, and runs its default tier once in this checkout, against the base branch, with uncommitted changes counted: there is no merge worktree yet. A night does not open on a red baseline, since every ticket would bounce on it.
+`check` needs an executable `scripts/check` at the repository root. It checks that the file exists and can execute, but runs no tier of it.
 
-**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; an invalid agent row is reported to the user. A red step of `scripts/check` is fixed in the product, an exit 2 of it in the environment stderr names (a tool, a service, a dependency); a missing `scripts/check` is made by Set up code checkers (`playbooks/set-up-code-checkers.md`).
+**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; an invalid agent row is reported to the user. A missing `scripts/check` is made by Set up code checkers (`playbooks/set-up-code-checkers.md`).
 
 Then, from this session — the one the night's wakes must reach:
 
@@ -109,9 +109,9 @@ Exits 4 and 2 name their next step on stderr. When you run `resume` again after 
 
 Register stalls found here as [3. Each time something wakes you](#3-each-time-something-wakes-you) says.
 
-The frontier is empty and `status` shows no live agent. Read every `ticket.landed` event from this night. Every step named under `Red on the base too:` and every criterion named under `Landed criteria red on the base too:` is a finding to fix before the night's full check. These are the event's `base_red` step names and `landed_base_red` ticket-and-criterion pairs. For each failure without an open finding, run `verify-ticket.py <n> --sub-issue finding <file>` on the ticket whose landing reported it. Name the failed step or criterion and the landing event in the child's body. Fixing an already-red step can expose a new failure that landed inside that step. Fix that failure too before the full check.
+The frontier is empty and `status` shows no live agent.
 
-If this spec's tickets still hold open findings, route **exactly those**. These are the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution`. If there are none, go straight to the run of `scripts/check --all` at the end of this step.
+If this spec's tickets still hold open findings, route **exactly those**. These are the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution`. If there are none, go straight to step 5.
 
 List the open findings with `dispatch.sh findings <spec>` and route exactly those. A finding wakes nobody, so the ones you were woken about are no measure of what exists.
 
@@ -134,11 +134,11 @@ Judge each one by the four steps below, **in order, first match wins**, after th
 3. **How many files does the fix touch?** One → fix it yourself. Two or more **with a design coupling between them** — how you fix one decides how you fix the other, and neither can be written until both are settled → a ticket, `senior-worker`. Counting files is not counting effort; it is asking whether the change has a cross-file shape somebody should look at. **A name echoed through prose is not a coupling**: renaming a thing along with its restatements in a domain doc, a `SKILL.md` and a reference file is mechanical, `grep` proves you got them all, and it stays with you.
 4. **Nothing matched** → fix it yourself. **The default is to fix it, not to open a ticket.**
 
-The ones you fix: use a checkout that tracks `origin/<into>`. Fetch before each fix, commit it there, run `MMW_BASE_REF=<the fix's parent commit> scripts/check`, which runs what the fix can reach, then run `dispatch.sh recheck <spec>` before the fast-forward push to `origin/<into>`. If that push is rejected, fetch, merge the new `origin/<into>` into the commit, run both checks again on the new commit, with `scripts/check` against the same parent, and retry the fast-forward push. Then `dispatch.sh route <n> <child> fixed` for each, after its commit and push. The commits follow these three rules:
+The ones you fix: use a checkout that tracks `origin/<into>`. Fetch before each fix, commit it there, run `MMW_BASE_REF=<the fix's parent commit> scripts/check`, which runs what the fix can reach, then fast-forward push to `origin/<into>`. If that push is rejected, fetch, merge the new `origin/<into>` into the commit, run `MMW_BASE_REF=<the fix's parent commit> scripts/check` again on the new commit, and retry the fast-forward push. Then `dispatch.sh route <n> <child> fixed` for each, after its commit and push. The commits follow these three rules:
 
 1. One commit per finding, or per group of findings with one cause; the commit message names them by number.
 2. It touches only what the finding's cause requires, and the tests that prove it; anything more is a ticket after all.
-3. It runs `scripts/check` against its parent and `dispatch.sh recheck <spec>` on the same commit before pushing. Recheck exit 1 means do not push. Repair the listed criteria, then check the new commit again. Exit 2 means the check could not run. Fix the reported condition before pushing. The commit message quotes both summary lines, including recheck's last line (`recheck #<spec>: <k> landed criteria green`, not "the tests pass").
+3. It runs `MMW_BASE_REF=<the fix's parent commit> scripts/check` on the same commit before pushing. The commit message quotes its summary line, not "the tests pass".
 
 A fix that exceeds those three is a ticket after all.
 
@@ -162,8 +162,6 @@ dispatch.sh advance <spec>
 
 Loop: each `ticket.passed` wakes you at step 3; when the frontier is empty again, this pass runs again. Continue until no open finding survives.
 
-Then, with the last fix pushed, run `dispatch.sh check-all <spec>` once from any checkout. It runs `scripts/check --all` on `origin/<into>` in the merge worktree, the night's one run of every test, and records it green on the spec as `spec.checked`; `finish` reuses that record when its merge is this tree. It is also the audit of the input lines in `scripts/check`: a red step that no landing of the night selected, since the last change to a file it reads, names an input line that is missing; add it in the same fix and name it in the retrospective. Red: fix each red step as you fix a finding above, push, and run it again. Exit 2: fix the environment stderr names and run it again. Its summary line goes into the pull request's record at step 6. Then go to step 5.
-
 #### 5. The night is over
 
 Step 4 left no open finding. From any checkout in this repository:
@@ -176,13 +174,17 @@ dispatch.sh reverify <spec>
 
 To recover a reopened ticket, repair the cause on the base branch, push it, and run `reverify <spec>` again; all met, `reverify` closes it itself. Still red, it stays reopened in `needs-triage`, and `summary` lists it as handed back.
 
-After `reverify`, use a checkout at `origin/<into>` with its dependencies installed. Find the products this night touched from the `--config` paths in its tickets' CHECK lines, without a separate registry. For each product, first run the preparation required by the `verify-<product>` skill's Launch that `app.command` does not perform, including any build. Then run `npx e2e run --config tests/e2e/<product>/e2e.config.ts --target product` once. Run only the product target. A red test belonging to an open ticket, whether handed back or not yet worked, is expected: report it under that ticket in the page's Not done and left over block. Its test stays in the batch that merges into the project branch. Any other red test is a regression: investigate with the product's `verify-<product>` skill's Doctor, handle the fix by step 4's closing-pass rules, and rerun after the fix. Put the product-target e2e summary line in the pull request's record.
-
 Tickets left for human acceptance, handed back to triage by their worker, or behind an open blocker are valid outcomes; `summary` does not require every ticket to succeed.
 
 ```bash
 dispatch.sh summary <spec>
 ```
+
+After its reverify and findings gates, `summary` runs `scripts/check --all` on `origin/<into>` in the merge worktree. A green run is recorded as `spec.checked`, which `finish` reuses when its merge is this tree. A green record for this commit on this machine avoids another full run. Keep the full check's summary line and each `e2e-<product>` step's `PASS` or `FAIL` line from `summary`'s output for the pull request's record.
+
+A red step refuses the summary unless only `e2e-<product>` steps are red and this batch still has open tickets whose CHECK lines name `tests/e2e/<product>/`. Fix a refused red step as step 4 fixes a finding, push, then run `reverify` and `summary` again. When no landing of the night selected a red step since the last change to a file it reads, its input line in `scripts/check` is missing. Add that input in the same fix and name it in the retrospective. A check that cannot run exits 2 and names the environment to repair.
+
+When the open-ticket exception allows the summary, it lists the red e2e steps and their open tickets without recording `spec.checked`. Put each red test belonging to an open ticket under that ticket in the page's Not done and left over block. Its test stays in the batch that merges into the project branch. Any other red test is a regression. Investigate with the product's `verify-<product>` skill's Doctor and fix it by step 4's closing-pass rules, running `MMW_BASE_REF=<the fix's parent commit> scripts/check` before the push. The night is already closed, so do not run `reverify` or `summary` again. Name the fix in the pull request's record.
 
 `summary` exit 0: `NIGHT SUMMARY` is posted and the spec watch is closed. Exit 1: posted and closed, and a relay was left running; end the pid stderr names. Exit 2: nothing was posted; fix what stderr names and run `summary` again. A refusal counting findings no route reached sends you back to step 4.
 
@@ -192,7 +194,7 @@ Then run Retrospective (`playbooks/retrospective.md`) with `--spec <spec>` befor
 
 The night is delivered as one pull request from the night's branch to the project branch: the `into` and `project` fields of the spec's `spec.opened` comment. The user reads the page its first line names in the morning, and that page is the only place they need to look.
 
-Run Opening a PR (`playbooks/opening-a-pr.md`) from the night's branch, through its step 3, with step 4's `check-all` summary line and each product-target e2e summary line from step 5 for its record. Put handed-back tickets in the page's What the owner decides and Not done and left over blocks. Then tell the user the night finished and give them the pull request's link; say that once they accept it, `finish` merges it into the project branch. Done when the pull request is open and the user has its link.
+Run Opening a PR (`playbooks/opening-a-pr.md`) from the night's branch, through its step 3, with the `--all` summary line and each `e2e-<product>` step's `PASS` or `FAIL` line from `summary`'s output for its record. Put handed-back tickets in the page's What the owner decides and Not done and left over blocks. Then tell the user the night finished and give them the pull request's link; say that once they accept it, `finish` merges it into the project branch. Done when the pull request is open and the user has its link.
 
 #### 7. Merge the accepted night
 
