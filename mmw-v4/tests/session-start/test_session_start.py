@@ -138,7 +138,7 @@ class SessionStart(unittest.TestCase):
 
     def test_unreadable_entry_is_advisory(self):
         entry = self.repo / "CONTEXT-MAP.md"
-        entry.write_text("private")
+        entry.write_text("glossary-content-secret")
         entry.chmod(0)
         self.addCleanup(entry.chmod, 0o600)
         for host in ("claude", "codex"):
@@ -146,7 +146,8 @@ class SessionStart(unittest.TestCase):
                                                  "cwd": str(self.repo)}))
             self.assertEqual((run.returncode, run.stdout), (0, ""))
             self.assertIn("glossary paths", run.stderr)
-            self.assertNotIn("private", run.stderr)
+            self.assertNotIn("glossary-content-secret", run.stderr)
+            self.assertIn(str(entry), run.stderr)
 
 
 if __name__ == "__main__":

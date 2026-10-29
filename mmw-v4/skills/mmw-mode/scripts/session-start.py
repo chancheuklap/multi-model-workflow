@@ -68,7 +68,9 @@ def main():
                                           "additionalContext": context}}
         sys.stdout.write(json.dumps(output) + "\n")
     except Exception as exc:
-        sys.stderr.write(f"session-start: could not add context ({type(exc).__name__}); "
+        location = getattr(exc, "filename", None)
+        detail = f" at {location}" if location else ""
+        sys.stderr.write(f"session-start: could not add context ({type(exc).__name__}){detail}; "
                          "check the hook payload, host argument and glossary paths.\n")
     return 0
 
