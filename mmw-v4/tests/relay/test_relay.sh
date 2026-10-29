@@ -367,7 +367,6 @@ scenario_pollfail() {
     "$STATE/beat.json" || fail "beat.json should hold no good poll and name the failure: $(cat "$STATE/beat.json")"
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run once the read works expected 0, got $code: $(cat "$TMP/err")"
-  # Read now and delivered; #61 stays delivered across the restart.
   expect_rows "1 61 ticket.passed main-a delivered
 2 62 ticket.passed main-a delivered"
 }
