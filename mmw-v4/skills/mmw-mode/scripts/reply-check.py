@@ -4,9 +4,9 @@
     reply-check.py stop <claude|codex>     the host's Stop payload on stdin
     reply-check.py artifact claude        the Artifact PreToolUse payload on stdin
 
-Every unexempted Stop exits 2 with a checklist read from the anchor-reference principle
-and MMW's and the working repository's glossaries. The host's stop_hook_active continuation
-passes. A null last_assistant_message, ticket worktree, open brief session or open-watch
+Every unexempted Stop exits 2 with one stderr line pointing to a checklist file read
+from the anchor-reference principle and MMW's and the working repository's glossaries.
+The host's stop_hook_active continuation passes. A null last_assistant_message, ticket worktree, open brief session or open-watch
 orchestrator also passes. Session identity uses the turn guard's own_brief and is_main
 predicates without arming a watchdog or asking the tracker.
 
@@ -14,17 +14,19 @@ The Artifact entry reads tool_input.file_path as the page, except when tool_inpu
 is true. Actions without a file_path pass. Ticket worktrees and unattended sessions pass.
 A new SHA-256 of the page bytes is recorded under MMW_HOME/state/reply-check and exits 2;
 an unchanged retry passes. Its checklist also includes the everything-at-hand principle.
-Those fingerprints are the only files this script writes.
+Checklists are written beside those fingerprints as checklist-<first 12 hex of SHA-256>.md;
+unchanged checklists reuse their files. Each block writes one instruction line to stderr.
 
-Checklist rules load at run time from the sibling principle skills. Glossaries load in
-order from MMW's docs/contexts/*/CONTEXT.md, then the repository's tracked and
-untracked-not-ignored CONTEXT.md files, excluding .git, node_modules and .worktrees.
-The repository is the nearest parent with a .git entry. Without one, only cwd/CONTEXT.md
-loads beside MMW's glossaries. Every registered name and its _Avoid_: line stays in its
-original language. No glossary is required. The writer judges the text against the checklist.
+Checklist rules load at run time from the sibling principle skills. For MMW's checkout
+and then the working repository, CONTEXT-MAP.md links to CONTEXT.md files select the
+glossaries in link order. Without a map, only the root CONTEXT.md loads, if present.
+The working repository is the nearest parent with a .git entry, or cwd without one.
+Identical glossary text appears only once, keeping MMW's first. Every registered name
+and its _Avoid_: line stays in its original language. No glossary is required.
+The writer judges the text against the checklist file.
 
-Exit 0 allows the event. Exit 2 sends the checklist on stderr to the writer for rereading
-and rewriting. Any exception exits 1 with its reason on stderr and does not block.
+Exit 0 allows the event. Exit 2 sends the checklist file path on stderr to the writer for
+rereading and rewriting. Any exception exits 1 with its reason on stderr and does not block.
 
 Checked against the real hosts
 ------------------------------
@@ -67,14 +69,12 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
-import os
 from pathlib import Path
 import re
-import subprocess
 import sys
 
 
-def checklist(cwd: Path, artifact: bool = False) -> str:
+def checklist(cwd: Path, artifact: bool = False) -> Path:
     skills = Path(__file__).resolve().parents[2]
     names = ["principle-anchor-every-reference"]
     if artifact:
@@ -87,31 +87,40 @@ def checklist(cwd: Path, artifact: bool = False) -> str:
     parts.extend(glossary_entries(cwd))
     parts.append("A name not registered above is written as a plain description, "
                  "or proposed to the owner before it is used.")
-    return "\n\n".join(parts) + "\n"
+    content = ("\n\n".join(parts) + "\n").encode("utf-8")
+    digest = hashlib.sha256(content).hexdigest()[:12]
+    path = turn_guard().statedir.home() / "state/reply-check" / f"checklist-{digest}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists() or path.read_bytes() != content:
+        path.write_bytes(content)
+    return path
 
 
 def glossary_entries(cwd: Path) -> list[str]:
     repo = next((path for path in (cwd, *cwd.parents) if (path / ".git").exists()), None)
     mmw = Path(__file__).resolve().parents[4]
-    paths = sorted(mmw.glob("docs/contexts/*/CONTEXT.md"))
-    if repo is not None:
-        listed = subprocess.run(["git", "-C", str(repo), "ls-files", "--cached", "--others",
-                                 "--exclude-standard", "-z"], check=True, capture_output=True)
-        for name in sorted(set(listed.stdout.split(b"\0"))):
-            path = Path(os.fsdecode(name))
-            if path.name == "CONTEXT.md" and not {".git", "node_modules", ".worktrees"}.intersection(path.parts):
-                if (repo / path).is_file():
-                    paths.append(repo / path)
-    elif (cwd / "CONTEXT.md").is_file():
-        paths.append(cwd / "CONTEXT.md")
+    paths = []
+    for root in (mmw, repo or cwd):
+        context_map = root / "CONTEXT-MAP.md"
+        if context_map.is_file():
+            for link in re.findall(r"\[[^\]]*\]\(([^)]+)\)", context_map.read_text(encoding="utf-8")):
+                path = context_map.parent / link
+                if path.name == "CONTEXT.md":
+                    paths.append(path)
+        elif (root / "CONTEXT.md").is_file():
+            paths.append(root / "CONTEXT.md")
     entries = []
+    seen = set()
     for path in dict.fromkeys(paths):
         entry = [str(path)]
         try:
-            lines = path.read_text(encoding="utf-8").splitlines()
+            text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
             raise ValueError(f"cannot read glossary {path}: {exc}") from exc
-        for line in lines:
+        if text in seen:
+            continue
+        seen.add(text)
+        for line in text.splitlines():
             heading = re.match(r"^\*\*(.+?)\*\*", line)
             if heading:
                 entry.append(heading.group(1))
@@ -170,18 +179,17 @@ def check(entry: str) -> int:
             fingerprint.touch(exist_ok=False)
         except FileExistsError:
             return 0
-        sys.stderr.write(f"MMW reply check: reread {page} against the rules and names below, "
-                         "rewrite what breaks them, then publish again once reread.\n")
-        sys.stderr.write(message)
+        sys.stderr.write(f"MMW reply check: reread {page} against {message}, "
+                         "rewrite what breaks it, then publish again.\n")
         return 2
     reply = payload["last_assistant_message"]
     if reply is None:
         return 0
     if not isinstance(reply, str):
         raise ValueError("expected last_assistant_message to be the reply text in the Stop payload")
-    sys.stderr.write("MMW reply check: reread what you wrote for the owner against the rules "
-                     "and names below, rewrite what breaks them, then finish again.\n")
-    sys.stderr.write(checklist(cwd))
+    message = checklist(cwd)
+    sys.stderr.write(f"MMW reply check: reread what you wrote for the owner against {message}, "
+                     "rewrite what breaks it, then finish again.\n")
     return 2
 
 
