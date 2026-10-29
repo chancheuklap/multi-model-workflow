@@ -121,7 +121,7 @@ The event `reverify` posts on a reopened ticket whose criteria are all met again
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.bounced`**:
-The event recording a landing failure with reason `conflict`, `checks`, or `breaks-landed-criterion`. The third reason names the landed tickets and criteria the merge broke, in its `Broken landed criteria:` line and `broken` field. A bounce takes back the pass and the landing and leaves the workspace standing. The first bounce in an open night returns the ticket to `ready-for-agent`, a second moves it to `needs-triage`.
+The event recording a landing failure with reason `conflict` or `checks`. A bounce takes back the pass and the landing and leaves the workspace standing. The first bounce in an open night returns the ticket to `ready-for-agent`, a second moves it to `needs-triage`.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`worker.resumed`, `worker.retracted`, `worker.replaced`, `worker.lost`**:

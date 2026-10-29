@@ -945,55 +945,20 @@ class TestRepositoryCheck(unittest.TestCase):
         self.assertNotIn("target.json", result["detail"])
 
 
-class TestCloseoutRunsNoRepositoryChecks(unittest.TestCase):
-    """`--closeout` and `--lint` never run the repository's `scripts/check`, and a run that
-    names no base branch to compare with (no `worker.started` with `into`) runs it neither:
-    only a worker's run on its integrated tree does."""
-
+class TestCloseoutNeedsNoRepositoryRecord(unittest.TestCase):
     def test_a_failing_check_does_not_stop_a_passing_closeout(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             marker = root / "ran.marker"
             write_check(root, f"touch '{marker}'; exit 1")
             text = draft(counts=counts_line())
-            code, err, seen = check(text, comments=(repository_record(HEAD, VERIFIED),),
-                                    check_only=False, repo=root)
+            code, err, seen = check(text, check_only=False, repo=root)
             ran = marker.exists()
         self.assertEqual(code, 0, err)
         self.assertFalse(ran)
         self.assertEqual(seen["closed"], [77])
         self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
                          [(77, (text, "ticket.passed"))])
-
-    def test_a_head_with_no_green_repository_check_cannot_close_all_met(self):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            write_check(root, "exit 0")
-            code, err, seen = check(draft(counts=counts_line()), check_only=False, repo=root)
-        self.assertEqual((code, seen["closed"]), (1, []))
-        self.assertIn("no green repository check of HEAD", err)
-
-    def test_closeout_base_red_needs_a_finding(self):
-        record = event("ticket.checked", "Repository check", run="repository", result="met",
-                       tier="default", commit=HEAD, base=VERIFIED, steps=["unit"],
-                       base_red=["unit"], machine=vt.socket.gethostname())
-        finding = event("child.opened", "Inherited failure", kind="finding", child=123)
-        other_child = event("child.opened", "Contract gap", kind="contract", child=124)
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            write_check(root, "exit 0")
-            for comments, expected in (
-                    ([record], 1), ([finding, record], 1), ([record, other_child], 1),
-                    ([record, finding], 0),
-                    ([repository_record(HEAD, VERIFIED)], 0),
-                    ([record.replace(HEAD, VERIFIED), finding], 1)):
-                with self.subTest(comments=comments):
-                    code, err, seen = check(draft(counts=counts_line()), comments=comments,
-                                            check_only=False, repo=root)
-                    self.assertEqual(code, expected, err)
-                    self.assertEqual(seen["closed"], [77] if expected == 0 else [])
-                    if expected == 1:
-                        self.assertIn("--sub-issue finding", err)
 
     def test_reverify_and_lint_do_not_run_the_repository_check(self):
         body = ("## Worker\n\njunior-worker\n\n## Acceptance criteria\n\n"
@@ -1025,164 +990,6 @@ class TestCloseoutRunsNoRepositoryChecks(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual([vt.events.parse(b)[1]["run"] for b in posted], ["reverify"])
             self.assertFalse(marker.exists())
-
-
-def git_repo(root):
-    """A clean repository at `root` whose `origin/main` is its one commit."""
-    run = lambda *a: subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t",
-                                     "-c", "user.name=t", *a], check=True,
-                                    capture_output=True)
-    run("init", "-q", "-b", "main")
-    (root / ".gitignore").write_text(".scratch/\n", encoding="utf-8")
-    run("add", "-A")
-    run("commit", "-q", "-m", "base")
-    run("update-ref", "refs/remotes/origin/main", "HEAD")
-    return subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
-                          capture_output=True, text=True, check=True).stdout.strip()
-
-
-def repository_record(commit, base, tier="default", machine=None):
-    return event("ticket.checked", "Repository check", run="repository", result="met", tier=tier,
-                 commit=commit, base=base, steps=["unit"],
-                 machine=machine or vt.socket.gethostname())
-
-
-class TestWorkerRepositoryCheck(unittest.TestCase):
-    """The worker's criteria run also runs the repository's default tier against the base
-    branch it integrated, and records a green run of a clean tree on the ticket; the
-    landing reuses that record while the base branch has not moved."""
-
-    def run_base_comparison(self, base_body, head_body=None, dirty=False):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp) / "repo"
-            root.mkdir()
-            journal = Path(tmp) / "checks.jsonl"
-            trace = ("python3 -c 'import json, os, subprocess; "
-                     "from pathlib import Path; "
-                     f"p=Path({json.dumps(str(journal))}); "
-                     "p.open(\"a\").write(json.dumps({\"cwd\":os.getcwd(), "
-                     "\"args\":__import__(\"sys\").argv[1:], "
-                     "\"commit\":subprocess.check_output([\"git\",\"rev-parse\",\"HEAD\"], "
-                     "text=True).strip()})+\"\\n\")' \"$@\"\n")
-            write_check(root, trace + base_body)
-            base = git_repo(root)
-            if head_body is not None:
-                write_check(root, trace + head_body)
-            (root / "ticket.txt").write_text("worker change\n")
-            subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-            subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c",
-                            "user.name=t", "commit", "-qm", "ticket"], check=True)
-            head = vt.git("rev-parse", "HEAD", cwd=root)
-            if dirty:
-                (root / "loose.txt").write_text("uncommitted\n")
-            body = ("## Owns\n\n- ticket.txt\n\n## Acceptance criteria\n\n"
-                    "- [ ] AC1: the worker criterion passes\n"
-                    "  CHECK: printf 'ok\\n'\n  EXPECT: ok\n  EVIDENCE: pending\n")
-            posted = []
-            with mock.patch.object(vt, "repo_root", return_value=root), \
-                 mock.patch.object(vt, "fetch_body", return_value=body), \
-                 mock.patch.object(vt, "fetch_comments", return_value=[started(base=base, into="main")]), \
-                 mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)), \
-                 redirect_stdout(io.StringIO()) as out:
-                code = vt.run_checks(77, True, "worker")
-            runs = [json.loads(line) for line in journal.read_text().splitlines()]
-            for run in runs[1:]:
-                self.assertFalse(Path(run["cwd"]).exists(), "base checkout was not removed")
-            worktrees = vt.git("worktree", "list", "--porcelain", cwd=root)
-            self.assertEqual(worktrees.count("worktree "), 1)
-            return code, [vt.events.parse(b)[1] for b in posted], runs, head, base, out.getvalue()
-
-    def test_worker_check_red_on_base_too_records_base_red(self):
-        script = ('if [ "${1:-}" = --step ]; then\n'
-                  '  [ "$2" = unit,lint ] || exit 2\n'
-                  '  [ ! -f ticket.txt ] || exit 2\n'
-                  'else\n  echo "PASS syntax 0s"\nfi\n'
-                  'echo "FAIL unit 0s"\necho "FAIL lint 0s"\nexit 1')
-        code, posted, runs, head, base, out = self.run_base_comparison(script)
-        self.assertEqual(code, 0, out)
-        self.assertEqual([p["run"] for p in posted], ["reverify", "repository"])
-        record = posted[-1]
-        self.assertEqual((record["result"], record["commit"], record["base"], record["tier"]),
-                         ("met", head, base, "default"))
-        self.assertEqual(record["machine"], vt.socket.gethostname())
-        self.assertEqual(record["base_red"], ["unit", "lint"])
-        self.assertEqual(record["steps"], ["syntax", "unit", "lint"])
-        self.assertEqual([(r["args"], r["commit"]) for r in runs],
-                         [([], head), (["--step", "unit,lint"], base)])
-        self.assertIn("--sub-issue finding", out)
-        for invalid in ("unit", [1], [""], ["unit lint"]):
-            with self.subTest(base_red=invalid), self.assertRaises(vt.events.EventError):
-                vt.events.build("ticket.checked", ticket=77, line="Repository check", run="repository",
-                                result="met", commit=head, base_red=invalid)
-
-    def test_worker_check_red_only_here_or_undecided_stays_red(self):
-        head = 'echo "PASS syntax 0s"\necho "FAIL unit 0s"\necho "FAIL lint 0s"\nexit 1'
-        for base in (
-                'echo "PASS unit 0s"\necho "PASS lint 0s"\nexit 0',
-                'echo "PASS unit 0s"\necho "FAIL lint 0s"\nexit 1',
-                'echo "FAIL unit 0s"\necho "FAIL lint 0s"\nexit 2',
-                'echo "FAIL unit 0s"\nexit 1',
-                'if [ "$#" != 0 ]; then echo "unknown argument"; exit 2; fi\n' + head):
-            with self.subTest(base=base):
-                code, posted, runs, _, base_commit, out = self.run_base_comparison(base, head)
-                self.assertEqual(code, 1, out)
-                self.assertEqual([p["run"] for p in posted], ["reverify"])
-                self.assertEqual((runs[-1]["args"], runs[-1]["commit"]),
-                                 (["--step", "unit,lint"], base_commit))
-        code, posted, _, _, _, out = self.run_base_comparison(head, dirty=True)
-        self.assertEqual(code, 1, out)
-        self.assertEqual([p["run"] for p in posted], ["reverify"])
-
-    def run_worker(self, body, records=lambda head: (), dirty=False):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            marker = root / ".scratch" / "ran"
-            write_check(root, f"mkdir -p .scratch; touch '{marker}'; " + body)
-            head = git_repo(root)
-            comments = list(records(head))
-            if dirty:
-                (root / "loose.txt").write_text("x", encoding="utf-8")
-            posted = []
-            with mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)), \
-                 mock.patch.object(vt, "ticket_spec", return_value=None), \
-                 redirect_stdout(io.StringIO()) as out:
-                code = vt.worker_repository_check(77, root, "main", comments)
-            return code, [vt.events.parse(b)[1] for b in posted], marker.exists(), head, out.getvalue()
-
-    def test_a_green_clean_tree_is_recorded_with_its_commit_base_and_steps(self):
-        code, posted, ran, head, _ = self.run_worker("echo 'PASS unit 0s'")
-        self.assertEqual((code, ran), (0, True))
-        [record] = posted
-        self.assertEqual((record["event"], record["run"], record["result"], record["tier"]),
-                         ("ticket.checked", "repository", "met", "default"))
-        self.assertEqual((record["commit"], record["base"], record["steps"]), (head, head, ["unit"]))
-
-    def test_a_tree_already_proven_against_the_same_base_is_not_run_again(self):
-        code, posted, ran, _, out = self.run_worker(
-            "exit 0", records=lambda head: [repository_record(head, head)])
-        self.assertEqual((code, posted, ran), (0, [], False))
-        self.assertIn("not run again", out)
-
-    def test_a_record_against_another_base_or_machine_does_not_cover_it(self):
-        for records in (lambda head: [repository_record(head, "1" * 40)],
-                        lambda head: [repository_record(head, head, machine="another-machine")]):
-            code, posted, ran, _, _ = self.run_worker("exit 0", records=records)
-            self.assertEqual((code, ran, len(posted)), (0, True, 1))
-
-    def test_an_all_record_of_the_commit_covers_any_base(self):
-        code, posted, ran, _, _ = self.run_worker(
-            "exit 0", records=lambda head: [repository_record(head, "1" * 40, tier="all")])
-        self.assertEqual((code, posted, ran), (0, [], False))
-
-    def test_a_dirty_tree_records_nothing_even_when_green(self):
-        code, posted, ran, _, out = self.run_worker("exit 0", dirty=True)
-        self.assertEqual((code, posted, ran), (2, [], True))
-        self.assertIn("uncommitted or untracked", out)
-
-    def test_a_red_check_records_nothing_and_reports_red(self):
-        code, posted, ran, _, _ = self.run_worker(
-            'if [ "${1:-}" = --step ]; then exit 2; fi; echo "FAIL unit 0s"; exit 1')
-        self.assertEqual((code, posted, ran), (1, [], True))
 
 
 class TestCloseoutPush(unittest.TestCase):

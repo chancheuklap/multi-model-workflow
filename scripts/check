@@ -6,7 +6,6 @@ test suites, in three tiers.
                              each suite whose inputs in MAP hold a changed path
     scripts/check --all      every step runnable on this machine
     scripts/check --staged   the syntax of the staged files; no commit-hook tool is configured here
-    scripts/check --step N[,N...]  only the named steps, without changed-path selection
 
 The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
 Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
@@ -253,15 +252,10 @@ def cannot_run(reason: str) -> int:
 
 
 def main(argv: list[str]) -> int:
-    tier = {"--staged": "staged", "--all": "all", "--step": "step"}.get(argv[0], None) if argv else "default"
-    if tier is None or len(argv) != (2 if tier == "step" else 1 if argv else 0):
-        print("usage: scripts/check [--staged | --all | --step NAME[,NAME...]]", file=sys.stderr)
+    tier = {"--staged": "staged", "--all": "all"}.get(argv[0], None) if argv else "default"
+    if tier is None or len(argv) != (1 if argv else 0):
+        print("usage: scripts/check [--staged | --all]", file=sys.stderr)
         return 2
-    if tier == "step":
-        names = list(dict.fromkeys(argv[1].split(",")))
-        unknown = [name for name in names if name not in STEPS]
-        if unknown:
-            return cannot_run(f"unknown step {', '.join(unknown)}; known steps: {', '.join(STEPS)}")
     started = time.monotonic()
     run = Run()
 
@@ -271,10 +265,7 @@ def main(argv: list[str]) -> int:
         print("no commit-hook tool is configured in this repository; checking the syntax of the staged files")
         run.syntax(staged_paths())
     else:
-        if tier == "step":
-            paths = []
-            print(f"tier --step: {', '.join(names)}")
-        elif tier == "all":
+        if tier == "all":
             names = list(STEPS)
             paths = git("ls-files", "mmw-v4", "scripts").stdout.split()
             print("tier --all: every step")
@@ -297,10 +288,9 @@ def main(argv: list[str]) -> int:
             return cannot_run(f"{', '.join(missing)} not on PATH, needed by "
                               + ", ".join(n for n in names if set(STEPS[n][1]) & set(missing))
                               + "; install it, or run from a shell whose PATH has it")
-        if tier != "step":
-            problems = self_check()
-            run.report("self-check", not problems, 0, problems, None)
-            run.syntax(paths)
+        problems = self_check()
+        run.report("self-check", not problems, 0, problems, None)
+        run.syntax(paths)
         for name in names:
             run.step(name)
         print(f"not run here: {NOT_RUN_HERE}")

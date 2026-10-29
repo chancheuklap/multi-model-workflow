@@ -109,7 +109,7 @@ Exits 4 and 2 name their next step on stderr. When you run `resume` again after 
 
 Register stalls found here as [3. Each time something wakes you](#3-each-time-something-wakes-you) says.
 
-The frontier is empty and `status` shows no live agent. Read every `ticket.landed` event from this night. Every step named under `Red on the base too:` and every criterion named under `Landed criteria red on the base too:` is a finding to fix before the night's full check. These are the event's `base_red` step names and `landed_base_red` ticket-and-criterion pairs. For each failure without an open finding, run `verify-ticket.py <n> --sub-issue finding <file>` on the ticket whose landing reported it. Name the failed step or criterion and the landing event in the child's body. Fixing an already-red step can expose a new failure that landed inside that step. Fix that failure too before the full check.
+The frontier is empty and `status` shows no live agent.
 
 If this spec's tickets still hold open findings, route **exactly those**. These are the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution`. If there are none, go straight to step 5.
 
@@ -134,11 +134,11 @@ Judge each one by the four steps below, **in order, first match wins**, after th
 3. **How many files does the fix touch?** One → fix it yourself. Two or more **with a design coupling between them** — how you fix one decides how you fix the other, and neither can be written until both are settled → a ticket, `senior-worker`. Counting files is not counting effort; it is asking whether the change has a cross-file shape somebody should look at. **A name echoed through prose is not a coupling**: renaming a thing along with its restatements in a domain doc, a `SKILL.md` and a reference file is mechanical, `grep` proves you got them all, and it stays with you.
 4. **Nothing matched** → fix it yourself. **The default is to fix it, not to open a ticket.**
 
-The ones you fix: use a checkout that tracks `origin/<into>`. Fetch before each fix, commit it there, run `MMW_BASE_REF=<the fix's parent commit> scripts/check`, which runs what the fix can reach, then run `dispatch.sh recheck <spec>` before the fast-forward push to `origin/<into>`. If that push is rejected, fetch, merge the new `origin/<into>` into the commit, run both checks again on the new commit, with `scripts/check` against the same parent, and retry the fast-forward push. Then `dispatch.sh route <n> <child> fixed` for each, after its commit and push. The commits follow these three rules:
+The ones you fix: use a checkout that tracks `origin/<into>`. Fetch before each fix, commit it there, run `MMW_BASE_REF=<the fix's parent commit> scripts/check`, which runs what the fix can reach, then fast-forward push to `origin/<into>`. If that push is rejected, fetch, merge the new `origin/<into>` into the commit, run `MMW_BASE_REF=<the fix's parent commit> scripts/check` again on the new commit, and retry the fast-forward push. Then `dispatch.sh route <n> <child> fixed` for each, after its commit and push. The commits follow these three rules:
 
 1. One commit per finding, or per group of findings with one cause; the commit message names them by number.
 2. It touches only what the finding's cause requires, and the tests that prove it; anything more is a ticket after all.
-3. It runs `scripts/check` against its parent and `dispatch.sh recheck <spec>` on the same commit before pushing. Recheck exit 1 means do not push. Repair the listed criteria, then check the new commit again. Exit 2 means the check could not run. Fix the reported condition before pushing. The commit message quotes both summary lines, including recheck's last line (`recheck #<spec>: <k> landed criteria green`, not "the tests pass").
+3. It runs `MMW_BASE_REF=<the fix's parent commit> scripts/check` on the same commit before pushing. The commit message quotes its summary line, not "the tests pass".
 
 A fix that exceeds those three is a ticket after all.
 

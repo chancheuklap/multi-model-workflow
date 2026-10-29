@@ -670,18 +670,6 @@ class TestResume(unittest.TestCase):
         self.assertTrue(lines[resume].endswith("(ticket.bounced)"))
         self.assertFalse(any(row.startswith("Failed checks:") for row in lines))
 
-    def test_preflight_quotes_broken_landed_criteria(self):
-        broken = "Broken landed criteria: #52 AC3, #60 AC1."
-        out = self.resume([
-            checked("self", SELF_LEDGER, ticket=77),
-            event("worker.decided", "DECISIONS", ticket=77),
-            event("ticket.bounced", "Tried to merge issue-77. " + broken,
-                  ticket=77, reason="breaks-landed-criterion", commit="b" * 40,
-                  broken=[{"ticket": 52, "ac": "AC3"}, {"ticket": 60, "ac": "AC1"}]),
-        ])
-        lines = out.splitlines()
-        resume = next(i for i, row in enumerate(lines) if row.startswith("RESUME:"))
-        self.assertEqual(lines[resume + 1], broken)
 
 
 if __name__ == "__main__":

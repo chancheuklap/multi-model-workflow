@@ -34,7 +34,6 @@ Who depends on what you build: `dispatch.sh land` runs the default tier on each 
    | `scripts/check --staged` | one line handing over to the commit-hook tool (`exec prek run`); it carries no second list of checkers | the commit hook, and anyone who wants the commit's checks without committing |
    | `scripts/check` | each step whose inputs hold a path changed against the base, `git diff --name-only "$MMW_BASE_REF"...HEAD` plus uncommitted and untracked changes: lint and type checks on those files, then the selected test groups; the repository's own idempotent dependency install (`uv sync`, `pnpm install --frozen-lockfile`) runs first when a selected step needs it | `dispatch.sh land` on each merge result, and the orchestrator before a closing-pass push |
    | `scripts/check --all` | the install, then everything runnable on this machine | `dispatch.sh summary` at the night's end, One ticket before its pull request, and setup-mmw once |
-   | `scripts/check --step <name>[,<name>…]` (optional) | only the named steps, without changed-path selection; unknown names exit 2 and list the known names | dispatch and a bounced ticket's worker, to rerun failed steps on the base |
 
    Its readers are agents with little attention to spare (**principle-fail-loudly**):
    - The base is `MMW_BASE_REF` when it is set, so a ticket cut from any branch is compared against the branch it merges into; otherwise the repository's base branch, named in the script's header.
@@ -42,7 +41,6 @@ Who depends on what you build: `dispatch.sh land` runs the default tier on each 
    - Exit 0 is a pass; 1 the product is red; 2 the environment cannot run the check: a missing tool, service or dependency, or an install that failed. Decide pass or fail by each tool's exit code, never by a printed summary; some tools print none.
    - One line per selected step before it runs, `SELECT <step>: <changed path> (<input>)`, naming one changed path and the input entry that selected it; one line saying so when nothing is selected.
    - One line per step, `PASS <step> <seconds>s` or `FAIL <step> <seconds>s`. A failing step adds its last lines and the path of its full log, under `.scratch/check/`. Every tier prints one line `not run here: …` naming the tests in no tier, and ends with a one-line summary.
-   - The optional `--step` call uses the same `PASS`, `FAIL` and `ENV` lines and exit codes 0, 1 and 2 as the default tier.
    - A self-check exits 1 when a directory under a test root is neither in a group nor listed as excluded, naming the directory and where in `scripts/check` to add it.
 
    Done when every tier passes on the repository as it stands, or the reply names each red step of `--all` with its first failing line.

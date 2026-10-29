@@ -7,7 +7,6 @@ that ledger to unlazy's `gate-check`, and posts the result back as one
 `ticket.checked` event. Nothing is cached. The ledger is removed when the run
 ends. Each run replaces `.scratch/criteria/<ticket>/`, and a failing criterion's
 output is `<id>.log` in that directory.
-`--only AC...` runs just the selected criteria without writing to the tracker.
 
 Claim-time baseline checkouts run their optional executable `scripts/env setup <worktree>`
 and `up <worktree>` before criteria, then `down <worktree>` before removal, including a
@@ -965,13 +964,6 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         if reverify.get("commit") != git("rev-parse", "HEAD"):
             problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
-        elif ((root := repo_root()) is not None and not repository_check_missing(root)
-              and not repository_allows_closeout(comments, git("rev-parse", "HEAD"))):
-            problems.append("the ticket carries no green repository check of HEAD. Commit "
-                            "everything, run `--reverify --actor worker`, and fix what the "
-                            "repository check reports. For a `base_red` record, open a "
-                            "finding after that record with "
-                            "`verify-ticket.py <n> --sub-issue finding <file>`")
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
         # then what stands is a verification of something else, and the final run runs again.
@@ -1859,53 +1851,6 @@ def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
     return _run_checks(number, reverify, actor, fetch_body(number), repo_root())
 
 
-def affected_criteria(body: str, paths: list[str]) -> list[str]:
-    patterns = []
-    for path in paths:
-        patterns.append(r"(?<![\w./-])(?:\./)?" + re.escape(path) + r"(?![\w./-])")
-        parent = path.rpartition("/")[0]
-        if parent:
-            patterns.append(r"(?<![\w./-])(?:\./)?" + re.escape(parent) + r"(?:/|(?![\w.-]))")
-    if not patterns:
-        return []
-    mentioned = re.compile("|".join(patterns))
-    return [c["id"] for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))
-            if mentioned.search(c["check"])]
-
-
-def selected_checks(number: int, ids: list[str], body: str, root: Path) -> tuple[int, list[dict]]:
-    """Run only these criteria, including ticked ones, without tracker writes."""
-    criteria = parse_criteria("\n".join(section(body, "Acceptance criteria")))
-    found = {c["id"] for c in criteria}
-    missing = set(ids) - found
-    if missing or not ids:
-        raise ValueError(f"#{number}: unknown or empty criterion selection: {', '.join(sorted(missing))}")
-    lines = []
-    for c in criteria:
-        if c["id"] not in ids:
-            continue
-        if not c["check"] or not c["expect"] or c["stray"]:
-            raise ValueError(f"#{number} {c['id']}: CHECK or EXPECT is missing or malformed")
-        lines += [f"- [ ] {c['id']}: selected criterion", "  CHECK:"]
-        fence = "`" * max(3, max((len(m[0]) + 1 for m in re.finditer(r'`+', c["check"])), default=3))
-        lines += [f"  {fence}sh", *("  " + row for row in c["check"].splitlines()),
-                  f"  {fence}", f"  EXPECT: {c['expect']}", "  EVIDENCE: pending"]
-    with tempfile.TemporaryDirectory(prefix="verify-selected-") as tmp:
-        ledger = write_ledger(body, Path(tmp), lines)
-        results = Path(tmp) / "results.json"
-        cmd = ["node", str(GATE_CHECK), "--reverify", "--cwd", str(root),
-               "--timeout", str(check_timeout(body)), "--results", str(results), str(ledger)]
-        result = subprocess.run(cmd, cwd=root, env=criterion_environment(number, None),
-                                capture_output=True, text=True)
-        sys.stdout.write((result.stdout or "") + (result.stderr or ""))
-        if result.returncode not in (0, 1) or not results.is_file():
-            raise ValueError(f"#{number}: selected criteria could not run (exit {result.returncode})")
-        rows = json.loads(results.read_text())
-        if {r["id"] for r in rows} != set(ids):
-            raise ValueError(f"#{number}: selected criteria did not all run")
-        return result.returncode, rows
-
-
 def criterion_environment(number: int, into: str | None) -> dict[str, str]:
     env = os.environ.copy()
     env["MMW_TICKET"] = str(number)
@@ -1986,113 +1931,7 @@ def _run_checks(number: int, reverify: bool,
         recorded = False
     else:
         recorded = True
-    code = result.returncode if recorded else NOT_RECORDED
-    if worker and code in (0, 1) and worker_repository_check(number, root, into, comments) == 1:
-        code = 1
-    return code
-
-
-def worker_repository_check(number: int, root: Path, into: str | None,
-                            comments: list) -> int:
-    if not into or repository_check_missing(root):
-        return 0
-    base_ref = f"origin/{into}"
-    identity = tree_identity(root, base_ref)
-    if identity and covering_proof(comments, "ticket.checked", *identity):
-        print(f"#{number}: the repository check is not run again: {identity[0][:12]} "
-              f"against {identity[1][:12]} already passed on this machine.")
-        return 0
-    checked = run_repository_check(root, base_ref, root, number)
-    if checked["status"] == "red":
-        print(f"#{number}: the repository check is red.\n{checked['detail']}")
-        proof = checked["proof"]
-        if proof is None:
-            return 1
-        steps = detached_base_red_steps(root, base_ref, proof["base"], checked["failed"])
-        if not steps:
-            return 1
-        proof["base_red"] = steps
-        print(f"#{number}: steps {', '.join(steps)} are red on the base too. Open a finding "
-              f"with `verify-ticket.py {number} --sub-issue finding <file>` before closeout.")
-    elif checked["status"] != "pass":
-        print(f"#{number}: the repository check proved nothing: {checked['detail']}")
-        return 2
-    proof = checked["proof"]
-    if proof is None:
-        print(f"#{number}: the repository check is green, but the tree had uncommitted or "
-              "untracked files, so it proves no commit. Commit them and run again.")
-        return 2
-    try:
-        outcome = "red on the base too" if proof.get("base_red") else "green"
-        post_event(number, "ticket.checked",
-                   f"Repository check on {proof['commit'][:12]} against "
-                   f"{proof['base'][:12]}: {outcome}, {len(proof['steps'])} steps",
-                   run="repository", result="met", actor="worker",
-                   stage=events.checked_stage("repository", "worker"), **proof)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        sys.stderr.write(f"#{number}: the repository check finished {outcome} on "
-                         f"{proof['commit'][:12]}, but its ticket.checked event could not "
-                         f"be written ({exc}). Run again once the tracker takes comments.\n")
-        return 2
-    return 0
-
-
-def base_red_steps(root: Path, base_ref: str, failed: list[dict]) -> list[str]:
-    """Run the failed rows' named steps in a base checkout supplied by the caller.
-
-    Return those steps only for exit 1 with every step explicitly reported as FAIL.
-    Worker verification and dispatch share this rule. Output goes to stderr.
-    """
-    steps = list(dict.fromkeys(step for row in failed for step in row.get("steps", [])))
-    if not steps:
-        return []
-    try:
-        code, output = _run(root / REPOSITORY_CHECK, root,
-                            dict(os.environ, MMW_BASE_REF=base_ref), "--step", ",".join(steps))
-    except OSError as exc:
-        print(f"Base comparison could not run scripts/check: {exc}", file=sys.stderr)
-        return []
-    print(f"Base comparison, scripts/check --step {','.join(steps)} exited {code}:\n{output}",
-          file=sys.stderr)
-    return steps if code == 1 and set(steps).issubset(FAIL_STEP_RE.findall(output)) else []
-
-
-def detached_base_red_steps(root: Path, base_ref: str, base: str,
-                            failed: list[dict]) -> list[str]:
-    with tempfile.TemporaryDirectory(prefix="mmw-worker-base-") as tmp:
-        checkout = Path(tmp) / "base"
-        added = subprocess.run(["git", "worktree", "add", "--detach", str(checkout), base],
-                               cwd=root, capture_output=True, text=True)
-        if added.returncode:
-            print(f"Base comparison could not start: {added.stderr or added.stdout}")
-            return []
-        try:
-            print(f"Comparing failed steps on base {base[:12]}")
-            steps = base_red_steps(checkout, base_ref, failed)
-        finally:
-            removed = subprocess.run(["git", "worktree", "remove", "--force", str(checkout)],
-                                     cwd=root, capture_output=True, text=True)
-        if removed.returncode:
-            print(f"Base comparison could not remove {checkout}: {removed.stderr or removed.stdout}")
-            return []
-        return steps
-
-
-def repository_allows_closeout(comments: list, commit: str) -> bool:
-    repository = None
-    last_finding = -1
-    for position, comment in enumerate(events.normalise(comments)):
-        what, payload = events.parse(comment["body"])
-        if what != "event":
-            continue
-        if (payload["event"] == "ticket.checked"
-                and payload.get("run") == "repository" and payload.get("result") == "met"
-                and payload.get("commit") == commit):
-            repository = (position, payload)
-        if payload["event"] == "child.opened" and payload.get("kind") == "finding":
-            last_finding = position
-    return repository is not None and (not repository[1].get("base_red")
-                                       or last_finding > repository[0])
+    return result.returncode if recorded else NOT_RECORDED
 
 
 # The exit of a run whose criteria ran and whose result could not be written on the
@@ -2353,13 +2192,9 @@ RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment
 def failed_checks_quote(record: dict | None) -> str | None:
     body = (record or {}).get("body") or ""
     for line in body.splitlines():
-        stripped = line.strip()
-        for token in ("Failed checks:", "Broken landed criteria:"):
-            if stripped.startswith(token):
-                return stripped
-            at = line.find(token)
-            if at >= 0:
-                return line[at:]
+        at = line.find("Failed checks:")
+        if at >= 0:
+            return line[at:].strip()
     return None
 
 
@@ -2823,21 +2658,16 @@ def proof_fields(tier: str, commit: str, base: str, steps: list[str]) -> dict:
             "machine": socket.gethostname(), "steps": steps}
 
 
-def covering_proof(comments: list, event: str, commit: str, base: str) -> dict | None:
-    """The newest green record among `comments` that proves the default tier of `commit`
+def covering_proof(comments: list, commit: str, base: str) -> dict | None:
+    """The newest green `spec.checked` record that proves the default tier of `commit`
     against `base` on this machine: a default-tier record of that exact commit and base,
     or an `all` record of that commit with any base, since `--all` runs everything any
-    selection can. A `base_red` record is not green proof. None when no record covers
-    it; the step then runs."""
+    selection can. None when no record covers it; the step then runs."""
     machine = socket.gethostname()
     found = None
     for comment in events.normalise(comments):
         what, payload = events.parse(comment["body"])
-        if what != "event" or payload["event"] != event:
-            continue
-        if payload.get("base_red"):
-            continue
-        if event == "ticket.checked" and payload.get("run") != "repository":
+        if what != "event" or payload["event"] != "spec.checked":
             continue
         if (payload.get("result") == "met" and payload.get("commit") == commit
                 and payload.get("machine") == machine
@@ -4018,8 +3848,6 @@ def main(argv: list[str] | None = None) -> int:
                              "is about; omit only for --publish --spec-body")
     parser.add_argument("--reverify", action="store_true",
                         help="re-run every criterion, including the ones already ticked")
-    parser.add_argument("--only", nargs="+", metavar="AC",
-                        help="run only these criteria without recording anything on the tracker")
     parser.add_argument("--lint", action="store_true",
                         help="audit how the criteria are written; runs no CHECK, posts no comment")
     parser.add_argument("--drafts", type=Path, metavar="DIR",
@@ -4067,7 +3895,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="with --lint --drafts: run CHECKs on REF, default origin/<current branch>")
     args = parser.parse_args(argv)
     chosen = [name for name, on in
-              (("--lint", args.lint), ("--reverify", args.reverify), ("--only", args.only is not None),
+              (("--lint", args.lint), ("--reverify", args.reverify),
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
                ("--decisions", args.decisions is not None), ("--touched", args.touched),
                ("--draft", args.draft is not None),
@@ -4107,11 +3935,6 @@ def main(argv: list[str] | None = None) -> int:
     elif args.ticket is None:
         parser.error("a ticket number is required")
     try:
-        if args.only is not None:
-            try:
-                return selected_checks(args.ticket, args.only, fetch_body(args.ticket), repo_root())[0]
-            except (OSError, ValueError) as exc:
-                return refuse(str(exc))
         if args.publish and args.spec_body is not None:
             return run_publish_spec(args.spec_body, args.title, args.map)
         if args.preflight:
