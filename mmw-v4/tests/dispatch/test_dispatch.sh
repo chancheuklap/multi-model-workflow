@@ -8331,12 +8331,14 @@ scenario_advancebouncedchecks() {
 }
 
 scenario_recheckisgone() {
-  local code
+  local code rejected
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" recheck 76)"
   [ "$code" = 2 ] || fail "recheck must be an unknown command, got $code"
+  rejected="$(cat "$TMP/err")"
   ! grep -q 'dispatch.sh recheck' "$TMP/err" || fail "usage still lists recheck"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}")"
   [ "$code" = 2 ] || fail "missing command must print usage and exit 2"
+  [ "$rejected" = "$(cat "$TMP/err")" ] || fail "recheck did not take the unknown-command usage path"
   ! grep -q 'dispatch.sh recheck' "$TMP/err" || fail "usage still lists recheck"
 }
 
@@ -8458,7 +8460,7 @@ scenario_advancebouncedkeepserrors() {
 
 scenario_advancebouncedsteps() {
   local before code body
-  setup_checked_ticket '[ "${1:-}" != --step ] || exit 2; echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
+  setup_checked_ticket 'echo "PASS lint 0s"; echo "alpha-line"; echo "FAIL unit 1s"; echo "FAIL e2e 2s"; exit 1'
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
