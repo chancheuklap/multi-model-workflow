@@ -2192,13 +2192,9 @@ RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment
 def failed_checks_quote(record: dict | None) -> str | None:
     body = (record or {}).get("body") or ""
     for line in body.splitlines():
-        stripped = line.strip()
-        for token in ("Failed checks:", "Broken landed criteria:"):
-            if stripped.startswith(token):
-                return stripped
-            at = line.find(token)
-            if at >= 0:
-                return line[at:]
+        at = line.find("Failed checks:")
+        if at >= 0:
+            return line[at:].strip()
     return None
 
 
@@ -2661,21 +2657,16 @@ def proof_fields(tier: str, commit: str, base: str, steps: list[str]) -> dict:
             "machine": socket.gethostname(), "steps": steps}
 
 
-def covering_proof(comments: list, event: str, commit: str, base: str) -> dict | None:
-    """The newest green record among `comments` that proves the default tier of `commit`
+def covering_proof(comments: list, commit: str, base: str) -> dict | None:
+    """The newest green `spec.checked` record that proves the default tier of `commit`
     against `base` on this machine: a default-tier record of that exact commit and base,
     or an `all` record of that commit with any base, since `--all` runs everything any
-    selection can. A `base_red` record is not green proof. None when no record covers
-    it; the step then runs."""
+    selection can. None when no record covers it; the step then runs."""
     machine = socket.gethostname()
     found = None
     for comment in events.normalise(comments):
         what, payload = events.parse(comment["body"])
-        if what != "event" or payload["event"] != event:
-            continue
-        if payload.get("base_red"):
-            continue
-        if event == "ticket.checked" and payload.get("run") != "repository":
+        if what != "event" or payload["event"] != "spec.checked":
             continue
         if (payload.get("result") == "met" and payload.get("commit") == commit
                 and payload.get("machine") == machine

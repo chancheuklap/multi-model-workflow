@@ -2523,19 +2523,20 @@ PY
   esac
 }
 
+# Prints `<tier> <commit> <base>`; exits 1 when no spec.checked record covers the commit.
 repository_proof() {
-  local issue="$1" event="$2" commit="$3" base="$4"
-  python3 - "$VERIFY" "$issue" "$event" "$commit" "$base" <<'PY'
+  local issue="$1" commit="$2" base="$3"
+  python3 - "$VERIFY" "$issue" "$commit" "$base" <<'PY'
 import importlib.util, sys
 from pathlib import Path
 
-script, issue, event, commit, base = sys.argv[1:6]
+script, issue, commit, base = sys.argv[1:5]
 sys.path.insert(0, str(Path(script).resolve().parent))
 spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
-proof = mod.covering_proof(mod.fetch_comments(int(issue)), event, commit, base)
+proof = mod.covering_proof(mod.fetch_comments(int(issue)), commit, base)
 if not proof:
     sys.exit(1)
 print(proof["tier"], proof["commit"], proof["base"])
@@ -2556,7 +2557,7 @@ check_all_spec() {
   export MMW_SPEC="$spec"
   prepare_merge_worktree "$root" "$into" || exit 2
   tip="$(git -C "$MERGE_ROOT" rev-parse HEAD)"
-  if repository_proof "$spec" spec.checked "$tip" "$tip" >/dev/null 2>&1; then
+  if repository_proof "$spec" "$tip" "$tip" >/dev/null 2>&1; then
     release_merge_lock
     echo "check-all #$spec: not run again: origin/$into at ${tip:0:12} already passed --all on this machine"
     return 0
@@ -3926,7 +3927,7 @@ finish_spec() {
          && checked_by="$(landed_tip_ticket "$MERGE_ROOT" "$into")"; then
         echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into, checked when #$checked_by landed"
       elif git -C "$MERGE_ROOT" merge-base --is-ancestor "$base" "origin/$into" \
-         && repository_proof "$spec" spec.checked "$tip" "$base" >/dev/null; then
+         && repository_proof "$spec" "$tip" "$base" >/dev/null; then
         echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into at ${tip:0:12}, which passed --all on this machine"
       else
         run_merge_checks "$MERGE_ROOT" "origin/$project" "$root" "spec-$spec"; rc=$?
