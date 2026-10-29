@@ -76,16 +76,21 @@ class TestGlossaryFollowsContextMap(HookCase):
             path.parent.mkdir()
             path.write_text(f"**local {name} name**:\n")
         (self.repo / "CONTEXT.md").write_text("**unlisted root name**:\n")
-        (self.repo / "CONTEXT-MAP.md").write_text(
-            "[B](b/CONTEXT.md)\n[A](./a/CONTEXT.md)\n[Other](notes.md)\n")
         nested = self.repo / "src"
         nested.mkdir()
-        run = self.run_hook("Done.", cwd=nested)
-        self.assertEqual(run.returncode, 2, run.stderr)
-        text = self.checklist_text(run)
-        self.assertLess(text.index("local b name"), text.index("local a name"))
-        self.assertNotIn("local old name", text)
-        self.assertNotIn("unlisted root name", text)
+        for links in ('[B](b/CONTEXT.md)\n[A](./a/CONTEXT.md)',
+                      '[B](b/CONTEXT.md#language)\n[A](./a/CONTEXT.md "A title")'):
+            with self.subTest(links=links):
+                (self.repo / "CONTEXT-MAP.md").write_text(links + "\n[Other](notes.md)\n")
+                run = self.run_hook("Done.", cwd=nested)
+                self.assertEqual(run.returncode, 2, run.stderr)
+                text = self.checklist_text(run)
+                self.assertIn("local b name", text)
+                self.assertIn("local a name", text)
+                self.assertLess(text.index("local b name"), text.index("local a name"))
+                self.assertNotIn("local old name", text)
+                self.assertNotIn("unlisted root name", text)
+
 
 
 class TestSameGlossaryListedOnce(HookCase):

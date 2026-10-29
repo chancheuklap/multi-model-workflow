@@ -103,8 +103,9 @@ def glossary_entries(cwd: Path) -> list[str]:
     for root in (mmw, repo or cwd):
         context_map = root / "CONTEXT-MAP.md"
         if context_map.is_file():
-            for link in re.findall(r"\[[^\]]*\]\(([^)]+)\)", context_map.read_text(encoding="utf-8")):
-                path = context_map.parent / link
+            for link in re.findall(r"\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+[^)]*)?\)",
+                                   context_map.read_text(encoding="utf-8")):
+                path = context_map.parent / link.strip("<>").split("#", 1)[0]
                 if path.name == "CONTEXT.md":
                     paths.append(path)
         elif (root / "CONTEXT.md").is_file():
