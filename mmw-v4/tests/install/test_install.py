@@ -217,6 +217,37 @@ class InstallTest(unittest.TestCase):
         check = self.run_install("v4", "--check")
         self.assertEqual(check.returncode, 0, check.stderr)
 
+    def test_artifact_check_is_registered_on_claude_only_and_reported_when_missing(self):
+        claude = self.home / ".claude/settings.json"
+        codex = self.home / ".codex/hooks.json"
+        script = self.home / ".agents/skills/mmw-mode/scripts/reply-check.py"
+        expected = f"python3 '{script}' artifact claude"
+        stale = f"python3 '{script}' artifact codex"
+        codex.write_text(json.dumps({"hooks": {"PreToolUse": [
+            {"matcher": "Artifact", "hooks": [{"type": "command", "command": stale}]}]}}))
+        for _ in range(2):
+            install = self.run_install("v4")
+            self.assertEqual(install.returncode, 0, install.stderr)
+        data = json.loads(claude.read_text())
+        groups = data["hooks"]["PreToolUse"]
+        ours = [g for g in groups if any(h["command"] == expected for h in g["hooks"])]
+        self.assertEqual(len(ours), 1, groups)
+        self.assertEqual(ours[0]["matcher"], "Artifact")
+        self.assertIn("someone-elses-hook", hook_commands(claude))
+        self.assertFalse([c for c in hook_commands(codex) if " artifact " in c])
+        codex_before = codex.read_bytes()
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertIn("PreToolUse Artifact", check.stdout)
+        groups.remove(ours[0])
+        claude.write_text(json.dumps(data))
+        broken = claude.read_bytes()
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 1, check.stderr)
+        self.assertIn(f"{claude}  PreToolUse Artifact", check.stderr)
+        self.assertEqual(claude.read_bytes(), broken, "--check must not repair the registration")
+        self.assertEqual(codex.read_bytes(), codex_before)
+
     def test_takes_over_a_v3_machine(self):
         self.install_v3()
         board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
