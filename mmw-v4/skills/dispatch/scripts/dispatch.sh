@@ -2504,8 +2504,6 @@ PY
   esac
 }
 
-# Prints `<tier> <commit> <base>` followed by each e2e step's PASS line.
-# Exits 1 when no spec.checked record covers the commit.
 repository_proof() {
   local issue="$1" commit="$2" base="$3"
   python3 - "$VERIFY" "$issue" "$commit" "$base" <<'PY'
