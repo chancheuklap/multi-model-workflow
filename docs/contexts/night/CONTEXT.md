@@ -119,10 +119,6 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 The command that opens a ready pull request, reports whether GitHub CI runs for its base branch, and waits for checks.
 _Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`open_pr`)
 
-**`dispatch.sh recheck`**:
-The read-only check of affected landed criteria before a closing-pass push. Unlike `reverify`, it records no results on landed tickets and changes none of their states.
-_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`recheck_spec`)
-
 **start prompt**:
 The text a session is given when started: to read the `mmw-mode` skill's `SKILL.md` in full first, the playbook it runs on its ticket, then its data: the worker's Memory indexes, the reviewer's base commit. A session `brief` starts is given its role's brief template and the brief file instead.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
