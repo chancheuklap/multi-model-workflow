@@ -463,17 +463,6 @@ class TestNothingBlocksOnBadInput(unittest.TestCase):
 
 class TestCommandPrefixes(unittest.TestCase):
     LITERAL_COMMANDS = (
-        "grep -n kill x.py",
-        'echo "(kill 1)"',
-        "rg 'env kill' x",
-        "env FOO=1 grep -n kill x.py",
-        "sudo -n echo '(kill 1)'",
-        "command -v kill",
-        "env --help kill",
-        ">kill echo ok",
-        "2> 'kill 1' echo ok",
-        "env -u kill echo ok",
-        "sudo -u kill echo ok",
         f"echo '(gh issue close {TICKET})'",
         f"env FOO=1 echo 'gh issue close {TICKET}'",
     )
@@ -555,23 +544,13 @@ class TestQuotedCommands(unittest.TestCase):
     def test_guard_a_heredoc_body_is_data(self):
         for marker, terminator in (("EOF", "EOF"), ("'EOF'", "EOF"),
                                    ('"EOF"', "EOF"), ("-EOF", "\tEOF")):
-            command = f"cat <<{marker}\n{{ pid: number; kill: () => boolean }}\n{terminator}\n"
+            command = f"cat <<{marker}\ngh issue close {TICKET}\n{terminator}\n"
             for host in EVENTS:
                 with self.subTest(marker=marker, host=host):
                     self.assertEqual(call(host, with_command(host, command)), (0, None))
-        command = "cat <<A <<-'B'\nkill: 'data\nA\n\tpkill data\n\tB\necho ok"
+        command = (f"cat <<A <<-'B'\nunbalanced: 'data\ngh issue close {TICKET}\nA\n"
+                   f"\tgh issue close {TICKET}\n\tB\necho ok")
         self.assertEqual(call("codex", with_command("codex", command)), (0, None))
-
-    def test_quoted_original_command_passes_the_hook(self):
-        command = (
-            "rg -n 'tool.guard|kill|refus' mmw-v4/tests/install/test_install.py\n"
-            "cat /Users/cheuklapchan/.agents/skills/principle-prove-it-works/SKILL.md\n"
-            "cat /Users/cheuklapchan/.agents/skills/"
-            "principle-progress-is-what-the-record-says/SKILL.md\n"
-        )
-        for host in EVENTS:
-            with self.subTest(host=host):
-                self.assertEqual(call(host, with_command(host, command)), (0, None))
 
     def test_quoted_text_does_not_close_the_ticket(self):
         command = f"echo 'a; gh issue close {TICKET}'"

@@ -591,7 +591,7 @@ def removal_refusal(piece: str, paths: list[Path]) -> str | None:
     return None
 
 
-def run_pretool(event: dict, host: str) -> int:
+def run_pretool(event: dict) -> int:
     command = command_of(event)
     if command is None:
         return 0
@@ -638,7 +638,7 @@ def main(argv: list[str] | None = None) -> int:
     event = read_event()
     if argv[0] == "question":
         return run_question(argv[1], event)
-    return run_pretool(event, argv[1])
+    return run_pretool(event)
 
 
 if __name__ == "__main__":
