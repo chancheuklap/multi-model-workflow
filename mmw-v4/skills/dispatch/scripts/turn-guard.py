@@ -113,7 +113,10 @@ def log(state: Path, host: str, why: str) -> None:
 def guard(host: str) -> None:
     dog = load_watchdog()
     for state in open_states(dog):
-        healthy, why = dog.arm(state, dog.repo_of(state), ARM_WAIT)
+        try:
+            healthy, why = dog.arm(state, dog.repo_of(state), ARM_WAIT)
+        except Exception as exc:
+            healthy, why = False, f"could not arm: {exc!r}"
         log(state, host, f"watchdog {'healthy' if healthy else 'unhealthy'}: {why}")
 
 

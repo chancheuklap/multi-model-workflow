@@ -222,6 +222,21 @@ class LockIdentity(StateCase):
 
 
 class TurnGuardOnlyArms(StateCase):
+    def test_an_arm_error_in_one_repository_does_not_skip_the_next(self):
+        broken = statedir.state_dir("a/broken")
+        (broken / "watches.json").write_text(json.dumps({"spec:7": {"spec": 7, **MAIN}}))
+        (broken / "watchdog.log").mkdir()
+        self.open_watches({"tickets": [61], **MAIN})
+        starter = Path(self.tmp.name) / "nodog.py"
+        starter.write_text("from pathlib import Path\nPath('armed').touch()\nraise SystemExit(1)\n")
+        run = subprocess.run([sys.executable, guard.__file__, "stop", "codex"],
+                             input="{}", capture_output=True, text=True,
+                             env={**os.environ, "MMW_WATCHDOG_PY": str(starter)})
+        self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
+        self.assertIn("IsADirectoryError", (broken / "guard.log").read_text())
+        self.assertTrue((self.state / "armed").exists())
+        self.assertIn("unhealthy", (self.state / "guard.log").read_text())
+
     def test_held_tickets_and_an_unhealthy_watchdog_never_hold_a_turn(self):
         self.open_watches({"tickets": [61], **MAIN})
         other = statedir.state_dir("o/other")
