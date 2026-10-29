@@ -23,7 +23,8 @@ cannot run on this machine, such as Chromium that will not start). The last line
 Exit 0: every step passed. Exit 1: a step is red, or the self-check found a test directory MAP
 does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check: a tool
 missing from PATH or a base ref git does not know, and nothing was run; or no step is red and a
-suite exited 2 because it cannot run here.
+non-e2e suite exited 2 because it cannot run here. E2e steps treat every nonzero exit
+as a failure, including runner configuration and test collection errors.
 
 Python standard library only.
 """
@@ -233,7 +234,7 @@ class Run:
         with log.open("w") as out:
             rc = subprocess.run(["bash", "-c", command], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT).returncode
         lines = log.read_text(errors="replace").splitlines()
-        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2)
+        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2 and not name.startswith("e2e-"))
 
     def syntax(self, paths: list[str]) -> None:
         start = time.monotonic()
