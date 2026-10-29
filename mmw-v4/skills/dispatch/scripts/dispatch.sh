@@ -2554,10 +2554,6 @@ if event == "spec.checked":
 PY
 }
 
-# Runs `scripts/check --all` once on the night branch as origin has it, in the merge
-# worktree, and records a green run on the spec as `spec.checked` tier `all`: the
-# night's audit of every step's declared inputs, and the proof `finish` reuses when its
-# merge is this tree.
 summary_checks() {
   local spec="$1" root="$2" into="$3" expected="$4" out tip check_lines
   export MMW_SPEC="$spec"
