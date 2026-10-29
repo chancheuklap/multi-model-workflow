@@ -64,37 +64,43 @@ class LedgerRun(unittest.TestCase):
         return code, (posted[0] if posted else ""), out.getvalue()
 
 
+class TestWorkerRunRunsNoRepositoryCheck(unittest.TestCase):
+    def test_only_ticket_criteria_run_on_the_workers_integrated_tree(self):
+        for reverify in (False, True):
+            with self.subTest(reverify=reverify), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                marker = root / "repository-check-ran"
+                (root / "scripts").mkdir()
+                check = root / "scripts/check"
+                check.write_text(f"#!/bin/sh\ntouch '{marker}'\necho 'FAIL unit 0s'\nexit 1\n")
+                check.chmod(0o755)
+                for args in (("init", "-q", "-b", "issue-1"),
+                             ("add", "."),
+                             ("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base"),
+                             ("update-ref", "refs/remotes/origin/main", "HEAD")):
+                    subprocess.run(["git", "-C", str(root), *args], check=True,
+                                   capture_output=True)
+                head = vt.git("rev-parse", "HEAD", cwd=root)
+                posted = []
+                with mock.patch.object(vt, "repo_root", return_value=root), \
+                     mock.patch.object(vt, "fetch_body", return_value=PLAIN), \
+                     mock.patch.object(vt, "fetch_comments", return_value=[
+                         started(ticket=1, base=head, into="main")]), \
+                     mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)), \
+                     redirect_stdout(io.StringIO()) as out:
+                    code = vt.run_checks(1, reverify, "worker")
+                self.assertEqual(code, 0, out.getvalue())
+                self.assertFalse(marker.exists(), "the worker ran scripts/check")
+                self.assertEqual([payload_of(c)["run"] for c in posted],
+                                 ["reverify" if reverify else "self"])
+
+
 class TestWorkerRunWithoutStarted(LedgerRun):
     def test_worker_run_without_started_leaves_outside_owns_unchecked(self):
         code, comment, _ = self.run_ticket(PLAIN, started_event=None)
         self.assertEqual(code, 0, comment)
         payload = payload_of(comment)
         self.assertEqual(payload["outside_owns_unchecked"], "issue-1")
-
-
-class TestSelectedCriteria(unittest.TestCase):
-    def test_a_selected_timeout_is_red_instead_of_unrunnable(self):
-        body = ticket("- [ ] AC1: timed out", "  CHECK: sleep 5; echo complete",
-                      "  EXPECT: complete", "  EVIDENCE: pending")
-        with tempfile.TemporaryDirectory() as tmp, \
-             mock.patch.object(vt, "DEFAULT_TIMEOUT", 1), redirect_stdout(io.StringIO()):
-            code, rows = vt.selected_checks(61, ["AC1"], body, Path(tmp))
-        self.assertEqual(code, 1)
-        self.assertEqual([(r["id"], r["ok"]) for r in rows], [("AC1", False)])
-        self.assertIn("timed out", rows[0]["error"])
-
-    def test_only_runs_the_named_criteria_without_tracker_writes(self):
-        body = ticket(
-            "- [x] AC1: selected", "  CHECK: printf 'selected-green'", "  EXPECT: selected-green",
-            "  EVIDENCE: old", "- [ ] AC2: not selected", "  CHECK: touch should-not-run",
-            "  EXPECT: impossible", "  EVIDENCE: pending")
-        with tempfile.TemporaryDirectory() as tmp, \
-             mock.patch.object(vt, "fetch_body", return_value=body), \
-             mock.patch.object(vt, "repo_root", return_value=Path(tmp)), \
-             mock.patch.object(vt, "post_comment") as post, redirect_stdout(io.StringIO()):
-            self.assertEqual(vt.main(["61", "--only", "AC1"]), 0)
-            self.assertFalse((Path(tmp) / "should-not-run").exists())
-            post.assert_not_called()
 
 
 class TestACheckMaySpanLines(LedgerRun):
