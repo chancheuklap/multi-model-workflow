@@ -21,7 +21,7 @@ A ticket the owner handed in has no `fix-<n>` yet: open it first as `../referenc
    - If an already-open ticket covers the same problem, run `dispatch.sh route <n> <child> became-ticket <that ticket>`.
    - Otherwise, hand the child to the owner. Keep its opening ``A `<kind>` child of #<n>`` line and finding evidence, and write `## Problem` with `Playbook: <name>` as its first line, omitted when the kind is unclear. Add `needs-triage` with `gh issue edit <child> --add-label needs-triage`. Keep its `mmw:child` kind and leave it unrouted. The owner's Go runs **Ready**, which changes its kind and records the route.
 
-   Fix no code here. Every change outside a night goes through a worker on the owner's go, as `../references/owning-a-task.md` `## Playbooks` says. For each route, exit 1 means run the same command again; exit 2 means nothing was done and stderr says why.
+   Fix no code here. Every change outside a night goes through a worker on the owner's go, as `../references/handling-a-request.md` `## Playbooks` says. For each route, exit 1 means run the same command again; exit 2 means nothing was done and stderr says why.
 
    After handling the findings, run Retrospective (`playbooks/retrospective.md`) with `--ticket <n>` before opening the PR. Run it also when the ticket came back or bounced and will open none. Resume the retrospective on its brief wake and carry its result or failure into the PR or reply.
 

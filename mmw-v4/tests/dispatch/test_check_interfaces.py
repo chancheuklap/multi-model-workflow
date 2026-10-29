@@ -3,7 +3,7 @@
     python3 -m unittest discover -s mmw-v4/tests/dispatch -p test_check_interfaces.py
 
 The check reads the relay's WAKES, events.py's EVENTS, verify-ticket.py's RESUME_STEPS,
-the route lines of the mode's references/owning-a-task.md and its playbooks, the role table with each role's default and hosts.json, every skill's
+the route lines of the mode's references/handling-a-request.md and its playbooks, the role table with each role's default and hosts.json, every skill's
 SKILL.md, and the playbooks and references that send a brief role. Each case copies the skills tree into a temporary directory, makes one change
 a later edit could make, and runs the copied script there.
 """

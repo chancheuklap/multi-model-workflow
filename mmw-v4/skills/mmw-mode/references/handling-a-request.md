@@ -1,6 +1,6 @@
-# Owning a task
+# Handling a request
 
-Read in full by the agent that owns its task: a session whose first message names no file to follow, usually one the owner opened. A sent agent reads only the section its own file names. The mode's `SKILL.md` holds what every agent works by; this file holds what only the owner of a task uses: the triggers for the task as a whole, sending sessions, the reply to the owner, and the route to a playbook.
+Read in full by a session holding a request: a session whose first message names no file to follow, usually one the owner opened. A session holding an assignment reads only the section its own file names. The mode's `SKILL.md` holds what every session works by; this file holds what only a session holding a request uses: the triggers for the task as a whole, sending sessions, the reply to the owner, and the route to a playbook.
 
 ## Non-negotiables
 

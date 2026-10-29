@@ -10,7 +10,7 @@ pointer are checked. Checks 3-5 scan every `.md` under `mmw-v4/skills/`; the oth
 read the files named below. HTML comments and fenced code are left out.
 
 1. **Routes.** Each file in the mmw-mode skill's `playbooks/` has
-   exactly one route line in `## Playbooks` of its `references/owning-a-task.md`, every
+   exactly one route line in `## Playbooks` of its `references/handling-a-request.md`, every
    route line names a file that exists, and the bold name of the line is the file's `# `
    title.
 2. **Principles.** Each `principle-*` skill has exactly one index line in `## Principles`,
@@ -51,7 +51,7 @@ from pathlib import Path
 SKILLS = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "skills"
 MODE_DIR = SKILLS / "mmw-mode"
 MODE = MODE_DIR / "SKILL.md"
-ROUTES = MODE_DIR / "references" / "owning-a-task.md"
+ROUTES = MODE_DIR / "references" / "handling-a-request.md"
 DISPATCH_SH = SKILLS / "dispatch" / "scripts" / "dispatch.sh"
 ROLES = SKILLS / "dispatch" / "roles.json"
 

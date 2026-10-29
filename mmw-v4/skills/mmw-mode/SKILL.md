@@ -1,9 +1,11 @@
 ---
 name: mmw-mode
-description: MMW's way of working, which every agent reads in full at the start of every session, before anything else. It holds the triggers, principles and rules every agent works by; an agent whose first message names no file to follow owns its task, and goes on to `references/owning-a-task.md`, which picks the playbook.
+description: Every session reads this skill in full before anything else and works by its rules; then a session holding a request from the owner reads `references/handling-a-request.md`, and a session holding an assignment follows the file the assignment names.
 ---
 
 # MMW mode
+
+Every session reads this file in full before anything else and works by its rules; then a session holding a request from the owner reads `references/handling-a-request.md`, and a session holding an assignment follows the file the assignment names.
 
 ## Non-negotiables
 
@@ -11,7 +13,7 @@ The Principles section below grounds every trigger. Cite only principles whose l
 
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
-- Any prose surface → the **unslop** skill. A reply or comment the owner reads is written per `references/owning-a-task.md` `## Writing the reply`.
+- Any prose surface → the **unslop** skill. A reply or comment the owner reads is written per `references/handling-a-request.md` `## Writing the reply`.
 - Any page or diagram for a person, including an Artifact, HTML page or prototype page → the **diagram-design** skill, under **principle-everything-at-hand**.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow exception of Bug fix step 2.
@@ -96,7 +98,7 @@ You own every subagent's work. Review the diff and write your own summary, don't
 
 ## Writing the reply
 
-A reply or comment the owner reads follows `references/owning-a-task.md` `## Writing the reply`.
+A reply or comment the owner reads follows `references/handling-a-request.md` `## Writing the reply`.
 
 ## Comments
 
@@ -104,6 +106,6 @@ Comments are a prose surface. Write them clean as you go. Keep a comment only fo
 
 ## Playbooks
 
-Work by the steps of the file your prompt says to follow (only the steps it names, when it names some), or else of the matched playbook. After your context is compacted, read this skill again in full, then the file you work by and every file its current step names, before you take that step.
+Work by the steps of the file your assignment names (only the steps it names, when it names some), or else of the matched playbook. After your context is compacted, read this skill again in full, then the file you work by and every file its current step names, before you take that step.
 
-An agent whose first message names no file to follow owns its task: read `references/owning-a-task.md` in full next, and match the task to a playbook there.
+A session whose first message names no file to follow holds a request: read `references/handling-a-request.md` in full next, and match the task to a playbook there.

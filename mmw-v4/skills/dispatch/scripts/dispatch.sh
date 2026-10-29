@@ -102,7 +102,7 @@ PR="$SKILL_ROOT/scripts/pr.py"
 ROLES_JSON="$SKILL_ROOT/roles.json"
 # Every start prompt carries both: the mode first, then the file the session works by,
 # then that this file is all of its work. Naming a file is what keeps the session out of
-# the mmw-mode skill's `references/owning-a-task.md`, and its `## Subagents` ends a
+# the mmw-mode skill's `references/handling-a-request.md`, and its `## Subagents` ends a
 # subagent's prompt with the same last sentence.
 READ_MODE="Read the mmw-mode skill in full, then follow"
 WHOLE_TASK="It is your whole task: what came before it is done, and you start no agent it does not name."
