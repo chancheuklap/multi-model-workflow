@@ -90,9 +90,6 @@ CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
 # choice only a person can make; `fault`, the pipeline itself broken.
 CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
-# The runs of a ticket's criteria and checks: the worker's own run, a second run of
-# every criterion (the worker's final run, or the orchestrator's after landing), and the
-# claim-time run of the criteria at `worker.started.base`.
 # `repo-checks` is the repository's own `checks` of `.mmw/target.json` run at a closeout:
 # no script posts it now, and tickets closed out by MMW v2 carry it, so it stays readable.
 CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline", "repository")
@@ -197,8 +194,8 @@ EVENTS: dict[str, dict] = {
     # One run of the criteria or of the repository's checks, on one commit: its result,
     # its counts, each criterion's outcome, and — for the worker's own run on its own
     # branch — the files it changed outside `## Owns`. `repo-checks`, on tickets MMW v2
-    # closed out, carries each failed command with its last lines. `baseline` is the
-    # claim-time run at `worker.started.base` and carries `skipped`.
+    # closed out, carries each failed command with its last lines. `baseline` is read from
+    # old tickets as a claim-time run at `worker.started.base` carrying `skipped`.
     "ticket.checked":    {"stage": "work",     "actor": "worker",
                           "required": ("run", "commit", "result"),
                           "closed": {"run": CHECK_RUNS, "result": CHECK_RESULTS},

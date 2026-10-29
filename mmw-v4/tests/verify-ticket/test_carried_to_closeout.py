@@ -121,8 +121,7 @@ class TestCarriedEditsAreStoppedAtTheCloseout(unittest.TestCase):
         self.assertIn("READY:", out)
         self.assertIn("#77", out)
         self.assertIn("CARRIED:", out)
-        self.assertEqual(tracker.events()[-2:], ["ticket.claimed", "ticket.checked"])
-        self.assertEqual(vt.events.parse(tracker.comments[-1])[1]["run"], "baseline")
+        self.assertEqual(tracker.events(), ["worker.started", "ticket.claimed"])
 
         # Everything else the closeout asks for is in place on HEAD, so the tree is the
         # one condition left for it to refuse.

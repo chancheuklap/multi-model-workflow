@@ -1,11 +1,12 @@
 """The opening guard: six conditions, and what the ticket is told when one fails."""
 
 import io
+import json
 import os
 import subprocess
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import chdir, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -245,22 +246,12 @@ class TestIdempotence(unittest.TestCase):
         assign.assert_called_once_with(77)
 
 
-class TestBaselineRun(unittest.TestCase):
-    """After a successful claim, `--preflight` runs the criteria at the base commit."""
+class TestClaimRunsNoCriteria(unittest.TestCase):
+    BODY = """## Acceptance criteria
 
-    BODY = """## Parent
-
-#118, Implementation Decisions section 11
-
-## Acceptance criteria
-
-- [ ] AC1: a file the base already has
-  CHECK: cat ok.txt
-  EXPECT: ok
-  EVIDENCE: pending
-- [ ] AC2: a file only this ticket adds
-  CHECK: cat later.txt
-  EXPECT: later
+- [ ] AC1: a criterion that must not run during claim
+  CHECK: touch "$MMW_TEST_CLAIM_MARKER" && echo ran
+  EXPECT: ran
   EVIDENCE: pending
 """
 
@@ -288,239 +279,56 @@ class TestBaselineRun(unittest.TestCase):
                                        text=True).strip()
         return root, base, head
 
-    def claim(self, root, base, comments=None, body=None):
+    def claim(self, root, base):
         from _load import started
-        history = comments if comments is not None else [
-            started(ticket=77, base=base, into="spec-337",
-                    worktree=str(root), branch="issue-77")]
-        posted = []
-        with mock.patch.object(vt, "fetch_ticket", return_value=ticket()), \
-             mock.patch.object(vt, "fetch_comments", return_value=history), \
-             mock.patch.object(vt, "fetch_body", return_value=body or self.BODY), \
-             mock.patch.object(vt, "gh_login", return_value=ME), \
-             mock.patch.object(vt, "current_branch", return_value="issue-77"), \
-             mock.patch.object(vt, "dirty_tracked", return_value=[]), \
-             mock.patch.object(vt, "repo_root", return_value=root), \
-             mock.patch.object(vt, "assign_self") as assign, \
-             mock.patch.object(vt, "post_comment",
-                               side_effect=lambda n, b: posted.append((n, b))):
-            with redirect_stdout(io.StringIO()) as out, \
-                    redirect_stderr(io.StringIO()) as err:
-                code = vt.run_preflight(77)
-        return code, posted, err.getvalue(), out.getvalue(), assign
+        history = [started(ticket=77, base=base, into="spec-337",
+                           worktree=str(root), branch="issue-77")]
+        posted, commands = [], []
+        real_run = subprocess.run
 
-    def test_a_criterion_already_true_on_the_base_is_met_and_the_new_one_is_not(self):
+        def fake_gh(cmd, **kwargs):
+            commands.append(list(cmd))
+            if cmd[0] != "gh":
+                return real_run(cmd, **kwargs)
+            output = ""
+            if cmd[1:3] == ["api", "user"]:
+                output = ME
+            elif cmd[1:3] == ["issue", "view"]:
+                fields = cmd[cmd.index("--json") + 1]
+                if fields == "body":
+                    output = self.BODY
+                elif fields == "comments":
+                    output = json.dumps({"comments": [{"body": b} for b in history]})
+                else:
+                    output = json.dumps(ticket())
+            elif cmd[1:3] == ["issue", "comment"]:
+                body = Path(cmd[cmd.index("--body-file") + 1]).read_text()
+                posted.append((77, body))
+                history.append(body)
+            elif cmd[1:3] != ["issue", "edit"]:
+                raise AssertionError(f"unexpected tracker command: {cmd}")
+            return subprocess.CompletedProcess(cmd, 0, output, "")
+
+        with chdir(root), mock.patch.object(vt.subprocess, "run", side_effect=fake_gh), \
+                redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+            code = vt.main(["77", "--preflight"])
+        return code, posted, err.getvalue(), out.getvalue(), commands
+
+    def test_claim_starts_no_criteria_or_baseline_checkout(self):
         root, base, head = self.repo()
-        code, posted, err, out, assign = self.claim(root, base)
+        marker = root / "criterion-ran"
+        with mock.patch.dict(os.environ, {"MMW_TEST_CLAIM_MARKER": str(marker)}):
+            code, posted, err, out, commands = self.claim(root, base)
         self.assertEqual(code, 0, err)
-        assign.assert_called_once_with(77)
+        self.assertIn(["gh", "issue", "edit", "77", "--add-assignee", "@me"], commands)
         self.assertIn("READY:", out)
-        names = [event_of(body)[0] for _, body in posted]
-        self.assertEqual(names[0], "ticket.claimed")
-        self.assertIn("ticket.checked", names)
-        payload = event_of(posted[1][1])[1]
-        self.assertEqual(payload["run"], "baseline")
-        self.assertEqual(payload["commit"], base)
-        self.assertEqual(payload["actor"], "worker")
-        self.assertEqual(payload["stage"], "claim")
-        self.assertEqual(payload["result"], "unmet")
-        by_id = {c["id"]: c for c in payload["criteria"]}
-        self.assertTrue(by_id["AC1"]["met"], by_id)
-        self.assertFalse(by_id["AC2"]["met"], by_id)
-        self.assertNotIn("skipped", payload)
+        self.assertFalse(marker.exists(), "claim executed a criterion")
+        self.assertFalse((root / ".worktrees" / "baseline-77").exists())
+        self.assertFalse(any(cmd[:3] == ["git", "worktree", "add"] for cmd in commands))
+        self.assertEqual([event_of(body)[0] for _, body in posted], ["ticket.claimed"])
         self.assertEqual(head, subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=root, text=True).strip())
-        self.assertTrue((root / "later.txt").is_file())
-        listed = subprocess.check_output(
-            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
-        self.assertEqual(listed.count("worktree "), 1, listed)
 
-    def test_the_baseline_worktree_gets_its_environment(self):
-        for failure in ("", "setup", "up", "down"):
-            with self.subTest(failure=failure):
-                root, _, _ = self.repo()
-                script = root / "scripts" / "env"
-                script.parent.mkdir()
-                script.write_text("""#!/usr/bin/env bash
-printf '\\377\\376\\n'
-printf '%s %s %s\\n' "$1" "$2" "$PWD" >> "$MMW_TEST_ENV_LOG"
-if [ "$1" = "$MMW_TEST_ENV_FAIL" ]; then
-  echo "fixture environment failure for $1" >&2
-  exit 7
-fi
-case "$1" in
-  setup) touch "$2/.setup-ready" ;;
-  up) test -f "$2/.setup-ready" && touch "$2/.env-ready" ;;
-esac
-""")
-                script.chmod(0o755)
-                subprocess.run(["git", "add", "scripts/env"], cwd=root, check=True,
-                               capture_output=True)
-                subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t",
-                                "commit", "-m", "environment"], cwd=root, check=True,
-                               capture_output=True)
-                base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root,
-                                               text=True).strip()
-                log = root / "calls.log"
-                body = """## Acceptance criteria
-
-- [ ] AC1: the baseline environment is ready for tests
-  CHECK: test -f .env-ready && printf 'check\\n' >> "$MMW_TEST_ENV_LOG" && echo ready
-  EXPECT: ready
-  EVIDENCE: pending
-"""
-                with mock.patch.dict(os.environ, {"MMW_TEST_ENV_LOG": str(log),
-                                                  "MMW_TEST_ENV_FAIL": failure}):
-                    code, posted, err, _, _ = self.claim(root, base, body=body)
-                tree = root.resolve() / ".worktrees" / "baseline-77"
-                expected = [f"setup {tree} {tree}"]
-                if failure != "setup":
-                    expected.append(f"up {tree} {tree}")
-                if failure not in ("setup", "up"):
-                    expected.append("check")
-                expected.append(f"down {tree} {tree}")
-                self.assertTrue(log.exists(), "the environment script never ran")
-                self.assertEqual(log.read_text().splitlines(), expected)
-                self.assertFalse(tree.exists())
-                if failure in ("setup", "up"):
-                    self.assertEqual(code, 2, err)
-                    self.assertIn(f"scripts/env {failure}", err)
-                    self.assertIn(str(tree), err)
-                    self.assertIn(f"fixture environment failure for {failure}", err)
-                    self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
-                else:
-                    self.assertEqual(code, 0, err)
-                    payload = event_of(posted[1][1])[1]
-                    self.assertTrue(payload["criteria"][0]["met"], payload)
-                    if failure == "down":
-                        self.assertIn("fixture environment failure for down", err)
-
-    def test_the_baseline_run_sets_the_base_ref(self):
-        root, base, _ = self.repo()
-        body = """## Acceptance criteria
-
-- [ ] AC1: the baseline receives the ticket and its base branch
-  CHECK: printf '%s %s' "$MMW_TICKET" "$MMW_BASE_REF"
-  EXPECT: 77 origin/spec-337
-  EVIDENCE: pending
-"""
-        with mock.patch.dict(os.environ, {"MMW_BASE_REF": "wrong-branch"}):
-            code, posted, err, _, _ = self.claim(root, base, body=body)
-        self.assertEqual(code, 0, err)
-        payload = event_of(posted[1][1])[1]
-        self.assertTrue(payload["criteria"][0]["met"], payload)
-
-    def test_the_baseline_checkout_is_baseline_n_under_the_main_checkout(self):
-        root, base, _ = self.repo()
-        ticket_root = root / ".worktrees" / "issue-77"
-        subprocess.run(["git", "worktree", "add", "--detach", str(ticket_root), base],
-                       cwd=root, check=True, capture_output=True)
-        body = """## Acceptance criteria
-
-- [ ] AC1: the baseline checkout is under the main checkout
-  CHECK: pwd
-  EXPECT: .worktrees/baseline-77
-  EVIDENCE: pending
-"""
-        code, posted, err, _, _ = self.claim(ticket_root, base, body=body)
-        self.assertEqual(code, 0, err)
-        name, payload = event_of(posted[1][1])
-        self.assertEqual(name, "ticket.checked")
-        self.assertEqual(payload["run"], "baseline")
-        self.assertEqual(payload["result"], "met")
-        self.assertTrue(payload["criteria"][0]["met"], payload)
-        self.assertIn(f"cwd={root.resolve()}/.worktrees/baseline-77;",
-                      payload["criteria"][0]["evidence"])
-        subprocess.run(["git", "worktree", "remove", "--force", str(ticket_root)],
-                       cwd=root, check=True, capture_output=True)
-        listed = subprocess.check_output(
-            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
-        self.assertEqual(listed.count("worktree "), 1, listed)
-        self.assertFalse((root / ".worktrees" / "baseline-77").exists())
-
-    def test_a_baseline_checkout_left_by_a_crash_is_removed_first(self):
-        root, base, _ = self.repo()
-        worktree = root / ".worktrees" / "baseline-77"
-        subprocess.run(["git", "worktree", "add", "--detach", str(worktree), base],
-                       cwd=root, check=True, capture_output=True)
-        (worktree / "later.txt").write_text("later\n", encoding="utf-8")
-        subprocess.run(["git", "worktree", "lock", "--reason", "initializing",
-                        str(worktree)], cwd=root, check=True, capture_output=True)
-        code, posted, err, _, _ = self.claim(root, base)
-        self.assertEqual(code, 0, err)
-        name, payload = event_of(posted[1][1])
-        self.assertEqual(name, "ticket.checked")
-        self.assertEqual(payload["run"], "baseline")
-        by_id = {c["id"]: c for c in payload["criteria"]}
-        self.assertIn("AC1", by_id, payload)
-        self.assertTrue(by_id["AC1"]["met"], payload)
-        self.assertFalse(by_id["AC2"]["met"], payload)
-        listed = subprocess.check_output(
-            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
-        self.assertEqual(listed.count("worktree "), 1, listed)
-        self.assertFalse(worktree.exists())
-
-    def test_the_same_base_is_not_run_twice(self):
-        from _load import started, checked
-        root, base, _ = self.repo()
-        already = checked("baseline",
-                          ["- [x] AC1: a file the base already has",
-                           "  CHECK: cat ok.txt", "  EXPECT: ok",
-                           "  EVIDENCE: exit=0"],
-                          ticket=77, commit=base)
-        history = [started(ticket=77, base=base, into="spec-337",
-                           worktree=str(root), branch="issue-77"), already]
-        code, posted, err, _, _ = self.claim(root, base, comments=history)
-        self.assertEqual(code, 0, err)
-        self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
-
-    def test_a_newer_base_runs_again(self):
-        from _load import started, checked
-        root, base, head = self.repo()
-        already = checked("baseline",
-                          ["- [x] AC1: a file the base already has",
-                           "  CHECK: cat ok.txt", "  EXPECT: ok",
-                           "  EVIDENCE: exit=0"],
-                          ticket=77, commit=base)
-        history = [started(ticket=77, base=head, into="spec-337",
-                           worktree=str(root), branch="issue-77"), already]
-        code, posted, err, _, _ = self.claim(root, head, comments=history)
-        self.assertEqual(code, 0, err)
-        names = [event_of(b)[0] for _, b in posted]
-        self.assertEqual(names[0], "ticket.claimed")
-        self.assertIn("ticket.checked", names)
-        payload = event_of(posted[1][1])[1]
-        self.assertEqual(payload["run"], "baseline")
-        self.assertEqual(payload["commit"], head)
-
-    def test_no_worker_started_skips_the_baseline_run(self):
-        root, base, _ = self.repo()
-        code, posted, err, _, _ = self.claim(root, base, comments=[])
-        self.assertEqual(code, 0, err)
-        self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
-        self.assertIn("worker.started.base", err)
-
-    def test_a_missing_base_commit_does_not_refuse_the_claim(self):
-        root, _, _ = self.repo()
-        missing = "a" * 40
-        code, posted, err, out, assign = self.claim(root, missing)
-        self.assertEqual(code, 0, err)
-        self.assertIn("READY:", out)
-        assign.assert_called_once()
-        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
-        payload = event_of(posted[1][1])[1]
-        self.assertEqual(payload["run"], "baseline")
-        self.assertEqual(payload["commit"], missing)
-        self.assertEqual(payload["result"], "unmet")
-        self.assertEqual(sorted(payload["skipped"]), ["AC1", "AC2"])
-        listed = subprocess.check_output(
-            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
-        self.assertEqual(listed.count("worktree "), 1, listed)
-
-    def test_gate_check_exit_2_is_not_a_criteria_result(self):
-        self.assertIsNone(vt.check_run_outcome(2, "ALL MET (1 met)"))
-        self.assertEqual(vt.check_run_outcome(0, "ALL MET (1 met)"), "met")
-        self.assertEqual(vt.check_run_outcome(1, "UNMET: 1 (met: 0)"), "unmet")
 
 
 SELF_LEDGER = "- [x] AC1: it works\n  CHECK: true\n  EXPECT: ok\n  EVIDENCE: exit=0"
