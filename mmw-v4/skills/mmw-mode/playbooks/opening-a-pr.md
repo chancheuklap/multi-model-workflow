@@ -43,6 +43,6 @@ When the owner approves landing a project branch into the branch it was cut from
 5. **Retrospective.** Show one line of recorded-row counts by conclusion, linked to the receipt. Analyst conclusions are recorded, not executed; new proposals are not decision cards. A recorded failure or partial evidence is one line.
 6. **Links.** The pull request, the tickets and the task board. For each product whose e2e suite the calling playbook ran, give the command the owner starts the product with, from the `verify-<product>` skill's Launch in the `fix-<n>` or night-branch checkout, and for a desktop product, state that this is Mac development mode and real-device acceptance is separate.
 
-No file, function or code on the page, apart from the product launch command in Links. For UI labels, use the feature names in the product's feature map. Let pictures carry the content. Keep explanations beside what they explain, per **principle-everything-at-hand**.
+No file, function or code on the page, apart from the product launch command in Links. For UI labels, use the feature names in the product's feature map. Lay it out per **principle-everything-at-hand**.
 
 **Reply:** the pull request's link; how each check and thread of step 3 was settled; that the merge waits for the owner's yes, or that it is merged. It goes into the reply of the playbook that ran this one.

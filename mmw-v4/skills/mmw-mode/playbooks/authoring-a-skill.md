@@ -45,6 +45,6 @@ Then, when the change alters what an agent does in a task, have one fresh agent 
 
 **A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 2 with that evidence.
 
-When in doubt, delete. Keep only prose that changes a decision. Match tone to scope. Point at structural sources (types, READMEs, config) per **principle-encode-lessons-in-structure**. Delegate to other skills by name. Don't restate. A workflow you keep hitting but isn't captured → propose a new skill. A skill describes what is true now, with no history of its own edits (**principle-files-describe-the-present**).
+When in doubt, delete. Keep only prose that changes a decision. Match tone to scope. Point at structural sources (types, READMEs, config) per **principle-encode-lessons-in-structure**. Delegate to other skills by name. Don't restate. A workflow you keep hitting but isn't captured → propose a new skill. A skill follows **principle-files-describe-the-present**.
 
 **Reply:** the intent the change serves; each sentence you wrote or changed, quoted, and the component it goes to; what it deletes; the walk's job, load and result; for a script, the criteria; for a larger change, that it goes to To spec and why; when a skill's `description` changes, that it takes effect in a new session. The checks and the walk of **Prove it, once**, with their commands, results and the walk's load, are what One ticket reports.

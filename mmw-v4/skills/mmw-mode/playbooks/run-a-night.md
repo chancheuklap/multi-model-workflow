@@ -14,7 +14,7 @@ This file is the order of the night. How a wake reaches you and what you do on o
 
 Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch gets an event that needs the orchestrator (step 3), and the watchdog tells you when the tracker has gone silent where it should not; nothing else does, and no agent polls another.
 
-Find where you are by the first row whose fact holds; the record says where you are, not this session's memory (**principle-progress-is-what-the-record-says**):
+Find where you are by the first row whose fact holds (**principle-progress-is-what-the-record-says**):
 
 | The fact | Go to |
 | --- | --- |

@@ -40,7 +40,7 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 ## Guardrails
 
-- Do not change tests merely to match a wrong implementation. A failing test is fixed in the code (**principle-fix-root-causes**).
+- A failing test is answered as **principle-fix-root-causes** says.
 - Do not weaken existing assertions unless the expected behavior has genuinely changed and the reason is clear.
 - Keep the regression test focused on the bug. Avoid broad fixture churn or unrelated coverage expansion.
 - If the bug is flaky, make the test deterministic where possible and document the signal being locked down.
