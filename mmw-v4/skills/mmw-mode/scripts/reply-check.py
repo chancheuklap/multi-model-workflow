@@ -105,7 +105,7 @@ def glossary_entries(cwd: Path) -> list[str]:
     elif (cwd / "CONTEXT.md").is_file():
         paths.append(cwd / "CONTEXT.md")
     entries = []
-    for path in paths:
+    for path in dict.fromkeys(paths):
         entry = [str(path)]
         try:
             lines = path.read_text(encoding="utf-8").splitlines()

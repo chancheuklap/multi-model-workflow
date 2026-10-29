@@ -89,25 +89,36 @@ class TestChecklistListsRegisteredNames(HookCase):
     def test_names_and_avoid_lines_keep_language_and_discovery_order(self):
         local = self.glossary("**order plan**:\n_Avoid_: main agent (not another use), 规格\n"
                               "\n**订单**:\n_Avoid_: order, 订货\n\n**plain name**:\nDefinition.\n")
+        later = self.repo / "docs/contexts/z/CONTEXT.md"
+        later.parent.mkdir(parents=True)
+        later.write_text(local.read_text())
         nested = self.repo / "src"
         nested.mkdir()
         for host in ("claude", "codex"):
             run = self.run_hook("A completely ordinary reply.", host, cwd=nested)
             self.assertEqual(run.returncode, 2, run.stderr)
             last = -1
-            for path in sorted((V4.parent / "docs/contexts").glob("*/CONTEXT.md")) + [local]:
+            for path in sorted((V4.parent / "docs/contexts").glob("*/CONTEXT.md")) + [local, later]:
                 self.assertIn(str(path), run.stderr)
                 at = run.stderr.index(str(path))
                 self.assertGreater(at, last)
                 last = at
+                block = run.stderr[at + len(str(path)) + 1:].split("\n\n", 1)[0]
                 for line in path.read_text().splitlines():
                     if line.startswith("**"):
-                        self.assertIn(line.split("**", 2)[1], run.stderr[at:])
+                        self.assertIn(line.split("**", 2)[1], block)
                     if line.startswith("_Avoid_:"):
-                        self.assertIn(line, run.stderr[at:])
+                        self.assertIn(line, block)
             self.assertIn("_Avoid_: main agent (not another use), 规格", run.stderr)
             self.assertIn("_Avoid_: order, 订货", run.stderr)
             self.assertIn("plain name", run.stderr)
+
+    def test_mmw_repository_lists_each_glossary_once(self):
+        for host in ("claude", "codex"):
+            run = self.run_hook("Done.", host, cwd=V4)
+            self.assertEqual(run.returncode, 2, run.stderr)
+            for path in sorted((V4.parent / "docs/contexts").glob("*/CONTEXT.md")):
+                self.assertEqual(run.stderr.splitlines().count(str(path)), 1, str(path))
 
     def test_repository_discovery_keeps_tracked_and_visible_untracked_glossaries(self):
         (self.repo / ".gitignore").write_text(".venv/\n")
