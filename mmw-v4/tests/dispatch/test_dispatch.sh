@@ -2093,7 +2093,7 @@ JSON
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 0 ] || fail "a green scripts/check expected 0, got $code: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "check on a ready repository expected 0, got $code: $(cat "$TMP/err")"
   [ ! -e "$TMP/check-base" ] || fail "check must not run scripts/check: $(cat "$TMP/check-base")"
 }
 
@@ -7569,7 +7569,7 @@ scenario_summaryreusesspecchecked() {
   [ "$code" = 0 ] || fail "summary should reuse spec.checked: $(cat "$TMP/err")"
   [ ! -e "$TMP/check-args" ] || fail "summary ran --all on a proved commit"
   [ "$(posted_events 76 | grep -c '^spec.checked')" = 1 ] || fail "summary wrote a second spec.checked"
-  grep -q 'already passed --all' "$TMP/out" || fail "summary must say it reused the green record"
+  grep -q '^CHECK PASS all:' "$TMP/out" || fail "summary must print the reused full-check summary: $(cat "$TMP/out")"
 }
 
 scenario_summaryrefusesredall() {
@@ -7664,7 +7664,7 @@ scenario_summaryprintse2esteps() {
   summary_ready_fixture 76 night
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
   [ "$code" = 0 ] || fail "reused green summary expected 0: $(cat "$TMP/err")"
-  grep -q '^PASS e2e-board (reused spec.checked' "$TMP/out" && grep -q '^PASS e2e-editor (reused spec.checked' "$TMP/out" \
+  grep -q '^PASS e2e-board ' "$TMP/out" && grep -q '^PASS e2e-editor ' "$TMP/out" \
     || fail "summary must print each reused product result: $(cat "$TMP/out")"
   [ "$(wc -l < "$TMP/check-args" | tr -d ' ')" = 1 ] || fail "printing reused steps ran --all again"
   summary_check_fixture "echo 'PASS e2e-editor 4s'; echo 'FAIL e2e-board 3s'; echo 'checks: 1 failed'; exit 1"

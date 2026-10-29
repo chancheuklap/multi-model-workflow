@@ -2567,7 +2567,7 @@ summary_checks() {
     release_merge_lock
     check_lines="$(printf '%s\n' "$out" | tail -n +2)"
     [ -z "$check_lines" ] || printf '%s\n' "$check_lines"
-    echo "summary #$spec: not run again: origin/$into at ${tip:0:12} already passed --all on this machine"
+    echo "CHECK PASS all: origin/$into at ${tip:0:12} (reused spec.checked on this machine)"
     return 0
   fi
   out="$(python3 - "$VERIFY" "$MERGE_ROOT" "$root" "$spec" "$STATUS" <<'PY'
