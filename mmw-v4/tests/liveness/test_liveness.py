@@ -221,8 +221,6 @@ class LockIdentity(StateCase):
         self.assertFalse(dog.read_health(self.state)[0])
 
 
-# ----------------------------------------------------------------- turn ends
-
 class TurnGuardOnlyArms(StateCase):
     def test_held_tickets_and_an_unhealthy_watchdog_never_hold_a_turn(self):
         self.open_watches({"tickets": [61], **MAIN})

@@ -1309,8 +1309,6 @@ class Relay:
                 if self._settle(row["seq"], delivered=iso(self.clock())):
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}\n")
             elif code == 4:
-                # Handed over and not confirmed. Marked delivered, so it is not typed into
-                # the session again, including after a restart.
                 held.add(address)
                 if self._settle(row["seq"], delivered=iso(self.clock()), unconfirmed=True):
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}, "
