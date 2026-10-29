@@ -962,6 +962,36 @@ class WaitingAlertOncePerWake(StateCase):
 
 
 class Arm(StateCase):
+    def test_a_new_lock_holder_is_not_killed_for_the_previous_watchdogs_stale_beat(self):
+        code = (
+            "import json, sys; from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1]); import statedir, watchdog\n"
+            "state = Path(sys.argv[2])\n"
+            "with statedir.locked(state / 'watchdog.lock', wait=0, purpose='new watchdog'):\n"
+            "    print('held', flush=True)\n"
+            "    sys.stdin.readline()\n"
+            "    watchdog.Watchdog(state, 'o/r').write_beat()\n"
+            "    print('beating', flush=True)\n"
+            "    sys.stdin.readline()\n")
+        holder = subprocess.Popen([sys.executable, "-c", code, str(SCRIPTS), str(self.state)],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        self.addCleanup(lambda: (holder.kill(), holder.wait(), holder.stdin.close(),
+                                 holder.stdout.close()))
+        self.assertEqual(holder.stdout.readline().strip(), "held")
+        self.write("watchdog.json", {"pid": 99999999, "identity": "previous watchdog",
+                                     "at": stamp(dog.now_utc() - timedelta(seconds=400)), "poll": 60})
+        starter = Path(self.tmp.name) / "nodog.py"
+        starter.write_text("raise SystemExit(1)\n")
+        with mock.patch.dict(os.environ, {"MMW_WATCHDOG_PY": str(starter)}):
+            dog.arm(self.state, "o/r", wait=0.1)
+        self.assertIsNone(holder.poll(), "arm killed the new watchdog before its first heartbeat")
+        holder.stdin.write("beat\n")
+        holder.stdin.flush()
+        self.assertEqual(holder.stdout.readline().strip(), "beating")
+        ok, why = dog.arm(self.state, "o/r", wait=0.1)
+        self.assertTrue(ok, why)
+        self.assertEqual(statedir.holder(self.state / "watchdog.lock")["pid"], holder.pid)
+
     def test_a_watchdog_that_beats_is_not_ended_for_failing_reads(self):
         # A live holder whose heartbeat is fresh is slow or blind, not hung.
         holder = subprocess.Popen([sys.executable, "-c", (

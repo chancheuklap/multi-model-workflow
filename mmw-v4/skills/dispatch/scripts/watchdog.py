@@ -831,7 +831,9 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
     if ok:
         return True, why
     holder = statedir.holder(state / "watchdog.lock")
-    if holder is not None and not stale(beat, now_utc()):
+    if holder is not None and (
+            (beat.get("pid"), beat.get("identity")) != (holder["pid"], holder["identity"])
+            or not stale(beat, now_utc())):
         return False, why
     if holder is not None:
         # A live holder with a stale heartbeat is hung. Its identity was just checked by
