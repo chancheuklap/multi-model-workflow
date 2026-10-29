@@ -13,12 +13,12 @@ Each intent says what is kept and its home: the files whose text carries the rul
 3. **Product decisions are the owner's, engineering decisions the agent's.**
    Home: `principle-never-block-on-the-human`; `mmw-mode` `## Autonomy`.
 4. **A reply to the owner leads with principle and effect, and every claim carries its evidence or its label,** so the owner can judge it without reading code.
-   Home: `mmw-mode` `references/owning-a-task.md` `## Writing the reply`; `wait-what`.
+   Home: `mmw-mode` `references/handling-a-request.md` `## Writing the reply`; `wait-what`.
 
 ## How the set is built and runs
 
 5. **One entry routes each task to one playbook.**
-   Home: `mmw-mode`'s description and `## Playbooks`, and its `references/owning-a-task.md`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## mode`; the **Authoring or modifying a skill** route line in `mmw-mode` `references/owning-a-task.md` `## Playbooks`.
+   Home: `mmw-mode`'s description and `## Playbooks`, and its `references/handling-a-request.md`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## mode`; the **Authoring or modifying a skill** route line in `mmw-mode` `references/handling-a-request.md` `## Playbooks`.
 6. **A text goes in the component that answers who needs it and at which moment, not the one its type suggests:** mode, playbook, principle, skill, reference, script, subagent prompt, configuration, user-level prompt.
    Home: [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The components and where they live`, `## The method`.
 7. **A playbook is not a skill.**
@@ -36,7 +36,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 13. **A start prompt carries data and one pointer** (the ticket, a base commit, where the task came from, then `Read the mmw-mode skill in full, then follow <what>.`, <what> being the file the agent works by, then `It is your whole task: …`); rules arrive through the mode and that file. The step that sends the agent names <what>, so the agent never guesses its job. A subagent's prompt opens and ends the same way, names the file or the steps it follows, holds everything else it needs, and states what it returns, where, and how long.
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Prompts written for other agents`. `mmw-mode` `SKILL.md` `## Subagents`; the `dispatch` skill's `roles.json`.
 14. **Models by strength.**
-    Home: `mmw-mode` `## Subagents` and `references/owning-a-task.md` `## Subagents`; the `dispatch` skill's `roles.json` session roles and `subagents` section, and `scripts/models.py`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## subagent`.
+    Home: `mmw-mode` `## Subagents` and `references/handling-a-request.md` `## Subagents`; the `dispatch` skill's `roles.json` session roles and `subagents` section, and `scripts/models.py`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## subagent`.
 15. **One home per fact, registered in the same change.** `check_wiring.py` and `check_skill_frontmatter.py` hold this at the start of every suite under `mmw-v4/tests/` but `lib`, and the dispatch suite runs `check-interfaces.py`.
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) fact 7, `### Redundancy and bloat`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` item 6.
 16. **From an upstream, take the content, not only the shape.**
@@ -99,7 +99,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 
     A repository's `AGENTS.md` or `CLAUDE.md` keeps only lines that code, ADRs, a glossary or script headers cannot tell an agent in time, whose violation is costly or irreversible, and that state the owner's rules or facts outside the repository rather than inventories that age as code changes. The file states this rule in its first lines, where the owner, other tools and other agents read it before editing.
 
-    Home: the `correct` skill; the `register-problem` skill; the principles, indexed in `mmw-mode` `## Principles`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` items 4 and 5; `mmw-mode` `references/owning-a-task.md` `## Non-negotiables` (skill text found wrong); **Retrospective** (`mmw-mode/playbooks/retrospective.md`); the `retro` skill.
+    Home: the `correct` skill; the `register-problem` skill; the principles, indexed in `mmw-mode` `## Principles`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The method` items 4 and 5; `mmw-mode` `references/handling-a-request.md` `## Non-negotiables` (skill text found wrong); **Retrospective** (`mmw-mode/playbooks/retrospective.md`); the `retro` skill.
 
 ## The toolbox
 
@@ -128,13 +128,13 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P13 (the rest) | A decision log reviewed by another vendor's model before hand-back | No separate decision log is kept: a night's facts are events and the night summary, and a Hillclimb's attempts are comments on its ticket (33, 37) |
 | P13 (the rest) | Long-running Orchestrate and Autonomous run | **Run a night** and the ticket's events carry it (34, 37) |
 | P19, P3 (the rest) | `interrogate`: cross-model adversarial review | The `code-review` skill's four axes, on one model, judged once (30) |
-| P4 (the rest) | Every section's whole body in the mode's `SKILL.md` | The seven headings stay in `SKILL.md`; what only a task's owner uses (the routes, sending sessions, the reply to the owner) is in `references/owning-a-task.md`, so an agent sent to one file neither routes itself nor writes its hand-back by the owner's reply rules (5, 8) |
-| P35 (the rest) | A shipped subagent definition that forces a read of the mode | Every prompt that starts an agent, subagent or session, opens with reading the mode, on any host; the file it names keeps a sent agent to the mode's first layer (5, 13) |
+| P4 (the rest) | Every section's whole body in the mode's `SKILL.md` | The seven headings stay in `SKILL.md`; what only a session holding a request uses (the routes, sending sessions, the reply to the owner) is in `references/handling-a-request.md`, so an agent sent to one file neither routes itself nor writes its hand-back by the owner's reply rules (5, 8) |
+| P35 (the rest) | A shipped subagent definition that forces a read of the mode | Every prompt that starts an agent, subagent or session, opens with reading the mode, on any host; the file it names keeps a session holding an assignment to the mode's first layer (5, 13) |
 | P36 (the rest) | The model configuration as a host's standing rule | Configuration lives only in `~/.mmw/models.json`, changed through `models.py` (14) |
 | P38 (the rest) | The user selects the mode from the menu before each message, relying on the host to attach the skill | The mode's own description asks for the read, and a SessionStart hook on every host prints one pointer to it, since a session the owner opens has no start prompt and the description alone went unread (#1264) (5, 13, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
 | M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
-| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket and the owner's go: a worker writes code and scripts, and skill text one ticket carries is written by the Authoring session and judged by a fresh agent's walk, not a reviewer (1, 18, 23, 30); direct-commit exceptions are listed only in the `mmw-mode` skill's `references/owning-a-task.md` `## Playbooks` |
+| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket and the owner's go: a worker writes code and scripts, and skill text one ticket carries is written by the Authoring session and judged by a fresh agent's walk, not a reviewer (1, 18, 23, 30); direct-commit exceptions are listed only in the `mmw-mode` skill's `references/handling-a-request.md` `## Playbooks` |
 | M17 (the rest) | The person confirms the seams | A seam is an engineering decision (3, 21) |
 | M21 | No runtime; the person triggers every step | Mechanical rules are enforced by scripts, and the night is driven by the machine (36) |
 | M22 | Very short skills that leave the how to the model | Copied skills keep upstream's text; a playbook must finish at night with nobody to ask, so each step states its criterion (22, 17) |
@@ -149,4 +149,4 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P20, Opening a PR | **Descriptions**, a body briefing a code reviewer, written with `technical-writing` | One owner reads one visual page; the body is the record, and replies carry only their unique facts (2, 4, 33, 37). Owner decision. |
 | E7 | Model-driven exploration, bug bash and feature charters | Fixed-step e2e tests written in the day prove the UI; Spec review compares prototype and product screenshots (42). Owner decision. |
 | E8 | Migrating an existing test suite into e2e | Deferred until a product with an existing suite needs it (42). Owner decision. |
-| E9 (commit rule) | Never commit generated verification assets | Assets generated during a prototype effort are committed to its branch and delivered with its PR; other direct-commit exceptions live in `mmw-mode/references/owning-a-task.md` `## Playbooks` (23, 32). Owner decision. |
+| E9 (commit rule) | Never commit generated verification assets | Assets generated during a prototype effort are committed to its branch and delivered with its PR; other direct-commit exceptions live in `mmw-mode/references/handling-a-request.md` `## Playbooks` (23, 32). Owner decision. |

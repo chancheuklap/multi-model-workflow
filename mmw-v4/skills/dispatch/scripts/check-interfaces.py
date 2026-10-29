@@ -18,14 +18,14 @@ places have to agree, and nothing else notices when one of them moves:
    `verify-ticket.py`, which a `RESUME:` line names, is the bold title of a step in the
    worker's playbook.
 4. **Only mmw-mode routes to a playbook.** Which playbook a task runs is written once: in
-   the route lines of `## Playbooks` in the mmw-mode skill's `references/owning-a-task.md`. A `SKILL.md` of any other skill
+   the route lines of `## Playbooks` in the mmw-mode skill's `references/handling-a-request.md`. A `SKILL.md` of any other skill
    whose `## Find your moment`, `## Reached from here` or `## Next` section names a
    `playbooks/` file routes a second time, and the second statement drifts from the first.
    A moment table that sends its reader to the skill's own references is not a route.
 5. **Every role has a default a fresh machine can start, and every role sent is a role.**
    Each role of the dispatch skill's `roles.json` has a `default` naming a host, a model and
    an effort, the host one `hosts.json` describes and the effort one that host lists. Every `dispatch.sh send <role>` (or `send <role>`) a `SKILL.md`, a
-   playbook or the mmw-mode skill's `references/owning-a-task.md` writes names a role, or
+   playbook or the mmw-mode skill's `references/handling-a-request.md` writes names a role, or
    `worker`, which `send` resolves to the junior or senior worker by the ticket's grade. A
    role sent with a brief is sent by one of those files.
 6. **Every session is told what it works by, and that file is there.** A start prompt
@@ -58,7 +58,7 @@ RELAY_PY = HERE / "relay.py"
 EVENTS_PY = SKILLS / "verify-ticket" / "scripts" / "events.py"
 VERIFY_PY = SKILLS / "verify-ticket" / "scripts" / "verify-ticket.py"
 MODE = SKILLS / "mmw-mode" / "SKILL.md"
-ROUTES = SKILLS / "mmw-mode" / "references" / "owning-a-task.md"
+ROUTES = SKILLS / "mmw-mode" / "references" / "handling-a-request.md"
 
 # The orchestrators' playbooks, which the owner's session routes to itself, each with how it
 # names an event it is woken with. The worker's is the file its role follows in roles.json,
@@ -149,7 +149,7 @@ def check_roles() -> list[str]:
                 out.append(f"{path.relative_to(SKILLS)}: `send {name} --follow`: {why}")
     for role in roles:
         if role.get("sent_with") == "brief" and role["name"] not in sent:
-            out.append(f"{where}: {role['name']} is sent with a brief, and no SKILL.md, playbook or owning-a-task.md "
+            out.append(f"{where}: {role['name']} is sent with a brief, and no SKILL.md, playbook or handling-a-request.md "
                        f"writes `dispatch.sh send {role['name']}`")
     return out
 

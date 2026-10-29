@@ -20,7 +20,7 @@ Make simplification a continual investment. Leave the design slightly simpler an
 
 **In a diff:**
 
-- Dead code, unused imports and vestigial parameters: delete them.
+- Dead code, unused imports, vestigial parameters and orphan references: delete them.
 - Speculative Generality, an abstraction, parameter, hook, configuration or "just in case" path for a need nobody has: delete it and inline back.
 - A new file, dependency or configuration entry with no recorded reason the existing one was not enough: ask for the reason, or remove it.
 - A defence no real run needed, one whose reason names no run, or one that guards a path normal input does not reach: delete it, and state its residual risk once.

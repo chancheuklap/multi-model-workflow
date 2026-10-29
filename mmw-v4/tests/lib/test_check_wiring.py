@@ -33,7 +33,7 @@ class WiringTest(unittest.TestCase):
         (root.parent / "upstream").symlink_to(MMW.parent / "upstream")
         self.skills = root / "skills"
         self.mode = self.skills / "mmw-mode" / "SKILL.md"
-        self.routes = self.skills / "mmw-mode" / "references" / "owning-a-task.md"
+        self.routes = self.skills / "mmw-mode" / "references" / "handling-a-request.md"
 
     def run_check(self):
         return subprocess.run([sys.executable, str(CHECK), str(self.skills)],

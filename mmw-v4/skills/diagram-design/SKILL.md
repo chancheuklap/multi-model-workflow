@@ -238,7 +238,7 @@ Per-type limits (lifelines, lanes, series, bars, stages, and the rest): [layout-
 
 If you exceed, re-draw in a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture) and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, and so does the top level, where each container counts as one node; the canvas as a whole may hold more. An arrow between two nodes of one container counts against that container; an arrow that crosses containers counts against the top level. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
 
-For the whole and detail required by **principle-everything-at-hand**, draw one large overview with detail nested inside or drawn directly beside it, so both stay in the same place. The per-type caps in layout-budget.md (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
+The per-type caps in layout-budget.md (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
 
 ---
 
@@ -380,7 +380,7 @@ Show the page in the richest surface this session has:
 - **You hold a tool that renders HTML for the user**: a visual panel, canvas, artifact, or site surface. Use it.
 - **Plain CLI only**: write the file to a temporary location outside the working tree, open it with this machine's file-opening command, and give the user the path in your reply.
 
-When publishing through a built-in page tool that requires its own design skill, read that skill and meet its technical constraints: permitted external sources, document skeleton, title, theme tokens, and a mobile page without whole-page horizontal scrolling. Use **principle-everything-at-hand** and this skill for layout and reading, because they carry the project's reader requirements. Where the built-in advice conflicts, choose diagrams for relationships, a legend for each figure, adjacent explanations, desktop-first layout, and render inspection until the page meets the checklist.
+When publishing through a built-in page tool that requires its own design skill, read that skill and meet its technical constraints: permitted external sources, document skeleton, title, theme tokens, and a mobile page without whole-page horizontal scrolling. For layout and reading, **principle-everything-at-hand** and this skill win wherever the built-in advice conflicts, until the page meets the checklist.
 
 Renders correctly in any modern browser. Motion-enabled output must render its complete meaning without JavaScript; under `prefers-reduced-motion: reduce` it shows the complete static frame and hides/disables playback controls.
 

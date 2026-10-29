@@ -4,7 +4,7 @@ Design before implementing. Sketch types, function signatures, class shapes, and
 
 ## Phase A: Ground the problem
 
-Build a real mental model of every system the new code touches. Run the **how** skill over the relevant subsystems, and look for what already solves the problem, in the repository and outside it, before sketching (**principle-start-from-what-exists**). What the caller already traced or found, you take from it rather than doing again.
+Build a real mental model of every system the new code touches. Run the **how** skill over the relevant subsystems, and follow **principle-start-from-what-exists** before sketching. What the caller already traced or found, you take from it rather than doing again.
 
 Naming a file isn't grounding. Produce the architectural explanation `how` prescribes. If the design redefines ownership or layering, also run the **why** skill on the existing shape so the rationale becomes a constraint, not a guess.
 

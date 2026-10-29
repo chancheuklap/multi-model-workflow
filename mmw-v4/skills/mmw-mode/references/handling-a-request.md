@@ -1,6 +1,6 @@
-# Owning a task
+# Handling a request
 
-Read in full by the agent that owns its task: a session whose first message names no file to follow, usually one the owner opened. A sent agent reads only the section its own file names. The mode's `SKILL.md` holds what every agent works by; this file holds what only the owner of a task uses: the triggers for the task as a whole, sending sessions, the reply to the owner, and the route to a playbook.
+Read in full by a session holding a request: a session whose first message names no file to follow, usually one the owner opened. A session holding an assignment reads only the section its own file names. The mode's `SKILL.md` holds what every session works by; this file holds what only a session holding a request uses: the triggers for the task as a whole, sending sessions, the reply to the owner, and the route to a playbook.
 
 ## Non-negotiables
 
@@ -36,7 +36,7 @@ Before writing the final reply, answer the register-problem skill's three self-c
 
 The reader is the owner the user-level instructions describe. What the owner learns from you is principle and effect: what problem a technique solves, what it assumes, where it stops working, and what it does to the product. Syntax and the shape of the code are not what they are here to learn.
 
-Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns. Name every file, section and rule you mention by its anchor (**principle-anchor-every-reference**).
+Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns. Name every file, section and rule as **principle-anchor-every-reference** says.
 
 - **Short declarative sentences.** One thought per sentence, ended with a period.
 - **No long-dash character anywhere.** Write a file-list bullet as a sentence ("`main.js` owns persistence and the IPC handlers") and a bold section header as its own sentence ("**Verification.** End to end via CDP").

@@ -68,7 +68,15 @@ A reference in an agent's context that names material outside that context and t
 The unit the toolbox ships: one directory under `mmw-v3/skills/` with a `SKILL.md`, which is what makes `install.sh` install it; there is no second list. A skill says how one thing is done and what it hands back; how a whole task runs is a **playbook**.
 
 **mode**:
-The `mmw-mode` skill: the owner's way of working, which every session reads in full before any work. Its `## Non-negotiables`, `## Principles` index, `## Autonomy` and reply rules hold for every task, and its `## Playbooks` routes each kind of task to one playbook. A session a script starts is told to read it by its start prompt; in every repository, the host hook `session-start.py` tells a Claude Code or Codex session to read it at start, and a Claude Code session to read it again after its context is compacted.
+The `mmw-mode` skill: the owner's way of working, which every session reads in full before any work. Its `## Non-negotiables`, `## Principles` index, `## Autonomy` and reply rules hold for every task, and a session holding a **request** goes on to its `references/handling-a-request.md`, which routes each kind of task to one playbook. A session a script starts is told to read it by its start prompt; in every repository, the host hook `session-start.py` tells a Claude Code or Codex session to read it at start, and a Claude Code session to read it again after its context is compacted.
+
+**request**:
+The owner's own words as a session's first message, naming no file to follow. A session holding a request reads the mode's `references/handling-a-request.md` in full, matches the task to a playbook, sends the sessions the playbook names and reports to the owner. Distinct from the request file a code-review reviewer reads in place of a ticket.
+_Avoid_: owning a task, the owner of a task
+
+**assignment**:
+A start prompt from `dispatch.sh` or a subagent call that names the file to follow, such as `Dispatched: worker, ticket #<n>, base <commit>. Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md.` A session holding an assignment works by that file and reads another only where that file names it.
+_Avoid_: sent agent
 
 **playbook**:
 One file under `mmw-v3/skills/mmw-mode/playbooks/` saying how one kind of task is done, start to end: what the session owns, numbered steps each ending in a **`Done when` line**, and the `**Reply:**`. It is reached only through its route line in the mode's `## Playbooks`, and named in prose by its title (`Run a night`, `Work a ticket`).

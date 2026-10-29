@@ -34,9 +34,9 @@ Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes f
 
 Three kinds of review finding, each quoting the line of the ticket, the spec, or a baseline it comes from, and one judgement per line of the `DECISIONS` comment. Read **principle-baseline-is-the-contract** and **principle-prove-it-works** in full: their **In a diff:** lines decide the three kinds.
 
-- **Missing**: something the ticket, a named spec section or a baseline asked for that the diff does not do, or does only in part (**principle-prove-it-works**).
-- **Scope creep**: behaviour none of them asked for; something listed under `## Out of Scope` and built anyway is the clearest form (**principle-baseline-is-the-contract**).
-- **Built wrong**: something that looks implemented but does not match what was asked (**principle-baseline-is-the-contract**).
+- **Missing**: the **In a diff:** line of **principle-prove-it-works** on what was asked and not done.
+- **Scope creep**: the **In a diff:** line of **principle-baseline-is-the-contract** on behavior nobody asked for.
+- **Built wrong**: the **In a diff:** line of **principle-baseline-is-the-contract** on what does not match what was asked.
 - **Decisions**: one line for every line under `Decisions I made on my own` and one line for every file under `Outside Owns` in the `DECISIONS` comment; a file's line starts with its path. Each line carries exactly one of two words: `reasonable` (the ticket or the spec left a gap and this is the repair those sections make most likely) or `should not` (it goes against a line of the ticket, the named spec sections, `## Out of Scope`, or a baseline, quoted). A `should not` is a review finding of one of the three kinds above; a `reasonable` is not a finding. A ticket with no `DECISIONS` comment gets the line `DECISIONS: none on the ticket`.
 
 Quote the requirement for each review finding. A review finding with no quoted line is your opinion about the design, which is not what this axis decides. With no ticket line, spec or baseline to quote, say so instead of listing requirements you inferred from the code.

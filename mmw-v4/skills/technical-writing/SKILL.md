@@ -92,7 +92,7 @@ Don't mix modes: no reference tables inside a tutorial, no tutorial hand-holding
 - Apply the **unslop** skill to every doc this skill touches. That skill owns the slop-pattern catalog: AI vocabulary, filler, hedging, formatting tells.
 - PR descriptions and commit messages are writing too. Every layer except Diátaxis applies to them. A PR body is a briefing that a reviewer can read in under a minute. Do not paste swarm logs, SHA lists, or metric tables. Link them.
 - Product UI strings are not documentation. Use your product's copy guidelines for those.
-- Indent code snippets with tabs. Write real paths. Make every count or tree claim true at the commit that lands it, and include the command that regenerates it. Anchor every name the way **principle-anchor-every-reference** says, and write only what is true now (**principle-files-describe-the-present**).
+- Indent code snippets with tabs. Write real paths. Make every count or tree claim true at the commit that lands it, and include the command that regenerates it. Follow **principle-anchor-every-reference** and **principle-files-describe-the-present**.
 
 ## Worked example
 

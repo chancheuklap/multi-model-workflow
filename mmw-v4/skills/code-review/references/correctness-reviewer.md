@@ -6,9 +6,9 @@ Read the ticket (`gh issue view <ticket>`, comments included), the spec sections
 
 ## 1. Judge the diff by these principles
 
-Read beyond the changed lines, as **principle-read-before-you-conclude**'s **In a diff:** says, before judging whether the change addresses the right layer.
+Read each hunk as **principle-read-before-you-conclude**'s **In a diff:** says.
 
-Read each of these principles' `SKILL.md` in full, and judge every hunk by its pattern and its **In a diff:** lines: **principle-fail-loudly** (errors swallowed, silent fallbacks, widened error conditions, checks that pass on nothing), **principle-make-operations-idempotent** (running twice, a crash halfway, half-applied updates), **principle-separate-before-serializing-shared-state** (state several actors touch), **principle-fix-root-causes** (a fix that covers a symptom), **principle-boundary-discipline** (untrusted input, endpoints, secrets), **principle-type-system-discipline** (empty, nil and boundary inputs the code does not handle), **principle-encode-lessons-in-structure** (an instruction where structure would do). A principle the diff does not touch is skipped.
+Read each of these principles' `SKILL.md` in full, and judge every hunk by its pattern and its **In a diff:** lines: **principle-fail-loudly**, **principle-make-operations-idempotent**, **principle-separate-before-serializing-shared-state**, **principle-fix-root-causes**, **principle-boundary-discipline**, **principle-type-system-discipline**, **principle-encode-lessons-in-structure**. A principle the diff does not touch is skipped.
 
 ## 2. Hunt these bugs
 

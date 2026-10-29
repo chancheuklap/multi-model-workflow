@@ -39,7 +39,7 @@ If cost is the worry, say where the tokens go: dispatched workers and reviewers,
 
 ## Start a task
 
-Every session reads the **mmw-mode** skill in full before anything else; its description says so. The mode matches the task to a playbook in the `## Playbooks` of its `references/owning-a-task.md`, works through the playbook's steps, and runs the other skills as the steps need them. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. Guide page 2 (`mmw-v4/docs/guide/02-mmw-mode.md`) has examples.
+Every session reads the **mmw-mode** skill in full before anything else; its description says so. The mode matches the task to a playbook in the `## Playbooks` of its `references/handling-a-request.md`, works through the playbook's steps, and runs the other skills as the steps need them. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. Guide page 2 (`mmw-v4/docs/guide/02-mmw-mode.md`) has examples.
 
 Mid-session, starting a message with "new task" tells the session to match a fresh playbook.
 
@@ -96,7 +96,7 @@ Close calls:
 
 ## Playbooks and principles
 
-Playbooks are step lists inside the **mmw-mode** skill, not skills. Describing the task picks one; the `## Playbooks` of the mode's `references/owning-a-task.md` is the one list of which task goes to which playbook, so read it there rather than answering from memory. Guide page 5 (`mmw-v4/docs/guide/05-build-and-clean.md`), page 6 (`mmw-v4/docs/guide/06-verify-and-ship.md`) and page 7 (`mmw-v4/docs/guide/07-overnight.md`) show how a change is built, delivered as one pull request, and run unattended overnight.
+Playbooks are step lists inside the **mmw-mode** skill, not skills. Describing the task picks one; the `## Playbooks` of the mode's `references/handling-a-request.md` is the one list of which task goes to which playbook, so read it there rather than answering from memory. Guide page 5 (`mmw-v4/docs/guide/05-build-and-clean.md`), page 6 (`mmw-v4/docs/guide/06-verify-and-ship.md`) and page 7 (`mmw-v4/docs/guide/07-overnight.md`) show how a change is built, delivered as one pull request, and run unattended overnight.
 
 Planning here is a spec and its tickets, because the owner checks those, not code. Grill with docs or a wayfinder map settles the decisions, To spec records them, To tickets cuts the spec into tickets the owner approves. For a design question, the **prototype** skill settles it in code first.
 

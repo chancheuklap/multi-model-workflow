@@ -8,13 +8,13 @@ You do not type a command to turn `mmw-mode` on. Its `description` tells every s
 
 Most of the other skills carry the description "Run only when the user, mmw-mode or another skill names it". They do not start on their own. `mmw-mode` and its playbooks name them at the step that needs them, and you can name one yourself in a prompt.
 
-The skill is read in two layers. Its `SKILL.md` is what every agent judges with, the session you talk to and every agent it sends. Its [`references/owning-a-task.md`](../../skills/mmw-mode/references/owning-a-task.md) is read only by the session that owns the task, the one you opened, because its first message names no file to follow. Between them they hold seven sections. These five shape what you see:
+The skill is read in two layers. Its `SKILL.md` is what every agent judges with, the session you talk to and every agent it sends. Its [`references/handling-a-request.md`](../../skills/mmw-mode/references/handling-a-request.md) is read only by a session holding a request, the one you opened, because its first message names no file to follow. A session holding an assignment, one that `dispatch.sh` or a subagent call started with a file to follow, works by that file. Between them they hold seven sections. These five shape what you see:
 
-- **Non-negotiables.** Triggers. Those for an agent's own work are in `SKILL.md`: any prose runs `unslop`, any `.ts` file runs `typescript-best-practices`. Those for the task as a whole are in `owning-a-task.md`: a nontrivial change runs `how` first, and a contested design gets `code-review`.
+- **Non-negotiables.** Triggers. Those for an agent's own work are in `SKILL.md`: any prose runs `unslop`, any `.ts` file runs `typescript-best-practices`. Those for the task as a whole are in `handling-a-request.md`: a nontrivial change runs `how` first, and a contested design gets `code-review`.
 - **Principles.** An index of the 34 principle skills, each with when it applies, in `SKILL.md`. The reply names each principle that changed a decision. [Steer with principle names](./08-principles.md) covers them.
 - **Autonomy.** What an agent does without asking, and what it always pauses for: irreversible writes such as a force-push, a deploy, a data deletion or a customer message.
-- **Writing the reply.** How the report to the owner reads: effects and reasons, not code, with evidence the owner can check. It is in `owning-a-task.md`.
-- **Playbooks.** The list that routes a task to one playbook file, in `owning-a-task.md`.
+- **Writing the reply.** How the report to the owner reads: effects and reasons, not code, with evidence the owner can check. It is in `handling-a-request.md`.
+- **Playbooks.** The list that routes a task to one playbook file, in `handling-a-request.md`.
 
 ## How a task becomes a playbook
 
@@ -41,7 +41,7 @@ flowchart TD
 
 The session works through the matched playbook's steps.
 
-The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s `references/owning-a-task.md` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
+The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s `references/handling-a-request.md` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
 
 - Planning. Chart the map, Work through the map, To spec, Revising a spec and To tickets.
 - Measurement and diagnosis. Hillclimb, Runtime forensics and Trace forensics.
@@ -160,6 +160,6 @@ To stop a session cleanly, ask it to pause. The [Pause safely](../../skills/mmw-
 
 **Pitfall.** Do not list skills in your prompt ("use how, then prototype, then arena..."). The playbook already orders them, and a hand-written order usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
 
-Read [`owning-a-task.md`](../../skills/mmw-mode/references/owning-a-task.md) itself for the full routing rules.
+Read [`handling-a-request.md`](../../skills/mmw-mode/references/handling-a-request.md) itself for the full routing rules.
 
 Next: [Understand the code](./03-understand.md).

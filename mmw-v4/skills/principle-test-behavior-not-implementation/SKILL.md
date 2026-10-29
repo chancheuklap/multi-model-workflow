@@ -22,7 +22,7 @@ A test can pin an invariant instead of a call, such as a key that must exist in 
 
 **Pin behavior that must not change.** A change that keeps a behavior as it is (a restructuring, a move, a dependency swapped for another) has no red to see. Pin the behavior first with a characterization test, a snapshot, or a comparison of old and new output, run it green before the structure moves and green again after. It counts as able to fail once you have broken that behavior by hand and watched the pin go red. A type check or a lint is not a pin.
 
-**Name the object a check checks.** A check that finds its object by searching and taking the first hit checks whatever the search happens to return, and often cannot fail at all.
+**Name the object a check checks.** A check that finds its object by searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
 
 **In a diff:**
 

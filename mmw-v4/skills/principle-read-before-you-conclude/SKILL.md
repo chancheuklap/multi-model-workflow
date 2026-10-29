@@ -15,6 +15,6 @@ Read enough of a file to be sure of what you say about it, and read it before yo
 
 **In a diff:**
 
-- Before judging a hunk, read beyond it: callers, callees, type definitions, sibling modules, and why the code exists, until you can say whether the change addresses the right layer. A finding that rests on code you did not read is labelled `inferred`.
+- Before judging a hunk, read beyond it: callers, callees, guards upstream, type definitions, sibling modules, and why the code exists, until you can say whether the change addresses the right layer. A finding that rests on code you did not read is labelled `inferred`.
 
 Distinct from **principle-prove-it-works**, which checks an output against the real thing. This governs what you read before you speak about a file. Where the step you follow sends a subagent to read a large file whole and report, per **principle-guard-the-context-window**, the rule still binds whoever states the conclusion.

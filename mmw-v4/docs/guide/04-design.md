@@ -23,7 +23,7 @@ You rarely need to type it. The build playbooks send code-shape questions to the
 
 The sketch is not sacred once code starts. If implementation needs the same workaround in unrelated places, or types that compile only with forced casts, [`principle-redesign-from-first-principles`](../../skills/principle-redesign-from-first-principles/SKILL.md) treats that as proof the sketch is wrong. A worker raises a `contract` child rather than scrapping a baseline sketch. The coordinator re-runs the prototype skill's sketch branch and resumes the worker with the corrected baseline.
 
-For a second opinion on a design before it is committed, the session sends an `advisor`, as the `## Subagents` section of the `mmw-mode` skill's `references/owning-a-task.md` says. The [advisor skill](../../skills/advisor/SKILL.md) judges a decision already framed and changes nothing.
+For a second opinion on a design before it is committed, the session sends an `advisor`, as the `## Subagents` section of the `mmw-mode` skill's `references/handling-a-request.md` says. The [advisor skill](../../skills/advisor/SKILL.md) judges a decision already framed and changes nothing.
 
 ## Fan out attempts with the arena skill
 

@@ -27,7 +27,7 @@ These hold for every component.
 3. **Place each piece of text by these questions, not by what type of text it looks like.** Who needs it, at which moment? How many places use it? Does it change a decision? Can a mechanism (a script, a check, a hook) enforce it?
 4. **The default is to edit an existing home or to delete, not to create.** A new component needs all three: "no existing skill is a real home, the pattern recurs, and the topic deserves its own skill" (pstack `reflect`). "When in doubt, delete. Keep only prose that changes a decision." (pstack `authoring-a-skill.md`).
 5. **What can be a check is not written as prose.** Order of preference: architecture, types, a lint or check whose error names the fix, a test, and prose last (pstack `correct`). "Skill prose is for things mechanisms cannot enforce" (pstack `reflect`).
-6. **Register in the same change.** A new playbook gets its route line in `mmw-mode/references/owning-a-task.md` `## Playbooks`; a new principle gets its index line in `## Principles`; a reference or script gets named, with its path or command, by the step that uses it; `python3 mmw-v4/tests/lib/check_wiring.py`, which every suite under `mmw-v4/tests/` but `lib` runs first, fails when one of these is missing or names something that is not there. A new skill needs no install entry: `mmw-v4/install.sh` installs every directory under `mmw-v4/skills/` that has a `SKILL.md`. Text brought in from anywhere else is named, with the repository that first wrote it and the commit it was read at, in the message of the commit that brings it in.
+6. **Register in the same change.** A new playbook gets its route line in `mmw-mode/references/handling-a-request.md` `## Playbooks`; a new principle gets its index line in `## Principles`; a reference or script gets named, with its path or command, by the step that uses it; `python3 mmw-v4/tests/lib/check_wiring.py`, which every suite under `mmw-v4/tests/` but `lib` runs first, fails when one of these is missing or names something that is not there. A new skill needs no install entry: `mmw-v4/install.sh` installs every directory under `mmw-v4/skills/` that has a `SKILL.md`. Text brought in from anywhere else is named, with the repository that first wrote it and the commit it was read at, in the message of the commit that brings it in.
 7. **What pstack does not say is labelled.** A placement that rests on an inference from pstack's examples says so, and goes to the owner.
 8. **Bring in what the step needs, and check what it names.** Before copying a component, list every component its text names. A named component the set does not have, and the current step does not bring in, either costs the copy one sentence (dropped, and named in the commit message) or, when the copy depends on it, keeps the copy out until a step brings both.
 9. **A correction covers its whole class.** When the owner corrects one placement, check everything brought in so far for the same mistake before reporting back.
@@ -40,12 +40,12 @@ The model to imitate, in content as well as shape, is `upstream/pstack/skills/po
 
 The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the entry: its description, which every host scans at start, says to read it in full at the start of every session. No hook and no line in the user-level prompt tells a session to read it.
 
-It is read in two layers, split by whether the agent owns its task. `SKILL.md` holds what every agent judges with and keeps all seven section headings below, in their order. `references/owning-a-task.md` holds what only the owner of a task uses, under the headings of the sections it holds a part of, and is read by an agent whose first message names no file to follow. What to do is named by whoever sends an agent; which skill and which principle to use stays each agent's judgement, through the first layer.
+It is read in two layers, split by whether the session holds a request or an assignment. `SKILL.md` holds what every agent judges with and keeps all seven section headings below, in their order. `references/handling-a-request.md` holds what only a session holding a request uses, under the headings of the sections it holds a part of, and is read by a session whose first message names no file to follow. What to do is named by whoever sends an agent; which skill and which principle to use stays each agent's judgement, through the first layer.
 
 ### Frontmatter
 
 - `name: mmw-mode`.
-- `description`: what the mode is in one sentence, the instruction to read it in full at the start of every session, before anything else, and which agent goes on to `references/owning-a-task.md`.
+- `description`: what the mode is in one sentence, the instruction to read it in full at the start of every session, before anything else, and which session goes on to `references/handling-a-request.md`.
 
 ### The two rules that shape every section
 
@@ -96,7 +96,7 @@ The models to imitate are the 23 files in `upstream/pstack/skills/poteto-mode/pl
 
 ### What a playbook is for
 
-How one kind of task is done from start to end: who owns what, the steps, what is handed back. A playbook is not a skill. It has no frontmatter, cannot be invoked by name, and is opened only through a route line in the `mmw-mode` skill's `references/owning-a-task.md` `## Playbooks`, a step of another playbook, or the start prompt of an agent sent to it.
+How one kind of task is done from start to end: who owns what, the steps, what is handed back. A playbook is not a skill. It has no frontmatter, cannot be invoked by name, and is opened only through a route line in the `mmw-mode` skill's `references/handling-a-request.md` `## Playbooks`, a step of another playbook, or the start prompt of an agent sent to it.
 
 ### When a new playbook is warranted
 
@@ -104,7 +104,7 @@ How one kind of task is done from start to end: who owns what, the steps, what i
 - **Not for a task that happens once.** A playbook is saved here because the same kind of task comes back.
 - **Not for handing one thing to one skill.** Name the skill in a `## Non-negotiables` line or in a step.
 
-In the same change as the new file: add its route line to the `mmw-mode` skill's `references/owning-a-task.md` `## Playbooks`. A playbook that starts a session role of its own adds that role as `## subagent` below says.
+In the same change as the new file: add its route line to the `mmw-mode` skill's `references/handling-a-request.md` `## Playbooks`. A playbook that starts a session role of its own adds that role as `## subagent` below says.
 
 ### The shape of the file, top to bottom
 
@@ -113,7 +113,7 @@ In the same change as the new file: add its route line to the `mmw-mode` skill's
 3. One paragraph: the stance for the whole playbook, and how it differs from the playbook most easily confused with it.
 4. Numbered steps, one action each. Each step names the skill, principle, reference or script it uses, by name or path. A principle is named on the step where it applies, including a step every run takes.
 5. Optionally one paragraph of rules that hold across all the steps.
-6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in the `mmw-mode` skill's `references/owning-a-task.md` `## Writing the reply` and are not repeated here.
+6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in the `mmw-mode` skill's `references/handling-a-request.md` `## Writing the reply` and are not repeated here.
 
 A playbook that changes the repository outside a night opens its ticket and `fix-<n>` at step 1 and ends with the hand-back to the owner, both as the `mmw-mode` skill's `references/ticket.md` says; the change itself goes to a worker through One ticket. Its verification step follows the numbered steps as a section opened by its title in bold, which One ticket step 4 runs, and a section **A ticket that came back** names the step to resume at. Its `**Reply:**` names what the hand-back tells the owner, since the result comes after it.
 
