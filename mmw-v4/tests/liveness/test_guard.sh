@@ -9,8 +9,7 @@
 # directory holding one open watch (a watches.json entry whose relay is not running) whose
 # orchestrator is main-1 under a fake runner, `fake`, whose adapter answers `self` with
 # $FAKE_SELF. MMW_WATCHDOG_PY names a script that exits at once, so the hook's attempt
-# to arm the watchdog fails and the night is left unwatched — the state in which a turn
-# end must be kept. One case arms the real watchdog.py instead, against a fake `gh`. What
+# to arm the watchdog fails. The turn still ends. One case arms the real watchdog.py instead, against a fake `gh`. What
 # is asserted is the exit code, stdout and stderr each host would read, and guard.log.
 # Nothing here needs a host, the tracker or the network.
 
@@ -109,47 +108,31 @@ log_lines() { wc -l < "$STATE/guard.log" 2>/dev/null | tr -d ' ' || echo 0; }
 CLAUDE='{"session_id":"c1","transcript_path":"/t","cwd":"/repo","hook_event_name":"Stop","stop_hook_active":false}'
 CODEX='{"session_id":"x1","turn_id":"t1","cwd":"/repo","hook_event_name":"Stop","model":"gpt","stop_hook_active":false}'
 
-echo "### each host blocks, in its own terms, while tickets may be held and no watchdog runs"
-hook claude "$CLAUDE";  check "claude Stop: exit 2 with the reason on stderr" 2 "MMW turn guard:"
-hook codex "$CODEX";    check "codex Stop: exit 2 with the reason on stderr" 2 "MMW turn guard:"
-hook grok "$CLAUDE";    check "a registration left from a host v4 no longer serves blocks nothing" 0 "usage: turn-guard.py stop <claude|codex>"
-hook claude "$CLAUDE"
-check "the block tells the agent how the arm failed and the one command to run" 2 "this watchdog does not start"
-check "the block names the arm command" 2 "arm --repo o/r"
-
-echo "### a stop that is already the forced continuation is let through"
-hook claude "${CLAUDE/\"stop_hook_active\":false/\"stop_hook_active\":true}";  check_silent "claude stop_hook_active"
-hook codex "${CODEX/\"stop_hook_active\":false/\"stop_hook_active\":true}";    check_silent "codex stop_hook_active"
-if grep -q "claude allow held=None" "$STATE/guard.log"; then
-  pass=$((pass + 1)); echo "ok   a forced continuation is still recorded in guard.log"
+echo "### each host ends its turn even when the watchdog cannot start"
+hook claude "$CLAUDE"; check_silent "claude Stop"
+hook codex "$CODEX"; check_silent "codex Stop"
+hook grok "$CLAUDE"; check "an unknown host blocks nothing" 0 "usage: turn-guard.py stop <claude|codex>"
+if grep -q "claude allow watchdog unhealthy" "$STATE/guard.log"; then
+  pass=$((pass + 1)); echo "ok   guard.log records the failed arm"
 else
-  failed=$((failed + 1)); echo "FAIL guard.log has no line for the forced continuation" >&2
+  failed=$((failed + 1)); echo "FAIL guard.log has no failed arm" >&2
 fi
 
-echo "### whose turn, and which night"
-hook claude "$CLAUDE" FAKE_SELF=worker-9;  check_silent "a session that is the orchestrator of no watch is let through"
-hook claude "$CLAUDE" FAKE_SELF=;          check_silent "a process in no session of the orchestrator's runner is let through"
-hook claude "$CLAUDE" FAKE_SELF_RC=1;      check_silent "a session whose runner cannot name it is not taken for the orchestrator"
-printf '%s\n' '{"tickets:61": {"tickets": [61], "runner": "fake", "session": "main-1"},
-                "spec:76": {"spec": 76, "runner": "fake", "session": "main-2"}}' > "$STATE/watches.json"
-hook claude "$CLAUDE" FAKE_SELF=main-2;    check "the orchestrator of a second watch on the repository is guarded too" 2 "MMW turn guard"
-hook claude "$CLAUDE" FAKE_SELF=main-1;    check "and so is the first one's" 2 "MMW turn guard"
-hook claude "$CLAUDE" FAKE_SELF=main-3;    check_silent "a third session, the orchestrator of neither, is let through"
-printf '{"tickets:61": {"tickets": [61], "runner": "nosuch", "session": "main-1"}}\n' > "$STATE/watches.json"
-hook claude "$CLAUDE";                     check_silent "an orchestrator on a runner with no adapter: nobody's turn is held"
+echo "### any session arms an open watch"
+hook claude "$CLAUDE" FAKE_SELF=worker-9; check_silent "a worker's turn ends"
+hook claude "$CLAUDE" FAKE_SELF=; check_silent "a process with no session ends"
+hook claude 'not json'; check_silent "an unreadable payload ends"
 printf 'not json\n' > "$STATE/watches.json"
-hook claude "$CLAUDE";                     check_silent "unreadable watches: nobody's turn is held"
+hook claude "$CLAUDE"; check_silent "unreadable watches still let the turn end"
 rm -f "$STATE/watches.json"
-hook claude "$CLAUDE";                     check_silent "no open night: nothing to guard"
+before="$(log_lines)"
+hook claude "$CLAUDE"; check_silent "no open watch"
+if [ "$(log_lines)" = "$before" ]; then
+  pass=$((pass + 1)); echo "ok   a closed watch is not armed"
+else
+  failed=$((failed + 1)); echo "FAIL a closed watch was armed" >&2
+fi
 printf '%s\n' "$ONE_WATCH" > "$STATE/watches.json"
-
-echo "### the predicate: nothing held at the last round"
-printf '{"pid": 1, "identity": "gone", "at": "2026-09-10T00:00:00Z", "poll": 60, "held": []}\n' > "$STATE/watchdog.json"
-hook claude "$CLAUDE";                     check_silent "a dead watchdog whose last round held nothing lets the turn end"
-printf '{"pid": 1, "identity": "gone", "at": "2026-09-10T00:00:00Z", "poll": 60, "held": [61]}\n' > "$STATE/watchdog.json"
-hook claude "$CLAUDE";                     check "a dead watchdog whose last round held #61 blocks, naming it" 2 "#61"
-grep -q "claude block held=\[61\]" "$STATE/guard.log" && { pass=$((pass + 1)); echo "ok   guard.log records the decision"; } \
-  || { failed=$((failed + 1)); echo "FAIL guard.log has no block line for held=[61]" >&2; }
 
 echo "### the hook re-arms the watchdog, and a healthy one lets the turn end"
 : > "$STATE/watchdog.log"   # the failed arms of the cases above are not this case's

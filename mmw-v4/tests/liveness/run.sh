@@ -6,7 +6,7 @@
 #
 # Two engines, two test files:
 #
-#   test_liveness.py   unittest: the guard predicate, heartbeat freshness, the tolerance,
+#   test_liveness.py   unittest: turn-end arming, heartbeat freshness, the tolerance,
 #                      the lock's identity against real processes (a recycled pid among
 #                      them), and the third layer's three answers against a fake board
 #                      and fake runner verbs

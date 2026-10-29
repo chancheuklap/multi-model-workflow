@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The watchdog: the second and third layers of liveness for one repository's open watches.
 
-    watchdog.py run --repo O/R [--poll S] [--silence S] [--idle S] [--stuck S] [--nudge S] [--once]
+    watchdog.py run --repo O/R [--poll S] [--idle S] [--stuck S] [--nudge S] [--once]
     watchdog.py arm --repo O/R [--wait S]
     watchdog.py status --repo O/R
 
@@ -12,11 +12,10 @@ This process is what notices. It costs no tokens and holds no session: it reads 
 `gh` and the runner adapters, and it is not an agent.
 
 **Three layers, and which one this is.** The first layer is `turn-guard.py`, beside this
-file: a hook on each orchestrator's own turn end that re-arms this process and will not let
-that turn end while tickets are held and this process is not healthy. This file is the
+file: a hook on every host turn end that re-arms this process and lets the turn end. This file is the
 second layer (it beats, it watches the relay) and the third (it asks each held session's
 runner what that session is doing). When this process dies, the first layer finds
-out at an orchestrator's next turn end; there is no fourth layer, so a crash of the host a
+out at the next turn end; there is no fourth layer, so a crash of the host a
 orchestrator runs in is found by a person.
 
 **What it watches.** Every watch the relay has open for the repository (`watches.json` in
@@ -31,16 +30,12 @@ watch is open this process writes a last heartbeat saying so and exits.
 
 **Each round**, every `--poll` seconds (default 60):
 
-1. The relay, two questions with an answer each. Is it running: its lock record
-   (`relay.lock`: pid and process identity, statedir.py) names a live process, and it
-   finished a cycle (`cycle_at` in `beat.json`, written by every cycle, a failed one
-   included) within its grace; otherwise the alert `relay down`. Is it reading: its last
-   good poll (`at`) is within its grace too; otherwise the alert `relay not reading` —
-   the process is there and cannot see the tracker, which is not the same thing and does not
-   call for another `open`. Both are measured less the time spent delivering, which delays
-   a cycle without stopping it, and a relay that has not cycled or polled yet is given its
-   grace from the moment it started. A beat with no cycle stamp was written by a relay
-   older than that field, and its last good poll then answers both questions.
+1. The relay's lock record (`relay.lock`: pid and process identity, statedir.py) must
+   name a live process that finished a cycle (`cycle_at` in `beat.json`) within its grace.
+   Otherwise the alert is `relay down`. Time spent delivering does not count against
+   the grace. A relay that has not cycled yet gets its grace from its start time.
+   A beat with no cycle stamp uses its last good poll. Tracker-read outages raise no
+   alert because the relay reads the missed events when the tracker recovers.
 2. Every watched ticket is read in full and folded. The session table covers every
    worker or reviewer still holding a ticket, plus every unreported brief of a watched
    batch. Each session's own runner is asked `liveness <session>` first:
@@ -66,63 +61,45 @@ watch is open this process writes a last heartbeat saying so and exits.
    only that activity. Stuck alerts use the later of worktree activity and the ticket's
    newest event, or the brief's send time. Each alert's key includes its session and its
    activity reference time, so a new event can start a new stuck interval across restarts.
-   `--silence` is accepted for existing invocations but does not gate this table. A hold with no session
-   to ask is unknown, and unreadable events are an alert.
-3. The ticket table is independent of the session table and of holds. A `child.opened`
-   without a `child.closed`, or a delivered row still in `queue.jsonl`, means the ticket
-   is waiting on its orchestrator. Alert immediately, then every `--nudge` seconds (1800)
-   until its children are routed and its delivered wakes are acked. Routing is read only
-   from `child.closed` on the parent, not from the child issue's open or closed state.
-   Each reminder goes only to the orchestrator of that ticket's watch.
+   A hold with no session to ask is unknown, and unreadable events are an alert.
+3. A delivered row in `queue.jsonl` that has not been acked for `--nudge` seconds
+   (default 1800) brings one reminder to its watch's orchestrator. Its sequence number
+   identifies the reminder in `reported`, so another round or restart does not repeat it.
 
-**Alerts wake the orchestrator directly**, through the `send` of the runner that
-orchestrator runs in, one message on one line, each alert in it beginning `watchdog:`. Not
-through the relay's queue: the relay may be the thing that is down. An alert about a
-ticket goes to the orchestrator of the watch the ticket belongs to; `relay down`, `relay not
-reading` and `cannot read the tracker` go to every watch's orchestrator. Session and relay
-alerts are sent to each orchestrator once per key, across restarts.
-Ticket reminders retain their last successful delivery time across restarts and repeat
-only after `--nudge`. Unsent alerts are rechecked each round, so a resolved condition is
-not delivered later. A relay that goes from not reading to down is an
-alert of its own: the key carries which of the two it is. What `send` answered decides what happens next:
+**Alerts wake the orchestrator directly**, through its runner's `send`, in one message
+on one line, each alert beginning `watchdog:`. They do not use the relay queue because
+that relay may be down. Ticket alerts go only to their watch's orchestrator. Relay and
+wake-queue alerts go to every watch's orchestrator. Unsent alerts are rechecked each
+round, so a resolved condition is not delivered later.
 
-    0      delivered and a turn started. This process exits once the round's sends are
-           done: that orchestrator is now in a turn, and that turn's end re-arms it
-           (one-shot, re-armed by the hook)
-    4      handed over, not confirmed: once-only alerts are not sent again; ticket
-           reminders wait `--nudge`, and this process keeps running
-    3, 5+  nothing was sent: kept, and sent again next round
-    2      that orchestrator's session is gone: recorded, kept, nobody to tell
+    0      delivered and a turn started. This process exits after the round's sends.
+           That turn's end re-arms it.
+    4      handed over, not confirmed. Recorded as reported and never sent again.
+           This process keeps running.
+    3, 5+  nothing was sent. Rechecked and tried again next round.
+    2      the orchestrator's session is gone. Recorded, kept, nobody to tell.
 
 The alerts exactly:
 
     watchdog: relay down (<what is wrong>); details: python3 <this file> status --repo <repo>
-    watchdog: relay not reading (<what is wrong>); the process is there and cycling, and it
-              recovers on its own with the first read that works, so opening the night
-              again replaces nothing; details: python3 <this file> status --repo <repo>
     watchdog: #<n> events unreadable
     watchdog: #<n> is held with no session to ask
     watchdog: <ticket or brief> liveness unknown: the <kind> session <session> on <runner> <why>
     watchdog: <ticket or brief> <kind> session <session> on <runner> is on a dialog: <line>
     watchdog: <ticket or brief> silent since <time> with nothing to wait on
     watchdog: <ticket or brief> <kind> session <session> on <runner> has a stuck turn
-    watchdog: #<n> is waiting on the orchestrator: <unrouted children or unacked wakes>
+    watchdog: #<n> is waiting on the orchestrator: <unacked delivered wake>
     watchdog: wake queue unreadable: <what failed>
-    watchdog: cannot read the tracker since <time>: <what failed>
 
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
 repository has one watchdog, serving every watch; the lock's record names its pid and
 process identity, the same convention as the relay's. It writes `watchdog.json`, the
 heartbeat, at start, after every ticket and at the end of every round, with that same pid
 and identity. A heartbeat is fresh when its age is within the tolerance
-`max(300, poll + MARGIN)` seconds, MARGIN being one adapter call plus one gh read
-(60 + 120 s), the longest it waits between two beats: a fixed number would read a healthy
-watchdog as dead as soon as its poll grew past it. The watchdog is healthy when the lock
-names a live process, the heartbeat was written by that process, it is fresh, and its last
-whole read of the tracker (`read_at`, carried across restarts) is within the tolerance too:
-a watchdog that cannot read the tracker watches nothing, and after the tolerance it says so
-once (`cannot read the tracker`). A pid alone is never enough: a dead watchdog's pid can be
-handed to another process, and that process is not a watchdog.
+`max(300, poll + MARGIN)` seconds. MARGIN is one adapter call plus one gh read
+(60 + 120 seconds), the longest wait between two beats. The watchdog is healthy when
+its lock names a live process, that process wrote its heartbeat, and the heartbeat is
+fresh. A pid alone is not enough because another process can receive a dead watchdog's pid.
 
 **Only this machine's sessions are asked.** Every `*.started` records the machine it was
 started on (`machine`, the hostname). A runner answers for its own machine, and asked about
@@ -130,7 +107,7 @@ a session started on another it would say `stopped` of a worker that is alive; s
 from another machine is recorded as unknown and reported, never asked and never lost.
 
 **Arming.** `arm` does nothing when the watchdog is healthy, and ends nothing that still
-beats: one that cannot read the tracker is left running to report it. Otherwise it ends a hung
+beats. Otherwise it ends a hung
 one (a live holder whose heartbeat is past its tolerance, identity checked, SIGTERM), starts
 `run` as a process of its own session with its output appended to `watchdog.log`, and waits
 up to `--wait` seconds (default 5) for it to be healthy. `MMW_WATCHDOG_PY` names the script
@@ -139,14 +116,13 @@ that is started, for tests and for trying the hook against a watchdog that will 
 Files in the state directory, beside the relay's:
 
     watchdog.lock   held for as long as a `run` runs: one watchdog per repository
-    watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance, silence,
+    watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance,
                     idle, stuck, nudge, watches (the open watches as last read, with their orchestrators),
                     held, briefs (each open brief, `<batch>/<n>`), unknown,
-                    lost, relay, read_at, read_failure, pending
+                    lost, relay, pending
                     (alerts not yet sent, each with the runner and session it is for),
                     reported ([runner, session, key] of each once-only alert sent),
-                    nudged (last delivery times of repeating ticket reminders), main (per
-                    orchestrator, why its alerts could not be sent), closed, reads (billed and
+                    main (per orchestrator, why its alerts could not be sent), closed, reads (billed and
                     not-modified comment-list reads since this process started; null for a
                     `Board` that does not count them)
     watchdog.log    what every started watchdog printed, appended
@@ -188,7 +164,6 @@ import briefs  # noqa: E402
 events = relay_mod.events
 
 DEFAULT_POLL = 60
-DEFAULT_SILENCE = 600
 DEFAULT_IDLE = 3600
 DEFAULT_STUCK = 7200
 DEFAULT_NUDGE = 1800
@@ -199,7 +174,6 @@ ADAPTER_TIMEOUT = 60
 # after every ticket read and every runner asked, so one gh read and one adapter call.
 MARGIN = ADAPTER_TIMEOUT + relay_mod.GH_TIMEOUT
 POST_TIMEOUT = 60
-REPORTED_KEEP = 200
 
 ANSWERS = ("alive", "stopped", "unknown")
 
@@ -244,12 +218,8 @@ def tolerance(poll) -> int:
 def health(holder: dict | None, beat: dict | None, now: datetime) -> tuple[bool, str]:
     """Whether a watchdog is healthy, from its lock's live holder and its heartbeat.
 
-    `holder` is `statedir.holder(watchdog.lock)`: the lock's record when its pid runs now
-    with the recorded identity, else None. Healthy is four things together: a live holder,
-    a heartbeat that holder wrote (same pid and identity: a heartbeat left by an earlier
-    watchdog proves nothing about this one), that heartbeat within `tolerance`, and a
-    whole read of the tracker within `tolerance` too (`read_at`, carried across restarts): a
-    watchdog that cannot read the tracker watches nothing, however regularly it beats.
+    `holder` is statedir.holder(watchdog.lock). Its live process must have written the
+    heartbeat, identified by both pid and process identity, within the tolerance.
     """
     if holder is None:
         last = f", last heartbeat {beat.get('at')}" if beat and beat.get("at") else ""
@@ -268,11 +238,6 @@ def health(holder: dict | None, beat: dict | None, now: datetime) -> tuple[bool,
     if age > limit:
         return False, (f"the watchdog (pid {pid}) last beat {age}s ago, past its tolerance of "
                        f"{limit}s")
-    read = parse_iso(beat.get("read_at") or beat.get("started"))
-    if read is not None and (now - read).total_seconds() > limit:
-        return False, (f"the watchdog (pid {pid}) has not read the whole tracker since "
-                       f"{iso(read)}, past its tolerance of {limit}s: "
-                       f"{beat.get('read_failure') or 'no read has succeeded'}")
     return True, f"the watchdog (pid {pid}) beat {max(age, 0)}s ago"
 
 
@@ -305,41 +270,16 @@ def night_open(state: Path) -> bool:
 
 
 DOWN = "down"
-NOT_READING = "not reading"
-# What to do next differs between the two, so the alert says it: a relay that is not
-# there has to be started again; one that is there and cannot read recovers by itself on
-# its next successful read, and a second `open` would put nothing new in its place.
-NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the "
-             "recorded orchestrator, or `dispatch.sh open-ticket <n>` for a ticket outside "
-             "a night; ",
-        NOT_READING: "the process is there and cycling, and it recovers on its own with "
-                     "the first read that works, so opening the night again replaces "
-                     "nothing; when this repeats without clearing, the relay cannot read "
-                     "the tracker (network or credential); "}
+NEXT = "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the " \
+       "recorded orchestrator, or `dispatch.sh open-ticket <n>` for a ticket outside " \
+       "a night; "
 
 
 def relay_problem(state: Path, now: datetime) -> dict | None:
-    """What is wrong with the relay of an open night, or None when it runs and reads.
+    """A relay-down alert, or None when the relay is running within its grace.
 
-    Two facts, which one threshold used to answer as one (#406):
-
-        down          nothing is relaying. Its lock names no live process, or it has
-                      finished no cycle within its grace: whatever lands on a ticket now
-                      wakes nobody until a relay runs again.
-        not reading   it is cycling, and its reads of the tracker have been failing for
-                      longer than its grace. The process is alive; what it is missing is
-                      the tracker.
-
-    Its lock record (`relay.lock`: pid and process identity, statedir.py) has to name a
-    live process for either. Running is then `cycle_at`, which every cycle writes, a
-    failed one included; reading is `at`, the last cycle that read the tracker. Both are
-    measured less the time spent delivering, which delays a cycle without stopping it. A
-    relay that has not read yet, or has not cycled yet, is given its grace from the moment
-    it started. A beat with no cycle stamp was written by a relay older than that field,
-    and its last good poll then answers both questions, as it did before.
-
-    Returns the alert's `kind` (one of the two above), `why` — one checkable fact each
-    time — and the `key` that makes one report per stretch.
+    cycle_at records every cycle, including a failed tracker read. Delivery time does
+    not count against the grace. A beat without cycle_at uses the last good poll.
     """
     holder = statedir.holder(state / "relay.lock")
     try:
@@ -370,8 +310,6 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
     since_cycle = relay_mod.Relay._since_cycle(beat, now)
 
     if since_cycle is None:
-        # A beat an older relay wrote: its last good poll is all there is to judge by,
-        # and it answers both questions, as it did before the cycle stamp existed.
         if not last:
             if within_start_grace:
                 return None
@@ -387,15 +325,6 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
         return finding(DOWN, f"the relay (pid {pid}) last finished a cycle at {cycled}, "
                              f"{int(since_cycle)}s ago, past its grace of {int(grace)}s "
                              f"(last good poll: {last or 'never'}){failure}")
-    cycling = f"the relay (pid {pid}) is cycling (last cycle at {cycled}, {int(since_cycle)}s ago)"
-    if not last:
-        if within_start_grace:
-            return None
-        return finding(NOT_READING, f"{cycling} and has made no good poll since it "
-                                    f"started{failure}")
-    if unattended > grace:
-        return finding(NOT_READING, f"{cycling} and last polled at {last}, {int(unattended)}s "
-                                    f"ago, past its grace of {int(grace)}s{failure}")
     return None
 
 
@@ -535,7 +464,7 @@ class Watchdog:
                  send: Callable[[str, str, str], int] = send_to,
                  post: Callable[..., tuple[bool, str]] = post_lost,
                  clock: Callable[[], datetime] = now_utc,
-                 poll: int = DEFAULT_POLL, silence: int = DEFAULT_SILENCE,
+                 poll: int = DEFAULT_POLL,
                  idle: int = DEFAULT_IDLE, stuck: int = DEFAULT_STUCK, nudge: int = DEFAULT_NUDGE,
                  pid: int | None = None, identity: str | None = None,
                  machine: str | None = None, err=None):
@@ -558,7 +487,7 @@ class Watchdog:
         previous = previous if isinstance(previous, dict) else {}
         self.beat = {
             "pid": self.pid, "identity": self.identity, "started": iso(self.clock()),
-            "poll": poll, "tolerance": tolerance(poll), "silence": silence, "idle": idle,
+            "poll": poll, "tolerance": tolerance(poll), "idle": idle,
             "stuck": stuck, "nudge": nudge,
             "round": 0,
             "watches": previous.get("watches") if isinstance(previous.get("watches"), dict) else {},
@@ -567,15 +496,7 @@ class Watchdog:
                         if isinstance(p, dict) and p.get("runner") and p.get("session")],
             "reported": [r for r in previous.get("reported") or []
                          if isinstance(r, list) and len(r) == 3],
-            "nudged": previous.get("nudged") or {},
             "main": None, "closed": None, "machine": self.machine,
-            # The last round that read every ticket. While reads are failing it is carried
-            # across restarts, so a restart does not wipe out how long the tracker has gone
-            # unread; a watchdog that was reading, or a night that closed, starts afresh.
-            "read_at": (previous.get("read_at") if previous.get("read_failure")
-                        and not previous.get("closed") else None) or iso(self.clock()),
-            "read_failure": (previous.get("read_failure")
-                             if not previous.get("closed") else None),
         }
 
     # ------------------------------------------------------------- files
@@ -648,7 +569,7 @@ class Watchdog:
             findings.append({
                 "key": problem["key"],
                 "text": f"watchdog: relay {problem['kind']} ({problem['why']}); "
-                        f"{NEXT.get(problem['kind'], '')}"
+                        f"{NEXT}"
                         f"details: python3 {Path(__file__).resolve()} "
                         f"status --repo {self.repo}",
                 "to": everyone,
@@ -677,7 +598,7 @@ class Watchdog:
                 continue
             fold = events.fold(comments, issue=number)
             verdict = judge(fold)
-            self._waiting(number, home, fold, wakes, findings)
+            self._waiting(number, home, wakes, findings)
             state = verdict["state"]
             if state == "unreadable":
                 held.append(number)
@@ -697,40 +618,22 @@ class Watchdog:
         self.beat["briefs"] = self._briefs(watches, unknown, findings)
         # A round that could not read every ticket does not know that nothing is held.
         self.beat.update(held=held if read_all else (held or None), unknown=unknown)
-        if read_all:
-            self.beat.update(read_at=iso(now), read_failure=None)
-        else:
-            self.beat["read_failure"] = "; ".join(failures)
-            since = parse_iso(self.beat.get("read_at"))
-            if since is not None and (now - since).total_seconds() > tolerance(self.poll):
-                findings.append({
-                    "key": f"read:{self.beat.get('read_at')}",
-                    "text": f"watchdog: cannot read the tracker since {self.beat.get('read_at')}: "
-                            f"{self.beat['read_failure']}; run `gh issue view` on the "
-                            f"ticket this names; wait for tracker or network recovery, or "
-                            f"leave credential repair to the user",
-                    "to": everyone,
-                })
         woke = self._report(findings)
         self.write_beat()
         return "woke" if woke else "watching"
 
-    def _waiting(self, number: int, home: dict, fold: dict, wakes: list[dict],
+    def _waiting(self, number: int, home: dict, wakes: list[dict],
                  findings: list[dict]) -> None:
-        children = [str(c["child"]) for c in (fold.get("children") or {}).values()
-                    if c.get("opened") and not c.get("resolution")]
-        delivered = [str(w["seq"]) for w in wakes if w.get("ticket") == number
-                     and w.get("watch") == home["key"] and w.get("delivered")]
-        reasons = []
-        if children:
-            reasons.append(f"unrouted children {', '.join(children)}")
-        if delivered:
-            reasons.append(f"unacked delivered wakes {', '.join(delivered)}")
-        if reasons:
-            findings.append({"key": f"wait:{home['key']}:{number}", "repeat": True,
+        for wake in wakes:
+            if wake.get("ticket") != number or wake.get("watch") != home["key"]:
+                continue
+            delivered = parse_iso(wake.get("delivered"))
+            if delivered is None or (self.clock() - delivered).total_seconds() < self.nudge:
+                continue
+            findings.append({"key": f"wait:{wake['seq']}",
                              "text": f"watchdog: #{number} is waiting on the orchestrator: "
-                                     f"{'; '.join(reasons)}; read the ticket, route its children "
-                                     f"and have each recipient ack its wake through dispatch.sh",
+                                     f"unacked delivered wake {wake['seq']}; read the ticket "
+                                     f"and have its recipient ack the wake through dispatch.sh",
                              "to": [home["main"]]})
 
     def _observe(self, record: dict) -> str:
@@ -856,19 +759,14 @@ class Watchdog:
         any more is let go: there is nobody left to tell."""
         reported = [r for r in self.beat.get("reported") or [] if isinstance(r, list) and len(r) == 3]
         done = {tuple(r) for r in reported}
-        nudged = self.beat["nudged"]
         pending = []
         keys = set()
         for finding in findings:
             for runner, session in finding["to"]:
                 mark = (runner, session, finding["key"])
-                last = parse_iso(nudged.get(json.dumps(mark))) if finding.get("repeat") else None
-                if last is not None and (self.clock() - last).total_seconds() < self.nudge:
-                    continue
                 if mark not in done and mark not in keys:
                     pending.append({"key": finding["key"], "text": finding["text"],
-                                    "runner": runner, "session": session,
-                                    "repeat": bool(finding.get("repeat"))})
+                                    "runner": runner, "session": session})
                     keys.add(mark)
         self.beat["pending"] = pending
         if not pending:
@@ -887,10 +785,7 @@ class Watchdog:
             if code in (0, 4):
                 for p in items:
                     mark = [runner, session, p["key"]]
-                    if p.get("repeat"):
-                        nudged[json.dumps(mark)] = iso(self.clock())
-                    else:
-                        reported.append(mark)
+                    reported.append(mark)
                 woke = woke or code == 0
                 continue
             kept.extend(items)
@@ -901,7 +796,7 @@ class Watchdog:
             else:
                 self.err.write(f"watchdog: {runner}.sh send answered {code}; the alerts for "
                                f"{session} are sent again next round\n")
-        self.beat["reported"] = reported[-REPORTED_KEEP:]
+        self.beat["reported"] = reported
         self.beat["pending"] = kept
         self.beat["main"] = problems or None
         return woke
@@ -934,9 +829,9 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
     if ok:
         return True, why
     holder = statedir.holder(state / "watchdog.lock")
-    if holder is not None and not stale(beat, now_utc()):
-        # Beating, and unhealthy for another reason (it cannot read the tracker): starting
-        # another would change nothing, and this one reports what fails.
+    if holder is not None and (
+            (beat.get("pid"), beat.get("identity")) != (holder["pid"], holder["identity"])
+            or not stale(beat, now_utc())):
         return False, why
     if holder is not None:
         # A live holder with a stale heartbeat is hung. Its identity was just checked by
@@ -997,7 +892,7 @@ def cmd_run(args) -> int:
         with statedir.locked(state / "watchdog.lock", wait=0, purpose=f"watchdog for {args.repo}"):
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-            dog = Watchdog(state, args.repo, poll=args.poll, silence=args.silence, idle=args.idle,
+            dog = Watchdog(state, args.repo, poll=args.poll, idle=args.idle,
                            stuck=args.stuck, nudge=args.nudge)
             dog.write_beat()
             while True:
@@ -1041,7 +936,6 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="watch the open watches until none is left or a wake lands")
     run.add_argument("--repo", required=True)
     run.add_argument("--poll", type=positive_int, default=DEFAULT_POLL)
-    run.add_argument("--silence", type=positive_int, default=DEFAULT_SILENCE)
     run.add_argument("--idle", type=positive_int, default=DEFAULT_IDLE)
     run.add_argument("--stuck", type=positive_int, default=DEFAULT_STUCK)
     run.add_argument("--nudge", type=positive_int, default=DEFAULT_NUDGE)

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import subprocess
@@ -56,11 +57,124 @@ class HookCase(unittest.TestCase):
                               input=json.dumps(payload), capture_output=True, text=True,
                               cwd=cwd or self.repo, env=self.env, timeout=15)
 
+    def checklist_path(self, run):
+        return Path(run.stderr.split(" against ", 1)[1].split(", rewrite", 1)[0])
+
+    def checklist_text(self, run):
+        return self.checklist_path(run).read_text()
+
     def glossary(self, text):
         path = self.repo / "docs/contexts/x/CONTEXT.md"
         path.parent.mkdir(parents=True)
         path.write_text(text)
+        (self.repo / "CONTEXT-MAP.md").write_text("[X](docs/contexts/x/CONTEXT.md)\n")
         return path
+
+
+class TestGlossaryFollowsContextMap(HookCase):
+    def test_only_linked_glossaries_appear_in_link_order(self):
+        for name in ("a", "b", "old"):
+            path = self.repo / name / "CONTEXT.md"
+            path.parent.mkdir()
+            path.write_text(f"**local {name} name**:\n")
+        (self.repo / "CONTEXT.md").write_text("**unlisted root name**:\n")
+        nested = self.repo / "src"
+        nested.mkdir()
+        for links in ('[B](b/CONTEXT.md)\n[A](./a/CONTEXT.md)',
+                      '[B](b/CONTEXT.md#language)\n[A](./a/CONTEXT.md "A title")'):
+            with self.subTest(links=links):
+                (self.repo / "CONTEXT-MAP.md").write_text(links + "\n[Other](notes.md)\n")
+                run = self.run_hook("Done.", cwd=nested)
+                self.assertEqual(run.returncode, 2, run.stderr)
+                text = self.checklist_text(run)
+                self.assertIn("local b name", text)
+                self.assertIn("local a name", text)
+                self.assertLess(text.index("local b name"), text.index("local a name"))
+                self.assertNotIn("local old name", text)
+                self.assertNotIn("unlisted root name", text)
+
+
+
+class TestSameGlossaryListedOnce(HookCase):
+    def test_working_copy_of_mmw_glossary_keeps_only_mmw_entry(self):
+        source = V4.parent / "docs/contexts/toolbox/CONTEXT.md"
+        local = self.repo / "CONTEXT.md"
+        local.write_text(source.read_text())
+        run = self.run_hook("Done.")
+        self.assertEqual(run.returncode, 2, run.stderr)
+        text = self.checklist_text(run)
+        self.assertEqual(text.splitlines().count("host hook"), 1)
+        self.assertIn(str(source), text)
+        self.assertNotIn(str(local), text)
+
+
+class TestRootGlossaryWithoutMap(HookCase):
+    def test_root_glossary_or_no_additional_names(self):
+        run = self.run_hook("Done.")
+        self.assertEqual(run.returncode, 2, run.stderr)
+        mmw_only = self.checklist_text(run)
+        self.assertNotIn(str(self.repo), mmw_only)
+        root = self.repo / "CONTEXT.md"
+        root.write_text("**root local name**:\n_Avoid_: local alias\n")
+        run = self.run_hook("Done.")
+        self.assertEqual(run.returncode, 2, run.stderr)
+        text = self.checklist_text(run)
+        self.assertIn(str(root), text)
+        self.assertIn("root local name\n_Avoid_: local alias", text)
+        root.unlink()
+        self.assertEqual(self.checklist_text(self.run_hook("Done.")), mmw_only)
+
+
+class TestBlockIsOneLine(HookCase):
+    def test_blocks_point_to_reusable_checklist_files(self):
+        (self.repo / "CONTEXT.md").write_text("**registered local name**:\n_Avoid_: alias\n")
+        page = self.repo / "page.html"
+        page.write_text("<html>page</html>")
+        pattern = (V4 / "skills/principle-anchor-every-reference/SKILL.md").read_text().split(
+            "**Pattern:**\n", 1)[1].strip().split("\n\n", 1)[0]
+        for host in ("claude", "codex"):
+            run = self.run_hook("Done.", host)
+            self.assertEqual(run.returncode, 2, run.stderr)
+            self.assertEqual(run.stdout, "")
+            self.assertEqual(len(run.stderr.splitlines()), 1, run.stderr)
+            checklist = self.checklist_path(run)
+            text = checklist.read_text()
+            self.assertEqual(checklist.parent, self.mmw / "state/reply-check")
+            self.assertEqual(checklist.name,
+                             f"checklist-{hashlib.sha256(text.encode()).hexdigest()[:12]}.md")
+            self.assertIn("**Pattern:**\n" + pattern, text)
+            self.assertIn("registered local name", text)
+            self.assertIn("_Avoid_: alias", text)
+            self.assertEqual(run.stderr, f"MMW reply check: reread what you wrote for the owner "
+                             f"against {checklist}, rewrite what breaks it, then finish again.\n")
+            before = checklist.stat().st_mtime_ns
+            self.assertEqual(self.run_hook("Done.", host).stderr, run.stderr)
+            self.assertEqual(checklist.stat().st_mtime_ns, before)
+        run = self.run_artifact({"file_path": str(page)})
+        self.assertEqual(run.returncode, 2, run.stderr)
+        self.assertEqual(len(run.stderr.splitlines()), 1, run.stderr)
+        checklist = self.checklist_path(run)
+        self.assertEqual(run.stderr, f"MMW reply check: reread {page} against {checklist}, "
+                         "rewrite what breaks it, then publish again.\n")
+        self.assertIn("registered local name", checklist.read_text())
+        self.assertIn("principle-everything-at-hand", checklist.read_text())
+        self.assertEqual(self.run_artifact({"file_path": str(page)}).returncode, 0)
+
+
+class TestChecklistHasRuleAndNameHeadings(HookCase):
+    def test_stop_checklist_separates_rules_from_registered_names(self):
+        (self.repo / "CONTEXT.md").write_text("**registered local name**:\n_Avoid_: alias\n")
+        run = self.run_hook("Done.", "claude")
+        self.assertEqual(run.returncode, 2, run.stderr)
+        text = self.checklist_text(run)
+        self.assertTrue(text.startswith("# Rules the text must follow\n\n"), text.splitlines()[0])
+        self.assertEqual([line for line in text.splitlines() if line.startswith("# ")],
+                         ["# Rules the text must follow", "# Names the glossaries register"])
+        names = text.index("# Names the glossaries register\n")
+        self.assertLess(text.index("**Pattern:**\n"), names)
+        first_glossary = V4.parent / "docs/contexts/toolbox/CONTEXT.md"
+        self.assertLess(names, text.index(str(first_glossary)))
+        self.assertLess(names, text.index("registered local name"))
 
 
 class TestStopBlocksOnceWithChecklist(HookCase):
@@ -73,15 +187,15 @@ class TestStopBlocksOnceWithChecklist(HookCase):
                     run = self.run_hook(reply, host)
                     self.assertEqual(run.returncode, 2, run.stderr)
                     self.assertEqual(run.stdout, "")
-                    self.assertEqual(run.stderr.splitlines()[0],
-                                     "MMW reply check: reread what you wrote for the owner against "
-                                     "the rules and names below, rewrite what breaks them, then finish again.")
-                    self.assertIn(pattern, run.stderr)
-                    self.assertTrue(run.stderr.rstrip().endswith(
+                    self.assertEqual(len(run.stderr.splitlines()), 1)
+                    text = self.checklist_text(run)
+                    self.assertIn(pattern, text)
+                    self.assertTrue(text.rstrip().endswith(
                         "A name not registered above is written as a plain description, "
                         "or proposed to the owner before it is used."))
                     self.assertEqual(self.run_hook(reply, host, stop_hook_active=True).returncode, 0)
-        self.assertEqual(list(self.mmw.iterdir()), [])
+        self.assertEqual([p for p in self.mmw.rglob("*") if p.is_file()],
+                         [self.checklist_path(run)])
         self.assertFalse(self.log.exists())
 
 
@@ -91,51 +205,40 @@ class TestChecklistListsRegisteredNames(HookCase):
                               "\n**订单**:\n_Avoid_: order, 订货\n\n**plain name**:\nDefinition.\n")
         later = self.repo / "docs/contexts/z/CONTEXT.md"
         later.parent.mkdir(parents=True)
-        later.write_text(local.read_text())
+        later.write_text("**later local name**:\n_Avoid_: later alias\n")
+        (self.repo / "CONTEXT-MAP.md").write_text(
+            "[X](docs/contexts/x/CONTEXT.md)\n[Z](docs/contexts/z/CONTEXT.md)\n")
         nested = self.repo / "src"
         nested.mkdir()
         for host in ("claude", "codex"):
             run = self.run_hook("A completely ordinary reply.", host, cwd=nested)
             self.assertEqual(run.returncode, 2, run.stderr)
+            text = self.checklist_text(run)
             last = -1
-            for path in sorted((V4.parent / "docs/contexts").glob("*/CONTEXT.md")) + [local, later]:
-                self.assertIn(str(path), run.stderr)
-                at = run.stderr.index(str(path))
+            for path in [V4.parent / "docs/contexts" / name / "CONTEXT.md"
+                         for name in ("toolbox", "tickets", "ticket-run", "night",
+                                      "ui-acceptance", "task-board", "release")] + [local, later]:
+                self.assertIn(str(path), text)
+                at = text.index(str(path))
                 self.assertGreater(at, last)
                 last = at
-                block = run.stderr[at + len(str(path)) + 1:].split("\n\n", 1)[0]
+                block = text[at + len(str(path)) + 1:].split("\n\n", 1)[0]
                 for line in path.read_text().splitlines():
                     if line.startswith("**"):
                         self.assertIn(line.split("**", 2)[1], block)
                     if line.startswith("_Avoid_:"):
                         self.assertIn(line, block)
-            self.assertIn("_Avoid_: main agent (not another use), 规格", run.stderr)
-            self.assertIn("_Avoid_: order, 订货", run.stderr)
-            self.assertIn("plain name", run.stderr)
+            self.assertIn("_Avoid_: main agent (not another use), 规格", text)
+            self.assertIn("_Avoid_: order, 订货", text)
+            self.assertIn("plain name", text)
 
     def test_mmw_repository_lists_each_glossary_once(self):
         for host in ("claude", "codex"):
             run = self.run_hook("Done.", host, cwd=V4)
             self.assertEqual(run.returncode, 2, run.stderr)
+            text = self.checklist_text(run)
             for path in sorted((V4.parent / "docs/contexts").glob("*/CONTEXT.md")):
-                self.assertEqual(run.stderr.splitlines().count(str(path)), 1, str(path))
-
-    def test_repository_discovery_keeps_tracked_and_visible_untracked_glossaries(self):
-        (self.repo / ".gitignore").write_text(".venv/\n")
-        for folder, term in ((".venv/dependency", "ignored dependency"),
-                             (".venv/owned", "tracked term"), ("src", "visible term"),
-                             ("node_modules/x", "ignored node"), (".worktrees/x", "ignored worktree"),
-                             (".git/x", "ignored metadata")):
-            path = self.repo / folder / "CONTEXT.md"
-            path.parent.mkdir(parents=True)
-            path.write_text(f"**{term}**:\n_Avoid_: unwanted wording\n")
-        subprocess.run(["git", "-C", str(self.repo), "add", "-f", ".venv/owned/CONTEXT.md"], check=True)
-        run = self.run_hook("Done.")
-        self.assertEqual(run.returncode, 2, run.stderr)
-        for name in ("tracked term", "visible term"):
-            self.assertIn(name, run.stderr)
-        for name in ("ignored dependency", "ignored node", "ignored worktree", "ignored metadata"):
-            self.assertNotIn(name, run.stderr)
+                self.assertEqual(text.splitlines().count(str(path)), 1, str(path))
 
     def test_outside_repository_reads_only_cwd_beside_mmw_glossaries(self):
         outside = self.root / "outside"
@@ -145,9 +248,10 @@ class TestChecklistListsRegisteredNames(HookCase):
         (nested / "CONTEXT.md").write_text("**unrelated term**:\n_Avoid_: 无关用词\n")
         run = self.run_hook("Done.", cwd=outside)
         self.assertEqual(run.returncode, 2, run.stderr)
-        self.assertIn("local term", run.stderr)
-        self.assertIn("host hook", run.stderr)
-        self.assertNotIn("unrelated term", run.stderr)
+        text = self.checklist_text(run)
+        self.assertIn("local term", text)
+        self.assertIn("host hook", text)
+        self.assertNotIn("unrelated term", text)
 
 
 class TestStopExemptionsStillPass(HookCase):
@@ -234,16 +338,17 @@ class TestArtifactBlocksOncePerContent(HookCase):
         self.assertEqual(run.stdout, "")
         self.assertIn(str(page), run.stderr.splitlines()[0])
         self.assertIn("publish again", run.stderr.splitlines()[0])
+        text = self.checklist_text(run)
         last = -1
         for name in ("principle-anchor-every-reference", "principle-everything-at-hand"):
             path = V4 / "skills" / name / "SKILL.md"
             pattern = path.read_text().split("**Pattern:**\n", 1)[1].strip().split("\n\n", 1)[0]
-            self.assertIn(pattern, run.stderr)
-            self.assertGreater(run.stderr.index(pattern), last)
-            last = run.stderr.index(pattern)
-        self.assertIn("页面", run.stderr)
-        self.assertIn("_Avoid_: page (for this concept)", run.stderr)
-        self.assertGreater(run.stderr.index("页面"), last)
+            self.assertIn(pattern, text)
+            self.assertGreater(text.index(pattern), last)
+            last = text.index(pattern)
+        self.assertIn("页面", text)
+        self.assertIn("_Avoid_: page (for this concept)", text)
+        self.assertGreater(text.index("页面"), last)
         again = self.run_artifact({"file_path": str(page)})
         self.assertEqual((again.returncode, again.stdout, again.stderr), (0, "", ""))
         page.write_text("<html>Changed page</html>")
@@ -251,7 +356,8 @@ class TestArtifactBlocksOncePerContent(HookCase):
         self.assertEqual(changed.returncode, 2, changed.stderr)
         self.assertEqual(self.run_artifact({"file_path": str(page)}).returncode, 0)
         files = [p for p in self.mmw.rglob("*") if p.is_file()]
-        self.assertEqual(len(files), 2)
+        self.assertEqual(len([p for p in files if not p.name.startswith("checklist-")]), 2)
+        self.assertEqual(len([p for p in files if p.name.startswith("checklist-")]), 1)
         self.assertTrue(all(p.is_relative_to(self.mmw / "state") for p in files))
         self.assertFalse(self.log.exists())
 
