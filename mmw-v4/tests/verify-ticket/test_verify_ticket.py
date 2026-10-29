@@ -64,6 +64,37 @@ class LedgerRun(unittest.TestCase):
         return code, (posted[0] if posted else ""), out.getvalue()
 
 
+class TestWorkerRunRunsNoRepositoryCheck(unittest.TestCase):
+    def test_only_ticket_criteria_run_on_the_workers_integrated_tree(self):
+        for reverify in (False, True):
+            with self.subTest(reverify=reverify), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                marker = root / "repository-check-ran"
+                (root / "scripts").mkdir()
+                check = root / "scripts/check"
+                check.write_text(f"#!/bin/sh\ntouch '{marker}'\necho 'FAIL unit 0s'\nexit 1\n")
+                check.chmod(0o755)
+                for args in (("init", "-q", "-b", "issue-1"),
+                             ("add", "."),
+                             ("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base"),
+                             ("update-ref", "refs/remotes/origin/main", "HEAD")):
+                    subprocess.run(["git", "-C", str(root), *args], check=True,
+                                   capture_output=True)
+                head = vt.git("rev-parse", "HEAD", cwd=root)
+                posted = []
+                with mock.patch.object(vt, "repo_root", return_value=root), \
+                     mock.patch.object(vt, "fetch_body", return_value=PLAIN), \
+                     mock.patch.object(vt, "fetch_comments", return_value=[
+                         started(ticket=1, base=head, into="main")]), \
+                     mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)), \
+                     redirect_stdout(io.StringIO()) as out:
+                    code = vt.run_checks(1, reverify, "worker")
+                self.assertEqual(code, 0, out.getvalue())
+                self.assertFalse(marker.exists(), "the worker ran scripts/check")
+                self.assertEqual([payload_of(c)["run"] for c in posted],
+                                 ["reverify" if reverify else "self"])
+
+
 class TestWorkerRunWithoutStarted(LedgerRun):
     def test_worker_run_without_started_leaves_outside_owns_unchecked(self):
         code, comment, _ = self.run_ticket(PLAIN, started_event=None)

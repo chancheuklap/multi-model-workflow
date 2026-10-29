@@ -965,13 +965,6 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         if reverify.get("commit") != git("rev-parse", "HEAD"):
             problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
-        elif ((root := repo_root()) is not None and not repository_check_missing(root)
-              and not repository_allows_closeout(comments, git("rev-parse", "HEAD"))):
-            problems.append("the ticket carries no green repository check of HEAD. Commit "
-                            "everything, run `--reverify --actor worker`, and fix what the "
-                            "repository check reports. For a `base_red` record, open a "
-                            "finding after that record with "
-                            "`verify-ticket.py <n> --sub-issue finding <file>`")
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
         # then what stands is a verification of something else, and the final run runs again.
@@ -1986,55 +1979,7 @@ def _run_checks(number: int, reverify: bool,
         recorded = False
     else:
         recorded = True
-    code = result.returncode if recorded else NOT_RECORDED
-    if worker and code in (0, 1) and worker_repository_check(number, root, into, comments) == 1:
-        code = 1
-    return code
-
-
-def worker_repository_check(number: int, root: Path, into: str | None,
-                            comments: list) -> int:
-    if not into or repository_check_missing(root):
-        return 0
-    base_ref = f"origin/{into}"
-    identity = tree_identity(root, base_ref)
-    if identity and covering_proof(comments, "ticket.checked", *identity):
-        print(f"#{number}: the repository check is not run again: {identity[0][:12]} "
-              f"against {identity[1][:12]} already passed on this machine.")
-        return 0
-    checked = run_repository_check(root, base_ref, root, number)
-    if checked["status"] == "red":
-        print(f"#{number}: the repository check is red.\n{checked['detail']}")
-        proof = checked["proof"]
-        if proof is None:
-            return 1
-        steps = detached_base_red_steps(root, base_ref, proof["base"], checked["failed"])
-        if not steps:
-            return 1
-        proof["base_red"] = steps
-        print(f"#{number}: steps {', '.join(steps)} are red on the base too. Open a finding "
-              f"with `verify-ticket.py {number} --sub-issue finding <file>` before closeout.")
-    elif checked["status"] != "pass":
-        print(f"#{number}: the repository check proved nothing: {checked['detail']}")
-        return 2
-    proof = checked["proof"]
-    if proof is None:
-        print(f"#{number}: the repository check is green, but the tree had uncommitted or "
-              "untracked files, so it proves no commit. Commit them and run again.")
-        return 2
-    try:
-        outcome = "red on the base too" if proof.get("base_red") else "green"
-        post_event(number, "ticket.checked",
-                   f"Repository check on {proof['commit'][:12]} against "
-                   f"{proof['base'][:12]}: {outcome}, {len(proof['steps'])} steps",
-                   run="repository", result="met", actor="worker",
-                   stage=events.checked_stage("repository", "worker"), **proof)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        sys.stderr.write(f"#{number}: the repository check finished {outcome} on "
-                         f"{proof['commit'][:12]}, but its ticket.checked event could not "
-                         f"be written ({exc}). Run again once the tracker takes comments.\n")
-        return 2
-    return 0
+    return result.returncode if recorded else NOT_RECORDED
 
 
 def base_red_steps(root: Path, base_ref: str, failed: list[dict]) -> list[str]:
@@ -2077,22 +2022,6 @@ def detached_base_red_steps(root: Path, base_ref: str, base: str,
             return []
         return steps
 
-
-def repository_allows_closeout(comments: list, commit: str) -> bool:
-    repository = None
-    last_finding = -1
-    for position, comment in enumerate(events.normalise(comments)):
-        what, payload = events.parse(comment["body"])
-        if what != "event":
-            continue
-        if (payload["event"] == "ticket.checked"
-                and payload.get("run") == "repository" and payload.get("result") == "met"
-                and payload.get("commit") == commit):
-            repository = (position, payload)
-        if payload["event"] == "child.opened" and payload.get("kind") == "finding":
-            last_finding = position
-    return repository is not None and (not repository[1].get("base_red")
-                                       or last_finding > repository[0])
 
 
 # The exit of a run whose criteria ran and whose result could not be written on the
