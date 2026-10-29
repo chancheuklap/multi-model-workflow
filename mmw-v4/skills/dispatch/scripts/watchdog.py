@@ -310,8 +310,6 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
     since_cycle = relay_mod.Relay._since_cycle(beat, now)
 
     if since_cycle is None:
-        # A beat an older relay wrote: its last good poll is all there is to judge by,
-        # and it answers both questions, as it did before the cycle stamp existed.
         if not last:
             if within_start_grace:
                 return None
