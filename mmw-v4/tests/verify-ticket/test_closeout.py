@@ -946,8 +946,6 @@ class TestRepositoryCheck(unittest.TestCase):
 
 
 class TestCloseoutNeedsNoRepositoryRecord(unittest.TestCase):
-    """Closing a ticket depends on its own criteria, not repository checks."""
-
     def test_a_failing_check_does_not_stop_a_passing_closeout(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

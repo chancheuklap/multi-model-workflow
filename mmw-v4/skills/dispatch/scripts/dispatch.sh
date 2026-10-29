@@ -2523,10 +2523,6 @@ PY
   esac
 }
 
-# Prints `<tier> <commit> <base>` of the newest green spec.checked record on issue <n>
-# that proves the default tier of
-# <commit> against <base> on this machine; non-zero when none does. A step so covered
-# has nothing left to prove and runs nothing.
 repository_proof() {
   local issue="$1" event="$2" commit="$3" base="$4"
   python3 - "$VERIFY" "$issue" "$event" "$commit" "$base" <<'PY'
