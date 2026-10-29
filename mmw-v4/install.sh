@@ -276,7 +276,6 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_MODE="$mode" \
   MMW_HOOK="$NEUTRAL_DIR/dispatch/scripts/tool-guard.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
-  MMW_REPLY_CHECK="$NEUTRAL_DIR/mmw-mode/scripts/reply-check.py" \
   MMW_SESSION_START="$NEUTRAL_DIR/mmw-mode/scripts/session-start.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOOK_HOME="$HOME_DIR" \
@@ -306,9 +305,6 @@ guard = os.environ["MMW_GUARD"]
 # 所以给它比 tool-guard.py 长的超时。
 GUARD_TIMEOUT = 30
 STOP = f"python3 '{guard}' stop "
-reply_check = os.environ["MMW_REPLY_CHECK"]
-REPLY_STOP = f"python3 '{reply_check}' stop "
-ARTIFACT = f"python3 '{reply_check}' artifact claude"
 SESSION_START = f"python3 '{os.environ['MMW_SESSION_START']}' "
 
 
@@ -376,7 +372,9 @@ def grouped(path, event, matcher, command, timeout=TIMEOUT):
             if not isinstance(inner, list):
                 continue
             for index, existing in enumerate(inner):
-                if ours(existing, command):
+                if not ours(existing, command):
+                    continue
+                if len(inner) == 1 or group.get("matcher") == matcher:
                     inner[index] = handler
                     if matcher is None:
                         group.pop("matcher", None)
@@ -384,6 +382,8 @@ def grouped(path, event, matcher, command, timeout=TIMEOUT):
                         group["matcher"] = matcher
                     save(path, data)
                     return
+                inner.pop(index)
+                break
         entry = {"hooks": [handler]}
         if matcher is not None:
             entry["matcher"] = matcher
@@ -395,8 +395,8 @@ def grouped(path, event, matcher, command, timeout=TIMEOUT):
         for group in hooks.get(event) or []:
             inner = group.get("hooks") if isinstance(group, dict) else None
             for existing in inner or []:
-                if isinstance(existing, dict) and existing.get("command") == command \
-                        and (matcher is None or group.get("matcher") == matcher):
+                if existing == {"type": "command", "command": command, "timeout": timeout} \
+                        and group.get("matcher") == matcher:
                     return True
         return False
 
@@ -490,24 +490,20 @@ def point(host_home, path, label, actions, command=None):
 
 
 for host, host_home, path in grouped_hosts:
-    matcher = "startup|resume|clear|compact" if host == "claude" else None
     command = for_host(host, SESSION_START)
-    point(host_home, path, "SessionStart session-start.py",
-          grouped(path, "SessionStart", matcher, command), command)
+    for event in ("SessionStart", "UserPromptSubmit"):
+        point(host_home, path, event + " session-start.py",
+              grouped(path, event, None, command, 2), command)
     point(host_home, path, "PreToolUse Bash",
           grouped(path, "PreToolUse", "Bash", for_host(host, COMMAND)), for_host(host, COMMAND))
     point(host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
           grouped(path, "PreToolUse", QUESTION_TOOLS[host], for_host(host, QUESTION)),
           for_host(host, QUESTION))
-    if host == "claude":
-        point(host_home, path, "PreToolUse Artifact",
-              grouped(path, "PreToolUse", "Artifact", ARTIFACT), ARTIFACT)
 
 for host, host_home, path in grouped_hosts:
-    for command, label in ((STOP, "Stop turn-guard.py"), (REPLY_STOP, "Stop reply-check.py")):
-        point(host_home, path, label,
-              grouped(path, "Stop", None, for_host(host, command), GUARD_TIMEOUT),
-              for_host(host, command))
+    command = for_host(host, STOP)
+    point(host_home, path, "Stop turn-guard.py",
+          grouped(path, "Stop", None, command, GUARD_TIMEOUT), command)
 
 failed = False
 count = 0

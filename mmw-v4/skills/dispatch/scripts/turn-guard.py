@@ -7,9 +7,6 @@ For every state directory under MMW_HOME/state with an open watch, call watchdog
 and append its result to guard.log. Arming does nothing when the watchdog is healthy.
 An unsuccessful arm is logged and still lets the turn end.
 
-own_brief, is_main and their runner identity lookup also serve reply-check.py, which
-uses them without arming the watchdog or asking the tracker.
-
 Exit 0 allows the turn, including unknown arguments. An error exits 1 with its reason
 on stderr and does not request a continuation from the host.
 """

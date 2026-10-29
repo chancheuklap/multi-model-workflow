@@ -1,7 +1,3 @@
-"""mmw-v4/install.sh in a throwaway home (MMW_INSTALL_HOME), with fake orca, gh, node, nmem,
-paseo and launchctl first on PATH. The v3 machine each case starts from is made by running
-mmw-v3/install.sh into the same home, so the takeover and the way back meet what v3 really
-writes."""
 import json
 import tomllib
 import os
@@ -12,7 +8,6 @@ import unittest
 from pathlib import Path
 
 V4 = Path(__file__).resolve().parents[2]
-V3 = V4.parent / "mmw-v3"
 FIXTURE_CATALOG = V4 / "tests/dispatch/catalog.json"
 
 # Every row is one the fixture catalog offers, so models.py's validation passes; the
@@ -92,6 +87,24 @@ class InstallTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
         self.home = root / "home"
+        self.v4 = root / "checkout/mmw-v4"
+        self.v4.mkdir(parents=True)
+        for child in V4.iterdir():
+            (self.v4 / child.name).symlink_to(child, target_is_directory=child.is_dir())
+        self.legacy = self.v4.parent / "mmw-v3"
+        self.legacy.mkdir()
+        (self.legacy / "install.sh").write_text(
+            'python3 - <<\'STUB\'\n'
+            'import json, os\n'
+            'from pathlib import Path\n'
+            'home = Path(os.environ["MMW_INSTALL_HOME"])\n'
+            '(home / "legacy-called.json").write_text(json.dumps({"cwd": os.getcwd(), '
+            '"models": json.loads((home / ".mmw/models.json").read_text())}))\n'
+            'STUB\nexit 23\n')
+        roles = self.legacy / "skills/dispatch/roles.json"
+        roles.parent.mkdir(parents=True)
+        roles.write_text(json.dumps({"roles": [{"name": name, "kind": "session"}
+                                               for name in V3_MODELS["rows"]]}))
         self.bin = root / "bin"
         self.log = root / "calls.log"
         self.bin.mkdir()
@@ -129,140 +142,141 @@ class InstallTest(unittest.TestCase):
         return env
 
     def run_install(self, version, *args, env=None):
-        script = (V4 if version == "v4" else V3) / "install.sh"
+        if version != "v4":
+            raise AssertionError("tests execute only the v4 installer and the synthetic rollback stub")
+        script = self.v4 / "install.sh"
         return subprocess.run(["bash", str(script), *args], env=env or self.env(),
                               capture_output=True, text=True)
 
-    def install_v3(self):
-        r = self.run_install("v3")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        return r
+    def seed_legacy_install(self):
+        for where in (".agents/skills", ".claude/skills"):
+            for name in ("dispatch", "mmw-mode", "triage"):
+                target = self.legacy / "skills" / name
+                target.mkdir(parents=True, exist_ok=True)
+                (self.home / where).mkdir(parents=True, exist_ok=True)
+                (self.home / where / name).symlink_to(target)
+        prompt = self.legacy / "prompt/shared.md"
+        prompt.parent.mkdir()
+        prompt.write_text("synthetic legacy prompt")
+        (self.home / ".claude/CLAUDE.md").symlink_to(prompt)
+        for host, config in (("claude", self.home / ".claude/settings.json"),
+                             ("codex", self.home / ".codex/hooks.json")):
+            data = json.loads(config.read_text()) if config.exists() else {}
+            command = f"python3 '{self.home}/.agents/skills/mmw-mode/scripts/mode-hook.py' {host}"
+            data.setdefault("hooks", {}).setdefault("Stop", []).append({"hooks": [
+                {"type": "command", "command": command}]})
+            config.write_text(json.dumps(data))
+        (self.home / ".codex/config.toml").write_text('model = "keep-model"\n')
+        (self.home / ".mmw/installed-root").write_text(f"{self.legacy}\n")
+        (self.home / ".zshrc").write_text("unrelated shell settings")
+        (self.home / ".cursor/mcp.json").write_text('{"unrelated": true}')
+        board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
+        board.parent.mkdir(parents=True)
+        board.write_text(str(self.legacy / "board/supervisor.py"))
 
     def link(self, name, where=".agents/skills"):
         return os.readlink(self.home / where / name)
 
-    def test_session_start_is_merged_trusted_and_checked(self):
+    def test_advisory_hooks_are_merged_trusted_and_checked(self):
         other = {"matcher": "startup", "hooks": [
-            {"type": "command", "command": "other-session-start"}]}
+            {"type": "command", "command": "other-context-hook"}]}
         configs = (("claude", self.home / ".claude/settings.json"),
                    ("codex", self.home / ".codex/hooks.json"))
         for host, config in configs:
             data = json.loads(config.read_text()) if config.exists() else {}
-            data.setdefault("hooks", {})["SessionStart"] = [other]
+            for event in ("SessionStart", "UserPromptSubmit"):
+                data.setdefault("hooks", {})[event] = [other]
             config.write_text(json.dumps(data))
         for _ in range(2):
             install = self.run_install("v4")
             self.assertEqual(install.returncode, 0, install.stderr)
         for host, config in configs:
-            data = json.loads(config.read_text())
-            groups = data["hooks"]["SessionStart"]
-            self.assertIn(other, groups)
-            expected = f"python3 '{self.home}/.agents/skills/mmw-mode/scripts/session-start.py' {host}"
-            ours = [(i, g) for i, g in enumerate(groups)
-                    if any(h["command"] == expected for h in g["hooks"])]
-            self.assertEqual(len(ours), 1, groups)
-            index, group = ours[0]
-            self.assertEqual(group.get("matcher"),
-                             "startup|resume|clear|compact" if host == "claude" else None)
-            if host == "codex":
-                key = f"{config}:session_start:{index}:0"
-                trust = tomllib.loads((self.home / ".codex/config.toml").read_text())
-                self.assertRegex(trust["hooks"]["state"][key]["trusted_hash"], r"^sha256:[0-9a-f]{64}$")
-            data["hooks"]["SessionStart"].remove(group)
-            config.write_text(json.dumps(data))
-            before = config.read_bytes()
-            check = self.run_install("v4", "--check")
-            self.assertEqual(check.returncode, 1, check.stderr)
-            self.assertIn("SessionStart", check.stderr)
-            self.assertEqual(config.read_bytes(), before)
-            data["hooks"]["SessionStart"].append(group)
-            config.write_text(json.dumps(data))
+            for event, label in (("SessionStart", "session_start"),
+                                 ("UserPromptSubmit", "user_prompt_submit")):
+                data = json.loads(config.read_text())
+                groups = data["hooks"][event]
+                self.assertIn(other, groups)
+                expected = f"python3 '{self.home}/.agents/skills/mmw-mode/scripts/session-start.py' {host}"
+                ours = [(i, g) for i, g in enumerate(groups)
+                        if any(h["command"] == expected for h in g["hooks"])]
+                self.assertEqual(len(ours), 1, groups)
+                index, group = ours[0]
+                self.assertIsNone(group.get("matcher"))
+                self.assertEqual(group["hooks"], [
+                    {"type": "command", "command": expected, "timeout": 2}])
+                if host == "codex":
+                    key = f"{config}:{label}:{index}:0"
+                    trust_path = self.home / ".codex/config.toml"
+                    trusted = trust_path.read_text()
+                    trust = tomllib.loads(trusted)
+                    self.assertRegex(trust["hooks"]["state"][key]["trusted_hash"], r"^sha256:[0-9a-f]{64}$")
+                    trust_path.write_text(trusted.replace(
+                        f'[hooks.state."{key}"]\ntrusted_hash = "sha256:',
+                        f'[hooks.state."{key}"]\ntrusted_hash = "invalid:'))
+                    check = self.run_install("v4", "--check")
+                    self.assertEqual(check.returncode, 1, check.stderr)
+                    self.assertIn(key, check.stderr)
+                    trust_path.write_text(trusted)
+                data["hooks"][event].remove(group)
+                config.write_text(json.dumps(data))
+                before = config.read_bytes()
+                check = self.run_install("v4", "--check")
+                self.assertEqual(check.returncode, 1, check.stderr)
+                self.assertIn(event, check.stderr)
+                self.assertEqual(config.read_bytes(), before)
+                data["hooks"][event].append(group)
+                config.write_text(json.dumps(data))
         self.assertEqual(self.run_install("v4", "--check").returncode, 0)
 
-    def test_reply_check_is_registered_trusted_and_reported_when_missing(self):
-        install = self.run_install("v4")
-        self.assertEqual(install.returncode, 0, install.stderr)
-        for host, config in (("claude", self.home / ".claude/settings.json"),
-                             ("codex", self.home / ".codex/hooks.json")):
-            data = json.loads(config.read_text())
-            stops = data["hooks"]["Stop"]
-            commands = [h["command"] for group in stops for h in group["hooks"]]
-            expected = f"python3 '{self.home}/.agents/skills/mmw-mode/scripts/reply-check.py' stop {host}"
-            self.assertEqual(commands.count(expected), 1)
-            self.assertEqual(len([c for c in commands if "turn-guard.py' stop" in c]), 1)
-            if host == "codex":
-                group = next(i for i, g in enumerate(stops)
-                             if any(h["command"] == expected for h in g["hooks"]))
-                key = f"{config}:stop:{group}:0"
-                trust = tomllib.loads((self.home / ".codex/config.toml").read_text())
-                self.assertRegex(trust["hooks"]["state"][key]["trusted_hash"], r"^sha256:[0-9a-f]{64}$")
-            before = config.read_bytes()
-            data["hooks"]["Stop"] = [g for g in stops
-                                      if not any(h["command"] == expected for h in g["hooks"])]
-            config.write_text(json.dumps(data))
-            broken = config.read_bytes()
-            check = self.run_install("v4", "--check")
-            self.assertEqual(check.returncode, 1, check.stderr)
-            self.assertIn("reply-check.py", check.stderr)
-            self.assertEqual(config.read_bytes(), broken, "--check must not repair the registration")
-            config.write_bytes(before)
-        config = self.home / ".codex/config.toml"
-        trusted = config.read_text()
-        config.write_text(trusted.replace(f'[hooks.state."{key}"]\ntrusted_hash = "sha256:',
-                                         f'[hooks.state."{key}"]\ntrusted_hash = "invalid:'))
-        check = self.run_install("v4", "--check")
-        self.assertEqual(check.returncode, 1, check.stderr)
-        self.assertIn(key, check.stderr)
-        config.write_text(trusted)
-        check = self.run_install("v4", "--check")
-        self.assertEqual(check.returncode, 0, check.stderr)
-
-    def test_artifact_check_is_registered_on_claude_only_and_reported_when_missing(self):
-        claude = self.home / ".claude/settings.json"
-        codex = self.home / ".codex/hooks.json"
-        script = self.home / ".agents/skills/mmw-mode/scripts/reply-check.py"
-        expected = f"python3 '{script}' artifact claude"
-        stale = f"python3 '{script}' artifact codex"
-        codex.write_text(json.dumps({"hooks": {"PreToolUse": [
-            {"matcher": "Artifact", "hooks": [{"type": "command", "command": stale}]}]}}))
+    def test_reply_checks_migrate_without_touching_other_hooks_or_state(self):
+        old_script = self.home / ".agents/skills/mmw-mode/scripts/reply-check.py"
+        context_script = self.home / ".agents/skills/mmw-mode/scripts/session-start.py"
+        configs = (("claude", self.home / ".claude/settings.json"),
+                   ("codex", self.home / ".codex/hooks.json"))
+        for host, config in configs:
+            old = lambda gate: {"type": "command", "command": f"python3 '{old_script}' {gate} {host}",
+                                "timeout": 30}
+            hooks = {"Stop": [{"hooks": [old("stop"), {"type": "command", "command": "other-stop"}]}],
+                     "PreToolUse": [{"matcher": "Artifact", "hooks": [old("artifact"),
+                                    {"type": "command", "command": "other-artifact"}]}],
+                     "SessionStart": [{"matcher": "startup|resume|clear|compact", "hooks": [
+                         {"type": "command", "command": f"python3 '{context_script}' {host}", "timeout": 10}]}],
+                     "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "other-prompt"}]}]}
+            config.write_text(json.dumps({"hooks": hooks, "unrelated": "keep"}))
+        state = self.home / ".mmw/state/reply-check/checklist.md"
+        state.parent.mkdir(parents=True)
+        state.write_text("keep this existing state")
         for _ in range(2):
-            install = self.run_install("v4")
-            self.assertEqual(install.returncode, 0, install.stderr)
-        data = json.loads(claude.read_text())
-        groups = data["hooks"]["PreToolUse"]
-        ours = [g for g in groups if any(h["command"] == expected for h in g["hooks"])]
-        self.assertEqual(len(ours), 1, groups)
-        self.assertEqual(ours[0]["matcher"], "Artifact")
-        self.assertIn("someone-elses-hook", hook_commands(claude))
-        self.assertFalse([c for c in hook_commands(codex) if " artifact " in c])
-        codex_before = codex.read_bytes()
-        check = self.run_install("v4", "--check")
-        self.assertEqual(check.returncode, 0, check.stderr)
-        self.assertIn("PreToolUse Artifact", check.stdout)
-        groups.remove(ours[0])
-        claude.write_text(json.dumps(data))
-        broken = claude.read_bytes()
-        check = self.run_install("v4", "--check")
-        self.assertEqual(check.returncode, 1, check.stderr)
-        self.assertIn(f"{claude}  PreToolUse Artifact", check.stderr)
-        self.assertEqual(claude.read_bytes(), broken, "--check must not repair the registration")
-        self.assertEqual(codex.read_bytes(), codex_before)
+            run = self.run_install("v4")
+            self.assertEqual(run.returncode, 0, run.stderr)
+        for host, config in configs:
+            data = json.loads(config.read_text())
+            commands = hook_commands(config)
+            self.assertFalse([c for c in commands if "reply-check.py" in c])
+            self.assertEqual(data["unrelated"], "keep")
+            for command in ("other-stop", "other-artifact", "other-prompt"):
+                self.assertEqual(commands.count(command), 1)
+            self.assertEqual(sum("turn-guard.py' stop" in c for c in commands), 1)
+            self.assertEqual(sum("tool-guard.py' pretool" in c for c in commands), 1)
+            self.assertEqual(sum("tool-guard.py' question" in c for c in commands), 1)
+        self.assertEqual(state.read_text(), "keep this existing state")
+        self.assertEqual(self.run_install("v4", "--check").returncode, 0)
 
     def test_takes_over_a_v3_machine(self):
-        self.install_v3()
+        self.seed_legacy_install()
         board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
-        self.assertIn(str(V3 / "board/supervisor.py"), board.read_text())
+        self.assertIn(str(self.legacy / "board/supervisor.py"), board.read_text())
         untouched = {p: p.read_bytes() for p in (self.home / ".zshrc", self.home / ".cursor/mcp.json")}
         r = self.run_install("v4")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn(str(V4 / "board/supervisor.py"), board.read_text())
+        self.assertIn(str(self.v4 / "board/supervisor.py"), board.read_text())
 
         for where in (".agents/skills", ".claude/skills"):
-            self.assertEqual(self.link("dispatch", where), str(V4 / "skills/dispatch"))
-            self.assertEqual(self.link("mmw-mode", where), str(V4 / "skills/mmw-mode"))
+            self.assertEqual(self.link("dispatch", where), str(self.v4 / "skills/dispatch"))
+            self.assertEqual(self.link("mmw-mode", where), str(self.v4 / "skills/mmw-mode"))
             # A skill only v3 has is removed: the two versions are never installed together.
             self.assertFalse((self.home / where / "triage").is_symlink(), where)
-        self.assertEqual(os.readlink(self.home / ".claude/CLAUDE.md"), str(V4 / "prompt/shared.md"))
+        self.assertEqual(os.readlink(self.home / ".claude/CLAUDE.md"), str(self.v4 / "prompt/shared.md"))
         self.assertIn("generated from mmw-v4/prompt/shared.md",
                       (self.home / ".codex/AGENTS.md").read_text().splitlines()[0])
 
@@ -281,7 +295,7 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         self.assertIn("explainer", json.loads(backups[0].read_text())["rows"])
 
-        self.assertEqual((self.home / ".mmw/installed-root").read_text().strip(), str(V4))
+        self.assertEqual((self.home / ".mmw/installed-root").read_text().strip(), str(self.v4))
         for path, before in untouched.items():
             self.assertEqual(path.read_bytes(), before, path)
 
@@ -291,7 +305,7 @@ class InstallTest(unittest.TestCase):
         self.assertNotIn("triage", check.stdout + check.stderr)
 
     def test_a_second_install_changes_nothing(self):
-        self.install_v3()
+        self.seed_legacy_install()
         self.assertEqual(self.run_install("v4").returncode, 0)
         models = (self.home / ".mmw/models.json").read_bytes()
         backups = sorted((self.home / ".mmw").glob("models.json.bak-*"))
@@ -300,27 +314,24 @@ class InstallTest(unittest.TestCase):
         self.assertEqual((self.home / ".mmw/models.json").read_bytes(), models)
         self.assertEqual(sorted((self.home / ".mmw").glob("models.json.bak-*")), backups)
 
-    def test_back_returns_the_machine_to_v3(self):
-        self.install_v3()
+    def test_back_restores_shared_state_then_delegates_and_preserves_exit_code(self):
+        self.seed_legacy_install()
         self.assertEqual(self.run_install("v4").returncode, 0)
-        r = self.run_install("v4", "--back")
-        self.assertEqual(r.returncode, 0, r.stderr)
-
+        untouched = {path: path.read_bytes() for path in (
+            self.home / ".zshrc", self.home / ".cursor/mcp.json",
+            self.home / ".claude/settings.json", self.home / ".codex/hooks.json")}
+        run = self.run_install("v4", "--back")
+        self.assertEqual(run.returncode, 23, run.stderr)
+        called = json.loads((self.home / "legacy-called.json").read_text())
+        self.assertEqual(called["models"]["rows"], V3_MODELS["rows"])
+        self.assertIn(str(self.legacy / "install.sh"), run.stdout)
         for where in (".agents/skills", ".claude/skills"):
-            self.assertEqual(self.link("dispatch", where), str(V3 / "skills/dispatch"))
-            self.assertEqual(self.link("triage", where), str(V3 / "skills/triage"))
-            self.assertFalse((self.home / where / "control-cli").is_symlink(),
-                             "a skill only v4 has goes with --back")
-        self.assertEqual(os.readlink(self.home / ".claude/CLAUDE.md"), str(V3 / "prompt/shared.md"))
-        models = json.loads((self.home / ".mmw/models.json").read_text())
-        self.assertEqual(models["rows"], V3_MODELS["rows"])
-        self.assertTrue([c for c in hook_commands(self.home / ".claude/settings.json") if "mode-hook.py" in c])
-        self.assertEqual((self.home / ".mmw/installed-root").read_text().strip(), str(V3))
-        board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
-        self.assertIn(str(V3 / "board/supervisor.py"), board.read_text())
-
-        check = self.run_install("v3", "--check")
-        self.assertEqual(check.returncode, 0, check.stderr)
+            for link in (self.home / where).iterdir():
+                self.assertNotIn("mmw-v4/skills/", os.readlink(link))
+        self.assertFalse((self.home / ".claude/CLAUDE.md").exists())
+        self.assertFalse((self.home / ".claude/CLAUDE.md").is_symlink())
+        for path, before in untouched.items():
+            self.assertEqual(path.read_bytes(), before)
 
     def test_hooks_left_in_cursor_and_grok_are_reported_then_removed(self):
         self.assertEqual(self.run_install("v4").returncode, 0)
@@ -434,21 +445,21 @@ class InstallTest(unittest.TestCase):
         self.assertNotIn("gh 没登录", check.stderr)
 
     def test_check_reports_v3_rows_before_install(self):
-        self.install_v3()
-        (self.home / ".mmw/installed-root").write_text(f"{V4}\n")
+        self.seed_legacy_install()
+        (self.home / ".mmw/installed-root").write_text(f"{self.v4}\n")
         r = self.run_install("v4", "--check")
         self.assertEqual(r.returncode, 1)
         self.assertIn("explainer", r.stderr)
         self.assertIn("mode-hook.py", r.stderr)
 
     def test_every_host_gets_subagent_depth_two_and_keeps_its_other_settings(self):
-        self.install_v3()
+        self.seed_legacy_install()
         (self.home / ".grok").mkdir()
         grok = self.home / ".grok/config.toml"
         grok.write_text("[compat.claude]\nagents = false\n")
         codex = self.home / ".codex/config.toml"
         codex.write_text(codex.read_text() + '\n[agents]\nmax_threads = 12\nmax_depth = 1\n')
-        (self.home / ".mmw/installed-root").write_text(f"{V4}\n")
+        (self.home / ".mmw/installed-root").write_text(f"{self.v4}\n")
         before = self.run_install("v4", "--check")
         self.assertEqual(before.returncode, 1)
         for host in ("claude", "codex"):
@@ -475,12 +486,12 @@ class InstallTest(unittest.TestCase):
         # writes the launchd job, which a test home alone skips.
         env = self.env()
         env["HOME"] = str(self.home)
-        r = subprocess.run(["bash", str(V4 / "install.sh")], env=env, capture_output=True, text=True)
+        r = subprocess.run(["bash", str(self.v4 / "install.sh")], env=env, capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         plist = self.home / "Library/LaunchAgents/com.mmw.prompt-sync.plist"
-        self.assertIn(str(V4 / "prompt/render.py"), plist.read_text())
+        self.assertIn(str(self.v4 / "prompt/render.py"), plist.read_text())
         self.assertIn("launchctl bootstrap", self.log.read_text())
-        check = subprocess.run(["bash", str(V4 / "install.sh"), "--check"], env=env,
+        check = subprocess.run(["bash", str(self.v4 / "install.sh"), "--check"], env=env,
                                capture_output=True, text=True)
         self.assertNotIn("com.mmw.prompt-sync", check.stderr)
 
@@ -490,7 +501,7 @@ class InstallTest(unittest.TestCase):
         self.assertNotIn("nmem", self.log.read_text())
         self.assertNotIn("launchctl", self.log.read_text())
         board = self.home / "Library/LaunchAgents/com.mmw.board.plist"
-        self.assertIn(str(V4 / "board/supervisor.py"), board.read_text())
+        self.assertIn(str(self.v4 / "board/supervisor.py"), board.read_text())
         self.assertFalse((self.home / ".zshrc").exists())
         self.assertFalse((self.home / ".cursor/mcp.json").exists())
 

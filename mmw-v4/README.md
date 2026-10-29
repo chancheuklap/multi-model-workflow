@@ -19,7 +19,7 @@ bash mmw-v4/install.sh --back     # go back to v3
 `install.sh` points each host at this checkout's `mmw-v4/`:
 
 - **Skills.** Every directory under `mmw-v4/skills/` that has a `SKILL.md` gets a symbolic link in `~/.agents/skills` and in `~/.claude/skills`. Codex reads the first directory. Claude Code reads only the second.
-- **Hooks.** The `dispatch` skill's `tool-guard.py` and `turn-guard.py`, and the `mmw-mode` skill's `reply-check.py` and `session-start.py`, go into each host's own hook configuration.
+- **Hooks.** The `dispatch` skill's `tool-guard.py` and `turn-guard.py`, and the `mmw-mode` skill's `session-start.py` go into each host's own hook configuration. `session-start.py` supplies the mode pointer at session entry and compaction, plus glossary entry paths. Before each message, it reminds the agent to use relevant definitions already in context or read them on demand. These reminders do not judge replies or request a retry.
 - **The user-level prompt.** `prompt/shared.md` reaches Claude Code as `~/.claude/CLAUDE.md`, and Codex as an `AGENTS.md` that `prompt/render.py` writes. [`prompt/README.md`](./prompt/README.md) has the details.
 - **A launchd task.** `com.mmw.prompt-sync` watches `shared.md` and writes the Codex copy again after each change.
 - **The task board.** The `com.mmw.board` launchd task keeps `board/supervisor.py` running, which serves one local board per repository registered in `~/.mmw/boards.json`. [`board/AGENTS.md`](./board/AGENTS.md) says how it reads GitHub and restarts onto new code.

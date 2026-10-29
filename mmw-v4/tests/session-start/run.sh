@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test session-start.py as a process with both hosts' SessionStart payloads.
+# Test session-start.py as a process with both hosts' session and per-turn payloads.
 # Needs python3 and uv.
 set -euo pipefail
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_module_paths.py" || { echo "a toolbox script names a module file that does not exist (above); fix it before running this suite" >&2; exit 1; }
