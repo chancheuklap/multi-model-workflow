@@ -643,56 +643,27 @@ class TestCategorizedReviewFindings(unittest.TestCase):
             self.assertIn("REVIEW abcdef0..1234567", err)
 
 
-class TestGreenBeforeWork(unittest.TestCase):
-    """`--draft` prefills `Green before work:` from a `baseline` run's met criteria."""
+class TestNoGreenBeforeWork(unittest.TestCase):
+    def test_draft_and_closeout_need_no_explanations_of_old_baseline_results(self):
+        import test_closeout as tc
 
-    def test_each_criterion_already_green_on_the_base_is_prefilled(self):
-        code, err, text, _ = run_draft((BASELINE_GREEN, MET_RUN))
-        self.assertEqual(code, 0, err)
-        self.assertIn("Green before work:", text)
-        self.assertIn("- AC1: <fill>", text)
-        self.assertNotIn("- AC2: <fill>", text)
+        for history in ((MET_RUN,), (BASELINE_GREEN, MET_RUN)):
+            with self.subTest(old_baseline=len(history) == 2):
+                code, err, text, _ = run_draft(history)
+                self.assertEqual(code, 0, err)
+                self.assertNotIn("Green before work:", text)
+                filled = text.replace(vt.FILL, "none")
+                code, err, seen = tc.check(filled, comments=history, body=BODY,
+                                           check_only=False)
+                self.assertEqual(code, 0, err)
+                self.assertEqual(seen["closed"], [77])
 
-    def test_none_when_no_baseline_run_is_on_the_ticket(self):
-        code, err, text, _ = run_draft((MET_RUN,))
-        self.assertEqual(code, 0, err)
-        self.assertIn("Green before work:\nnot run: no baseline `ticket.checked`", text)
-        self.assertNotIn("Green before work:\nNone", text)
-
-    def test_none_when_the_baseline_ran_and_found_nothing_green(self):
-        red = checked(
-            "baseline",
-            """- [ ] AC1: the importer writes six rows
-  CHECK: pytest -q tests/test_import.py
-  EXPECT: 1 passed
-  EVIDENCE: exit=1; EXPECT=missed""",
-            "UNMET: 1 (met: 0)",
-            commit="0" * 40,
-        )
-        code, err, text, _ = run_draft((red, MET_RUN))
-        self.assertEqual(code, 0, err)
-        self.assertIn("Green before work:\nNone", text)
-        self.assertNotIn("not run:", text)
-
-    def test_a_baseline_tick_does_not_count_as_a_run_of_your_own(self):
-        """`newest_run` for the closing-comment draft's ticks still reads only `self`."""
+    def test_an_old_baseline_does_not_count_as_a_run_of_your_own(self):
         code, err, text, _ = run_draft((BASELINE_GREEN,))
         self.assertEqual(code, 0, err)
         self.assertIn("- [ ] AC1: the importer writes six rows", text)
         self.assertIn("EVIDENCE: pending", text)
 
-    def test_closeout_refuses_an_unfilled_green_before_work_line(self):
-        comments = (BASELINE_GREEN, MET_RUN)
-        code, err, text, fake = run_draft(comments)
-        self.assertEqual(code, 0, err)
-        filled = (text
-                  .replace(f"skipped: {vt.FILL}", "skipped: none")
-                  .replace(f"\n{vt.FILL}\n", "\nnone\n"))
-        self.assertIn("- AC1: <fill>", filled)
-        self.assertNotIn(f"skipped: {vt.FILL}", filled)
-        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
-            problems = vt.draft_problems(filled, list(comments))
-        self.assertTrue(any("<fill>" in p for p in problems), problems)
 
 
 if __name__ == "__main__":

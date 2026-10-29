@@ -109,13 +109,14 @@ for (let n = 0; n < 5; n++) test(`other ${n}`, () => expect(1).toBe(1));
                     cases.append(('pytest', root, quiet + [f'test_subtests.py::test_{name}'], success))
         cases += [('vitest', root, ['cases.test.js'], True),
                   ('vitest', root, ['cases.test.js', '-t', 'selected'], True),
+                  ('vitest', root, ['cases.test.js', '-t', 'no-matching-test'], False),
                   ('vitest', root, ['failed.test.js'], False),
                   ('vitest', root, ['only-failed.test.js'], False),
                   ('vitest', root, ['missing.test.js'], False),
                   ('vitest', root, ['todo.test.js'], True),
                   ('vitest', root, ['todo-skip.test.js'], True),
-                  ('vitest', root, ['todo-only.test.js'], True),
-                  ('vitest', root, ['skip-only.test.js'], True)]
+                  ('vitest', root, ['todo-only.test.js'], False),
+                  ('vitest', root, ['skip-only.test.js'], False)]
         with ThreadPoolExecutor(max_workers=6) as pool:
             results = list(pool.map(lambda case: record(*case), cases))
         for runner, version in [('pytest', '9.1.1'), ('vitest', '5.0.5')]:

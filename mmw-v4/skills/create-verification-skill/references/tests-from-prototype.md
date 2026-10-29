@@ -37,7 +37,7 @@ The Spec reviewer uses these frames to compare the same state on both targets.
 Assertions prove what the user sees and can accomplish. The ticket's back-end
 tests prove storage. A slice
 with back-end work also gets a back-end test CHECK naming its dedicated test
-database, separate from e2e data. Its EXPECT requires zero skipped tests.
+database, separate from e2e data.
 
 For an affected existing feature, keep its registered tests as pins when
 behavior stays unchanged. When behavior changes, rewrite its old tests from

@@ -26,7 +26,7 @@ When the owner approves landing a project branch into the branch it was cut from
 - Line 1: the owner's page address or local path.
 - One sentence in the owner's language saying what the change does.
 - One `Closes #<n>` per ticket carried by the pull request, so GitHub lists it on each ticket.
-- Per ticket, its closing verdict, `ALL MET` or `HANDOFF REQUIRED`, met of total, and the baseline run's met count, with a link to its closing comment. For skill text a session wrote, the walk record's link in its place, or `no walk: wording only`.
+- Per ticket, its closing verdict, `ALL MET` or `HANDOFF REQUIRED`, met of total, with a link to its closing comment. For skill text a session wrote, the walk record's link in its place, or `no walk: wording only`.
 - Each landing's recorded compare link.
 - The `scripts/check --all` summary line and each `e2e-<product>` step's `PASS` or `FAIL` line, as printed by `dispatch.sh summary` for a night or One ticket step 4.
 - The NOTE and `checks:` result printed by `dispatch.sh pr`, with each dispatched or skipped workflow result. After a fix, replace the check result with the result for the checked head.

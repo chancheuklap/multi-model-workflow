@@ -58,6 +58,17 @@ def lint(body, draft=False):
 
 
 class TestRunnerExpect(unittest.TestCase):
+    def test_vitest_standard_needs_a_passed_test(self):
+        expect = summaries()['vitest']['expect']
+        for output, success in [('Tests  1 passed | 5 skipped (6)', True),
+                                ('Tests  1 passed | 1 todo (2)', True),
+                                ('Tests  5 skipped (5)', False),
+                                ('Tests  1 todo (1)', False),
+                                ('Tests  0 passed (0)', False),
+                                ('Tests  1 failed | 1 passed (2)', False)]:
+            with self.subTest(output=output):
+                self.assertEqual(expect_matches(expect, output), success)
+
     def test_runner_summaries_standards_separate_real_success_and_failure(self):
         data = summaries()
         rows = [{'runner': name, 'expect': runner['expect'], **sample}
@@ -82,6 +93,7 @@ console.log(JSON.stringify(rows.map(row => {
                                ('pytest', r'/passed/'),
                                ('pytest', r'/3 passed/'),
                                ('vitest', r'/Tests\s+1 passed \(1\)/'),
+                               ('vitest', r'/^[ \t]*Tests[ \t]+\d+ (?:passed|skipped|todo)(?:[ \t]+\|[ \t]+\d+ (?:passed|skipped|todo))*[ \t]+\(\d+\)[ \t]*$/m'),
                                ('vitest', r'/passed/'),
                                ('vitest', '/MY-MARKER/')]:
             for draft in (False, True):

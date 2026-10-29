@@ -156,7 +156,7 @@ Launch gives the entire CHECK line for a ticket to copy. For example:
 pnpm install --frozen-lockfile --silent && npx e2e run <file> --config tests/e2e/<product>/e2e.config.ts --target product --trace on --output .e2e/<test file name>
 ```
 
-Use the repository's own dependency install first: claim-time checks run in a
+Use the repository's own dependency install first: any `CHECK:` may run in a
 new checkout with nothing installed. Add any preparation the target's
 `app.command` does not perform, such as a build, between install and e2e.
 Write `<file>` relative to `tests/e2e/<product>/`, for example `search.e2e.ts`.
@@ -179,7 +179,7 @@ Measure the entire CHECK line in a fresh checkout: dependency install,
 preparation, cold back-end startup, and the test run together. Only when it
 exceeds 600 seconds, write `TIMEOUT: <seconds>` from that measured time, in
 the format of the mmw-mode skill's `references/ticket.md`. TIMEOUT governs
-the whole CHECK; preflight's back-end stack is cold in its new checkout.
+the whole CHECK, including cold back-end startup in a new checkout.
 
 Proof standards, for the Evidence section: exercise the real user path,
 not internal setters or test-only endpoints; capture the action and the

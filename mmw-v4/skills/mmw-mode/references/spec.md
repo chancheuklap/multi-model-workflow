@@ -65,7 +65,6 @@ The first sentence says, in plain words a reader with no testing vocabulary unde
 - A description of what makes a good test (only test external behavior, not implementation details)
 - The test layers this feature lands in, each with its directory and the precedent to copy (i.e. similar types of tests in the codebase); every ticket cut from this spec will name one of these layers as the place it is verified
 - **How a test arrives at a state.** Per test layer: what a test writes to put the system into a state, and what it cannot write. A state this feature's behaviour turns on, that a test cannot write through the seam, gets a line of its own here: the mechanism that will reach it, and which builds carry that mechanism. Where the repository's tests have no way to reach such a state, say so: closing that is the repository's to do, not this spec's, and To tickets cuts a *reach* ticket for it. Whoever cuts the tickets reads this section to know whether a criterion can be written at all, and one of them will own building each mechanism named here.
-- The commands to run before committing
 
 ## Out of Scope
 
