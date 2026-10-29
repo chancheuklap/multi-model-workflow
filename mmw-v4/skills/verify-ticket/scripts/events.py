@@ -90,9 +90,6 @@ CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
 # choice only a person can make; `fault`, the pipeline itself broken.
 CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
-# The runs of a ticket's criteria and checks: the worker's own run, a second run of
-# every criterion (the worker's final run, or the orchestrator's after landing), and the
-# old claim-time runs of the criteria at `worker.started.base`.
 # `repo-checks` is the repository's own `checks` of `.mmw/target.json` run at a closeout:
 # no script posts it now, and tickets closed out by MMW v2 carry it, so it stays readable.
 CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline", "repository")
