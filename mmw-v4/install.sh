@@ -308,6 +308,7 @@ GUARD_TIMEOUT = 30
 STOP = f"python3 '{guard}' stop "
 reply_check = os.environ["MMW_REPLY_CHECK"]
 REPLY_STOP = f"python3 '{reply_check}' stop "
+ARTIFACT = f"python3 '{reply_check}' artifact claude"
 SESSION_START = f"python3 '{os.environ['MMW_SESSION_START']}' "
 
 
@@ -498,6 +499,9 @@ for host, host_home, path in grouped_hosts:
     point(host_home, path, "PreToolUse " + QUESTION_TOOLS[host],
           grouped(path, "PreToolUse", QUESTION_TOOLS[host], for_host(host, QUESTION)),
           for_host(host, QUESTION))
+    if host == "claude":
+        point(host_home, path, "PreToolUse Artifact",
+              grouped(path, "PreToolUse", "Artifact", ARTIFACT), ARTIFACT)
 
 for host, host_home, path in grouped_hosts:
     for command, label in ((STOP, "Stop turn-guard.py"), (REPLY_STOP, "Stop reply-check.py")):
