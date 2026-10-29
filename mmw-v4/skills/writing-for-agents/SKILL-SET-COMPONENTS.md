@@ -63,7 +63,7 @@ It is read in two layers, split by whether the agent owns its task. `SKILL.md` h
 #### `## Principles`
 
 - **Used:** the index is read when the mode loads; a principle's full text is read only when its condition arises and it is applied.
-- **Content:** each index line holds three things: `**Name** (**principle-<slug>**). Condition. One-sentence rule.`
+- **Content:** each index line holds three things: `**principle-<slug>**. Condition. One-sentence rule.`
 - **When to add a line:** in the same change that adds the principle skill. When a principle is warranted is in `## principle` below.
 
 This index is how a rule loads at the moment it applies: one line is always in context, the full text is read when the condition arises. No hook is needed for it.

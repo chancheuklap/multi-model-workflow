@@ -9,8 +9,6 @@ description: MMW's way of working, which every agent reads in full at the start 
 
 The Principles section below grounds every trigger. Cite only principles whose leaf SKILL.md you read this session.
 
-**Your own code and prose**
-
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Any prose surface → the **unslop** skill. A reply or comment the owner reads is written per `references/owning-a-task.md` `## Writing the reply`.
@@ -27,56 +25,56 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Core**
 
-- **Laziness Protocol** (**principle-laziness-protocol**). Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
-- **Foundational Thinking** (**principle-foundational-thinking**). Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
-- **Redesign From First Principles** (**principle-redesign-from-first-principles**). Integrating a new requirement into an existing design, or code written against a sketch keeps failing to fit it. Redesign as if it had been foundational from day one.
-- **Attack the Premise** (**principle-attack-the-premise**). Two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it.
-- **Subtract Before You Add** (**principle-subtract-before-you-add**). Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
-- **Minimize Reader Load** (**principle-minimize-reader-load**). Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
-- **Outcome-Oriented Execution** (**principle-outcome-oriented-execution**). Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.
-- **Experience First** (**principle-experience-first**). Product, UX, or feature-scope tradeoffs. Choose user delight over implementation convenience.
-- **Exhaust the Design Space** (**principle-exhaust-the-design-space**). A novel interaction or architectural decision with no precedent. Build 2-3 competing prototypes and compare before committing.
-- **First-Principles Thinking** (**principle-first-principles-thinking**). Forming a recommendation on a plan, decision, or idea whose path is not already clear. Challenge the premise, reduce the requirements, keep only constraints with independent support, rebuild the simplest solution.
-- **Start From What Exists** (**principle-start-from-what-exists**). Before proposing an approach or writing non-trivial code. Search this repository, then GitHub and the package registries, read an implementation file of each serious candidate, and decide to use, extend or build; the reply records the search.
-- **Read Before You Conclude** (**principle-read-before-you-conclude**). Saying anything about a file, or changing one. Read it before you change it, read whole what you edit or reason about in detail, and label a conclusion that rests on an unread part as inferred.
-- **Build the Lever** (**principle-build-the-lever**). Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns.
+- **principle-laziness-protocol**. Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
+- **principle-foundational-thinking**. Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
+- **principle-redesign-from-first-principles**. Integrating a new requirement into an existing design, or code written against a sketch keeps failing to fit it. Redesign as if it had been foundational from day one.
+- **principle-attack-the-premise**. Two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it.
+- **principle-subtract-before-you-add**. Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
+- **principle-minimize-reader-load**. Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
+- **principle-outcome-oriented-execution**. Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.
+- **principle-experience-first**. Product, UX, or feature-scope tradeoffs. Choose user delight over implementation convenience.
+- **principle-exhaust-the-design-space**. A novel interaction or architectural decision with no precedent. Build 2-3 competing prototypes and compare before committing.
+- **principle-first-principles-thinking**. Forming a recommendation on a plan, decision, or idea whose path is not already clear. Challenge the premise, reduce the requirements, keep only constraints with independent support, rebuild the simplest solution.
+- **principle-start-from-what-exists**. Before proposing an approach or writing non-trivial code. Search this repository, then GitHub and the package registries, read an implementation file of each serious candidate, and decide to use, extend or build; the reply records the search.
+- **principle-read-before-you-conclude**. Saying anything about a file, or changing one. Read it before you change it, read whole what you edit or reason about in detail, and label a conclusion that rests on an unread part as inferred.
+- **principle-build-the-lever**. Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns.
 
 **Architecture**
 
-- **Model the Domain** (**principle-model-the-domain**). Writing stateful logic, or code that branches a lot or repeats a shape assumption across files. Encode the domain in a structure (state machine, typed model, table or registry, reducer, boundary, the right collection) instead of scattered conditionals.
-- **Boundary Discipline** (**principle-boundary-discipline**). Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure.
-- **Type System Discipline** (**principle-type-system-discipline**). Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries.
-- **Make Operations Idempotent** (**principle-make-operations-idempotent**). Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state.
-- **Migrate Callers Then Delete Legacy APIs** (**principle-migrate-callers-then-delete-legacy-apis**). Introducing a new internal API while old callers exist. Migrate and delete in one wave.
-- **Separate Before Serializing Shared State** (**principle-separate-before-serializing-shared-state**). Concurrent actors might write the same file, branch, key, or object. Eliminate the sharing first.
+- **principle-model-the-domain**. Writing stateful logic, or code that branches a lot or repeats a shape assumption across files. Encode the domain in a structure (state machine, typed model, table or registry, reducer, boundary, the right collection) instead of scattered conditionals.
+- **principle-boundary-discipline**. Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure.
+- **principle-type-system-discipline**. Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries.
+- **principle-make-operations-idempotent**. Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state.
+- **principle-migrate-callers-then-delete-legacy-apis**. Introducing a new internal API while old callers exist. Migrate and delete in one wave.
+- **principle-separate-before-serializing-shared-state**. Concurrent actors might write the same file, branch, key, or object. Eliminate the sharing first.
 
 **Verification**
 
-- **Prove It Works** (**principle-prove-it-works**). After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
-- **Fix Root Causes** (**principle-fix-root-causes**). Debugging, or a check that will not pass. Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
-- **Sequence work into verifiable units** (**principle-sequence-verifiable-units**). Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
-- **Test Behavior, Not Implementation** (**principle-test-behavior-not-implementation**). Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change.
-- **The Baseline Is the Contract** (**principle-baseline-is-the-contract**). Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
-- **Run the Smallest Test Set** (**principle-run-the-smallest-test-set**). Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first.
-- **Explain the Number** (**principle-explain-the-number**). Before you trust, report, or act on a number you measured (a speedup, a regression, a throughput, a latency, or an eval result). Find what limits it, and rule out that it measured something other than the work you think.
-- **Fail Loudly** (**principle-fail-loudly**). Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently.
+- **principle-prove-it-works**. After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
+- **principle-fix-root-causes**. Debugging, or a check that will not pass. Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
+- **principle-sequence-verifiable-units**. Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
+- **principle-test-behavior-not-implementation**. Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change.
+- **principle-baseline-is-the-contract**. Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
+- **principle-run-the-smallest-test-set**. Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first.
+- **principle-explain-the-number**. Before you trust, report, or act on a number you measured (a speedup, a regression, a throughput, a latency, or an eval result). Find what limits it, and rule out that it measured something other than the work you think.
+- **principle-fail-loudly**. Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently.
 
 **Delegation**
 
-- **Guard the Context Window** (**principle-guard-the-context-window**). Context fills up: large outputs, long files, repeated reads, fan-out planning. Read large payloads in chunks, or give them to the subagent the current step sends for them; keep only summaries in the main thread.
-- **Never Block on the Human** (**principle-never-block-on-the-human**). Tempted to ask "should I do X?" on reversible work, or a step failed or was interrupted. Proceed, present the result, let the human course-correct.
-- **Progress Is What the Record Says** (**principle-progress-is-what-the-record-says**). Picking work up or resuming it. Where you are is what the ticket, the branch, the map or the resume note says, not what the session remembers.
+- **principle-guard-the-context-window**. Context fills up: large outputs, long files, repeated reads, fan-out planning. Read large payloads in chunks, or give them to the subagent the current step sends for them; keep only summaries in the main thread.
+- **principle-never-block-on-the-human**. Tempted to ask "should I do X?" on reversible work, or a step failed or was interrupted. Proceed, present the result, let the human course-correct.
+- **principle-progress-is-what-the-record-says**. Picking work up or resuming it. Where you are is what the ticket, the branch, the map or the resume note says, not what the session remembers.
 
 **Writing**
 
-- **Everything at Hand** (**principle-everything-at-hand**). Making any page or diagram for a person. Put everything needed to understand each place where the reader looks at that place.
-- **Write for Where It Is Read** (**principle-write-for-where-it-is-read**). Before writing anything another reader picks up: a subagent brief, a spec, a ticket, a document, a script's output. Name who reads it, what they are doing then, and what they can see.
-- **Anchor Every Reference** (**principle-anchor-every-reference**). Mentioning a file, section, rule or event in a reply or a document. Name it by path plus heading, identifier or rule number, verbatim, the same way each time.
-- **Files Describe the Present** (**principle-files-describe-the-present**). Writing or editing any file. Write only what is true now; what changed and why goes in the commit message and the reply.
+- **principle-everything-at-hand**. Making any page or diagram for a person. Put everything needed to understand each place where the reader looks at that place.
+- **principle-write-for-where-it-is-read**. Before writing anything another reader picks up: a subagent brief, a spec, a ticket, a document, a script's output. Name who reads it, what they are doing then, and what they can see.
+- **principle-anchor-every-reference**. Mentioning a file, section, rule or event in a reply or a document. Name it by path plus heading, identifier or rule number, verbatim, the same way each time.
+- **principle-files-describe-the-present**. Writing or editing any file. Write only what is true now; what changed and why goes in the commit message and the reply.
 
 **Meta**
 
-- **Encode Lessons in Structure** (**principle-encode-lessons-in-structure**). You catch yourself writing the same instruction a second time. Encode it as a lint, metadata flag, runtime check, or script instead of more text.
+- **principle-encode-lessons-in-structure**. You catch yourself writing the same instruction a second time. Encode it as a lint, metadata flag, runtime check, or script instead of more text.
 
 ## Autonomy
 

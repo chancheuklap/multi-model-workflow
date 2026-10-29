@@ -20,7 +20,7 @@ This is the method for preserving option value when integrating changes into an 
 
 ## When code keeps fighting its sketch
 
-When the code written against a sketch from the **prototype** skill keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design, per the **fix-root-causes** principle skill.
+When the code written against a sketch from the **prototype** skill keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design, per **principle-fix-root-causes**.
 
 A worker whose ticket holds the sketch under **Read first** does not scrap it: it raises a `contract` child naming the tells below, as Work a ticket says, and the session that coordinates the ticket decides.
 
@@ -39,5 +39,5 @@ When you scrap:
 
 1. Re-run the **how** skill over what's been built.
 2. Redesign as if the new constraints had been day-one assumptions.
-3. Subtract before adding, per the **subtract-before-you-add** principle skill. The new sketch should be smaller than the old one before it grows.
+3. Subtract before adding, per **principle-subtract-before-you-add**. The new sketch should be smaller than the old one before it grows.
 4. Re-run the **prototype** skill's sketch branch.

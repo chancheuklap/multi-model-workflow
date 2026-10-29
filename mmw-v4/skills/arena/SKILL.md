@@ -14,7 +14,7 @@ The N candidates receive the same task, so the task is the contract. Each candid
 1. State the artifact each candidate is producing.
 2. When the caller hands the pick to the owner, there is no rubric and Phase C is skipped. Otherwise, take the caller's rubric, or derive it. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. The rubric is the picker's tool in Phases C and D. Candidates only see the task.
 3. Give each candidate its angle. When the caller gives constraints, each candidate takes one. Otherwise set N angles yourself, each a different shape of the whole design, not a point fix inside one shape. N is the number of angles.
-4. Assign output paths. Each candidate writes its artifact only in its own directory `candidates/<n>/`, under where the caller keeps the result, per the **separate-before-serializing-shared-state** principle skill.
+4. Assign output paths. Each candidate writes its artifact only in its own directory `candidates/<n>/`, under where the caller keeps the result, per **principle-separate-before-serializing-shared-state**.
 
 ## Phase B: Fan out
 
@@ -28,19 +28,19 @@ When the caller hands the pick to the owner, skip this phase. Otherwise, read ev
 
 ## Phase D: Pick
 
-When the caller hands the pick to the owner, show the owner every candidate and take the owner's pick and combination as the base. Otherwise, pick the base a future maintainer can extend most easily without breaking invariants. When two feel tied, prefer the cleaner boundary or smaller API, per the Laziness Protocol.
+When the caller hands the pick to the owner, show the owner every candidate and take the owner's pick and combination as the base. Otherwise, pick the base a future maintainer can extend most easily without breaking invariants. When two feel tied, prefer the cleaner boundary or smaller API, per **principle-laziness-protocol**.
 
 Record the pick and the reason in the synthesis note.
 
 ## Phase E: Graft
 
-When the owner picked, graft only the parts the owner selected. Otherwise, walk each losing candidate once more for what is worth porting into the base, usually one or two things per candidate, not most of it. Fold each graft in by hand, per the **redesign-from-first-principles** principle skill, so the result stays coherent under one mental model. Don't paste mechanically.
+When the owner picked, graft only the parts the owner selected. Otherwise, walk each losing candidate once more for what is worth porting into the base, usually one or two things per candidate, not most of it. Fold each graft in by hand, per **principle-redesign-from-first-principles**, so the result stays coherent under one mental model. Don't paste mechanically.
 
 If the candidates converge on one shape, that is strong agreement. Note it and ship the consensus shape. No graft is needed. If they wildly diverge, Phase A was under-specified. Reframe and re-run rather than averaging the divergence.
 
 ## Phase F: Verify
 
-Verify the synthesized artifact like any other output, per the **prove-it-works** principle skill. If verification finds a problem the arena missed, either Phase A was wrong (re-frame and re-run) or a candidate caught it and you missed the graft (go back to Phase E). Don't paper over it.
+Verify the synthesized artifact like any other output, per **principle-prove-it-works**. If verification finds a problem the arena missed, either Phase A was wrong (re-frame and re-run) or a candidate caught it and you missed the graft (go back to Phase E). Don't paper over it.
 
 ## Outputs
 

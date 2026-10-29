@@ -1,6 +1,6 @@
 # Verify the result and ship one pull request
 
-"It compiles" is not evidence. The [Prove It Works principle](../../skills/principle-prove-it-works/SKILL.md) makes the agent check the real thing before it reports success: the running process, the value actually stored, the screen the user sees. A caveat about its own work, such as "not yet run against the real API", is an unmet criterion, not a footnote. Your job is to make the real thing checkable. This page covers stating a finish condition, driving the product, vetting a measured number, giving your app a verification skill, and shipping the change as one pull request.
+"It compiles" is not evidence. [`principle-prove-it-works`](../../skills/principle-prove-it-works/SKILL.md) makes the agent check the real thing before it reports success: the running process, the value actually stored, the screen the user sees. A caveat about its own work, such as "not yet run against the real API", is an unmet criterion, not a footnote. Your job is to make the real thing checkable. This page covers stating a finish condition, driving the product, vetting a measured number, giving your app a verification skill, and shipping the change as one pull request.
 
 Verification is the slowest step in most agent work, because it is the step that usually waits on a person. Make the agent able to do it, and you stop being the bottleneck. Skip it, and running more agents only gets you more unchecked work.
 
@@ -54,7 +54,7 @@ The skill asks seven questions and wants evidence from a run for each:
 6. Does it matter end to end, on the path a user waits on?
 7. Did the work actually happen inside the timed region?
 
-The verdict is one of faster, slower, no measurable difference, or inconclusive, with the run count, the range, and the limiter. It is inconclusive when the limiter has no name or a side ran untuned. The skill is the working form of the [Explain the Number principle](../../skills/principle-explain-the-number/SKILL.md).
+The verdict is one of faster, slower, no measurable difference, or inconclusive, with the run count, the range, and the limiter. It is inconclusive when the limiter has no name or a side ran untuned. The skill is the working form of [`principle-explain-the-number`](../../skills/principle-explain-the-number/SKILL.md).
 
 ## Give your app a verification skill
 
@@ -76,7 +76,7 @@ build the bulk-archive action. use /verify-<product> to verify it and show me sc
 
 Once the verification skill works, the [swarm skill](../../skills/swarm/SKILL.md) can split a full pass by feature-map entry and gather the results into one report.
 
-Treat the verification skill as infrastructure. Commit it, so every person and every agent drives the app the same way. Then [build the lever](../../skills/principle-build-the-lever/SKILL.md). When agents keep writing throwaway scripts to click through the app, ask for a small control CLI that the verification skill calls instead. A CLI that agents use well has these traits:
+Treat the verification skill as infrastructure. Commit it, so every person and every agent drives the app the same way. Then build the lever, as [`principle-build-the-lever`](../../skills/principle-build-the-lever/SKILL.md) says. When agents keep writing throwaway scripts to click through the app, ask for a small control CLI that the verification skill calls instead. A CLI that agents use well has these traits:
 
 - A few commands that each do real work, rather than many thin ones.
 - A `--dry-run` option on anything destructive.

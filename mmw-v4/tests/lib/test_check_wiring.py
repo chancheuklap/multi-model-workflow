@@ -136,7 +136,7 @@ class WiringTest(unittest.TestCase):
         self.assertFinds("'New thing'")
 
     def test_a_principle_with_no_index_line(self):
-        line = self.line_with(self.mode, "(**principle-prove-it-works**)")
+        line = self.line_with(self.mode, "- **principle-prove-it-works**.")
         self.edit(self.mode, line + "\n", "")
         self.assertFinds("principle-prove-it-works")
 

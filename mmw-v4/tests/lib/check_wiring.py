@@ -14,7 +14,7 @@ read the files named below. HTML comments and fenced code are left out.
    route line names a file that exists, and the bold name of the line is the file's `# `
    title.
 2. **Principles.** Each `principle-*` skill has exactly one index line in `## Principles`,
-   every index line names one that exists, and the bold name is that skill's `# ` title.
+   and every index line names one that exists.
 3. **Skills and files named.** A skill named as "the `x` skill", "the **x** skill",
    "`x` skill's" or "skill `x`", and a principle named in bold or code
    (`**principle-x**`), is a directory under `mmw-v4/skills/`, unless the name follows
@@ -56,7 +56,7 @@ DISPATCH_SH = SKILLS / "dispatch" / "scripts" / "dispatch.sh"
 ROLES = SKILLS / "dispatch" / "roles.json"
 
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`", re.M)
-INDEX_LINE = re.compile(r"^- \*\*(.+?)\*\* \(\*\*(principle-[a-z0-9-]+)\*\*\)", re.M)
+INDEX_LINE = re.compile(r"^- \*\*(principle-[a-z0-9-]+)\*\*\.", re.M)
 SKILL_NAMED = [
     re.compile(r"(?<!pstack's )the `([a-z0-9-]+)` skill"),
     re.compile(r"(?<!pstack's )the \*\*([a-z0-9-]+)\*\* skill"),
@@ -123,13 +123,11 @@ def check_principles(mode: str) -> list[str]:
     found, named = [], {}
     for m in INDEX_LINE.finditer(body):
         line = f"{MODE.relative_to(SKILLS.parent.parent)}:{first + body[:m.start()].count(chr(10)) + 1}"
-        name, skill = m.group(1), m.group(2)
+        skill = m.group(1)
         named.setdefault(skill, []).append(line)
         path = SKILLS / skill / "SKILL.md"
         if not path.is_file():
             found.append(f"{line}: the index line names {skill}, which is not a skill")
-        elif title(path) != name:
-            found.append(f"{line}: the index line says **{name}**, and {skill} is titled {title(path)!r}")
     for path in sorted(SKILLS.glob("principle-*/SKILL.md")):
         skill = path.parent.name
         if skill not in named:
