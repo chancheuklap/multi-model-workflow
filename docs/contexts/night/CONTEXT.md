@@ -229,7 +229,7 @@ What the relay's log records when an event's translation is absorbed into an alr
 _Avoid_: folded
 
 **unconfirmed**:
-The flag the relay sets on a delivered row whose `send` answered 4: the text reached the session but no turn start was seen. It stays delivered and is sent again only when the relay restarts.
+The flag the relay sets on a delivered row whose `send` answered 4: the text reached the session but no turn start was seen. It stays delivered and is never sent again; an unacked row brings one **ticket waiting on its orchestrator** reminder after `--nudge` seconds.
 
 **good poll**:
 A **cycle** in which every read of the tracker succeeded, as against a cycle as such, which is recorded whether or not its reads worked. Only a good poll ends an **unattended stretch**.
@@ -273,13 +273,13 @@ A session whose runner answers `working` and that has made no progress for `--st
 A watched ticket with a wake delivered to its orchestrator and not acked for `--nudge` seconds (default 1800). The watchdog alerts the orchestrator once per such wake.
 
 **arm**:
-`watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is; when a watchdog process holds its lock and is not healthy, starts nothing and says what fails; otherwise starts one and waits for it to be healthy. What `turn-guard.py` calls when the watchdog is not healthy.
+`watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is; when a watchdog process holds its lock and is not healthy, starts nothing and says what fails; otherwise starts one and waits for it to be healthy. What `turn-guard.py` calls at every turn end for each repository with an open watch.
 
 **heartbeat**:
 A file in the state directory that a daemon rewrites to show it is alive: the watchdog's `watchdog.json`, written at start, after every ticket and at the end of every watchdog round, and the relay's `beat.json`, written every **cycle**. The watchdog is healthy when its lock names a live process that wrote its heartbeat within its **tolerance**.
 
 **tolerance**:
-How old the watchdog's own heartbeat, and its last whole read of the tracker, may be and still count as fresh: `max(300, poll + margin)` seconds, so a slow poll interval does not read a healthy watchdog as dead.
+How old the watchdog's own heartbeat may be and still count as fresh: `max(300, poll + margin)` seconds, so a slow poll interval does not read a healthy watchdog as dead.
 
 **turn guard**:
 The dispatch skill's `turn-guard.py`, a hook on each host's turn-end event that arms the watchdog of every repository with an open watch. It never keeps a turn from ending.
