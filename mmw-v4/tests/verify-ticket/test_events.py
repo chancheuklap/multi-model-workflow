@@ -199,6 +199,11 @@ class TheVocabulary(unittest.TestCase):
     def test_baseline_is_a_run_name_and_its_stage_is_claim(self):
         self.assertIn("baseline", events.CHECK_RUNS)
         self.assertEqual(events.checked_stage("baseline", "worker"), "claim")
+        old = ev("ticket.checked", "Baseline: met", run="baseline", commit="a" * 40,
+                 result="met", criteria=[{"id": "AC1", "met": True, "evidence": "exit=0"}])
+        state = events.fold([old])
+        self.assertEqual(state["checks"]["baseline"]["payload"]["criteria"],
+                         [{"id": "AC1", "met": True, "evidence": "exit=0"}])
 
     def test_every_name_is_subject_dot_past_tense_verb_with_no_value_in_it(self):
         for name in events.EVENTS:

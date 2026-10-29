@@ -414,7 +414,7 @@ class TicketReading(unittest.TestCase):
         comments = [SELF_RUN_ALL_MET, run_of("reverify", met=4, unmet=1)]
         self.assertEqual(status.counted_ac(ticket(62, comments=comments)), "4/5")
 
-    def test_the_claim_time_baseline_is_not_the_criteria_count(self):
+    def test_an_old_baseline_event_is_not_the_criteria_count(self):
         baseline = ev("ticket.checked", "Baseline: 0/3 met", 62, run="baseline",
                       commit="a" * 40, result="unmet",
                       counts={"met": 0, "unmet": 3, "abandoned": 0, "total": 3})
