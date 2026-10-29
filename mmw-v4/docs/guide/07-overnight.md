@@ -42,7 +42,7 @@ Between steps the orchestrator ends its turn. Nothing polls. Three processes bri
 
 - **The relay** (`relay.py`) watches the tracker. When a watched ticket gets an event that needs someone, it wakes the waiting session through its runner. `ticket.passed`, `ticket.returned`, `ticket.refused`, `worker.lost`, and a `child.opened` of kind `contract`, `fault` or `decision` wake the orchestrator. `reviewer.reported` and `reviewer.lost` wake the ticket's worker. The relay never writes to GitHub and decides nothing.
 - **The watchdog** (`watchdog.py`) notices silence. A worker that dies writes nothing, and on the tracker that looks like work in progress. The watchdog asks the runner whether a silent ticket's worker is still there, and sends a `watchdog:` line when it is not.
-- **The turn guard** (`turn-guard.py`) is a hook on the orchestrator's own turn end. It re-arms the watchdog and will not let the turn end while tickets are held and the watchdog is unhealthy.
+- **The turn guard** (`turn-guard.py`) is a hook on every turn end. It re-arms the watchdog when a watch is open and the watchdog has stopped.
 
 A woken session first follows the dispatch skill's `## On waking`: it reads what the wake names on the ticket, then acknowledges it with `dispatch.sh ack <n> <event>`, so the relay stops sending the same wake.
 
