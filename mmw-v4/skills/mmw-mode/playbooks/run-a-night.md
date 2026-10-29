@@ -92,6 +92,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
 | A worker whose session is gone while its worktree or claim still stand (`advance` says "if the worker … is gone, retract it") | `dispatch.sh retract <n>`; a `0` on its summary line is something it could not release, and the line above says why. Step 4 starts the replacement |
 | `watchdog: #<n> silent since …` | When `events.py fold <n>` lists an open `contract` child, the worker is waiting on you; settle that child first |
+| `watchdog: #<n> is waiting on the orchestrator: unacked delivered wake <seq>` | Act on that ticket's newest event as its row above says, then `dispatch.sh ack <n> <event>`; a wake already acked needs nothing |
 | Any other live worker | Nothing; its result wakes you or its worker |
 | The ticket needs the other worker grade | Give it exactly one of the `junior-worker` / `senior-worker` labels; the next `start` reads it |
 
