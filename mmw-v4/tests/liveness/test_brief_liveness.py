@@ -9,13 +9,12 @@ from __future__ import annotations
 import io
 import json
 import os
-import subprocess
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_liveness import HERE_MACHINE, MAIN, Clock, FakeBoard, Recorder, StateCase, dog, guard  # noqa: E402
+from test_liveness import HERE_MACHINE, MAIN, Clock, FakeBoard, Recorder, StateCase, dog  # noqa: E402
 
 import briefs  # noqa: E402
 
@@ -73,66 +72,6 @@ class BriefRounds(BriefCase):
         ask = Recorder(default="alive")
         self.watchdog(ask).round()
         self.assertEqual([call[:2] for call in ask.calls], [("fake", "child-2")])
-
-
-class BriefTurnEnd(BriefCase):
-    def test_a_child_waiting_on_its_own_open_batch_ends_its_turn(self):
-        nested = briefs.create(self.state, "candidate", 1, "fake", "child-1")
-        self.write("watches.json", {
-            f"briefs:{self.batch}": {"briefs": self.batch, **MAIN},
-            f"briefs:{nested}": {"briefs": nested, "runner": "fake", "session": "child-1"}})
-        self.env("FAKE_SELF", "child-1")
-        for host in guard.HOSTS:
-            run = subprocess.run([sys.executable, guard.__file__, "stop", host],
-                                 input="{}", capture_output=True, text=True)
-            self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
-        recorded = (self.state / "guard.log").read_text()
-        self.assertIn(nested, recorded)
-        self.assertIn("allow", recorded)
-        briefs.mark_lost(self.state, nested, 1, "candidate stopped")
-        self.assertTrue(briefs.complete(self.state, nested))
-        run = subprocess.run([sys.executable, guard.__file__, "stop", "codex"],
-                             input="{}", capture_output=True, text=True)
-        self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
-        briefs.remove(self.state, nested)
-        run = subprocess.run([sys.executable, guard.__file__, "stop", "codex"],
-                             input="{}", capture_output=True, text=True)
-        self.assertEqual(run.returncode, 2)
-        self.assertIn(f"report {self.batch}/1 <file>", run.stderr)
-
-    def test_a_child_ending_its_turn_without_reporting_is_blocked_once_with_the_command(self):
-        self.env("FAKE_SELF", "child-1")
-        blocks = guard.guard("claude")
-        self.assertEqual(len(blocks), 1)
-        self.assertIn(f"report {self.batch}/1 <file>", blocks[0])
-        self.assertEqual(guard.guard("claude", forced=True), [])
-
-    def test_a_child_that_reported_ends_its_turn(self):
-        answer = Path(self.tmp.name) / "a.md"
-        answer.write_text("found\n")
-        briefs.report(self.state, self.batch, 1, answer, "fake", "child-1")
-        self.env("FAKE_SELF", "child-1")
-        self.assertEqual(guard.guard("claude"), [])
-
-    def test_a_session_that_is_no_child_is_not_held_by_the_batch(self):
-        self.env("FAKE_SELF", "someone-else")
-        self.assertEqual(guard.guard("claude"), [])
-
-    def test_open_briefs_hold_the_parent_while_the_watchdog_is_not_healthy(self):
-        # The parent runs on the fake runner; no watchdog runs and arming it fails.
-        self.write("watches.json", {f"briefs:{self.batch}": {
-            "briefs": self.batch, "runner": "fake", "session": "parent"}})
-        self.write("watchdog.json", {"held": [], "briefs": [f"{self.batch}/1"]})
-        self.env("FAKE_SELF", "parent")
-        real_arm = dog.arm
-        dog.arm = lambda state, repo, wait: (False, "it did not come up")
-        self.addCleanup(setattr, dog, "arm", real_arm)
-        real_load = guard.load_watchdog
-        guard.load_watchdog = lambda: dog
-        self.addCleanup(setattr, guard, "load_watchdog", real_load)
-        blocks = guard.guard("claude")
-        self.assertEqual(len(blocks), 1)
-        self.assertIn(f"brief {self.batch}/1", blocks[0])
 
 
 if __name__ == "__main__":

@@ -523,7 +523,7 @@ class DeliveryTest(RelayCase):
         self.board[62].append(comment(102, "ticket.returned", 62))
         self.poll()
 
-    def test_a_delivered_row_stays_until_acked_and_is_sent_again_only_after_a_restart(self):
+    def test_a_delivered_row_stays_until_acked_across_a_restart(self):
         self.queue_two()
         self.relay.deliver()
         self.relay.deliver()
@@ -532,10 +532,9 @@ class DeliveryTest(RelayCase):
         self.assertEqual([r["seq"] for r in self.rows()], [1, 2])
         self.assertTrue(all(r["delivered"] for r in self.rows()))
         self.relay = self.fresh()
-        self.relay.forget_deliveries()
         self.relay.deliver()
         self.relay.deliver()
-        self.assertEqual([t for _, _, t in self.send.sent[2:]], ["#61 ticket.passed", "#62 ticket.returned"])
+        self.assertEqual(len(self.send.sent), 2)
         self.relay.ack(MAIN_A, 2)
         self.assertEqual(self.rows(), [])
 
@@ -571,11 +570,10 @@ class DeliveryTest(RelayCase):
         self.relay.deliver()
         self.assertEqual([s[2] for s in self.send.sent].count(relay.wake_text(rows[0])), 1)
         self.assertEqual(len(self.rows()), 2, "delivered is not acked: the rows stay")
-        self.relay.forget_deliveries()
+        self.relay = self.fresh()
         self.send.code = 0
         self.relay.deliver()
-        self.assertEqual([s[2] for s in self.send.sent].count(relay.wake_text(rows[0])), 2,
-                         "a restart sends an unconfirmed row once more, like every unacked row")
+        self.assertEqual([s[2] for s in self.send.sent].count(relay.wake_text(rows[0])), 1)
 
     def test_a_row_is_dropped_when_the_runner_has_no_such_session(self):
         self.queue_two()
@@ -602,6 +600,53 @@ class DeliveryTest(RelayCase):
         self.assertEqual(self.send.sent, [("paseo", "main-b", "#70 ticket.passed")])
         self.assertIn("#61", self.err.getvalue())
         self.assertIn("#62", self.err.getvalue())
+
+
+class InTurnRetryPrintsOnce(RelayCase):
+    def test_each_busy_retry_prints_one_stderr_line_and_no_stdout(self):
+        runners = Path(self.tmp.name) / "runners"
+        runners.mkdir()
+        (runners / "paseo.sh").write_text('echo "$2 is in a turn; nothing was sent" >&2\nexit 3\n')
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.poll()
+        self.out.seek(0)
+        self.out.truncate()
+        self.relay.send = relay.send_via_adapter
+        with mock.patch.object(relay, "RUNNERS", runners), \
+                mock.patch.object(sys, "stderr", self.err):
+            for attempt in (1, 2):
+                self.relay.deliver()
+                self.assertEqual(self.out.getvalue(), "")
+                lines = self.err.getvalue().splitlines()
+                self.assertEqual(len(lines), attempt)
+                self.assertIn("in a turn", lines[-1])
+                self.assertIsNone(self.rows()[0]["delivered"])
+
+
+class RestartDoesNotRedeliver(RelayCase):
+    def test_run_keeps_delivered_rows_and_delivers_only_new_wakes(self):
+        runners = Path(self.tmp.name) / "runners"
+        runners.mkdir()
+        sent = runners / "sent"
+        (runners / "paseo.sh").write_text('printf "%s\\n" "$*" >> "$(dirname "$0")/sent"\n')
+        for code in (0, 4):
+            with self.subTest(send=code):
+                self.send.code = code
+                self.board[61].append(comment(101 + code, "ticket.passed", 61))
+                self.poll()
+                self.relay.deliver()
+                before = self.rows()
+                with mock.patch.object(relay, "RUNNERS", runners), \
+                        mock.patch.object(relay, "Board", return_value=self.relay.board), \
+                        mock.patch.object(sys, "stdout", io.StringIO()):
+                    self.assertEqual(relay.main(["run", "--repo", "o/r", "--once"]), 0)
+                    self.assertFalse(sent.exists(), "a delivered wake was sent again on startup")
+                    self.assertEqual(self.rows(), before)
+                    self.board[62].append(comment(102 + code, "ticket.returned", 62))
+                    self.assertEqual(relay.main(["run", "--repo", "o/r", "--once"]), 0)
+                self.assertEqual(sent.read_text().splitlines(), ["send main-a #62 ticket.returned"])
+                self.relay.ack(MAIN_A, self.rows()[-1]["seq"])
+                sent.unlink()
 
 
 class PollingTest(RelayCase):
