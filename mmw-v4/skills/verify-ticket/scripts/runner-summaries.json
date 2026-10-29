@@ -239,7 +239,7 @@
     "fixture_source": "mmw-v4/tests/verify-ticket/record_runner_summaries.py"
   },
   "vitest": {
-    "expect": "/^[ \\t]*Tests[ \\t]+\\d+ (?:passed|skipped|todo)(?:[ \\t]+\\|[ \\t]+\\d+ (?:passed|skipped|todo))*[ \\t]+\\(\\d+\\)[ \\t]*$/m",
+    "expect": "/^[ \\t]*Tests[ \\t]+(?=[^\\r\\n]*\\b[1-9]\\d* passed\\b)\\d+ (?:passed|skipped|todo)(?:[ \\t]+\\|[ \\t]+\\d+ (?:passed|skipped|todo))*[ \\t]+\\(\\d+\\)[ \\t]*$/m",
     "summary_pattern": "^[ \\t]*(?:(?:Tests|Test Files)[ \\t]+\\d+ (?:passed|failed|skipped|todo)(?:[ \\t]+\\|[ \\t]+\\d+ (?:passed|failed|skipped|todo))*[ \\t]+\\(\\d+\\)|No test files found, exiting with code \\d+)[ \\t]*$",
     "samples": [
       {
@@ -255,6 +255,13 @@
         "success": true,
         "summary": "      Tests  1 passed | 5 skipped (6)",
         "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 passed (1)\n      Tests  1 passed | 5 skipped (6)\n   Start at  11:55:06\n   Duration  95ms (transform 52%, import 23%, worker 17%, tests 7%)\n\n"
+      },
+      {
+        "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals cases.test.js -t no-matching-test",
+        "exit": 0,
+        "success": false,
+        "summary": "      Tests  6 skipped (6)",
+        "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-0l391hpm\n\n\n Test Files  1 skipped (1)\n      Tests  6 skipped (6)\n   Start at  13:07:19\n   Duration  66ms (import 42%, worker 35%, transform 22%, environment 1%)\n\n"
       },
       {
         "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals failed.test.js",
@@ -294,14 +301,14 @@
       {
         "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals todo-only.test.js",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "      Tests  1 todo (1)",
         "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 skipped (1)\n      Tests  1 todo (1)\n   Start at  11:55:09\n   Duration  72ms (transform 51%, import 28%, worker 20%, environment 1%)\n\n"
       },
       {
         "command": "npm exec --yes --package vitest@5.0.5 -- vitest run --globals skip-only.test.js",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "      Tests  1 skipped (1)",
         "output": "\n RUN  v5.0.5 /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\n\n\n Test Files  1 skipped (1)\n      Tests  1 skipped (1)\n   Start at  11:55:10\n   Duration  78ms (transform 51%, import 28%, worker 21%)\n\n"
       }

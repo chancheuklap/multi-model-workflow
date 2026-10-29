@@ -121,7 +121,7 @@ The event `reverify` posts on a reopened ticket whose criteria are all met again
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.bounced`**:
-The event recording a landing failure with reason `conflict`, `checks`, or `breaks-landed-criterion`. The third reason names the landed tickets and criteria the merge broke, in its `Broken landed criteria:` line and `broken` field. A bounce takes back the pass and the landing and leaves the workspace standing. The first bounce in an open night returns the ticket to `ready-for-agent`, a second moves it to `needs-triage`.
+The event recording a landing failure with reason `conflict` or `checks`. A bounce takes back the pass and the landing and leaves the workspace standing. The first bounce in an open night returns the ticket to `ready-for-agent`, a second moves it to `needs-triage`.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **`worker.resumed`, `worker.retracted`, `worker.replaced`, `worker.lost`**:
@@ -161,10 +161,6 @@ _Home_: `mmw-v3/skills/verify-ticket/references/sub-issues.md`
 One run of a ticket's criteria on one commit. Its `run` says whose: `self`, `reverify` or `baseline`; its `stage` (`CHECK_STAGES`) groups those into `claim`, `work`, `verify` or `close`, and a `reverify` by the orchestrator (`actor` `main`) is `regress`.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
-**baseline run**:
-The `ticket.checked` of run `baseline`: the ticket's criteria run at the base commit during `--preflight`, before the worker changes anything. Distinct from a **baseline**, the settled `## Read first` item.
-_Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
-
 **`worker.touched`**:
 The event `--touched` posts on an open sibling ticket whose `## Owns` covers a file this ticket changed outside its own Owns.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
@@ -189,8 +185,8 @@ _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 The closing comment's first line when a criterion is unmet or abandoned as `failed` or `stuck`, which `--closeout` posts as `ticket.returned` while it hands the ticket back.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
-**`Review findings:`, `Green before work:`, `skipped:`, `Sub-issues opened:`, `Branch: … Commit: … PR: …`, `Counts:`**:
-The fixed lines every closing-comment draft carries after its first line: each in-ticket review finding as `fixed <commit>` or `refuted: <evidence>`; the criteria the baseline run already found met; the criteria it could not run, filled `[X], add when [Y]`; this ticket's own sub-issues; the ticket branch, its head commit and that no pull request exists; and the met/unmet/abandoned tally, which `--closeout` computes from the draft's own `ABANDON:` lines rather than the worker counting it. Every blank starts as the placeholder `<fill>`, which `--closeout` refuses if any remains.
+**`Review findings:`, `skipped:`, `Sub-issues opened:`, `Branch: … Commit: … PR: …`, `Counts:`**:
+The fixed lines every closing-comment draft carries after its first line: each in-ticket review finding as `fixed <commit>` or `refuted: <evidence>`; the criteria it could not run, filled `[X], add when [Y]`; this ticket's own sub-issues; the ticket branch, its head commit and that no pull request exists; and the met/unmet/abandoned tally, which `--closeout` computes from the draft's own `ABANDON:` lines rather than the worker counting it. Every blank starts as the placeholder `<fill>`, which `--closeout` refuses if any remains.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`DRAFT:`, `CLOSEOUT OK:`, `CLOSED:`, `HANDED BACK:`, `TOUCHED:`, `DECISIONS: posted on #`, `REVIEW: posted on #`, `LINT OK`, `LINT FINDINGS:`**:
@@ -264,7 +260,7 @@ _Home_: `mmw-v3/skills/writing-for-agents/SKILL-SET-RULES.md`
 ### Claiming and handing back
 
 **preflight**:
-`verify-ticket.py <n> --preflight`, the worker's first step: the checks that the ticket may be claimed, the claim itself, and the **baseline run**.
+`verify-ticket.py <n> --preflight`, the worker's first step: the checks that the ticket may be claimed and the claim itself.
 _Home_: `mmw-v3/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`NOT_READY:`, `READY:`, `RESUME:`, `CARRIED:`**:

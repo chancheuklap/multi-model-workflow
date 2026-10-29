@@ -7,13 +7,6 @@ that ledger to unlazy's `gate-check`, and posts the result back as one
 `ticket.checked` event. Nothing is cached. The ledger is removed when the run
 ends. Each run replaces `.scratch/criteria/<ticket>/`, and a failing criterion's
 output is `<id>.log` in that directory.
-`--only AC...` runs just the selected criteria without writing to the tracker.
-
-Claim-time baseline checkouts run their optional executable `scripts/env setup <worktree>`
-and `up <worktree>` before criteria, then `down <worktree>` before removal, including a
-failed preparation. Each command runs from the target checkout root with its absolute path.
-Preparation failures exit 2; cleanup failures are reported without blocking removal.
-Repositories without `scripts/env` run unchanged and print no environment messages.
 """
 
 from __future__ import annotations
@@ -912,7 +905,7 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     problems = []
     if FILL in draft:
         problems.append("the draft still contains `<fill>`; replace the placeholders "
-                        "in `skipped:`, `Review findings:`, `Green before work:` and "
+                        "in `skipped:`, `Review findings:` and "
                         "`Decisions I made on my own`")
 
     criteria = parse_criteria(draft)
@@ -965,13 +958,6 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         if reverify.get("commit") != git("rev-parse", "HEAD"):
             problems.append(f"the worker's final run is on {reverify.get('commit')} and "
                             "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
-        elif ((root := repo_root()) is not None and not repository_check_missing(root)
-              and not repository_allows_closeout(comments, git("rev-parse", "HEAD"))):
-            problems.append("the ticket carries no green repository check of HEAD. Commit "
-                            "everything, run `--reverify --actor worker`, and fix what the "
-                            "repository check reports. For a `base_red` record, open a "
-                            "finding after that record with "
-                            "`verify-ticket.py <n> --sub-issue finding <file>`")
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
         # then what stands is a verification of something else, and the final run runs again.
@@ -1366,19 +1352,6 @@ def review_findings_block(review: str, comment: int | str | None = None) -> str:
     return "\n".join(lines)
 
 
-def green_before_work_block(comments: list) -> str:
-    record = newest_run(comments, "baseline")
-    if record is None:
-        return "Green before work:\nnot run: no baseline `ticket.checked`"
-    ids = []
-    for item in record["payload"].get("criteria") or []:
-        if isinstance(item, dict) and item.get("met") and item.get("id"):
-            ids.append(str(item["id"]))
-    if not ids:
-        return "Green before work:\nNone"
-    return "Green before work:\n" + "\n".join(f"- {i}: {FILL}" for i in ids)
-
-
 def criterion_block(item: dict) -> str:
     """The four ledger lines of one criterion."""
     tick = "x" if item["ticked"] else " "
@@ -1613,7 +1586,6 @@ def run_draft(number: int, out_file: Path | None) -> int:
         outside, "",
         review_block, "",
         f"skipped: {FILL}", "",
-        green_before_work_block(comments), "",
         sub, "",
         counts_line, "",
         "Decisions I made on my own", "",
@@ -1859,53 +1831,6 @@ def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
     return _run_checks(number, reverify, actor, fetch_body(number), repo_root())
 
 
-def affected_criteria(body: str, paths: list[str]) -> list[str]:
-    patterns = []
-    for path in paths:
-        patterns.append(r"(?<![\w./-])(?:\./)?" + re.escape(path) + r"(?![\w./-])")
-        parent = path.rpartition("/")[0]
-        if parent:
-            patterns.append(r"(?<![\w./-])(?:\./)?" + re.escape(parent) + r"(?:/|(?![\w.-]))")
-    if not patterns:
-        return []
-    mentioned = re.compile("|".join(patterns))
-    return [c["id"] for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))
-            if mentioned.search(c["check"])]
-
-
-def selected_checks(number: int, ids: list[str], body: str, root: Path) -> tuple[int, list[dict]]:
-    """Run only these criteria, including ticked ones, without tracker writes."""
-    criteria = parse_criteria("\n".join(section(body, "Acceptance criteria")))
-    found = {c["id"] for c in criteria}
-    missing = set(ids) - found
-    if missing or not ids:
-        raise ValueError(f"#{number}: unknown or empty criterion selection: {', '.join(sorted(missing))}")
-    lines = []
-    for c in criteria:
-        if c["id"] not in ids:
-            continue
-        if not c["check"] or not c["expect"] or c["stray"]:
-            raise ValueError(f"#{number} {c['id']}: CHECK or EXPECT is missing or malformed")
-        lines += [f"- [ ] {c['id']}: selected criterion", "  CHECK:"]
-        fence = "`" * max(3, max((len(m[0]) + 1 for m in re.finditer(r'`+', c["check"])), default=3))
-        lines += [f"  {fence}sh", *("  " + row for row in c["check"].splitlines()),
-                  f"  {fence}", f"  EXPECT: {c['expect']}", "  EVIDENCE: pending"]
-    with tempfile.TemporaryDirectory(prefix="verify-selected-") as tmp:
-        ledger = write_ledger(body, Path(tmp), lines)
-        results = Path(tmp) / "results.json"
-        cmd = ["node", str(GATE_CHECK), "--reverify", "--cwd", str(root),
-               "--timeout", str(check_timeout(body)), "--results", str(results), str(ledger)]
-        result = subprocess.run(cmd, cwd=root, env=criterion_environment(number, None),
-                                capture_output=True, text=True)
-        sys.stdout.write((result.stdout or "") + (result.stderr or ""))
-        if result.returncode not in (0, 1) or not results.is_file():
-            raise ValueError(f"#{number}: selected criteria could not run (exit {result.returncode})")
-        rows = json.loads(results.read_text())
-        if {r["id"] for r in rows} != set(ids):
-            raise ValueError(f"#{number}: selected criteria did not all run")
-        return result.returncode, rows
-
-
 def criterion_environment(number: int, into: str | None) -> dict[str, str]:
     env = os.environ.copy()
     env["MMW_TICKET"] = str(number)
@@ -1986,113 +1911,7 @@ def _run_checks(number: int, reverify: bool,
         recorded = False
     else:
         recorded = True
-    code = result.returncode if recorded else NOT_RECORDED
-    if worker and code in (0, 1) and worker_repository_check(number, root, into, comments) == 1:
-        code = 1
-    return code
-
-
-def worker_repository_check(number: int, root: Path, into: str | None,
-                            comments: list) -> int:
-    if not into or repository_check_missing(root):
-        return 0
-    base_ref = f"origin/{into}"
-    identity = tree_identity(root, base_ref)
-    if identity and covering_proof(comments, "ticket.checked", *identity):
-        print(f"#{number}: the repository check is not run again: {identity[0][:12]} "
-              f"against {identity[1][:12]} already passed on this machine.")
-        return 0
-    checked = run_repository_check(root, base_ref, root, number)
-    if checked["status"] == "red":
-        print(f"#{number}: the repository check is red.\n{checked['detail']}")
-        proof = checked["proof"]
-        if proof is None:
-            return 1
-        steps = detached_base_red_steps(root, base_ref, proof["base"], checked["failed"])
-        if not steps:
-            return 1
-        proof["base_red"] = steps
-        print(f"#{number}: steps {', '.join(steps)} are red on the base too. Open a finding "
-              f"with `verify-ticket.py {number} --sub-issue finding <file>` before closeout.")
-    elif checked["status"] != "pass":
-        print(f"#{number}: the repository check proved nothing: {checked['detail']}")
-        return 2
-    proof = checked["proof"]
-    if proof is None:
-        print(f"#{number}: the repository check is green, but the tree had uncommitted or "
-              "untracked files, so it proves no commit. Commit them and run again.")
-        return 2
-    try:
-        outcome = "red on the base too" if proof.get("base_red") else "green"
-        post_event(number, "ticket.checked",
-                   f"Repository check on {proof['commit'][:12]} against "
-                   f"{proof['base'][:12]}: {outcome}, {len(proof['steps'])} steps",
-                   run="repository", result="met", actor="worker",
-                   stage=events.checked_stage("repository", "worker"), **proof)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        sys.stderr.write(f"#{number}: the repository check finished {outcome} on "
-                         f"{proof['commit'][:12]}, but its ticket.checked event could not "
-                         f"be written ({exc}). Run again once the tracker takes comments.\n")
-        return 2
-    return 0
-
-
-def base_red_steps(root: Path, base_ref: str, failed: list[dict]) -> list[str]:
-    """Run the failed rows' named steps in a base checkout supplied by the caller.
-
-    Return those steps only for exit 1 with every step explicitly reported as FAIL.
-    Worker verification and dispatch share this rule. Output goes to stderr.
-    """
-    steps = list(dict.fromkeys(step for row in failed for step in row.get("steps", [])))
-    if not steps:
-        return []
-    try:
-        code, output = _run(root / REPOSITORY_CHECK, root,
-                            dict(os.environ, MMW_BASE_REF=base_ref), "--step", ",".join(steps))
-    except OSError as exc:
-        print(f"Base comparison could not run scripts/check: {exc}", file=sys.stderr)
-        return []
-    print(f"Base comparison, scripts/check --step {','.join(steps)} exited {code}:\n{output}",
-          file=sys.stderr)
-    return steps if code == 1 and set(steps).issubset(FAIL_STEP_RE.findall(output)) else []
-
-
-def detached_base_red_steps(root: Path, base_ref: str, base: str,
-                            failed: list[dict]) -> list[str]:
-    with tempfile.TemporaryDirectory(prefix="mmw-worker-base-") as tmp:
-        checkout = Path(tmp) / "base"
-        added = subprocess.run(["git", "worktree", "add", "--detach", str(checkout), base],
-                               cwd=root, capture_output=True, text=True)
-        if added.returncode:
-            print(f"Base comparison could not start: {added.stderr or added.stdout}")
-            return []
-        try:
-            print(f"Comparing failed steps on base {base[:12]}")
-            steps = base_red_steps(checkout, base_ref, failed)
-        finally:
-            removed = subprocess.run(["git", "worktree", "remove", "--force", str(checkout)],
-                                     cwd=root, capture_output=True, text=True)
-        if removed.returncode:
-            print(f"Base comparison could not remove {checkout}: {removed.stderr or removed.stdout}")
-            return []
-        return steps
-
-
-def repository_allows_closeout(comments: list, commit: str) -> bool:
-    repository = None
-    last_finding = -1
-    for position, comment in enumerate(events.normalise(comments)):
-        what, payload = events.parse(comment["body"])
-        if what != "event":
-            continue
-        if (payload["event"] == "ticket.checked"
-                and payload.get("run") == "repository" and payload.get("result") == "met"
-                and payload.get("commit") == commit):
-            repository = (position, payload)
-        if payload["event"] == "child.opened" and payload.get("kind") == "finding":
-            last_finding = position
-    return repository is not None and (not repository[1].get("base_red")
-                                       or last_finding > repository[0])
+    return result.returncode if recorded else NOT_RECORDED
 
 
 # The exit of a run whose criteria ran and whose result could not be written on the
@@ -2190,35 +2009,6 @@ def check_run_outcome(returncode: int, summary: str) -> str | None:
     return "unmet"
 
 
-def run_baseline_if_needed(number: int, root: Path) -> int:
-    """Run the baseline once for the newest `worker.started.base`, if that run is missing.
-
-    A red result does not refuse the claim. Checkout failures are written as an unmet
-    `ticket.checked` of run `baseline` when the base commit is known, and otherwise named
-    on stderr. Environment preparation failures return 2 and stop `--preflight`.
-    """
-    try:
-        comments = fetch_comments(number)
-    except TrackerReadError as exc:
-        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
-        return 0
-    started = events.newest(comments, "worker.started")
-    base = (started or {}).get("payload", {}).get("base")
-    if not isinstance(base, str) or not re.fullmatch(r"[0-9a-f]{40}", base):
-        sys.stderr.write(f"#{number}: baseline run did not start "
-                         f"(no worker.started.base commit)\n")
-        return 0
-    existing = newest_run(comments, "baseline")
-    if existing and existing["payload"].get("commit") == base:
-        return 0
-    try:
-        body = fetch_body(number)
-    except TrackerReadError as exc:
-        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
-        return 0
-    return run_baseline(number, body, base, root, started["payload"].get("into"))
-
-
 def run_worktree_environment(worktree: Path, step: str) -> int:
     script = worktree / "scripts" / "env"
     if not script.exists():
@@ -2241,106 +2031,13 @@ def run_worktree_environment(worktree: Path, step: str) -> int:
     return 0
 
 
-def _remove_baseline_checkout(root: Path, worktree: Path) -> None:
+def _remove_check_checkout(root: Path, worktree: Path) -> None:
     run_worktree_environment(worktree, "down")
     subprocess.run(["git", "worktree", "remove", "--force", "--force", str(worktree)],
                    cwd=root, capture_output=True, text=True)
     shutil.rmtree(worktree, ignore_errors=True)
     subprocess.run(["git", "worktree", "prune"],
                    cwd=root, capture_output=True, text=True)
-
-
-def run_baseline(number: int, body: str, base: str, root: Path, into: str | None) -> int:
-    """The criteria at `base`, in the main checkout's `.worktrees/baseline-<n>`."""
-    items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
-    skipped = []
-    runnable = items
-    tmp = Path(tempfile.mkdtemp(prefix="mmw-baseline-"))
-    worktree = None
-    try:
-        listed = subprocess.run(["git", "worktree", "list", "--porcelain"],
-                                cwd=root, capture_output=True, text=True)
-        main = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines()
-                     if line.startswith("worktree ")), "")
-        short = base[:12]
-        if listed.returncode != 0 or not main:
-            why = (listed.stderr or listed.stdout or
-                   "git worktree list returned no main checkout").strip()
-            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
-                           outcome="unmet",
-                           line=f"Baseline run on {short}: unmet ({why})")
-            return 0
-        worktree = Path(main) / ".worktrees" / f"baseline-{number}"
-        worktree.parent.mkdir(parents=True, exist_ok=True)
-        _remove_baseline_checkout(root, worktree)
-        added = subprocess.run(
-            ["git", "worktree", "add", "--detach", str(worktree), base],
-            cwd=root, capture_output=True, text=True)
-        if added.returncode != 0 or not worktree.is_dir():
-            why = (added.stderr or added.stdout or "git worktree add failed").strip()
-            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
-                           outcome="unmet",
-                           line=f"Baseline run on {short}: unmet ({why})")
-            return 0
-        for step in ("setup", "up"):
-            if run_worktree_environment(worktree, step):
-                return 2
-        if not runnable:
-            _post_baseline(number, body, base, runnable=[], skipped=skipped, outcome="unmet",
-                           line=f"Baseline run on {short}: nothing ran (all skipped)")
-            return 0
-        ledger_dir = tmp / "ledger"
-        ledger_dir.mkdir()
-        lines = []
-        for item in runnable:
-            pending = dict(item)
-            pending["ticked"] = False
-            pending["evidence"] = pending.get("evidence") or "pending"
-            lines.extend(criterion_block(pending).splitlines())
-            lines.append("")
-        ledger = write_ledger(body, ledger_dir, lines)
-        cmd = ["node", str(GATE_CHECK), "--cwd", str(worktree),
-               "--timeout", str(check_timeout(body)), str(ledger)]
-        env = criterion_environment(number, into)
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=worktree, env=env)
-        printed = (result.stdout or "") + (result.stderr or "")
-        summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
-        updated = ledger.read_text(encoding="utf-8").rstrip("\n") if ledger.is_file() else ""
-        outcome = check_run_outcome(result.returncode, summary)
-        if outcome is None:
-            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
-                           outcome="unmet",
-                           line=f"Baseline run on {short}: could not start")
-            return 0
-        ran = parse_criteria(updated) if updated else runnable
-        _post_baseline(number, body, base, runnable=ran, skipped=skipped, outcome=outcome,
-                       line=f"Baseline run on {short}: {summary or outcome}",
-                       updated=updated)
-    except (OSError, subprocess.CalledProcessError, events.EventError) as exc:
-        sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
-    finally:
-        if worktree is not None:
-            _remove_baseline_checkout(root, worktree)
-        shutil.rmtree(tmp, ignore_errors=True)
-    return 0
-
-
-def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
-                   skipped: list[str], outcome: str, line: str,
-                   updated: str = "") -> None:
-    results = [{"id": c["id"],
-                "met": bool(c.get("ticked") and c.get("evidence")
-                            and c.get("evidence") != "pending"),
-                "evidence": c.get("evidence") or "pending"} for c in runnable]
-    abandons = parse_abandons(updated) if updated else []
-    post_event(number, "ticket.checked", line, updated,
-               run="baseline", commit=base, result=outcome,
-               counts=tally(runnable, abandons) if runnable else {
-                   "met": 0, "unmet": 0, "abandoned": 0, "total": 0},
-               criteria=results, failed=[r["id"] for r in results if not r["met"]],
-               abandons=abandons or None, skipped=skipped or None,
-               shape=shape_digest(section(body, "Acceptance criteria")),
-               actor="worker", stage=events.checked_stage("baseline", "worker"))
 
 
 # The steps of mmw-mode's Work a ticket playbook a `RESUME:` line can name, by their
@@ -2353,13 +2050,9 @@ RESUME_STEPS = ("Integrate and run every criterion", "Post the decisions comment
 def failed_checks_quote(record: dict | None) -> str | None:
     body = (record or {}).get("body") or ""
     for line in body.splitlines():
-        stripped = line.strip()
-        for token in ("Failed checks:", "Broken landed criteria:"):
-            if stripped.startswith(token):
-                return stripped
-            at = line.find(token)
-            if at >= 0:
-                return line[at:]
+        at = line.find("Failed checks:")
+        if at >= 0:
+            return line[at:].strip()
     return None
 
 
@@ -2406,9 +2099,6 @@ def run_preflight(number: int) -> int:
     Either way one event lands on the ticket: `ticket.refused` with the first refusal's
     reason, or `ticket.claimed` once the claim is made. A claim whose event could not be
     written still holds — the tracker's assignee is the claim — and says so on stderr.
-    After a successful claim, the criteria are run once at the
-    newest `worker.started.base` (a `ticket.checked` of run `baseline`) unless that run
-    is already on the ticket; a red result does not refuse.
     """
     root = repo_root()
     ticket = fetch_ticket(number)
@@ -2433,8 +2123,6 @@ def run_preflight(number: int) -> int:
     except (OSError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"#{number} is claimed, but its ticket.claimed event was not "
                          f"written ({exc})\n")
-    if run_baseline_if_needed(number, root) == 2:
-        return 2
     print(f"READY: #{number} claimed on issue-{number}")
     try:
         comments = fetch_comments(number)
@@ -2757,7 +2445,8 @@ def run_repository_check(root: Path | str, base_ref: str,
     """Run one tier of `scripts/check` at `root` with `MMW_BASE_REF=base_ref`: the
     default tier, or `--all` when `tier` is `all`.
 
-    Returns `{"status", "failed", "detail", "proof"}`. `proof` identifies a green or red run,
+    Returns `{"status", "failed", "detail", "proof", "output"}`. `output` is the combined
+    stdout and stderr of the check, or empty when it did not start. `proof` identifies a green or red run,
     the fields of its record (`proof_fields`), or None: a run on a tree with uncommitted
     or untracked files proved nothing about any commit. `status` is `pass` (exit 0), `red` (exit 1), `cannot-run`
     (exit 2, any other exit, or the script would not start: this machine cannot run
@@ -2770,7 +2459,7 @@ def run_repository_check(root: Path | str, base_ref: str,
     root = Path(root)
     missing = repository_check_missing(root)
     if missing:
-        return {"status": "missing", "failed": [], "detail": missing, "proof": None}
+        return {"status": "missing", "failed": [], "detail": missing, "proof": None, "output": ""}
     path = root / REPOSITORY_CHECK
     env = os.environ.copy()
     env["MMW_BASE_REF"] = base_ref
@@ -2779,13 +2468,13 @@ def run_repository_check(root: Path | str, base_ref: str,
         code, output = _run(path, root, env, *(["--all"] if tier == "all" else []))
     except OSError as exc:
         return {"status": "cannot-run", "failed": [],
-                "detail": f"{path} could not be started: {exc}", "proof": None}
+                "detail": f"{path} could not be started: {exc}", "proof": None, "output": ""}
     proof = None
     if code in (0, 1) and before is not None and tree_identity(root, base_ref) == before:
         steps = re.findall(r"^(?:PASS|FAIL)\s+(\S+)", output, re.M)
         proof = proof_fields(tier, *before, steps)
     if code == 0:
-        return {"status": "pass", "failed": [], "detail": "", "proof": proof}
+        return {"status": "pass", "failed": [], "detail": "", "proof": proof, "output": output}
     log = _write_check_log(worktree, ticket, 1, output, [False])
     excerpt = _cap_excerpt(_checks_excerpt(output))
     where = f"; full output in {Path(worktree) / log}" if log else ""
@@ -2794,11 +2483,11 @@ def run_repository_check(root: Path | str, base_ref: str,
         row["steps"] = FAIL_STEP_RE.findall(output)
         heading = _check_heading(row)
         return {"status": "red", "failed": [row], "proof": proof,
-                "detail": f"{heading} in {root}{where}:\n{excerpt}".rstrip()}
+                "detail": f"{heading} in {root}{where}:\n{excerpt}".rstrip(), "output": output}
     what = ("exited 2: this machine cannot run it" if code == 2 else
             f"exited {code}, which is none of 0 (green), 1 (red) and 2 (cannot run)")
     return {"status": "cannot-run", "failed": [], "proof": None,
-            "detail": f"{path} {what}{where}:\n{excerpt}".rstrip()}
+            "detail": f"{path} {what}{where}:\n{excerpt}".rstrip(), "output": output}
 
 
 def tree_identity(root: Path, base_ref: str) -> tuple[str, str] | None:
@@ -2822,21 +2511,16 @@ def proof_fields(tier: str, commit: str, base: str, steps: list[str]) -> dict:
             "machine": socket.gethostname(), "steps": steps}
 
 
-def covering_proof(comments: list, event: str, commit: str, base: str) -> dict | None:
-    """The newest green record among `comments` that proves the default tier of `commit`
+def covering_proof(comments: list, commit: str, base: str) -> dict | None:
+    """The newest green `spec.checked` record that proves the default tier of `commit`
     against `base` on this machine: a default-tier record of that exact commit and base,
     or an `all` record of that commit with any base, since `--all` runs everything any
-    selection can. A `base_red` record is not green proof. None when no record covers
-    it; the step then runs."""
+    selection can. None when no record covers it; the step then runs."""
     machine = socket.gethostname()
     found = None
     for comment in events.normalise(comments):
         what, payload = events.parse(comment["body"])
-        if what != "event" or payload["event"] != event:
-            continue
-        if payload.get("base_red"):
-            continue
-        if event == "ticket.checked" and payload.get("run") != "repository":
+        if what != "event" or payload["event"] != "spec.checked":
             continue
         if (payload.get("result") == "met" and payload.get("commit") == commit
                 and payload.get("machine") == machine
@@ -3765,7 +3449,7 @@ def lint_draft_base_checks(drafts: list[dict], root: Path, base: str) -> int:
             print(f"ERROR --base {base}: base run could not complete ({exc}) [base-run]")
             return 2
         finally:
-            _remove_baseline_checkout(root, worktree)
+            _remove_check_checkout(root, worktree)
     return 1 if errors else 0
 
 
@@ -4017,8 +3701,6 @@ def main(argv: list[str] | None = None) -> int:
                              "is about; omit only for --publish --spec-body")
     parser.add_argument("--reverify", action="store_true",
                         help="re-run every criterion, including the ones already ticked")
-    parser.add_argument("--only", nargs="+", metavar="AC",
-                        help="run only these criteria without recording anything on the tracker")
     parser.add_argument("--lint", action="store_true",
                         help="audit how the criteria are written; runs no CHECK, posts no comment")
     parser.add_argument("--drafts", type=Path, metavar="DIR",
@@ -4066,7 +3748,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="with --lint --drafts: run CHECKs on REF, default origin/<current branch>")
     args = parser.parse_args(argv)
     chosen = [name for name, on in
-              (("--lint", args.lint), ("--reverify", args.reverify), ("--only", args.only is not None),
+              (("--lint", args.lint), ("--reverify", args.reverify),
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
                ("--decisions", args.decisions is not None), ("--touched", args.touched),
                ("--draft", args.draft is not None),
@@ -4106,11 +3788,6 @@ def main(argv: list[str] | None = None) -> int:
     elif args.ticket is None:
         parser.error("a ticket number is required")
     try:
-        if args.only is not None:
-            try:
-                return selected_checks(args.ticket, args.only, fetch_body(args.ticket), repo_root())[0]
-            except (OSError, ValueError) as exc:
-                return refuse(str(exc))
         if args.publish and args.spec_body is not None:
             return run_publish_spec(args.spec_body, args.title, args.map)
         if args.preflight:

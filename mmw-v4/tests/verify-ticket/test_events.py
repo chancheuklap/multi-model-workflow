@@ -199,6 +199,11 @@ class TheVocabulary(unittest.TestCase):
     def test_baseline_is_a_run_name_and_its_stage_is_claim(self):
         self.assertIn("baseline", events.CHECK_RUNS)
         self.assertEqual(events.checked_stage("baseline", "worker"), "claim")
+        old = ev("ticket.checked", "Baseline: met", run="baseline", commit="a" * 40,
+                 result="met", criteria=[{"id": "AC1", "met": True, "evidence": "exit=0"}])
+        state = events.fold([old])
+        self.assertEqual(state["checks"]["baseline"]["payload"]["criteria"],
+                         [{"id": "AC1", "met": True, "evidence": "exit=0"}])
 
     def test_every_name_is_subject_dot_past_tense_verb_with_no_value_in_it(self):
         for name in events.EVENTS:
@@ -471,6 +476,34 @@ class Ordering(unittest.TestCase):
 
 class Replays(unittest.TestCase):
     """State goes backwards, and a full replay needs no inverse for any of it."""
+
+    def test_old_landing_check_records_still_fold(self):
+        common = {"v": 1, "spec": 76, "ticket": 61, "at": SAME_SECOND}
+        records = [
+            {**common, "event": "ticket.checked", "stage": "close", "actor": "worker",
+             "run": "repository", "result": "met", "commit": "a" * 40,
+             "base": "b" * 40, "tier": "default", "steps": ["unit"],
+             "base_red": ["unit"]},
+            {**common, "event": "ticket.passed", "stage": "close", "actor": "worker",
+             "commit": "a" * 40},
+            {**common, "event": "ticket.landed", "stage": "land", "actor": "main",
+             "commit": "a" * 40, "base_red": ["unit"],
+             "landed_base_red": [{"ticket": 60, "ac": "AC1"}],
+             "checked_by": "repository default " + "a" * 40 + " " + "b" * 40},
+            {**common, "event": "ticket.bounced", "stage": "land", "actor": "main",
+             "reason": "breaks-landed-criterion", "commit": "c" * 40,
+             "broken": [{"ticket": 60, "ac": "AC1"}]},
+        ]
+        comments = [comment(i, "Old record\n\n<!-- mmw " + json.dumps(record) + " -->")
+                    for i, record in enumerate(records, start=1)]
+        state = events.fold(comments[:3], issue=61)
+        self.assertEqual(state["unreadable"], [])
+        self.assertEqual(state["checks"]["repository"]["payload"]["base_red"], ["unit"])
+        self.assertTrue(state["landed"])
+        state = events.fold(comments, issue=61)
+        self.assertEqual(state["unreadable"], [])
+        self.assertEqual((state["passed"], state["landed"], state["bounced"]),
+                         (False, False, True))
 
     def test_a_start_is_live_until_something_closes_it(self):
         state = events.fold([started()])

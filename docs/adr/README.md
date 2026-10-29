@@ -66,7 +66,7 @@
 | [0045](0045-the-final-proof-is-the-newest-worker-run-at-head.md) | 关票的最终证明是 `HEAD` 上最新的一次 worker 运行：关票接受的和关票评论引用的是同一次；第一次运行之后没有新提交时，就是第一次运行 | 2026-10-09 | 0026 | 无 |
 | [0046](0046-a-skill-change-runs-the-general-flow.md) | 一次技能改动和别的项目一样走通用流程：先读技能集的标准，按大小走 Make a small change 或 Write a spec，最后证明一次 | 2026-10-09 | 0040、0043 | 0054 |
 | [0047](0047-a-night-dispatches-only-into-free-places.md) | 一夜同时被持有的票数以 `models.json` 的 `max_workers` 为上限（默认 3），`advance` 只派出上限剩下的空位 | 2026-10-13 | 无 | 无 |
-| [0048](0048-verification-assets-written-in-the-day.md) | feature map 放在产品仓库的 `.agents/skills/verify-<product>/features/`，和 e2e test 一起白天写、主人要求时维护复核，夜里只读 | 2026-10-13 | 0029、0030、0041、0042、0044 | 0055 |
+| [0048](0048-verification-assets-written-in-the-day.md) | feature map 放在产品仓库的 `.agents/skills/verify-<product>/features/`，和 e2e test 一起白天写、主人要求时维护复核，夜里只读 | 2026-10-13 | 0029、0030、0041、0042、0044 | 0055、0061 |
 | [0049](0049-v4-serves-claude-code-and-codex.md) | MMW v4 只服务 Claude Code 与 Codex 两个 host，Grok 与 Cursor 退出 | 2026-10-14 | 0003、0006、0007、0021 | 无 |
 | [0050](0050-native-subagent-model-rows.md) | 原生子代理的型号与强度由它那一步点名的行决定 | 2026-10-15 | 0015 | 无 |
 | [0051](0051-problem-registration-retro-and-label-states.md) | 问题先登记并复盘，主人挑中和批准计划分两次，标签分种类与状态 | 2026-10-14 | 0035、0039 | 无 |
@@ -79,6 +79,7 @@
 | [0058](0058-research-answers-live-in-the-effort-directory.md) | Effort 内的研究答案原样保存在每个问题的目录，由派出会话提交，票的 resolution comment 指向答案文件 | 2026-10-25 | 0056 | 无 |
 | [0059](0059-skill-text-is-written-by-the-session.md) | 一张票装得下的技能文字由 Authoring 会话自己写，新 agent 的试走当裁判；脚本仍交 worker | 2026-10-27 | 0054 | 无 |
 | [0060](0060-no-testing-md.md) | MMW v4 不再有 `TESTING.md`：没有技能写它、读它或检查它，一个仓库的测试怎么跑只看测试文件和 `scripts/check` | 2026-10-28 | 0038、0039 | 无 |
+| [0061](0061-product-e2e-suite-is-a-step-of-check-all.md) | 产品的 e2e 全套是 `scripts/check --all` 的一步 `e2e-<product>`，默认档从不选它 | 2026-10-29 | 0048 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

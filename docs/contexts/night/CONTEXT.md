@@ -47,8 +47,8 @@ What the relay sends a session when an event it waits on lands on a ticket, `#<n
 _Home_: `mmw-v3/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work; a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time; `fix-<n>` for a ticket a playbook opens outside a spec, where the daytime session commits its records and pushes `fix-<n>`; `map-<map number>` for a map's effort, created when Chart the map opens the map; or the detached `baseline-<n>`, where `verify-ticket.py --preflight` runs the ticket's criteria once at its worker's base commit, removed after that run.
-_Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`, `mmw-v4/skills/mmw-mode/references/ticket.md` (`## Opening a ticket`), `mmw-v4/skills/mmw-mode/playbooks/chart-the-map.md` (`Create the map`), `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py` (`run_baseline`)
+A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work; a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time; `fix-<n>` for a ticket a playbook opens outside a spec, where the daytime session commits its records and pushes `fix-<n>`; `map-<map number>` for a map's effort, created when Chart the map opens the map.
+_Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`, `mmw-v4/skills/mmw-mode/references/ticket.md` (`## Opening a ticket`), `mmw-v4/skills/mmw-mode/playbooks/chart-the-map.md` (`Create the map`)
 
 **ticket branch**:
 The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked. Landing deletes both the local and origin copies when cleanup permits it.
@@ -119,10 +119,6 @@ _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 The command that opens a ready pull request, reports whether GitHub CI runs for its base branch, and waits for checks.
 _Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`open_pr`)
 
-**`dispatch.sh recheck`**:
-The read-only check of affected landed criteria before a closing-pass push. Unlike `reverify`, it records no results on landed tickets and changes none of their states.
-_Home_: `mmw-v4/skills/dispatch/scripts/dispatch.sh` (`recheck_spec`)
-
 **start prompt**:
 The text a session is given when started: to read the `mmw-mode` skill's `SKILL.md` in full first, the playbook it runs on its ticket, then its data: the worker's Memory indexes, the reviewer's base commit. A session `brief` starts is given its role's brief template and the brief file instead.
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
@@ -144,7 +140,7 @@ _Home_: `mmw-v3/skills/dispatch/references/editing-models.md`, `mmw-v3/skills/di
 ### The night's commands
 
 **check**:
-`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows, the worker-grade labels, and one run of `scripts/check`'s default tier in the calling checkout.
+`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows, the worker-grade labels, and whether the repository has an executable `scripts/check`. It runs no tier of `scripts/check`.
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **repository Space**:
@@ -196,7 +192,7 @@ _Home_: `docs/contexts/night/how-it-works.md`
 _Home_: `mmw-v3/skills/dispatch/scripts/dispatch.sh`
 
 **summary**:
-`dispatch.sh summary <spec> --memory-decisions <file>`, or `summary <spec> --memory-unavailable` while Nowledge Mem does not answer: once nothing of the night is left running or unrouted, posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch. It refuses, with nothing posted, while the batch holds a finding no `child.closed` accounts for, by the last count on its own `Findings routed:` line.
+`dispatch.sh summary <spec> --memory-decisions <file>`, or `summary <spec> --memory-unavailable` while Nowledge Mem does not answer: once nothing of the night is left running or unrouted, runs `scripts/check --all` on `origin/<into>` in the merge worktree, reusing a green `spec.checked` for that commit on this machine, then posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch. It refuses, with nothing posted, while the batch holds a finding no `child.closed` accounts for, by the last count on its own `Findings routed:` line.
 _Home_: `mmw-v3/skills/mmw-mode/playbooks/run-a-night.md`
 
 **Memory closing**:
