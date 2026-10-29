@@ -80,11 +80,12 @@ def checklist(cwd: Path, artifact: bool = False) -> Path:
     names = ["principle-anchor-every-reference"]
     if artifact:
         names.append("principle-everything-at-hand")
-    parts = []
+    parts = ["# Rules the text must follow"]
     for name in names:
         path = skills / name / "SKILL.md"
         pattern = path.read_text(encoding="utf-8").split("**Pattern:**\n", 1)[1]
         parts.append(f"{path}\n**Pattern:**\n" + pattern.lstrip("\n").split("\n\n", 1)[0])
+    parts.append("# Names the glossaries register")
     parts.extend(glossary_entries(cwd))
     parts.append("A name not registered above is written as a plain description, "
                  "or proposed to the owner before it is used.")

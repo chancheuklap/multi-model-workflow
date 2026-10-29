@@ -161,6 +161,22 @@ class TestBlockIsOneLine(HookCase):
         self.assertEqual(self.run_artifact({"file_path": str(page)}).returncode, 0)
 
 
+class TestChecklistHasRuleAndNameHeadings(HookCase):
+    def test_stop_checklist_separates_rules_from_registered_names(self):
+        (self.repo / "CONTEXT.md").write_text("**registered local name**:\n_Avoid_: alias\n")
+        run = self.run_hook("Done.", "claude")
+        self.assertEqual(run.returncode, 2, run.stderr)
+        text = self.checklist_text(run)
+        self.assertTrue(text.startswith("# Rules the text must follow\n\n"), text.splitlines()[0])
+        self.assertEqual([line for line in text.splitlines() if line.startswith("# ")],
+                         ["# Rules the text must follow", "# Names the glossaries register"])
+        names = text.index("# Names the glossaries register\n")
+        self.assertLess(text.index("**Pattern:**\n"), names)
+        first_glossary = V4.parent / "docs/contexts/toolbox/CONTEXT.md"
+        self.assertLess(names, text.index(str(first_glossary)))
+        self.assertLess(names, text.index("registered local name"))
+
+
 class TestStopBlocksOnceWithChecklist(HookCase):
     def test_ordinary_reply_blocks_then_continuation_passes(self):
         principle = V4 / "skills/principle-anchor-every-reference/SKILL.md"
