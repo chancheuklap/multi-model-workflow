@@ -17,7 +17,7 @@ Pick one, and say which:
 
 ## Edit scope
 
-Only edit the verification skill's own directory (its SKILL.md, features/, and any harness scripts it owns) and `tests/e2e/<product>/`, because doc drift can require test corrections. Never edit product code during a run: a behavior the map describes that the app no longer does is either doc drift (fix the map) or a product regression (report it, don't paper over it in docs).
+Edit the verification skill's own directory (its SKILL.md, features/, and any harness scripts it owns) and `tests/e2e/<product>/`, because doc drift can require test corrections. Also edit the repository's `scripts/check` to add a missing `e2e-<product>` step as the create-verification-skill skill says. Never edit product code during a run: a behavior the map describes that the app no longer does is either doc drift (fix the map) or a product regression (report it, don't paper over it in docs).
 
 ## Pass
 
@@ -25,7 +25,7 @@ Only edit the verification skill's own directory (its SKILL.md, features/, and a
 
 1. **Index hygiene.** List `features/` and check each file's opening `Tests:` line against the files in `tests/e2e/<product>/`; a feature without tests has `Tests: none`. Treat mismatches as doc drift. This daytime step is the only check for mismatches between the map and test files; there is no lint. Lightweight; no generated inventory.
 
-2. **Known issues.** Read the `create-verification-skill` skill's `references/known-issues.md`. Compare every entry with this product and add applicable missing guidance to its verification skill.
+2. **Known issues and full-suite check.** Read the `create-verification-skill` skill's `references/known-issues.md`. Compare every entry with this product and add applicable missing guidance to its verification skill. If `scripts/check` lacks an `e2e-<product>` step, add it as the create-verification-skill skill's section 2, **Generate the skill**, says.
 
 3. **Source wave.** One read-only subagent per feature file on the `reader` row, launched concurrently. Each explains "how does this user-facing feature work?" from source, flags likely doc drift with citations, and returns one concise live-verification recipe. Children never drive the app and never edit files. Return shape: feature summary / source entry points / likely drift or none / one recipe.
 
