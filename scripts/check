@@ -9,8 +9,9 @@ test suites, in three tiers.
 
 The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
 Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
-untracked files. There is no dependency install: the repository has no package manager, the
-suites that run under `uv run` resolve their own dependencies, and the browser suites fetch the
+untracked files. Only the --all e2e step installs its nested package dependencies. The repository
+has no root package manager. Suites that run under `uv run` resolve their own dependencies,
+and the browser suites fetch the
 Chromium build their Playwright needs (mmw-v4/tests/lib/ensure_chromium.py).
 
 Before the steps run, one `SELECT <suite>: <changed path> (<input>)` line per selected suite.
@@ -21,7 +22,8 @@ cannot run on this machine, such as Chromium that will not start). The last line
 Exit 0: every step passed. Exit 1: a step is red, or the self-check found a test directory MAP
 does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check: a tool
 missing from PATH or a base ref git does not know, and nothing was run; or no step is red and a
-suite exited 2 because it cannot run here.
+non-e2e suite exited 2 because it cannot run here. E2e steps treat every nonzero exit
+as a failure, including runner configuration and test collection errors.
 
 Python standard library only.
 """
@@ -51,6 +53,12 @@ STEPS = {
     "shared-checks": (SHARED, ["python3", "uv"]),
     "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
     "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
+    "e2e-task-board": (
+        "npm ci --prefix tests/e2e/task-board --silent"
+        " && npm exec --prefix tests/e2e/task-board -- e2e run"
+        " --config tests/e2e/task-board/e2e.config.ts --target product",
+        ["npm", "node", "python3", "gh"],
+    ),
     "board": ("bash mmw-v4/tests/board/run.sh", ["bash", "python3", "uv", "node"]),
     "diagram-design": ("bash mmw-v4/tests/diagram-design/run.sh", ["bash", "python3", "uv"]),
     "dispatch": ("bash mmw-v4/tests/dispatch/run.sh", ["bash", "python3", "uv", "git"]),
@@ -118,7 +126,7 @@ TEST_ROOTS = ["mmw-v4/tests", "mmw-v4/prompt/tests"]
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "mmw-v4/docs/retired-")
 EXCLUDED = {
     "efforts/code-landing/prototypes/fixture/tests": "a prototype's fixture repository, test data rather than a suite",
-    "tests": "the e2e tests of tests/e2e/<product>/, which verify-<product> runs and each ticket's CHECK names",
+    "tests": "the e2e tests under tests/e2e/<product>/ run only in the --all e2e-<product> steps, not by changed paths",
 }
 NOT_RUN_HERE = ("exe-release's PowerShell checks (mmw-v4/tests/exe-release/check-generated-powershell.sh,"
                 " check-template-behaviour.sh): they need a Windows build machine")
@@ -225,7 +233,7 @@ class Run:
         with log.open("w") as out:
             rc = subprocess.run(["bash", "-c", command], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT).returncode
         lines = log.read_text(errors="replace").splitlines()
-        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2)
+        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2 and not name.startswith("e2e-"))
 
     def syntax(self, paths: list[str]) -> None:
         start = time.monotonic()
