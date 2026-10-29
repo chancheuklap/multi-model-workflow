@@ -57,9 +57,11 @@ class HookCase(unittest.TestCase):
                               input=json.dumps(payload), capture_output=True, text=True,
                               cwd=cwd or self.repo, env=self.env, timeout=15)
 
+    def checklist_path(self, run):
+        return Path(run.stderr.split(" against ", 1)[1].split(", rewrite", 1)[0])
+
     def checklist_text(self, run):
-        name = run.stderr.split(" against ", 1)[1].split(", rewrite", 1)[0]
-        return Path(name).read_text()
+        return self.checklist_path(run).read_text()
 
     def glossary(self, text):
         path = self.repo / "docs/contexts/x/CONTEXT.md"
@@ -135,8 +137,7 @@ class TestBlockIsOneLine(HookCase):
             self.assertEqual(run.returncode, 2, run.stderr)
             self.assertEqual(run.stdout, "")
             self.assertEqual(len(run.stderr.splitlines()), 1, run.stderr)
-            name = run.stderr.split(" against ", 1)[1].split(", rewrite", 1)[0]
-            checklist = Path(name)
+            checklist = self.checklist_path(run)
             text = checklist.read_text()
             self.assertEqual(checklist.parent, self.mmw / "state/reply-check")
             self.assertEqual(checklist.name,
@@ -152,11 +153,11 @@ class TestBlockIsOneLine(HookCase):
         run = self.run_artifact({"file_path": str(page)})
         self.assertEqual(run.returncode, 2, run.stderr)
         self.assertEqual(len(run.stderr.splitlines()), 1, run.stderr)
-        name = run.stderr.split(" against ", 1)[1].split(", rewrite", 1)[0]
-        self.assertEqual(run.stderr, f"MMW reply check: reread {page} against {name}, "
+        checklist = self.checklist_path(run)
+        self.assertEqual(run.stderr, f"MMW reply check: reread {page} against {checklist}, "
                          "rewrite what breaks it, then publish again.\n")
-        self.assertIn("registered local name", Path(name).read_text())
-        self.assertIn("principle-everything-at-hand", Path(name).read_text())
+        self.assertIn("registered local name", checklist.read_text())
+        self.assertIn("principle-everything-at-hand", checklist.read_text())
         self.assertEqual(self.run_artifact({"file_path": str(page)}).returncode, 0)
 
 
@@ -177,7 +178,8 @@ class TestStopBlocksOnceWithChecklist(HookCase):
                         "A name not registered above is written as a plain description, "
                         "or proposed to the owner before it is used."))
                     self.assertEqual(self.run_hook(reply, host, stop_hook_active=True).returncode, 0)
-        self.assertTrue(list((self.mmw / "state/reply-check").glob("checklist-*.md")))
+        self.assertEqual([p for p in self.mmw.rglob("*") if p.is_file()],
+                         [self.checklist_path(run)])
         self.assertFalse(self.log.exists())
 
 

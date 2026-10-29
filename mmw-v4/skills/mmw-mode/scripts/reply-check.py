@@ -6,9 +6,10 @@
 
 Every unexempted Stop exits 2 with one stderr line pointing to a checklist file read
 from the anchor-reference principle and MMW's and the working repository's glossaries.
-The host's stop_hook_active continuation passes. A null last_assistant_message, ticket worktree, open brief session or open-watch
-orchestrator also passes. Session identity uses the turn guard's own_brief and is_main
-predicates without arming a watchdog or asking the tracker.
+The host's stop_hook_active continuation passes. A null last_assistant_message, ticket
+worktree, open brief session or open-watch orchestrator also passes. Session identity
+uses the turn guard's own_brief and is_main predicates without arming a watchdog or
+asking the tracker.
 
 The Artifact entry reads tool_input.file_path as the page, except when tool_input.asset
 is true. Actions without a file_path pass. Ticket worktrees and unattended sessions pass.
@@ -87,12 +88,13 @@ def checklist(cwd: Path, artifact: bool = False) -> Path:
     parts.extend(glossary_entries(cwd))
     parts.append("A name not registered above is written as a plain description, "
                  "or proposed to the owner before it is used.")
-    content = ("\n\n".join(parts) + "\n").encode("utf-8")
-    digest = hashlib.sha256(content).hexdigest()[:12]
-    path = turn_guard().statedir.home() / "state/reply-check" / f"checklist-{digest}.md"
+    content = "\n\n".join(parts) + "\n"
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
+    state = turn_guard().statedir
+    path = state.home() / "state/reply-check" / f"checklist-{digest}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists() or path.read_bytes() != content:
-        path.write_bytes(content)
+    if not path.exists():
+        state.write_atomic(path, content)
     return path
 
 
@@ -112,7 +114,7 @@ def glossary_entries(cwd: Path) -> list[str]:
             paths.append(root / "CONTEXT.md")
     entries = []
     seen = set()
-    for path in dict.fromkeys(paths):
+    for path in paths:
         entry = [str(path)]
         try:
             text = path.read_text(encoding="utf-8")
@@ -174,13 +176,13 @@ def check(entry: str) -> int:
         fingerprint = turn_guard().statedir.home() / "state/reply-check" / digest
         if fingerprint.exists():
             return 0
-        message = checklist(cwd, artifact=True)
+        checklist_path = checklist(cwd, artifact=True)
         fingerprint.parent.mkdir(parents=True, exist_ok=True)
         try:
             fingerprint.touch(exist_ok=False)
         except FileExistsError:
             return 0
-        sys.stderr.write(f"MMW reply check: reread {page} against {message}, "
+        sys.stderr.write(f"MMW reply check: reread {page} against {checklist_path}, "
                          "rewrite what breaks it, then publish again.\n")
         return 2
     reply = payload["last_assistant_message"]
@@ -188,8 +190,8 @@ def check(entry: str) -> int:
         return 0
     if not isinstance(reply, str):
         raise ValueError("expected last_assistant_message to be the reply text in the Stop payload")
-    message = checklist(cwd)
-    sys.stderr.write(f"MMW reply check: reread what you wrote for the owner against {message}, "
+    checklist_path = checklist(cwd)
+    sys.stderr.write(f"MMW reply check: reread what you wrote for the owner against {checklist_path}, "
                      "rewrite what breaks it, then finish again.\n")
     return 2
 
