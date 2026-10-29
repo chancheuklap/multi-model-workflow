@@ -39,7 +39,7 @@
 | [0018](0018-runner-behind-one-boundary.md) | runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置 | 2026-09-10 | 0009、0016 | 0019、0020、0024、0026 |
 | [0019](0019-ticket-state-is-a-fold-of-events.md) | 票的状态是它的事件折叠出来的：评论首行不再是协议，谁在跑这张票写在票上 | 2026-09-10 | 0009、0018 | 0026、0034 |
 | [0020](0020-wakes-come-from-the-board.md) | 唤醒从 board 上发出：中继读票上的结果事件，经 runner 的送消息动词送到等它的那个会话，任何脚本都不再报信 | 2026-09-10 | 0010、0013、0017、0018 | 0021、0022、0026 |
-| [0021](0021-liveness-in-three-layers.md) | 判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写 | 2026-09-10 | 0017、0020 | 0022、0026、0049 |
+| [0021](0021-liveness-in-three-layers.md) | 判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写 | 2026-09-10 | 0017、0020 | 0022、0026、0049、0062 |
 | [0022](0022-one-relay-many-watches.md) | 唤醒按 watch 分：一个仓库一个中继，同时看多个 watch，每个 watch 叫醒开它的那个主 agent；等槽位的 worker 也由中继叫醒 | 2026-09-11 | 0020、0021 | 0026、0033 |
 | [0023](0023-origin-base-branch.md) | base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage | 2026-09-11 | 0012 | 0025、0026、0027、0034 |
 | [0024](0024-models-json-and-runner-extension-boundary.md) | 会话配置只存进 `models.json`，runner 的附加操作也只经适配器 | 2026-09-11 | 0016、0018 | 0026 |
@@ -80,6 +80,7 @@
 | [0059](0059-skill-text-is-written-by-the-session.md) | 一张票装得下的技能文字由 Authoring 会话自己写，新 agent 的试走当裁判；脚本仍交 worker | 2026-10-27 | 0054 | 无 |
 | [0060](0060-no-testing-md.md) | MMW v4 不再有 `TESTING.md`：没有技能写它、读它或检查它，一个仓库的测试怎么跑只看测试文件和 `scripts/check` | 2026-10-28 | 0038、0039 | 无 |
 | [0061](0061-product-e2e-suite-is-a-step-of-check-all.md) | 产品的 e2e 全套是 `scripts/check --all` 的一步 `e2e-<product>`，默认档从不选它 | 2026-10-29 | 0048 | 无 |
+| [0062](0062-turn-guard-only-arms.md) | 回合守卫只拉起看门进程、不拦回合；看门进程对一条没 ack 的叫醒只提醒一次，不再报读不到 tracker | 2026-10-29 | 0021 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

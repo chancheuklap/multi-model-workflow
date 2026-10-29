@@ -34,13 +34,13 @@ Those three kinds are the whole of what a `child.opened` wakes anyone for. A `fi
 
 ## The watchdog and turn guard
 
-A dead session writes no event. The watchdog covers that gap: one process per repository, restarted when necessary by the turn guard at the end of an orchestrator's turn while a watch is open.
+A dead session writes no event. The watchdog covers that gap: one process per repository, restarted when necessary by the turn guard at the end of any turn while a watch is open.
 
-Every minute the watchdog asks two questions of the relay. Is it running — its lock names a live process that finished a cycle within its grace — or nothing is relaying and the alert is `relay down`. Is it reading — its last cycle that read the tracker is within that grace too — or the process is there and cannot see the tracker, and the alert is `relay not reading`, which clears itself with the first read that works and calls for no `open`. Then, for each held open ticket silent for ten minutes, it asks every session still holding it through that session's runner. A stopped session gets `worker.lost` or `reviewer.lost`; the relay wakes the orchestrator for `worker.lost` and the worker for `reviewer.lost`. It asks the runner of every open brief of a watched batch too, every round, and marks a stopped one lost.
+Every minute the watchdog asks two questions of the relay. Is it running — its lock names a live process that finished a cycle within its grace — or nothing is relaying and the alert is `relay down`. A relay that is running but cannot read the tracker raises no alert: it rereads everything since its mark once reads work again. Then, for each held open ticket silent for ten minutes, it asks every session still holding it through that session's runner. A stopped session gets `worker.lost` or `reviewer.lost`; the relay wakes the orchestrator for `worker.lost` and the worker for `reviewer.lost`. It asks the runner of every open brief of a watched batch too, every round, and marks a stopped one lost.
 
-Other alerts go directly to the watch's orchestrator in one message, each beginning `watchdog:`: the relay is down; the relay is cycling and not reading the tracker; a runner could not report liveness; a held ticket has no session to ask; a worker has been alive and silent for an hour with nothing to wait on; an event is unreadable; or the watchdog cannot read the tracker. These are not wake-queue rows and are not acked.
+Other alerts go directly to the watch's orchestrator in one message, each beginning `watchdog:`: the relay is down; a runner could not report liveness; a held ticket has no session to ask; a worker has been alive and silent for an hour with nothing to wait on; an event is unreadable; or a wake has waited 30 minutes unacked, said once per wake. These are not wake-queue rows and are not acked.
 
-While tickets are held and the watchdog is not healthy, the turn guard installed by `install.sh` keeps the turn from ending. On a host that cannot hold a turn, it sends one follow-up message. It acts once per turn end, and its text names the command that arms the watchdog.
+The turn guard installed by `install.sh` only arms the watchdog at each turn end; it never keeps a turn from ending (ADR 0062).
 
 ## Opening a night
 

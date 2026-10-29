@@ -238,7 +238,7 @@ A **cycle** in which every read of the tracker succeeded, as against a cycle as 
 One pass of the relay's read-and-deliver loop, recorded (`cycle_at`) whether or not its reads worked. The watchdog's `relay down` alert asks whether the relay has finished one within its **grace**.
 
 **unattended stretch**:
-Time with no **good poll** — the relay down, or its reads failing — measured less time spent delivering. The watchdog's `not reading` **alert** fires once it exceeds **grace**; the events of the stretch are delivered as ordinary wakes when the reads come back.
+Time with no **good poll** — the relay down, or its reads failing — measured less time spent delivering. The events of the stretch are delivered as ordinary wakes when the reads come back.
 
 **grace**:
 The `--grace` seconds parameter (default three intervals) bounding both an **unattended stretch** and the watchdog's own judgement of whether the relay is healthy.
@@ -253,11 +253,11 @@ What a lock file in the state directory holds while its lock is taken — the lo
 The dispatch skill's `watchdog.py`, one process per repository while a watch is open, running one round every `--poll` seconds (default 60). Each round it checks the relay, asks the runner of every session still holding a watched ticket and of every unreported brief what that session is doing (the **session table**), and reminds the orchestrator of every ticket waiting on it (the **ticket table**). It posts `worker.lost` or `reviewer.lost` for a stopped session and sends its other **alert**s to the orchestrator as `watchdog:` lines.
 
 **liveness layer**:
-The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at an orchestrator's turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking each held session's runner whether it is alive and what it is doing is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
+The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at a turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking each held session's runner whether it is alive and what it is doing is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
 _Avoid_: layer (unqualified; tickets' **test layer** is a different concept sharing the word)
 
 **alert**:
-One thing the watchdog's second or third layer notices — the relay down or not reading, the tracker unreadable, a ticket's events unreadable, a held ticket with no session to ask, a session whose liveness or turn state is unknown, a session showing a dialog, a **stuck session**, an **idle session**, or a **ticket waiting on its orchestrator** — sent to the orchestrator directly as a `watchdog:` line, never through the wake queue, and never acked.
+One thing the watchdog's second or third layer notices — the relay down, a ticket's events unreadable, a held ticket with no session to ask, a session whose liveness or turn state is unknown, a session showing a dialog, a **stuck session**, an **idle session**, or a **ticket waiting on its orchestrator** — sent to the orchestrator directly as a `watchdog:` line, never through the wake queue, and never acked.
 _Avoid_: finding (this repository's other senses: a review finding, a ticket's `finding` child)
 
 **worktree activity**:
@@ -270,7 +270,7 @@ A session whose runner answers `alive` and `idle` and whose **worktree activity*
 A session whose runner answers `working` and that has made no progress for `--stuck` seconds (default 7200), measured from the later of its **worktree activity** and its ticket's newest event, or a brief's send time. An **alert**, once per session and reference time.
 
 **ticket waiting on its orchestrator**:
-A watched ticket with a `child.opened` that has no `child.closed` on it, or a delivered wake still in the **wake queue**. The watchdog alerts its watch's orchestrator at once and again every `--nudge` seconds (default 1800) until the children are routed and the wakes acked, whether or not a session holds the ticket.
+A watched ticket with a wake delivered to its orchestrator and not acked for `--nudge` seconds (default 1800). The watchdog alerts the orchestrator once per such wake.
 
 **arm**:
 `watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is; when a watchdog process holds its lock and is not healthy, starts nothing and says what fails; otherwise starts one and waits for it to be healthy. What `turn-guard.py` calls when the watchdog is not healthy.
@@ -282,7 +282,7 @@ A file in the state directory that a daemon rewrites to show it is alive: the wa
 How old the watchdog's own heartbeat, and its last whole read of the tracker, may be and still count as fresh: `max(300, poll + margin)` seconds, so a slow poll interval does not read a healthy watchdog as dead.
 
 **turn guard**:
-The dispatch skill's `turn-guard.py`, a hook on each host's turn-end event that, in the orchestrator of an open watch, arms the watchdog and keeps the turn from ending while tickets are held and the watchdog is not healthy.
+The dispatch skill's `turn-guard.py`, a hook on each host's turn-end event that arms the watchdog of every repository with an open watch. It never keeps a turn from ending.
 
 ### Retro
 
