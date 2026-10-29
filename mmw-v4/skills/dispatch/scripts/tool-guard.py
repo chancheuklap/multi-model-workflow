@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard ticket closeout, unattended questions, process termination, brief git writes
+"""Guard ticket closeout, unattended questions, brief git writes
 and deletion of worktrees in use.
 
 A ticket closes through `verify-ticket.py <n> --closeout <draft>`, which checks the
@@ -11,11 +11,6 @@ A question on the screen has nobody to answer it: nothing in this pipeline reads
 form. So every host asks this file before calling its question tool, and this file
 refuses the call and says where the question goes instead — the default taken and
 recorded, or `ABANDON: AC<n> decision` with a sub-issue.
-
-Several runs share one machine. A session may end processes in its own host's process
-tree with `kill [-<signal>] <pid>...`, but never a neighbour's or an unreadable tree.
-The host is this hook's nearest ancestor whose executable basename equals <host>.
-Host process names: claude and codex, checked with live ps comm on 2026-10-27.
 
     tool-guard.py pretool <host>    the host is about to run a shell command
     tool-guard.py question <host>   the host is about to ask the user a question
@@ -50,8 +45,6 @@ import json
 import os
 import re
 import shlex
-import signal
-import subprocess
 import sys
 from pathlib import Path
 
@@ -329,60 +322,6 @@ def pieces(command: str, strip_prefixes: bool = True) -> list[str]:
             for piece in parts if piece.strip()]
 
 
-# This guards against accidental process termination behind assignments, groups,
-# negation, redirections, continuations and PREFIX_COMMANDS. It is not a sandbox
-# against deliberate evasion through eval, functions, aliases or python3 -c.
-ENDS_A_PROCESS = re.compile(r"^(kill|pkill|killall|killall5)\b")
-XARGS_KILL = re.compile(r"^xargs\b.*\bkill\b")
-
-
-def ends_a_process(command: str, host: str) -> str | None:
-    for piece in pieces(command):
-        if (ENDS_A_PROCESS.match(piece) or XARGS_KILL.match(piece)) \
-                and not kills_own_processes(piece, host):
-            return piece
-    return None
-
-
-def kills_own_processes(piece: str, host: str) -> bool:
-    words = shell_words(piece)
-    if not words or words[0] != "kill":
-        return False
-    targets = words[1:]
-    if targets and targets[0].startswith("-"):
-        value = targets.pop(0)[1:]
-        try:
-            if value != "0":
-                signal.Signals(int(value)) if value.isascii() and value.isdecimal() else signal.Signals[
-                    value if value.startswith("SIG") else "SIG" + value]
-        except (ValueError, KeyError):
-            return False
-    if not targets or any(re.fullmatch(r"[0-9]+", pid) is None for pid in targets):
-        return False
-    try:
-        targets = [int(pid) for pid in targets]
-        rows = subprocess.run(["ps", "-axo", "pid=,ppid=,comm="], capture_output=True,
-                              text=True, check=True).stdout.splitlines()
-        processes = {}
-        for row in rows:
-            pid, parent, executable = row.split(None, 2)
-            processes[int(pid)] = (int(parent), os.path.basename(executable))
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return False
-
-    def ancestors(pid):
-        seen = set()
-        while pid in processes and pid not in seen:
-            seen.add(pid)
-            yield pid
-            pid = processes[pid][0]
-
-    owner = next((pid for pid in ancestors(os.getppid()) if processes[pid][1] == host), None)
-    return owner is not None and all(
-        pid in processes and owner in ancestors(processes[pid][0]) for pid in targets
-    )
-
-
 def runs(command: str) -> list[str]:
     """The pieces of `command` that a shell would run as commands of their own.
 
@@ -442,19 +381,6 @@ def refuse(reason: str) -> None:
                                      "permissionDecision": "deny",
                                      "permissionDecisionReason": reason}}
     print(json.dumps(answer, ensure_ascii=False))
-
-
-def no_kill(piece: str) -> str:
-    """Why this command is refused and what the session does instead.
-
-    The way out comes last: a refusal that only diagnoses invites an autonomous agent to
-    improvise, and on 2026-09-05 three of them improvised three different wrong answers
-    to one correct error message.
-    """
-    return (f"Refused `{piece}`. Only processes started by this session may be ended. "
-            "Use kill [-<signal>] <numeric pid>... with a readable ancestry to this host. Stop your "
-            "own product as its verify-<product> skill says; if it is unreachable, report "
-            "the ticket blocked and stop.")
 
 
 GIT_WRITES = {"commit", "checkout", "switch", "merge", "rebase", "reset", "push",
@@ -687,10 +613,6 @@ def run_pretool(event: dict, host: str) -> int:
         return 0
     number = governed_ticket()
     if number is not None:
-        piece = ends_a_process(command, host)
-        if piece is not None:
-            refuse(no_kill(piece))
-            return 0
         if leaves_the_agent_lane(command, number):
             refuse(REFUSAL.format(n=number))
             return 0
