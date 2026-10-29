@@ -276,7 +276,7 @@ class TestErrorsDoNotBlock(HookCase):
                                          cwd=self.repo, env=self.env, text=True, capture_output=True)
                     self.assertEqual(run.returncode, 1, run.stderr)
                     self.assertEqual(run.stdout, "")
-                    self.assertIn("reply-check: could not check", run.stderr)
+                    self.assertIn(f"reply-check: could not check {entry}", run.stderr)
 
     def test_unreadable_glossary_and_missing_page_do_not_block_or_mark_content(self):
         glossary = self.glossary("**name**:\n_Avoid_: 别名\n")

@@ -193,7 +193,7 @@ def main() -> int:
     try:
         return check(sys.argv[1])
     except BaseException as exc:
-        sys.stderr.write(f"reply-check: could not check this reply: {exc!r}\n")
+        sys.stderr.write(f"reply-check: could not check {sys.argv[1]}: {exc!r}\n")
         return 1
 
 
