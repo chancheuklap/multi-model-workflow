@@ -91,8 +91,7 @@ happened is read on the tracker. What `send` answered decides what happens to th
                       no turn start was seen after it looked idle, or the runner could
                       not observe the program. Delivered all the same (`unconfirmed` on
                       the row): typing it again every cycle would bury the session in
-                      copies. Like any delivered row it stays until acked, and is sent
-                      once more only when the relay restarts
+                      copies. Like any delivered row it stays until acked
     3                 nothing was sent: the recipient is in a turn, or its runner could
                       not be asked; the row stays and is sent again next cycle
     2                 the runner has no such session: a late delivery to a retired
@@ -106,8 +105,8 @@ the ticket. Every drop is reported on stderr. A recipient's rows reach it in seq
 one of them stays, that recipient gets nothing more this pass, and the other recipients
 are not held up by it. Delivery never removes a row: only `ack --runner R --session S
 --through <seq>` does, and it removes that recipient's rows up to that sequence number
-whatever their content, and nobody else's. So a row sent twice — every unacked row is
-sent once more each time the relay starts — is still handled once. A woken session knows
+whatever their content, and nobody else's. Delivered rows remain delivered across relay
+restarts. A woken session knows
 the wake it read, not its sequence number, so `ack --ticket N --event E` names the wake
 instead: it acks through the recipient's oldest delivered row naming that ticket and event
 (the oldest queued one when none is marked delivered). Only that recipient's rows are looked at: an ack that
@@ -152,7 +151,8 @@ when no watch is left.
 **An unattended stretch** is time with no good poll: the relay was down, or its reads kept
 failing. Time spent in delivery passes is not part of it: a slow send delays the next poll,
 and the relay was attending all the while. Past `--grace` seconds (default three
-intervals) `queue` exits 3 and the watchdog reports the relay (watchdog.py). Nothing is
+intervals) `queue` exits 3. The watchdog reports a relay that is down, but not a
+tracker-read outage. Nothing is
 queued for it: the next good poll reads every ticket since its mark, and each event it
 finds wakes its recipient as any other does.
 
@@ -176,8 +176,8 @@ Files in the state directory:
                     poll, the pass under way, the last failed poll and why, the run's
                     interval and grace, and `reads`: billed and not-modified comment-list
                     reads since this process started. `at` is progress — the tracker was read
-                    — and `cycle_at` is running; the watchdog reads one of each, because a
-                    single failed read stops the first and not the second
+                    — and `cycle_at` is running, which the watchdog checks. A single
+                    failed read stops the first and not the second
     briefs/         one directory per batch of briefs (briefs.py)
     relay.lock      held for as long as a `run` runs: one relay per repository
 
@@ -1176,15 +1176,6 @@ class Relay:
 
     # ------------------------------------------------------------- delivering
 
-    def forget_deliveries(self) -> None:
-        """Mark every row undelivered, so each unacked row is sent once more."""
-        with self.queue_lock():
-            rows = self._rows()
-            if any(r.get("delivered") for r in rows):
-                for row in rows:
-                    row["delivered"] = None
-                self._write_rows(rows)
-
     def _settle(self, seq: int, delivered: str | None = None, drop: bool = False,
                 unconfirmed: bool = False) -> bool:
         """Mark row `seq` delivered, or drop it. False when it is no longer queued (acked)."""
@@ -1319,8 +1310,7 @@ class Relay:
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}\n")
             elif code == 4:
                 # Handed over and not confirmed. Marked delivered, so it is not typed into
-                # the session again every cycle; it is sent once more on a restart, like
-                # every unacked row.
+                # the session again, including after a restart.
                 held.add(address)
                 if self._settle(row["seq"], delivered=iso(self.clock()), unconfirmed=True):
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}, "
@@ -1330,7 +1320,6 @@ class Relay:
                                 f"retired session")
             elif code == 3:
                 held.add(address)
-                self.out.write(f"kept {row['seq']} {wake_text(row)}: {address[1]} is in a turn\n")
             else:
                 held.add(address)
                 self.err.write(f"relay: kept row {row['seq']} ({wake_text(row)}): {address[0]}.sh "
@@ -1456,7 +1445,6 @@ def cmd_run(args) -> int:
                       "interval": interval, "grace": grace, "started": iso(now_utc())}
             statedir.write_atomic(state / "relay.json", json.dumps(record, sort_keys=True) + "\n")
             try:
-                relay.forget_deliveries()
                 while True:
                     if relay.leave_if_unwatched():
                         print(f"no watch is open for {args.repo} any more; the relay ends", flush=True)

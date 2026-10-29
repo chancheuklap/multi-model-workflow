@@ -1,88 +1,21 @@
 #!/usr/bin/env python3
-"""The turn guard: the first layer of liveness, a hook on the orchestrator's own turn end.
+"""Arm every open watch's watchdog at each host's turn end. Never hold a turn.
 
-    turn-guard.py stop <host>      <host> is claude or codex;
-                                   the host's turn-end payload is on stdin
+    turn-guard.py stop <claude|codex>     the host's turn-end payload is ignored
 
-The worst way a night dies is the orchestrator stopping by itself: its turn ends and nothing
-ever starts another. The relay wakes it when a ticket has news, and the watchdog
-(`watchdog.py`, beside this file) notices a ticket that went silent and a relay that died —
-but the watchdog is one process, and when it dies, nothing notices that. This hook does. It
-runs every time the orchestrator's turn ends, and:
+For every state directory under MMW_HOME/state with an open watch, call watchdog.arm
+and append its result to guard.log. Arming does nothing when the watchdog is healthy.
+An unsuccessful arm is logged and still lets the turn end.
 
-1. re-arms the watchdog (`watchdog.arm`) when it is not healthy, and
-2. keeps the turn from ending when tickets are held, or briefs it started are open, and the
-   watchdog is still not healthy.
+own_brief, is_main and their runner identity lookup also serve reply-check.py, which
+uses them without arming the watchdog or asking the tracker.
 
-It does one more thing, for a session a brief `dispatch.sh send` started (briefs.py): when this
-process is such a session and its brief is still open, neither reported nor lost, the turn
-end is blocked once with the one command that reports it, unless that session is waiting
-on an open batch it sent. A brief's session that ends its
-turn without reporting would otherwise leave the session that briefed it waiting until the
-session is closed and the watchdog finds it stopped.
-
-**Whose turn.** Only an orchestrator's. For every state directory under `$MMW_HOME/state`
-with an open night (`watchdog.night_open`: the relay's `watches.json` names a watch), each
-open watch names its orchestrator's runner and session; this process asks each of those
-runners' adapter `self` which session it runs in, and acts when the answer is the
-orchestrator of any watch of that directory — a repository with two nights open guards both
-their orchestrators, and nobody else. Anything it cannot establish — no `watches.json`, one
-it cannot read, no adapter for that runner, `self` answering anything but a session id —
-means this is not an orchestrator, and the turn ends: a worker, or a child process that
-inherited a runner's variables, must never be held by an orchestrator's guard. A real
-orchestrator always matches, because `dispatch.sh open` refuses to open a watch for a session
-whose `self` cannot be read. A worker's turn end, or any session on a machine with no open
-night, is let through after reading a few files.
-
-**The predicate** (`verdict`): block when the watchdog is not healthy and the watchdog's
-last heartbeat does not say that nothing is held; an open brief counts as held. No heartbeat at all, or one from a round
-that could not read every ticket, is not "nothing held". Healthy is the watchdog's own
-test: its lock names a live process by pid and process identity, that process wrote the
-heartbeat, the heartbeat is within `max(300, poll + MARGIN)` seconds, and so is its last
-whole read of the board (`watchdog.py`'s header has both).
-
-**What each host can do at a turn end** (what the checks below saw, not what the hosts'
-documents promise):
-
-    host     event            can it keep the turn from ending?     how this file answers
-    claude   Stop             yes: exit 2, stderr to the model       exit 2 + stderr
-    codex    Stop             yes: exit 2, stderr to the model       exit 2 + stderr
-
-A block is asked for once per turn end: a stop that is already the continuation a block
-forced (`stop_hook_active`) re-arms and is recorded like any other, and is let through.
-The block itself re-armed the watchdog, and the text tells the agent the one
-command to run when it did not come up.
-
-**It never breaks a host.** Arguments it does not know end in exit 0 with the usage on
-stderr; an unreadable payload is read as an empty one; an error of its own ends in exit 1
-with the reason on stderr — a hook error the host shows, which never blocks. Exit 2 means
-only "held tickets and no healthy watchdog". Each decision it makes for an orchestrator is appended to `guard.log` in that night's state
-directory.
-
-**Checked against the real hosts** on 2026-09-10, one short session each with the prompt
-"reply OK; if a turn guard blocks you, run nothing and reply NOTED". The registrations were
-the ones install.sh's hook section writes, written into a throwaway home; the environment
-was emptied except for PATH, a throwaway `MMW_HOME` whose night was open and whose
-registered orchestrator was the session's own runner session, and `MMW_WATCHDOG_PY` naming a
-script that exits at once, so arming failed. "Fired" and "blocked" are read off
-`guard.log`; "replied" off the host's own output. Run this again for every new host and
-every host upgrade.
-
-    claude 2.1.267        claude -p, real HOME (its login is in the keychain) with
-                          --setting-sources project --settings <the throwaway settings.json>
-                          --no-session-persistence. Stop fired, blocked (exit 2); the model
-                          got the text and replied NOTED; the next Stop (stop_hook_active)
-                          was let through. Two turns.
-    codex 0.153.4         codex exec --ephemeral, CODEX_HOME=<throwaway>, the hook trusted by
-                          the trusted_hash install.sh wrote into its config.toml (no
-                          --dangerously-bypass-hook-trust). "hook: Stop Blocked", reply
-                          NOTED, the next Stop let through ("hook: Stop Completed"). With
-                          that config.toml moved aside the hook did not run at all.
+Exit 0 allows the turn, including unknown arguments. An error exits 1 with its reason
+on stderr and does not request a continuation from the host.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
@@ -101,43 +34,9 @@ ARM_WAIT = 5.0
 SELF_TIMEOUT = 10
 
 
-# ----------------------------------------------------------------- the host's side (pure)
-
-def read_payload(text: str) -> dict:
-    try:
-        value = json.loads(text) if text and text.strip() else {}
-    except ValueError:
-        return {}
-    return value if isinstance(value, dict) else {}
-
-
-def continuation(payload: dict) -> bool:
-    """True when this stop is already the continuation that an earlier block forced."""
-    return payload.get("stop_hook_active") is True
-
-
-def verdict(held, healthy: bool, why: str) -> tuple[bool, str]:
-    """Block this turn end? `held` is the watchdog's last heartbeat's list of held tickets,
-    or None when no heartbeat says (none written, or a round that could not read them all)."""
-    if healthy:
-        return False, why
-    if isinstance(held, list) and not held:
-        return False, f"nothing is held at the watchdog's last round, though {why}"
-    return True, why
-
-
-def answer(block: bool, text: str) -> tuple[int, str, str]:
-    """(exit code, stdout, stderr): both hosts keep a turn going on exit 2 with stderr."""
-    if not block:
-        return 0, "", ""
-    return 2, "", text + "\n"
-
-
-# ----------------------------------------------------------------- this machine's side
-
 def load_watchdog():
     """`watchdog.py` beside this file, by path: a module of that name installed elsewhere
-    must not answer for it. Loaded only once a turn end has to be judged."""
+    must not answer for it. Loaded when arming or identifying an unattended session."""
     import importlib.util
 
     spec = importlib.util.spec_from_file_location("mmw_watchdog", HERE / "watchdog.py")
@@ -159,7 +58,7 @@ def open_states(dog) -> list[Path]:
     return [p for p in candidates if dog.night_open(p)]
 
 
-def own_session(runner: str, asked: dict | None = None) -> str | None:
+def _runner_session(runner: str, asked: dict | None = None) -> str | None:
     """The session this process runs in, as `runners/<runner>.sh self` reads it, or None.
     `asked` keeps the answers of one turn end, so each runner is asked once."""
     asked = {} if asked is None else asked
@@ -186,7 +85,7 @@ def is_main(state: Path, dog, asked: dict | None = None) -> bool:
         return False
     mains = {dog.relay_mod.main_of(entry) for entry in watches.values()}
     asked = {} if asked is None else asked
-    return any((runner, own_session(runner, asked)) in mains
+    return any((runner, _runner_session(runner, asked)) in mains
                for runner in sorted({r for r, _ in mains}))
 
 
@@ -194,7 +93,7 @@ def own_brief(state: Path, asked: dict | None = None) -> dict | None:
     """The open brief on `state` this process is the session of, or None."""
     for child in briefs.open_children(state):
         runner = child.get("runner")
-        if runner and own_session(runner, asked) == child.get("session"):
+        if runner and _runner_session(runner, asked) == child.get("session"):
             return child
     return None
 
@@ -203,71 +102,19 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def log(state: Path, host: str, block: bool, held, why: str) -> None:
+def log(state: Path, host: str, why: str) -> None:
     try:
         with open(state / "guard.log", "a", encoding="utf-8") as fh:
-            fh.write(f"{now_iso()} {host} {'block' if block else 'allow'} held={held} {why}\n")
+            fh.write(f"{now_iso()} {host} allow {why}\n")
     except OSError:
         pass
 
 
-def guard(host: str, forced: bool = False) -> list[str]:
-    """Every block this turn end calls for, one text per night; empty to let it end.
-
-    `forced`: this stop is the continuation an earlier block forced. It still re-arms the
-    watchdog and records its decision, and it never blocks.
-    """
+def guard(host: str) -> None:
     dog = load_watchdog()
-    asked: dict = {}
-
-    blocks: list[str] = []
     for state in open_states(dog):
-        child = own_brief(state, asked)
-        if child is not None:
-            name = f"{child['batch']}/{child['n']}"
-            waiting = briefs.open_batches(state, (child["runner"], child["session"]))
-            if waiting:
-                batches = ", ".join(b["batch"] for b in waiting)
-                log(state, host, False, None, f"brief {name} waits on its own open batches {batches}")
-                continue
-            log(state, host, not forced, None, f"brief {name} ends its turn without reporting")
-            if not forced:
-                blocks.append(
-                    f"MMW turn guard: you are brief {name} and have not reported, so the "
-                    f"session that briefed you is still waiting. Write your whole answer to "
-                    f"one file and run `bash {HERE / 'dispatch.sh'} report {name} <file>`, "
-                    f"then end your turn.")
-            continue
-        if not is_main(state, dog, asked):
-            continue
-        repo = dog.repo_of(state)
-        healthy, why, beat = dog.read_health(state)
-        armed = ""
-        if not healthy:
-            healthy, armed = dog.arm(state, repo, ARM_WAIT)
-            _, _, beat = dog.read_health(state)
-            if not healthy:
-                why = f"{why}; this hook tried to start it and {armed}"
-        held = beat.get("held") if isinstance(beat, dict) else None
-        if isinstance(held, list) and isinstance(beat.get("briefs"), list):
-            held = held + [f"brief {name}" for name in beat["briefs"]]
-        block, reason = verdict(held, healthy, why)
-        if forced and block:
-            block, reason = False, f"the continuation an earlier block forced, still: {reason}"
-        log(state, host, block, held, reason)
-        if block:
-            which = ", ".join(n if isinstance(n, str) else f"#{n}" for n in held) \
-                if isinstance(held, list) else \
-                "which ones is not known: no watchdog round has read them all"
-            blocks.append(
-                f"MMW turn guard: the night on {repo} has held tickets or open briefs ({which}) and its "
-                f"watchdog is not healthy: {reason}. Until it is, nothing notices a worker "
-                f"that dies or a relay that stops. Run `python3 {Path(dog.__file__).resolve()} "
-                f"arm --repo {repo}`, act on what it prints; if it exits non-zero, open a "
-                f"`fault` child on any held ticket with that command and its output. Then end "
-                f"your turn."
-            )
-    return blocks
+        healthy, why = dog.arm(state, dog.repo_of(state), ARM_WAIT)
+        log(state, host, f"watchdog {'healthy' if healthy else 'unhealthy'}: {why}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -275,20 +122,12 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) != 2 or argv[0] != "stop" or argv[1] not in HOSTS:
         sys.stderr.write(f"usage: turn-guard.py stop <{'|'.join(HOSTS)}>\n")
         return 0
-    host = argv[1]
     try:
-        payload = read_payload(sys.stdin.read())
-    except (OSError, UnicodeDecodeError):
-        payload = {}
-    try:
-        blocks = guard(host, forced=continuation(payload))
-    except BaseException as exc:  # noqa: BLE001 — an import's SystemExit(2) must not block
-        sys.stderr.write(f"turn-guard: could not judge this turn end: {exc!r}\n")
+        guard(argv[1])
+    except BaseException as exc:  # An import's SystemExit(2) must not hold a turn.
+        sys.stderr.write(f"turn-guard: could not arm the watchdog: {exc!r}\n")
         return 1
-    code, out, err = answer(bool(blocks), "\n\n".join(blocks))
-    sys.stdout.write(out)
-    sys.stderr.write(err)
-    return code
+    return 0
 
 
 if __name__ == "__main__":

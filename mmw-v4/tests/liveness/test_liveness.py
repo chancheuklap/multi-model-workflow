@@ -144,7 +144,7 @@ class Health(unittest.TestCase):
     def beat(self, age: int, poll: int = 60, **over) -> dict:
         return {"pid": 4242, "identity": "Thu Sep 10 01:00:00 2026",
                 "at": stamp(T0 - timedelta(seconds=age)),
-                "read_at": stamp(T0 - timedelta(seconds=age)), "poll": poll, **over}
+                "poll": poll, **over}
 
     def test_no_live_holder_is_not_healthy_whatever_the_heartbeat_says(self):
         self.assertFalse(dog.health(None, self.beat(1), T0)[0])
@@ -172,14 +172,6 @@ class Health(unittest.TestCase):
         self.assertTrue(dog.health(self.HOLDER, self.beat(400, poll=400), T0)[0])
         self.assertFalse(dog.health(self.HOLDER, self.beat(581, poll=400), T0)[0])
 
-    def test_a_watchdog_that_cannot_read_the_board_is_not_healthy(self):
-        beat = self.beat(1, read_at=stamp(T0 - timedelta(seconds=301)),
-                         read_failure="#61: gh exited 1: HTTP 502")
-        ok, why = dog.health(self.HOLDER, beat, T0)
-        self.assertFalse(ok)
-        self.assertIn("HTTP 502", why)
-        beat["read_at"] = stamp(T0 - timedelta(seconds=299))
-        self.assertTrue(dog.health(self.HOLDER, beat, T0)[0])
 
 
 class ArmDirectory(StateCase):
@@ -202,7 +194,7 @@ class LockIdentity(StateCase):
 
     def heartbeat_by(self, pid: int, identity: str | None) -> None:
         self.write("watchdog.json", {"pid": pid, "identity": identity, "at": stamp(dog.now_utc()),
-                                     "read_at": stamp(dog.now_utc()), "poll": 60})
+                                     "poll": 60})
 
     def test_own_pid_and_identity_with_its_own_heartbeat_is_healthy(self):
         me = statedir.process_identity(os.getpid())
@@ -229,18 +221,51 @@ class LockIdentity(StateCase):
         self.assertFalse(dog.read_health(self.state)[0])
 
 
-# ----------------------------------------------------------------- the guard predicate
+# ----------------------------------------------------------------- turn ends
 
-class Verdict(unittest.TestCase):
-    def test_a_healthy_watchdog_lets_the_turn_end(self):
-        self.assertEqual(guard.verdict([61], True, "fine"), (False, "fine"))
+class TurnGuardOnlyArms(StateCase):
+    def test_held_tickets_and_an_unhealthy_watchdog_never_hold_a_turn(self):
+        self.open_watches({"tickets": [61], **MAIN})
+        other = statedir.state_dir("o/other")
+        (other / "watches.json").write_text(json.dumps({"spec:7": {"spec": 7, **MAIN}}))
+        self.write("watchdog.json", {"held": [61]})
+        starter = Path(self.tmp.name) / "nodog.py"
+        starter.write_text("from pathlib import Path\nPath('armed').touch()\nraise SystemExit(1)\n")
+        runners = Path(self.tmp.name) / "runners"
+        runners.mkdir()
+        (runners / "orca.sh").write_text('echo term_main\n')
+        env = {**os.environ, "MMW_WATCHDOG_PY": str(starter), "MMW_RUNNERS_DIR": str(runners)}
+        for host in guard.HOSTS:
+            for who in ("term_main", "worker"):
+                (runners / "orca.sh").write_text(f'echo {who}\n')
+                with self.subTest(host=host, who=who):
+                    for state in (self.state, other):
+                        (state / "armed").unlink(missing_ok=True)
+                    run = subprocess.run([sys.executable, guard.__file__, "stop", host],
+                                         input="{}", capture_output=True, text=True, env=env)
+                    self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
+                    for state in (self.state, other):
+                        self.assertTrue((state / "armed").exists(), state)
+                        self.assertIn(f"{host} allow", (state / "guard.log").read_text())
 
 
-class HostSide(unittest.TestCase):
-    def test_a_stop_forced_by_an_earlier_block_is_let_through(self):
-        self.assertTrue(guard.continuation({"stop_hook_active": True}))
-        self.assertFalse(guard.continuation({"stop_hook_active": False}))
-        self.assertFalse(guard.continuation({}))
+class TurnGuardLetsBriefsStop(StateCase):
+    def test_an_unreported_brief_can_end_its_turn(self):
+        batch = dog.briefs.create(self.state, "researcher", 1, "fake", "parent")
+        dog.briefs.mark_started(self.state, batch, 1, {"runner": "fake", "session": "child"})
+        self.write("watches.json", {f"briefs:{batch}": {"briefs": batch, "runner": "fake",
+                                                     "session": "parent"}})
+        runners = Path(self.tmp.name) / "runners"
+        runners.mkdir()
+        (runners / "fake.sh").write_text('echo child\n')
+        starter = Path(self.tmp.name) / "nodog.py"
+        starter.write_text("raise SystemExit(1)\n")
+        env = {**os.environ, "MMW_WATCHDOG_PY": str(starter), "MMW_RUNNERS_DIR": str(runners)}
+        for host in guard.HOSTS:
+            run = subprocess.run([sys.executable, guard.__file__, "stop", host],
+                                 input="{}", capture_output=True, text=True, env=env)
+            self.assertEqual((run.returncode, run.stdout, run.stderr), (0, "", ""))
+        self.assertEqual(dog.briefs.briefs_of(self.state, batch)[0]["state"], "open")
 
 
 # ----------------------------------------------------------------- the night
@@ -473,58 +498,24 @@ class Rounds(StateCase):
             self.assertEqual(len(self.send.calls), expected, "later worktree activity wins")
         self.assertIn(stamp(changed), self.send.calls[-1][2])
 
-    def test_table_an_unrouted_child_is_reported_again_each_nudge(self):
+    def test_an_unrouted_child_without_a_delivered_wake_is_not_reported(self):
         self.silent_worker()
-        (self.runners / "h1.state").write_text("working\n")
         self.board.tickets[61].append(comment(2, "child.opened", 61, T0,
                                              child=1373, kind="contract", title="contract"))
-        self.send.default = 4
         self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.assertIn("1373", self.send.calls[0][2])
-        self.clock.moment = T0 + timedelta(seconds=60)
-        with mock.patch.object(self.board, "comments", side_effect=dog.relay_mod.PollError("HTTP 502")):
-            self.watchdog().round()
-        self.clock.moment = T0 + timedelta(seconds=120)
-        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1, "a failed read must not reset the nudge timer")
-        self.clock.moment = T0 + timedelta(seconds=1799)
-        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.clock.moment = T0 + timedelta(seconds=1800)
-        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 2)
-        self.assertTrue(all(c[:2] == ("orca", "term_main") for c in self.send.calls))
-        self.assertTrue(all("#61" in c[2] and "unrouted children 1373" in c[2]
-                            for c in self.send.calls))
+        self.assertEqual(self.send.calls, [])
 
-    def test_table_an_unacked_wake_is_reported_again_each_nudge(self):
+    def test_a_wake_acked_before_its_nudge_age_is_not_reported(self):
         (self.state / "queue.jsonl").write_text(json.dumps({
             "seq": 1, "ticket": 61, "event": "reviewer.reported", "to": "worker",
             "watch": "spec:7", "runner": "herdr", "session": "h1",
             "at": stamp(T0), "delivered": stamp(T0)}) + "\n")
-        self.send.default = 4
         self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
-        self.assertIn("#61", self.send.calls[0][2])
-        self.assertIn("unacked", self.send.calls[0][2])
-        self.clock.moment = T0 + timedelta(seconds=1799)
-        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.clock.moment = T0 + timedelta(seconds=1800)
-        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 2)
-        (self.state / "queue.jsonl").write_text("")
+        dog.relay_mod.Relay(self.state).ack(("herdr", "h1"), 1)
         self.clock.moment += timedelta(seconds=1800)
         self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
         self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 2)
+        self.assertEqual(self.send.calls, [])
 
     def test_table_an_idle_researcher_is_reported(self):
         with mock.patch.object(dog.briefs, "now_iso", return_value=stamp(self.IDLE)):
@@ -544,21 +535,6 @@ class Rounds(StateCase):
         self.assertEqual(len(self.send.calls), 1)
         self.assertEqual(dog.briefs.briefs_of(self.state, batch)[0]["state"], "open")
 
-    def test_table_a_routed_child_is_not_reported_again(self):
-        self.board.spec_children[61] = [(1373, "open")]
-        self.silent_worker()
-        (self.runners / "h1.state").write_text("working\n")
-        self.board.tickets[61].append(comment(2, "child.opened", 61, T0,
-                                             child=1373, kind="contract", title="contract"))
-        self.send.default = 4
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.board.tickets[61].append(comment(3, "child.closed", 61, T0,
-                                             child=1373, resolution="fixed"))
-        self.clock.moment += timedelta(seconds=1800)
-        self.write("beat.json", {"at": stamp(self.clock()), "grace": 90})
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
 
     def test_a_worker_waits_for_the_lost_reviewer_wake(self):
         self.idle_worker(comment(2, "reviewer.started", 61, self.IDLE,
@@ -683,32 +659,7 @@ class Rounds(StateCase):
         self.assertIn("mac-2", self.send.calls[0][2])
         self.assertIn("mac-1", self.send.calls[0][2])
 
-    def test_board_reads_failing_past_the_tolerance_are_reported_once_and_unhealthy(self):
-        class Failing(FakeBoard):
-            def comments(self, ticket, since):
-                raise dog.relay_mod.PollError("gh exited 1: HTTP 502")
-        self.board = Failing({}, {7: [61]})
-        self.watchdog().round()
-        self.assertEqual(self.send.calls, [], "inside the tolerance it is not yet an alert")
-        self.clock.moment = T0 + timedelta(seconds=301)
-        self.watchdog().round()   # a restarted watchdog keeps the time of the last whole read
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.assertIn("2026-09-10T01:00:00Z", self.send.calls[0][2])
-        self.assertIn("#61", self.send.calls[0][2])
-        beat = self.heartbeat()
-        ok, why = dog.health({"pid": beat["pid"], "identity": beat["identity"]}, beat,
-                             self.clock.moment)
-        self.assertFalse(ok)
-        self.assertIn("HTTP 502", why)
 
-    def test_a_restart_after_good_reads_starts_healthy(self):
-        # Yesterday's last whole read is no failure: only a failing stretch is carried.
-        self.write("watchdog.json", {"read_at": stamp(T0 - timedelta(hours=9)), "read_failure": None})
-        wd = self.watchdog()
-        wd.write_beat()
-        beat = self.heartbeat()
-        self.assertTrue(dog.health({"pid": beat["pid"], "identity": beat["identity"]}, beat, T0)[0])
 
     def test_a_recent_ticket_is_asked(self):
         self.board.tickets[61] = [comment(1, "worker.started", 61, T0 - timedelta(minutes=2),
@@ -755,23 +706,6 @@ class Rounds(StateCase):
         self.assertIn("relay down", self.send.calls[0][2])
         self.assertIn("90s", self.send.calls[0][2])
 
-    def test_a_relay_still_cycling_after_a_failed_read_is_not_reported_down(self):
-        """2026-09-12 (#406): one round's `net/http: TLS handshake timeout` left the last
-        good poll standing still, and the watchdog called the relay down — five times in
-        one night, while the process was there, cycling, and healthy again next round.
-        The Run a night playbook answers `relay down` with a reopened night, so each one cost a needless
-        `open`."""
-        self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=91)),
-                                 "cycle_at": stamp(T0 - timedelta(seconds=5)),
-                                 "failed_at": stamp(T0 - timedelta(seconds=5)),
-                                 "failure": "#749: gh exited 1 (net/http: TLS handshake timeout)",
-                                 "delivering": 0, "grace": 90, "interval": 30})
-        self.watchdog().round()
-        text = self.send.calls[0][2]
-        self.assertNotIn("relay down", text)
-        self.assertIn("relay not reading", text)
-        self.assertIn(stamp(T0 - timedelta(seconds=5)), text)
-        self.assertIn("TLS handshake timeout", text)
 
     def test_a_relay_that_stopped_cycling_is_down_and_says_when_it_last_cycled(self):
         self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=200)),
@@ -957,6 +891,63 @@ class Rounds(StateCase):
         self.assertEqual(self.heartbeat()["reads"], {"billed": 1, "not_modified": 1})
 
 
+class NoAlertForReadOutage(StateCase):
+    def test_tracker_outages_do_not_alert_or_make_a_beating_watchdog_unhealthy(self):
+        self.open_watches({"spec": 7, **MAIN})
+        clock = Clock()
+        send = Recorder(default=4)
+        for never_read in (False, True):
+            for failing in ("comments", "children"):
+                with self.subTest(never_read=never_read, failing=failing):
+                    self.write("watchdog.json", {"read_at": stamp(T0 - timedelta(hours=1)),
+                                                  "read_failure": "HTTP 502"})
+                    self.write("relay.json", {"started": stamp(T0 - timedelta(hours=1))})
+                    board = FakeBoard({}, {7: [61]})
+                    with statedir.locked(self.state / "relay.lock", wait=0, purpose="test relay"), \
+                            mock.patch.object(board, failing,
+                                              side_effect=dog.relay_mod.PollError("HTTP 502")):
+                        for elapsed in (0, 301, 3600):
+                            clock.moment = T0 + timedelta(seconds=elapsed)
+                            self.write("beat.json", {"at": None if never_read else stamp(T0),
+                                                      "cycle_at": stamp(clock()), "grace": 90,
+                                                      "failure": "HTTP 502"})
+                            wd = dog.Watchdog(self.state, "o/r", board=board, send=send,
+                                              clock=clock, err=io.StringIO())
+                            wd.round()
+                            self.assertEqual(send.calls, [])
+                            holder = {"pid": wd.beat["pid"], "identity": wd.beat["identity"]}
+                            self.assertTrue(dog.health(holder, wd.beat, clock())[0])
+
+
+class WaitingAlertOncePerWake(StateCase):
+    def test_each_delivered_wake_is_reported_only_after_its_nudge_age(self):
+        self.open_watches({"tickets": [61], **MAIN})
+        clock = Clock()
+        rows = [{"seq": seq, "ticket": 61, "event": "ticket.passed", "to": "main",
+                 "watch": "tickets:61", **MAIN, "at": stamp(T0), "delivered": delivered}
+                for seq, delivered in ([(1, stamp(T0)), (205, None)] +
+                                       [(seq, stamp(T0 + timedelta(seconds=1)))
+                                        for seq in range(2, 205)])]
+        (self.state / "queue.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+        for code in (0, 4):
+            with self.subTest(send=code):
+                (self.state / "watchdog.json").unlink(missing_ok=True)
+                send = Recorder(default=code)
+                with statedir.locked(self.state / "relay.lock", wait=0, purpose="test relay"):
+                    for elapsed, expected in ((0, 0), (1799, 0), (1800, 1), (1801, 2),
+                                               (3601, 2), (7200, 2)):
+                        clock.moment = T0 + timedelta(seconds=elapsed)
+                        self.write("beat.json", {"at": stamp(clock()), "cycle_at": stamp(clock()),
+                                                  "grace": 90})
+                        wd = dog.Watchdog(self.state, "o/r", board=FakeBoard({}), send=send,
+                                          clock=clock, err=io.StringIO())
+                        wd.round()
+                        self.assertEqual(len(send.calls), expected, elapsed)
+                self.assertTrue(all(call[:2] == (MAIN["runner"], MAIN["session"])
+                                    and "#61" in call[2] and "ack" in call[2]
+                                    for call in send.calls))
+
+
 class Arm(StateCase):
     def test_a_watchdog_that_beats_is_not_ended_for_failing_reads(self):
         # A live holder whose heartbeat is fresh is slow or blind, not hung.
@@ -974,8 +965,7 @@ class Arm(StateCase):
                                      "read_at": stamp(now - timedelta(seconds=400)),
                                      "read_failure": "#61: HTTP 502"})
         ok, why = dog.arm(self.state, "o/r", wait=1)
-        self.assertFalse(ok)
-        self.assertIn("HTTP 502", why)
+        self.assertTrue(ok, why)
         self.assertIsNone(holder.poll(), "arm ended a watchdog that was beating")
 
 
