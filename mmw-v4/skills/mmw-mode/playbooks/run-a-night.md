@@ -22,7 +22,7 @@ Find where you are by the first row whose fact holds; the record says where you 
 | The user has said the night starts, and the spec carries no `spec.opened` | [1. The user says the night starts](#1-the-user-says-the-night-starts), then 1b and 2 |
 | The spec's newest night event is `spec.suspended`, or you are deciding to stop the night because the fault is in the pipeline | [Suspending the night](#suspending-the-night) |
 | A retrospective brief wake arrived after `spec.closed` | Resume Retrospective (`playbooks/retrospective.md`) at **Check and apply the answers** |
-| A wake arrived: `#<n> <event>`, `brief <batch> done`, a line of `watchdog:` alerts, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
+| A wake arrived: `#<n> <event>`, `brief <batch> done`, or a line of `watchdog:` alerts | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
 | `dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
 | The spec carries `spec.closed` and no `spec.retroed` | Enter Retrospective (`playbooks/retrospective.md`) with `--spec <spec>` through its re-entry instructions, then [6. Open the pull request](#6-open-the-pull-request) |
 | The spec carries `spec.closed`, and no open pull request runs from the night's branch to the project branch | [6. Open the pull request](#6-open-the-pull-request) |
@@ -92,6 +92,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
 | A worker whose session is gone while its worktree or claim still stand (`advance` says "if the worker … is gone, retract it") | `dispatch.sh retract <n>`; a `0` on its summary line is something it could not release, and the line above says why. Step 4 starts the replacement |
 | `watchdog: #<n> silent since …` | When `events.py fold <n>` lists an open `contract` child, the worker is waiting on you; settle that child first |
+| `watchdog: #<n> is waiting on the orchestrator: unacked delivered wake <seq>` | Act on that ticket's newest event as its row above says, then `dispatch.sh ack <n> <event>`; a wake already acked needs nothing |
 | Any other live worker | Nothing; its result wakes you or its worker |
 | The ticket needs the other worker grade | Give it exactly one of the `junior-worker` / `senior-worker` labels; the next `start` reads it |
 
