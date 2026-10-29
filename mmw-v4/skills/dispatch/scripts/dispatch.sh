@@ -25,7 +25,6 @@
 #   dispatch.sh reverify <spec>
 #   dispatch.sh recheck <spec> [<commit>]
 #   dispatch.sh summary <spec>
-#   dispatch.sh check-all <spec>
 #   dispatch.sh finish <spec>
 #   dispatch.sh pr --base <b> --head <h> --title <t> --body-file <f>
 #   dispatch.sh suspend <spec>
@@ -427,7 +426,6 @@ usage: dispatch.sh send worker|reviewer <n>
        dispatch.sh reverify <spec>
        dispatch.sh recheck <spec> [<commit>]
        dispatch.sh summary <spec>
-       dispatch.sh check-all <spec>
        dispatch.sh finish <spec>
        dispatch.sh pr --base <b> --head <h> --title <t> --body-file <f>
        dispatch.sh suspend <spec>
@@ -2003,19 +2001,6 @@ wait_one() {
 
 # ------------------------------------------------------------------ check
 
-# The base the night-open check compares with: the project branch as origin has it, so
-# the check runs what the night branch adds to the project; the base branch itself when
-# there is no project branch to compare with.
-open_check_base() {
-  local root="$1" into="$2" project="$3"
-  if [ -n "$project" ] && [ "$project" != "$into" ] \
-     && git -C "$root" rev-parse -q --verify "refs/remotes/origin/$project" >/dev/null; then
-    printf 'origin/%s\n' "$project"
-  else
-    printf '%s\n' "$into"
-  fi
-}
-
 check_machine() {
   local spec="$1"
   local failed=0
@@ -2044,17 +2029,13 @@ check_machine() {
     fi
   fi
 
-  # Every tree the night lands is checked by the repository's scripts/check, so a base it
-  # finds red, or cannot run on, would bounce or stop every ticket; it runs once here, on
-  # this checkout as it stands, uncommitted changes included.
+  local missing
   if [ -n "$root" ]; then
-    run_merge_checks "$root" "$(open_check_base "$root" "${into:-HEAD}" "${project:-}")" "$root" "spec-$spec"
-    case "$?" in
-      0) echo "scripts/check: green on this checkout" ;;
-      1) printf 'dispatch: scripts/check is red on this checkout, so every ticket the night lands would bounce: %s\n' "$MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
-      3) echo "dispatch: no ticket of the night could land: $MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
-      *) printf 'dispatch: scripts/check cannot run on this machine, so every landing would stop: %s\n' "$MERGE_CHECKS_DETAIL" >&2; failed=1 ;;
-    esac
+    missing="$(repository_check_missing "$root")" || failed=1
+    if [ -n "$missing" ]; then
+      echo "dispatch: no ticket of the night could land: $missing" >&2
+      failed=1
+    fi
   fi
 
   # What install.sh checks is this machine's whole toolbox, most of it nothing the night
@@ -2566,53 +2547,84 @@ proof = mod.covering_proof(mod.fetch_comments(int(issue)), event, commit, base)
 if not proof:
     sys.exit(1)
 print(proof["tier"], proof["commit"], proof["base"])
+if event == "spec.checked":
+    for step in proof["steps"]:
+        if step.startswith("e2e-"):
+            print(f"PASS {step} (reused spec.checked on {commit[:12]})")
 PY
 }
 
 # Runs `scripts/check --all` once on the night branch as origin has it, in the merge
 # worktree, and records a green run on the spec as `spec.checked` tier `all`: the
 # night's audit of every step's declared inputs, and the proof `finish` reuses when its
-# merge is this tree. 0 green, 1 red, 2 not run or not recorded.
-check_all_spec() {
-  local spec="$1" root into out tip
-  case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-  root="$(git rev-parse --show-toplevel 2>/dev/null)"
-  [ -n "$root" ] || refuse "not inside a git repository"
-  into="$(newest_field "$spec" into spec.opened 2>/dev/null)" || into=""
-  [ -n "$into" ] || refuse "#${spec}'s spec.opened carries no base branch; run open $spec first"
+# merge is this tree.
+summary_checks() {
+  local spec="$1" root="$2" into="$3" expected="$4" out tip check_lines
   export MMW_SPEC="$spec"
   prepare_merge_worktree "$root" "$into" || exit 2
   tip="$(git -C "$MERGE_ROOT" rev-parse HEAD)"
-  if repository_proof "$spec" spec.checked "$tip" "$tip" >/dev/null 2>&1; then
+  if [ "$tip" != "$expected" ]; then
     release_merge_lock
-    echo "check-all #$spec: not run again: origin/$into at ${tip:0:12} already passed --all on this machine"
+    refuse "origin/$into moved to $tip after reverify was checked; run reverify $spec and summary $spec again"
+  fi
+  if out="$(repository_proof "$spec" spec.checked "$tip" "$tip")"; then
+    release_merge_lock
+    check_lines="$(printf '%s\n' "$out" | tail -n +2)"
+    [ -z "$check_lines" ] || printf '%s\n' "$check_lines"
+    echo "summary #$spec: not run again: origin/$into at ${tip:0:12} already passed --all on this machine"
     return 0
   fi
-  out="$(python3 - "$VERIFY" "$MERGE_ROOT" "$root" "$spec" <<'PY'
-import importlib.util, json, sys
+  out="$(python3 - "$VERIFY" "$MERGE_ROOT" "$root" "$spec" "$STATUS" <<'PY'
+import importlib.util, json, re, sys
 from pathlib import Path
 
-script, root, worktree, spec_number = sys.argv[1:5]
+script, root, worktree, spec_number, status_script = sys.argv[1:6]
 sys.path.insert(0, str(Path(script).resolve().parent))
 spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 result = mod.run_repository_check(Path(root), "HEAD", worktree, f"spec-{spec_number}", tier="all")
+failed_steps = [step for row in result["failed"] for step in row.get("steps", [])]
+if result["status"] == "red" and failed_steps and all(step.startswith("e2e-") for step in failed_steps):
+    status_spec = importlib.util.spec_from_file_location("mmw_status", status_script)
+    status_mod = importlib.util.module_from_spec(status_spec)
+    status_spec.loader.exec_module(status_mod)
+    _, tickets = status_mod.collect(int(spec_number))
+    open_tickets = {
+        step: [number for number, ticket in tickets.items()
+               if ticket["state"] == "OPEN" and any(
+                   f"tests/e2e/{step[4:]}/" in criterion.get("check", "")
+                   for criterion in mod.parse_criteria(ticket["body"]))]
+        for step in failed_steps
+    }
+    if all(open_tickets.values()):
+        result["status"] = "open-e2e"
+        result["detail"] = "Open-ticket e2e failures: " + "; ".join(
+            f"{step} ({', '.join(f'#{number}' for number in numbers)})"
+            for step, numbers in open_tickets.items())
 print(result["status"])
 print(json.dumps(result["proof"] or {}, separators=(",", ":")))
-print(result["detail"])
+print(json.dumps(result["detail"]))
+lines = result["output"].splitlines()
+print("\n".join(line for index, line in enumerate(lines)
+                if re.match(r"^(?:PASS|FAIL)\s+e2e-", line) or index == len(lines) - 1))
 PY
-)" || { release_merge_lock; echo "dispatch: check-all #$spec: $VERIFY could not run scripts/check --all (the reason is above)" >&2; exit 2; }
+)" || { release_merge_lock; echo "dispatch: summary #$spec: $VERIFY could not run scripts/check --all (the reason is above)" >&2; exit 2; }
   release_merge_lock
   local status proof detail
   status="$(printf '%s\n' "$out" | sed -n 1p)"
   proof="$(printf '%s\n' "$out" | sed -n 2p)"
-  detail="$(printf '%s\n' "$out" | sed -n '3,$p')"
+  detail="$(printf '%s\n' "$out" | sed -n 3p | python3 -c 'import json, sys; print(json.load(sys.stdin))')"
+  check_lines="$(printf '%s\n' "$out" | sed -n '4,$p')"
+  [ -z "$check_lines" ] || printf '%s\n' "$check_lines"
   case "$status" in
     pass) ;;
-    red) printf 'check-all #%s: red on origin/%s at %s:\n%s\n' "$spec" "$into" "${tip:0:12}" "$detail"; exit 1 ;;
-    *) printf 'dispatch: check-all #%s: scripts/check --all did not run: %s\n' "$spec" "$detail" >&2; exit 2 ;;
+    open-e2e) SUMMARY_CHECK_NOTE="$detail"; return 0 ;;
+    red)
+         printf 'dispatch: summary #%s: red on origin/%s at %s:\n%s\n' "$spec" "$into" "${tip:0:12}" "$detail" >&2
+         exit 2 ;;
+    *) printf 'dispatch: summary #%s: scripts/check --all did not run: %s\n' "$spec" "$detail" >&2; exit 2 ;;
   esac
   local -a proof_args=()
   local field
@@ -2623,10 +2635,10 @@ for key, value in json.loads(sys.argv[1]).items():
     print(f"{key}={json.dumps(value)}")' "$proof")
   if [ "${#proof_args[@]}" -eq 0 ] || ! post_event "$spec" spec.checked --spec "$spec" \
       --line "--all green on $into at ${tip:0:12}" "${proof_args[@]}" --field result=met; then
-    echo "dispatch: check-all #$spec: --all is green on ${tip:0:12}, but its spec.checked record was not written; run check-all again" >&2
+    echo "dispatch: summary #$spec: --all is green on ${tip:0:12}, but its spec.checked record was not written; run summary again" >&2
     exit 2
   fi
-  echo "check-all #$spec: green on origin/$into at ${tip:0:12}; recorded on #$spec"
+  echo "summary #$spec: green on origin/$into at ${tip:0:12}; recorded on #$spec"
 }
 
 # Prints why scripts/check at <root> cannot be run, or nothing when it is an executable
@@ -3725,7 +3737,11 @@ summary_spec() {
        esac ;;
   esac
 
+  local SUMMARY_CHECK_NOTE=""
+  summary_checks "$spec" "$caller_root" "$into" "$expected"
+
   body="$(printf '%s\nReverify: %s green on %s\n' "$body" "$green" "$expected")"
+  [ -z "$SUMMARY_CHECK_NOTE" ] || body="$(printf '%s\n%s\n' "$body" "$SUMMARY_CHECK_NOTE")"
   local first rest
   first="$(printf '%s\n' "$body" | head -n 1)"
   rest="$(printf '%s\n' "$body" | tail -n +2)"
@@ -4500,10 +4516,6 @@ case "${1:-}" in
   summary)
     [ "$#" -eq 2 ] || usage
     summary_spec "$2"
-    ;;
-  check-all)
-    [ "$#" -eq 2 ] || usage
-    check_all_spec "$2"
     ;;
   finish)
     [ "$#" -eq 2 ] || usage

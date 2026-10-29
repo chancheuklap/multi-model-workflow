@@ -2757,7 +2757,8 @@ def run_repository_check(root: Path | str, base_ref: str,
     """Run one tier of `scripts/check` at `root` with `MMW_BASE_REF=base_ref`: the
     default tier, or `--all` when `tier` is `all`.
 
-    Returns `{"status", "failed", "detail", "proof"}`. `proof` identifies a green or red run,
+    Returns `{"status", "failed", "detail", "proof", "output"}`. `output` is the combined
+    stdout and stderr of the check, or empty when it did not start. `proof` identifies a green or red run,
     the fields of its record (`proof_fields`), or None: a run on a tree with uncommitted
     or untracked files proved nothing about any commit. `status` is `pass` (exit 0), `red` (exit 1), `cannot-run`
     (exit 2, any other exit, or the script would not start: this machine cannot run
@@ -2770,7 +2771,7 @@ def run_repository_check(root: Path | str, base_ref: str,
     root = Path(root)
     missing = repository_check_missing(root)
     if missing:
-        return {"status": "missing", "failed": [], "detail": missing, "proof": None}
+        return {"status": "missing", "failed": [], "detail": missing, "proof": None, "output": ""}
     path = root / REPOSITORY_CHECK
     env = os.environ.copy()
     env["MMW_BASE_REF"] = base_ref
@@ -2779,13 +2780,13 @@ def run_repository_check(root: Path | str, base_ref: str,
         code, output = _run(path, root, env, *(["--all"] if tier == "all" else []))
     except OSError as exc:
         return {"status": "cannot-run", "failed": [],
-                "detail": f"{path} could not be started: {exc}", "proof": None}
+                "detail": f"{path} could not be started: {exc}", "proof": None, "output": ""}
     proof = None
     if code in (0, 1) and before is not None and tree_identity(root, base_ref) == before:
         steps = re.findall(r"^(?:PASS|FAIL)\s+(\S+)", output, re.M)
         proof = proof_fields(tier, *before, steps)
     if code == 0:
-        return {"status": "pass", "failed": [], "detail": "", "proof": proof}
+        return {"status": "pass", "failed": [], "detail": "", "proof": proof, "output": output}
     log = _write_check_log(worktree, ticket, 1, output, [False])
     excerpt = _cap_excerpt(_checks_excerpt(output))
     where = f"; full output in {Path(worktree) / log}" if log else ""
@@ -2794,11 +2795,11 @@ def run_repository_check(root: Path | str, base_ref: str,
         row["steps"] = FAIL_STEP_RE.findall(output)
         heading = _check_heading(row)
         return {"status": "red", "failed": [row], "proof": proof,
-                "detail": f"{heading} in {root}{where}:\n{excerpt}".rstrip()}
+                "detail": f"{heading} in {root}{where}:\n{excerpt}".rstrip(), "output": output}
     what = ("exited 2: this machine cannot run it" if code == 2 else
             f"exited {code}, which is none of 0 (green), 1 (red) and 2 (cannot run)")
     return {"status": "cannot-run", "failed": [], "proof": None,
-            "detail": f"{path} {what}{where}:\n{excerpt}".rstrip()}
+            "detail": f"{path} {what}{where}:\n{excerpt}".rstrip(), "output": output}
 
 
 def tree_identity(root: Path, base_ref: str) -> tuple[str, str] | None:
