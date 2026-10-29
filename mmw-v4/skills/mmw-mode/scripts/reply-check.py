@@ -1,24 +1,30 @@
 #!/usr/bin/env python3
-"""Check the reply at an owner-facing session's Stop event.
+"""Ask the writer to reread owner-facing replies and Artifact pages once.
 
     reply-check.py stop <claude|codex>     the host's Stop payload on stdin
+    reply-check.py artifact claude        the Artifact PreToolUse payload on stdin
 
-Both hosts supply the final reply in `last_assistant_message` and the session's working
-directory in `cwd`. A null reply has no text to check and ends the turn. Ticket worktrees, open brief sessions, open-watch orchestrators and
-`stop_hook_active` continuations end unchecked. Session identity is read through the turn
-guard's own_brief and is_main predicates, without arming a watchdog or writing state.
+Every unexempted Stop exits 2 with a checklist read from the anchor-reference principle
+and MMW's and the working repository's glossaries. The host's stop_hook_active continuation
+passes. A null last_assistant_message, ticket worktree, open brief session or open-watch
+orchestrator also passes. Session identity uses the turn guard's own_brief and is_main
+predicates without arming a watchdog or asking the tracker.
 
-A hit maps the phrase to its replacement instruction. Pointer phrases call for the content
-itself in place. Chinese _Avoid_ wordings call for the entry's name. MMW's own
-docs/contexts/*/CONTEXT.md files load first, then the working repository's tracked and
+The Artifact entry reads tool_input.file_path as the page, except when tool_input.asset
+is true. Actions without a file_path pass. Ticket worktrees and unattended sessions pass.
+A new SHA-256 of the page bytes is recorded under MMW_HOME/state/reply-check and exits 2;
+an unchanged retry passes. Its checklist also includes the everything-at-hand principle.
+Those fingerprints are the only files this script writes.
+
+Checklist rules load at run time from the sibling principle skills. Glossaries load in
+order from MMW's docs/contexts/*/CONTEXT.md, then the repository's tracked and
 untracked-not-ignored CONTEXT.md files, excluding .git, node_modules and .worktrees.
 The repository is the nearest parent with a .git entry. Without one, only cwd/CONTEXT.md
-loads, without recursive discovery. The working directory's wording wins.
-English wordings and parenthesized qualifications are not matched. No glossary is required.
+loads beside MMW's glossaries. Every registered name and its _Avoid_: line stays in its
+original language. No glossary is required. The writer judges the text against the checklist.
 
-Exit 0 allows the stop. Exit 2 lists the hits and replacements on stderr, which both hosts
-send to the model to continue the turn. An error of this check exits 1 with the reason on
-stderr and never blocks. The check writes no files and asks no tracker.
+Exit 0 allows the event. Exit 2 sends the checklist on stderr to the writer for rereading
+and rewriting. Any exception exits 1 with its reason on stderr and does not block.
 
 Checked against the real hosts
 ------------------------------
@@ -41,10 +47,24 @@ throwaway MMW_INSTALL_HOME, fake install tools and temporary MMW_HOME. Prompt: r
 the first reply and ended with the rewritten reply. Codex reported Stop Blocked followed
 by Stop Completed. The installed runtime and its hooks were not changed. Repeat the payload
 and block check for each host upgrade.
+
+2026-10-29. Artifact evidence from the owner's interactive Claude Code 2.1.312 session
+03751731-80ce-4542-8cf0-f95e853607c1, signed in to claude.ai. The orchestrator inspected
+~/.claude/projects/-Users-cheuklapchan-multi-model-workflow/
+03751731-80ce-4542-8cf0-f95e853607c1.jsonl and recorded 21 tool_use blocks named Artifact:
+https://github.com/chancheuklap/multi-model-workflow/issues/1427#issuecomment-6491508145
+Publish inputs carry file_path with icon and description. Quickstart inputs carry action,
+intent and design_systems without file_path. Asset uploads carry file_path and asset=true.
+PreToolUse exposes the input as tool_input and the name as tool_name="Artifact".
+This is interactive-session transcript evidence, not a captured hook run. The same host
+version's claude -p exposes no Artifact tool, even with --tools Artifact; print mode cannot
+verify this interactive-only capability. The installed runtime was not changed.
+
 """
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -53,15 +73,24 @@ import re
 import subprocess
 import sys
 
-POINTERS = re.compile(
-    r"上一条|上面列的|前面列的|"
-    r"如上(?=$|[^\u3400-\u9fff]|所|述|文|面)|"
-    r"见上(?=$|[^\u3400-\u9fff]|文|面|述|图|表|节|一条)|"
-    r"(?:上文|前文)(?![档件字本])|"
-    r"\b(?:the ones above|as above|see above|point\s+[0-9]+)\b", re.IGNORECASE)
+
+def checklist(cwd: Path, artifact: bool = False) -> str:
+    skills = Path(__file__).resolve().parents[2]
+    names = ["principle-anchor-every-reference"]
+    if artifact:
+        names.append("principle-everything-at-hand")
+    parts = []
+    for name in names:
+        path = skills / name / "SKILL.md"
+        pattern = path.read_text(encoding="utf-8").split("**Pattern:**\n", 1)[1]
+        parts.append(f"{path}\n**Pattern:**\n" + pattern.lstrip("\n").split("\n\n", 1)[0])
+    parts.extend(glossary_entries(cwd))
+    parts.append("A name not registered above is written as a plain description, "
+                 "or proposed to the owner before it is used.")
+    return "\n\n".join(parts) + "\n"
 
 
-def avoided_wordings(cwd: Path) -> dict[str, str]:
+def glossary_entries(cwd: Path) -> list[str]:
     repo = next((path for path in (cwd, *cwd.parents) if (path / ".git").exists()), None)
     mmw = Path(__file__).resolve().parents[4]
     paths = sorted(mmw.glob("docs/contexts/*/CONTEXT.md"))
@@ -75,9 +104,9 @@ def avoided_wordings(cwd: Path) -> dict[str, str]:
                     paths.append(repo / path)
     elif (cwd / "CONTEXT.md").is_file():
         paths.append(cwd / "CONTEXT.md")
-    avoided = {}
+    entries = []
     for path in paths:
-        term = None
+        entry = [str(path)]
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
         except (OSError, UnicodeError) as exc:
@@ -85,21 +114,23 @@ def avoided_wordings(cwd: Path) -> dict[str, str]:
         for line in lines:
             heading = re.match(r"^\*\*(.+?)\*\*", line)
             if heading:
-                term = heading.group(1)
-            if term and line.startswith("_Avoid_:"):
-                wordings = re.sub(r"\([^)]*\)|（[^）]*）", "", line.removeprefix("_Avoid_:"))
-                for wording in re.split(r"[,;，；、]", wordings):
-                    wording = wording.strip().strip("`")
-                    if re.search(r"[\u3400-\u9fff]", wording):
-                        avoided[wording] = term
-    return avoided
+                entry.append(heading.group(1))
+            if line.startswith("_Avoid_:") and len(entry) > 1:
+                entry.append(line)
+        entries.append("\n".join(entry))
+    return entries
 
 
-def unattended() -> bool:
+def turn_guard():
     path = Path(__file__).resolve().parents[2] / "dispatch/scripts/turn-guard.py"
     spec = importlib.util.spec_from_file_location("mmw_reply_turn_guard", path)
     guard = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(guard)
+    return guard
+
+
+def unattended() -> bool:
+    guard = turn_guard()
     root = guard.statedir.home() / "state"
     if not root.exists():
         return False
@@ -111,41 +142,56 @@ def unattended() -> bool:
     return False
 
 
-def check() -> int:
+def check(entry: str) -> int:
     payload = json.load(sys.stdin)
     if not isinstance(payload, dict):
-        raise ValueError("expected a Stop payload object on stdin")
-    if payload.get("stop_hook_active") is True:
+        raise ValueError("expected a hook payload object on stdin")
+    if entry == "stop" and payload.get("stop_hook_active") is True:
         return 0
     cwd = Path(payload.get("cwd") or Path.cwd())
     if re.fullmatch(r"issue-[0-9]+", cwd.name):
         return 0
     if unattended():
         return 0
+    if entry == "artifact":
+        tool_input = payload.get("tool_input", {})
+        if not tool_input.get("file_path") or tool_input.get("asset") is True:
+            return 0
+        page = Path(tool_input["file_path"])
+        if not page.is_absolute():
+            page = cwd / page
+        digest = hashlib.sha256(page.read_bytes()).hexdigest()
+        fingerprint = turn_guard().statedir.home() / "state/reply-check" / digest
+        if fingerprint.exists():
+            return 0
+        message = checklist(cwd, artifact=True)
+        fingerprint.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fingerprint.touch(exist_ok=False)
+        except FileExistsError:
+            return 0
+        sys.stderr.write(f"MMW reply check: reread {page} against the rules and names below, "
+                         "rewrite what breaks them, then publish again once reread.\n")
+        sys.stderr.write(message)
+        return 2
     reply = payload["last_assistant_message"]
     if reply is None:
         return 0
     if not isinstance(reply, str):
         raise ValueError("expected last_assistant_message to be the reply text in the Stop payload")
-    hits = {match.group(): "write the content itself here, in place"
-            for match in POINTERS.finditer(reply)}
-    for wording, term in avoided_wordings(cwd).items():
-        if wording in reply:
-            hits[wording] = f"use {term}"
-    if hits:
-        sys.stderr.write("MMW reply check: rewrite the reply before ending this turn.\n")
-        for phrase, replacement in hits.items():
-            sys.stderr.write(f"- {phrase!r}: {replacement}.\n")
-        return 2
-    return 0
+    sys.stderr.write("MMW reply check: reread what you wrote for the owner against the rules "
+                     "and names below, rewrite what breaks them, then finish again.\n")
+    sys.stderr.write(checklist(cwd))
+    return 2
 
 
 def main() -> int:
-    if len(sys.argv) != 3 or sys.argv[1] != "stop" or sys.argv[2] not in ("claude", "codex"):
-        sys.stderr.write("usage: reply-check.py stop <claude|codex>\n")
+    if len(sys.argv) != 3 or (sys.argv[1], sys.argv[2]) not in (
+            ("stop", "claude"), ("stop", "codex"), ("artifact", "claude")):
+        sys.stderr.write("usage: reply-check.py stop <claude|codex> | artifact claude\n")
         return 0
     try:
-        return check()
+        return check(sys.argv[1])
     except BaseException as exc:
         sys.stderr.write(f"reply-check: could not check this reply: {exc!r}\n")
         return 1
