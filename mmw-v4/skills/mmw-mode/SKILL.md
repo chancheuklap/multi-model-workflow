@@ -71,7 +71,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 - **principle-everything-at-hand**. Making any page or diagram for a person. Put everything needed to understand each place where the reader looks at that place.
 - **principle-write-for-where-it-is-read**. Before writing anything another reader picks up: a subagent brief, a spec, a ticket, a document, a script's output. Name who reads it, what they are doing then, and what they can see.
-- **principle-anchor-every-reference**. Mentioning a file, section, rule or event in a reply or a document. Name it by path plus heading, identifier or rule number, verbatim, the same way each time.
+- **principle-anchor-every-reference**. Mentioning a thing, place, action or event in a reply or a document. Use its source name so the reader can identify it in the current sentence or paragraph; add a path and location when the reader needs to find or check the source.
 - **principle-files-describe-the-present**. Writing or editing any file. Write only what is true now; what changed and why goes in the commit message and the reply.
 
 **Meta**

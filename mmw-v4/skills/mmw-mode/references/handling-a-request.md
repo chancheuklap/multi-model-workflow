@@ -36,7 +36,7 @@ Before writing the final reply, answer the register-problem skill's three self-c
 
 The reader is the owner the user-level instructions describe. What the owner learns from you is principle and effect: what problem a technique solves, what it assumes, where it stops working, and what it does to the product. Syntax and the shape of the code are not what they are here to learn.
 
-Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns. Name every file, section and rule as **principle-anchor-every-reference** says.
+Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns. Make each reference understandable where it stands, as **principle-anchor-every-reference** says.
 
 - **Short declarative sentences.** One thought per sentence, ended with a period.
 - **No long-dash character anywhere.** Write a file-list bullet as a sentence ("`main.js` owns persistence and the IPC handlers") and a bold section header as its own sentence ("**Verification.** End to end via CDP").

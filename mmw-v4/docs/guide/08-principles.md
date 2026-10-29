@@ -86,7 +86,7 @@ How anything another reader picks up is written.
 
 - [`principle-everything-at-hand`](../../skills/principle-everything-at-hand/SKILL.md). Making any page or diagram for a person, put everything needed to understand each place where the reader looks at that place.
 - [`principle-write-for-where-it-is-read`](../../skills/principle-write-for-where-it-is-read/SKILL.md). Before writing a brief, a spec, a ticket, a document or a script's output, name who reads it, what they are doing then, and what they can see.
-- [`principle-anchor-every-reference`](../../skills/principle-anchor-every-reference/SKILL.md). Name every file, section, rule or event by its path plus heading, identifier or rule number, the same way each time.
+- [`principle-anchor-every-reference`](../../skills/principle-anchor-every-reference/SKILL.md). Use the source name so the reader can identify each reference in the current sentence or paragraph. Add a path and location when the reader needs to find or check the source.
 - [`principle-files-describe-the-present`](../../skills/principle-files-describe-the-present/SKILL.md). A file says only what is true now; what changed and why goes in the commit message and the reply.
 
 ### Meta
