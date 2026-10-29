@@ -7615,7 +7615,7 @@ JSON
 
 scenario_summarye2eredrefuses() {
   local code variant
-  for variant in none closed prose different-product mixed uncovered-product; do
+  for variant in none closed prose different-product mixed uncovered-product env; do
     summary_check_fixture "echo 'FAIL e2e-board 3s'; echo 'checks: 1 failed'; exit 1"
     python3 - "$variant" "$TMP/tickets.json" <<'PY'
 import json, sys
@@ -7633,6 +7633,11 @@ PY
       git -C "$TMP/repo" commit -q -m uncovered
       git -C "$TMP/repo" push -q origin night
     fi
+    if [ "$variant" = env ]; then
+      put_check "$TMP/repo" "echo 'FAIL e2e-board 3s'; echo 'ENV unit 1s'; echo 'CHECK FAIL all: 1 of 2 steps red (e2e-board); cannot run here: unit'; exit 1"
+      git -C "$TMP/repo" commit -q -m env
+      git -C "$TMP/repo" push -q origin night
+    fi
     if [ "$variant" = mixed ]; then
       put_check "$TMP/repo" "echo 'FAIL e2e-board 3s'; echo 'FAIL unit 1s'; exit 1"
       git -C "$TMP/repo" commit -q -m mixed
@@ -7643,6 +7648,9 @@ PY
     [ "$(posted_events 76)" = spec.opened ] || fail "$variant posted an event: $(posted_events 76)"
     case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "$variant closed the watch" ;; esac
     grep -q e2e-board "$TMP/err" || fail "$variant must name the red step"
+    if [ "$variant" = env ]; then
+      grep -q 'ENV unit' "$TMP/err" || fail "summary must name the suite that could not run"
+    fi
   done
 }
 

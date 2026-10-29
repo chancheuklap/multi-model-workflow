@@ -2582,7 +2582,9 @@ sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 result = mod.run_repository_check(Path(root), "HEAD", worktree, f"spec-{spec_number}", tier="all")
 failed_steps = [step for row in result["failed"] for step in row.get("steps", [])]
-if result["status"] == "red" and failed_steps and all(step.startswith("e2e-") for step in failed_steps):
+if (result["status"] == "red" and failed_steps
+        and all(step.startswith("e2e-") for step in failed_steps)
+        and not re.search(r"^ENV\s", result["output"], re.M)):
     status_spec = importlib.util.spec_from_file_location("mmw_status", status_script)
     status_mod = importlib.util.module_from_spec(status_spec)
     status_spec.loader.exec_module(status_mod)
