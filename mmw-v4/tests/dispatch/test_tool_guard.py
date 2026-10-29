@@ -120,35 +120,26 @@ class TestKillIsNotGuarded(unittest.TestCase):
                         self.assertEqual(run.stdout, "")
 
 
-class TestPullRequestCreation(unittest.TestCase):
-    def test_guard_refuses_gh_pr_create(self):
+class TestPrCreateIsNotGuarded(unittest.TestCase):
+    def test_pr_create_gets_no_refusal_in_any_directory(self):
         for host in EVENTS:
-            for cwd in ("night-work", f"issue-{TICKET}"):
-                for command in (
-                    "gh pr create --base main --head night --title Changes --body-file body.md",
-                    "echo hi # don't\ngh pr create\n# it's done",
-                    "cat > body.md <<'EOF'\ndon't\nEOF\ngh pr create\n",
-                    "env FOO=1 gh pr create",
-                    "gh -R o/r pr create",
-                    "gh --repo o/r pr create",
-                    "gh --repo=o/r pr create",
-                    "gh -Ro/r pr create",
-                ):
-                    with self.subTest(host=host, cwd=cwd, command=command):
-                        code, answer = call(host, with_command(host, command), cwd_basename=cwd)
-                        self.assertEqual(code, 0)
-                        self.assertIsNotNone(answer)
-                        self.assertEqual(answer["hookSpecificOutput"]["permissionDecision"], "deny")
-                        self.assertIn("dispatch.sh pr --base", reason_of(answer))
-            for command in (
-                "cat > body.md <<'EOF'\nDo not run gh pr create\ngh pr create\nEOF",
-                "echo 'gh pr create'",
-                "gh pr view 7",
-                "bash /skills/dispatch/scripts/dispatch.sh pr --base main --head night --title Changes --body-file body.md",
-            ):
-                with self.subTest(host=host, command=command):
-                    _, answer = call(host, with_command(host, command), cwd_basename="night-work")
-                    self.assertIsNone(answer)
+            for directory in (f"issue-{TICKET}", "workspace"):
+                with named_cwd(directory) as cwd:
+                    env = {**os.environ, "MMW_HOME": str(Path(cwd) / ".mmw"),
+                           "PASEO_AGENT_CWD": cwd}
+                    for command in (
+                        "gh pr create --base dev --head x --title t --body b",
+                        "gh -R o/r pr create --base dev --head x --title t --body b",
+                        "gh --repo=o/r pr create --base dev --head x --title t --body b",
+                        "env FOO=1 gh pr create",
+                    ):
+                        with self.subTest(host=host, directory=directory, command=command):
+                            run = subprocess.run(
+                                [sys.executable, str(DISPATCH_SCRIPTS / "tool-guard.py"),
+                                 "pretool", host], input=json.dumps(with_command(host, command)),
+                                env=env, capture_output=True, text=True)
+                            self.assertEqual(run.returncode, 0, run.stderr)
+                            self.assertEqual(run.stdout, "")
 
 
 class TestCwdNamesTheTicket(unittest.TestCase):
