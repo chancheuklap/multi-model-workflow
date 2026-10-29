@@ -933,32 +933,59 @@ class NoAlertForReadOutage(StateCase):
 
 
 class WaitingAlertOncePerWake(StateCase):
-    def test_each_delivered_wake_is_reported_only_after_its_nudge_age(self):
+    def setUp(self):
+        super().setUp()
         self.open_watches({"tickets": [61], **MAIN})
-        clock = Clock()
+        self.clock = Clock()
+        self.send = Recorder(default=0)
+        self.nudge = 1800
+        lock = statedir.locked(self.state / "relay.lock", wait=0, purpose="test relay")
+        lock.__enter__()
+        self.addCleanup(lock.__exit__, None, None, None)
+
+    def queue(self, *deliveries):
         rows = [{"seq": seq, "ticket": 61, "event": "ticket.passed", "to": "main",
                  "watch": "tickets:61", **MAIN, "at": stamp(T0), "delivered": delivered}
-                for seq, delivered in ([(1, stamp(T0)), (205, None)] +
-                                       [(seq, stamp(T0 + timedelta(seconds=1)))
-                                        for seq in range(2, 205)])]
+                for seq, delivered in enumerate(deliveries, start=1)]
         (self.state / "queue.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+
+    def round_at(self, elapsed):
+        self.clock.moment = T0 + timedelta(seconds=elapsed)
+        self.write("beat.json", {"at": stamp(self.clock()), "cycle_at": stamp(self.clock()),
+                                  "grace": 90})
+        dog.Watchdog(self.state, "o/r", board=FakeBoard({}), send=self.send,
+                     clock=self.clock, nudge=self.nudge, err=io.StringIO()).round()
+
+    def test_the_nudge_age_starts_at_delivery_not_queueing(self):
+        self.nudge = 30
+        self.queue(stamp(T0 + timedelta(seconds=100)))
+        self.round_at(129)
+        self.assertEqual(self.send.calls, [])
+        self.round_at(130)
+        self.assertEqual(len(self.send.calls), 1)
+
+    def test_each_sequence_reports_once_across_restarts_even_after_200_alerts(self):
         for code in (0, 4):
             with self.subTest(send=code):
                 (self.state / "watchdog.json").unlink(missing_ok=True)
-                send = Recorder(default=code)
-                with statedir.locked(self.state / "relay.lock", wait=0, purpose="test relay"):
-                    for elapsed, expected in ((0, 0), (1799, 0), (1800, 1), (1801, 2),
-                                               (3601, 2), (7200, 2)):
-                        clock.moment = T0 + timedelta(seconds=elapsed)
-                        self.write("beat.json", {"at": stamp(clock()), "cycle_at": stamp(clock()),
-                                                  "grace": 90})
-                        wd = dog.Watchdog(self.state, "o/r", board=FakeBoard({}), send=send,
-                                          clock=clock, err=io.StringIO())
-                        wd.round()
-                        self.assertEqual(len(send.calls), expected, elapsed)
-                self.assertTrue(all(call[:2] == (MAIN["runner"], MAIN["session"])
-                                    and "#61" in call[2] and "ack" in call[2]
-                                    for call in send.calls))
+                self.send = Recorder(default=code)
+                self.queue(*([stamp(T0)] * 204))
+                self.round_at(1800)
+                delivered = list(self.send.calls)
+                self.assertTrue(delivered)
+                self.round_at(3600)
+                self.assertEqual(self.send.calls, delivered)
+                self.queue(*([stamp(T0)] * 204), stamp(T0 + timedelta(seconds=1800)))
+                self.round_at(3600)
+                self.assertGreater(len(self.send.calls), len(delivered))
+                delivered = list(self.send.calls)
+                self.round_at(7200)
+                self.assertEqual(self.send.calls, delivered)
+
+    def test_an_undelivered_wake_brings_no_reminder(self):
+        self.queue(None)
+        self.round_at(7200)
+        self.assertEqual(self.send.calls, [])
 
 
 class Arm(StateCase):
