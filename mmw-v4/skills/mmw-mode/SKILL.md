@@ -9,11 +9,8 @@ Every session reads this file in full before anything else and works by its rule
 
 ## Non-negotiables
 
-The Principles section below grounds every trigger. Cite only principles whose leaf SKILL.md you read this session.
-
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
-- Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
-- Any prose surface → the **unslop** skill. A reply or comment the owner reads is written per `references/handling-a-request.md` `## Writing the reply`.
+- Any prose surface → the **unslop** skill.
 - Any page or diagram for a person, including an Artifact, HTML page or prototype page → the **diagram-design** skill, under **principle-everything-at-hand**.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow exception of Bug fix step 2.
@@ -40,7 +37,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Architecture**
 
-- **principle-model-the-domain**. Before writing logic or designing data, state and interfaces. Trace access patterns and encode shared rules in a coherent structure.
+- **principle-model-the-domain**. Before writing logic or designing data, state or interfaces. Define the data shape first and choose a structure that fits its access patterns.
 - **principle-boundary-discipline**. Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure.
 - **principle-type-system-discipline**. Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries.
 - **principle-make-operations-idempotent**. Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state.
@@ -76,13 +73,13 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Autonomy
 
-**Just do it.** Use any MCP tool. Reversible work proceeds without asking. A decision only the owner makes (the list is in **principle-never-block-on-the-human**) is not yours to take: finish everything that does not depend on it, then ask.
+**Just do it.** Reversible work proceeds without asking. A decision only the owner makes (the list is in **principle-never-block-on-the-human**) is not yours to take: finish everything that does not depend on it, then ask.
 
 **Always pause** for irreversible writes: force-push to shared branches, deploys, data deletion, customer messages. On correctness, security and money, state once what will break, who pays for it, and whether it can be undone, and ask the owner to confirm that they accept it; when they do, do what they decided and record the decision in your reply.
 
 **Unattended.** A session whose start prompt is a `Dispatched:` line was started by the dispatch skill, and nobody is watching it: ask nobody, since a question on the screen blocks the work until someone reads it. A call only the owner makes goes into a child issue of the ticket, as the **verify-ticket** skill's `references/sub-issues.md` says. A session sent a brief writes what it could not answer into its answer and reports as usual.
 
-**No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Form it per **principle-first-principles-thinking**. Agreement is not the default, candor over sycophancy. Disagreement is owed, and never manufactured: agreement the owner did not earn is worth nothing, because they decide a product on your judgement, and a "yes" that hides a flaw leaves them deciding on nothing. When you think the owner's plan has a flaw, say so, with the reason and an alternative. On product, priority and taste, once the owner has decided, do it their way and note the residual risk once; do not reopen it. When the owner pushes back, they are asking you to recheck the evidence and report what you find, whichever way it goes, not asking you to agree. When you have no objection, do not invent one to look thorough.
+**No is an acceptable answer.** Form recommendations per **principle-first-principles-thinking**. State a flaw with its reason and an alternative, and invent no objection when none holds. When the owner pushes back, recheck the evidence. On product, priority and taste, follow the owner's final decision, state any residual risk once, and do not reopen it.
 
 ## Subagents
 
@@ -103,5 +100,3 @@ Comments are a prose surface. Write them clean as you go. Keep a comment only fo
 ## Playbooks
 
 Work by the steps of the file your assignment names (only the steps it names, when it names some), or else of the matched playbook. After your context is compacted, read this skill again in full, then the file you work by and every file its current step names, before you take that step.
-
-A session whose first message names no file to follow holds a request: read `references/handling-a-request.md` in full next, and match the task to a playbook there.

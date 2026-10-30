@@ -56,7 +56,6 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Know what a small diff could break outside itself | `blast-radius` |
 | Use the shared words for module design: depth, seam, adapter | `codebase-design` |
 | Get several designs of one brief, merged into the best one | `arena` |
-| Run parallel workers over slices or a race, with one report | `swarm` |
 | Answer a logic, UI, implementation or code-shape question by building code that answers it | `prototype` |
 | Examine the expert approach, your real goal, constraints and an outside check, with conclusions returned for your decision | `sharpen` |
 | Have a plan stress-tested one question at a time | `grilling` |
@@ -90,7 +89,6 @@ If a skill directory next to this one is missing from the table, read its frontm
 Close calls:
 
 - `how` explains what the code does. `why` explains the reasons. `teach` runs one or both and explains the result plainly.
-- `arena` gives every candidate the same brief and merges the best parts. `swarm` splits work into slices or a race and returns one report.
 - The **prototype** skill's sketch branch stops at the sketch and hands it back. It writes no implementation.
 - `code-review` reviews the diff. `blast-radius` looks for breakage outside the diff and proves the one fact that makes the change safe.
 
@@ -100,7 +98,7 @@ Playbooks are step lists inside the **mmw-mode** skill, not skills. Describing t
 
 Planning here is a spec and its tickets, because the owner checks those, not code. Grill with docs or a wayfinder map settles the decisions, To spec records them, To tickets cuts the spec into tickets the owner approves. For a design question, the **prototype** skill settles it in code first.
 
-Principles are one-rule skills that the mode indexes in its `## Principles` and cites in its replies. The user rarely invokes one. They steer with the names instead, as in "apply prove it works. show me the real output." Guide page 8 (`mmw-v4/docs/guide/08-principles.md`) lists them.
+Principles are one-rule skills that the mode indexes in its `## Principles` and applies when their conditions arise. The user rarely invokes one. They steer with the names instead, as in "apply prove it works. show me the real output." Guide page 8 (`mmw-v4/docs/guide/08-principles.md`) lists them.
 
 ## Fix a run that went wrong
 

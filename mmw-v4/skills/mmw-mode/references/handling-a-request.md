@@ -4,25 +4,19 @@ Read in full by a session holding a request: a session whose first message names
 
 ## Non-negotiables
 
-In your reply, name each principle that shaped a decision and the specific choice it changed.
-
 Triggers for the task as a whole:
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
-- About to ask the user on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the **prototype** skill and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a decision only the owner makes (**principle-never-block-on-the-human**) that no experiment can settle. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the owner can make. Report the default with a full explanation, and say in plain words what the owner could tell you to do instead. Gates that the owner named and the Always-pause list in the mode's `## Autonomy` still need the owner.
-- Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design bakeoffs with base selection and grafting.
-- Contested design → the **code-review** skill before shipping.
-- Nontrivial multi-step → write the throughput checkpoint's four items as Feature step 3 lists them, then go on with your own playbook.
-- Before review → the **no-comments** skill (`/no-comments`).
-- Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`; on a pull request MMW opened, Opening a PR step 3 carries it out.
+- Before asking the user to choose an approach → establish whether evidence can settle it. Look up facts yourself; use the **prototype** skill for questions that need a runnable experiment. A read-only Investigation answers from evidence and stays read-only.
+- Design bakeoffs with base selection and grafting → the **arena** skill.
 - Broken skill mid-task → the **register-problem** skill.
 - The owner corrects your work → the **register-problem** skill, using its `scripts/register.py add --source owner-correction`.
 
 ## Autonomy
 
-**Two kinds of moment.** They call for opposite behaviour. In discussion, a question is a question. "Could we change X to Y?" asks for an answer, not for the change: answer it and wait for the owner to say go, and when you cannot tell which it is, treat it as a question. An approved plan or ticket is the opposite: it is the go signal. Run it to the end, and stop only for a decision that is the owner's. Ending a turn with "shall I continue?" or "ready for the next phase?" hands the owner a decision already made, and if the owner is asleep it stops the night's work at the first step. A line of progress written between tool calls is fine; a message that ends your turn to ask whether to go on is not. Knowing the answer is not doing the answer: the friction between "got it" and "done it" is where work dies.
+**Discussion and execution.** A discussion question asks for an answer, not a change; when unclear, treat it as a question. An approved plan or ticket authorizes completion, stopping only for a decision that belongs to the owner.
 
-**Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" → keep going.
+**Full autonomy.** "Don't stop", "going to bed", "run until done" or "be fully autonomous" means keep going. Under that grant, decide the calls it covers and apply defaults for owner-only decisions. Report each default with its reason and how the owner can change it. The owner's named gates and the mode's **Always pause** list still require the owner.
 
 ## Subagents
 
@@ -32,28 +26,16 @@ Triggers for the task as a whole:
 
 ## Writing the reply
 
-Before writing the final reply, answer the register-problem skill's three self-check questions.
+Write for the owner per **principle-write-for-where-it-is-read**. Explain the problem, the choice and its reason, the effect on the product, and the limits. Use source names and make each reference understandable where it stands, per **principle-anchor-every-reference**.
 
-Apply **principle-write-for-where-it-is-read** to the reply. The reader is the owner the user-level instructions describe. What the owner learns from you is principle and effect: what problem a technique solves, what it assumes, where it stops working, and what it does to the product. Syntax and the shape of the code are not what they are here to learn.
+- **Size the account to the task.** A small change gets a sentence or two; a design choice, an incident or a walkthrough gets the detail the owner needs. Keep every item the playbook's reply requires, including warnings, numbers and preconditions.
+- **Use established terms and plain words.** Explain a technical term once when it enters the conversation.
+- **A decision for the owner.** Explain what raised it, the product effect of each option, and your recommendation with its reason. Let the owner answer in their own words, without a shorthand token.
+- **Use lists and tables when they help.** Follow the owner's formatting preference.
+- **Give checkable evidence.** Show the command, flow, stored value, screenshot or failing line and what it proves. Label an inference or guess in the sentence that makes it. Link only artifacts you read or produced. Run a check yourself when you can.
+- **State the limits.** Say what you did not touch or check, because the owner cannot inspect the diff.
 
-Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns. Make each reference understandable where it stands, as **principle-anchor-every-reference** says.
-
-- **Short declarative sentences.** One thought per sentence, ended with a period.
-- **No long-dash character anywhere.** Write a file-list bullet as a sentence ("`main.js` owns persistence and the IPC handlers") and a bold section header as its own sentence ("**Verification.** End to end via CDP").
-- **A colon as a mid-sentence connector is also out** (unslop rule 14). A colon before a list is fine.
-- **Reasons and consequences, not code.** A report that walks the owner through files and functions gives them nothing to judge with. A report that tells what was done and what came of it, why it was done that way, what it does to the feature and the business intent, and, when there is one, when the effect will show, gives them everything they need to decide or to move on.
-- **Size the account to the change.** A small change gets a sentence or two; a design fork, an incident, or "walk me through it" gets the full account. Brevity governs the report, never how long you think. Terse is not an excuse to drop content: every section the playbook's reply names stays (details, tradeoffs, choices, open decisions). When you cut for length, the warning, the number and the precondition are the last things to go.
-- **Plain, standard words.** Name each concept by its established technical term when the field has one, and use ordinary dictionary words for everything else, in Chinese and in English: every word one the reader can look up without asking you. A technical term new to the conversation gets, once, one sentence on what it does in this case; after that, its real name, because the owner takes that name to search, to write tickets, and to hand to the next agent.
-- **A question or decision for the owner.** Say what raised it, what each option does to the product in plain words, and which one you recommend and why. The owner answers in their own words; give no shorthand token to type back.
-- **Lists and tables when they help.** Use them when asked to, or when the content is multifaceted enough that they help the reader act on it: parallel findings, steps, options, files to open. If the owner asks for minimal formatting, write without bullet points, headers, lists, or bold emphasis.
-- **Never fabricate a link, citation, or transcript reference.** Link only artifacts you produced or read this session.
-- **Evidence the owner can check.** "Tests pass" and "this should work now" tell the owner nothing: a test name means nothing unless you say what it proves, and "should" means you have not checked. Give the opened page, the flow that ran end to end, the first failing line.
-- **Every claim carries its evidence or its label in the same sentence.** Measured, inferred, or guess. A prediction or an unseen cause is a guess. A cause is something you found, not something you guessed: when the numbers do not add up, say you do not know yet. Never hand the owner a check you could run.
-- **Say what you did not touch.** What you did not touch and did not check matters as much as what you did, because the owner cannot open the diff to see it.
-
-Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The `**Reply:**` line that closes each playbook names only the content unique to it. Work a ticket has none: its worker runs unattended, and its closing comment on the ticket is its report.
-
-**When it is working.** The owner finishes the report without asking "so what?", and either decides or puts it down. Every term you used, they can look up. When something broke, the first thing they see is the effect, and the cause or the fact that it is not yet known, not the stack trace. Every next step you hand them is one that only they can do.
+Each playbook's `**Reply:**` names the content unique to it. Work a ticket reports through its closing comment. Link a pull request as `https://github.com/<owner>/<repo>/pull/<number>` when one exists.
 
 ## Playbooks
 
@@ -61,7 +43,16 @@ Match the task to a playbook below and open its file.
 
 A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. Given one with no `Playbook:` line under its `## Problem`, run One ticket (`playbooks/one-ticket.md`) on it and tell the owner. An open ticket of ours given to this session, one whose `## Problem` has a `Playbook:` line, is picked up as Session pickup says. Asked what is waiting, list the `needs-triage` queue and the tickets waiting for the owner's go, both as `references/github-issues.md` `## When a playbook says "publish"` and `## Three label sets` give them.
 
-Every change outside a night lands one way: the playbook of its kind opens a ticket and its `fix-<n>`, writes the plan into the ticket, and hands it back to the owner; on the owner's go, One ticket sends a worker, checks the result, lands it, and runs Opening a PR. Exceptions: skill text one ticket can carry, which the Authoring or modifying a skill session writes on `fix-<n>` itself and proves with a fresh agent's walk before handing it back, as that playbook's step 5 says; a correction of a sentence or two the owner decides after a ticket passed, which the session writes on `fix-<n>` after `land`, without reopening the ticket or sending a worker; a release, where the **exe-release** skill packages the current branch as it stands, and a fix its build needs is committed there by the session driving the release and listed in its report; and a repository's `scripts/check`, which Set up code checkers commits itself, since no ticket lands in a repository without one; and a deletion of skill text the owner names in their own words, when nothing has to be written in its place, which the session that heard it makes on the project branch: it deletes every passage that cites what went, runs `scripts/check`, commits with the owner's words quoted, and quotes each deleted sentence in its reply, since the owner reads a sentence but not a diff. A deletion that needs a new sentence, a script or a test takes a ticket. Prototypes, the feature files' account of what the product can do, and tests are committed on the effort branch: `map-<map number>` for a map, which becomes the night's branch, or `fix-<n>` for a ticket outside any map. Environment tools and verification skills generated within that prototype effort go there too, with the relative `.claude/skills/verify-<product>` link, root `.gitignore`, `package.json` and lockfile changes needed for e2e. Outside an effort, `create-verification-skill` and `maintain-verification-skill`, when its conclusion is `changed`, commit their verification assets directly to the project branch without a ticket. The night's workers only read them.
+Outside a night, a change normally goes through its playbook's ticket and the owner's go, then One ticket. Choose an exception here; its owning skill or playbook holds the execution steps.
+
+| Work | Route |
+| --- | --- |
+| Skill text one ticket can carry | Authoring or modifying a skill (`playbooks/authoring-a-skill.md`), written by this session. |
+| A sentence or two the owner corrects after a ticket passed | One ticket step 4 (`playbooks/one-ticket.md`). |
+| Building an install package, including fixes its build needs | The **exe-release** skill on the current branch. |
+| Creating or extending the repository's `scripts/check` | Set up code checkers (`playbooks/set-up-code-checkers.md`). |
+| Owner-named deletion of skill text that needs no replacement | **Pure deletion** in `playbooks/authoring-a-skill.md`, without a ticket. |
+| Generating or maintaining verification assets outside an effort | The **create-verification-skill** or **maintain-verification-skill** skill, directly on the project branch. |
 
 - **Work a ticket.** Sent by the dispatch skill to a ticket with acceptance criteria: claim it, build it until its criteria pass and it is reviewed, close it. Distinct from Feature, Bug fix, Perf issue and Hillclimb, which take a problem still open and decide how to build. `playbooks/work-a-ticket.md`.
 - **Code review.** Asked to review a change someone else finished, to judge whether it can merge. Distinct from Work a ticket's step that sends the reviewer, and from Investigation, where there is no change to judge. The **code-review** skill.

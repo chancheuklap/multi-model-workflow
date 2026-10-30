@@ -74,8 +74,6 @@ From then on, "verify it in the app" is a step any agent can run in this reposit
 build the bulk-archive action. use /verify-<product> to verify it and show me screenshots as proof.
 ```
 
-Once the verification skill works, the [swarm skill](../../skills/swarm/SKILL.md) can split a full pass by feature-map entry and gather the results into one report.
-
 Treat the verification skill as infrastructure. Commit it, so every person and every agent drives the app the same way. Then build the lever, as [`principle-build-the-lever`](../../skills/principle-build-the-lever/SKILL.md) says. When agents keep writing throwaway scripts to click through the app, ask for a small control CLI that the verification skill calls instead. A CLI that agents use well has these traits:
 
 - A few commands that each do real work, rather than many thin ones.
@@ -100,6 +98,6 @@ One playbook writes every pull request: [Opening a PR](../../skills/mmw-mode/pla
 
 Your page is mostly pictures, with six blocks in the same order on every pull request: what you decide, what changed before and after, what the merge touches and whether it can be taken back, not done and left over, a short retrospective list with issue links and conclusions, and links. Decision cards include a recommendation. The page links to the pull request, tickets and task board. The session publishes it with the richest HTML page tool it controls, or uses a local page when none is available. Fixes and routed findings update that same page and its record. The final reply points to the pull request instead of repeating the page.
 
-When an automated reviewer, such as Bugbot or a security review, comments on a pull request, the session treats each comment skeptically. [`references/bugbot-triage.md`](../../skills/mmw-mode/references/bugbot-triage.md) sorts each thread into one of three actions. `fix` covers a plausible correctness, security, data, or billing problem, fixed on the branch with the commit named in the reply. `dismiss` covers a known noisy pattern that the current code disproves, answered with the reason. `ask` covers anything novel, severe, or unclear, put to you.
+[Opening a PR step 3](../../skills/mmw-mode/playbooks/opening-a-pr.md) checks review comments against the pull request's current version. The session fixes confirmed problems, answers disproved claims with evidence, and investigates unresolved claims. Only a product trade-off or a decision outside its authority comes to you.
 
 Next: [Run work while you sleep](./07-overnight.md).

@@ -47,4 +47,6 @@ Then, when the change alters what an agent does in a task, have one fresh agent 
 
 When in doubt, delete. Keep only prose that changes a decision. Match tone to scope. Delegate to other skills by name. Don't restate. A workflow you keep hitting but isn't captured → propose a new skill. A skill follows **principle-files-describe-the-present**.
 
+**Pure deletion.** When the owner names skill text to delete and nothing replaces it, this session works directly on the project branch without a ticket. Delete every passage that cites what went, run `scripts/check`, and commit with the owner's words quoted. Quote each deleted sentence in the reply. A deletion that needs replacement text, a script or a test follows the numbered steps above.
+
 **Reply:** the intent the change serves; each sentence you wrote or changed, quoted, and the component it goes to; what it deletes; the walk's job, load and result; for a script, the criteria; for a larger change, that it goes to To spec and why; when a skill's `description` changes, that it takes effect in a new session. The checks and the walk of **Prove it, once**, with their commands, results and the walk's load, are what One ticket reports.

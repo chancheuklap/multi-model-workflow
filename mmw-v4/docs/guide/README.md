@@ -7,7 +7,7 @@ The chapters:
 1. [Set up MMW v4](./01-setup.md). Install the skills, check the install, go back to v3, and choose a model for each role.
 2. [Route work through `mmw-mode`](./02-mmw-mode.md). How every session enters it, how it picks a playbook, and how to prompt it.
 3. [Understand the code](./03-understand.md). The Investigation playbook, then `how`, `why` and `teach`, before anything changes.
-4. [Design the change](./04-design.md). Prototypes and their sketch branch, `arena`, `swarm` and `code-review`, and the planning playbooks: Grill with docs, To spec and To tickets.
+4. [Design the change](./04-design.md). Prototypes and their sketch branch, `arena` and `code-review`, and the planning playbooks: Grill with docs, To spec and To tickets.
 5. [Build and clean the change](./05-build-and-clean.md). How every change outside a night becomes one ticket: the session writes the plan, you say go, a worker builds it. Then `tdd`, `unslop` and `no-comments`.
 6. [Verify and ship](./06-verify-and-ship.md). Prove the change on the real product with `control-cli`, `control-ui` and a verification skill, vet numbers with `benchmark-checklist`, and deliver one pull request through One ticket or a night, with Opening a PR.
 7. [Run work while you sleep](./07-overnight.md). A spec's tickets worked unattended by dispatched workers, delivered as one pull request in the morning.

@@ -31,7 +31,6 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 ## Review and ship
 
 - `use code-review on the whole branch. don't change anything yet. no nitpicks unless it's a real bug or regression.` Read the refutations too.
-- `/swarm check every package under <dir> against its check script. one worker per package. one report.`
 - A change goes through a ticket: the session writes the plan into it and hands it back, a worker builds it on your go, and one pull request is merged when you say yes.
 - `run spec #<n> tonight.` Run a night works the spec's tickets unattended and opens one pull request for the morning.
 

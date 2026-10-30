@@ -65,7 +65,6 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`blast-radius`](./skills/blast-radius/SKILL.md) | Find what a small change could break elsewhere, with the facts its safety depends on proven by running code. |
 | [`codebase-design`](./skills/codebase-design/SKILL.md) | Use the shared vocabulary for deep modules: module, interface, depth, seam, adapter, leverage, locality. |
 | [`arena`](./skills/arena/SKILL.md) | Compare designs of the same task from different angles and graft the best parts onto the selected base. |
-| [`swarm`](./skills/swarm/SKILL.md) | Run several parallel workers on separate slices or on the same brief, then get one aggregated report. |
 | [`prototype`](./skills/prototype/SKILL.md) | Build code that answers one logic, UI, implementation or code-shape question, kept under `efforts/<effort>/prototypes/`, with non-UI verdicts on the ticket. |
 | [`wizard`](./skills/wizard/SKILL.md) | Get a bash script that walks a person, stage by stage, through steps only they can take, such as setting up a cloud account or credentials. |
 | [`grilling`](./skills/grilling/SKILL.md) | Have a plan or idea stress-tested in rounds of numbered questions, each with a recommended answer. |
@@ -97,7 +96,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 ## Principles
 
-Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes all 30 and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle, and its reply names each principle that changed a decision. The rule below is a summary of that index entry.
+Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes all 30 and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle. Its reply explains the reasons and effects of its decisions. The rule below is a summary of that index entry.
 
 | Group | Principle | Rule |
 | --- | --- | --- |
@@ -110,7 +109,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 | Core | [`principle-start-from-what-exists`](./skills/principle-start-from-what-exists/SKILL.md) | Before proposing an approach or writing non-trivial code. Search this repository, then GitHub and the package registries, read an implementation file of each serious candidate, and decide to use, extend or build; the reply records the search. |
 | Core | [`principle-read-before-you-conclude`](./skills/principle-read-before-you-conclude/SKILL.md) | Saying anything about a file, or changing one. Read it before you change it, read whole what you edit or reason about in detail, and label a conclusion that rests on an unread part as inferred. |
 | Core | [`principle-build-the-lever`](./skills/principle-build-the-lever/SKILL.md) | Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns. |
-| Architecture | [`principle-model-the-domain`](./skills/principle-model-the-domain/SKILL.md) | Before writing logic or designing data, state and interfaces. Trace access patterns and encode shared rules in a coherent structure. |
+| Architecture | [`principle-model-the-domain`](./skills/principle-model-the-domain/SKILL.md) | Before writing logic or designing data, state or interfaces. Define the data shape first and choose a structure that fits its access patterns. |
 | Architecture | [`principle-boundary-discipline`](./skills/principle-boundary-discipline/SKILL.md) | Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure. |
 | Architecture | [`principle-type-system-discipline`](./skills/principle-type-system-discipline/SKILL.md) | Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries. |
 | Architecture | [`principle-make-operations-idempotent`](./skills/principle-make-operations-idempotent/SKILL.md) | Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state. |

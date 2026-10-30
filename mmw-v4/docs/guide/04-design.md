@@ -1,6 +1,6 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. The [prototype skill's sketch branch](../../skills/prototype/SKETCH.md) settles types and seams before implementation when the shape reaches beyond one ticket. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [swarm skill](../../skills/swarm/SKILL.md) fans out slices or races when the job is coverage rather than design. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
+One attempt at a hard design locks in the first shape the model thought of. The [prototype skill's sketch branch](../../skills/prototype/SKETCH.md) settles types and seams before implementation when the shape reaches beyond one ticket. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
 
 The two most common design mistakes are taking the agent's first design and debating a question that a prototype could settle. This page fixes both. The written plan comes after: a spec and its tickets, which you can check and accept before agents build from them.
 
@@ -51,16 +51,6 @@ flowchart LR
 
 When the candidates converge on one shape, that agreement is the result and no graft is needed. When they diverge wildly, the task was framed too loosely. The arena skill reframes and runs again rather than averaging.
 
-## Cover slices and races with the swarm skill
-
-```text
-/swarm check every package under packages/ against its check.sh. one worker per package. one report.
-```
-
-The swarm skill sends N subagents at once and holds its turn until every one returns. Its shape is one of three: separate slices, a race on identical briefs, or a mix. A race declares its selection rule before any worker starts: `first pass`, `rank all`, or `best-of`. Each worker reports `PASS`, `ISSUES`, or `BLOCKED` with evidence. The parent returns one table with one-line issues and the gaps. A worker that drops out leaves a gap, and a gap never counts as a pass.
-
-Use the swarm skill when parallel work buys coverage. The arena skill gives every candidate the same design brief, then picks a base and grafts. The swarm skill covers slices or runs a race with a rule fixed in advance, and grafts nothing.
-
 ## Review a change with the code-review skill
 
 ```text
@@ -76,7 +66,7 @@ The code-review skill reads a finished change on four axes, each a separate suba
 
 The axes never see each other's findings, so a change that passes one axis cannot cover for a failure on another. The session then checks every finding at the cited line. A finding either holds, is refuted with the evidence that disproves it, or is marked as one it could not settle. Refuted findings are listed with their refutation, not dropped.
 
-The skill runs in three places. A ticket's worker sends a `reviewer` session to its diff. Asked to review a pull request someone else opened, the session runs the four axes with the pull request's description in a file in place of a ticket. And the `mmw-mode` skill routes "review this change" to it, and sends a contested design to it before shipping.
+A ticket's worker sends a `reviewer` session to its diff. The `mmw-mode` skill also routes "review this change" to it. Asked to review a pull request someone else opened, the session runs the four axes with the pull request's description in a file in place of a ticket.
 
 Spend a review on code, not on an abstract plan. Point a reviewer at a plan with no code behind it and it invents risks that will never happen. Let prototypes settle the questions, then review what got built.
 
@@ -152,9 +142,7 @@ Most changes need none of this. A rough ladder:
 - A small finished change you are unsure about needs the code-review skill alone.
 - A code shape that reaches beyond one ticket earns the prototype skill's sketch branch, which brings the arena skill with it.
 - A standalone decision where independent attempts help, such as naming, a format, or an algorithm, goes to the arena skill directly.
-- A coverage matrix, a set of parallel checks, or a race with a declared rule goes to the swarm skill.
 - An open question you could answer by running something, such as a layout, a timing, or an approach, gets a prototype, not a debate.
-- A contested code shape that reaches beyond one ticket gets the prototype skill's sketch branch, then the code-review skill before shipping.
 - Work one ticket cannot carry gets Grill with docs or a map, then To spec and To tickets.
 
 The `mmw-mode` skill already applies this ladder. Name these skills yourself when you want more or less scrutiny than its default.

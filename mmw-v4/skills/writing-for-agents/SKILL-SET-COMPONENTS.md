@@ -58,7 +58,7 @@ It is read in two layers, split by whether the session holds a request or an ass
 
 - **Used:** at any moment of any task, as soon as the situation a line names arises, whichever playbook is running.
 - **Content:** one line per trigger: `Situation → what to use`, where what to use is a skill, a playbook (with its path), or a reference.
-- **When to add a line:** under the name that fits it. The situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead. A situation a principle's index line already names gets no line here, unless the line adds an action the principle does not hold (poteto-mode's "Any code → name the data shape first").
+- **When to add a line:** under the name that fits it. The situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead. A situation a principle's index line already names gets no line here, unless the line adds an action the principle does not hold.
 
 #### `## Principles`
 
@@ -137,7 +137,7 @@ A judgement several steps point to may follow the steps as a section of its own,
 
 - **For:** one thing that recurs and that nothing else handles. "A workflow you keep hitting but isn't captured → propose a new skill." It is either used by many steps, or worth invoking directly.
 - **Not for:** what an existing skill can hold. Edit that skill.
-- **Shape** (models: `swarm`, `how`, `figure-it-out` under `upstream/pstack/skills/`):
+- **Shape** (models: `arena` and `how` under `upstream/pstack/skills/`):
   - Frontmatter: `name`, `description` (what it does, then `Use for …` or `Use when …` with the words someone would use), and `argument-hint` when the skill takes an argument the person types.
   - `# <Title>` and one paragraph: what it does and what it hands back.
   - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names the subagent row to use (`mmw-mode/SKILL.md` `## Subagents`).
@@ -147,7 +147,7 @@ A judgement several steps point to may follow the steps as a section of its own,
 
 ## reference
 
-The models to imitate: `upstream/pstack/skills/how/references/explorer-prompt.md` (a prompt template) and `upstream/pstack/skills/poteto-mode/references/bugbot-triage.md` (a lookup table).
+The model to imitate: `upstream/pstack/skills/how/references/explorer-prompt.md` (a prompt template).
 
 ### What a reference is for
 
@@ -158,7 +158,7 @@ A reference belongs to one skill and sits under it. There is no directory of ref
 ### When a new reference is warranted
 
 - **The material is used only on one branch, or only by one subagent.** `research` opens `references/explorer.md` or `references/investigator.md` only when its start prompt has it follow that file, and an investigator reads only the `references/sources/<source>.md` of its category.
-- **Several playbooks or triggers open the same material.** That is still a reference. `bugbot-triage.md` is opened by a playbook and a `## Non-negotiables` line.
+- **Several playbooks or triggers open the same material.** That is still a reference.
 - **Not for material every invocation uses.** That goes in the skill file itself: "Templates and references used on every invocation belong in the skill file, not in separate files that cost a read each time."
 
 In the same change: the step or trigger that opens it names its path.

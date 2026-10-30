@@ -89,14 +89,6 @@ To compare whole designs rather than judge one:
 ask /arena for three designs of the sync engine, then graft the best parts onto the strongest.
 ```
 
-## Check independent slices in parallel
-
-```text
-/swarm check every package under packages/ against its check.sh. one worker per package. one report.
-```
-
-Each worker owns one package. The [swarm](../../skills/swarm/SKILL.md) skill waits for every slice and returns one report instead of raw worker output.
-
 ## Review a change before it merges
 
 ```text
@@ -187,8 +179,7 @@ That is the whole prompt. The [wait-what](../../skills/wait-what/SKILL.md) skill
 - **Parallel sessions in one worktree.** They overwrite each other. The pipeline gives each ticket its own worktree under `.worktrees/issue-<n>`; for work of your own, say "own worktree per attempt".
 - **Trusting an unvetted number.** A warm cache or a skipped code path can fake a speedup. Run `/benchmark-checklist` before the number goes anywhere.
 - **Correcting the same mistake by hand.** A correction in chat helps one run. `/correct` fixes the repository so no later run repeats it.
-- **Using `/arena` for coverage.** `/arena` runs one design brief several times, then picks a base and grafts the best parts onto it. `/swarm` splits work into slices and returns one report.
-- **Accepting every review comment.** Bots and people both file real catches and noise in one list. The mode's `references/bugbot-triage.md` sorts each into fix, dismiss with a reason, or ask you.
+- **Accepting every review comment.** [Opening a PR step 3](../../skills/mmw-mode/playbooks/opening-a-pr.md) checks each claim against the current version before acting.
 - **Editing `~/.mmw/models.json` by hand.** Change a role's host, model or effort only through `models.py config`, which checks the row against what the host offers.
 - **Reporting success off a green build.** A build proves it compiles. Ask for the real command, flow, stored value or profile, and expect the evidence in the reply.
 - **Writing a `SKILL.md` freehand.** Route it through the Authoring or modifying a skill playbook ([Make it yours](./09-make-it-yours.md)) so the standards and the checks apply.

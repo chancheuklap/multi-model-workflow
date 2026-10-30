@@ -10,7 +10,7 @@ For example, Bug fix names Fix Root Causes before forming hypotheses. The tdd sk
 
 Principles hold shared judgments. Skills hold methods. The prototype skill owns comparing candidate designs and sends each kind of question to its branch. The mode calls prototype for a novel decision without precedent or an open design direction.
 
-The frontmatter description of a principle says it runs only when named. The mode's conditional index and the named calls are its automatic entry points. A session cites a principle only after reading its body, and reports the decision it changed. You can name a principle to redirect a run, but manual steering is optional.
+The frontmatter description of a principle says it runs only when named. The mode's conditional index and the named calls are its automatic entry points. A session reads a principle's body before applying it and explains the reasons and effects of its decisions. You can name a principle to redirect a run, but manual steering is optional.
 
 ## The 30 principles
 
@@ -30,7 +30,7 @@ These summaries follow the mode's groups. The linked bodies hold the full rules.
 
 ### Architecture
 
-- [`principle-model-the-domain`](../../skills/principle-model-the-domain/SKILL.md). Before writing logic or designing data, state and interfaces. Trace access patterns and encode shared rules in a coherent structure.
+- [`principle-model-the-domain`](../../skills/principle-model-the-domain/SKILL.md). Before writing logic or designing data, state or interfaces. Define the data shape first and choose a structure that fits its access patterns.
 - [`principle-boundary-discipline`](../../skills/principle-boundary-discipline/SKILL.md). Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure.
 - [`principle-type-system-discipline`](../../skills/principle-type-system-discipline/SKILL.md). Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries.
 - [`principle-make-operations-idempotent`](../../skills/principle-make-operations-idempotent/SKILL.md). Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state.
