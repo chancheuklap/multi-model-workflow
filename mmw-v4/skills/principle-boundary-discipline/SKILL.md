@@ -10,17 +10,16 @@ Place validation, type narrowing, and error handling at system boundaries. Trust
 **Why:** Scattered validation is noisy, redundant, and gives a false sense of safety. Keep logic out of framework wiring so it can be tested without the framework.
 
 **The pattern:**
-- **At boundaries** (CLI args, config files, external APIs, network protocols): validate, return errors, handle defensively.
-- **Inside the system:** typed data, error propagation, no re-validation. Trust the types.
+- **At boundaries**, validate unknown values once at the boundary that owns them, then pass typed values inward.
+- **Inside the system**, do not defensively revalidate guarantees from a schema, constructor, or internal type.
 - **Across the boundary.** Expose domain concepts, not the boundary's private representation. Keep general-purpose mechanism inside and special-purpose policy at the edge.
 
 **Applications:**
 
 Validation and error handling:
-- Validate config at parse time (the boundary), not inside business logic
 - Parse raw data into domain types at the boundary
 - Do not re-export transport, storage, framework, or wire types through the public surface
-- No redundant nil checks deep in call chains if the boundary already validated
+- Avoid unnecessary `try` and `catch` blocks. Catch an error where the code can recover or translate it for the caller. Otherwise let it propagate.
 
 Code organization:
 - Business logic in pure functions with no framework dependencies
