@@ -15,14 +15,13 @@ Open or take up the ticket as the mmw-mode skill's `references/ticket.md` `## Op
 
 ## Fix each class at the highest level that works
 
-1. **Eliminate it with architecture.** Give each piece of state one owner and each task one supported way. Hide internals so the wrong import fails. Replace hand-synced lists with one source of truth. Delete old ways and dead code an agent would copy.
-2. **Enforce it with types so the bad state can't be written.** If bad code still compiles, add a lint or check, wired into the repository's `scripts/check`, whose error names the file, type, or function to use instead. If the pattern is already common, fail only when a change adds more.
-3. **Test the behavior.** Fix or delete any test that still passes when the behavior it checks breaks, or that fails when only the internals change.
-4. **Write a rule last, only for a judgment call.** Nothing fails when an agent skips it. One that holds in every repository goes into a principle; a fact of this repository into its glossary or an ADR; never into `AGENTS.md` or `CLAUDE.md`.
+Choose the fix per **principle-encode-lessons-in-structure**. Wire a new lint or check into the repository's `scripts/check`; its error names the file, type, or function to use instead. If the pattern is already common, fail only when a change adds more. Apply **principle-test-behavior-not-implementation** to the tests that prove the fix.
+
+When only judgment can address the mistake, put cross-repository guidance in a principle and a repository fact in its glossary or an ADR; never in `AGENTS.md` or `CLAUDE.md`.
 
 ## Fix and prove
 
-Choose the level under `## Fix each class at the highest level that works`. A correction whose rule is already written and enforced by nothing is a repeat. Plan its enforcement at the highest level that works, and the removal of the written rule once its mistake can't happen.
+Record the mechanism chosen under `## Fix each class at the highest level that works` and why a stronger one does not fit.
 
 Write the plan and acceptance criteria into the ticket. Name the check to add to the repository's `scripts/check` and the real past mistake, with its commit, on which the check must first fail. Exceptions go on the offending line with a reason, an expiry date, and a human's approval. Hand the plan to the owner as the mmw-mode skill's `references/ticket.md` `## Handing it back` says. The worker builds it after the owner's Go. Done when the ticket holds the plan and runnable criteria and has been handed back.
 

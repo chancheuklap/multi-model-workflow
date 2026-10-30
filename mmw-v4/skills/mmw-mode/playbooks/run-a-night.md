@@ -128,7 +128,7 @@ dispatch.sh route <n> <child> became-ticket <new ticket>
 
 Judge each one by the four steps below, **in order, first match wins**, after the check that comes before them.
 
-**Step 0, before you classify at all.** Check the condition the finding's own body states against the current `HEAD`. If it never held, run `dispatch.sh route <n> <child> stale invalid` and do nothing else. If it held but a later ticket of the same batch or a closing-pass fix already resolved it, run `dispatch.sh route <n> <child> stale fixed-elsewhere` and do nothing else. A finding's claim disproved by current evidence is `invalid`; a valid claim satisfied somewhere else is `fixed-elsewhere`. `fixed-elsewhere` is not a reviewer false positive.
+**Step 0, before you classify at all.** Apply **principle-prove-it-works** to the finding against the current `HEAD`. If it never held, run `dispatch.sh route <n> <child> stale invalid` and do nothing else. If it held but a later ticket of the same batch or a closing-pass fix already resolved it, run `dispatch.sh route <n> <child> stale fixed-elsewhere` and do nothing else. `fixed-elsewhere` is not a reviewer false positive.
 
 1. **Does it fall inside another still-open ticket's `## Owns`?** → a ticket, `Blocked by` that open one. Not a question of size: the constraint is concurrency. Fixing it yourself in the origin-tracking checkout makes the next `advance` conflict when that ticket's branch merges.
 2. **Is it a gap in the criteria themselves** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control.

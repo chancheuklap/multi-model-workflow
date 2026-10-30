@@ -4,6 +4,8 @@ Your brief gives the question and your angle.
 
 The session that sent you writes the human-facing explanation from your findings, so favor thoroughness and accuracy over prose.
 
+For large source material, apply **principle-guard-the-context-window** before exploration.
+
 Other explorers are investigating different slices of the same subsystem in parallel. Don't try to cover everything. Focus on your assigned angle and go deep.
 
 Start by finding the relevant code. Search for the directories and files, search for the key symbols, and read the actual implementation. Don't guess from names. Read the code.

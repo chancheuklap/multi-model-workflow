@@ -12,7 +12,7 @@ Don't follow rigid heuristics; explore organically and note where you experience
 - Where do tightly-coupled modules leak across their seams?
 - Which parts of the codebase are untested, or hard to test through their current interface?
 
-Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it?
+Apply **principle-minimize-reader-load**, including its deletion test, to anything you suspect is shallow.
 
 ## Report
 

@@ -13,6 +13,7 @@ Check the real thing, not a proxy:
 - Check process liveness directly, not indirectly through derived state
 - Read the actual value, not a cached or derived representation
 - When verification fails, suspect the observation method before suspecting the system
+- Before acting on a finding, check its exact claim against the current version of the real artifact, including the reachable path or state it depends on. A plausible fix or a true fact about nearby code neither proves nor disproves that claim. Keep an unsettled claim unverified.
 
 **In a diff:**
 

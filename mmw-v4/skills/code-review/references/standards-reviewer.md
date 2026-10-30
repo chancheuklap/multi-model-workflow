@@ -18,6 +18,8 @@ A hunk that contradicts an ADR's decision, uses a term against its glossary defi
 
 Read each one's `SKILL.md` in full, and judge every hunk by its pattern and its **In a diff:** lines: **principle-subtract-before-you-add**, **principle-minimize-reader-load**, **principle-model-the-domain**, **principle-type-system-discipline**, **principle-boundary-discipline**, **principle-separate-before-serializing-shared-state**, **principle-prove-it-works**, **principle-experience-first**, **principle-redesign-from-first-principles**, **principle-outcome-oriented-execution**, **principle-fail-loudly**.
 
+For changed prose, comments or docstrings, also read and apply **principle-files-describe-the-present**.
+
 Two rules bind them:
 
 - **The repository overrides.** Where an ADR, the glossary or `CONTRIBUTING.md` endorses something a principle would flag, the principle is silent.
