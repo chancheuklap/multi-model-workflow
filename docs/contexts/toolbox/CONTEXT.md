@@ -23,7 +23,7 @@ An agent started inside another agent's session, holding its own context and ans
 This toolbox: the skills the user shares across hosts, repositories and machines, together with the landing pipeline and the task board. Only `mmw-v4/` is live. Earlier generations, retired material, `docs/research/` and `upstream/` are history or read-only, not sources of current facts or scripts to run.
 
 **consuming repository**:
-A repository whose real tickets run through the pipeline. This repository is one too, for one product, the task board, whose code is `mmw-v4/board/`.
+A repository whose real tickets run through the pipeline. MMW's own repository is one when it uses the installed workflow to develop its skill set or the task board in `mmw-v4/board/`.
 
 **repository root**:
 `git rev-parse --show-toplevel`: the working directory of every `CHECK:`.

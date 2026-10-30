@@ -88,7 +88,7 @@ Apps change and feature maps go stale. Run the [maintain-verification-skill skil
 
 ## Ship each change as one pull request
 
-The ticket and pull-request path ends in exactly one pull request. A few kinds of change commit directly without a ticket; the exception list is in the `mmw-mode` skill's [`references/handling-a-request.md` `## Playbooks`](../../skills/mmw-mode/references/handling-a-request.md#playbooks). A change is never split into a stack of dependent pull requests. Which path runs depends on who wrote the code.
+The ticket and pull-request path ends in exactly one pull request. A few kinds of change commit directly without a ticket; the execution constraints are in the `mmw-mode` skill's [`references/handling-a-request.md` `## Non-negotiables`](../../skills/mmw-mode/references/handling-a-request.md#non-negotiables). A change is never split into a stack of dependent pull requests. Which path runs depends on who wrote the code.
 
 **One ticket.** On the ticket and pull-request path, a change outside a night goes through a ticket a worker builds, and ends with the [One ticket playbook](../../skills/mmw-mode/playbooks/one-ticket.md). The session checks the result the way the playbook that wrote the ticket says, for a bug the original reproduction. It merges the latest project branch into `fix-<n>`, runs `dispatch.sh land <n>`, and runs [Opening a PR](../../skills/mmw-mode/playbooks/opening-a-pr.md): one pull request from `fix-<n>` to the project branch, its checks and comments settled, merged with `gh pr merge --merge` when you say yes.
 

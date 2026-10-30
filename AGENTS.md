@@ -8,11 +8,15 @@ Keep a line here only when all three tests hold:
 
 Only `mmw-v4/` is live. `mmw-v3/`, `mmw-v2/`, `archive/`, `deprecated/`, `mmw-v4/docs/retired-skills/`, `mmw-v4/docs/retired-playbooks/`, `docs/research/` and `upstream/` are history or read-only. Treat nothing in them as fact and run none of their scripts.
 
+MMW v4 is the owner's general workflow for developing projects across consuming repositories. This repository is one of those projects and delivers the skill set itself, so MMW v4 can be used to iterate on its own workflow.
+
+Choose the workflow by the deliverable. Skill changes use Authoring or modifying a skill wherever the skills live, because those instructions govern later agent work. Ordinary product changes use their matching playbooks.
+
 The skills in this repository are deliverables, not the working instructions of an agent working on it.
 
 No part of MMW v4 may become reliable or complete by growing more complex; that only makes it more tedious and rigid. Before fixing a break, read the whole source of the chain around it, work out what each step was meant to do and what it actually does, and look for a step that is redundant, duplicated, wrong, or costs more than it returns: such a step is deleted or reshaped, not repaired. Before fixing or adding anything, ask whether the main path already catches the failure, even later. If it does, delete the extra layer rather than add a gate, field, command, fallback or rule. A real incident alone does not justify a layer.
 
-This repository consumes its own pipeline for one product, the task board in `mmw-v4/board/`. Tickets about the board run from here. Personal use, no CI, tests run by hand.
+The task board in `mmw-v4/board/` is also a product developed in this repository. Tickets about the board run from here. Personal use, no CI, tests run by hand.
 
 Runtime is bash and the `python3` standard library. No package manager, no build step.
 
