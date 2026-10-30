@@ -92,14 +92,18 @@ for (let n = 0; n < 5; n++) test(`other ${n}`, () => expect(1).toBe(1));
         (root / 'skip-only.test.js').write_text("test.skip('skip', () => {});\n")
         cases = []
         for quiet in ([], ['-q']):
-            for selector, success in [('pass or warning or xfail or xpass', True),
-                                      ('xfail', True), ('xpass', True),
+            for selector, success in [('pass or warning or xfail or xpass', False),
+                                      ('xfail', False), ('xpass', False),
                                       ('pass or skip', False), ('fail or pass', False),
                                       ('error or pass', False), ('skip', False),
                                       ('long', True)]:
                 cases.append(('pytest', root, quiet + ['test_cases.py', '-k', selector], success))
             for name in ('pass', 'warning', 'xfail', 'xpass'):
-                cases.append(('pytest', root, quiet + [f'test_cases.py::test_{name}'], True))
+                cases.append(('pytest', root, quiet + [f'test_cases.py::test_{name}'],
+                              name in ('pass', 'warning')))
+            for name, success in [('xfail', True), ('xpass', False)]:
+                cases.append(('pytest', root, quiet + ['test_cases.py::test_pass',
+                                                      f'test_cases.py::test_{name}'], success))
             cases.append(('pytest', root, quiet + ['empty'], False))
         for quiet in ([], ['-q']):
             cases.append(('pytest', root, quiet + ['test_cases.py::test_long'], True))

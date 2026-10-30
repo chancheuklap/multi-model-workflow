@@ -1,26 +1,26 @@
 {
   "pytest": {
-    "expect": "/^(?:=+ )?(?=[^\\r\\n]*\\d+ (?:passed|xfailed|xpassed))\\d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed)(?:, \\d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed))* in [0-9.]+s(?: \\(\\d+:\\d{2}:\\d{2}\\))?(?: =+)?$/m",
+    "expect": "/^(?:=+ )?(?=[^\\r\\n]*\\b[1-9]\\d* passed\\b)\\d+ (?:passed|deselected|warnings?|xfailed|subtests passed)(?:, \\d+ (?:passed|deselected|warnings?|xfailed|subtests passed))* in [0-9.]+s(?: \\(\\d+:\\d{2}:\\d{2}\\))?(?: =+)?$/m",
     "summary_pattern": "^(?:=+ )?(?:\\d+ (?:passed|failed|errors?|skipped|deselected|warnings?|xfailed|xpassed|subtests passed)(?:, \\d+ (?:passed|failed|errors?|skipped|deselected|warnings?|xfailed|xpassed|subtests passed))*|no tests ran) in [0-9.]+s(?: \\(\\d+:\\d{2}:\\d{2}\\))?(?: =+)?$",
     "samples": [
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k 'pass or warning or xfail or xpass'",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "======= 2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.02s =======",
         "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 4 deselected / 4 selected\n\ntest_cases.py ..xX                                                       [100%]\n\n=============================== warnings summary ===============================\ntest_cases.py::test_warning\n  /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5/test_cases.py:9: UserWarning: recorded warning\n    warnings.warn(\"recorded warning\", UserWarning)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======= 2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.02s =======\n"
       },
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k xfail",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "================= 6 deselected, 1 xfailed, 1 xpassed in 0.02s ==================",
         "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 6 deselected / 2 selected\n\ntest_cases.py xX                                                         [100%]\n\n================= 6 deselected, 1 xfailed, 1 xpassed in 0.02s ==================\n"
       },
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py -k xpass",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "======================= 7 deselected, 1 xpassed in 0.01s =======================",
         "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 8 items / 7 deselected / 1 selected\n\ntest_cases.py X                                                          [100%]\n\n======================= 7 deselected, 1 xpassed in 0.01s =======================\n"
       },
@@ -76,14 +76,14 @@
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_xfail",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "============================== 1 xfailed in 0.01s ==============================",
         "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_cases.py x                                                          [100%]\n\n============================== 1 xfailed in 0.01s ==============================\n"
       },
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_xpass",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "============================== 1 xpassed in 0.01s ==============================",
         "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5\ncollected 1 item\n\ntest_cases.py X                                                          [100%]\n\n============================== 1 xpassed in 0.01s ==============================\n"
       },
@@ -97,21 +97,21 @@
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k 'pass or warning or xfail or xpass'",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.01s",
         "output": "..xX                                                                     [100%]\n=============================== warnings summary ===============================\ntest_cases.py::test_warning\n  /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-runner-summaries-lpmnsiu5/test_cases.py:9: UserWarning: recorded warning\n    warnings.warn(\"recorded warning\", UserWarning)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n2 passed, 4 deselected, 1 xfailed, 1 xpassed, 1 warning in 0.01s\n"
       },
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k xfail",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "6 deselected, 1 xfailed, 1 xpassed in 0.01s",
         "output": "xX                                                                       [100%]\n6 deselected, 1 xfailed, 1 xpassed in 0.01s\n"
       },
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py -k xpass",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "7 deselected, 1 xpassed in 0.00s",
         "output": "X                                                                        [100%]\n7 deselected, 1 xpassed in 0.00s\n"
       },
@@ -167,14 +167,14 @@
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_xfail",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "1 xfailed in 0.01s",
         "output": "x                                                                        [100%]\n1 xfailed in 0.01s\n"
       },
       {
         "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_xpass",
         "exit": 0,
-        "success": true,
+        "success": false,
         "summary": "1 xpassed in 0.00s",
         "output": "X                                                                        [100%]\n1 xpassed in 0.00s\n"
       },
@@ -233,6 +233,34 @@
         "success": false,
         "summary": "1 passed, 1 skipped in 0.00s",
         "output": "-.                                                                       [100%]\n1 passed, 1 skipped in 0.00s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_pass test_cases.py::test_xfail",
+        "exit": 0,
+        "success": true,
+        "summary": "========================= 1 passed, 1 xfailed in 0.01s =========================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-1454-pytest-elnn9_k1\ncollected 2 items\n\ntest_cases.py .x                                                         [100%]\n\n========================= 1 passed, 1 xfailed in 0.01s =========================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest test_cases.py::test_pass test_cases.py::test_xpass",
+        "exit": 0,
+        "success": false,
+        "summary": "========================= 1 passed, 1 xpassed in 0.00s =========================",
+        "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.11, pytest-9.1.1, pluggy-1.7.0\nrootdir: /private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/mmw-1454-pytest-elnn9_k1\ncollected 2 items\n\ntest_cases.py .X                                                         [100%]\n\n========================= 1 passed, 1 xpassed in 0.00s =========================\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_pass test_cases.py::test_xfail",
+        "exit": 0,
+        "success": true,
+        "summary": "1 passed, 1 xfailed in 0.01s",
+        "output": ".x                                                                       [100%]\n1 passed, 1 xfailed in 0.01s\n"
+      },
+      {
+        "command": "uv run --with pytest==9.1.1 python -m pytest -q test_cases.py::test_pass test_cases.py::test_xpass",
+        "exit": 0,
+        "success": false,
+        "summary": "1 passed, 1 xpassed in 0.00s",
+        "output": ".X                                                                       [100%]\n1 passed, 1 xpassed in 0.00s\n"
       }
     ],
     "version": "9.1.1",
