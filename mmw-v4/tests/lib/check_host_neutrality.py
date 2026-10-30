@@ -48,7 +48,7 @@ def main():
         text = path.read_text()
         lines = text.splitlines()
         unused.difference_update((relative, line) for line in lines)
-        if relative in {'writing-for-agents/SKILL-MECHANICS.md', 'dispatch/references/editing-models.md', 'writing-for-agents/SKILL-SET-RULES.md'}:
+        if relative in {'writing-for-agents/references/SKILL-MECHANICS.md', 'dispatch/references/editing-models.md', 'writing-for-agents/references/SKILL-SET-RULES.md'}:
             continue
         checked_lines = set()
         for number, line in enumerate(lines, 1):

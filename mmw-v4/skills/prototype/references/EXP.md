@@ -29,7 +29,7 @@ Done when **Question and bar** states the question and a result that counts as "
 
 ### 2. Write the smallest thing that runs
 
-Use the project's own language and toolchain. One entry point, started with one command from the project's task runner (rule 2 in the [SKILL](SKILL.md)); include that command in each round comment. Real inputs where they matter to the question (a sample of the actual data, the actual service), and stubs everywhere else.
+Use the project's own language and toolchain. One entry point, started with one command from the project's task runner (rule 2 in the [SKILL](../SKILL.md)); include that command in each round comment. Real inputs where they matter to the question (a sample of the actual data, the actual service), and stubs everywhere else.
 
 Done when the experiment runs from the project's one task-runner command.
 

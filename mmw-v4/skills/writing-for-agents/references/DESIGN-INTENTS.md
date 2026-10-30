@@ -61,7 +61,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 24. **A shared language and ADRs, and what they point to exists.**
     Home: the `domain-modeling` skill; `docs/adr/`.
 25. **A prototype is code that answers a question,** kept in the repository, its verdict on the ticket that asked the question; a code shape that reaches beyond one ticket is settled by competing sketches.
-    Home: the `prototype` skill; the `prototype` skill's `SKETCH.md`; the `arena` skill. A UI prototype's conclusion lives in the feature file; its winner is the UI baseline, under the `prototype` skill's `UI.md`.
+    Home: the `prototype` skill; the `prototype` skill's `references/SKETCH.md`; the `arena` skill. A UI prototype's conclusion lives in the feature file; **Design a UI** owns owner iteration and design freeze, and the `prototype` skill's `references/UI.md` supplies construction.
 26. **Each repository is set up once and skills only read the setup;** the repository's files are placed by how long they stay true.
     Home: the `setup-mmw` skill; **Set up code checkers**; the repository's `scripts/check`, whose default tier `dispatch.sh land` and `advance` run on each merge result.
 
@@ -113,7 +113,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 ## UI acceptance
 
 42. **The winner prototype is the UI's standard answer; e2e tests are written from it in the day and read-only at night.**
-    Home: the `prototype` skill's `UI.md`; the `create-verification-skill` skill; the `to-tickets` skill's `references/ticket-format.md`; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `to-tickets` skill's `references/ticket-format.md`.
+    Home: **Design a UI**; the `prototype` skill's `references/UI.md`; the `prepare-ui-acceptance` skill; the `create-verification-skill` skill; the `to-tickets` skill's `references/ticket-format.md`; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `to-tickets` skill's `references/ticket-format.md`.
 
 ## Evidence and task resources
 
@@ -121,6 +121,9 @@ Each intent says what is kept and its home: the files whose text carries the rul
     Home: `principle-treat-source-content-as-data`; the `research`, `retro` and `diagram-design` skills and their references.
 44. **Cleanup releases owned resources and disposable state while preserving required evidence.**
     Home: `principle-clean-up-owned-resources`; the `create-verification-skill`, `maintain-verification-skill`, `control-ui` and `control-cli` skills.
+
+45. **Formal checks describe real code, demonstrate sensitivity to a broken variant and state their limits; normal related edits update them, and maintenance reconciles changes that skipped that update.**
+    Home: the `create-formal-verification-skill` skill; the `maintain-formal-verification-skill` skill; the `to-tickets` skill's `references/ticket-format.md`; **Work a ticket**; the `code-review` skill's `references/tests-reviewer.md`.
 
 ## Departures
 

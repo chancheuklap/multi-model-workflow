@@ -56,7 +56,7 @@ Send them the link or the file, or open it for them. They'll click through the w
 
 ### 5. Capture the answer and the prototype
 
-Once the prototype has answered its question, record the answer the way the [SKILL](SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set is what the real module is written from; the HTML shell stays in the leaf directory, and being one self-contained file, it stays trivially re-runnable for the next round.
+Once the prototype has answered its question, record the answer the way the [SKILL](../SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set is what the real module is written from; the HTML shell stays in the leaf directory, and being one self-contained file, it stays trivially re-runnable for the next round.
 
 ## Anti-patterns
 

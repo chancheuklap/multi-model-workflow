@@ -102,7 +102,7 @@ A skill-set-review finding in a misleading sentence. It differs from a load find
 The completion-criterion line in MMW's own task instructions, beginning `Done when`. It states the observable condition that distinguishes a completed step from unfinished work.
 
 **cognitive walkthrough**:
-The review method in [WALKING-A-SKILL-SET.md](../../../mmw-v4/skills/writing-for-agents/WALKING-A-SKILL-SET.md), following one task in its acting agent's reading order. A fresh-agent walk is the behavior proof used when skill changes alter that task.
+The review method in [WALKING-A-SKILL-SET.md](../../../mmw-v4/skills/writing-for-agents/references/WALKING-A-SKILL-SET.md), following one task in its acting agent's reading order. A fresh-agent walk is the behavior proof used when skill changes alter that task.
 
 **task (skill-set review)**:
 One job an agent enters the skill set to complete, including a bounded method call that returns to its caller. It is the unit of a cognitive walkthrough, distinct from the worker's task root.

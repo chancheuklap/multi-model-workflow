@@ -201,7 +201,7 @@ def check_subagent_rows() -> list[str]:
 
 
 def check_intent_homes() -> list[str]:
-    path = SKILLS / "writing-for-agents/DESIGN-INTENTS.md"
+    path = SKILLS / "writing-for-agents/references/DESIGN-INTENTS.md"
     text = readable(path)
     homes = list(re.finditer(r"^ +Home: (.+)$", text, re.M))
     if not homes:
@@ -212,7 +212,7 @@ def check_intent_homes() -> list[str]:
     found = []
     for home in homes:
         body = home.group(1)
-        skill = path.parent
+        skill = path.parent.parent
         playbook = None
         previous = ""
         for token in re.finditer(r"`([^`]+)`|\*\*(.+?)\*\*", body):
@@ -261,7 +261,7 @@ def check_intent_homes() -> list[str]:
 
 
 def check_upstream_destinations() -> list[str]:
-    directory = SKILLS / "writing-for-agents"
+    directory = SKILLS / "writing-for-agents/references"
     path = directory / "UPSTREAM.md"
     if not path.exists():
         return [f"{path.relative_to(SKILLS.parent.parent)}:1: upstream destinations file "

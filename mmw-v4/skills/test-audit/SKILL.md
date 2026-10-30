@@ -15,7 +15,7 @@ Read the shared judgments below, then take the applicable branch before acting.
 | Review tests in a diff | Apply this file's shared judgments to the caller's review scope. Use its report format; no additional review pass or test run is required. |
 | Audit, consolidate or retire existing tests in one area | Read [Audit workflow](references/audit.md) before editing candidates. |
 | Diagnose a test failure, flake or test-cost problem | Read [Failures and cost](references/failures.md) before choosing a repair. |
-| Coordinate an audit of a repository or subsystem | Read [Campaign](CAMPAIGN.md) before dividing the work. Each assigned area enters the audit branch. |
+| Coordinate an audit of a repository or subsystem | Read [Campaign](references/CAMPAIGN.md) before dividing the work. Each assigned area enters the audit branch. |
 
 ## Shared judgments
 

@@ -16,7 +16,7 @@ Every session reads this file in full before anything else and works by its rule
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand reproduction to the user only under the narrow control-surface exception in the **bug-fix** skill's diagnostic entry.
 - Posting to a ticket, a comment or a pull request, or showing a person a command or its output → write `<REDACTED>` in place of every secret, and keep a credential in an environment variable rather than in the command.
-- A novel interaction or architectural decision with no precedent, or an open design direction → the **prototype** skill.
+- An open UI design → Design a UI (`playbooks/design-a-ui.md`); a bounded candidate, model, experiment or architectural question → the **prototype** skill. A worker with a conflicting settled baseline uses its existing contract route.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 - A session allowed to write encounters a problem it cannot fix in the work at hand → the **register-problem** skill.
 

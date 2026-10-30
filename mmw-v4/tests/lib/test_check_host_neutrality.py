@@ -51,8 +51,8 @@ class HostNeutralityTest(unittest.TestCase):
         self.assertIn('neutrality-test.md:1: Codex', self.run_check().stdout)
 
     def test_the_two_whole_files_pass(self):
-        for name in ('writing-for-agents/SKILL-MECHANICS.md', 'dispatch/references/editing-models.md',
-                     'writing-for-agents/SKILL-SET-RULES.md'):
+        for name in ('writing-for-agents/references/SKILL-MECHANICS.md', 'dispatch/references/editing-models.md',
+                     'writing-for-agents/references/SKILL-SET-RULES.md'):
             (self.skills / name).write_text('Use Codex and the Task tool with orca.\n')
         result = self.run_check()
         for name in ('SKILL-MECHANICS.md', 'editing-models.md', 'SKILL-SET-RULES.md'):

@@ -14,7 +14,7 @@ Each context has a short scope description and a `## Language` section. An entry
 - [Tickets](./docs/contexts/tickets/CONTEXT.md). `to-spec`, `to-tickets`, maps, specs, independent and spec tickets, acceptance criteria, publication and queue labels.
 - [Ticket run](./docs/contexts/ticket-run/CONTEXT.md). Work a ticket, `verify-ticket`, `code-review`, `advisor`, claims, events, criteria evidence and ticket closeout.
 - [Night](./docs/contexts/night/CONTEXT.md). One ticket, Run a night, `dispatch`, sessions, branches, watches, landing, Opening a PR, recovery and retrospective feedback.
-- [UI acceptance](./docs/contexts/ui-acceptance/CONTEXT.md). `prototype`, `test-audit`, product verification skills, feature maps, acceptance targets, behavior pins and product control.
+- [UI acceptance](./docs/contexts/ui-acceptance/CONTEXT.md). Design a UI, `prototype`, `prepare-ui-acceptance`, `test-audit`, product and formal verification methods, feature maps, acceptance targets, behavior pins and product control.
 - [Task board](./docs/contexts/task-board/CONTEXT.md). The local task board, its issue presentation, freshness, server lifecycle and settings sheet.
 - [Release](./docs/contexts/release/CONTEXT.md). `exe-release`, product packaging, release manifests, release-engine state, repair findings and delivery records.
 

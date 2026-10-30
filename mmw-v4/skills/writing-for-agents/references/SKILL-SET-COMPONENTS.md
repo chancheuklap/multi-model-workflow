@@ -153,7 +153,7 @@ The model to imitate: `upstream/pstack/skills/how/references/explorer-prompt.md`
 
 Material that one step needs and the skill's main text does not: the prompt handed to a subagent, or a table consulted to make one kind of judgement. It is read when the step that names it runs, and not before.
 
-A reference belongs to one skill and sits under it. There is no directory of references shared across skills. The `mmw-mode` skill's `references/` directory holds what the mode's triggers and playbooks open.
+A reference belongs to one skill and sits under its references/ directory. Branch documents and format guides live there; SKILL.md remains the entry. There is no directory of references shared across skills. The `mmw-mode` skill's `references/` directory holds what the mode's triggers and playbooks open.
 
 ### When a new reference is warranted
 
