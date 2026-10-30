@@ -101,6 +101,12 @@ The upstream GitHub guide adds newer gh shorthand for native dependencies and su
 
 These changes do not establish a missing MMW capability. Keep MMW's current commands unless a consuming task demonstrates a defect. Keep the owner's `CONTEXT.md` and `CONTEXT-MAP.md` names; do not take Matt's glossary rename.
 
+The focused Matt review found an exception to that initial assessment: repository reachability does not establish that the selected tracker is the consuming repository's intended tracker. `setup-mmw/scripts/check.py` calls `gh repo view` without an explicit repository and accepts its `nameWithOwner`. In an isolated probe, the project's origin was `owner/product`, the simulated gh default response named `upstream/skills`, and the real `check_tracker` returned `upstream/skills` with status `ok`. The probe used a temporary Git repository and a fake gh response, with no network or tracker writes. It proves the setup consumer accepts a mismatched default, not that a real issue was posted to the wrong repository.
+
+`dispatch/scripts/dispatch.sh` `repo_slug` and `register-problem/scripts/register.py` `current_repo` have the same unspecified repository lookup. This is a source finding; their complete write flows were not reproduced. GitHub CLI's [default-repository documentation](https://cli.github.com/manual/gh_repo_set-default) confirms that the selected default is used for issues, PRs, releases and Actions.
+
+This part of Matt's update should be adopted at repository resolution and use: identify the intended consuming repository and use that explicit target consistently. Preserve explicit repository arguments and the separately resolved toolbox target. An actual ambiguity can require an owner decision; routine execution does not need another confirmation gate. This repair is pending. The focused review changes no runtime behavior.
+
 Matt's fresh implementer per independent ticket is also already represented by MMW's dispatched ticket sessions. It does not override reuse within a continuing task.
 
 ### e2e's runner and diagnosis guidance
@@ -130,6 +136,8 @@ pstack's Orchestrate now uses the host's own agent and PR tools, removes its for
 The rewritten interrogate emphasizes executed adversarial evidence. MMW already requires real evidence through principle-prove-it-works. Preserve legitimate Standards and Spec review findings instead of restricting all review to executed failures. Keep the settled MMW departures for arena's judge topology, model configuration, sharpen, PR delivery and the retired swarm.
 
 `ketchup-video` is a new presentation option, not a reason to add video to the owner's existing Artifact and wait-what flow. Matt's chief-of-staff wiki likewise does not justify a parallel MMW knowledge store.
+
+The focused Matt review refines the wiki assessment: chief-of-staff's wiki records historical experience, including dated claims and the commits those claims concern. CONTEXT.md defines terms and ADRs record qualifying decisions; neither substitutes for the history of attempted approaches and their outcomes. The capability deserves discussion on that distinct purpose. It does not justify importing chief-of-staff's whole orchestration model, a new schedule or a second store before establishing the missing use case.
 
 Sources: [pstack skills](https://github.com/cursor/plugins/tree/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills), [Orchestrate](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/playbooks/orchestrate.md).
 
