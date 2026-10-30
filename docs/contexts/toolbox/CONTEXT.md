@@ -23,7 +23,7 @@ An agent started inside another agent's session, holding its own context and ans
 This toolbox: the skills the user shares across hosts, repositories and machines, together with the landing pipeline and the task board. Only `mmw-v4/` is live. Earlier generations, retired material, `docs/research/` and `upstream/` are history or read-only, not sources of current facts or scripts to run.
 
 **consuming repository**:
-A repository whose real tickets run through the pipeline. This repository is one too, for one product, the task board, whose code is `mmw-v4/board/`.
+A repository whose real tickets run through the pipeline. MMW's own repository is one when it uses the installed workflow to develop its skill set or the task board in `mmw-v4/board/`.
 
 **repository root**:
 `git rev-parse --show-toplevel`: the working directory of every `CHECK:`.
@@ -68,10 +68,10 @@ A reference in an agent's context that names material outside that context and t
 The unit the toolbox ships: one directory under `mmw-v3/skills/` with a `SKILL.md`, which is what makes `install.sh` install it; there is no second list. A skill says how one thing is done and what it hands back; how a whole task runs is a **playbook**.
 
 **mode**:
-The `mmw-mode` skill: the owner's way of working, which every session reads in full before any work. Its `## Non-negotiables`, `## Principles` index, `## Autonomy` and reply rules hold for every task, and a session holding a **request** goes on to its `references/handling-a-request.md`, which routes each kind of task to one playbook. A session a script starts is told to read it by its start prompt; in every repository, the host hook `session-start.py` tells a Claude Code or Codex session to read it at start and after compaction, and reminds it to use relevant glossary definitions before each message.
+The `mmw-mode` skill: the owner's way of working, which every session reads in full before any work. Its `## Non-negotiables`, `## Principles` index, `## Autonomy` and reply rules hold for every task, and a session holding a **request** goes on to its `references/handling-a-request.md`, which selects the component that returns the requested result. A session a script starts is told to read it by its start prompt; in every repository, the host hook `session-start.py` tells a Claude Code or Codex session to read it at start and after compaction, and reminds it to use relevant glossary definitions before each message.
 
 **request**:
-The owner's own words as a session's first message, naming no file to follow. A session holding a request reads the mode's `references/handling-a-request.md` in full, matches the task to a playbook, sends the sessions the playbook names and reports to the owner. Distinct from the request file a code-review reviewer reads in place of a ticket.
+The owner's own words as a session's first message, naming no file to follow. A session holding a request reads the mode's `references/handling-a-request.md` in full, selects the component for the requested result, sends the sessions the playbook names and reports to the owner. Distinct from the request file a code-review reviewer reads in place of a ticket.
 _Avoid_: owning a task, the owner of a task
 
 **assignment**:
@@ -79,7 +79,7 @@ A start prompt from `dispatch.sh` or a subagent call that names the file to foll
 _Avoid_: sent agent
 
 **playbook**:
-One file under `mmw-v3/skills/mmw-mode/playbooks/` saying how one kind of task is done, start to end: what the session owns, numbered steps each ending in a **`Done when` line**, and the `**Reply:**`. It is reached only through its route line in the mode's `## Playbooks`, and named in prose by its title (`Run a night`, `Work a ticket`).
+One file under `mmw-v4/skills/mmw-mode/playbooks/` saying how one kind of task reaches its requested result: what the session owns, numbered steps each ending in a **`Done when` line**, and the `**Reply:**`. It is reached through its mode route, a bounded call from another component, or an assignment, and named in prose by its title (`Run a night`, `Work a ticket`).
 
 **the owner's page**:
 The single visual reading and decision place for one pull request, published at the address or local path on the body's first line. Distinct from **the record**, which preserves the change's identification and evidence links.
@@ -149,7 +149,7 @@ The line both install modes print once every host hook is in place.
 The prefixes of `install.sh --check`'s lines: `缺` for an item missing, or different from what `install.sh` would write; `残留` for a **stale link**; `没查` for a check that could read nothing (no `nmem` on the machine), which does not fail the check.
 
 **`MMW_INSTALL_HOME`**:
-A test-only variable, a **test seam**, that moves every path `install.sh` and `render.py` read or write under it and skips `launchctl` and `paseo reload`. Distinct from `MMW_HOME`, where `models.json`, the leases and the state directories live.
+A test-only variable, a **test seam**, that supplies `install.sh`'s home directory. Host paths default beneath it; `CODEX_HOME` can override Codex's directory. When it differs from `HOME`, install skips `launchctl` and `paseo reload`. Tests that set both to a temporary home use fake commands. Distinct from `MMW_HOME`, where `models.json`, the leases and the state directories live.
 
 **`--tools`**:
 The repeatable override flag of `verify-ticket.py`, `dispatch.sh`, `pull_design.py` and `extract_skeleton.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own path (that skill's `scripts/`, beside this one under `mmw-v3/skills/`). The test suites pass it to point at a copy. `verify-ticket.py` puts the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names an oracle bare.

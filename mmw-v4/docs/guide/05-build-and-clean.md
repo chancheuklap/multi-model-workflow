@@ -4,15 +4,14 @@ The build playbooks share one discipline. You say what you observed, and the pla
 
 ## Know who writes the code
 
-A worker the `dispatch` skill sends writes every change, and the session you opened never does. The session's part is to find the plan and write it into a ticket. [Bug fix](../../skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](../../skills/mmw-mode/playbooks/perf-issue.md), [Hillclimb](../../skills/mmw-mode/playbooks/hillclimb.md), [Feature](../../skills/mmw-mode/playbooks/feature.md), [Refactoring](../../skills/mmw-mode/playbooks/refactoring.md) and [Authoring or modifying a skill](../../skills/mmw-mode/playbooks/authoring-a-skill.md) all run the same way:
+A dispatched worker writes ordinary code and scripts. [Develop a change](../../skills/mmw-mode/playbooks/develop-a-change.md) prepares the requested change using existing materials and only the methods it needs. Skill text that one ticket can carry is the exception: [Authoring or modifying a skill](../../skills/mmw-mode/playbooks/authoring-a-skill.md) writes it and proves its behavior with a fresh agent.
 
-1. The first step opens a GitHub issue for the ticket, holding only `## Problem`: which playbook it needs, and what was seen, in your words. It also cuts a worktree `.worktrees/fix-<n>` on a branch `fix-<n>`. Whatever the session writes while it finds the plan (a reproduction, a benchmark harness, a sketch, a glossary entry) is committed there.
-2. The middle steps are the playbook's own: a bug is reproduced and diagnosed, a slowness measured, a feature designed.
-3. The plan is written into the same ticket: what to build, what to read first, where to test, and acceptance criteria that are commands.
-4. The last step hands the ticket back to you. You can ask for changes, put it off (it gets `needs-triage`), turn it down, or say go.
-5. On your go, the [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) playbook labels the ticket ready, sends a worker with `dispatch.sh send worker <n>`, and ends its turn. The ticket's `junior-worker` or `senior-worker` label picks the role, and `~/.mmw/models.json` picks that role's host and model.
-6. The worker writes the code until the ticket's criteria pass and its reviewer has read it, then closes the ticket. The relay wakes the session with `#<n> ticket.passed`.
-7. The session runs the playbook's own check in `.worktrees/issue-<n>`, such as the original reproduction for a bug. It merges the latest project branch into `fix-<n>`, runs `dispatch.sh land <n>`, and opens one pull request, which merges when you say yes.
+1. Keep the existing issue and effort branch, or create a preparation record before durable assets.
+2. Fill missing evidence and decisions with the relevant methods. A clear small change needs no interview or spec.
+3. Use to-tickets for one independent change, or to-spec and the batch entry for coordinated units.
+4. Existing execution Go carries forward. Otherwise return the prepared plan and the remaining owner decision.
+5. One ticket executes an independent ticket; Run a night executes a spec batch, even with one ticket. The existing worker, independent review, final proof and landing protocol remain.
+6. The executor reads the actual method and product verification sources, then delivers one runnable PR. The owner runs it, scoped feedback is repaired in the same PR, and acceptance of the checked version precedes merge / finish.
 
 The `mmw-mode` skill holds a rule behind this. A ticket with acceptance criteria is worked only by a worker the dispatch skill sends. The criteria are commands, so a ticket passes on a machine's verdict, not on the word of the agent that wrote the code.
 
@@ -42,12 +41,12 @@ A perf request states a measurement, not an impression:
 startup takes 1.8s on this fixture. trace it, fix the measured cause, show me before and after.
 ```
 
-Each request routes to its playbook, and the playbook supplies the steps you did not type.
+The mode routes a code-change request to preparation, a ready result directly to its executor, or a read-only question to diagnosis. Specialist methods can be combined inside the same task.
 
 - **Bug fix** reproduces the bug on the same surface a user meets it, through the matching control skill. It narrows the cause by ruling hypotheses out with runtime evidence. The ticket's first criterion is a regression test that fails on the project branch, and the worker commits that failing test before the fix, with the [tdd skill](../../skills/tdd/SKILL.md). When the worker is done, the session runs the original reproduction again. If it still fails, nothing lands and the hunt goes back to the cause.
-- **Feature** runs the how skill, then writes a throughput checkpoint of four items: what must run first, which work can run in parallel, what state is shared, and the smallest safe split. It uses the prototype skill's branch gate for code shape, names the data shape before any logic and writes the plan into one ticket; a worker builds it, and the session verifies it on the matching surface.
+- **Develop a change** uses the how skill and considers four decomposition questions: what must run first, which work can run in parallel, what state is shared, and the smallest safe split. It uses the prototype skill's branch gate for code shape, names the data shape before any logic and writes an independent ticket or spec batch; a worker builds it, and the session verifies it on the matching surface.
 - **Refactoring** pins the current behavior first with a characterization test, a snapshot, or an equivalence script. A type check is not a pin. It deletes dead code before it adds the new shape, migrates every caller and deletes the old API in one wave, and proves the behavior unchanged. If the diff does not make the code easier to read somewhere, it does not land.
-- **Improve the architecture** walks the parts of the code that change most, finds where a change is slow or easy to get wrong, and draws the candidates as one page for you, each with a before and after picture. It carries the strongest into Refactoring, whose ticket you say go or no to.
+- **Improve the architecture** walks the parts of the code that change most, finds where a change is slow or easy to get wrong, and draws the candidates as one page for you, each with a before and after picture. A report-only request ends there. An authorized candidate continues through Develop a change with the refactoring method.
 - **Perf issue** captures a baseline trace and vets it with the [benchmark-checklist skill](../../skills/benchmark-checklist/SKILL.md). It tries the performance mantras cheapest first, starting with "don't do it". The ticket's first criterion is the benchmark command, which prints a line only a run that meets the target prints. After the worker is done, the session measures again. A target the numbers miss is reported as missed, never met by changing the benchmark.
 
 For sustained improvement of one number, use **Hillclimb**. Give it the metric, a target, and a floor on attempts:

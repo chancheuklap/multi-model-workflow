@@ -35,7 +35,7 @@ Done when the experiment runs from the project's one task-runner command.
 
 ### 3. Draw the boundary around the reusable part
 
-The code that answers the question (the call sequence, the algorithm, the adapter) sits behind a clear boundary (a function, a module, a class) with the harness around it. The harness is a shell; the part inside the boundary is what the real code will be written from: list it under **Reusable parts** in the Conclusion comment.
+Apply **principle-boundary-discipline** to the reusable part and its harness. List that part under **Reusable parts** in the Conclusion comment, so the real code can draw on it.
 
 Done when the Conclusion comment's **Reusable parts** lists each file and function inside the boundary.
 

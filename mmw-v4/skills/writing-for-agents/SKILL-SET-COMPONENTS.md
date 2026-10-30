@@ -6,7 +6,7 @@ Which kind of component a text in the skill set belongs in, when a new one is wa
 
 | Component | Where | Answers |
 | --- | --- | --- |
-| mode skill | `mmw-mode/SKILL.md` | The owner's way of working: what to use when, which playbook a task follows |
+| mode skill | `mmw-mode/SKILL.md` | The owner's way of working: what to use when, which component returns the requested result |
 | playbook | `mmw-mode/playbooks/<name>.md` | How one kind of task is done, start to end |
 | principle | `principle-<slug>/SKILL.md` | How to decide when a certain situation arises |
 | skill | `<name>/SKILL.md` | How one thing is done, and what it hands back |
@@ -49,8 +49,8 @@ It is read in two layers, split by whether the session holds a request or an ass
 
 ### The two rules that shape every section
 
-1. **Sections are divided by the moment they are used, not by topic.** Choosing a route at the start of a task, a situation arising mid-task, deciding whether to ask the owner, spawning a subagent, writing the reply, writing a comment.
-2. **The mode names; other components hold the how.** A trigger names a skill, an index line names a principle, a route line names a playbook. The mode carries full text only for what holds on every task and has no other home: Autonomy, Subagents, Writing the reply, Comments. "Cut ruthlessly. A mode skill is not a manual."
+1. **Sections are divided by the moment they are used, not by topic.** Choosing an entry for a new request or a recorded continuation, a situation arising mid-task, deciding whether to ask the owner, spawning a subagent, writing the reply, writing a comment.
+2. **The mode names; other components hold the how.** A trigger names a skill, an index line names a principle, a route line names the component that returns the requested result. The mode carries full text only for what holds on every task and has no other home: Autonomy, Subagents, Writing the reply, Comments. "Cut ruthlessly. A mode skill is not a manual."
 
 ### Section by section
 
@@ -58,7 +58,7 @@ It is read in two layers, split by whether the session holds a request or an ass
 
 - **Used:** at any moment of any task, as soon as the situation a line names arises, whichever playbook is running.
 - **Content:** one line per trigger: `Situation → what to use`, where what to use is a skill, a playbook (with its path), or a reference.
-- **When to add a line:** under the name that fits it. The situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead. A situation a principle's index line already names gets no line here, unless the line adds an action the principle does not hold (poteto-mode's "Any code → name the data shape first").
+- **When to add a line:** under the name that fits it. The situation can occur inside any playbook, so it cannot hang on one step ("Before commit", "Any prose surface"). A situation that belongs to one step of one playbook is written in that step instead. A situation a principle's index line already names gets no line here, unless the line adds an action the principle does not hold.
 
 #### `## Principles`
 
@@ -87,7 +87,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 #### `## Playbooks`
 
 - **Used:** at the start of a task, to choose its route.
-- **Content:** one route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
+- **Content:** one route line per playbook, with direct skill routes for independently requested outputs: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
 - **When to add a line:** in the same change that adds the playbook file. Whether a playbook is warranted is in `## playbook` below.
 
 ## playbook
@@ -96,7 +96,7 @@ The models to imitate are the 23 files in `upstream/pstack/skills/poteto-mode/pl
 
 ### What a playbook is for
 
-How one kind of task is done from start to end: who owns what, the steps, what is handed back. A playbook is not a skill. It has no frontmatter, cannot be invoked by name, and is opened only through a route line in the `mmw-mode` skill's `references/handling-a-request.md` `## Playbooks`, a step of another playbook, or the start prompt of an agent sent to it.
+How one kind of task reaches its requested result: who is responsible, the steps, what is handed back. A usable preparation, diagnosis or plan can be that result; code merge is not every playbook's ending. A playbook is not a skill. It has no frontmatter, cannot be invoked by name, and is opened only through a route line in the `mmw-mode` skill's `references/handling-a-request.md` `## Playbooks`, a step of another playbook, or the start prompt of an agent sent to it.
 
 ### When a new playbook is warranted
 
@@ -115,7 +115,7 @@ In the same change as the new file: add its route line to the `mmw-mode` skill's
 5. Optionally one paragraph of rules that hold across all the steps.
 6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in the `mmw-mode` skill's `references/handling-a-request.md` `## Writing the reply` and are not repeated here.
 
-A playbook that changes the repository outside a night opens its ticket and `fix-<n>` at step 1 and ends with the hand-back to the owner, both as the `mmw-mode` skill's `references/ticket.md` says; the change itself goes to a worker through One ticket. Its verification step follows the numbered steps as a section opened by its title in bold, which One ticket step 4 runs, and a section **A ticket that came back** names the step to resume at. Its `**Reply:**` names what the hand-back tells the owner, since the result comes after it.
+Ordinary code changes enter Develop a change for the missing preparation. Its result is an independent ticket or spec batch, written with the to-tickets and to-spec skills, then handed to One ticket or Run a night under the existing authority. Specialist methods return to their caller. Execution verification rules live in the method or product verification source and are invoked by the execution step that needs them, rather than found by position in a preparation playbook. Authoring or modifying a skill keeps its dedicated evidence, authorship and proof responsibilities; the relevant execution step calls its proof section. A missing prerequisite returns to the caller instead of silently opening another task.
 
 A judgement several steps point to may follow the steps as a section of its own, opened by its name in bold (To spec's **Seams**); the two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections instead. A playbook may name a step of another playbook ("Run **Authoring or modifying a skill** on the findings").
 
@@ -137,7 +137,7 @@ A judgement several steps point to may follow the steps as a section of its own,
 
 - **For:** one thing that recurs and that nothing else handles. "A workflow you keep hitting but isn't captured → propose a new skill." It is either used by many steps, or worth invoking directly.
 - **Not for:** what an existing skill can hold. Edit that skill.
-- **Shape** (models: `swarm`, `how`, `figure-it-out` under `upstream/pstack/skills/`):
+- **Shape** (models: `arena` and `how` under `upstream/pstack/skills/`):
   - Frontmatter: `name`, `description` (what it does, then `Use for …` or `Use when …` with the words someone would use), and `argument-hint` when the skill takes an argument the person types.
   - `# <Title>` and one paragraph: what it does and what it hands back.
   - When it sends out subagents, the prompt each is given, or the `references/` template it is built from; it names the subagent row to use (`mmw-mode/SKILL.md` `## Subagents`).
@@ -147,7 +147,7 @@ A judgement several steps point to may follow the steps as a section of its own,
 
 ## reference
 
-The models to imitate: `upstream/pstack/skills/how/references/explorer-prompt.md` (a prompt template) and `upstream/pstack/skills/poteto-mode/references/bugbot-triage.md` (a lookup table).
+The model to imitate: `upstream/pstack/skills/how/references/explorer-prompt.md` (a prompt template).
 
 ### What a reference is for
 
@@ -158,7 +158,7 @@ A reference belongs to one skill and sits under it. There is no directory of ref
 ### When a new reference is warranted
 
 - **The material is used only on one branch, or only by one subagent.** `research` opens `references/explorer.md` or `references/investigator.md` only when its start prompt has it follow that file, and an investigator reads only the `references/sources/<source>.md` of its category.
-- **Several playbooks or triggers open the same material.** That is still a reference. `bugbot-triage.md` is opened by a playbook and a `## Non-negotiables` line.
+- **Several playbooks or triggers open the same material.** That is still a reference.
 - **Not for material every invocation uses.** That goes in the skill file itself: "Templates and references used on every invocation belong in the skill file, not in separate files that cost a read each time."
 
 In the same change: the step or trigger that opens it names its path.

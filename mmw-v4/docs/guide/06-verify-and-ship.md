@@ -74,8 +74,6 @@ From then on, "verify it in the app" is a step any agent can run in this reposit
 build the bulk-archive action. use /verify-<product> to verify it and show me screenshots as proof.
 ```
 
-Once the verification skill works, the [swarm skill](../../skills/swarm/SKILL.md) can split a full pass by feature-map entry and gather the results into one report.
-
 Treat the verification skill as infrastructure. Commit it, so every person and every agent drives the app the same way. Then build the lever, as [`principle-build-the-lever`](../../skills/principle-build-the-lever/SKILL.md) says. When agents keep writing throwaway scripts to click through the app, ask for a small control CLI that the verification skill calls instead. A CLI that agents use well has these traits:
 
 - A few commands that each do real work, rather than many thin ones.
@@ -90,7 +88,7 @@ Apps change and feature maps go stale. Run the [maintain-verification-skill skil
 
 ## Ship each change as one pull request
 
-The ticket and pull-request path ends in exactly one pull request. A few kinds of change commit directly without a ticket; the exception list is in the `mmw-mode` skill's [`references/handling-a-request.md` `## Playbooks`](../../skills/mmw-mode/references/handling-a-request.md#playbooks). A change is never split into a stack of dependent pull requests. Which path runs depends on who wrote the code.
+The ticket and pull-request path ends in exactly one pull request. A few kinds of change commit directly without a ticket; the execution constraints are in the `mmw-mode` skill's [`references/handling-a-request.md` `## Non-negotiables`](../../skills/mmw-mode/references/handling-a-request.md#non-negotiables). A change is never split into a stack of dependent pull requests. Which path runs depends on who wrote the code.
 
 **One ticket.** On the ticket and pull-request path, a change outside a night goes through a ticket a worker builds, and ends with the [One ticket playbook](../../skills/mmw-mode/playbooks/one-ticket.md). The session checks the result the way the playbook that wrote the ticket says, for a bug the original reproduction. It merges the latest project branch into `fix-<n>`, runs `dispatch.sh land <n>`, and runs [Opening a PR](../../skills/mmw-mode/playbooks/opening-a-pr.md): one pull request from `fix-<n>` to the project branch, its checks and comments settled, merged with `gh pr merge --merge` when you say yes.
 
@@ -100,6 +98,6 @@ One playbook writes every pull request: [Opening a PR](../../skills/mmw-mode/pla
 
 Your page is mostly pictures, with six blocks in the same order on every pull request: what you decide, what changed before and after, what the merge touches and whether it can be taken back, not done and left over, a short retrospective list with issue links and conclusions, and links. Decision cards include a recommendation. The page links to the pull request, tickets and task board. The session publishes it with the richest HTML page tool it controls, or uses a local page when none is available. Fixes and routed findings update that same page and its record. The final reply points to the pull request instead of repeating the page.
 
-When an automated reviewer, such as Bugbot or a security review, comments on a pull request, the session treats each comment skeptically. [`references/bugbot-triage.md`](../../skills/mmw-mode/references/bugbot-triage.md) sorts each thread into one of three actions. `fix` covers a plausible correctness, security, data, or billing problem, fixed on the branch with the commit named in the reply. `dismiss` covers a known noisy pattern that the current code disproves, answered with the reason. `ask` covers anything novel, severe, or unclear, put to you.
+[Opening a PR step 3](../../skills/mmw-mode/playbooks/opening-a-pr.md) checks review comments against the pull request's current version. The session fixes confirmed problems, answers disproved claims with evidence, and investigates unresolved claims. Only a product trade-off or a decision outside its authority comes to you.
 
 Next: [Run work while you sleep](./07-overnight.md).

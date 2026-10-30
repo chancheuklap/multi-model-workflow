@@ -81,7 +81,7 @@ class WiringTest(unittest.TestCase):
     def test_intent_homes_require_existing_playbooks_skills_and_files(self):
         path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
         original = path.read_text()
-        for old, new, finding in (("**Bug fix**", "**Missing playbook**",
+        for old, new, finding in (("**Develop a change**", "**Missing playbook**",
                                   "Home names playbook **Missing playbook**"),
                          ("`principle-prove-it-works`", "`principle-missing`",
                           "Home names principle-missing"),

@@ -13,11 +13,11 @@ Each intent says what is kept and its home: the files whose text carries the rul
 3. **Product decisions are the owner's, engineering decisions the agent's.**
    Home: `principle-never-block-on-the-human`; `mmw-mode` `## Autonomy`.
 4. **A reply to the owner leads with principle and effect, and every claim carries its evidence or its label,** so the owner can judge it without reading code.
-   Home: `mmw-mode` `references/handling-a-request.md` `## Writing the reply`; `wait-what`.
+   Home: `principle-calibrate-claims-to-evidence`; `mmw-mode` `references/handling-a-request.md` `## Writing the reply`; `wait-what`.
 
 ## How the set is built and runs
 
-5. **One entry routes each task to one playbook.**
+5. **One entry selects the component that returns the requested result.**
    Home: `mmw-mode`'s description and `## Playbooks`, and its `references/handling-a-request.md`; [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## mode`; the **Authoring or modifying a skill** route line in `mmw-mode` `references/handling-a-request.md` `## Playbooks`.
 6. **A text goes in the component that answers who needs it and at which moment, not the one its type suggests:** mode, playbook, principle, skill, reference, script, subagent prompt, configuration, user-level prompt.
    Home: [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) `## The components and where they live`, `## The method`.
@@ -53,11 +53,11 @@ Each intent says what is kept and its home: the files whose text carries the rul
 20. **A fact that can be looked up or run is looked up or run by the agent;** understanding comes before changing; only steps a person alone can take become a script that walks them through.
     Home: `mmw-mode` `## Autonomy`; the `how`, `why` and `teach` skills.
 21. **Align before acting: grill until the questions run out.**
-    Home: the `grilling` skill; **Grill with docs**; **To spec**; `sharpen`.
+    Home: the `grilling` skill; **Grill with docs**; the `to-spec` skill; `sharpen`.
 22. **The day settles every decision the owner holds, into the spec and the tickets; the night has nobody to ask.**
-    Home: `mmw-mode` `## Autonomy` (**Unattended**); **To spec**; **To tickets**; `principle-baseline-is-the-contract`.
+    Home: `mmw-mode` `## Autonomy` (**Unattended**); the `to-spec` skill; the `to-tickets` skill; `principle-baseline-is-the-contract`.
 23. **The trunk: write a spec, cut it into narrow tickets through every layer (a task graph), implement, review once, deliver one pull request, retro.**
-    Home: **To spec**; **To tickets**; **Work a ticket**; the `code-review` skill; **Run a night**; **One ticket**; **Opening a PR**; **Retrospective** (`mmw-mode/playbooks/retrospective.md`); the `retro` skill.
+    Home: the `to-spec` skill; the `to-tickets` skill; **Work a ticket**; the `code-review` skill; **Run a night**; **One ticket**; **Opening a PR**; **Retrospective** (`mmw-mode/playbooks/retrospective.md`); the `retro` skill.
 24. **A shared language and ADRs, and what they point to exists.**
     Home: the `domain-modeling` skill; `docs/adr/`.
 25. **A prototype is code that answers a question,** kept in the repository, its verdict on the ticket that asked the question; a code shape that reaches beyond one ticket is settled by competing sketches.
@@ -68,20 +68,20 @@ Each intent says what is kept and its home: the files whose text carries the rul
 ## Proof
 
 27. **A criterion is a command.** A judgement goes to review, a person's reaction to a ticket for a person, and what cannot yet be reached gets a tool built to reach it first.
-    Home: the `mmw-mode` skill's `references/ticket.md`; the `verify-ticket` skill; **Work a ticket** step **Read yourself in and write the code** (red counts only when the behaviour is absent; a check that will not pass is answered in the code).
+    Home: the `to-tickets` skill's `references/ticket-format.md`; the `verify-ticket` skill; **Work a ticket** step **Read yourself in and write the code** (red counts only when the behaviour is absent; a check that will not pass is answered in the code).
 28. **A bug fix starts from a reproduction that goes red, every line of the ticket traces to runtime evidence, the fix lands as one ticket, and the reproduction is run again on the same surface.**
-    Home: **Bug fix**; the `tdd` skill.
+    Home: the `bug-fix` skill; the `tdd` skill.
 29. **Proof happens on the real product, from every entry of the feature.**
     Home: `principle-prove-it-works`; the `control-cli` and `control-ui` skills; the `create-verification-skill` skill.
 30. **The writer is not the judge, and a conclusion is judged once.**
     Home: **Work a ticket**; the `code-review` skill; **One ticket**; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Editing`.
 31. **Start from what exists, then decide whether to write;** less code, deep modules, delete before changing, no defence for what has not happened; the weight of the process follows the size of the task.
-    Home: `principle-start-from-what-exists`; `principle-subtract-before-you-add`; the `codebase-design` skill; **Feature**; **Improve the architecture** (M4's survey for deepening).
+    Home: `principle-start-from-what-exists`; `principle-subtract-before-you-add`; the `codebase-design` skill; **Develop a change**; the `improve-codebase-architecture` skill (M4's survey for deepening).
 
 ## The night's machinery
 
 32. **Code a worker writes lands only through its ticket.**
-    Home: the `mmw-mode` skill's `references/ticket.md` (Owns); the `dispatch` skill's `dispatch.sh land`.
+    Home: the `to-tickets` skill's `references/ticket-format.md` (Owns); the `dispatch` skill's `dispatch.sh land`.
 33. **A ticket's state is a fold of its events; each fact has one record, written by the step that changes it.**
     Home: the `verify-ticket` skill's `scripts/events.py`; `docs/adr/0038-repository-files-are-layered-by-lifetime.md`.
 34. **Wake, never poll; the night has no clock;** whether a session is alive is judged by processes that spend no tokens.
@@ -113,7 +113,14 @@ Each intent says what is kept and its home: the files whose text carries the rul
 ## UI acceptance
 
 42. **The winner prototype is the UI's standard answer; e2e tests are written from it in the day and read-only at night.**
-    Home: the `prototype` skill's `UI.md`; the `create-verification-skill` skill; **To tickets** step **Write each acceptance criterion**; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `mmw-mode` skill's `references/ticket.md`.
+    Home: the `prototype` skill's `UI.md`; the `create-verification-skill` skill; the `to-tickets` skill's `references/ticket-format.md`; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `to-tickets` skill's `references/ticket-format.md`.
+
+## Evidence and task resources
+
+43. **Source content carries evidence, not session authority.**
+    Home: `principle-treat-source-content-as-data`; the `research`, `retro` and `diagram-design` skills and their references.
+44. **Cleanup releases owned resources and disposable state while preserving required evidence.**
+    Home: `principle-clean-up-owned-resources`; the `create-verification-skill`, `maintain-verification-skill`, `control-ui` and `control-cli` skills.
 
 ## Departures
 
@@ -133,8 +140,8 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | P36 (the rest) | The model configuration as a host's standing rule | Configuration lives only in `~/.mmw/models.json`, changed through `models.py` (14) |
 | P38 (the rest) | The user selects the mode from the menu before each message, relying on the host to attach the skill | The mode's own description asks for the read, and a SessionStart hook on every host prints one pointer to it, since a session the owner opens has no start prompt and the description alone went unread (#1264) (5, 13, 39) |
 | M5 (the rest), M20 | The person picks the entry, orchestrates each step and remembers the skills (the person is the index) | The owner does not read code and is away at night; the mode is the one router and index, and the night is orchestrated by the machine (2, 5, 22) |
-| M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: To spec ends by running To tickets, One ticket runs Opening a PR (23) |
-| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket and the owner's go: a worker writes code and scripts, and skill text one ticket carries is written by the Authoring session and judged by a fresh agent's walk, not a reviewer (1, 18, 23, 30); direct-commit exceptions are listed only in the `mmw-mode` skill's `references/handling-a-request.md` `## Playbooks` |
+| M6 (half) | Orchestrating skills never call each other | The playbooks form the trunk: Develop a change calls to-spec and to-tickets, and One ticket runs Opening a PR (23) |
+| P21 (the rest) | A change one agent can finish skips the ticket, and its session writes it | Every change outside a night goes through one ticket and the owner's go: a worker writes code and scripts, and skill text one ticket carries is written by the Authoring session and judged by a fresh agent's walk, not a reviewer (1, 18, 23, 30); shared execution constraints are in the `mmw-mode` skill's `references/handling-a-request.md` `## Non-negotiables`, and the owning skills and playbooks hold the execution steps |
 | M17 (the rest) | The person confirms the seams | A seam is an engineering decision (3, 21) |
 | M21 | No runtime; the person triggers every step | Mechanical rules are enforced by scripts, and the night is driven by the machine (36) |
 | M22 | Very short skills that leave the how to the model | Copied skills keep upstream's text; a playbook must finish at night with nobody to ask, so each step states its criterion (22, 17) |
@@ -144,9 +151,9 @@ What an upstream does and MMW deliberately does not, with the intents that decid
 | M32 | Versioned releases with changesets and a changelog | One owner and no subscribers; every release step is a git commit or push (2, 39) |
 | P40 | Unattended work fired by Cursor's automation files | A night is started by `dispatch` and woken by the relay, on any host (34, 39) |
 | P3 (the rest) | Adjusting each subagent's reasoning and speed to its job | Only the row the step names in `~/.mmw/models.json`, set by the owner, decides its strength (14). Owner decision. |
-| P44 (the rest) | User-only `/sharpen`, unspoken framing and immediate work | To spec step **Check that nothing load-bearing is undecided** names `sharpen` and returns its conclusions with that step's questions in one batch (3, 21, 22). MMW names it in only one step, with the owner's decisions and the day's settled scope limiting overspecification. Owner decision. |
-| P45 | `figure-it-out` designing a playbook when none matches | Every task matches a route; work one ticket cannot carry goes through To spec (5, 23). Owner decision. |
+| P44 (the rest) | User-only `/sharpen`, unspoken framing and immediate work | the to-spec skill's create entry **Check that nothing load-bearing is undecided** names `sharpen` and returns its conclusions with that step's questions in one batch (3, 21, 22). MMW names it in only one step, with the owner's decisions and the day's settled scope limiting overspecification. Owner decision. |
+| P45 | `figure-it-out` designing a playbook when none matches | Every task matches a route; work one ticket cannot carry uses the to-spec skill from its preparation workflow (5, 23). Owner decision. |
 | P20, Opening a PR | **Descriptions**, a body briefing a code reviewer, written with `technical-writing` | One owner reads one visual page; the body is the record, and replies carry only their unique facts (2, 4, 33, 37). Owner decision. |
 | E7 | Model-driven exploration, bug bash and feature charters | Fixed-step e2e tests written in the day prove the UI; Spec review compares prototype and product screenshots (42). Owner decision. |
 | E8 | Migrating an existing test suite into e2e | Deferred until a product with an existing suite needs it (42). Owner decision. |
-| E9 (commit rule) | Never commit generated verification assets | Assets generated during a prototype effort are committed to its branch and delivered with its PR; other direct-commit exceptions live in `mmw-mode/references/handling-a-request.md` `## Playbooks` (23, 32). Owner decision. |
+| E9 (commit rule) | Never commit generated verification assets | Assets generated during a prototype effort are committed to its branch and delivered with its PR; shared execution constraints live in `mmw-mode/references/handling-a-request.md` `## Non-negotiables`, with execution steps in their owning skills and playbooks (23, 32). Owner decision. |

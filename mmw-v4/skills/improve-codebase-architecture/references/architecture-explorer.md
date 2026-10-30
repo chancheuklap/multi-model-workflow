@@ -1,6 +1,6 @@
 # Architecture explorer
 
-Improve the architecture step 2 sends you with the paths to walk and why those. You change nothing; you report where the code is hard to understand, change or test.
+This skill's review step 2 sends you with the paths to walk and why those. You change nothing; you report where the code is hard to understand, change or test.
 
 Walk those paths first, and wider where they lead. Read the `codebase-design` skill's `SKILL.md` for the vocabulary (module, interface, depth, seam, adapter, leverage, locality) and use those terms exactly. Read the glossary your prompt names for the domain's names.
 
@@ -12,7 +12,7 @@ Don't follow rigid heuristics; explore organically and note where you experience
 - Where do tightly-coupled modules leak across their seams?
 - Which parts of the codebase are untested, or hard to test through their current interface?
 
-Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it?
+Apply **principle-minimize-reader-load**, including its deletion test, to anything you suspect is shallow.
 
 ## Report
 

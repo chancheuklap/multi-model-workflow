@@ -1,6 +1,6 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. The [prototype skill's sketch branch](../../skills/prototype/SKETCH.md) settles types and seams before implementation when the shape reaches beyond one ticket. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [swarm skill](../../skills/swarm/SKILL.md) fans out slices or races when the job is coverage rather than design. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
+One attempt at a hard design locks in the first shape the model thought of. The [prototype skill's sketch branch](../../skills/prototype/SKETCH.md) settles types and seams before implementation when the shape reaches beyond one ticket. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
 
 The two most common design mistakes are taking the agent's first design and debating a question that a prototype could settle. This page fixes both. The written plan comes after: a spec and its tickets, which you can check and accept before agents build from them.
 
@@ -51,16 +51,6 @@ flowchart LR
 
 When the candidates converge on one shape, that agreement is the result and no graft is needed. When they diverge wildly, the task was framed too loosely. The arena skill reframes and runs again rather than averaging.
 
-## Cover slices and races with the swarm skill
-
-```text
-/swarm check every package under packages/ against its check.sh. one worker per package. one report.
-```
-
-The swarm skill sends N subagents at once and holds its turn until every one returns. Its shape is one of three: separate slices, a race on identical briefs, or a mix. A race declares its selection rule before any worker starts: `first pass`, `rank all`, or `best-of`. Each worker reports `PASS`, `ISSUES`, or `BLOCKED` with evidence. The parent returns one table with one-line issues and the gaps. A worker that drops out leaves a gap, and a gap never counts as a pass.
-
-Use the swarm skill when parallel work buys coverage. The arena skill gives every candidate the same design brief, then picks a base and grafts. The swarm skill covers slices or runs a race with a rule fixed in advance, and grafts nothing.
-
 ## Review a change with the code-review skill
 
 ```text
@@ -76,7 +66,7 @@ The code-review skill reads a finished change on four axes, each a separate suba
 
 The axes never see each other's findings, so a change that passes one axis cannot cover for a failure on another. The session then checks every finding at the cited line. A finding either holds, is refuted with the evidence that disproves it, or is marked as one it could not settle. Refuted findings are listed with their refutation, not dropped.
 
-The skill runs in three places. A ticket's worker sends a `reviewer` session to its diff. Asked to review a pull request someone else opened, the session runs the four axes with the pull request's description in a file in place of a ticket. And the `mmw-mode` skill routes "review this change" to it, and sends a contested design to it before shipping.
+A ticket's worker sends a `reviewer` session to its diff. The `mmw-mode` skill also routes "review this change" to it. Asked to review a pull request someone else opened, the session runs the four axes with the pull request's description in a file in place of a ticket.
 
 Spend a review on code, not on an abstract plan. Point a reviewer at a plan with no code behind it and it invents risks that will never happen. Let prototypes settle the questions, then review what got built.
 
@@ -105,7 +95,7 @@ For a new or changed UI, the [prototype skill's UI branch](../../skills/prototyp
 
 Before variants are generated, the session mounts their reserved `?variant=` keys with placeholders and adds the switcher. Candidates can then open their own variants. When the direction is open, try structurally different variants through the switcher and choose the winner or a combination. The session keeps the other variants. Once you choose a direction, you and the session iterate one question at a time, changing it in place and committing each round. You operate the page yourself. The session checks every button's API call and settles questions that affect the UI with you during iteration.
 
-Before approval, the session checks that the prototype demonstrates every visible rule in the settled decisions. It writes the feature description from the winner, those decisions and the glossary. You say "就是这个" in the running page. That is design freeze, the only design approval; you do not approve the description sentence by sentence. On the Feature route it is also the go-ahead, unless the ticket adds scope beyond the prototype and recorded decisions.
+Before approval, the session checks that the prototype demonstrates every visible rule in the settled decisions. It writes the feature description from the winner, those decisions and the glossary. You say "就是这个" in the running page. That is design freeze, the only design approval; you do not approve the description sentence by sentence. For its recorded development scope it is also the go-ahead, unless the ticket adds scope beyond the prototype and recorded decisions.
 
 The winner lives under `efforts/<effort>/prototypes/<issue>/UI/winner/` on the effort branch or `fix-<n>`. Its conclusion goes in the feature file, not a prototype README. The mount points stay until implementation. Workers copy the winner's appearance and interactions while rewriting code to production standards and building the real backend. The same test steps and assertions run on prototype and product. Spec review compares screenshot pairs, and the pull request shows you prototype and product screenshots side by side in the same states.
 
@@ -131,7 +121,7 @@ grill me on the export redesign. write the glossary and ADRs as we go.
 
 It interviews you with the [grilling skill](../../skills/grilling/SKILL.md) and the [domain-modeling skill](../../skills/domain-modeling/SKILL.md). It writes each settled term into the glossary as it settles, and offers an ADR for each decision that is hard to reverse. Each open question goes to whoever owns it. You get what the user sees, money, and scope. A fact goes to a `researcher` session. An answer that running something would show goes to the prototype skill. When the plan turns out too big for one session, it proposes switching to a map, and you decide.
 
-For an idea too big for one session, with the way to the end not yet visible, use a wayfinder map. [Chart the map](../../skills/mmw-mode/playbooks/chart-the-map.md) names the destination with you, then creates one GitHub issue as the map, labelled `wayfinder:map` and `mmw:map`, with decision tickets as its child issues. It sends a `researcher` for each research ticket and resolves nothing else by hand. [Work through the map](../../skills/mmw-mode/playbooks/work-through-the-map.md) then resolves one decision ticket per session, records the answer on the map, and stops when no ticket is open and nothing is left unspecified. The map format is in [`references/wayfinder.md`](../../skills/mmw-mode/references/wayfinder.md).
+For an idea too big for one session, with the way to the end not yet visible, use a wayfinder map. [Chart the map](../../skills/wayfinder/references/chart-the-map.md) names the destination with you, then creates one GitHub issue as the map, labelled `wayfinder:map` and `mmw:map`, with decision tickets as its child issues. It sends a `researcher` for each research ticket and resolves nothing else by hand. [Work through the map](../../skills/wayfinder/references/work-through-the-map.md) then resolves one decision ticket per session, records the answer on the map, and stops when no ticket is open and nothing is left unspecified. The map format is in [`wayfinder/SKILL.md`](../../skills/wayfinder/SKILL.md).
 
 **Record them in a spec.** Once the decisions are settled, ask for the spec:
 
@@ -139,9 +129,9 @@ For an idea too big for one session, with the way to the end not yet visible, us
 turn what we decided into a spec. the migrated ui must match the original exactly, bugs included.
 ```
 
-The [To spec playbook](../../skills/mmw-mode/playbooks/to-spec.md) records decisions and makes none of yours. It interviews nobody for facts. An engineering call the sources leave open, such as a data shape or the seam where a test observes the result, it makes and marks "this spec's decision". A call on what the user sees, money, or scope that no source settles, it puts to you before it publishes. A code shape the spec would rest on that nobody settled sends it back to the discussion instead. The spec is published as a GitHub issue labelled `mmw:spec`. "bugs included" in the request keeps a migration from fixing things on the way, which would make the old and new output impossible to compare. To change a published spec, use [Revising a spec](../../skills/mmw-mode/playbooks/revising-a-spec.md), which edits it in place.
+The [to-spec skill](../../skills/to-spec/SKILL.md) records decisions and makes none of yours. It interviews nobody for facts. An engineering call the sources leave open, such as a data shape or the seam where a test observes the result, it makes and marks "this spec's decision". A call on what the user sees, money, or scope that no source settles, it puts to you before it publishes. A code shape the spec would rest on that nobody settled sends it back to the discussion instead. The spec is published as a GitHub issue labelled `mmw:spec`. "bugs included" in the request keeps a migration from fixing things on the way, which would make the old and new output impossible to compare. To change a published spec, use [the revise entry](../../skills/to-spec/references/revise.md), which edits it in place.
 
-**Cut the tickets.** To spec runs [To tickets](../../skills/mmw-mode/playbooks/to-tickets.md) in the same session. It cuts the spec into vertical slices, each one complete through every layer, and gives each ticket the tickets that block it. Every acceptance criterion is a command and its expected output, so "it passed" is a fact a machine decided. A judgment goes to review, a person's reaction becomes a ticket for a person, and a preference is a choice put to you. It lints the drafts, quizzes you on them, and publishes them as sub-issues of the spec only after you approve.
+**Cut the tickets.** Develop a change uses [to-tickets](../../skills/to-tickets/SKILL.md) when a batch is needed. A spec-only request stops after publication. The batch entry cuts the spec into vertical slices, each one complete through every layer, and gives each ticket the tickets that block it. Every acceptance criterion is a command and its expected output, so "it passed" is a fact a machine decided. A judgment goes to review, a person's reaction becomes a ticket for a person, and a preference is a choice put to you. It lints the drafts, quizzes you on them, and publishes them as sub-issues of the spec only after you approve.
 
 The published tickets then run as a night. [Run work while you sleep](./07-overnight.md) covers that.
 
@@ -152,10 +142,8 @@ Most changes need none of this. A rough ladder:
 - A small finished change you are unsure about needs the code-review skill alone.
 - A code shape that reaches beyond one ticket earns the prototype skill's sketch branch, which brings the arena skill with it.
 - A standalone decision where independent attempts help, such as naming, a format, or an algorithm, goes to the arena skill directly.
-- A coverage matrix, a set of parallel checks, or a race with a declared rule goes to the swarm skill.
 - An open question you could answer by running something, such as a layout, a timing, or an approach, gets a prototype, not a debate.
-- A contested code shape that reaches beyond one ticket gets the prototype skill's sketch branch, then the code-review skill before shipping.
-- Work one ticket cannot carry gets Grill with docs or a map, then To spec and To tickets.
+- A code change enters Develop a change; it reuses existing decisions and only calls discussion, spec or decomposition methods when missing. A small change stays an independent ticket.
 
 The `mmw-mode` skill already applies this ladder. Name these skills yourself when you want more or less scrutiny than its default.
 

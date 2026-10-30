@@ -9,7 +9,7 @@ Each acceptance criterion on a ticket carries a `CHECK:` command and the `EXPECT
 
 The ticket is the only state. Every run reads it fresh, writes its events, and carries nothing to the next run. Every comment it posts is an event: a first line for a person and a trailing `<!-- mmw {...} -->` block, which is the only part any program reads.
 
-How a criterion is written is the mmw-mode skill's `references/ticket.md`.
+How a criterion is written is the **to-tickets** skill's `references/ticket-format.md`.
 
 ## Find your moment
 

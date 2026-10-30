@@ -36,7 +36,7 @@ On a host that cannot run subagents, run the axis files yourself, one after anot
 
 The axes read the code in slices, and some of what they report is wrong. The worker treats every in-ticket line as work to do before the ticket closes: a false finding you pass on costs a fix round and can break code that was right; a real one you withdraw ships.
 
-At the cited file and line, does the bad outcome the axis describes actually occur? Read as **principle-read-before-you-conclude** says until you can answer yes or no. A different finding about nearby code does not settle this one. Judge whether the problem is real, not whether the proposed fix is plausible. Code that loudly fails on a situation you never showed the program can reach is correct behavior, not a defect.
+Apply **principle-prove-it-works** to each finding at its cited location. Read the surrounding code as **principle-read-before-you-conclude** says.
 
 Four filters apply while you judge:
 
@@ -48,7 +48,7 @@ Four filters apply while you judge:
 Render exactly one conclusion:
 
 - Holds: the bad outcome does occur at the cited location.
-- `refuted`: you checked, and the bad outcome does not happen at the cited location. Write what disproves this specific claim. A true fact about nearby code that does not disprove the claim does not count.
+- `refuted`: you checked, and the bad outcome does not happen at the cited location. Write the evidence that disproves it.
 - Could not tell: the diff and surrounding code leave the question open.
 
 `refuted` findings go under `## Withdrawn`, each with its refutation. Findings that hold and findings you could not tell go on to step 4.

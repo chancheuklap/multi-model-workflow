@@ -23,6 +23,8 @@ Tests: <file>, <file>, …
 
 ## Launch
 
+Apply **principle-clean-up-owned-resources** throughout the run.
+
 The config calls the product environment tool:
 
 ```bash
@@ -92,9 +94,9 @@ services or states that operations cannot produce.
 
 ## Cleanup
 
-The runner stops the tool it started. The tool removes its instance and fresh
-data directory on exit, including after a failed attempt. Stop only processes
-you started. Keep the evidence and target logs under `tests/e2e/notes/.e2e/`.
+The runner stops the tool it started. The tool removes its instance and fresh data
+directory on exit, including after a failed attempt. Evidence and target logs
+live under `tests/e2e/notes/.e2e/`.
 
 ## Rules
 

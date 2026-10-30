@@ -111,11 +111,11 @@ place the entry names.
 | Section | Holds |
 | --- | --- |
 | Read first | Name `npx e2e guide <topic>` with `agent`, `mcp`, and `explore` skipped, config `tests/e2e/<product>/e2e.config.ts`, tests `tests/e2e/<product>/`, and `features/`. Show the feature header format: `# <feature name>`, `Route: <route or entry>`, `Tests: <file>, <file>, …` on three lines |
-| Launch | The exact invocation of the product environment tool and how readiness shows. Launch only calls that tool. If the product has none, build it in the product repository during generation, as below. Launch must reach a usable state from an empty data dir, including any migrations. Ready means usable, not just that a process answers. Say which ports and env the command needs. The product target uses the real local back end. Include both isolation layers and the complete CHECK line described below |
+| Launch | Call **principle-clean-up-owned-resources** before starting resources. The exact invocation of the product environment tool and how readiness shows. Launch only calls that tool. If the product has none, build it in the product repository during generation, as below. Launch must reach a usable state from an empty data dir, including any migrations. Ready means usable, not just that a process answers. Say which ports and env the command needs. The product target uses the real local back end. Include both isolation layers and the complete CHECK line described below |
 | Doctor | One read-only check that answers "is this instance worth driving?". For a Docker Compose back end, first check that Docker is running and the stack is reachable. `npx e2e list --config tests/e2e/<product>/e2e.config.ts` loads the config and prints every test-target pair without starting anything, so a config error or unsupported Node version shows here first. Then run the smoke test, a model-free test that opens the app and pins one landmark, on `--target product` with the same config. Exit `0` means the app starts, the engine runs, and the landmark renders. No smoke test in the project: write `tests/e2e/<product>/smoke.e2e.ts` now. For a signed-in app, use an ordinary signed-in smoke test that consumes a named session with saved login state. Selecting it runs setup and checks that the session restores and a signed-in landmark renders. Running a setup file alone selects no test and exits `NO_TESTS`. Include a known local failures table with symptom, cause, and remedy. Lines that work around a product defect name its product ticket and are removed when it is fixed. Run Doctor only to investigate a failure |
 | Drive | Scripted: a test under `tests/e2e/<product>/`, using `screen` to find elements by roles, visible names, and labels (topic `writing-tests`). Name the credentials and sessions a signed-in drive starts from. If an existing feature lacks accessible names, open a prerequisite ticket to add them before writing its test. Check locators by running the smoke test or this test and reading its `trace.md`; test against `design` when writing in the day. During maintenance, walk a feature without tests with the control-ui skill |
 | Evidence | What a proof keeps and where. Every run writes `.e2e/report.json`; a failed test gets `.e2e/results/<test>/trace.md`, `--trace on` gives one to passing tests too (topic `running`), `app.screenshot('<name>')` saves a named frame (topic `writing-tests`). The next run clears `.e2e/results/`, Doctor included, so a proof that must outlive it runs with `--output .e2e/proof/<name>` or its attempt directory is copied out before anything else runs. State the proof standards (below) |
-| Cleanup | What to tear down. The runner stops the app it started; a server the user started stays theirs. Never kill by process name; stop what you started. Cleanup removes instances and scratch state (test accounts, scaffolding), never the evidence; name where the evidence is |
+| Cleanup | State that the e2e runner stops the app it started; name any remaining teardown commands, disposable state (test accounts, scaffolding), and evidence paths |
 | Rules | Do not connect to production servers, including SSH just to read files. Do not change main-branch code. Use test accounts, test licenses, local test servers and databases, and PC test machines wherever needed. Name credentials here, never passwords. External paid APIs are tested features too; call them. Set `workers: 1` when tests in one run share writable state, such as a configuration file or database |
 | Helpers | Any script the skill ships is executable and its invocation is in the skill body. A helper the reader has to reverse-engineer is not a helper. Most projects need none; the e2e CLI is the helper |
 
@@ -178,7 +178,7 @@ when needed. Then run every e2e test against `product`, without a file filter:
 Measure the entire CHECK line in a fresh checkout: dependency install,
 preparation, cold back-end startup, and the test run together. Only when it
 exceeds 600 seconds, write `TIMEOUT: <seconds>` from that measured time, in
-the format of the mmw-mode skill's `references/ticket.md`. TIMEOUT governs
+the format of the **to-tickets** skill's `references/ticket-format.md`. TIMEOUT governs
 the whole CHECK, including cold back-end startup in a new checkout.
 
 Proof standards, for the Evidence section: exercise the real user path,
@@ -244,7 +244,7 @@ one convenient entry point is incomplete when the map lists others.
 
 ## 4. Prove the generated skill before handing it over
 
-Run its own instructions end to end once, from a shell in the project.
+Apply **principle-clean-up-owned-resources** throughout the proof run. Run the generated skill's own instructions end to end once, from a shell in the project.
 
 1. Install the browser, then Doctor: the `npx e2e list` call the skill names,
    then the smoke test; both include the product's config and exit `0`.
@@ -264,9 +264,8 @@ Run its own instructions end to end once, from a shell in the project.
 4. Cleanup, then confirm the evidence still exists at the named location.
    A cleanup that eats the proof fails this step.
 
-Fix what fails, and run Cleanup after every failed iteration too, so
-broken attempts do not strand ports and processes. A generated skill that
-was never executed is a draft, not a deliverable.
+Fix what fails. A generated skill that was never executed is a draft,
+not a deliverable.
 If you proved it in a stand-in for the real target (a container in place of a
 fresh VM, a local stack in place of a remote one, Mac development mode in place
 of the shipped app), list every setup step the stand-in did that the target
@@ -291,8 +290,7 @@ For an unsupported surface, report what you observed and that nothing was writte
 Tell the user what landed. The skill path, the features mapped and which
 have tests, what the proof run showed, and the evidence paths. Feature files
 and e2e tests are written in the day by the ticket-writing steps and read-only
-at night. Review them only when the owner names the maintain-verification-skill
-skill. Rerun this skill when the app grows a feature the map lacks; section 1
+at night. Maintain them through the maintain-verification-skill skill when requested or needed by an authorized preparation; keep verification assets read-only during a night. Rerun this skill when the app grows a feature the map lacks; section 1
 says how an existing map is treated. Name any isolation prerequisite, the first
 night's smoke ticket proving a new project's product launch and reachable home
 page, and the setup steps still unverified on the real target.

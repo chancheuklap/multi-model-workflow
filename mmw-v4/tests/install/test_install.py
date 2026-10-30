@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tomllib
 import os
@@ -68,7 +69,9 @@ exit 0
 echo "launchctl $*" >> "$MMW_TEST_LOG"
 case "$1" in
   bootstrap) touch "$MMW_FAKE_LAUNCHD/$(basename "$3" .plist)" ;;
-  bootout) rm -f "$MMW_FAKE_LAUNCHD/${2##*/}" ;;
+  bootout)
+    [ "${MMW_FAKE_LAUNCHD_STUCK:-}" != "${2##*/}" ] || exit 1
+    rm -f "$MMW_FAKE_LAUNCHD/${2##*/}" ;;
   print) [ -f "$MMW_FAKE_LAUNCHD/${2##*/}" ] || exit 1 ;;
 esac
 exit 0
@@ -91,6 +94,8 @@ class InstallTest(unittest.TestCase):
         self.v4.mkdir(parents=True)
         for child in V4.iterdir():
             (self.v4 / child.name).symlink_to(child, target_is_directory=child.is_dir())
+        (self.v4 / "prompt").unlink()
+        shutil.copytree(V4 / "prompt", self.v4 / "prompt")
         self.legacy = self.v4.parent / "mmw-v3"
         self.legacy.mkdir()
         (self.legacy / "install.sh").write_text(
@@ -98,6 +103,8 @@ class InstallTest(unittest.TestCase):
             'import json, os\n'
             'from pathlib import Path\n'
             'home = Path(os.environ["MMW_INSTALL_HOME"])\n'
+            'target = Path(os.environ.get("CODEX_HOME", home / ".codex")) / "AGENTS.md"\n'
+            'target.write_text("synthetic v3 prompt")\n'
             '(home / "legacy-called.json").write_text(json.dumps({"cwd": os.getcwd(), '
             '"models": json.loads((home / ".mmw/models.json").read_text())}))\n'
             'STUB\nexit 23\n')
@@ -176,6 +183,137 @@ class InstallTest(unittest.TestCase):
 
     def link(self, name, where=".agents/skills"):
         return os.readlink(self.home / where / name)
+
+    def generated_prompt(self, version="v4"):
+        body = "synthetic old shared body\n"
+        digest = hashlib.sha256(body.encode()).hexdigest()
+        return (f"<!-- mmw prompt-sync: generated from mmw-{version}/prompt/shared.md; "
+                f"edit that, not this file. body-sha256={digest} -->\n" + body)
+
+    def test_prompt_links_read_one_source_and_follow_changes_without_install(self):
+        source = self.v4 / "prompt/shared.md"
+        targets = [self.home / ".claude/CLAUDE.md", self.home / ".codex/AGENTS.md"]
+        for _ in range(2):
+            run = self.run_install("v4")
+            self.assertEqual(run.returncode, 0, run.stderr)
+        for target in targets:
+            self.assertEqual(os.readlink(target), str(source))
+            self.assertEqual(target.read_bytes(), source.read_bytes())
+        source.write_text("new shared instructions\n")
+        self.assertEqual([p.read_text() for p in targets], [source.read_text()] * 2)
+        self.assertEqual(self.run_install("v4", "--check").returncode, 0)
+        self.assertFalse((self.home / "Library/LaunchAgents/com.mmw.prompt-sync.plist").exists())
+
+    def test_generated_codex_files_are_reported_then_migrated(self):
+        self.assertEqual(self.run_install("v4").returncode, 0)
+        target = self.home / ".codex/AGENTS.md"
+        for version in ("v2", "v3", "v4"):
+            with self.subTest(version=version):
+                target.unlink()
+                original = self.generated_prompt(version)
+                target.write_text(original)
+                check = self.run_install("v4", "--check")
+                self.assertEqual(check.returncode, 1)
+                self.assertIn(f"{target} 还是生成文件", check.stderr)
+                self.assertFalse(target.is_symlink())
+                self.assertEqual(target.read_text(), original)
+                run = self.run_install("v4")
+                self.assertEqual(run.returncode, 0, run.stderr)
+                self.assertEqual(os.readlink(target), str(self.v4 / "prompt/shared.md"))
+
+    def test_prompt_migration_preserves_foreign_and_edited_files(self):
+        target = self.home / ".codex/AGENTS.md"
+        source = self.v4 / "prompt/shared.md"
+        source_before = source.read_bytes()
+        for contents in (b"personal instructions\n", b"\xff\xfe", self.generated_prompt().encode() + b"hand edit\n"):
+            with self.subTest(contents=contents):
+                target.write_bytes(contents)
+                for args in ((), ("--check",)):
+                    run = self.run_install("v4", *args)
+                    self.assertEqual(run.returncode, 1, run.stderr)
+                    self.assertIn(f"冲突  {target}", run.stderr)
+                    self.assertFalse(target.is_symlink())
+                    self.assertEqual(target.read_bytes(), contents)
+                    self.assertEqual(source.read_bytes(), source_before)
+
+    def test_prompt_links_from_other_checkouts_are_reported_then_retargeted(self):
+        self.assertEqual(self.run_install("v4").returncode, 0)
+        for rel in (".claude/CLAUDE.md", ".codex/AGENTS.md"):
+            target = self.home / rel
+            target.unlink()
+            old = Path(self.tmp.name) / "old/mmw-v4/prompt/shared.md"
+            target.symlink_to(old)
+            check = self.run_install("v4", "--check")
+            self.assertEqual(check.returncode, 1)
+            self.assertIn(f"{target} 指向别的 checkout", check.stderr)
+            self.assertEqual(os.readlink(target), str(old))
+            run = self.run_install("v4")
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(os.readlink(target), str(self.v4 / "prompt/shared.md"))
+
+    def test_foreign_prompt_links_and_files_are_preserved_for_both_hosts(self):
+        foreign = Path(self.tmp.name) / "personal.md"
+        foreign.write_text("personal instructions")
+        for rel in (".claude/CLAUDE.md", ".codex/AGENTS.md"):
+            target = self.home / rel
+            if target.is_symlink():
+                target.unlink()
+            target.write_text("personal instructions")
+            run = self.run_install("v4")
+            self.assertEqual(run.returncode, 1)
+            self.assertEqual(target.read_text(), "personal instructions")
+            target.unlink()
+            target.symlink_to(foreign)
+            for args in ((), ("--check",)):
+                run = self.run_install("v4", *args)
+                self.assertEqual(run.returncode, 1)
+                self.assertIn(f"冲突  {target}", run.stderr)
+                self.assertEqual(os.readlink(target), str(foreign))
+                self.assertEqual(foreign.read_text(), "personal instructions")
+            target.unlink()
+
+    def test_codex_home_override_is_used_for_install_check_and_back(self):
+        codex_home = Path(self.tmp.name) / "custom-codex"
+        codex_home.mkdir()
+        env = dict(self.env(), CODEX_HOME=str(codex_home))
+        default = self.home / ".codex/AGENTS.md"
+        default.write_text("do not use this Codex home")
+        target = codex_home / "AGENTS.md"
+        target.write_text(self.generated_prompt())
+        run = self.run_install("v4", env=env)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(os.readlink(target), str(self.v4 / "prompt/shared.md"))
+        self.assertEqual(self.run_install("v4", "--check", env=env).returncode, 0)
+        before = (self.v4 / "prompt/shared.md").read_bytes()
+        self.assertEqual(self.run_install("v4", "--back", env=env).returncode, 23)
+        self.assertFalse(target.is_symlink())
+        self.assertEqual(target.read_text(), "synthetic v3 prompt")
+        self.assertEqual((self.v4 / "prompt/shared.md").read_bytes(), before)
+        self.assertEqual(default.read_text(), "do not use this Codex home")
+
+    def test_missing_hosts_are_skipped(self):
+        shutil.rmtree(self.home / ".codex")
+        shutil.rmtree(self.home / ".claude")
+        run = self.run_install("v4")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertFalse((self.home / ".codex").exists())
+        self.assertFalse((self.home / ".claude").exists())
+        self.assertEqual(self.run_install("v4", "--check").returncode, 0)
+
+    def test_prompt_sync_plist_is_reported_without_changes_then_removed(self):
+        self.assertEqual(self.run_install("v4").returncode, 0)
+        plist = self.home / "Library/LaunchAgents/com.mmw.prompt-sync.plist"
+        plist.write_text("old job definition")
+        self.log.write_text("")
+        check = self.run_install("v4", "--check")
+        self.assertEqual(check.returncode, 1)
+        self.assertIn("残留  com.mmw.prompt-sync", check.stderr)
+        self.assertEqual(plist.read_text(), "old job definition")
+        self.assertNotIn("launchctl", self.log.read_text())
+        run = self.run_install("v4")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertFalse(plist.exists())
+        self.assertNotIn("launchctl", self.log.read_text())
 
     def test_advisory_hooks_are_merged_trusted_and_checked(self):
         other = {"matcher": "startup", "hooks": [
@@ -277,8 +415,7 @@ class InstallTest(unittest.TestCase):
             # A skill only v3 has is removed: the two versions are never installed together.
             self.assertFalse((self.home / where / "triage").is_symlink(), where)
         self.assertEqual(os.readlink(self.home / ".claude/CLAUDE.md"), str(self.v4 / "prompt/shared.md"))
-        self.assertIn("generated from mmw-v4/prompt/shared.md",
-                      (self.home / ".codex/AGENTS.md").read_text().splitlines()[0])
+        self.assertEqual(os.readlink(self.home / ".codex/AGENTS.md"), str(self.v4 / "prompt/shared.md"))
 
         for config in (self.home / ".claude/settings.json", self.home / ".codex/hooks.json"):
             commands = hook_commands(config)
@@ -319,7 +456,8 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(self.run_install("v4").returncode, 0)
         untouched = {path: path.read_bytes() for path in (
             self.home / ".zshrc", self.home / ".cursor/mcp.json",
-            self.home / ".claude/settings.json", self.home / ".codex/hooks.json")}
+            self.home / ".claude/settings.json", self.home / ".codex/hooks.json",
+            self.v4 / "prompt/shared.md")}
         run = self.run_install("v4", "--back")
         self.assertEqual(run.returncode, 23, run.stderr)
         called = json.loads((self.home / "legacy-called.json").read_text())
@@ -330,6 +468,8 @@ class InstallTest(unittest.TestCase):
                 self.assertNotIn("mmw-v4/skills/", os.readlink(link))
         self.assertFalse((self.home / ".claude/CLAUDE.md").exists())
         self.assertFalse((self.home / ".claude/CLAUDE.md").is_symlink())
+        self.assertFalse((self.home / ".codex/AGENTS.md").is_symlink())
+        self.assertEqual((self.home / ".codex/AGENTS.md").read_text(), "synthetic v3 prompt")
         for path, before in untouched.items():
             self.assertEqual(path.read_bytes(), before)
 
@@ -481,19 +621,50 @@ class InstallTest(unittest.TestCase):
         self.assertIn("已装  codex 子代理层数 2", check.stdout)
 
     @unittest.skipUnless(os.uname().sysname == "Darwin", "launchd is macOS only")
-    def test_prompt_sync_job_is_written_and_loaded_on_a_real_home(self):
-        # With HOME pointing at the throwaway home too, install takes the branch that
-        # writes the launchd job, which a test home alone skips.
-        env = self.env()
-        env["HOME"] = str(self.home)
-        r = subprocess.run(["bash", str(self.v4 / "install.sh")], env=env, capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        plist = self.home / "Library/LaunchAgents/com.mmw.prompt-sync.plist"
-        self.assertIn(str(self.v4 / "prompt/render.py"), plist.read_text())
-        self.assertIn("launchctl bootstrap", self.log.read_text())
-        check = subprocess.run(["bash", str(self.v4 / "install.sh"), "--check"], env=env,
-                               capture_output=True, text=True)
-        self.assertNotIn("com.mmw.prompt-sync", check.stderr)
+    def test_loaded_prompt_sync_is_stopped_before_migration_even_without_plist(self):
+        env = dict(self.env(), HOME=str(self.home))
+        target = self.home / ".codex/AGENTS.md"
+        original = self.generated_prompt()
+        target.write_text(original)
+        job = self.launchd / "com.mmw.prompt-sync"
+        for has_plist in (True, False):
+            with self.subTest(has_plist=has_plist):
+                if target.is_symlink():
+                    target.unlink()
+                target.write_text(original)
+                job.touch()
+                plist = self.home / "Library/LaunchAgents/com.mmw.prompt-sync.plist"
+                if has_plist:
+                    plist.parent.mkdir(parents=True, exist_ok=True)
+                    plist.write_text("old job definition")
+                self.log.write_text("")
+                check = self.run_install("v4", "--check", env=env)
+                self.assertEqual(check.returncode, 1)
+                self.assertIn("残留  com.mmw.prompt-sync", check.stderr)
+                self.assertTrue(job.exists())
+                self.assertEqual(target.read_text(), original)
+                self.assertNotIn("launchctl bootout", self.log.read_text())
+                run = self.run_install("v4", env=env)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                self.assertIn("/com.mmw.prompt-sync", self.log.read_text())
+                self.assertNotIn("launchctl bootstrap gui/" + str(os.getuid()) + " " + str(plist), self.log.read_text())
+                self.assertFalse(job.exists())
+                self.assertFalse(plist.exists())
+                self.assertTrue(target.is_symlink())
+                self.assertEqual(self.run_install("v4", "--check", env=env).returncode, 0)
+
+    @unittest.skipUnless(os.uname().sysname == "Darwin", "launchd is macOS only")
+    def test_prompt_migration_stops_if_the_old_job_cannot_stop(self):
+        env = dict(self.env(), HOME=str(self.home), MMW_FAKE_LAUNCHD_STUCK="com.mmw.prompt-sync")
+        target = self.home / ".codex/AGENTS.md"
+        original = self.generated_prompt()
+        target.write_text(original)
+        (self.launchd / "com.mmw.prompt-sync").touch()
+        run = self.run_install("v4", env=env)
+        self.assertEqual(run.returncode, 1, run.stderr)
+        self.assertIn("com.mmw.prompt-sync 仍在运行", run.stderr)
+        self.assertFalse(target.is_symlink())
+        self.assertEqual(target.read_text(), original)
 
     def test_never_touches_memory_and_writes_the_board_job(self):
         r = self.run_install("v4")
