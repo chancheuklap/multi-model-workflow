@@ -52,7 +52,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **principle-fix-root-causes**. Debugging, a failing check, or two failed fixes sharing a premise. Reproduce and distinguish hypotheses. After two fixes on the same premise fail, test that premise before another fix.
 - **principle-sequence-verifiable-units**. Multi-step work, shared prerequisites, and the order of commits and PRs. Prepare common foundations first, then advance through declared verification units.
 - **principle-baseline-is-the-contract**. Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
-- **principle-explain-the-number**. Before trusting, reporting or acting on a measurement, performance number or agent eval result. Establish what ran, what the number measures and what scope the evidence supports.
+- **principle-explain-the-number**. Before measuring, and before trusting, reporting or acting on a measurement, performance number or agent eval result. Establish the decision it informs, what ran and what scope the evidence supports.
 - **principle-calibrate-claims-to-evidence**. Drawing or reporting a conclusion. Keep its strength and scope within the evidence, with inferences and gaps visible beside the claim.
 - **principle-fail-loudly**. Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently.
 
@@ -86,6 +86,8 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 ## Subagents
 
 **Send a subagent only where the step you follow names one.** Anywhere else, do the work yourself. Work that needs a model of its own, has to run outside this turn, or is a different job from yours is a session, not a subagent: the dispatch skill sends it.
+
+Start an independent subagent job in a fresh context window when the host supports that choice. Follow-up work on the same job keeps the suitable subagent and its context.
 
 Send your host's general-purpose subagent using the row the step names, or `default` when the step names a subagent but no row. Before sending, run the dispatch skill's `scripts/models.py subagent <row> <host>`, with your host named explicitly. Pass the printed model and effort to the subagent call; omit each value that is `inherit`. Its prompt opens with `Read the mmw-mode skill in full, then`, goes on with what the step that sends it says, plus its own piece: the file or the steps it follows, and what it hands back, where and in what shape. It ends with `It is your whole task: what came before it is done, and you start no agent it does not name.` Hold your turn until every subagent you sent has returned; what a subagent hands back is its last message. On a host that cannot run subagents, do the pieces yourself, one after another.
 

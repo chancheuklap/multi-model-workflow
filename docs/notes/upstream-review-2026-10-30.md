@@ -1,8 +1,24 @@
 # Upstream comparison, 2026-10-30
 
-This comparison refreshes MMW's upstream snapshots and identifies changes worth adopting. It does not implement those adoption proposals. The owner's added sources are OpenClaw's maintainer skills, OpenCode's own skills, and unlazy.
+This record covers the upstream snapshot refresh and the unambiguous maintenance updates adopted afterward. Optional new capabilities remain unadopted. The owner's added sources are OpenClaw's maintainer skills, OpenCode's own skills, and unlazy.
 
 MMW baseline: `e33217652cda679de034552269829c0464b583cd`. Working branch: `codex/upstream-review-20261030`. Versions below are the branch heads observed during this fetch, not a promise that the remote heads remain unchanged.
+
+## Adoption status
+
+Completed on `codex/upstream-review-20261030`:
+
+- worktree-audit uses GNU or BSD time commands while retaining MMW's four-host transcript lookup.
+- diagram-design carries the current draw.io, Mermaid, Excalidraw and SVG-export helpers from `cathrynlavery/diagram-design@0cf73c3fcc56667ad91a9a04c439ac6ccfabc9d1`. Its locally adapted geometry checker retains multi-SVG and CJK handling while taking upstream's quoting, translation and definition-custody fixes. self_check takes the document-completeness fix while retaining inline interaction and allowing ordinary HTTP source links as navigation. Related references, onboarding anchors and affected existing templates are corrected. The export reference delegates the parser to the packaged helper instead of maintaining a second prose algorithm; the offline-font caveat and PNG dependency policy remain.
+- principle-explain-the-number and its mode trigger establish the decision before measuring. Existing performance and eval distinctions remain.
+- mmw-mode chooses fresh context for independent subagent jobs when supported, and reuses the suitable subagent and context for continuing work.
+- typescript-best-practices takes pstack's verifying type guard rule and branded-type example together. This is an engineering writing choice, not an owner-only product decision.
+
+The comparison map adds 289 source-to-owned-copy relationships, including diagram-design, related Matt skills, TypeScript and OpenClaw test-audit. A mapping records provenance and enables comparison; it does not approve every upstream method. The earlier classifier counts below describe the initial comparison, before this map expansion.
+
+Box plot, formal-verification skills, statechart, ketchup-video and chief-of-staff's wiki remain candidates. Orchestrate, Autopilot and other settled workflow departures retain MMW's existing decisions. The host installation remains unchanged.
+
+The findings below describe the original baseline comparison and the adopted response.
 
 ## Sources and versions
 
@@ -35,9 +51,9 @@ Split commits used for partial imports:
 
 ### Adopt the worktree-audit portability fix
 
-pstack's `skills/poteto-mode/scripts/worktree-audit.sh` now selects GNU or BSD forms of `stat` and `date`. MMW's `mmw-v4/skills/mmw-mode/scripts/worktree-audit.sh` still uses `stat -f %m` for transcript modification times and `date -r` for dates. Those are BSD forms and do not provide the intended result with GNU tools.
+pstack's `skills/poteto-mode/scripts/worktree-audit.sh` now selects GNU or BSD forms of `stat` and `date`. Before adoption, MMW's `mmw-v4/skills/mmw-mode/scripts/worktree-audit.sh` used `stat -f %m` for transcript modification times and `date -r` for dates. Those are BSD forms and do not provide the intended result with GNU tools.
 
-Carry the portability fix into MMW's existing scanner while retaining its multi-host transcript lookup, base selection and cleanup decisions. This is a concrete compatibility fix, not a new cleanup gate. Validation belongs on the GNU and BSD branches of the time-reading operation; the audit must remain read-only.
+The portability fix is carried into MMW's existing scanner, retaining its multi-host transcript lookup, base selection and cleanup decisions. This is a concrete compatibility fix, not a new cleanup gate. Validation belongs on the GNU and BSD branches of the time-reading operation; the audit must remain read-only.
 
 Source: [pstack worktree-audit.sh](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/scripts/worktree-audit.sh).
 
@@ -47,15 +63,15 @@ Upstream 2.6.136 adds box-plot support and fixes existing behavior: Mermaid pars
 
 MMW keeps local copies of `mermaid_extract.py`, `drawio_extract.py`, `excalidraw_extract.py`, `export_svg.py`, `verify-geometry.py` and `self_check.py`. Those local copies take precedence over `repo-root/scripts/`. Updating only the upstream snapshot therefore leaves these fixes out of the owned scripts. Conversely, resources reached through the existing `repo-root` symlink already follow the refreshed snapshot in this branch.
 
-Update the owned scripts, affected references and assets together. Preserve MMW's `page-for-a-person.md`, profile behavior, source-content treatment and owner-facing drawing rules. Check a representative repaired import and export rather than adding another general review stage. Do not import upstream's release automation, host packaging or review-bot policy.
+The owned import/export scripts, affected references and existing templates are updated together. Box-plot additions remain outside this adoption. Preserve MMW's `page-for-a-person.md`, profile behavior, source-content treatment and owner-facing drawing rules. Check a representative repaired import and export rather than adding another general review stage. Do not import upstream's release automation, host packaging or review-bot policy.
 
 Source: [diagram-design comparison](https://github.com/cathrynlavery/diagram-design/compare/b46c9701f035844a20b13ab0551315977188933b...0cf73c3fcc56667ad91a9a04c439ac6ccfabc9d1).
 
 ### State the measurement decision before measuring
 
-pstack's `principle-explain-the-number` now asks for the result that would change a decision and the noise floor before a run. MMW's principle already requires scope, alternative explanations, run count and spread, but its entry starts before trusting, reporting or acting on a number. The advance decision criterion is not explicit there.
+pstack's `principle-explain-the-number` now asks for the result that would change a decision and the noise floor before a run. MMW's principle already requires scope, alternative explanations, run count and spread, but its entry starts before trusting, reporting or acting on a number. The advance decision criterion was not explicit in the baseline.
 
-Add that judgment to MMW's existing principle and change its mode trigger to include preparing a measurement. Keep benchmark procedure in benchmark-checklist. Keep the existing distinction between performance measurements and agent evals: an eval does not require a CPU or I/O limiter by default. A difference within run variation does not justify a claimed improvement. No new skill, form or gate is needed.
+That judgment is added to MMW's existing principle, and its mode trigger includes preparing a measurement. Keep benchmark procedure in benchmark-checklist. Keep the existing distinction between performance measurements and agent evals: an eval does not require a CPU or I/O limiter by default. A difference within run variation does not justify a claimed improvement. No new skill, form or gate is needed.
 
 Source: [pstack principle-explain-the-number](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/principle-explain-the-number/SKILL.md).
 
@@ -63,19 +79,19 @@ Source: [pstack principle-explain-the-number](https://github.com/cursor/plugins/
 
 Matt's update explicitly requests a fresh context window for independent subagent jobs, including review and research. Its contributor guidance explains the failure: some hosts fork the parent's conversation by default, defeating the context separation the task needs.
 
-MMW's dispatched worker, reviewer and researcher sessions already have separate startup prompts. The remaining ambiguity is the host's general-purpose subagent call: mmw-mode requires a complete brief but does not explicitly select a clean context when the host offers that choice.
+MMW's dispatched worker, reviewer and researcher sessions already have separate startup prompts. The baseline left an ambiguity in the host's general-purpose subagent call: mmw-mode required a complete brief but did not explicitly select a clean context when the host offers that choice.
 
-Clarify that choice once in mmw-mode's `## Subagents`. An independent job receives its complete brief in a clean context. Follow-on work on the same job reuses the suitable existing subagent, as the owner's shared prompt requires. This does not authorize replacing, interrupting or rushing a running subagent. Do not scatter the same instruction through every calling skill.
+That choice is now explicit once in mmw-mode's `## Subagents`. An independent job receives its complete brief in a clean context. Follow-on work on the same job reuses the suitable existing subagent, as the owner's shared prompt requires. This does not authorize replacing, interrupting or rushing a running subagent. Do not scatter the same instruction through every calling skill.
 
 Source: [Matt's comparison](https://github.com/mattpocock/skills/compare/49dd158d1076134a641b33efb035946536778336...a496f5513d4a4cf889bc48e189e579f4b0bdf6aa).
 
 ### Complete the comparison map alongside future adoption
 
-`writing-for-agents/scripts/upstream-map.tsv` is incomplete. It maps one diagram-design file, not the owned import/export scripts, and does not cover all adopted Matt skills or TypeScript guidance. OpenClaw, OpenCode and unlazy had no catalog snapshots before this refresh.
+At the initial comparison, `writing-for-agents/scripts/upstream-map.tsv` mapped one diagram-design file and omitted owned import/export scripts and adopted Matt and TypeScript guidance. The adopted scope is now mapped as described under Adoption status. OpenClaw, OpenCode and unlazy had no catalog snapshots before this refresh.
 
 The existing upstream-hunks classifier therefore cannot establish that the whole skill set is current. In this review it inspected 38 pstack mappings, 14 Matt mappings, one diagram-design mapping and one e2e mapping. The changed source files were also compared outside that table.
 
-Keep the existing comparison mechanism. Add missing direct-copy mappings when carrying their changes. Record folded or substantially rewritten methods by their owning skill and adaptation intent rather than pretending they are byte-for-byte copies. The source catalog is now expanded; this task does not claim that the classifier map is complete.
+The existing comparison mechanism is retained, with missing direct-copy mappings added alongside the carried changes. Record folded or substantially rewritten methods by their owning skill and adaptation intent rather than pretending they are byte-for-byte copies. The source catalog is now expanded; this task does not claim that the classifier map is complete.
 
 ## Updates already covered or not worth another rule
 
@@ -99,9 +115,9 @@ Source: [e2e skill tree](https://github.com/tester-army/e2e/tree/5b6fd01042c96e5
 
 ### TypeScript branded types
 
-pstack now shows a validating type guard that narrows a branded value without a subsequent `as` cast. MMW still permits casts after validation and demonstrates that pattern in `typescript-best-practices/references/patterns.md`.
+pstack now shows a validating type guard that narrows a branded value without a subsequent `as` cast. The MMW baseline permitted casts after validation and demonstrated that pattern in `typescript-best-practices/references/patterns.md`.
 
-This is a possible style refinement, not a reproduced runtime bug. If adopted, change the rule and example together, retaining the requirement that a guard verifies its claim. It is lower priority than the portability and diagram defects.
+The rule and example are adopted together, retaining the requirement that a guard verifies its claim. This is a style refinement, not a reproduced runtime bug, and needs no owner product decision.
 
 ## New capabilities to keep as references
 
@@ -131,8 +147,14 @@ Sources: [OpenClaw maintainer skills](https://github.com/openclaw/openclaw/tree/
 
 ## Delivery boundary
 
-This branch contains refreshed and new upstream snapshots, the expanded source catalog and this comparison. The owned live skill instructions and runtime scripts are unchanged. The repository checker now excludes upstream test trees from its own-suite discovery, matching the existing read-only boundary. The host-neutrality exceptions follow the changed source-catalog lines. diagram-design's linked upstream resources do change in this branch, as described above. No upstream scripts were executed, no host installation was changed, and no branch was pushed or released by this task.
+This branch contains refreshed and new upstream snapshots, the expanded source catalog, the maintenance changes under Adoption status, and this comparison. The repository checker excludes upstream test trees from its own-suite discovery, matching the existing read-only boundary. No upstream scripts were executed, no host installation was changed, and no branch was pushed or released by this task.
 
-Validation: all eight snapshot trees match their recorded source or split trees. The adopted OpenClaw and OpenCode source comparisons are unchanged as reported. `python3 scripts/check` passed its five selected steps: self-check, syntax, shared-checks, lib and check-interfaces. The Artifact's geometry check passed. Its installed HTML self-check rejects external citation links, and the browser's URL policy blocked opening the local file, so no successful full-page render inspection is claimed.
+Validation:
 
-The next adoption should start with worktree-audit and diagram-design, then the two small method clarifications. Keep the comparison map aligned with those adopted files. Defer optional capabilities until a named task needs them.
+- All eight snapshot trees match their recorded source or split trees. The adopted OpenClaw and OpenCode source comparisons are unchanged as reported.
+- The worktree-audit regression exercises recent transcript detection for four hosts under strict emulations of GNU and BSD command formats. It fails before the repair and passes afterward. This is not a native Linux run.
+- Five import/export CLI regressions fail against the previous owned scripts, with four assertion failures and one rejected-flag error. They pass against the adopted copies. Geometry and HTML checks also pass, retaining the existing multi-SVG, CJK and inline-interaction cases.
+- `python3 scripts/check` passes the eight selected steps: self-check, syntax, shared-checks, lib, check-interfaces, diagram-design, writing-for-agents and worktree-audit.
+- The Artifact passes the owned HTML self-check and geometry check. The browser's URL policy blocked opening the local file, so no successful full-page render inspection is claimed.
+
+The measurement and subagent prose was checked against the independent-job, continuing-job, benchmark and eval cases. No model behavior eval is claimed. Optional capabilities need a concrete use case before adoption; retain the current workflow until that discussion changes it.

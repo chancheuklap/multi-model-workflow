@@ -40,6 +40,18 @@ class SelfCheck(unittest.TestCase):
         page = STATIC.replace("<body>", '<body onload="fetch(1)">', 1)
         self.assertEqual(exit_code(page), 1)
 
+    def test_truncated_shell_and_unbalanced_content_fail(self):
+        for page in (STATIC.removesuffix('\n').replace('</html>', ''),
+                     STATIC.replace('</body>', '<section></body>', 1)):
+            with self.subTest(page=page[-80:]):
+                self.assertEqual(exit_code(page), 1)
+        self.assertEqual(exit_code(STATIC + '\n<!-- source note -->\n'), 0)
+
+    def test_source_links_are_navigation_not_remote_assets(self):
+        page = STATIC.replace('</body>', '<a href="https://example.com/source">Source</a></body>', 1)
+        self.assertEqual(exit_code(page), 0)
+        self.assertEqual(exit_code(page.replace('https://example.com/source', 'javascript:alert(1)')), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

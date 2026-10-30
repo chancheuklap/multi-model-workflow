@@ -47,6 +47,12 @@ origin/*) git fetch origin "+refs/heads/${base#origin/}:refs/remotes/$base" --qu
 esac
 git rev-parse --verify --quiet "$base^{commit}" >/dev/null 2>&1 || { echo "error: base ref not found: $base" >&2; exit 1; }
 
+if stat -c %Y / >/dev/null 2>&1; then
+	stat_fmt=(-c %Y); fmt_day() { date -d "@$1" '+%Y-%m-%d'; }
+else
+	stat_fmt=(-f %m); fmt_day() { date -r "$1" '+%Y-%m-%d'; }
+fi
+
 prs=$(mktemp)
 if raw=$(gh pr list --author "@me" --state all --limit 1000 \
 	--json number,state,headRefName 2>/dev/null); then
@@ -68,12 +74,12 @@ codex=$(mktemp)
 if [ -d "$HOME/.codex/sessions" ]; then
 	find "$HOME/.codex/sessions" -name '*.jsonl' -mtime -30 2>/dev/null | while read -r f; do
 		cwd=$(head -c 4096 "$f" | LC_ALL=C sed -n 's/.*"cwd":"\([^"]*\)".*/\1/p' | head -1)
-		[ -n "$cwd" ] && echo "$(stat -f %m "$f") $cwd"
+		[ -n "$cwd" ] && echo "$(stat "${stat_fmt[@]}" "$f") $cwd"
 	done > "$codex"
 fi
 
 # Newest modification time among the files named on stdin, or nothing.
-newest() { while read -r f; do stat -f %m "$f" 2>/dev/null; done | sort -rn | head -1; }
+newest() { while read -r f; do stat "${stat_fmt[@]}" "$f" 2>/dev/null; done | sort -rn | head -1; }
 now=$(date +%s)
 
 echo "# base: $base"
@@ -125,7 +131,7 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 		[ -d "$transcripts" ] && rg -l -e "${wt}/" -e "${wt}\"" "$transcripts" 2>/dev/null | newest
 	} | sort -rn | head -1)
 	[ -z "$last_ts" ] && last_ts=0
-	[ "$last_ts" -gt 0 ] && last=$(date -r "$last_ts" '+%Y-%m-%d' 2>/dev/null)
+	[ "$last_ts" -gt 0 ] && last=$(fmt_day "$last_ts" 2>/dev/null)
 	recent=$([ "$last_ts" -gt 0 ] 2>/dev/null && [ $(( (now - last_ts) / 86400 )) -le 4 ] && echo yes || echo no)
 
 	case "$dirty" in wip:*) bucket=hold-wip ;; *)

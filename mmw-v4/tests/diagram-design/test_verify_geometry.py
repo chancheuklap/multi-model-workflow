@@ -88,6 +88,22 @@ def main() -> int:
         document('<rect x="240" y="80" width="48" height="12" rx="2" fill="#f5f5f5"/>' + node),
         1,
     )
+    check(
+        "single-quoted attributes still expose a clipped mask",
+        document(('<rect height="12" width="48" y="80" x="240"/>' + node).replace('"', "'")),
+        1,
+    )
+    check(
+        "translated masks use canvas coordinates",
+        document('<g transform="translate(200 0)"><rect x="40" y="80" width="48" height="12"/></g>' + node),
+        1,
+    )
+    check(
+        "definition geometry and commented markup do not paint",
+        document('<defs><g><rect x="240" y="80" width="48" height="12"/></g></defs>'
+                 '<!-- <rect x="240" y="80" width="48" height="12"/> -->' + node),
+        0,
+    )
     # Same geometry, but the node is painted first, so the label stays on top.
     check(
         "mask over an earlier node is legal",
