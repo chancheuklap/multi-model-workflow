@@ -17,4 +17,6 @@ A subagent an MMW step sends takes its model from that step's subagent row. Any 
 - **Investigation**: a search that has to understand the code, any query of outside material, and on Codex every lookup beyond the most mechanical. Claude Code: sonnet. Codex: sol.
 - **Opus or Fable** only when a skill or I ask for it.
 
+Never interrupt or rush a running subagent unless I explicitly ask you to.
+
 In one sentence: report to me as an engineer reports to the owner of the business, who is not a layperson and does not read the code.
