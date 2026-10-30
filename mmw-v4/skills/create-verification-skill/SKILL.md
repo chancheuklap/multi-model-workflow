@@ -99,9 +99,8 @@ relative symlink `.claude/skills/verify-<product>` to
 `../../.agents/skills/verify-<product>`. Every section says what the interview
 found, no placeholders.
 
-When writing e2e tests, use `references/tests-from-prototype.md`. It holds the
-test-writing rules for both existing behavior and features present only in the
-prototype. Read `references/example/verify-notes.SKILL.md` for a complete generated
+When writing e2e tests, use the **test-audit** skill and
+`references/tests-from-prototype.md` for the prototype-to-product handoff. Read `references/example/verify-notes.SKILL.md` for a complete generated
 skill, alongside the config, test, and feature file in that directory.
 
 Read every entry in `references/known-issues.md` during generation. Copy each
@@ -113,10 +112,10 @@ place the entry names.
 | Read first | Name `npx e2e guide <topic>` with `agent`, `mcp`, and `explore` skipped, config `tests/e2e/<product>/e2e.config.ts`, tests `tests/e2e/<product>/`, and `features/`. Show the feature header format: `# <feature name>`, `Route: <route or entry>`, `Tests: <file>, <file>, …` on three lines |
 | Launch | Call **principle-clean-up-owned-resources** before starting resources. The exact invocation of the product environment tool and how readiness shows. Launch only calls that tool. If the product has none, build it in the product repository during generation, as below. Launch must reach a usable state from an empty data dir, including any migrations. Ready means usable, not just that a process answers. Say which ports and env the command needs. The product target uses the real local back end. Include both isolation layers and the complete CHECK line described below |
 | Doctor | One read-only check that answers "is this instance worth driving?". For a Docker Compose back end, first check that Docker is running and the stack is reachable. `npx e2e list --config tests/e2e/<product>/e2e.config.ts` loads the config and prints every test-target pair without starting anything, so a config error or unsupported Node version shows here first. Then run the smoke test, a model-free test that opens the app and pins one landmark, on `--target product` with the same config. Exit `0` means the app starts, the engine runs, and the landmark renders. No smoke test in the project: write `tests/e2e/<product>/smoke.e2e.ts` now. For a signed-in app, use an ordinary signed-in smoke test that consumes a named session with saved login state. Selecting it runs setup and checks that the session restores and a signed-in landmark renders. Running a setup file alone selects no test and exits `NO_TESTS`. Include a known local failures table with symptom, cause, and remedy. Lines that work around a product defect name its product ticket and are removed when it is fixed. Run Doctor only to investigate a failure |
-| Drive | Scripted: a test under `tests/e2e/<product>/`, using `screen` to find elements by roles, visible names, and labels (topic `writing-tests`). Name the credentials and sessions a signed-in drive starts from. If an existing feature lacks accessible names, open a prerequisite ticket to add them before writing its test. Check locators by running the smoke test or this test and reading its `trace.md`; test against `design` when writing in the day. During maintenance, walk a feature without tests with the control-ui skill |
-| Evidence | What a proof keeps and where. Every run writes `.e2e/report.json`; a failed test gets `.e2e/results/<test>/trace.md`, `--trace on` gives one to passing tests too (topic `running`), `app.screenshot('<name>')` saves a named frame (topic `writing-tests`). The next run clears `.e2e/results/`, Doctor included, so a proof that must outlive it runs with `--output .e2e/proof/<name>` or its attempt directory is copied out before anything else runs. State the proof standards (below) |
+| Drive | Scripted: name the test under `tests/e2e/<product>/` and the credentials and sessions a signed-in drive starts from. For writing or changing tests, name the test-audit skill rather than copying its rules. Check locators by running the smoke test or this test and reading its `trace.md`; test against `design` when writing in the day. During maintenance, walk a feature without tests with the control-ui skill |
+| Evidence | What a proof keeps and where. Every run writes `.e2e/report.json`; a failed test gets `.e2e/results/<test>/trace.md`, `--trace on` gives one to passing tests too (topic `running`), `app.screenshot('<name>')` saves a named frame (topic `writing-tests`). The next run clears `.e2e/results/`, Doctor included, so a proof that must outlive it runs with `--output .e2e/proof/<name>` or its attempt directory is copied out before anything else runs. State the product-specific evidence locations |
 | Cleanup | State that the e2e runner stops the app it started; name any remaining teardown commands, disposable state (test accounts, scaffolding), and evidence paths |
-| Rules | Do not connect to production servers, including SSH just to read files. Do not change main-branch code. Use test accounts, test licenses, local test servers and databases, and PC test machines wherever needed. Name credentials here, never passwords. External paid APIs are tested features too; call them. Set `workers: 1` when tests in one run share writable state, such as a configuration file or database |
+| Rules | Do not connect to production servers, including SSH just to read files. Do not change main-branch code. Use test accounts, test licenses, local test servers and databases, and PC test machines wherever needed. Name credentials here, never passwords. External paid APIs are tested features too; call them |
 | Helpers | Any script the skill ships is executable and its invocation is in the skill body. A helper the reader has to reverse-engineer is not a helper. Most projects need none; the e2e CLI is the helper |
 
 The product environment tool belongs in its development scripts directory, with
@@ -181,12 +180,9 @@ exceeds 600 seconds, write `TIMEOUT: <seconds>` from that measured time, in
 the format of the mmw-mode skill's `references/ticket.md`. TIMEOUT governs
 the whole CHECK, including cold back-end startup in a new checkout.
 
-Proof standards, for the Evidence section: exercise the real user path,
-not internal setters or test-only endpoints; capture the action and the
-resulting state the user sees, not only the final screen. Storage is proven
-by the ticket's back-end tests. For request interception, follow
-`references/tests-from-prototype.md`. When the safe path is a dry run or a test mode, verify what it
-skips by watching files, network, and refs rather than trusting its name.
+In the generated skill, name the **test-audit** skill at the entry for writing,
+changing or diagnosing tests. Keep common testing rules there rather than
+copying them into each product's Rules or Evidence section.
 
 ## 3. Seed the feature map
 
@@ -237,7 +233,7 @@ Each feature file has these H2s, from the user's point of view.
 | `Gotchas` | What reads as broken but is not; what the local app cannot do |
 
 If the test lacks a precondition that it needs, the test reports a failure and
-the reason goes in that feature's `Gotchas`. Never weaken the test to make it pass.
+the reason goes in that feature's `Gotchas`; use the **test-audit** skill for the diagnosis.
 
 The map is the project's maintained verification source. A proof that drives
 one convenient entry point is incomplete when the map lists others.

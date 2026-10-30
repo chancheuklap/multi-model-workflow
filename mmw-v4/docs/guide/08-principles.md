@@ -1,18 +1,18 @@
 # Shared principles and automatic loading
 
-The skill set has 33 principles, each under `skills/principle-<slug>/`. Each holds a judgment needed by different tasks. Its body is the shared source: a new playbook or skill reuses that judgment by naming the principle, rather than copying its rules.
+The skill set has principles, each under `skills/principle-<slug>/`. Each holds a judgment needed by different tasks. Its body is the shared source: a new playbook or skill reuses that judgment by naming the principle, rather than copying its rules.
 
 ## How a task reaches a principle
 
 Every session reads the [mmw-mode index](../../skills/mmw-mode/SKILL.md#principles). Each index line names a situation and the principle to read in full when that situation arises. Playbooks and skills also name principles at the steps that need their judgments. The owner gives a goal; loading the right principles does not depend on the owner remembering their names.
 
-For example, Bug fix names Fix Root Causes before forming hypotheses. The tdd skill names Test Behavior, Not Implementation before its loop. The benchmark checklist and Eval share Explain the Number, while keeping their different measurement methods. A new task can use the same judgment through the mode's condition or an explicit call from its own step.
+For example, Bug fix names Fix Root Causes before forming hypotheses. The benchmark checklist and Eval share Explain the Number, while keeping their different measurement methods. A new task can use the same judgment through the mode's condition or an explicit call from its own step.
 
-Principles hold shared judgments. Skills hold methods. The prototype skill owns comparing candidate designs and sends each kind of question to its branch. The mode calls prototype for a novel decision without precedent or an open design direction.
+The test-audit skill owns testing judgments and methods together. Other principles hold cross-task judgments; skills compose them by name. The prototype skill owns comparing candidate designs and sends each kind of question to its branch. The mode calls prototype for a novel decision without precedent or an open design direction.
 
 The frontmatter description of a principle says it runs only when named. The mode's conditional index and the named calls are its automatic entry points. A session reads a principle's body before applying it and explains the reasons and effects of its decisions. You can name a principle to redirect a run, but manual steering is optional.
 
-## The 33 principles
+## The principles
 
 These summaries follow the mode's groups. The linked bodies hold the full rules.
 
@@ -43,9 +43,7 @@ These summaries follow the mode's groups. The linked bodies hold the full rules.
 - [`principle-clean-up-owned-resources`](../../skills/principle-clean-up-owned-resources/SKILL.md). Starting, retrying or tearing down task resources. Track ownership, release what the task no longer needs, and preserve required evidence.
 - [`principle-fix-root-causes`](../../skills/principle-fix-root-causes/SKILL.md). Debugging, a failing check, or two failed fixes sharing a premise. Reproduce and distinguish hypotheses. After two fixes on the same premise fail, test that premise before another fix.
 - [`principle-sequence-verifiable-units`](../../skills/principle-sequence-verifiable-units/SKILL.md). Multi-step work, shared prerequisites, and the order of commits and PRs. Prepare common foundations first, then advance through declared verification units.
-- [`principle-test-behavior-not-implementation`](../../skills/principle-test-behavior-not-implementation/SKILL.md). Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change.
 - [`principle-baseline-is-the-contract`](../../skills/principle-baseline-is-the-contract/SKILL.md). Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
-- [`principle-run-the-smallest-test-set`](../../skills/principle-run-the-smallest-test-set/SKILL.md). Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first.
 - [`principle-explain-the-number`](../../skills/principle-explain-the-number/SKILL.md). Before trusting, reporting or acting on a measurement, performance number or agent eval result. Establish what ran, what the number measures and what scope the evidence supports.
 - [`principle-calibrate-claims-to-evidence`](../../skills/principle-calibrate-claims-to-evidence/SKILL.md). Drawing or reporting a conclusion. Keep its strength and scope within the evidence, with inferences and gaps visible beside the claim.
 - [`principle-fail-loudly`](../../skills/principle-fail-loudly/SKILL.md). Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently.

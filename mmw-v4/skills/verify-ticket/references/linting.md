@@ -39,11 +39,6 @@ A failed base check alone is not a lint error. New behaviour is expected to fail
 
 [runner-summaries.json](../scripts/runner-summaries.json) is the only home of the standard patterns and their real-run samples. Each runner's `summary_pattern` recognises both success and failure summaries for the draft base run. Each sample records its command, output, exit code and acceptance outcome. Each runner names its version and the script that recorded its samples.
 
-| Runner | Standard EXPECT to copy | Acceptance outcome |
-| --- | --- | --- |
-| pytest | `pytest.expect` in `runner-summaries.json` | Passed, passed subtests, xfailed and xpassed count as success. Skipped, failed, error and no tests ran count as failure. |
-| Vitest | `vitest.expect` in `runner-summaries.json` | Passed counts as success, with skipped and todo allowed beside it. Failed, No test files found, and a summary with no passed test count as failure. |
-
 Copy the value unchanged, including its flags. Do not write another pattern from a sample output line.
 
 Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2 on drafts also reports an unavailable `--base` or a base checkout that could not run. Fix the named ref or checkout failure and retry. Exit 2 from a tracker read means nothing was read, because the tracker did not answer (stderr says `retry the same command`); run the same command again once it answers.

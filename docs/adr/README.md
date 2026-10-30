@@ -83,6 +83,8 @@
 | [0062](0062-turn-guard-only-arms.md) | 回合守卫只拉起看门进程、不拦回合；看门进程对一条没 ack 的叫醒只提醒一次，不再报读不到 tracker | 2026-10-29 | 0021 | 无 |
 | [0063](0063-shared-prompt-through-two-symlinks.md) | 两个 CLI 的用户级提示词都软链接到已安装版本的 shared.md | 2026-10-30 | 0007 | 无 |
 
+| [0064](0064-test-methods-have-one-skill-owner.md) | 通用测试判断与方法归 test-audit，TDD 与两个测试原则合并退役 | 2026-10-30 | 无 | 无 |
+
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
 ## 编号在本仓库以外仍会出现

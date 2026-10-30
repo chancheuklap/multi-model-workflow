@@ -51,7 +51,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 ## Skills
 
-`mmw-mode` runs most of these when a step names them. You can also name one in a prompt, such as `/how do we cancel runs?`. The 33 principle skills are in the next section.
+`mmw-mode` runs most of these when a step names them. You can also name one in a prompt, such as `/how do we cancel runs?`. The principle skills are in the next section.
 
 | Skill | Use it to |
 | --- | --- |
@@ -70,7 +70,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 | [`domain-modeling`](./skills/domain-modeling/SKILL.md) | Settle the project's terms and record decisions in the glossary and the ADRs. |
 | [`advisor`](./skills/advisor/SKILL.md) | Get a second opinion on one decision from a session on a stronger model. |
 | [`sharpen`](./skills/sharpen/SKILL.md) | Examine the expert approach, your real goal, constraints and an outside check before work starts, with the conclusions returned for your decision. |
-| [`tdd`](./skills/tdd/SKILL.md) | Write the failing test first, then the code, with tests only at agreed seams. |
+| [`test-audit`](./skills/test-audit/SKILL.md) | Write, review, run, diagnose and maintain tests, with TDD and audit branches. |
 | [`code-review`](./skills/code-review/SKILL.md) | Review a finished diff on four axes: Standards, Spec, Tests and Correctness. |
 | [`no-comments`](./skills/no-comments/SKILL.md) | Strip comments from a diff before review, and fix or encode what the accepted findings name. |
 | [`unslop`](./skills/unslop/SKILL.md) | Remove AI writing patterns from any text. |
@@ -95,7 +95,7 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 ## Principles
 
-Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes all 33 and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle. Its reply explains the reasons and effects of its decisions. The rule below is a summary of that index entry.
+Each principle is a short skill with one rule. The `## Principles` section of `mmw-mode` indexes each principle and says when each applies. A session reads a principle's own `SKILL.md` before it applies the principle. Its reply explains the reasons and effects of its decisions. The rule below is a summary of that index entry.
 
 | Group | Principle | Rule |
 | --- | --- | --- |
@@ -118,9 +118,7 @@ Each principle is a short skill with one rule. The `## Principles` section of `m
 | Verification | [`principle-clean-up-owned-resources`](./skills/principle-clean-up-owned-resources/SKILL.md) | Starting, retrying or tearing down task resources. Track ownership, release what the task no longer needs, and preserve required evidence. |
 | Verification | [`principle-fix-root-causes`](./skills/principle-fix-root-causes/SKILL.md) | Debugging, a failing check, or two failed fixes sharing a premise. Reproduce and distinguish hypotheses. After two fixes on the same premise fail, test that premise before another fix. |
 | Verification | [`principle-sequence-verifiable-units`](./skills/principle-sequence-verifiable-units/SKILL.md) | Multi-step work, shared prerequisites, and the order of commits and PRs. Prepare common foundations first, then advance through declared verification units. |
-| Verification | [`principle-test-behavior-not-implementation`](./skills/principle-test-behavior-not-implementation/SKILL.md) | Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change. |
 | Verification | [`principle-baseline-is-the-contract`](./skills/principle-baseline-is-the-contract/SKILL.md) | Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it. |
-| Verification | [`principle-run-the-smallest-test-set`](./skills/principle-run-the-smallest-test-set/SKILL.md) | Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first. |
 | Verification | [`principle-explain-the-number`](./skills/principle-explain-the-number/SKILL.md) | Before trusting, reporting or acting on a measurement, performance number or agent eval result. Establish what ran, what the number measures and what scope the evidence supports. |
 | Verification | [`principle-calibrate-claims-to-evidence`](./skills/principle-calibrate-claims-to-evidence/SKILL.md) | Drawing or reporting a conclusion. Keep its strength and scope within the evidence, with inferences and gaps visible beside the claim. |
 | Verification | [`principle-fail-loudly`](./skills/principle-fail-loudly/SKILL.md) | Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently. |

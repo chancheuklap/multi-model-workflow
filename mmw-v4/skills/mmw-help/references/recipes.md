@@ -14,7 +14,7 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 
 - Bug: `<symptom>. repro first, then fix and verify.`
 - Bug in an app: `repro this with /verify-<product>. if it repros on the project branch, fix it and show me screenshots or the e2e trace.md as proof.`
-- Bug with a cheap test: `repro <bug> first. if there's a cheap test path, /tdd it. then fix and rerun.`
+- Bug with a cheap test: `repro <bug> first. if there's a cheap test path, /test-audit it. then fix and rerun.`
 - Feature: `add <behavior>. <current output> stays byte-identical. verify both.`
 - Refactor: `move <code> into one module, zero behavior change. record the current output first and prove it's unchanged after.`
 - Perf: `<operation> takes <time> on <fixture>. trace it, fix the measured cause, show me before and after.`

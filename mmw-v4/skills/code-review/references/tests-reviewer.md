@@ -16,19 +16,19 @@ git diff <base-commit>...HEAD
 
 Read the diff for the source under test and for the test files in your scope.
 
-A test file in the diff that no `CHECK:` names is in scope too: whether it belongs in the change at all is decided by the **In a diff:** line of **principle-test-behavior-not-implementation** on a committed test no criterion names.
+A test file in the diff that no `CHECK:` names is in scope too, including removed tests and the proof claimed to replace them.
 
 With a request file in place of a ticket, every test file in the diff is your scope.
 
 When your scope is empty, report one line, `no test-backed criteria in this change`, and stop. There is nothing here for this axis.
 
-## 2. Judge each case by these principles
+## 2. Judge each case
 
-Read **principle-test-behavior-not-implementation** in full and ask its **In a diff:** lines of every case in scope, the first one first: a case that cannot fail is the finding whatever else it is. Read **principle-fix-root-causes** for a change that loosens or bends an existing check, and **principle-boundary-discipline** for where a stand-in sits and what it stands in for. Each finding is a judgement call, names the principle and the line it matches, and quotes the assertion it is about.
+Use the **test-audit** skill's review branch for every case in scope. For removed tests, include the remaining proof named by the change in that judgment. Each finding names the shared judgment and quotes the assertion or lost contract it concerns. This is the existing independent Tests review, not an additional audit pass.
 
 ## 3. Report
 
-One entry per review finding: the file and its `path:line`, the case name, which principle line, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
+One entry per review finding: the file and its `path:line`, the case name, which test-audit judgment, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: whoever fixes the change reads all of it before fixing anything.
 
 ## Two things this axis never reports
 

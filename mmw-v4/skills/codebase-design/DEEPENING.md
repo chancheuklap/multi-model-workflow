@@ -31,7 +31,4 @@ Third-party services (Stripe, Twilio, etc.) you don't control. The deepened modu
 
 ## Testing strategy: replace, don't layer
 
-Apply **principle-test-behavior-not-implementation** to the replacement tests.
-
-- Old unit tests on shallow modules become waste once tests at the deepened module's interface exist; delete them.
-- Write new tests at the deepened module's interface. The **interface is the test surface**.
+Use the **test-audit** skill to plan replacement proof and audit the old tests as the module is deepened.

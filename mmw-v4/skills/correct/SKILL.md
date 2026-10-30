@@ -15,7 +15,7 @@ Open or take up the ticket as the mmw-mode skill's `references/ticket.md` `## Op
 
 ## Fix each class at the highest level that works
 
-Choose the fix per **principle-encode-lessons-in-structure**. Wire a new lint or check into the repository's `scripts/check`; its error names the file, type, or function to use instead. If the pattern is already common, fail only when a change adds more. Apply **principle-test-behavior-not-implementation** to the tests that prove the fix.
+Choose the fix per **principle-encode-lessons-in-structure**. Wire a new lint or check into the repository's `scripts/check`; its error names the file, type, or function to use instead. If the pattern is already common, fail only when a change adds more. Apply **test-audit** to the tests that prove the fix.
 
 When only judgment can address the mistake, put cross-repository guidance in a principle and a repository fact in its glossary or an ADR; never in `AGENTS.md` or `CLAUDE.md`.
 

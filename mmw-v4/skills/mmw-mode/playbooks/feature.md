@@ -17,7 +17,7 @@
 
 Parent-level fan-out is for slices that produce independent artifacts (audits, cross-subsystem investigations, competing experiments), not for writing the change.
 
-**Verify on the matching surface.** One ticket step 4 runs this once the ticket passed: drive the new behavior in `.worktrees/issue-<n>` the way its user meets it, through the matching control skill. "Inconclusive" or wrong-surface is not a pass. Flag it. Run tests per **principle-run-the-smallest-test-set**.
+**Verify on the matching surface.** One ticket step 4 runs this once the ticket passed: drive the new behavior in `.worktrees/issue-<n>` the way its user meets it, through the matching control skill. "Inconclusive" or wrong-surface is not a pass. Flag it. Run tests per **test-audit**.
 
 **A ticket that came back.** When a ticket its worker handed back (a `ticket.returned` event) is picked from `needs-triage`, read why on the ticket and go back to step 3 with that evidence.
 

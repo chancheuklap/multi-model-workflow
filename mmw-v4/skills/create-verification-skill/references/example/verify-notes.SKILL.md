@@ -10,6 +10,8 @@ Notes product. It verifies Notes in Chromium against a fresh local instance.
 
 ## Read first
 
+For writing, changing or diagnosing tests, use the **test-audit** skill.
+
 Read `npx e2e guide <topic>` for `writing-tests`, `running`, or `debugging`.
 Skip `agent`, `mcp`, and `explore`. The config is
 `tests/e2e/notes/e2e.config.ts`, tests are in `tests/e2e/notes/`, and the feature
@@ -75,9 +77,7 @@ Known local failures:
 ## Drive
 
 `pin-note.e2e.ts` creates a note, then pins it with `Pin Release checklist`.
-Use roles, visible names, and labels. The feature recipe is
-`features/pin-note.md`. A missing accessible name on an existing feature needs
-a prerequisite ticket before its test is written. Notes starts with an empty
+The feature recipe is `features/pin-note.md`. Notes starts with an empty
 note list and needs no credentials.
 
 ## Evidence
@@ -88,9 +88,7 @@ The ticket's output is under `tests/e2e/notes/.e2e/<test file name>/`.
 keeps the comparison frame in that test's attempt directory. A run clears its
 own output, so use a separate output directory for proof that must survive it.
 
-Drive the real user path and capture the action and the resulting visible
-state. Storage is proven by the ticket's back-end tests. Intercept only external
-services or states that operations cannot produce.
+Storage is proven by the ticket's back-end tests.
 
 ## Cleanup
 
