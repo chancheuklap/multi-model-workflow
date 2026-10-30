@@ -1,10 +1,33 @@
 # Upstream
 
-The design intents of the skill sets MMW is built from: Matt Pocock's skills (`mattpocock/skills`, subtree `upstream/mattpocock/`), pstack (`cursor/plugins`, subtree `upstream/pstack/`), and e2e (`tester-army/e2e`, its `skills/` subtree at `upstream/e2e/`). MMW is Matt's skills placed into pstack's frame, with MMW's own additions. Each upstream intent below names the MMW intents that take it, or a departure whose reason is recorded in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md) `## Departures`.
+MMW is Matt Pocock's skills placed into pstack's frame, with MMW's own additions and material from the sources below. The intent tables describe the foundational skill sets and name the MMW intents that take each intent, or a departure recorded in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md) `## Departures`. A source in the catalog is comparison material, not permission to adopt its skills or product policies.
+
+## Source catalog
+
+Seven source repositories supply eight snapshots. Directory snapshots contain only the selected directory, with that directory's contents at the snapshot root.
+
+| Snapshot | Source repository | Branch | Source scope |
+| --- | --- | --- | --- |
+| `upstream/mattpocock/` | `mattpocock/skills` | `main` | Whole repository |
+| `upstream/pstack/` | `cursor/plugins` | `main` | `pstack/` |
+| `upstream/cursor-team-kit/` | `cursor/plugins` | `main` | `cursor-team-kit/` |
+| `upstream/diagram-design/` | `cathrynlavery/diagram-design` | `main` | Whole repository |
+| `upstream/e2e/` | `tester-army/e2e` | `main` | `skills/` |
+| `upstream/openclaw/` | `openclaw/openclaw` | `main` | `.agents/skills/`, the maintainer skills; excludes the separate product `skills/` directory |
+| `upstream/opencode/` | `anomalyco/opencode` | `dev` | `.opencode/skills/` |
+| `upstream/unlazy/` | `Leonxlnx/unlazy` | `main` | Whole repository |
+
+The [2026-10-30 comparison](../../../docs/notes/upstream-review-2026-10-30.md) records the source commits, snapshot changes, adoption findings and limits of that review.
+
+OpenClaw and OpenCode are skills-only sources for future comparisons. MMW's prior use of OpenClaw's `docs/help/testing/writing-tests.md` and OpenCode's root `AGENTS.md` remains provenance for the adopted text; those files do not expand the snapshot scope. Read a cited external file when needed to understand a skill.
+
+The gate-check and gate-lint copies in verify-ticket are an MMW-owned fork of unlazy, originally taken at `16671491f6679ad9378f52604d3bc2415b4120c7`. Compare new upstream methods against their current verify-ticket contracts rather than replacing the copies wholesale.
 
 ## Carry a newer upstream version
 
-The upstream trees are read-only `git subtree --squash` copies under `upstream/` of this repository: `upstream/mattpocock/` (`mattpocock/skills`), `upstream/pstack/` and `upstream/cursor-team-kit/` (those two directories of `cursor/plugins`), `upstream/diagram-design/` (`cathrynlavery/diagram-design`) and `upstream/e2e/` (the `skills/` directory of `tester-army/e2e`, read but not installed). A copy is compared with its source there. A whole repository is updated with `git subtree pull --prefix upstream/<name> https://github.com/<owner>/<repo> main --squash`; one directory of a repository by fetching it, printing that directory's split with `git subtree split --prefix=<directory> FETCH_HEAD`, and running `git subtree merge --prefix=upstream/<name> --squash <split>`.
+The catalog's upstream trees are read-only `git subtree --squash` copies. A live copy is compared with its source there. Fetch the catalog's branch and record the source commit. Update a whole-repository snapshot with `git subtree pull --prefix upstream/<name> https://github.com/<owner>/<repo> <branch> --squash`. For a directory snapshot, derive its split with `git subtree split --prefix=<directory> <source-commit>`, then use `git subtree merge --prefix=upstream/<name> --squash <split>`. Add a new snapshot with `git subtree add` instead of `merge`. Record both the original source commit and the selected directory; a split commit alone cannot locate the original source.
+
+Refreshing a snapshot and adopting a change are separate operations. Snapshots are not installed skills. The diagram-design `repo-root` symlink is the resource exception: refreshing its snapshot also changes resources reached through that link in this checkout, so adoption must account for those resources together with the skill's owned copies.
 
 - The commit that copies a file into `mmw-v4/skills/` names the repository that first wrote it (never an intermediate copy), the path there, and the commit it was read at. A later edit to the copy says in its own commit message what it changed and why.
 - Before comparing a copy with a newer upstream version, read [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md) `## Departures`. Use `scripts/upstream-hunks.py <upstream> --base <copy-time ref> --mmw <pre-update ref>` to classify the changes, then the same command with `--check` to check the direct replacements. `scripts/upstream-map.tsv` maps the upstream paths to their copies; `scripts/upstream-keep.tsv` records intentional exceptions with their identifying line, reason code and reason.
@@ -21,7 +44,7 @@ The upstream trees are read-only `git subtree --squash` copies under `upstream/`
 - A **design intent** is why a set is built the way it is: the problem a design solves, the means it uses, and what it deliberately does not do. pstack's `principle-*` skills are rules an agent follows, one kind of mechanism; they are not its intents.
 - **Written**: a sentence in an upstream file states it, and the source names that file. **Implied**: no sentence states it; it is inferred from which components exist, where they sit and how they call each other, and the source names that structure. Both kinds are listed.
 - Read two layers: how the set works on a task, and the architecture of the set itself. Read the architecture along ten dimensions: the kinds of component and what each is for; loading and triggering (when, and by whom, a text is read; the load an always-present text puts on context, and the load a person-invoked one puts on the person); orchestration and control flow; state and the shape of each hand-off; one home per fact; how each component is written; what a program enforces and what text asks; distribution, install and upgrade; how the set's own skills are tested and kept up; how sessions and models are organised.
-- Read the whole repository, the root and the hidden directories included (`.agents/`, `.changeset/`, `.out-of-scope/`, `automations/`, `docs/`), not only `skills/`.
+- For the foundational skill sets, read the whole source scope, the root and hidden directories included (`.agents/`, `.changeset/`, `.out-of-scope/`, `automations/`, `docs/`), not only `skills/`. For a skills-only source, read the selected skills and the cited material needed to understand them; retain the catalog's snapshot scope.
 - A source below names a file of the subtree, or a skill by name (its directory under the subtree's `skills/`).
 - After an upstream pull, the changed files are read against this list, as `## Carry a newer upstream version` says.
 
@@ -127,7 +150,7 @@ Written by poteto for an engineer who reads the code and runs many agents at onc
 
 ## e2e
 
-Written for coding agents to prove an app through its user interface, with exact steps and optional model-driven actions. The snapshot is tester-army/e2e's `skills/` at `ea7cdb5`. Source paths below are relative to `upstream/e2e/`.
+Written for coding agents to prove an app through its user interface, with exact steps and optional model-driven actions. These adoption intents were assessed at `ea7cdb5`; later snapshot versions are recorded in the dated comparisons. Source paths below are relative to `upstream/e2e/`.
 
 | Id | Kind | Intent | Source | MMW |
 | --- | --- | --- | --- | --- |
