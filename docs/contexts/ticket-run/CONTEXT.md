@@ -7,20 +7,19 @@ One ticket from claim to close: the sessions that work and judge it, the events 
 ### Roles
 
 **worker**:
-The session dispatched to work one ticket from claim to closing comment, running the `Work a ticket` playbook of the `mmw-mode` skill in the ticket's worktree. It starts its own reviewer and never closes the ticket by hand.
+The session dispatched to implement one ticket under Work a ticket, from claim to closing comment. Its worker grade selects its startup configuration; verify-ticket owns criterion records and closeout.
 
 **reviewer**:
-The session a worker starts with `dispatch.sh start <n> reviewer` to review the ticket's diff from a base commit with the `code-review` skill; its report is the **review report**. Its code-review axes run inside it.
+The dispatched role that applies code-review to a ticket's diff and reports on that ticket. Its independent review axes are subagents where supported.
 
-**advisor**:
-The second-opinion session on a stronger model, started with `dispatch.sh brief advisor <brief file>` by whichever agent reached the decision, and answering it with `dispatch.sh report`. It implements nothing.
+**`advisor`**:
+The [second-opinion skill](../../../mmw-v4/skills/advisor/SKILL.md) and briefed session role assessing one decision. It returns a checked recommendation and implements nothing.
 
 **brief**:
-What a caller hands a session `dispatch.sh brief` starts, the advisor among them, and the only thing that session sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude.
-_Avoid_: question packet, the packet
+The bounded assignment document for a session sent by dispatch, with Task, Known and For sections. An advisor brief carries the decision, relevant exchange, evidence, constraints and options rather than a prescribed conclusion.
 
 **recommendation**:
-What one consultation of the advisor gives back: do X, not Y, because Z, with the single risk that decides it.
+The advisor's judgment on the decision, with its deciding reason, risk and any missing evidence that would change it.
 
 ### Worker shared experience
 
@@ -54,13 +53,13 @@ One comment recording one thing that happened: a first line and prose for a pers
 A ticket's state, computed and stored nowhere: the ticket's comments read in comment-id order and their events replayed from an empty state. `events.py fold <issue>` prints it.
 
 **hold**:
-What a `ticket.claimed` or any `*.started` begins on a ticket, and what the events after it end: `ENDS_EVERY_HOLD` ends every hold on the ticket, `ENDS_ONE_HOLD` the hold of the one session it names, and `reviewer.reported` its own reviewer's. `ticket.passed` ends none, and no label ends one. Distinct from **`blocker_hold`** and from the night's `HOLD` **plan line**.
+The ticket ownership begun by a claim or started session and ended by the matching lifecycle events. A passed result or label alone does not end that ownership; blocker_hold is a separate dependency condition.
 
 **held**:
 What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. Distinct from **`blocker_hold`**, the wait on a blocker that has not landed.
 
 **`blocker_hold`**:
-Why a ticket's blocker still holds it back, read off the blocker's own events, not this ticket's: `"open"` while the blocker has not closed, `"passed, not landed"` while its pass has not reached the base branch yet, `"its events cannot be read"` or `"the tracker did not answer for it"` when the fold cannot say, and empty once the blocker's work is on the base branch or it closed with nothing that will ever land — a blocker lets go on its own `ticket.landed`, not on closing. The task board reads the empty case as **cleared**.
+The fold's reason that a blocking ticket has not yet released its dependent work. A passed blocker remains blocking until landed, and unreadable blocker evidence remains an unresolved hold.
 
 **unreadable event**:
 A comment carrying an `<!-- mmw` block the fold cannot read. It is never taken for prose: every command that decides from the fold refuses to decide about that ticket until a person fixes the comment.
@@ -70,7 +69,7 @@ What `status.py` calls a closed ticket whose passed commit is in `origin/<base b
 _Avoid_: closed (for this; a closed ticket may not have landed)
 
 **first line**:
-The first line of an issue comment: prose for a person on an event, and a script's input on a closing-comment draft (`ALL MET`, `HANDOFF REQUIRED:`), on a review report (`REVIEW <base-commit>..<HEAD commit>`) and on a child's file (its title).
+The person-readable opening of an event comment, or a recognized outcome marker on a draft, review or child record. It is distinct from the machine payload at the end of an event.
 
 **`worker.started`, `reviewer.started`**:
 The event (a started event) `dispatch.sh start` posts once the runner has started the session, naming its runner, the runner's id for it, its worktree, branch, base commit and base branch (`into`). It is the only record of the session, and it begins a hold.
@@ -94,7 +93,7 @@ The event `reverify` posts on a landed ticket whose criteria went red on the bas
 The event `reverify` posts on a reopened ticket whose criteria are all met again, in the pass that closes it. It puts the pass and the landing back.
 
 **`ticket.bounced`**:
-The event recording a landing failure with reason `conflict` or `checks`. A bounce takes back the pass and the landing and leaves the workspace standing. The first bounce in an open night returns the ticket to `ready-for-agent`, a second moves it to `needs-triage`.
+The event recording a failed landing caused by merge conflict or repository checks. Its kind of retry is recorded on the tracker, with the first open-night bounce retryable automatically and a later bounce awaiting triage.
 
 **`worker.resumed`, `worker.retracted`, `worker.replaced`, `worker.lost`**:
 The events about one worker session after its start, each naming it by runner and session: `resume`, `retract` and a replacing `start` post the first three, and the **watchdog** posts `worker.lost` once the session's runner says it has stopped.
@@ -115,26 +114,25 @@ The event `suspend` posts on the spec and on every ticket still in the agent que
 The events that record a ticket's children on the ticket: `--sub-issue` posts `child.opened` with the child's number and kind, and `route` posts `child.closed` with where a `finding` went.
 
 **child kind**:
-What a ticket's child records, named for who can answer it: `finding` (a review finding outside the ticket), `contract` (a baseline, spec section or criterion the ticket was told to follow that lacks a needed case or contradicts another authority), `deferred` (a convenient change outside `## Owns`), `decision` (a choice only a person can make), `fault` (the pipeline itself is broken: `verify-ticket.py`, `dispatch.sh`, an oracle script, `lease.py`, a hook or `.mmw/target.json`). `fault` and `contract` wake the orchestrator that night; `decision` and `deferred` reach the user in the morning; a `finding` waits for the closing pass.
+The family `finding`, `contract`, `deferred`, `decision` and `fault`, distinguishing why a ticket's unfinished work needs another authority or scope. A child is distinct from an implementation ticket produced when the owner approves that work.
 
 **the kind questions**:
-The ordered yes/no ladder that picks a cut-out child's kind, the first `yes` deciding it: is the pipeline itself broken or the product unreachable (`fault`); does a baseline, named spec section or acceptance criterion fail to hold (`contract`); do the sources say nothing while defensible readings would produce observably different outcomes (`decision`); is it a review defect outside `## Owns` (`finding`); is it a merely convenient change outside `## Owns` (`deferred`).
-_Avoid_: the five questions (the ticket format's own name, in the `verify-ticket` skill's `references/ticket-format.md`, for a different five-step ladder, which decides how something becomes an acceptance criterion, a review judgement, a `reaction`/`reach` ticket, or a user choice)
+The ordered classification of a ticket's cut-out work as fault, contract, decision, finding or deferred in verify-ticket's sub-issues reference. It is distinct from to-tickets' five questions for criterion classification.
 
 **`ticket.checked`**:
-One run of a ticket's criteria on one commit. Its `run` says whose: `self`, `reverify` or `baseline`; its `stage` (`CHECK_STAGES`) groups those into `claim`, `work`, `verify` or `close`, and a `reverify` by the orchestrator (`actor` `main`) is `regress`.
+The event for one ticket-criterion run on one commit. Its run and stage identify baseline, worker, final or landed-result verification without making them interchangeable.
 
 **`worker.touched`**:
 The event `--touched` posts on an open sibling ticket whose `## Owns` covers a file this ticket changed outside its own Owns.
 
 **`worker.decided`**:
-The event (the `DECISIONS` comment) `--decisions <file>` posts once, before the reviewer starts: the worker's `## Decisions I made on my own`, one line per decision, and `## Outside Owns`, one line per file changed outside `## Owns` with the reason. The Spec axis gives each line `reasonable` or `should not`.
+The worker's DECISIONS event recording autonomous decisions and edits outside Owns for independent Spec review.
 
 **review report**:
 The reviewer's one report on the ticket, carried by `reviewer.reported`: first line `REVIEW <base-commit>..<HEAD commit>`, then the axis reports, the refuted findings, and the in-ticket and out-of-ticket findings.
 
 **closing comment**:
-The comment a worker leaves on handing the ticket over, written first as a closing-comment draft that `--closeout <draft>` checks and posts: first line `ALL MET` or `HANDOFF REQUIRED: …`, then fixed lines accounting for every criterion, finding, file outside Owns and decision.
+The worker's final account, posted by verified closeout as a pass or hand-back event. It records criterion outcomes, review resolutions, outside-scope edits and decisions.
 
 **`ALL MET`**:
 The closing comment's first line when every criterion is met, which `--closeout` posts as `ticket.passed`. gate-check's summary line opens with the same words.
@@ -143,10 +141,10 @@ The closing comment's first line when every criterion is met, which `--closeout`
 The closing comment's first line when a criterion is unmet or abandoned as `failed` or `stuck`, which `--closeout` posts as `ticket.returned` while it hands the ticket back.
 
 **`Review findings:`, `skipped:`, `Sub-issues opened:`, `Branch: … Commit: … PR: …`, `Counts:`**:
-The fixed lines every closing-comment draft carries after its first line: each in-ticket review finding as `fixed <commit>` or `refuted: <evidence>`; the criteria it could not run, filled `[X], add when [Y]`; this ticket's own sub-issues; the ticket branch, its head commit and that no pull request exists; and the met/unmet/abandoned tally, which `--closeout` computes from the draft's own `ABANDON:` lines rather than the worker counting it. Every blank starts as the placeholder `<fill>`, which `--closeout` refuses if any remains.
+The fixed-line family accounting for review resolutions, unavailable proof, child issues and delivery identity in a closing-comment draft. Its format is owned by verify-ticket rather than counted independently by the worker.
 
 **`DRAFT:`, `CLOSEOUT OK:`, `CLOSED:`, `HANDED BACK:`, `TOUCHED:`, `DECISIONS: posted on #`, `REVIEW: posted on #`, `LINT OK`, `LINT FINDINGS:`**:
-The line each `verify-ticket.py` subcommand (other than `--preflight`) prints once it has acted, naming the outcome for whoever invoked it: the path `--draft` wrote; one of `--closeout`'s three results; the sibling tickets `--touched` told; that `--decisions` or `--review` posted its comment; and `--lint`'s verdict, with its warning or error count.
+The verify-ticket result-marker family identifying drafts, closeout outcomes, recorded reports and lint results. The command producing a marker owns its exact syntax and success conditions.
 
 **`Outside Owns:`**:
 The files the ticket's own commits changed that no `## Owns` glob covers, listed by the worker's `self` run and carried into the closing comment with the Spec axis's judgement of each.
@@ -157,45 +155,54 @@ The first line, `NIGHT SUMMARY <date>`, of the `spec.closed` comment `summary` p
 **`spec.merged`**:
 The event `finish` posts on the spec after the accepted base branch has been merged into the project branch and pushed.
 
+**`spec.checked`**:
+The event recording a full repository check on a particular integration commit and machine. It supports reuse of the same proven result during night summary.
+
 ### Running the criteria
 
 **ledger**:
 The temporary `AC.md` file `verify-ticket.py` writes from `## Acceptance criteria` and hands to gate-check, the only format gate-check reads. It is deleted after the run.
 
 **gate-check**:
-The program from unlazy that runs each criterion's `CHECK:` in its own shell: it counts the criterion met when the command exits 0 and its output matches `EXPECT:`, writes `EVIDENCE:`, and prints a summary line.
+The verify-ticket acceptance runner that executes each CHECK and evaluates its exit status and EXPECT match, including the runner-summary checks. It records the resulting criterion evidence.
 
 **gate-lint**:
 The criterion linter from unlazy, which reports problems in how criteria are written and runs no command. `--lint` runs it.
 
+**`verify-ticket`**:
+The [skill](../../../mmw-v4/skills/verify-ticket/SKILL.md) owning criterion execution, issue lint and closeout records. Work a ticket supplies the worker's task order.
+
 ### Code review
 
 **code review**:
-One review of a ticket's diff by the reviewer, ending with one **review report**. Its in-ticket findings get one round of fixes and no second review.
+One independent reading of a completed diff under code-review. A ticket review returns a review report; a requested PR review returns findings without implementing fixes.
 
 **axis**:
 One dimension of a code review: Standards, Spec, Tests, or Correctness. The reviewer runs each as a subagent where the host can run one, and otherwise runs them itself in turn.
 
 **Holds / `refuted` / Could not tell**:
-The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or **Could not tell** (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across the `Review a ticket` and `Work a ticket` playbooks.
+The conclusion family code-review applies after checking an axis finding: supported, disproved or still unverified. A withdrawn or refuted item carries the evidence that disproves it.
 
 **review category**:
-The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: the principle it applies, without the `principle-` prefix (`fail-loudly`); the bug from the Correctness axis's checklist; its Spec kind; or `documented-standard` for a breach of a decision, term, rule or fact the repository documents (an ADR, the glossary, `CONTRIBUTING.md`). Distinct from the retro's categories (`retro.py` `CATEGORIES`).
+The classification attached to an axis finding, such as a named Principle, Correctness defect or Spec kind. It is distinct from a retrospective analysis angle.
 
 **review finding**:
-One item an axis reports, quoting the requirement it fails, and sorted at the review session's own step into in-ticket or out-of-ticket: in-ticket when it touches this ticket's acceptance criteria, a decision in its named spec section, a baseline under its `## Read first`, the spec's `## Out of Scope` or `## Testing Decisions`, or a file inside this ticket's own `## Owns`; otherwise out-of-ticket, opened by the worker as a `finding` child.
+An evidenced issue in a diff, sorted by code-review as in-ticket or out-of-ticket. The ticket's requirements, named spec decisions, baselines and Owns define that scope.
 
 **Missing / Scope creep / Built wrong**:
 The Spec axis's three kinds of review finding: something the ticket, its named spec section or a baseline asked for that the diff does not do (**Missing**); behaviour the diff adds that nothing asked for, most clearly something the spec's `## Out of Scope` names (**Scope creep**); and something that looks implemented but does not match what was asked (**Built wrong**).
 
 **`reasonable` / `should not`**:
-The Spec axis's judgement of each line of the worker's `DECISIONS` comment, one of two values: `reasonable` when the ticket or spec left a gap and the decision is the likeliest repair, `should not` when it goes against the ticket, a named spec section, `## Out of Scope`, or a baseline — itself a review finding of one of the three Spec kinds.
+The Spec axis's judgment of a recorded worker decision. The first fills a legitimate gap; the second conflicts with the ticket, its named decisions or a baseline.
 
 **semantic-conflict angles**:
-The Spec axis's review of this ticket together with every ticket `dispatch.sh integrated <ticket>` lists as already integrated into the base branch, for semantic conflicts (Martin Fowler, SemanticConflict: changes that merge cleanly as text but make the program behave differently), from four angles: **Combination behavior** (behaviours that pass alone still work together), **Contract consistency** (data models, interfaces, schemas and registries agree across tickets), **Migration completeness** (migrations run in the right order with every companion present), and **Shared-state ownership** (both tickets agree on ownership, ordering and lifecycle of shared state). Another ticket's own passed verdict is evidence of what ran, not proof the combination is correct.
+The Spec axis's checks of combination behavior, contract consistency, migration completeness and shared-state ownership across integrated tickets. They identify changes that merge textually but conflict in behavior.
 
-**reference file**:
-A document under a skill's `references/` directory, reached from its `SKILL.md`.
+**`code-review`**:
+The [skill](../../../mmw-v4/skills/code-review/SKILL.md) for independent review of a ticket or requested PR on Standards, Spec, Tests and Correctness axes. It is distinct from advisor's assessment of a decision.
+
+**Standards, Spec, Tests and Correctness**:
+The four code-review axes for applicable standards, agreed behavior and integration, test value, and concrete defects. They are independent judgments of the same diff, not four successive implementation stages.
 
 ### Claiming and handing back
 
@@ -217,16 +224,19 @@ The word the orchestrator ends a `resume` text with, telling a live worker to ca
 ### Working discipline
 
 **code-writing rules**:
-The rules under `While writing:` in step 2 of the `Work a ticket` playbook that govern every write on a ticket, the fixes of the review round included.
+The Work a ticket instructions governing implementation and review fixes. These refer to testing methods through test-audit rather than a second copy of those methods.
 
 **closing steps**:
-What the `Work a ticket` playbook does once the code is written, steps 3 to 11: from integrating the base branch through the review, the Audit and the **final run** to `--closeout`.
+The Work a ticket steps after implementation, covering integration, criteria, independent review, Audit, final run and closeout. Their order belongs to that Playbook rather than the glossary.
 
 **final run**:
-The worker's last run of every criterion, after the last step that writes a commit and with no fix round after it: `verify-ticket.py <n> --reverify --actor worker`, or, when nothing was committed after it, the worker's own run of `Integrate and run every criterion`. It is the newest worker run on the ticket, of either kind; `--closeout` accepts an `ALL MET` draft only when that run is on `HEAD` and ran the ticket's current criteria, and `--draft` quotes the same run (ADR 0045).
+The newest worker criterion run on the final HEAD, after the last committing step and without another repair round. Closeout checks that this run covers the ticket's current criteria.
 
 **`Audit`**:
-The closing step that reads the ticket once more against the branch, the way the user will read the closing comment: each point under `## What to build` holds in the product, not only in a test, and each baseline under `## Read first` is followed where it applies. It comes before the **final run**: a point that does not hold is fixed then, with a `contract` child when no criterion covers it. It computes nothing itself: `Counts:` is `--closeout`'s own tally of the draft's `ABANDON:` lines.
+The Work a ticket comparison of the actual result with What to build and its baselines before the final run. It is distinct from test-audit, the shared testing method.
 
 **closeout**:
-`verify-ticket.py <n> --closeout <draft>`: it checks the closing-comment draft against the ticket and the repository and, only when it passes, pushes the branch, closes the ticket or hands it back, and posts the closing comment as an event. A worker's command that would go around it is refused by `tool-guard.py`.
+The verify-ticket operation accepting a completed closing-comment draft against current ticket evidence and repository state. It is the authority that pushes and closes a pass or hands unfinished work back.
+
+**Work a ticket**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/work-a-ticket.md) for a dispatched worker implementing one prepared ticket through its closing comment. It is distinct from One ticket, which orchestrates an independent ticket's delivery.

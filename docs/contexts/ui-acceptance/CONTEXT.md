@@ -1,6 +1,6 @@
 # UI acceptance
 
-How a local prototype becomes the UI baseline, and how a product's `verify-<product>` skill and e2e tests prove the product. The owner approves the winner at design freeze; the prototype and verification assets are read-only at night.
+Prototype decisions, shared testing methods and the product-specific proof used for acceptance. A product verification skill owns its run recipe and feature map; its implementation and delivery remain with the calling workflow.
 
 ## Language
 
@@ -18,30 +18,30 @@ The product repository's development commands and operating skill for starting t
 ### The acceptance side
 
 **`verify-<product>`**:
-The product-local verification skill generated under `.agents/skills/verify-<product>/`. It holds the knowledge of launching, checking, driving, capturing evidence, and cleaning up that product, together with its feature map.
+The product-local verification skill holding its launch, observation, interaction, evidence and cleanup knowledge with its feature map. It supplies the product-specific commands used by acceptance tests.
 _Avoid_: 产品验证技能
 
 **feature map**:
 One product's maintained account of its user-facing features, one feature file per feature under `.agents/skills/verify-<product>/features/`. It has no hand-written index or status field; test coverage is in each file's header, and unfinished work is on tickets.
 
 **feature file**:
-One feature's file, starting with its name, `Route:`, and `Tests:` on three lines. Its user-facing description comes from the winner, settled decisions and glossary before design freeze; `Proof` records what the user sees and can accomplish, while `Gotchas` records prerequisites and local limits that can look like defects.
+One product feature's user-facing description and proof, linked to its route and tests in its header. It belongs to the feature map rather than a queue of unfinished implementation.
 _Avoid_: 功能文件
 
 **e2e test**:
-A fixed-step test under `tests/e2e/<product>/` that proves what a user sees and can accomplish. It is written in the day from current code for existing behavior or from the winner prototype for new behavior, with the same steps and assertions on both targets, and is read-only at night; backend tests prove real storage.
+A fixed-step test of what a user sees or accomplishes, with its configuration and assets under the product's e2e directory. Settled daytime acceptance remains read-only to the nighttime worker.
 
 **`e2e.config.ts`**:
 The product's e2e configuration under `tests/e2e/<product>/`, defining the product and design targets without a model. Every e2e command names this config so it selects the intended product.
 
-**`product`** (target):
-The e2e target that runs the real product against its real local back end. It is the target used at night.
+**`product` target**:
+The configured target running the real product with its real local backend for implementation verification. It is distinct from the design target and the shipping product in Release.
 
-**`design`** (target):
-The e2e target that renders the winner prototype. For an existing web or Electron product, it uses the product's launch command with one environment variable; a new project starts its standalone prototype page. Daytime test writing proves it green, and Spec review uses it for screenshot pairs; nightly CHECK lines use `product`.
+**`design` target**:
+The configured target rendering the chosen prototype for daytime acceptance preparation and comparison. It is distinct from the real-product target run during implementation.
 
 **CHECK line**:
-The complete command a ticket copies from its product's verification skill's Launch section. It installs dependencies, performs required preparation, and runs the ticket's test file against the product target with its own trace output.
+The product verification skill's executable acceptance recipe copied into a criterion. It includes the preparation and selected target required to run that product test.
 
 **Isolate**:
 The two required layers of separation: each product run has its own port and fresh data directory, and each checkout has its own back-end stack. Test workers within one run do not separate two tickets' runs.
@@ -56,7 +56,7 @@ A problem registered with the register-problem skill for a product that cannot m
 The first night's ticket proving a new project's product launch and reachable home page when generation could prove only the design target. It completes the product-side launch proof left pending at handover.
 
 **pin**:
-A criterion preserving an existing behavior that the ticket must keep. It passes on the base before the change, unlike a criterion for behavior the ticket adds.
+A criterion or test preserving required existing behavior, demonstrated green before and after a behavior-preserving change. It is distinct from behavioral-red proof for newly added or repaired behavior.
 
 **doc drift**:
 A wrong or missing user-facing description, including disagreement between a feature file's test list and the test files. Maintenance corrects the feature map and e2e tests rather than changing the product to fit the description.
@@ -67,23 +67,22 @@ Working product behavior that the verification environment cannot drive. Mainten
 **product gap**:
 Product behavior that is actually broken, rather than a description or environment error. Maintenance opens a problem ticket and leaves the product fix outside its own changes.
 
-**`contract` child** (UI acceptance):
-A ticket's child reporting that its e2e test or winner prototype is wrong. Those assets stay unchanged at night; the worker abandons the affected criterion as stuck and hands the ticket back for daytime correction.
+**`contract` child (UI acceptance)**:
+The ticket child reporting an incorrect frozen acceptance test or prototype baseline. It uses the ticket-run contract correction path rather than authorizing the worker to weaken the baseline.
 
 ### The prototype side
 
-**prototype**:
-Code that answers a question in a leaf directory. A UI prototype is a complete, interactive design in the product's code, iterated with the owner; its winner is the appearance and interaction baseline, rewritten to production standards rather than shipped directly. Its conclusion lives in the feature file; LOGIC, EXP and SKETCH keep their verdict in a comment on the ticket that asked the question.
+**prototype artifact**:
+The code artifact produced to answer a question through the prototype skill. Its verdict is an implementation baseline, with a UI winner's appearance and interaction preserved while production code is rewritten.
 
 **leaf directory**:
-`efforts/<effort>/prototypes/<issue>/<UI|LOGIC|EXP|SKETCH>/`, one prototype branch's code. UI keeps `winner/` and `candidates/<n>/`, with its conclusion in the feature file; LOGIC, EXP and SKETCH record their question, current conclusion, and what the real code has taken in a comment on the ticket that asked the question. The issue is a ticket number or a short feature name when there is no ticket.
+The directory of one prototype question and branch under `efforts/<effort>/prototypes/`. UI candidates and the selected winner share that question's directory.
 
-**effort** (`<effort>`):
-One whole piece of development work toward one destination: a wayfinder map with the research, prototypes, specs and nights it gives rise to, or one ticket outside any map that opened a `fix-<n>`. Its files live under `efforts/<effort>/`, the name taken from the map's `## Notes` or otherwise the current branch name with `/` replaced by `-`, as lowercase ASCII words joined by `-`. A lone Investigation or code review is not an effort. Distinct from the toolbox's `effort`, a model's reasoning effort.
+**development effort**:
+One whole development destination and its durable assets, held under `efforts/<effort>/`. A map or independent change supplies its identity; it is distinct from a model's reasoning effort.
 
 **effort branch**:
-The one branch an effort's work is committed on, cut from the project branch when the effort starts: for a map, when the map is created, and it becomes the night's branch; for a ticket outside any map, its `fix-<n>`. It reaches the project branch only through a pull request the owner accepts.
-_Avoid_: base branch (for where an effort's commits go), proto-<n>
+The branch carrying the effort's preparation, decisions and verification assets until accepted delivery. It is distinct from an implementation ticket branch.
 
 **mount point**:
 The environment-variable-controlled entry that renders the winner at the feature file's final `Route:`, or in the rendering module for a UI without its own route. Each page has its own entry, with one shared switcher for variants; entries stay until implementation and are removed per page by the last ticket, or the final commit of a single ticket.
@@ -100,3 +99,45 @@ The static HTML page an experiment generates at the end of each run, showing out
 
 **evidence scratch directory**:
 The git-ignored `.scratch/<effort>/<issue>/evidence/<name>/` where an experiment writes its evidence page and media. The generator stays committed in the leaf directory, so this output can be reproduced after deletion once the approach is settled.
+
+**`prototype`**:
+The [skill](../../../mmw-v4/skills/prototype/SKILL.md) for answering a decision in code through its UI, LOGIC, EXP or SKETCH branch. The resulting prototype artifact is evidence for production work rather than shipping implementation.
+
+**UI, LOGIC, EXP and SKETCH**:
+The prototype branch family for appearance and interaction, state and logic exploration, empirical implementation questions and unresolved cross-ticket code shape. Each branch supplies its own artifact and comparison method.
+
+### Verification maintenance
+
+**feature map review**:
+An owner-requested whole-product maintenance run by maintain-verification-skill, comparing the live product with its verification assets. Its clean, changed or blocked result is distinct from the bounded Find affected features lookup.
+
+**`create-verification-skill`**:
+The [skill](../../../mmw-v4/skills/create-verification-skill/SKILL.md) for generating a product-local verification recipe, feature map and deterministic acceptance setup from the actual product or settled prototype.
+
+**`maintain-verification-skill`**:
+The [skill](../../../mmw-v4/skills/maintain-verification-skill/SKILL.md) for finding affected existing features or performing owner-requested whole-product maintenance. Find affected features returns a bounded list without launching that maintenance.
+
+**Find affected features**:
+The maintain-verification-skill entry identifying the existing feature descriptions touched by planned work. Its result records which affected behaviors stay unchanged or change.
+
+### Testing methods
+
+**`test-audit`**:
+The [skill](../../../mmw-v4/skills/test-audit/SKILL.md) owning testing judgments for writing, reviewing, selecting, diagnosing and maintaining tests, including TDD and behavior pins. It returns testing decisions and evidence within its caller's scope rather than starting another delivery workflow.
+
+**behavioral red**:
+A test failure demonstrating the missing or broken behavior before its repair. It is distinct from a missing test file, broken fixture or command that could not start.
+
+**negative control**:
+A bounded deliberate break of the promised behavior establishing that its test can detect that break. Its failure is evidence of test sensitivity rather than an acceptable product state.
+
+**test contract**:
+The observable behavior, invariant or independent interface promise a test protects. Its primary proof owner is distinct from duplicate tests of the same implementation details.
+
+### Product control
+
+**`control-ui`**:
+The [skill](../../../mmw-v4/skills/control-ui/SKILL.md) for driving and inspecting a browser, Electron or web UI through a local harness, including screenshots, traces and profiles.
+
+**`control-cli`**:
+The [skill](../../../mmw-v4/skills/control-cli/SKILL.md) for driving and inspecting an interactive CLI or TUI through a local harness, including terminal behavior and runtime evidence.

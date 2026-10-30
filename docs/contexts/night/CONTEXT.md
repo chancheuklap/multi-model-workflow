@@ -1,27 +1,38 @@
 # Night
 
-The orchestrator's commands that run a spec's published tickets, the runners that keep the sessions alive, the workspaces and branches they work in, and the three layers — relay, watchdog, turn guard — that deliver each result to whoever waits on it and notice a stopped session.
+Execution of an independent ticket or spec batch, including dispatch, landing, delivery and run feedback. Its sessions, watches and machine-local liveness records are distinct from the tracker records defined by Tickets and Ticket run.
 
 ## Language
 
 ### Roles
 
 **agent**:
-Any session or subagent the pipeline starts or runs: the orchestrator, a worker, a reviewer, a briefed session, a code-review axis. Every role `roles.json` marks as a session has a `models.json` row: `junior-worker`, `senior-worker`, `reviewer`, `advisor`, `researcher`, `explainer`, `synthesizer`.
+A session or subagent carrying an MMW assignment. Its concrete job is identified by the session role or subagent row rather than by a generic agent grade.
 
 **session**:
-A host process a runner started, or the orchestrator the user started; a session `dispatch.sh start` started is named on its ticket by its started event. A code-review axis runs inside the reviewer and is not one.
+A host process started by the user or a runner, with a continuing context and role. It is distinct from a subagent inside another session.
 
 **orchestrator**:
-The session the user started, which runs one spec's night with the dispatch skill's commands, from `check` to `summary` and, after the user accepts the result, `finish`. It has no `models.json` row.
+The session controlling a spec batch or independent ticket through its watch, executor Playbook and delivery. It is distinct from the worker and has no dispatched-role model row.
 _Avoid_: main agent, 编排者
 
 **runner**:
-The program that starts and keeps running the sessions the pipeline starts on this machine — `paseo`, `orca` or `herdr` — reached only through its adapter, `scripts/runners/<runner>.sh` of the dispatch skill; `models.py runner` selects it. Distinct from the host, the agent program a session runs.
-_Avoid_: host (for this; the host is the agent program the runner starts)
+The program managing dispatched sessions on this machine, reached through its runner adapter. The supported runner names are paseo, orca and herdr; a runner is distinct from the host it starts.
 
 **runner adapter**:
-The dispatch skill's `scripts/runners/<runner>.sh`, the one way `dispatch.sh`, the relay and the watchdog reach a **runner**: the verbs `start`, `send` and `liveness` (which answers `alive`, `stopped` or `unknown`), with `stop`, `self`, `attach` and the `catalog-*` reads, each answering with the same exit codes on every runner. Only the adapter runs a runner's own commands; every other script reaches the runner through it.
+The dispatch integration for one runner, translating shared session-management operations into that runner's commands. It is the runtime boundary used by dispatch, relay and watchdog.
+
+**researcher**:
+The briefed session role returning cited findings through the research skill. It is distinct from the investigation workflow that consumes those findings.
+
+**candidate**:
+The briefed session role producing one design in an arena comparison. It is distinct from an Eval participant whose comparison is blinded.
+
+**retro-analyst**:
+The briefed session role assessing one retrospective angle and returning its conclusion table. The orchestrator validates and records the returned assessments.
+
+**review-axis, reader and default**:
+The subagent-row family in roles.json for independent review axes, large-source reading and other named subagent work. Their host-specific model choices are separate from session-role rows.
 
 ### Places
 
@@ -32,40 +43,43 @@ One of the three runners, a daemon whose CLI is `paseo`. Its adapter starts each
 A session Paseo runs, with an id, a title (`#<n> worker` or `#<n> reviewer`) and a status the Paseo adapter reads to answer `liveness`.
 
 **workspace**:
-The per-ticket unit `dispatch.sh` opens and archives: the worktree `.worktrees/issue-<n>` together with every session the ticket's started events name. No runner creates or removes the worktree.
+The ticket-owned worktree and the sessions recorded for that ticket. Its cleanup does not imply deleting unlanded work preserved on a branch.
 
 **wake**:
 What the relay sends a session when an event it waits on lands on a ticket, `#<n> <event>`, or when every brief of a batch it started is done, `brief <batch> done`; either says only where to look. Distinct from a `watchdog:` line, which the watchdog sends itself and which is not acked.
 
 **worktree**:
-A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work; a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time; `fix-<n>` for a ticket a playbook opens outside a spec, where the daytime session commits its records and pushes `fix-<n>`; `map-<map number>` for a map's effort, created when Chart the map opens the map.
+A git working tree used by an effort, ticket or merge within MMW's repository layout. The issue, fix, map and merge worktrees have distinct ownership and lifetimes.
 
 **ticket branch**:
 The branch `issue-<n>`, cut from `origin/<base branch>` by `start`, shared through `origin/issue-<n>` while the ticket is worked. Landing deletes both the local and origin copies when cleanup permits it.
 
+**`issue-<n>`, `fix-<n>`, `map-<n>` and `merge-<slug>`**:
+The MMW worktree-name family for ticket implementation, independent preparation, map efforts and serialized landing. The branch or run record identifies the particular owner of each worktree.
+
 ### Branches and integration
 
 **base commit**:
-The merge-base of `origin/<base branch>` and the ticket branch: the commit a ticket's own work and its code review's diff start from. `start` records it as `base` in `worker.started` and `reviewer.started`; a later worker keeps the newest `worker.started` base until the ticket lands. Written `<base-commit>` as a placeholder. Distinct from the **night's base commit**.
+The commit from which a ticket's work and independent review are compared, recorded with its worker start. It is distinct from the whole night's starting commit.
 
 **night's base commit**:
 The merge-base of a night's project and base branches, as `spec.opened` records them: where the night's landing and closing-pass commits start.
 
 **base branch**:
-The branch on `origin` a ticket's work merges into: the newest `worker.started.into`, else the open night's `spec.opened.into`, else the branch of the checkout `start` runs from. In a night it is the temporary integration branch the night's tickets merge into, which `finish` merges into the **project branch** once the user accepts the night.
+The recorded integration target into which a ticket lands. In a night it is the batch's temporary integration branch, later accepted into the project branch.
 
 **project branch**:
-The branch a night's base branch was cut from and into which `finish` merges the accepted night, recorded in `spec.opened` as `project`.
+The consuming project's branch receiving an accepted effort or night. It is distinct from a ticket branch and a night's temporary integration base.
 _Avoid_: 项目分支
 
 **`MMW_BASE_REF`**:
 The variable a repository's own commands receive as `origin/<base branch>` — every `CHECK:` shell and every run of the repository's `scripts/check` — so a check compares against the same base in any worktree or clone.
 
 **`dispatch.sh integrate`**:
-`dispatch.sh integrate <n>`: the worker's `--no-ff` merge of `origin/<base branch>` into its ticket branch before its criteria run. It never pushes or rebases; a conflict is left in the tree for the worker to resolve (exit 3), never aborted.
+The worker's integration of its recorded base branch into the ticket branch before acceptance runs. A conflict remains available for resolution rather than rewriting ticket history.
 
 **`dispatch.sh integrated`**:
-`dispatch.sh integrated <n>`: prints, one per line, every sibling ticket merged onto the base branch since this ticket's worker started, for the code-review skill's Spec axis to cross-check.
+The dispatch inventory of sibling tickets integrated since this worker started. The Spec review axis uses it to examine combined behavior.
 
 **merge lock**:
 The lock in the state directory naming which branch's merge worktree is in use, `merge-<slug>.lock`, so `open`, `advance`, `land`, `reverify` and `finish` take one merge at a time per branch.
@@ -73,28 +87,28 @@ The lock in the state directory naming which branch's merge worktree is in use, 
 ### Dispatch
 
 **landing pipeline**:
-The path from a published spec to landed, closed tickets.
+The MMW execution path from prepared implementation tickets through verified closeout and landing. It is narrower than the whole development workflow, which also includes discussion and preparation.
 
-**dispatch**:
-Turning a ticket into a running session in its worktree with `dispatch.sh start <n> worker|reviewer`. A ticket or session that has been through it is dispatched.
+**`dispatch`**:
+The [skill](../../../mmw-v4/skills/dispatch/SKILL.md) providing session dispatch, run control, model configuration and task board access. The executor Playbook decides when those capabilities act.
 
 **`dispatch.sh`**:
 The dispatch skill's script, whose verbs open, advance, land, suspend and finish a night and start, message, ask after and stop sessions through each runner's adapter.
 
-**brief**:
-`dispatch.sh send <role> --follow "<file>" <brief file>...` for a role `roles.json` sends with a brief: starts one session per brief file in the sender's worktree, all answering the sending session. Each session writes only the files its brief names and makes no git write; it reports with `dispatch.sh report <batch>/<n> <file>`, and the answer is kept in the state directory. It writes no event.
+**`dispatch.sh send`**:
+A dispatch send that starts bounded, non-ticket assignments from brief files and collects their answers. It is distinct from the brief document defined in Ticket run.
 
-**batch**:
-What one `brief` call starts: its sessions, all of one role, all answering one parent session. The relay watches it as `briefs:<batch>` and wakes the parent once, `brief <batch> done`, when every brief has reported or been found lost; `dispatch.sh brief close <batch>` removes it. Distinct from a **backlog review batch** and from a spec's batch of tickets (`docs/contexts/tickets/CONTEXT.md`).
+**brief batch**:
+The group of briefed sessions answering one sending session, with one batch identity and one completion wake. It is distinct from the implementation batch under a spec.
 
 **`dispatch.sh board`**:
 The command that makes sure the repository's task board is registered and answering and opens it, or prints its URL.
 
 **`dispatch.sh pr`**:
-The command that opens a ready pull request, reports whether GitHub CI runs for its base branch, and waits for checks.
+The dispatch operation opening a delivery PR and reporting its checks and expected CI. Opening a PR owns the human review and acceptance of that delivery.
 
 **start prompt**:
-The text a session is given when started: to read the `mmw-mode` skill's `SKILL.md` in full first, the playbook it runs on its ticket, then its data: the worker's Memory indexes, the reviewer's base commit. A session `brief` starts is given its role's brief template and the brief file instead.
+The assignment supplied when a host session starts, naming its governing file and particular input. Ticket sessions receive ticket identity and start evidence; briefed sessions receive their brief and report destination.
 
 ### Models and runners
 
@@ -109,103 +123,103 @@ The value the Paseo runner passes as a host's thinking setting (`paseo run --thi
 
 ### The night's commands
 
-**check**:
-`dispatch.sh check <spec>`: the checks before a night opens — the branches, the session's `NMEM_SPACE`, `install.sh --check`, the runner, the model rows, the worker-grade labels, and whether the repository has an executable `scripts/check`. It runs no tier of `scripts/check`.
+**`dispatch.sh check`**:
+The dispatch prerequisite check before a spec batch opens, covering the repository, installation and selected runtime configuration. It is distinct from running a tier of scripts/check.
 
 **repository Space**:
 The Nowledge Mem Space for one tracker repository, id `<owner>__<name>` in lower case, which `open` before the night opens and `start` before it starts a session each confirm, creating or repairing it when it is absent or wrong.
 
-**open**:
-`dispatch.sh open <spec>`: the night begins. It refuses a session whose `NMEM_SPACE` is not the repository's Space (ADR 0035), then records the project branch, brings the base branch up to it, opens the relay's **watch** with the calling session as orchestrator, and posts `spec.opened`.
+**`dispatch.sh open`**:
+The dispatch operation beginning a spec watch and recording its integration and project branches. It is distinct from opening a preparation problem through to-tickets.
 
 **`dispatch.sh finish`**:
-`dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, runs `scripts/check`'s default tier on the result unless its tip is a ticket's landing merge, pushes it, posts `spec.merged`, closes the spec issue as completed, and removes the origin copy of the base branch when cleanup permits it. The local base branch and any worktree that has it checked out stay in place. The local project branch is created or fast-forwarded to the fetched origin tip, including in a clean worktree. A dirty worktree or local commits outside origin keep it unchanged, with the reason on stderr. A synchronization failure exits 2 and leaves the spec open for a retry.
+The dispatch promotion of an accepted, closed night into its recorded project branch. It records spec.merged and closes the spec while preserving branch and worktree ownership.
 
-**open-ticket**:
-`dispatch.sh open-ticket <n>`: what `open` is for one ticket outside a night, a relay watch on that ticket alone with the calling session as orchestrator.
+**`dispatch.sh open-ticket`**:
+The dispatch operation beginning a watch for one independent ticket rather than a spec batch.
 
-**start**:
-`dispatch.sh start <n> worker|reviewer`: has the selected runner start one agent on one ticket in its worktree, and posts the session's started event.
+**`dispatch.sh start`**:
+The low-level dispatch operation starting a ticket worker or reviewer in its workspace and recording the session on the ticket.
 
-**self**:
-The runner-adapter verb, and `dispatch.sh self`, answering which runner and session the calling process runs in.
+**`dispatch.sh self`**:
+The dispatch and runner-adapter identity query for the calling session.
 
-**retract**:
-`dispatch.sh retract <n>`: takes back what `start` left once the ticket's session is gone — commits and pushes its work, archives the workspace, gives back the slot and the claim — and posts `worker.retracted`.
+**`dispatch.sh retract`**:
+The dispatch recovery operation for a gone worker, preserving its work before releasing its claim and resources.
 
-**wait**:
-`dispatch.sh wait <n> worker|reviewer`: reads that agent's newest result event once, its newest `ticket.passed` or `ticket.returned` (worker) or `reviewer.reported` (reviewer), after a wake has said it is there. It does not block: with no result yet it exits 3 and tells the caller to end its turn. It asks no runner and writes nothing.
+**`dispatch.sh wait`**:
+The non-blocking dispatch read of a ticket session's newest result event after a wake. It is distinct from waiting for a session to finish.
 
 **`dispatch.sh resume`**:
-`dispatch.sh resume <n> "<text>"`: delivers the text to the worker still holding the ticket, through that worker's runner, and posts `worker.resumed`.
+The dispatch message to an existing ticket worker carrying a correction or continuation. It reuses that worker session rather than silently replacing it.
 
-**status**:
-`dispatch.sh status <spec>`: the table of the spec's tickets, computed from each ticket's fold without asking any runner.
+**`dispatch.sh status`**:
+The dispatch view of a spec batch's ticket state computed from the tracker, without asking runners for liveness.
 
 **`dispatch.sh reverify`**:
-`dispatch.sh reverify <spec>`: runs the criteria of every landed ticket of the spec again on the fetched base branch, reopening a red one for triage and closing a reopened one that is green again.
+The dispatch rerun of landed ticket criteria on the integration branch, recording regression or recovery. Its result is tied to the commit checked.
 
 **`dispatch.sh findings`**:
-`dispatch.sh findings <spec>`: lists every open `finding` child of the batch, the exact set the closing pass must route, regardless of which one woke the orchestrator.
+The dispatch inventory of open finding children in a spec batch. It supplies the complete set the closing pass routes.
 
-**summary**:
-`dispatch.sh summary <spec> --memory-decisions <file>`, or `summary <spec> --memory-unavailable` while Nowledge Mem does not answer: once nothing of the night is left running or unrouted, runs `scripts/check --all` on `origin/<into>` in the merge worktree, reusing a green `spec.checked` for that commit on this machine, then posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch. It refuses, with nothing posted, while the batch holds a finding no `child.closed` accounts for, by the last count on its own `Findings routed:` line.
+**`dispatch.sh summary`**:
+The dispatch closeout of a finished night, recording repository-check evidence, finding routes and the NIGHT SUMMARY before closing its watch. It is distinct from the later accepted merge performed by finish.
 
 **Memory closing**:
-The part of the **closing pass** in which the orchestrator gives every Memory record labelled `mmw-spec-<spec>` one decision — `retain`, `propose`, `deprecate` or `supersede` — recorded as `memory_closing` in `spec.closed`. While Nowledge Mem cannot list every record (it does not answer, or returns part of them), the night closes without it: `memory_closing` holds no decisions and the reason, and the records stay as they are (ADR 0035).
+The night closeout's recorded decisions on shared experience for that spec. Its evidence limits distinguish a completed review from unavailable Memory access.
 
-**memory-list**:
-`dispatch.sh memory-list <spec>`: computes the repository Space id, pulls the spec's full `mmw-spec-<spec>` Memory record set, and prints a **`--memory-decisions` file** skeleton, one blank decision per active record. It exits 2 when Nowledge Mem does not answer or returns a truncated list.
+**`dispatch.sh memory-list`**:
+The dispatch inventory of a spec's Memory records, with the decision-file skeleton used by Memory closing.
 
 **`--memory-decisions` file**:
-The JSON file of **Memory closing** decisions, `{"decisions": [...]}`, that `summary` reads through `--memory-decisions`: `memory-list` prints its skeleton, and the orchestrator gives each record's entry a `decision`, `reason` and `evidence` (a URL for `propose`, and a `replacement_id` for `supersede`). `summary` refuses a file that leaves out an active record or gives one two decisions.
+The Memory closing decision document identifying each reviewed Memory record, its decision, reason and supporting evidence.
 
-**retro**:
-The capability that gathers evidence from a run and records the analyst's assessment of each row on its registration as `lesson.assessed`, recording `spec.retroed` or `ticket.retroed`; and, for a **backlog review batch**, lists the open registrations (`backlog`) and applies the owner's decisions (`merge-apply`).
+**`retro`**:
+The [skill](../../../mmw-v4/skills/retro/SKILL.md) supplying retrospective evidence gathering, recorded analyst assessments and owner-approved backlog decisions. The calling Playbook owns their order and scope.
 
 **`status.py`**:
 The dispatch skill's read-only script that computes where each of a spec's tickets stands from the tracker alone, for `status`, `advance`, `reverify`, `land` and `summary`. It keeps no state file.
 
 **phase**:
-The `phase` column of `status`: the name of the ticket's newest event, shown and never decided on. Distinct from the task board's **phase pill**.
+The status view's display of a ticket's newest event. It is distinct from the task board's phase pill and an acceptance event's stage.
 
 **holder**:
-What `status.py` says holds a ticket: its newest live session (a worker or a reviewer), or a claim no session has taken over yet, or nothing. Distinct from ticket-run's **held**, the fold fact that a ticket stays off the frontier because some session or claim still holds it.
+The session or unmatched claim currently holding a ticket according to tracker evidence. It is distinct from a lock holder and the blocker_hold of dependent work.
 
 **in flight**:
 Whether `land` may treat a ticket's work as still going on: open, and not handed back to `needs-triage`. Read off the tracker's state and labels alone, never off who holds the ticket.
 
 **plan line**:
-One line of `status.py`'s read-only plans, each read by `dispatch.sh` and nobody else: `MERGE`, `RELEASE` and `DISPATCH` from `--advance-plan`; `REVERIFY` and `RECOVER` from `--reverify-plan`; `MERGE`, `RELEASE`, `ARCHIVE`, `HOLD` and `NOTHING` from `--land-plan`. `RELEASE` gives back the tracker claim once an event has ended every hold on the ticket, and is not `lease.py release`; `HOLD <ticket> <why>` is this line, not the fold state ticket-run's **held** names.
+The machine-readable action family produced by status.py for dispatch execution, such as MERGE, RELEASE, DISPATCH and HOLD. It is distinct from a ticket fold's held state.
 
 **`ARCHIVE`, archive**:
-Archiving a ticket's workspace: giving its product slot back, ending every session the ticket's events name, and deleting its worktree and the ticket's instance data, so nothing of the directory is kept. Unlanded ticket branches and their pushed commits remain; landing cleanup deletes contained ticket branches when no worktree has them checked out. `advance` archives a ticket's workspace once it lands, `land` once the ticket is closed (the `ARCHIVE` plan line), and `retract` a gone worker's; a ticket handed back keeps its workspace for the next `start`, and a workspace whose product is still up, or whose events cannot be read, is kept.
+The workspace lifecycle action releasing that ticket's sessions, product resources and disposable worktree. Preserved unlanded commits remain on their branch; it is distinct from retiring a skill.
 
 **worker-grades line**:
-One line of `status.py --worker-grades`: `BATCH <ticket>` for each child of the spec, `GRADE <ticket> [<label> ...]` for each one open and labelled `ready-for-agent`. `check` refuses the night when a `GRADE` line names a row `models.json` lacks, or a ticket carrying two; `suspend` reads the `BATCH` lines as the spec's children.
+The status.py output family identifying a batch's tickets and their selected worker grades. Dispatch uses it for readiness and capacity checks.
 
 **reverify result**:
-The newest `ticket.checked` with `run=reverify` on a landed or reopened ticket, carrying the commit it ran on. `summary` refuses the night unless every such ticket's newest one is green on the current tip of `origin/<base branch>` (`status.py --closeout-ready <spec> --at <commit>`), so a fix pushed after `reverify` needs `reverify` again. Distinct from `spec.retroed`, the event `finish` checks before merging.
+The newest landed-result criterion run for a ticket, carrying the exact commit checked. It is distinct from the retrospective receipt required by the delivery flow.
 
-**advance**:
-`dispatch.sh advance <spec>`: lands the batch's passed tickets on origin, gives back claims whose holds ended, then starts the frontier, as many tickets as `max_workers` leaves room for.
+**`dispatch.sh advance`**:
+The dispatch batch executor step combining landing passed tickets, releasing completed holds and starting eligible work within capacity.
 
-**land**:
-`dispatch.sh land <n>`: the one-ticket form of **advance**, which lands the ticket's passed commit, releases its resources and closes its watch.
+**`dispatch.sh land`**:
+The dispatch landing and resource-closeout operation for independent tickets. It is distinct from a worker's ticket closeout, which records a pass before landing.
 
-**suspend**:
-`dispatch.sh suspend <spec>`: pauses a night when the fault is in the pipeline, stopping every session still holding a ticket, pushing their work, giving back every claim and slot, and closing the spec's watch. Its workspaces, branches and pushed commits stay, and `open` then `advance` take the same batch up again once the fault is fixed. Distinct from `ABANDON:`, which gives up one criterion.
+**`dispatch.sh suspend`**:
+The dispatch operation stopping an open night safely when its pipeline cannot proceed, preserving pushed work and closing its watch for later recovery.
 
 ### The night
 
 **night**:
-One run of a spec's published tickets under one orchestrator, from `open` to `summary`, at any hour, read the way a nightly build is: unattended while it runs, its result read cold the next morning.
+One unattended execution of a spec's batch under an orchestrator, from its open watch through summary. Its name describes the run mode rather than the hour, and a one-ticket spec batch is still a night.
 
 **closing pass**:
-The pass the orchestrator runs when the frontier is empty: it routes every open `finding` child of the spec's tickets with **route**, performs **Memory closing**, and runs `advance`, and repeats until no open finding is left.
+The night executor's routing of open finding children and completion of its shared-experience decisions after the frontier is exhausted. It is distinct from a ticket worker's closing steps.
 
-**route**:
-`dispatch.sh route <ticket> <child> …`: the one way a `finding` leaves the closing pass — fixed, stale, or made a ticket — recorded as `child.closed` on the ticket.
+**`dispatch.sh route`**:
+The dispatch resolution of a ticket child as fixed, stale or implementation work, recorded on its original ticket.
 
 ### Liveness
 
@@ -213,26 +227,25 @@ The pass the orchestrator runs when the frontier is empty: it routes every open 
 The dispatch skill's `relay.py`, one process per repository, which reads the tickets its watches cover and turns each event a session waits on into a **wake** to that session. It decides nothing and writes nothing to the tracker.
 
 **watch**:
-What the relay reads and whom it wakes about it: a night's spec, or tickets outside a night, with the session that opened it as its orchestrator, or a brief **batch**, with the session that briefed it. Two watches never share a ticket.
+The relay's association between tracked work and the session waiting for its results. It covers one spec, independent tickets or a brief batch without sharing a ticket between watches.
 
 **wake queue**:
 The relay's `queue.jsonl` in the state directory, one row per wake to send. Only an **ack** removes a row.
 
 **recipient**:
-The session a wake queue row is for, named by its (runner, session) pair: the ticket's worker for a reviewer's result, the orchestrator of the ticket's watch for a ticket's result or child, the parent of a batch for its `brief <batch> done`.
+The runner/session identity to which a wake is addressed. It is the ticket worker, its orchestrator or a brief batch's sending session, depending on the result.
 
 **ack**:
-A recipient saying it has read a wake (`relay.py ack`, or `dispatch.sh ack <n> <event>`), which removes its rows up to that point.
+The recipient's acknowledgment that it read the queued result. It removes the covered wake rows rather than recording implementation success.
 
 **coalesced**:
-What the relay's log records when an event's translation is absorbed into an already-queued, unacked row rather than starting a new one, because the two wakes read `#<n> <event>` alike and a second row would only ask for a second ack of one reading of one ticket. Distinct from ticket-run's **fold**, a ticket's state replayed from its events.
-_Avoid_: folded
+The relay condition where an event shares an already queued, unacknowledged wake with the same ticket and event identity. It is distinct from the fold that computes a ticket's state.
 
 **unconfirmed**:
-The flag the relay sets on a delivered row whose `send` answered 4: the text reached the session but no turn start was seen. It stays delivered and is never sent again; an unacked row brings one **ticket waiting on its orchestrator** reminder after `--nudge` seconds.
+A relay delivery whose send reached the session without confirming a new turn. It remains delivered until acknowledged rather than being treated as an unsent wake.
 
 **good poll**:
-A **cycle** in which every read of the tracker succeeded, as against a cycle as such, which is recorded whether or not its reads worked. Only a good poll ends an **unattended stretch**.
+A relay read-and-deliver cycle in which every required tracker read succeeded. It is distinct from a recorded cycle that encountered a read failure.
 
 **cycle**:
 One pass of the relay's read-and-deliver loop, recorded (`cycle_at`) whether or not its reads worked. The watchdog's `relay down` alert asks whether the relay has finished one within its **grace**.
@@ -241,87 +254,124 @@ One pass of the relay's read-and-deliver loop, recorded (`cycle_at`) whether or 
 Time with no **good poll** — the relay down, or its reads failing — measured less time spent delivering. The events of the stretch are delivered as ordinary wakes when the reads come back.
 
 **grace**:
-The `--grace` seconds parameter (default three intervals) bounding both an **unattended stretch** and the watchdog's own judgement of whether the relay is healthy.
+The configured bound for an unattended relay stretch and its health judgment. It is a liveness setting rather than an execution timeout.
 
 **state directory**:
-`$MMW_HOME/state/<owner>__<name>/`, one per repository, holding every file the relay, the watchdog and the turn guard keep about that repository on this machine, and never a ticket's state.
+The machine-local directory for one repository's coordination records under MMW_HOME. Tracker events remain authoritative for ticket state.
 
 **lock record**:
-What a lock file in the state directory holds while its lock is taken — the lock holder's pid, its process identity (the process's own start time, so a pid later handed to another process is not mistaken for the same lock holder), when it took the lock, and its purpose — so a reader that will not take the lock can name the lock holder.
+The coordination record identifying a lock holder and its purpose. Its process identity distinguishes a continuing holder from a reused process number.
 
 **watchdog**:
-The dispatch skill's `watchdog.py`, one process per repository while a watch is open, running one round every `--poll` seconds (default 60). Each round it checks the relay, asks the runner of every session still holding a watched ticket and of every unreported brief what that session is doing (the **session table**), and reminds the orchestrator of every ticket waiting on it (the **ticket table**). It posts `worker.lost` or `reviewer.lost` for a stopped session and sends its other **alert**s to the orchestrator as `watchdog:` lines.
+The dispatch liveness process inspecting the relay and watched sessions and notifying the orchestrator of actionable problems. A confirmed stopped session produces its lost event rather than a guessed ticket result.
 
 **liveness layer**:
-The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at a turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking each held session's runner whether it is alive and what it is doing is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
-_Avoid_: layer (unqualified; tickets' **test layer** is a different concept sharing the word)
+The cooperating turn guard, relay-health check and runner-session check used to notice stopped coordination or work. It is distinct from a testing layer.
 
 **alert**:
-One thing the watchdog's second or third layer notices — the relay down, a ticket's events unreadable, a held ticket with no session to ask, a session whose liveness or turn state is unknown, a session showing a dialog, a **stuck session**, an **idle session**, or a **ticket waiting on its orchestrator** — sent to the orchestrator directly as a `watchdog:` line, never through the wake queue, and never acked.
-_Avoid_: finding (this repository's other senses: a review finding, a ticket's `finding` child)
+A watchdog notification about a coordination or session problem, sent directly as a watchdog line. It is distinct from a queued relay wake and a review finding.
 
 **worktree activity**:
-The latest commit time or file modification time in the worktree a session's start event or brief batch record names, never earlier than the session's start. What the watchdog reads to tell a session doing work from one doing nothing; a ticket's newest event is not consulted for an idle session.
+The most recent relevant commit or file activity in the worktree recorded for a session. It supplies evidence for distinguishing inactive work from a merely quiet ticket.
 
 **idle session**:
-A session whose runner answers `alive` and `idle` and whose **worktree activity** is at least `--idle` seconds old (default 3600), while no other session's result or landing on its ticket is pending. An **alert**, once per session and activity time.
+A live runner session reported idle whose worktree has no recent activity and whose expected result is not pending. The watchdog records an alert rather than treating it as a completed task.
 
 **stuck session**:
-A session whose runner answers `working` and that has made no progress for `--stuck` seconds (default 7200), measured from the later of its **worktree activity** and its ticket's newest event, or a brief's send time. An **alert**, once per session and reference time.
+A session reported working without recent worktree or ticket progress under the watchdog's configured threshold. It is a liveness observation, not proof of a particular implementation fault.
 
 **ticket waiting on its orchestrator**:
-A watched ticket with a wake delivered to its orchestrator and not acked for `--nudge` seconds (default 1800). The watchdog alerts the orchestrator once per such wake.
+A watched ticket whose delivered result wake remains unacknowledged beyond the configured reminder threshold.
 
-**arm**:
-`watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is; when a watchdog process holds its lock and is not healthy, starts nothing and says what fails; otherwise starts one and waits for it to be healthy. What `turn-guard.py` calls at every turn end for each repository with an open watch.
+**`watchdog.py arm`**:
+The watchdog operation establishing that one repository's watchdog is healthy without starting a second healthy instance.
 
 **heartbeat**:
-A file in the state directory that a daemon rewrites to show it is alive: the watchdog's `watchdog.json`, written at start, after every ticket and at the end of every watchdog round, and the relay's `beat.json`, written every **cycle**. The watchdog is healthy when its lock names a live process that wrote its heartbeat within its **tolerance**.
+The relay or watchdog's recorded evidence of its own loop activity. It is distinct from proof that a ticket's product or worker succeeded.
 
 **tolerance**:
-How old the watchdog's own heartbeat may be and still count as fresh: `max(300, poll + margin)` seconds, so a slow poll interval does not read a healthy watchdog as dead.
+The maximum heartbeat age used in the watchdog's own health judgment. It accounts for its polling interval rather than treating every slow round as death.
 
 **turn guard**:
 The dispatch skill's `turn-guard.py`, a hook on each host's turn-end event that arms the watchdog of every repository with an open watch. It never keeps a turn from ending.
 
 ### Retro
 
-**登记**:
-An issue recording a problem the acting session cannot fix in its current work, with evidence, cost, and a responsible repository. A lesson describes a way-of-working problem; a product problem stays in its own workflow.
+**registration**:
+The issue recording a problem outside the acting session's current scope, with evidence, cost and the repository responsible for its fix. A lesson and a product problem have distinct kinds.
 
-**出现**:
-One `lesson.seen` on a registration, identifying where, when, and in which ticket, spec, or session the problem occurred. Repeated comments in one context do not satisfy the threshold for independent recurrence.
+**occurrence**:
+A lesson.seen record identifying one occurrence of a registered problem. Independent recurrence requires another ticket, spec or session rather than repeated comments on one occurrence.
 
-**复盘**:
-Sorting registered lessons and run signals by judgment, environment, and process, checking whether they still hold, and recording each assessment on its registration, where the owner's **backlog review batch** later acts on it. It reads events, issues, and git, not conversations or external memory.
+**Retrospective**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/retrospective.md) for analyzing one run and recording checked analyst conclusions on registrations. Execution of those conclusions belongs to a separate owner-approved backlog review.
 
-**gather**:
-The retrospective's read-only command, selecting one spec or ticket and writing material for each nonempty angle plus `context.json`. Material includes current and related lessons, signals, reverted commits, orphaned children, recurrence after refusal, and approved closures without commits.
+**`retro.py gather`**:
+The retro operation collecting a run's registrations, signals and primary-source inventory for analysis by angle.
 
 **evidence_checked**:
-Gather's inventory of opened primary sources. An unreadable source narrows the analysis; it does not prove that the thing it would have shown did not happen.
+The retrospective inventory of primary sources actually opened. Missing access limits an assessment rather than proving that an event did not occur.
 
 **earlier occurrence**:
-A registration's earlier `lesson.seen`, counted as independent recurrence when it belongs to another ticket, spec, or session. Its original evidence supports the same cause.
+An earlier lesson.seen supporting the same registered cause in an independent ticket, spec or session. It is recurrence evidence rather than a repeated comment in one case.
 
 **stall event**:
-One of `ticket.returned`, `child.opened` with `kind=fault`, or `ticket.checked` with `result=handoff`. A registration arising from a stall has source `stall` and can qualify for a proposal on its first occurrence.
-_Avoid_: blocking event
+A returned ticket, fault child or handoff result providing evidence of a stalled run. It is distinct from a normal blocking edge between planned tickets.
 
 **proposal**:
-The analyst's conclusion `propose` on a registration, its plan recorded verbatim in a `lesson.assessed` row; `apply` asks the plan for no particular shape. Whether it qualifies (two independent occurrences, or one stall or owner's correction) is recorded beside it for reference; it changes nothing on the registration and authorizes no implementation.
+The analyst conclusion propose recorded with its evidence and plan on a registration. It authorizes no implementation or issue disposition by itself.
 
-**apply**:
-The retrospective's command that validates answer rows and evidence, records each accepted row as one `lesson.assessed` on the registration it names (a rerun of the same request records nothing twice), registers new signal-derived problems, and records the **retrospective receipt**. It closes, reopens, merges, relabels, edits or transfers no registration.
+**`retro.py apply`**:
+The retro operation recording validated analyst conclusions and the retrospective receipt without carrying out those conclusions.
 
 **`lesson.assessed`**:
-The event `apply` writes on a registration for one accepted answer row: the conclusion as the analyst wrote it (`merge:<target>`, `reject`, `candidate` or `propose`), its reason, evidence and plan, the run it came from, whether it qualifies, and the request that wrote it. A record of judgement, never an action on the registration.
+The event preserving one retrospective assessment, its evidence, plan and qualification for proposal. It records judgment without changing the registration's disposition.
 
 **backlog review batch**:
-One owner-approved review of the open problem registrations, run by `playbooks/merging-the-lesson-backlog.md`: the owner decides each root-cause group on one page, and `retro.py merge-apply` carries out the closures, merges and keeps under one batch identifier. Distinct from a brief **batch** and from a spec's batch of tickets.
+One owner-approved review of open lesson registrations grouped by root cause, with a recorded decision for each. It is distinct from a brief batch and a spec batch.
 
 **`lessons.merged`**:
-The event recording the owner's decision on one registration in a **backlog review batch**: `closed`, `kept`, `merged:<owner/repo#n>`, `spec:<n>` or `ticket:<n>`, with the batch identifier. Assessments counted toward the registration's next review start after it.
+The event preserving an owner-approved backlog disposition and its batch identity. It marks the starting point for counting later assessments on that registration.
 
 **retrospective receipt**:
-The `spec.retroed` or `ticket.retroed` event recording how many rows were recorded under each conclusion, recurrence after refusal, landed proposals, and evidence completeness. Its `problems` list records each row's registration and conclusion; a row whose code names no registration is listed there with conclusion `unrecorded`, its code as written and the reason, while the receipt itself stays `result=recorded`. A receipt with `result=unrecorded` means the whole retrospective failed to record and carries only its reason.
+The spec.retroed or ticket.retroed event accounting for recorded assessment rows and evidence limits, including unrecorded analysis or failed recording. It is distinct from an implementation result or approval of a proposal.
+
+**`register-problem`**:
+The [skill](../../../mmw-v4/skills/register-problem/SKILL.md) for registering an evidenced problem that cannot be fixed in the current work. It reuses the registration for repeated occurrences of the same cause.
+
+**`correct`**:
+The [skill](../../../mmw-v4/skills/correct/SKILL.md) for preparing an enforceable repair for a recurring agent mistake. Its mechanism and proof become implementation work under the owner's Go.
+
+**Merging the lesson backlog**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/merging-the-lesson-backlog.md) grouping open registrations by root cause and applying the owner's decisions. Retrospective analysis alone is not approval for that action.
+
+### Delivery
+
+**the owner's page**:
+The single visual reading and decision place for one pull request, published at the address or local path on the body's first line. Distinct from **the record**, which preserves the change's identification and evidence links.
+
+**the record**:
+The pull request body of fixed lines identifying the change and linking its ticket verdicts, landings, checks and unresolved work. The owner's explanation and decisions are on **the owner's page**.
+
+**Opening a PR**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/opening-a-pr.md) settling one completed delivery through its page, record, checks, comments and owner-approved merge. Repairs remain in that delivery's existing scope and branch.
+
+### Execution
+
+**One ticket**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/one-ticket.md) orchestrating one owner-approved implementation ticket outside a spec, through worker proof, landing and its delivery PR. It is distinct from Work a ticket, the worker's assignment.
+
+**Run a night**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/run-a-night.md) orchestrating a spec batch through unattended work, closing, delivery and the accepted merge. Its recorded watch supplies continuation and recovery for that run.
+
+**Session pickup**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/session-pickup.md) reconstructing an unknown prior position from durable records and returning work to its current component. An already known step or active wake resumes directly.
+
+**Pause safely**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/pause-safely.md) leaving a durable checkpoint on an explicit pause request. It is distinct from an unattended instruction to continue working.
+
+**Worktree and simulator cleanup**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/worktree-cleanup.md) reclaiming confirmed unused worktrees and simulator resources while accounting for active work and uncommitted state.
+
+**`resolving-merge-conflicts`**:
+The [skill](../../../mmw-v4/skills/resolving-merge-conflicts/SKILL.md) for resolving merge or rebase conflicts and semantic interactions according to the changes' primary design evidence.
