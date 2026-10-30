@@ -33,6 +33,7 @@ def _load(name, path):
 verify = _load("registration_verify", SKILLS / "verify-ticket" / "scripts" / "verify-ticket.py")
 events = verify.events
 statedir = _load("registration_state", SKILLS / "dispatch" / "scripts" / "statedir.py")
+tracker = _load("registration_tracker", SKILLS / "dispatch" / "scripts" / "tracker.py")
 
 
 class RegistrationError(RuntimeError):
@@ -86,8 +87,7 @@ def toolbox_repo():
 
 
 def current_repo():
-    data = gh_json(["repo", "view", "--json", "nameWithOwner"])
-    return repository(data["nameWithOwner"])
+    return repository(tracker.repository())
 
 
 def whole_list(endpoint):

@@ -66,6 +66,9 @@ class Fake:
         def flag(name):
             return args[args.index(name) + 1]
         if args[:2] == ["repo", "view"]:
+            if "--jq" in args:
+                repo = "o/r" if args[2] == "https://github.com/o/r.git" else "upstream/skills"
+                return subprocess.CompletedProcess(cmd, 0, repo + "\n", "")
             data = {"nameWithOwner": "o/r"}
         elif args[:2] == ["label", "create"]:
             repo, name = flag("--repo"), args[2]
@@ -146,6 +149,7 @@ class Registration(unittest.TestCase):
         (self.home / "installed-root").write_text(str(self.toolbox))
         self.product = self.root / "product"
         REAL_RUN(["git", "init", "-q", "-b", "main", str(self.product)], check=True)
+        REAL_RUN(["git", "-C", str(self.product), "remote", "add", "origin", "https://github.com/o/r.git"], check=True)
         self.path = self.root / "problem.md"
         self.path.write_text(problem())
         self.fake = Fake()
@@ -182,6 +186,19 @@ class Registration(unittest.TestCase):
         self.assertEqual(row["body"], problem())
         self.assertEqual(events.fold(row["comments"])["occurrences"][0]["source"], "noticed")
         self.assertIn("#100", out)
+
+    def test_default_registration_uses_origin_despite_gh_repo(self):
+        rc, out, err = self.run_register("add", str(self.path), env={"GH_REPO": "upstream/skills"})
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(len(self.fake.repos["o/r"]), 1)
+        self.assertIn("in o/r", out)
+
+    def test_missing_origin_refuses_registration_before_writes(self):
+        REAL_RUN(["git", "-C", str(self.product), "remote", "remove", "origin"], check=True)
+        rc, out, err = self.run_register("add", str(self.path))
+        self.assertEqual(rc, 2, out)
+        self.assertIn("origin", err)
+        self.assertFalse(self.fake.calls)
 
     def test_a_new_product_problem_is_opened_awaiting_the_owner(self):
         self.path.write_text(problem(angle="产品"))

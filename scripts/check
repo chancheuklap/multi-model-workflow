@@ -93,6 +93,7 @@ MAP = [
     (DISPATCH + "scripts/watchdog.py", ["liveness"]),
     (DISPATCH + "scripts/tool-guard.py", ["install"]),
     (DISPATCH + "scripts/ghlist.py", ["board", "relay"]),
+    (DISPATCH + "scripts/tracker.py", ["setup-mmw", "register-problem", "retro"]),
     (DISPATCH + "scripts/models.py", ["board", "relay"]),
     (DISPATCH + "roles.json", ["board", "relay"]),
     (VERIFY, ["verify-ticket"]),

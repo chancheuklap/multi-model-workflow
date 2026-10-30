@@ -53,7 +53,7 @@ class Fake:
         a = args[1:]
         out = ''
         if a[:2] == ['repo', 'view']:
-            out = json.dumps(dict(nameWithOwner=self.repo))
+            out = self.repo if '--jq' in a else json.dumps(dict(nameWithOwner=self.repo))
         elif a[0] == 'api':
             endpoint = a[1]
             if endpoint == 'graphql':
@@ -153,6 +153,7 @@ class Commands(unittest.TestCase):
         REAL_RUN(['git','init','-q',str(self.root)],check=True)
         REAL_RUN(['git','-C',str(self.root),'config','user.email','test@example.invalid'],check=True)
         REAL_RUN(['git','-C',str(self.root),'config','user.name','Test'],check=True)
+        REAL_RUN(['git','-C',str(self.root),'remote','add','origin','https://github.com/o/r.git'],check=True)
         (self.root/'README.md').write_text('Evidence\n')
         REAL_RUN(['git','-C',str(self.root),'add','README.md'],check=True)
         REAL_RUN(['git','-C',str(self.root),'commit','-qm','initial'],check=True)
@@ -459,6 +460,7 @@ class Commands(unittest.TestCase):
             with self.subTest(run=number):
                 fixture = json.loads((Path(__file__).parent/'fixtures'/f'run-{number}.json').read_text())
                 self.fake = Fake(fixture['rows'], repo=fixture['repo'])
+                REAL_RUN(['git','remote','set-url','origin',f'https://github.com/{fixture["repo"]}.git'],check=True)
                 material_dir = self.root/f'materials-{number}'
                 with patch.dict(os.environ, MMW_NOW=fixture['as_of']):
                     rc, out, err = self.run_process('gather', f'--{fixture["mode"]}', str(number),
@@ -543,7 +545,7 @@ class Commands(unittest.TestCase):
 
     def assessment_answer(self):
         self.start_run()
-        REAL_RUN(['git','remote','add','origin','https://github.com/mmw/toolbox.git'],check=True)
+        REAL_RUN(['git','remote','set-url','origin','https://github.com/mmw/toolbox.git'],check=True)
         marker = self.root/'home/installed-root'
         marker.parent.mkdir(parents=True)
         marker.write_text(str(self.root))
@@ -741,7 +743,7 @@ class Commands(unittest.TestCase):
 
     def test_apply_reads_loose_problem_entries(self):
         self.start_run()
-        REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
+        REAL_RUN(['git','remote','set-url','origin','https://github.com/o/r.git'],check=True)
         marker = self.root/'home/installed-root'
         marker.parent.mkdir(parents=True)
         marker.write_text(str(self.root))
@@ -872,7 +874,7 @@ class Commands(unittest.TestCase):
 
     def test_apply_receipt_lists_each_problem(self):
         self.start_run()
-        REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
+        REAL_RUN(['git','remote','set-url','origin','https://github.com/o/r.git'],check=True)
         marker = self.root/'home/installed-root'
         marker.parent.mkdir(parents=True)
         marker.write_text(str(self.root))
@@ -909,7 +911,7 @@ class Commands(unittest.TestCase):
 
     def test_apply_receipt_marks_an_appended_occurrence(self):
         self.start_run()
-        REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
+        REAL_RUN(['git','remote','set-url','origin','https://github.com/o/r.git'],check=True)
         marker = self.root/'home/installed-root'
         marker.parent.mkdir(parents=True)
         marker.write_text(str(self.root))
@@ -971,7 +973,7 @@ class Commands(unittest.TestCase):
 
     def test_a_cross_repository_proposal_stays_on_its_registration(self):
         self.start_run()
-        REAL_RUN(['git','remote','add','origin','https://github.com/mmw/toolbox.git'],check=True)
+        REAL_RUN(['git','remote','set-url','origin','https://github.com/mmw/toolbox.git'],check=True)
         marker = self.root/'home/installed-root'
         marker.parent.mkdir(parents=True)
         marker.write_text(str(self.root))
@@ -985,7 +987,7 @@ class Commands(unittest.TestCase):
 
     def test_new_problems_are_registered_from_the_answer(self):
         self.start_run()
-        REAL_RUN(['git','remote','add','origin','https://github.com/o/r.git'],check=True)
+        REAL_RUN(['git','remote','set-url','origin','https://github.com/o/r.git'],check=True)
         marker = self.root/'home/installed-root'
         marker.parent.mkdir(parents=True)
         marker.write_text(str(self.root))
