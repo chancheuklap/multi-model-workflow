@@ -4,7 +4,7 @@ The verdict comment [`SKILL.md` rule 6](../SKILL.md#rules-that-apply-to-every-br
 
 ## Problem
 
-*One paragraph. What we're trying to do, and what about the existing system or constraints makes the shape non-obvious. If [Phase A](../SKETCH.md#phase-a-ground-the-problem) surfaced constraints the design must honor (existing types to interop with, callers we can't break, invariants that crossed our seam), name them here so the reader sees the same constraints you saw.*
+*One paragraph. What we're trying to do, and what about the existing system or constraints makes the shape non-obvious. If [Phase A](SKETCH.md#phase-a-ground-the-problem) surfaced constraints the design must honor (existing types to interop with, callers we can't break, invariants that crossed our seam), name them here so the reader sees the same constraints you saw.*
 
 ## Usage (caller's view)
 

@@ -112,5 +112,5 @@ Apply **principle-boundary-discipline** when choosing dependency ownership and s
 
 ## Going deeper
 
-- **Sorting a module's dependencies into categories, or deepening a cluster given its dependencies**, see [DEEPENING.md](DEEPENING.md): dependency categories, seam discipline, and replace-don't-layer testing.
+- **Sorting a module's dependencies into categories, or deepening a cluster given its dependencies**, see [DEEPENING.md](references/DEEPENING.md): dependency categories, seam discipline, and replace-don't-layer testing.
 - **Exploring alternative interfaces**, see the **prototype** skill's sketch branch: it designs the interface several radically different ways in parallel, then compares them on depth, locality, and seam placement.

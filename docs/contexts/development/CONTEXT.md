@@ -18,6 +18,9 @@ The owner's authority to execute the recorded scope, distinct from selecting a p
 **owner acceptance**:
 The owner's judgment after running and inspecting the prepared product result. Automated verification supplies evidence for this judgment; it does not substitute for acceptance.
 
+**Design a UI**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/design-a-ui.md) supplying a confirmed UI design to a development preparation or returning it as a directly requested result. It does not take over Develop a change's planning or the execution flows.
+
 ### Discussion and investigation
 
 **Grill with docs**:

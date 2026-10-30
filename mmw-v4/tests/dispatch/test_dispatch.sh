@@ -812,6 +812,9 @@ cat > "$TMP/bin/gh" <<'FAKE'
 line=gh
 for a in "$@"; do line="$line :: $a"; done
 echo "$line" >> "$MMW_TEST_LOG"
+if [ -n "${FAKE_GH_EXPECT_REPO:-}" ] && [ "$1 $2" != 'repo view' ]; then
+  [ "${GH_REPO:-}" = "$FAKE_GH_EXPECT_REPO" ] || { echo 'wrong tracker repository' >&2; exit 1; }
+fi
 body_next=0
 for a in "$@"; do
   if [ "$body_next" = 1 ]; then
@@ -826,6 +829,8 @@ case "$*" in
   "repo view --json url -q .url")
     [ "${FAKE_GH_URL_FAIL:-0}" = 1 ] && exit 1
     printf '%s\n' "${FAKE_GH_URL:-https://github.com/o/r}" ;;
+  "repo view --json"*)
+    printf '%s\n' "${FAKE_GH_DEFAULT_REPO:-${FAKE_GH_REPO:-o/r}}" ;;
   "repo view"*)
     printf '%s\n' "${FAKE_GH_REPO:-o/r}" ;;
   *"--json body -q .body")
@@ -2905,6 +2910,7 @@ from pathlib import Path
 obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
 assert obj["settings"].get("thinkingOptionId") == "high", obj["settings"]
 assert obj["settings"].get("modeId") == "full-access", obj["settings"]
+assert "GH_REPO=o/r" in obj["environment"], obj["environment"]
 ' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "paseo run settings changed: $(cat "$TMP/out")"
   case "$(out_json initialPrompt)" in
     "Dispatched: worker, ticket #61, base "????????????????????????????????????????". Read the mmw-mode skill in full, then follow the mmw-mode skill's playbooks/work-a-ticket.md. It is your whole task: what came before it is done, and you start no agent it does not name.") ;;
@@ -9860,6 +9866,24 @@ PY
   [ "$(watch_main tickets:90)" = "paseo agt_main" ] \
     || fail "the watch should be open all the same: $(cat "$STATE_DIR/watches.json" 2>&1)"
   no_relay
+}
+
+scenario_trackerorigin() {
+  local code
+  mkdir -p "$TMP/repo/.github/workflows"
+  printf 'on: pull_request\n' > "$TMP/repo/.github/workflows/ci.yml"
+  printf 'PR body\n' > "$TMP/body.md"
+  code="$(run_dispatch env GH_REPO=upstream/skills FAKE_GH_DEFAULT_REPO=upstream/skills \
+    FAKE_GH_EXPECT_REPO=o/r FAKE_GH_PR_CHECKS='build pass' bash "$DISPATCH" pr \
+    --base main --head night --title 'Origin changes' --body-file "$TMP/body.md")"
+  [ "$code" = 0 ] || fail "origin PR expected 0, got $code: $(cat "$TMP/err")"
+  grep -qx 'https://github.com/o/r/pull/7' "$TMP/out" || fail 'PR did not use origin'
+  git -C "$TMP/repo" remote remove origin
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" pr --base main --head night --title Changes --body-file "$TMP/body.md")"
+  [ "$code" = 2 ] || fail 'missing origin must refuse the write'
+  grep -q 'origin' "$TMP/err" || fail 'missing origin refusal must explain the target problem'
+  hasnt 'gh :: pr :: create'
 }
 
 scenario_prgreen() {

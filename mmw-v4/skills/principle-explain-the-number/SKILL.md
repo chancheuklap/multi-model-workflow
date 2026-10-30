@@ -5,8 +5,9 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Explain the Number
 
-Before trusting, reporting or acting on a measured number, establish what work it measures and what conclusion the evidence supports.
+Before measuring, and before trusting, reporting or acting on the result, establish what work it measures and what conclusion the evidence supports.
 
+- Before the run, name the decision and the result that would change it, including the smallest meaningful difference and expected variation.
 - State the claim and its scope. Evidence about one component or scenario supports that case until broader runs establish more.
 - Rule out alternative explanations with evidence: errors, skipped or cached work, code that never ran, an unfair comparison, noise, or a piece too small to matter to the whole task.
 - Keep the evidence with the number, including the run count, spread and conditions. A single run supports only a single-run observation. Judge a claimed difference against variation across trials.

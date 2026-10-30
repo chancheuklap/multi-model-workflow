@@ -1,6 +1,6 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. The [prototype skill's sketch branch](../../skills/prototype/SKETCH.md) settles types and seams before implementation when the shape reaches beyond one ticket. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
+One attempt at a hard design locks in the first shape the model thought of. The [prototype skill's sketch branch](../../skills/prototype/references/SKETCH.md) settles types and seams before implementation when the shape reaches beyond one ticket. The [arena skill](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. The [prototype skill](../../skills/prototype/SKILL.md) answers an open question by running something. The [code-review skill](../../skills/code-review/SKILL.md) reads a finished change with eyes that did not write it.
 
 The two most common design mistakes are taking the agent's first design and debating a question that a prototype could settle. This page fixes both. The written plan comes after: a spec and its tickets, which you can check and accept before agents build from them.
 
@@ -91,7 +91,7 @@ Prototypes also stop the agent asking you questions it can answer itself. The `m
 
 ## Design in the running product
 
-For a new or changed UI, the [prototype skill's UI branch](../../skills/prototype/UI.md) builds a complete, interactive local prototype in the product's own code. Existing interfaces and login use the real local backend; an API fake supplies missing interfaces from the environment tool's test seed data. The prototype runs at the final routes with an environment variable, so you try the design in the product itself.
+For a new or changed UI design, [Design a UI](../../skills/mmw-mode/playbooks/design-a-ui.md) runs the owner interaction and calls the [prototype construction method](../../skills/prototype/references/UI.md) to build a complete, interactive local prototype in the product's own code. Existing interfaces and login use the real local backend; an API fake supplies missing interfaces from the environment tool's test seed data. The prototype runs at the final routes with an environment variable, so you try the design in the product itself.
 
 Before variants are generated, the session mounts their reserved `?variant=` keys with placeholders and adds the switcher. Candidates can then open their own variants. When the direction is open, try structurally different variants through the switcher and choose the winner or a combination. The session keeps the other variants. Once you choose a direction, you and the session iterate one question at a time, changing it in place and committing each round. You operate the page yourself. The session checks every button's API call and settles questions that affect the UI with you during iteration.
 
@@ -148,3 +148,9 @@ Most changes need none of this. A rough ladder:
 The `mmw-mode` skill already applies this ladder. Name these skills yourself when you want more or less scrutiny than its default.
 
 Next: [Build and clean the change](./05-build-and-clean.md).
+
+### Preparing checks
+
+After a design is confirmed and its interfaces are settled, to-tickets uses Prepare verification for independent tickets and spec batches. It reuses a product's existing verify skill, generates missing reusable capability with create-verification-skill, and calls prepare-ui-acceptance for the ticket's tests. A settled bug fix starts from its requirement and reproduction; unchanged behavior starts from the current product. Neither needs a new design prototype.
+
+Important rules that ordinary tests inadequately protect can use create-formal-verification-skill. Existing stale formal checks are reconciled by maintain-formal-verification-skill during preparation; normal implementation updates follow their generated project-local method. The existing Tests reviewer reads the model, corresponding code and sensitivity evidence. Whole-product UI maintenance remains an owner-requested maintain-verification-skill task.

@@ -56,7 +56,8 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Know what a small diff could break outside itself | `blast-radius` |
 | Use the shared words for module design: depth, seam, adapter | `codebase-design` |
 | Get several designs of one brief, merged into the best one | `arena` |
-| Answer a logic, UI, implementation or code-shape question by building code that answers it | `prototype` |
+| Settle a UI design through a runnable prototype and owner iteration | Design a UI playbook |
+| Construct UI candidates or answer a logic, implementation or code-shape question with code | `prototype` |
 | Examine the expert approach, your real goal, constraints and an outside check, with conclusions returned for your decision | `sharpen` |
 | Have a plan stress-tested one question at a time | `grilling` |
 | Settle the project's terms or record a decision | `domain-modeling` |
@@ -76,7 +77,10 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Drive and inspect a CLI or TUI to prove a change | `control-cli` |
 | Drive and inspect a browser, Electron or web UI to prove a change | `control-ui` |
 | Give agents a scripted way to drive the app and prove behavior | `create-verification-skill` |
-| Bring a verification skill and its feature map back in line with the app | `maintain-verification-skill` |
+| Find affected features or, on request, reconcile the full product feature map and checks | `maintain-verification-skill` |
+| Prepare one change's UI acceptance from its actual baseline | `prepare-ui-acceptance` |
+| Establish a formal check for an important rule in real code | `create-formal-verification-skill` |
+| Reconcile an existing formal check with code changes | `maintain-formal-verification-skill` |
 | Vet a performance number before reporting or acting on it | `benchmark-checklist` |
 | Write or edit a skill, a playbook or a reference to the set's standards | the Authoring or modifying a skill playbook |
 | Register a problem that cannot be fixed in the current work | `register-problem` |

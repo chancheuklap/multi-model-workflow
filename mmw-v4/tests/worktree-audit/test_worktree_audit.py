@@ -1,4 +1,6 @@
 import os
+import datetime
+import json
 import subprocess
 import tempfile
 import unittest
@@ -76,6 +78,54 @@ class WorktreeAudit(unittest.TestCase):
                 _, row = self.audit()
                 self.assertEqual(row[5], '#7/' + state.lower())
                 self.assertEqual(row[7], 'hold-open-pr')
+
+    def test_recent_transcripts_with_gnu_and_bsd_tools(self):
+        fakebin = Path(self.env['PATH'].split(os.pathsep)[0])
+        stat = fakebin / 'stat'
+        stat.write_text('''#!/usr/bin/env python3
+import os, sys
+flag, form, path = sys.argv[1:]
+expected = ('-c', '%Y') if os.environ['AUDIT_TOOL_STYLE'] == 'gnu' else ('-f', '%m')
+if (flag, form) != expected:
+    sys.exit(1)
+print(int(os.stat(path).st_mtime))
+''')
+        stat.chmod(0o755)
+        date = fakebin / 'date'
+        date.write_text('''#!/usr/bin/env python3
+import datetime, os, sys, time
+if sys.argv[1:] == ['+%s']:
+    print(int(time.time()))
+else:
+    flag, stamp, form = sys.argv[1:]
+    if os.environ['AUDIT_TOOL_STYLE'] == 'gnu':
+        if flag != '-d' or not stamp.startswith('@'):
+            sys.exit(1)
+        stamp = stamp[1:]
+    elif flag != '-r':
+        sys.exit(1)
+    print(datetime.datetime.fromtimestamp(int(stamp)).strftime(form.removeprefix('+')))
+''')
+        date.chmod(0o755)
+        home = Path(self.env['HOME'])
+        paths = {
+            'codex': home / '.codex/sessions/2026/10/30/chat.jsonl',
+            'claude': home / '.claude/projects' / str(self.worktree).replace('/', '-').replace('.', '-') / 'chat.jsonl',
+            'grok': home / '.grok/sessions' / str(self.worktree).replace('/', '%2F') / 'chat.jsonl',
+            'cursor': home / '.cursor/projects' / str(self.repo).lstrip('/').replace('/', '-') / 'agent-transcripts/chat.jsonl',
+        }
+        for style in ('gnu', 'bsd'):
+            self.env['AUDIT_TOOL_STYLE'] = style
+            for host, path in paths.items():
+                with self.subTest(style=style, host=host):
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(json.dumps({'cwd': str(self.worktree)}, separators=(',', ':')) + '\n')
+                    try:
+                        result, row = self.audit()
+                        self.assertEqual(row[6], datetime.date.today().isoformat(), result.stderr)
+                        self.assertEqual(row[7], 'verify-recent-chat', result.stderr)
+                    finally:
+                        path.unlink()
 
 
 if __name__ == '__main__':

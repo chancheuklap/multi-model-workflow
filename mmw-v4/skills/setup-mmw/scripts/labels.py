@@ -4,7 +4,7 @@
     python3 labels.py
     python3 labels.py --migrate
 
-Run from inside a clone; `gh` infers the repository. The set, with each colour and
+Run from inside a clone; origin selects the repository. The set, with each colour and
 description, is the one table in the `verify-ticket` skill's `scripts/verify-ticket.py`:
 the layer, queue, grade and wayfinder labels. This is the only place a label of that set is
 created; every script that puts one on asks first and refuses when the repository lacks it.
@@ -34,6 +34,8 @@ import sys
 from pathlib import Path
 
 VERIFY = Path(__file__).resolve().parents[2] / "verify-ticket" / "scripts" / "verify-ticket.py"
+sys.path.insert(0, str(VERIFY.parents[2] / "dispatch" / "scripts"))
+import tracker
 
 
 def verify_module():
@@ -54,7 +56,10 @@ def label_table() -> dict[str, tuple[str, str]]:
 
 
 def gh(args: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(["gh", *args], capture_output=True, text=True)
+    try:
+        return subprocess.run(["gh", *args], capture_output=True, text=True, env=tracker.environment())
+    except (OSError, tracker.RepositoryError) as exc:
+        return subprocess.CompletedProcess(["gh", *args], 127, "", str(exc))
 
 
 def reason(proc: subprocess.CompletedProcess) -> str:

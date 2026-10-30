@@ -452,7 +452,7 @@ ensure_board() {
     echo "dispatch: not inside a git repository, so there is no main worktree to register a task board for" >&2
     return 2
   fi
-  if ! port="$(python3 "$BOARD_SUPERVISOR" --ensure "$repository")"; then
+  if ! port="$(env -u GH_REPO python3 "$BOARD_SUPERVISOR" --ensure "$repository")"; then
     echo "dispatch: could not register and start the task board for $repository" >&2
     return 2
   fi
@@ -483,16 +483,9 @@ open_board() {
 # process serves every watch of the repository: it starts with the first and ends with the
 # last.
 
-# This repository as `gh` names it, owner/name: the relay keeps one state directory per
-# repository. Exit 2, with the reason on stderr, when the tracker cannot say.
+# The origin repository selected at command entry also names the relay's state directory.
 repo_slug() {
-  local slug
-  slug="$(gh_ repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null | tr -d '[:space:]')"
-  if [ -z "$slug" ]; then
-    echo "dispatch: the tracker could not say which repository this checkout is (gh repo view), so the relay's state for it cannot be found" >&2
-    return 2
-  fi
-  printf '%s\n' "$slug"
+  printf '%s\n' "$GH_REPO"
 }
 
 # The runner and session this process itself runs in, "runner<TAB>session", as that
@@ -1333,7 +1326,7 @@ archive_workspace() {
 start_session() {
   local host="$1" model="$2" effort="$3" cwd="$4" prompt="$5" title="$6"
   shift 6
-  local -a environment=()
+  local -a environment=(--env "GH_REPO=$GH_REPO")
   local value
   for value in "$@"; do
     environment+=(--env "$value")
@@ -4214,6 +4207,13 @@ TOOLS_ARGS=()
 for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
   TOOLS_ARGS+=(--tools "$dir")
 done
+
+case "${1:-}" in
+  pr | check | open | open-ticket | advance | integrate | integrated | land | start | send | report | brief | retract | wait | resume | status | findings | reverify | summary | finish | suspend | route | ack)
+    GH_REPO="$(python3 "$SKILL_ROOT/scripts/tracker.py")" || exit 2
+    export GH_REPO
+    ;;
+esac
 
 case "${1:-}" in
   pr)

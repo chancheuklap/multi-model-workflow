@@ -1,13 +1,13 @@
 # UI acceptance
 
-Prototype decisions, shared testing methods and the product-specific proof used for acceptance. A product verification skill owns its run recipe and feature map; its implementation and delivery remain with the calling workflow.
+UI design decisions, shared testing methods and product or formal checks used for acceptance. A product verification skill owns its run recipe and feature map; its implementation and delivery remain with the calling workflow.
 
 ## Language
 
 ### The design side
 
 **design freeze**:
-The point at which the owner approves the running winner prototype. Later design changes go through a `contract` child or a new prototype round.
+The point at which the owner approves the running winner prototype. Later design changes go through a `contract` child or a new prototype round. ADR [0066](../../adr/0066-ui-design-and-verification-have-distinct-owners.md) distinguishes this from repairs and behavior-preserving work that use a settled real-product baseline.
 
 **API fake**:
 A working, non-production implementation of the prototype's missing interfaces, in Martin Fowler's test-double sense. Existing interfaces use the real local backend, except referenced entities supplied by the fake to keep identifiers consistent; sample data comes from the environment tool's test seed data, and changes live in sessionStorage.
@@ -70,6 +70,12 @@ Product behavior that is actually broken, rather than a description or environme
 **`contract` child (UI acceptance)**:
 The ticket child reporting an incorrect frozen acceptance test or prototype baseline. It uses the ticket-run contract correction path rather than authorizing the worker to weaken the baseline.
 
+**prepare-ui-acceptance**:
+The [skill](../../../mmw-v4/skills/prepare-ui-acceptance/SKILL.md) preparing one change's fixed-step UI tests and feature registration from an approved new design, a reproduced repair requirement or current behavior to preserve. It uses existing product-running instructions and returns to its preparation caller.
+
+**Design a UI**:
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/design-a-ui.md) owning a UI design through the owner's trial, iteration and confirmation of a runnable winner. The prototype skill constructs the pages; implementation preparation and execution remain with their original callers.
+
 ### The prototype side
 
 **prototype artifact**:
@@ -101,7 +107,7 @@ The static HTML page an experiment generates at the end of each run, showing out
 The git-ignored `.scratch/<effort>/<issue>/evidence/<name>/` where an experiment writes its evidence page and media. The generator stays committed in the leaf directory, so this output can be reproduced after deletion once the approach is settled.
 
 **`prototype`**:
-The [skill](../../../mmw-v4/skills/prototype/SKILL.md) for answering a decision in code through its UI, LOGIC, EXP or SKETCH branch. The resulting prototype artifact is evidence for production work rather than shipping implementation.
+The [skill](../../../mmw-v4/skills/prototype/SKILL.md) for building or updating a bounded UI, LOGIC, EXP or SKETCH artifact that answers its caller's question. Design a UI owns the full UI design interaction. The resulting prototype artifact is evidence for production work rather than shipping implementation.
 
 **UI, LOGIC, EXP and SKETCH**:
 The prototype branch family for appearance and interaction, state and logic exploration, empirical implementation questions and unresolved cross-ticket code shape. Each branch supplies its own artifact and comparison method.
@@ -119,6 +125,23 @@ The [skill](../../../mmw-v4/skills/maintain-verification-skill/SKILL.md) for fin
 
 **Find affected features**:
 The maintain-verification-skill entry identifying the existing feature descriptions touched by planned work. Its result records which affected behaviors stay unchanged or change.
+
+### Formal verification
+
+**create-formal-verification-skill**:
+The [skill](../../../mmw-v4/skills/create-formal-verification-skill/SKILL.md) establishing a rerunnable check of an important agreed rule against real code and generating project-local instructions for later related edits. Its proof records the assumptions and checked scope rather than claiming the whole product is correct.
+
+**maintain-formal-verification-skill**:
+The [skill](../../../mmw-v4/skills/maintain-formal-verification-skill/SKILL.md) reconciling existing formal checks with code changes that skipped their normal update method. Its per-check result distinguishes current correspondence, an updated check, a product bug and a blocked check.
+
+**formal verification skill**:
+A project-local skill identifying the actual code and rule checked by a model checker, proof or code-level verifier, with its command, tool version, assumptions, bounds and last correspondence commit. Its name follows the code area; a verify-* prefix alone does not distinguish it from product-driving instructions.
+
+**sync commit**:
+The code commit at which a formal check was last confirmed to describe the covered code. Advancing it records a completed correspondence check, not merely a passing stale model.
+
+**Prepare verification**:
+The to-tickets [shared entry](../../../mmw-v4/skills/to-tickets/references/ticket-format.md#prepare-verification) supplying missing product-check capability, reconciling relevant stale formal checks and preparing this ticket's acceptance. It is used by independent, batch and specialist preparation, not a new execution phase.
 
 ### Testing methods
 

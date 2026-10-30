@@ -195,7 +195,17 @@ def load_mxfile(path: Path) -> str:
 # --------------------------------------------------------------------------
 
 BR_RE = re.compile(r"<br\s*/?>|</p\s*>|</div\s*>", re.IGNORECASE)
-TAG_RE = re.compile(r"<[^>]+>")
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+# Tags draw.io actually writes. `List<String>` and `a < b > c` are text, and a
+# catch-all `<[^>]+>` scan deletes them after XML decoding turns `&lt;` into `<`.
+_HTML_TAG = (
+    "a|b|blockquote|br|code|del|div|em|font|h[1-6]|hr|i|img|ins|li|mark|ol|p|pre|"
+    "s|small|span|strike|strong|sub|sup|table|tbody|td|th|thead|tr|u|ul|wbr"
+)
+TAG_RE = re.compile(
+    rf"</?(?:{_HTML_TAG})\b[^>]*>|</?[A-Za-z][\w-]*:[\w:-]*[^>]*>",
+    re.IGNORECASE,
+)
 
 
 def parse_style(style: str | None) -> dict[str, str]:
@@ -211,13 +221,16 @@ def parse_style(style: str | None) -> dict[str, str]:
     return out
 
 
-def clean_label(value: str | None) -> str:
-    """draw.io labels are often HTML fragments; flatten to plain text lines."""
+def clean_label(value: str | None, *, is_html: bool = False) -> str:
+    """Flatten HTML-enabled cells; preserve angle brackets in plain labels."""
     if not value:
         return ""
-    text = BR_RE.sub("\n", value)
-    text = TAG_RE.sub("", text)
-    text = html.unescape(text)
+    text = value
+    if is_html:
+        text = HTML_COMMENT_RE.sub("", text)
+        text = BR_RE.sub("\n", text)
+        text = TAG_RE.sub("", text)
+        text = html.unescape(text)
     text = text.replace("\xa0", " ")
     lines = [re.sub(r"[ \t]+", " ", ln).strip() for ln in text.split("\n")]
     return "\n".join(ln for ln in lines if ln).strip()
@@ -416,14 +429,37 @@ def parse_page(diagram: ET.Element, index: int) -> Page:
         raw[cid] = {"cell": cell, "attrs": attrs, "value": value}
         order.append(cid)
 
+    # draw.io hides a cell, a group or a whole layer with visible="0"; what the author hid is not
+    # part of the diagram, so drop it together with everything parented beneath it.
+    hidden: dict[str, bool] = {}
+
+    def is_hidden(cid: str) -> bool:
+        chain: list[str] = []
+        visited: set[str] = set()
+        current, result = cid, False
+        while current in raw and current not in visited:
+            if current in hidden:
+                result = hidden[current]
+                break
+            chain.append(current)
+            visited.add(current)
+            if raw[current]["cell"].get("visible") == "0":
+                result = True
+                break
+            current = raw[current]["cell"].get("parent") or ""
+        for seen in chain:
+            hidden[seen] = result
+        return result
+
     # Pass 2: vertices (absolute geometry resolved after the pass).
     edge_label_parts: dict[str, list[str]] = {}
+    relative_offsets: dict[str, tuple[float, float]] = {}
     for cid in order:
         entry = raw[cid]
         cell = entry["cell"]
         style = parse_style(cell.get("style"))
         parent = cell.get("parent")
-        if cell.get("edge") == "1":
+        if is_hidden(cid) or cell.get("edge") == "1":
             continue
         if cell.get("vertex") != "1":
             continue
@@ -434,15 +470,18 @@ def parse_page(diagram: ET.Element, index: int) -> Page:
         )
         if parent_is_edge or "edgeLabel" in style:
             if parent:
-                text = clean_label(entry["value"])
+                text = clean_label(entry["value"], is_html=style.get("html") == "1")
                 if text:
                     edge_label_parts.setdefault(parent, []).append(text)
             continue
 
         geom = cell.find("mxGeometry")
+        if geom is not None and geom.get("relative") == "1":
+            offset = geom.find("mxPoint[@as='offset']")
+            relative_offsets[cid] = (_num(offset, "x"), _num(offset, "y"))
         node = Node(
             id=cid,
-            label=clean_label(entry["value"]),
+            label=clean_label(entry["value"], is_html=style.get("html") == "1"),
             shape=classify_shape(style),
             parent=parent,
             x=_num(geom, "x"),
@@ -488,7 +527,12 @@ def parse_page(diagram: ET.Element, index: int) -> Page:
         px, py, pdepth = position
         while chain:
             current = chain.pop()
-            px, py, pdepth = current.x + px, current.y + py, pdepth + 1
+            dx, dy = current.x, current.y
+            parent = node_map.get(current.parent or "")
+            if parent is not None and current.id in relative_offsets:
+                ox, oy = relative_offsets[current.id]
+                dx, dy = dx * parent.w + ox, dy * parent.h + oy
+            px, py, pdepth = dx + px, dy + py, pdepth + 1
             if not math.isfinite(px) or not math.isfinite(py):
                 _fail(f"page {index}: geometry overflow")
             resolved_by_id[current.id] = (px, py, pdepth)
@@ -505,7 +549,7 @@ def parse_page(diagram: ET.Element, index: int) -> Page:
     for cid in order:
         entry = raw[cid]
         cell = entry["cell"]
-        if cell.get("edge") != "1":
+        if is_hidden(cid) or cell.get("edge") != "1":
             continue
         style = parse_style(cell.get("style"))
         geom = cell.find("mxGeometry")
@@ -514,12 +558,16 @@ def parse_page(diagram: ET.Element, index: int) -> Page:
             waypoints = len(
                 [p for p in geom.findall(".//mxPoint") if p.get("as") is None]
             )
-        label = clean_label(entry["value"])
+        label = clean_label(entry["value"], is_html=style.get("html") == "1")
         extra = edge_label_parts.get(cid, [])
         if extra:
             label = " / ".join([p for p in ([label] + extra) if p])
         source = cell.get("source")
         target = cell.get("target")
+        start_head = style.get("startArrow", "none") not in ("none", "0", "")
+        end_head = style.get("endArrow", "classic") not in ("none", "0", "")
+        if start_head and not end_head:
+            source, target = target, source
         page.edges.append(
             Edge(
                 id=cid,
@@ -527,11 +575,8 @@ def parse_page(diagram: ET.Element, index: int) -> Page:
                 target=target if target in node_map else None,
                 label=label,
                 dashed=style.get("dashed") == "1",
-                bidirectional=style.get("startArrow", "none")
-                not in ("none", "0", "")
-                and style.get("endArrow", "classic") not in ("none", "0"),
-                undirected=style.get("endArrow") in ("none", "0")
-                and style.get("startArrow", "none") in ("none", "0", ""),
+                bidirectional=start_head and end_head,
+                undirected=not start_head and not end_head,
                 style_name=style.get("shape", "")
                 or ("orthogonal" if style.get("edgeStyle") else ""),
                 waypoints=waypoints,
@@ -540,10 +585,17 @@ def parse_page(diagram: ET.Element, index: int) -> Page:
         )
 
     for edge in page.edges:
-        if edge.source and edge.source in node_map:
-            node_map[edge.source].out_degree += 1
-        if edge.target and edge.target in node_map:
-            node_map[edge.target].in_degree += 1
+        source, target = node_map.get(edge.source or ""), node_map.get(edge.target or "")
+        if edge.bidirectional or edge.undirected:
+            for endpoint in (source, target):
+                if endpoint is not None:
+                    endpoint.in_degree += 1
+                    endpoint.out_degree += 1
+        else:
+            if source is not None:
+                source.out_degree += 1
+            if target is not None:
+                target.in_degree += 1
 
     return page
 
@@ -577,6 +629,8 @@ def _has_cycle(nodes: list[Node], edges: list[Edge]) -> bool:
     for edge in edges:
         if edge.source and edge.target and edge.source in adjacency:
             adjacency[edge.source].append(edge.target)
+            if edge.bidirectional and edge.target in adjacency:
+                adjacency[edge.target].append(edge.source)
     WHITE, GREY, BLACK = 0, 1, 2
     color = {n.id: WHITE for n in nodes}
 
@@ -877,7 +931,7 @@ def select_pages(pages: list[Page], selector: str | None) -> list[Page]:
         return pages if len(pages) == 1 else pages[:1]
     if selector == "all":
         return pages
-    if selector.isdigit():
+    if selector.isdecimal():
         index = int(selector)
         match = [p for p in pages if p.index == index]
         if not match:
@@ -922,7 +976,10 @@ def main(argv: list[str] | None = None) -> int:
         else digest(path, pages, selected, args.max_rows)
     )
     if args.out:
-        Path(args.out).write_text(text, encoding="utf-8")
+        try:
+            Path(args.out).write_text(text, encoding="utf-8")
+        except OSError as error:
+            _fail(f"cannot write {args.out}: {error}")
         print(f"wrote {args.out} ({len(text)} bytes)")
     else:
         sys.stdout.write(text if text.endswith("\n") else text + "\n")

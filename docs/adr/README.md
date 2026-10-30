@@ -73,7 +73,7 @@
 | [0052](0052-keep-local-branches-and-close-the-spec.md) | finish 后本机留着夜分支和任务分支，指向合并时的提交；finish 成功时关闭 spec | 2026-10-15 | 0025 | 无 |
 | [0053](0053-upstream-copies-at-repository-root.md) | 上游的只读副本放在仓库根目录的 `upstream/<name>/`，每份一个 `git subtree --squash` 目录，与上游逐字节相同 | 2026-10-16 | 0032 | 无 |
 | [0054](0054-authoring-is-the-skill-set-entry.md) | Authoring or modifying a skill 是改进技能集的唯一入口，writing-for-agents 只在被点名时运行 | 2026-10-18 | 0040、0046 | 0059、0064 |
-| [0055](0055-ui-design-is-a-local-prototype.md) | 界面设计在产品代码里做本地原型，Claude Design 退役 | 2026-10-18 | 0029、0030、0044、0048 | 0056 |
+| [0055](0055-ui-design-is-a-local-prototype.md) | 界面设计在产品代码里做本地原型，Claude Design 退役 | 2026-10-18 | 0029、0030、0044、0048 | 0056、0066 |
 | [0056](0056-records-live-on-the-ticket.md) | 研究答案、非界面原型的结论和工作记录只记在票的评论里 | 2026-10-19 | 0038、0055 | 0058 |
 | [0057](0057-every-effort-has-its-own-branch.md) | 每个 effort 从开始起就有自己的 effort branch，原型和所有 brief 会话写出的文件都提交在它上面，只经主人接受的 PR 进 project branch | 2026-10-19 | 无 | 无 |
 | [0058](0058-research-answers-live-in-the-effort-directory.md) | Effort 内的研究答案原样保存在每个问题的目录，由派出会话提交，票的 resolution comment 指向答案文件 | 2026-10-25 | 0056 | 无 |
@@ -85,6 +85,8 @@
 | [0064](0064-preparation-composes-reusable-methods.md) | 普通代码改动共用 Develop a change 准备流程，专业方法作为 skill 按需组合 | 2026-10-30 | 0054 | 无 |
 
 | [0065](0065-test-methods-have-one-skill-owner.md) | 通用测试判断与方法归 test-audit，TDD 与两个测试原则合并退役 | 2026-10-30 | 无 | 无 |
+
+| [0066](0066-ui-design-and-verification-have-distinct-owners.md) | Design a UI 推进界面设计，prototype 构建原型，四个 verification skills 按需提供检查方法 | 2026-10-30 | 0055 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

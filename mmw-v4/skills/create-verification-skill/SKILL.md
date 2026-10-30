@@ -23,6 +23,48 @@ and reviewer startup, and its body promotes model-driven actions, remote
 control, and exploratory testing. MMW keeps a read-only copy of it at
 `upstream/e2e/` for comparison; no host loads that copy.
 
+## Work in hand
+
+| Requested result | Read |
+| --- | --- |
+| Supply missing local tools for the current prototype | **Prepare environment** below; return to the caller without generating e2e assets |
+| Establish or extend the reusable product verification skill | **Generate and prove** below, sections 1 through 5 |
+| Record feature descriptions from an approved UI result | **3. Seed the feature map** only; return without running full generation |
+
+## Prepare environment
+
+Read the caller's product, checkout, chosen stack and existing environment instructions. Reuse working local tools. Supply only the missing launch, test-account and isolation tools in the product's development scripts and operating skill. Existing interfaces and login use the real local backend. A new project prepares the standalone prototype launch with its chosen stack; it has no product launch to prove yet.
+
+The product environment tool belongs in its development scripts directory, with
+an operating skill for manual use, debugging, diagnosis, and verification. It
+provides one command to start the whole local product and one to create test
+accounts. Launch calls it rather than shipping environment scripts as Helpers.
+
+It provides both isolation layers: each product run owns port 0 and a fresh data
+directory, and each checkout owns its back-end stack and database. `workers`
+limits tests inside one run, not two tickets' runs. For a separate back-end
+repository, overlay that repository's Compose files. Allocate ports dynamically
+and record them in the checkout. Label containers with the checkout path,
+collect stacks of deleted checkouts on the next start, and limit the number of
+stacks running at once. Reuse this checkout's reachable stack and start it only
+when unreachable. Use the stack's existing idempotent lifecycle command so
+overlapping calls converge on one stack. If the stack runs checkout code,
+readiness must establish that its code is current, not just that a port answers.
+
+If ports or data directories are fixed, or the stack cannot be separated by
+checkout, register the prerequisite with the **register-problem** skill. This
+product gets no UI ticket until that prerequisite lands.
+Record the prerequisite in Hand over.
+
+Run that launch and retain the readiness evidence. Return the exact operating instructions, checkout and seed data to the calling prototype step. Do not enter Generate and prove or require a prototype that the caller has not built yet. Report a missing credential, unsupported surface or product decision with what the caller needs next.
+
+Done when the caller can run its local product or standalone prototype with the returned instructions, or has the specific unmet prerequisite.
+
+
+## Generate and prove
+
+Use the existing product or settled standalone prototype and the caller's scope, branch and authority. Reuse the caller's environment and matching proof. When runtime tools are missing, use **Prepare environment**, then resume section 1. Follow sections 1 through 5; missing prototype code returns to the design caller instead of being treated as a completed proof.
+
 ## 1. Interview the repo, not the user
 
 Answer these from the codebase and ask the user only what you cannot
@@ -37,8 +79,7 @@ observe.
 | Isolate | Can each run have its own port and data directory, and each checkout its own back-end stack? | Both layers are required in Launch, as below. If either cannot hold, register the prerequisite before this product gets UI tickets |
 | Name | The package name or the repo name; if `verify-<x>` exists, use x | `<product>` in `verify-<product>`, lowercase, no scope. |
 
-For a new project without code, use `references/tests-from-prototype.md`; the
-product launch is proved by the first night's smoke ticket. For an existing
+For a new project without code, use the **prepare-ui-acceptance** skill's **New projects without code** section; the product launch is proved by the first implementation smoke ticket. For an existing
 product:
 
 If the checkout does not build or start as-is, fix that first or report it
@@ -99,8 +140,7 @@ relative symlink `.claude/skills/verify-<product>` to
 `../../.agents/skills/verify-<product>`. Every section says what the interview
 found, no placeholders.
 
-When writing e2e tests, use the **test-audit** skill and
-`references/tests-from-prototype.md` for the prototype-to-product handoff. Read `references/example/verify-notes.SKILL.md` for a complete generated
+For a missing mapped UI test, use the **prepare-ui-acceptance** skill with the actual current behavior or the settled design. For an API without a UI, write the fixed HTTP test with the **test-audit** skill and the e2e writing guide. Reuse the caller's matching test and proof. Read `references/example/verify-notes.SKILL.md` for a complete generated
 skill, alongside the config, test, and feature file in that directory.
 
 Read every entry in `references/known-issues.md` during generation. Copy each
@@ -117,27 +157,6 @@ place the entry names.
 | Cleanup | State that the e2e runner stops the app it started; name any remaining teardown commands, disposable state (test accounts, scaffolding), and evidence paths |
 | Rules | Do not connect to production servers, including SSH just to read files. Do not change main-branch code. Use test accounts, test licenses, local test servers and databases, and PC test machines wherever needed. Name credentials here, never passwords. External paid APIs are tested features too; call them |
 | Helpers | Any script the skill ships is executable and its invocation is in the skill body. A helper the reader has to reverse-engineer is not a helper. Most projects need none; the e2e CLI is the helper |
-
-The product environment tool belongs in its development scripts directory, with
-an operating skill for manual use, debugging, diagnosis, and verification. It
-provides one command to start the whole local product and one to create test
-accounts. Launch calls it rather than shipping environment scripts as Helpers.
-
-It provides both isolation layers: each product run owns port 0 and a fresh data
-directory, and each checkout owns its back-end stack and database. `workers`
-limits tests inside one run, not two tickets' runs. For a separate back-end
-repository, overlay that repository's Compose files. Allocate ports dynamically
-and record them in the checkout. Label containers with the checkout path,
-collect stacks of deleted checkouts on the next start, and limit the number of
-stacks running at once. Reuse this checkout's reachable stack and start it only
-when unreachable. Use the stack's existing idempotent lifecycle command so
-overlapping calls converge on one stack. If the stack runs checkout code,
-readiness must establish that its code is current, not just that a port answers.
-
-If ports or data directories are fixed, or the stack cannot be separated by
-checkout, register the prerequisite with the **register-problem** skill. This
-product gets no UI ticket until that prerequisite lands.
-Record the prerequisite in Hand over.
 
 For desktop Electron, the product target uses e2e's browser provider with
 `scope: 'attempt'`. Start a fresh Electron for each test with debugging port 0
@@ -213,8 +232,7 @@ sentences. The owner confirms only the prototype.
 
 When those sources disagree, decisions govern rules, the glossary governs names,
 and the prototype governs appearance and interaction. Update a prototype that
-lags behind decisions or names. A missing decision that changes the UI goes
-through the `prototype` skill's `UI.md` iteration rules, and its answer updates
+lags behind decisions or names. A missing decision that changes the UI goes through Design a UI (`mmw-mode/playbooks/design-a-ui.md`), and its answer updates
 the prototype. For existing behavior without a new prototype, describe the
 current product. Until the feature lands, the project branch's feature map
 contains only what the product currently does.
@@ -245,7 +263,7 @@ Apply **principle-clean-up-owned-resources** throughout the proof run. Run the g
 1. Install the browser, then Doctor: the `npx e2e list` call the skill names,
    then the smoke test; both include the product's config and exit `0`.
    For a new project without code, run list and smoke against `design`;
-   record the first night's smoke ticket as the pending proof of the product
+   record the first implementation smoke ticket as the pending proof of the product
    launch.
 2. Drive one mapped feature through its test file. One is enough; the map
    exists so later runs cover the rest. A missing test: write it now from
@@ -286,9 +304,8 @@ For an unsupported surface, report what you observed and that nothing was writte
 Tell the user what landed. The skill path, the features mapped and which
 have tests, what the proof run showed, and the evidence paths. Feature files
 and e2e tests are written in the day by the ticket-writing steps and read-only
-at night. Run a whole-product maintain-verification-skill pass only when the owner requests it; an affected-feature lookup returns its list without maintenance. Keep verification assets read-only during a night. Rerun this skill when the app grows a feature the map lacks; section 1
-says how an existing map is treated. Name any isolation prerequisite, the first
-night's smoke ticket proving a new project's product launch and reachable home
+at night. Run a whole-product maintain-verification-skill pass only when the owner requests it; an affected-feature lookup returns its list without maintenance. Keep verification assets read-only during a night. For a new feature, use **prepare-ui-acceptance** to update its description and tests. Run Generate and prove only for missing or changed reusable runtime capability; section 1 says how an existing map is treated. Name any isolation prerequisite, the first
+implementation smoke ticket proving a new project's product launch and reachable home
 page, and the setup steps still unverified on the real target.
 
 ## Rules

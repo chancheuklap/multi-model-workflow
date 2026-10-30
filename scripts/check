@@ -93,6 +93,7 @@ MAP = [
     (DISPATCH + "scripts/watchdog.py", ["liveness"]),
     (DISPATCH + "scripts/tool-guard.py", ["install"]),
     (DISPATCH + "scripts/ghlist.py", ["board", "relay"]),
+    (DISPATCH + "scripts/tracker.py", ["setup-mmw", "register-problem", "retro"]),
     (DISPATCH + "scripts/models.py", ["board", "relay"]),
     (DISPATCH + "roles.json", ["board", "relay"]),
     (VERIFY, ["verify-ticket"]),
@@ -119,7 +120,7 @@ MAP = [
 # Test roots: every directory directly under each must be a suite above or listed here.
 TEST_ROOTS = ["mmw-v4/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
-NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "mmw-v4/docs/retired-")
+NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
     "efforts/code-landing/prototypes/fixture/tests": "a prototype's fixture repository, test data rather than a suite",
     "tests": "the e2e tests under tests/e2e/<product>/ run only in the --all e2e-<product> steps, not by changed paths",

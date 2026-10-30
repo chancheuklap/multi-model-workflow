@@ -58,28 +58,28 @@ class WiringTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout)
 
     def test_an_intent_home_naming_a_missing_step(self):
-        path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
+        path = self.skills / "writing-for-agents/references/DESIGN-INTENTS.md"
         self.edit(path, "**Authoring or modifying a skill**'s **Prove it, once**",
                   "**Authoring or modifying a skill**'s **A step that does not exist**")
         line = next(n for n, text in enumerate(path.read_text().splitlines(), 1)
                     if "A step that does not exist" in text)
         result = self.run_check()
         self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn(f"writing-for-agents/DESIGN-INTENTS.md:{line}:", result.stdout)
+        self.assertIn(f"writing-for-agents/references/DESIGN-INTENTS.md:{line}:", result.stdout)
         self.assertIn("A step that does not exist", result.stdout)
 
     def test_an_upstream_row_naming_a_missing_intent(self):
-        path = self.skills / "writing-for-agents/UPSTREAM.md"
+        path = self.skills / "writing-for-agents/references/UPSTREAM.md"
         path.write_text("| Id | Kind | Intent | Source | MMW |\n"
                         "| --- | --- | --- | --- | --- |\n"
                         "| M1 | written | Align | source | 1, kept (999 examples); 999, adapted (missing) |\n")
         result = self.run_check()
         self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn("writing-for-agents/UPSTREAM.md:3:", result.stdout)
+        self.assertIn("writing-for-agents/references/UPSTREAM.md:3:", result.stdout)
         self.assertIn("999", result.stdout)
 
     def test_intent_homes_require_existing_playbooks_skills_and_files(self):
-        path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
+        path = self.skills / "writing-for-agents/references/DESIGN-INTENTS.md"
         original = path.read_text()
         for old, new, finding in (("**Develop a change**", "**Missing playbook**",
                                   "Home names playbook **Missing playbook**"),
@@ -94,21 +94,21 @@ class WiringTest(unittest.TestCase):
                 self.assertFinds(finding)
 
     def test_intent_homes_refuse_when_no_home_lines_match(self):
-        path = self.skills / "writing-for-agents/DESIGN-INTENTS.md"
+        path = self.skills / "writing-for-agents/references/DESIGN-INTENTS.md"
         path.write_text(path.read_text().replace("Home:", "Destination:"))
         result = self.run_check()
         self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn("writing-for-agents/DESIGN-INTENTS.md:1: no Home: lines", result.stdout)
+        self.assertIn("writing-for-agents/references/DESIGN-INTENTS.md:1: no Home: lines", result.stdout)
 
     def test_upstream_destinations_refuse_when_no_rows_match(self):
-        path = self.skills / "writing-for-agents/UPSTREAM.md"
+        path = self.skills / "writing-for-agents/references/UPSTREAM.md"
         path.write_text(re.sub(r"^\| ([MP]\d+) \|", r"| `\1` |", path.read_text(), flags=re.M))
         result = self.run_check()
         self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn("writing-for-agents/UPSTREAM.md:1: no upstream intent rows", result.stdout)
+        self.assertIn("writing-for-agents/references/UPSTREAM.md:1: no upstream intent rows", result.stdout)
 
     def test_upstream_entries_use_only_leading_tokens_and_registered_departures(self):
-        path = self.skills / "writing-for-agents/UPSTREAM.md"
+        path = self.skills / "writing-for-agents/references/UPSTREAM.md"
         path.write_text("| Id | Kind | Intent | Source | MMW |\n"
                         "| --- | --- | --- | --- | --- |\n"
                         "| M1 | written | Align | source | 1, kept (999 examples); 2, adapted (999 cases) |\n"
@@ -118,7 +118,7 @@ class WiringTest(unittest.TestCase):
         self.edit(path, "| P12 |", "| M2 |")
         result = self.run_check()
         self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertIn("writing-for-agents/UPSTREAM.md:4:", result.stdout)
+        self.assertIn("writing-for-agents/references/UPSTREAM.md:4:", result.stdout)
         self.assertIn("M2", result.stdout)
 
     def test_a_route_line_whose_file_is_gone(self):

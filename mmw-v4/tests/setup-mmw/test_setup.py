@@ -51,6 +51,8 @@ class Fake:
         cmd = list(cmd)
         self.calls.append(cmd)
         if cmd[0] == "gh":
+            if cmd[1:3] != ["repo", "view"] or "--jq" not in cmd:
+                assert kwargs["env"]["GH_REPO"] == "o/r", "tracker operation targeted another repository"
             return self.gh(cmd)
         if cmd[0] == "git":
             return self.git(cmd)
@@ -61,6 +63,8 @@ class Fake:
     def gh(self, cmd):
         args = cmd[1:]
         if args[:2] == ["repo", "view"]:
+            if "--jq" in args:
+                return done(cmd, out="o/r\n" if args[2] == "https://github.com/o/r.git" else "upstream/skills\n")
             return done(cmd, 0, json.dumps({"nameWithOwner": "o/r", "hasIssuesEnabled": self.issues,
                                             "defaultBranchRef": {"name": "main"}}))
         if args[:2] == ["label", "list"]:
@@ -114,6 +118,8 @@ class Fake:
         raise AssertionError(f"unexpected gh {cmd}")
 
     def git(self, cmd):
+        if cmd[1:] == ["remote", "get-url", "origin"]:
+            return done(cmd, out="https://github.com/o/r.git\n")
         if cmd[1:3] == ["rev-parse", "--show-toplevel"]:
             return done(cmd, 0, f"{self.root}\n")
         if cmd[1:3] == ["check-ignore", "-q"]:
@@ -428,6 +434,14 @@ class TestCheck(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_origin_is_checked_when_gh_default_targets_upstream(self):
+        self.set_up_repository()
+        fake = Fake(root=self.root)
+        with mock.patch.dict("os.environ", {"GH_REPO": "upstream/skills"}):
+            code, out = self.run_check(fake)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^ok +repository +tracker: o/r on GitHub")
 
     def set_up_repository(self):
         (self.root / "scripts").mkdir()

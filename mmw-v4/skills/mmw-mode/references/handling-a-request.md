@@ -14,7 +14,7 @@ Triggers for the task as a whole:
 - Authoring or modifying a skill, with text one ticket can carry → this session writes the text; scripts go to a worker, as `playbooks/authoring-a-skill.md` says.
 - A sentence or two the owner corrects after a ticket passed → this session makes the correction without reopening the ticket or sending another worker, as One ticket step 4 (`playbooks/one-ticket.md`) says.
 - Owner-named deletion of skill text that needs no replacement → this session does it without a ticket, following **Pure deletion** in `playbooks/authoring-a-skill.md`.
-- Generating or maintaining verification assets outside an effort → the **create-verification-skill** or **maintain-verification-skill** skill commits directly on the project branch without a ticket.
+- Independently requested verification generation or maintenance → the corresponding create/maintain verification skill returns on the current project branch without an implementation ticket. Within an effort or worker, the caller's branch and write scope apply.
 
 ## Autonomy
 
@@ -53,6 +53,7 @@ Outside a night, ordinary code preparation produces one ticket and follows the o
 
 Asked what is waiting, read whole lists with `gh issue list --state open --label needs-triage --limit 1000 --json number,title,labels` and `gh issue list --state open --label mmw:problem --limit 1000 --json number,title,labels`, showing planned problems without a queue label separately. `needs-triage` awaits the owner's selection; an open problem without it is still being prepared. Use `--paginate` and `?per_page=100` for API lists.
 
+- **Design a UI.** Settle a UI design through a complete runnable prototype, the owner's trial and iterative feedback, ending with the confirmed winner and feature description. Distinct from candidate-only construction and from implementation preparation. `playbooks/design-a-ui.md`.
 - **Develop a change.** Preparing a new or changed behavior, bug fix, performance improvement or structural change that still needs evidence, decisions or an executable plan. Reuse completed work; small changes need no spec. Distinct from a ready ticket or batch, which goes directly to its executor. `playbooks/develop-a-change.md`.
 - **Decision map.** Charting a destination whose decisions exceed one session, or resolving the next decision on an existing map. The **wayfinder** skill, retaining its fresh-session boundary.
 - **Spec.** Recording settled decisions as a spec, or revising a published spec and its affected tickets, when that document is the requested result. The **to-spec** skill; return the spec without automatically decomposing or executing it.
@@ -69,7 +70,11 @@ Asked what is waiting, read whole lists with `gh issue list --state open --label
 - **Opening a PR.** Opening or settling a delivery PR for completed work, or promoting an owner-approved project branch. `playbooks/opening-a-pr.md`.
 - **Runtime forensics.** Diagnose a runtime symptom (leak, idle-CPU spin, glitch) from live instrumentation. The deliverable is a diagnosis, not a fix. `playbooks/runtime-forensics.md`.
 - **Trace forensics.** Diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot) handed to you after the fact. The deliverable is a diagnosis, not a fix. `playbooks/trace-forensics.md`.
-- **Prototype.** A prototype kept in the repo to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). The **prototype** skill.
+- **Prototype.** A bounded model, experiment, code sketch or requested UI candidates kept in the repo to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). The **prototype** skill. A whole UI design uses Design a UI; requested candidates return without design approval or implementation.
+- **Create product checks.** Establish or extend the project's reusable launch, drive, evidence and cleanup instructions: the **create-verification-skill** skill's **Generate and prove** entry. Return that result without starting implementation.
+- **Maintain product checks.** An owner-requested whole-product check of its feature map, tests and verification tools: the **maintain-verification-skill** skill's **Maintain the product** entry. This is distinct from its read-only **Find affected features** lookup during preparation.
+- **Create formal checks.** Establish a rerunnable check for a named important rule that ordinary tests do not adequately protect: the **create-formal-verification-skill** skill. Keep the requested area and agreed rule; return evidence and the generated project-local skill.
+- **Maintain formal checks.** Reconcile named existing formal checks with changed code: the **maintain-formal-verification-skill** skill. Return its per-check outcomes; product repairs require their own authorized implementation.
 - **Authoring or modifying a skill.** Creating or changing a skill, principle, playbook, reference or its tooling, wherever maintained. Larger changes carry their standards into Develop a change. `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
 - **Set up a repository.** A repository MMW has not worked in yet, or a check-up of one ("set up MMW here", "is this repo ready for a night"): its labels, ignored directories and `scripts/check`. The **setup-mmw** skill.

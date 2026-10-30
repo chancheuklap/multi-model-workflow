@@ -10,12 +10,12 @@ For a ticket's **Read first** or a task that names this skill, open the file and
 | Question | File |
 | --- | --- |
 | How do I write a document an agent consumes? | `SKILL.md` below |
-| Which checks govern this passage, and how do I edit it? | [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Checks` and `## Editing` |
-| Which component and file hold this passage, and what shape does it take? | [`SKILL-SET-COMPONENTS.md`](SKILL-SET-COMPONENTS.md) |
-| Which intent must this change keep? | [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md) |
-| How do I prove the text on a real task? | [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md) |
-| How do frontmatter, invocation and the mode as router work? | [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) |
-| How do I carry a newer upstream version or compare its intents with MMW's? | [`UPSTREAM.md`](UPSTREAM.md) |
+| Which checks govern this passage, and how do I edit it? | [`references/SKILL-SET-RULES.md`](references/SKILL-SET-RULES.md) `## Checks` and `## Editing` |
+| Which component and file hold this passage, and what shape does it take? | [`references/SKILL-SET-COMPONENTS.md`](references/SKILL-SET-COMPONENTS.md) |
+| Which intent must this change keep? | [`references/DESIGN-INTENTS.md`](references/DESIGN-INTENTS.md) |
+| How do I prove the text on a real task? | [`references/WALKING-A-SKILL-SET.md`](references/WALKING-A-SKILL-SET.md) |
+| How do frontmatter, invocation and the mode as router work? | [`references/SKILL-MECHANICS.md`](references/SKILL-MECHANICS.md) |
+| How do I carry a newer upstream version or compare its intents with MMW's? | [`references/UPSTREAM.md`](references/UPSTREAM.md) |
 
 ## Context pointers
 
@@ -66,7 +66,7 @@ The strongest criteria are both checkable and exhaustive.
 Splitting one document into two spends one of the two loads, so split only when the cut earns it:
 
 - **By sequence**: split a run of steps where the post-completion steps tempt the agent to rush the one in front of it. Keeping them out of view drives more legwork on the current task. Beware the reverse: merging sequences exposes each step's later steps to what follows, inviting premature completion.
-- **By invocation**, skill-specific: see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md).
+- **By invocation**, skill-specific: see [`references/SKILL-MECHANICS.md`](references/SKILL-MECHANICS.md).
 
 ## Leading words
 

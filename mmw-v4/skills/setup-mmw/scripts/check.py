@@ -30,13 +30,17 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parents[1] / "dispatch" / "scripts"))
+import tracker
+
 IGNORED = (".worktrees/", ".scratch/")
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
     try:
-        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    except OSError as exc:
+        env = tracker.environment() if cmd[0] == "gh" else None
+        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
+    except (OSError, tracker.RepositoryError) as exc:
         return subprocess.CompletedProcess(cmd, 127, "", str(exc))
 
 
