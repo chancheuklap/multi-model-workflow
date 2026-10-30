@@ -41,6 +41,6 @@ When this repository consumes its own landing pipeline, the MMW runtime for the 
 - A credential written under any skill's `scripts/` is loaded by every repository on the machine.
 - Retire unused v4 skills and playbooks by moving them to `mmw-v4/docs/retired-skills/` or `mmw-v4/docs/retired-playbooks/`. Never delete them.
 - `.worktrees/mmw-installed` is a hand-made full checkout, not the pipeline's. Never prune it.
-- Edit the user-level prompt in `mmw-v4/prompt/shared.md`. `~/.codex/AGENTS.md` is generated.
+- Edit the user-level prompt in `mmw-v4/prompt/shared.md`, never through a host's user-level entry file.
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full. The task board has `mmw-v4/board/AGENTS.md`.

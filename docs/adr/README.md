@@ -25,7 +25,7 @@
 | [0004](0004-design-system-trust-comes-from-lint.md) | 设计系统文件可不可信，由校验结果定，不由来源定 | 2026-08-21 | 0002 | 无（见表下注：pull report，sign-off） |
 | [0005](0005-docs-layer-adopted-by-v2.md) | docs 文档层过继到 v2：tracker 配置落地，索引与编号脱离冻结 CLI | 2026-08-25 | 无 | 无 |
 | [0006](0006-skills-install-to-neutral-dir.md) | 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份 | 2026-08-26 | 0003 | 0015、0049 |
-| [0007](0007-prompt-source-lives-in-repo.md) | 用户级提示词的源放在仓库里，host 目录只放软链或生成物 | 2026-09-05 | 无 | 0049 |
+| [0007](0007-prompt-source-lives-in-repo.md) | 用户级提示词的源放在仓库里，host 目录只放软链或生成物 | 2026-09-05 | 无 | 0049、0063 |
 | [0008](0008-silence-is-never-a-pass.md) | 流水线里每一道闸口，拒绝要点名事实、给唯一出路，且不许靠什么都不做通过 | 2026-09-06 | 无 | 无 |
 | [0009](0009-night-orchestration-on-paseo.md) | 夜间编排从 Herdr 迁到 Paseo：脚本只做工具，判断归 main agent | 2026-09-06 | 无 | 0010、0018、0019 |
 | [0010](0010-agents-are-woken-not-polled.md) | agent 之间靠事件互相叫醒，谁都不许轮询另一个 agent | 2026-09-06 | 0009 | 0013、0017、0020 |
@@ -81,6 +81,7 @@
 | [0060](0060-no-testing-md.md) | MMW v4 不再有 `TESTING.md`：没有技能写它、读它或检查它，一个仓库的测试怎么跑只看测试文件和 `scripts/check` | 2026-10-28 | 0038、0039 | 无 |
 | [0061](0061-product-e2e-suite-is-a-step-of-check-all.md) | 产品的 e2e 全套是 `scripts/check --all` 的一步 `e2e-<product>`，默认档从不选它 | 2026-10-29 | 0048 | 无 |
 | [0062](0062-turn-guard-only-arms.md) | 回合守卫只拉起看门进程、不拦回合；看门进程对一条没 ack 的叫醒只提醒一次，不再报读不到 tracker | 2026-10-29 | 0021 | 无 |
+| [0063](0063-shared-prompt-through-two-symlinks.md) | 两个 CLI 的用户级提示词都软链接到已安装版本的 shared.md | 2026-10-30 | 0007 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

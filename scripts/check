@@ -73,7 +73,6 @@ STEPS = {
     "verify-ticket": ("bash mmw-v4/tests/verify-ticket/run.sh", ["bash", "python3", "uv", "node"]),
     "writing-for-agents": ("bash mmw-v4/tests/writing-for-agents/run.sh", ["bash", "python3", "uv", "git"]),
     "worktree-audit": ("bash mmw-v4/tests/worktree-audit/run.sh", ["bash", "python3", "uv", "git", "jq"]),
-    "prompt": ("bash mmw-v4/prompt/tests/run.sh", ["bash", "python3"]),
 }
 
 # Each suite's inputs: a changed path starting with the prefix selects the suites, and a suite
@@ -113,12 +112,12 @@ MAP = [
     ("mmw-v4/board/", ["board"]),
     ("mmw-v4/install.sh", ["install"]),
     ("mmw-v3/install.sh", ["install"]),
-    ("mmw-v4/prompt/", ["prompt", "install"]),
+    ("mmw-v4/prompt/", ["install"]),
     *[(f"mmw-v4/tests/{name}/", [name]) for name in STEPS if (ROOT / "mmw-v4/tests" / name).is_dir()],
 ]
 
 # Test roots: every directory directly under each must be a suite above or listed here.
-TEST_ROOTS = ["mmw-v4/tests", "mmw-v4/prompt/tests"]
+TEST_ROOTS = ["mmw-v4/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "mmw-v4/docs/retired-")
 EXCLUDED = {
@@ -172,7 +171,7 @@ def self_check() -> list[str]:
                                  "add its suite there, or list it in EXCLUDED with the reason")
     roots = set()
     for path in git("ls-files").stdout.splitlines():
-        if path.startswith(NOT_OURS) or path.startswith('"'):
+        if path.startswith(NOT_OURS) or path.startswith('"') or not (ROOT / path).is_file():
             continue
         parts = path.split("/")
         for i, part in enumerate(parts[:-1]):

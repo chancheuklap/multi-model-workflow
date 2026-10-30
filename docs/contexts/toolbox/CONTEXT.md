@@ -149,7 +149,7 @@ The line both install modes print once every host hook is in place.
 The prefixes of `install.sh --check`'s lines: `缺` for an item missing, or different from what `install.sh` would write; `残留` for a **stale link**; `没查` for a check that could read nothing (no `nmem` on the machine), which does not fail the check.
 
 **`MMW_INSTALL_HOME`**:
-A test-only variable, a **test seam**, that moves every path `install.sh` and `render.py` read or write under it and skips `launchctl` and `paseo reload`. Distinct from `MMW_HOME`, where `models.json`, the leases and the state directories live.
+A test-only variable, a **test seam**, that supplies `install.sh`'s home directory. Host paths default beneath it; `CODEX_HOME` can override Codex's directory. When it differs from `HOME`, install skips `launchctl` and `paseo reload`. Tests that set both to a temporary home use fake commands. Distinct from `MMW_HOME`, where `models.json`, the leases and the state directories live.
 
 **`--tools`**:
 The repeatable override flag of `verify-ticket.py`, `dispatch.sh`, `pull_design.py` and `extract_skeleton.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own path (that skill's `scripts/`, beside this one under `mmw-v3/skills/`). The test suites pass it to point at a copy. `verify-ticket.py` puts the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names an oracle bare.

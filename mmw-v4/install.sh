@@ -2,8 +2,7 @@
 # 把 MMW v4 装到本机，让每个 host 都读得到。下面几样，全部指向运行本脚本的这个 checkout 的 mmw-v4/：
 #
 #   技能              skills/ 下每个带 SKILL.md 的目录，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   提示词            prompt/shared.md：Claude Code 读软链，Codex 读 prompt/render.py 写出的 AGENTS.md
-#   launchd 任务      com.mmw.prompt-sync 盯着 shared.md，改了就重写 Codex 的 AGENTS.md
+#   提示词            prompt/shared.md：Claude Code 与 Codex 的用户级入口都用软链读取
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
 #                     从前写进去的 grok、cursor 两条 provider。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
@@ -132,8 +131,8 @@ fi
 # mmw-v3/install.sh 只认指向 mmw-v3、mmw-v2 的软链；指向 mmw-v4 的同名技能软链与 CLAUDE.md 它当作
 # 别人的东西，报冲突、跳过。models.json 里 v4 的 candidate 行 v3 的 models.py 不认，v3 的
 # explainer、synthesizer 行 v4 装的时候摘掉了。所以先把这几样还原成 v3 认得的样子，再交给同一
-# checkout 的 mmw-v3/install.sh 装。hook 的命令两版写的是同一条路径，v3 原地接管；Codex 的
-# AGENTS.md 带同一种生成标记，v3 的 render.py 直接重写。
+# checkout 的 mmw-v3/install.sh 装。hook 的命令两版写的是同一条路径，v3 原地接管。
+# 两家的 v4 提示词软链都先摘掉，防止 v3 的生成器沿 Codex 软链写进 v4 的源。
 
 if [ "$mode" = back ]; then
   V3_ROOT="$(dirname "$ROOT")/mmw-v3"
@@ -147,12 +146,13 @@ if [ "$mode" = back ]; then
       esac
     done
   done
-  claude_md="$HOME_DIR/.claude/CLAUDE.md"
-  if [ -L "$claude_md" ]; then
-    case "$(readlink "$claude_md")" in
-      */mmw-v4/prompt/*) rm "$claude_md"; echo "摘掉  $claude_md" ;;
-    esac
-  fi
+  for prompt in "$HOME_DIR/.claude/CLAUDE.md" "${CODEX_HOME:-$HOME_DIR/.codex}/AGENTS.md"; do
+    if [ -L "$prompt" ]; then
+      case "$(readlink "$prompt")" in
+        */mmw-v4/prompt/*) rm "$prompt"; echo "摘掉  $prompt" ;;
+      esac
+    fi
+  done
   # models.json：v3 不认的行摘掉；v3 要、这里没有的行，从 v4 安装时留的 .bak- 副本拿回来。
   # 副本里也没有的，交给 v3 的 install.sh 补默认值。
   MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" MMW_V3_ROLES="$V3_ROOT/skills/dispatch/roles.json" \
@@ -693,16 +693,13 @@ fi
 
 # ---------------- 提示词 ----------------
 
-# 源在 prompt/shared.md，两家共用。Claude Code 认软链，所以 ~/.claude/CLAUDE.md 直接指 shared.md，
-# 改源即生效。Codex 没有引入语法，只能由 render.py 把它写成 AGENTS.md；生成物带
-# 哈希，被人直接改过 render.py 就拒绝覆盖。launchd 任务监视 shared.md，改动即重写；Claude Code 那条
-# 软链不需要它。MMW_INSTALL_HOME 之下（测试）不装 launchd。
+# 两家的用户级入口都指向本次安装的 shared.md。安装前先停旧生成任务，避免它沿新软链写进源。
 
 PROMPT_SRC="$ROOT/prompt"
 
 # 一条软链该指哪里就指哪里；原位已有别的文件就是冲突。
 link_prompt() {
-  local link="$1" want="$2"
+  local link="$1" want="$2" generated="${3:-false}"
   if [ -L "$link" ]; then
     if [ "$(readlink "$link")" = "$want" ]; then return 0; fi
     case "$(readlink "$link")" in
@@ -713,12 +710,59 @@ link_prompt() {
     esac
   fi
   if [ -e "$link" ]; then
+    if [ "$generated" = true ] && [ -f "$link" ] && python3 - "$link" <<'PY'
+import hashlib
+import re
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_bytes()
+header = re.match(rb"^<!-- mmw prompt-sync: .* body-sha256=([0-9a-f]{64}) -->\n", text)
+sys.exit(0 if header and hashlib.sha256(text[header.end():]).hexdigest().encode() == header[1] else 1)
+PY
+    then
+      if [ "$mode" = check ]; then
+        echo "缺    $link 还是生成文件，跑一次 install.sh 换成软链" >&2
+        return 1
+      fi
+      ln -sfn "$want" "$link"
+      return 0
+    fi
     echo "冲突  $link 已存在且不是软链；把它的内容搬进 $want 再删掉它" >&2
     return 1
   fi
   if [ "$mode" = check ]; then echo "缺    $link" >&2; return 1; fi
   mkdir -p "$(dirname "$link")"
   ln -sfn "$want" "$link"
+}
+
+remove_prompt_sync() {
+  local plist="$HOME_DIR/Library/LaunchAgents/com.mmw.prompt-sync.plist" job="gui/$(id -u)/com.mmw.prompt-sync" loaded=false
+  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] && launchctl print "$job" >/dev/null 2>&1; then
+    loaded=true
+  fi
+  if [ "$mode" = check ]; then
+    if [ -e "$plist" ] || [ -L "$plist" ] || [ "$loaded" = true ]; then
+      echo "残留  com.mmw.prompt-sync（${plist}），跑一次 install.sh 摘掉" >&2
+      return 1
+    fi
+    return 0
+  fi
+  if [ "$loaded" = true ]; then
+    launchctl bootout "$job" >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+      launchctl print "$job" >/dev/null 2>&1 || break
+      sleep 0.5
+    done
+    if launchctl print "$job" >/dev/null 2>&1; then
+      echo "冲突  com.mmw.prompt-sync 仍在运行，提示词没迁移；先用 launchctl bootout $job 停掉它，再跑 install.sh" >&2
+      return 1
+    fi
+  fi
+  if [ -e "$plist" ] || [ -L "$plist" ]; then
+    rm "$plist"
+    echo "摘掉  $plist"
+  fi
 }
 
 launch_agent() {
@@ -759,50 +803,23 @@ launch_agent() {
 
 if [ -f "$PROMPT_SRC/shared.md" ]; then
   prompt_rc=0
-  if [ -d "$HOME_DIR/.claude" ]; then
-    link_prompt "$HOME_DIR/.claude/CLAUDE.md" "$PROMPT_SRC/shared.md" || prompt_rc=1
-  fi
-
-  if [ "$mode" = check ]; then
-    MMW_INSTALL_HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" --check || prompt_rc=1
-  else
-    MMW_INSTALL_HOME="$HOME_DIR" python3 "$PROMPT_SRC/render.py" || {
-      prompt_rc=1
-      echo "注意  首次装或生成物被改过时，跑：python3 $PROMPT_SRC/render.py --adopt" >&2
-    }
-  fi
-
-  # launchd：只在真家目录装。WatchPaths 里的路径是本 checkout 的源文件，换 checkout 跑一次本脚本就重写。
-  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
-    PLIST="$HOME/Library/LaunchAgents/com.mmw.prompt-sync.plist"
-    want_plist="$(cat <<XML
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.mmw.prompt-sync</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$(command -v python3)</string>
-    <string>$PROMPT_SRC/render.py</string>
-  </array>
-  <key>WatchPaths</key>
-  <array>
-    <string>$PROMPT_SRC/shared.md</string>
-  </array>
-  <key>StandardOutPath</key><string>$HOME/Library/Logs/mmw-prompt-sync.log</string>
-  <key>StandardErrorPath</key><string>$HOME/Library/Logs/mmw-prompt-sync.log</string>
-</dict>
-</plist>
-XML
-)"
-    launch_agent com.mmw.prompt-sync "$PLIST" "$want_plist" \
-      "已装  launchd 任务 com.mmw.prompt-sync 盯着 $PROMPT_SRC/shared.md" || prompt_rc=1
+  remove_prompt_sync || prompt_rc=1
+  if [ "$mode" = check ] || [ "$prompt_rc" -eq 0 ]; then
+    if [ -d "$HOME_DIR/.claude" ]; then
+      link_prompt "$HOME_DIR/.claude/CLAUDE.md" "$PROMPT_SRC/shared.md" || prompt_rc=1
+    fi
+    codex_home="${CODEX_HOME:-$HOME_DIR/.codex}"
+    if [ -d "$codex_home" ]; then
+      link_prompt "$codex_home/AGENTS.md" "$PROMPT_SRC/shared.md" true || prompt_rc=1
+    fi
   fi
   if [ "$mode" != check ] && [ "$prompt_rc" -eq 0 ]; then
-    echo "已装  提示词：~/.claude/CLAUDE.md 一条软链，Codex 一份生成的 AGENTS.md"
+    echo "已装  提示词：Claude Code 与 Codex 的用户级入口都用软链读取 $PROMPT_SRC/shared.md"
   fi
   [ "$prompt_rc" -eq 0 ] || rc=1
+else
+  echo "缺    $PROMPT_SRC/shared.md" >&2
+  rc=1
 fi
 
 # ---------------- task board LaunchAgent ----------------
