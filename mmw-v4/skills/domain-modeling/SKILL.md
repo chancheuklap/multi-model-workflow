@@ -29,7 +29,7 @@ When the user states how something works, check whether the code agrees. If you 
 
 When a term is resolved, update `CONTEXT.md` right there. Don't batch these up: capture them as they happen. Use the layout and format in [GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md).
 
-Commit each write on the branch this session works on: the ticket's `fix-<n>` when the owner opened the session, the map's effort branch on a map. A term resolved before that branch exists is committed once Chart the map step 3 cuts it. Commit in that branch's worktree (`.worktrees/fix-<n>` or `.worktrees/map-<n>`) after pulling it, and push. An uncommitted entry is lost with the worktree, and an entry no session can read is a name nobody uses.
+Commit each write on the branch this session works on: the ticket's `fix-<n>` when the owner opened the session, the map's effort branch on a map. A term resolved before that branch exists is committed once the **wayfinder** skill's chart entry creates it. Commit in that branch's worktree (`.worktrees/fix-<n>` or `.worktrees/map-<n>`) after pulling it, and push. An uncommitted entry is lost with the worktree, and an entry no session can read is a name nobody uses.
 
 `CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
 

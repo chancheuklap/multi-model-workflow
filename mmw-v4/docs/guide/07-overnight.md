@@ -7,7 +7,7 @@ The playbook is [Run a night](../../skills/mmw-mode/playbooks/run-a-night.md). A
 
 ## What a night needs before it starts
 
-A night runs only on work that is already decided. The planning playbooks produce it:
+A night runs only on work that is already decided. Develop a change calls the preparation methods for the missing results:
 
 1. Grill with docs, or a wayfinder map (Chart the map, then Work through the map), settles the decisions.
 2. To spec records them in a spec, published as a GitHub issue.
@@ -56,7 +56,7 @@ The orchestrator finds its place from the record, not from memory: the first row
 4. **Each wake.** The orchestrator runs `dispatch.sh status <spec>`, handles every row the table matches, then runs `advance` once. It can tell a live worker to continue with `dispatch.sh resume <n> "<text>"`, release a worker whose session is gone with `dispatch.sh retract <n>`, fix a `fault` in this repository's environment, or settle a `contract` child by the authority order the playbook gives: decision tickets and ADRs, then the spec, then the winner prototype, then domain documents, then the ticket body. A correction no written authority settles goes back to you. The worker hands back the ticket already being worked, and it moves to `needs-triage` along with the not-yet-started tickets that depend on the correction.
 5. **The closing pass.** When no ticket is left to start and no agent is live, `dispatch.sh findings <spec>` lists the open findings the reviewers filed. Each one leaves through `dispatch.sh route`: `fixed`, `stale invalid`, `stale fixed-elsewhere`, or `became-ticket`. The default is to fix it on the night's branch; it becomes a ticket only when another open ticket owns its files, when it shows a gap in the criteria, or when the fix couples two or more files by design.
 6. **`reverify` and `summary`.** `dispatch.sh reverify <spec>` runs every landed ticket's criteria again on the base branch and reopens any that went red. `dispatch.sh summary <spec>` posts the `NIGHT SUMMARY` on the spec and closes the watch.
-7. **The pull request.** The orchestrator opens one pull request from the night's branch to the project branch, titled `Night #<spec>: <the spec's title>`. Its first line opens your visual page, with decisions and recommendations, before and after, affected product parts, evidence, unfinished work, retrospective counts and links. The body is a short record with ticket verdicts and evidence links, check summaries and the verbatim `NIGHT SUMMARY`.
+7. **The pull request.** The orchestrator completes required product observations and, for a skill-set behavior change, its Prove it, once before owner acceptance. It then opens one pull request from the night's branch to the project branch, titled `Night #<spec>: <the spec's title>`. Its first line opens your visual page, with decisions and recommendations, before and after, affected product parts, evidence, unfinished work, retrospective counts and links. The body is a short record with ticket verdicts and evidence links, check summaries and the verbatim `NIGHT SUMMARY`.
 8. **`finish`.** Only after you accept the pull request, `dispatch.sh finish <spec>` merges it into the project branch and closes the spec issue as completed. It retains the local night branch and removes its origin copy when cleanup permits it. It creates or fast-forwards the local project branch to the fetched origin tip, including in a clean project worktree. Uncommitted changes or local commits outside origin leave the project branch unchanged, with the reason on stderr. A worktree on the night branch and its branch stay unchanged; stderr gives a removal command for a linked worktree or a detach command for the main worktree, for after the session ends. If cleanup or closing the spec fails, `finish` exits 2 and leaves the spec open. Run `finish` again to complete cleanup and close the spec without merging again. It refuses while a check is red or still running, or while a review thread is open; the orchestrator settles each and runs `finish` again.
 
 A ticket handed back to triage with its reason, or one waiting on your decision, is a valid outcome of the night. A criterion loosened to make a ticket close is a defect, because it lands broken behaviour under a green mark.
@@ -67,12 +67,12 @@ When the fault is in the pipeline rather than in a ticket, workers left running 
 
 ## One ticket: a day ticket
 
-Every change outside a night is one ticket. The playbook of its kind opens the ticket and its `fix-<n>`, writes the plan into it and hands it back to you; on your go, [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) runs. There is no spec and no batch, so no `advance` ever collects the ticket.
+An independent change outside a spec is one ticket. Develop a change prepares it on its effort branch, preserving existing materials and execution authority; on your go, [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) runs. There is no spec and no batch, so no `advance` ever collects the ticket.
 
 1. The ticket gets `ready-for-agent` and a worker label, and passes `verify-ticket.py --lint`.
 2. `dispatch.sh send worker <n>`, run from `fix-<n>`, starts the worker and makes this session the ticket's orchestrator.
 3. Each wake is read, acknowledged and acted on, and the session tells you what happened, because you are there.
-4. Once the ticket passes, the session checks it the way the playbook that wrote it says, such as the original reproduction for a bug.
+4. Once the ticket passes, the session reads the prepared method and product verification sources, such as the original reproduction for a bug.
 5. It merges the latest project branch into `fix-<n>` and runs `dispatch.sh land <n>`. A ticket that cannot merge goes to `needs-triage` and is sent again from step 1 when you pick it.
 6. It runs [Opening a PR](../../skills/mmw-mode/playbooks/opening-a-pr.md): one pull request from `fix-<n>` to the project branch, merged with `gh pr merge` when you say yes.
 

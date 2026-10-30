@@ -7,7 +7,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 A prototype is **code that answers a question**. It lives in the repo and is iterated as the answer sharpens; the real implementation is written with it as reference. The question decides the shape.
 
-Scope the decision the prototype exists to make first: which layout, which interaction, which density, or for an empirical fork which behavior, timing, or approach. No decision means no prototype: route to the Feature playbook of the **mmw-mode** skill.
+Scope the decision the prototype exists to make first: which layout, which interaction, which density, or for an empirical fork which behavior, timing, or approach. No decision means no prototype: return the settled baseline and any missing implementation request to the caller.
 
 When a decision has no established precedent or its structural direction remains open, compare concrete alternatives that differ in structure before committing. The branch sets the candidate count and comparison method. Continue a settled direction as its baseline requires; a single factual experiment does not reopen the design.
 

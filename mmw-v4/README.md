@@ -1,6 +1,6 @@
 # MMW v4
 
-MMW v4 is a toolbox of agent skills for working on a product with coding agents. It runs on two hosts: Claude Code and Codex. Every session in every host reads one skill first, [`mmw-mode`](./skills/mmw-mode/SKILL.md). That skill matches the task to a playbook, names the skills each step runs, and holds the principles behind each decision. Every change to the product ends in one pull request that the owner can read without reading code.
+MMW v4 is a toolbox of agent skills for working on a product with coding agents. It runs on two hosts: Claude Code and Codex. Every session in every host reads one skill first, [`mmw-mode`](./skills/mmw-mode/SKILL.md). That skill selects the component that returns the requested result, names the skills each step runs, and holds the principles behind each decision. Every change to the product ends in one pull request that the owner can read without reading code.
 
 The layout started from pstack, a public Cursor plugin. The skills, the playbooks and the pipeline that sends sessions to tickets are MMW's own.
 
@@ -37,17 +37,17 @@ A skill is a link, not a copy, so an edit to a `SKILL.md` reaches every host at 
 Each path ends in one pull request to the project branch, opened by the [Opening a PR](./skills/mmw-mode/playbooks/opening-a-pr.md) playbook. The owner reads the page the pull request's first line names, and the owner's yes merges it.
 
 1. **A night.** A spec's published tickets run unattended. The [Run a night](./skills/mmw-mode/playbooks/run-a-night.md) playbook sends a worker to each ticket, lands each ticket that passes, and opens one pull request for the owner to read in the morning. After the owner accepts it, `dispatch.sh finish` merges it. `finish` refuses while a check is red or still running, or a review thread is open.
-2. **One ticket.** Every other change, code, scripts and skill text alike. The playbook of its kind ([Bug fix](./skills/mmw-mode/playbooks/bug-fix.md), [Perf issue](./skills/mmw-mode/playbooks/perf-issue.md), [Hillclimb](./skills/mmw-mode/playbooks/hillclimb.md), [Feature](./skills/mmw-mode/playbooks/feature.md), [Refactoring](./skills/mmw-mode/playbooks/refactoring.md), [Authoring or modifying a skill](./skills/mmw-mode/playbooks/authoring-a-skill.md)) opens a ticket and its `fix-<n>` branch, writes the plan into the ticket, and hands it back to the owner. On the owner's go, the [One ticket](./skills/mmw-mode/playbooks/one-ticket.md) playbook sends a worker with `dispatch.sh send`, checks the result the way that playbook says, lands it, and opens the pull request.
+2. **One ticket.** A prepared change outside a spec. [Develop a change](./skills/mmw-mode/playbooks/develop-a-change.md) fills only missing evidence, decisions and planning, using specialist skills when needed. Small changes use an independent ticket without a spec; coordinated work uses a spec batch and the night route. On existing execution Go, [One ticket](./skills/mmw-mode/playbooks/one-ticket.md) sends the worker, checks the result, lands it and opens the PR. Skill-set changes retain [Authoring or modifying a skill](./skills/mmw-mode/playbooks/authoring-a-skill.md), including its text-author exception and required behavior proof before acceptance.
 
 Several kinds of work commit directly without a ticket. The execution constraints are in [`mmw-mode`'s `references/handling-a-request.md` `## Non-negotiables`](./skills/mmw-mode/references/handling-a-request.md#non-negotiables). The [`exe-release`](./skills/exe-release/SKILL.md) skill packages the current branch as it stands, and a fix its build needs is committed there by the session driving the release and listed in its report.
 
 The full list of playbooks is the `## Playbooks` section of [`mmw-mode`'s `references/handling-a-request.md`](./skills/mmw-mode/references/handling-a-request.md). [`docs/retired-playbooks/README.md`](./docs/retired-playbooks/README.md) lists the retired playbooks and what replaced each one.
 
-## Why there are planning playbooks
+## Preparation and reusable methods
 
-pstack has none. Its author holds that the best spec is code. MMW departs from that, because its owner does not read code. A spec and its tickets are what the owner can check and accept before agents build from them unattended.
+The owner does not read code. Written specs and tickets let them judge scope before agents build it. Develop a change calls [Grill with docs](./skills/mmw-mode/playbooks/grill-with-docs.md), [wayfinder](./skills/wayfinder/SKILL.md), [to-spec](./skills/to-spec/SKILL.md) and [to-tickets](./skills/to-tickets/SKILL.md) only for missing results. A request for a diagnosis, discussion, spec or report can return that result directly. A ready ticket or batch skips preparation. Methods also serve independent callers, workers and executor verification; they return to the calling step.
 
-[Grill with docs](./skills/mmw-mode/playbooks/grill-with-docs.md), or a wayfinder map ([Chart the map](./skills/mmw-mode/playbooks/chart-the-map.md), then [Work through the map](./skills/mmw-mode/playbooks/work-through-the-map.md)), settles the decisions. [To spec](./skills/mmw-mode/playbooks/to-spec.md) records them and decides nothing new. [To tickets](./skills/mmw-mode/playbooks/to-tickets.md) cuts them into tickets with acceptance criteria. Design questions are still settled in code first. The [`prototype`](./skills/prototype/SKILL.md) skill answers questions about logic, UI, implementation, and code shape. Its [sketch branch](./skills/prototype/SKETCH.md) settles a shape that reaches beyond one ticket.
+The [prototype](./skills/prototype/SKILL.md) skill settles runnable design questions. The owner runs the delivered product before accepting its checked version; scoped corrections stay in the same PR.
 
 ## Skills
 
@@ -55,8 +55,16 @@ pstack has none. Its author holds that the best spec is code. MMW departs from t
 
 | Skill | Use it to |
 | --- | --- |
-| [`mmw-mode`](./skills/mmw-mode/SKILL.md) | Pick the playbook for a task, run the skills its steps name, and apply the principles. Every session reads it first. |
+| [`mmw-mode`](./skills/mmw-mode/SKILL.md) | Choose the component for the requested result, run the skills its steps name, and apply the principles. Every session reads it first. |
 | [`mmw-help`](./skills/mmw-help/SKILL.md) | Ask which skill, playbook or principle fits. It answers and hands you a prompt to send, without starting the work. |
+| [`bug-fix`](./skills/bug-fix/SKILL.md) | Diagnose a defect from a failing loop, prepare its repair, or prove the original scenario. |
+| [`perf-issue`](./skills/perf-issue/SKILL.md) | Trace a measured slowdown, prepare a focused improvement, or compare the same workload. |
+| [`hillclimb`](./skills/hillclimb/SKILL.md) | Prepare and run scientific attempts against a frozen metric and stop predicate. |
+| [`refactoring`](./skills/refactoring/SKILL.md) | Pin behavior, prepare and implement a structural change, then prove equivalence. |
+| [`to-spec`](./skills/to-spec/SKILL.md) | Create or revise a spec from settled decisions and return it to the caller. |
+| [`to-tickets`](./skills/to-tickets/SKILL.md) | Open a preparation record, write an independent ticket, or decompose an approved spec batch. |
+| [`wayfinder`](./skills/wayfinder/SKILL.md) | Chart or resolve a decision map, retaining its fresh-session boundary. |
+| [`improve-codebase-architecture`](./skills/improve-codebase-architecture/SKILL.md) | Return architecture candidates or durable candidate feedback. |
 | [`how`](./skills/how/SKILL.md) | Get a walkthrough of how a subsystem works, at the level of a senior engineer onboarding onto it. |
 | [`why`](./skills/why/SKILL.md) | Find out why code is shaped the way it is, from its history and other evidence, with stated confidence. |
 | [`teach`](./skills/teach/SKILL.md) | Understand a change or subsystem. It runs `how` and `why` and builds one plain explanation, diagram by diagram. |

@@ -41,7 +41,7 @@ turn what we decided into a spec.
 cut spec #212 into tickets.
 ```
 
-Grill with docs settles the decisions in one session. To spec records them as a GitHub issue, with no new interview. To tickets cuts the spec into tickets with acceptance criteria and blocking edges and shows you the breakdown before it publishes. For an idea too large for one session, start with Chart the map instead:
+Grill with docs settles the decisions in one session. The to-spec skill records them as a GitHub issue, with no new interview. The to-tickets batch entry cuts the spec into tickets with acceptance criteria and blocking edges and shows you the breakdown before it publishes. For an idea too large for one session, use the wayfinder skill's chart entry:
 
 ```text
 we want offline mode for the mobile app, and i don't know yet what that takes. chart it as a map.
@@ -67,7 +67,7 @@ i accept the night's pull request for #212. finish it.
 the export writes duplicate rows when a retry lands mid-run. repro first, then fix and verify.
 ```
 
-The Bug fix playbook reproduces the bug on the same surface a user meets it, finds the cause with runtime evidence, writes one ticket whose first criterion is a regression test that fails today, and sends a worker to it. It then runs the original reproduction again and delivers one pull request.
+Develop a change uses the bug-fix skill to reproduce the bug on the same surface a user meets it, finds the cause with runtime evidence, writes one ticket whose first criterion is a regression test that fails today, and sends a worker to it. It then runs the original reproduction again and delivers one pull request.
 
 ```text
 repro this with /verify-<product>. if it repros on the project branch, fix it and show me screenshots or the e2e `trace.md` as proof.

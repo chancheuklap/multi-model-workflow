@@ -39,9 +39,9 @@ For a frontend and backend in separate repositories, keep the prototype in the f
 
 Check for both the product's environment tools and its `verify-<product>` skill here, once for the workflow. The environment tools belong in the product repository's development scripts, with an operating skill. They start the whole local product with a backend and database per checkout and create test accounts. The verification skill's Launch calls those tools rather than carrying its own environment scripts.
 
-If either is missing, ask once in plain language: "This product has no tools for an agent to start it locally, open it, operate it, and check it. May I build them alongside the prototype?" When the owner has already explicitly requested work that includes them, build them without asking again. Use the **create-verification-skill** skill alongside the prototype to create what is missing.
+For a supported surface, use the **create-verification-skill** skill alongside this authorized prototype to supply missing environment and verification tools, then return here. Keep the original effort branch and authority. A prerequisite requiring credentials or a product decision returns that specific need to the caller; an unsupported surface is reported before generation.
 
-Work on the effort's branch and worktree from the project branch. On the map route, this is the night's branch, reused across the effort's specs. On the Feature route, use `fix-<n>`. Commit the environment tools, verification skill, prototype, feature files, and tests there, to enter the project branch with the effort's accepted PR.
+Work on the effort's branch and worktree from the project branch. On the map route, this is the night's branch, reused across the effort's specs. Outside a map, keep the caller's effort branch; an independent ticket uses `fix-<n>`. Commit the environment tools, verification skill, prototype, feature files, and tests there, to enter the project branch with the effort's accepted PR.
 
 Done when the effort checkout is ready and, for an existing product, its local environment and verification tools are available.
 
@@ -91,20 +91,20 @@ Once the direction is settled, work one to one with the owner. Ask one question 
 
 Go through every API fake call and list where each button connects. Identify what the prototype cannot answer behind that interface: data and storage, interface fields and errors, business rules, permissions and security, failure and recovery, external systems, scale and performance, account or key preparation, and Electron native behavior. Settle these through the relevant grilling, domain-modeling, research, LOGIC, or EXP work, not from the UI alone.
 
-Settle questions that change the UI during iteration and update the prototype with the answers. On the map route, open decision tickets under the map. On the Feature route, record the owner's answers on the existing ticket, then make each an item under **What to build** when writing the ticket. Record owner decisions in those tickets, not a separate design-decision log. Questions that do not affect the UI can wait until after design freeze.
+Settle questions that change the UI during iteration and update the prototype with the answers. On the map route, open decision tickets under the map. Outside a map, record the owner's answers on the existing ticket, then make each an item under **What to build** when writing the ticket. Record owner decisions in those tickets, not a separate design-decision log. Questions that do not affect the UI can wait until after design freeze.
 
 Done when the owner has chosen the direction, the winner reflects the iteration's answers, and every button's connection and UI-affecting decision is accounted for.
 
 ### 6. Capture the answer at design freeze
 
 1. Merge the latest project-branch code so the prototype runs on the current product.
-2. Read every closed decision and compare its visible rules with the prototype. On the map route, read the map's closed child tickets. On the Feature route, read the owner's answers on the ticket and its cited specification sections. List what is displayed or marked, who sees each button, and what errors say. Find each rule in the prototype and add missing ones. Give states that actions cannot create, such as concurrent-save conflicts, a state URL. Leave invisible storage and computation rules for the spec.
+2. Read every closed decision and compare its visible rules with the prototype. On the map route, read the map's closed child tickets. Outside a map, read the owner's answers on the ticket and its cited specification sections. List what is displayed or marked, who sees each button, and what errors say. Find each rule in the prototype and add missing ones. Give states that actions cannot create, such as concurrent-save conflicts, a state URL. Leave invisible storage and computation rules for the spec.
 3. Write the feature file's account of what the product can do with the **create-verification-skill** skill's `## 3. Seed the feature map`. Every sentence has a source in the winner, closed decisions, or glossary `CONTEXT.md`, and describes behavior the prototype demonstrates. Use the product UI's language, retaining the format's English headings.
 4. When the sources disagree, decisions govern rules, the glossary governs names, and the prototype governs appearance and interaction. Fix a prototype that lags behind decisions or the glossary. Settle unrecorded questions that change the UI by the iteration rules above, then update the prototype. Do not ask the owner to reconcile the written sources.
 5. The owner says "That's it" on the real page. This is design freeze, the single approval of the prototype. Do not ask them to approve the feature file's sentences too.
 6. Commit that part of the feature file before writing tests. Only the environment tools, mount point, and prototype precede it on the effort branch.
 
-The UI conclusion lives in the feature file. Hand back the winner's exact path and the feature file. The interface contract starts from the API fake and is finalized during spec grilling or Feature ticket writing. Once finalized, update the API fake to match it before writing tests.
+The UI conclusion lives in the feature file. Hand back the winner's exact path and the feature file. The interface contract starts from the API fake and is finalized during spec or independent-ticket preparation. Once finalized, update the API fake to match it before writing tests.
 
 Keep the mount points until implementation. The final ticket removes them after all slice tickets. For a single ticket, removal is its last commit. In an effort with multiple specs, a later spec's mount points may enter the project branch with an earlier PR and stay until that spec lands. Tests use the same steps and assertions for the normal launch and the launch with the prototype variable. Removing a mount point reveals the product page without changing tests.
 

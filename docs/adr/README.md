@@ -72,7 +72,7 @@
 | [0051](0051-problem-registration-retro-and-label-states.md) | 问题先登记并复盘，主人挑中和批准计划分两次，标签分种类与状态 | 2026-10-14 | 0035、0039 | 无 |
 | [0052](0052-keep-local-branches-and-close-the-spec.md) | finish 后本机留着夜分支和任务分支，指向合并时的提交；finish 成功时关闭 spec | 2026-10-15 | 0025 | 无 |
 | [0053](0053-upstream-copies-at-repository-root.md) | 上游的只读副本放在仓库根目录的 `upstream/<name>/`，每份一个 `git subtree --squash` 目录，与上游逐字节相同 | 2026-10-16 | 0032 | 无 |
-| [0054](0054-authoring-is-the-skill-set-entry.md) | Authoring or modifying a skill 是改进技能集的唯一入口，writing-for-agents 只在被点名时运行 | 2026-10-18 | 0040、0046 | 0059 |
+| [0054](0054-authoring-is-the-skill-set-entry.md) | Authoring or modifying a skill 是改进技能集的唯一入口，writing-for-agents 只在被点名时运行 | 2026-10-18 | 0040、0046 | 0059、0064 |
 | [0055](0055-ui-design-is-a-local-prototype.md) | 界面设计在产品代码里做本地原型，Claude Design 退役 | 2026-10-18 | 0029、0030、0044、0048 | 0056 |
 | [0056](0056-records-live-on-the-ticket.md) | 研究答案、非界面原型的结论和工作记录只记在票的评论里 | 2026-10-19 | 0038、0055 | 0058 |
 | [0057](0057-every-effort-has-its-own-branch.md) | 每个 effort 从开始起就有自己的 effort branch，原型和所有 brief 会话写出的文件都提交在它上面，只经主人接受的 PR 进 project branch | 2026-10-19 | 无 | 无 |
@@ -82,6 +82,7 @@
 | [0061](0061-product-e2e-suite-is-a-step-of-check-all.md) | 产品的 e2e 全套是 `scripts/check --all` 的一步 `e2e-<product>`，默认档从不选它 | 2026-10-29 | 0048 | 无 |
 | [0062](0062-turn-guard-only-arms.md) | 回合守卫只拉起看门进程、不拦回合；看门进程对一条没 ack 的叫醒只提醒一次，不再报读不到 tracker | 2026-10-29 | 0021 | 无 |
 | [0063](0063-shared-prompt-through-two-symlinks.md) | 两个 CLI 的用户级提示词都软链接到已安装版本的 shared.md | 2026-10-30 | 0007 | 无 |
+| [0064](0064-preparation-composes-reusable-methods.md) | 普通代码改动共用 Develop a change 准备流程，专业方法作为 skill 按需组合 | 2026-10-30 | 0054 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

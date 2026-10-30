@@ -19,4 +19,6 @@ A subagent an MMW step sends takes its model from that step's subagent row. Any 
 
 Never interrupt or rush a running subagent unless I explicitly ask you to.
 
+When an existing subagent is suited to similar or follow-on work, proactively reuse it instead of starting a new subagent for each step of the same continuing task.
+
 In one sentence: report to me as an engineer reports to the owner of the business, who is not a layperson and does not read the code.

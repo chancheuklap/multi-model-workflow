@@ -21,7 +21,7 @@ The worker grade for a ticket where a mistake would not show on the day it is wr
 A GitHub issue, the tracker's unit: a map, a spec, a ticket, a ticket's child, a decision ticket, or an issue from outside that triage handles.
 
 **spec**:
-A container for a batch of tickets, not a piece of work: an issue labelled `mmw:spec`, in the shape of **The spec template** of the `Write a spec` playbook, which writes it and publishes it with `verify-ticket.py --publish --spec-body`. A spec published from a wayfinder map is a native sub-issue of that map.
+A container for a batch of tickets, not a piece of work: an issue labelled `mmw:spec`, in the shape of **The template** of the `to-spec` skill's create entry, which writes it and publishes it with `verify-ticket.py --publish --spec-body`. A spec published from a wayfinder map is a native sub-issue of that map.
 _Avoid_: 规格
 
 **`## Implementation Decisions`**:
@@ -60,7 +60,7 @@ The layer a feature's tests land in, named in `## Testing Decisions` with its di
 ### Tickets
 
 **ticket**:
-An issue that is a native sub-issue of its spec, in the **ticket format** and labelled `mmw:ticket`: one vertical slice a worker takes from claim to close.
+An issue in the **ticket format**, labelled `mmw:ticket`, that a worker takes from claim to close. A spec ticket is its native sub-issue; an independent ticket has no spec.
 _Avoid_: 工单
 
 **batch**:
@@ -76,10 +76,10 @@ The exception to vertical slicing: one mechanical change (renaming a column, ret
 The final ticket of an expand-contract sequence whose migrate batches cannot each stay green alone: they share an integration branch and all block this ticket, where green is promised.
 
 **ticket format**:
-The `verify-ticket` skill's `references/ticket-format.md`: a ticket's sections, `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`, how each criterion is written, and its labels. `verify-ticket.py` runs what it describes, so the Cut tickets and Bug fix playbooks write every ticket in it.
+The `to-tickets` skill's `references/ticket-format.md`: a ticket's sections, `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`, how each criterion is written, and its labels. `verify-ticket.py` runs what it describes, so independent and batch writers use the same format, with decisions recorded at the scope each ticket actually has.
 
 **`## Parent`**:
-The ticket section routing it to its spec: `#<spec>, Implementation Decisions section <n>`.
+The ticket section routing it to its spec: `#<spec>, Implementation Decisions section <n>`, or `None` for an independent ticket.
 
 **`## What to build`**:
 The end-to-end behaviour the ticket makes work, from the end user's point of view, in numbered points each with the test that decides it.
@@ -100,7 +100,7 @@ The repository-relative paths the ticket may write, one per line, including its 
 The ticket section holding the acceptance criteria. A `ready-for-human` ticket has none.
 
 **Blocked by**:
-The tickets one ticket waits on. On an agent ticket they are its blocking edges on the tracker alone, which the breakdown put to the owner lists and step 5 of the `Cut tickets` playbook calls a **Blocked by** edge; on a `ready-for-human` ticket, the body item naming the ticket that produces the thing it waits on.
+The tickets one ticket waits on. On an agent ticket they are its blocking edges on the tracker alone, which the breakdown put to the owner lists and the to-tickets skill's batch entry calls a **Blocked by** edge; on a `ready-for-human` ticket, the body item naming the ticket that produces the thing it waits on.
 
 ### Acceptance criteria
 
@@ -158,7 +158,7 @@ Exactly one of `mmw:map`, `mmw:spec`, `mmw:ticket`, `mmw:child`, `mmw:lesson`, `
 Who owes the next step. An open issue without a status label awaits machine processing. `needs-triage` awaits the owner's decision. `ready-for-agent` with one worker grade, or `ready-for-human`, means ready for work, with an assignee when in progress. Closed ends the work, with `wontfix` for the owner's rejection. Maps and specs use only open and closed.
 
 **triage role**:
-A canonical label name the upstream skills use: status roles, which `mmw-v4/skills/mmw-mode/references/github-issues.md` lists with this repository's label strings, and two category roles, `bug` and `enhancement`, used as named.
+A canonical label name the upstream skills use: status roles, whose repository label strings are defined by `LABELS` in the verify-ticket script, and two category roles, `bug` and `enhancement`, used as named.
 
 **`needs-triage`**:
 The status awaiting the owner's decision. Only the owner lets an issue leave it, and deferral has no expiry.

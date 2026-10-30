@@ -1,6 +1,6 @@
 # Route work through `mmw-mode`
 
-[`mmw-mode`](../../skills/mmw-mode/SKILL.md) is the one entry to MMW v4. You give a session a goal. The session matches it to a playbook, works through that playbook's steps, and runs the other skills as the steps name them. In this chapter you learn how a session enters `mmw-mode`, how it picks a playbook, and what a good prompt carries.
+[`mmw-mode`](../../skills/mmw-mode/SKILL.md) is the one entry to MMW v4. You give a session a goal. The session selects the component that returns the requested result, follows its steps, and runs the other skills as the steps name them. In this chapter you learn how a session enters `mmw-mode`, how it selects an entry, and what a good prompt carries.
 
 ## Every session reads it first
 
@@ -14,45 +14,39 @@ The skill is read in two layers. Its `SKILL.md` is what every agent judges with,
 - **Principles.** An index of the 33 principle skills, each with when it applies, in `SKILL.md`. The reply explains the reasons and effects of the decisions. [Shared principles and automatic loading](./08-principles.md) covers them.
 - **Autonomy.** What an agent does without asking, and what it always pauses for: irreversible writes such as a force-push, a deploy, a data deletion or a customer message.
 - **Writing the reply.** How the report to the owner reads: effects and reasons, not code, with evidence the owner can check. It is in `handling-a-request.md`.
-- **Playbooks.** The list that routes a task to one playbook file, in `handling-a-request.md`.
+- **Playbooks.** The routes to workflow files and directly requested method results, in `handling-a-request.md`.
 
 ## How a task becomes a playbook
 
 ```mermaid
 flowchart TD
-    A[Your prompt] --> B[The session has read mmw-mode]
-    B --> D{Match the task}
-    D -->|Read-only question| E[Investigation]
-    D -->|Defect| F[Bug fix]
-    D -->|Measured slowness| I[Perf issue]
-    D -->|New behavior| G[Feature]
-    D -->|Structure only| H[Refactoring]
-    D -->|A plan to sharpen| P[Grill with docs]
-    E --> R[A cited answer, no pull request]
-    F --> B[A ticket with the plan, handed back to you]
-    I --> B
-    G --> B
-    H --> B
-    B -->|You say go| T[One ticket, built by a worker]
-    P --> N[To spec, To tickets, Run a night]
-    T --> PR[One pull request]
+    A[Your goal and existing materials] --> M[mmw-mode]
+    M -->|Read-only question| I[Investigation and diagnostic methods]
+    M -->|Only discuss or record| D[Grill with docs or the requested writing skill]
+    M -->|Code change missing preparation| P[Develop a change]
+    P --> S{Smallest verifiable unit}
+    S -->|Independent ticket| O[One ticket]
+    S -->|Spec batch| N[Run a night]
+    M -->|Ready independent ticket| O
+    M -->|Ready spec batch| N
+    O --> PR[One runnable delivery PR]
     N --> PR
+    PR --> H[Owner operates and accepts the checked version]
 ```
 
 The session works through the matched playbook's steps.
 
 The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s `references/handling-a-request.md` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
 
-- Planning. Chart the map, Work through the map, To spec, Revising a spec and To tickets.
-- Measurement and diagnosis. Hillclimb, Runtime forensics and Trace forensics.
+- Preparation and writing. Develop a change calls wayfinder, to-spec and to-tickets as needed; independently requested records use those skills directly.
+- Measurement and diagnosis. The hillclimb, perf-issue and bug-fix skills; Runtime forensics and Trace forensics remain diagnostic playbooks.
 - Interfaces. Prototype, which is the `prototype` skill.
 - The skill set itself. Authoring or modifying a skill, and Eval.
 - The session itself. Session pickup, Pause safely, and Worktree and simulator cleanup.
 
 A session that the `dispatch` skill started matches nothing: its start prompt tells it to read `mmw-mode`, names the file it works by, and says that file is its whole task. Because a file is named, it reads only `SKILL.md`, so it neither picks a playbook, nor redoes what its sender did, nor sends anyone that file does not name. It works a ticket, reviews one, answers a research brief, designs one candidate, or gives a second opinion. You do not prompt those sessions.
 
-Every playbook that changes the repository ends the same way. Its first step opens a ticket and a `fix-<n>` branch, and its last step hands the ticket, with the plan written in, back to you. Nothing is built until you say go; then [One ticket](../../skills/mmw-mode/playbooks/one-ticket.md) sends a worker, checks what it built, and opens the pull request.
-
+Develop a change owns only the missing preparation. It calls specialist methods and returns an independent ticket or spec batch to its executor under the existing authority. A ready result enters One ticket or Run a night directly. A discussion or requested document ends with that result; it does not silently authorize code. Authoring or modifying a skill keeps its special authorship and proof responsibilities.
 One rule overrides the matching. A ticket with acceptance criteria is worked only by a worker that `dispatch` sends. Give a session such a ticket of your own and it runs One ticket on it: it cuts a `fix-<n>` branch, sends a worker, and tells you.
 
 ## Say the goal, not the ceremony
@@ -63,7 +57,7 @@ You do not write a spec. Say what is wrong or what you want, plus anything you a
 users get two notifications after a retry. repro first, then fix and verify.
 ```
 
-That is a Bug fix prompt. "repro first" is a real constraint, and the playbook keeps it. The session opens a ticket, reproduces the defect, finds the cause, and writes into the ticket the cause and, as its first criterion, a regression test that must fail on the project branch. It hands the ticket back to you. On your go, a worker writes the fix, and the session runs the original reproduction again before it opens the pull request.
+That is an ordinary code-change request using the bug-fix method. "repro first" is a real constraint, and the playbook keeps it. The session opens a ticket, reproduces the defect, finds the cause, and writes into the ticket the cause and, as its first criterion, a regression test that must fail on the project branch. It hands the ticket back to you. On your go, a worker writes the fix, and the session runs the original reproduction again before it opens the pull request.
 
 ## What goes in a prompt
 
@@ -128,7 +122,7 @@ A long session accumulates context from the last task. When you change subjects,
 new task. figure out why the cache entry survives logout. don't change any code yet.
 ```
 
-"new task" tells the session to match a playbook again instead of continuing the last one. "don't change any code yet" pins this task to Investigation. Without those two phrases, a session in the middle of a Feature tends to treat your question as the next feature step.
+"new task" tells the session to match a playbook again instead of continuing the last one. "don't change any code yet" pins this task to Investigation. Without those two phrases, a session preparing a change tends to treat your question as the next feature step.
 
 ## Give parallel work its own worktree
 
@@ -154,7 +148,7 @@ The [Worktree and simulator cleanup](../../skills/mmw-mode/playbooks/worktree-cl
 im stepping away. keep going until the migration check reports zero old callers.
 ```
 
-A batch of overnight work goes through Run a night. The tickets' events and the night summary record what happened. To spec records the decisions, To tickets cuts the tickets, and Run a night has workers build them unattended into one pull request. [Run work while you sleep](./07-overnight.md) covers it.
+A batch of overnight work goes through Run a night. The tickets' events and the night summary record what happened. The to-spec skill records decisions, to-tickets prepares the approved batch, and Run a night has workers build them unattended into one pull request. [Run work while you sleep](./07-overnight.md) covers it.
 
 To stop a session cleanly, ask it to pause. The [Pause safely](../../skills/mmw-mode/playbooks/pause-safely.md) playbook commits the work in progress and writes a resume note. A later session resumes from it with [Session pickup](../../skills/mmw-mode/playbooks/session-pickup.md).
 

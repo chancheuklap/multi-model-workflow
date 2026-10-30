@@ -9,7 +9,7 @@ Start smaller than you think. Prompt plainly, watch where sessions go wrong, and
 Changing the skill set matches the Authoring or modifying a skill playbook ([authoring-a-skill.md](../../skills/mmw-mode/playbooks/authoring-a-skill.md)). It accepts your words, a registered problem or retrospective proposal, an upstream release, or a doubt about a part of the set:
 
 ```text
-the bug fix playbook should tell the session to save the original repro command in the ticket. change it.
+the bug-fix skill should tell the session to save the original repro command in the ticket. change it.
 ```
 
 The playbook runs six steps:
@@ -18,10 +18,10 @@ The playbook runs six steps:
 2. **Gather the evidence.** Your words prompt a search for the meaning in the set. If it already says what you asked for, the session tells you where and whether the installed checkout carries it, closes the ticket, and stops. A registration or proposal has its evidence checked on the project branch. An upstream release follows `UPSTREAM.md`. A doubt prompts a list of the text's tasks, a usage measurement with `scripts/usage.py`, and checks of the scoped passages. Each finding carries evidence you can open in a file committed on `fix-<n>`.
 3. **Judge it against the design.** Name the intent each change serves. A conflict with an intent or a deliberate departure waits for your decision.
 4. **Plan the fix.** Remove, merge, move or simplify before adding. Give each passage one component and file. Put a rule a script can check into a check, and preserve upstream text unless a design intent requires changing it.
-5. **Write the ticket, by size.** A change one ticket can carry goes into that ticket. Its **Read first** names the section that governs each passage, so the worker and reviewer receive the same standards. A larger change goes through To spec and To tickets and runs as a night ([Run work while you sleep](./07-overnight.md)).
-6. **Hand it back.** The session presents the plan. On your go, One ticket sends the worker, or To spec plans the larger change.
+5. **Write it, by kind and size.** The session writes skill text one ticket can carry itself. Scripts use an independent ticket and worker. A larger change carries its findings, standards and settled scope into Develop a change, which prepares its spec and tickets. Read first names the exact governing standards for the worker and reviewer.
+6. **Hand it back.** Preserve the current authorization. Skill text alone reaches its PR through the Authoring exception; a script uses One ticket, and a ready spec batch uses Run a night.
 
-**Prove it, once** follows the worker's passing ticket, or your acceptance of a night and its completed `finish`. The session runs `scripts/check` and the suites a changed script needs. When the change alters what an agent does in a task, one fresh agent walks a real task on the changed text. A wording-only fix skips the walk. The walk's record is committed on `fix-<n>` and linked from the pull request. A missing required record, a wrong ending, a premature stop or a guess at a sentence the change wrote fails the check. Other guesses are findings for later. One ticket delivers one pull request, merged on your yes.
+**Prove it, once** runs after text-only writing, at the passed-script ticket's check, or on a larger batch's candidate delivery version before owner acceptance and merge. Existing machine-check evidence is reused. When the change alters agent behavior, a fresh agent walks a real task on the changed text. A wording-only fix skips the walk. The walk record is posted on the issue and linked from the PR. A wrong ending or premature stop holds the candidate for repair; the first text correction stays on the same delivery branch and one further walk checks that task. Proof treats the candidate skills as isolated test material; it does not install them or let them control the current run.
 
 The playbook's bias is to delete: every sentence in a skill costs attention on every run that loads it, so answering each slip with one more sentence makes the skill worse.
 
@@ -66,7 +66,7 @@ Its goal is prose a tired engineer understands on the first read. It cuts words 
 A skill edit affects every later session, so test it as an experiment. The same holds before you adopt someone else's skill.
 
 ```text
-run the eval playbook on this change to the bug fix playbook. same task for both variants, candidates stay blind.
+run the eval playbook on this change to the bug-fix skill. same task for both variants, candidates stay blind.
 ```
 
 The [Eval playbook](../../skills/mmw-mode/playbooks/eval.md) is built around one failure: an agent that knows it is being tested behaves differently. So candidates get an ordinary-looking task in directories with ordinary project names. No file or prompt they see says "eval", "candidate", "rubric" or "benchmark", and no candidate knows the others exist. The rubric of three to six criteria goes to the judge only. One judge, on a different model family, scores every output under neutral labels in one pass. Whether a candidate followed the chain of skills is graded from the files its transcript shows it opened and from the shape of its code, never from what it says it did.

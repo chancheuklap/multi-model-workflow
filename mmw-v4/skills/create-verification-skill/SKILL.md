@@ -178,7 +178,7 @@ when needed. Then run every e2e test against `product`, without a file filter:
 Measure the entire CHECK line in a fresh checkout: dependency install,
 preparation, cold back-end startup, and the test run together. Only when it
 exceeds 600 seconds, write `TIMEOUT: <seconds>` from that measured time, in
-the format of the mmw-mode skill's `references/ticket.md`. TIMEOUT governs
+the format of the **to-tickets** skill's `references/ticket-format.md`. TIMEOUT governs
 the whole CHECK, including cold back-end startup in a new checkout.
 
 Proof standards, for the Evidence section: exercise the real user path,
@@ -290,8 +290,7 @@ For an unsupported surface, report what you observed and that nothing was writte
 Tell the user what landed. The skill path, the features mapped and which
 have tests, what the proof run showed, and the evidence paths. Feature files
 and e2e tests are written in the day by the ticket-writing steps and read-only
-at night. Review them only when the owner names the maintain-verification-skill
-skill. Rerun this skill when the app grows a feature the map lacks; section 1
+at night. Maintain them through the maintain-verification-skill skill when requested or needed by an authorized preparation; keep verification assets read-only during a night. Rerun this skill when the app grows a feature the map lacks; section 1
 says how an existing map is treated. Name any isolation prerequisite, the first
 night's smoke ticket proving a new project's product launch and reachable home
 page, and the setup steps still unverified on the real target.

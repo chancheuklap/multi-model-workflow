@@ -10,4 +10,4 @@ Before starting, ask how a top expert would approach this task (their raw source
 - The constraints you propose to loosen or add.
 - The outside check that will establish whether the result is right.
 
-When a step names this skill, hand the conclusions to that step so it asks the owner about them together with its own questions in one batch. When the owner types `/sharpen`, hand the conclusions directly to the owner. Wait for the owner's reply before starting work that depends on an owner's decision. Then continue with the conclusions the owner agreed to. Don't hand back a rewritten prompt.
+When a step names this skill, return the conclusions to that step. It keeps settled sources and brings only a new unresolved owner decision back with its own questions in one batch. When the owner types `/sharpen`, hand the conclusions directly to the owner. Wait before work that depends on an unresolved owner's decision; existing answers remain valid. Continue with the agreed conclusions. Don't hand back a rewritten prompt.
