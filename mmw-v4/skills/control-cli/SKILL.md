@@ -17,7 +17,7 @@ Use a repeatable local harness to exercise an interactive CLI instead of poking 
 
 ## Harness Loop
 
-1. Identify the command under test and the smallest reproducible workspace.
+1. Apply **principle-clean-up-owned-resources** to the harness run. Identify the command under test and the smallest reproducible workspace.
 2. Discover existing local harnesses: package scripts, e2e tests, demo recorders, expect scripts, or PTY helpers.
 3. If no harness exists, launch the CLI in an isolated terminal session with deterministic env vars.
 4. Capture the current screen before interacting.
@@ -106,4 +106,3 @@ If the CLI needs richer terminal control, use `pty.fork()` or an existing PTY li
 - Do not send credentials or destructive commands into a controlled session.
 - Keep the harness in `/tmp` unless the repo already has a testing/demo harness.
 - Do not hard-code paths from another repository. Adapt commands to the current repo's scripts and runtime.
-- Clean up tmux sessions, temp dirs, inspector processes, and demo artifacts unless the user asks to keep them.

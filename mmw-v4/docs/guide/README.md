@@ -11,7 +11,7 @@ The chapters:
 5. [Build and clean the change](./05-build-and-clean.md). How every change outside a night becomes one ticket: the session writes the plan, you say go, a worker builds it. Then `tdd`, `unslop` and `no-comments`.
 6. [Verify and ship](./06-verify-and-ship.md). Prove the change on the real product with `control-cli`, `control-ui` and a verification skill, vet numbers with `benchmark-checklist`, and deliver one pull request through One ticket or a night, with Opening a PR.
 7. [Run work while you sleep](./07-overnight.md). A spec's tickets worked unattended by dispatched workers, delivered as one pull request in the morning.
-8. [Shared principles and automatic loading](./08-principles.md). The 30 shared judgments, how tasks load them automatically, and how new tasks reuse them.
+8. [Shared principles and automatic loading](./08-principles.md). The 33 shared judgments, how tasks load them automatically, and how new tasks reuse them.
 9. [Make it yours](./09-make-it-yours.md). Author a skill, test it with Eval, and register problems with `register-problem`, review them through Retrospective, and stop repeated mistakes with `correct`.
 10. [Recipes and pitfalls](./10-recipes-and-pitfalls.md). Prompts to copy and mistakes to skip.
 

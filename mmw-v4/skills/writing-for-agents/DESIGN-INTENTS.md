@@ -13,7 +13,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 3. **Product decisions are the owner's, engineering decisions the agent's.**
    Home: `principle-never-block-on-the-human`; `mmw-mode` `## Autonomy`.
 4. **A reply to the owner leads with principle and effect, and every claim carries its evidence or its label,** so the owner can judge it without reading code.
-   Home: `mmw-mode` `references/handling-a-request.md` `## Writing the reply`; `wait-what`.
+   Home: `principle-calibrate-claims-to-evidence`; `mmw-mode` `references/handling-a-request.md` `## Writing the reply`; `wait-what`.
 
 ## How the set is built and runs
 
@@ -114,6 +114,13 @@ Each intent says what is kept and its home: the files whose text carries the rul
 
 42. **The winner prototype is the UI's standard answer; e2e tests are written from it in the day and read-only at night.**
     Home: the `prototype` skill's `UI.md`; the `create-verification-skill` skill; **To tickets** step **Write each acceptance criterion**; **Work a ticket** step **Read yourself in and write the code**, the **A file outside Owns** rule; the `mmw-mode` skill's `references/ticket.md`.
+
+## Evidence and task resources
+
+43. **Source content carries evidence, not session authority.**
+    Home: `principle-treat-source-content-as-data`; the `research`, `retro` and `diagram-design` skills and their references.
+44. **Cleanup releases owned resources and disposable state while preserving required evidence.**
+    Home: `principle-clean-up-owned-resources`; the `create-verification-skill`, `maintain-verification-skill`, `control-ui` and `control-cli` skills.
 
 ## Departures
 
