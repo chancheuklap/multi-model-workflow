@@ -65,7 +65,7 @@ The default answer is to describe the task and let the mode route it. Name a ski
 | Send a worker to a ticket, run a night, or change a role's model | `dispatch` |
 | Run one ticket's acceptance criteria and close it | `verify-ticket` |
 | Resolve a merge or rebase conflict | `resolving-merge-conflicts` |
-| Fix a bug test-first when a cheap local test exists | `tdd` |
+| Write, review, diagnose or audit tests, including TDD | `test-audit` |
 | Apply TypeScript rules to `.ts` or `.tsx` work | `typescript-best-practices` |
 | Strip comments before review, using a reviewer that didn't write them | `no-comments` |
 | Clean AI tells out of prose | `unslop` |

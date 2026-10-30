@@ -43,7 +43,7 @@ startup takes 1.8s on this fixture. trace it, fix the measured cause, show me be
 
 The mode routes a code-change request to preparation, a ready result directly to its executor, or a read-only question to diagnosis. Specialist methods can be combined inside the same task.
 
-- **Bug fix** reproduces the bug on the same surface a user meets it, through the matching control skill. It narrows the cause by ruling hypotheses out with runtime evidence. The ticket's first criterion is a regression test that fails on the project branch, and the worker commits that failing test before the fix, with the [tdd skill](../../skills/tdd/SKILL.md). When the worker is done, the session runs the original reproduction again. If it still fails, nothing lands and the hunt goes back to the cause.
+- **Bug fix** reproduces the bug on the same surface a user meets it, through the matching control skill. It narrows the cause by ruling hypotheses out with runtime evidence. The ticket's first criterion is a regression test that fails on the project branch, and the worker commits that failing test before the fix, with the [test-audit skill](../../skills/test-audit/SKILL.md). When the worker is done, the session runs the original reproduction again. If it still fails, nothing lands and the hunt goes back to the cause.
 - **Develop a change** uses the how skill and considers four decomposition questions: what must run first, which work can run in parallel, what state is shared, and the smallest safe split. It uses the prototype skill's branch gate for code shape, names the data shape before any logic and writes an independent ticket or spec batch; a worker builds it, and the session verifies it on the matching surface.
 - **Refactoring** pins the current behavior first with a characterization test, a snapshot, or an equivalence script. A type check is not a pin. It deletes dead code before it adds the new shape, migrates every caller and deletes the old API in one wave, and proves the behavior unchanged. If the diff does not make the code easier to read somewhere, it does not land.
 - **Improve the architecture** walks the parts of the code that change most, finds where a change is slow or easy to get wrong, and draws the candidates as one page for you, each with a before and after picture. A report-only request ends there. An authorized candidate continues through Develop a change with the refactoring method.
@@ -65,15 +65,13 @@ Sometimes you want the cause before any fix. For a live symptom, such as a leak,
 here's a cpuprofile from the slow startup. tell me where the time goes and which source lines own it. no fix yet.
 ```
 
-## Write the failing test first with the tdd skill
+## Use test-audit throughout a test's life
 
-The tdd skill is the red-to-green loop. Each cycle writes one test that fails for the intended reason, then only enough code to make it pass, then runs that one test. Tests go only at seams agreed in writing. With a ticket, the seams are the ones its `## Seam` section names. With no ticket, the session writes the seams down and confirms them with you before any test is written:
+The [test-audit skill](../../skills/test-audit/SKILL.md) owns common test judgments and methods. Its writing branch includes TDD and behavior-preserving pins; its other branches handle review, failure diagnosis and audits of existing tests. The mode and existing playbooks reach it when needed. Native test runners and the delivery pipeline keep their own execution responsibilities.
 
 ```text
-/tdd add the empty-cart case to checkout. test it at the checkout api, not the cart internals.
+/test-audit audit the checkout tests. preserve each independent contract and identify repeated proof.
 ```
-
-The skill rejects three kinds of test. One breaks on a refactor that changes no behavior. One recomputes its expected value the way the code does, so it can never disagree with the code. One belongs to a batch of tests written before any code. Refactoring is a separate pass after every slice is green. The skill's report names the test that failed before the change, the failure it printed, and the run that passed after.
 
 ## Let the mode load the TypeScript rules
 

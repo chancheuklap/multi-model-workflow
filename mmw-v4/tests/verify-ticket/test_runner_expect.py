@@ -58,6 +58,18 @@ def lint(body, draft=False):
 
 
 class TestRunnerExpect(unittest.TestCase):
+    def test_pytest_standard_requires_ordinary_pass_without_unexpected_pass(self):
+        expect = summaries()['pytest']['expect']
+        for output, success in [('1 passed in 0.01s', True),
+                                ('1 passed, 1 xfailed in 0.01s', True),
+                                ('1 xfailed in 0.01s', False),
+                                ('1 xpassed in 0.01s', False),
+                                ('1 passed, 1 xpassed in 0.01s', False),
+                                ('0 passed in 0.01s', False),
+                                ('2 subtests passed in 0.01s', False)]:
+            with self.subTest(output=output):
+                self.assertEqual(expect_matches(expect, output), success)
+
     def test_vitest_standard_needs_a_passed_test(self):
         expect = summaries()['vitest']['expect']
         for output, success in [('Tests  1 passed | 5 skipped (6)', True),
@@ -88,7 +100,11 @@ console.log(JSON.stringify(rows.map(row => {
                 self.assertEqual(matches, [row['success'], row['success']])
 
     def test_lint_runner_expect_rejects_wrong_success_and_failure_patterns(self):
-        for runner, expect in [('pytest', r'/^=+ .*passed.*=+$/m'),
+        for runner, expect in [('pytest', r'/^(?:=+ )?(?=[^\r\n]*\d+ (?:passed|xfailed|xpassed))'
+                                r'\d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed)'
+                                r'(?:, \d+ (?:passed|deselected|warnings?|xfailed|xpassed|subtests passed))*'
+                                r' in [0-9.]+s(?: \(\d+:\d{2}:\d{2}\))?(?: =+)?$/m'),
+                               ('pytest', r'/^=+ .*passed.*=+$/m'),
                                ('pytest', r'/^\d+ passed in [0-9.]+s$/m'),
                                ('pytest', r'/passed/'),
                                ('pytest', r'/3 passed/'),

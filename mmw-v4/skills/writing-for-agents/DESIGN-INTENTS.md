@@ -68,9 +68,9 @@ Each intent says what is kept and its home: the files whose text carries the rul
 ## Proof
 
 27. **A criterion is a command.** A judgement goes to review, a person's reaction to a ticket for a person, and what cannot yet be reached gets a tool built to reach it first.
-    Home: the `to-tickets` skill's `references/ticket-format.md`; the `verify-ticket` skill; **Work a ticket** step **Read yourself in and write the code** (red counts only when the behaviour is absent; a check that will not pass is answered in the code).
+    Home: the `to-tickets` skill's `references/ticket-format.md`; the `verify-ticket` skill; the `test-audit` skill; **Work a ticket** step **Read yourself in and write the code**.
 28. **A bug fix starts from a reproduction that goes red, every line of the ticket traces to runtime evidence, the fix lands as one ticket, and the reproduction is run again on the same surface.**
-    Home: the `bug-fix` skill; the `tdd` skill.
+    Home: the `bug-fix` skill; the `test-audit` skill.
 29. **Proof happens on the real product, from every entry of the feature.**
     Home: `principle-prove-it-works`; the `control-cli` and `control-ui` skills; the `create-verification-skill` skill.
 30. **The writer is not the judge, and a conclusion is judged once.**

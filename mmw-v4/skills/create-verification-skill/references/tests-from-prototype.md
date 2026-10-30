@@ -1,6 +1,6 @@
 # Write tests from the prototype
 
-Apply **principle-test-behavior-not-implementation** before writing acceptance tests.
+Use the **test-audit** skill's writing branch for acceptance-test methods. This file owns the prototype-to-product handoff and evidence registration.
 
 Write tests in the day, per ticket, after the interface contract is final and
 the prototype's API fake matches it. Start with the feature file's `Proof`,
@@ -9,30 +9,11 @@ runs only `product`.
 
 ## One path for both targets
 
-Use the same steps and assertions on `design` and `product`, with no target
-branches in test code. The prototype mounts at the feature file's final `Route:`;
+The prototype mounts at the feature file's final `Route:`;
 for an interface without its own route, it mounts in the module that renders it.
 `design` must pass and `product` must fail at the missing feature, not a navigation
 timeout. Start from an entry the product already has, then find the new element.
 After the mount points are removed, the tests stay unchanged.
-
-Take only fixed steps. Find elements by roles, visible names, and labels. If an
-existing feature lacks accessible names, open a prerequisite ticket to add them
-before writing its test. Do not replace accessible locators with CSS selectors.
-Create data through the UI or the API the page itself calls, using the final
-interface contract and the environment tool's test seed data. The prototype's
-API fake starts from that same seed data. Put repeated sign-in or activation
-steps in `tests/e2e/<product>/helpers/`, using the accounts named in Rules.
-
-Each run has a fresh data directory. A per-checkout back-end stack can be shared
-by runs, but product records must be isolated per run through the product's
-existing support. When tests in one run share writable configuration or a
-database, set `workers: 1`.
-
-Use `browser.route` only for external services or states that operations cannot
-produce, such as errors and loading states. Intercept those states on both
-targets. Unimplemented product interfaces belong in the prototype's API fake,
-not in test interception. Test data and operations stay identical across targets.
 
 Capture `app.screenshot('<state>')` at the states to compare with the prototype.
 The Spec reviewer uses these frames to compare the same state on both targets.

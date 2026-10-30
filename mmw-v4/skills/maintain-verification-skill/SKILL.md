@@ -8,7 +8,7 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 | Work in hand | Read |
 | --- | --- |
 | Find the existing features affected by a planned change | **Find affected features** below, then return the list to the caller |
-| Review and maintain verification assets | [Maintain the product](references/maintain.md) |
+| Owner-requested whole-product verification maintenance | [Maintain the product](references/maintain.md) |
 
 ## Find affected features
 

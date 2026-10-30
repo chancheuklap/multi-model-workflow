@@ -11,6 +11,7 @@ Every session reads this file in full before anything else and works by its rule
 
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
 - Any prose surface → the **unslop** skill.
+- Writing, reviewing, selecting, diagnosing or maintaining tests → the **test-audit** skill.
 - Any page or diagram for a person, including an Artifact, HTML page or prototype page → the **diagram-design** skill, under **principle-everything-at-hand**.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand reproduction to the user only under the narrow control-surface exception in the **bug-fix** skill's diagnostic entry.
@@ -50,9 +51,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **principle-clean-up-owned-resources**. Starting, retrying or tearing down task resources. Track ownership, release what the task no longer needs, and preserve required evidence.
 - **principle-fix-root-causes**. Debugging, a failing check, or two failed fixes sharing a premise. Reproduce and distinguish hypotheses. After two fixes on the same premise fail, test that premise before another fix.
 - **principle-sequence-verifiable-units**. Multi-step work, shared prerequisites, and the order of commits and PRs. Prepare common foundations first, then advance through declared verification units.
-- **principle-test-behavior-not-implementation**. Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change.
 - **principle-baseline-is-the-contract**. Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
-- **principle-run-the-smallest-test-set**. Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first.
 - **principle-explain-the-number**. Before trusting, reporting or acting on a measurement, performance number or agent eval result. Establish what ran, what the number measures and what scope the evidence supports.
 - **principle-calibrate-claims-to-evidence**. Drawing or reporting a conclusion. Keep its strength and scope within the evidence, with inferences and gaps visible beside the claim.
 - **principle-fail-loudly**. Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently.

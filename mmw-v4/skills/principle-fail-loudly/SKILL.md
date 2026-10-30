@@ -19,4 +19,4 @@ Code that cannot do its job says so where its reader looks: what failed, what wa
 
 **Stop:** a new or changed check, guard or refusal is done when you have run its failure path once and watched it fail, not only its success path.
 
-Distinct from **principle-prove-it-works**, which verifies your output against the real thing, and **principle-test-behavior-not-implementation**, which asks whether a test can fail for a defect. This one governs what code says when it cannot do its job.
+Distinct from **principle-prove-it-works**, which verifies your output against the real thing, and **test-audit**, which asks whether a test can fail for a defect. This one governs what code says when it cannot do its job.

@@ -1,6 +1,5 @@
 pstack	skills/principle-fix-root-causes/SKILL.md	mmw-v4/skills/principle-fix-root-causes/SKILL.md
 pstack	skills/principle-attack-the-premise/SKILL.md	mmw-v4/skills/principle-fix-root-causes/SKILL.md
-pstack	skills/principle-test-behavior-not-implementation/SKILL.md	mmw-v4/skills/principle-test-behavior-not-implementation/SKILL.md
 pstack	skills/principle-make-operations-idempotent/SKILL.md	mmw-v4/skills/principle-make-operations-idempotent/SKILL.md
 pstack	skills/principle-build-the-lever/SKILL.md	mmw-v4/skills/principle-build-the-lever/SKILL.md
 pstack	skills/principle-explain-the-number/SKILL.md	mmw-v4/skills/principle-explain-the-number/SKILL.md
@@ -46,9 +45,6 @@ mattpocock	skills/engineering/prototype/LOGIC.md	mmw-v4/skills/prototype/LOGIC.m
 mattpocock	skills/engineering/prototype/SKILL.md	mmw-v4/skills/prototype/SKILL.md
 mattpocock	skills/engineering/prototype/UI.md	mmw-v4/skills/prototype/UI.md
 mattpocock	skills/engineering/research/SKILL.md	mmw-v4/skills/research/SKILL.md
-mattpocock	skills/engineering/tdd/SKILL.md	mmw-v4/skills/tdd/SKILL.md
-mattpocock	skills/engineering/tdd/mocking.md	mmw-v4/skills/tdd/mocking.md
-mattpocock	skills/engineering/tdd/tests.md	mmw-v4/skills/tdd/tests.md
 mattpocock	skills/productivity/grilling/SKILL.md	mmw-v4/skills/grilling/SKILL.md
 mattpocock	skills/productivity/wait-what/SKILL.md	mmw-v4/skills/wait-what/SKILL.md
 mattpocock	skills/productivity/wait-what/agents/openai.yaml	mmw-v4/skills/wait-what/agents/openai.yaml
