@@ -9,7 +9,6 @@ When implementation convenience conflicts with user delight, choose delight.
 
 - Every feature, control, and option must be justified
 - Ship less, ship better (polished experience with three features beats rough one with ten)
-- Prototype before committing (design decisions are cheaper in throwaway HTML than production code)
 - Get the details right (transitions, alignment, spacing, feedback, error states)
 - Tighten the core loop (every feature should serve the central workflow or get out of the way)
 
@@ -20,4 +19,4 @@ The user is whoever consumes the work. For a UI that is the end user. For a libr
 - A feature, control or option the experience does not justify, or one shipped half-finished: cut it or finish it. A half-finished feature is worse than a missing one.
 - A visual change made on purpose is not a defect. One that costs accessibility (focus visibility, keyboard navigation, color contrast) or changes a component's API contract is, however intentional.
 
-Foundations should serve the experience. Foundational thinking governs the *sequence* of work. This principle governs the *target*.
+Foundations should serve the experience. **principle-sequence-verifiable-units** governs the sequence of work. This principle governs the target.

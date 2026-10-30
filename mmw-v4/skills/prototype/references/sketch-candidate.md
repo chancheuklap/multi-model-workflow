@@ -4,12 +4,12 @@ You are producing one candidate design in the prototype skill's sketch branch. R
 
 Apply the following discipline.
 
-- Data structures first. Get the core types right and the code becomes obvious. Trace each dominant access pattern through the proposed structure. If the answer is "we'll add a map / index / cache later," the structure is wrong.
+- Apply **principle-model-the-domain** to the candidate's types and dominant access patterns. Trace each path through the proposed structure.
 - Interface depth, in the **codebase-design** skill's terms. Prefer a simple interface that pulls complexity into the callee, even when the implementation becomes less simple.
 - Make seams visible. `not implemented` errors for bodies, `// TODO` pseudocode for tricky logic, doc comments stating intent and invariants. A reader should trace data from input to output by reading types and signatures alone.
 - Invariants per **principle-encode-lessons-in-structure**'s **Pick the strongest mechanism**.
 - **principle-boundary-discipline**.
 - State transitions per **principle-make-operations-idempotent**, where applicable.
-- If tracing the flow needs more than three files, flatten the hierarchy (**principle-minimize-reader-load**).
+- Apply **principle-minimize-reader-load** to the layers and hidden state a reader must trace.
 
 Check the package against [`design-red-flags.md`](design-red-flags.md) before you report: the sender screens every candidate against it.

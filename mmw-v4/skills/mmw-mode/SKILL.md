@@ -18,6 +18,7 @@ The Principles section below grounds every trigger. Cite only principles whose l
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow exception of Bug fix step 2.
 - Posting to a ticket, a comment or a pull request, or showing a person a command or its output → write `<REDACTED>` in place of every secret, and keep a credential in an environment variable rather than in the command.
+- A novel interaction or architectural decision with no precedent, or an open design direction → the **prototype** skill.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 - A session allowed to write encounters a problem it cannot fix in the work at hand → the **register-problem** skill.
 
@@ -27,38 +28,33 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Core**
 
-- **principle-laziness-protocol**. Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
-- **principle-foundational-thinking**. Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
+- **principle-subtract-before-you-add**. Refactoring, sizing a diff, or preparing an addition or new mechanism. Remove dead weight first, then make the smallest change that meets the request and preserves its protections.
 - **principle-redesign-from-first-principles**. Integrating a new requirement into an existing design, or code written against a sketch keeps failing to fit it. Redesign as if it had been foundational from day one.
-- **principle-attack-the-premise**. Two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it.
-- **principle-subtract-before-you-add**. Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
-- **principle-minimize-reader-load**. Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
-- **principle-outcome-oriented-execution**. Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.
+- **principle-minimize-reader-load**. Shaping modules, hidden state or new dependencies. Reduce the layers and information a reader must trace and hold.
+- **principle-outcome-oriented-execution**. Planned rewrites, internal API replacements and migrations. Declare transitions and verification boundaries, migrate callers and remove old paths by completion, and preserve external compatibility obligations.
 - **principle-experience-first**. Product, UX, or feature-scope tradeoffs. Choose user delight over implementation convenience.
-- **principle-exhaust-the-design-space**. A novel interaction or architectural decision with no precedent. Build 2-3 competing prototypes and compare before committing.
-- **principle-first-principles-thinking**. Forming a recommendation on a plan, decision, or idea whose path is not already clear. Challenge the premise, reduce the requirements, keep only constraints with independent support, rebuild the simplest solution.
+- **principle-first-principles-thinking**. Forming a recommendation whose path is unclear. Challenge requirements and constraints, keep only independently supported constraints, and rebuild the simplest solution.
 - **principle-start-from-what-exists**. Before proposing an approach or writing non-trivial code. Search this repository, then GitHub and the package registries, read an implementation file of each serious candidate, and decide to use, extend or build; the reply records the search.
 - **principle-read-before-you-conclude**. Saying anything about a file, or changing one. Read it before you change it, read whole what you edit or reason about in detail, and label a conclusion that rests on an unread part as inferred.
 - **principle-build-the-lever**. Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns.
 
 **Architecture**
 
-- **principle-model-the-domain**. Writing stateful logic, or code that branches a lot or repeats a shape assumption across files. Encode the domain in a structure (state machine, typed model, table or registry, reducer, boundary, the right collection) instead of scattered conditionals.
+- **principle-model-the-domain**. Before writing logic or designing data, state and interfaces. Trace access patterns and encode shared rules in a coherent structure.
 - **principle-boundary-discipline**. Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure.
 - **principle-type-system-discipline**. Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries.
 - **principle-make-operations-idempotent**. Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state.
-- **principle-migrate-callers-then-delete-legacy-apis**. Introducing a new internal API while old callers exist. Migrate and delete in one wave.
 - **principle-separate-before-serializing-shared-state**. Concurrent actors might write the same file, branch, key, or object. Eliminate the sharing first.
 
 **Verification**
 
 - **principle-prove-it-works**. After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
-- **principle-fix-root-causes**. Debugging, or a check that will not pass. Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
-- **principle-sequence-verifiable-units**. Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
+- **principle-fix-root-causes**. Debugging, a failing check, or two failed fixes sharing a premise. Reproduce and distinguish hypotheses. After two fixes on the same premise fail, test that premise before another fix.
+- **principle-sequence-verifiable-units**. Multi-step work, shared prerequisites, and the order of commits and PRs. Prepare common foundations first, then advance through declared verification units.
 - **principle-test-behavior-not-implementation**. Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change.
 - **principle-baseline-is-the-contract**. Writing from an answer, a winning prototype, a signed-off page or any settled conclusion. Copy it, never improve it from memory; raise a gap to whoever owns it.
 - **principle-run-the-smallest-test-set**. Running tests. Run the smallest set that proves the change; a full suite only for a gate that requires it or a named risk, with the reason stated first.
-- **principle-explain-the-number**. Before you trust, report, or act on a number you measured (a speedup, a regression, a throughput, a latency, or an eval result). Find what limits it, and rule out that it measured something other than the work you think.
+- **principle-explain-the-number**. Before trusting, reporting or acting on a measurement, performance number or agent eval result. Establish what ran, what the number measures and what scope the evidence supports.
 - **principle-fail-loudly**. Writing a check, a guard, a refusal or error handling. A failure names what failed, what was expected and where to change it; nothing passes silently.
 
 **Delegation**

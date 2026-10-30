@@ -9,6 +9,8 @@ A prototype is **code that answers a question**. It lives in the repo and is ite
 
 Scope the decision the prototype exists to make first: which layout, which interaction, which density, or for an empirical fork which behavior, timing, or approach. No decision means no prototype: route to the Feature playbook of the **mmw-mode** skill.
 
+When a decision has no established precedent or its structural direction remains open, compare concrete alternatives that differ in structure before committing. The branch sets the candidate count and comparison method. Continue a settled direction as its baseline requires; a single factual experiment does not reopen the design.
+
 ## Pick a branch
 
 Identify which question is being answered, using the user's prompt, the surrounding code, or by asking if the user is around:

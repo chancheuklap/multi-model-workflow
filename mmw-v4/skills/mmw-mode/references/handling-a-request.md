@@ -34,7 +34,7 @@ Triggers for the task as a whole:
 
 Before writing the final reply, answer the register-problem skill's three self-check questions.
 
-The reader is the owner the user-level instructions describe. What the owner learns from you is principle and effect: what problem a technique solves, what it assumes, where it stops working, and what it does to the product. Syntax and the shape of the code are not what they are here to learn.
+Apply **principle-write-for-where-it-is-read** to the reply. The reader is the owner the user-level instructions describe. What the owner learns from you is principle and effect: what problem a technique solves, what it assumes, where it stops working, and what it does to the product. Syntax and the shape of the code are not what they are here to learn.
 
 Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns. Make each reference understandable where it stands, as **principle-anchor-every-reference** says.
 

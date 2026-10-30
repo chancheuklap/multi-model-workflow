@@ -94,4 +94,4 @@ the relay keeps failing on every wake. suspend the night on #212.
 
 **Pitfall:** a night is not a way to make decisions. A spec with open questions produces tickets whose workers each guess the answer differently. Settle the decisions first with Grill with docs or a wayfinder map, then publish.
 
-Next: [Steer with principle names](./08-principles.md).
+Next: [Shared principles and automatic loading](./08-principles.md).

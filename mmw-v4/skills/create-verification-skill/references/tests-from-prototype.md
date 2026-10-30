@@ -1,5 +1,7 @@
 # Write tests from the prototype
 
+Apply **principle-test-behavior-not-implementation** before writing acceptance tests.
+
 Write tests in the day, per ticket, after the interface contract is final and
 the prototype's API fake matches it. Start with the feature file's `Proof`,
 then write the test. At night, tests and feature files are read-only and CHECK

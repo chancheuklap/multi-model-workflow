@@ -16,7 +16,7 @@ A hunk that contradicts an ADR's decision, uses a term against its glossary defi
 
 ## 2. Judge the diff by these principles
 
-Read each one's `SKILL.md` in full, and judge every hunk by its pattern and its **In a diff:** lines: **principle-laziness-protocol**, **principle-minimize-reader-load**, **principle-model-the-domain**, **principle-foundational-thinking**, **principle-type-system-discipline**, **principle-boundary-discipline**, **principle-subtract-before-you-add**, **principle-separate-before-serializing-shared-state**, **principle-prove-it-works**, **principle-experience-first**, **principle-redesign-from-first-principles**, **principle-migrate-callers-then-delete-legacy-apis**, **principle-fail-loudly**.
+Read each one's `SKILL.md` in full, and judge every hunk by its pattern and its **In a diff:** lines: **principle-subtract-before-you-add**, **principle-minimize-reader-load**, **principle-model-the-domain**, **principle-type-system-discipline**, **principle-boundary-discipline**, **principle-separate-before-serializing-shared-state**, **principle-prove-it-works**, **principle-experience-first**, **principle-redesign-from-first-principles**, **principle-outcome-oriented-execution**, **principle-fail-loudly**.
 
 Two rules bind them:
 

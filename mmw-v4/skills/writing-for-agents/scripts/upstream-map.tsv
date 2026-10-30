@@ -1,5 +1,5 @@
 pstack	skills/principle-fix-root-causes/SKILL.md	mmw-v4/skills/principle-fix-root-causes/SKILL.md
-pstack	skills/principle-attack-the-premise/SKILL.md	mmw-v4/skills/principle-attack-the-premise/SKILL.md
+pstack	skills/principle-attack-the-premise/SKILL.md	mmw-v4/skills/principle-fix-root-causes/SKILL.md
 pstack	skills/principle-test-behavior-not-implementation/SKILL.md	mmw-v4/skills/principle-test-behavior-not-implementation/SKILL.md
 pstack	skills/principle-make-operations-idempotent/SKILL.md	mmw-v4/skills/principle-make-operations-idempotent/SKILL.md
 pstack	skills/principle-build-the-lever/SKILL.md	mmw-v4/skills/principle-build-the-lever/SKILL.md
@@ -10,10 +10,9 @@ pstack	skills/principle-never-block-on-the-human/SKILL.md	mmw-v4/skills/principl
 pstack	skills/principle-redesign-from-first-principles/SKILL.md	mmw-v4/skills/principle-redesign-from-first-principles/SKILL.md
 pstack	skills/principle-subtract-before-you-add/SKILL.md	mmw-v4/skills/principle-subtract-before-you-add/SKILL.md
 pstack	skills/principle-encode-lessons-in-structure/SKILL.md	mmw-v4/skills/principle-encode-lessons-in-structure/SKILL.md
-pstack	skills/principle-exhaust-the-design-space/SKILL.md	mmw-v4/skills/principle-exhaust-the-design-space/SKILL.md
 pstack	skills/principle-guard-the-context-window/SKILL.md	mmw-v4/skills/principle-guard-the-context-window/SKILL.md
-pstack	skills/principle-laziness-protocol/SKILL.md	mmw-v4/skills/principle-laziness-protocol/SKILL.md
-pstack	skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md	mmw-v4/skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md
+pstack	skills/principle-laziness-protocol/SKILL.md	mmw-v4/skills/principle-subtract-before-you-add/SKILL.md
+pstack	skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md	mmw-v4/skills/principle-outcome-oriented-execution/SKILL.md
 pstack	skills/principle-type-system-discipline/SKILL.md	mmw-v4/skills/principle-type-system-discipline/SKILL.md
 pstack	skills/correct/SKILL.md	mmw-v4/skills/correct/SKILL.md
 pstack	skills/architect/SKILL.md	mmw-v4/skills/prototype/SKETCH.md

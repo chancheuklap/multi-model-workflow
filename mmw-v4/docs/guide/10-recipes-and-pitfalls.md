@@ -165,7 +165,7 @@ apply prove it works. show me the real output, not the build log.
 /unslop that, no long dashes
 ```
 
-You rarely need more words; you need the right name. [Steer with principle names](./08-principles.md) is the vocabulary.
+State the goal that the run missed. The mode loads the relevant [shared principles](./08-principles.md); naming one yourself is an optional correction.
 
 ## Get the reply in plain words
 

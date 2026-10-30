@@ -5,20 +5,19 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Outcome-Oriented Execution
 
-Optimize for the intended, verifiable end state rather than preserving smooth intermediate states.
+Optimize for the intended, verifiable end state at declared verification boundaries. Complete a migration by moving its callers and removing the superseded paths in the same coordinated wave.
 
-**Why:** Keeping every intermediate step fully stable often creates temporary compatibility code that becomes long-lived debt. Converge on the target architecture and prove correctness at explicit verification boundaries.
+**Why:** Keeping every intermediate step fully stable often creates temporary compatibility code that becomes long-lived debt. An explicit transition lets the work converge without mistaking a temporary state for completion.
 
-**Core rule:**
-- Prioritize end-state integrity over transitional stability
-- Intermediate breakage is acceptable when it is planned, scoped, and reversible
+**Pattern:**
 
-**Guardrails:**
-- Use this for planned rewrites and migrations with explicit phase boundaries
-- Declare where temporary breakage is acceptable
-- Keep high-signal checks for actively touched areas while migrating
-- Require full static and runtime verification at plan completion
+- Use this for planned rewrites and migrations with explicit phase boundaries. Declare where temporary breakage is acceptable, scoped and reversible.
+- Before changing an internal API, find every caller. Update callers and tests to the new contract, and remove tests that only protect the old implementation details.
+- Keep high-signal checks for actively touched areas during the transition. **principle-sequence-verifiable-units** governs the check at each unit.
+- At migration completion, delete the superseded API, branch, guard or file and any temporary compatibility code. Require the plan's full static and runtime verification there.
+- Coordinated breaking changes require that no external user depends on backward compatibility. Preserve an external contract until its migration is explicitly agreed.
 
 **In a diff:**
 
-- A small deliberate duplicate that keeps a new path parallel to one the plan deletes is not a finding, unless it touches security, billing, data access or API behavior, or a long-lived shared abstraction would clearly reduce the risk.
+- A small deliberate duplicate that keeps a new path parallel to one the plan deletes is not a finding during the declared transition, unless it touches security, billing, data access or API behavior, or a long-lived shared abstraction would clearly reduce the risk.
+- A new path beside an old one after migration completion, or a caller still using the superseded contract: finish the caller migration and remove the old path before calling the work done.

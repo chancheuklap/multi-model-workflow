@@ -7,6 +7,8 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 Encode the real domain in a data structure instead of scattering it across conditionals. A structure that matches the domain makes invalid states unrepresentable and deletes branches. Choosing it at write time is cheap. Recovering it later reads as a refactor and gets deferred.
 
+Before writing logic, define the core types and trace the dominant access patterns. Choose structures that fit those paths. Each increment lands a coherent abstraction or deepens one, rather than spreading a new capability across callers as special-case coordination.
+
 Reach for:
 
 - A state machine instead of scattered booleans, phases, or lifecycle checks.
@@ -24,6 +26,8 @@ The sign that you skipped this is a new feature that grows an existing if/else c
 
 **In a diff:**
 
+- The same logic shape in more than one place is extracted when a change to one copy would have to change the other. Similar statements alone do not justify an abstraction.
+- A data structure that does not match the dominant access patterns: choose one that does.
 - New one-off conditionals inserted into a flow that was not about them: move the logic into the helper, module, state machine or table it belongs to.
 - A generic or magic mechanism that hides a simple data-shape assumption, where direct code would do: write the direct, boring version.
 - Feature Envy, a function that reaches into another object's data more than its own: move it onto that data.

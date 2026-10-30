@@ -11,7 +11,8 @@ When debugging, fix the fault, not the place where it surfaced. The symptom is w
 
 **Pattern:**
 - Reproduce first.
-- Ask "why" at each step until the answer is a wrong decision in the code, not a consequence of an earlier one.
+- Distinguish the symptom, the proximate cause and the root cause. Branch before descending: ask what else could produce the same effect, form distinguishable hypotheses, and test their predictions with evidence. Keep every evidenced independent pathway rather than forcing one root.
+- Ask "why" at each step until the answer is a wrong decision in the code, not a consequence of an earlier one. Would removing this cause block the pathway? Go only as deep as the evidence reaches, and say where it is thin. If an answer blames a person, examine the process behind them.
 - When stuck, instrument. Read the actual error and the actual state. Do not guess.
 - Ask whether the state that triggered the symptom is legitimate. If the system may be in that state, the code that broke on it is the root cause, and handling the state there is the fix. If the state should never exist, a check where it broke hides the bug. Find what produced the state. Guards, retries, swallowed errors, clamped values, and discarded state are the usual ways to hide a bug.
 - When something fails only after a restart, suspect persisted state first: config files, caches, lock files, serialized state.
@@ -19,6 +20,17 @@ When debugging, fix the fault, not the place where it surfaced. The symptom is w
 - If a workaround needs a paragraph-long comment to justify it, the code is wrong. Fix the code, not the comment.
 - If the deciding fact took a deep dig to find, propose the cheap, always-on signal that would have shown it at first look.
 - A check that will not pass is a symptom too. Answer it by fixing the code, or by recording that the criterion was not met; never by bending the baseline, the harness or the test. Loosening an expected value, adding a retry, a sleep or a skip, or widening a timeout until red turns green is bending the check. A check that is itself wrong is reported where its owner sees it, with what it should be; the work it judges does not correct it
+
+## When repeated fixes fail
+
+When two or more fixes that share one premise have failed the same gate, suspect the premise. Each failed fix is evidence against the belief it assumed.
+
+- Write the premise down as the one sentence every failed fix assumed.
+- Before the next fix, make an observation that would differ if the premise were false. Look at how failures are distributed, not only at their size. Make the check rerunnable per **principle-build-the-lever**.
+- If the evidence contradicts the premise, look for what the failures share that it did not predict. If it confirms the premise, ask the next "why". The earlier fixes may have treated a consequence.
+- Remove the enabling condition rather than compensating for it, per **principle-subtract-before-you-add**. A cleanup mechanism leaves the cause in place and adds work on every run.
+
+**Stop:** Do not start the next fix before the shared premise is written down and tested.
 
 **In a diff:**
 

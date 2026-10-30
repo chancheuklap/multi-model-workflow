@@ -21,5 +21,6 @@ Maintainability is the work a reader must do to understand code. Track two axes:
 - A name that does not say what the thing does or holds: rename it. When no honest name comes, the design is murky.
 - A file the change takes from under 1000 lines to over without a structural reason: name the part that should stand on its own and extract it.
 - One function mixing high-level orchestration with low-level detail: move the detail behind a named call.
+- A new dependency that will make future changes harder: name what it ties together, and cut the tie.
 - A message chain (`a.b().c().d()`) the caller should not depend on: hide the walk behind one method on the first object.
 - The deletion test, on every module the change adds or reshapes: imagine deleting it. If the complexity vanishes, it was a pass-through (a middle man, a thin wrapper, an abstraction with one call site) and goes; if the complexity reappears across its callers, it earns its keep.

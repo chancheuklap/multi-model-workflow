@@ -16,7 +16,7 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 Run the **arena** skill with the design-sketch task, the Phase A grounding artifacts, and the constraints below as the candidates' angles. Its `## Task` names the **prototype** skill's `references/sketch-candidate.md`, `references/rationale-template.md` and `references/design-red-flags.md` as the shape of the artifact. When Phase A ran, each candidate's brief names `SKETCH/grounding.md` by its repository path under `## Known`. On the greenfield path that skips Phase A, the brief names no grounding file.
 
-Each candidate's brief adds only its different design constraint. Run three, and the fourth when it applies, per **principle-exhaust-the-design-space**:
+Each candidate's brief adds only its different design constraint. Run three, and the fourth when it applies:
 
 - Candidate 1: "Minimize the interface: aim for 1–3 entry points max. Maximise leverage per entry point."
 - Candidate 2: "Maximise flexibility: support many use cases and extension."

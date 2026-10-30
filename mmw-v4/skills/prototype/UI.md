@@ -47,7 +47,7 @@ Done when the effort checkout is ready and, for an existing product, its local e
 
 ### 1. State the question and pick N
 
-When the structural direction is open, default to 3 variants, capped at 5. State the question and the directions to compare. When the direction is settled, continue the current UI instead of generating another set.
+Apply **principle-experience-first** when choosing the UI direction and scope. When the structural direction is open, default to 3 variants, capped at 5. State the question and the directions to compare. When the direction is settled, continue the current UI instead of generating another set.
 
 Done when the current question and the directions still open are explicit.
 

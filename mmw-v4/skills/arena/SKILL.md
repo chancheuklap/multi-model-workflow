@@ -28,7 +28,7 @@ When the caller hands the pick to the owner, skip this phase. Otherwise, read ev
 
 ## Phase D: Pick
 
-When the caller hands the pick to the owner, show the owner every candidate and take the owner's pick and combination as the base. Otherwise, pick the base a future maintainer can extend most easily without breaking invariants. When two feel tied, prefer the cleaner boundary or smaller API, per **principle-laziness-protocol**.
+When the caller hands the pick to the owner, show the owner every candidate and take the owner's pick and combination as the base. Otherwise, pick the base a future maintainer can extend most easily without breaking invariants. When two feel tied, prefer the cleaner boundary or smaller API, per **principle-subtract-before-you-add**.
 
 Record the pick and the reason in the synthesis note.
 

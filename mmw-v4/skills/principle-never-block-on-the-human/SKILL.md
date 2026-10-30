@@ -9,8 +9,6 @@ The human supervises asynchronously. Agents must stay unblocked. Make reasonable
 
 - Proceed, then present. Do the work, show the result. Don't ask "should I do X?" Do X, explain why.
 - Make the system self-healing. When you notice a problem, log it and fix it in the next round.
-- Irreversible actions (force-push, delete production data, send external messages) still require confirmation.
-- Reversible actions (write code, edit notes, split tasks) should proceed without blocking.
 - Product direction comes from the human. Execution should not block.
 - **Decisions only the owner makes** are the ones that change what the customer sees, what happens to money, what is in scope and in what order, what goes out to the public, and what cannot easily be undone. When you reach one of those, finish everything that does not depend on it, then ask.
 - **Scope.** Anything outside the scope the owner gave is asked about, not done. What the task needs in order to be finished and verified is inside the scope.
