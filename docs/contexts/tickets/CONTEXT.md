@@ -7,7 +7,7 @@ The written half of the landing pipeline: what a spec and a ticket are, the sect
 ### Worker grades
 
 **worker grade**:
-Which of the two workers a ticket goes to: at once a ticket label and a `models.json` row. `dispatch.sh` reads the label afresh each time the ticket is started.
+The worker-role selection on an executable ticket, represented by its worker label and resolved through models.json. The selected row determines how that worker session starts.
 
 **`junior-worker`**:
 The default worker grade (`DEFAULT_WORKER` in `dispatch.sh`).
@@ -21,7 +21,7 @@ The worker grade for a ticket where a mistake would not show on the day it is wr
 A GitHub issue, the tracker's unit: a map, a spec, a ticket, a ticket's child, a decision ticket, or an issue from outside that triage handles.
 
 **spec**:
-A container for a batch of tickets, not a piece of work: an issue labelled `mmw:spec`, in the shape of **The template** of the `to-spec` skill's create entry, which writes it and publishes it with `verify-ticket.py --publish --spec-body`. A spec published from a wayfinder map is a native sub-issue of that map.
+The issue labelled `mmw:spec` recording settled product, implementation and testing decisions for a coordinated batch of tickets. It is a container rather than an executable ticket.
 _Avoid_: 规格
 
 **`## Implementation Decisions`**:
@@ -43,19 +43,22 @@ The spec section linking the first-hand material the spec was built from, one li
 The spec section holding the spec-division bookkeeping when step 1 divides a reference into several specs and the reference is not a wayfinder map: one line per spec, naming it, what it covers, its position in the order and its link once published.
 
 **spec division**:
-The step-1 judgement of whether what a reference leads to is one spec or several, by whether the decisions share a **seam** and whether the dependency between parts runs one way. The division is written to the map's `## Specs` section, or, with no map, the first spec's `## Further Notes`.
+The to-spec judgment that a reference contains independently deliverable parts needing different seams. Their one-way dependency order is recorded on the map or first spec.
 
 **revising a spec**:
-Changing a section of an already-published spec in place rather than publishing a new issue, so no ticket's `## Parent` is left pointing at a wrong number. What changed and why goes in one comment on the spec; a landed ticket the new text no longer matches gets a correction ticket.
+Changing a published spec in place through to-spec's revision entry. Affected unlanded tickets follow that revision; work already landed requires a correction ticket.
 
 **seam**:
-The place where a module's interface lives: where a test observes behaviour without reaching inside, and where what is behind the interface can be replaced (a stub, an adapter). `## Testing Decisions` names it and a ticket's `## Seam` points at it by that name.
+The location where a module's interface can be exercised or its adapter substituted, in the sense of Michael Feathers and codebase-design. Testing Decisions names the observation point and the real or substituted sides of that interface.
 
 **precedent**:
 The similar existing test `## Testing Decisions` names per test layer. A ticket's `## Seam` reaches it through the layer it names, and the ticket writer copies its invocation into `CHECK:` and its success line into `EXPECT:`.
 
 **test layer**:
 The layer a feature's tests land in, named in `## Testing Decisions` with its directory and precedent.
+
+**`## Problem Statement`, `## Solution`, `## User Stories`**:
+The spec sections recording the user's problem, the intended outcome and the situations it must serve. Their decisions are carried into the Implementation Decisions read by workers.
 
 ### Tickets
 
@@ -64,7 +67,7 @@ An issue in the **ticket format**, labelled `mmw:ticket`, that a worker takes fr
 _Avoid_: 工单
 
 **batch**:
-The tickets under one spec, published together: `--lint` checks them as one graph of blocking edges, and the closing pass re-runs every one of their criteria on the base branch. Distinct from a migrate batch of a **wide refactor**, one step of an expand-contract sequence.
+The coordinated implementation tickets under one spec, published and checked as one dependency graph. It is distinct from a brief batch and a backlog review batch.
 
 **vertical slice**:
 A ticket's cut: a narrow but complete path through every layer (schema, API, UI, tests), demoable or verifiable on its own (a tracer bullet), as against a horizontal slice of one layer.
@@ -76,25 +79,25 @@ The exception to vertical slicing: one mechanical change (renaming a column, ret
 The final ticket of an expand-contract sequence whose migrate batches cannot each stay green alone: they share an integration branch and all block this ticket, where green is promised.
 
 **ticket format**:
-The `to-tickets` skill's `references/ticket-format.md`: a ticket's sections, `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`, how each criterion is written, and its labels. `verify-ticket.py` runs what it describes, so independent and batch writers use the same format, with decisions recorded at the scope each ticket actually has.
+The shared definition of ticket sections and criterion classification in to-tickets' [ticket-format.md](../../../mmw-v4/skills/to-tickets/references/ticket-format.md). Independent and batch tickets use this format with the decision sources available at their actual scope.
 
 **`## Parent`**:
-The ticket section routing it to its spec: `#<spec>, Implementation Decisions section <n>`, or `None` for an independent ticket.
+The ticket section identifying its parent spec and numbered Implementation Decisions subsections, or `None` for an independent ticket.
 
 **`## What to build`**:
 The end-to-end behaviour the ticket makes work, from the end user's point of view, in numbered points each with the test that decides it.
 
 **`## Read first`**:
-The sources the ticket's spec subsections cite, each read to its conclusion before work; an item that records a settled conclusion is marked as a **baseline**.
+The ticket's required sources, including decision baselines and worker or reviewer method entries. A spec ticket selects the sources of its named spec subsections; an independent ticket names its prepared sources directly.
 
 **baseline**:
-An item under `## Read first` that records a settled conclusion — a decision ticket's resolution, an ADR's decision, a research answer's file in its question's directory linked by the resolution comment, a prototype's chosen artifact and verdict comment — which the worker follows rather than consults. In the configuration-management sense (IEEE Std 610.12), it is a reviewed and agreed item that further work builds on and that changes only through change control, which here is a `contract` child.
+A settled conclusion under Read first, such as a prototype verdict, an approved design or an ADR decision. It is an agreed contract for the worker, with discrepancies raised through a `contract` child.
 
 **`## Seam`**:
-The ticket section saying where the ticket is verified, as pointers into the spec's `## Testing Decisions`: the test layer it uses, the test file it adds, and the mechanism by which a test arrives at the state.
+The ticket section naming where the result is verified and how the test reaches the required states. A spec ticket points into Testing Decisions; an independent ticket records the relevant layer, directory and precedent locally.
 
 **`## Owns`**:
-The repository-relative paths the ticket may write, one per line, including its test files and any file it must edit to put what it creates in service. Everything outside is read-only for the ticket.
+The ticket's declared write scope, including its tests and the files needed to put the change in service. A necessary edit outside that scope is accounted for by the worker rather than silently treated as owned.
 
 **`## Acceptance criteria`**:
 The ticket section holding the acceptance criteria. A `ready-for-human` ticket has none.
@@ -102,19 +105,31 @@ The ticket section holding the acceptance criteria. A `ready-for-human` ticket h
 **Blocked by**:
 The tickets one ticket waits on. On an agent ticket they are its blocking edges on the tracker alone, which the breakdown put to the owner lists and the to-tickets skill's batch entry calls a **Blocked by** edge; on a `ready-for-human` ticket, the body item naming the ticket that produces the thing it waits on.
 
+**independent ticket**:
+An implementation ticket outside any spec, with `None` under Parent. Its own prepared scope and verification sources are sufficient for execution by One ticket.
+
+**spec ticket**:
+An implementation ticket whose native parent is a spec and whose Parent section selects that spec's relevant decisions. Its batch is executed by Run a night even when it has only one ticket.
+
+**`## Problem`**:
+The original problem or goal recorded before preparation, including its initial Playbook line when present. Later routing can select a current component without rewriting that historical statement.
+
+**`Playbook:`**:
+The preparation record's line naming the workflow that originally took the problem. It is historical context on an existing issue, distinct from an instruction to open a retired Playbook.
+
 ### Acceptance criteria
 
 **acceptance criterion**:
-One standard on a ticket (a criterion), decided by one command: the lines `- [ ] AC<n>:`, `CHECK:`, `EXPECT:` and `EVIDENCE:`, with `TIMEOUT:` optional. A judgement no command decides is not one.
+One command-decided standard on a ticket, expressed by its AC number, CHECK, EXPECT and EVIDENCE lines. It differs from a code-review judgment or a human reaction.
 
 **`CHECK:`**:
 The shell command that decides a criterion, run in its own shell at the repository root with no agent in between. A multi-line command is a **fenced block** directly under it.
 
 **`EXPECT:`**:
-The string, or `/…/flags` regex, the `CHECK:` output must contain: a **success-only marker**, the line the precedent prints only when it passed. For a `CHECK:` stage that runs pytest or Vitest it is that runner's standard pattern, whose one home is the verify-ticket skill's `scripts/runner-summaries.json`.
+The success-only marker a criterion's CHECK output must match. Native runner patterns belong to verify-ticket's runner-summaries.json; pytest acceptance includes an ordinary passing case rather than only xfail or xpass results.
 
 **`EVIDENCE:`**:
-The criterion line gate-check writes: `pending` until the criterion runs, then one line of fact about the run, which on a pass fingerprints the definition that passed. The checkbox, not this line, decides whether the criterion is met.
+The criterion's recorded run evidence, initially `pending`, with a passing run fingerprinting the checked definition. The checkbox records whether that criterion is met.
 
 **`TIMEOUT:`**:
 The optional criterion line `TIMEOUT: <seconds>` raising how long its `CHECK:` may run. `verify-ticket.py` reads it and keeps it out of the ledger.
@@ -126,13 +141,13 @@ The only way to write a multi-line `CHECK:`: a code fence directly under it hold
 The ordered questions the ticket writer asks of anything there is to say about the work, deciding whether it becomes an acceptance criterion, a code-review judgement, a `reaction` ticket, a `reach` ticket or a choice put to the user.
 
 **`met`, `unmet`, `abandoned`**:
-The three states of a criterion: met is ticked with real evidence, abandoned carries an `ABANDON:` line, and unmet is every other criterion.
+The criterion-state family used by acceptance and closeout. A met criterion has passing evidence, an abandoned criterion has an ABANDON record, and an unmet criterion has neither accepted outcome.
 
 **round**:
-One pass that fixes and re-runs one criterion, or that fixes the in-ticket findings of a code review.
+One pass of criterion repair and rerun, or of in-ticket code-review fixes. It differs from a hillclimb Attempt or a prototype experiment round.
 
 **`ABANDON:`**:
-The line `ABANDON: AC<n> <kind> <reason>` a worker writes under a criterion it gives up on, of kind `failed`, `stuck` or `decision`. A `failed` or `stuck` one makes the closing comment `HANDOFF REQUIRED`.
+The criterion record for work the worker cannot complete, with kind `failed`, `stuck` or `decision`. The kind distinguishes an unsuccessful repair, unavailable execution or a person's unresolved choice.
 
 ### The graph
 
@@ -141,7 +156,7 @@ The tracker's native issue dependency between two tickets, the copy every script
 _Avoid_: blocking link; native issue dependencies as this concept's name (it names GitHub's mechanism)
 
 **frontier**:
-The tickets `advance` may start now, as `status.py` computes them from the tracker. Distinct from wayfinder's frontier, a map's open, unblocked, unclaimed children.
+The implementation tickets currently eligible for dispatch in a spec batch, computed from tracker status, claims and blocking edges. It is distinct from a map frontier of decision tickets.
 
 **sub-issue**:
 The tracker's native parent–child relation. A map's children are its decision tickets and specs, a spec's direct children are its tickets, and a ticket's direct children are the issues a worker opens under it with `--sub-issue <kind>`.
@@ -149,31 +164,28 @@ The tracker's native parent–child relation. A map's children are its decision 
 ### Labels and statuses
 
 **label**:
-A GitHub label on an issue. This repository's own labels come from three sets that never stand in for each other: a **kind** says what the issue is, a **status** says who owes the next step, and a worker-grade label says which worker starts it. Triage's `bug` and `enhancement` and wayfinder's `wayfinder:<type>` labels sit outside the three.
+A tracker label identifying an issue's kind, status or worker grade. Those sets express different facts, while wayfinder decision types and external issue categories have their own labels.
 
 **kind**:
-Exactly one of `mmw:map`, `mmw:spec`, `mmw:ticket`, `mmw:child`, `mmw:lesson`, `mmw:problem` on each MMW issue, saying what it is. A `wayfinder:<type>` decision ticket carries none. A kind puts an issue in no status.
+The MMW issue-type label family distinguishing maps, specs, implementation tickets, children, lessons and preparation problems. It is independent of status and worker grade; wayfinder decision tickets use their own type labels.
 
 **status**:
-Who owes the next step. An open issue without a status label awaits machine processing. `needs-triage` awaits the owner's decision. `ready-for-agent` with one worker grade, or `ready-for-human`, means ready for work, with an assignee when in progress. Closed ends the work, with `wontfix` for the owner's rejection. Maps and specs use only open and closed.
-
-**triage role**:
-A canonical label name the upstream skills use: status roles, whose repository label strings are defined by `LABELS` in the verify-ticket script, and two category roles, `bug` and `enhancement`, used as named.
+The tracker state identifying who owes the next action: machine processing, owner triage, agent work or human work. Open and closed state and labels are distinct from issue kind, worker grade and criterion outcomes.
 
 **`needs-triage`**:
 The status awaiting the owner's decision. Only the owner lets an issue leave it, and deferral has no expiry.
 
 **`mmw:lesson`**:
-The kind of a problem in how work is done, awaiting retrospective processing.
+The kind label for a registered way-of-working problem whose evidence can be assessed by Retrospective.
 
 **`mmw:problem`**:
-The kind of a product problem outside any ticket, or a playbook's plan not yet approved. It becomes `mmw:ticket` on the owner's Go.
+The kind label for a preparation problem or product problem outside a ticket. It preserves the problem before execution Go turns the work into an implementation ticket.
 
 **`ready-for-agent`**:
 The status ready for an agent, which the ticket format puts on every agent ticket beside a worker-grade label. It never goes on a spec.
 
 **`ready-for-human`**:
-The label of a person ticket: a ticket holding one thing only a person can do, of kind `reaction` or `reach`. Such a ticket holds only **the five things**, with no Seam, Owns, criteria or worker grade.
+The status for one action or judgment only a person can supply, classified as reaction or reach. Its record uses the five things rather than agent acceptance criteria and a worker grade.
 
 **`reaction`**:
 The `ready-for-human` kind where the thing asserted is a person's reaction, so the person is the measuring instrument.
@@ -185,7 +197,7 @@ The `ready-for-human` kind where a machine would decide it if it could get to th
 The fixed, minimal content of a `ready-for-human` ticket, the whole of it: **Parent**, **Which kind**, **What to look at**, **What makes it right**, **Blocked by**.
 
 **retiring line**:
-The line a `reach` ticket adds naming what would retire it, that is, make the ticket no longer needed: a test account, a spare device, a CI runner, or a mechanism under **How a test arrives at a state** nobody owns yet.
+A reach ticket's statement of what access or mechanism would make that human-only ticket unnecessary.
 
 **`wontfix`**:
 The owner's rejection of work, carried on an issue closed as not planned.
@@ -193,40 +205,42 @@ The owner's rejection of work, carried on an issue closed as not planned.
 **`bug`, `enhancement`**:
 The two category roles, for work arriving from outside; a ticket this repository plans for itself carries neither.
 
-**`.out-of-scope/`**:
-The directory of one-file-per-concept records of enhancement requests rejected as `wontfix`, read during triage for institutional memory and to catch a repeat request before it is re-litigated; a request closed as already implemented is a different outcome, with no file here.
-
 **decision ticket**:
-A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. It carries no status label and is not triaged. Its resolution comment is a baseline source.
+A native child of a wayfinder map holding one precisely stated decision or investigation, classified by a `wayfinder:<type>` label. Its resolution comment can become an implementation baseline.
 
 **map**:
-Wayfinder's single issue labelled `wayfinder:map` and `mmw:map`, the index of an effort too large for one session. Its children are decision tickets and the specs published from it.
-
-**agent brief**:
-The durable record the triage skill writes of what an evaluation established: an investigation record, not a work order. The `Write a spec` playbook reads it as one of a spec's sources.
+The wayfinder index issue labelled `wayfinder:map` and `mmw:map`, with decision tickets and resulting specs as native children. Its body records the destination and decision index; detailed answers remain on the decision tickets.
 
 ### Publishing and linting
 
 **ambiguity scan**:
-The read-only pass over a spec and its drafted tickets, run by a subagent at step 6 of the `Cut tickets` playbook, that feeds questions into each ticket's **Choices** before the breakdown is shown to the owner.
+The read-only analysis of a drafted spec batch that identifies unresolved interpretations before its breakdown reaches the owner. Its questions feed the batch's Choices rather than implementation guesses.
 
 **Choices**:
-The line the breakdown put to the owner at step 6 of the `Cut tickets` playbook shows for each ticket an agent works: every choice the fifth of **the five questions** sent there and every question the **ambiguity scan** returned, each with its options and the one the ticket writer would take. An answered choice is written into the ticket's `## What to build`, or back into the spec when it changes a decision there.
+The owner-facing alternatives and recommendations attached to each agent ticket in a proposed batch breakdown. Resolved choices become ticket requirements or revised spec decisions.
 
 **ticket draft**:
-An approved ticket written to a local file, `<draft name>.md`, in the directory `--lint --drafts <dir>` checks and `--publish --drafts <dir>` later creates as an issue: the header lines `TITLE:`, `LABELS:` and `BLOCKED BY:`, then `---`, then the body. The file's name, standing in for the issue number it does not have yet, is what `BLOCKED BY:` and the lint use to reference it.
+A local prospective ticket with publication headers and its body, linted before it receives a tracker identity. Draft names identify dependencies within the unpublished batch.
 
 **publish**:
-`verify-ticket.py --publish`: creating the spec (`--spec-body`) or a batch's tickets (`<spec> --drafts <dir>`) as GitHub issues, each ticket a native sub-issue of its spec with its labels and blocking edges, ending by linting the published spec. The batch is read back from that lint, which alone sees the tracker's labels, sub-issues and edges, before it is reported as published.
+Creation of a prepared spec or approved batch as tracker issues through verify-ticket. Published labels, parent relationships and blocking edges are checked by reading the tracker back.
 
 **lint**:
-`verify-ticket.py <n> --lint`: gate-lint plus the ticket-graph and worker-label checks, run on one ticket, on a spec's batch, or on the batch's drafts before publishing.
+The verify-ticket check of a ticket, spec batch or unpublished drafts, combining criterion lint with issue-graph and label checks. It does not execute the implementation.
 
 **lint rule ID**:
-The string in `[brackets]` at the end of a lint finding's line, naming the check that reported it, as ESLint's and SARIF's `ruleId` does: a cycle in the batch's blocking edges, a worker-grade or kind label out of place, a weak `EXPECT:`, and others. Always qualified: `retro`'s Rule id names a Nowledge Mem Rule.
+The bracketed identifier naming a verify-ticket lint finding's check. It identifies a diagnostic rule, not a retrospective lesson or Nowledge Mem Rule.
 
 **`ERROR`, `WARN`**:
 The two lint levels. Only an `ERROR` affects `--lint`'s exit code.
 
 **triage**:
-The skill that judges an issue waiting in `needs-triage` and recommends one of three outcomes: `ready-for-agent`, `ready-for-human`, `wontfix`.
+The owner's selection or disposition of pending work, represented by the needs-triage queue. It is distinct from preparation and from execution Go; no active MMW skill is named triage.
+
+### Writing components
+
+**`to-spec`**:
+The [skill](../../../mmw-v4/skills/to-spec/SKILL.md) for creating a spec from settled decisions or revising the published spec and affected tickets. It returns the requested record without automatically decomposing or executing it.
+
+**`to-tickets`**:
+The [skill](../../../mmw-v4/skills/to-tickets/SKILL.md) for opening a preparation record, writing one independent ticket or decomposing a spec into a batch. Independent and batch writers share its ticket format and criterion classification.

@@ -1,27 +1,31 @@
-# Context Map
+# Context map
 
-One vocabulary, seven bounded contexts. A term is defined in one of them, and the entry is right when another text disagrees with it. The contexts live under `docs/contexts/` rather than beside their code because the code of most of them is a skill directory symlinked whole into every host, which holds only what the agent holding the skill reads or runs.
+The bounded contexts defining MMW's shared language. Each term has one definition in its owning context; component entries use the skill's `name` or the Playbook's title and explain what that component is.
 
-How to read an entry, in each context: the bold line is the term's name, and a term that is a literal string in a file, a command or a comment is named by that string exactly. The definition says in one or two sentences what the thing is and how it differs from its neighbours. `_Avoid_` lists wordings that name the concept less precisely in this repository's own text, each with the sense in which it is avoided. An entry does not repeat what a file states (a field list, an exit code, a command's switches, the branches of a behaviour).
+The glossaries live under `docs/contexts/`, outside the installed skill directories. They describe the repository's domain; skill instructions, command recipes, configuration schemas and decision history remain with their respective sources. A component's entry links to its live source. An upstream concept used unchanged retains its definition in that skill's native glossary.
 
-What is written here is acted on, not just read: specs and tickets take their wording from these entries, a night worker names code after them without anyone to ask, and review holds a diff to them. So write a definition only once the user has settled it, and put a word under `_Avoid_` only when it is actually wrong in this repository's text: every word listed there becomes a correction someone will make.
+Each context has a short scope description and a `## Language` section. An entry uses `**Name**:`, a one- or two-sentence definition and, where a real ambiguity exists, an `_Avoid_:` line. A family of related machine identifiers has one entry identifying its shared meaning rather than copying every field or command option.
 
 ## Contexts
 
-- [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — the mode, its playbooks and principles, skills, upstream snapshots and the import record, install locations, prompts, hosts and ADRs
-- [Tickets](./docs/contexts/tickets/CONTEXT.md): what a spec and a ticket are, how they are written, published and linted, and the kind and status labels they carry
-- [Ticket run](./docs/contexts/ticket-run/CONTEXT.md): one ticket being worked from claim to close — events on the ticket, criteria runs, code review, the worker's final run, the advisor, the closing steps and the closeout
-- [Night](./docs/contexts/night/CONTEXT.md): dispatching sessions onto tickets, runners and adapters, workspaces and worktrees, base and project branches, the relay, the watchdog and the turn guard, and the orchestrator's commands
-- [UI acceptance](./docs/contexts/ui-acceptance/CONTEXT.md): local prototypes, design freeze, API fakes and mount points, product environment tools and verification skills, feature maps and e2e tests
-- [Task board](./docs/contexts/task-board/CONTEXT.md): the local browser page, its registry and supervisor
-- [Release](./docs/contexts/release/CONTEXT.md): shipping an installable package for a product on the current branch — the release manifest, the release engine and its release loop, and the diagnosis and repair of a failed build
+- [Skill set](./docs/contexts/skill-set/CONTEXT.md). Component kinds, `mmw-mode`, every `principle-*` skill, Authoring or modifying a skill, Eval, writing standards and skill-set review vocabulary.
+- [Toolbox](./docs/contexts/toolbox/CONTEXT.md). MMW as an install target, consuming repositories, hosts, configuration, shared prompts, hooks and repository setup.
+- [Development](./docs/contexts/development/CONTEXT.md). Develop a change, discussion, investigation, decision maps and reusable diagnostic, performance and refactoring methods.
+- [Tickets](./docs/contexts/tickets/CONTEXT.md). `to-spec`, `to-tickets`, maps, specs, independent and spec tickets, acceptance criteria, publication and queue labels.
+- [Ticket run](./docs/contexts/ticket-run/CONTEXT.md). Work a ticket, `verify-ticket`, `code-review`, `advisor`, claims, events, criteria evidence and ticket closeout.
+- [Night](./docs/contexts/night/CONTEXT.md). One ticket, Run a night, `dispatch`, sessions, branches, watches, landing, Opening a PR, recovery and retrospective feedback.
+- [UI acceptance](./docs/contexts/ui-acceptance/CONTEXT.md). `prototype`, `test-audit`, product verification skills, feature maps, acceptance targets, behavior pins and product control.
+- [Task board](./docs/contexts/task-board/CONTEXT.md). The local task board, its issue presentation, freshness, server lifecycle and settings sheet.
+- [Release](./docs/contexts/release/CONTEXT.md). `exe-release`, product packaging, release manifests, release-engine state, repair findings and delivery records.
 
 ## Relationships
 
-- **Tickets → Ticket run**: a published ticket (sections, criteria, labels), with the spec sections and baselines it names, is what the worker works from; the run writes its events back onto it as comments
-- **Ticket run → Night**: the events a run posts (`ticket.passed`, `ticket.returned`, `reviewer.reported`, …) are what the relay turns into wakes and what `advance` lands
-- **Night → Tickets**: `advance` reads the frontier off ticket labels and blocking edges; `reverify` hands a red landed ticket back to `needs-triage`, awaiting the owner's decision
-- **Tickets ↔ UI acceptance**: daytime ticket-writing sessions use the winner prototype as baseline, write e2e tests and pins, and copy each CHECK line from the product's `verify-<product>` Launch section; existing behavior is described in its feature map
-- **UI acceptance → Night**: workers run product-target e2e CHECK lines against isolated product runs and checkout-local back-end stacks; verification assets and the winner prototype stay read-only, and a wrong test or design returns through a `contract` child for daytime correction
-- **Task board → Ticket run, Night**: the task board reads ticket state through `events.py`, `issue_tree.py` and `ghlist.py`, and writes the same `models.json` as `models.py config`, with the roles `roles.json` lists
-- **Toolbox → all**: `install.sh`, the `mmw-mode` skill and `models.json` decide what every other context runs on; `host`, `subagent`, playbook and principle are shared vocabulary defined here
+- **Skill set → all**. Defines the component kinds and cross-task judgments that the other contexts compose. The mode selects the requested result; a Playbook owns its task workflow and a skill returns its bounded result.
+- **Toolbox → all**. Installation supplies the shared skill set and user-level prompt. Host hooks point to the consuming repository's glossary and the installed MMW glossary; configuration selects how dispatched work runs.
+- **Development → Tickets**. Evidence, settled decisions and baselines become an independent ticket or a spec batch through to-spec and to-tickets. Requested diagnoses, decisions and reports can end without an implementation ticket.
+- **Tickets → Ticket run, Night**. A ready independent ticket enters One ticket; a ready spec batch enters Run a night. Both executors dispatch Work a ticket for implementation and preserve existing scope and authority.
+- **UI acceptance ↔ Development, Tickets**. Prototype verdicts, feature descriptions and prepared tests supply implementation baselines. Product verification recipes supply executable evidence; test-audit supplies testing judgments and methods.
+- **Ticket run → Night**. Ticket events carry worker and reviewer results to the relay. The executor lands passing work, handles unfinished results and returns a delivery for owner acceptance.
+- **Night → Development, Skill set**. Retrospective records analysis without implementing it. Owner-approved backlog decisions return ordinary changes to their development preparation and skill-set changes to Authoring or modifying a skill.
+- **Task board → Tickets, Ticket run, Night, Toolbox**. The page presents tracker records and runtime configuration using their existing meanings. Its display states are distinct from the records it presents.
+- **Release → UI acceptance**. exe-release packages committed product inputs and returns an installer for the owner's install test. It is distinct from Toolbox's promotion and installation of MMW itself.
