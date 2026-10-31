@@ -934,7 +934,7 @@ try:
             print(f"已装  {config_file}")
     else:
         config = models.read_local_config()
-    config, scan, errors = models.check_local_config(config)
+    config, scan, errors = models.check_local_config({**config, "runner": models.runner_name()})
     if errors:
         for item in errors:
             sys.stderr.write(f"缺    {config_file} {item['cell']}: {item['reason']}\n")

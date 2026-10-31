@@ -596,7 +596,24 @@ class InstallTest(unittest.TestCase):
                     self.assertEqual(saved["custom"], {"keep": True})
                     self.assertNotIn("paseo ", self.log.read_text())
 
+    def test_unused_paseo_catalog_is_not_required_with_runner_override(self):
+        models = self.home / ".mmw/models.json"
+        models.write_text(json.dumps(dict(V3_MODELS, runner="paseo")))
+        catalog = json.loads(self.catalog.read_text())
+        catalog["paseo"] = {"state": "down"}
+        self.catalog.write_text(json.dumps(catalog))
+        env = dict(self.env(), MMW_RUNNER="orca")
+        for args in ((), ("--check",)):
+            run = self.run_install("v4", *args, env=env)
+            self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(json.loads(models.read_text())["runner"], "paseo")
+        self.assertFalse((self.home / ".paseo").exists())
+        self.assertNotIn("paseo ", self.log.read_text())
+
     def test_paseo_override_sets_up_checks_and_reloads_only_selected_runner(self):
+        catalog = json.loads(self.catalog.read_text())
+        self.catalog.write_text(json.dumps({"paseo": catalog, "cli": {
+            "claude": {"state": "missing"}, "codex": {"state": "missing"}}}))
         config = self.home / ".paseo/config.json"
         config.parent.mkdir()
         config.write_text('{"unrelated": {"keep": true}, "worktrees": {"other": 7}}')
