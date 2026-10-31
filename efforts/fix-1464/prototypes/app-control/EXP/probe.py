@@ -172,6 +172,24 @@ def enqueue_self(binary):
             'app_new_turn_observed': False}
 
 
+def mcp_discovery(binary):
+    with tempfile.TemporaryDirectory(prefix='mmw-public-mcp-') as work:
+        rpc = Rpc([binary, '-c',
+                   'plugins.codex-app-tools@openai-bundled.mcp_servers.codex_app.enabled=true',
+                   'app-server'], cwd=work)
+        try:
+            result = rpc.call('mcpServerStatus/list',
+                             {'serverName': 'codex_app', 'detail': 'toolsAndAuthOnly'},
+                             timeout=25)
+            return {'operation': 'public_mcp_discovery',
+                    'app_binding_inherited': bool(os.environ.get('CODEX_APP_TOOLS_PIPE_PATH')),
+                    'servers': [{'name': row['name'], 'tool_count': len(row.get('tools', {})),
+                                 'startup_error': row.get('toolsError')}
+                                for row in result['data']]}
+        finally:
+            rpc.close()
+
+
 def fixture(binary):
     requests = queue.Queue()
     release_provider = threading.Event()
@@ -354,6 +372,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixtures', action='store_true')
     parser.add_argument('--enqueue-self', action='store_true')
+    parser.add_argument('--mcp-discovery', action='store_true')
     parser.add_argument('--binary', default=shutil.which('codex'))
     parser.add_argument('--socket', type=Path, default=Path.home() /
                         '.codex/app-server-control/app-server-control.sock')
@@ -366,6 +385,8 @@ def main():
         results.append(fixture(args.binary))
     if args.enqueue_self:
         results.append(enqueue_self(args.binary))
+    if args.mcp_discovery:
+        results.append(mcp_discovery(args.binary))
     evidence(args.output, results)
     print(json.dumps(results, ensure_ascii=False, indent=2))
 

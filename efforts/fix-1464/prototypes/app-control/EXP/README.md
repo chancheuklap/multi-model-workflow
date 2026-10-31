@@ -41,9 +41,21 @@ The `shell_environment_policy.set` override was submitted at thread start. This 
 
 A queue acknowledgment is not a completed wake check. A subsequent App turn must receive the exact marker recorded under `--output`, after the original turn ends and the sender exits. The continuation then records that observation before resuming the original six-step task.
 
+The real desktop chat received marker `mmw-app-wake-f7c1af16-abd0-4c83-a156-3aaeca0f0593` in a new turn after the preceding assistant final. The sender had exited with code 0 before that final. The observation was recorded at 2026-10-31T04:39:47Z under `.scratch/fix-1464/app-control/evidence/self-wake/observed.json`, separately from the original queue acknowledgment. This establishes a real App wake after turn completion. It does not establish restart recovery or control of another chat.
+
+## Public MCP discovery
+
+```sh
+python3 efforts/fix-1464/prototypes/app-control/EXP/probe.py --mcp-discovery --binary /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex --output .scratch/fix-1464/app-control/evidence/mcp-public
+```
+
+This read-only probe uses the documented `mcpServerStatus/list` endpoint and the existing first-party App plugin. Its enabled override applies only to the temporary app-server process. It inherits the App binding without printing it and does not alter signing, process ancestry, caller identities, or persistent configuration.
+
+Discovery returned zero tools and `MCP startup failed: Mcp error: -32603: Codex app tools pipe closed`. The App log at 2026-10-31T04:40:52.699Z records `dynamic_app_tools_peer_rejected`, reason `missing-code-signing-identity`. The rejected identity remains unknown. This route therefore did not establish a script-accessible App control API. No write tool or model turn was attempted through it.
+
 ## Reusable parts and limits
 
-`Rpc` is a small standard-library client for the public JSONL protocol. `public_control` checks that a discovered socket serves the intended running session. `fixture` distinguishes persisted history, queue delivery, and live interruption. `enqueue_self` tests a real App wake without dispatching another agent.
+`Rpc` is a small standard-library client for the public JSONL protocol. `public_control` checks that a discovered socket serves the intended running session. `fixture` distinguishes persisted history, queue delivery, and live interruption. `enqueue_self` tests a real App wake without dispatching another agent. `mcp_discovery` checks the App plugin through the documented protocol.
 
 These are experimental assets. No MMW runner, installed skill, live model configuration, relay, or watchdog consumes them. The App adapter remains unimplemented until the complete control requirement is proved.
 
