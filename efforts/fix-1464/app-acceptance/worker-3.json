@@ -1,0 +1,7 @@
+{
+  "worker": 3,
+  "cwd": "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1473",
+  "branch": "issue-1473",
+  "session": "01a19094-851e-7800-a91c-e3691d76ac5d",
+  "skills": "/tmp/mmw-app-demo-20261031-1540/toolbox/mmw-v4/skills"
+}
