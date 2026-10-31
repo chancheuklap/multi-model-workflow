@@ -229,3 +229,29 @@ test("review return and non-phase events share the current phase transitions", (
   assert.equal(eventBlocks(events).at(-1).phase, 'working');
   assert.deepEqual(eventBlocks(events).map(b => b.phase), ['working', 'review', 'working']);
 });
+
+test("a rejected pickup does not change another session's active phase", () => {
+  for (const phase of ['working', 'review', 'verify']) {
+    const events = [{event: 'worker.started', payload: {runner: 'codex-app', session: 'worker-a'}}];
+    const sessions = [{...worker(), session: 'worker-a', runner: 'codex-app'}];
+    if (phase === 'review') {
+      events.push({event: 'reviewer.started', payload: {runner: 'codex-app', session: 'reviewer-a'}});
+      sessions.push({kind: 'reviewer', live: true, session: 'reviewer-a', runner: 'codex-app'});
+    } else if (phase === 'verify') {
+      events.push({event: 'ticket.checked', payload: {run: 'reverify', actor: 'worker'}});
+    }
+    const before = ticket({events: [...events], fold: {sessions}});
+    events.push({event: 'ticket.refused', payload: {
+      runner: 'codex-app', session: 'worker-b', reason: 'claimed-by-other',
+    }});
+    const after = ticket({events, fold: {sessions}});
+    assert.equal(Board.phase(before), phase);
+    assert.equal(Board.phase(after), phase);
+    assert.equal(Board.lamp(after), 'green');
+    assert.equal(eventBlocks(events).at(-1).phase, phase);
+    assert.equal(eventBlocks(events).at(-1).items.at(-1).name, 'Pick-up refused');
+  }
+  const refusal = [{event: 'ticket.refused', payload: {reason: 'blocked'}}];
+  assert.equal(Board.phase(ticket({events: refusal})), 'queued');
+  assert.equal(eventBlocks(refusal).at(-1).phase, 'queued');
+});

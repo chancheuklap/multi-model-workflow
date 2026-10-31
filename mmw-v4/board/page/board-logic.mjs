@@ -394,7 +394,6 @@ function phaseTransition(phase, raw, reviewerLive = false) {
     case "ticket.recovered":
     case "spec.merged": next = "landed"; break;
     case "ticket.regressed":
-    case "ticket.refused":
     case "spec.opened":
     case "spec.suspended":
     case "spec.closed": next = "queued"; break;
