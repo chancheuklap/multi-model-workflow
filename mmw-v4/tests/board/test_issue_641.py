@@ -24,21 +24,29 @@ class BoardRefreshContracts(unittest.TestCase):
                 return 0, json.dumps({'data': {'repository': {'issue': node}}}), ''
             if args[:2] != ['api', 'graphql']:
                 return 1, '', 'root discovery must use GraphQL'
-            later = 'mapsAfter=next' in args
-            maps = [dict(number=2 if later else 1, title='map', state='OPEN',
-                         labels={'nodes': [{'name': 'mmw:map'}]})]
-            specs = [dict(number=n, title='spec', state='OPEN',
-                          labels={'nodes': [{'name': 'mmw:spec'}]}) for n in ([40] if later else [10, 30])]
-            return 0, json.dumps({'data': {'repository': {'nameWithOwner': 'owner/repo',
-                'maps': {'nodes': maps, 'pageInfo': {'hasNextPage': paginated[0] and not later,
-                                                    'endCursor': 'next' if not later else None}},
-                'specs': {'nodes': specs, 'pageInfo': {'hasNextPage': paginated[0] and not later, 'endCursor': 'next' if not later else None}}}}}), ''
+            variables = dict(value.split('=', 1) for value in args if '=' in value)
+            repo = {'nameWithOwner': 'owner/repo'}
+            for name, pages in (
+                ('maps', {None: ([1], 'map-next'), 'map-next': ([2], None)}),
+                ('specs', {None: ([10, 30], 'spec-next'), 'spec-next': ([40], 'spec-last'),
+                           'spec-last': ([50], None)}),
+            ):
+                if variables.get(name + 'More') == 'false':
+                    continue
+                cursor = variables.get(name + 'After')
+                numbers, next_cursor = pages[cursor]
+                repo[name] = {'nodes': [dict(number=n, title=name, state='OPEN',
+                    labels={'nodes': [{'name': 'mmw:map' if name == 'maps' else 'mmw:spec'}]})
+                    for n in numbers], 'pageInfo': {
+                        'hasNextPage': paginated[0] and next_cursor is not None,
+                        'endCursor': next_cursor}}
+            return 0, json.dumps({'data': {'repository': repo}}), ''
         store = board_data.BoardStore(gh=gh)
         result = store.answer()
         self.assertNotIn('read_failed', result)
         self.assertEqual(result['repo'], 'owner/repo')
-        self.assertEqual([t['n'] for t in result['tasks']], [1, 2, 30, 40])
-        self.assertEqual(sum(not any(a.startswith('root=') for a in c) for c in calls), 2)
+        self.assertEqual([t['n'] for t in result['tasks']], [1, 2, 30, 40, 50])
+        self.assertEqual(sum(not any(a.startswith('root=') for a in c) for c in calls), 3)
         paginated[0] = False
         calls.clear()
         one_page = board_data.BoardStore(gh=gh).answer()
@@ -69,10 +77,23 @@ class BoardRefreshContracts(unittest.TestCase):
             self.assertNotEqual(changed['read_at'], first['read_at'])
             data['fail_comments'] = [13]
             data['comments']['12'][0]['comments'] = []
+            data['comments']['12'][0]['etag'] = 'changed-before-failure'
+            original = store.comment_reader.gh
+            delivered = []
+            def observe(args):
+                result = original(args)
+                if args[:2] == ['api', '-i']:
+                    delivered.append((args[2], result))
+                return result
+            store.comment_reader.gh = observe
             (directory / 'scenario.json').write_text(json.dumps(data))
             now[0] += dt.timedelta(seconds=60)
             failed = store.answer()
             self.assertIn('read_failed', failed)
+            self.assertIn('/issues/12/comments', delivered[0][0])
+            self.assertIn('200 OK', delivered[0][1][1])
+            self.assertEqual(json.loads(delivered[0][1][1].split('\n\n', 1)[1]), [])
+            self.assertIn('/issues/13/comments', delivered[-1][0])
             self.assertEqual(failed['tasks'], changed['tasks'])
             self.assertEqual(failed['read_at'], changed['read_at'])
             self.assertEqual(store.snapshot, changed)
@@ -98,7 +119,14 @@ class BoardRefreshContracts(unittest.TestCase):
             store.answer()
             now[0] += dt.timedelta(seconds=60)
             before = len((directory / 'calls.jsonl').read_text().splitlines())
-            gate, release = threading.Event(), threading.Event()
+            gate, release, waiting = threading.Event(), threading.Event(), threading.Event()
+            class ObservedCondition(threading.Condition):
+                def wait(self, timeout=None):
+                    waiting.set()
+                    return super().wait(timeout)
+            store.lock = ObservedCondition()
+            data['comment_active']['12'] = 1
+            (directory / 'scenario.json').write_text(json.dumps(data))
             gh = store.comment_reader.gh
             def blocked(args):
                 if 'mapsMore=true' in args:
@@ -109,9 +137,14 @@ class BoardRefreshContracts(unittest.TestCase):
             with ThreadPoolExecutor(max_workers=2) as pool:
                 first = pool.submit(store.answer)
                 self.assertTrue(gate.wait(5), 'expired refresh did not query roots')
-                second = pool.submit(store.answer)
-                release.set()
-                self.assertEqual(first.result(5), second.result(5))
+                second = pool.submit(store.answer, True)
+                try:
+                    self.assertTrue(waiting.wait(5), 'forced refresh did not join the executing read')
+                finally:
+                    release.set()
+                fresh = second.result(5)
+                self.assertEqual(first.result(5), fresh)
+                self.assertIn('child.opened', [e['event'] for e in tickets(fresh)[12]['events']])
             calls = [json.loads(line) for line in (directory / 'calls.jsonl').read_text().splitlines()[before:]]
             self.assertEqual(sum('mapsMore=true' in c for c in calls), 1)
 
