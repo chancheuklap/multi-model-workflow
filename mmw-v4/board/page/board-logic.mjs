@@ -58,22 +58,9 @@ export const Board = {
   },
 
   workflowPhase(ticket) {
-    const reviewerLive = ticket.fold.sessions.some(session => session.kind === "reviewer" && session.live);
-    let phase = reviewerLive ? "review" : "working";
-    for (const event of ticket.events) {
-      if (event.event === "ticket.checked" && event.payload?.run === "reverify"
-          && event.payload?.actor === "worker") {
-        phase = "verify";
-      } else if (event.event === "reviewer.started") {
-        phase = "review";
-      } else if (event.event === "reviewer.reported"
-          || (!reviewerLive && (["worker.started", "worker.resumed", "ticket.claimed",
-            "worker.decided"].includes(event.event)
-            || (event.event === "ticket.checked" && event.payload?.run === "self")))) {
-        phase = "working";
-      }
-    }
-    return phase;
+    const initial = ticket.fold.sessions.some(session => session.kind === "reviewer" && session.live)
+      ? "review" : "working";
+    return ticket.events.reduce((phase, raw) => phaseTransition(phase, raw, initial === "review").next, initial);
   },
 
   // Whether this ticket is finished, which is the same question `blocker_hold` already
@@ -387,21 +374,37 @@ export function defaultExpanded(task) {
   return expanded;
 }
 
-// Every pipeline event as a person reads it: an English name, the phase pill the ticket
-// card carried while that event was the newest one, and one sentence from the payload.
-// A claim never opens a block of its own: start and claim are one act.
-const PHASE_OF_EVENT = {
-  "worker.started": "working", "worker.resumed": "working", "ticket.claimed": "working",
-  "worker.touched": "working", "worker.decided": "working", "child.opened": "working",
-  "reviewer.started": "review", "reviewer.reported": "review",
-  "ticket.passed": "verify", "ticket.returned": "verify", "ticket.bounced": "verify",
-  "ticket.refused": "queued", "ticket.released": "queued", "worker.retracted": "queued",
-  "worker.replaced": "queued", "worker.lost": "queued", "reviewer.lost": "queued",
-  "ticket.landed": "landed", "ticket.regressed": "landed", "child.closed": "landed",
-  "spec.merged": "landed", "spec.opened": "queued", "spec.suspended": "queued",
-  "spec.closed": "queued",
-};
-const STICKY_EVENTS = new Set(["ticket.claimed"]);
+function phaseTransition(phase, raw, reviewerLive = false) {
+  const payload = raw.payload || {};
+  let next = phase;
+  switch (raw.event) {
+    case "worker.started":
+    case "worker.resumed":
+    case "ticket.claimed":
+    case "worker.decided": if (!reviewerLive) next = "working"; break;
+    case "reviewer.started": next = "review"; break;
+    case "reviewer.reported": return {next: "working", shown: "review"};
+    case "ticket.checked":
+      if (payload.run === "repo-checks" || (payload.run === "reverify" && payload.actor === "worker")) next = "verify";
+      else if (payload.run === "self") next = "working";
+      break;
+    case "ticket.passed":
+    case "ticket.bounced": next = "verify"; break;
+    case "ticket.landed":
+    case "ticket.recovered":
+    case "spec.merged": next = "landed"; break;
+    case "ticket.regressed":
+    case "ticket.refused":
+    case "spec.opened":
+    case "spec.suspended":
+    case "spec.closed": next = "queued"; break;
+    case "ticket.released":
+      if (phase !== "landed") next = "queued";
+      break;
+  }
+  return {next, shown: next};
+}
+
 const EVENT_NAME = {
   "spec.opened": "Night opened", "spec.suspended": "Night suspended",
   "spec.closed": "Night closed", "spec.merged": "Night's branch merged",
@@ -525,15 +528,6 @@ function eventTone(event, payload) {
   return "plain";
 }
 
-function eventPhase(event, payload) {
-  if (event === "ticket.checked") {
-    if (payload.run === "repo-checks") return "verify";
-    if (payload.run === "reverify") return payload.stage === "regress" ? "landed" : "verify";
-    return "working";
-  }
-  return PHASE_OF_EVENT[event] || "working";
-}
-
 function eventDetail(payload, line) {
   const rows = [];
   for (const [key, value] of Object.entries(payload)) {
@@ -552,7 +546,7 @@ function eventDetail(payload, line) {
   return rows;
 }
 
-export function describeEvent(raw = {}) {
+export function describeEvent(raw = {}, phase = "queued") {
   const payload = raw.payload || {};
   const event = raw.event || "";
   return {
@@ -560,19 +554,20 @@ export function describeEvent(raw = {}) {
     time: raw.at ? hhmm(raw.at) : raw.time || "",
     name: eventName(event, payload),
     text: eventText(event, payload),
-    phase: eventPhase(event, payload),
+    phase: phaseTransition(phase, raw).shown,
     tone: eventTone(event, payload),
-    sticky: STICKY_EVENTS.has(event),
     detail: eventDetail(payload, raw.line || ""),
   };
 }
 
 export function eventBlocks(events = []) {
   const out = [];
+  let phase = "queued";
   for (const raw of events) {
-    const item = describeEvent(raw);
+    const item = describeEvent(raw, phase);
+    phase = phaseTransition(phase, raw).next;
     const last = out[out.length - 1];
-    if (last && (last.phase === item.phase || item.sticky)) last.items.push(item);
+    if (last && last.phase === item.phase) last.items.push(item);
     else out.push({phase: item.phase, items: [item]});
   }
   for (const block of out) {
