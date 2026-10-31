@@ -7,6 +7,7 @@ Tests: settings.e2e.ts, subagents.e2e.ts
 ## Sub-features
 
 - 「会话角色」：runner（用什么起 session），和「一个 agent 一行」：每个会话角色一行，host、model、effort 三个下拉框。
+- runner 的启动能力决定可选 host。选择 codex-app 后，全部会话角色自动切到 codex，模型只来自对应目录；兼容的已有模型和 effort 保留，不兼容的值按新目录调整。子代理和型号目录页只显示所选 runner 支持的 host，其他 host 的子代理配置保留，切回对应 runner 后重新显示。
 - 「子代理」：`review-axis`、`reader`、`default` 三行，各写一句用途；每行在 claude、codex 上各有 model、effort 两个下拉框。「跟叫它的会话一样」就是用派它的那个会话自己的 model 或 effort。Claude 的 model 可选 sonnet、opus、haiku、fable，effort 可选 low 到 max；Codex 的 model 来自它的型号目录，effort 随所选 model 变；Codex 选「跟叫它的会话一样」时，effort 只列每个 Codex model 都支持的档位。
 - 「型号目录」：每个 host 问到了几个 model、目录是什么时候读到的、现在可选哪些；最近一次读取失败时，写出失败种类和详情，并说明仍在用哪一次读到的那份；「重新扫描」再问一次。下面列出所有「存的型号已不在目录里」的格子，写明存的名字和现在可选的名字，「跳到这一格」把焦点放到那一格。
 - 一个型号在整页只有一种名字，和「会话角色」那一列的写法相同。

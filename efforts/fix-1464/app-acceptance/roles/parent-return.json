@@ -1,0 +1,28 @@
+{
+  "parent": "01a18fb6-564f-7bc2-897e-9d87893e1ec9",
+  "new_turn": "01a190cb-617c-7eb1-8902-690a1575db3b",
+  "wake": "brief 20261031-070807-aa6d done",
+  "research_reports": [
+    {
+      "at": "2026-10-31T07:08:44Z",
+      "bytes": 2320
+    },
+    {
+      "at": "2026-10-31T07:09:08Z",
+      "bytes": 5291
+    }
+  ],
+  "completion": {
+    "at": "2026-10-31T07:09:37Z"
+  },
+  "research_wake_count": 1,
+  "read_and_acked": true,
+  "active_wait_received": [
+    "20261031-070823-f6dc",
+    "20261031-070832-de0c"
+  ],
+  "limits": [
+    "not an installed-hook test",
+    "candidate scenarios are designs, not executed acceptance cases"
+  ]
+}

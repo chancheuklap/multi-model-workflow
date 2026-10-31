@@ -147,5 +147,101 @@
       ],
       "read_at": "2026-10-16T15:38:50Z"
     }
+  },
+  "codex-app": {
+    "codex": {
+      "offerings": [
+        {
+          "id": "gpt-6.1-sol",
+          "name": "GPT-6.1-Sol",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": true
+        },
+        {
+          "id": "gpt-6-astra",
+          "name": "GPT-6-Astra",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-6-sol",
+          "name": "GPT-6-Sol",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-6-luna",
+          "name": "GPT-6-Luna",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-sol",
+          "name": "GPT-5.6-Sol",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-terra",
+          "name": "GPT-5.6-Terra",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "name": "GPT-5.6-Luna",
+          "thinkingOptionIds": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "isDefault": false
+        }
+      ],
+      "read_at": "2026-10-16T15:38:50Z"
+    }
   }
 }

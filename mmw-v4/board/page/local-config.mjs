@@ -9,6 +9,12 @@ export const CATALOG = {
     codex: {cli: true, paseo: true},
   },
   runners: ["herdr", "orca", "paseo"],
+  runnerOptions: {
+    herdr: {catalog: "cli", launch: "cli"},
+    orca: {catalog: "cli", launch: "cli"},
+    paseo: {catalog: "paseo", launch: "paseo"},
+    auto: {catalog: "cli", launch: "cli"},
+  },
 };
 
 export const LocalConfig = {
@@ -31,27 +37,47 @@ export const LocalConfig = {
   // models.json holds one row per session role of dispatch's roles.json (models.py refuses
   // any other set), so the rows are the role list, in the file's order.
   roles: d => Object.keys(d.rows),
-  source: d => (d.runner === "paseo" ? "paseo" : "cli"),
-  needsRescan: (from, to) => LocalConfig.source(from) !== LocalConfig.source(to),
+  source: (d, catalog = CATALOG) => catalog.runnerOptions[d.runner]?.catalog || "cli",
+  launch: (d, catalog = CATALOG) => catalog.runnerOptions[d.runner]?.launch || "cli",
+  launchableHosts: (d, catalog = CATALOG) => catalog.hosts.filter(host =>
+    catalog.launch[host]?.[LocalConfig.launch(d, catalog)]),
+  reconcileRunner(scan, d, catalog = CATALOG) {
+    const L = LocalConfig, hosts = L.launchableHosts(d, catalog);
+    if (hosts.length !== 1) return d;
+    for (const row of Object.values(d.rows)) {
+      const previous = row.host;
+      row.host = hosts[0];
+      if (scan === null) {
+        if (previous !== row.host) row.model = "";
+        continue;
+      }
+      const offered = L.offeredBy(scan, row.host);
+      const model = offered.find(item => item.model === row.model) || offered[0];
+      row.model = model?.model || "";
+      const efforts = model?.efforts || [];
+      if (!efforts.includes(row.effort)) row.effort = efforts[0] || "";
+    }
+    return d;
+  },
+  needsRescan: (from, to, catalog = CATALOG) =>
+    LocalConfig.source(from, catalog) !== LocalConfig.source(to, catalog),
   hostScan: (scan, host) => scan[host] || {state: "missing", offered: []},
   hostState(scan, d, host, catalog = CATALOG) {
     const launch = catalog.launch[host] || {};
-    return launch[LocalConfig.source(d)] ? LocalConfig.hostScan(scan, host).state : "unlaunchable";
+    return launch[LocalConfig.launch(d, catalog)] ? LocalConfig.hostScan(scan, host).state : "unlaunchable";
   },
   offeredBy: (scan, host) => LocalConfig.hostScan(scan, host).offered,
   effortsOf: (scan, host, model) =>
     (LocalConfig.offeredBy(scan, host).find(o => o.model === model) || {efforts: []}).efforts,
   stateWord: (state, d) => ({
     missing: "本机没装", silent: "没有回答", down: "Paseo 没开",
-    unlaunchable: d && LocalConfig.source(d) === "paseo" ? "Paseo 起不了" : "orca、herdr 起不了",
+    unlaunchable: `${d?.runner || "runner"} 起不了`,
   }[state] || state),
   hostWhy: (state, host, d, catalog = CATALOG) => ({
     missing: `这台机器上没装 ${host} 的 CLI（${catalog.binaries[host]}），换一个这台机器有的`,
     silent: `${host} 的 CLI 在扫描时没有回答，换一个这台机器有的`,
     down: `Paseo 服务没开，问不到 ${host} 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr`,
-    unlaunchable: LocalConfig.source(d) === "paseo"
-      ? `Paseo 起不了 ${host}：hosts.json 没给它 paseo 块；换一个 host`
-      : `orca 和 herdr 起不了 ${host}：hosts.json 没给它命令行启动块（cli）；换一个 host，或者把 runner 换成 paseo`,
+    unlaunchable: `${d.runner} 起不了 ${host}，换一个 host 或 runner`,
   }[state]),
 
   problems(scan, d, catalog = CATALOG) {
@@ -96,11 +122,12 @@ export const LocalConfig = {
     }
     return out;
   },
-  setCell(scan, d, key, cell, value) {
+  setCell(scan, d, key, cell, value, catalog = CATALOG) {
     const L = LocalConfig;
     if (key === "runner") {
+      const previous = {runner: d.runner};
       d.runner = value;
-      return d;
+      return L.reconcileRunner(L.needsRescan(previous, d, catalog) ? null : scan, d, catalog);
     }
     const r = d.rows[key];
     r[cell] = value;
@@ -136,7 +163,7 @@ export const LocalConfig = {
     const mark = (opts, value) => opts.map(o => ({...o, selected: o.value === value, disabled: !!o.disabled}));
     const host = [
       ...(catalog.hosts.includes(r.host) ? [] : [{value: r.host, text: `${r.host} · MMW 不认识`}]),
-      ...catalog.hosts.map(h => {
+      ...L.launchableHosts(d, catalog).map(h => {
         const hostState = L.hostState(scan, d, h, catalog);
         return {
           value: h,
@@ -177,7 +204,9 @@ export function catalogFromPayload(payload) {
   const binaries = {};
   for (const item of payload.hosts) {
     hosts.push(item.name);
-    launch[item.name] = {cli: !!item.cli, paseo: !!item.paseo};
+    launch[item.name] = item.launch
+      ? Object.fromEntries(item.launch.map(name => [name, true]))
+      : {cli: !!item.cli, paseo: !!item.paseo};
     if (item.binary) binaries[item.name] = item.binary;
   }
   return {
@@ -185,6 +214,7 @@ export function catalogFromPayload(payload) {
     hosts,
     binaries,
     launch,
+    runnerOptions: payload.runner_options || CATALOG.runnerOptions,
     runners: payload.runners.filter(name => name !== "auto"),
   };
 }

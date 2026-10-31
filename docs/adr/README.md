@@ -88,6 +88,8 @@
 
 | [0066](0066-ui-design-and-verification-have-distinct-owners.md) | Design a UI 推进界面设计，prototype 构建原型，四个 verification skills 按需提供检查方法 | 2026-10-30 | 0055 | 无 |
 
+| [0067](0067-native-tools-stay-behind-runner-adapters.md) | 原生工具也收进 runner adapter，共享工作流只等同步回执 | 2026-10-31 | 0018、0024 | 无 |
+
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（`mmw-v3/skills/mmw-mode/playbooks/pull-a-design.md` 的 **Design problems in the report**）与用户的 sign-off（`mmw-v3/skills/mmw-mode/playbooks/design-in-claude-design.md` 第 8 步 **Take the sign-off, then pull**）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
 ## 编号在本仓库以外仍会出现

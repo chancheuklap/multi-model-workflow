@@ -1,0 +1,92 @@
+[
+  {
+    "batch": "20261031-070807-aa6d",
+    "brief": "1",
+    "role": "researcher",
+    "at": "2026-10-31T07:08:12Z",
+    "effort": "medium",
+    "host": "codex",
+    "model": "gpt-6.1-sol",
+    "runner": "codex-app",
+    "session": "01a190c9-90dc-7f81-bd7b-d8d1059a0bb6",
+    "reported": {
+      "at": "2026-10-31T07:08:44Z",
+      "bytes": 2320
+    }
+  },
+  {
+    "batch": "20261031-070807-aa6d",
+    "brief": "2",
+    "role": "researcher",
+    "at": "2026-10-31T07:08:13Z",
+    "effort": "medium",
+    "host": "codex",
+    "model": "gpt-6.1-sol",
+    "runner": "codex-app",
+    "session": "01a190c9-9815-7fd3-92e4-487cc35fd440",
+    "reported": {
+      "at": "2026-10-31T07:09:08Z",
+      "bytes": 5291
+    }
+  },
+  {
+    "batch": "20261031-070817-c215",
+    "brief": "1",
+    "role": "advisor",
+    "at": "2026-10-31T07:08:21Z",
+    "effort": "high",
+    "host": "codex",
+    "model": "gpt-6-luna",
+    "runner": "codex-app",
+    "session": "01a190c9-b3f5-7311-b5b3-bac52c59a1ea",
+    "reported": {
+      "at": "2026-10-31T07:15:02Z",
+      "bytes": 1053
+    }
+  },
+  {
+    "batch": "20261031-070823-f6dc",
+    "brief": "1",
+    "role": "candidate",
+    "at": "2026-10-31T07:08:28Z",
+    "effort": "high",
+    "host": "codex",
+    "model": "gpt-6.1-sol",
+    "runner": "codex-app",
+    "session": "01a190c9-d036-7f80-b694-a5910bc861cf",
+    "reported": {
+      "at": "2026-10-31T07:09:29Z",
+      "bytes": 1041
+    }
+  },
+  {
+    "batch": "20261031-070823-f6dc",
+    "brief": "2",
+    "role": "candidate",
+    "at": "2026-10-31T07:08:30Z",
+    "effort": "high",
+    "host": "codex",
+    "model": "gpt-6.1-sol",
+    "runner": "codex-app",
+    "session": "01a190c9-d758-7fd2-a493-b7363d2e149d",
+    "reported": {
+      "at": "2026-10-31T07:09:28Z",
+      "bytes": 969
+    }
+  },
+  {
+    "batch": "20261031-070832-de0c",
+    "brief": "1",
+    "role": "retro-analyst",
+    "at": "2026-10-31T07:08:37Z",
+    "effort": "high",
+    "host": "codex",
+    "model": "gpt-6.1-sol",
+    "runner": "codex-app",
+    "session": "01a190c9-f311-7983-9e3c-b0e14ef42245",
+    "reported": {
+      "at": "2026-10-31T07:09:24Z",
+      "bytes": 1502
+    }
+  }
+]

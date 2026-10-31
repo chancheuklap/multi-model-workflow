@@ -22,9 +22,9 @@ bash mmw-v4/install.sh --back     # go back to v3
 - **Hooks.** The `dispatch` skill's `tool-guard.py` and `turn-guard.py`, and the `mmw-mode` skill's `session-start.py` go into each host's own hook configuration. `session-start.py` supplies the mode pointer at session entry and compaction, plus glossary entry paths. Before each message, it reminds the agent to use relevant definitions already in context or read them on demand. These reminders do not judge replies or request a retry.
 - **The user-level prompt.** `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` both link to this checkout's `prompt/shared.md`. Codex uses `CODEX_HOME` when set. [`prompt/README.md`](./prompt/README.md) covers migration and release boundaries.
 - **The task board.** The `com.mmw.board` launchd task keeps `board/supervisor.py` running, which serves one local board per repository registered in `~/.mmw/boards.json`. [`board/AGENTS.md`](./board/AGENTS.md) says how it reads GitHub and restarts onto new code.
-- **Paseo and Orca settings.** Paseo gets its command link and its worktree root; install removes the Grok and Cursor providers an earlier install added. When Orca is present, it puts its worktrees under each repository's `.worktrees/`, for every repository Orca holds at that moment; `--check` reports a repository added to Orca since whose worktrees would go elsewhere, and the next install sets it.
+- **Paseo and Orca settings.** Only when the effective runner is Paseo does install manage its command link, worktree root, and old Grok and Cursor providers. The effective runner follows `MMW_RUNNER`, then the saved runner and auto selection. Other runner selections leave Paseo files untouched. When Orca is present, it puts its worktrees under each repository's `.worktrees/`, for every repository Orca holds at that moment; `--check` reports a repository added to Orca since whose worktrees would go elsewhere, and the next install sets it.
 - **`~/.mmw/models.json`.** Install writes the default file, each role's `default` in `roles.json`, when none exists. In an existing file it changes only the role rows.
-- **Base tools, checked only.** Install and `--check` both check that `gh` is logged in, that `git`, `python3`, `uv` and `node` are on `PATH`, and that one runner (`paseo`, `herdr` or `orca`) is. Install installs none of them; the line for a missing one says how to get it.
+- **Base tools, checked only.** Install and `--check` both check that `gh` is logged in, that `git`, `python3`, `uv` and `node` are on `PATH`, and that a runner is available. Codex App uses its bundled executable. Terminal runners use their command on `PATH`. Install installs none of them; the line for a missing one says how to get it.
 
 Install then records this checkout's `mmw-v4/` in `~/.mmw/installed-root`. `--check` run from another checkout hands the check to the installed checkout's own `install.sh` and changes nothing.
 
@@ -148,10 +148,12 @@ Change it only with `models.py config`. A change takes effect at the next sessio
 ```bash
 python3 mmw-v4/skills/dispatch/scripts/models.py config show
 python3 mmw-v4/skills/dispatch/scripts/models.py config set <role> <host> <model> <effort>
-python3 mmw-v4/skills/dispatch/scripts/models.py config runner <orca|herdr|paseo|auto>
+python3 mmw-v4/skills/dispatch/scripts/models.py config runner <runner>
 ```
 
 [`editing-models.md`](./skills/dispatch/references/editing-models.md) explains each command and the limits of each host.
+
+Installed adapters define runner choices, including Orca, Herdr, Paseo and Codex App. The App runner starts independent chats through native App tools in the calling session. Its executor runs in that session's existing tool runtime. It adds no Node service or coordinator. App-specific calls stay under `scripts/runners/`; the shared workflow keeps worktrees, branches, ticket events, relay acknowledgments and watchdog decisions. [ADR 0067](../docs/adr/0067-native-tools-stay-behind-runner-adapters.md) records that boundary.
 
 ## License
 

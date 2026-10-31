@@ -37,6 +37,7 @@ unset MMW_CATALOG_MODE
 # events.py, and `status.py` and `relay.py` would load that one instead of this checkout's.
 unset MMW_SPEC MMW_TICKET MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
 unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
+unset CODEX_THREAD_ID CODEX_APP_RUNTIME_CLI_PATH CODEX_APP_TOOLS_PIPE_PATH
 while IFS='=' read -r name _; do
   case "$name" in NMEM_*) unset "$name" ;; esac
 done < <(env)

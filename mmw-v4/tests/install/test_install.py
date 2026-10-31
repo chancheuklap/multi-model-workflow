@@ -60,6 +60,10 @@ case "$*" in
 esac
 exit 0
 """,
+    "herdr": """#!/bin/sh
+echo "herdr $*" >> "$MMW_TEST_LOG"
+exit 0
+""",
     "paseo": """#!/bin/sh
 echo "paseo $*" >> "$MMW_TEST_LOG"
 exit 0
@@ -113,6 +117,13 @@ class InstallTest(unittest.TestCase):
         roles.write_text(json.dumps({"roles": [{"name": name, "kind": "session"}
                                                for name in V3_MODELS["rows"]]}))
         self.bin = root / "bin"
+        self.paseo_app = root / "Paseo.app/Contents/Resources/bin/paseo"
+        self.paseo_app.parent.mkdir(parents=True)
+        self.paseo_app.symlink_to(self.bin / "paseo")
+        installer = self.v4 / "install.sh"
+        installer.unlink()
+        installer.write_text((V4 / "install.sh").read_text().replace(
+            "/Applications/Paseo.app/Contents/Resources/bin/paseo", str(self.paseo_app)))
         self.log = root / "calls.log"
         self.bin.mkdir()
         for name, body in FAKES.items():
@@ -129,8 +140,11 @@ class InstallTest(unittest.TestCase):
         # The dispatch suite's catalog, plus the `opus` family a fresh candidate row
         # (its default in roles.json, `opus`) resolves against on a real machine.
         catalog = json.loads(FIXTURE_CATALOG.read_text())
-        catalog["claude"].append({"id": "opus", "name": "Opus",
-                                  "thinkingOptionIds": ["low", "medium", "high", "xhigh"]})
+        for family in ("opus", "sonnet", "fable"):
+            catalog["claude"].append({"id": family, "name": family.title(),
+                                      "thinkingOptionIds": ["low", "medium", "high", "xhigh"]})
+        catalog["codex"].append({"id": "gpt-6.1-sol", "name": "GPT-6.1-Sol",
+                                 "thinkingOptionIds": ["low", "medium", "high", "xhigh"]})
         self.catalog = root / "catalog.json"
         self.catalog.write_text(json.dumps(catalog))
         self.orca_setups = root / "orca-setups.json"
@@ -140,11 +154,17 @@ class InstallTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def env(self):
+        for tool in ("python3", "uv", "git"):
+            if not (self.bin / tool).exists():
+                (self.bin / tool).symlink_to(shutil.which(tool))
         env = {k: v for k, v in os.environ.items()
                if k not in ("CODEX_HOME", "PI_CODING_AGENT_DIR", "PI_HOME", "MMW_HOME",
-                            "MMW_CATALOG_MODE", "MMW_RUNNER") and not k.startswith("NMEM_")}
+                            "MMW_CATALOG_MODE", "MMW_RUNNER", "HERDR_ENV",
+                            "CODEX_THREAD_ID", "CODEX_APP_RUNTIME_CLI_PATH", "CODEX_APP_TOOLS_PIPE_PATH",
+                            "PASEO_AGENT_ID", "PASEO_WORKSPACE_ID", "TERM_PROGRAM") and not k.startswith("NMEM_")}
         env.update(MMW_INSTALL_HOME=str(self.home), MMW_HOST_CATALOG=str(self.catalog),
-                   MMW_TEST_LOG=str(self.log), PATH=f"{self.bin}:{env['PATH']}",
+                   MMW_TEST_LOG=str(self.log), PATH=f"{self.bin}:/usr/bin:/bin",
+                   CODEX_APP_RUNTIME_CLI_PATH=str(Path(self.tmp.name) / "no-app-runtime"),
                    MMW_FAKE_LAUNCHD=str(self.launchd), MMW_FAKE_ORCA_SETUPS=str(self.orca_setups))
         return env
 
@@ -362,7 +382,7 @@ class InstallTest(unittest.TestCase):
                 self.assertEqual(check.returncode, 1, check.stderr)
                 self.assertIn(event, check.stderr)
                 self.assertEqual(config.read_bytes(), before)
-                data["hooks"][event].append(group)
+                data["hooks"][event].insert(index, group)
                 config.write_text(json.dumps(data))
         self.assertEqual(self.run_install("v4", "--check").returncode, 0)
 
@@ -503,6 +523,8 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(self.run_install("v4", "--check").returncode, 0)
 
     def test_grok_and_cursor_paseo_providers_are_reported_then_removed(self):
+        models = self.home / ".mmw/models.json"
+        models.write_text(json.dumps(dict(V3_MODELS, runner="paseo")))
         self.assertEqual(self.run_install("v4").returncode, 0)
         config = self.home / ".paseo/config.json"
         data = json.loads(config.read_text())
@@ -522,6 +544,173 @@ class InstallTest(unittest.TestCase):
         self.assertEqual(json.loads(config.read_text())["agents"]["providers"],
                          {"pi": {"extends": "acp", "label": "Pi", "command": ["pi", "acp"]}})
         self.assertEqual(self.run_install("v4", "--check").returncode, 0)
+
+    def test_unused_paseo_is_untouched_for_effective_runner(self):
+        config = self.home / ".paseo/config.json"
+        link = self.home / ".local/bin/paseo"
+        models = self.home / ".mmw/models.json"
+        cases = (
+            ("orca", {}, False),
+            ("herdr", {}, True),
+            ("auto", {"TERM_PROGRAM": "orca"}, False),
+            ("auto", {"HERDR_ENV": "1", "TERM_PROGRAM": "orca"}, True),
+            ("auto", {"PASEO_AGENT_ID": "unused"}, False),
+            ("paseo", {"MMW_RUNNER": "orca"}, True),
+            ("paseo", {"MMW_RUNNER": "herdr"}, False),
+            ("paseo", {"MMW_RUNNER": "auto", "HERDR_ENV": "1"}, True),
+        )
+        for runner, overrides, available in cases:
+            for existing in (False, True):
+                with self.subTest(runner=runner, overrides=overrides,
+                                  available=available, existing=existing):
+                    if link.is_symlink():
+                        link.unlink()
+                    if config.parent.exists():
+                        shutil.rmtree(config.parent)
+                    fake = self.bin / "paseo"
+                    if available:
+                        fake.write_text(FAKES["paseo"])
+                        fake.chmod(0o755)
+                    elif fake.exists():
+                        fake.unlink()
+                    if existing:
+                        config.parent.mkdir()
+                        config.write_bytes(b"{invalid unrelated Paseo settings\n")
+                        link.parent.mkdir(parents=True, exist_ok=True)
+                        link.symlink_to(fake)
+                    before = (config.read_bytes() if existing else None,
+                              os.readlink(link) if existing else None)
+                    models.write_text(json.dumps(dict(V3_MODELS, runner=runner,
+                                                       custom={"keep": True})))
+                    env = dict(self.env(), **overrides)
+                    self.log.write_text("")
+                    for args in ((), ("--check",)):
+                        run = self.run_install("v4", *args, env=env)
+                        self.assertEqual(run.returncode, 0, run.stderr)
+                        self.assertEqual((config.read_bytes() if config.exists() else None,
+                                          os.readlink(link) if link.is_symlink() else None), before)
+                        self.assertEqual(list(config.parent.glob("config.json*")),
+                                         [config] if existing else [])
+                    saved = json.loads(models.read_text())
+                    self.assertEqual(saved["rows"]["reviewer"], V3_MODELS["rows"]["reviewer"])
+                    self.assertIn("candidate", saved["rows"])
+                    self.assertNotIn("explainer", saved["rows"])
+                    self.assertEqual(saved["custom"], {"keep": True})
+                    self.assertNotIn("paseo ", self.log.read_text())
+
+    def test_app_runner_installs_without_a_terminal_runner_or_paseo(self):
+        for name in ('orca', 'herdr', 'paseo'):
+            (self.bin / name).unlink()
+        binary = self.bin / 'app-runtime'
+        binary.write_text('#!/bin/sh\nexit 0\n')
+        binary.chmod(0o755)
+        roles = json.loads((self.v4 / 'skills/dispatch/roles.json').read_text())['roles']
+        config = {'version': 1, 'runner': 'codex-app', 'rows': {
+            role['name']: {'host': 'codex', 'model': 'gpt 5.6 sol', 'effort': 'high'}
+            for role in roles}}
+        (self.home / '.mmw/models.json').write_text(json.dumps(config))
+        environment = {**self.env(), 'CODEX_APP_RUNTIME_CLI_PATH': str(binary)}
+        for arguments in ((), ('--check',)):
+            run = self.run_install('v4', *arguments, env=environment)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertIn('runner codex-app', run.stdout)
+        hooks = json.loads((self.home / '.codex/hooks.json').read_text())['hooks']
+        for event, state in (('SessionStart', 'working'), ('UserPromptSubmit', 'working'), ('Stop', 'idle')):
+            self.assertTrue(any(handler['command'].endswith('codex_app.py\' hook ' + state)
+                                for group in hooks[event] for handler in group['hooks']))
+        self.assertFalse(any('codex_app.py' in command
+                             for command in hook_commands(self.home / '.claude/settings.json')))
+        self.assertFalse((self.home / '.paseo').exists())
+        self.assertFalse((self.home / '.local/bin/paseo').exists())
+
+    def test_unused_paseo_catalog_is_not_required_with_runner_override(self):
+        models = self.home / ".mmw/models.json"
+        models.write_text(json.dumps(dict(V3_MODELS, runner="paseo")))
+        catalog = json.loads(self.catalog.read_text())
+        catalog["paseo"] = {"state": "down"}
+        self.catalog.write_text(json.dumps(catalog))
+        env = dict(self.env(), MMW_RUNNER="orca")
+        for args in ((), ("--check",)):
+            run = self.run_install("v4", *args, env=env)
+            self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(json.loads(models.read_text())["runner"], "paseo")
+        self.assertFalse((self.home / ".paseo").exists())
+        self.assertNotIn("paseo ", self.log.read_text())
+
+    def test_paseo_first_install_bootstraps_command_before_catalog_scan(self):
+        self.paseo_app.unlink()
+        self.paseo_app.write_text('''#!/usr/bin/env python3
+import json, os, sys
+args = sys.argv[1:]
+with open(os.environ["MMW_TEST_LOG"], "a") as log:
+    log.write("paseo-app " + " ".join(args) + "\\n")
+if args[:2] == ["provider", "models"]:
+    print(json.dumps(json.load(open(os.environ["MMW_APP_CATALOG"]))[args[2]]))
+else:
+    print('[{"id":"claude"},{"id":"codex"}]')
+''')
+        self.paseo_app.chmod(0o755)
+        (self.bin / "paseo").unlink()
+        local_bin = self.home / ".local/bin"
+        local_bin.mkdir(parents=True)
+        for host in ("claude", "codex"):
+            binary = local_bin / host
+            binary.write_text("#!/bin/sh\necho fake-host-1\n")
+            binary.chmod(0o755)
+        models = self.home / ".mmw/models.json"
+        models.write_text(json.dumps(dict(V3_MODELS, runner="paseo")))
+        env = dict(self.env(), HOME=str(self.home), MMW_HOME=str(self.home / ".mmw"),
+                   CODEX_HOME=str(self.home / ".codex"), MMW_APP_CATALOG=str(self.catalog))
+        env.pop("MMW_HOST_CATALOG")
+        self.assertIsNone(shutil.which("paseo", path=env["PATH"]))
+        for args in ((), ("--check",)):
+            run = self.run_install("v4", *args, env=env)
+            self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(os.readlink(local_bin / "paseo"), str(self.paseo_app))
+        self.assertIn("paseo-app provider models codex", self.log.read_text())
+
+    def test_paseo_override_sets_up_checks_and_reloads_only_selected_runner(self):
+        catalog = json.loads(self.catalog.read_text())
+        self.catalog.write_text(json.dumps({"paseo": catalog, "cli": {
+            "claude": {"state": "missing"}, "codex": {"state": "missing"}}}))
+        config = self.home / ".paseo/config.json"
+        config.parent.mkdir()
+        config.write_text('{"unrelated": {"keep": true}, "worktrees": {"other": 7}}')
+        env = dict(self.env(), MMW_RUNNER="paseo", HOME=str(self.home))
+        run = self.run_install("v4", env=env)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(os.readlink(self.home / ".local/bin/paseo"),
+                         str(self.paseo_app))
+        self.assertEqual(json.loads(config.read_text()), {
+            "unrelated": {"keep": True}, "worktrees": {
+                "other": 7, "root": str(self.home / "paseo-worktrees")}, "version": 1})
+        self.assertIn("paseo reload --json", self.log.read_text())
+        self.assertEqual(len(list(config.parent.glob("config.json.bak-*"))), 1)
+        self.assertEqual(self.run_install("v4", "--check", env=env).returncode, 0)
+        (self.bin / "paseo").unlink()
+        check = self.run_install("v4", "--check", env=env)
+        self.assertEqual(check.returncode, 1)
+        self.assertIn("缺    command -v paseo", check.stderr)
+
+    def test_common_models_initialize_and_validate_without_paseo(self):
+        models = self.home / ".mmw/models.json"
+        models.unlink()
+        (self.bin / "paseo").unlink()
+        run = self.run_install("v4")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        defaults = json.loads(models.read_text())
+        self.assertEqual(defaults["runner"], "orca")
+        self.assertEqual(defaults["rows"]["junior-worker"], {
+            "host": "codex", "model": "gpt 6.1 sol", "effort": "medium"})
+        self.assertFalse((self.home / ".paseo").exists())
+        defaults["rows"]["junior-worker"]["model"] = "unavailable-model"
+        models.write_text(json.dumps(defaults))
+        before = models.read_bytes()
+        for args in ((), ("--check",)):
+            run = self.run_install("v4", *args)
+            self.assertEqual(run.returncode, 1)
+            self.assertIn("junior-worker.model", run.stderr)
+            self.assertEqual(models.read_bytes(), before)
 
     def test_check_from_another_checkout_hands_over(self):
         other = Path(self.tmp.name) / "installed/mmw-v4"

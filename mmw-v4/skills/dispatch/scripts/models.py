@@ -3,7 +3,7 @@
 hosts.json 与 roles.json 跟着技能走：hosts.json 只记每个 host 怎么起，roles.json 记每个
 角色，连同它首次安装的默认 host、模型与 effort（`default`）。models.json 是
 MMW_HOME 下唯一的可写配置；board、命令行、dispatch.sh 与 install.sh 共用本文件的
-读取、验证、锁与整体替换。runner 自己的命令只由 runners/<runner>.sh 执行。
+读取、验证、锁与整体替换。runner 的命令和原生工具调用只在 runners/ 中实现。
 """
 
 from __future__ import annotations
@@ -278,11 +278,39 @@ def config_runners() -> tuple[str, ...]:
 
 
 def catalog_source(runner: str) -> str:
-    return "paseo" if runner == "paseo" else "cli"
+    return runner_description(runner)["catalog"]
+
+
+def runner_description(runner: str) -> dict:
+    """Adapter-owned launch capability and optional host-tool executor."""
+    if runner == "auto":
+        runner = detected_runner(os.environ) or DEFAULT_RUNNER
+    if runner == "cli":
+        return {"catalog": "cli", "launch": "cli"}
+    if not has_adapter(runner):
+        return {"catalog": DEFAULT_CATALOG_MODE, "launch": ""}
+    path = RUNNERS_DIR / f"{runner}.sh"
+    prefix = "# MMW_RUNNER: "
+    declaration = next((line[len(prefix):] for line in path.read_text().splitlines()
+                        if line.startswith(prefix)), "null")
+    description = json.loads(declaration)
+    if not isinstance(description, dict) or not all(
+            isinstance(description.get(key), str) and description[key]
+            for key in ("catalog", "launch")):
+        raise ValueError(f"runner {runner} returned no catalog and launch capability")
+    if description.get("executor"):
+        description["executor"] = str(RUNNERS_DIR / description["executor"])
+    return description
+
+
+def tool_executor() -> str:
+    """Execution belongs to the caller's runner, even when it dispatches elsewhere."""
+    caller = detected_runner(os.environ)
+    return runner_description(caller).get("executor", "") if caller else ""
 
 
 def _can_start(runner: str, host_spec: dict) -> bool:
-    return catalog_source(runner) in host_spec
+    return runner_description(runner)["launch"] in host_spec
 
 
 def detected_runner(environ: Mapping[str, str]) -> str | None:
@@ -290,12 +318,15 @@ def detected_runner(environ: Mapping[str, str]) -> str | None:
 
     Herdr when HERDR_ENV is set, Orca when TERM_PROGRAM says orca. Herdr is checked
     first because Herdr opened inside an Orca terminal keeps Orca's TERM_PROGRAM.
-    Paseo is chosen only by name.
+    A native App binding identifies its own session. Paseo is chosen only by name.
     """
     if (environ.get("HERDR_ENV") or "").strip():
         return "herdr"
     if (environ.get("TERM_PROGRAM") or "").strip().lower() == "orca":
         return "orca"
+    if all(environ.get(key) for key in (
+            "CODEX_THREAD_ID", "CODEX_APP_RUNTIME_CLI_PATH", "CODEX_APP_TOOLS_PIPE_PATH")):
+        return "codex-app"
     return None
 
 
@@ -419,8 +450,8 @@ def _runner_call(runner: str, verb: str, *args: str, timeout: float = 30) -> str
     return _run(["bash", str(adapter), verb, *args], timeout=timeout)
 
 
-def _codex_model_list() -> str:
-    binary = _binary(HOST_BINARIES.get("codex"))
+def _codex_model_list(binary: str | None = None) -> str:
+    binary = _binary(binary or HOST_BINARIES.get("codex"))
     deadline = time.monotonic() + CATALOG_TIMEOUT
     with tempfile.TemporaryFile() as errors:
         try:
@@ -604,9 +635,16 @@ def _store_catalog(source: str, host: str, entry: dict) -> dict:
     return entry
 
 
+def _catalog_version(host: str, source: str) -> str:
+    if source not in ("cli", "paseo"):
+        return _run(["bash", str(RUNNERS_DIR / f"{source}.sh"),
+                     "catalog-version", host]).strip()
+    return _run([HOST_BINARIES.get(host), "--version"]).strip()
+
+
 def _read_catalog(host: str, source: str, version: str | None = None) -> dict:
     try:
-        version = version if version is not None else _run([HOST_BINARIES.get(host), "--version"]).strip()
+        version = version if version is not None else _catalog_version(host, source)
         if source == "paseo":
             raw = _runner_call("paseo", "catalog-models", host, timeout=CATALOG_TIMEOUT)
             try:
@@ -617,6 +655,17 @@ def _read_catalog(host: str, source: str, version: str | None = None) -> dict:
                               "thinkingOptionIds": item.get("thinkingOptionIds") or []}
                              for item in rows]
             except (ValueError, KeyError, TypeError):
+                raise CatalogFailure("unparseable", raw[:200]) from None
+        elif source != "cli":
+            raw = _run(["bash", str(RUNNERS_DIR / f"{source}.sh"),
+                        "catalog-models", host], timeout=CATALOG_TIMEOUT)
+            try:
+                offerings = json.loads(raw)
+                if not isinstance(offerings, list) or not all(
+                        isinstance(item, dict) and isinstance(item.get("id"), str)
+                        for item in offerings):
+                    raise ValueError("expected adapter model offerings")
+            except ValueError:
                 raise CatalogFailure("unparseable", raw[:200]) from None
         elif host == "claude":
             offerings = _parse_claude_model_list(_run(
@@ -912,7 +961,7 @@ def _validate_local_config(config: dict, scan: dict,
     if not valid_runner:
         errors.append({"cell": "runner", "reason":
                        f"{runner!r} has no adapter; choose one of {', '.join(config_runners())}"})
-    required_source = catalog_source(str(runner))
+    required_source = catalog_source(str(runner)) if valid_runner else None
     if valid_runner and scan.get("source") != required_source:
         errors.append({"cell": "runner",
                        "reason": f"runner {runner} requires a fresh {required_source} scan; scan it and retry"})
@@ -930,7 +979,7 @@ def _validate_local_config(config: dict, scan: dict,
         if host not in host_specs:
             errors.append({"cell": f"{role}.host", "reason": f"unknown host {host!r}"})
             continue
-        launch_block = catalog_source(str(runner))
+        launch_block = runner_description(str(runner))["launch"] if valid_runner else ""
         if valid_runner and not _can_start(str(runner), host_specs[host]):
             errors.append({"cell": f"{role}.host",
                            "reason": f"runner {runner} cannot start host {host}: hosts.json has no {launch_block} block; choose another host or runner"})
@@ -1145,7 +1194,7 @@ def fetch_offerings(host: str) -> list[dict]:
         return _fixture_offerings(fixture, mode, host)
     stored = read_catalog_cache().get(mode, {}).get(host, {})
     try:
-        version = _run([HOST_BINARIES.get(host), "--version"]).strip()
+        version = _catalog_version(host, mode)
     except CatalogFailure as exc:
         record = _store_catalog(mode, host, {"failure": exc.record()})
     else:
@@ -1319,6 +1368,8 @@ USAGE = ("usage: models.py config show\n"
          "       models.py config subagent <row> <host> <model|inherit> <effort|inherit>\n"
          "       models.py subagent <row> <host>\n"
          "       models.py runner\n"
+         "       models.py executor\n"
+         "       models.py catalog-source <runner>\n"
          "       models.py paseo-args <host> <model> <level>\n"
          "       models.py row <role>\n"
          "       models.py bypass-argv <host> <model-id> <level> <name>\n"
@@ -1327,6 +1378,12 @@ USAGE = ("usage: models.py config show\n"
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args == ["executor"]:
+        print(tool_executor())
+        return 0
+    if len(args) == 2 and args[0] == "catalog-source":
+        print(catalog_source(args[1]))
+        return 0
     if len(args) == 3 and args[0] == "subagent":
         try:
             row = subagent_row(*args[1:])

@@ -55,6 +55,8 @@ def main():
             if (relative, line) in exceptions or line in upstream_lines.get(relative, set()):
                 continue
             checked_lines.add(number)
+            for match in re.finditer(r'\bmcp__codex_app__\w+', line):
+                findings.append(f'{relative}:{number}: {match.group()}')
             tokens = list(re.finditer(r'[~\w./-]+', line))
             for token in tokens:
                 word = token.group()

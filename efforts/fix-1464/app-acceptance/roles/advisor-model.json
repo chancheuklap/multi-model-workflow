@@ -1,0 +1,14 @@
+{
+  "thread": "01a190c9-b3f5-7311-b5b3-bac52c59a1ea",
+  "path": "/Users/cheuklapchan/.codex/archived_sessions/rollout-2026-10-31T15-08-20-01a190c9-b3f5-7311-b5b3-bac52c59a1ea.jsonl",
+  "models": [
+    {
+      "model": "gpt-6-luna",
+      "effort": "high"
+    },
+    {
+      "model": "gpt-6-luna",
+      "effort": "high"
+    }
+  ]
+}

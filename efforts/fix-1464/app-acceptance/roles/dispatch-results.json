@@ -1,0 +1,22 @@
+[
+  {
+    "command": "send researcher --follow 'the research skill' --into efforts/fix-1464/research/1470-app-role-acceptance /tmp/mmw-app-final-20261031/briefs/research-routing.md /tmp/mmw-app-final-20261031/briefs/research-identity.md",
+    "exitCode": 0,
+    "output": "dispatch: opened the watch on brief batch 20261031-070807-aa6d for chancheuklap/multi-model-workflow: wake-ups go to codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9\ndispatch: relay started for chancheuklap/multi-model-workflow: pid 30291, watching brief batch 20261031-070807-aa6d, log /tmp/mmw-app-final-20261031/home/state/chancheuklap__multi-model-workflow/relay.log\n20261031-070807-aa6d/1\t01a190c9-90dc-7f81-bd7b-d8d1059a0bb6\n20261031-070807-aa6d/2\t01a190c9-9815-7fd3-92e4-487cc35fd440\ndispatch: brief batch 20261031-070807-aa6d: 2 researcher sessions on codex-app; the relay wakes codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9 with `brief 20261031-070807-aa6d done` once every one has reported or is lost\n"
+  },
+  {
+    "command": "send advisor --follow 'the advisor skill' /tmp/mmw-app-final-20261031/briefs/advisor-wait.md",
+    "exitCode": 0,
+    "output": "dispatch: opened the watch on brief batch 20261031-070817-c215 for chancheuklap/multi-model-workflow: wake-ups go to codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9\ndispatch: relay already running for chancheuklap/multi-model-workflow: pid 30291, watching brief batch 20261031-070807-aa6d and brief batch 20261031-070817-c215\n20261031-070817-c215/1\t01a190c9-b3f5-7311-b5b3-bac52c59a1ea\ndispatch: brief batch 20261031-070817-c215: 1 advisor sessions on codex-app; the relay wakes codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9 with `brief 20261031-070817-c215 done` once every one has reported or is lost\n"
+  },
+  {
+    "command": "send candidate --follow \"the arena skill's references/candidate.md\" /tmp/mmw-app-final-20261031/briefs/candidate-1.md /tmp/mmw-app-final-20261031/briefs/candidate-2.md",
+    "exitCode": 0,
+    "output": "dispatch: opened the watch on brief batch 20261031-070823-f6dc for chancheuklap/multi-model-workflow: wake-ups go to codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9\ndispatch: relay already running for chancheuklap/multi-model-workflow: pid 30291, watching brief batch 20261031-070807-aa6d and brief batch 20261031-070817-c215 and brief batch 20261031-070823-f6dc\n20261031-070823-f6dc/1\t01a190c9-d036-7f80-b694-a5910bc861cf\n20261031-070823-f6dc/2\t01a190c9-d758-7fd2-a493-b7363d2e149d\ndispatch: brief batch 20261031-070823-f6dc: 2 candidate sessions on codex-app; the relay wakes codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9 with `brief 20261031-070823-f6dc done` once every one has reported or is lost\n"
+  },
+  {
+    "command": "send retro-analyst --follow \"the retro skill's references/environment.md\" /tmp/mmw-app-final-20261031/briefs/retro-environment.md",
+    "exitCode": 0,
+    "output": "dispatch: opened the watch on brief batch 20261031-070832-de0c for chancheuklap/multi-model-workflow: wake-ups go to codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9\ndispatch: relay already running for chancheuklap/multi-model-workflow: pid 30291, watching brief batch 20261031-070807-aa6d and brief batch 20261031-070817-c215 and brief batch 20261031-070823-f6dc and brief batch 20261031-070832-de0c\n20261031-070832-de0c/1\t01a190c9-f311-7983-9e3c-b0e14ef42245\ndispatch: brief batch 20261031-070832-de0c: 1 retro-analyst sessions on codex-app; the relay wakes codex-app session 01a18fb6-564f-7bc2-897e-9d87893e1ec9 with `brief 20261031-070832-de0c done` once every one has reported or is lost\n"
+  }
+]

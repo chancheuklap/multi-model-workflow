@@ -87,7 +87,7 @@ The host startup permission setting used by a dispatched session. It is distinct
 The dispatch module owning model configuration, host catalog reads and resolution of saved model choices. It is distinct from a runner adapter, which starts and manages sessions.
 
 **`MMW_CATALOG_MODE`**:
-The variable naming the catalog `models.py` resolves a row's model name against: `paseo` for Paseo's provider catalog, `cli` (the default) for the host's own CLI. `dispatch.sh` sets it from the selected runner.
+The variable naming the catalog `models.py` resolves a row's model name against. Each runner adapter declares its source. `cli` is the default host CLI source, and other sources are owned by their runner adapters. `dispatch.sh` sets it from the selected runner.
 
 **catalog**:
 The currently available models and reasoning efforts reported by a host or selected runner. It is discovery evidence, distinct from the saved choices in models.json.

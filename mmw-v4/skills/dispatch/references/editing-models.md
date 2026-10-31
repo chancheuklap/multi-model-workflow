@@ -22,7 +22,7 @@ Run:
 python3 scripts/models.py config runner <runner>
 ```
 
-`<runner>` is `orca`, `herdr`, `paseo` or `auto`. `auto` takes the runner the session running `dispatch.sh` sits in: Herdr when that session runs in Herdr, otherwise Orca; Paseo is chosen only by name. `MMW_RUNNER` set in the environment overrides the saved runner for that process.
+`<runner>` names an adapter under `scripts/runners/`, or `auto`. `auto` takes the runner the calling session runs in, falling back to the configured default when none is detected. `MMW_RUNNER` set in the environment overrides the saved runner for that process.
 
 The last successful catalog and any later read failure are in `$MMW_HOME/catalog.json` (`~/.mmw/catalog.json` when `MMW_HOME` is unset); inspect the host's `failure` there for the reason.
 

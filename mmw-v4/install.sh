@@ -3,8 +3,9 @@
 #
 #   技能              skills/ 下每个带 SKILL.md 的目录，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   提示词            prompt/shared.md：Claude Code 与 Codex 的用户级入口都用软链读取
-#   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里的 worktrees.root，并摘掉
-#                     从前写进去的 grok、cursor 两条 provider。~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
+#   Paseo 侧配置      只在所选 runner 为 Paseo 时装或查：~/.local/bin/paseo 软链；
+#                     ~/.paseo/config.json 的 worktrees.root，并摘掉旧的 grok、cursor provider
+#   共用模型配置      ~/.mmw/models.json 缺席时写入默认值；已有的只动角色行：
 #                     roles.json 没有的角色行摘掉（先留一份 .bak- 副本），缺的角色补默认值
 #   Orca 侧工作树     有 orca 时，把每个 setup 的 worktree-base-path 设为 .worktrees；--check 报不是的
 #   基础工具          一样不装，两种模式都查：gh 已登录，git、python3、uv、node 在 PATH 上，
@@ -277,6 +278,7 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_HOOK="$NEUTRAL_DIR/dispatch/scripts/tool-guard.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_SESSION_START="$NEUTRAL_DIR/mmw-mode/scripts/session-start.py" \
+  MMW_APP_OBSERVE="$NEUTRAL_DIR/dispatch/scripts/runners/codex_app.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
@@ -504,6 +506,12 @@ for host, host_home, path in grouped_hosts:
     command = for_host(host, STOP)
     point(host_home, path, "Stop turn-guard.py",
           grouped(path, "Stop", None, command, GUARD_TIMEOUT), command)
+
+for event, state in (("SessionStart", "working"), ("UserPromptSubmit", "working"),
+                     ("Stop", "idle"), ("Interrupt", "idle"), ("SessionEnd", "unknown")):
+    command = f"python3 '{os.environ['MMW_APP_OBSERVE']}' hook {state}"
+    point(codex_home, codex_home / "hooks.json", event + " codex_app.py",
+          grouped(codex_home / "hooks.json", event, None, command, 10), command)
 
 failed = False
 count = 0
@@ -865,14 +873,11 @@ XML
 launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
   "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR" || rc=1
 
-# ---------------- Paseo 侧配置 ----------------
+# ---------------- 共用模型与所选 runner 的配置 ----------------
 #
-# host 侧只放生成物：CLI 软链、~/.paseo/config.json 里的 worktrees.root。本脚本从前往那份
-# config.json 写过 grok、cursor 两条 provider；v4 不再服务这两个 host，所以装的时候摘掉它们，
-# --check 见到就报残留。models.json 在 ~/.mmw/：第一次
-# install 从 roles.json 每个角色的 default 写入，之后只动角色行。v3 的 explainer、synthesizer 行
-# roles.json 没有，models.py 拒绝整份文件，所以摘掉，摘之前留一份 .bak- 副本（--back 从它拿回）；
-# 缺的 candidate 行由 models.py 补默认值。别的行一字不动。不写 Agent profile。
+# models.json 对所有 runner 初始化、迁移和校验。迁移旧角色前留 .bak- 副本，--back 从它拿回。
+# 只有选用 Paseo 才配置或检查它的命令、worktrees.root 和旧 provider。首次安装时，
+# Paseo 命令必须先于模型扫描就绪。只配置生成物，不写 Agent profile。
 # MMW_INSTALL_HOME 之下不跑 paseo reload（与 launchd 同构）。
 
 PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
@@ -880,32 +885,19 @@ PASEO_BIN_LINK="$HOME_DIR/.local/bin/paseo"
 PASEO_CONFIG="$HOME_DIR/.paseo/config.json"
 PASEO_WORKTREES_ROOT="$HOME_DIR/paseo-worktrees"
 
-if [ "$mode" = check ]; then
-  if [ ! -L "$PASEO_BIN_LINK" ] || [ "$(readlink "$PASEO_BIN_LINK")" != "$PASEO_BIN_SRC" ]; then
-    echo "缺    $PASEO_BIN_LINK" >&2
-    rc=1
-  fi
-  if ! PATH="$HOME_DIR/.local/bin:$PATH" command -v paseo >/dev/null 2>&1; then
-    echo "缺    command -v paseo" >&2
-    rc=1
-  fi
-else
-  mkdir -p "$HOME_DIR/.local/bin"
-  ln -sfn "$PASEO_BIN_SRC" "$PASEO_BIN_LINK"
-  echo "已装  $PASEO_BIN_LINK"
-fi
-
 MMW_MODE="$mode" \
 MMW_PASEO_CONFIG="$PASEO_CONFIG" \
+MMW_PASEO_BIN_SRC="$PASEO_BIN_SRC" \
+MMW_PASEO_BIN_LINK="$PASEO_BIN_LINK" \
 MMW_MODELS_PY="$SKILLS_SRC/dispatch/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
-MMW_HOME_DIR="$HOME_DIR" \
 MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
 import os
 import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -1004,13 +996,32 @@ try:
             print(f"已装  {config_file}")
     else:
         config = models.read_local_config()
-    config, scan, errors = models.check_local_config(config)
+    selected_runner = models.runner_name()
+    if selected_runner == "paseo":
+        link = Path(os.environ["MMW_PASEO_BIN_LINK"])
+        source = os.environ["MMW_PASEO_BIN_SRC"]
+        if mode == "check":
+            if not link.is_symlink() or os.readlink(link) != source:
+                sys.stderr.write(f"缺    {link}\n")
+                failed = True
+            search = str(link.parent) + os.pathsep + os.environ.get("PATH", "")
+            if shutil.which("paseo", path=search) is None:
+                sys.stderr.write("缺    command -v paseo\n")
+                failed = True
+        else:
+            link.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["ln", "-sfn", source, str(link)], check=True)
+            print(f"已装  {link}")
+    config, scan, errors = models.check_local_config({**config, "runner": selected_runner})
     if errors:
         for item in errors:
             sys.stderr.write(f"缺    {config_file} {item['cell']}: {item['reason']}\n")
         sys.exit(1)
-except ValueError as exc:
+except (ValueError, OSError, subprocess.CalledProcessError) as exc:
     die(str(exc))
+
+if selected_runner != "paseo":
+    sys.exit(1 if failed else 0)
 
 if mode == "check":
     data = load(config_path)
@@ -1034,7 +1045,8 @@ PY
 # daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
 # `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
 # 列出来的不限于这一次安装改的。
-if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then
+selected_runner="$(MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" python3 "$SKILLS_SRC/dispatch/scripts/models.py" runner)" || rc=1
+if [ "$selected_runner" = paseo ] && [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then
   if reload_out="$(PATH="$HOME_DIR/.local/bin:$PATH" paseo reload --json 2>&1)"; then
     printf '%s' "$reload_out" | python3 -c '
 import json, sys
@@ -1204,9 +1216,11 @@ for runner in paseo herdr orca; do
     base_runners+=("$runner")
   fi
 done
+if python3 "$SKILLS_SRC/dispatch/scripts/runners/codex_app.py" available >/dev/null 2>&1; then
+  base_runners+=("codex-app")
+fi
 if [ "${#base_runners[@]}" -eq 0 ]; then
-  echo "缺    runner：paseo、herdr、orca 都不在 PATH 上，夜里的会话靠其中一个起。装 Orca、Herdr 或" \
-       "Paseo 的应用，把它的命令行放上 PATH；Paseo.app 装好后再跑一次 install.sh，它把 paseo 链进 ~/.local/bin" >&2
+  echo "缺    runner：paseo、herdr、orca 都不在 PATH 上，Codex App 的运行程序也未找到。装 Codex App，或把所选 runner 的命令行放上 PATH；Paseo.app 装好并选 Paseo 为 runner 后再跑 install.sh，它把 paseo 链进 ~/.local/bin" >&2
   base_rc=1
 fi
 if [ "$base_rc" -eq 0 ]; then

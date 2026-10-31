@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# MMW_RUNNER: {"catalog":"cli","launch":"cli"}
 #
 # Orca adapter: the runner adapter's `start`, `send`, `liveness`, `state`, `stop`, and `self` verbs.
 #

@@ -50,10 +50,11 @@ def _run_scan(source: str) -> dict:
             _state_lock.notify_all()
 
 
-def _begin_scan(source: str) -> None:
+def _begin_scan(runner: str) -> None:
     global _scan, _scan_active
+    source = models.catalog_source(runner)
     if not os.environ.get("MMW_HOST_CATALOG") or _scan is None or _scan.get("source") != source:
-        _scan = models.cached_host_catalogs(source)
+        _scan = models.cached_host_catalogs(runner)
     _scan = {**_scan, "scanning": True}
     _scan_active = True
 
@@ -63,8 +64,8 @@ def _cached_scan(runner: str) -> dict:
     source = models.catalog_source(runner)
     with _state_lock:
         if not _scan_active:
-            _begin_scan(source)
-            threading.Thread(target=_run_scan, args=(source,), daemon=True).start()
+            _begin_scan(runner)
+            threading.Thread(target=_run_scan, args=(runner,), daemon=True).start()
         return dict(_scan)
 
 
@@ -79,8 +80,8 @@ def _ready_scan(runner: str) -> dict:
 
 
 def _replace_scan(source: str) -> dict:
-    if source not in ("cli", "paseo"):
-        raise ValueError(f"source must be cli or paseo, got {source!r}")
+    if source not in (*models.config_runners(), "cli"):
+        raise ValueError(f"source must name an installed runner or cli, got {source!r}")
     with _state_lock:
         while _scan_active:
             _state_lock.wait()
@@ -93,7 +94,7 @@ def initialize() -> None:
         config = models.read_local_config()
     except models.ConfigMissing:
         return
-    source = models.catalog_source(str(config.get("runner")))
+    source = str(config.get("runner"))
     if os.environ.get("MMW_HOST_CATALOG"):
         _replace_scan(source)
     else:
@@ -105,8 +106,11 @@ def _options() -> dict:
     hosts = []
     for name, spec in catalog["hosts"].items():
         hosts.append({"name": name, "binary": models.HOST_BINARIES.get(name),
-                      "cli": "cli" in spec, "paseo": "paseo" in spec})
+                      "cli": "cli" in spec, "paseo": "paseo" in spec,
+                      "launch": [key for key in spec if isinstance(spec[key], dict)]})
     return {"hosts": hosts, "runners": list(models.config_runners()),
+            "runner_options": {name: models.runner_description(name)
+                               for name in models.config_runners()},
             "sources": {
                 "hosts": str(models.HOSTS_JSON.relative_to(models.SKILL_DIR)),
                 "runners": str(models.RUNNERS_DIR.relative_to(models.SKILL_DIR) / "*.sh")}}

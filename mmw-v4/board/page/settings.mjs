@@ -186,7 +186,9 @@ function cellLabel(path) {
 
 function view(model) {
   const st = model.st, d = st.draft;
-  const stale = model.stale.filter(entry => draftValue(d, entry.cell) === entry.stored);
+  const launchable = LocalConfig.launchableHosts(d, model.catalog);
+  const stale = model.stale.filter(entry => launchable.includes(entry.host)
+    && draftValue(d, entry.cell) === entry.stored);
   const staleAt = path => stale.find(entry => entry.cell === path);
   const roleFlags = st.serverFlags.filter(f => f.key);
   const base = settingsView({...st, serverFlags: roleFlags}, model.scan, model.catalog);
@@ -205,7 +207,7 @@ function view(model) {
   const subChanges = Subagents.changes(model, d, st.saved);
   const subProbs = [];
   const subRows = Subagents.rows(model).map(row => {
-    const hosts = SUB_HOSTS.map(host => {
+    const hosts = SUB_HOSTS.filter(host => launchable.includes(host.id)).map(host => {
       const cell = Subagents.get(d, row, host.id);
       const fields = SUB_FIELDS.map(field => {
         const path = `subagents.${row}.${host.id}.${field.id}`;
@@ -235,7 +237,7 @@ function view(model) {
   });
   const roleChanges = LocalConfig.changes(d, st.saved, model.catalog);
 
-  const hostCards = model.catalog.hosts.map(host => {
+  const hostCards = launchable.map(host => {
     const scan = LocalConfig.hostScan(model.scan, host);
     const state = LocalConfig.hostState(model.scan, d, host, model.catalog);
     return {
@@ -330,6 +332,7 @@ function paint(host, model, api, hooks) {
       st.scanSource = body.source;
       st.scannedAt = body.scanned_at;
       st.scanning = Boolean(body.scanning);
+      LocalConfig.reconcileRunner(model.scan, st.draft, model.catalog);
     }
     redraw();
   };
@@ -344,11 +347,11 @@ function paint(host, model, api, hooks) {
 
   const setCell = (key, cell, value) => {
     const previous = {runner: st.draft.runner};
-    LocalConfig.setCell(model.scan, st.draft, key, cell, value);
-    if (key === "runner" && LocalConfig.needsRescan(previous, st.draft)) {
+    LocalConfig.setCell(model.scan, st.draft, key, cell, value, model.catalog);
+    if (key === "runner" && LocalConfig.needsRescan(previous, st.draft, model.catalog)) {
       st.savedAt = null;
       st.serverFlags = [];
-      void rescan(LocalConfig.source(st.draft));
+      void rescan(st.draft.runner);
       return;
     }
     edited();
@@ -499,9 +502,7 @@ function paint(host, model, api, hooks) {
           "环境变量 ", el("span", {class: "code"}, "MMW_RUNNER"),
           " 设了时，它优先于这一格。「按所在环境判断」让 ",
           el("span", {class: "code"}, "start"),
-          " 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，",
-          el("span", {class: "code"}, "start"),
-          " 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"),
+          " 看自己跑在哪个 runner 里，判断不出时用 orca。换 runner 后，型号目录不同就会重新扫描。"),
       ),
       el("section", {class: "set-block ruled", "data-ui": "本机配置.roles-block"},
         el("span", {class: "eyebrow", "data-ui": "本机配置.roles-block.title"}, "一个 agent 一行"),
@@ -528,13 +529,13 @@ function paint(host, model, api, hooks) {
       el("section", {class: "set-block", "data-ui": "本机配置.subagents-block"},
         el("span", {class: "eyebrow", "data-ui": "本机配置.subagents.title"}, "子代理"),
         el("p", {class: "set-note", "data-ui": "本机配置.subagents.intro"},
-          "会话内部临时派出的帮手，只在步骤点名时派。每一行在 Claude、Codex 上各有一组；派它的会话在哪个 host 上，就用哪一组。「",
+          "会话内部临时派出的帮手，只在步骤点名时派。只显示所选 runner 支持的 host；其他 host 的配置保留，切回支持它的 runner 后仍可使用。「",
           INHERIT_TEXT, "」就是用派它的那个会话自己的 model 或 effort。"),
         el("div", {class: "roles sub-roles", "data-ui": "本机配置.subagents"},
           el("div", {class: "eyebrow plain roles-head", "data-ui": "本机配置.subagents.head"},
             el("span", {}, "子代理"), el("span", {}, "host"), el("span", {}, "model"), el("span", {}, "effort")),
           v.subRows.map(r => el("div", {class: "role sub-role", role: "group", "aria-label": `子代理 ${r.row}`,
-            "data-ui": "本机配置.subagent"},
+            "data-ui": "本机配置.subagent", style: `--host-count: ${r.hosts.length}`},
             el("div", {class: "role-name"},
               el("span", {class: "role-agent", "data-ui": "本机配置.subagent.name"}, r.row),
               el("span", {class: "role-what", "data-ui": "本机配置.subagent.what"}, r.what)),
@@ -563,7 +564,7 @@ function paint(host, model, api, hooks) {
               v.scannedText,
               el("button", {type: "button", class: "link", "data-focus": "rescan",
                 "data-ui": "本机配置.scan.rescan",
-                onClick: () => void rescan(LocalConfig.source(st.draft))},
+                onClick: () => void rescan(st.draft.runner)},
                 "重新扫描"),
             ],
           ),
@@ -571,7 +572,7 @@ function paint(host, model, api, hooks) {
         el("p", {class: "set-note", "data-ui": "本机配置.catalog.intro"},
           "两个页签下拉菜单里的 model，都来自 MMW 问这台机器上每个 host 得到的目录，问的地方和 ",
           el("span", {class: "code"}, "start"),
-          " 起 session 时问的是同一处。读失败时，继续用上一次读成功的那份。"),
+          " 起 session 时问的是同一处。只显示所选 runner 支持的 host。读失败时，继续用上一次读成功的那份。"),
         el("div", {class: "set-hosts"}, v.hostCards.map(card => el("div", {
           class: "kv set-host", "data-ui": "本机配置.catalog.host",
         },

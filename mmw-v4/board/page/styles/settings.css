@@ -113,7 +113,7 @@
 .set-flags { padding-top: var(--sp-16); }
 
 .roles.sub-roles { --cols: 150px 100px minmax(0, 1fr) 150px; }
-.sub-role > .role-name { grid-row: span 2; align-self: start; padding-top: var(--sp-6); }
+.sub-role > .role-name { grid-row: span var(--host-count, 2); align-self: start; padding-top: var(--sp-6); }
 .sub-host {
   display: flex; align-items: center; height: 32px; padding-left: calc(var(--sp-8) + 1px);
   font: var(--t-meta) var(--mono); color: var(--soft);

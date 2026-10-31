@@ -34,7 +34,8 @@ class HostNeutralityTest(unittest.TestCase):
                 self.assertIn(f'mmw-mode/references/neutrality-test.md:2: {host.split()[0]}', result.stdout)
 
     def test_a_tool_name_is_reported(self):
-        for word in ('the Skill tool', 'the Task tool', 'orca', 'herdr', 'paseo'):
+        for word in ('the Skill tool', 'the Task tool', 'orca', 'herdr', 'paseo',
+                     'mcp__codex_app__create_thread'):
             with self.subTest(word=word):
                 self.reference.write_text(f'Use {word}.\n')
                 result = self.run_check()
