@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {Board, defaultExpanded, describeEvent} from "../../board/page/board-logic.mjs";
+import {Board, defaultExpanded, describeEvent, eventBlocks} from "../../board/page/board-logic.mjs";
 
 function ticket(overrides = {}) {
   const fold = {
@@ -215,4 +215,43 @@ test("default expansion", () => {
   const untouched = {n: 4, tickets: [ticket()]};
   const orange = {n: 5, tickets: [ticket({fold: {children: {8: {child: 8, kind: "decision"}}}})]};
   assert.deepEqual([...defaultExpanded({n: 1, specs: [active, done, untouched, orange]})], [1, 2, 5]);
+});
+
+test("review return and non-phase events share the current phase transitions", () => {
+  const events = [
+    {event: 'worker.started'}, {event: 'reviewer.started'},
+    {event: 'reviewer.reported'}, {event: 'ticket.claimed'},
+    {event: 'child.closed', payload: {child: 7, resolution: 'fixed'}},
+    {event: 'worker.touched', payload: {files: []}},
+  ];
+  const value = ticket({fold: {sessions: [worker()]}, events});
+  assert.equal(Board.phase(value), 'working');
+  assert.equal(eventBlocks(events).at(-1).phase, 'working');
+  assert.deepEqual(eventBlocks(events).map(b => b.phase), ['working', 'review', 'working']);
+});
+
+test("a rejected pickup does not change another session's active phase", () => {
+  for (const phase of ['working', 'review', 'verify']) {
+    const events = [{event: 'worker.started', payload: {runner: 'codex-app', session: 'worker-a'}}];
+    const sessions = [{...worker(), session: 'worker-a', runner: 'codex-app'}];
+    if (phase === 'review') {
+      events.push({event: 'reviewer.started', payload: {runner: 'codex-app', session: 'reviewer-a'}});
+      sessions.push({kind: 'reviewer', live: true, session: 'reviewer-a', runner: 'codex-app'});
+    } else if (phase === 'verify') {
+      events.push({event: 'ticket.checked', payload: {run: 'reverify', actor: 'worker'}});
+    }
+    const before = ticket({events: [...events], fold: {sessions}});
+    events.push({event: 'ticket.refused', payload: {
+      runner: 'codex-app', session: 'worker-b', reason: 'claimed-by-other',
+    }});
+    const after = ticket({events, fold: {sessions}});
+    assert.equal(Board.phase(before), phase);
+    assert.equal(Board.phase(after), phase);
+    assert.equal(Board.lamp(after), 'green');
+    assert.equal(eventBlocks(events).at(-1).phase, phase);
+    assert.equal(eventBlocks(events).at(-1).items.at(-1).name, 'Pick-up refused');
+  }
+  const refusal = [{event: 'ticket.refused', payload: {reason: 'blocked'}}];
+  assert.equal(Board.phase(ticket({events: refusal})), 'queued');
+  assert.equal(eventBlocks(refusal).at(-1).phase, 'queued');
 });

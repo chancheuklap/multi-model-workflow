@@ -866,18 +866,17 @@ class Rounds(StateCase):
         rows = [comment(1, "worker.started", 61, T0 - timedelta(minutes=2),
                         runner="herdr", session="h1")]
 
-        def list_gh(args):
-            return [{"number": 61, "state": "open"}]
-
         def raw_gh(args):
             calls.append(args)
+            if '/sub_issues?' in args[2]:
+                return 0, 'HTTP/2 200 OK\nETag: "children"\n\n[{"number":61,"state":"open"}]', ''
             if 'If-None-Match: "comments"' in args:
                 return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304"
             return 0, ("HTTP/2 200 OK\nETag: \"comments\"\n\n"
                        + json.dumps(rows)), ""
 
         reader = dog.relay_mod.ghlist.ConditionalListReader(raw_gh)
-        self.board = dog.relay_mod.Board("o/r", list_gh, reader)
+        self.board = dog.relay_mod.Board("o/r", reader)
         wd = self.watchdog()
         wd.round()
         self.assertEqual(self.heartbeat()["held"], [61])
@@ -890,13 +889,14 @@ class Rounds(StateCase):
                         runner="herdr", session="h1")]
 
         def raw_gh(args):
+            if '/sub_issues?' in args[2]:
+                return 0, 'HTTP/2 200 OK\nETag: "children"\n\n[{"number":61,"state":"open"}]', ''
             if 'If-None-Match: "comments"' in args:
                 return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304"
             return 0, "HTTP/2 200 OK\nETag: \"comments\"\n\n" + json.dumps(rows), ""
 
         reader = dog.relay_mod.ghlist.ConditionalListReader(raw_gh)
-        self.board = dog.relay_mod.Board("o/r", lambda args: [{"number": 61, "state": "open"}],
-                                         reader)
+        self.board = dog.relay_mod.Board("o/r", reader)
         wd = self.watchdog()
         wd.round()
         self.assertEqual(self.heartbeat()["reads"], {"billed": 1, "not_modified": 0})
