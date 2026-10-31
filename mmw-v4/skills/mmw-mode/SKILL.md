@@ -10,6 +10,7 @@ Every session reads this file in full before anything else and works by its rule
 ## Non-negotiables
 
 - Executing dispatch commands → the **dispatch** skill.
+- Waiting for dispatched results → the **dispatch** skill's **Waiting for results**.
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
 - Any prose surface → the **unslop** skill.
 - Writing, reviewing, selecting, diagnosing or maintaining tests → the **test-audit** skill.

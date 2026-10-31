@@ -22,6 +22,7 @@ set -uo pipefail
 # The session running this suite may itself be a runner's session; the scenarios say
 # which one they stand in, and nothing else may answer `self`.
 unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
+unset CODEX_THREAD_ID CODEX_APP_RUNTIME_CLI_PATH CODEX_APP_TOOLS_PIPE_PATH
 unset MMW_SPEC MMW_TASK_SCOPE
 while IFS='=' read -r name _; do
   case "$name" in NMEM_*) unset "$name" ;; esac
@@ -3673,7 +3674,15 @@ scenario_briefreport() {
   two="$(sed -n 2p "$TMP/out" | cut -f2)"
 
   echo "--- the brief's own session reports, and the answer is kept in the batch"
-  code="$(run_dispatch env PASEO_AGENT_ID="$one" bash "$DISPATCH" "${TOOLS[@]}" report "$batch/1" "$answer")"
+  local generated
+  generated="$(python3 - "$STATE_DIR/briefs/$batch/1/brief.md" "$answer" <<'PY_REPORT'
+from pathlib import Path
+import sys
+text=Path(sys.argv[1]).read_text()
+print(next(line for line in text.splitlines() if ' report ' in line).replace('<file>',sys.argv[2]))
+PY_REPORT
+)"
+  code="$(run_dispatch env MMW_HOME="$TMP/unrelated-home" PASEO_AGENT_ID="$one" bash -c "$generated")"
   [ "$code" = 0 ] || fail "report expected 0, got $code: $(cat "$TMP/err")"
   [ "$(cat "$STATE_DIR/briefs/$batch/1/result.md")" = "the cited findings" ] \
     || fail "the result should be kept as written"

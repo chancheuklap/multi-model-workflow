@@ -144,7 +144,7 @@ test("launch capability is independent of a shared catalog source", () => {
   assert.equal(LocalConfig.hostState(scan, draft, "claude", catalog), "unlaunchable");
   assert.equal(LocalConfig.hostState(scan, draft, "codex", catalog), "ok");
   const options = LocalConfig.rowOptions(scan, draft, "junior-worker", catalog);
-  assert.equal(options.host.find(o => o.value === "claude").disabled, true);
+  assert.equal(options.host.some(o => o.value === "claude"), false);
   assert.equal(options.host.find(o => o.value === "codex").disabled, false);
   assert.ok(LocalConfig.runnerOptions(draft, catalog).find(o => o.value === "native-runner").selected);
 });

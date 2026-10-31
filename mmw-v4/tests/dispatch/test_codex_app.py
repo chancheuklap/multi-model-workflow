@@ -55,6 +55,15 @@ for line in sys.stdin:
  elif p['method']=='thread/name/set':
   r=({'error':{'message':'title display unavailable'}} if mode=='title-failure' else {'result':{}})
   print(json.dumps({'id':p['id'],**r}),flush=True)
+ elif p['method']=='thread/queue/list':
+  rows=[{'id':'user-message','clientUserMessageId':'human-input',
+         'input':[{'type':'text','text':'#12 reviewer.reported'}]},
+        {'id':'mmw-message','clientUserMessageId':'mmw-wake-test',
+         'input':[{'type':'text','text':'#12 reviewer.reported'}]}]
+  print(json.dumps({'id':p['id'],'result':{'data':rows,'nextCursor':None}}),flush=True)
+ elif p['method']=='thread/queue/delete':
+  Path(os.environ['FAKE_QUEUE_LOG']).write_text(json.dumps(p['params']))
+  print(json.dumps({'id':p['id'],'result':{'deleted':True}}),flush=True)
 ''')
         self.binary.chmod(0o700)
         self.log = self.root / 'queue.json'
@@ -193,6 +202,12 @@ for line in sys.stdin:
         self.assertEqual(app.background_state(SESSION), 'stopped')
         self.assertEqual(self.run_adapter('stop', SESSION).returncode, 0)
 
+    def test_foreground_stop_rechecks_a_previously_stopped_chat(self):
+        self.record('stopped')
+        _, result = self.exchange(['stop', SESSION], error='native archive refused after reopening')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('native archive refused after reopening', result.stderr)
+
     def test_host_events_change_turn_state_without_confusing_idle_with_stopped(self):
         self.record()
         self.assertEqual(app.background_state(SESSION), 'working')
@@ -244,6 +259,23 @@ for line in sys.stdin:
         self.assertEqual(sent['code_home'], self.environment['CODEX_HOME'])
         self.assertEqual(sent['request']['params']['threadId'], SESSION)
         self.assertEqual(sent['request']['params']['input'], [{'type': 'text', 'text': 'wake marker'}])
+
+    def test_foreground_send_uses_native_delivery_instead_of_the_pending_queue(self):
+        request, result = self.exchange(['send', SESSION, '#12 reviewer.reported'],
+                                        {'session': SESSION, 'accepted': True})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(request['operation'], 'send')
+        self.assertEqual(request['arguments'], {'session': SESSION, 'text': '#12 reviewer.reported'})
+        self.assertFalse(self.log.exists())
+
+    def test_active_wait_consumes_only_mmw_transport_messages(self):
+        request, result = self.exchange(['await-wake', '--repo', 'owner/repo', '--session', SESSION],
+                                        {'session': SESSION, 'accepted': True})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(request['arguments']['text'], '#12 reviewer.reported')
+        self.assertEqual(result.stdout.strip(), '#12 reviewer.reported')
+        self.assertEqual(json.loads(self.log.read_text()),
+                         {'threadId': SESSION, 'queuedSubmissionId': 'mmw-message'})
 
     def test_queue_missing_and_lost_receipt_are_distinct(self):
         self.record()

@@ -12,7 +12,7 @@ The night's output is a batch the user can accept in the morning, not a count of
 
 This file is the order of the night. How a wake reaches you and what you do on one is the dispatch skill's `## On waking`.
 
-Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch gets an event that needs the orchestrator (step 3), and the watchdog tells you when the tracker has gone silent where it should not; nothing else does, and no agent polls another.
+Between the steps below, wait by the dispatch skill's **Waiting for results**. The relay you start in step 1 wakes you when a ticket of the batch gets an event that needs the orchestrator (step 3), and the watchdog tells you when the tracker has gone silent where it should not; nothing else does, and no agent polls another.
 
 Find where you are by the first row whose fact holds (**principle-progress-is-what-the-record-says**):
 
@@ -72,7 +72,7 @@ dispatch.sh advance <spec>
 
 #### 3. Each time something wakes you
 
-Handle each wake in this order, one wake at a time — two tickets landing seconds apart are two wakes, and you get the second after you end your turn:
+Handle each wake in arrival order, one wake at a time. Several can reach you before you wait again:
 
 1. Do steps 1-3 of the dispatch skill's `## On waking`, which end with the ack.
 2. Run `dispatch.sh status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers.

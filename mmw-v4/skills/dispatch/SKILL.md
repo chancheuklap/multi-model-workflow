@@ -17,6 +17,12 @@ To change which host, model or reasoning effort (`effort` in `models.json`) an a
 
 Run `bash <this skill's directory>/scripts/dispatch.sh board` from any checkout of the repository. Exit 0 opened the board or printed its URL for you to hand the owner; exit 2 says why on stderr. `open` and `open-ticket`, and `send worker` through `open-ticket`, start it themselves and name its URL on the line they print.
 
+## Waiting for results
+
+After dispatching, end the turn and let the relay wake the original session. Do not interrupt dispatched sessions or repeat their work. If the runner cannot reliably resume an ended turn, keep this session waiting through the caller's tool executor with `dispatch.sh wait-wake`. An already-active session can also use that command to receive pending relay notifications before it continues. The adapter returns the existing notifications; handle each through **On waking**, then continue the step that sent the work. If the adapter cannot wait, report its reason and end the turn rather than repeatedly querying child progress.
+
+Ticket results arrive individually, so an orchestrator handles each result while the other workers continue. A brief batch sends one completion wake after every brief in that send call has reported or is lost; read every answer before continuing.
+
 ## On waking
 
 1. A wake can cut short a command you were running. Run that command again first.

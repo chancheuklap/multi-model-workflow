@@ -74,4 +74,44 @@ PY
   [ "$(posted_events 61 runner session | tail -n 2 | head -n 1)" = \
       'worker.replaced runner=codex-app session=fixture-chat-1' ] \
     || fail "replacement must retire the old App worker: $(posted_events 61 runner session)"
+  printf -v command '%q ' env MMW_RUNNER=paseo bash "$DISPATCH" "${TOOLS[@]}" resume 61 'continue the original assignment'
+  code="$(run_dispatch node "$HERE/native-tools-fixture.mjs" "$executor" "$command" "$TMP")"
+  [ "$code" = 0 ] || fail "resume must follow the recorded App runner after the default changes: $(cat "$TMP/err")"
+  python3 - "$TMP/native-sessions.json" <<'PY_RESUME'
+import json,sys
+from pathlib import Path
+rows=json.loads(Path(sys.argv[1]).read_text())
+assert len(rows)==3, rows
+assert rows[2]['messages'][-1]=='continue the original assignment', rows
+PY_RESUME
+  [ "$?" = 0 ] || fail 'resume must reach the original App session without starting another chat'
+
+  commit_file "$(wt 61)" app-result.txt verified app-result
+  git -C "$(wt 61)" push -q origin issue-61
+  local passed
+  passed="$(git -C "$(wt 61)" rev-parse HEAD)"
+  cat > "$TMP/app-land.json" <<JSON_LAND
+[{"number":61,"state":"CLOSED","labels":[],"parent":null,"assignees":[],
+"comments":[$(ev ticket.passed 61 'ALL MET' --field branch=issue-61 --field into=main --field "commit=$passed")]}]
+JSON_LAND
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+  printf -v command '%q ' env MMW_RUNNER=paseo FAKE_GH_TICKETS_FILE="$TMP/app-land.json" bash "$DISPATCH" "${TOOLS[@]}" land 61
+  code="$(run_dispatch env FAKE_NATIVE_STOP_FAIL=1 node "$HERE/native-tools-fixture.mjs" "$executor" "$command" "$TMP")"
+  [ "$code" = 1 ] || fail "App stop failure must fail cleanup after landing: $(cat "$TMP/err")"
+  assert_wt 61
+  assert_branch 61
+  code="$(run_dispatch node "$HERE/native-tools-fixture.mjs" "$executor" "$command" "$TMP")"
+  [ "$code" = 0 ] || fail "App cleanup retry must follow recorded runner and finish: $(cat "$TMP/err")"
+  git -C "$TMP/repo" show origin/main:app-result.txt | grep -qx verified \
+    || fail 'the passing App worker commit must reach the integration branch'
+  assert_no_wt 61
+  assert_no_branch 61
+  python3 - "$TMP/native-sessions.json" <<'PY_STOP'
+import json,sys
+from pathlib import Path
+rows=json.loads(Path(sys.argv[1]).read_text())
+assert all(not row['active'] for row in rows), rows
+PY_STOP
+  [ "$?" = 0 ] || fail 'cleanup must confirm all recorded App sessions stopped'
+
 }

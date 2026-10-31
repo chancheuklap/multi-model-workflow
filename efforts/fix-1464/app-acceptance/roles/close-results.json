@@ -1,0 +1,22 @@
+[
+  {
+    "batch": "20261031-070823-f6dc",
+    "exitCode": 0,
+    "output": "dispatch: stopped watching brief batch 20261031-070823-f6dc for chancheuklap/multi-model-workflow: the relay (pid 30291) goes on watching brief batch 20261031-070807-aa6d and brief batch 20261031-070817-c215 and brief batch 20261031-070832-de0c\ndispatch: closed brief batch 20261031-070823-f6dc: 2 sessions stopped\n"
+  },
+  {
+    "batch": "20261031-070832-de0c",
+    "exitCode": 0,
+    "output": "dispatch: stopped watching brief batch 20261031-070832-de0c for chancheuklap/multi-model-workflow: the relay (pid 30291) goes on watching brief batch 20261031-070807-aa6d and brief batch 20261031-070817-c215\ndispatch: closed brief batch 20261031-070832-de0c: 1 sessions stopped\n"
+  },
+  {
+    "batch": "20261031-070807-aa6d",
+    "exitCode": 0,
+    "output": "dispatch: stopped watching brief batch 20261031-070807-aa6d for chancheuklap/multi-model-workflow: the relay (pid 30291) goes on watching brief batch 20261031-070817-c215\ndispatch: closed brief batch 20261031-070807-aa6d: 2 sessions stopped\n"
+  },
+  {
+    "batch": "20261031-070817-c215",
+    "exitCode": 0,
+    "output": "dispatch: stopped the relay for chancheuklap/multi-model-workflow: pid 30291, watching brief batch 20261031-070817-c215\ndispatch: closed brief batch 20261031-070817-c215: 1 sessions stopped\n"
+  }
+]

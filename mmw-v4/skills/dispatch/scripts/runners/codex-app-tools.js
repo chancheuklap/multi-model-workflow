@@ -42,6 +42,13 @@
         throw new Error("App did not confirm the prepared independent chat");
       return {session: chat.session, cwd: args.cwd, state: "active"};
     },
+    send: async args => {
+      const sent = unpack(await tools.mcp__codex_app__send_message_to_thread({
+        threadId: args.session, hostId: "local", prompt: args.text}));
+      if (sent.threadId !== args.session)
+        throw new Error("App did not confirm delivery to the requested chat");
+      return {session: args.session, accepted: true};
+    },
     state: inspect,
     stop: async args => {
       const receipt = unpack(await tools.mcp__codex_app__set_thread_archived({
@@ -57,7 +64,7 @@
   const shell = "exec 3>&1 4<&0; export MMW_NATIVE_TOOLS=1; exec \"$@\"";
   const launch = ["bash", "-c", shell, "mmw-native", "bash", "-c", command]
     .map(quote).join(" ");
-  let run = await tools.exec_command({cmd: launch, cwd: options.cwd,
+  let run = await tools.exec_command({cmd: launch, workdir: options.cwd,
     tty: true, yield_time_ms: 1000, max_output_tokens: 8000});
   let partial = "";
   let output = "";

@@ -50,13 +50,16 @@ const tools = {
   },
   async mcp__codex_app__send_message_to_thread(args) {
     sessions = JSON.parse(readFileSync(statePath, "utf8"));
-    assert.equal(args.model, "gpt-5.6-sol");
-    assert.equal(args.thinking, "high");
+    if (args.model !== undefined) {
+      assert.equal(args.model, "gpt-5.6-sol");
+      assert.equal(args.thinking, "high");
+    }
     const session = sessions.find(row => row.id === args.threadId);
     assert.ok(session);
     const cwd = session.cwd;
     assert.equal(execFileSync("git", ["branch", "--show-current"], {cwd, encoding: "utf8"}).trim(), "issue-61");
-    session.prompt = args.prompt;
+    session.prompt ||= args.prompt;
+    session.messages = [...(session.messages || []), args.prompt];
     session.active = true;
     save();
     return receipt({threadId: session.id});

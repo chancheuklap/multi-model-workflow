@@ -252,7 +252,7 @@ def queue_message(session, message):
         with public_server(command, environment) as request:
             try:
                 response = request(2, 'thread/queue/add', {
-                    'threadId': session, 'clientUserMessageId': str(uuid.uuid4()),
+                    'threadId': session, 'clientUserMessageId': 'mmw-wake-' + str(uuid.uuid4()),
                     'input': [{'type': 'text', 'text': message}]})
             except (OSError, ValueError):
                 return 4
@@ -266,6 +266,58 @@ def queue_message(session, message):
             return 3 if 'error' in response else 4
     except (OSError, ValueError):
         return 3
+
+
+def await_wake(repo, session):
+    if not has_executor():
+        raise Refusal('waiting needs the runner tool executor')
+    if session != os.environ.get('CODEX_THREAD_ID'):
+        raise Refusal('wait for wakes in the calling App chat')
+    import relay
+    ident = 1
+    with public_server([binary(), 'app-server'], dict(os.environ)) as request:
+        while True:
+            cursor = None
+            notified = 0
+            while True:
+                ident += 1
+                response = request(ident, 'thread/queue/list', {
+                    'threadId': session, 'cursor': cursor, 'limit': 100})
+                if 'error' in response:
+                    raise Refusal('could not read pending App notifications: ' + str(response['error']))
+                page = response['result']
+                for item in page['data']:
+                    if not item.get('clientUserMessageId', '').startswith('mmw-wake-'):
+                        continue
+                    inputs = item.get('input', [])
+                    if len(inputs) != 1 or inputs[0].get('type') != 'text':
+                        continue
+                    text = inputs[0]['text']
+                    ticket = re.fullmatch(r'#\d+ ([a-z.]+)', text)
+                    if not ((ticket and ticket[1] in relay.WAKES) or
+                            re.fullmatch(r'brief [A-Za-z0-9_-]+ done', text) or
+                            text.startswith('watchdog:')):
+                        continue
+                    receipt = native('send', {'session': session, 'text': text})
+                    if receipt.get('accepted') is not True:
+                        raise Refusal('App did not accept the pending notification')
+                    ident += 1
+                    deleted = request(ident, 'thread/queue/delete', {
+                        'threadId': session, 'queuedSubmissionId': item['id']})
+                    if not deleted.get('result', {}).get('deleted'):
+                        raise Refusal('notification was sent, but its pending App copy was not removed; '
+                                      'inspect the queue before sending it again')
+                    print(text, flush=True)
+                    notified += 1
+                cursor = page.get('nextCursor')
+                if not cursor:
+                    break
+            if notified:
+                return 0
+            if not relay.read_watches(statedir.state_dir(repo)):
+                print('codex-app: no MMW watch remains open', file=sys.stderr)
+                return 3
+            time.sleep(1)
 
 
 def main():
@@ -284,6 +336,9 @@ def main():
     send.add_argument('text')
     commands.add_parser('self')
     commands.add_parser('available')
+    waiting = commands.add_parser('await-wake')
+    waiting.add_argument('--repo', required=True)
+    waiting.add_argument('--session', required=True)
     for verb in ('catalog-models', 'catalog-version'):
         commands.add_parser(verb).add_argument('host', choices=('codex',))
     hook = commands.add_parser('hook')
@@ -291,6 +346,8 @@ def main():
     args = parser.parse_args()
     if args.verb == 'prepare':
         print(json.dumps(prepare(args)))
+    elif args.verb == 'await-wake':
+        return await_wake(args.repo, args.session)
     elif args.verb == 'catalog-version':
         print(subprocess.check_output([binary(), '--version'], text=True).strip())
     elif args.verb == 'catalog-models':
@@ -337,9 +394,12 @@ def main():
     elif args.verb == 'send':
         if background_state(args.session) == 'stopped':
             return 2
+        if has_executor():
+            response = native('send', {'session': args.session, 'text': args.text})
+            return 0 if response.get('accepted') is True else 3
         return queue_message(args.session, args.text)
     elif args.verb == 'stop':
-        if background_state(args.session) != 'stopped':
+        if has_executor() or background_state(args.session) != 'stopped':
             response = native('stop', {'session': args.session})
             if response.get('stopped') is not True:
                 raise Refusal('the native executor did not confirm a stopped chat')

@@ -12,6 +12,7 @@
 #   dispatch.sh open-ticket <n>
 #   dispatch.sh board
 #   dispatch.sh self
+#   dispatch.sh wait-wake
 #   dispatch.sh advance <spec>
 #   dispatch.sh start <n> worker|reviewer
 #   dispatch.sh integrate <n>
@@ -1555,13 +1556,15 @@ start_one() {
 # session already started for the batch is stopped and the batch removed.
 brief_footer() {
   local brief="$1" into="$2" role="$3" answer="<file>"
+  local report_command
   [ -z "$into" ] || answer="$into/brief-${brief##*/}.md"
+  printf -v report_command 'MMW_HOME=%q bash %q report %q %s' "${MMW_HOME:-$HOME/.mmw}" "$SELF" "$brief" "$answer"
   printf '%s\n' "---" \
     "This brief is $1. \`## Task\` is the question you answer; \`## Known\` is what the session that sent you already has, so start from it and do not redo it; \`## For\` is what your answer will be used for. The session that sent you waits for your answer and sees nothing else of yours." \
     "End your answer with \`## Problems\`. List each problem you encountered that you cannot fix in this work, using the register-problem skill's six fields. Write \`None\` when there are no problems. You do not register them yourself." \
     "When you are done, write your whole answer to $answer and run:" \
     "" \
-    "bash $SELF report $brief $answer" \
+    "$report_command" \
     ""
   if [ "$role" = researcher ]; then
     printf '%s\n' "If a page returns only a JavaScript shell, times out, or returns HTTP 403, read its body with \`playwright-cli -s=mmw-${brief%/*}-${brief##*/}\`. Use this browser session name only; do not start another name."
@@ -4217,7 +4220,7 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
-  pr | check | open | open-ticket | advance | integrate | integrated | land | start | send | report | brief | retract | wait | resume | status | findings | reverify | summary | finish | suspend | route | ack)
+  pr | check | open | open-ticket | advance | integrate | integrated | land | start | send | report | brief | retract | wait | wait-wake | resume | status | findings | reverify | summary | finish | suspend | route | ack)
     GH_REPO="$(python3 "$SKILL_ROOT/scripts/tracker.py")" || exit 2
     export GH_REPO
     ;;
@@ -4258,6 +4261,12 @@ case "${1:-}" in
     else
       usage
     fi
+    ;;
+  wait-wake)
+    [ "$#" -eq 1 ] || usage
+    line="$(own_session)" || exit 2
+    use_runner "${line%%$'\t'*}"
+    runner await-wake --repo "$(repo_slug)" --session "${line#*$'\t'}"
     ;;
   advance)
     [ "$#" -eq 2 ] || usage

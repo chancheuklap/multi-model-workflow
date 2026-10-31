@@ -39,6 +39,26 @@ export const LocalConfig = {
   roles: d => Object.keys(d.rows),
   source: (d, catalog = CATALOG) => catalog.runnerOptions[d.runner]?.catalog || "cli",
   launch: (d, catalog = CATALOG) => catalog.runnerOptions[d.runner]?.launch || "cli",
+  launchableHosts: (d, catalog = CATALOG) => catalog.hosts.filter(host =>
+    catalog.launch[host]?.[LocalConfig.launch(d, catalog)]),
+  reconcileRunner(scan, d, catalog = CATALOG) {
+    const L = LocalConfig, hosts = L.launchableHosts(d, catalog);
+    if (hosts.length !== 1) return d;
+    for (const row of Object.values(d.rows)) {
+      const previous = row.host;
+      row.host = hosts[0];
+      if (scan === null) {
+        if (previous !== row.host) row.model = "";
+        continue;
+      }
+      const offered = L.offeredBy(scan, row.host);
+      const model = offered.find(item => item.model === row.model) || offered[0];
+      row.model = model?.model || "";
+      const efforts = model?.efforts || [];
+      if (!efforts.includes(row.effort)) row.effort = efforts[0] || "";
+    }
+    return d;
+  },
   needsRescan: (from, to, catalog = CATALOG) =>
     LocalConfig.source(from, catalog) !== LocalConfig.source(to, catalog),
   hostScan: (scan, host) => scan[host] || {state: "missing", offered: []},
@@ -102,11 +122,12 @@ export const LocalConfig = {
     }
     return out;
   },
-  setCell(scan, d, key, cell, value) {
+  setCell(scan, d, key, cell, value, catalog = CATALOG) {
     const L = LocalConfig;
     if (key === "runner") {
+      const previous = {runner: d.runner};
       d.runner = value;
-      return d;
+      return L.reconcileRunner(L.needsRescan(previous, d, catalog) ? null : scan, d, catalog);
     }
     const r = d.rows[key];
     r[cell] = value;
@@ -142,7 +163,7 @@ export const LocalConfig = {
     const mark = (opts, value) => opts.map(o => ({...o, selected: o.value === value, disabled: !!o.disabled}));
     const host = [
       ...(catalog.hosts.includes(r.host) ? [] : [{value: r.host, text: `${r.host} · MMW 不认识`}]),
-      ...catalog.hosts.map(h => {
+      ...L.launchableHosts(d, catalog).map(h => {
         const hostState = L.hostState(scan, d, h, catalog);
         return {
           value: h,

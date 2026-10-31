@@ -33,3 +33,35 @@ The first two workers found a missing closing quote in their ticket CHECK. The c
 - Chats, worktrees and ticket branches remain available for inspection; evidence tasks were not landed into the product branch.
 
 The frozen runtime was `/tmp/mmw-app-demo-20261031-1540/toolbox/mmw-v4`; its isolated coordination home was `/tmp/mmw-app-demo-20261031-1540/home`. Local raw evidence is in that run's `evidence/`, including the tracker responses and formal-acceptance.json.
+
+## Full brief-role run and waiting behavior
+
+The later frozen run used `/tmp/mmw-app-final-20261031/runtime/mmw-v4` and its own `/tmp/mmw-app-final-20261031/home`. The current coordinating chat remained the parent. Six independent App chats received assignments through the normal `dispatch.sh send` commands: two researchers, one advisor, two candidates, and one retro-analyst. They changed no product code. The researchers' persisted findings are under `efforts/fix-1464/research/1470-app-role-acceptance/`; the role-return evidence and acceptance designs are in [roles](roles/).
+
+The two researchers reported at 07:08:44 and 07:09:08 UTC. The relay recorded one completion wake at 07:09:37 UTC. After the coordinator ended its turn, the App started parent turn `01a190cb-617c-7eb1-8902-690a1575db3b` with `brief 20261031-070807-aa6d done`. The parent read both answers before acknowledging the batch. [Parent-return evidence](roles/parent-return.json) records the report times, single wake, and new parent turn.
+
+The coordinator also received the candidate, retro-analyst, and advisor batch notices through the adapter-owned native waiting path while its turn was active. It read their complete answers before acknowledging. The candidate artifacts are proposed acceptance scenarios, not evidence that those scenarios executed. The two paths preserve the same brief-batch completion and acknowledgment protocol. Ending the turn and receiving a background wake remains preferred; native active waiting is an allowed alternative rather than a replacement for that path.
+
+The advisor's first report omitted the isolated `MMW_HOME` and therefore looked in the wrong state directory. The same chat submitted its existing answer successfully after receiving the exact command with the correct environment; it did not repeat its investigation. The generated brief footer now includes `MMW_HOME` directly in its report command. The `briefreport` regression executes that generated command with an unrelated inherited home: it failed before the correction and passed afterwards.
+
+After the six chats had completed their turns, the parent closed all four batches through the frozen runtime. Native archival and subsequent state inspection confirmed that all six sessions stopped. The final watch table and MMW wake queue were empty. [Closeout evidence](roles/closeout.json) and [command receipts](roles/close-results.json) retain those results. The runtime's recorded source hashes remained unchanged throughout the run.
+
+## Task-board runner and model selection
+
+The current checkout's task-board server ran in an isolated `MMW_HOME` on a temporary port. Selecting `codex-app` changed all seven session-role hosts to Codex and restricted their host/model choices accordingly. The subagent and model-catalog tabs showed only supported hosts, preserving the hidden Claude subagent settings for a runner that supports them. A compatible model and effort survive the switch; incompatible choices are reconciled after the new catalog arrives.
+
+The coordinator selected `gpt 6 luna`, `high` for advisor in the actual settings UI, saved, closed the dialog, and reopened it. The saved choices remained. That isolated configuration was then used by the formal advisor dispatch. The App-owned archived turn contexts independently record `gpt-6-luna` with `high` in both advisor turns, as retained in [actual model evidence](roles/advisor-model.json). The local browser used a stored host-catalog fixture; the subsequent independent App chat is the actual runner-start evidence. [Subagent settings screenshot](roles/codex-subagents.png) records the rendered page.
+
+## Management coverage and limits
+
+The App dispatch integration fixture now also exercises resuming the recorded App worker after the configured default changes to Paseo, without starting a replacement chat. It merges a passing worker commit, preserves the ticket worktree and branch when native stop fails, then confirms stop and removes the owned worktree and branch on retry. This is isolated integration evidence with fake runner receipts and tracker data, not a live App landing run. Shared suspend, finish, and cleanup behavior remains covered by the existing dispatch suite.
+
+Native foreground stop rechecks the App even when a previous observation says stopped. A stopped observation alone cannot authorize foreground cleanup after a chat has been reopened. Background observations still distinguish unknown state from confirmed stop.
+
+No candidate installation, hook-trust change, promotion, or release was performed. Candidate hook wiring and payload handling are covered by isolated checks; the new hooks were not deployed into the running desktop App. This run manually invoked the frozen turn guard to arm its existing watchdog. It does not count as a real installed Stop-hook acceptance. No automatic coordinator-host crash resurrection or exactly-once transport guarantee is claimed. Ticket events, brief reports, and read-before-ACK remain authoritative.
+
+## Final candidate checks
+
+`scripts/check` passed the default tier's ten steps on the final runtime changes, including board, dispatch, installer, liveness and relay suites. The App adapter suite passed 18 cases. The targeted `briefreport`, `sendbrief`, `sendinto`, and extended `codexappdispatch` integration scenarios also passed. Source wiring and host-neutrality checks passed. Windows-only PowerShell checks were not run on macOS.
+
+The role-return reports and candidate acceptance designs do not imply an extra implementation delegation. All product changes and the final evidence synthesis were performed by the original coordinator.
