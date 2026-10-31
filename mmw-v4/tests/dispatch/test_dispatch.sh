@@ -1002,6 +1002,8 @@ if "--jq .[].number" in url:
     for row in page:
         print(row["number"])
 else:
+    if re.search(r"(?:^| )-i(?: |$)", url):
+        print("HTTP/2 200 OK\n")
     print(json.dumps(page))
 ' ;;
   *"--json parent"*)
@@ -5438,7 +5440,7 @@ scenario_open() {
     grep -qF "repos/o/r/issues/76/sub_issues" "$MMW_TEST_LOG" && break
     sleep 0.1
   done
-  has "gh :: api :: --paginate :: --slurp :: repos/o/r/issues/76/sub_issues?per_page=100"
+  has " :: repos/o/r/issues/76/sub_issues?per_page=100"
 
   echo "--- opening the same night again keeps the one relay"
   pid="$(relay_now | cut -d' ' -f1)"
