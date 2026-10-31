@@ -4,9 +4,9 @@
 #   bash mmw-v4/tests/install/run.sh
 #
 #   test_install.py   install.sh in a throwaway home (MMW_INSTALL_HOME) with fake orca, gh, node, nmem,
-#                     paseo and launchctl on PATH: the takeover of a machine mmw-v3/install.sh set up,
+#                     paseo, herdr and launchctl on PATH and a fake Paseo app: the takeover of a machine mmw-v3/install.sh set up,
 #                     --back, --check and its handover, the models.json rows, Orca's worktree-base-path,
-#                     the shared prompt links and migration, and the machine's base tools
+#                     the shared prompt links and migration, optional Paseo isolation, and base tools
 #
 # Needs bash, python3 and uv. Rollback uses a synthetic v3 installer.
 
