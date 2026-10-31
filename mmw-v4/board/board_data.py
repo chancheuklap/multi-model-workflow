@@ -74,12 +74,9 @@ def _comments_address(number: int) -> str:
 class BoardStore:
     def __init__(self, gh=None, clock=utc_now):
         self.clock = clock
-        self.map_trees: list[dict] = []
-        self.comments: dict[int, list[dict]] = {}
         self.comment_reader = ghlist.ConditionalListReader(gh or ghlist.run_gh)
         self.comment_reader.clock = lambda: self.clock().timestamp()
         self.last_tree_at: dt.datetime | None = None
-        self.repo: str | None = None
         self.snapshot = {"tasks": [], "repo": None, "read_at": None}
         self.lock = threading.Condition()
         self.refreshing = False
@@ -285,11 +282,8 @@ class BoardStore:
             snapshot = {"tasks": self._shape(map_trees, comments), "repo": roots["repo"],
                         "read_at": iso(self.clock())}
             with self.lock:
-                self.map_trees = map_trees
-                self.comments = comments
                 self.comment_reader = comment_reader
                 self.last_tree_at = self.clock()
-                self.repo = roots["repo"]
                 self.snapshot = snapshot
                 self.last_answer = snapshot
         except GitHubReadFailed as exc:
