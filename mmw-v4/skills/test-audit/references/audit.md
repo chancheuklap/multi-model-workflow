@@ -8,7 +8,8 @@ Use the shared judgments in the test-audit skill. Audit one agreed area. Its tes
    Done when every candidate has evidence for its disposition and each retained contract has a proof owner.
 3. Apply the plan within the caller's authority. Move unique proof into its keeper first. Remove obsolete test-only production hooks and orphan support code when no supported caller or contract remains. Use the project's existing unused-code tooling when available; say what could not be checked. Missing evidence keeps the candidate in place. The last required proof or a frozen acceptance change goes back through the caller's contract route.
    Done when each applied disposition preserves the required contracts and its relevant checks pass, or the caller receives the unfinished portion.
-4. Hand the changed tests and removed contracts to the caller's existing independent review. Its Tests axis uses the shared judgments; no second preservation-review workflow is added. When sensitivity is uncertain, use a bounded control against the keeper and restore the source. Run owning and relevant sibling proof under the shared proportional-proof judgment.
-   Done when review findings are resolved or explicitly handed back, and evidence identifies the retained contracts, removed test-only seams, validation and remaining risks.
+4. Return the changed tests, per-contract dispositions and validation evidence to the caller. When sensitivity is uncertain, use a bounded control against the keeper and restore the source. Run owning and relevant sibling proof under the shared proportional-proof judgment. The caller's existing independent review uses the Tests axis; this method returns before that later task step.
+   Done when evidence identifies the retained contracts, removed test-only seams, validation and remaining risks, and the caller has any unfinished disposition.
+
 
 Keep product defects found during the baseline distinct from redundant proof. Send an unrelated repair through the existing ticket lifecycle instead of expanding a cleanup task.

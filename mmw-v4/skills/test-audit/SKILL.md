@@ -12,6 +12,7 @@ Read the shared judgments below, then take the applicable branch before acting.
 | Task | Material to read before acting |
 | --- | --- |
 | Write or change a test, including TDD, acceptance tests or behavior-preserving pins | Read [Writing tests](references/writing.md) before editing tests. |
+| Run a selected existing test without changing it | Apply Shared judgments and Proportional proof; keep the caller's command, scope and authority. |
 | Review tests in a diff | Apply this file's shared judgments to the caller's review scope. Use its report format; no additional review pass or test run is required. |
 | Audit, consolidate or retire existing tests in one area | Read [Audit workflow](references/audit.md) before editing candidates. |
 | Diagnose a test failure, flake or test-cost problem | Read [Failures and cost](references/failures.md) before choosing a repair. |

@@ -39,7 +39,7 @@ For a frontend and backend in separate repositories, keep the prototype in the f
 
 ### 0. Prepare the local product
 
-Keep the caller's preparation record and effort worktree. A direct UI-candidate request with no record or effort branch first uses the **to-tickets** skill's **Open the preparation record** entry, scoped to producing those candidates, with Playbook: Design a UI. Reuse an existing record and create only the branch it lacks. This opens a preparation record, not an implementation ticket, and does not authorize the rest of Design a UI or a worker. Return only the candidates the request asked for.
+Keep the caller's preparation record and effort worktree. A direct UI-candidate request with no record or effort branch first uses the **to-tickets** skill's **Open the preparation record** entry, scoped to producing those candidates. Record the candidate question as the goal; include a Playbook line only for an actual calling playbook. Reuse an existing record and create only the branch it lacks. This opens a preparation record, not an implementation ticket, and does not authorize the rest of Design a UI or a worker. Return only the candidates the request asked for.
 
 Read the product's existing environment instructions and the caller's preparation results. Reuse a runnable local environment. If the environment needed by this prototype is missing, call the **create-verification-skill** skill's **Prepare environment** entry with this product, checkout, chosen stack and current prototype scope. Continue here with its returned launch instructions and seed data. An unmet prerequisite returns to the caller.
 

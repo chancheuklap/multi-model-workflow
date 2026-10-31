@@ -13,12 +13,12 @@ Every session reads this file in full before anything else and works by its rule
 - Waiting for dispatched results → the **dispatch** skill's **Waiting for results**.
 - Reading or editing a `.ts` or `.tsx` file → the **typescript-best-practices** skill.
 - Any prose surface → the **unslop** skill.
-- Writing, reviewing, selecting, diagnosing or maintaining tests → the **test-audit** skill.
+- Writing, reviewing, selecting, running, diagnosing or maintaining tests → the **test-audit** skill.
 - Any page or diagram for a person, including an Artifact, HTML page or prototype page → the **diagram-design** skill, under **principle-everything-at-hand**.
 - Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Shipping UI / IDE / CLI → drive the product with its `verify-<product>` skill; without one, use the **control-cli** skill for CLIs and TUIs or the **control-ui** skill for browser, Electron and web UIs. Capture profiles, heaps, CDP traces and screenshots with **control-ui** or **control-cli**. For bug fixes, reproduce first on the same surface yourself. Hand reproduction to the user only under the narrow control-surface exception in the **bug-fix** skill's diagnostic entry.
 - Posting to a ticket, a comment or a pull request, or showing a person a command or its output → write `<REDACTED>` in place of every secret, and keep a credential in an environment variable rather than in the command.
-- An open UI design → Design a UI (`playbooks/design-a-ui.md`); a bounded candidate, model, experiment or architectural question → the **prototype** skill. A worker with a conflicting settled baseline uses its existing contract route.
+- A task reaches an unresolved UI design → Design a UI (`playbooks/design-a-ui.md`), returning to its caller. A bounded model, experiment or code-shape question → the **prototype** skill. A conflicting settled baseline uses the worker's existing contract route.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 - A session allowed to write encounters a problem it cannot fix in the work at hand → the **register-problem** skill.
 
@@ -105,4 +105,4 @@ Comments are a prose surface. Write them clean as you go. Keep a comment only fo
 
 ## Playbooks
 
-Work by the steps of the file your assignment names (only the steps it names, when it names some), or else of the matched playbook. After your context is compacted, read this skill again in full, then the file you work by and every file its current step names, before you take that step.
+Work by the file your assignment names, limited to its named steps when supplied; otherwise follow the playbook or skill selected for the requested result. After your context is compacted, read this skill again in full, then the file you work by and every file its current step names, before you take that step.

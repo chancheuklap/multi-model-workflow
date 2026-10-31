@@ -1,20 +1,46 @@
 ### Develop a change
 
-**You own the missing preparation for one selected code change, ending with an executable independent ticket or spec batch.**
+**You own the preparation, not the implementation. Turn one agreed change into an executable ticket or spec batch.**
 
-The mode has selected the requested result and preparation scope. Session pickup supplies a recovered preparation when needed. Keep the supplied issue, effort branch, settled decisions, evidence and authority. Preparation may be brief: reuse completed results and perform only the work still needed. A caller that requested a particular missing result receives that result back.
+Keep settled decisions and demonstrated behavior as baselines. Diagnose the current problem before choosing its repair. Settle the intended behavior before preparing its acceptance. Small changes can go straight to one ticket; the worker writes the implementation.
 
-1. **Reuse or establish the preparation record.** Read the supplied goal and preparation materials to find the next missing result. Keep the issue and branch already carrying them. With no such record, use the **to-tickets** skill's opening entry before preparing durable assets. A new independent problem records `Playbook: Develop a change`; an existing `## Problem` remains unchanged.
-   Done when preparation has its existing or newly established record and the next missing result is known.
-2. **Get the evidence the change needs.** Read the affected source per **principle-read-before-you-conclude**, and reuse the prepared affected-feature result; when missing, find existing feature baselines through the **maintain-verification-skill** skill's **Find affected features** entry. Follow **principle-start-from-what-exists** before choosing an implementation. Reuse the established subsystem understanding; use **how** for a missing model and **why** when history matters. Call the preparation entry of **bug-fix**, **perf-issue**, **hillclimb** or **refactoring** when its method supplies missing evidence or a design constraint. Combine methods when the same change needs them. Each method returns its evidence to this preparation: reproduction, workload, baseline, harness, behavior pins or target shape. Keep durable assets on the supplied effort branch and conclusions on the existing record. Facts the agent can observe are the agent's work.
-   Done when each proposed change is grounded in the evidence it requires, or the concrete missing access or input is reported without claiming a diagnosis.
-3. **Settle the missing decisions.** Keep recorded answers and prototype winners as baselines. Use Grill with docs for unresolved product decisions, Design a UI (`playbooks/design-a-ui.md`) for unresolved UI design, and **prototype** for the bounded questions its construction methods answer, and **domain-modeling** as terms or important decisions become stable. A task without an unresolved decision passes through. Use **wayfinder** when the decisions exceed one session, retaining its one-decision-per-session and fresh-session hand-back. A called discussion or method returns to this preparation; retain any required stop rather than starting an independent change from inside it.
-   Done when the next preparation has its necessary decisions, or unfinished decision work has been handed back with its recorded continuation.
-4. **Choose the smallest verifiable unit.** Consider blocking prerequisites, independent workstreams, shared mutable state and the smallest safe decomposition. Record the conclusions that affect the work, applying **principle-separate-before-serializing-shared-state** to shared writes. Parent fan-out is for independent artifacts such as audits, investigations and experiments; the worker writes the implementation. One independently verifiable change uses an independent ticket; several coordinated units use a spec. Investigation length, file count and experiment iteration count alone do not require a spec. One bug remains a focused fix unless the evidence establishes a larger, separately agreed change. The **to-spec** skill owns division into several specs; **to-tickets** owns the slices and blocking edges within the selected spec.
-   Done when an independent ticket or spec batch is justified, with the dependencies and verification boundaries that make the choice safe.
-5. **Prepare the executable result.** Use the **to-tickets** skill's independent entry for one independent change. For a spec change, use **to-spec** to create or revise the existing spec, then **to-tickets**' batch entry. Those methods own their templates, direct calls for missing verification results, test preparation, lint, publication and read-back. Pass the agreed rules, intended code area and existing evidence; do not repeat their generation or maintenance selection here. Keep the UI winner and API contract, feature registrations, behavior pins, negative controls and required design/product test evidence. Write worker/reviewer method entries and standards under **Read first**, implementation rules under **What to build**, and executable checks under **Acceptance criteria**. These existing materials also identify the method's verification entry for the executor; this playbook adds no later verification stage. Reuse approved outputs. Keep to-spec's one-spec-per-invocation stop when a reference divides into several specs. If a spec replaces the initial problem, close that problem with the spec link and retain its branch and assets.
-   Done when the requested independent ticket or approved batch is prepared and published, or a missing prerequisite, owner decision or several-specs hand-back has been returned.
-6. **Return or hand over the prepared result.** A call for missing preparation returns that result to its calling step. For a preparation request with existing Go for execution, run One ticket for a ticket outside a spec, or Run a night for the spec's batch, including a batch with one ticket. Apply the mode's authority rules to that Go and scope; without execution authority, add `needs-triage` to the problem and return the prepared work and the owner's outstanding decision. The named execution file takes over. Its re-entry, product verification, run recovery, PR and acceptance stay there.
-   Done when the caller has its prepared result, the executor has taken over the authorized work, or the owner has the prepared work and outstanding execution decision.
+1. **Keep or open the record.** Read the goal, existing issue, effort branch, decisions and execution Go. Start at the first unfinished step. For a missing record or branch, read the **to-tickets** skill and follow **Open**, with `Playbook: Develop a change` for a new problem. Keep an existing Problem unchanged.
+   Done when the record, working branch, scope and authority are identified, with sources for completed preparation.
+2. **Establish the current behavior.** Read affected source and relevant ADRs per **principle-read-before-you-conclude**. Reuse the affected-feature result; when missing, read **maintain-verification-skill** and follow **Find affected features**. Fill only the missing evidence:
 
-**Reply:** the prepared ticket or spec batch by name and link; what it delivers, its basis and scope, what remains, and any decision still belonging to the owner. After handover, the executor supplies the run's result.
+   | Missing result | Method |
+   | --- | --- |
+   | A reported defect's reproduction or confirmed cause | Read **bug-fix** and follow **Diagnose** |
+   | A slowdown's workload, baseline or trace | Read **perf-issue** and follow **Diagnose** |
+   | A subsystem model needed to explain or change behavior | Read and run **how** |
+   | An original design rationale that determines the correct change | Read and run **why** |
+
+   Done when the current behavior and any reported cause have source or runtime evidence. If the required observation cannot be obtained, return its concrete prerequisite and stop this preparation at this step. Keep completed reproductions and measurements.
+3. **Settle what will change.** Reuse recorded answers and confirmed designs. Use only the method needed by an open question:
+
+   | Open question | Method and return |
+   | --- | --- |
+   | Product behavior or scope | Follow Grill with docs (`playbooks/grill-with-docs.md`); return its decisions |
+   | Appearance or interaction | Follow Design a UI (`playbooks/design-a-ui.md`); return its winner, feature description and non-UI questions |
+   | Logic, an empirical choice or cross-ticket code shape | Read **prototype** and follow its applicable branch; return its verdict |
+   | Decisions exceed one session | Read **wayfinder**; keep its fresh-session hand-back |
+
+   Settle returned non-UI questions when this change depends on their data, rules, permissions, recovery, integration or performance. Read **domain-modeling** when terms or important decisions are being settled.
+   Done when the next preparation has its required decisions and their sources. A task with no open decision continues. A pending owner decision or unfinished map returns its recorded continuation and stops here.
+4. **Prepare the approach and size the work.** Apply **principle-start-from-what-exists** before choosing an implementation. Read the applicable skill and follow its preparation entry for the missing result:
+
+   | Work in hand | Preparation result |
+   | --- | --- |
+   | An agreed repair | **bug-fix**: cause, repair plan, seam and original reproduction |
+   | One performance change | **perf-issue**: traced change, target and comparison command |
+   | Sustained metric improvement | **hillclimb**: frozen harness, baseline, stop predicate and hypotheses |
+   | A behavior-preserving structural unit | **refactoring**: contract, pins or missing UI-pin requirements, and target shape |
+
+   Combine methods within the agreed scope. Name blocking prerequisites, independent work, shared writes and verification boundaries, applying **principle-separate-before-serializing-shared-state**. One verifiable unit uses one independent ticket; coordinated units use a spec. A long investigation alone does not require a spec. One bug stays focused unless a larger change is separately agreed.
+   Done when the approach, baselines, required proof and independent-ticket or spec choice are justified.
+5. **Write the executable work.** For one change, read **to-tickets** and follow **Independent ticket**. For coordinated work, read **to-spec** to create or revise the spec, then **to-tickets**, **Batch**. Pass the decisions, method results, baselines and authority. Those writers finalize interfaces, obtain missing verification methods, prepare tests, lint, publish and read back; follow their actual instructions. Keep the one-spec-per-invocation stop. When a spec replaces the initial problem, close that problem with the spec link and retain its branch and assets.
+   Done when the ticket or approved batch is published, or its writer has returned a concrete prerequisite or spec-division continuation.
+6. **Return or hand over.** Return a requested missing preparation result to its caller. For the complete change, existing execution Go starts One ticket (`playbooks/one-ticket.md`) outside a spec, or Run a night (`playbooks/run-a-night.md`) for a spec batch, including one ticket. Without Go, put the prepared problem in `needs-triage` and return it for the owner's decision. The executor owns the rest of the delivery.
+   Done when the caller has the result, the authorized executor has taken over, or the owner has the published preparation and outstanding decision.
+
+**Reply:** the prepared work by name and link, what it delivers, its evidence and decision sources, the proof prepared, and its execution or waiting state.

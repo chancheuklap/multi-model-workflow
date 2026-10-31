@@ -9,7 +9,6 @@ Use the shared judgments in the test-audit skill. This branch owns the writing m
 | Add behavior or repair a defect | Use the TDD loop below. |
 | Preserve behavior while moving structure or replacing a dependency | Pin it before the move, as below. |
 | Prepare acceptance from a settled prototype | Use the caller's design/product handoff and the UI writing guidance below. Day-authored acceptance is distinct from the worker's TDD loop. |
-| Change skill instructions | Use the writing-for-agents skill's WALKING-A-SKILL-SET.md and the Authoring or modifying a skill playbook for the fresh-agent walk. |
 
 ## TDD
 

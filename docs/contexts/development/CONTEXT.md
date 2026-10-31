@@ -7,7 +7,7 @@ Preparing a selected change through evidence, discussion and design, or returnin
 ### Preparation
 
 **Develop a change**:
-The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/develop-a-change.md) for supplying the missing evidence, decisions and plan of one selected code change, ending with an independent ticket or spec batch. It reuses completed preparation and is distinct from mmw-mode routing and ticket execution.
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/develop-a-change.md) for observing the current behavior, settling the intended change, preparing its method and scope, then producing an independent ticket or spec batch. It reuses completed preparation and is distinct from mmw-mode routing and ticket execution.
 
 **preparation**:
 The evidence, settled decisions and executable plan still needed before implementation. Its result can be one independent ticket; a long investigation alone does not make a spec necessary.
@@ -19,7 +19,7 @@ The owner's authority to execute the recorded scope, distinct from selecting a p
 The owner's judgment after running and inspecting the prepared product result. Automated verification supplies evidence for this judgment; it does not substitute for acceptance.
 
 **Design a UI**:
-The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/design-a-ui.md) supplying a confirmed UI design to a development preparation or returning it as a directly requested result. It does not take over Develop a change's planning or the execution flows.
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/design-a-ui.md) supplying an owner-confirmed runnable UI design and feature description. It settles UI-changing questions, returns other implementation questions to its caller and resumes that caller's step.
 
 ### Discussion and investigation
 

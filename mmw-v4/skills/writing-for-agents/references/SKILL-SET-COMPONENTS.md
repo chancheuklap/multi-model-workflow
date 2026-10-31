@@ -22,7 +22,7 @@ A skill's directory is symlinked whole into every host, so it holds only what th
 
 These hold for every component.
 
-1. **Imitate pstack in content, not only in shape.** Before writing a component, read the upstream component of the same kind that does the closest job. Where an upstream text already covers what MMW needs, start from that text and merge MMW's specifics into it.
+1. **Imitate pstack in content, not only in shape.** Before writing a component, read the upstream component of the same kind that does the closest job. For mattpocock and pstack components, read the relevant docs page for its intended flow and known limits, then the complete component source for its operative instructions. Where the upstream text covers MMW's need, start from that text and carry only the required adaptations.
 2. **Compare before you choose; pstack is not the default winner.** Before calling something missing from the set, read its entry in [`UPSTREAM.md`](UPSTREAM.md) and the departures in [`DESIGN-INTENTS.md`](DESIGN-INTENTS.md): a departure listed there is a decision, not a gap. Where both sides do one job, read both in full and keep the one that does more, or keep both when they do different jobs. A component only an upstream has, which nothing in MMW corresponds to, is not brought in until a task needs it, because it names other components. A sentence only an upstream has is a different case: it comes in when it overlaps and conflicts with nothing already in the set.
 3. **Place each piece of text by these questions, not by what type of text it looks like.** Who needs it, at which moment? How many places use it? Does it change a decision? Can a mechanism (a script, a check, a hook) enforce it?
 4. **The default is to edit an existing home or to delete, not to create.** A new component needs all three: "no existing skill is a real home, the pattern recurs, and the topic deserves its own skill" (pstack `reflect`). "When in doubt, delete. Keep only prose that changes a decision." (pstack `authoring-a-skill.md`).
@@ -38,7 +38,7 @@ The model to imitate, in content as well as shape, is `upstream/pstack/skills/po
 
 ### What the mode is for
 
-The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the entry: its description, which every host scans at start, says to read it in full at the start of every session. No hook and no line in the user-level prompt tells a session to read it.
+The owner's way of working: in what situation to use what, and which playbook a task follows. It is loaded once and stays in context for the rest of the session. Invoking the skill is the entry: its description, which every host scans at start, says to read it in full at the start of every session. Installed SessionStart hooks also print a pointer to the installed mode, as the recorded departure in DESIGN-INTENTS.md describes.
 
 It is read in two layers, split by whether the session holds a request or an assignment. `SKILL.md` holds what every agent judges with and keeps all seven section headings below, in their order. `references/handling-a-request.md` holds what only a session holding a request uses, under the headings of the sections it holds a part of, and is read by a session whose first message names no file to follow. What to do is named by whoever sends an agent; which skill and which principle to use stays each agent's judgement, through the first layer.
 
@@ -87,7 +87,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 #### `## Playbooks`
 
 - **Used:** at the start of a task, to choose its route.
-- **Content:** one route line per playbook, with direct skill routes for independently requested outputs: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
+- **Content:** one route line per playbook under Playbooks. Independently requested skill results are listed separately under Requested results: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
 - **When to add a line:** in the same change that adds the playbook file. Whether a playbook is warranted is in `## playbook` below.
 
 ## playbook

@@ -6,7 +6,6 @@ Read in full by a session holding a request: a session whose first message names
 
 Triggers for the task as a whole:
 
-- Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - Before asking the user to choose an approach → establish whether evidence can settle it. Look up facts yourself; use the **prototype** skill for questions that need a runnable experiment. A read-only Investigation answers from evidence and stays read-only.
 - Design bakeoffs with base selection and grafting → the **arena** skill.
 - Broken skill mid-task → the **register-problem** skill.
@@ -14,7 +13,6 @@ Triggers for the task as a whole:
 - Authoring or modifying a skill, with text one ticket can carry → this session writes the text; scripts go to a worker, as `playbooks/authoring-a-skill.md` says.
 - A sentence or two the owner corrects after a ticket passed → this session makes the correction without reopening the ticket or sending another worker, as One ticket step 4 (`playbooks/one-ticket.md`) says.
 - Owner-named deletion of skill text that needs no replacement → this session does it without a ticket, following **Pure deletion** in `playbooks/authoring-a-skill.md`.
-- Independently requested verification generation or maintenance → the corresponding create/maintain verification skill returns on the current project branch without an implementation ticket. Within an effort or worker, the caller's branch and write scope apply.
 
 ## Autonomy
 
@@ -45,41 +43,51 @@ Each playbook's `**Reply:**` names the content unique to it. Work a ticket repor
 
 ## Playbooks
 
-Choose the component that owns the requested result. A current assignment follows its named file, and a wake returns to its run. Feedback or a question during an active task stays in that task unless the owner changes the objective. A known current step continues directly; use Session pickup only when the prior position must be reconstructed. Preserve the existing issue, branch, completed evidence and authorization.
+Continue an active task at its known step. Owner feedback updates that task unless the owner changes the objective. Use Session pickup only to reconstruct an unknown position, preserving the issue, branch, proof and authority.
 
-A ticket with acceptance criteria is implemented only by a dispatched worker. A ready owner-supplied ticket outside a spec enters One ticket; a ready spec batch enters Run a night, even with one ticket. An unfinished ordinary code change enters Develop a change. A recorded historical Playbook title helps locate the original goal; select the current component rather than opening retired material or rewriting the original Problem.
+For a new request, select the requested result below and read its owning playbook or skill in full before acting or deciding a step is already covered. The route line names the entry; that entry supplies the method.
 
-Outside a night, ordinary code preparation produces one ticket and follows the owner's existing Go into One ticket. Read-only answers, discussions and requested map / spec / ticket / report results end when that result is returned. A preparation caller that requested one missing result receives it back. Apply execution exceptions under Non-negotiables at their owning step.
+- A skill-set change uses Authoring or modifying a skill; that workflow delegates larger preparation to Develop a change. An ordinary code change needing preparation uses Develop a change, including one with an unresolved UI design.
+- A UI design without implementation uses Design a UI. Requested candidates or experiments use the prototype result entry.
+- Ready work uses One ticket or Run a night only on an execution request or existing Go. A spec batch uses Run a night even with one ticket.
+- An independently requested method result uses Requested results and ends at that result.
+
+A ticket with acceptance criteria is implemented only by a dispatched worker. Historical Playbook titles are context, not execution Go or instructions to open retired files. Keep the existing Authoring and pure-deletion exceptions.
 
 Asked what is waiting, read whole lists with `gh issue list --state open --label needs-triage --limit 1000 --json number,title,labels` and `gh issue list --state open --label mmw:problem --limit 1000 --json number,title,labels`, showing planned problems without a queue label separately. `needs-triage` awaits the owner's selection; an open problem without it is still being prepared. Use `--paginate` and `?per_page=100` for API lists.
 
 - **Design a UI.** Settle a UI design through a complete runnable prototype, the owner's trial and iterative feedback, ending with the confirmed winner and feature description. Distinct from candidate-only construction and from implementation preparation. `playbooks/design-a-ui.md`.
 - **Develop a change.** Preparing a new or changed behavior, bug fix, performance improvement or structural change that still needs evidence, decisions or an executable plan. Reuse completed work; small changes need no spec. Distinct from a ready ticket or batch, which goes directly to its executor. `playbooks/develop-a-change.md`.
-- **Decision map.** Charting a destination whose decisions exceed one session, or resolving the next decision on an existing map. The **wayfinder** skill, retaining its fresh-session boundary.
-- **Spec.** Recording settled decisions as a spec, or revising a published spec and its affected tickets, when that document is the requested result. The **to-spec** skill; return the spec without automatically decomposing or executing it.
-- **Tickets.** Writing one independent ticket, or decomposing a published spec into an approved batch, when the records are the requested result. The **to-tickets** skill; return the published work without opening a run.
-- **Architecture report.** Finding module-deepening candidates or recording candidate feedback before implementation has been selected. The **improve-codebase-architecture** skill; a report-only request ends with the report.
 - **Work a ticket.** Sent by the dispatch skill to a ticket with acceptance criteria: claim it, build it until its criteria pass and it is reviewed, close it. Distinct from Develop a change, which prepares the work before a worker starts. `playbooks/work-a-ticket.md`.
-- **Code review.** Reviewing a pull request another author opened. The **code-review** skill.
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y; also a doubt about a part of MMW's skill set that the owner wants understood, which becomes Authoring or modifying a skill once the owner asks for a change. `playbooks/investigation.md`.
-- **Grill with docs.** A plan or design to sharpen in one session, through a relentless interview that writes the glossary and ADRs as it goes. Use the **wayfinder** skill when the open decisions exceed one session. `playbooks/grill-with-docs.md`.
+- **Grill with docs.** Settle a plan or design in one session while recording the glossary and qualifying ADRs. `playbooks/grill-with-docs.md`.
 - **Run a night.** A spec's unattended batch, from start or resumption through its PR and accepted merge. `playbooks/run-a-night.md`.
-- **One ticket.** An owner-approved ticket outside a spec, or an owner-supplied ticket with acceptance criteria and no `Playbook:` line. `playbooks/one-ticket.md`.
+- **One ticket.** Execute a ready independent ticket on the owner's execution request or existing Go for its scope. `playbooks/one-ticket.md`.
 - **Retrospective.** After one run, a night or one ticket, record each analyst conclusion on its registration without executing it; the owner decides what to do in a separate backlog review. Also run on the owner's request to review a named run. `playbooks/retrospective.md`.
 - **Merging the lesson backlog.** When the owner asks to merge registrations, review all open registrations by root cause on one page, then apply only the owner's decisions. Distinct from Retrospective, which records one run's analysis without executing it. `playbooks/merging-the-lesson-backlog.md`.
 - **Opening a PR.** Opening or settling a delivery PR for completed work, or promoting an owner-approved project branch. `playbooks/opening-a-pr.md`.
 - **Runtime forensics.** Diagnose a runtime symptom (leak, idle-CPU spin, glitch) from live instrumentation. The deliverable is a diagnosis, not a fix. `playbooks/runtime-forensics.md`.
 - **Trace forensics.** Diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot) handed to you after the fact. The deliverable is a diagnosis, not a fix. `playbooks/trace-forensics.md`.
-- **Prototype.** A bounded model, experiment, code sketch or requested UI candidates kept in the repo to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide"). The **prototype** skill. A whole UI design uses Design a UI; requested candidates return without design approval or implementation.
-- **Create product checks.** Establish or extend the project's reusable launch, drive, evidence and cleanup instructions: the **create-verification-skill** skill's **Generate and prove** entry. It selects `references/generate.md` for the complete method. Return that result without starting implementation.
-- **Maintain product checks.** An owner-requested whole-product check of its feature map, tests and verification tools: the **maintain-verification-skill** skill's **Maintain the product** entry. This is distinct from its read-only **Find affected features** lookup during preparation.
-- **Create formal checks.** Establish a rerunnable check for a named important rule that ordinary tests do not adequately protect: the **create-formal-verification-skill** skill. Keep the requested area and agreed rule; return evidence and the generated project-local skill.
-- **Maintain formal checks.** Reconcile named existing formal checks with changed code: the **maintain-formal-verification-skill** skill. Return its per-check outcomes; product repairs require their own authorized implementation.
 - **Authoring or modifying a skill.** Creating or changing a skill, principle, playbook, reference or its tooling, wherever maintained. Larger changes carry their standards into Develop a change. `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
-- **Set up a repository.** A repository MMW has not worked in yet, or a check-up of one ("set up MMW here", "is this repo ready for a night"): its labels, ignored directories and `scripts/check`. The **setup-mmw** skill.
 - **Set up code checkers.** Creating scripts/check, or adding or replacing a language, sub-project or checker in it. `playbooks/set-up-code-checkers.md`.
-- **Stop a repeated mistake.** On the owner's request, preventing a recurring agent mistake. The **correct** skill chooses the mechanism.
 - **Session pickup.** Resuming or taking over a prior agent's in-flight work from a transcript, a pushed branch, or an open ticket of ours. `playbooks/session-pickup.md`.
 - **Pause safely.** On an explicit request to pause ongoing work and leave a resumable checkpoint. `playbooks/pause-safely.md`.
 - **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). `playbooks/worktree-cleanup.md`.
+
+## Requested results
+
+Use these entries when the method's output is the owner's requested result. Inside a playbook, follow the calling step instead. Return the result and its limits; implementation needs its own scope and Go. Independently requested verification generation or maintenance uses the current project branch; calls inside an effort or worker keep the caller's branch and write authority.
+
+- **wayfinder**. Chart a destination whose decisions exceed one session, or resolve the next decision on its map. Keep its fresh-session boundary.
+- **to-spec**. Publish or revise a spec as the requested result; return it without automatic ticket decomposition.
+- **to-tickets**. Publish an independent ticket or an approved spec batch as the requested result; return without opening execution.
+- **improve-codebase-architecture**. Return architecture candidates or feedback before implementation has been selected.
+- **code-review**. Review a pull request another author opened.
+- **prototype**. Return the requested bounded model, experiment, sketch or UI candidates. Owner iteration and confirmed UI design use Design a UI.
+- **create-verification-skill**. Establish missing reusable product verification capability through Generate and prove.
+- **maintain-verification-skill**. Perform requested whole-product maintenance; this is not an affected-feature lookup.
+- **create-formal-verification-skill**. Establish a rerunnable check of an agreed important rule against real code.
+- **maintain-formal-verification-skill**. Reconcile named existing formal checks with current code.
+- **setup-mmw**. Set this repository up for MMW or check its prerequisites.
+- **correct**. Prepare prevention of the owner-named recurring mistake.

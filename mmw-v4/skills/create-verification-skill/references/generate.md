@@ -144,7 +144,7 @@ In the generated skill, name the **test-audit** skill at the entry for writing,
 changing or diagnosing tests. Keep common testing rules there rather than
 copying them into each product's Rules or Evidence section.
 
-Read `references/feature-map.md` and write or reuse the mapped feature's description and Proof now. Finish the usable product skill and config before preparing its test. The recipe, config and Proof are inputs to the next step, not files the caller must already have.
+For an initial whole-product setup, choose the top three to five user-facing features from routes, navigation or docs. For generation called by one change, map the features that change needs; retain existing unrelated feature files. Read `references/feature-map.md` and write or reuse the mapped feature's description and Proof now. Finish the usable product skill and config before preparing its test. The recipe, config and Proof are inputs to the next step, not files the caller must already have.
 
 ## 3. Prepare the first test
 
