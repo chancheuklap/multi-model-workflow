@@ -51,7 +51,7 @@ class BoardRefreshContracts(unittest.TestCase):
             self.assertEqual(store.answer(), first)
             self.assertEqual((directory / 'calls.jsonl').read_text(), before)
             data['comments']['11'].append({'etag': 'regressed', 'comments': [
-                event('ticket.regressed', 11, id=1199)]})
+                event('ticket.regressed', 11, id=1199, commit='a' * 40)]})
             data['comment_active']['11'] = 1
             data['trees'][0]['subIssues']['nodes'][3]['subIssues']['nodes'][0]['state'] = 'OPEN'
             (directory / 'scenario.json').write_text(json.dumps(data))
