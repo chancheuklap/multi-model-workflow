@@ -70,7 +70,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 27. **A criterion is a command.** A judgement goes to review, a person's reaction to a ticket for a person, and what cannot yet be reached gets a tool built to reach it first.
     Home: the `to-tickets` skill's `references/ticket-format.md`; the `verify-ticket` skill; the `test-audit` skill; **Work a ticket** step **Read yourself in and write the code**.
 28. **A bug fix starts from a reproduction that goes red, every line of the ticket traces to runtime evidence, the fix lands as one ticket, and the reproduction is run again on the same surface.**
-    Home: the `bug-fix` skill; the `test-audit` skill.
+    Home: the `bug-fix` skill for diagnosis and repair requirements; the `to-tickets` skill for missing UI acceptance before dispatch; the `test-audit` skill for test judgments.
 29. **Proof happens on the real product, from every entry of the feature.**
     Home: `principle-prove-it-works`; the `control-cli` and `control-ui` skills; the `create-verification-skill` skill's `references/generate.md` and `references/feature-map.md`.
 30. **The writer is not the judge, and a conclusion is judged once.**

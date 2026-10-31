@@ -1,8 +1,8 @@
 # Record the feature map
 
-Create one file per user-facing feature under
-`.agents/skills/verify-<product>/features/`, the top three to five first, from
-routes, navigation, or docs. Follow
+Create or update the feature files named by the caller under
+`.agents/skills/verify-<product>/features/`. This reference defines their format
+and source rules. Follow
 `references/example/pin-note.md` for the feature file. Each file starts with these three lines:
 
 ```text

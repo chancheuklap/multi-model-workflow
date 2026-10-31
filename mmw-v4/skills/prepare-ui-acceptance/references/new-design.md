@@ -24,8 +24,10 @@ the prototype. Give each ticket's acceptance tests a new file under
 one CHECK for that file. Sharing a pin file makes unrelated work fail together;
 two CHECKs for one file overwrite its evidence.
 
-Before dispatch, run the ticket's test on `design` again. A failure means the
-API fake has not caught up with the final contract.
+Reuse the recorded design-pass and missing-feature product-red proof while
+the winner, final API fake, test and run recipe are unchanged. Changed inputs
+require the affected proof before dispatch, under test-audit's proportional
+proof judgment.
 
 Done when `Proof` precedes the test, the feature file names it, `design` passes,
 and `product` fails for the missing feature. Existing pins pass on the base.

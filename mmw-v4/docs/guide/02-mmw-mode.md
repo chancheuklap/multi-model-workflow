@@ -4,17 +4,17 @@
 
 ## Every session reads it first
 
-You do not type a command to turn `mmw-mode` on. Its `description` tells every session to read it in full at the start, before anything else. A host reads skill descriptions when the session starts, so the session reads `mmw-mode` before it acts on your first message.
+You do not type a command to turn `mmw-mode` on. Its description and installed SessionStart hook point the session to the complete skill. The agent must read it before acting on your first message; the pointer supplies the instruction rather than the skill's body.
 
 Most of the other skills carry the description "Run only when the user, mmw-mode or another skill names it". They do not start on their own. `mmw-mode` and its playbooks name them at the step that needs them, and you can name one yourself in a prompt.
 
 The skill is read in two layers. Its `SKILL.md` is what every agent judges with, the session you talk to and every agent it sends. Its [`references/handling-a-request.md`](../../skills/mmw-mode/references/handling-a-request.md) is read only by a session holding a request, the one you opened, because its first message names no file to follow. A session holding an assignment, one that `dispatch.sh` or a subagent call started with a file to follow, works by that file. Between them they hold seven sections. These five shape what you see:
 
-- **Non-negotiables.** Triggers. Those for an agent's own work are in `SKILL.md`: any prose runs `unslop`, any `.ts` file runs `typescript-best-practices`. Those for the task as a whole are in `handling-a-request.md`: a nontrivial change runs `how` first.
-- **Principles.** An index of the 33 principle skills, each with when it applies, in `SKILL.md`. The reply explains the reasons and effects of the decisions. [Shared principles and automatic loading](./08-principles.md) covers them.
+- **Non-negotiables.** Triggers. Those for an agent's own work are in `SKILL.md`: any prose runs `unslop`, any `.ts` file runs `typescript-best-practices`. Those for the task as a whole are in handling-a-request.md. A change's workflow calls how when the required subsystem understanding is missing.
+- **Principles.** An index of the principle skills, each with when it applies, in `SKILL.md`. The reply explains the reasons and effects of the decisions. [Shared principles and automatic loading](./08-principles.md) covers them.
 - **Autonomy.** What an agent does without asking, and what it always pauses for: irreversible writes such as a force-push, a deploy, a data deletion or a customer message.
 - **Writing the reply.** How the report to the owner reads: effects and reasons, not code, with evidence the owner can check. It is in `handling-a-request.md`.
-- **Playbooks.** The routes to workflow files and directly requested method results, in `handling-a-request.md`.
+- **Playbooks.** The workflow routes in handling-a-request.md. Requested results separately lists independently requested skill outputs.
 
 ## How a task becomes a playbook
 
@@ -27,8 +27,8 @@ flowchart TD
     P --> S{Smallest verifiable unit}
     S -->|Independent ticket| O[One ticket]
     S -->|Spec batch| N[Run a night]
-    M -->|Ready independent ticket| O
-    M -->|Ready spec batch| N
+    M -->|Ready independent ticket with Go| O
+    M -->|Ready spec batch with Go| N
     O --> PR[One runnable delivery PR]
     N --> PR
     PR --> H[Owner operates and accepts the checked version]
@@ -36,18 +36,18 @@ flowchart TD
 
 The session works through the matched playbook's steps.
 
-The diagram shows the common routes. The `## Playbooks` section of `mmw-mode`'s `references/handling-a-request.md` lists them all, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds the files. Beyond the diagram there are playbooks for:
+The diagram shows the common routes. The Playbooks section of mmw-mode's references/handling-a-request.md lists workflow entries, and the [playbook directory](../../skills/mmw-mode/playbooks/) holds their files. Requested results names standalone method outputs. Beyond the diagram the set covers:
 
 - Preparation and writing. Develop a change calls wayfinder, to-spec and to-tickets as needed; independently requested records use those skills directly.
 - Measurement and diagnosis. The hillclimb, perf-issue and bug-fix skills; Runtime forensics and Trace forensics remain diagnostic playbooks.
-- Interfaces. Prototype, which is the `prototype` skill.
+- Interfaces. Design a UI owns confirmation of a running design; prototype returns candidates or a bounded model, experiment or sketch.
 - The skill set itself. Authoring or modifying a skill, and Eval.
 - The session itself. Session pickup, Pause safely, and Worktree and simulator cleanup.
 
 A session that the `dispatch` skill started matches nothing: its start prompt tells it to read `mmw-mode`, names the file it works by, and says that file is its whole task. Because a file is named, it reads only `SKILL.md`, so it neither picks a playbook, nor redoes what its sender did, nor sends anyone that file does not name. It works a ticket, reviews one, answers a research brief, designs one candidate, or gives a second opinion. You do not prompt those sessions.
 
 Develop a change owns only the missing preparation. It calls specialist methods and returns an independent ticket or spec batch to its executor under the existing authority. A ready result enters One ticket or Run a night directly. A discussion or requested document ends with that result; it does not silently authorize code. Authoring or modifying a skill keeps its special authorship and proof responsibilities.
-One rule overrides the matching. A ticket with acceptance criteria is worked only by a worker that `dispatch` sends. Give a session such a ticket of your own and it runs One ticket on it: it cuts a `fix-<n>` branch, sends a worker, and tells you.
+One rule overrides the matching. A ticket with acceptance criteria is worked only by a worker that `dispatch` sends. Ask a session to execute such an independent ticket and it runs One ticket, reusing its effort branch or opening the missing one. Supplying that ticket only to explain or prepare it does not grant execution Go.
 
 ## Say the goal, not the ceremony
 

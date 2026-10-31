@@ -2,7 +2,7 @@
 
 **You own the resume point when the prior position must be reconstructed. Read the trail and return to its current component.**
 
-1. Locate the prior trail. An open ticket of ours, one whose `## Problem` has a `Playbook:` line, is a trail of its own:
+1. Locate the prior trail. An open ticket of ours is a trail of its own, with its body, events, branch and linked assets; a historical `Playbook:` line is optional:
    - Its newest outcome a `ticket.returned` event: finish the original executor's watch closeout first. When the owner selects the ticket, read the returned evidence and identify the concrete missing preparation. A skill-set change returns to Authoring or modifying a skill; ordinary code preparation goes to Develop a change (`playbooks/develop-a-change.md`) with that gap, existing baselines and kept commits. A missed hillclimb target reports the final number and Attempt comments before preparation resumes.
    - Its newest outcome a `ticket.bounced` event: run One ticket (`playbooks/one-ticket.md`) on it from step 1.
    - With `ready-for-agent` and a worker on it: One ticket is waiting for its wake.

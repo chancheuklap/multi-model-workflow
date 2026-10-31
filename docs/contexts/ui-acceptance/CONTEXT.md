@@ -74,7 +74,7 @@ The ticket child reporting an incorrect frozen acceptance test or prototype base
 The [skill](../../../mmw-v4/skills/prepare-ui-acceptance/SKILL.md) preparing one change's fixed-step UI tests and feature registration from an approved new design, a reproduced repair requirement or current behavior to preserve. It uses existing product-running instructions and returns to its preparation caller.
 
 **Design a UI**:
-The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/design-a-ui.md) owning a UI design through the owner's trial, iteration and confirmation of a runnable winner. The prototype skill constructs the pages; implementation preparation and execution remain with their original callers.
+The [Playbook](../../../mmw-v4/skills/mmw-mode/playbooks/design-a-ui.md) owning a UI design through trial, iteration and confirmation of a runnable winner and feature description. It resolves questions affecting appearance or interaction; its caller owns remaining implementation decisions and acceptance preparation.
 
 ### The prototype side
 
