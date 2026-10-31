@@ -1,0 +1,33 @@
+WIRING OK
+HOST NEUTRALITY OK
+### unittest
+............................................................................
+----------------------------------------------------------------------
+Ran 76 tests in 3.847s
+
+OK
+### unittest passed
+
+### turn-guard.py end to end
+### each host ends its turn even when the watchdog cannot start
+ok   claude Stop
+ok   codex Stop
+ok   an unknown host blocks nothing
+ok   guard.log records the failed arm
+### any session arms an open watch
+ok   a worker's turn ends
+ok   a process with no session ends
+ok   an unreadable payload ends
+ok   unreadable watches still let the turn end
+ok   no open watch
+ok   a closed watch is not armed
+### the hook re-arms the watchdog, and a healthy one lets the turn end
+ok   claude Stop with the real watchdog.py armed by the hook
+ok   the armed watchdog holds its lock and wrote its own heartbeat
+ok   a second turn end finds it healthy
+ok   and starts no second watchdog: one arm in watchdog.log, the same pid holds the lock
+
+passed 14, failed 0
+### turn-guard.py end to end passed
+
+all passed

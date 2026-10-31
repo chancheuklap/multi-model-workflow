@@ -40,3 +40,25 @@ liveness 发现实际产品回归。relay.py 移除了 GH_TIMEOUT 导出，watch
 [执行器失败记录](https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542073733) 已写入原实现票据。Owns 仅补两个既有 CLI 测试文件，AC 与冻结产品验收不变。
 
 第四组 verify-ticket 的单个失败来自环境隔离。`test_refused_ends_hold.TestTheRefusalNamesItsSession.test_own_session_is_what_the_dispatch_skill_reads_from_this_process` 期望无 runner，测试环境却保留了 Codex App 的 CODEX_THREAD_ID。基线 b967d973b 与候选 c2c6afc55 的相关代码相同，两侧在原环境均失败。只对子进程移除 CODEX_THREAD_ID 后，两侧同一用例均通过，保留其中 Paseo 身份识别和无 runner 两个断言。没有修改测试、跳过断言或隐藏原失败。后续全库复验沿用这个隔离环境，生产 dispatch 仍保留实际会话身份。
+
+
+## 修复后的执行器验收
+
+最终候选为 b562324d58e1c53e25100f6437e79323d5c6d7f8，最新 [票内验收](https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542195070) 为 11 met、0 unmet、0 abandoned。原始失败记录保留。
+
+执行器检查了本轮修复。relay 恢复 watchdog 所用的 GH_TIMEOUT 导出。结构与评论分别复用已有 ghlist 副本，共享限流暂停，并保留原心跳中评论计数的含义。CLI 和 liveness 的 GitHub 替身按真实 HTTP 回答迁移，原有 watch、只读、唤醒和心跳断言保留。范围外的 liveness 测试适配已披露并由新一轮评审判为必要。评审发现其他会话拒绝接手会覆盖活跃阶段，worker 已修复并增加回归。
+
+执行器再次运行原浏览器反馈环，命令为 `python3 efforts/fix-641/diagnose.py browser --output .scratch/fix-641/executor-ui-repair`。输出 BOARD_UI_REPLAY_MET，退出 0。已关闭并合入的上游不再留下 blocked 线，review 后再认领时当前阶段与最新事件块均为 working。两项场景均无 pageerror。两张 [当前红线场景截图](repair/landed-edge.png) 和 [当前阶段场景截图](repair/review-return.png) 已实际查看。
+
+读取代码与 c2c6afc55 的五轮交替测量版本逐字节相同，见 [读取路径校验](repair/unchanged-read-paths.json)。所以五轮调用计数仍适用；没有重新包装为最终版本的实时 GitHub 延迟测量。
+
+在候选 checkout 使用 `env -u CODEX_THREAD_ID scripts/check --all`。只对子进程移除宿主会话身份，不改变生产 dispatch 环境。完整检查退出 0：
+
+```text
+PASS e2e-task-board 10s
+CHECK PASS all: 20 steps in 677s
+```
+
+全套任务板页面测试为 9 passed。此前失败的 dispatch、liveness、relay、verify-ticket 均通过。完整输出见 [全库结果](repair/check-all.log)，相关套件原始日志在同目录。运行期间候选 HEAD 始终为 b562324d5，未修改输入。
+
+未运行的 Windows PowerShell 安装检查需要 Windows 构建机。它们不在本机这 20 项检查的范围内。真实 GitHub 配额收费、实际限流和活跃批次整页延迟的证据边界不变。

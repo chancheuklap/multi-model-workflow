@@ -1,0 +1,63 @@
+WIRING OK
+HOST NEUTRALITY OK
+### unittest
+............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 588 tests in 43.176s
+
+OK
+a -> #101
+### unittest passed
+
+### gate-check
+ok   args: two explicit files are both processed without --timeout
+ok   args: one explicit file never widens to the rest of the tree
+ok   args: unknown option is rejected instead of treated as a file
+ok   state: checked box with pending evidence counts as unmet
+ok   state: abandoned and mixed ledgers stay handoffs in every run mode
+ok   state: multi-file verification cannot hide one abandoned child
+ok   hierarchy: an abandoned child cannot promote its N1 parent
+ok   state: unmet gates are reported with file-qualified ids
+ok   checks: a removed CWD attribute cannot change the check directory
+ok   evidence: a failing criterion records why it failed, not pending
+ok   evidence: a reverify that turns a met criterion red records the failure, not pending
+ok   evidence: the definition digest is fixed and only exact current evidence is met
+ok   evidence: a changed CHECK makes old evidence stale and a rerun replaces it
+ok   evidence: a long transcript cannot truncate the definition or output digest
+ok   checks: the output cap applies to stdout and stderr combined
+ok   failure summary keeps error lines
+ok   unmatched expect names the expectation
+ok   failure tail stays inside the fail block
+ok   run line has no path
+
+19/19 passed
+ok   lint: a fixed-output command is advisory
+ok   lint: a gate with no CHECK is an error, in either mode
+ok   lint: a chained verifier is not classified as a tautology
+ok   lint: a CHECK that only runs scripts/check is an error; one that runs more is not
+ok   lint: an expectation shared with failure output is warned
+ok   lint: an activity title is warned
+ok   lint: an unmeasured number in a manual gate is warned
+ok   lint: a deliberate slash wrapped pattern is not warned
+ok   lint: a sound ledger is clean and exits 0
+ok   lint: a FIFO ledger is refused promptly instead of blocking
+ok   lint: a gate ledger over 8 MiB is refused before parsing
+ok   lint: default warnings and strict warnings have distinct gate markers and exits
+ok   lint: json reports counts and stays parseable
+ok   lint: default output escapes terminal and bidi controls in finding data
+ok   lint: JSON escapes terminal data while retaining pretty parseable output
+ok   CLI: unknown-option diagnostics escape terminal and bidi controls
+ok   lint: hostile field expansion stays bounded in text and JSON
+ok   lint: finding count is capped without hiding totals or failure state
+ok   CLI: help retains trusted multiline formatting
+ok   lint: a ledger the shared parser rejects exits 2, not 1
+ok   lint: multiple ledgers in one run are all honored
+ok   lint: path ambiguity is sourced once from the shared parser
+ok   CLI: an unknown short option exits 2
+ok   CLI: the positional marker permits literal files named --help and -h
+ok   lint: no arguments exits 2
+
+25/25 passed
+### gate-check passed
+
+all passed
