@@ -866,121 +866,44 @@ XML
 launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
   "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR" || rc=1
 
-# ---------------- 共用模型配置 ----------------
+# ---------------- 共用模型与所选 runner 的配置 ----------------
 #
-# models.json 属于所有 runner。角色迁移前留一份 .bak- 副本，--back 从它拿回旧角色。
+# models.json 对所有 runner 初始化、迁移和校验。迁移旧角色前留 .bak- 副本，--back 从它拿回。
+# 只有选用 Paseo 才配置或检查它的命令、worktrees.root 和旧 provider。首次安装时，
+# Paseo 命令必须先于模型扫描就绪。只配置生成物，不写 Agent profile。
+# MMW_INSTALL_HOME 之下不跑 paseo reload（与 launchd 同构）。
+
+PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
+PASEO_BIN_LINK="$HOME_DIR/.local/bin/paseo"
+PASEO_CONFIG="$HOME_DIR/.paseo/config.json"
+PASEO_WORKTREES_ROOT="$HOME_DIR/paseo-worktrees"
 
 MMW_MODE="$mode" \
+MMW_PASEO_CONFIG="$PASEO_CONFIG" \
+MMW_PASEO_BIN_SRC="$PASEO_BIN_SRC" \
+MMW_PASEO_BIN_LINK="$PASEO_BIN_LINK" \
 MMW_MODELS_PY="$SKILLS_SRC/dispatch/scripts/models.py" \
+MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
 python3 - <<'PY' || rc=1
 import importlib.util
 import json
 import os
 import shutil
-import sys
-from datetime import datetime
-from pathlib import Path
-
-mode = os.environ["MMW_MODE"]
-models_py = Path(os.environ["MMW_MODELS_PY"])
-
-_spec = importlib.util.spec_from_file_location("mmw_models", models_py)
-models = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(models)
-
-
-def die(msg):
-    sys.stderr.write(f"缺    {msg}\n")
-    sys.exit(1)
-
-
-def backup_latest(path):
-    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    backup = path.with_name(path.name + ".bak-" + stamp)
-    shutil.copy2(path, backup)
-    for old in path.parent.glob(path.name + ".bak-*"):
-        if old != backup and (old.is_file() or old.is_symlink()):
-            old.unlink()
-
-
-def drop_unknown_rows(path):
-    """roles.json 没有的角色行摘掉，摘之前留一份 .bak- 副本。"""
-    if not path.is_file():
-        return
-    with models.config_lock(purpose="drop rows of roles v4 does not have"):
-        config = models.read_local_config()
-        rows = config.get("rows")
-        extra = [r for r in rows if r not in models.ALLOWED_AGENTS] if isinstance(rows, dict) else []
-        if not extra:
-            return
-        backup_latest(path)
-        for role in extra:
-            del rows[role]
-        config["version"] = int(config.get("version") or 0) + 1
-        scratch = path.with_name(path.name + ".mmw-tmp")
-        scratch.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        scratch.replace(path)
-        print(f"摘掉  {path} 的 {', '.join(extra)} 行（v4 没有这些角色；原文件留在 .bak- 副本里）")
-
-
-try:
-    config_file = models.models_json_path()
-    if mode != "check":
-        drop_unknown_rows(config_file)
-        installed = models.install_local_config()
-        config = installed.config
-        if installed.created:
-            print(f"已装  {config_file}")
-    else:
-        config = models.read_local_config()
-    config, scan, errors = models.check_local_config({**config, "runner": models.runner_name()})
-    if errors:
-        for item in errors:
-            sys.stderr.write(f"缺    {config_file} {item['cell']}: {item['reason']}\n")
-        sys.exit(1)
-except ValueError as exc:
-    die(str(exc))
-PY
-
-# ---------------- 所选 runner 的 Paseo 配置 ----------------
-
-selected_runner="$(MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" python3 "$SKILLS_SRC/dispatch/scripts/models.py" runner)" || rc=1
-if [ "$selected_runner" = paseo ]; then
-  PASEO_BIN_SRC="/Applications/Paseo.app/Contents/Resources/bin/paseo"
-  PASEO_BIN_LINK="$HOME_DIR/.local/bin/paseo"
-  PASEO_CONFIG="$HOME_DIR/.paseo/config.json"
-  PASEO_WORKTREES_ROOT="$HOME_DIR/paseo-worktrees"
-
-  if [ "$mode" = check ]; then
-    if [ ! -L "$PASEO_BIN_LINK" ] || [ "$(readlink "$PASEO_BIN_LINK")" != "$PASEO_BIN_SRC" ]; then
-      echo "缺    $PASEO_BIN_LINK" >&2
-      rc=1
-    fi
-    if ! PATH="$HOME_DIR/.local/bin:$PATH" command -v paseo >/dev/null 2>&1; then
-      echo "缺    command -v paseo" >&2
-      rc=1
-    fi
-  else
-    mkdir -p "$HOME_DIR/.local/bin"
-    ln -sfn "$PASEO_BIN_SRC" "$PASEO_BIN_LINK"
-    echo "已装  $PASEO_BIN_LINK"
-  fi
-
-  MMW_MODE="$mode" \
-  MMW_PASEO_CONFIG="$PASEO_CONFIG" \
-  MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
-  python3 - <<'PY' || rc=1
-import json
-import os
-import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
 config_path = Path(os.environ["MMW_PASEO_CONFIG"])
+models_py = Path(os.environ["MMW_MODELS_PY"])
 worktrees_root = os.environ["MMW_PASEO_WORKTREES"]
+
+_spec = importlib.util.spec_from_file_location("mmw_models", models_py)
+models = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(models)
+
 RETIRED_PROVIDERS = ("grok", "cursor")
 
 
@@ -1035,7 +958,64 @@ def merge(data):
     return data
 
 
+def drop_unknown_rows(path):
+    """roles.json 没有的角色行摘掉，摘之前留一份 .bak- 副本。"""
+    if not path.is_file():
+        return
+    with models.config_lock(purpose="drop rows of roles v4 does not have"):
+        config = models.read_local_config()
+        rows = config.get("rows")
+        extra = [r for r in rows if r not in models.ALLOWED_AGENTS] if isinstance(rows, dict) else []
+        if not extra:
+            return
+        backup_latest(path)
+        for role in extra:
+            del rows[role]
+        config["version"] = int(config.get("version") or 0) + 1
+        scratch = path.with_name(path.name + ".mmw-tmp")
+        scratch.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        scratch.replace(path)
+        print(f"摘掉  {path} 的 {', '.join(extra)} 行（v4 没有这些角色；原文件留在 .bak- 副本里）")
+
+
 failed = False
+try:
+    config_file = models.models_json_path()
+    if mode != "check":
+        drop_unknown_rows(config_file)
+        installed = models.install_local_config()
+        config = installed.config
+        if installed.created:
+            print(f"已装  {config_file}")
+    else:
+        config = models.read_local_config()
+    selected_runner = models.runner_name()
+    if selected_runner == "paseo":
+        link = Path(os.environ["MMW_PASEO_BIN_LINK"])
+        source = os.environ["MMW_PASEO_BIN_SRC"]
+        if mode == "check":
+            if not link.is_symlink() or os.readlink(link) != source:
+                sys.stderr.write(f"缺    {link}\n")
+                failed = True
+            search = str(link.parent) + os.pathsep + os.environ.get("PATH", "")
+            if shutil.which("paseo", path=search) is None:
+                sys.stderr.write("缺    command -v paseo\n")
+                failed = True
+        else:
+            link.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["ln", "-sfn", source, str(link)], check=True)
+            print(f"已装  {link}")
+    config, scan, errors = models.check_local_config({**config, "runner": selected_runner})
+    if errors:
+        for item in errors:
+            sys.stderr.write(f"缺    {config_file} {item['cell']}: {item['reason']}\n")
+        sys.exit(1)
+except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+    die(str(exc))
+
+if selected_runner != "paseo":
+    sys.exit(1 if failed else 0)
+
 if mode == "check":
     data = load(config_path)
     for name in retired_providers(data):
@@ -1054,13 +1034,14 @@ print(f"已装  {config_path}")
 sys.exit(1 if failed else 0)
 PY
 
-  # `paseo reload` 让 Paseo 读到本段摘掉的 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
-  # daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
-  # `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
-  # 列出来的不限于这一次安装改的。
-  if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then
-    if reload_out="$(PATH="$HOME_DIR/.local/bin:$PATH" paseo reload --json 2>&1)"; then
-      printf '%s' "$reload_out" | python3 -c '
+# `paseo reload` 让 Paseo 读到本段摘掉的 provider。`worktrees.root` 不在——Paseo 只在启动时读它一次——所以改了它要重启
+# daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
+# `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
+# 列出来的不限于这一次安装改的。
+selected_runner="$(MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" python3 "$SKILLS_SRC/dispatch/scripts/models.py" runner)" || rc=1
+if [ "$selected_runner" = paseo ] && [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then
+  if reload_out="$(PATH="$HOME_DIR/.local/bin:$PATH" paseo reload --json 2>&1)"; then
+    printf '%s' "$reload_out" | python3 -c '
 import json, sys
 
 try:
@@ -1072,11 +1053,9 @@ if paths:
     for path in paths:
         print("        " + str(path))
 '
-    else
-      echo "注意  paseo reload 没跑成：${reload_out:-exit $?}"
-    fi
+  else
+    echo "注意  paseo reload 没跑成：${reload_out:-exit $?}"
   fi
-
 fi
 
 # ---------------- 子代理层数 ----------------

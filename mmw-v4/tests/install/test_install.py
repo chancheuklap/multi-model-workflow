@@ -610,6 +610,38 @@ class InstallTest(unittest.TestCase):
         self.assertFalse((self.home / ".paseo").exists())
         self.assertNotIn("paseo ", self.log.read_text())
 
+    def test_paseo_first_install_bootstraps_command_before_catalog_scan(self):
+        self.paseo_app.unlink()
+        self.paseo_app.write_text('''#!/usr/bin/env python3
+import json, os, sys
+args = sys.argv[1:]
+with open(os.environ["MMW_TEST_LOG"], "a") as log:
+    log.write("paseo-app " + " ".join(args) + "\\n")
+if args[:2] == ["provider", "models"]:
+    print(json.dumps(json.load(open(os.environ["MMW_APP_CATALOG"]))[args[2]]))
+else:
+    print('[{"id":"claude"},{"id":"codex"}]')
+''')
+        self.paseo_app.chmod(0o755)
+        (self.bin / "paseo").unlink()
+        local_bin = self.home / ".local/bin"
+        local_bin.mkdir(parents=True)
+        for host in ("claude", "codex"):
+            binary = local_bin / host
+            binary.write_text("#!/bin/sh\necho fake-host-1\n")
+            binary.chmod(0o755)
+        models = self.home / ".mmw/models.json"
+        models.write_text(json.dumps(dict(V3_MODELS, runner="paseo")))
+        env = dict(self.env(), HOME=str(self.home), MMW_HOME=str(self.home / ".mmw"),
+                   CODEX_HOME=str(self.home / ".codex"), MMW_APP_CATALOG=str(self.catalog))
+        env.pop("MMW_HOST_CATALOG")
+        self.assertIsNone(shutil.which("paseo", path=env["PATH"]))
+        for args in ((), ("--check",)):
+            run = self.run_install("v4", *args, env=env)
+            self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(os.readlink(local_bin / "paseo"), str(self.paseo_app))
+        self.assertIn("paseo-app provider models codex", self.log.read_text())
+
     def test_paseo_override_sets_up_checks_and_reloads_only_selected_runner(self):
         catalog = json.loads(self.catalog.read_text())
         self.catalog.write_text(json.dumps({"paseo": catalog, "cli": {
