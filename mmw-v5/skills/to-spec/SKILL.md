@@ -5,7 +5,7 @@ description: "Turn the current conversation into a spec and publish it to the pr
 
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
-The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+A spec is the last text a person checks before agents build from it unattended: whatever it leaves open, a worker decides alone at night, and whatever it states is built as written, including what nobody decided. So record decisions rather than make them. An engineering call the sources leave open (a module's seam, a data shape, the seam a test observes at) is yours: make it and mark it "this spec's decision". Apply **principle-never-block-on-the-human** to the decisions the sources leave open; put an unresolved owner decision to the user before publishing. Read a supplied issue with its full body and comments.
 
 ## Process
 
@@ -13,9 +13,9 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
-Check with the user that these seams match their expectations.
+The seam is yours to decide, not the user's: they are not asked to confirm it.
 
-3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+3. Write the spec using the template below, applying **principle-write-for-where-it-is-read** and **principle-baseline-is-the-contract**, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
 
 <spec-template>
 
