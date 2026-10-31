@@ -1,8 +1,8 @@
-# #641：保持现有 UI，修正读取与状态
+# #641 优化方案，实施准备 #1480
 
 Playbook: Develop a change
 
-本轮交付是优化方案，沿用 [#641](https://github.com/chancheuklap/multi-model-workflow/issues/641) 和 `fix-641`。主人要求保持现有 UI，解决任务板性能、状态一致性和整个 MMW 的 GitHub API 调用。产品代码尚未修改，尚未开启实施 watch。
+本轮交付是优化方案。[#641](https://github.com/chancheuklap/multi-model-workflow/issues/641) 是保留原文的来源报告；[#1480](https://github.com/chancheuklap/multi-model-workflow/issues/1480) 是独立的准备记录，承载方案与验收。按 to-tickets Open 的既有 effort branch 规则保留 `fix-641` 和本目录中的准备资产。主人要求保持现有 UI，解决任务板性能、状态一致性和整个 MMW 的 GitHub API 调用。产品代码尚未修改，尚未开启实施 watch。
 
 方案先删除重复读取和错误的停读条件，在现有 BoardStore、事件解释和 API 读取工具内完成。页面布局、控件、字段、状态词和操作路径保持现状。
 
