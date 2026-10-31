@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {Board, defaultExpanded, describeEvent} from "../../board/page/board-logic.mjs";
+import {Board, defaultExpanded, describeEvent, eventBlocks} from "../../board/page/board-logic.mjs";
 
 function ticket(overrides = {}) {
   const fold = {
@@ -215,4 +215,17 @@ test("default expansion", () => {
   const untouched = {n: 4, tickets: [ticket()]};
   const orange = {n: 5, tickets: [ticket({fold: {children: {8: {child: 8, kind: "decision"}}}})]};
   assert.deepEqual([...defaultExpanded({n: 1, specs: [active, done, untouched, orange]})], [1, 2, 5]);
+});
+
+test("review return and non-phase events share the current phase transitions", () => {
+  const events = [
+    {event: 'worker.started'}, {event: 'reviewer.started'},
+    {event: 'reviewer.reported'}, {event: 'ticket.claimed'},
+    {event: 'child.closed', payload: {child: 7, resolution: 'fixed'}},
+    {event: 'worker.touched', payload: {files: []}},
+  ];
+  const value = ticket({fold: {sessions: [worker()]}, events});
+  assert.equal(Board.phase(value), 'working');
+  assert.equal(eventBlocks(events).at(-1).phase, 'working');
+  assert.deepEqual(eventBlocks(events).map(b => b.phase), ['working', 'review', 'working']);
 });
