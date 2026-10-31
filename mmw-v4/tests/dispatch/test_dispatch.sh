@@ -287,7 +287,9 @@ if args[:1] == ["archive"]:
     # archive, which is how `suspend` shipped unable to stop the one thing it exists to
     # stop: a worker in the middle of a turn.
     force = "--force" in args
-    if scenario == "archive-fail":
+    first_failure = state / "archive-failed-once"
+    if scenario == "archive-fail" or (scenario == "archive-fail-first" and not first_failure.exists()):
+        first_failure.touch()
         print("Error: the daemon did not answer", file=sys.stderr)
         sys.exit(1)
     positional = [a for a in args[1:] if not a.startswith("--")]
@@ -3162,6 +3164,32 @@ scenario_briefclosebrowsers() {
   done
   hasnt 'close-all'
   hasnt 'kill-all'
+}
+
+scenario_briefclosestopfailure() {
+  local code packet batch
+  packet="$TMP/brief-stop-failure.md"
+  echo 'Read the vendor page.' > "$packet"
+  reset_log
+  fresh_repo
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" send researcher --follow "the research skill" "$packet" "$packet")"
+  [ "$code" = 0 ] || fail "send expected 0, got $code: $(cat "$TMP/err")"
+  batch="$(newest_batch)"
+  printf 'saved answer\n' > "$STATE_DIR/briefs/$batch/1/result.md"
+  : > "$MMW_TEST_LOG"
+  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=archive-fail-first bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 2 ] || fail "failed stop must refuse close with 2, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$STATE_DIR/briefs/$batch/1/result.md" 2>/dev/null)" = 'saved answer' ] || fail "failed stop deleted the saved answer"
+  [ "$(brief_watch "briefs:$batch")" = "paseo agt_main" ] || fail "failed stop lost the batch watch"
+  [ "$(count_of 'paseo :: archive :: --force ::')" = 2 ] || fail "every batch session must be asked to stop"
+  hasnt 'playwright-cli ::'
+  grep -qF "$batch" "$TMP/err" || fail "stop failure must name its retained batch"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" brief close "$batch")"
+  [ "$code" = 0 ] || fail "retry close expected 0, got $code: $(cat "$TMP/err")"
+  [ ! -d "$STATE_DIR/briefs/$batch" ] || fail "retry did not finish batch cleanup"
+  [ -z "$(brief_watch "briefs:$batch")" ] || fail "retry kept a completed batch watch"
+  [ "$(count_of "playwright-cli :: -s=mmw-$batch-1 :: close")" = 1 ] || fail "retry did not close its browser exactly once"
 }
 
 scenario_briefclosekillsleftover() {
@@ -6222,6 +6250,41 @@ JSON
   never_ran
   grep -q "#61" "$TMP/err" \
     || fail "the frontier should name the unreadable events: $(cat "$TMP/err")"
+}
+
+scenario_landstopfailure() {
+  local code passed
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+  reset_log
+  fresh_repo
+  make_branch issue-64 four.txt "from 64"
+  git -C "$TMP/repo" push -q -u origin issue-64
+  write_landable
+  seed_workspace 64
+  seed_agent 64 worker
+  seed_agent 64 reviewer
+  passed="$(git -C "$TMP/repo" rev-parse issue-64)"
+  seed_main_agent agt_main
+  python3 "$RELAY_PY" add --repo o/r --tickets 64 --runner paseo --session agt_main || fail "could not open the isolated ticket watch"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_FAKE_PASEO_SCENARIO=archive-fail-first bash "$DISPATCH" "${TOOLS[@]}" land 64)"
+  [ "$code" = 1 ] || fail "failed stop must fail landing with 1, got $code: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "the check did not reach cleanup after merging"
+  assert_wt 64
+  assert_branch 64
+  assert_remote_branch 64
+  [ "$(count_of 'paseo :: archive :: --force :: agt_64_')" = 2 ] || fail "landing must attempt both recorded sessions"
+  [ "$(watch_main tickets:64)" = "paseo agt_main" ] || fail "failed cleanup lost its watch"
+  posted_events 64 | grep -q '^ticket.landed$' && fail "failed cleanup was recorded landed"
+  posted_events 64 | grep -q '^ticket.released$' && fail "failed cleanup released its claim"
+  hasnt 'gh :: issue :: edit :: 64 :: --remove-assignee'
+  grep -qF 'could not stop' "$TMP/err" || fail "landing hid the stop failure"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" land 64)"
+  [ "$code" = 0 ] || fail "cleanup retry expected 0, got $code: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main || fail "passed work disappeared on retry"
+  assert_no_wt 64
+  assert_no_branch 64
+  [ -z "$(watch_main tickets:64)" ] || fail "retry did not close the completed ticket watch"
+  [ "$(posted_events 64 | grep -c '^ticket.landed$')" = 1 ] || fail "retry must record landing exactly once"
 }
 
 scenario_landarchivesagents() {

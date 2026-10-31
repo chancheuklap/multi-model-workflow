@@ -1250,11 +1250,10 @@ keep_unfinished_work() {
 }
 
 # End every session the ticket's events name, each through its own runner's `stop`.
-# Git removes the worktree separately; no runner is asked to. Exit 1 when the ticket's
-# events could not be read: then nobody knows which sessions run in the worktree, and
-# the caller keeps it.
+# Git removes the worktree separately; no runner is asked to. Exit 1 when the events
+# cannot be read or a session cannot be stopped, so the caller keeps the worktree.
 stop_ticket_agents() {
-  local number="$1" live_only="${2:-0}" listed name ident state
+  local number="$1" live_only="${2:-0}" listed name ident state failed=0
   if [ "$#" -ge 3 ]; then
     listed="$3"
   else
@@ -1267,9 +1266,12 @@ stop_ticket_agents() {
       state="$(runner liveness "$ident")" || state=unknown
       [ "$state" = stopped ] && continue
     fi
-    runner stop "$ident" \
-      || echo "dispatch: could not stop $ident on #$number; it is still open on $name" >&2
+    if ! runner stop "$ident"; then
+      echo "dispatch: could not stop $ident on #$number; it is still open on $name" >&2
+      failed=1
+    fi
   done <<<"$listed"
+  return "$failed"
 }
 
 archive_ticket_agents() {
@@ -1294,13 +1296,14 @@ for row in state.get("sessions") or []:
 }
 
 stop_returned_ticket_agents() {
-  local spec="$1" batch number listed
+  local spec="$1" batch number listed failed=0
   batch="$(python3 "$STATUS" --worker-grades "$spec")" || return 1
   for number in $(printf '%s\n' "$batch" | awk '$1 == "BATCH" { print $2 }'); do
     listed="$(latest_returned_sessions "$number")" \
-      || { echo "dispatch: could not read #$number after ticket.returned" >&2; continue; }
-    [ -z "$listed" ] || stop_ticket_agents "$number" 1 "$listed"
+      || { echo "dispatch: could not read #$number after ticket.returned" >&2; failed=1; continue; }
+    [ -z "$listed" ] || stop_ticket_agents "$number" 1 "$listed" || failed=1
   done
+  return "$failed"
 }
 
 # The sessions the ticket's events name are ended here as well: git worktree remove
@@ -1310,7 +1313,7 @@ archive_workspace() {
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
   cwd="$(workspace_cwd_for "$number")"
   if ! archive_ticket_agents "$number"; then
-    echo "dispatch: #$number keeps its workspace — its events could not be read, so which sessions run in it is unknown. Run this again once the tracker answers" >&2
+    echo "dispatch: #$number keeps its workspace because its sessions could not all be stopped. Resolve the runner or tracker failure, then retry cleanup" >&2
     return 1
   fi
   [ -n "$cwd" ] || return 0
@@ -1572,8 +1575,9 @@ brief_footer() {
 }
 
 close_batch() {
-  local batch="$1" repo line name state role runner session rest stopped=0 failed=""
+  local batch="$1" repo listed name state role runner session rest stopped=0 failed=""
   repo="$(repo_slug)" || return 2
+  listed="$(python3 "$BRIEFS" show --repo "$repo" --batch "$batch")" || return 2
   while IFS=$'\t' read -r name state role runner session rest; do
     [ -n "$session" ] && [ "$session" != - ] || continue
     if [ -f "$SKILL_ROOT/scripts/runners/$runner.sh" ] \
@@ -1582,15 +1586,16 @@ close_batch() {
     else
       failed="$failed $runner:$session"
     fi
-  done < <(python3 "$BRIEFS" show --repo "$repo" --batch "$batch" 2>/dev/null)
+  done <<<"$listed"
+  if [ -n "$failed" ]; then
+    echo "dispatch: brief batch $batch keeps its records, answers, browsers and watch because these sessions could not be stopped:$failed. Resolve the runner failure, then run dispatch.sh brief close $batch" >&2
+    return 2
+  fi
   python3 "$BRIEFS" close-browsers --repo "$repo" --batch "$batch" || return 2
   python3 "$BRIEFS" forget --repo "$repo" --batch "$batch" || return 2
   stop_relay --briefs "$batch"
   case "$?" in 0 | 3) ;; *) return 2 ;; esac
   echo "dispatch: closed brief batch $batch: $stopped sessions stopped" >&2
-  if [ -n "$failed" ]; then
-    echo "dispatch: these sessions of batch $batch could not be stopped and still run; end them on their runner by hand:$failed" >&2
-  fi
 }
 
 check_brief_references() {
@@ -1647,19 +1652,20 @@ brief_many() {
     n=$((n + 1))
     copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file="$file" \
             --footer "$(brief_footer "$batch/$n" "$into" "$role")")" \
-      || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch (the reason is above); the batch was closed and the sessions it had started were stopped"; }
+      || { close_batch "$batch"; refuse "could not copy the brief file $file into batch $batch; fix the copy failure before sending again"; }
     prompt="Dispatched: $role, brief $copy. $READ_MODE $follows. $WHOLE_TASK"
     # Herdr's session id is basename(cwd) plus the title's last word, so the last word
     # carries the batch and the brief.
     if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n")"; then
       close_batch "$batch"
-      refuse "$RUNNER_NAME did not start $host as $role for brief $n of $# (its reason is above); nothing was retried, batch $batch was closed and the sessions it had started were stopped. Fix what it names, or change this agent's row in $MODELS_JSON, then send again"
+      refuse "$RUNNER_NAME did not start $host as $role for brief $n of $#; nothing was retried. Fix the runner failure, or change this agent's row in $MODELS_JSON, then send again"
     fi
     if ! python3 "$BRIEFS" started --repo "$repo" --brief "$batch/$n" --runner "$RUNNER_NAME" \
          --session "$session" --host "$host" --model "$model" --effort "${effort:-—}"; then
-      runner stop "$session" >/dev/null 2>&1
+      runner stop "$session" >/dev/null 2>&1 \
+        || refuse "could not record or stop $RUNNER_NAME session $session for brief $batch/$n; the batch was kept. End that session on its runner, then run dispatch.sh brief close $batch"
       close_batch "$batch"
-      refuse "could not record session $session as brief $batch/$n, so it was stopped and batch $batch closed; send again"
+      refuse "could not record session $session as brief $batch/$n; the unrecorded session was stopped. Fix the recording failure before sending again"
     fi
     started+=("$batch/$n"$'\t'"$session")
   done
@@ -1813,7 +1819,8 @@ retract_one() {
       || refuse "issue-$number was not pushed, so its worktree and claim were kept; reconcile it with origin/issue-$number and retract again"
   fi
   if [ -n "$cwd" ] && [ -d "$cwd" ]; then
-    archive_workspace "$number" && archived=1
+    archive_workspace "$number" || return 1
+    archived=1
   fi
 
   give_claim_back "$number"
@@ -2818,17 +2825,18 @@ raise SystemExit(0 if json.load(sys.stdin).get("landed") else 1)
 
 finish_landing() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5"
-  local merge_commit="$6" base="$7" mode="$8" archived=0 landing_state
+  local merge_commit="$6" base="$7" mode="$8" landing_state
   ticket_is_landed "$number"; landing_state=$?
   if [ "$landing_state" -eq 0 ]; then
-    archive_workspace "$number" && archived=1
-    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
+    archive_workspace "$number" || return 1
+    delete_landed_ticket_branch "$root" "$number" "$into"
     return 0
   fi
   if [ "$landing_state" -eq 2 ]; then
     echo "dispatch: could not read #$number before recording ticket.landed; nothing was written and the landing can be retried" >&2
     return 1
   fi
+  archive_workspace "$number" || return 1
   if [ "$mode" = land ]; then
     gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 \
       || echo "land: could not give #$number's claim back" >&2
@@ -2836,9 +2844,10 @@ finish_landing() {
         --line "Gave the claim on #$number back: its work is over" --field reason=landed \
       || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
   fi
-  archive_workspace "$number" && archived=1
   if record_landed "$number" "$spec" "$into" "$passed" "$merge_commit" "$base"; then
-    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
+    delete_landed_ticket_branch "$root" "$number" "$into"
+  else
+    return 1
   fi
 }
 
@@ -2859,7 +2868,8 @@ land_one_via_origin() {
       IFS=$'\t' read -r merge_commit landed_base \
         < <(landed_merge_and_base "$merge_root" "$passed" "$into") || true
       finish_landing "$root" "$number" "$spec" "$into" "$passed" \
-        "$merge_commit" "$landed_base" "$mode"
+        "$merge_commit" "$landed_base" "$mode" \
+        || { release_merge_lock; return 2; }
       release_merge_lock
       return 3
     fi
@@ -2906,7 +2916,8 @@ land_one_via_origin() {
 
     if push_error="$(git -C "$merge_root" push origin "HEAD:$into" 2>&1)"; then
       finish_landing "$root" "$number" "$spec" "$into" "$passed" \
-        "$merge_commit" "$base" "$mode"
+        "$merge_commit" "$base" "$mode" \
+        || { release_merge_lock; return 2; }
       release_merge_lock
       return 0
     fi
@@ -3118,9 +3129,10 @@ land_tickets() {
     || refuse "could not read $(printf '#%s ' "${numbers[@]}")from the tracker"
 
   local merged=0 already=0 bounced=0 kept=0 failed=0 environment_failed=0 number passed into archive_into rc spec
-  local -a landed_numbers=() bounced_numbers=()
+  local -a attempted_numbers=()
   while IFS= read -r number; do
     [ -n "$number" ] || continue
+    attempted_numbers+=("$number")
     passed="$(ticket_passed_commit "$number")" \
       || { echo "land: #$number has no usable ticket.passed commit" >&2; failed=$((failed + 1)); continue; }
     spec="$(ticket_spec "$number")"
@@ -3129,12 +3141,9 @@ land_tickets() {
     land_one_via_origin "$root" "$number" "$spec" "$into" "$passed" land
     rc=$?
     case "$rc" in
-      0)
-        landed_numbers+=("$number")
-        merged=$((merged + 1))
-        ;;
-      1) bounced=$((bounced + 1)); bounced_numbers+=("$number") ;;
-      3) already=$((already + 1)); landed_numbers+=("$number") ;;
+      0) merged=$((merged + 1)) ;;
+      1) bounced=$((bounced + 1)) ;;
+      3) already=$((already + 1)) ;;
       4) failed=$((failed + 1)); environment_failed=1 ;;
       *) failed=$((failed + 1)) ;;
     esac
@@ -3143,7 +3152,7 @@ land_tickets() {
   # A handed-back ticket has no MERGE line, but land still gives back a claim left on
   # it and preserves its standing worktree for the next start.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
-    case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
+    case " ${attempted_numbers[*]-} " in *" $number "*) continue ;; esac
     local cwd
     cwd="$(workspace_cwd_for "$number")"
     [ -z "$cwd" ] || worktree_environment "$cwd" down || true
@@ -3159,7 +3168,7 @@ land_tickets() {
   # A closed ticket with no pass is not silently archived while its branch still has
   # work that origin/<into> does not contain.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "ARCHIVE" { print $2 }'); do
-    case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
+    case " ${attempted_numbers[*]-} " in *" $number "*) continue ;; esac
     archive_into="$(ticket_into "$number")" \
       || { echo "land: #$number has no base branch in its events; not archiving it" >&2; failed=$((failed + 1)); continue; }
     fetch_origin "$root" \
@@ -3201,7 +3210,7 @@ land_tickets() {
   # opened for it closes here, and the relay with it when it watched nothing else. A
   # night's watch is not this one and is left alone.
   local relay_left=0
-  if [ "$kept" -eq 0 ]; then
+  if [ "$kept" -eq 0 ] && [ "$failed" -eq 0 ]; then
     stop_relay --tickets "${numbers[0]}"
     [ "$?" = 1 ] && relay_left=1
   fi
