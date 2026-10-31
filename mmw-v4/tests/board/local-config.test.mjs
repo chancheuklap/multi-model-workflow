@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
-import {CATALOG, LocalConfig, settingsView} from "../../board/page/local-config.mjs";
+import {CATALOG, LocalConfig, catalogFromPayload, settingsView} from "../../board/page/local-config.mjs";
 
 const copy = value => JSON.parse(JSON.stringify(value));
 
@@ -121,9 +121,32 @@ test("a host with no cli block under orca or herdr is flagged as one the runner 
     const flags = LocalConfig.problems(scan, draft, catalog);
     const host = flags.find(item => item.key === "reviewer" && item.cell === "host");
     assert.ok(host, runner);
-    assert.match(host.text, /orca 和 herdr 起不了 claude/);
+    assert.equal(host.text, `${runner} 起不了 claude，换一个 host 或 runner`);
     assert.equal(LocalConfig.hostState(scan, draft, "claude", catalog), "unlaunchable");
   }
+});
+
+test("launch capability is independent of a shared catalog source", () => {
+  const catalog = catalogFromPayload({
+    hosts: [
+      {name: "claude", launch: ["cli"]},
+      {name: "codex", launch: ["cli", "native"]},
+    ],
+    runners: ["orca", "native-runner", "auto"],
+    runner_options: {
+      orca: {catalog: "cli", launch: "cli"},
+      "native-runner": {catalog: "cli", launch: "native"},
+    },
+  });
+  const draft = {...copy(saved), runner: "native-runner"};
+  assert.equal(LocalConfig.source(draft, catalog), "cli");
+  assert.equal(LocalConfig.needsRescan(saved, draft, catalog), false);
+  assert.equal(LocalConfig.hostState(scan, draft, "claude", catalog), "unlaunchable");
+  assert.equal(LocalConfig.hostState(scan, draft, "codex", catalog), "ok");
+  const options = LocalConfig.rowOptions(scan, draft, "junior-worker", catalog);
+  assert.equal(options.host.find(o => o.value === "claude").disabled, true);
+  assert.equal(options.host.find(o => o.value === "codex").disabled, false);
+  assert.ok(LocalConfig.runnerOptions(draft, catalog).find(o => o.value === "native-runner").selected);
 });
 
 test("with paseo down every row is flagged", () => {

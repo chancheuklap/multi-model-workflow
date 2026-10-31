@@ -17,10 +17,13 @@ The session controlling a spec batch or independent ticket through its watch, ex
 _Avoid_: main agent, 编排者
 
 **runner**:
-The program managing dispatched sessions on this machine, reached through its runner adapter. The supported runner names are paseo, orca and herdr; a runner is distinct from the host it starts.
+The program managing dispatched sessions on this machine, reached through its runner adapter. Installed adapters define the selectable runner names. A runner is distinct from the host it starts.
 
 **runner adapter**:
 The dispatch integration for one runner, translating shared session-management operations into that runner's commands. It is the runtime boundary used by dispatch, relay and watchdog.
+
+**tool executor**:
+An adapter-owned function evaluated in the calling host's tool runtime. It executes a shell command and answers that command's native runner operations synchronously, returning its exit code and output. It has no agent or scheduler. See [ADR 0067](../../adr/0067-native-tools-stay-behind-runner-adapters.md).
 
 **researcher**:
 The briefed session role returning cited findings through the research skill. It is distinct from the investigation workflow that consumes those findings.
@@ -37,7 +40,7 @@ The subagent-row family in roles.json for independent review axes, large-source 
 ### Places
 
 **Paseo**:
-One of the three runners, a daemon whose CLI is `paseo`. Its adapter starts each session in the directory it is given, never in a Paseo workspace.
+A runner whose daemon's CLI is `paseo`. Its adapter starts each session in the directory it is given, never in a Paseo workspace.
 
 **Paseo agent**:
 A session Paseo runs, with an id, a title (`#<n> worker` or `#<n> reviewer`) and a status the Paseo adapter reads to answer `liveness`.

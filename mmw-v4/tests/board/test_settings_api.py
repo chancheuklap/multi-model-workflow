@@ -56,7 +56,7 @@ class SettingsApiTest(unittest.TestCase):
         self.assertTrue(data["scan"]["scanned_at"]); self.assertEqual(data["scan"]["source"], "cli")
         self.assertEqual(data["scan"]["hosts"]["codex"]["state"], "ok")
         self.assertEqual(set(data["scan"]["hosts"]), {"claude", "codex"})
-        self.assertEqual(data["runners"], ["herdr", "orca", "paseo", "auto"])
+        self.assertEqual(data["runners"], ["codex-app", "herdr", "orca", "paseo", "auto"])
         self.assertEqual(data["sources"], {
             "hosts": "hosts.json", "runners": "scripts/runners/*.sh"})
 
@@ -66,6 +66,37 @@ class SettingsApiTest(unittest.TestCase):
             status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
         self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["version"], 2)
         self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["reviewer"]["model"], "sonnet 5")
+
+    def test_app_settings_preserve_runner_capability_through_scan_and_save(self):
+        catalog = self.home / 'fixture-app-catalog.json'
+        data = json.loads(CATALOG.read_text())
+        data['codex-app'] = data['cli']
+        catalog.write_text(json.dumps(data))
+        proposed = config()
+        proposed['runner'] = 'codex-app'
+        for row in proposed['rows'].values():
+            row.update(host='codex', model='gpt 5.6 sol', effort='high')
+        with running_board(self.home, catalog) as board:
+            status, raw = board.request('POST', '/api/settings/scan',
+                                        {'runner': 'codex-app'}, board.write_headers)
+            self.assertEqual(status, 200, raw)
+            self.assertEqual(json.loads(raw)['hosts']['claude']['state'], 'unlaunchable')
+            status, raw = board.request('PUT', '/api/settings', proposed, board.write_headers)
+            self.assertEqual(status, 200, raw)
+            status, raw = board.request('GET', '/api/settings')
+            self.assertEqual(status, 200, raw)
+            saved = json.loads(raw)
+            self.assertEqual(saved['runner'], 'codex-app')
+            self.assertEqual(saved['scan']['source'], 'codex-app')
+            self.assertEqual(saved['runner_options']['codex-app']['launch'], 'codex-app')
+            self.assertEqual(saved['scan']['hosts']['claude']['state'], 'unlaunchable')
+            rejected = {**proposed, 'version': 2,
+                        'rows': {**proposed['rows'], 'reviewer': config()['rows']['reviewer']}}
+            before = (self.home / 'models.json').read_bytes()
+            status, raw = board.request('PUT', '/api/settings', rejected, board.write_headers)
+            self.assertEqual(status, 422, raw)
+            self.assertIn('cannot start host claude', raw)
+            self.assertEqual((self.home / 'models.json').read_bytes(), before)
 
     def test_a_put_without_subagents_keeps_them(self):
         saved = {**config(), "subagents": {"reader": {"claude": {

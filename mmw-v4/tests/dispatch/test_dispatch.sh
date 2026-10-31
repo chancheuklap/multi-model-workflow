@@ -10140,4 +10140,5 @@ needs_exclusive_ports() {
 }
 
 source "$HERE/parallel.sh"
+source "$HERE/codex-app-scenarios.sh"
 run_scenarios "$0" "$@"

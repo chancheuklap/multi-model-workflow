@@ -278,6 +278,7 @@ if [ -f "$HOOK_SRC" ]; then
   MMW_HOOK="$NEUTRAL_DIR/dispatch/scripts/tool-guard.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_SESSION_START="$NEUTRAL_DIR/mmw-mode/scripts/session-start.py" \
+  MMW_APP_OBSERVE="$NEUTRAL_DIR/dispatch/scripts/runners/codex_app.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOOK_HOME="$HOME_DIR" \
   MMW_CODEX="${CODEX_HOME:-$HOME_DIR/.codex}" \
@@ -505,6 +506,12 @@ for host, host_home, path in grouped_hosts:
     command = for_host(host, STOP)
     point(host_home, path, "Stop turn-guard.py",
           grouped(path, "Stop", None, command, GUARD_TIMEOUT), command)
+
+for event, state in (("SessionStart", "working"), ("UserPromptSubmit", "working"),
+                     ("Stop", "idle"), ("Interrupt", "idle"), ("SessionEnd", "unknown")):
+    command = f"python3 '{os.environ['MMW_APP_OBSERVE']}' hook {state}"
+    point(codex_home, codex_home / "hooks.json", event + " codex_app.py",
+          grouped(codex_home / "hooks.json", event, None, command, 10), command)
 
 failed = False
 count = 0
@@ -1209,9 +1216,11 @@ for runner in paseo herdr orca; do
     base_runners+=("$runner")
   fi
 done
+if python3 "$SKILLS_SRC/dispatch/scripts/runners/codex_app.py" available >/dev/null 2>&1; then
+  base_runners+=("codex-app")
+fi
 if [ "${#base_runners[@]}" -eq 0 ]; then
-  echo "缺    runner：paseo、herdr、orca 都不在 PATH 上，夜里的会话靠其中一个起。装 Orca、Herdr 或" \
-       "Paseo 的应用，把它的命令行放上 PATH；Paseo.app 装好并选 Paseo 为 runner 后再跑 install.sh，它把 paseo 链进 ~/.local/bin" >&2
+  echo "缺    runner：paseo、herdr、orca 都不在 PATH 上，Codex App 的运行程序也未找到。装 Codex App，或把所选 runner 的命令行放上 PATH；Paseo.app 装好并选 Paseo 为 runner 后再跑 install.sh，它把 paseo 链进 ~/.local/bin" >&2
   base_rc=1
 fi
 if [ "$base_rc" -eq 0 ]; then

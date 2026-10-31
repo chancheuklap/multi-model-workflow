@@ -154,7 +154,7 @@ runner_call() {
 # the adapter file gone that made `retract` archive a running worker's workspace and
 # exit 0.
 require_runner() {
-  [ -f "$RUNNER" ] || refuse "no runner adapter for ${RUNNER_NAME:-this runner} at ${RUNNER:-scripts/runners/}; name paseo, orca or herdr in MMW_RUNNER or models.json, or restore that file, then run the command again"
+  [ -f "$RUNNER" ] || refuse "no runner adapter for ${RUNNER_NAME:-this runner} at ${RUNNER:-scripts/runners/}; select an installed adapter in MMW_RUNNER or models.json, or restore that file, then run the command again"
 }
 
 # Points `runner` at one adapter. The name comes from `models.py runner` for a start,
@@ -179,10 +179,9 @@ tonight_runner() {
 # fails outright (Paseo's daemon is
 # not running) or names a model the CLI does not have.
 use_catalog_of() {
-  case "$1" in
-    paseo) export MMW_CATALOG_MODE=paseo ;;
-    *) export MMW_CATALOG_MODE=cli ;;
-  esac
+  MMW_CATALOG_MODE="$(python3 "$MODELS_PY" catalog-source "$1")" \
+    || refuse "could not read the model catalog source declared by runner $1"
+  export MMW_CATALOG_MODE
 }
 
 # The ticket's comments as the tracker answers them. Exit non-zero, with the reason on
@@ -494,7 +493,7 @@ repo_slug() {
 # a wake sent to the outer one would be typed into whatever that terminal shows. Exit 2,
 # with the reason on stderr, when no adapter sees this process, or one sees it and cannot
 # read its id: then nothing can be sent to it.
-OWN_RUNNERS="paseo herdr orca"
+OWN_RUNNERS="paseo herdr orca codex-app"
 own_session() {
   local name adapter out err rc asked=""
   err="$(mktemp)"

@@ -345,10 +345,10 @@ function paint(host, model, api, hooks) {
   const setCell = (key, cell, value) => {
     const previous = {runner: st.draft.runner};
     LocalConfig.setCell(model.scan, st.draft, key, cell, value);
-    if (key === "runner" && LocalConfig.needsRescan(previous, st.draft)) {
+    if (key === "runner" && LocalConfig.needsRescan(previous, st.draft, model.catalog)) {
       st.savedAt = null;
       st.serverFlags = [];
-      void rescan(LocalConfig.source(st.draft));
+      void rescan(st.draft.runner);
       return;
     }
     edited();
@@ -499,9 +499,7 @@ function paint(host, model, api, hooks) {
           "环境变量 ", el("span", {class: "code"}, "MMW_RUNNER"),
           " 设了时，它优先于这一格。「按所在环境判断」让 ",
           el("span", {class: "code"}, "start"),
-          " 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，",
-          el("span", {class: "code"}, "start"),
-          " 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"),
+          " 看自己跑在哪个 runner 里，判断不出时用 orca。换 runner 后，型号目录不同就会重新扫描。"),
       ),
       el("section", {class: "set-block ruled", "data-ui": "本机配置.roles-block"},
         el("span", {class: "eyebrow", "data-ui": "本机配置.roles-block.title"}, "一个 agent 一行"),
@@ -563,7 +561,7 @@ function paint(host, model, api, hooks) {
               v.scannedText,
               el("button", {type: "button", class: "link", "data-focus": "rescan",
                 "data-ui": "本机配置.scan.rescan",
-                onClick: () => void rescan(LocalConfig.source(st.draft))},
+                onClick: () => void rescan(st.draft.runner)},
                 "重新扫描"),
             ],
           ),

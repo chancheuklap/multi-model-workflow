@@ -13,6 +13,7 @@
     },
     "codex": {
       "binary": "codex",
+      "codex-app": {},
       "efforts": ["low", "medium", "high", "xhigh"],
       "cli": {
         "argv": ["-m", "{model}", "-c", "model_reasoning_effort=\"{effort}\"", "--dangerously-bypass-approvals-and-sandbox"]

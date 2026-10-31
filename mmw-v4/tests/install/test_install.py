@@ -160,9 +160,11 @@ class InstallTest(unittest.TestCase):
         env = {k: v for k, v in os.environ.items()
                if k not in ("CODEX_HOME", "PI_CODING_AGENT_DIR", "PI_HOME", "MMW_HOME",
                             "MMW_CATALOG_MODE", "MMW_RUNNER", "HERDR_ENV",
+                            "CODEX_THREAD_ID", "CODEX_APP_RUNTIME_CLI_PATH", "CODEX_APP_TOOLS_PIPE_PATH",
                             "PASEO_AGENT_ID", "PASEO_WORKSPACE_ID", "TERM_PROGRAM") and not k.startswith("NMEM_")}
         env.update(MMW_INSTALL_HOME=str(self.home), MMW_HOST_CATALOG=str(self.catalog),
                    MMW_TEST_LOG=str(self.log), PATH=f"{self.bin}:/usr/bin:/bin",
+                   CODEX_APP_RUNTIME_CLI_PATH=str(Path(self.tmp.name) / "no-app-runtime"),
                    MMW_FAKE_LAUNCHD=str(self.launchd), MMW_FAKE_ORCA_SETUPS=str(self.orca_setups))
         return env
 
@@ -380,7 +382,7 @@ class InstallTest(unittest.TestCase):
                 self.assertEqual(check.returncode, 1, check.stderr)
                 self.assertIn(event, check.stderr)
                 self.assertEqual(config.read_bytes(), before)
-                data["hooks"][event].append(group)
+                data["hooks"][event].insert(index, group)
                 config.write_text(json.dumps(data))
         self.assertEqual(self.run_install("v4", "--check").returncode, 0)
 
@@ -595,6 +597,31 @@ class InstallTest(unittest.TestCase):
                     self.assertNotIn("explainer", saved["rows"])
                     self.assertEqual(saved["custom"], {"keep": True})
                     self.assertNotIn("paseo ", self.log.read_text())
+
+    def test_app_runner_installs_without_a_terminal_runner_or_paseo(self):
+        for name in ('orca', 'herdr', 'paseo'):
+            (self.bin / name).unlink()
+        binary = self.bin / 'app-runtime'
+        binary.write_text('#!/bin/sh\nexit 0\n')
+        binary.chmod(0o755)
+        roles = json.loads((self.v4 / 'skills/dispatch/roles.json').read_text())['roles']
+        config = {'version': 1, 'runner': 'codex-app', 'rows': {
+            role['name']: {'host': 'codex', 'model': 'gpt 5.6 sol', 'effort': 'high'}
+            for role in roles}}
+        (self.home / '.mmw/models.json').write_text(json.dumps(config))
+        environment = {**self.env(), 'CODEX_APP_RUNTIME_CLI_PATH': str(binary)}
+        for arguments in ((), ('--check',)):
+            run = self.run_install('v4', *arguments, env=environment)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertIn('runner codex-app', run.stdout)
+        hooks = json.loads((self.home / '.codex/hooks.json').read_text())['hooks']
+        for event, state in (('SessionStart', 'working'), ('UserPromptSubmit', 'working'), ('Stop', 'idle')):
+            self.assertTrue(any(handler['command'].endswith('codex_app.py\' hook ' + state)
+                                for group in hooks[event] for handler in group['hooks']))
+        self.assertFalse(any('codex_app.py' in command
+                             for command in hook_commands(self.home / '.claude/settings.json')))
+        self.assertFalse((self.home / '.paseo').exists())
+        self.assertFalse((self.home / '.local/bin/paseo').exists())
 
     def test_unused_paseo_catalog_is_not_required_with_runner_override(self):
         models = self.home / ".mmw/models.json"
