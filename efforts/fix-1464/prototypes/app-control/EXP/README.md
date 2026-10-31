@@ -1,0 +1,50 @@
+# Codex App control experiment
+
+This experiment checks the first prerequisite of the approved six-step App runner plan. An adapter needs to operate sessions in the desktop App, including stopping work and delivering a wake after its sending process exits.
+
+The public app-server protocol can read saved history from a different process. History visibility does not establish control of the running session.
+
+## Run the isolated comparison
+
+```sh
+python3 efforts/fix-1464/prototypes/app-control/EXP/probe.py --fixtures
+```
+
+`--binary` selects the CLI executable. The experiment uses both the installed CLI and the executable bundled with the running desktop App.
+
+The default public-control probe reads the App process transport and attempts the public control socket. It calls `thread/loaded/list` only when the socket exists. A pass requires the current `CODEX_THREAD_ID` in that runtime's loaded-session list. `--socket` selects an existing public control socket. The probe does not start a daemon or change a listener.
+
+`--fixtures` creates a throwaway HOME, CODEX_HOME, working directory, and local HTTP provider. It creates one session in a consumer app-server, persists a failed initial turn, and uses another app-server to enqueue a message through `thread/queue/add`. The producer exits before the consumer starts the queued turn. A third process then attempts `turn/interrupt`; the consumer also attempts interruption of its own turn. The local provider returns failure and never contacts a model service. Cleanup closes the owned servers and removes the temporary home.
+
+The generated `results.json` and `index.html` are under `.scratch/fix-1464/app-control/evidence/public-control/`. `--output` changes that location.
+
+## Observed on 2026-10-31
+
+CLI 0.165.0 and the desktop App's CLI 0.165.0-alpha.1.2 both showed:
+
+| Operation | Observation |
+| --- | --- |
+| Start with an exact working directory, model, and approval policy | The response retained the supplied values |
+| Read the session's history from the producer | Succeeded while the session was not loaded there |
+| Enqueue through a producer that subsequently exits | Acknowledged |
+| Consumer receives the external queued message | A new turn started and contacted the local fixture provider |
+| Interrupt from the third process | Failed with `thread not found` |
+| Interrupt in the consumer runtime | Confirmed by `turn/completed` with status `interrupted` |
+
+The actual desktop App's child app-server used `stdio://`, exposed no named Unix socket, and had no default public control socket. The isolated results therefore do not establish control of the desktop runtime. They establish that cross-process queue delivery works and that sharing history does not confer interruption capability.
+
+The `shell_environment_policy.set` override was submitted at thread start. This experiment does not execute a command to verify its environment. It does not prove a real App session's startup environment, hooks, restart recovery, or worker and reviewer lifecycle.
+
+## Self-wake check in the real App
+
+`--enqueue-self` sends one clearly identified continuation to the current `CODEX_THREAD_ID`, through the public app-server queue API. It creates no new chat and gives no implementation work to another agent. Its sending process exits after the queue acknowledges the message. This option changes the current chat's queue and is opt-in.
+
+A queue acknowledgment is not a completed wake check. A subsequent App turn must receive the exact marker recorded under `--output`, after the original turn ends and the sender exits. The continuation then records that observation before resuming the original six-step task.
+
+## Reusable parts and limits
+
+`Rpc` is a small standard-library client for the public JSONL protocol. `public_control` checks that a discovered socket serves the intended running session. `fixture` distinguishes persisted history, queue delivery, and live interruption. `enqueue_self` tests a real App wake without dispatching another agent.
+
+These are experimental assets. No MMW runner, installed skill, live model configuration, relay, or watchdog consumes them. The App adapter remains unimplemented until the complete control requirement is proved.
+
+Protocol reference: [Codex App Server](https://learn.chatgpt.com/docs/app-server). Command reference: [Developer commands](https://learn.chatgpt.com/docs/developer-commands?surface=cli).
