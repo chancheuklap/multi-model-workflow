@@ -30,6 +30,7 @@ export function fromBoard(payload = {}, now = new Date()) {
   const clock = readAt ? (failed ? dataTime(readAt, now) : hhmm(readAt)) : "";
   const ago = readAt ? age(readAt, now) : "";
   return {
+    repo: payload.repo || "",
     orangeN: count("orange"),
     greenN: count("green"),
     hollowN: count("hollow"),
@@ -58,7 +59,7 @@ export function render(host, view = {}, api, hooks = {}) {
     el("div", {class: "brand", "data-ui": "顶栏.brand"},
       el("span", {class: "brand-mark", "data-ui": "顶栏.brand.mark"}, "MMW"),
       el("span", {class: "brand-name", "data-ui": "顶栏.brand.name"}, "task board"),
-      el("span", {class: "brand-repo", "data-ui": "顶栏.brand.repo"}, "chancheuklap/multi-model-workflow"),
+      el("span", {class: "brand-repo", "data-ui": "顶栏.brand.repo"}, view.repo || ""),
     ),
     el("div", {class: "counters"},
       el("button", {

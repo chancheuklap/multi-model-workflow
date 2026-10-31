@@ -6,7 +6,8 @@ Tests: smoke.e2e.ts
 
 ## Sub-features
 
-- 仓库名 `chancheuklap/multi-model-workflow`。
+- 当前仓库的 `owner/name`，从任务板数据读取；尚未读到仓库身份时不显示仓库名。
+- `MMW` 与 `task board` 使用相同的斜体衬线字体；仓库名使用 13px 无衬线字体和更深的颜色，小于前面的 18px 标题。
 - needs you、running、queued、done 四个计数；点 needs you 跳到下一张要你处理的票。
 - 「立刻重读 GitHub」：页面开着时每分钟自动读一次，这个按钮立刻读。
 - 齿轮「本机配置」。
