@@ -1,0 +1,75 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Geist:wght@400;500;600&family=Noto+Sans+SC:wght@400;500&display=swap">
+<style>
+#mmw641-scope{--paper:var(--background,#f5f5f5);--ink:var(--foreground,#2d3142);--muted-ink:var(--muted-foreground,#4f5d75);--rule:var(--border,#bfc0c0);--focus:var(--orange,#bf4520);color:var(--ink);font-family:Geist,'PingFang SC','Microsoft YaHei',sans-serif;padding:12px 0}#mmw641-scope *{box-sizing:border-box}#mmw641-scope h1{font-family:'Instrument Serif','Noto Sans SC',serif;font-size:26px;font-weight:500;margin:0 96px 12px 0}#mmw641-scope h2{font-size:18px;font-weight:500;margin:24px 0 8px}#mmw641-scope p{font-size:14px;line-height:1.8;margin:8px 0}#mmw641-scope .caption{font-size:12px;color:var(--muted-ink)}#mmw641-scope .scroll{overflow-x:auto;width:100%}#mmw641-scope svg{display:block;width:1008px;min-width:1008px;height:auto;fill:var(--ink);color:var(--muted-ink);font-size:14px}#mmw641-scope .node{fill:var(--paper);stroke:var(--muted-ink);stroke-width:1}#mmw641-scope .focal{stroke:var(--focus);stroke-width:1.4}#mmw641-scope .edge{fill:none;stroke:var(--muted-ink);stroke-width:1.2}#mmw641-scope .small{font-size:12px}#mmw641-scope .panel-title{font-size:18px;font-weight:500}#mmw641-scope .legend{font-size:12px;fill:var(--muted-ink)}#mmw641-scope table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.8}#mmw641-scope th,#mmw641-scope td{text-align:left;vertical-align:top;padding:10px 8px;border-bottom:1px solid var(--rule)}#mmw641-scope td:first-child{width:18%;font-weight:500}#mmw641-scope a{color:var(--ink);text-decoration:underline}#mmw641-scope details{font-size:13px;line-height:1.8;margin-top:12px}#mmw641-scope summary{padding:8px 0;min-height:36px}
+</style>
+<section id="mmw641-scope" aria-label="#641 保持现有 UI 的优化方案">
+  <h1>保持现有 UI，修读取性能与状态一致性</h1>
+  <p>本轮只处理任务板性能、现有状态的一致性，以及整个 MMW 的 GitHub API 调用。保留现有布局、控件、字段、状态词和操作路径。</p>
+  <p class="caption">左列是已读源码反映的现状，右列是优化方向。读取频率、缓存时效及批量大小由当前复现和性能基线决定，本轮尚未实施。</p>
+  <div class="scroll" role="region" aria-label="当前读取链与优化方向对照">
+    <svg viewBox="0 0 1008 400" role="img" aria-labelledby="mmw641-scope-title mmw641-scope-desc">
+      <title id="mmw641-scope-title">现有 UI 下的读取与状态优化</title>
+      <desc id="mmw641-scope-desc">任务板、结果通知与 MMW 命令继续独立工作，在现有路径中减少重复读取，修复页面状态一致性。</desc>
+      <defs><marker id="mmw641-scope-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="currentColor"/></marker></defs>
+      <g transform="translate(0 0)">
+        <text x="20" y="28" class="panel-title">现在 · 重复读取与不同龄事实</text>
+        <path d="M92 104 V156 M244 104 V156 M396 104 V156" class="edge" marker-end="url(#mmw641-scope-arrow)"/>
+        <path d="M92 244 V296 M244 244 V296 M396 244 V296" class="edge" marker-end="url(#mmw641-scope-arrow)"/>
+        <rect x="24" y="48" width="440" height="56" rx="6" class="node"/>
+        <text x="40" y="72">GitHub</text><text x="40" y="92" class="small">结构、开关状态、评论和已有事件</text>
+        <rect x="24" y="156" width="136" height="88" rx="6" class="node"/>
+        <text x="36" y="180">任务板</text><text x="36" y="200" class="small">逐请求排队重读</text><text x="36" y="220" class="small">状态与事件不同龄</text>
+        <rect x="176" y="156" width="136" height="88" rx="6" class="node"/>
+        <text x="188" y="180">结果通知 relay</text><text x="188" y="200" class="small">已有独立读取</text><text x="188" y="220" class="small">维护唤醒与恢复</text>
+        <rect x="328" y="156" width="136" height="88" rx="6" class="node"/>
+        <text x="340" y="180">MMW 命令</text><text x="340" y="200" class="small">汇总重复读任务票</text><text x="340" y="220" class="small">其他重复待核实</text>
+        <rect x="24" y="296" width="136" height="60" rx="6" class="node"/>
+        <text x="36" y="320">现有任务板 UI</text><text x="36" y="340" class="small">各处可能互相矛盾</text>
+        <rect x="176" y="296" width="136" height="60" rx="6" class="node"/>
+        <text x="188" y="320">等待结果的会话</text><text x="188" y="340" class="small">收到唤醒</text>
+        <rect x="328" y="296" width="136" height="60" rx="6" class="node"/>
+        <text x="340" y="320">派工、路由、合入</text><text x="340" y="340" class="small">使用所需的事实</text>
+        <text x="20" y="388" class="legend">箭头表示读取结果的去向，三个读取方独立运行。</text>
+      </g>
+      <g transform="translate(512 0)">
+        <text x="20" y="28" class="panel-title">改进 · 减少重复，修正同份事实的解释</text>
+        <path d="M92 104 V156 M244 104 V156 M396 104 V156" class="edge" marker-end="url(#mmw641-scope-arrow)"/>
+        <path d="M92 244 V296 M244 244 V296 M396 244 V296" class="edge" marker-end="url(#mmw641-scope-arrow)"/>
+        <rect x="24" y="48" width="440" height="56" rx="6" class="node"/>
+        <text x="40" y="72">GitHub</text><text x="40" y="92" class="small">沿用已有分页、条件缓存和必要的核对</text>
+        <rect x="24" y="156" width="136" height="88" rx="6" class="node focal"/>
+        <text x="36" y="180">任务板</text><text x="36" y="200" class="small">复用有效读取工作</text><text x="36" y="220" class="small">统一现有状态解释</text>
+        <rect x="176" y="156" width="136" height="88" rx="6" class="node"/>
+        <text x="188" y="180">结果通知 relay</text><text x="188" y="200" class="small">保留唤醒与恢复</text><text x="188" y="220" class="small">复用既有读取代码</text>
+        <rect x="328" y="156" width="136" height="88" rx="6" class="node"/>
+        <text x="340" y="180">MMW 命令</text><text x="340" y="200" class="small">同次操作减少重读</text><text x="340" y="220" class="small">写后保留必要核对</text>
+        <rect x="24" y="296" width="136" height="60" rx="6" class="node"/>
+        <text x="36" y="320">现有任务板 UI</text><text x="36" y="340" class="small">原有字段一致更新</text>
+        <rect x="176" y="296" width="136" height="60" rx="6" class="node"/>
+        <text x="188" y="320">等待结果的会话</text><text x="188" y="340" class="small">正确收到结果通知</text>
+        <rect x="328" y="296" width="136" height="60" rx="6" class="node"/>
+        <text x="340" y="320">派工、路由、合入</text><text x="340" y="340" class="small">保持所需的新鲜度</text>
+        <text x="20" y="388" class="legend">箭头表示读取结果的去向，复用不改变决定的依据。</text>
+      </g>
+    </svg>
+  </div>
+  <h2>三个改动目标</h2>
+  <table><thead><tr><th>目标</th><th>本轮先解决什么</th></tr></thead><tbody>
+    <tr><td>任务板性能</td><td>核实并减少重复刷新、多标签页重复读取及排队等待，在现有进程与 HTTP 路径内复用工作。</td></tr>
+    <tr><td>状态一致性</td><td>修复卡片与连线不同步、合入后更新遗漏、详情最新阶段矛盾和刷新无效。保留关闭、通过、合入及依赖放行的真实区别。</td></tr>
+    <tr><td>MMW 的 API 调用</td><td>先删掉汇总等确认重复的读取。核查任务板、relay、status 与 dispatch 的调用链，复用分页与条件请求，并按服务器要求处理限流。</td></tr>
+  </tbody></table>
+  <h2>按 MMW 执行的准备顺序</h2>
+  <table><thead><tr><th>顺序</th><th>方法与产出</th></tr></thead><tbody>
+    <tr><td>复现、测基线</td><td>Develop a change 统筹，复用已有 how 调查；bug-fix 交回原缺陷的重复反馈循环，perf-issue 交回当前 trace、固定工作量和可重跑基线。</td></tr>
+    <tr><td>定最小改动</td><td>从测量指向的无用和重复工作开始。现有代码能回答的直接决定，有事实分歧才做最小实验，不预定缓存时效或全量读取频率。</td></tr>
+    <tr><td>先准备验收</td><td>使用 prepare-ui-acceptance 的 Repair 与 Preserve behavior，以实际产品和已复现需求为基线。回归与行为保留验证直接操作现有 UI，不需要设计原型或 UI 签收。</td></tr>
+    <tr><td>形成工作、交付</td><td>to-tickets 选最小可验证单元，必要时才用 spec。你给实施 Go 后派 worker，完成 review、产品验证和同条件性能复测，再交你验收。</td></tr>
+  </tbody></table>
+  <p>验收分别看页面等待、数据滞后、GitHub 请求和额度。前后数据必须同样完整、同样新鲜；保留必要的写后核对和结果通知，不能以漏读换速度。</p>
+  <p class="caption">已有源码与 API 调查及受影响功能清单。当前产品的缺陷复现和性能基线尚待补齐，本轮没有承诺未经测量的提速。</p>
+  <details><summary>本轮范围和准备记录</summary>
+    <p>本轮保持现有 UI，不加阶段时长、夜进度、新状态、默认选择策略或事件类型；不新增常驻服务、跨进程缓存或全局检查体系。</p>
+    <p><a href="https://github.com/chancheuklap/multi-model-workflow/issues/641">#641</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/blob/fix-641/efforts/fix-641/README.md">完整准备方案</a> · <a href="https://github.com/chancheuklap/multi-model-workflow/blob/fix-641/efforts/fix-641/affected-features.md">受影响的现有功能</a>。</p>
+  </details>
+</section>
