@@ -236,7 +236,7 @@ import statedir  # noqa: E402
 from statedir import LockHeld  # noqa: E402
 import briefs  # noqa: E402
 import ghlist  # noqa: E402
-from ghlist import quiet_env  # noqa: E402
+from ghlist import GH_TIMEOUT, quiet_env  # noqa: E402
 
 
 def _load_events():
@@ -460,6 +460,7 @@ class Board:
     def __init__(self, repo: str, comment_reader: ghlist.ConditionalListReader | None = None):
         self.repo = repo
         self.comment_reader = comment_reader or ghlist.ConditionalListReader()
+        self.structure_reader = self.comment_reader.clone()
         self.comment_addresses: dict[int, str] = {}
 
     @property
@@ -484,7 +485,7 @@ class Board:
         """Each sub-issue of `number` as (number, state): the state lower case, `open` or
         `closed` as the REST answer gives it, empty when the answer carries none."""
         try:
-            rows = self.comment_reader.read(f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100")
+            rows = self.structure_reader.read(f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100")
         except ghlist.ListReadError as exc:
             raise PollError(str(exc)) from None
         return [(int(r["number"]), str(r.get("state") or "").lower())
