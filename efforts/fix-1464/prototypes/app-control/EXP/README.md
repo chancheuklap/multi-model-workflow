@@ -59,4 +59,14 @@ Discovery returned zero tools and `MCP startup failed: Mcp error: -32603: Codex 
 
 These are experimental assets. No MMW runner, installed skill, live model configuration, relay, or watchdog consumes them. The App adapter remains unimplemented until the complete control requirement is proved.
 
+## Native App control verified
+
+The owner requested a direct native-tool test on 2026-10-31. Opening the existing checkout with `codex app /Users/cheuklapchan/.codex/worktrees/631c/multi-model-workflow` registered that exact directory as an App project. `list_projects` returned project `f481e100-95fb-4e80-99ee-d7b33aff7478` for the exact path. `create_thread` then started a fresh local chat in that project without creating a worktree or changing the branch.
+
+Independent chat `01a1904d-896b-7813-8c21-4b67cfbd48f5`, titled `MMW 独立会话启动验证`, ran its first commands in that exact directory. Both `pwd -P` and `git rev-parse --show-toplevel` matched the requested path. The branch was `fix-1464`, HEAD was `942c588bd300d47ebb2b53432e915e76ce4a5ef2`, and the worktree was clean. The raw command records show that no `cd` or workspace rebinding preceded the observation. The chat had its own `CODEX_THREAD_ID` and contained the verification brief rather than the parent's conversation.
+
+`send_message_to_thread` started a second read-only turn. `wait_threads` and `read_thread` reported it as active and in progress. The test's Python sleep process was observed as PID 3873, owned by the actual desktop app-server PID 2520. `set_thread_archived` then returned success. A subsequent native read reported that turn as `interrupted`, the chat as `notLoaded`, and the sleep process was confirmed absent. The chat remains archived after the test. No product file was modified by the verification chat.
+
+This directly proves native App creation in an exact existing checkout, independent context, follow-up dispatch, live state inspection, and active-turn interruption through archival for this case. The earlier script-launch/MCP failure does not establish a limitation of these native tools. The implementation must connect MMW's preparation and registration to the verified native operations, and use the separately verified public queue for background delivery. Model/effort overrides, startup environment and permission delivery, hook compatibility, restart recovery, and complete MMW ticket lifecycle acceptance remain unverified.
+
 Protocol reference: [Codex App Server](https://learn.chatgpt.com/docs/app-server). Command reference: [Developer commands](https://learn.chatgpt.com/docs/developer-commands?surface=cli).
