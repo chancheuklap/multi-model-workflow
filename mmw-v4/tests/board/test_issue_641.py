@@ -76,6 +76,18 @@ class BoardRefreshContracts(unittest.TestCase):
             self.assertEqual(failed['tasks'], changed['tasks'])
             self.assertEqual(failed['read_at'], changed['read_at'])
             self.assertEqual(store.snapshot, changed)
+            data.pop('fail_comments')
+            data['comments']['11'][1]['etag'] = 'recovered'
+            data['comments']['11'][1]['comments'].append(event('ticket.recovered', 11, id=1200, commit='b' * 40))
+            data['trees'][0]['subIssues']['nodes'][3]['subIssues']['nodes'][0]['state'] = 'CLOSED'
+            data['trees'][0]['subIssues']['nodes'][2]['subIssues']['nodes'][0]['blockedBy']['nodes'][-1]['state'] = 'OPEN'
+            (directory / 'scenario.json').write_text(json.dumps(data))
+            recovered = store.answer(force=True)
+            self.assertNotIn('read_failed', recovered)
+            self.assertTrue(tickets(recovered)[11]['fold']['landed'])
+            self.assertEqual(tickets(recovered)[11]['blocker_hold'], '')
+            outside = next(b for b in tickets(recovered)[12]['blockers'] if b['number'] == 99)
+            self.assertEqual((outside['state'], outside['blocker_hold']), ('open', 'open'))
 
     def test_overlapping_refresh(self):
         data = scenario()

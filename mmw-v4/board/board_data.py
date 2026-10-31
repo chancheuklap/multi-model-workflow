@@ -137,7 +137,7 @@ class BoardStore:
                         if not cursor or cursor == pending[name]:
                             raise GitHubReadFailed(f"the {name} root list did not advance its page")
                         pending[name] = cursor
-            except (KeyError, TypeError) as exc:
+            except (KeyError, TypeError, AttributeError) as exc:
                 raise GitHubReadFailed("GitHub returned incomplete repository roots") from exc
         return {**result, "maps": list(result["maps"].values()),
                 "specs": list(result["specs"].values())}
