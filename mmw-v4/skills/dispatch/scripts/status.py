@@ -29,7 +29,6 @@ import argparse
 import importlib.util
 import json
 import os
-import subprocess
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -53,6 +52,13 @@ def _load(name: str, filename: str):
 events = _load("mmw_events", "events.py")
 tree = _load("mmw_tree", "issue_tree.py")
 
+HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+import ghlist
+
+reader = ghlist.ConditionalListReader()
+
 # --------------------------------------------------------------------- reading
 
 def gh(args: list[str]) -> str:
@@ -61,16 +67,15 @@ def gh(args: list[str]) -> str:
     Under an exported CLICOLOR_FORCE=1, `gh` writes ANSI escapes into --json output that
     no JSON reader can parse.
     """
-    env = dict(os.environ)
-    env.pop("CLICOLOR_FORCE", None)
-    env.pop("CLICOLOR", None)
-    run = subprocess.run(["gh", *args], capture_output=True, text=True, env=env)
-    return run.stdout if run.returncode == 0 else ""
+    code, out, _ = reader.request(args)
+    return out if code == 0 else ""
 
 
 def gh_json(args: list[str], fallback):
     try:
         return json.loads(gh(args))
+    except ghlist.ListReadError:
+        raise
     except Exception:
         return fallback
 
@@ -86,11 +91,7 @@ def own_login() -> str:
 
 
 def _gh_run(args: list[str]) -> tuple[int, str, str]:
-    env = dict(os.environ)
-    env.pop("CLICOLOR_FORCE", None)
-    env.pop("CLICOLOR", None)
-    run = subprocess.run(["gh", *args], capture_output=True, text=True, env=env)
-    return run.returncode, run.stdout, run.stderr
+    return reader.request(args)
 
 
 def spec_tree(spec: int) -> dict:

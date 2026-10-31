@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from test_ghlist import ghlist, response
-from test_relay import relay
+from test_relay import relay, FakeGh, FakeSend, comment
 
 
 class ApiPauseContracts(unittest.TestCase):
@@ -44,3 +44,48 @@ class ApiPauseContracts(unittest.TestCase):
             with self.assertRaises(ghlist.ListReadError):
                 reader.read('repos/o/r/issues/11/comments?per_page=100')
         self.assertEqual(len(calls), 2, 'permission errors do not trigger rate pause')
+
+        with tempfile.TemporaryDirectory() as name:
+            now[0] = datetime(2026, 10, 31, tzinfo=timezone.utc).timestamp()
+            clock = lambda: datetime.fromtimestamp(now[0], timezone.utc)
+            data = {11: [comment(100, 'ticket.passed', 11, updated=clock())], 12: []}
+            fake = FakeGh(data)
+            sent = FakeSend()
+            limited = [False]
+            calls = []
+            def external(args):
+                calls.append(args)
+                if limited[0]:
+                    return 1, 'HTTP/2 429 Too Many Requests\nRetry-After: 120\n\n{}', ''
+                return fake(args)
+            reader = relay.ghlist.ConditionalListReader(external)
+            reader.clock = lambda: now[0]
+            board = relay.Board('o/r', gh=fake, comment_reader=reader)
+            state = Path(name)
+            run = relay.Relay(state, board, send=sent, clock=clock, out=io.StringIO(), err=io.StringIO())
+            run.open_watch({'tickets': [11, 12]}, 'paseo', 'main-a')
+            self.assertTrue(run.cycle(30, 90))
+            self.assertEqual([s[2] for s in sent.sent], ['#11 ticket.passed'])
+            run.ack(('paseo', 'main-a'), 1)
+            old = json.loads((state / 'seen.json').read_text())['tickets']
+            now[0] += 30
+            data[11].append(comment(101, 'ticket.returned', 11, updated=clock()))
+            data[12].append(comment(102, 'ticket.passed', 12, updated=clock()))
+            limited[0] = True
+            before = len(calls)
+            self.assertFalse(run.cycle(30, 90))
+            self.assertEqual(len(calls), before + 1, 'remaining tickets must not hit the limit')
+            self.assertFalse(run.cycle(30, 90))
+            self.assertEqual(len(calls), before + 1)
+            self.assertEqual(json.loads((state / 'seen.json').read_text())['tickets'], old)
+            now[0] += 120
+            limited[0] = False
+            self.assertTrue(run.cycle(30, 90))
+            self.assertTrue(run.cycle(30, 90))
+            self.assertEqual([s[2] for s in sent.sent],
+                             ['#11 ticket.passed', '#11 ticket.returned', '#12 ticket.passed'])
+            fresh_reader = relay.ghlist.ConditionalListReader(external)
+            restarted = relay.Relay(state, relay.Board('o/r', gh=fake, comment_reader=fresh_reader),
+                send=sent, clock=clock, out=io.StringIO(), err=io.StringIO())
+            self.assertTrue(restarted.cycle(30, 90))
+            self.assertEqual(len(sent.sent), 3, 'restart must not duplicate delivered wakes')

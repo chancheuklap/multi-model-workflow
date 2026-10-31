@@ -73,11 +73,11 @@ def _comments_address(number: int) -> str:
 
 class BoardStore:
     def __init__(self, gh=None, clock=utc_now):
-        self.gh = gh or ghlist.run_gh
         self.clock = clock
         self.map_trees: list[dict] = []
         self.comments: dict[int, list[dict]] = {}
-        self.comment_reader = ghlist.ConditionalListReader(self.gh)
+        self.comment_reader = ghlist.ConditionalListReader(gh or ghlist.run_gh)
+        self.comment_reader.clock = lambda: self.clock().timestamp()
         self.last_tree_at: dt.datetime | None = None
         self.repo: str | None = None
         self.snapshot = {"tasks": [], "repo": None, "read_at": None}
@@ -86,7 +86,7 @@ class BoardStore:
         self.last_answer = self.snapshot
 
     def _json(self, args: list[str]):
-        code, out, err = self.gh(args)
+        code, out, err = self.comment_reader.request(args)
         if code != 0:
             raise GitHubReadFailed(_last_error(err, out, "GitHub did not answer"))
         try:
@@ -150,7 +150,7 @@ class BoardStore:
         under_a_map: set[int] = set()
         for item in roots["maps"]:
             try:
-                read = tree.read(int(item["number"]), "map", gh=self.gh)
+                read = tree.read(int(item["number"]), "map", gh=self.comment_reader.request)
             except (KeyError, TypeError, ValueError, tree.TreeUnreadable) as exc:
                 raise GitHubReadFailed(str(exc)) from exc
             read["labels"] = _labels(item)
@@ -165,7 +165,7 @@ class BoardStore:
             if number in under_a_map:
                 continue
             try:
-                read = tree.read(number, "spec", gh=self.gh)
+                read = tree.read(number, "spec", gh=self.comment_reader.request)
             except tree.TreeUnreadable as exc:
                 raise GitHubReadFailed(str(exc)) from exc
             read["labels"] = _labels(item)
@@ -273,10 +273,11 @@ class BoardStore:
                 return copy.deepcopy(self.last_answer)
             now = self.clock()
             if not force and self.last_tree_at is not None and (now - self.last_tree_at).total_seconds() < 60:
-                return copy.deepcopy(self.snapshot)
+                return copy.deepcopy(self.last_answer)
             self.refreshing = True
         try:
             comment_reader = self.comment_reader.clone()
+            self.comment_reader.ensure_ready()
             roots = self._read_roots()
             map_trees = self._read_trees(roots)
             numbers = dict.fromkeys(node["number"] for node in self._ticket_nodes(map_trees))
@@ -295,6 +296,9 @@ class BoardStore:
             with self.lock:
                 failed = copy.deepcopy(self.snapshot)
                 failed["read_failed"] = {"at": iso(self.clock()), "message": str(exc)}
+                if self.comment_reader.retry_at > self.clock().timestamp():
+                    failed["read_failed"]["retry_at"] = iso(dt.datetime.fromtimestamp(
+                        self.comment_reader.retry_at, dt.timezone.utc))
                 self.last_answer = failed
         finally:
             with self.lock:

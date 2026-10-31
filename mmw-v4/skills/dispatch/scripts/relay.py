@@ -507,8 +507,15 @@ class Board:
     def children(self, number: int) -> list[tuple[int, str]]:
         """Each sub-issue of `number` as (number, state): the state lower case, `open` or
         `closed` as the REST answer gives it, empty when the answer carries none."""
-        rows = self.gh(["api", "--paginate", "--slurp",
-                        f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100"])
+        try:
+            self.comment_reader.ensure_ready()
+            if self.gh is gh_list:
+                rows = self.comment_reader.read(f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100")
+            else:
+                rows = self.gh(["api", "--paginate", "--slurp",
+                                f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100"])
+        except ghlist.ListReadError as exc:
+            raise PollError(str(exc)) from None
         return [(int(r["number"]), str(r.get("state") or "").lower())
                 for r in rows if isinstance(r, dict) and r.get("number")]
 

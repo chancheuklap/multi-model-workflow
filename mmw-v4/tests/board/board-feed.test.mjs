@@ -47,3 +47,18 @@ test("manual refresh waits behind a GET and does not overlap it", async () => {
   assert.deepEqual((await fresh).tasks, ['fresh']);
   feed.stop();
 });
+
+test("failed reads wait a full retry interval and honor the server pause", async () => {
+  let period;
+  const feed = startBoardFeed({
+    read: async () => ({read_at: '2026-10-30T00:00:00Z',
+      read_failed: {retry_at: '2026-10-31T00:02:00Z'}}),
+    isVisible: () => true,
+    now: () => Date.parse('2026-10-31T00:00:00Z'),
+    setTimer(callback, milliseconds) { period = milliseconds; return 1; },
+    clearTimer() {},
+  });
+  await Promise.resolve();
+  assert.equal(period, 120000);
+  feed.stop();
+});

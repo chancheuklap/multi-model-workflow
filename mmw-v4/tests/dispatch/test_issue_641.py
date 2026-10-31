@@ -55,3 +55,23 @@ class SummaryReadContracts(unittest.TestCase):
                 status.print_summary(10)
             self.assertIn('#30 changed outside the command', out.getvalue())
             self.assertEqual(calls, [11, 12, 30])
+
+    def test_cli_limit_stops_remaining_batch_reads(self):
+        from contextlib import redirect_stderr
+        calls = []
+        def external(command, **kwargs):
+            args = command[1:]
+            calls.append(args)
+            if args[:2] == ['api', 'graphql']:
+                value = {'data': {'repository': {'issue': {'number': 10, 'title': 'spec', 'state': 'OPEN',
+                    'subIssuesSummary': {'total': 2, 'completed': 0},
+                    'subIssues': {'nodes': [{'number': n, 'title': 'ticket', 'state': 'OPEN',
+                        'subIssuesSummary': {'total': 0, 'completed': 0}, 'subIssues': {'nodes': []}}
+                        for n in (11, 12)]}}}}}
+                return SimpleNamespace(returncode=0, stdout=json.dumps(value), stderr='')
+            return SimpleNamespace(returncode=1, stdout='', stderr='API rate limit exceeded')
+        with patch.object(status.subprocess, 'run', side_effect=external), \
+                patch.object(status, 'reader', status.ghlist.ConditionalListReader()), \
+                redirect_stderr(io.StringIO()):
+            self.assertEqual(status.main(['--summary', '10']), 2)
+        self.assertEqual([c[2] for c in calls if c[:2] == ['issue', 'view']], ['11'])

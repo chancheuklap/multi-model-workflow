@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import time
+from email.utils import parsedate_to_datetime
 from typing import Callable
 from urllib.parse import parse_qs, urlsplit
 
@@ -99,6 +100,8 @@ class ConditionalListReader:
         self.gh = gh
         self._addresses: dict[str, _Cache] = {}
         self._reads = {"billed": 0, "not_modified": 0}
+        self.clock = time.time
+        self._pause = {"until": 0.0, "failures": 0}
 
     @property
     def reads(self) -> dict[str, int]:
@@ -106,9 +109,61 @@ class ConditionalListReader:
 
     def clone(self) -> "ConditionalListReader":
         other = ConditionalListReader(self.gh)
+        other.clock = self.clock
+        other._pause = self._pause
         other._addresses = copy.deepcopy(self._addresses)
         other._reads = dict(self._reads)
         return other
+
+    @property
+    def retry_at(self) -> float:
+        return self._pause["until"]
+
+    def ensure_ready(self) -> None:
+        if self._pause["failures"] >= 5:
+            raise ListReadError("GitHub rate limit persisted through five attempts; stop reading and retry in a later process")
+        if self.clock() < self.retry_at:
+            raise ListReadError(f"GitHub reads paused until {self.retry_at:.0f} UTC epoch seconds")
+
+    def request(self, args: list[str], timeout: float | None = None) -> tuple[int, str, str]:
+        self.ensure_ready()
+        include = bool(args and args[0] == "api" and "-i" not in args and "--include" not in args)
+        command = [*args, "-i"] if include else args
+        code, out, err = (run_gh(command, timeout=timeout) if self.gh is run_gh and timeout is not None
+                          else self.gh(command))
+        try:
+            status, headers, body = _parse_response(out)
+        except ValueError:
+            status, headers, body = None, {}, out
+        text = (body + " " + err).lower()
+        try:
+            errors = json.loads(body).get("errors")
+        except (ValueError, AttributeError):
+            errors = None
+        limited = status == 429 or ((code != 0 or status == 403 or errors) and
+            (headers.get("x-ratelimit-remaining") == "0" or "rate limit" in text
+             or "rate_limited" in text or "abuse detection" in text))
+        if limited:
+            self._pause["failures"] += 1
+            now = self.clock()
+            until = []
+            retry = headers.get("retry-after")
+            if retry:
+                try:
+                    until.append(now + float(retry))
+                except ValueError:
+                    try:
+                        until.append(parsedate_to_datetime(retry).timestamp())
+                    except (ValueError, TypeError, OverflowError):
+                        pass
+            if headers.get("x-ratelimit-remaining") == "0":
+                try:
+                    until.append(float(headers["x-ratelimit-reset"]))
+                except (KeyError, ValueError):
+                    pass
+            self._pause["until"] = max([now, *until]) if until else now + 60 * 2 ** (self._pause["failures"] - 1)
+            raise ListReadError(f"GitHub rate limit; reads paused until {self.retry_at:.0f} UTC epoch seconds")
+        return code, body if include and status is not None else out, err
 
     def discard(self, address: str) -> None:
         self._addresses.pop(address, None)
@@ -132,9 +187,9 @@ class ConditionalListReader:
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         raise ListReadError(f"timed out after {GH_TIMEOUT} seconds")
-                    code, out, err = run_gh(args, timeout=remaining)
+                    code, out, err = self.request(args, timeout=remaining)
                 else:
-                    code, out, err = self.gh(args)
+                    code, out, err = self.request(args)
             except ListReadError as exc:
                 raise ListReadError(f"{address}: {exc}") from None
             try:
@@ -170,6 +225,7 @@ class ConditionalListReader:
             visited.append(endpoint)
             endpoint = next_page
 
+        self._pause["failures"] = 0
         cache.pages = {url: cache.pages[url] for url in visited}
         cache.etags = {url: cache.etags[url] for url in visited if url in cache.etags}
         cache.next_pages = {url: cache.next_pages.get(url) for url in visited}

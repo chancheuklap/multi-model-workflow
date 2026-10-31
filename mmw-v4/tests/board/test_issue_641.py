@@ -15,29 +15,36 @@ from test_board_data import board_data, container, event, fixture_store, scenari
 class BoardRefreshContracts(unittest.TestCase):
     def test_root_discovery_complete(self):
         calls = []
+        paginated = [True]
         def gh(args):
             calls.append(args)
             root = next((int(a.split('=')[1]) for a in args if a.startswith('root=')), None)
             if root is not None:
-                node = container(root, 'root', [], ['mmw:spec' if root == 10 else 'mmw:map'])
+                node = container(root, 'root', [container(10, 'nested spec', [], ['mmw:spec'])] if root == 1 else [], ['mmw:spec' if root >= 10 else 'mmw:map'])
                 return 0, json.dumps({'data': {'repository': {'issue': node}}}), ''
             if args[:2] != ['api', 'graphql']:
                 return 1, '', 'root discovery must use GraphQL'
             later = 'mapsAfter=next' in args
             maps = [dict(number=2 if later else 1, title='map', state='OPEN',
                          labels={'nodes': [{'name': 'mmw:map'}]})]
-            specs = [dict(number=10, title='spec', state='OPEN',
-                          labels={'nodes': [{'name': 'mmw:spec'}]})]
+            specs = [dict(number=n, title='spec', state='OPEN',
+                          labels={'nodes': [{'name': 'mmw:spec'}]}) for n in ([40] if later else [10, 30])]
             return 0, json.dumps({'data': {'repository': {'nameWithOwner': 'owner/repo',
-                'maps': {'nodes': maps, 'pageInfo': {'hasNextPage': not later,
+                'maps': {'nodes': maps, 'pageInfo': {'hasNextPage': paginated[0] and not later,
                                                     'endCursor': 'next' if not later else None}},
-                'specs': {'nodes': specs, 'pageInfo': {'hasNextPage': False, 'endCursor': None}}}}}), ''
+                'specs': {'nodes': specs, 'pageInfo': {'hasNextPage': paginated[0] and not later, 'endCursor': 'next' if not later else None}}}}}), ''
         store = board_data.BoardStore(gh=gh)
         result = store.answer()
         self.assertNotIn('read_failed', result)
         self.assertEqual(result['repo'], 'owner/repo')
-        self.assertEqual([t['n'] for t in result['tasks']], [1, 2, 10])
+        self.assertEqual([t['n'] for t in result['tasks']], [1, 2, 30, 40])
         self.assertEqual(sum(not any(a.startswith('root=') for a in c) for c in calls), 2)
+        paginated[0] = False
+        calls.clear()
+        one_page = board_data.BoardStore(gh=gh).answer()
+        self.assertNotIn('read_failed', one_page)
+        self.assertEqual([t['n'] for t in one_page['tasks']], [1, 30])
+        self.assertEqual(sum(not any(a.startswith('root=') for a in c) for c in calls), 1)
 
     def test_refresh_freshness(self):
         data = scenario()
@@ -80,13 +87,13 @@ class BoardRefreshContracts(unittest.TestCase):
             now[0] += dt.timedelta(seconds=60)
             before = len((directory / 'calls.jsonl').read_text().splitlines())
             gate, release = threading.Event(), threading.Event()
-            gh = store.gh
+            gh = store.comment_reader.gh
             def blocked(args):
                 if 'mapsMore=true' in args:
                     gate.set()
                     self.assertTrue(release.wait(5), 'refresh was not released')
                 return gh(args)
-            store.gh = blocked
+            store.comment_reader.gh = blocked
             with ThreadPoolExecutor(max_workers=2) as pool:
                 first = pool.submit(store.answer)
                 self.assertTrue(gate.wait(5), 'expired refresh did not query roots')
@@ -95,3 +102,34 @@ class BoardRefreshContracts(unittest.TestCase):
                 self.assertEqual(first.result(5), second.result(5))
             calls = [json.loads(line) for line in (directory / 'calls.jsonl').read_text().splitlines()[before:]]
             self.assertEqual(sum('mapsMore=true' in c for c in calls), 1)
+
+    def test_pause_keeps_the_published_snapshot_and_validators(self):
+        now = [dt.datetime(2026, 10, 31, tzinfo=dt.timezone.utc)]
+        data = scenario()
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            store = fixture_store(directory, data, lambda: now[0])
+            first = store.answer()
+            original = store.comment_reader.gh
+            calls = []
+            limited = [True]
+            def external(args):
+                calls.append(args)
+                if limited[0] and args[:2] == ['api', '-i']:
+                    return 1, 'HTTP/2 429 Too Many Requests\nRetry-After: 120\n\n{}', ''
+                return original(args)
+            store.comment_reader.gh = external
+            failed = store.answer(force=True)
+            self.assertIn('retry_at', failed['read_failed'])
+            self.assertEqual(failed['read_at'], first['read_at'])
+            self.assertEqual(failed['tasks'], first['tasks'])
+            before = len(calls)
+            self.assertIn('read_failed', store.answer(force=True))
+            self.assertIn('read_failed', store.answer())
+            self.assertEqual(len(calls), before)
+            limited[0] = False
+            now[0] += dt.timedelta(seconds=120)
+            self.assertNotIn('read_failed', store.answer())
+            revalidated = [c for c in calls[before:] if c[:2] == ['api', '-i']]
+            self.assertEqual(len(revalidated), 3)
+            self.assertTrue(all(any(a.startswith('If-None-Match:') for a in c) for c in revalidated))
