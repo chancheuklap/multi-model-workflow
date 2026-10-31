@@ -59,8 +59,8 @@ class WiringTest(unittest.TestCase):
 
     def test_an_intent_home_naming_a_missing_step(self):
         path = self.skills / "writing-for-agents/references/DESIGN-INTENTS.md"
-        self.edit(path, "**Authoring or modifying a skill**'s **Prove it, once**",
-                  "**Authoring or modifying a skill**'s **A step that does not exist**")
+        path.write_text(path.read_text() +
+                        "\n    Home: **Work a ticket** step **A step that does not exist**.\n")
         line = next(n for n, text in enumerate(path.read_text().splitlines(), 1)
                     if "A step that does not exist" in text)
         result = self.run_check()

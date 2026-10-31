@@ -20,7 +20,7 @@ A test file in the diff that no `CHECK:` names is in scope too, including remove
 
 With a request file in place of a ticket, every test file in the diff is your scope.
 
-Also collect each formal check a CHECK invokes: its model, verification program or proof inputs, actual project-local instructions, and the current code it claims to describe. Resolve the files from the CHECK's configuration, the ticket's declared output paths and the current diff. Read a method created during this ticket from its actual result. Include new or modified formal verification even when no traditional test-case selector names it.
+Also collect each formal check a CHECK invokes: its model, verification program or proof inputs, complete actual project-local SKILL.md, and the current code it claims to describe. Resolve the files from the CHECK's configuration, the ticket's declared output paths and the current diff. Read a method created during this ticket from its actual result. Include new or modified formal verification even when no traditional test-case selector names it.
 
 When neither test nor formal verification material is in scope, report one line, `no verification material in this change`, and stop.
 

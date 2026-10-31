@@ -70,7 +70,7 @@ The implementation decisions that were made, grouped into numbered subsections (
 - API contracts
 - Specific interactions
 
-Each subsection is read on its own: a worker opens only the subsections its ticket names, so a subsection that depends on another names it.
+Each subsection states a complete decision baseline for the tickets naming it. A dependency on another subsection names that source explicitly. These citations define which decisions govern the ticket, not a separate file-loading boundary.
 
 **Every decision names where it came from**, at the end of the sentence or table row that states it: a decision ticket number, an ADR id, the link of a research answer or verdict comment, or a prototype path. A decision with no source is written as "this spec's decision", citing what it rests on (and, where the user confirmed it, say so). What an ADR decides that shapes a decision is written into the subsection it shapes, citing the ADR: the worker reads the spec, not the ADR.
 
@@ -82,7 +82,7 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 
 ## Testing Decisions
 
-Name the executor verification methods and their baseline sources for any required product observation outside the acceptance commands. A skill-set behavior change names Authoring or modifying a skill's Prove it, once before owner acceptance. These requirements use this existing section, not an extra phase or issue field.
+Name the executor verification methods and their baseline sources for any required product observation outside the acceptance commands. A skill-set behavior change names the **mmw-mode** skill's `references/prove-skill-change.md` before owner acceptance. These requirements use this existing section, not an extra phase or issue field.
 
 The first sentence says, in plain words a reader with no testing vocabulary understands, where a test looks at the result: a browser page, an HTTP endpoint, or a function call ("Tests look at the result on the browser page."). The next sentence names the **seam** chosen in step 3: what is real on each side of it, and which external seams (third-party APIs, paid services) may be stubbed. Then:
 

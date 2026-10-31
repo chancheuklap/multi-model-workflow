@@ -1,0 +1,3 @@
+# Prepare acceptance for a repair
+
+Use the settled requirement and runtime reproduction. Read the feature's Gotchas. Record a missing feature description and Proof from the actual product and agreed requirement before writing its test. Reuse the original failing product loop or write its focused fixed-step e2e test. Demonstrate the described failure on the actual product baseline; a missing file or broken fixture is not that defect. Register this ticket's new test file on the affected feature, creating its description from the actual product and agreed requirement when absent. No design target or winner is required when there is no new design question. Return the failure evidence and command to bug-fix or the ticket writer; the worker fixes the product, not this test.

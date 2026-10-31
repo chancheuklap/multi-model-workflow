@@ -9,7 +9,7 @@ A test checks the cases that someone thought to write. Formal verification check
 
 ## Caller and code
 
-Keep the caller's area, agreed rule, branch and authority. A development call comes from the **to-tickets** skill's **Prepare verification** in `references/ticket-format.md`, or from Work a ticket after an explicitly assigned implementation exists. With no real code, return the missing implementation; do not claim a model proves future code. A worker stays within its declared verification paths and keeps the existing CHECK. A result requiring another rule or command returns through its contract handler.
+Keep the caller's area, agreed rule, branch and authority. A development preparation supplies its code and agreed rule directly. Work a ticket calls only for explicitly assigned creation after its actual implementation exists. With no real code, return the missing implementation; do not claim a model proves future code. A worker stays within its declared verification paths and keeps the existing CHECK. A result requiring another rule or command returns through its contract handler.
 
 For an independent request, choose within the requested scope. Return the generated instructions and findings; this method does not start product implementation. Use the **test-audit** skill for checks implemented as executable tests.
 

@@ -34,7 +34,7 @@ Keep the caller's goal, issue, effort branch, settled answers and authority. Reu
 
 5. **Capture design freeze.**
 
-   1. Write the feature file's account of what the product can do with the **create-verification-skill** skill's `## 3. Seed the feature map`. Every sentence has a source in the winner, closed decisions, or glossary `CONTEXT.md`, and describes behavior the prototype demonstrates. Use the product UI's language, retaining the format's English headings.
+   1. Write the feature file's account of what the product can do by reading the **create-verification-skill** skill's `references/feature-map.md`. This reads the shared format without invoking full generation. Every sentence has a source in the winner, closed decisions, or glossary `CONTEXT.md`, and describes behavior the prototype demonstrates. Use the product UI's language, retaining the format's English headings.
 
    2. The owner says "That's it" on the real page. This is design freeze, the single approval of the prototype. Do not ask them to approve the feature file's sentences too.
    3. Commit that part of the feature file before writing tests. Only the environment tools, mount point, and prototype precede it on the effort branch.
