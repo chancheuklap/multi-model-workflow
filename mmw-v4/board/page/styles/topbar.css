@@ -4,7 +4,7 @@
   background: var(--panel-2); border-bottom: 1px solid var(--rule); min-width: 0;
 }
 .brand { display: flex; align-items: baseline; gap: var(--sp-8); white-space: nowrap; }
-.brand-mark { font-weight: var(--w-bold); letter-spacing: var(--track-loose); font-size: var(--t-body); }
-.brand-name { font-family: var(--serif); font-style: italic; font-size: var(--t-title); color: var(--soft); }
-.brand-repo { font-family: var(--mono); font-size: var(--t-meta); color: var(--faint); }
+.brand-mark, .brand-name { font-family: var(--serif); font-style: italic; font-weight: var(--w-regular); font-size: var(--t-title); }
+.brand-name { color: var(--soft); }
+.brand-repo { font-family: var(--sans); font-size: var(--t-body); color: var(--muted); }
 .counters { margin-left: auto; }
