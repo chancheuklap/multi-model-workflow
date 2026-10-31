@@ -62,3 +62,21 @@ test("failed reads wait a full retry interval and honor the server pause", async
   assert.equal(period, 120000);
   feed.stop();
 });
+
+test("cached responses at the rounded freshness boundary never spin", async () => {
+  let tick, period;
+  let time = Date.parse('2026-10-31T00:00:59.100Z');
+  const feed = startBoardFeed({
+    read: async () => ({read_at: '2026-10-31T00:00:00Z'}),
+    isVisible: () => true,
+    now: () => time,
+    setTimer(callback, milliseconds) { tick = callback; period = milliseconds; return 1; },
+    clearTimer() {},
+  });
+  await Promise.resolve();
+  time += period;
+  tick();
+  await Promise.resolve();
+  assert.ok(period > 0, 'a cached response must not schedule immediate repeated GETs');
+  feed.stop();
+});

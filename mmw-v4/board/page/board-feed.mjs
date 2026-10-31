@@ -19,7 +19,7 @@ export function startBoardFeed({
     const readAt = Date.parse(latest?.read_at);
     const retryAt = Date.parse(latest?.read_failed?.retry_at);
     const due = latest?.read_failed || !Number.isFinite(readAt) ? now() + 60000 : readAt + 60000;
-    timer = setTimer(() => void run(false), Math.max(0, due - now(), (retryAt || 0) - now()));
+    timer = setTimer(() => void run(false), Math.max(1000, due - now(), (retryAt || 0) - now()));
   };
   const run = force => {
     if (stopped) return Promise.resolve(latest);
