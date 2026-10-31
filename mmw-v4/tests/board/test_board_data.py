@@ -296,11 +296,6 @@ class BoardDataTest(unittest.TestCase):
             self.assertIn(f'If-None-Match: "{tag}"', reads[1])
 
     def test_a_ticket_that_closed_between_polls_is_read_once_more(self):
-        # `finished` weighs a ticket's state on the tracker against its own ledger, so the
-        # two have to be read at the same poll. The comments of a ticket that closed since
-        # the last one were read while it was still open: the poll that first sees it
-        # closed must read them again, or the board keeps drawing a landed ticket from a
-        # ledger in which its worker is still at work.
         data = scenario()
         data["trees"] = [tree_fixture(), closing(tree_fixture(), 12)]
         data["comments"]["12"] = [
