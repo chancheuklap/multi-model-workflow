@@ -1,0 +1,102 @@
+WIRING OK
+HOST NEUTRALITY OK
+### unittest
+EE
+======================================================================
+ERROR: test_brief_liveness (unittest.loader._FailedTest.test_brief_liveness)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_brief_liveness
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/loader.py", line 433, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/loader.py", line 374, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/tests/liveness/test_brief_liveness.py", line 17, in <module>
+    from test_liveness import HERE_MACHINE, MAIN, Clock, FakeBoard, Recorder, StateCase, dog  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/tests/liveness/test_liveness.py", line 26, in <module>
+    dog = load("mmw_watchdog_under_test", "watchdog.py")
+  File "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/tests/liveness/test_liveness.py", line 22, in load
+    spec.loader.exec_module(module)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/skills/dispatch/scripts/watchdog.py", line 175, in <module>
+    MARGIN = ADAPTER_TIMEOUT + relay_mod.GH_TIMEOUT
+                               ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'relay' has no attribute 'GH_TIMEOUT'. Did you mean: 'SEND_TIMEOUT'?
+
+
+======================================================================
+ERROR: test_liveness (unittest.loader._FailedTest.test_liveness)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_liveness
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/loader.py", line 433, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/loader.py", line 374, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/tests/liveness/test_liveness.py", line 26, in <module>
+    dog = load("mmw_watchdog_under_test", "watchdog.py")
+  File "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/tests/liveness/test_liveness.py", line 22, in load
+    spec.loader.exec_module(module)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/skills/dispatch/scripts/watchdog.py", line 175, in <module>
+    MARGIN = ADAPTER_TIMEOUT + relay_mod.GH_TIMEOUT
+                               ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'relay' has no attribute 'GH_TIMEOUT'. Did you mean: 'SEND_TIMEOUT'?
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+FAILED (errors=2)
+### unittest failed
+
+### turn-guard.py end to end
+### each host ends its turn even when the watchdog cannot start
+FAIL claude Stop: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+FAIL codex Stop: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+ok   an unknown host blocks nothing
+grep: /var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/guard.log: No such file or directory
+FAIL guard.log has no failed arm
+### any session arms an open watch
+FAIL a worker's turn ends: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+FAIL a process with no session ends: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+FAIL an unreadable payload ends: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+FAIL unreadable watches still let the turn end: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/tests/liveness/test_guard.sh: line 106: /var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/guard.log: No such file or directory
+FAIL no open watch: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+/Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/mmw-v4/tests/liveness/test_guard.sh: line 106: /var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/guard.log: No such file or directory
+ok   a closed watch is not armed
+### the hook re-arms the watchdog, and a healthy one lets the turn end
+FAIL claude Stop with the real watchdog.py armed by the hook: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+Traceback (most recent call last):
+  File "/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/owned.py", line 4, in <module>
+    lock = json.loads((state / "watchdog.lock").read_text())
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py", line 787, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py", line 771, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/watchdog.lock'
+FAIL the armed watchdog is not holding its lock with its own heartbeat
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; print(json.load(open(sys.argv[1]))["pid"])
+                                     ~~~~^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/watchdog.lock'
+FAIL a second turn end finds it healthy: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; print(json.load(open(sys.argv[1]))["pid"])
+                                     ~~~~^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/watchdog.lock'
+FAIL a healthy watchdog was armed again: 0 arms, lock pid  then 
+
+passed 2, failed 12
+### turn-guard.py end to end failed
+
+failures above
