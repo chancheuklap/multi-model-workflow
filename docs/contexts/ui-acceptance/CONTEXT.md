@@ -18,7 +18,7 @@ The product repository's development commands and operating skill for starting t
 ### The acceptance side
 
 **`verify-<product>`**:
-The product-local verification skill holding its launch, observation, interaction, evidence and cleanup knowledge with its feature map. It supplies the product-specific commands used by acceptance tests.
+The product-local verification skill holding its launch, observation, interaction, evidence and cleanup knowledge with its feature map. Acceptance preparation first uses its recipe to build tests; implementation, review and delivery reuse its actual instructions and commands.
 _Avoid_: 产品验证技能
 
 **feature map**:
@@ -139,9 +139,6 @@ A project-local skill identifying the actual code and rule checked by a model ch
 
 **sync commit**:
 The code commit at which a formal check was last confirmed to describe the covered code. Advancing it records a completed correspondence check, not merely a passing stale model.
-
-**Prepare verification**:
-The to-tickets [shared entry](../../../mmw-v4/skills/to-tickets/references/ticket-format.md#prepare-verification) supplying missing product-check capability, reconciling relevant stale formal checks and preparing this ticket's acceptance. It is used by independent, batch and specialist preparation, not a new execution phase.
 
 ### Testing methods
 

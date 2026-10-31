@@ -44,7 +44,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 17. **A skill hands over understanding, then trusts the model.**
     Home: [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) facts 1 and 4.
 18. **A change to the skill text is proven by a fresh agent walking a real task with only its trigger when the change alters what an agent does in a task;** tests prove the scripts, not the text.
-    Home: [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md); **Authoring or modifying a skill**'s **Prove it, once**.
+    Home: [`WALKING-A-SKILL-SET.md`](WALKING-A-SKILL-SET.md); `mmw-mode` `references/prove-skill-change.md`.
 19. **Text for an agent leaves no branch without a way on and no choice unguided;** examples use a neutral domain; a refusal puts the next step in its first lines.
     Home: `writing-for-agents` `SKILL.md`; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `### Hand-offs`, `### Examples`, `### Refusals and output an agent reads`.
 
@@ -72,7 +72,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
 28. **A bug fix starts from a reproduction that goes red, every line of the ticket traces to runtime evidence, the fix lands as one ticket, and the reproduction is run again on the same surface.**
     Home: the `bug-fix` skill; the `test-audit` skill.
 29. **Proof happens on the real product, from every entry of the feature.**
-    Home: `principle-prove-it-works`; the `control-cli` and `control-ui` skills; the `create-verification-skill` skill.
+    Home: `principle-prove-it-works`; the `control-cli` and `control-ui` skills; the `create-verification-skill` skill's `references/generate.md` and `references/feature-map.md`.
 30. **The writer is not the judge, and a conclusion is judged once.**
     Home: **Work a ticket**; the `code-review` skill; **One ticket**; [`SKILL-SET-RULES.md`](SKILL-SET-RULES.md) `## Editing`.
 31. **Start from what exists, then decide whether to write;** less code, deep modules, delete before changing, no defence for what has not happened; the weight of the process follows the size of the task.
@@ -123,7 +123,7 @@ Each intent says what is kept and its home: the files whose text carries the rul
     Home: `principle-clean-up-owned-resources`; the `create-verification-skill`, `maintain-verification-skill`, `control-ui` and `control-cli` skills.
 
 45. **Formal checks describe real code, demonstrate sensitivity to a broken variant and state their limits; normal related edits update them, and maintenance reconciles changes that skipped that update.**
-    Home: the `create-formal-verification-skill` skill; the `maintain-formal-verification-skill` skill; the `to-tickets` skill's `references/ticket-format.md`; **Work a ticket**; the `code-review` skill's `references/tests-reviewer.md`.
+    Home: the `create-formal-verification-skill` skill; the `maintain-formal-verification-skill` skill; the `to-tickets` skill's `references/independent.md`, `references/batch.md` and `references/ticket-format.md`; **Work a ticket**; the `code-review` skill's `references/tests-reviewer.md`.
 
 ## Departures
 

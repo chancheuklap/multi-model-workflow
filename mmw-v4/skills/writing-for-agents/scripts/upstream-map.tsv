@@ -20,7 +20,7 @@ pstack	skills/benchmark-checklist/SKILL.md	mmw-v4/skills/benchmark-checklist/SKI
 pstack	skills/how/SKILL.md	mmw-v4/skills/how/SKILL.md
 pstack	skills/unslop/SKILL.md	mmw-v4/skills/unslop/SKILL.md
 pstack	skills/technical-writing/SKILL.md	mmw-v4/skills/technical-writing/SKILL.md
-e2e	create-verification-skill/SKILL.md	mmw-v4/skills/create-verification-skill/SKILL.md
+e2e	create-verification-skill/SKILL.md	mmw-v4/skills/create-verification-skill/references/generate.md
 pstack	skills/why/SKILL.md	mmw-v4/skills/why/SKILL.md
 pstack	skills/poteto-mode/SKILL.md	mmw-v4/skills/mmw-mode/SKILL.md
 pstack	skills/poteto-mode/scripts/worktree-audit.sh	mmw-v4/skills/mmw-mode/scripts/worktree-audit.sh

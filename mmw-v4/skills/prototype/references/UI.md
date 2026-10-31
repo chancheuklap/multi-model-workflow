@@ -43,7 +43,7 @@ Keep the caller's preparation record and effort worktree. A direct UI-candidate 
 
 Read the product's existing environment instructions and the caller's preparation results. Reuse a runnable local environment. If the environment needed by this prototype is missing, call the **create-verification-skill** skill's **Prepare environment** entry with this product, checkout, chosen stack and current prototype scope. Continue here with its returned launch instructions and seed data. An unmet prerequisite returns to the caller.
 
-This entry does not require a complete verify skill before it builds the UI. Full generation belongs to the to-tickets skill's **Prepare verification** when preparing executable work, or to an independently requested generation task.
+This entry does not require a complete verify skill before it builds the UI. The ticket or specialist preparation step first needing missing reusable capability calls **create-verification-skill**, **Generate and prove**, directly. Independently requested generation returns its own result; candidate-only and design-only requests stop at their requested results.
 
 Done when this checkout can run the product or standalone prototype needed by the current question, or the caller has its unmet prerequisite.
 
