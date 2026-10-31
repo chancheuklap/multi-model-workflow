@@ -1,0 +1,98 @@
+[
+  {
+    "file": "/Users/cheuklapchan/.codex/worktrees/c66b/multi-model-workflow/mmw-v4/board/board_data.py",
+    "sha256": "cbcf295ce6acd72434bf39534f29ec6d7c6c6c47b9c435bd76fce5dc9d268a5f",
+    "functions": [
+      {
+        "name": "finished",
+        "line": 41,
+        "calls": [],
+        "definition": "def finished(ticket: dict) -> bool:\n    \"\"\"Whether this ticket is done and its comments will not say anything new: its events\n    landed it, or it closed with nothing that will ever land, which is what an empty\n    `blocker_hold` says. A ticket taken through by hand, outside the pipeline, is written\n    no `ticket.landed` and can have no events at all; re-reading its comments every poll\n    for the rest of the board's life buys nothing. One that passed and has not landed yet\n    is still to come, and is read on. The page asks the same question the same way, in\n    `page/board-logic.mjs`'s `done`.\"\"\"\n    return bool(ticket['fold']['landed']) or ticket['blocker_hold'] == ''"
+      },
+      {
+        "name": "plan_read",
+        "line": 52,
+        "calls": [],
+        "definition": "def plan_read(last_tree_at: dt.datetime | None, tickets: list[dict], now: dt.datetime) -> dict:\n    \"\"\"Choose this poll's GitHub reads from cached state and an explicit clock.\"\"\"\n    stale = last_tree_at is None or (now - last_tree_at).total_seconds() >= 600\n    numbers = [ticket['n'] for ticket in tickets if not finished(ticket)]\n    return {'tree': stale, 'comments': numbers}"
+      },
+      {
+        "name": "handle",
+        "line": 320,
+        "calls": [
+          {
+            "line": 323,
+            "source": "STORE.answer()"
+          },
+          {
+            "line": 325,
+            "source": "STORE.answer()"
+          }
+        ]
+      },
+      {
+        "name": "answer",
+        "line": 261,
+        "calls": [
+          {
+            "line": 282,
+            "source": "self._read_trees()"
+          },
+          {
+            "line": 288,
+            "source": "comment_reader.read(_comments_address(number))"
+          },
+          {
+            "line": 293,
+            "source": "self._read_trees()"
+          },
+          {
+            "line": 298,
+            "source": "comment_reader.read(_comments_address(number))"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "/Users/cheuklapchan/.codex/worktrees/c66b/multi-model-workflow/mmw-v4/skills/dispatch/scripts/status.py",
+    "sha256": "c6a5ab645fd7b89249dcd75e734129aed1a706bda236f0df360f88e884f72d27",
+    "functions": [
+      {
+        "name": "batch_children",
+        "line": 842,
+        "calls": [
+          {
+            "line": 853,
+            "source": "spec_tree(spec)"
+          },
+          {
+            "line": 855,
+            "source": "read_ticket(n)"
+          },
+          {
+            "line": 866,
+            "source": "read_ticket(child_number)"
+          }
+        ]
+      },
+      {
+        "name": "print_summary",
+        "line": 877,
+        "calls": [
+          {
+            "line": 879,
+            "source": "spec_tree(spec)"
+          },
+          {
+            "line": 881,
+            "source": "read_ticket(n)"
+          },
+          {
+            "line": 883,
+            "source": "batch_children(spec, batch)"
+          }
+        ]
+      }
+    ]
+  }
+]

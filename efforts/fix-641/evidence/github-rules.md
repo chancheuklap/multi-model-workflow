@@ -1,0 +1,38 @@
+Question: What do official GitHub and gh documentation establish about efficient, correct API reads for a local board and relay?
+
+### Components Found
+- REST issue listing, https://docs.github.com/en/rest/issues/issues#list-repository-issues: supports `since`, `sort=updated`, direction, state, and pagination; issue endpoints can include pull requests.
+- REST issue comments, https://docs.github.com/en/rest/issues/comments: per-issue comments are ordered by ascending ID, with `since` filtering by last update. Repository-wide comments additionally offer created/updated sort. Both are paginated.
+- Conditional REST GET, https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests: most endpoints return ETag and many Last-Modified; a correctly authorized request returning 304 does not count against the primary rate limit.
+- GraphQL, https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api: primary query points are separate from REST's request-based primary allowance; query complexity, node limits, and timeouts still constrain batching.
+- gh api, https://cli.github.com/manual/gh_api: `--cache` caches responses for a specified duration; `--paginate` requests pages sequentially, and GraphQL pagination requires cursor and pageInfo fields. The manual does not establish ETag revalidation, cache invalidation guarantees, or freshness beyond duration; do not equate this cache with conditional GET.
+
+### Flow
+1. A client can ask for repository issues last updated strictly after an ISO-8601 second timestamp; choose state explicitly, since default is open. The endpoint uses page numbers and allows up to 100 per page. Follow Link headers rather than constructing page URLs. Source: https://docs.github.com/en/rest/issues/issues#list-repository-issues and https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api.
+2. For repeated identical page requests, retain the response body and page-specific validator and issue a conditional GET for that same representation. A 304 permits reuse of the retained body; a 200 supplies new body and validator. Authentication is essential to the documented primary-quota exemption. Keep page, size, filters, media type and authorization context consistent. GitHub says different parameters yield different ETags. https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#make-requests-that-can-be-cached
+3. Validators apply to each representation, not the entire collection. GitHub warns `sort=updated` moves records between pages; additions and removals can shift entries even under stable ordering. Checking only page one does not prove later pages unchanged. Pages fetched at different times have no documented coherent snapshot guarantee; concurrent changes can cause missing or duplicate records. This is an inference from documented shifting and absence of a snapshot guarantee, not a claim that every scan fails.
+4. Per-issue comment `since` returns surviving comments last updated strictly after the time, including edits; ascending ID order is not update order, so stopping early by timestamp is unsafe. Repository-wide listing can sort by update, but still is paginated and not documented as a deletion log. A deleted comment is absent, not a tombstone in the documented list. Webhook `issue_comment` has created, edited and deleted events, subject to delivery handling. https://docs.github.com/en/rest/issues/comments#list-issue-comments and https://docs.github.com/en/webhooks/webhook-events-and-payloads#issue_comment
+5. Do not assume issue `updated_at`, issue comment count, or an incremental issue list catches every comment edit or deletion. The issue-list documentation does not promise that relationship. Likewise an unchanged count cannot distinguish an edit or a deletion followed by creation. Reconciliation of complete visible comment sets can detect absence subject to pagination and access caveats; a 404 may also mean permission failure. Source: https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#do-not-ignore-errors.
+
+### Files Read
+No product source files; this assignment is official-documentation research only. Sources are linked above and below. No authenticated experiments or measurements were performed.
+
+### Boundaries
+REST primary rate limits are generally per authenticated user and depend on authentication; search has a distinct resource budget. GraphQL primary points are separately calculated, with user allowance commonly 5,000 points/hour. Exact allowance depends on identity and app context. https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api and https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api
+
+Secondary limits also apply, including at most 100 concurrent requests shared across REST and GraphQL, endpoint point limits, CPU time and undisclosed rules. Most REST GETs and GraphQL queries cost one secondary point, but exceptions exist; 304 primary exemption does not establish exemption from secondary limits. GitHub recommends serial requests, not aiming at the 100-concurrent ceiling. A rate-limit error requires waiting for Retry-After if present; if remaining is zero also honor reset, otherwise wait at least one minute, then exponential backoff on repeated secondary failures and stop after bounded retries. REST reports 403 or 429; GraphQL can return HTTP 200 with an error. See the rate-limit pages above and https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#handle-rate-limit-errors-appropriately.
+
+### Non-Obvious Things
+- Strict `since` timestamps have second precision; using the last observed timestamp as an exclusive watermark can miss equal-timestamp updates. Overlap and deduplicate by stable ID is a reasonable inference, not a completeness guarantee for moving pages or deletion.
+- Stable sort helps validators but does not make pagination atomic. Updated sort aids incremental ordering but increases page churn; there is no universal best choice independent of required freshness and completeness.
+- Fewer gh subprocesses, HTTP requests, primary points, secondary points, payload bytes and elapsed time are different quantities. GraphQL batching may reduce requests while increasing query cost or response work; documentation alone cannot establish an actual speedup.
+- GitHub prefers webhooks to polling, while efficient authenticated conditional polling is its fallback. A local application may have practical webhook constraints; docs do not decide its architecture.
+
+### Open Questions
+The official issue-list endpoint does not state whether every comment creation, edit, or deletion updates the parent issue timestamp. Treat that as unverified, not as a documented detection mechanism. The official gh manual does not describe cache key details or revalidation; implementation-specific claims require separate inspection. No official consistency guarantee for multi-page results was found in the cited docs. No actual rate, traffic, response time, or product behavior was measured.
+
+### Recommendation bounded by documentation
+Use the least data and polling frequency the product needs, follow pagination and rate-limit instructions, retain page-specific conditional validators when appropriate, and ensure deletion and concurrent pagination assumptions are explicit. Choose a reconciliation approach only after the calling session checks current product behavior and freshness requirements; documentation does not prove a particular architecture or speedup.
+
+## Problems
+None
