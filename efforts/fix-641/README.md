@@ -1,8 +1,10 @@
-# #641 优化方案，实施准备 #1480
+# #641 已确认方案与实施验收 #1480
 
 Playbook: Develop a change
 
-本轮交付是优化方案。[#641](https://github.com/chancheuklap/multi-model-workflow/issues/641) 是保留原文的来源报告；[#1480](https://github.com/chancheuklap/multi-model-workflow/issues/1480) 是独立的准备记录，承载方案与验收。按 to-tickets Open 的既有 effort branch 规则保留 `fix-641` 和本目录中的准备资产。主人要求保持现有 UI，解决任务板性能、状态一致性和整个 MMW 的 GitHub API 调用。产品代码尚未修改，尚未开启实施 watch。
+本目录保存已确认的方案、原产品基线和实施验收。[#641](https://github.com/chancheuklap/multi-model-workflow/issues/641) 是保留原文的来源报告；[#1480](https://github.com/chancheuklap/multi-model-workflow/issues/1480) 是独立的实现记录。按 to-tickets Open 的既有 effort branch 规则保留 `fix-641` 和本目录中的准备资产。主人限定保持现有 UI，解决任务板性能、状态一致性和 MMW GitHub API 调用。
+
+以下方案记录实施前确认的现状和目标。实施后已通过 11 项票内验收、原页面复验和 20 项全库检查，并合入 `fix-641`，证据见 [执行器验收](evidence/final/verification.md)。安装和发布另由主人决定。
 
 方案先删除重复读取和错误的停读条件，在现有 BoardStore、事件解释和 API 读取工具内完成。页面布局、控件、字段、状态词和操作路径保持现状。
 
