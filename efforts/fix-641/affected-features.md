@@ -9,6 +9,6 @@
 | 顶栏 | .agents/skills/verify-task-board/features/topbar.md | 修复现有计数、读取状态与刷新承诺；保留仓库身份、计数、跳转和配置入口 |
 | 任务列表 | .agents/skills/verify-task-board/features/tasks.md | 保留呈现、选择及切换行为，不改默认选择策略 |
 
-任务列表、画布和详情的 feature 文件当前标记 Tests: none。顶栏现有 Proof 仅证明仓库名和配置入口，不足以证明状态一致性或刷新行为。本轮从实际产品及已复现需求补必要的 Repair 或 Preserve behavior 证明，无需设计 winner。
+画布、详情和顶栏已登记 `tests/e2e/task-board/issue-641.e2e.ts`。两项修复在原产品上因红线和 review 阶段的实际症状失败；原有选择、详情及配置操作的保留测试通过，破坏配置按钮后的反例失败，恢复后再次通过。任务列表没有改变选择策略，保留原有呈现。来源是实际产品和已复现需求，无需设计 winner。
 
 本机配置及其他未改功能保持原状。后端读取与 MMW 命令在自己的 I/O 边界验证，不用页面测试重复检查内部调用形状。

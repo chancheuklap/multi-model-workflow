@@ -56,3 +56,39 @@ python3 efforts/fix-641/diagnose.py benchmark
 沿用同一 workload，分别证明新鲜结果的重复 GET 不再新增 GitHub 读取，以及过期或手动刷新确实重新读到修改后的数据。不能只把全部请求缓存后宣称提速。补上原页面的固定产品验收与既有操作的保留证明，再交替复测五轮。
 
 冷启动、真正刷新一轮、warm GET 的等待及 GitHub 调用分别报告。当前循环未覆盖真实限流、分页移动或 relay 唤醒，这些边界交由对应读取工具和 relay 的针对性隔离验证。
+
+## 固定产品验收与行为保留
+
+`tests/e2e/task-board/issue-641.e2e.ts` 已登记到画布、详情与顶栏的 feature 文件。测试通过 stdin 管理隔离后端，关闭时结束 stdin，让 RunningBoard 的正常清理执行，既不写真实票据，也不把静态 `/api/board` 回答当成后端修复证明。
+
+完整产品命令：
+
+```bash
+npm ci --prefix tests/e2e/task-board --silent && npm exec --prefix tests/e2e/task-board -- e2e run issue-641.e2e.ts --config tests/e2e/task-board/e2e.config.ts --target product --trace on --output .e2e/issue-641-product
+```
+
+两项修复在原产品上行为失败，实际断言分别是 blocked 线应为 0、实际为 1，以及最新阶段应为 working、实际为 review。新增的原有行为保留测试操作选择、详情、配置打开与关闭，原产品通过。临时只破坏配置按钮的 accessible name，保留测试在该按钮失败；原文件在 finally 中恢复，git diff 确认无产品修改，恢复后同一测试再次通过。相关摘要保存在 [product-tests.json](baseline/product-tests.json)，完整 trace 在项目 e2e 的独立输出目录中。
+
+保留测试可单独运行，在完整命令中增加 `--grep 'existing board selection'`。本轮没有用截图比较宣称所有像素相同，页面结构和 CSS 不进入 worker 的 Owns。
+
+`python3 -m unittest discover -s mmw-v4/tests/dispatch -p test_status.py` 在基线上运行了 90 个测试，全部通过，正常总结和路由语义作为保留契约。
+
+## 首次打开的根查询
+
+真实 GitHub 的现有 smoke 在 5 秒内没有显示仓库名，未到配置按钮。三个原命令随后分别成功，但串行网络等待超过该测试窗口。复用现有 GraphQL 变量调用方式，实验一次返回仓库身份、open map、open spec 和 pageInfo：
+
+```bash
+python3 efforts/fix-641/prototypes/641/EXP/root-read.py
+```
+
+判定条件先记录在 #641 评论中：身份和两类根列表相同，单页由 3 次 gh 调用减为 1 次。每种 5 轮交替，所有结果匹配，0 错误。原路径中位 5.93 秒，范围 4.66–6.52 秒；合并查询中位 1.54 秒，范围 1.26–2.04 秒。原始回答和各轮见 [root-read.json](baseline/root-read.json)。这只证明空根列表的根发现阶段，不是非空多页的完整性、候选页面提速或额度收费测量。
+
+单独的未计入对比轮次的 cProfile 显示，原路径时间几乎都在等待 gh 的管道结果，Python 计算并非瓶颈，见 [root-profile.txt](baseline/root-profile.txt)。测量前为 18 逻辑核，load average 2.70/2.59/2.57。两侧使用同一机器、仓库、认证、生产 gh 参数，无额外 gh 缓存，并检查返回内容相等。
+
+结论是采用合并根查询，生产实现按 pageInfo 完整遍历，补非空、多页及 map 内 spec 的测试。可复用部分仅为 EXP 的 QUERY 和 merged 的参数及结果读取方式，实验的一页断言不是生产实现。它替换 BoardStore 的仓库身份与两个列表命令，不新建一层服务。
+
+## 限流暂停的反馈环
+
+`python3 efforts/fix-641/diagnose.py pause` 对已有 ConditionalListReader 提供一次 HTTP 429、Retry-After: 120，再立即请求同一地址。原实现实际发出 2 次 GitHub I/O，反馈环退出 1。预期是在暂停期不重复请求，成功时只打印 GITHUB_PAUSE_REPLAY_MET。
+
+这是对读取工具如何消费 GitHub 回答的隔离证明，不是声称本轮真实账户遭遇限流。生产修复还要证明调用循环和 clone 保留暂停信息、恢复后的 relay 行为，以及区别权限错误，不能只让这条最小反馈环通过。

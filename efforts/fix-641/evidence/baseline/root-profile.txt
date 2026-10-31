@@ -1,0 +1,18 @@
+Sat Oct 31 17:18:03 2026    .scratch/fix-641/root-read-profile.pstats
+
+         1428 function calls in 6.119 seconds
+
+   Ordered by: cumulative time
+   List reduced from 139 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    6.119    6.119 /Users/cheuklapchan/.codex/worktrees/c66b/multi-model-workflow/efforts/fix-641/prototypes/641/EXP/root-read.py:34(old)
+        3    0.000    0.000    6.119    2.040 /Users/cheuklapchan/.codex/worktrees/c66b/multi-model-workflow/efforts/fix-641/prototypes/641/EXP/root-read.py:27(gh)
+        3    0.000    0.000    6.119    2.040 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py:513(run)
+        3    0.000    0.000    6.112    2.037 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py:1177(communicate)
+        3    0.000    0.000    6.112    2.037 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py:2093(_communicate)
+        6    0.000    0.000    6.111    1.019 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/selectors.py:385(select)
+        6    6.111    1.019    6.111    1.019 {method 'poll' of 'select.poll' objects}
+        3    0.000    0.000    0.006    0.002 /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py:817(__init__)
+
+

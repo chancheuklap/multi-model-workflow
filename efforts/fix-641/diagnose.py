@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "mmw-v4/tests/board"))
 from board_process import RunningBoard
 from test_board_data import container, event, leaf, tickets
+from board_data import ghlist
 
 
 def ev(name, n, ident, second, **fields):
@@ -191,19 +192,59 @@ def browser_reproduce(output):
     return result
 
 
+def serve(scenario):
+    data = workload()
+    data["comment_active"]["11"] = 3 if scenario == "review-return" else 0
+    with isolated_board(data) as board:
+        print(json.dumps({"origin": board.origin}), flush=True)
+        for command in sys.stdin:
+            if command.strip() != "land":
+                raise ValueError(f"unknown fixture command: {command.strip()}")
+            data["tree_active"], data["comment_active"]["11"] = 1, 1
+            board.write_fixture(data)
+            print("landed", flush=True)
+
+
+def reproduce_pause(output):
+    calls = []
+    def limited(args):
+        calls.append(args)
+        return 1, 'HTTP/2 429 Too Many Requests\nRetry-After: 120\n\n{"message":"secondary rate limit"}', ''
+    reader = ghlist.ConditionalListReader(limited)
+    for _ in range(2):
+        try:
+            reader.read("repos/fixture/mmw-641/issues/11/comments?per_page=100")
+        except ghlist.ListReadError:
+            pass
+    result = [{"contract": "Retry-After prevents immediate repeat requests",
+               "passed": len(calls) == 1, "requests": len(calls), "retry_after_seconds": 120}]
+    (output / "pause-reproduction.json").write_text(json.dumps(result, indent=2))
+    return result
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("reproduce", "benchmark", "browser"))
+    parser.add_argument("mode", choices=("reproduce", "benchmark", "browser", "serve", "pause"))
+    parser.add_argument("--scenario", choices=("landed-edge", "review-return"), default="landed-edge")
     parser.add_argument("--output", type=Path, default=ROOT / ".scratch/fix-641/diagnosis")
     parser.add_argument("--tickets", type=int, default=12)
     parser.add_argument("--delay", type=float, default=0.05)
     parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--check-reuse", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    if args.mode == "benchmark":
+    if args.mode == "serve":
+        serve(args.scenario)
+    elif args.mode == "benchmark":
         result = benchmark(args.output, args.tickets, args.delay, args.repeats)
         print(json.dumps({k: v for k, v in result.items() if k != "runs"}, indent=2))
+        if args.check_reuse:
+            assert all(r["gh_commands"] == 0 for r in result["runs"]), "fresh GET repeated GitHub reads"
+            print("BOARD_FRESH_REUSE_MET")
     else:
-        result = reproduce(args.output) if args.mode == "reproduce" else browser_reproduce(args.output)
+        result = {"reproduce": reproduce, "browser": browser_reproduce, "pause": reproduce_pause}[args.mode](args.output)
         print(json.dumps(result, indent=2))
-        raise SystemExit(1 if any(not r["passed"] for r in result) else 0)
+        if any(not r["passed"] for r in result):
+            raise SystemExit(1)
+        print({"reproduce": "BOARD_STATE_REPLAY_MET", "browser": "BOARD_UI_REPLAY_MET",
+               "pause": "GITHUB_PAUSE_REPLAY_MET"}[args.mode])
