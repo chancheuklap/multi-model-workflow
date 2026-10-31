@@ -120,27 +120,61 @@ class BoardStore:
         except json.JSONDecodeError as exc:
             raise GitHubReadFailed("GitHub returned unreadable JSON") from exc
 
-    def _read_repo(self) -> str:
-        code, out, err = self.gh(["repo", "view", "--json", "nameWithOwner",
-                                  "--jq", ".nameWithOwner"])
-        if code != 0 or not out.strip():
-            raise GitHubReadFailed(_last_error(err, out, "GitHub did not name the repository"))
-        return out.strip()
+    def _read_roots(self) -> dict:
+        query = """query($o:String!, $n:String!, $mapsAfter:String, $specsAfter:String,
+                         $mapsMore:Boolean! = true, $specsMore:Boolean! = true) {
+          repository(owner:$o, name:$n) {
+            nameWithOwner
+            maps: issues(first:100, states:OPEN, labels:["mmw:map"], after:$mapsAfter)
+                @include(if:$mapsMore) {
+              nodes { number title state labels(first:100) { nodes { name } } }
+              pageInfo { hasNextPage endCursor }
+            }
+            specs: issues(first:100, states:OPEN, labels:["mmw:spec"], after:$specsAfter)
+                @include(if:$specsMore) {
+              nodes { number title state labels(first:100) { nodes { name } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }"""
+        result = {"maps": {}, "specs": {}}
+        pending = {"maps": None, "specs": None}
+        while pending:
+            args = ["api", "graphql", "-F", "o={owner}", "-F", "n={repo}", "-f", f"query={query}"]
+            for name in ("maps", "specs"):
+                args += ["-F", f"{name}More={'true' if name in pending else 'false'}"]
+                if pending.get(name):
+                    args += ["-f", f"{name}After={pending[name]}"]
+            raw = self._json(args)
+            try:
+                if raw.get("errors"):
+                    raise GitHubReadFailed(str(raw["errors"]))
+                repo = raw["data"]["repository"]
+                result["repo"] = repo["nameWithOwner"]
+                for name in list(pending):
+                    connection = repo[name]
+                    for node in connection["nodes"]:
+                        result[name][node["number"]] = {**node, "labels": node["labels"]["nodes"]}
+                    page = connection["pageInfo"]
+                    if not page["hasNextPage"]:
+                        del pending[name]
+                    else:
+                        cursor = page["endCursor"]
+                        if not cursor or cursor == pending[name]:
+                            raise GitHubReadFailed(f"the {name} root list did not advance its page")
+                        pending[name] = cursor
+            except (KeyError, TypeError) as exc:
+                raise GitHubReadFailed("GitHub returned incomplete repository roots") from exc
+        return {**result, "maps": list(result["maps"].values()),
+                "specs": list(result["specs"].values())}
 
-    def _list_open(self, label: str) -> list[dict]:
-        items = self._json(["issue", "list", "--state", "open", "--label", label,
-                            "--limit", "1000", "--json", "number,title,state,labels"])
-        if not isinstance(items, list):
-            raise GitHubReadFailed(f"the {label} list was not an array")
-        return items
-
-    def _read_trees(self) -> list[dict]:
+    def _read_trees(self, roots: dict) -> list[dict]:
         """One tree per top-level task: every open map, then every open spec that no open
         map holds as a child. A spec with no map above it is a task of its own, so a spec
         published straight from a conversation is on the board like any other."""
         result = []
         under_a_map: set[int] = set()
-        for item in self._list_open("mmw:map"):
+        for item in roots["maps"]:
             try:
                 read = tree.read(int(item["number"]), "map", gh=self.gh)
             except (KeyError, TypeError, ValueError, tree.TreeUnreadable) as exc:
@@ -149,7 +183,7 @@ class BoardStore:
             result.append(read)
             under_a_map.update(child["number"] for child in read.get("children", [])
                                if "number" in child)
-        for item in self._list_open("mmw:spec"):
+        for item in roots["specs"]:
             try:
                 number = int(item["number"])
             except (KeyError, TypeError, ValueError) as exc:
@@ -278,8 +312,9 @@ class BoardStore:
                         for ticket in spec["tickets"]]
                 plan = plan_read(last_tree_at, flat, now)
                 if plan["tree"]:
-                    repo = repo or self._read_repo()
-                    map_trees = self._read_trees()
+                    roots = self._read_roots()
+                    repo = roots["repo"]
+                    map_trees = self._read_trees(roots)
                     last_tree_at = now
 
                 structural = False
@@ -290,7 +325,7 @@ class BoardStore:
                     structural = structural or bool(_structural_keys(result) - old_structural)
 
                 if structural and not first_read:
-                    map_trees = self._read_trees()
+                    map_trees = self._read_trees(self._read_roots())
                     last_tree_at = now
                 new_numbers = [node["number"] for node in self._ticket_nodes(map_trees)
                                if node["number"] not in comments]
