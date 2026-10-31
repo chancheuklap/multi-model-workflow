@@ -839,7 +839,8 @@ def table(spec: int) -> int:
     return 0
 
 
-def batch_children(spec: int, batch: dict | None = None) -> list[dict]:
+def batch_children(spec: int, batch: dict | None = None,
+                   tickets: dict[int, dict] | None = None) -> list[dict]:
     """Every child this batch's tickets name, once each.
 
     A ticket's own fold names its children by `child.opened`, plus any the tree holds
@@ -852,7 +853,8 @@ def batch_children(spec: int, batch: dict | None = None) -> list[dict]:
     if batch is None:
         batch = spec_tree(spec)
     numbers = [t["number"] for t in tree.children(batch)]
-    tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
+    if tickets is None:
+        tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
     children: list[dict] = []
     seen: set[int] = set()
     for node in tree.children(batch):
@@ -880,7 +882,7 @@ def print_summary(spec: int) -> int:
     numbers = [t["number"] for t in tree.children(batch)]
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
     rows = build_rows(numbers, tickets)
-    print(summary(rows, night_opened(), children=batch_children(spec, batch)))
+    print(summary(rows, night_opened(), children=batch_children(spec, batch, tickets)))
     return 0
 
 
