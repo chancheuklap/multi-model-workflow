@@ -18,6 +18,7 @@ class ApiPauseContracts(unittest.TestCase):
                               ('X-RateLimit-Remaining: 0\nX-RateLimit-Reset: 1180', 180),
                               ('', 60)]:
             with self.subTest(headers=headers):
+                now[0] = 1000.0
                 calls = []
                 limited = [True]
                 def gh(args):
@@ -31,7 +32,11 @@ class ApiPauseContracts(unittest.TestCase):
                     with self.assertRaises(ghlist.ListReadError):
                         reader.read('repos/o/r/issues/11/comments?per_page=100')
                 self.assertEqual(len(calls), 1, 'no requests during server pause')
-                now[0] += wait
+                now[0] += wait - 0.001
+                with self.assertRaises(ghlist.ListReadError):
+                    reader.read('repos/o/r/issues/11/comments?per_page=100')
+                self.assertEqual(len(calls), 1, 'pause lasts until the required deadline')
+                now[0] += 0.001
                 limited[0] = False
                 self.assertEqual(reader.read('repos/o/r/issues/11/comments?per_page=100'), [])
                 self.assertEqual(len(calls), 2)
@@ -60,7 +65,7 @@ class ApiPauseContracts(unittest.TestCase):
                 return fake(args)
             reader = relay.ghlist.ConditionalListReader(external)
             reader.clock = lambda: now[0]
-            board = relay.Board('o/r', gh=fake, comment_reader=reader)
+            board = relay.Board('o/r', comment_reader=reader)
             state = Path(name)
             run = relay.Relay(state, board, send=sent, clock=clock, out=io.StringIO(), err=io.StringIO())
             run.open_watch({'tickets': [11, 12]}, 'paseo', 'main-a')
@@ -85,7 +90,45 @@ class ApiPauseContracts(unittest.TestCase):
             self.assertEqual([s[2] for s in sent.sent],
                              ['#11 ticket.passed', '#11 ticket.returned', '#12 ticket.passed'])
             fresh_reader = relay.ghlist.ConditionalListReader(external)
-            restarted = relay.Relay(state, relay.Board('o/r', gh=fake, comment_reader=fresh_reader),
+            restarted = relay.Relay(state, relay.Board('o/r', comment_reader=fresh_reader),
                 send=sent, clock=clock, out=io.StringIO(), err=io.StringIO())
             self.assertTrue(restarted.cycle(30, 90))
             self.assertEqual(len(sent.sent), 3, 'restart must not duplicate delivered wakes')
+
+    def test_successful_requests_reset_their_failure_streak(self):
+        now = [1000.0]
+        limited = [True]
+        def gh(args):
+            if limited[0]:
+                return 1, 'HTTP/2 429 Too Many Requests\nRetry-After: 60\n\n{}', ''
+            return 0, 'HTTP/2 200 OK\n\n{"data":{"repository":{}}}', ''
+        reader = ghlist.ConditionalListReader(gh)
+        reader.clock = lambda: now[0]
+        for _ in range(6):
+            limited[0] = True
+            with self.assertRaises(ghlist.ListReadError):
+                reader.request(['api', 'graphql', '-f', 'query=roots'])
+            now[0] += 60
+            limited[0] = False
+            self.assertEqual(reader.request(['api', 'graphql', '-f', 'query=roots'])[0], 0)
+
+    def test_other_successful_lists_do_not_reset_secondary_backoff(self):
+        now = [1000.0]
+        calls = []
+        def gh(args):
+            calls.append(args)
+            if 'comments' in args[2]:
+                return 1, 'HTTP/2 403 Forbidden\n\n{"message":"secondary rate limit"}', ''
+            return response(200, [])
+        reader = ghlist.ConditionalListReader(gh)
+        reader.clock = lambda: now[0]
+        for delay in (60, 120, 240, 480, 960):
+            reader.read('repos/o/r/issues/10/sub_issues?per_page=100')
+            with self.assertRaises(ghlist.ListReadError):
+                reader.read('repos/o/r/issues/11/comments?per_page=100')
+            self.assertEqual(reader.retry_at - now[0], delay)
+            now[0] += delay
+        before = len(calls)
+        with self.assertRaises(ghlist.ListReadError):
+            reader.read('repos/o/r/issues/11/comments?per_page=100')
+        self.assertEqual(len(calls), before)

@@ -236,7 +236,7 @@ import statedir  # noqa: E402
 from statedir import LockHeld  # noqa: E402
 import briefs  # noqa: E402
 import ghlist  # noqa: E402
-from ghlist import GH_TIMEOUT, quiet_env  # noqa: E402
+from ghlist import quiet_env  # noqa: E402
 
 
 def _load_events():
@@ -454,35 +454,11 @@ def overlap(want: dict, watches: dict[str, dict], children: dict[int, list[int]]
 
 # ----------------------------------------------------------------- reading the tracker
 
-def gh_list(args: list[str]) -> list:
-    """Run `gh` and read its answer as a list, pages flattened. Raises PollError otherwise."""
-    try:
-        run = subprocess.run(["gh", *args], capture_output=True, text=True,
-                             env=quiet_env(), timeout=GH_TIMEOUT)
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise PollError(f"gh could not be run: {exc}") from None
-    if run.returncode != 0:
-        raise PollError(ghlist.failure_reason(run.returncode, run.stdout, run.stderr))
-    try:
-        data = json.loads(run.stdout)
-    except ValueError:
-        raise PollError("gh answered with something that is not JSON") from None
-    if not isinstance(data, list):
-        raise PollError("gh answered with JSON that is not a list")
-    # `--slurp` answers with one list per page; a single page answered flat is read too.
-    flat: list = []
-    for page in data:
-        flat.extend(page if isinstance(page, list) else [page])
-    return flat
-
-
 class Board:
     """The tracker, read-only: comments of one issue, and the sub-issues of one issue."""
 
-    def __init__(self, repo: str, gh: Callable[[list[str]], list] = gh_list,
-                 comment_reader: ghlist.ConditionalListReader | None = None):
+    def __init__(self, repo: str, comment_reader: ghlist.ConditionalListReader | None = None):
         self.repo = repo
-        self.gh = gh
         self.comment_reader = comment_reader or ghlist.ConditionalListReader()
         self.comment_addresses: dict[int, str] = {}
 
@@ -508,12 +484,7 @@ class Board:
         """Each sub-issue of `number` as (number, state): the state lower case, `open` or
         `closed` as the REST answer gives it, empty when the answer carries none."""
         try:
-            self.comment_reader.ensure_ready()
-            if self.gh is gh_list:
-                rows = self.comment_reader.read(f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100")
-            else:
-                rows = self.gh(["api", "--paginate", "--slurp",
-                                f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100"])
+            rows = self.comment_reader.read(f"repos/{self.repo}/issues/{number}/sub_issues?per_page=100")
         except ghlist.ListReadError as exc:
             raise PollError(str(exc)) from None
         return [(int(r["number"]), str(r.get("state") or "").lower())
