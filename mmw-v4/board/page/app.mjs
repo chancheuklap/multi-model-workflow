@@ -98,6 +98,10 @@ export function mountPage(target = document, options = {}) {
   };
   const input = options.data || {};
   const apiClient = options.api || api;
+  let feed;
+  const topbarApi = {...apiClient, refresh: async () => feed
+    ? {ok: true, json: () => feed.refresh()}
+    : apiClient.refresh()};
   const fixedNow = input.now ? new Date(input.now) : null;
   const state = {
     payload: input.payload || {tasks: []},
@@ -158,7 +162,7 @@ export function mountPage(target = document, options = {}) {
       fixedNow || new Date(),
     );
     if (changed("topbar", JSON.stringify(topbarView))) {
-      topbar(slots.topbar, topbarView, apiClient, {
+      topbar(slots.topbar, topbarView, topbarApi, {
         onJumpNeedYou() {
           const next = nextOrange(list, state.sel);
           if (next && revealNode(next.node)) paint();
@@ -242,15 +246,19 @@ export function mountPage(target = document, options = {}) {
   paint();
   if (options.live !== false) {
     const doc = root.ownerDocument;
-    startBoardFeed({
-      read: async () => {
+    feed = startBoardFeed({
+      read: async force => {
         try {
-          const response = await apiClient.board();
+          const response = await (force ? apiClient.refresh() : apiClient.board());
           if (response.ok) return await response.json();
         } catch {}
-        return state.payload;
+        return {...state.payload, read_failed: {at: new Date().toISOString(), message: "GitHub did not answer"}};
       },
       isVisible: () => doc.visibilityState !== "hidden",
+      onVisibility(callback) {
+        doc.addEventListener("visibilitychange", callback);
+        return () => doc.removeEventListener("visibilitychange", callback);
+      },
       onData(data) {
         state.payload = data;
         if (!data.read_failed) state.hasSuccessfulPayload = true;
