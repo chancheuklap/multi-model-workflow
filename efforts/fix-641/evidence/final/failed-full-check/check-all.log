@@ -1,0 +1,107 @@
+tier --all: every step
+PASS self-check 0s
+PASS syntax (874 files) 1s
+PASS shared-checks 2s
+PASS lib 15s
+PASS check-interfaces 0s
+PASS e2e-task-board 10s
+PASS board 30s
+PASS diagram-design 1s
+FAIL dispatch 103s
+    --- another night in this repository, opened by another session, joins the one relay with its own orchestrator
+    --- a ticket of an open night is refused a watch of its own, and the night keeps its orchestrator
+    --- summary closes its night's watch, and the relay goes on for the other night
+    --- the last night's summary ends the relay
+    open failed: scenario_open exited 0, assertions 1
+    FAIL openticket (exit 1)
+    === openticket
+    --- open-ticket opens a watch of that ticket alone with this session as its orchestrator, and starts the relay
+    --- a ticket of a spec is not what this relay watches, so its start is refused
+    --- land ends the relay open-ticket started for it
+    --- land leaves a night's relay alone
+    --- a ticket outside the open night gets a watch of its own beside it, and the night keeps its orchestrator
+      FAILED: open-ticket 95 beside the night expected 0, got 2: relay: could not read the sub-issues of spec #76, so whether ticket #95 shares a ticket with another watch is not known: repos/o/r/issues/76/sub_issues?per_page=100: the response had no HTTP headers. Nothing was recorded; run it again once the tracker answers.
+    dispatch: the relay did not open the watch for paseo session agt_other (the reason is above), so nothing was opened
+      FAILED: relay 9901 should watch the night and #95: 9901 {"spec": 76}
+      FAILED: #95's orchestrator should be agt_other: {"spec:76": {"spec": 76, "runner": "paseo", "session": "agt_main", "at": "2026-09-10T00:00:00Z"}}
+    openticket failed: scenario_openticket exited 0, assertions 1
+    ### dispatch.sh failed
+    
+    failures above
+    full log: /Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/.scratch/check/20261031-180053/dispatch.log
+PASS exe-release 128s
+PASS install 215s
+FAIL liveness 1s
+               ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/watchdog.lock'
+    FAIL the armed watchdog is not holding its lock with its own heartbeat
+    Traceback (most recent call last):
+      File "<string>", line 1, in <module>
+        import json,sys; print(json.load(open(sys.argv[1]))["pid"])
+                                         ~~~~^^^^^^^^^^^^^
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/watchdog.lock'
+    FAIL a second turn end finds it healthy: want a silent exit 0; got rc=1 out= err=turn-guard: could not arm the watchdog: AttributeError("module 'relay' has no at
+    Traceback (most recent call last):
+      File "<string>", line 1, in <module>
+        import json,sys; print(json.load(open(sys.argv[1]))["pid"])
+                                         ~~~~^^^^^^^^^^^^^
+    FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.iPGDq0zNzY/home/state/o__r/watchdog.lock'
+    FAIL a healthy watchdog was armed again: 0 arms, lock pid  then 
+    
+    passed 2, failed 12
+    ### turn-guard.py end to end failed
+    
+    failures above
+    full log: /Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/.scratch/check/20261031-180053/liveness.log
+PASS session-start 2s
+FAIL relay 51s
+    --- one relay process per repository, and the queue says when no relay feeds it
+    RELAY-SINGLETON-OK
+    === nothing
+    --- a relay with nothing watched refuses to run
+    RELAY-NOTHING-OK
+    === openstopped
+    --- a watch whose orchestrator the runner says is stopped is refused, and nothing is recorded
+    RELAY-OPENSTOPPED-OK
+    === readonly
+    --- every call the relay makes to the tracker is a read
+      FAILED: no call matching: gh :: api :: --paginate :: --slurp :: repos/o/r/issues/50/sub_issues?per_page=100
+      FAILED: no call matching: gh :: api :: -i :: repos/o/r/issues/61/comments?per_page=100
+      FAILED: queue should read
+    1 61 ticket.passed main-a delivered
+    but reads
+    
+    readonly failed
+    ### relay.py end to end failed
+    
+    failures above
+    full log: /Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/.scratch/check/20261031-180053/relay.log
+PASS setup-mmw 5s
+PASS retro 30s
+PASS register-problem 8s
+FAIL verify-ticket 50s
+    ok   lint: a gate ledger over 8 MiB is refused before parsing
+    ok   lint: default warnings and strict warnings have distinct gate markers and exits
+    ok   lint: json reports counts and stays parseable
+    ok   lint: default output escapes terminal and bidi controls in finding data
+    ok   lint: JSON escapes terminal data while retaining pretty parseable output
+    ok   CLI: unknown-option diagnostics escape terminal and bidi controls
+    ok   lint: hostile field expansion stays bounded in text and JSON
+    ok   lint: finding count is capped without hiding totals or failure state
+    ok   CLI: help retains trusted multiline formatting
+    ok   lint: a ledger the shared parser rejects exits 2, not 1
+    ok   lint: multiple ledgers in one run are all honored
+    ok   lint: path ambiguity is sourced once from the shared parser
+    ok   CLI: an unknown short option exits 2
+    ok   CLI: the positional marker permits literal files named --help and -h
+    ok   lint: no arguments exits 2
+    
+    25/25 passed
+    ### gate-check passed
+    
+    failures above
+    full log: /Users/cheuklapchan/multi-model-workflow/.worktrees/issue-1480/.scratch/check/20261031-180053/verify-ticket.log
+PASS writing-for-agents 3s
+PASS worktree-audit 5s
+not run here: exe-release's PowerShell checks (mmw-v4/tests/exe-release/check-generated-powershell.sh, check-template-behaviour.sh): they need a Windows build machine
+CHECK FAIL all: 4 of 20 steps red (dispatch, liveness, relay, verify-ticket) in 660s
