@@ -1,0 +1,152 @@
+{
+  "issue-641-baseline": {
+    "run_id": "01a1913c-33a8-7801-abfc-11ec778ce0b6",
+    "exit": 1,
+    "summary": {
+      "discovered": 8,
+      "selected": 2,
+      "executed": 2,
+      "passed": 0,
+      "failed": 2,
+      "interrupted": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "tests": [
+      {
+        "title": [
+          "manual refresh releases an upstream that GitHub closed and landed"
+        ],
+        "status": "failed"
+      },
+      {
+        "title": [
+          "a worker that resumes after review has working as its latest event phase"
+        ],
+        "status": "failed"
+      }
+    ]
+  },
+  "issue-641-pin": {
+    "run_id": "01a1913e-36cb-7cd6-8f4e-2643a468e1a7",
+    "exit": 0,
+    "summary": {
+      "discovered": 9,
+      "selected": 1,
+      "executed": 1,
+      "passed": 1,
+      "failed": 0,
+      "interrupted": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "tests": [
+      {
+        "title": [
+          "existing board selection and settings controls remain usable"
+        ],
+        "status": "passed"
+      }
+    ]
+  },
+  "issue-641-pin-control": {
+    "run_id": "01a1913e-6e4a-7f47-9747-d3a7c5e21f9c",
+    "exit": 1,
+    "summary": {
+      "discovered": 9,
+      "selected": 1,
+      "executed": 1,
+      "passed": 0,
+      "failed": 1,
+      "interrupted": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "tests": [
+      {
+        "title": [
+          "existing board selection and settings controls remain usable"
+        ],
+        "status": "failed"
+      }
+    ]
+  },
+  "issue-641-pin-restored": {
+    "run_id": "01a1913e-fbd7-7052-8624-7a2959579868",
+    "exit": 0,
+    "summary": {
+      "discovered": 9,
+      "selected": 1,
+      "executed": 1,
+      "passed": 1,
+      "failed": 0,
+      "interrupted": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "tests": [
+      {
+        "title": [
+          "existing board selection and settings controls remain usable"
+        ],
+        "status": "passed"
+      }
+    ]
+  },
+  "issue-641-preserve": {
+    "run_id": "01a1913c-ea7a-766c-9b4a-7e30a11c0f93",
+    "exit": 1,
+    "summary": {
+      "discovered": 8,
+      "selected": 1,
+      "executed": 1,
+      "passed": 0,
+      "failed": 1,
+      "interrupted": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "tests": [
+      {
+        "title": [
+          "the board opens on this repository and its settings sheet opens from the gear"
+        ],
+        "status": "failed"
+      }
+    ]
+  },
+  "issue-641-prepared": {
+    "run_id": "01a19142-108b-7e10-8721-21a4a4e631bb",
+    "exit": 1,
+    "summary": {
+      "discovered": 9,
+      "selected": 3,
+      "executed": 3,
+      "passed": 1,
+      "failed": 2,
+      "interrupted": 0,
+      "flaky": 0,
+      "skipped": 0
+    },
+    "tests": [
+      {
+        "title": [
+          "existing board selection and settings controls remain usable"
+        ],
+        "status": "passed"
+      },
+      {
+        "title": [
+          "manual refresh releases an upstream that GitHub closed and landed"
+        ],
+        "status": "failed"
+      },
+      {
+        "title": [
+          "a worker that resumes after review has working as its latest event phase"
+        ],
+        "status": "failed"
+      }
+    ]
+  }
+}

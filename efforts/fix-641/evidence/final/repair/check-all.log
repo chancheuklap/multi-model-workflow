@@ -1,0 +1,23 @@
+tier --all: every step
+PASS self-check 0s
+PASS syntax (874 files) 1s
+PASS shared-checks 1s
+PASS lib 16s
+PASS check-interfaces 0s
+PASS e2e-task-board 10s
+PASS board 30s
+PASS diagram-design 1s
+PASS dispatch 109s
+PASS exe-release 125s
+PASS install 217s
+PASS liveness 6s
+PASS session-start 2s
+PASS relay 60s
+PASS setup-mmw 6s
+PASS retro 30s
+PASS register-problem 7s
+PASS verify-ticket 47s
+PASS writing-for-agents 4s
+PASS worktree-audit 5s
+not run here: exe-release's PowerShell checks (mmw-v4/tests/exe-release/check-generated-powershell.sh, check-template-behaviour.sh): they need a Windows build machine
+CHECK PASS all: 20 steps in 677s

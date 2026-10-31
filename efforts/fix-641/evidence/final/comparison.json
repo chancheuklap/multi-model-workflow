@@ -1,0 +1,336 @@
+{
+  "scope": "controlled 12-ticket HTTP workload with 50ms injected gh delay; warm successful snapshot, not live GitHub speed or quota",
+  "old_commit": "b967d973b22f70d3705cc5edfebe0c3b3fa88917",
+  "candidate_commit": "c2c6afc55d92158597697abcdf6ffb3d5974e262",
+  "errors": 0,
+  "runs": [
+    {
+      "version": "old",
+      "round": 0,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 1.2504339170118328,
+      "client_seconds": [
+        1.2491834579850547
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "version": "old",
+      "round": 0,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 2.492050125001697,
+      "client_seconds": [
+        1.2354639580007643,
+        2.4917263750103302
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "version": "candidate",
+      "round": 0,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 0.0022537089826073498,
+      "client_seconds": [
+        0.0010698749974835664
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "candidate",
+      "round": 0,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 0.0017671250097919255,
+      "client_seconds": [
+        0.0014389579882845283,
+        0.0009672500018496066
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "candidate",
+      "round": 1,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 0.002324458007933572,
+      "client_seconds": [
+        0.0011843749962281436
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "candidate",
+      "round": 1,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 0.0017608340131118894,
+      "client_seconds": [
+        0.0014445419947151095,
+        0.0010149580193683505
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "old",
+      "round": 1,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 1.222096083976794,
+      "client_seconds": [
+        1.220905624999432
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "version": "old",
+      "round": 1,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 2.4684388329915237,
+      "client_seconds": [
+        2.467941749986494,
+        1.2263449160091113
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "version": "old",
+      "round": 2,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 1.2522957919863984,
+      "client_seconds": [
+        1.2510578749934211
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "version": "old",
+      "round": 2,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 2.451605209003901,
+      "client_seconds": [
+        1.2304774999793153,
+        2.45126075000735
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "version": "candidate",
+      "round": 2,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 0.0024561659956816584,
+      "client_seconds": [
+        0.001207916997373104
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "candidate",
+      "round": 2,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 0.0017661659803707153,
+      "client_seconds": [
+        0.0009277919889427722,
+        0.0015511249948758632
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "candidate",
+      "round": 3,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 0.002226708980742842,
+      "client_seconds": [
+        0.0011003340187016875
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "candidate",
+      "round": 3,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 0.001712750003207475,
+      "client_seconds": [
+        0.001407250005286187,
+        0.0009611250134184957
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "old",
+      "round": 3,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 1.2395242500060704,
+      "client_seconds": [
+        1.238260791025823
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "version": "old",
+      "round": 3,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 2.475312541995663,
+      "client_seconds": [
+        2.474886707990663,
+        1.2429881249845494
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "version": "old",
+      "round": 4,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 1.2251787919958588,
+      "client_seconds": [
+        1.2238922499818727
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "version": "old",
+      "round": 4,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 2.444800208992092,
+      "client_seconds": [
+        1.2245305839751381,
+        2.444438375008758
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "version": "candidate",
+      "round": 4,
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 0.002237583015812561,
+      "client_seconds": [
+        0.0011272919946350157
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    },
+    {
+      "version": "candidate",
+      "round": 4,
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 0.0017332080169580877,
+      "client_seconds": [
+        0.0013954999740235507,
+        0.0009590410045348108
+      ],
+      "gh_commands": 0,
+      "errors": 0,
+      "conditional_comments": 0
+    }
+  ],
+  "summary": {
+    "old-1": {
+      "median_seconds": 1.2395242500060704,
+      "range_seconds": [
+        1.222096083976794,
+        1.2522957919863984
+      ],
+      "calls": [
+        12,
+        12,
+        12,
+        12,
+        12
+      ]
+    },
+    "old-2": {
+      "median_seconds": 2.4684388329915237,
+      "range_seconds": [
+        2.444800208992092,
+        2.492050125001697
+      ],
+      "calls": [
+        24,
+        24,
+        24,
+        24,
+        24
+      ]
+    },
+    "candidate-1": {
+      "median_seconds": 0.0022537089826073498,
+      "range_seconds": [
+        0.002226708980742842,
+        0.0024561659956816584
+      ],
+      "calls": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "candidate-2": {
+      "median_seconds": 0.0017608340131118894,
+      "range_seconds": [
+        0.001712750003207475,
+        0.0017671250097919255
+      ],
+      "calls": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

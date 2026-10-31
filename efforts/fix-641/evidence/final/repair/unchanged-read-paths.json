@@ -1,0 +1,26 @@
+{
+  "candidate": "b562324d58e1c53e25100f6437e79323d5c6d7f8",
+  "measured_candidate": "c2c6afc55d92158597697abcdf6ffb3d5974e262",
+  "files": [
+    {
+      "path": "mmw-v4/board/board_data.py",
+      "identical": true,
+      "sha256": "c903134ff3451b240b5653843394e6a445e3f4bab7c4309c996663988c053c7b"
+    },
+    {
+      "path": "mmw-v4/board/page/board-feed.mjs",
+      "identical": true,
+      "sha256": "0b3143e3874a29b0da0d1edae249bc29668d5d1f3284bdfdbc462bb7bcf0ad5f"
+    },
+    {
+      "path": "mmw-v4/skills/dispatch/scripts/ghlist.py",
+      "identical": true,
+      "sha256": "9f94045cac78174a1f43c59dc598e14d91b2db0a491871ebe847a88568b8a215"
+    },
+    {
+      "path": "mmw-v4/skills/dispatch/scripts/status.py",
+      "identical": true,
+      "sha256": "0e68a40ee69189ac47cbd15f50ff9bab86e624cad4b567d1207c15200dc2b7b6"
+    }
+  ]
+}

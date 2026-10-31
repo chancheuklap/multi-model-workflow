@@ -140,10 +140,17 @@ def fixture_store(directory, data, clock):
 
 def prepared_store(gh):
     now = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
-    store = board_data.BoardStore(gh=gh, clock=lambda: now)
-    store.map_trees = [board_data.tree._node(tree_fixture(), "#1")]
-    store.last_tree_at = now
-    return store
+    def full_gh(args):
+        if args[:2] == ["api", "graphql"]:
+            root = next((a for a in args if a.startswith("root=")), None)
+            if root:
+                return 0, json.dumps({"data": {"repository": {"issue": tree_fixture()}}}), ""
+            node = {"number": 1, "title": "task", "state": "OPEN", "labels": {"nodes": [{"name": "mmw:map"}]}}
+            return 0, json.dumps({"data": {"repository": {"nameWithOwner": "fixture/board",
+                "maps": {"nodes": [node], "pageInfo": {"hasNextPage": False}},
+                "specs": {"nodes": [], "pageInfo": {"hasNextPage": False}}}}}), ""
+        return gh(args)
+    return board_data.BoardStore(gh=full_gh, clock=lambda: now)
 
 
 class BoardDataTest(unittest.TestCase):
@@ -179,7 +186,7 @@ class BoardDataTest(unittest.TestCase):
 
         store = prepared_store(gh)
         first_answer = store.answer()
-        second_answer = store.answer()
+        second_answer = store.answer(force=True)
         self.assertEqual([row["comment"] for row in tickets(first_answer)[12]["events"]],
                          [1201, 1202])
         self.assertEqual(tickets(second_answer)[12]["events"], tickets(first_answer)[12]["events"])
@@ -215,7 +222,7 @@ class BoardDataTest(unittest.TestCase):
 
         store = prepared_store(gh)
         self.assertEqual(len(tickets(store.answer())[12]["events"]), 100)
-        self.assertEqual(len(tickets(store.answer())[12]["events"]), 101)
+        self.assertEqual(len(tickets(store.answer(force=True))[12]["events"]), 101)
         twelve = [call for call in calls if "/issues/12/comments" in call[2]]
         self.assertNotIn('If-None-Match: "full"', twelve[1])
         self.assertEqual([call[2] for call in calls if call[2] == next_url], [next_url])
@@ -264,7 +271,7 @@ class BoardDataTest(unittest.TestCase):
             second = read_board(board)
             calls = board.fixture_calls()
         self.assertEqual((first["repo"], second["repo"]), ("owner/board-repo", "owner/board-repo"))
-        self.assertEqual(sum(call[:2] == ["repo", "view"] for call in calls), 1)
+        self.assertEqual(sum("mapsMore=true" in call for call in calls), 1)
 
     def test_blockers_carry_hold_and_where(self):
         with running_board(scenario()) as board:
@@ -276,68 +283,19 @@ class BoardDataTest(unittest.TestCase):
         self.assertEqual((blockers[99]["spec"], blockers[99]["readable"]), (None, False))
         self.assertEqual(blockers[99]["blocker_hold"], "the tracker did not answer for it")
 
-    def test_later_reads_send_etags_for_unlanded_only(self):
+    def test_manual_refresh_revalidates_each_comment_page(self):
         with running_board(scenario()) as board:
             first = read_board(board)
-            second = read_board(board)
+            second = read_board(board, "POST", "/api/board/refresh")
             calls = board.fixture_calls()
         self.assertEqual(first["tasks"], second["tasks"])
-        comment_calls = [call for call in calls if call[:2] == ["api", "-i"]]
-        self.assertEqual(sum("/issues/11/comments" in call[2] for call in comment_calls), 1)
-        twelve = [call for call in comment_calls if "/issues/12/comments" in call[2]]
-        self.assertEqual(len(twelve), 2)
-        self.assertIn("If-None-Match: \"twelve-a\"", twelve[1])
-
-    def test_structure_event_rereads_the_tree(self):
-        data = scenario()
-        with running_board(data) as board:
-            read_board(board)
-            read_board(board)
-            self.assertEqual(board.fixture_state()["tree_reads"], 1)
-            data["comment_active"]["12"] = 1
-            board.write_fixture(data)
-            read_board(board)
-            self.assertEqual(board.fixture_state()["tree_reads"], 2)
-            read_board(board)
-            self.assertEqual(board.fixture_state()["tree_reads"], 2)
-            data["comment_active"]["12"] = 2
-            board.write_fixture(data)
-            read_board(board)
-            self.assertEqual(board.fixture_state()["tree_reads"], 2)
-            data["comment_active"]["12"] = 3
-            board.write_fixture(data)
-            read_board(board)
-            reads = board.fixture_state()["tree_reads"]
-        self.assertEqual(reads, 3)
-
-    def test_tree_is_reread_after_ten_minutes(self):
-        now = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
-        active = [{"n": 12, "fold": {"landed": False}, "blocker_hold": "open"},
-                  {"n": 11, "fold": {"landed": True}, "blocker_hold": ""}]
-        self.assertEqual(board_data.plan_read(now - dt.timedelta(seconds=599), active, now),
-                         {"tree": False, "comments": [12]})
-        self.assertEqual(board_data.plan_read(now - dt.timedelta(seconds=600), active, now),
-                         {"tree": True, "comments": [12]})
-
-    def test_a_ticket_closed_by_hand_stops_being_reread(self):
-        now = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
-        # Closed outside the pipeline: no `ticket.landed`, an empty ledger, and nothing
-        # that will ever land. One that passed and has not landed yet is still to come.
-        by_hand = {"n": 24, "fold": {"landed": False}, "blocker_hold": ""}
-        passed = {"n": 25, "fold": {"landed": False}, "blocker_hold": "passed, not landed"}
-        unreadable = {"n": 26, "fold": {"landed": False},
-                      "blocker_hold": "its events cannot be read"}
-        self.assertEqual(board_data.plan_read(now, [by_hand, passed, unreadable], now),
-                         {"tree": False, "comments": [25, 26]})
-        self.assertEqual([board_data.finished(row) for row in (by_hand, passed, unreadable)],
-                         [True, False, False])
+        for number, tag in ((11, "eleven"), (12, "twelve-a"), (13, "thirteen")):
+            reads = [call for call in calls if call[:2] == ["api", "-i"]
+                     and f"/issues/{number}/comments" in call[2]]
+            self.assertEqual(len(reads), 2)
+            self.assertIn(f'If-None-Match: "{tag}"', reads[1])
 
     def test_a_ticket_that_closed_between_polls_is_read_once_more(self):
-        # `finished` weighs a ticket's state on the tracker against its own ledger, so the
-        # two have to be read at the same poll. The comments of a ticket that closed since
-        # the last one were read while it was still open: the poll that first sees it
-        # closed must read them again, or the board keeps drawing a landed ticket from a
-        # ledger in which its worker is still at work.
         data = scenario()
         data["trees"] = [tree_fixture(), closing(tree_fixture(), 12)]
         data["comments"]["12"] = [
@@ -374,9 +332,8 @@ class BoardDataTest(unittest.TestCase):
         self.assertEqual((second["state"], second["blocker_hold"]), ("closed", ""))
         self.assertEqual([row["event"] for row in second["events"]][-1], "ticket.landed")
         self.assertEqual((second["fold"]["landed"], second["fold"]["held"]), (True, False))
-        self.assertTrue(board_data.finished(second))
         self.assertEqual(third["fold"], second["fold"])
-        self.assertEqual(polls, [1, 2, 2], "read once more when it closed, then never again")
+        self.assertEqual(polls, [1, 2, 3], "landed tickets remain part of complete reconciliation")
 
     def test_failed_read_keeps_the_last_data(self):
         data = scenario()
@@ -386,7 +343,7 @@ class BoardDataTest(unittest.TestCase):
             data["comment_active"]["12"] = 1
             data["fail_comments"] = [12]
             board.write_fixture(data)
-            failed = read_board(board)
+            failed = read_board(board, "POST", "/api/board/refresh")
         self.assertEqual(failed["tasks"], first["tasks"])
         self.assertEqual(failed["read_at"], first["read_at"])
         self.assertIn("read_failed", failed)

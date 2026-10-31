@@ -95,8 +95,9 @@ class FakeGh:
         number = int(parts[4])
         if parts[5] == "sub_issues":
             if number in self.failing:
-                raise relay.PollError("gh exited 1: HTTP 502: Bad Gateway")
-            return [{"number": n, "state": "open"} for n in self.spec_children.get(number, [])]
+                return 1, "HTTP/2 502 Bad Gateway\n\n", "HTTP 502: Bad Gateway"
+            rows = [{"number": n, "state": "open"} for n in self.spec_children.get(number, [])]
+            return 0, "HTTP/2 200 OK\n\n" + json.dumps(rows), ""
         if number in self.failing:
             if conditional:
                 return 1, "HTTP/2 502 Bad Gateway\n\n", "HTTP 502: Bad Gateway"
@@ -184,7 +185,7 @@ class RelayCase(unittest.TestCase):
         """A relay as a newly started process would be: same state directory, nothing in memory."""
         self.out, self.err = io.StringIO(), io.StringIO()
         reader = relay.ghlist.ConditionalListReader(self.gh)
-        return relay.Relay(self.state, relay.Board("o/r", self.gh, reader), send=self.send,
+        return relay.Relay(self.state, relay.Board("o/r", reader), send=self.send,
                            clock=self.clock, ask=self.ask, out=self.out, err=self.err)
 
     def poll(self, grace=90):

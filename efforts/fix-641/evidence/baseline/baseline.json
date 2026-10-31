@@ -1,0 +1,156 @@
+{
+  "kind": "controlled replay, not live GitHub latency",
+  "tickets": 12,
+  "injected_delay_seconds_per_gh": 0.05,
+  "repeats": 5,
+  "cold_seconds": 1.7615574999945238,
+  "summary": {
+    "1": {
+      "median_seconds": 1.2400270409998484,
+      "range_seconds": [
+        1.2246291659830604,
+        1.270164334011497
+      ],
+      "gh_commands": [
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "errors": 0
+    },
+    "2": {
+      "median_seconds": 2.482151125004748,
+      "range_seconds": [
+        2.460446624987526,
+        2.52393274998758
+      ],
+      "gh_commands": [
+        24,
+        24,
+        24,
+        24,
+        24
+      ],
+      "errors": 0
+    }
+  },
+  "runs": [
+    {
+      "repeat": 0,
+      "clients": 1,
+      "seconds": 1.2400270409998484,
+      "client_seconds": [
+        1.2387859169975854
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "repeat": 0,
+      "clients": 2,
+      "seconds": 2.482151125004748,
+      "client_seconds": [
+        2.481703000026755,
+        1.2597414999909233
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "repeat": 1,
+      "clients": 2,
+      "seconds": 2.4744054159964435,
+      "client_seconds": [
+        1.218477416987298,
+        2.474054916005116
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "repeat": 1,
+      "clients": 1,
+      "seconds": 1.2495155840006191,
+      "client_seconds": [
+        1.2492092920001596
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "repeat": 2,
+      "clients": 1,
+      "seconds": 1.2368211669963785,
+      "client_seconds": [
+        1.2365208330156747
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "repeat": 2,
+      "clients": 2,
+      "seconds": 2.511677458009217,
+      "client_seconds": [
+        2.5112147920008283,
+        1.2481880000268575
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "repeat": 3,
+      "clients": 2,
+      "seconds": 2.460446624987526,
+      "client_seconds": [
+        2.459958541992819,
+        1.2318729590042494
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    },
+    {
+      "repeat": 3,
+      "clients": 1,
+      "seconds": 1.2246291659830604,
+      "client_seconds": [
+        1.224294000014197
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "repeat": 4,
+      "clients": 1,
+      "seconds": 1.270164334011497,
+      "client_seconds": [
+        1.2698189580114558
+      ],
+      "gh_commands": 12,
+      "errors": 0,
+      "conditional_comments": 12
+    },
+    {
+      "repeat": 4,
+      "clients": 2,
+      "seconds": 2.52393274998758,
+      "client_seconds": [
+        2.5233969170076307,
+        1.2576732499874197
+      ],
+      "gh_commands": 24,
+      "errors": 0,
+      "conditional_comments": 24
+    }
+  ]
+}

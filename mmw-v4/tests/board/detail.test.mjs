@@ -266,15 +266,16 @@ test("fromBoard opens the last block and a problem block, and shuts a plain midd
   assert.doesNotMatch(root.textContent, /Worker started/);
 });
 
-test("a claim never opens a block of its own", () => {
+test("a claim opens working after a queued event", () => {
   const events = [
     {event: "ticket.released", at: "2026-09-12T10:00:00Z", payload: {reason: "worker-lost"}},
     {event: "ticket.claimed", at: "2026-09-12T10:01:00Z", payload: {}},
   ];
   const blocks = eventBlocks(events);
-  assert.deepEqual(blocks.map(block => block.phase), ["queued"]);
-  assert.equal(blocks[0].items.length, 2);
-  assert.equal(blocks[0].items[1].name, "Ticket claimed");
+  assert.deepEqual(blocks.map(block => block.phase), ["queued", "working"]);
+  assert.equal(blocks[0].items.length, 1);
+  assert.equal(blocks[1].items.length, 1);
+  assert.equal(blocks[1].items[0].name, "Ticket claimed");
 });
 
 function boardBehind(blockers, {alsoBlocked = [], specs = []} = {}) {

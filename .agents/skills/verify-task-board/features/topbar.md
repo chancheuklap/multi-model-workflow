@@ -1,6 +1,6 @@
 # 顶栏
 Route: /
-Tests: smoke.e2e.ts
+Tests: smoke.e2e.ts, issue-641.e2e.ts
 
 看板最上面一条：这是哪个仓库的看板，四种状态各有几张票，立刻重读 GitHub，打开本机配置。
 
@@ -20,9 +20,13 @@ Tests: smoke.e2e.ts
 
 `smoke.e2e.ts` 看仓库名，点「本机配置」。
 
+`issue-641.e2e.ts` 在 GitHub 回答变化后点击「立刻重读 GitHub」，通过原画布和详情检查刷新结果。
+
 ## Proof
 
 仓库名可见；点齿轮后本机配置打开，标题「这台机器上，每个 agent 跑在哪」。
+
+手动刷新核对 tracker 及评论，已关闭并合入的上游不再留下旧的阻塞线。来源为 #641 的 D 和本轮实际按钮复现。
 
 ## Gotchas
 

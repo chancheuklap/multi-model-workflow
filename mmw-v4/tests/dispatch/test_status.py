@@ -1128,20 +1128,20 @@ class NoRunnerIsAsked(unittest.TestCase):
 
     def test_the_table_runs_nothing_but_gh(self):
         ran = []
-        saved = (status.subprocess.run, status.sub_issues, status.read_ticket)
+        saved = (status.ghlist.subprocess.run, status.sub_issues, status.read_ticket)
 
         def fake_run(cmd, **kwargs):
             ran.append(cmd[0])
             raise AssertionError(f"ran {cmd}")
 
         try:
-            status.subprocess.run = fake_run
+            status.ghlist.subprocess.run = fake_run
             status.sub_issues = lambda spec: [61]
             status.read_ticket = lambda n: ticket(61, comments=[started(61, "term_1")])
             with redirect_stdout(io.StringIO()) as out:
                 self.assertEqual(status.main(["--table", "76"]), 0)
         finally:
-            (status.subprocess.run, status.sub_issues, status.read_ticket) = saved
+            (status.ghlist.subprocess.run, status.sub_issues, status.read_ticket) = saved
         self.assertEqual(ran, [])
         self.assertIn("1 live", out.getvalue())
 

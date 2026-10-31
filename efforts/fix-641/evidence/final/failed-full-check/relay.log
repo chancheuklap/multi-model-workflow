@@ -1,0 +1,54 @@
+WIRING OK
+HOST NEUTRALITY OK
+### unittest
+...............................................................................................................................
+----------------------------------------------------------------------
+Ran 127 tests in 43.268s
+
+OK
+### unittest passed
+
+### relay.py end to end
+=== wake
+--- a landed ticket wakes the orchestrator through the runner, and stays until acked
+--- one wake a pass: the second goes on the next
+RELAY-WAKE-OK
+=== worker
+--- a reviewer's report wakes the ticket's worker, and each recipient acks only its own rows
+RELAY-WORKER-OK
+=== busy
+--- a wake that arrives while the orchestrator is in a turn stays and is sent on the next pass
+RELAY-BUSY-OK
+=== retired
+--- rows for a session that is no longer the watch's orchestrator are dropped unsent
+RELAY-RETIRED-OK
+=== gone
+--- a send the runner answers with 'no such session' drops the row
+RELAY-GONE-OK
+=== reconcile
+--- a relay that was down reads everything on start and queues each event it finds
+RELAY-RECONCILE-OK
+=== pollfail
+--- a read that could not be made is reported and is not a good poll
+RELAY-POLLFAIL-OK
+=== singleton
+--- one relay process per repository, and the queue says when no relay feeds it
+RELAY-SINGLETON-OK
+=== nothing
+--- a relay with nothing watched refuses to run
+RELAY-NOTHING-OK
+=== openstopped
+--- a watch whose orchestrator the runner says is stopped is refused, and nothing is recorded
+RELAY-OPENSTOPPED-OK
+=== readonly
+--- every call the relay makes to the tracker is a read
+  FAILED: no call matching: gh :: api :: --paginate :: --slurp :: repos/o/r/issues/50/sub_issues?per_page=100
+  FAILED: no call matching: gh :: api :: -i :: repos/o/r/issues/61/comments?per_page=100
+  FAILED: queue should read
+1 61 ticket.passed main-a delivered
+but reads
+
+readonly failed
+### relay.py end to end failed
+
+failures above

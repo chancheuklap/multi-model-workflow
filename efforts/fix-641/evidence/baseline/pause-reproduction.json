@@ -1,0 +1,8 @@
+[
+  {
+    "contract": "Retry-After prevents immediate repeat requests",
+    "passed": false,
+    "requests": 2,
+    "retry_after_seconds": 120
+  }
+]

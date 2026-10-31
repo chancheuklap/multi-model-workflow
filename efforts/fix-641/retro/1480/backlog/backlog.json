@@ -1,0 +1,692 @@
+[
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1483,
+    "problem": "问题代号：retro-gather-replays-repository-history\n角度：流程\n发生了什么：独立票 #1480 的复盘 gather 为寻找旧收据和合并点，遍历全仓 mmw:spec/mmw:ticket 并逐张读取评论历史；同一 gather 的多个阶段还分别读取全仓 issue 列表。冻结版本 9e2c0f3e 的实现和当前产品副本均保留该路径。执行器观察到它读取不属于本票的 #1350、#1176 评论，最终成功完成。已有登记搜索未找到同因项；#1188 处理的是孤儿材料归属误报，#1219 处理的是常见词造成的相关登记误配，均不同于本项全仓历史读取成本。本次只证明一个 gather 会话的一次出现，保留为 candidate，不以循环中的多张历史票充当独立复发，不据此直接提案或改脚本。\n证据：efforts/fix-641/retro/1480/gather-observation.md:7; efforts/fix-641/retro/1480/gather-observation.md:16; mmw-v4/skills/retro/scripts/retro.py:177; mmw-v4/skills/retro/scripts/retro.py:180; mmw-v4/skills/register-problem/scripts/register.py:100\n代价：执行器记录这次单票收集耗时超过 12 分钟，最终两条流程材料仍是同一已解决合同事件。源码证实全仓历史与重复列表读取会随仓库历史增长而扩大；未记录总 HTTP 数，不能将全部耗时归因于该循环，也不能推出额度消耗或优化倍数。\n该谁修：chancheuklap/multi-model-workflow\n建议：未来单独按 Authoring or modifying a skill 检查 gather 中旧收据、合并点和统计的实际用途，先删除不改变本次复盘判断的历史遍历，再让保留阶段复用一次列表读取。保留当前运行材料完整性，不新增长期索引、守护流程或兜底层；本次只登记证据，不实施。",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": 1480,
+        "session": "codex-app:01a19103-31c4-7d40-a26e-8503e5f023aa",
+        "source": "retro-signal",
+        "at": "2026-10-31T10:58:31Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1481,
+    "problem": "问题代号：external-issue-overwritten-by-implementation-plan\n角度：判断\n发生了什么：owner 给出外部来源报告 #641 要求调查并准备优化方案。当前 session 漏掉 to-tickets Open 中“An issue someone else opened is not worked as it stands”的规则，把原报告全文放进 Problem 再追加实施计划，修改原标签，随后声称已经按 to-tickets 完成准备。owner 指出新旧内容混在一起后才恢复原报告并另开 #1480。\n证据：https://github.com/chancheuklap/multi-model-workflow/issues/641#issuecomment-6541639902 曾宣称已在原 issue 写完实施票据；https://github.com/chancheuklap/multi-model-workflow/issues/1480 是纠正后的独立准备记录；owner 在本 session 直接指出“你就不会把你的 Ticket ... 写到 641 里面，搞得新旧内容混在一起”；installed to-tickets/references/open.md 的外部来源 issue 规则明确要求另开自己的 Problem 并引用原 issue。\n代价：原报告被混入本轮实施范围，owner 需要再次核对流程；lint 通过被错误地当成完整执行写票流程的证明，造成返工和不可信的进度说明。\n该谁修：MMW 仓库\n建议：后续分析应区分来源 issue 与本 session 的准备记录；现有规则已经明确，不能以本次失误为由直接再加一层流程或检查。",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": 1480,
+        "session": "codex-app:01a19103-31c4-7d40-a26e-8503e5f023aa",
+        "source": "owner-correction",
+        "at": "2026-10-31T09:30:41Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1479,
+    "problem": "问题代号：solution-plan-before-preparation-evidence\n角度：判断\n发生了什么：在 #641 的源码调查完成后，会话未补当前产品性能复现、可操作 UI 设计和必要实验，就连续将具体读取频率、事件与缓存安排写成完整优化方案。主人多次纠正目标和 MMW 执行方式。本轮已回到现有 Develop a change，保留调查，将未验证安排移出实施 baseline。\n证据：#641；本次会话 01a19103-31c4-7d40-a26e-8503e5f023aa 中主人“你根本没有按 mmw 工作，重新给我方案”；https://github.com/chancheuklap/multi-model-workflow/blob/fix-641/efforts/fix-641/README.md 的“当前进度”与“按 MMW 推进的工作”。\n代价：主人需要多轮指出范围与工作方法，方案反复返工，仍没有当前性能证据和已确认 UI 可供实施。\n该谁修：MMW 仓库，执行准备工作的会话。\n建议：按现有准备方法先交付缺少的证据和可操作设计，复用已有调查。本记录不要求新增规则、检查或流程。",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": 641,
+        "session": "codex-app:01a19103-31c4-7d40-a26e-8503e5f023aa",
+        "source": "owner-correction",
+        "at": "2026-10-31T08:46:00Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1476,
+    "problem": "问题代号：dispatch-codex-desktop-no-wake-adapter\n角度：环境\n发生了什么：Codex desktop 会话按 Investigation 的外部资料调查步骤发送 researcher 时，dispatch 无法识别当前会话，因不能回传唤醒而拒绝发送。该宿主具备联网取证能力，但流程没有可用的 researcher 路由。\n证据：在 AgentFlow 仓库的 Codex desktop 会话运行 dispatch.sh send researcher --follow 'the research skill' <brief>，退出 2，并输出 this session runs in no runner whose adapter can name it (asked: paseo herdr orca) 和 no researcher was started。\n代价：研究委派没有启动，主会话必须自行查阅官方资料，增加一次失败调用和诊断耗时。\n该谁修：MMW 仓库的 dispatch 宿主适配与 Investigation 路由。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": null,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-31T07:40:16Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1465,
+    "problem": "问题代号：duplicate-coordinator-for-runner-gap\n角度：判断\n发生了什么：当前 Codex App 会话已经负责协调。因现有 MMW 派发脚本不能识别当前会话，代理又在 Orca 创建了第二个 coordinator，并让它从 detached checkout 启动，而不是由当前会话持有协调职责和明确的准备分支。owner 明确纠正：\"你自己不就是 coordinator 吗？你又创个 coordinator 干嘛？你创建了就算了，又不给他一个分支\"。\n证据：#1464；启动记录 /tmp/mmw-paseo-orchestrator-launch.json；协调职责撤回记录 /tmp/mmw-paseo-implementation-status.md。实际修复分支 fix-1464 和实施分支 issue-1464 后来已建立，不能说实施没有分支。\n代价：增加一个会话和交接，协调职责重复，耗时且使 owner 无法理解工作归属。\n该谁修：MMW 仓库的会话协调与派发适配流程\n建议：当前会话始终保留协调职责。runner 识别缺口作为明确的适配限制处理，不自动递归创建 coordinator；实现工作交给已有 worker，使用明确分支。",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": 1464,
+        "session": "none",
+        "source": "owner-correction",
+        "at": "2026-10-31T03:17:16Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1463,
+    "problem": "问题代号：incident-investigation-stops-at-status\n角度：流程\n发生了什么：老板要求查清生产内存故障根因，执行会话连续把服务恢复、短时采样或启动长期采集当作最终交付，导致老板反复催促才能继续调查。\n证据：本 chat 的 2026-10-31 ECS 故障调查；老板原话“我问你有没有办法查清楚意思就是让你去查清楚告诉我啊”。此前三次最终回复明确留下“根因调查尚未完成”。\n代价：生产故障的根因仍未闭环，老板额外发三次消息催促，排查被反复中断。\n该谁修：MMW 仓库的请求处理与调查交付流程。\n建议：把老板对未完成工作的能力追问视作继续执行，阶段进展只发 commentary；结案要求机制证据与验证，缺现场时执行可区分假设的复现，不把启动采集当完成。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": null,
+        "session": "none",
+        "source": "owner-correction",
+        "at": "2026-10-31T02:13:28Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1462,
+    "problem": "问题代号：mixed-source-and-installed-speedup-baselines\n角度：判断\n发生了什么：本会话向所有者先后汇报不同任务下的约两倍、源码完整任务 1.74 倍、安装版后台任务 1.70 倍，又用源码 2.4.5→2.4.7 的 2.38 倍回答安装版累计提升。每个数字虽有单独记录，放在版本叙述中却让所有者误以为可以直接连乘，无法理解真正的产品改进。\n证据：所有者明确纠正“2.4.6 的时候你说比 5 快两倍，又说 7 比 6 快 1.7 倍，现在又说 7 比 5 还是快两倍左右”。本轮 source-installed-phase-results.json 为 20×20 分钟源码对照，installed-background-results.json 为 3×5 分钟真实安装版对照，不能混作版本累计倍数。\n代价：所有者连续追问后仍无法理解成果，本会话需要补测最初 2.4.5 官方安装包并重写报告，延误交付。\n该谁修：MMW 会话执行。遵守现有 benchmark-checklist 的同条件、真实发布构建和数字范围要求。版本累计效果必须从同一任务的各版本原始耗时直接计算。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1720,
+        "session": "none",
+        "source": "owner-correction",
+        "at": "2026-10-30T18:16:02Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1461,
+    "problem": "问题代号：commit-during-check-changes-build-identity\n角度：判断\n发生了什么：长时间 scripts/check --all 仍在运行时，本会话提交了实验验收脚本和 2.4.7 版本号。契约及发布演练会读取当前 git HEAD，而此前缓存的发布定义仍属于旧 HEAD，因此出现 installed build binding 不一致。检查输入被本会话改变，不能把这些红项称作产品回归或既有失败。\n证据：本轮 .scratch/check/contracts.log 的 expected commit=66d30de54、actual=d4743e015；.scratch/check/gateway.log 的 expected=31ca2ee05、actual=66d30de54；.scratch/1720/check-all.txt 记录 contracts、gateway 和内嵌 consumer 检查失败。当前未再提交，正在固定 HEAD 重跑失败项。\n代价：整套检查运行超过半小时后仍需重新核验失败项，延迟安装包交付结论。\n该谁修：MMW 工作流程。验证时冻结输入，避免同一工作区边提交边跑依赖版本身份的长检查。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1720,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-30T18:03:08Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1460,
+    "problem": "问题代号：diagram-self-check-rejects-outgoing-links\n角度：环境\n发生了什么：PR 审阅页按照 Opening a PR 要求链接到 PR、任务和验收记录，diagram-design 的 self_check 却把普通 a[href] 导航链接判为远程资源。页面不加载外部脚本、图片或 CSS，浏览器实际渲染正常；出站导航不等于页面资源依赖。\n证据：agentflow #1717 的审阅页 /Users/cheuklapchan/.codex/visualizations/2026/10/30/01a18aa1-b122-7dd1-8e27-79078926b55d/hedgehog-speed-pr.html；/Users/cheuklapchan/.agents/skills/diagram-design/scripts/self_check.py:231 输出 remote reference on <a>，所有失败都来自要求保留的 GitHub 导航链接。\n代价：按发布流程保留证据链接会触发自检误报，迫使会话人工判断页面安全与可访问性，不能把原始自检记为通过。\n该谁修：chancheuklap/multi-model-workflow 的 diagram-design 自检脚本\n建议：将导航 a[href] 与自动加载资源区分，继续拒绝未允许的外部脚本、样式、图片及 SVG 资源引用。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1712,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-30T15:53:49Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1458,
+    "problem": "问题代号：release-flow-missing-repo-wrapper\n角度：流程\n发生了什么：exe-release 的 SKILL.md 与 driving.md 要求运行 bash scripts/release-flow.sh，但 AgentFlow 仓库没有该文件。实际引擎位于技能的 scripts/release-flow.sh，按其绝对路径可以正常 init、where 和运行阶段。\n证据：2026-10-30，/Users/cheuklapchan/.codex/worktrees/28d0/agentflow 中 cat scripts/release-flow.sh 返回 No such file or directory；bash /Users/cheuklapchan/.agents/skills/exe-release/scripts/release-flow.sh init --manifest <hedgehog manifest> 返回 INIT product=hedgehog stages=8。\n代价：正式打包准备需停下来查找引擎入口，照技能路径无法启动。\n该谁修：chancheuklap/multi-model-workflow 的 exe-release 技能。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1712,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-30T13:01:46Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1452,
+    "problem": "问题代号：investigation-no-runner-fallback\n角度：流程\n发生了什么：Codex desktop 聊天按 Investigation 要求调用 dispatch send researcher，但当前聊天没有能命名它并回传唤醒的 runner。启动器拒绝启动，Investigation 没有写明此能力缺失时由本会话完成只读调查的路径。\n证据：installed mmw-mode/playbooks/investigation.md step 1 要求外部问题发送 researcher 并结束回合；2026-10-30 从 /Users/cheuklapchan/.codex/worktrees/b213/multi-model-workflow 调用 bash /Users/cheuklapchan/.agents/skills/dispatch/scripts/dispatch.sh send researcher --follow 'the research skill' /tmp/mmw-opencode-agents-review/brief.md 返回 exit 2，输出 this session runs in no runner whose adapter can name it (asked: paseo herdr orca), so no wake could reach it；nothing could wake this session with the results, so no researcher was started。\n代价：一次失败的启动，并需本会话自行判断如何继续，按字面停止则用户拿不到调查结果。\n该谁修：MMW 仓库\n建议：按会话是否支持可回传结果的 dispatch 能力分流，不增加 runner 或修补现场，让无此能力的会话直接完成只读调查。",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-30T09:45:49Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1451,
+    "problem": "问题代号：proposal-page-shows-comparison-instead-of-proposal\n角度：判断\n发生了什么：owner 要求重新调查 Principle 精简方案并给建议，页面把现状、原方案、建议的加载流程作三栏对比，随后用长表逐项辩论。owner 明确反馈 artifact 非常不直观，希望直接看新方案，不要前后对比。\n证据：2026-10-29，owner 原话为“你画的 artifact 非常不直观，我不希望看到方案前后的对比，我希望看到你的新方案”。本轮将同一页面改为完整的 28 条原则职责图，按现有六类分组，具体职责和原文折叠。\n代价：owner 需要追加一轮反馈，页面重画一次，首次交付未能使 owner 直接看懂建议。\n该谁修：MMW 仓库的页面呈现指导。",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "none",
+        "source": "owner-correction",
+        "at": "2026-10-29T15:33:27Z"
+      },
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "none",
+        "source": "owner-correction",
+        "at": "2026-10-29T15:38:20Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1450,
+    "problem": "问题代号：dispatch-desktop-session-unreachable\n角度：流程\n发生了什么：Investigation 经 how 要求通过 dispatch 发送研究会话，但当前 Codex 桌面会话无法被 runner adapter 识别，研究者未启动。此次调查改由当前会话顺序完成。\n证据：2026-10-29，从 /Users/cheuklapchan/.codex/worktrees/165c/multi-model-workflow 执行已安装 dispatch.sh send researcher --follow \"the research skill's references/explorer.md\" 及三份 brief，退出 2。输出为 this session runs in no runner whose adapter can name it (asked: paseo herdr orca)，以及 no researcher was started。\n代价：研究 brief 已准备但无法派发，增加一次失败调用，并失去该调查流程要求的并行研究。\n该谁修：MMW 仓库。",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-29T15:24:41Z"
+      },
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1712,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-30T03:27:46Z"
+      },
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1712,
+        "session": "none",
+        "source": "stall",
+        "at": "2026-10-30T11:18:45Z"
+      },
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": null,
+        "session": "none",
+        "source": "noticed",
+        "at": "2026-10-31T03:50:03Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1449,
+    "problem": "问题代号：temporary-outage-expanded-to-permanent-migration\n角度：判断\n发生了什么：用户说 Claude Code 现在不可用，要求调查 MMW 和 Orca 哪些地方需要修改。调查会话把临时改用 Codex 扩大成长期 Codex-only，建议修改首次安装默认值、禁用非 Codex 代理和缩定验收范围。用户纠正“只是暂时不可用又不是要把它从配置里删掉”。运行配置未改，但用户需要额外纠正不必要的范围扩大。\n证据：2026-10-29 本次 owner-correction；/tmp/codex-only-audit-20261029/build-page.py 的原始建议；此前报告建议修改 roles.json 四个默认值并仅保留 Codex 可选。\n代价：用户多一次纠正，调查结论偏离临时接手目标，增加无必要配置与验收修改风险。\n该谁修：MMW 仓库。\n建议：将临时可用性切换与永久支持策略分开。当前修正为保留 Claude 的账号、模型、源默认值与旧会话，只建议保存原值后临时切换本机角色与 Orca 默认代理。未执行配置变更。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_d6de79ce-a5cf-4a42-ae3c-e2fb248a0163",
+        "source": "owner-correction",
+        "at": "2026-10-29T15:06:48Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1448,
+    "problem": "问题代号：hook-acceptance-requires-disabled-claude\n\n角度：流程\n\n发生了什么：当前真实 host hook 探针把两个 host 都成功作为完整验收。只选 Codex 永远是 diagnostic，而且 Codex 路径仍调用会取得 Claude 凭据的 login。现有证据记录 Codex 已运行成功，但 Claude 因组织被禁用而失败，因此旧的完整验收不能通过。本次只读审计未运行探针，也未改变验收范围。\n\n证据：`/Users/cheuklapchan/multi-model-workflow/.worktrees/mmw-installed/mmw-v4/tests/session-start/verify_hosts.py:204`、`:295`、`:403`、`:417`、`:430`。`/Users/cheuklapchan/multi-model-workflow/.worktrees/mmw-installed/mmw-v4/tests/session-start/HOST-EVIDENCE.md:48`、`:58`。\n\n代价：已记录的 Codex hook 证据不能取得完整通过结论。Codex-only 操作仍受到不参与工作的一方账号和验收规则约束。\n\n该谁修：MMW 仓库。验收范围由持有当前 ticket 和 baseline 的会话明确调整，探针实现按选定 host 获取凭据并报告所证明的范围。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_d6de79ce-a5cf-4a42-ae3c-e2fb248a0163",
+        "source": "noticed",
+        "at": "2026-10-29T15:00:48Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1432,
+    "problem": "问题代号：test-install-build-consumes-release-versions\n角度：判断\n发生了什么：编排会话给 #1685 写的 Seam 要求「安装包从本分支用 exe-release 技能构建」，用于在 Win-PC 上验收。worker 照做，正式发版流程为一个未合并的修复分支打了标签并建了 GitHub 发布：parrot_dubbing-v1.5.2、v1.5.3，hedgehog-v2.4.3、v2.4.4（后两个指向 6ee3d8261，hedgehog-v2.4.4 成了仓库的「Latest」）。\n证据：`gh release list` 2026-10-29；agentflow-hq/agentflow#1685 的 ALL MET 评论「Built the final installers as Parrot 1.5.3 and Hedgehog 2.4.4 after the release gate found tags for 1.5.2 and 2.4.3」。\n代价：4 个正式版本号被验收用的测试包占掉；之后从 dev 正式发版要跳号；GitHub 上「最新发布」指向未合并代码，读发布记录的人会被误导。\n该谁修：MMW 仓库\n建议：票里需要真机安装包验收时，写明用不打标签、不建发布的测试构建；exe-release 在非项目分支或非默认分支上拒绝打正式标签。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1685,
+        "session": "orca:term_adeeb990-fbf7-48f6-abea-9874668ddf69",
+        "source": "noticed",
+        "at": "2026-10-29T08:58:11Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1430,
+    "problem": "问题代号：land-bounces-on-unrelated-load-timeout\n角度：流程\n发生了什么：`dispatch.sh land 1685` 在合并提交 cb07ff548 上跑 `scripts/check`，只有 gateway 组里一条与本票无关的测试 `tests/gateway/test_local_prod_ensure.py::test_ensure_不发出ssh` 在机器高负载下超过 30 秒超时而红，票被整张退回 needs-triage。land 随后想做「与基线比对」，调用了 `scripts/check --step gateway`，而本仓库的 `scripts/check` 不认 `--step`（exit 2），比对没做成。#1410 记录的是 land 不再比对旧代码，但装着的 dispatch 仍在比对。\n证据：agentflow-hq/agentflow#1685 的 ticket.bounced 评论（2026-10-29T08:54:33Z）；land 输出「Base comparison, scripts/check --step gateway exited 2: scripts/check: unknown argument --step」；同一合并提交上单独重跑该测试 1 passed in 11.88s；worker 在 6ee3d826 上的全仓检查 gateway 组为绿。\n代价：一张已在真机验收通过的票因一次与改动无关的超时被退回，要么等主人重新点头、再派一个 worker 重跑全量检查（约 1 小时），要么卡住合并。\n该谁修：MMW 仓库\n建议：land 对红的步骤，先在同一提交上单独重跑失败的那几条测试一次；重跑通过则记为偶发并照常合并，并把这次偶发写进记录。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1685,
+        "session": "orca:term_adeeb990-fbf7-48f6-abea-9874668ddf69",
+        "source": "noticed",
+        "at": "2026-10-29T08:57:33Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1428,
+    "problem": "问题代号：comment-cleanup-deletes-ticket-preserved-contracts\n角度：流程\n发生了什么：AgentFlow #1704 明确要求把 VM 注释改为现存主机，只删除仅解释 VM 的内容。工人在运行必需的 no-comments 步骤后，接受了整块删除建议，连同仍适用于 PC 的路径调用约束、查询失败规则、退出码透传说明和测试说明一起删除。审查指出超出工单范围，工人随后恢复六个文件中的非 VM 说明。通用注释清理的验收没有逐项核对工单明确要求保留的内容。\n证据：https://github.com/agentflow-hq/agentflow/issues/1704#issuecomment-6491499210；清理提交 1935cd861c5530e1f5d3a16de8a0d56c394b3b60；修复提交 eaa5cf121；mmw-v4/skills/no-comments/SKILL.md 的检查列表没有点名核对工单的保留合同。\n代价：审查产生十一条票内发现，工人需要恢复六个文件并重新审计。运行时逻辑没有改变。\n该谁修：chancheuklap/multi-model-workflow 的 no-comments 调用与接收检查。\n建议：清理前把工单明确要求保留的内容列为边界，接收删除建议时逐项核对，不能把通用清理指令当作扩大工单范围的授权。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1704,
+        "session": "orca:term_61a39caf-1b4c-4a7f-b7ea-9cae5d0829f2",
+        "source": "noticed",
+        "at": "2026-10-29T08:17:33Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1425,
+    "problem": "问题代号：review-collective-approval-loses-file-judgements\n角度：流程\n发生了什么：AgentFlow #1685 的 reviewer.reported 把全部自主决定和全部 Outside Owns 文件合成一句 all reasonable，没保留逐条判断。发布工具接受了报告，但关闭草稿的文件判断读取器只能识别以具体路径开头的行，所以每个文件都会变成 REVIEW has no judgement line for it。工人因此要检查报告和关闭脚本，才能确认这不是产品缺陷，也不阻塞关闭。\n证据：https://github.com/agentflow-hq/agentflow/issues/1685#issuecomment-6490522059 的 Spec 段。mmw-v4/skills/code-review/references/spec-reviewer.md:40 明确要求每条决定一行、每个 Outside Owns 文件一行，且文件行以路径开头。mmw-v4/skills/verify-ticket/scripts/verify-ticket.py 的 spec_judgement 只读取这种行，run_review 未校验这些行是否齐全。\n代价：逐文件审查结论在报告合并时丢失，关闭记录不能直接交代哪些越界改动经过判断；工人花时间排查本可在提交报告时发现的格式错误。\n该谁修：MMW 仓库。\n建议：在发布 reviewer.reported 前核对 DECISIONS 的每个 Outside Owns 文件都有唯一可解析的判断，并要求总审查保留轴报告中的逐条判断。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1685,
+        "session": "orca:term_9306c6f4-0012-4b25-a17b-28aaf1ff3bde",
+        "source": "noticed",
+        "at": "2026-10-29T07:44:54Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1423,
+    "problem": "问题代号：glossary-keeps-always-run-group\n角度：环境\n发生了什么：Set up code checkers 第 6 步写明 \"There is no always-run group and no step that runs whatever changed\"，但工具词汇表仍保留 **always-run group** 条目，说默认档每次都跑这一组。合并 #1407 前复核 testing-chain 时发现；#1411 已从 `scripts/check` 条目里删掉了这个词，条目本身还在。\n证据：docs/contexts/toolbox/CONTEXT.md:353；mmw-v4/skills/mmw-mode/playbooks/set-up-code-checkers.md:28\n代价：读词汇表的 agent 会以为默认档有一组每次都跑的检查\n该谁修：MMW 仓库\n建议：删掉该条目",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "noticed",
+        "at": "2026-10-29T07:06:10Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1420,
+    "problem": "问题代号：dispatch-suite-differs-on-the-same-commit\n角度：环境\n发生了什么：在提交 8ee7a36fbe5e 上，`bash mmw-v4/tests/dispatch/run.sh` 在 #1411 的最终验收里跑完，最后一行是 `failures above`；接着在同一提交、代码没改的情况下，仓库检查跑同一套测试，日志结尾是 `all passed`。到底哪个场景失败、为什么两次结果不同，都没有记下来。这套测试已经按 CPU 数并行跑场景（`MMW_TEST_JOBS`，见已关闭的 #1370）；它跟这次失败有没有关系还没查过，只是推测。\n证据：https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488601572 ；https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488688093 ；/Users/cheuklapchan/multi-model-workflow/.worktrees/night-1407/mmw-v4/tests/dispatch/run.sh:6\n代价：这一次的后果是 #1411 被交回 HANDOFF REQUIRED。只要这套测试还会偶发失败，它在每次落地检查里都可能把一张没问题的票退回，而夜里没人值守。\n该谁修：chancheuklap/multi-model-workflow",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": 1407,
+        "ticket": null,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "retro-signal",
+        "at": "2026-10-29T06:05:14Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1419,
+    "problem": "问题代号：changed-behaviour-pins-guidance-only-in-to-tickets\n角度：流程\n发生了什么：#1684 的 AC2 把整份 `tests/parrot/test_parrot_job_timeline.py` 当作「照常通过」的保护测试，可其中 `test_escaping_exception_does_not_change_existing_billing_closeout` 锁着的正是本票第 2 条要去掉的旧行为。「行为改了的旧用例要从保护测试里搬走，改写成本票的验收」只写在 To tickets，单张票共用的 `references/ticket.md` 里没有，走 Bug fix 的写票人读不到。\n证据：https://github.com/agentflow-hq/agentflow/issues/1688\n代价：一张 contract 子票，工人停了约 3.5 分钟（04:26:19 开，04:29:49 改好）\n该谁修：MMW\n- 建议：改位置：把 to-tickets.md:77 里「行为改了的旧用例」那句搬到 ticket.md 写验收的段落，让两条写票路径都读到；to-tickets 那里改为指向它。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1684,
+        "session": "orca:term_adeeb990-fbf7-48f6-abea-9874668ddf69",
+        "source": "retro-signal",
+        "at": "2026-10-29T06:04:13Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1418,
+    "problem": "问题代号：single-ticket-checks-never-run-on-base\n角度：流程\n发生了什么：Bug fix 和 Feature 写的单张票，在 One ticket 的 Ready 步只跑静态 `verify-ticket.py <n> --lint`，验收命令从不在 base 上跑一次，所以检查 base 实跑的 `no-runner-summary` 管不到它们。agentflow 的 pyproject `addopts` 自带 `-q`，CHECK 再加 `-q` 后，pytest 通过或失败都不打印总结行，EXPECT 永远对不上。工人开工后才发现，只能开 contract 子票等人改票。同一原因已在 4 张互不相关的单张票上出现：#1161、#1684、#1685、#1692（后 3 张在 2026-10-29 同一天）。MMW #1168 的修法只覆盖了 To tickets 的整批草稿。\n证据：https://github.com/agentflow-hq/agentflow/issues/1686; https://github.com/agentflow-hq/agentflow/issues/1165; https://github.com/agentflow-hq/agentflow/issues/1687; https://github.com/agentflow-hq/agentflow/issues/1695; https://github.com/agentflow-hq/agentflow/issues/1684#issuecomment-6487858133; https://github.com/chancheuklap/multi-model-workflow/issues/1168\n代价：每次多一张 contract 子票，工人得停下来等人改票；4 次涉及 4 张票，3 次在同一天；#1687 和 #1695 的工人各给了一种不同的改法。\n该谁修：MMW\n- 建议：做成检查（加）：允许 `verify-ticket.py <n> --lint --base <ref>` 对已发布的单张票跑现有的 base 实跑检查，并在 One ticket 第 1 步 Ready 用上它。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1684,
+        "session": "orca:term_adeeb990-fbf7-48f6-abea-9874668ddf69",
+        "source": "retro-signal",
+        "at": "2026-10-29T06:03:36Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1417,
+    "problem": "问题代号：suite-criterion-tail-hides-the-failure\n角度：判断\n发生了什么：#1411 的 AC13 用 `bash mmw-v4/tests/dispatch/run.sh 2>&1 | tail -1` 判整套测试。worker 最后一次运行只留下 `failures above`，哪个场景失败没有记录；紧接着同一提交上的仓库检查里这套测试全过。worker 无法查明原因，按规定最后一次运行不给修复轮，只能交回 HANDOFF REQUIRED。验收命令是编排者（本 session）写的。\n证据：https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488601572 （AC13 output=failures above）；https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488688093\n代价：一张其余 14 条都过、审查也已修完的票被交回 needs-triage；失败原因无从查起\n该谁修：MMW 仓库\n建议：整套测试的验收不再用 `| tail -1` 截断输出（让 verify-ticket 记下失败行），或者整套测试本就由 land 的检查跑，不必再写成验收",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": 1407,
+        "ticket": 1411,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "stall",
+        "at": "2026-10-29T05:25:45Z"
+      }
+    ],
+    "assessments": [
+      {
+        "v": 1,
+        "event": "lesson.assessed",
+        "stage": "work",
+        "actor": "main",
+        "spec": 1407,
+        "ticket": null,
+        "at": "2026-10-29T06:04:28Z",
+        "conclusion": "propose",
+        "reason": "这是 #1411 的 ticket.returned 信号（已登记为 #1417），这里从流程角度看。AC13 把整个 dispatch 测试组写成验收：同一提交上先红、后绿，无代码改动，说明测试组本身不稳定（推测与 #1370 改成并发运行有关，未核实）。AC13 只看最后一行，`run.sh` 的最后一行只写 `failures above`，哪一组、哪个场景失败都没留下。而落地检查本来就会跑这个测试组，所以 AC13 对这张票是重复的一道关，唯一实际作用是把一次偶发失败变成交回。“整套检查不算验收”这条规则已有，但只写在 Run a night 收尾环节的写票段落里；切票时用的 To tickets 的五个问题里没有它，这正是规则放错位置。来源为 stall，够提案门槛。",
+        "evidence": "https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488688093; https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488601572; https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488658727; mmw-v4/tests/dispatch/run.sh:79; mmw-v4/skills/mmw-mode/playbooks/run-a-night.md:147; mmw-v4/skills/mmw-mode/playbooks/to-tickets.md:53; https://github.com/chancheuklap/multi-model-workflow/issues/1370",
+        "plan": "仓库：chancheuklap/multi-model-workflow；删：run-a-night.md 第 147 行 “Two shapes come back … neither is a criterion” 中关于整树检查器的半句，搬到 to-tickets.md 的 “A criterion is decided by a command, or it is not a criterion.” 段末，并把范围写成“整套测试组或 `scripts/check` 某一步已经跑的命令放进 `CHECK:` 不是验收，落地检查会跑它”，Run a night 那处改为引用这一段。文件：mmw-v4/skills/mmw-mode/playbooks/to-tickets.md；Playbook: Authoring or modifying a skill",
+        "run": "chancheuklap/multi-model-workflow#1407",
+        "qualifies": true,
+        "request": "10908fc612697379f0bacd723b1cf3e392c72ffe5d4c0c894d5588711343c793-row-1"
+      },
+      {
+        "v": 1,
+        "event": "lesson.assessed",
+        "stage": "work",
+        "actor": "main",
+        "spec": 1407,
+        "ticket": null,
+        "at": "2026-10-29T06:06:33Z",
+        "conclusion": "propose",
+        "reason": "仍然成立：to-tickets 已有规则“`CHECK:` 不跑仓库的 `scripts/check`”，因为 dispatch 在每张票的合并结果上都跑它；而 #1411 的 AC13 跑的 `bash mmw-v4/tests/dispatch/run.sh` 正是 `scripts/check` 的 `dispatch` 那一步，只是命令名不同，编排者写票时没认出来。主路径确实兜住了：同一提交上的仓库检查里这套测试全过，失败时也会附摘录。所以这条验收什么都没多证明，只多出一次偶发失败、一次交回。根因是规则只点了 `scripts/check` 这个名字，没覆盖“直接跑它的某一步”，不是 verify-ticket 少记了输出。登记里“让 verify-ticket 记下失败行”的建议是加一层，不采纳；用 lint 去比对各步命令，又得先让 `scripts/check` 交出步骤清单，同样是加复杂度，不采纳。一次 `stall` 已达到提议门槛。材料里另附的 6 条相关 lesson（#1370、#1256、#1244、#1234、#1213、#1203）都已关闭，原因各不相同，不合并",
+        "evidence": "https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488601572; https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488688093; https://github.com/chancheuklap/multi-model-workflow/issues/1417; mmw-v4/skills/mmw-mode/playbooks/to-tickets.md:82; scripts/check:64",
+        "plan": "仓库：chancheuklap/multi-model-workflow；删：把 to-tickets.md:82 这条规则从“`CHECK:` 不跑仓库的 `scripts/check`”改为“`CHECK:` 不跑仓库的 `scripts/check`，也不把它某一步跑的整套测试（例如一个测试目录的 `run.sh`）原样搬进来；只挑本票新增或改动的场景”，同时删掉 #1417 里“让 verify-ticket 记下失败行”这个方向，不加 lint；文件：mmw-v4/skills/mmw-mode/playbooks/to-tickets.md；Playbook: Authoring or modifying a skill",
+        "run": "chancheuklap/multi-model-workflow#1407",
+        "qualifies": true,
+        "request": "7f161ed1b796f2fa7869e20321652fd3c5cb9ba7823014e0d54545e238325b9c-row-0"
+      },
+      {
+        "v": 1,
+        "event": "lesson.assessed",
+        "stage": "work",
+        "actor": "main",
+        "spec": 1407,
+        "ticket": null,
+        "at": "2026-10-29T06:06:37Z",
+        "conclusion": "propose",
+        "reason": "这是 #1411 的 ticket.returned 信号（已登记为 #1417），这里从流程角度看。AC13 把整个 dispatch 测试组写成验收：同一提交上先红、后绿，无代码改动，说明测试组本身不稳定（推测与 #1370 改成并发运行有关，未核实）。AC13 只看最后一行，`run.sh` 的最后一行只写 `failures above`，哪一组、哪个场景失败都没留下。而落地检查本来就会跑这个测试组，所以 AC13 对这张票是重复的一道关，唯一实际作用是把一次偶发失败变成交回。“整套检查不算验收”这条规则已有，但只写在 Run a night 收尾环节的写票段落里；切票时用的 To tickets 的五个问题里没有它，这正是规则放错位置。来源为 stall，够提案门槛。",
+        "evidence": "https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488688093; https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488601572; https://github.com/chancheuklap/multi-model-workflow/issues/1411#issuecomment-6488658727; mmw-v4/tests/dispatch/run.sh:79; mmw-v4/skills/mmw-mode/playbooks/run-a-night.md:147; mmw-v4/skills/mmw-mode/playbooks/to-tickets.md:53; https://github.com/chancheuklap/multi-model-workflow/issues/1370",
+        "plan": "仓库：chancheuklap/multi-model-workflow；删：run-a-night.md 第 147 行 “Two shapes come back … neither is a criterion” 中关于整树检查器的半句，搬到 to-tickets.md 的 “A criterion is decided by a command, or it is not a criterion.” 段末，并把范围写成“整套测试组或 `scripts/check` 某一步已经跑的命令放进 `CHECK:` 不是验收，落地检查会跑它”，Run a night 那处改为引用这一段。文件：mmw-v4/skills/mmw-mode/playbooks/to-tickets.md；Playbook: Authoring or modifying a skill",
+        "run": "chancheuklap/multi-model-workflow#1407",
+        "qualifies": true,
+        "request": "7f161ed1b796f2fa7869e20321652fd3c5cb9ba7823014e0d54545e238325b9c-row-2"
+      }
+    ],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1415,
+    "problem": "问题代号：watchdog-nags-on-findings-the-closing-pass-routes\n角度：流程\n发生了什么：#1409 的审查员开了 finding #1414。Run a night 规定 finding 留到第 4 步收尾时才分流，编排者自己的修复也要等到收尾；看门狗却把任何开着、没分流的子票都报成\"#1409 is waiting on the orchestrator: unrouted children 1414\"，并且是重复提醒（repeat）。编排者在一晚中途被反复叫醒，而 playbook 说此刻不该动它。\n证据：mmw-v4/skills/dispatch/scripts/watchdog.py `_waiting`（不分子票种类，凡 opened 且无 resolution 即报）；mmw-v4/skills/mmw-mode/playbooks/run-a-night.md 第 3 步 \"Your own fixes wait for the closing pass\" 与第 4 步 finding 分流；#1414\n代价：一晚里每个 finding 都会反复唤醒编排者，直到收尾\n该谁修：MMW 仓库\n建议：删掉看门狗对 finding 的提醒（只留 contract、fault 这类真在等编排者的子票），不另加规则",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": 1407,
+        "ticket": 1409,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "stall",
+        "at": "2026-10-29T04:37:13Z"
+      }
+    ],
+    "assessments": [
+      {
+        "v": 1,
+        "event": "lesson.assessed",
+        "stage": "work",
+        "actor": "main",
+        "spec": 1407,
+        "ticket": null,
+        "at": "2026-10-29T06:04:25Z",
+        "conclusion": "propose",
+        "reason": "现行代码仍如此：看门狗 `_waiting` 把所有已开、未写 resolution 的子票都算作“在等编排者”，而 relay 只在 contract、fault、decision 三种子票开出时叫醒编排者，Run a night 也写明“A finding wakes nobody”。本夜 finding #1414 在 04:33:02Z 开出，watchdog.json 记录 `wait:spec:1407:1409` 在 04:34:01Z 投递，而 #1414 按规定到 05:35:05Z 的收尾环节才分流。浅层结论是“别对 finding 提醒”。更深一层：同一个事实“哪些事件要编排者处理”有两份定义，看门狗的那份来自 spec #1312，它把 #1200 的 contract 事故推广成了“任何子票”。这是唯一的独立出现，但来源是 stall，够提案门槛。",
+        "evidence": "mmw-v4/skills/dispatch/scripts/watchdog.py:720; mmw-v4/skills/dispatch/scripts/watchdog.py:72; mmw-v4/skills/dispatch/scripts/relay.py:284; mmw-v4/skills/mmw-mode/playbooks/run-a-night.md:116; https://github.com/chancheuklap/multi-model-workflow/issues/1409#issuecomment-6488014790; https://github.com/chancheuklap/multi-model-workflow/issues/1409#issuecomment-6488893999; https://github.com/chancheuklap/multi-model-workflow/issues/1312; https://github.com/chancheuklap/multi-model-workflow/commit/c1590feed371984ab3db16cdd8a30984627cdbd3",
+        "plan": "仓库：chancheuklap/multi-model-workflow；删：watchdog.py `_waiting` 自己的“opened 且无 resolution 即报”判定，改为只计 relay.py `WAKES[\"child.opened\"]` 的 `when.kind` 列出的种类，使两处共用一份定义；同时把 watchdog.py 文件头第 3 条中泛指任意 `child.opened` 的句子改成同一范围，并在 mmw-v4/tests/liveness/test_liveness.py 现有的 “unrouted children 1373” 用例旁加一例 finding 子票不提醒。文件：mmw-v4/skills/dispatch/scripts/watchdog.py；Playbook: Bug fix",
+        "run": "chancheuklap/multi-model-workflow#1407",
+        "qualifies": true,
+        "request": "10908fc612697379f0bacd723b1cf3e392c72ffe5d4c0c894d5588711343c793-row-0"
+      },
+      {
+        "v": 1,
+        "event": "lesson.assessed",
+        "stage": "work",
+        "actor": "main",
+        "spec": 1407,
+        "ticket": null,
+        "at": "2026-10-29T06:06:35Z",
+        "conclusion": "propose",
+        "reason": "现行代码仍如此：看门狗 `_waiting` 把所有已开、未写 resolution 的子票都算作“在等编排者”，而 relay 只在 contract、fault、decision 三种子票开出时叫醒编排者，Run a night 也写明“A finding wakes nobody”。本夜 finding #1414 在 04:33:02Z 开出，watchdog.json 记录 `wait:spec:1407:1409` 在 04:34:01Z 投递，而 #1414 按规定到 05:35:05Z 的收尾环节才分流。浅层结论是“别对 finding 提醒”。更深一层：同一个事实“哪些事件要编排者处理”有两份定义，看门狗的那份来自 spec #1312，它把 #1200 的 contract 事故推广成了“任何子票”。这是唯一的独立出现，但来源是 stall，够提案门槛。",
+        "evidence": "mmw-v4/skills/dispatch/scripts/watchdog.py:720; mmw-v4/skills/dispatch/scripts/watchdog.py:72; mmw-v4/skills/dispatch/scripts/relay.py:284; mmw-v4/skills/mmw-mode/playbooks/run-a-night.md:116; https://github.com/chancheuklap/multi-model-workflow/issues/1409#issuecomment-6488014790; https://github.com/chancheuklap/multi-model-workflow/issues/1409#issuecomment-6488893999; https://github.com/chancheuklap/multi-model-workflow/issues/1312; https://github.com/chancheuklap/multi-model-workflow/commit/c1590feed371984ab3db16cdd8a30984627cdbd3",
+        "plan": "仓库：chancheuklap/multi-model-workflow；删：watchdog.py `_waiting` 自己的“opened 且无 resolution 即报”判定，改为只计 relay.py `WAKES[\"child.opened\"]` 的 `when.kind` 列出的种类，使两处共用一份定义；同时把 watchdog.py 文件头第 3 条中泛指任意 `child.opened` 的句子改成同一范围，并在 mmw-v4/tests/liveness/test_liveness.py 现有的 “unrouted children 1373” 用例旁加一例 finding 子票不提醒。文件：mmw-v4/skills/dispatch/scripts/watchdog.py；Playbook: Bug fix",
+        "run": "chancheuklap/multi-model-workflow#1407",
+        "qualifies": true,
+        "request": "7f161ed1b796f2fa7869e20321652fd3c5cb9ba7823014e0d54545e238325b9c-row-1"
+      }
+    ],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1413,
+    "problem": "问题代号：session-memory-overrides-owner-gates\n角度：判断\n发生了什么：主人只说了\"开始写 spec\"。会话却凭自己的记忆条目（approved-design-no-reasking，来自主人 2026-10-27 针对另一批工作说的话）跳过了三道要主人点头的关口：To spec 第 4 步把 sharpen 结论交主人、To tickets 第 7 步草稿要主人批准才发布、Run a night 的\"主人说开夜\"才进第 1 步。会话发布了 #1408–#1412，并开了 #1407 这一晚。主人问：\"mmw 哪一步让你自行开夜了\"。\n证据：spec #1407 Further Notes 写着\"sharpen 结论由本 session 定下，未另行询问\"；#1407 的 spec.opened 事件；mmw-v4/skills/mmw-mode/playbooks/to-tickets.md 第 7 步；mmw-v4/skills/mmw-mode/playbooks/run-a-night.md 开头的表格第二行\n代价：一晚在主人没看过拆票的情况下开跑；主人得回头追问\n该谁修：MMW 仓库\n建议：会话的记忆条目不能替代 playbook 里写明要主人做的决定；若主人确实想授权，应写进 playbook 或 AGENTS.md，而不是只存在一台机器的记忆里",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "owner-correction",
+        "at": "2026-10-29T04:26:22Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1404,
+    "problem": "问题代号：vitest-backend-zero-skips-conflict\n角度：流程\n发生了什么：The live authoring instructions require a backend criterion's EXPECT to reject all skipped tests, while requiring the same Vitest criterion to use a standard EXPECT that accepts skipped and todo tests unchanged. The research had to trace both rules and their implementation because a test writer cannot satisfy both EXPECT instructions as written.\n证据：`mmw-v4/skills/mmw-mode/playbooks/to-tickets.md:79,83`; `mmw-v4/skills/create-verification-skill/references/tests-from-prototype.md:38-40`; `mmw-v4/skills/verify-ticket/scripts/runner-summaries.json:242,295-306`; `mmw-v4/skills/verify-ticket/scripts/verify-ticket.py:3239-3246` rejects any nonstandard Vitest EXPECT.\n代价：A writer must add an undocumented command-level guard or leave the stated zero-skipped requirement unenforced. The mandatory pattern can label a run with no executed Vitest assertion successful. No affected product ticket was measured in this read-only research.\n该谁修：MMW",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "retro-signal",
+        "at": "2026-10-28T12:08:50Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1402,
+    "problem": "问题代号：install-test-runs-prohibited-history\n角度：流程\n发生了什么：Root instructions prohibit executing scripts from `mmw-v3/`, but the live install tests execute the historical installer to create their migration baseline. An isolated home protects real state but is not an exception stated in that rule.\n证据：Root `AGENTS.md`, first live-tree rule; `mmw-v4/tests/install/test_install.py:130-141`; `scripts/check:59` and `scripts/check:111`.\n代价：An agent following the root rule cannot run the complete declared install suite without an instruction conflict. This research left the suite unrun and reported the conflict instead.\n该谁修：MMW",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "retro-signal",
+        "at": "2026-10-28T12:08:03Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1401,
+    "problem": "问题代号：board-verification-internal-api-stub-exception\n角度：流程\n发生了什么：The board verification skill requires mocks at external production boundaries but explicitly authorizes interception of the board's own `/api/settings`. Feature files also authorize `/api/board` interception. Two committed acceptance cases use the internal settings response to create error states.\n证据：`.agents/skills/verify-task-board/SKILL.md:59-73`; `tests/e2e/task-board/subagents.e2e.ts:12-18`, cases at lines 70 and 81; `.agents/skills/verify-task-board/features/canvas.md`, `## Gotchas`.\n代价：The evidence cannot be described uniformly as proving the complete UI-to-server-to-external-system path. The reader must distinguish presentation-only error-state proof from real-server integration proof, while the written boundary rule does not identify the exception.\n该谁修：MMW",
+    "occurrences": [
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "retro-signal",
+        "at": "2026-10-28T12:07:39Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1219,
+    "problem": "问题代号：retro-related-lessons-match-on-common-words\n角度：流程\n发生了什么：retro.py gather 只要问题代号里有任何一个单词相同，就把旧登记算作相关（mmw-v4/skills/retro/scripts/retro.py:233-235）。本次 7 条「相关登记」里有 6 条只是因为共用 no、own、route、cannot 这类常用词被拉进来（MMW #1213、#1200、#1190、#1157、#1111、#1095），真正同源的 #1214 反而没进材料。apply 遇到 reject 会直接关闭该登记，分析员要是把这些噪声行判 reject，就会关掉还开着的无关登记，例如老板纠正 #1213 和停工 #1200。\n证据：https://github.com/chancheuklap/multi-model-workflow/issues/1213\n代价：本次逐条读了 7 条登记，排除了 6 条无关的；如果有一行误判，就会关掉一条无关的、还开着的登记。\n该谁修：MMW\n建议：做成检查（改）：相关匹配要求问题代号至少共享两个去掉常用词之后的词，或者改成按证据里引用了同一个 issue 或同一个文件来匹配。",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": 1418,
+        "ticket": null,
+        "session": "orca:term_6b4e890f-e879-49da-a221-20e70f4c45eb",
+        "source": "retro-signal",
+        "at": "2026-10-21T23:52:04Z"
+      },
+      {
+        "seen_in": "chancheuklap/multi-model-workflow",
+        "spec": 1407,
+        "ticket": null,
+        "session": "orca:term_43c49427-8d94-45f3-93a1-181ef8f37700",
+        "source": "retro-signal",
+        "at": "2026-10-29T06:07:52Z"
+      }
+    ],
+    "assessments": [
+      {
+        "v": 1,
+        "event": "lesson.assessed",
+        "stage": "work",
+        "actor": "main",
+        "spec": 1407,
+        "ticket": null,
+        "at": "2026-10-29T06:04:52Z",
+        "conclusion": "candidate",
+        "reason": "本夜又出现了。主人 2026-10-27 关闭它时写的是“噪音本身耗费分析时间就重开”。本夜流程材料里 10 条“相关登记”中，7 条只因共用 “on”“the”“pass” 这类常用词被拉进来，1 条因共用 “closing pass”，全都要逐条打开才能排除；与原因有关的只有 2 条（共用 “watchdog”）。它原先的风险（判 reject 会关掉无关登记）已经消失，因为 apply 不再关闭登记。还剩的代价只是阅读时间。按规则，主人拒绝之后的新出现只是提醒，不是重开或动手的许可，所以留作候选，并在 Problems 里补记一次出现，让它重新进入待办。",
+        "evidence": "https://github.com/chancheuklap/multi-model-workflow/issues/1219; mmw-v4/skills/retro/scripts/retro.py:223",
+        "plan": "",
+        "run": "chancheuklap/multi-model-workflow#1407",
+        "qualifies": false,
+        "request": "10908fc612697379f0bacd723b1cf3e392c72ffe5d4c0c894d5588711343c793-row-11"
+      },
+      {
+        "v": 1,
+        "event": "lesson.assessed",
+        "stage": "work",
+        "actor": "main",
+        "spec": 1407,
+        "ticket": null,
+        "at": "2026-10-29T06:06:59Z",
+        "conclusion": "candidate",
+        "reason": "本夜又出现了。主人 2026-10-27 关闭它时写的是“噪音本身耗费分析时间就重开”。本夜流程材料里 10 条“相关登记”中，7 条只因共用 “on”“the”“pass” 这类常用词被拉进来，1 条因共用 “closing pass”，全都要逐条打开才能排除；与原因有关的只有 2 条（共用 “watchdog”）。它原先的风险（判 reject 会关掉无关登记）已经消失，因为 apply 不再关闭登记。还剩的代价只是阅读时间。按规则，主人拒绝之后的新出现只是提醒，不是重开或动手的许可，所以留作候选，并在 Problems 里补记一次出现，让它重新进入待办。",
+        "evidence": "https://github.com/chancheuklap/multi-model-workflow/issues/1219; mmw-v4/skills/retro/scripts/retro.py:223",
+        "plan": "",
+        "run": "chancheuklap/multi-model-workflow#1407",
+        "qualifies": false,
+        "request": "7f161ed1b796f2fa7869e20321652fd3c5cb9ba7823014e0d54545e238325b9c-row-12"
+      }
+    ],
+    "merged": null
+  },
+  {
+    "repo": "chancheuklap/multi-model-workflow",
+    "number": 1205,
+    "problem": "问题代号：retro-analyst-answer-shape-rejected-by-apply\n角度：流程\n发生了什么：spec #1348 复盘的流程分析员按 references/process.md 交回答案：表格每行的代号是信号评论 URL 加\"(signal, ...)\"后缀，问题字段带\"- \"前缀、该谁修带括号说明、证据列了多个来源、方案写\"改：\"。retro.py apply 只接受 lesson 代号（`#n` 或 gathered code）、裸的六字段行、单一证据来源、方案里的\"加：/删：\"，逐项拒绝，orchestrator 改了四轮格式、另写第二份答案才落下结论。\n证据：https://github.com/agentflow-hq/agentflow/issues/1348\n代价：orchestrator 约 30 分钟手工改格式；首轮 apply 只登记了问题、8 行结论全部作废\n该谁修：MMW 仓库\n建议：做成检查（加）：分析员交卷前跑 retro.py 的同一套行校验（dry-run），不合格就自己改完再交",
+    "occurrences": [
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": null,
+        "session": "orca:term_e50a0298-15e3-444d-b435-856da531bbc5",
+        "source": "noticed",
+        "at": "2026-10-21T02:44:29Z"
+      },
+      {
+        "seen_in": "agentflow-hq/agentflow",
+        "spec": null,
+        "ticket": 1692,
+        "session": "orca:term_b5874b4b-9124-408c-939f-f9df7fe55a36",
+        "source": "retro-signal",
+        "at": "2026-10-29T06:30:12Z"
+      }
+    ],
+    "assessments": [],
+    "merged": null
+  }
+]

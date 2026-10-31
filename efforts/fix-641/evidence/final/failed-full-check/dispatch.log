@@ -1,0 +1,816 @@
+WIRING OK
+HOST NEUTRALITY OK
+### unittest
+.......................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 295 tests in 17.785s
+
+OK
+### unittest passed
+
+### parallel runner
+parallel runner reports failures
+### parallel runner passed
+
+### dispatch.sh
+=== ack
+--- the orchestrator acks the wake it read, by ticket and event; the worker's row stays
+--- the same wake acked again matches no row of this session: refused, nothing removed
+--- the orchestrator acking the worker's wake is refused: another session's row stays
+--- a wake that was never queued is refused
+--- the worker acks its own wake, named by its own session
+--- a session no adapter can name cannot ack
+PASS ack
+=== advancealreadyin
+PASS advancealreadyin
+=== advancelandedfields
+PASS advancelandedfields
+=== advancedirty
+--- tracked edits in the caller checkout are outside the detached merge worktree
+PASS advancedirty
+=== advancemergeworktree
+PASS advancemergeworktree
+=== advancebaseref
+PASS advancebaseref
+=== advancechecksonce
+PASS advancechecksonce
+=== advancebouncedchecks
+PASS advancebouncedchecks
+=== advancebouncedsavesoutput
+PASS advancebouncedsavesoutput
+=== advancebouncedkeepserrors
+PASS advancebouncedkeepserrors
+=== advancecapbadconfig
+PASS advancecapbadconfig
+=== advancenochecks
+--- no scripts/check refuses the landing: advance exits 2, the ticket is not bounced
+--- land <n> refuses it the same way
+PASS advancenochecks
+=== advancebouncedsteps
+PASS advancebouncedsteps
+=== advancebouncedconflict
+PASS advancebouncedconflict
+=== advancecheckcannotrun
+--- scripts/check exit 2 on the merge: the ticket stays passed, advance stops with exit 2
+--- once the machine is fixed, advance lands it
+PASS advancecheckcannotrun
+=== advancewithoutpassedcommit
+PASS advancewithoutpassedcommit
+=== advanceunreadableinto
+PASS advanceunreadableinto
+=== advancenohalfmerge
+PASS advancenohalfmerge
+=== archiveunlandedkeepsbranch
+PASS archiveunlandedkeepsbranch
+=== advancepassedcommit
+PASS advancepassedcommit
+=== advancerefused
+--- a start the runner refuses is exit 4 from advance, naming the ticket and the reason
+PASS advancerefused
+=== alreadyinfastforward
+PASS alreadyinfastforward
+=== advanceoverlap
+PASS advanceoverlap
+=== alreadyinmerge
+PASS alreadyinmerge
+=== advanceraced
+PASS advanceraced
+=== advancecapbounce
+PASS advancecapbounce
+=== briefbrowsername
+PASS briefbrowsername
+=== checkallisgone
+PASS checkallisgone
+=== bounceansitail
+PASS bounceansitail
+=== briefproblems
+the brief asks for a Problems section
+PASS briefproblems
+=== checknoorigin
+PASS checknoorigin
+=== advancesummaryline
+PASS advancesummaryline
+=== briefclosebrowsers
+PASS briefclosebrowsers
+=== bouncedkeepsbranch
+PASS bouncedkeepsbranch
+=== advancecap
+PASS advancecap
+=== briefclosestopfailure
+PASS briefclosestopfailure
+=== advancerestoreswatch
+PASS advancerestoreswatch
+=== bouncestopssessions
+PASS bouncestopssessions
+=== checkbasemissing
+PASS checkbasemissing
+=== bouncednotretried
+PASS bouncednotretried
+=== advance
+--- both finished commits land on origin/main without moving the caller checkout
+--- in the order the tickets closed, each keeping a merge commit of its own
+--- a worktree is removed only after its branch is merged, then the frontier is created
+--- each merge is recorded on its ticket as ticket.landed
+--- a second run has nothing left to merge and starts nothing new
+--- a retired flag on advance exits 2 and calls nothing
+PASS advance
+=== briefreport
+--- the brief's own session reports, and the answer is kept in the batch
+--- another session cannot report that brief
+--- show lists each brief, its state and where its answer is
+--- no wake is queued while a brief is open, so an ack of the batch is refused
+--- once both have reported, one relay cycle queues one wake, and the parent acks it by its batch
+queued 1 brief 20261031-100223-462c done for main agt_main
+--- close stops every session of the batch, closes its watch and removes it
+--- a report to a closed batch is refused: nobody waits for it
+PASS briefreport
+=== checkproject
+PASS checkproject
+=== briefclosekillsleftover
+PASS briefclosekillsleftover
+=== checkrunsnocheck
+--- check opens no repository-check run, even with uncommitted changes
+PASS checkrunsnocheck
+=== catalogbyrunner
+--- on Orca the junior worker starts with the CLI's own model id
+--- on Paseo the same row starts with Paseo's id
+PASS catalogbyrunner
+=== checklocalahead
+PASS checklocalahead
+=== envstartsetsup
+PASS envstartsetsup
+=== findings
+--- findings lists every open finding under the ticket whose fold names it, and skips the deferred child
+--- a finding the tracker shows closed drops out of the list
+PASS findings
+=== checkrefusesnocheck
+--- a scripts/check that is not executable, or absent, refuses the night
+PASS checkrefusesnocheck
+=== envabsent
+PASS envabsent
+=== checknopush
+PASS checknopush
+=== finishcleanupindependent
+PASS finishcleanupindependent
+=== finishchecksbasepush
+PASS finishchecksbasepush
+=== finishcleans
+PASS finishcleans
+=== finishconflict
+PASS finishconflict
+=== finishcontained
+PASS finishcontained
+=== finishkeepslocalnight
+PASS finishkeepslocalnight
+=== finishclosespecfails
+PASS finishclosespecfails
+=== envrestartaftersuspend
+PASS envrestartaftersuspend
+=== finishkeepsmainworktree
+PASS finishkeepsmainworktree
+=== check
+--- a complete machine, one grade per queued ticket, exits 0
+--- every host of the batch is refreshed once, however many rows share it
+--- a provider that is not available, and a ticket with two grades, each printed
+--- install.sh --check failing is a warning, not a refusal, and nothing is installed
+--- the installed checkout only checks too
+--- a row that does not resolve on tonight's runner is refused in the resolver's words, whatever the tickets carry
+--- a runner this skill has no adapter for is refused before the night
+PASS check
+=== finishkeepssession
+PASS finishkeepssession
+=== finishkeepsunmergedlocalnight
+PASS finishkeepsunmergedlocalnight
+=== finishrefuses
+--- a night with no spec.closed
+PASS finishrefuses
+=== finishnocheck
+--- a merge result with no scripts/check is not pushed
+PASS finishnocheck
+=== envmergeworktree
+PASS envmergeworktree
+=== finishrefusesnoproject
+PASS finishrefusesnoproject
+=== finishmerges
+PASS finishmerges
+=== finishrefusesnopr
+--- a night with no open pull request to the project branch
+PASS finishrefusesnopr
+=== finishrefusesopenticket
+--- a ticket of the night still open
+PASS finishrefusesopenticket
+=== finishred
+PASS finishred
+=== finishleavescheckedoutnight
+PASS finishleavescheckedoutnight
+=== finishrefusesothernight
+PASS finishrefusesothernight
+=== finishrefusesunreadablespec
+PASS finishrefusesunreadablespec
+=== envupfails
+PASS envupfails
+=== envdownonend
+PASS envdownonend
+=== finishkeepsunmergedproject
+PASS finishkeepsunmergedproject
+=== herdrliveness
+--- listed, even as done, is not stopped; the list is what was asked
+--- listed idle is alive, still without agent wait
+--- not listed is stopped
+--- list cannot be asked is unknown, not stopped
+PASS herdrliveness
+=== herdrstartloud
+--- a refused start says what failed, on stderr
+PASS herdrstartloud
+=== herdrnoeffort
+--- an empty effort starts claude without --effort, never with a literal dash
+--- a host with no launch block refuses instead of starting without a model
+PASS herdrnoeffort
+=== herdrunreadablelist
+--- a list in the wrong shape is unknown, never stopped
+--- send on a list in the wrong shape sends nothing (3), never 'no such session' (2)
+--- and a list that is not JSON at all is unknown too
+PASS herdrunreadablelist
+=== finishrestoreslocalnight
+PASS finishrestoreslocalnight
+=== codexappdispatch
+PASS codexappdispatch
+=== installedallowsstatus
+PASS installedallowsstatus
+=== finishskipschecked
+PASS finishskipschecked
+=== finishreusesall
+--- a tip the night's --all proved is not checked again by finish
+PASS finishreusesall
+=== herdrworkingsend
+--- already working: nothing is sent, exit 3, so sending again is safe
+--- a prompt that stalled or timed out was typed: exit 4, never 3
+PASS herdrworkingsend
+=== bounceretriesonce
+the first conflict returns once; the second goes to triage
+PASS bounceretriesonce
+=== handoffpushrejected
+PASS handoffpushrejected
+=== finishrefusesredpr
+--- a pull request whose checks are red or still running, or whose review threads are open
+PASS finishrefusesredpr
+=== installedothercheckoutsend
+PASS installedothercheckoutsend
+=== finishrerun
+PASS finishrerun
+=== integrateclean
+PASS integrateclean
+=== frontierwhy
+--- an empty frontier is an explanation, not a failure
+--- every queued ticket names the condition holding it, and only queued ones do
+--- and a batch with nothing left in the queue says nothing at all
+PASS frontierwhy
+=== integratedirty
+PASS integratedirty
+=== integrateuptodate
+PASS integrateuptodate
+=== installedrefusessend
+PASS installedrefusessend
+=== integrateconflict
+PASS integrateconflict
+=== integratenamestickets
+PASS integratenamestickets
+=== integratedsincestart
+--- integrated lists every ticket the base branch took in since this ticket's worker started, not one landed before it
+--- a ticket with no recorded worker.started.base is refused, nothing printed
+PASS integratedsincestart
+=== landeddeletesbranch
+PASS landeddeletesbranch
+=== landarchivesagents
+--- land takes the ticket's Paseo agents off the list and deletes its contained ticket branch
+PASS landarchivesagents
+=== landedkeepsunmergedlocalbranch
+PASS landedkeepsunmergedlocalbranch
+=== landedbranchgone
+PASS landedbranchgone
+=== landedkeepsunmerged
+PASS landedkeepsunmerged
+=== landeddeleterefused
+PASS landeddeleterefused
+=== landedlinks
+PASS landedlinks
+=== landedbranchraced
+PASS landedbranchraced
+=== missingverifyticket
+PASS missingverifyticket
+=== landednourl
+PASS landednourl
+=== noadapterretract
+--- adapter gone: retract refuses with exit 2 and archives nothing
+PASS noadapterretract
+=== noadapterwait
+--- wait asks no runner: with the adapter gone it still reads the ticket and answers
+PASS noadapterwait
+=== keepunfinished
+--- a start after a lost worker commits the edits it left, naming who left them
+--- a worktree no worker of the ticket had keeps its edits, for the preflight to refuse
+--- a retraction commits the edits before it removes the worktree
+PASS keepunfinished
+=== landcheckseverymerge
+PASS landcheckseverymerge
+=== openbaseprojectconflict
+PASS openbaseprojectconflict
+=== openinto
+PASS openinto
+=== nightfromtask
+--- a night run from a task-branch worktree cuts tickets from that branch, under the main worktree
+--- a directory named issue-<n> on another branch is not taken over
+PASS nightfromtask
+=== landbouncesredonredbase
+PASS landbouncesredonredbase
+=== openkeepsproject
+PASS openkeepsproject
+=== openprojectconfig
+PASS openprojectconfig
+=== openprojecthead
+PASS openprojecthead
+=== land
+--- landing one finished ticket merges it, then removes its worktree
+--- and gives the claim back, which closing a ticket before this did not
+--- both are events on the ticket, the landing recorded last, once the workspace is gone
+--- it takes a ticket number, never a spec: no batch was read
+--- a ticket still being worked is held, and nothing is done to it
+--- a ticket handed back keeps its worktree for the next start, and gives the claim back
+--- a closed ticket's passed commit is merged before its workspace is archived
+--- a ticket that needs nothing says so, rather than exiting 0 in silence
+--- a voided ticket is never merged, and so is never archived either
+PASS land
+=== openprojecttie
+PASS openprojecttie
+=== finishsyncsprojectworktree
+PASS finishsyncsprojectworktree
+=== openprojecthistory
+PASS openprojecthistory
+=== mergewithoutbranch
+--- a pass with no recorded commit is refused rather than landing an unverified tip
+--- the rest of the batch goes on: a ticket #60 does not block is started, and the run still exits 2
+PASS mergewithoutbranch
+=== landviaorigin
+PASS landviaorigin
+=== openrefusesdefault
+PASS openrefusesdefault
+=== openprojectreflog
+PASS openprojectreflog
+=== finishclosesspec
+PASS finishclosesspec
+=== openpushes
+PASS openpushes
+=== openrefusesfromdefault
+PASS openrefusesfromdefault
+=== orcaclosed
+--- terminal_not_writable maps to no such session, exit 2
+PASS orcaclosed
+=== openticketnocheck
+--- open-ticket refuses a repository with no scripts/check, and opens no watch
+--- so does send worker, before anything starts
+PASS openticketnocheck
+=== openrefusesdiverged
+PASS openrefusesdiverged
+=== orcanohosts
+--- a host with no launch block refuses before any terminal is created
+PASS orcanohosts
+=== orcanotconnected
+--- listed with connected:false is not stopped on that field alone; the exit probe decides
+PASS orcanotconnected
+=== openprojectpastdefault
+PASS openprojectpastdefault
+=== orcaparentskips
+--- a caller in no Orca terminal has nothing to file the worktree under
+--- a caller in the target worktree itself is not made its parent
+--- a handle terminal list does not name is exit 1 with the handle in the reason
+PASS orcaparentskips
+=== orcarefusalreason
+--- a terminal create Orca refuses on stdout carries Orca's reason
+PASS orcarefusalreason
+=== openticketstartsboard
+--- open-ticket registers this repository's board, starts it, and names its URL on the line that opens the watch
+--- a board that cannot be started is said so and the watch is open all the same
+PASS openticketstartsboard
+=== orcatruncated
+--- a handle past a truncated list is unknown, never stopped
+--- and a list in the wrong shape is unknown too
+PASS orcatruncated
+=== orcanoorphan
+--- a host that exits as soon as it starts is refused, says why, and leaves no terminal
+--- an exit wait this cannot read falls back to liveness: alive is a start
+--- and a liveness that is not alive is a refusal that closes the terminal
+PASS orcanoorphan
+=== landrunsnolandedcriteria
+PASS landrunsnolandedcriteria
+=== finishcleanupfails
+PASS finishcleanupfails
+=== openstartsboard
+--- open registers this repository's board, starts it, and names its URL on the line that opens the night
+--- a board that cannot be started is said so and does not stop the night
+PASS openstartsboard
+=== orcaparentrefused
+--- a parent Orca refuses is one stderr line; the issue link and the session stand
+PASS orcaparentrefused
+=== orcamergeparent
+--- the merge worktree is filed under the worktree of the orchestrator that lands
+PASS orcamergeparent
+=== orcaunobserved
+--- a terminal whose program Orca cannot observe took the text: unknown, exit 4, said why
+--- a list that cannot be read sends nothing: 3, and terminal send is not run
+--- Orca refusing the send with an error of its own typed nothing: 3
+--- a host whose delivery Orca cannot report still starts: the handle, exit 0, its terminal kept
+PASS orcaunobserved
+=== orcareviewernoparent
+--- a reviewer start files its worktree under nothing, whichever terminal runs it
+PASS orcareviewernoparent
+=== openrefused
+--- a session no adapter can name is refused, and nothing is opened
+--- an Orca terminal whose handle cannot be read is refused by name
+--- inside Herdr inside Orca, Herdr names the session: the inner runner is asked first
+--- a session the runner shows stopped is refused
+--- spec.opened that cannot be written closes the watch open opened, and the relay with it
+PASS openrefused
+=== prgreen
+PASS prgreen
+=== recheckisgone
+PASS recheckisgone
+=== opentakeover
+--- status on an open night says whom its wakes go to, and that it is the session asking
+--- asked from another session, status says the wakes are not its own and names open
+--- open from the new session takes the night's wakes
+PASS opentakeover
+=== orcaworktreelink
+PASS orcaworktreelink
+=== orcaworktreelinkfails
+PASS orcaworktreelinkfails
+=== posteventshowsgherror
+PASS posteventshowsgherror
+=== orcaworktreeparent
+--- a worker's worktree is filed under the worktree of the orchestrator that started it
+PASS orcaworktreeparent
+=== openbasefollowsproject
+--- a base branch with nothing of its own is fast-forwarded to the project branch, and so is the checkout
+--- a base branch with commits of its own merges the project branch
+--- check reports what the base would take and changes nothing
+PASS openbasefollowsproject
+=== orcadoubledispatch
+--- a live worker on Orca keeps its claim, and no second worker is started
+--- once that start is retracted, the same ticket is freed and started again
+PASS orcadoubledispatch
+=== paseostartdir
+--- start hands the ticket worktree to the runner as the session's directory
+PASS paseostartdir
+=== prdispatchesworkflow
+PASS prdispatchesworkflow
+=== releaselive
+--- a claim whose worker is still alive is the owner's, and is not touched
+--- and the ticket reads as held by that worker, not as an orphaned claim
+PASS releaselive
+=== releaseother
+--- a ticket somebody else took is left exactly as it is
+--- so it stays off the frontier, and is not started
+--- and stderr says which condition holds it there
+PASS releaseother
+=== retractunreadable
+--- retract refuses on a ticket whose events cannot be read, and keeps the worktree
+PASS retractunreadable
+=== prredandnone
+PASS prredandnone
+=== reverifyorigin
+PASS reverifyorigin
+=== retractpushes
+PASS retractpushes
+=== releasestanding
+--- assigned, its worker lost, workspace still standing: RELEASE then DISPATCH into that workspace
+PASS releasestanding
+=== prnotewhennoci
+PASS prnotewhennoci
+=== resume
+--- a live worker is found by the worker.started event on its ticket and sent the text
+--- no matching worker is a refusal, and nothing is sent
+--- a started worker its runner no longer has is exit 2, and the refusal names retract
+--- a worker that is there but will not take the message is exit 3, not 2
+--- it names the way out that works on every runner: replacing the worker
+--- a message handed over that the runner cannot confirm is exit 4, recorded, not to be sent again
+PASS resume
+=== regressedrestart
+PASS regressedrestart
+=== routelint
+route fixed refused on a lint error and closed nothing
+PASS routelint
+=== returnedstopssessions
+PASS returnedstopssessions
+=== parallelbases
+PASS parallelbases
+=== regressedrestartbase
+PASS regressedrestartbase
+=== runnerself
+--- paseo: PASEO_AGENT_ID is the session; without it this is not a Paseo agent
+--- orca: ORCA_TERMINAL_HANDLE is the session; an Orca terminal without it is refused
+--- herdr: the name of the agent in HERDR_PANE_ID is the session
+--- dispatch.sh self prints the pair, with no models.json needed
+PASS runnerself
+=== replacepushes
+PASS replacepushes
+=== runnersend
+--- the adapter itself maps delivered to exit 0
+--- the adapter itself maps busy to exit 3
+--- the adapter itself maps a missing session to exit 2 and does not send
+PASS runnersend
+=== routerefusesmapspec
+--- became-ticket onto a map: refused, nothing done
+--- became-ticket onto a spec: refused, nothing done
+--- without a spec, a map is refused as a duplicate target too
+PASS routerefusesmapspec
+=== runnerliveness
+--- listed running is alive
+--- idle is alive (a turn that ended is still on the hook)
+--- not listed is stopped
+--- closed is stopped
+--- ls cannot be asked is unknown, not alive
+--- unreadable ls output is unknown, not alive
+--- a listed agent with no recognisable status is unknown, not alive
+PASS runnerliveness
+=== runnerstop
+--- orca stop closes the terminal; a handle already gone is 0
+--- herdr stop closes the agent's pane
+--- a list it cannot read is not a stop
+PASS runnerstop
+=== release
+--- a claim whose worker was reported lost, with no workspace behind it, is given back
+--- and never silently: the line names the ticket and says why
+--- the ticket it frees is dispatched by the same advance, not the next one
+--- a standing workspace does not keep the claim: the worker is gone, so it is released into that workspace
+PASS release
+=== routeonekind
+--- became-ticket onto a problem
+--- became-ticket onto a lesson
+--- run again on a target that is already a ticket
+PASS routeonekind
+=== reviewerbaseafterintegrate
+PASS reviewerbaseafterintegrate
+=== routenospec
+PASS routenospec
+=== resumeendedhold
+--- worker.lost ended the worker's hold: nothing is typed into the session, and start is named
+--- worker.retracted ended it the same way
+--- a ticket.refused naming the worker ended it: fix the reason, then start
+--- ticket.returned ended every hold: the ticket is triage's, not a worker's to continue
+--- ticket.bounced ended every hold: the labels say whether advance takes it up or triage does
+--- ticket.landed ended every hold: the work is on the base branch
+--- spec.suspended ended every hold: the night is taken up again with open, then advance
+--- a worker replaced by a live one: the text goes to the live one
+--- a ticket whose events cannot be read sends nothing
+PASS resumeendedhold
+=== route
+--- fixed: the child is closed as completed and child.closed goes on its ticket
+--- stale: closed as not planned
+--- became-ticket as itself: relabelled mmw:ticket, left open, under the spec its child.opened names — never the map the tree would give
+--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate
+--- each route is one child.closed on the ticket the child came from, naming the spec
+--- run again, a route already recorded does nothing and says so
+--- routed another way already: refused, nothing done
+--- cut short after its tracker steps began, the same command finishes it
+--- a child the ticket did not open, and a resolution that is none of the three, change nothing
+PASS route
+=== runnerstart
+--- the adapter leaves no temporary file behind and says nothing on a clean start
+--- without the adapter, start refuses and starts nothing
+PASS runnerstart
+=== retract
+--- usage lists retract
+--- retract after start removes the worktree and gives the claim back
+--- a second retract on the same ticket is a no-op
+--- a live agent on the ticket is refused, and the workspace stays
+--- a claim this pipeline does not hold is left alone
+PASS retract
+=== runneronticket
+--- a start writes the runner and its session id on the ticket
+--- a worker's start carries its base commit and this machine
+PASS runneronticket
+=== specfield
+--- outside a batch command, the events a command writes still name the ticket's spec
+PASS specfield
+=== startdiverged
+branch 'issue-61' set up to track 'origin/issue-61'.
+PASS startdiverged
+=== startnomodelsjson
+PASS startnomodelsjson
+=== startfromissuebranch
+--- outside a night with no earlier worker, start from an issue branch names the branch to start from
+PASS startfromissuebranch
+=== start-reviewer
+--- a reviewer uses worker.started.base when the base branch was never integrated
+PASS start-reviewer
+=== sendinto
+each brief writes into its question directory
+PASS sendinto
+=== send
+--- send worker opens the ticket's watch for this session, then starts its worker
+--- send reviewer starts the reviewer and leaves the watch with the session that opened it
+--- a ticket number that is not digits is refused, and nothing is started
+PASS send
+=== runnerparity
+=== paseo adapter
+--- start succeeds
+--- start takes no --label: a usage error, and nothing is started
+=== herdr adapter
+--- start succeeds, pane exists before agent start
+--- the reviewer and the worker of one worktree get different session names
+--- start takes no --label: a usage error, and no tab is opened
+--- send three states
+=== orca adapter
+--- start succeeds, one create, path: selector, no worktree enumeration
+--- the tab carries the title dispatch passes, so one ticket's sessions differ
+--- the first prompt is the last argument of the command exec runs, and nothing is typed
+--- start takes no --label: a usage error, and no terminal is created
+--- send three states
+--- liveness three states
+--- a running process whose UI is not idle is still alive
+PASS runnerparity
+=== startfromorigin
+PASS startfromorigin
+=== startintofromnight
+PASS startintofromnight
+=== startonce
+--- a start the runner refuses is refused once: one paseo run, no second host
+PASS startonce
+=== startreadsmodelsjson
+--- start reads models.json
+PASS startreadsmodelsjson
+=== startintooutside
+PASS startintooutside
+=== sendrefusesclosedbatch
+PASS sendrefusesclosedbatch
+=== startunrecorded
+--- a start whose event the tracker refuses stops the session it started
+PASS startunrecorded
+=== finishsyncsprojectbranch
+PASS finishsyncsprojectbranch
+=== startunlandedblocker
+--- start refuses a ticket whose blocker passed and has not landed, and starts it once it has
+PASS startunlandedblocker
+=== summarycloseout
+PASS summarycloseout
+=== summarybounced
+PASS summarybounced
+=== status
+--- status prints the table header and exits 0
+--- the table comes off the tickets alone: no runner is asked, and one that fails changes nothing
+--- a live worker on the ticket's events shows on its row, with its runner and session
+--- a non-numeric spec is a refusal, exit 2
+PASS status
+=== startwithoutinto
+PASS startwithoutinto
+=== summarye2eredopenticket
+PASS summarye2eredopenticket
+=== reverify
+--- each run is the orchestrator's reverify, and a green one writes nothing but its own run
+--- the red ticket's failing criteria come off its ticket.checked, not the run's printout
+--- a run whose result could not be written, or a red exit with no red run of HEAD on the ticket, is not a red ticket
+--- a ticket that passed and has not landed is not run again on the base branch
+--- all green exits 0
+--- a ticket an earlier reverify reopened is run again, and a green run closes it
+--- a reopened ticket that is still red is left where it is, and is not regressed twice
+--- a reopened ticket triage has handed to a worker is left alone
+PASS reverify
+=== sendintorefused
+send researcher on an effort branch without a question directory is refused
+PASS sendintorefused
+=== sweepkeepsheldmergelock
+PASS sweepkeepsheldmergelock
+=== startstrayworkspace
+--- a worktree deleted by hand is still registered with git, and start makes it again
+--- an empty directory there is removed and the worktree made
+--- a directory holding files is refused as what it is, and kept
+PASS startstrayworkspace
+=== summaryreusesspecchecked
+PASS summaryreusesspecchecked
+=== sendintoreuse
+a question directory with an answer is refused and an empty one is reused
+PASS sendintoreuse
+=== summaryrunsall
+PASS summaryrunsall
+=== trackerorigin
+PASS trackerorigin
+=== unknownnotalive
+--- runner answers unknown: retract refuses and archives nothing
+PASS unknownnotalive
+=== sweepkeepslockedmerge
+PASS sweepkeepslockedmerge
+=== sweepsorphanmerge
+PASS sweepsorphanmerge
+=== sweepsstalemergelock
+PASS sweepsstalemergelock
+=== sendbrief
+--- send advisor starts the advisor row in the current worktree, as a batch this session is woken for
+--- send researcher with two files starts two sessions of one batch, each told its own brief
+--- a brief send without --follow is refused, and nothing is started: the session would not know what it works by
+--- a role send does not know is refused, and nothing is started
+--- a session no runner can name is refused before anything starts: nothing could wake it
+--- a start the runner refuses closes the batch: no batch, no watch, the reason kept
+--- the second of two starts refused stops the first session and closes the batch
+--- a missing or empty brief file is refused, and nothing is started
+--- a missing row is refused, and nothing is started
+PASS sendbrief
+=== summaryholdsfindings
+--- a finding no route reached refuses the summary: nothing posted, the watch still open
+--- once every finding carries a route, the summary is posted and the watch closes
+PASS summaryholdsfindings
+=== unreadableevents
+--- a ticket whose event cannot be read keeps its claim and stays off the frontier
+PASS unreadableevents
+=== unopened
+--- advance refuses a night that is not open, and touches nothing
+--- start refuses a ticket no relay watches, and starts nothing
+--- a relay watching another spec does not open this one
+PASS unopened
+=== wait
+--- a result already on the ticket is printed with the report's text, and wait is not called
+--- no result yet: exit 3 at once, one read of the ticket, no runner asked
+--- no matching agent is a refusal, exit 2, wait is not called
+PASS wait
+=== startresumesorigin
+PASS startresumesorigin
+=== summaryprintse2esteps
+PASS summaryprintse2esteps
+=== worktreegoverned
+--- the worktree basename is issue-<n>, and tool-guard.py governed_ticket sees the ticket
+PASS worktreegoverned
+=== summaryrefusesredall
+PASS summaryrefusesredall
+=== summary
+--- without a reverify of the base branch, summary refuses before it posts or closes the watch
+--- after reverify, the posted comment has a Reverify line matching that run
+--- summary stops the relay watching the spec, and leaves one watching another alone
+PASS summary
+=== worktreegit
+--- start cuts the worktree with git at <repo>/.worktrees/issue-<n>
+--- a second start reuses that directory and does not call a runner workspace command
+PASS worktreegit
+=== start-worker
+--- a ticket with no worker label starts one session on the default row and prints its id
+--- an existing ticket branch is checked out, not cut again
+--- a senior-worker label starts that row instead
+--- two worker labels are refused, and nothing is started
+--- a retired flag on start exits 2 and calls nothing
+--- a start on a ticket whose worker is still live replaces it: stopped, worker.replaced, then worker.started
+--- a live worker that will not stop is not replaced, and nothing is started beside it
+--- a copied skill still finds models.py
+PASS start-worker
+=== worktreelinknoop
+PASS worktreelinknoop
+=== suspendpushes
+PASS suspendpushes
+=== suspend
+--- suspend archives the live worker, comments, gives the claims back
+--- every ticket still in the agent queue carries one comment saying the night was suspended
+--- the summary line counts what was undone
+--- advance after suspend re-dispatches the same tickets into the standing workspaces
+PASS suspend
+=== summarye2eredrefuses
+PASS summarye2eredrefuses
+=== boardopenstab
+--- board asks the Orca adapter for a tab tied to the current worktree
+PASS boardopenstab
+=== boardprintsurl
+--- board prints its URL when the selected adapter has no open-url action
+PASS boardprintsurl
+=== boardregisters
+--- board skips a listening port and a registered port, then starts on the first free one
+PASS boardregisters
+=== boardsameport
+--- board reuses one main-checkout registration from another worktree
+PASS boardsameport
+FAIL landstopfailure (exit 1)
+=== landstopfailure
+relay: could not read the sub-issues of spec #76, so whether ticket #64 shares a ticket with another watch is not known: repos/o/r/issues/76/sub_issues?per_page=100: the response had no HTTP headers. Nothing was recorded; run it again once the tracker answers.
+  FAILED: could not open the isolated ticket watch
+  FAILED: failed cleanup lost its watch
+landstopfailure failed: scenario_landstopfailure exited 0, assertions 1
+FAIL open (exit 1)
+=== open
+--- open opens the spec's watch with this session as its orchestrator, starts the relay, and writes spec.opened
+--- the relay open started reads the tracker on its own
+  FAILED: no call matching: gh :: api :: --paginate :: --slurp :: repos/o/r/issues/76/sub_issues?per_page=100
+--- opening the same night again keeps the one relay
+--- another night in this repository, opened by another session, joins the one relay with its own orchestrator
+--- a ticket of an open night is refused a watch of its own, and the night keeps its orchestrator
+--- summary closes its night's watch, and the relay goes on for the other night
+--- the last night's summary ends the relay
+open failed: scenario_open exited 0, assertions 1
+FAIL openticket (exit 1)
+=== openticket
+--- open-ticket opens a watch of that ticket alone with this session as its orchestrator, and starts the relay
+--- a ticket of a spec is not what this relay watches, so its start is refused
+--- land ends the relay open-ticket started for it
+--- land leaves a night's relay alone
+--- a ticket outside the open night gets a watch of its own beside it, and the night keeps its orchestrator
+  FAILED: open-ticket 95 beside the night expected 0, got 2: relay: could not read the sub-issues of spec #76, so whether ticket #95 shares a ticket with another watch is not known: repos/o/r/issues/76/sub_issues?per_page=100: the response had no HTTP headers. Nothing was recorded; run it again once the tracker answers.
+dispatch: the relay did not open the watch for paseo session agt_other (the reason is above), so nothing was opened
+  FAILED: relay 9901 should watch the night and #95: 9901 {"spec": 76}
+  FAILED: #95's orchestrator should be agt_other: {"spec:76": {"spec": 76, "runner": "paseo", "session": "agt_main", "at": "2026-09-10T00:00:00Z"}}
+openticket failed: scenario_openticket exited 0, assertions 1
+### dispatch.sh failed
+
+failures above

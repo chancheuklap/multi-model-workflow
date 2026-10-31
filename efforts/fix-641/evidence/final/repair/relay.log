@@ -1,0 +1,71 @@
+WIRING OK
+HOST NEUTRALITY OK
+### unittest
+...............................................................................................................................
+----------------------------------------------------------------------
+Ran 127 tests in 43.594s
+
+OK
+### unittest passed
+
+### relay.py end to end
+=== wake
+--- a landed ticket wakes the orchestrator through the runner, and stays until acked
+--- one wake a pass: the second goes on the next
+RELAY-WAKE-OK
+=== worker
+--- a reviewer's report wakes the ticket's worker, and each recipient acks only its own rows
+RELAY-WORKER-OK
+=== busy
+--- a wake that arrives while the orchestrator is in a turn stays and is sent on the next pass
+RELAY-BUSY-OK
+=== retired
+--- rows for a session that is no longer the watch's orchestrator are dropped unsent
+RELAY-RETIRED-OK
+=== gone
+--- a send the runner answers with 'no such session' drops the row
+RELAY-GONE-OK
+=== reconcile
+--- a relay that was down reads everything on start and queues each event it finds
+RELAY-RECONCILE-OK
+=== pollfail
+--- a read that could not be made is reported and is not a good poll
+RELAY-POLLFAIL-OK
+=== singleton
+--- one relay process per repository, and the queue says when no relay feeds it
+RELAY-SINGLETON-OK
+=== nothing
+--- a relay with nothing watched refuses to run
+RELAY-NOTHING-OK
+=== openstopped
+--- a watch whose orchestrator the runner says is stopped is refused, and nothing is recorded
+RELAY-OPENSTOPPED-OK
+=== readonly
+--- every call the relay makes to the tracker is a read
+RELAY-READONLY-OK
+=== startstop
+--- start runs a relay of its own that polls and delivers, and stop ends it
+--- a second start of the same watch finds the relay running
+--- watching answers for the ticket it watches and no other
+--- stop leaves the relay alone when it does not watch what is named, and ends it with its last watch
+--- the relay started after one stopped on purpose reads what landed meanwhile
+--- stop with no relay alive still forgets the last good poll of the one that died
+--- start refuses, and runs nothing, when the watches cannot be read
+RELAY-STARTSTOP-OK
+=== watches
+--- a second watch beside a running one has its own orchestrator, and the first keeps its own
+--- a watch that shares a ticket with an open one is refused, and nothing is recorded
+--- a night opened by the orchestrator of a leftover ticket watch takes that ticket over
+--- and so does a night beside a ticket watch whose orchestrator is stopped
+--- closing one watch leaves the relay running for the other
+RELAY-WATCHES-OK
+=== onewatch
+--- a relay whose record names one watch reads no watches.json: a new watch beside it is refused
+RELAY-ONEWATCH-OK
+=== ackwake
+--- a recipient acks the wake it read by ticket and event; a second ack of it is refused
+--- a session acking a wake that went to another session is refused, and removes nothing
+RELAY-ACKWAKE-OK
+### relay.py end to end passed
+
+all passed

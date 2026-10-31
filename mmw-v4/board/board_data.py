@@ -38,24 +38,6 @@ def iso(value: dt.datetime) -> str:
     return value.astimezone(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def finished(ticket: dict) -> bool:
-    """Whether this ticket is done and its comments will not say anything new: its events
-    landed it, or it closed with nothing that will ever land, which is what an empty
-    `blocker_hold` says. A ticket taken through by hand, outside the pipeline, is written
-    no `ticket.landed` and can have no events at all; re-reading its comments every poll
-    for the rest of the board's life buys nothing. One that passed and has not landed yet
-    is still to come, and is read on. The page asks the same question the same way, in
-    `page/board-logic.mjs`'s `done`."""
-    return bool(ticket["fold"]["landed"]) or ticket["blocker_hold"] == ""
-
-
-def plan_read(last_tree_at: dt.datetime | None, tickets: list[dict], now: dt.datetime) -> dict:
-    """Choose this poll's GitHub reads from cached state and an explicit clock."""
-    stale = last_tree_at is None or (now - last_tree_at).total_seconds() >= 600
-    numbers = [ticket["n"] for ticket in tickets if not finished(ticket)]
-    return {"tree": stale, "comments": numbers}
-
-
 def _labels(raw: dict) -> list[str]:
     return [item.get("name") or "" for item in raw.get("labels") or []]
 
@@ -85,34 +67,23 @@ def _replay(comments: list[dict]) -> list[dict]:
     return replay
 
 
-def _structural_keys(comments: list[dict]) -> set[tuple[int | str, str]]:
-    return {
-        (event["comment"], event["event"])
-        for event in _replay(comments)
-        if event["event"] == "child.opened"
-        or (event["event"] == "child.closed"
-            and event["payload"].get("resolution") == "became-ticket")
-    }
-
-
 def _comments_address(number: int) -> str:
     return f"repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100"
 
 
 class BoardStore:
     def __init__(self, gh=None, clock=utc_now):
-        self.gh = gh or ghlist.run_gh
         self.clock = clock
-        self.map_trees: list[dict] = []
-        self.comments: dict[int, list[dict]] = {}
-        self.comment_reader = ghlist.ConditionalListReader(self.gh)
+        self.comment_reader = ghlist.ConditionalListReader(gh or ghlist.run_gh)
+        self.comment_reader.clock = lambda: self.clock().timestamp()
         self.last_tree_at: dt.datetime | None = None
-        self.repo: str | None = None
         self.snapshot = {"tasks": [], "repo": None, "read_at": None}
-        self.lock = threading.Lock()
+        self.lock = threading.Condition()
+        self.refreshing = False
+        self.last_answer = self.snapshot
 
     def _json(self, args: list[str]):
-        code, out, err = self.gh(args)
+        code, out, err = self.comment_reader.request(args)
         if code != 0:
             raise GitHubReadFailed(_last_error(err, out, "GitHub did not answer"))
         try:
@@ -120,36 +91,70 @@ class BoardStore:
         except json.JSONDecodeError as exc:
             raise GitHubReadFailed("GitHub returned unreadable JSON") from exc
 
-    def _read_repo(self) -> str:
-        code, out, err = self.gh(["repo", "view", "--json", "nameWithOwner",
-                                  "--jq", ".nameWithOwner"])
-        if code != 0 or not out.strip():
-            raise GitHubReadFailed(_last_error(err, out, "GitHub did not name the repository"))
-        return out.strip()
+    def _read_roots(self) -> dict:
+        query = """query($o:String!, $n:String!, $mapsAfter:String, $specsAfter:String,
+                         $mapsMore:Boolean! = true, $specsMore:Boolean! = true) {
+          repository(owner:$o, name:$n) {
+            nameWithOwner
+            maps: issues(first:100, states:OPEN, labels:["mmw:map"], after:$mapsAfter)
+                @include(if:$mapsMore) {
+              nodes { number title state labels(first:100) { nodes { name } } }
+              pageInfo { hasNextPage endCursor }
+            }
+            specs: issues(first:100, states:OPEN, labels:["mmw:spec"], after:$specsAfter)
+                @include(if:$specsMore) {
+              nodes { number title state labels(first:100) { nodes { name } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }"""
+        result = {"maps": {}, "specs": {}}
+        pending = {"maps": None, "specs": None}
+        while pending:
+            args = ["api", "graphql", "-F", "o={owner}", "-F", "n={repo}", "-f", f"query={query}"]
+            for name in ("maps", "specs"):
+                args += ["-F", f"{name}More={'true' if name in pending else 'false'}"]
+                if pending.get(name):
+                    args += ["-f", f"{name}After={pending[name]}"]
+            raw = self._json(args)
+            try:
+                if raw.get("errors"):
+                    raise GitHubReadFailed(str(raw["errors"]))
+                repo = raw["data"]["repository"]
+                result["repo"] = repo["nameWithOwner"]
+                for name in list(pending):
+                    connection = repo[name]
+                    for node in connection["nodes"]:
+                        result[name][node["number"]] = {**node, "labels": node["labels"]["nodes"]}
+                    page = connection["pageInfo"]
+                    if not page["hasNextPage"]:
+                        del pending[name]
+                    else:
+                        cursor = page["endCursor"]
+                        if not cursor or cursor == pending[name]:
+                            raise GitHubReadFailed(f"the {name} root list did not advance its page")
+                        pending[name] = cursor
+            except (KeyError, TypeError, AttributeError) as exc:
+                raise GitHubReadFailed("GitHub returned incomplete repository roots") from exc
+        return {**result, "maps": list(result["maps"].values()),
+                "specs": list(result["specs"].values())}
 
-    def _list_open(self, label: str) -> list[dict]:
-        items = self._json(["issue", "list", "--state", "open", "--label", label,
-                            "--limit", "1000", "--json", "number,title,state,labels"])
-        if not isinstance(items, list):
-            raise GitHubReadFailed(f"the {label} list was not an array")
-        return items
-
-    def _read_trees(self) -> list[dict]:
+    def _read_trees(self, roots: dict) -> list[dict]:
         """One tree per top-level task: every open map, then every open spec that no open
         map holds as a child. A spec with no map above it is a task of its own, so a spec
         published straight from a conversation is on the board like any other."""
         result = []
         under_a_map: set[int] = set()
-        for item in self._list_open("mmw:map"):
+        for item in roots["maps"]:
             try:
-                read = tree.read(int(item["number"]), "map", gh=self.gh)
+                read = tree.read(int(item["number"]), "map", gh=self.comment_reader.request)
             except (KeyError, TypeError, ValueError, tree.TreeUnreadable) as exc:
                 raise GitHubReadFailed(str(exc)) from exc
             read["labels"] = _labels(item)
             result.append(read)
             under_a_map.update(child["number"] for child in read.get("children", [])
                                if "number" in child)
-        for item in self._list_open("mmw:spec"):
+        for item in roots["specs"]:
             try:
                 number = int(item["number"])
             except (KeyError, TypeError, ValueError) as exc:
@@ -157,7 +162,7 @@ class BoardStore:
             if number in under_a_map:
                 continue
             try:
-                read = tree.read(number, "spec", gh=self.gh)
+                read = tree.read(number, "spec", gh=self.comment_reader.request)
             except tree.TreeUnreadable as exc:
                 raise GitHubReadFailed(str(exc)) from exc
             read["labels"] = _labels(item)
@@ -258,60 +263,42 @@ class BoardStore:
                         became["closeout"] = {"from": source["n"], "child": payload.get("child")}
         return tasks
 
-    def answer(self) -> dict:
+    def answer(self, force: bool = False) -> dict:
         with self.lock:
+            if self.refreshing:
+                self.lock.wait_for(lambda: not self.refreshing)
+                return copy.deepcopy(self.last_answer)
             now = self.clock()
-            map_trees = copy.deepcopy(self.map_trees)
-            comments = copy.deepcopy(self.comments)
+            if not force and self.last_tree_at is not None and (now - self.last_tree_at).total_seconds() < 60:
+                return copy.deepcopy(self.last_answer)
+            self.refreshing = True
+        try:
             comment_reader = self.comment_reader.clone()
-            last_tree_at = self.last_tree_at
-            repo = self.repo
-            first_read = last_tree_at is None
-            try:
-                # Which tickets to read is decided once, from the tree and the comments
-                # of one snapshot, both the same age: `finished` weighs a ticket's state
-                # on the tracker against its own events, and this poll's fresh tree read
-                # would judge a ticket that closed since the last poll on events that
-                # have not recorded its landing yet — dropping it from the read for good.
-                cached_tasks = self._shape(map_trees, comments) if map_trees else []
-                flat = [ticket for task in cached_tasks for spec in task["specs"]
-                        for ticket in spec["tickets"]]
-                plan = plan_read(last_tree_at, flat, now)
-                if plan["tree"]:
-                    repo = repo or self._read_repo()
-                    map_trees = self._read_trees()
-                    last_tree_at = now
-
-                structural = False
-                for number in plan["comments"]:
-                    old_structural = _structural_keys(comments.get(number, []))
-                    result = comment_reader.read(_comments_address(number))
-                    comments[number] = result
-                    structural = structural or bool(_structural_keys(result) - old_structural)
-
-                if structural and not first_read:
-                    map_trees = self._read_trees()
-                    last_tree_at = now
-                new_numbers = [node["number"] for node in self._ticket_nodes(map_trees)
-                               if node["number"] not in comments]
-                for number in new_numbers:
-                    result = comment_reader.read(_comments_address(number))
-                    comments[number] = result
-
-                snapshot = {"tasks": self._shape(map_trees, comments), "repo": repo,
-                            "read_at": iso(now)}
-            except GitHubReadFailed as exc:
+            self.comment_reader.ensure_ready()
+            roots = self._read_roots()
+            map_trees = self._read_trees(roots)
+            numbers = dict.fromkeys(node["number"] for node in self._ticket_nodes(map_trees))
+            comments = {number: comment_reader.read(_comments_address(number)) for number in numbers}
+            snapshot = {"tasks": self._shape(map_trees, comments), "repo": roots["repo"],
+                        "read_at": iso(self.clock())}
+            with self.lock:
+                self.comment_reader = comment_reader
+                self.last_tree_at = self.clock()
+                self.snapshot = snapshot
+                self.last_answer = snapshot
+        except GitHubReadFailed as exc:
+            with self.lock:
                 failed = copy.deepcopy(self.snapshot)
-                failed["read_failed"] = {"at": iso(now), "message": str(exc)}
-                return failed
-
-            self.map_trees = map_trees
-            self.comments = comments
-            self.comment_reader = comment_reader
-            self.last_tree_at = last_tree_at
-            self.repo = repo
-            self.snapshot = snapshot
-            return copy.deepcopy(snapshot)
+                failed["read_failed"] = {"at": iso(self.clock()), "message": str(exc)}
+                if self.comment_reader.retry_at > self.clock().timestamp():
+                    failed["read_failed"]["retry_at"] = iso(dt.datetime.fromtimestamp(
+                        self.comment_reader.retry_at, dt.timezone.utc))
+                self.last_answer = failed
+        finally:
+            with self.lock:
+                self.refreshing = False
+                self.lock.notify_all()
+        return copy.deepcopy(self.last_answer)
 
 
 STORE = BoardStore()
@@ -322,7 +309,7 @@ def handle(request) -> tuple[int, dict[str, str], bytes]:
     if request.command == "GET" and path == "/api/board":
         answer = STORE.answer()
     elif request.command == "POST" and path == "/api/board/refresh":
-        answer = STORE.answer()
+        answer = STORE.answer(force=True)
     else:
         body = b'{"error":"not found"}\n'
         return 404, {"Content-Type": "application/json"}, body

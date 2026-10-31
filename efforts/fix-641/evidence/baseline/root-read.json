@@ -1,0 +1,96 @@
+{
+  "scope": "live root discovery only, not full-board latency or quota",
+  "data": {
+    "repo": "chancheuklap/multi-model-workflow",
+    "maps": [],
+    "specs": []
+  },
+  "runs": [
+    {
+      "repeat": 0,
+      "path": "old",
+      "seconds": 5.160926207987359,
+      "gh_commands": 3,
+      "errors": 0
+    },
+    {
+      "repeat": 0,
+      "path": "merged",
+      "seconds": 2.0352977919974364,
+      "gh_commands": 1,
+      "errors": 0
+    },
+    {
+      "repeat": 1,
+      "path": "merged",
+      "seconds": 1.8499833329988178,
+      "gh_commands": 1,
+      "errors": 0
+    },
+    {
+      "repeat": 1,
+      "path": "old",
+      "seconds": 6.5172094170120545,
+      "gh_commands": 3,
+      "errors": 0
+    },
+    {
+      "repeat": 2,
+      "path": "old",
+      "seconds": 6.492370499996468,
+      "gh_commands": 3,
+      "errors": 0
+    },
+    {
+      "repeat": 2,
+      "path": "merged",
+      "seconds": 1.2675550830026623,
+      "gh_commands": 1,
+      "errors": 0
+    },
+    {
+      "repeat": 3,
+      "path": "merged",
+      "seconds": 1.2614263750147074,
+      "gh_commands": 1,
+      "errors": 0
+    },
+    {
+      "repeat": 3,
+      "path": "old",
+      "seconds": 4.660453541990137,
+      "gh_commands": 3,
+      "errors": 0
+    },
+    {
+      "repeat": 4,
+      "path": "old",
+      "seconds": 5.932792209001491,
+      "gh_commands": 3,
+      "errors": 0
+    },
+    {
+      "repeat": 4,
+      "path": "merged",
+      "seconds": 1.5391449999879114,
+      "gh_commands": 1,
+      "errors": 0
+    }
+  ],
+  "summary": {
+    "old": {
+      "median_seconds": 5.932792209001491,
+      "range_seconds": [
+        4.660453541990137,
+        6.5172094170120545
+      ]
+    },
+    "merged": {
+      "median_seconds": 1.5391449999879114,
+      "range_seconds": [
+        1.2614263750147074,
+        2.0352977919974364
+      ]
+    }
+  }
+}

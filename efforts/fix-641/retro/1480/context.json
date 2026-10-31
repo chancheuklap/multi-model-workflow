@@ -1,0 +1,224 @@
+{
+  "repo": "chancheuklap/multi-model-workflow",
+  "spec": null,
+  "ticket": 1480,
+  "since": "2026-10-31T09:36:33Z",
+  "registered": 0,
+  "recurred_after_wontfix": [],
+  "landed_since_last": 0,
+  "evidence": "complete",
+  "unreadable_sources": [],
+  "issues": {},
+  "evidence_checked": [
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541770478",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541774913",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541839338",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541844870",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541871038",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541873648",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541880081",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541884306",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541892915",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541923280",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541947605",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541958495",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542096856",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542098817",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542127124",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542136351",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542167044",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542186461",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542195070",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542343654",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542343986",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541770478",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541774913",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541839338",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541844870",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541871038",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541873648",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541880081",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541884306",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541892915",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541923280",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541947605",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6541958495",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542096856",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542098817",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542127124",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542136351",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542167044",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542186461",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542195070",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542343654",
+      "status": "present",
+      "detail": "script-written event comment"
+    },
+    {
+      "source": "https://github.com/chancheuklap/multi-model-workflow/issues/1480#issuecomment-6542343986",
+      "status": "present",
+      "detail": "script-written event comment"
+    }
+  ]
+}

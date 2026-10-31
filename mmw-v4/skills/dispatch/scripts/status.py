@@ -29,7 +29,6 @@ import argparse
 import importlib.util
 import json
 import os
-import subprocess
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -53,6 +52,13 @@ def _load(name: str, filename: str):
 events = _load("mmw_events", "events.py")
 tree = _load("mmw_tree", "issue_tree.py")
 
+HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+import ghlist
+
+reader = ghlist.ConditionalListReader()
+
 # --------------------------------------------------------------------- reading
 
 def gh(args: list[str]) -> str:
@@ -61,16 +67,15 @@ def gh(args: list[str]) -> str:
     Under an exported CLICOLOR_FORCE=1, `gh` writes ANSI escapes into --json output that
     no JSON reader can parse.
     """
-    env = dict(os.environ)
-    env.pop("CLICOLOR_FORCE", None)
-    env.pop("CLICOLOR", None)
-    run = subprocess.run(["gh", *args], capture_output=True, text=True, env=env)
-    return run.stdout if run.returncode == 0 else ""
+    code, out, _ = reader.request(args)
+    return out if code == 0 else ""
 
 
 def gh_json(args: list[str], fallback):
     try:
         return json.loads(gh(args))
+    except ghlist.ListReadError:
+        raise
     except Exception:
         return fallback
 
@@ -86,11 +91,7 @@ def own_login() -> str:
 
 
 def _gh_run(args: list[str]) -> tuple[int, str, str]:
-    env = dict(os.environ)
-    env.pop("CLICOLOR_FORCE", None)
-    env.pop("CLICOLOR", None)
-    run = subprocess.run(["gh", *args], capture_output=True, text=True, env=env)
-    return run.returncode, run.stdout, run.stderr
+    return reader.request(args)
 
 
 def spec_tree(spec: int) -> dict:
@@ -839,7 +840,8 @@ def table(spec: int) -> int:
     return 0
 
 
-def batch_children(spec: int, batch: dict | None = None) -> list[dict]:
+def batch_children(spec: int, batch: dict | None = None,
+                   tickets: dict[int, dict] | None = None) -> list[dict]:
     """Every child this batch's tickets name, once each.
 
     A ticket's own fold names its children by `child.opened`, plus any the tree holds
@@ -852,7 +854,8 @@ def batch_children(spec: int, batch: dict | None = None) -> list[dict]:
     if batch is None:
         batch = spec_tree(spec)
     numbers = [t["number"] for t in tree.children(batch)]
-    tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
+    if tickets is None:
+        tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
     children: list[dict] = []
     seen: set[int] = set()
     for node in tree.children(batch):
@@ -880,7 +883,7 @@ def print_summary(spec: int) -> int:
     numbers = [t["number"] for t in tree.children(batch)]
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
     rows = build_rows(numbers, tickets)
-    print(summary(rows, night_opened(), children=batch_children(spec, batch)))
+    print(summary(rows, night_opened(), children=batch_children(spec, batch, tickets)))
     return 0
 
 
