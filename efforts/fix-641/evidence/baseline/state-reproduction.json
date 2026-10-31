@@ -1,0 +1,22 @@
+[
+  {
+    "contract": "manual refresh reads closure and releases dependency",
+    "passed": false,
+    "observed": {
+      "state": "open",
+      "blocker_hold": "open"
+    },
+    "landed_event_read": true
+  },
+  {
+    "contract": "reads an existing regression after landing",
+    "passed": false,
+    "observed_events": [
+      "worker.started",
+      "ticket.claimed",
+      "ticket.passed",
+      "ticket.landed"
+    ],
+    "source_comment_reads": 0
+  }
+]
