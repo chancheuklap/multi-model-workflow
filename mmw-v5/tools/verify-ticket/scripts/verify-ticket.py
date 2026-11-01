@@ -5,7 +5,7 @@
     verify-ticket.py N --review FILE --base REF --head SHA
     verify-ticket.py [N] --repository-check --base REF [--tier default|all]
     verify-ticket.py N --sub-issue KIND FILE [--existing CHILD]
-    verify-ticket.py N --route CHILD fixed --report FILE --commit SHA
+    verify-ticket.py N --route CHILD fixed --report FILE [--commit SHA]
     verify-ticket.py N --route CHILD stale --report FILE --reason invalid|fixed-elsewhere
     verify-ticket.py N --route CHILD became-ticket --became TICKET --report FILE
 
@@ -435,9 +435,7 @@ def run_route(number: int, child: int, resolution: str, path: Path, reason: str 
         if resolution == "fixed" and reason:
             raise Refusal("fixed takes no stale reason")
         head = None
-        if resolution == "fixed":
-            if not commit:
-                raise Refusal("fixed needs --commit SHA identifying the committed repair")
+        if resolution == "fixed" and commit is not None:
             root = Path(git("rev-parse", "--show-toplevel")).resolve()
             head = current_commit(commit, root, clean=True)
         child_issue = fetch_ticket(child)
@@ -452,7 +450,7 @@ def run_route(number: int, child: int, resolution: str, path: Path, reason: str 
             fields["commit"] = head
         if entry.get("resolution") and child_issue["state"] == "CLOSED":
             previous = _child_report(state, child)
-            if not same_report(previous, fields, text):
+            if not same_report(previous, fields, text) or (resolution == "fixed" and previous["payload"].get("commit") != head):
                 raise Refusal(f"#{child} has a different recorded resolution report; no new report was posted")
             print(f"CHILD ALREADY ROUTED: #{child}")
             return 0

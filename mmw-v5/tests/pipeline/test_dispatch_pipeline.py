@@ -111,6 +111,7 @@ class TicketDispatch(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
         self.tools = self.root / 'tools';shutil.copytree(V5 / 'tools', self.tools)
+        shutil.copytree(V5 / 'skills/dispatch', self.root / 'skills/dispatch')
         self.dispatch = self.tools / 'dispatch/scripts/dispatch.sh'
         for name in ('paseo', 'herdr', 'orca', 'codex-app'):
             path=self.dispatch.parent / 'runners' / (name+'.sh')
@@ -163,7 +164,16 @@ class TicketDispatch(unittest.TestCase):
         self.assertEqual(self.git('rev-parse','origin/issue-61'),self.base)
         attach=[a for a in json.loads(self.runner_store.read_text())['calls'] if a[0]=='attach'][-1]
         self.assertIn('--under-caller',attach)
-        self.assertIn(str(self.task),shlex.split(start[start.index('--prompt')+1]));self.assertTrue((self.root/'armed').exists())
+        prompt = start[start.index('--prompt')+1]
+        self.assertTrue(prompt.startswith('Assigned role: worker.'), prompt)
+        route, assignment = prompt.split('\n\n', 1)
+        self.assertIn(str(self.root/'skills/dispatch/SKILL.md'), shlex.split(route))
+        self.assertIn('follow its route for your assigned role', route)
+        self.assertIn('additional assignment input', route)
+        self.assertEqual(prompt.count('Assigned role:'), 1)
+        self.assertIn(str(self.task),shlex.split(assignment));self.assertTrue((self.root/'armed').exists())
+        self.assertIn(f'base {self.base}, head {self.base}, target batch.', assignment)
+        self.assertIn('--closeout <report-file> --result <complete-or-incomplete> --commit <output-SHA> --into batch', assignment)
         fold=self.events.fold(self.reload()['issues']['61']['comments']);self.assertEqual(fold['worker']['base'],self.base)
 
     def test_missing_task_cannot_start_a_worker(self):
@@ -195,6 +205,13 @@ class TicketDispatch(unittest.TestCase):
         payload=self.events.newest(self.state['issues']['61']['comments'],'reviewer.started')['payload']
         self.assertEqual(payload['head'],head);self.assertEqual(payload['task'],str(self.review_task))
         prompt=self.starts()[-1][self.starts()[-1].index('--prompt')+1]
+        self.assertTrue(prompt.startswith('Assigned role: reviewer.'), prompt)
+        route, assignment = prompt.split('\n\n', 1)
+        self.assertIn(str(self.root/'skills/dispatch/SKILL.md'), shlex.split(route))
+        self.assertIn('follow its route for your assigned role', route)
+        self.assertEqual(prompt.count('Assigned role:'), 1)
+        self.assertIn(str(self.review_task), shlex.split(assignment))
+        self.assertIn(f'base {self.base}, head {head}, target batch.', assignment)
         self.assertIn('--head '+head,prompt);self.assertIn('python3',prompt)
         attach=[a for a in json.loads(self.runner_store.read_text())['calls'] if a[0]=='attach'][-1]
         self.assertNotIn('--under-caller',attach)

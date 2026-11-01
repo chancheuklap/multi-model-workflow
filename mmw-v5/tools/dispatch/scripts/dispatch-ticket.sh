@@ -846,7 +846,7 @@ PY
     printf -v prompt '%s\nReport command: MMW_HOME=%q python3 %q %s --closeout <report-file> --result <complete-or-incomplete> --commit <output-SHA> --into %q' "$prompt" "$MMW_HOME" "$VERIFY" "$number" "$into"
   fi
   if [ "$kind" = worker ]; then worktree_environment "$cwd" setup up || return 2;fi
-  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind" "MMW_TICKET=$number" "MMW_SPEC=$spec")"; then
+  if ! session="$(start_session "$kind" "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind" "MMW_TICKET=$number" "MMW_SPEC=$spec")"; then
     echo "dispatch: startup failed for #$number; workspace $cwd and issue-$number were preserved. Inspect the adapter error and recovery identity before retrying" >&2;return 2
   fi
   local -a fields=(--field "session=$session" --field "runner=$RUNNER_NAME" --field "machine=$(machine_name)" \

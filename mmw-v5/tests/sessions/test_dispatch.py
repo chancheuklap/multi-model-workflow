@@ -4,6 +4,7 @@ import json
 import fcntl
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -199,6 +200,26 @@ class DispatchCommands(unittest.TestCase):
         self.assertIn(str(DISPATCH), text)
         for absent in ("mmw-mode", "register-problem", "## Problems", "playwright-cli", "work-a-ticket"):
             self.assertNotIn(absent, text + args[-1])
+
+    def test_each_brief_role_receives_dispatch_route_before_assignment_input(self):
+        config = json.loads((self.home / "models.json").read_text())
+        for role in ("researcher", "advisor", "candidate"):
+            config["rows"][role] = {"host": "codex", "model": "test-model", "effort": "high"}
+        (self.home / "models.json").write_text(json.dumps(config))
+        skill = TOOLS.parents[1] / "skills/dispatch/SKILL.md"
+        for role in ("researcher", "advisor", "candidate"):
+            with self.subTest(role=role):
+                sent = self.run_command("send", role, self.task)
+                self.assertEqual(sent.returncode, 0, sent.stdout + sent.stderr)
+                brief, ident = sent.stdout.strip().split("\t")
+                prompt = self.runner_data()["sessions"][ident]["args"][-1]
+                self.assertTrue(prompt.startswith(f"Assigned role: {role}."), prompt)
+                route, assignment = prompt.split("\n\n", 1)
+                self.assertIn(str(skill), shlex.split(route))
+                self.assertIn("follow its route for your assigned role", route)
+                self.assertIn("additional assignment input", route)
+                self.assertEqual(prompt.count("Assigned role:"), 1)
+                self.assertIn(str((self.batch_path(brief) / "1/brief.md").resolve()), shlex.split(assignment))
 
     def test_only_recorded_child_can_report_and_first_answer_is_kept(self):
         [(brief, ident)] = self.send()

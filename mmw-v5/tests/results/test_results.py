@@ -421,6 +421,75 @@ class TicketResults(unittest.TestCase):
         self.assert_ok(self.run_tool("--route", child, "fixed", "--report", self.report, "--commit", self.head))
         self.reload();self.assertEqual(self.state["issues"][child]["state"], "CLOSED")
 
+    def test_non_code_repairs_record_no_commit_and_recover_after_failed_event_post(self):
+        for kind, repair in (("fault", "Restarted the unavailable service; its health check now passes.\n"),
+                             ("contract", "Corrected the tracker-owned requirement to match the accepted spec.\n")):
+            with self.subTest(kind=kind):
+                self.reload()
+                self.state["fail_comment"] = 0
+                self.save()
+                self.report.write_text("Repair needed\nThe environment or tracker authority needs correction.\n")
+                created = self.run_tool("--sub-issue", kind, self.report)
+                self.assert_ok(created)
+                child = created.stdout.strip()
+                self.report.write_text(repair)
+                (self.repo / "code.txt").write_text("Unrelated unfinished product work\n")
+                self.reload()
+                closed_before = self.state["mutations"].count("close")
+                self.state["fail_comment"] = 1
+                self.save()
+                args = ("--route", child, "fixed", "--report", self.report)
+                failed = self.run_tool(*args)
+                self.assertEqual(failed.returncode, 1, failed.stdout + failed.stderr)
+                ticket = self.reload()
+                self.assertEqual((self.state["issues"][child]["state"], self.state["issues"][child]["stateReason"]),
+                                 ("CLOSED", "COMPLETED"))
+                self.assertIsNone(events.fold(ticket["comments"])["children"][child].get("resolution"))
+                self.assert_ok(self.run_tool(*args))
+                ticket = self.reload()
+                recorded = events.newest(ticket["comments"], "child.closed")
+                self.assertEqual((recorded["payload"]["child"], recorded["payload"]["resolution"]), (int(child), "fixed"))
+                self.assertNotIn("commit", recorded["payload"])
+                self.assertIn(repair.strip(), recorded["body"])
+                self.assertEqual(self.state["mutations"].count("close"), closed_before + 1)
+                mutations = list(self.state["mutations"])
+                self.assert_ok(self.run_tool(*args))
+                self.reload()
+                self.assertEqual(self.state["mutations"], mutations)
+                self.report.write_text("A different claimed repair\n")
+                self.assertEqual(self.run_tool(*args).returncode, 2)
+                self.reload()
+                self.assertEqual(self.state["mutations"], mutations)
+
+    def test_fixed_route_keeps_supplied_commit_validation_and_recorded_metadata(self):
+        self.report.write_text("A finding\nObserved behavior\n")
+        created = self.run_tool("--sub-issue", "finding", self.report)
+        self.assert_ok(created)
+        child = created.stdout.strip()
+        self.report.write_text("Repaired the product in the supplied commit.\n")
+        args = ("--route", child, "fixed", "--report", self.report)
+        mutations = list(self.reload()["comments"])
+        for commit in (self.base, "0" * 40, self.head[:12], "bogus"):
+            with self.subTest(commit=commit):
+                self.assertEqual(self.run_tool(*args, "--commit", commit).returncode, 2)
+                self.assertEqual(self.reload()["comments"], mutations)
+                self.assertEqual(self.state["issues"][child]["state"], "OPEN")
+        (self.repo / "code.txt").write_text("Uncommitted repair\n")
+        dirty = self.run_tool(*args, "--commit", self.head)
+        self.assertEqual(dirty.returncode, 2, dirty.stdout + dirty.stderr)
+        self.assertIn("uncommitted", dirty.stderr)
+        self.git("checkout", "--", "code.txt")
+        self.assert_ok(self.run_tool(*args, "--commit", self.head))
+        ticket = self.reload()
+        self.assertEqual(events.newest(ticket["comments"], "child.closed")["payload"]["commit"], self.head)
+        mutations = list(self.state["mutations"])
+        self.assertEqual(self.run_tool(*args).returncode, 2)
+        self.reload()
+        self.assertEqual(self.state["mutations"], mutations)
+        self.assert_ok(self.run_tool(*args, "--commit", self.head))
+        self.reload()
+        self.assertEqual(self.state["mutations"], mutations)
+
     def test_created_child_with_failed_registration_can_be_recovered_without_recreation(self):
         self.report.write_text("A finding\nObserved behavior\n")
         self.state["fail_comment"] = 1;self.save()

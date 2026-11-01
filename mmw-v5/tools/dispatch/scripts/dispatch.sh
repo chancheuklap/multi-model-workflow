@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Session dispatch for caller-supplied task files, with result notifications.
+# Role-routed session dispatch with assignment files and result notifications.
 # Ticket reports and repository checks use the adjacent verify-ticket tool.
 # Exit 0: completed the requested operation. Exit 2: refused, with a reason on stderr.
 # Resume preserves adapter receipts: 3 means retryable; 4 means delivery is unconfirmed
@@ -8,6 +8,7 @@ set -uo pipefail
 
 SELF="$(realpath "${BASH_SOURCE[0]}")"
 SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
+DISPATCH_SKILL="$(dirname "$(dirname "$SKILL_ROOT")")/skills/dispatch/SKILL.md"
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 BRIEFS="$SKILL_ROOT/scripts/briefs.py"
 TRACKER="$SKILL_ROOT/scripts/tracker.py"
@@ -139,8 +140,9 @@ brief_footer() {
 }
 
 start_session() {
-  local host="$1" model="$2" effort="$3" cwd="$4" prompt="$5" title="$6" session
-  shift 6
+  local role="$1" host="$2" model="$3" effort="$4" cwd="$5" prompt="$6" title="$7" session
+  shift 7
+  printf -v prompt 'Assigned role: %s. Read the dispatch skill at %q in full, then follow its route for your assigned role. Use the task files below as additional assignment input.\n\n%s' "$role" "$DISPATCH_SKILL" "$prompt"
   local -a extra=()
   local value
   for value in "$@"; do extra+=(--env "$value"); done
@@ -243,7 +245,7 @@ send_many() {
       printf -v prompt 'Read instructions file %q, then task file %q and carry out the task.' "$follows" "$copy"
     fi
     error="$(dirname "$copy")/start.stderr"
-    session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n" 2>"$error")" || {
+    session="$(start_session "$role" "$host" "$model" "$effort" "$cwd" "$prompt" "$role ${batch##*-}-$n" 2>"$error")" || {
       cat "$error" >&2
       python3 "$BRIEFS" lost --repo "$repo" --brief "$batch/$n" --reason "Startup failed; inspect $error" || true
       close_batch "$batch" keep
