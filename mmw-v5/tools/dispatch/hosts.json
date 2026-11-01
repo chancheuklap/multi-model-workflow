@@ -1,0 +1,27 @@
+{
+  "hosts": {
+    "claude": {
+      "binary": "claude",
+      "efforts": ["low", "medium", "high", "xhigh", "max"],
+      "cli": {
+        "argv": ["--model", "{model}", "--effort", "{effort}", "--permission-mode", "bypassPermissions", "-n", "{name}"]
+      },
+      "paseo": {
+        "settings": {"modeId": "bypassPermissions"},
+        "thinking": "option_id"
+      }
+    },
+    "codex": {
+      "binary": "codex",
+      "codex-app": {},
+      "efforts": ["low", "medium", "high", "xhigh"],
+      "cli": {
+        "argv": ["-m", "{model}", "-c", "model_reasoning_effort=\"{effort}\"", "--dangerously-bypass-approvals-and-sandbox"]
+      },
+      "paseo": {
+        "settings": {"modeId": "full-access"},
+        "thinking": "option_id"
+      }
+    }
+  }
+}
