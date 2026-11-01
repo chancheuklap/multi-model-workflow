@@ -25,8 +25,8 @@ export default {
   workers: 1,
   targets: [
     { name: 'product', engine: web({ viewport: { width: 1440, height: 900 } }),
-      app: { url: 'http://127.0.0.1:0', readyUrl: 'http://127.0.0.1:{port}/api/settings', command: board() } },
+      app: { url: 'http://127.0.0.1:0', readyUrl: 'http://127.0.0.1:{port}/api/board', command: board() } },
     { name: 'design', engine: web({ viewport: { width: 1440, height: 900 } }),
-      app: { url: 'http://127.0.0.1:0', readyUrl: 'http://127.0.0.1:{port}/api/settings', command: board(PROTOTYPE) } },
+      app: { url: 'http://127.0.0.1:0', readyUrl: 'http://127.0.0.1:{port}/api/board', command: board(PROTOTYPE) } },
   ],
 } satisfies E2EConfig;
