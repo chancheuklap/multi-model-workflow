@@ -56,7 +56,9 @@ class TestTheRefusalNamesItsSession(unittest.TestCase):
                          "needs the dispatch skill beside verify-ticket")
     def test_own_session_is_what_the_dispatch_skill_reads_from_this_process(self):
         env = {k: v for k, v in os.environ.items()
-               if k not in ("ORCA_TERMINAL_HANDLE", "HERDR_ENV", "HERDR_PANE_ID", "TERM_PROGRAM")}
+               if k not in ("ORCA_TERMINAL_HANDLE", "HERDR_ENV", "HERDR_PANE_ID", "TERM_PROGRAM",
+                            "PASEO_AGENT_ID", "CODEX_THREAD_ID", "CODEX_APP_RUNTIME_CLI_PATH",
+                            "CODEX_APP_TOOLS_PIPE_PATH")}
         inside = dict(env, PASEO_AGENT_ID="agt_self_test")
         with mock.patch.object(vt, "GH_ENV", inside):
             self.assertEqual(vt.own_session(), ("paseo", "agt_self_test"))
