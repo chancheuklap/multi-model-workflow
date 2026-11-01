@@ -11,7 +11,9 @@ class GreetingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / 'greeting.json'
             config.write_text(json.dumps({'prefix': ' Night '}), encoding='utf-8')
+            before = config.read_bytes()
             self.assertEqual(greet(' Ada ', config), 'Night, Ada!')
+            self.assertEqual(config.read_bytes(), before)
 
     def test_blank_name_is_rejected_without_changing_config(self):
         with tempfile.TemporaryDirectory() as tmp:
