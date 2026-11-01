@@ -50,6 +50,7 @@ SHARED = (
 
 # step: (command, tools it needs on PATH)
 STEPS = {
+    "foundation": ("python3 -m unittest discover -s mmw-v5/tests/foundation", ["python3", "git"]),
     "shared-checks": (SHARED, ["python3", "uv"]),
     "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
     "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
@@ -80,6 +81,13 @@ STEPS = {
 DISPATCH = "mmw-v4/skills/dispatch/"
 VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
+    *[("mmw-v5/tools/" + path, ["foundation"]) for path in (
+        "dispatch/scripts/tracker.py", "dispatch/scripts/ghlist.py",
+        "dispatch/scripts/statedir.py", "dispatch/scripts/status.py",
+        "verify-ticket/scripts/events.py", "verify-ticket/scripts/issue_tree.py",
+        "verify-ticket/scripts/labels.py", "setup-mmw/scripts/labels.py",
+    )],
+    ("mmw-v5/tests/foundation/", ["foundation"]),
     # The shared checks read every module path, skill wiring and frontmatter under mmw-v4/.
     ("mmw-v4/", ["shared-checks"]),
     ("mmw-v4/skills/", ["check-interfaces"]),
@@ -117,7 +125,7 @@ MAP = [
 ]
 
 # Test roots: every directory directly under each must be a suite above or listed here.
-TEST_ROOTS = ["mmw-v4/tests"]
+TEST_ROOTS = ["mmw-v4/tests", "mmw-v5/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
@@ -164,7 +172,7 @@ def self_check() -> list[str]:
         for child in sorted((ROOT / root).iterdir()):
             if child.is_dir() and child.name != "__pycache__" and not child.name.startswith("."):
                 rel = f"{root}/{child.name}"
-                if root == "mmw-v4/tests" and child.name in STEPS:
+                if child.name in STEPS and (rel + "/", [child.name]) in MAP:
                     continue
                 if rel not in EXCLUDED:
                     found.append(f"{rel} is a test directory STEPS and MAP in scripts/check do not name; "
@@ -263,7 +271,7 @@ def main(argv: list[str]) -> int:
     else:
         if tier == "all":
             names = list(STEPS)
-            paths = git("ls-files", "mmw-v4", "scripts").stdout.split()
+            paths = git("ls-files", "mmw-v4", "mmw-v5", "scripts").stdout.split()
             print("tier --all: every step")
         else:
             base = os.environ.get("MMW_BASE_REF") or DEFAULT_BASE
