@@ -90,7 +90,7 @@ def sub_issues(number: int) -> list[int]:
 
 def read_ticket(number: int) -> dict:
     """One ticket, in the shape the rest of this file expects."""
-    fields = ("state,labels,assignees,blockedBy,comments,title,"
+    fields = ("state,stateReason,labels,assignees,blockedBy,comments,title,"
               "createdAt,closedAt,body")
     raw = gh_json(["issue", "view", str(number), "--json", fields], {})
     return normalise_ticket(number, raw)
@@ -109,6 +109,7 @@ def normalise_ticket(number: int, raw: dict) -> dict:
     return {
         "number": number,
         "state": (raw.get("state") or "").upper(),
+        "state_reason": raw.get("stateReason"),
         "title": raw.get("title") or "",
         "body": raw.get("body") or "",
         "created": raw.get("createdAt") or "",
@@ -199,7 +200,7 @@ def blocker_reason(number: int, state: str, tickets: dict[int, dict], lookup) ->
     """
     blocker = (tickets.get(number) or lookup(number)) if state == "CLOSED" else None
     fold = None if blocker is None or blocker.get("unread_raw") else blocker["fold"]
-    return events.blocker_hold(state, fold)
+    return events.blocker_hold(state, fold, blocker.get("state_reason") if blocker else None)
 
 
 def cached(read):

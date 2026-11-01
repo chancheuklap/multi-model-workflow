@@ -105,7 +105,28 @@ class TheAnswer(unittest.TestCase):
         }))
         self.assertEqual(got["children"][0]["labels"], ["mmw:spec"])
         self.assertEqual(got["children"][0]["blockedBy"],
-                         [{"number": 70, "state": "CLOSED"}])
+                         [{"number": 70, "state": "CLOSED", "stateReason": None}])
+
+    def test_native_close_reasons_survive_issue_and_blocker_metadata(self):
+        def gh(args):
+            text = next(value.removeprefix("query=") for value in args if value.startswith("query="))
+            self.assertIn("stateReason", text)
+            self.assertIn("nodes { number state stateReason }", text)
+            return answer({
+                "number": 76, "title": "spec", "state": "OPEN", "stateReason": None,
+                "subIssuesSummary": {"total": 1, "completed": 1},
+                "subIssues": {"nodes": [{
+                    "number": 61, "title": "ticket", "state": "CLOSED", "stateReason": "NOT_PLANNED",
+                    "labels": {"nodes": []},
+                    "blockedBy": {"nodes": [{"number": 60, "state": "CLOSED", "stateReason": "COMPLETED"}]},
+                    "subIssuesSummary": {"total": 0, "completed": 0}, "subIssues": {"nodes": []},
+                }]},
+            })(args)
+
+        got = tree.read(76, "spec", gh=gh)
+        self.assertIsNone(got["stateReason"])
+        self.assertEqual(got["children"][0]["stateReason"], "NOT_PLANNED")
+        self.assertEqual(got["children"][0]["blockedBy"][0]["stateReason"], "COMPLETED")
 
     def test_metadata_capped_by_its_page_keeps_existing_readers_working(self):
         got = tree.read(18, "map", gh=answer({

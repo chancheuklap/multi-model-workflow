@@ -213,6 +213,63 @@ class ToolCommands(unittest.TestCase):
         self.assert_ok(run)
         self.assertEqual(run.stdout, "102\n")
 
+    def close_blocker_with_worker_hold(self, reason):
+        first = self.state["tickets"]["101"]
+        first.update(state="CLOSED", stateReason=reason, comments=[{"id": 1, "body": events.build(
+            "worker.started", ticket=101, line="Started", session="one", runner="fake", machine="test",
+            host="codex", model="test-model", effort="high", grade="junior-worker",
+            worktree=str(self.repo), branch="issue-101", base="a" * 40)}])
+        self.state["tickets"]["102"]["blockedBy"]["nodes"][0]["state"] = "CLOSED"
+        self.save()
+        return first
+
+    def test_close_success_without_result_post_does_not_release_the_dependent(self):
+        first = self.close_blocker_with_worker_hold("COMPLETED")
+        run = self.run_tool("dispatch", "status.py", "--frontier", 100)
+        self.assert_ok(run)
+        self.assertEqual(run.stdout, "")
+        first["comments"].append({"id": 2, "body": events.build(
+            "ticket.passed", ticket=101, line="Completed", commit="a" * 40, into="night")})
+        self.save()
+        run = self.run_tool("dispatch", "status.py", "--frontier", 100)
+        self.assert_ok(run)
+        self.assertEqual(run.stdout, "")
+        first["comments"].append({"id": 3, "body": events.build(
+            "ticket.landed", ticket=101, line="Landed")})
+        self.save()
+        run = self.run_tool("dispatch", "status.py", "--frontier", 100)
+        self.assert_ok(run)
+        self.assertEqual(run.stdout, "102\n")
+
+    def test_manual_close_without_a_hold_releases_the_dependent(self):
+        first = self.state["tickets"]["101"]
+        first.update(state="CLOSED", stateReason="COMPLETED", comments=[])
+        self.state["tickets"]["102"]["blockedBy"]["nodes"][0]["state"] = "CLOSED"
+        self.save()
+        run = self.run_tool("dispatch", "status.py", "--frontier", 100)
+        self.assert_ok(run)
+        self.assertEqual(run.stdout, "102\n")
+
+    def test_explicit_not_planned_releases_the_dependent_despite_an_old_hold(self):
+        first = self.close_blocker_with_worker_hold("NOT_PLANNED")
+        run = self.run_tool("dispatch", "status.py", "--frontier", 100)
+        self.assert_ok(run)
+        self.assertEqual(run.stdout, "102\n")
+        first["comments"].append({"id": 2, "body": "<!-- mmw {broken} -->"})
+        self.save()
+        run = self.run_tool("dispatch", "status.py", "--frontier", 100)
+        self.assertEqual((run.returncode, run.stdout), (2, ""))
+        self.assertIn("cannot determine eligible work", run.stderr)
+
+    def test_not_planned_does_not_override_an_existing_pass_waiting_to_land(self):
+        first = self.close_blocker_with_worker_hold("NOT_PLANNED")
+        first["comments"].append({"id": 2, "body": events.build(
+            "ticket.passed", ticket=101, line="Completed", commit="a" * 40, into="night")})
+        self.save()
+        run = self.run_tool("dispatch", "status.py", "--frontier", 100)
+        self.assert_ok(run)
+        self.assertEqual(run.stdout, "")
+
     def test_started_session_prevents_duplicate_work(self):
         self.state['tickets']['101']['comments'] = [{"id": 1, "body": events.build(
             "worker.started", ticket=101, line="Started", session="one", runner="codex-app", machine="test",

@@ -27,8 +27,8 @@ tracker's own cap on one list), 50 children under a ticket. That is 356,050 node
 the tracker's limit of 500,000 per query; one more list at 100 would ask for a million,
 which it refuses outright, and a page over 100 is refused per list.
 
-Every issue comes back as its number, title and state; specs and tickets also carry their
-labels and blockers, and every issue with a layer below it carries the tracker's own
+Every issue comes back as its number, title, state and native close reason. Specs and
+tickets also carry their labels and blockers, and every issue with a layer below it carries the tracker's own
 `total` and `completed` count of that layer. Labels and blockers are capped at ten per
 issue so the largest map remains below the tracker's 500,000-node query limit. These
 metadata lists may be capped: unlike missing sub-issues, their first ten entries preserve
@@ -98,10 +98,10 @@ def query(root: str = "spec", sizes: dict[str, int] | None = None) -> str:
     def level(remaining: list[str], depth: int) -> str:
         pad = "  " * depth
         head, rest = remaining[0], remaining[1:]
-        fields = "number title state"
+        fields = "number title state stateReason"
         if head in META_LAYERS:
             fields += (f" labels(first:{META_PAGE}) {{ totalCount nodes {{ name }} }}"
-                       f" blockedBy(first:{META_PAGE}) {{ totalCount nodes {{ number state }} }}")
+                       f" blockedBy(first:{META_PAGE}) {{ totalCount nodes {{ number state stateReason }} }}")
         if rest:
             fields += " subIssuesSummary { total completed } " + level(rest, depth + 1)
         return (f"subIssues(first:{pages[head]}) {{ nodes {{\n"
@@ -110,7 +110,7 @@ def query(root: str = "spec", sizes: dict[str, int] | None = None) -> str:
     return ("query($o:String!, $n:String!, $root:Int!) {\n"
             "  repository(owner:$o, name:$n) {\n"
             "    issue(number:$root) {\n"
-            "      number title state subIssuesSummary { total completed }\n"
+            "      number title state stateReason subIssuesSummary { total completed }\n"
             f"      {level(layers, 3)}\n"
             "    }\n"
             "  }\n"
@@ -183,7 +183,7 @@ def _node(raw: dict, where: str) -> dict:
     if not isinstance(raw, dict) or not isinstance(raw.get("number"), int):
         raise TreeUnreadable(f"{where}: an issue came back with no number")
     node = {"number": raw["number"], "title": raw.get("title") or "",
-            "state": (raw.get("state") or "").upper()}
+            "state": (raw.get("state") or "").upper(), "stateReason": raw.get("stateReason")}
     if "labels" in raw:
         def connection(name: str) -> list[dict]:
             nodes = (raw.get(name) or {}).get("nodes")
@@ -197,7 +197,8 @@ def _node(raw: dict, where: str) -> dict:
         node["labels"] = [label.get("name") or "" for label in labels
                           if isinstance(label, dict)]
         node["blockedBy"] = [
-            {"number": blocker["number"], "state": (blocker.get("state") or "").upper()}
+            {"number": blocker["number"], "state": (blocker.get("state") or "").upper(),
+             "stateReason": blocker.get("stateReason")}
             for blocker in blockers
             if isinstance(blocker, dict) and isinstance(blocker.get("number"), int)
         ]
