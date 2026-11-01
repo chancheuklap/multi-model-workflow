@@ -10,7 +10,7 @@ Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 
 Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. Start every sub-agent with a fresh context window.
 
-The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+Report findings. Do not apply fixes. Read issue sources through the repository's configured tracker or the host's tools, including their full bodies and comments.
 
 ## Process
 
@@ -18,15 +18,15 @@ The issue tracker should have been provided to you. If not, tell the user to run
 
 Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it.
 
-Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
+Resolve the fixed point and `HEAD` to commit IDs once, and record their merge-base. Capture the diff command as `git diff <merge-base> <reviewed-commit>` and the commit list via `git log <fixed-point-commit>..<reviewed-commit> --oneline`. Both reviewers and every reproduction use this same reviewed commit. State that uncommitted changes are outside this comparison.
 
 Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here, not inside two parallel sub-agents.
 
 ### 2. Identify the spec source
 
-Look for the originating spec, in this order:
+Use a spec supplied by the user as text or a path. Otherwise look for the originating spec in this order:
 
-1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
+1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched with the repository's configured tracker or the host's tools.
 2. A path the user passed as an argument.
 3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
 4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
@@ -57,7 +57,9 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 
 ### 4. Spawn both sub-agents in parallel
 
-Issue both sub-agent calls together, in the foreground, and aggregate the reports they return.
+Use the host's general-purpose subagents and existing model settings. Issue one Standards call and one Spec call together, in the foreground. Each reviewer works only its own axis and does not read the other reviewer's analysis.
+
+Give the Spec reviewer its own temporary directory for reproduction scripts and output, and include its path in the prompt. Reproductions use the reviewed commit and independent test data without changing the reviewed code.
 
 **Standards sub-agent prompt** should include:
 
@@ -69,15 +71,33 @@ Issue both sub-agent calls together, in the foreground, and aggregate the report
 
 - The diff command and commit list.
 - The path or fetched contents of the spec.
-- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
+- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Keep the findings summary under 400 words; attach reproduction evidence separately."
+- This adversarial task, pasted in full:
+
+  > Break this change. Actively seek conditions under which the implementation violates the spec. Trace the real execution paths behind the requirements, identify assumptions the implementation relies on, and challenge them with counterexamples. Find inputs, states, or sequences of operations that make the implementation fail, rather than stopping because the expected checks appear in the code.
+  >
+  > Construct and run counterexamples against the real code at the reviewed commit. For each runtime finding, report a title, code location, the exact command, actual output, required output, and the spec text that makes the output wrong. Include the setup and working directory needed to rerun from the same initial state. Keep reproduction scripts and output in your assigned temporary directory, using independent test data without modifying the reviewed code.
+  >
+  > Missing requirements and unrequested behaviour that can be established directly from the spec and code still belong in the report, with their citations. Claims about actual runtime behaviour require a run. If a suspected failure cannot be run, list it separately as unverified with the reason. No findings is a valid result. Report findings and reproduction materials, not fixes.
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
-### 5. Aggregate
+### 5. Verify the findings
 
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).
+The main session checks the returned findings against the reviewed commit:
 
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
+- **Standards and static spec differences:** read the cited rule or requirement and the code. Keep supported findings. Preserve the distinction between documented violations and structural judgement calls; a structural judgement does not need a runtime failure.
+- **Runtime claims:** rerun the reproduction from the same initial state. Keep the finding only when the output demonstrates the failure and the failure contradicts the cited requirement or documented rule. Reproducing a phenomenon alone does not establish that it is wrong.
+
+Record why unsupported findings are dropped. If a reproduction cannot be rerun, report it as unverified with the reason, not as a clean result or a disproved defect. Finish when every returned finding has a checked conclusion or an explicit verification limitation. The main session performs this check directly.
+
+### 6. Aggregate
+
+Present the checked reports under `## Standards` and `## Spec` headings, retaining their supporting evidence and judgement-call labels. Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).
+
+Under each axis, include the dropped-finding count and reasons, and any unverified limitations. When no findings survive, say "no verified findings" alongside those limitations. An unavailable or incomplete reviewer is a review limitation, not a clean result.
+
+End with a one-line summary: total supported findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
 
 ## Why two axes
 
