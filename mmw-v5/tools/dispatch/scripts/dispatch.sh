@@ -13,6 +13,7 @@ BRIEFS="$SKILL_ROOT/scripts/briefs.py"
 TRACKER="$SKILL_ROOT/scripts/tracker.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
 WATCHDOG="$SKILL_ROOT/scripts/watchdog.py"
+BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
 STATUS="$SKILL_ROOT/scripts/status.py"
 STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 PR="$SKILL_ROOT/scripts/pr.py"
@@ -35,6 +36,7 @@ refuse() {
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh open SPEC --into BASE --project PROJECT --worker-task FILE --reviewer-task FILE
+       dispatch.sh board [--url]
        dispatch.sh open-ticket N --into BASE [--task FILE]
        dispatch.sh start N worker|reviewer --task FILE
        dispatch.sh send worker|reviewer N --task FILE [--into BASE]
@@ -303,6 +305,36 @@ session_command() {
   fi
 }
 
+ensure_board() {
+  local repository port
+  git rev-parse --show-toplevel >/dev/null 2>&1 || { echo 'dispatch: board needs a Git worktree' >&2; return 2; }
+  repository="$(main_checkout)"
+  [ -n "$repository" ] || return 2
+  [ -f "$BOARD_SUPERVISOR" ] || { echo "dispatch: no board supervisor at $BOARD_SUPERVISOR" >&2; return 2; }
+  port="$(env -u GH_REPO python3 "$BOARD_SUPERVISOR" --ensure "$repository")" || return 2
+  case "$port" in ''|*[!0-9]*) echo 'dispatch: board supervisor returned no port' >&2; return 2 ;; esac
+  printf 'http://127.0.0.1:%s\n' "$port"
+}
+
+open_board() {
+  local url
+  case "$#:${1:-}" in 0:|1:--url) ;; *) usage ;; esac
+  url="$(ensure_board)" || return 2
+  printf '%s\n' "$url"
+  [ "${1:-}" != --url ] || return 0
+  python3 - "$url" <<'PYBROWSER'
+import sys,webbrowser
+try:
+    opened=webbrowser.open(sys.argv[1],new=2)
+except (webbrowser.Error,OSError) as exc:
+    print(f'dispatch: board is running at {sys.argv[1]}, but the browser could not open: {exc}',file=sys.stderr)
+    raise SystemExit(2)
+if not opened:
+    print(f'dispatch: board is running at {sys.argv[1]}; open that URL or use board --url',file=sys.stderr)
+    raise SystemExit(2)
+PYBROWSER
+}
+
 source "$SKILL_ROOT/scripts/dispatch-worktrees.sh"
 source "$SKILL_ROOT/scripts/dispatch-git.sh"
 source "$SKILL_ROOT/scripts/dispatch-finish.sh"
@@ -316,11 +348,12 @@ case "${1:-}" in
 esac
 
 case "${1:-}" in
-  self|brief|report|send|resume|stop|ack|queue|wait-wake|watchdog) ;;
+  self|brief|report|send|resume|stop|ack|queue|wait-wake|watchdog|board) ;;
   *) repo="$(repo_slug)" || exit 2; export GH_REPO="$repo" ;;
 esac
 
 case "${1:-}" in
+  board) shift; open_board "$@" ;;
   open) [ "$#" -ge 2 ] || usage; shift; open_night "$@" ;;
   open-ticket) [ "$#" -ge 2 ] || usage; shift; open_ticket "$@" ;;
   start) [ "$#" -ge 3 ] || usage; shift; start_one "$@" ;;

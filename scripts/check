@@ -55,6 +55,7 @@ STEPS = {
     "notifications": ("python3 -m unittest discover -s mmw-v5/tests/notifications", ["python3", "bash", "git"]),
     "results": ("python3 -m unittest discover -s mmw-v5/tests/results", ["python3", "bash", "git"]),
     "pipeline": ("python3 -m unittest discover -s mmw-v5/tests/pipeline", ["python3", "bash", "git"]),
+    "board-v5": ("bash mmw-v5/tests/board/run.sh", ["python3", "bash", "git", "node", "uv"]),
     "shared-checks": (SHARED, ["python3", "uv"]),
     "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
     "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
@@ -85,6 +86,10 @@ STEPS = {
 DISPATCH = "mmw-v4/skills/dispatch/"
 VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
+    ("mmw-v5/board/", ["board-v5"]),
+    ("mmw-v5/tests/board/", ["board-v5"]),
+    ("mmw-v5/tools/dispatch/", ["board-v5"]),
+    ("mmw-v5/tools/verify-ticket/scripts/", ["board-v5"]),
     ("mmw-v5/tools/dispatch/", ["pipeline"]),
     ("mmw-v5/tools/verify-ticket/scripts/", ["pipeline"]),
     ("mmw-v5/tests/pipeline/", ["pipeline"]),
@@ -199,7 +204,8 @@ def self_check() -> list[str]:
         for child in sorted((ROOT / root).iterdir()):
             if child.is_dir() and child.name != "__pycache__" and not child.name.startswith("."):
                 rel = f"{root}/{child.name}"
-                if child.name in STEPS and (rel + "/", [child.name]) in MAP:
+                if any(prefix == rel + "/" and names and all(name in STEPS for name in names)
+                       for prefix, names in MAP):
                     continue
                 if rel not in EXCLUDED:
                     found.append(f"{rel} is a test directory STEPS and MAP in scripts/check do not name; "
