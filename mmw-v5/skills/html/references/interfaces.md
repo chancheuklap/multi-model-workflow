@@ -1,6 +1,6 @@
 # Interfaces and tools
 
-Read this for editors, calculators, control panels, and other broad HTML artifacts people operate rather than read straight through. Use `html-prototype` for a styled mockup or a bounded product flow when that skill is available.
+Read this for editors, calculators, control panels, and other broad HTML artifacts people operate rather than read straight through. Use **html-prototype** for a styled mockup or a bounded product flow when that skill is available.
 
 Lead with the current state and the next useful action. Organize the interface around the user's task, not the shape of the underlying data model.
 

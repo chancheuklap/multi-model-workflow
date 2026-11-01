@@ -5,7 +5,7 @@ description: Direct-invocation specialist for polished, responsive, self-contain
 
 # HTML Prototype
 
-Before shaping the artifact, read and apply the `principle-write-for-where-it-is-read`, `principle-everything-at-hand`, and `principle-anchor-every-reference` skills.
+Before shaping the artifact, read and apply the **principle-write-for-where-it-is-read**, **principle-everything-at-hand**, and **principle-anchor-every-reference** skills.
 
 Build a credible model of a product decision. Match the artifact to the user's context instead of applying a recurring house style. The goal is not to make every possible screen. The goal is to make the important visual or behavioral question testable.
 
@@ -20,9 +20,9 @@ Do not create a separate `html-mockup` skill. Do not add behavior merely to make
 
 ## Derive the direction from context
 
-When describing supplied files or an existing system, read and apply `principle-read-before-you-conclude` before deciding what the artifact says.
+When describing supplied files or an existing system, read and apply **principle-read-before-you-conclude** before deciding what the artifact says.
 
-When working from approved wording, decisions, or designs, read and apply `principle-baseline-is-the-contract` before changing their presentation.
+When working from approved wording, decisions, or designs, read and apply **principle-baseline-is-the-contract** before changing their presentation.
 
 Inspect the conversation, supplied references, and project before designing. Look for design-system documentation, tokens, existing components, product screenshots, and nearby artifacts.
 
@@ -44,7 +44,7 @@ Before coding, settle:
 
 When no design system exists, create a specific direction from the subject and use case. Do not default to a gradient, a dark dashboard, interchangeable cards, or decorative metrics. A prototype for a field tool, an editorial workflow, and a financial approval should not feel like the same product.
 
-When [`design-artifact`](../design-artifact/SKILL.md) is available and the visual
+When [**design-artifact**](../design-artifact/SKILL.md) is available and the visual
 direction remains open, read and compose it with this skill. Use it to choose
 the register, palette, type, and composition; keep this skill authoritative for
 fidelity, state, and interaction completeness.

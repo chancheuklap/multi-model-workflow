@@ -21,6 +21,8 @@ The seam is yours to decide, not the user's: they are not asked to confirm it.
 
 3. Write the spec using the template below, applying **principle-write-for-where-it-is-read** and **principle-baseline-is-the-contract**, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
 
+4. Use **big-pics-little-words** to visualize the whole spec.
+
 <spec-template>
 
 ## Problem Statement
