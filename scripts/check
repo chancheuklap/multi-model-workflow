@@ -54,6 +54,7 @@ STEPS = {
     "sessions": ("python3 -m unittest discover -s mmw-v5/tests/sessions", ["python3", "bash", "git", "node"]),
     "notifications": ("python3 -m unittest discover -s mmw-v5/tests/notifications", ["python3", "bash", "git"]),
     "results": ("python3 -m unittest discover -s mmw-v5/tests/results", ["python3", "bash", "git"]),
+    "pipeline": ("python3 -m unittest discover -s mmw-v5/tests/pipeline", ["python3", "bash", "git"]),
     "shared-checks": (SHARED, ["python3", "uv"]),
     "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
     "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
@@ -84,6 +85,9 @@ STEPS = {
 DISPATCH = "mmw-v4/skills/dispatch/"
 VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
+    ("mmw-v5/tools/dispatch/", ["pipeline"]),
+    ("mmw-v5/tools/verify-ticket/scripts/", ["pipeline"]),
+    ("mmw-v5/tests/pipeline/", ["pipeline"]),
     *[("mmw-v5/tools/" + path, ["results"]) for path in (
         "verify-ticket/scripts/verify-ticket.py", "verify-ticket/scripts/repository_checks.py",
         "verify-ticket/scripts/events.py", "verify-ticket/scripts/labels.py",

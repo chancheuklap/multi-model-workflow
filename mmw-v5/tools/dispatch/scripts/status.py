@@ -90,9 +90,20 @@ def sub_issues(number: int) -> list[int]:
 
 def read_ticket(number: int) -> dict:
     """One ticket, in the shape the rest of this file expects."""
-    fields = ("state,stateReason,labels,assignees,blockedBy,comments,title,"
+    fields = ("state,stateReason,labels,assignees,blockedBy,title,"
               "createdAt,closedAt,body")
     raw = gh_json(["issue", "view", str(number), "--json", fields], {})
+    if not isinstance(raw, dict) or not raw.get("state"):
+        return normalise_ticket(number, {})
+    repo = tracker.repository()
+    pages = gh_json(["api", "--paginate", "--slurp",
+                     f"repos/{repo}/issues/{number}/comments?per_page=100"], None)
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        return normalise_ticket(number, {})
+    comments = [row for page in pages for row in page]
+    if any(not isinstance(row, dict) or not isinstance(row.get("body"), str) for row in comments):
+        return normalise_ticket(number, {})
+    raw["comments"] = comments
     return normalise_ticket(number, raw)
 
 
@@ -564,6 +575,196 @@ def collect(spec: int) -> tuple[list[dict], dict[int, dict]]:
 
 
 
+def advance_plan(spec: int) -> int:
+    """What the orchestrator's next `dispatch.sh advance` has to do, in order.
+
+    Three kinds of line and nothing else on stdout, because a script reads this, in the
+    order `dispatch.sh` acts on them:
+
+        MERGE <ticket>      closed with a pass that has not landed, the one that
+                            closed first at the top
+        RELEASE <ticket>    in the agent queue and claimed by this pipeline, and an
+                            event has ended every hold on it: the worker is gone
+        DISPATCH <ticket>   on the frontier as the tracker stands now, in ticket order,
+                            as many as max_workers leaves room for
+
+    The frontier reads the tracker as it stands: a merge this plan asks for unblocks
+    nothing until its `ticket.landed` is on the ticket. `dispatch.sh` therefore asks for
+    the plan a second time after its merges and releases, and starts only what that
+    second plan's DISPATCH lines name.
+
+    A ticket is held from its `ticket.claimed` or any `*.started` until an event ends
+    the hold (`events.ENDS_EVERY_HOLD`, `events.ENDS_ONE_HOLD`); no runner is asked and
+    no label is read. A claim is given back only after such an event: a claim no event
+    ever showed a worker holding is kept, since nothing shows its worker gone. A ticket
+    whose events cannot be read is neither merged nor released nor dispatched, and says
+    why.
+
+    Whether a commit exists and whether it is already in `origin/<base branch>` are git's
+    questions, and git is not this program's source. `dispatch.sh` asks them.
+
+    max_workers is read through models.py. Each held row counts once, including a
+    passed ticket that has not landed. An unreadable cap prevents only dispatch, not
+    merges or releases, and returns 3 after printing those lines. dispatch.sh carries
+    them out and reports the cap failure after its other work.
+    Unreadable ticket events prevent dispatch because occupancy
+    cannot be established, without changing the definition of a holder.
+    Every frontier ticket waiting for room is named on stderr,
+    with the cap and the held ticket numbers. An empty frontier with tickets still in
+    the agent queue names every one of them and the condition holding it.
+    """
+    numbers = sub_issues(spec)
+    tickets = {n: read_ticket(n) for n in numbers}
+    done = []
+    for ticket in tickets.values():
+        if not passed_unlanded(ticket):
+            continue
+        if unreadable_reason(ticket):
+            print(f"#{ticket['number']} is not merged: its events cannot be read "
+                  f"({unreadable_reason(ticket)})", file=sys.stderr)
+            continue
+        done.append(ticket)
+    for ticket in sorted(done, key=lambda t: t["closed_at"]):
+        print(f"MERGE {ticket['number']}")
+    rows = build_rows(numbers, tickets)
+    login = own_login()
+    for row in rows:
+        if row["state"] != "OPEN" or "ready-for-agent" not in row["labels"]:
+            continue
+        if not login or login not in row["assignees"]:
+            continue
+        if row["unreadable"]:
+            print(f"#{row['ticket']} keeps its claim: its events cannot be read "
+                  f"({row['unreadable']})", file=sys.stderr)
+            continue
+        holder = row["holder"]
+        if holder is not None and holder.get("claim"):
+            print(f"#{row['ticket']} keeps its claim: its ticket.claimed is still a hold, "
+                  f"and no event has ended it", file=sys.stderr)
+            continue
+        if holder is not None:
+            print(f"#{row['ticket']} keeps its claim: the "
+                  f"{holder.get('kind') or 'session'} "
+                  f"{holder.get('session')} on {holder.get('runner')} "
+                  f"is live on its events", file=sys.stderr)
+            continue
+        if not tickets[row["ticket"]]["fold"]["hold_ended"]:
+            print(f"#{row['ticket']} keeps its claim: no event on it ever showed a worker "
+                  f"holding it, so none shows that worker gone", file=sys.stderr)
+            continue
+        print(f"RELEASE {row['ticket']}")
+        row["assignees"] = [a for a in row["assignees"] if a != login]
+    ready = frontier(rows)
+    holders = [row["ticket"] for row in held(rows)]
+    models = None
+    models_path = Path(__file__).resolve().with_name("models.py")
+    plan_exit = 0
+    try:
+        models_spec = importlib.util.spec_from_file_location("mmw_status_models", models_path)
+        module = importlib.util.module_from_spec(models_spec)
+        models_spec.loader.exec_module(module)
+        models = module
+        cap = models.max_workers()
+    except (ValueError, OSError) as exc:
+        plan_exit = 3
+        source = models.models_json_path() if models is not None else models_path
+        reason = str(exc)
+        if models is None:
+            remedy = f"repair {models_path} and its role configuration"
+        elif isinstance(exc, models.InvalidConfig):
+            remedy = "fix the configuration with models.py config set max_workers <n>"
+        else:
+            if isinstance(exc, models.ConfigMissing):
+                reason = f"no models.json at {source}"
+            remedy = (f"restore a readable configuration object at {source}, "
+                      "then run models.py config set max_workers <n>")
+        print(f"dispatch: no DISPATCH from {source}; "
+              f"cannot read max_workers: {reason}; {remedy}",
+              file=sys.stderr)
+    else:
+        unread = [row for row in rows if row["unreadable"]]
+        places = 0 if unread else max(0, cap - len(holders))
+        for row in ready[:places]:
+            print(f"DISPATCH {row['ticket']}")
+        for row in ready[places:]:
+            print(f"dispatch: #{row['ticket']} waits for room; max_workers={cap}; "
+                  f"held tickets: {', '.join(f'#{n}' for n in holders) or 'None'}"
+                  + ("; cannot determine occupancy: " + ", ".join(
+                      f"#{item['ticket']} ({item['unreadable']})" for item in unread)
+                      + "; retry advance when these tickets can be read" if unread else ""),
+                  file=sys.stderr)
+    if not ready:
+        explain_empty_frontier(rows, spec)
+    return plan_exit
+
+def land_plan(numbers: list[int]) -> int:
+    """What landing each of these tickets calls for, in the order `dispatch.sh` acts.
+
+    Five kinds of line and nothing else on stdout, because a script reads this:
+
+        MERGE <ticket>        closed with a pass that has not landed: its passed commit
+                              belongs in `origin/<base branch>`
+        RELEASE <ticket>      this pipeline still holds the claim, and the work is over
+        ARCHIVE <ticket>      its workspace and the agents inside it may all go
+        HOLD <ticket> <why>   still being worked, or its events cannot be read: nothing
+                              may be done to it yet
+        NOTHING <ticket> <why>  over, and already landed: there is nothing left to do
+
+    Every ticket gets at least one line. A ticket that needs nothing is the case that
+    reads exactly like a ticket the plan forgot — so it says so.
+
+    A ticket handed back to triage is over as a piece of work, but its worktree is what
+    the next `start` reuses, and archiving a workspace deletes that directory. So a hand
+    back gives the claim back and keeps the workspace; only a closed ticket has both
+    taken away.
+    """
+    login = own_login()
+    for number in numbers:
+        ticket = read_ticket(number)
+        if not ticket["state"]:
+            print(f"HOLD {number} the tracker could not be asked about this ticket")
+            continue
+        bad = unreadable_reason(ticket)
+        if bad:
+            print(f"HOLD {number} its events cannot be read ({bad})")
+            continue
+        if in_flight(ticket):
+            head = head_of(ticket)
+            print(f"HOLD {number} it is open with no outcome on it"
+                  + (f" (newest: {head[:50]})" if head else ""))
+            continue
+        closed = ticket["state"] == "CLOSED"
+        asked = False
+        if closed and ticket["fold"]["passed"] and not ticket["fold"]["landed"]:
+            print(f"MERGE {number}")
+            asked = True
+        if login and login in ticket["assignees"]:
+            print(f"RELEASE {number}")
+            asked = True
+        if closed:
+            print(f"ARCHIVE {number}")
+            asked = True
+        if not asked:
+            print(f"NOTHING {number} handed back to triage, unclaimed, and its workspace "
+                  f"is kept for the next start")
+    return 0
+
+def closeout_ready(spec: int) -> int:
+    """Refuse unfinished batch coordination; print the number of landed tickets.
+
+    Repository checks belong to dispatch's summary_checks. No prose acceptance
+    criterion is parsed or claimed to have been rerun here.
+    """
+    rows, tickets = collect(spec)
+    problems = closeout_problems(rows, tickets)
+    for problem in problems:
+        print(f"dispatch: summary refused: {problem}", file=sys.stderr)
+    if problems:
+        return 2
+    print(sum(landed(ticket) for ticket in tickets.values()))
+    return 0
+
+
 def worker_grades(spec: int) -> int:
     """The worker-grade labels of every ticket the night could dispatch.
 
@@ -667,11 +868,26 @@ def print_findings(spec: int) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     forms = parser.add_mutually_exclusive_group(required=True)
-    for flag in ("table", "frontier", "summary", "findings", "worker-grades"):
+    for flag in ("table", "frontier", "summary", "findings", "worker-grades", "advance-plan", "land-plan", "closeout-ready"):
         forms.add_argument("--" + flag, action="store_true")
-    parser.add_argument("spec", type=int)
+    parser.add_argument("spec", type=int, nargs="+")
     args = parser.parse_args(argv)
+    if not args.land_plan and len(args.spec) != 1:
+        parser.error("only --land-plan takes more than one number")
+    if any(number < 1 for number in args.spec):
+        parser.error("issue numbers must be positive")
+    if args.land_plan:
+        try:
+            return land_plan(args.spec)
+        except (RuntimeError, OSError, ValueError, tracker.RepositoryError) as exc:
+            print(f"status: {exc}", file=sys.stderr)
+            return 2
+    args.spec = args.spec[0]
     try:
+        if args.advance_plan:
+            return advance_plan(args.spec)
+        if args.closeout_ready:
+            return closeout_ready(args.spec)
         if args.frontier:
             rows, _ = collect(args.spec)
             unread = [r for r in rows if r["unreadable"]]

@@ -113,6 +113,8 @@ EVENTS: dict[str, dict] = {
                           "patterns": {"merge": r"[0-9a-f]{40}",
                                        "base": r"[0-9a-f]{40}"}},
 
+    "ticket.opened":     {"stage": "dispatch", "actor": "main",
+                          "required": ("into", "runner", "session")},
     "ticket.claimed":    {"stage": "intake",   "actor": "worker"},
     # The session that refused is named when it could name itself, so its own hold ends
     # and the ticket is free for the next start; nobody else's hold is touched.

@@ -7,6 +7,7 @@
     verify-ticket.py N --sub-issue KIND FILE [--existing CHILD]
     verify-ticket.py N --route CHILD fixed --report FILE --commit SHA
     verify-ticket.py N --route CHILD stale --report FILE --reason invalid|fixed-elsewhere
+    verify-ticket.py N --route CHILD became-ticket --became TICKET --report FILE
 
 Reports are UTF-8 text without required headings or acceptance-criterion syntax.
 Completion is the caller's explicit declaration, not a machine proof of prose criteria.
@@ -142,18 +143,27 @@ def result_lock(number: int):
 
 
 def bound_identity(number: int, state: dict, kind: str, root: Path) -> dict:
+    marker = os.environ.get("MMW_TICKET")
+    if marker is not None and marker != str(number):
+        raise Refusal(f"this dispatched session belongs to ticket #{marker}, not #{number}; nothing was written")
     own = own_session()
     live = [s for s in state["sessions"] if s["kind"] == kind and s["live"]]
     chosen = live[-1] if live else None
     pair = (chosen.get("runner"), chosen.get("session")) if chosen else own
     latest = None
     any_start = False
+    matching_start = False
     for comment in events.normalise(state["comments"]):
         what, payload = events.parse(comment["body"])
         if what == "event" and payload["event"] == f"{kind}.started":
             any_start = True
+            if (payload.get("runner"), payload.get("session")) == own:
+                matching_start = True
             if (payload.get("runner"), payload.get("session")) == pair:
                 latest = payload
+    if marker is not None and not matching_start:
+        raise Refusal(f"#{number} has no matching {kind}.started for this dispatched session "
+                      f"{own}; retry after dispatch records {kind}.started; nothing was written")
     if any_start and latest is None:
         raise Refusal(f"#{number} has no {kind} startup for this caller {own}; nothing was written")
     if latest:
@@ -214,6 +224,37 @@ def run_review(number: int, path: Path, base: str, head: str, check_only: bool =
     return 0
 
 
+def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
+    """Push the output commit to `origin/issue-<n>` without rewriting history."""
+    ref = f"refs/heads/issue-{number}"
+    try:
+        pushed = subprocess.run(
+            ["git", "push", "origin", f"{commit}:{ref}"], cwd=root,
+            capture_output=True, text=True,
+        )
+        if pushed.returncode != 0:
+            detail = " ".join((pushed.stderr or pushed.stdout).strip().splitlines())
+            return (f"origin rejected {commit} for issue-{number}: "
+                    f"{detail[:500] or f'git push exited {pushed.returncode}'}. "
+                    f"Resolve the rejection and run --closeout again. "
+                    f"No force-push was used")
+        remote = subprocess.run(
+            ["git", "ls-remote", "--heads", "origin", ref], cwd=root,
+            capture_output=True, text=True,
+        )
+    except OSError as exc:
+        return (f"git could not reach origin for issue-{number} at output commit {commit}: "
+                f"{exc}. Fix Git access and run --closeout again")
+    remote_commit = (remote.stdout.strip().split() or [""])[0]
+    if remote.returncode != 0 or remote_commit != commit:
+        detail = " ".join((remote.stderr or remote.stdout).strip().splitlines())
+        resolved = remote_commit or "nothing"
+        return (f"origin/issue-{number} could not be confirmed at output commit {commit}: "
+                f"{detail[:500] or f'it resolved to {resolved}'}. "
+                f"Confirm the remote and run --closeout again")
+    return None
+
+
 def run_closeout(number: int, path: Path, result: str, commit: str,
                  into: str | None = None, check_only: bool = False) -> int:
     text = report_text(path)
@@ -230,6 +271,8 @@ def run_closeout(number: int, path: Path, result: str, commit: str,
                 raise Refusal("a completed output needs its target branch: --into BRANCH or worker.started.into")
             git("check-ref-format", "--branch", target, cwd=root)
         fields = {"commit": head, "branch": git("symbolic-ref", "--quiet", "--short", "HEAD", cwd=root)}
+        if result == "complete" and fields["branch"] != f"issue-{number}":
+            raise Refusal(f"#{number} output belongs on issue-{number}, not {fields['branch']}; nothing was pushed or recorded")
         if target:
             fields["into"] = target
         fields.update({k: identity[k] for k in ("runner", "session") if identity.get(k)})
@@ -251,6 +294,10 @@ def run_closeout(number: int, path: Path, result: str, commit: str,
             print(f"RESULT READY: #{number} {event} at {head}")
             return 0
         current_commit(head, root, clean=(result == "complete"))
+        if result == "complete":
+            problem = push_ticket_branch(number, root, head)
+            if problem:
+                raise TrackerError(problem)
         try:
             if result == "complete":
                 if ticket["state"] != "CLOSED":
@@ -312,8 +359,61 @@ def _sub_issue(number: int, kind: str, text: str, existing: int | None) -> int:
     return 0
 
 
+def _child_report(state: dict, child: int) -> dict | None:
+    previous = None
+    for comment in events.normalise(state["comments"]):
+        record = events.newest([comment], "child.closed")
+        if record and record["payload"].get("child") == child:
+            previous = record
+    return previous
+
+
+def _became_ticket(number: int, child: int, became: int, ticket: dict, state: dict,
+                   entry: dict, text: str) -> int:
+    spec = entry.get("spec")
+    if not spec and ticket.get("parent"):
+        raise Refusal(f"#{number} has a parent but child.opened for #{child} names no spec; nothing was changed")
+    child_issue = fetch_ticket(child)
+    parent = (child_issue.get("parent") or {}).get("number")
+    if parent not in (number, spec):
+        raise Refusal(f"#{child} is not natively linked under #{number} or its recorded spec; nothing was changed")
+    target = child_issue if became == child else fetch_ticket(became)
+    labels = {label["name"] for label in target.get("labels") or []}
+    for kind in ("mmw:map", "mmw:spec"):
+        if kind in labels:
+            raise Refusal(f"#{became} carries {kind}; a map or spec cannot become a ticket")
+    fields = {"child": child, "resolution": "became-ticket", "became": became}
+    if entry.get("resolution"):
+        if entry.get("ticket") != became or not same_report(_child_report(state, child), fields, text):
+            raise Refusal(f"#{child} has a different recorded target or resolution report; nothing was changed")
+        print(f"CHILD ALREADY ROUTED: #{child} became ticket #{became}")
+        return 0
+    edit = []
+    if "mmw:ticket" not in labels:
+        edit.extend(("--add-label", "mmw:ticket"))
+    current_parent = (target.get("parent") or {}).get("number")
+    if spec and current_parent != spec:
+        edit.extend(("--parent", str(spec)))
+    elif not spec and became == child and current_parent is not None:
+        edit.append("--remove-parent")
+    for kind in ("mmw:child", "mmw:lesson", "mmw:problem"):
+        if kind in labels:
+            edit.extend(("--remove-label", kind))
+    try:
+        if edit:
+            gh("issue", "edit", str(became), *edit)
+        if became != child and child_issue["state"] != "CLOSED":
+            gh("issue", "close", str(child), "--duplicate-of", str(became))
+        origin = {**ticket, "parent": {"number": spec} if spec else None}
+        post_event(number, origin, "child.closed", f"Child #{child} became ticket #{became}", text, **fields)
+    except TrackerError as exc:
+        raise TrackerError(f"routing #{child} to ticket #{became} is incomplete: {exc}; rerun the same command") from None
+    print(f"CHILD ROUTED: #{child} became ticket #{became}")
+    return 0
+
+
 def run_route(number: int, child: int, resolution: str, path: Path, reason: str | None,
-              commit: str | None = None) -> int:
+              commit: str | None = None, became: int | None = None) -> int:
     text = report_text(path)
     with result_lock(number):
         ticket, state = read_state(number)
@@ -322,6 +422,14 @@ def run_route(number: int, child: int, resolution: str, path: Path, reason: str 
             raise Refusal(f"#{number} has no child.opened for #{child}; nothing was changed")
         if entry.get("resolution") and (entry["resolution"] != resolution or entry.get("reason") != reason):
             raise Refusal(f"#{child} was already routed {entry['resolution']}")
+        if resolution == "became-ticket":
+            if became is None or became < 1 or reason is not None or commit is not None:
+                raise Refusal("became-ticket needs --became TICKET and takes no --reason or --commit")
+            if entry.get("resolution") and entry.get("ticket") != became:
+                raise Refusal(f"#{child} was already routed to ticket #{entry.get('ticket')}; nothing was changed")
+            return _became_ticket(number, child, became, ticket, state, entry, text)
+        if became is not None:
+            raise Refusal("--became is only available with became-ticket")
         if resolution == "stale" and reason not in ("invalid", "fixed-elsewhere"):
             raise Refusal("stale needs --reason invalid|fixed-elsewhere")
         if resolution == "fixed" and reason:
@@ -343,11 +451,7 @@ def run_route(number: int, child: int, resolution: str, path: Path, reason: str 
         if head:
             fields["commit"] = head
         if entry.get("resolution") and child_issue["state"] == "CLOSED":
-            previous = None
-            for comment in events.normalise(state["comments"]):
-                what, payload = events.parse(comment["body"])
-                if what == "event" and payload["event"] == "child.closed" and payload.get("child") == child:
-                    previous = events.newest([comment], "child.closed")
+            previous = _child_report(state, child)
             if not same_report(previous, fields, text):
                 raise Refusal(f"#{child} has a different recorded resolution report; no new report was posted")
             print(f"CHILD ALREADY ROUTED: #{child}")
@@ -381,6 +485,7 @@ def main(argv=None) -> int:
     parser.add_argument("--report", type=Path)
     parser.add_argument("--reason", choices=("invalid", "fixed-elsewhere"))
     parser.add_argument("--existing", type=int)
+    parser.add_argument("--became", type=int)
     args = parser.parse_args(argv)
     try:
         if args.check_only and not (args.closeout or args.review):
@@ -409,9 +514,9 @@ def main(argv=None) -> int:
             return run_sub_issue(args.ticket, kind, Path(path), args.existing)
         if args.route:
             child, resolution = args.route
-            if not child.isdigit() or resolution not in ("fixed", "stale") or not args.report:
-                raise Refusal("--route needs CHILD fixed|stale and --report FILE")
-            return run_route(args.ticket, int(child), resolution, args.report, args.reason, args.commit)
+            if not child.isdigit() or resolution not in ("fixed", "stale", "became-ticket") or not args.report:
+                raise Refusal("--route needs CHILD fixed|stale|became-ticket and --report FILE")
+            return run_route(args.ticket, int(child), resolution, args.report, args.reason, args.commit, args.became)
     except TrackerError as exc:
         print(f"verify-ticket: {exc}", file=sys.stderr)
         return 1

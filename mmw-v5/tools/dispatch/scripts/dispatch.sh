@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Session dispatch for caller-supplied task files, with result notifications.
-# Ticket closeout and Git operations are separate capabilities.
+# Ticket reports and repository checks use the adjacent verify-ticket tool.
 # Exit 0: completed the requested operation. Exit 2: refused, with a reason on stderr.
 # Resume preserves adapter receipts: 3 means retryable; 4 means delivery is unconfirmed
 # and must not be repeated.
@@ -13,11 +13,19 @@ BRIEFS="$SKILL_ROOT/scripts/briefs.py"
 TRACKER="$SKILL_ROOT/scripts/tracker.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
 WATCHDOG="$SKILL_ROOT/scripts/watchdog.py"
+STATUS="$SKILL_ROOT/scripts/status.py"
+STATEDIR="$SKILL_ROOT/scripts/statedir.py"
+PR="$SKILL_ROOT/scripts/pr.py"
+VERIFY="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/verify-ticket.py"
+EVENTS="$(dirname "$SKILL_ROOT")/verify-ticket/scripts/events.py"
+export MMW_DISPATCH_EVENTS="$EVENTS"
 MMW_HOME="$(python3 -c 'import os; from pathlib import Path; print(Path(os.environ.get("MMW_HOME") or "~/.mmw-v5").expanduser().resolve())')" || exit 2
 export MMW_HOME
 MODELS_JSON="$MMW_HOME/models.json"
 RUNNER=""
 RUNNER_NAME=""
+
+gh_() { env -u CLICOLOR_FORCE -u CLICOLOR gh "$@"; }
 
 refuse() {
   echo "dispatch: $1" >&2
@@ -26,7 +34,18 @@ refuse() {
 
 usage() {
   cat >&2 <<'USAGE'
-usage: dispatch.sh send <role> [--cwd DIR] [--follow FILE] <task file>...
+usage: dispatch.sh open SPEC --into BASE --project PROJECT --worker-task FILE --reviewer-task FILE
+       dispatch.sh open-ticket N --into BASE [--task FILE]
+       dispatch.sh start N worker|reviewer --task FILE
+       dispatch.sh send worker|reviewer N --task FILE [--into BASE]
+       dispatch.sh advance SPEC
+       dispatch.sh integrate|integrated|land|retract N
+       dispatch.sh wait N worker|reviewer
+       dispatch.sh resume N MESSAGE
+       dispatch.sh status|findings|summary|finish|suspend SPEC
+       dispatch.sh pr --base B --head H --title T --body-file FILE
+       dispatch.sh route N CHILD fixed|stale|became-ticket --report FILE [--commit SHA|--reason REASON|--became TARGET]
+       dispatch.sh send <role> [--cwd DIR] [--follow FILE] <task file>...
        dispatch.sh report <batch>/<n> <answer file>
        dispatch.sh brief show|close <batch>
        dispatch.sh resume <batch>/<n> <message>
@@ -119,9 +138,13 @@ brief_footer() {
 
 start_session() {
   local host="$1" model="$2" effort="$3" cwd="$4" prompt="$5" title="$6" session
+  shift 6
+  local -a extra=()
+  local value
+  for value in "$@"; do extra+=(--env "$value"); done
   session="$(runner start --host "$host" --model "$model" --effort "$effort" \
     --cwd "$cwd" --prompt "$prompt" --skip-approval --title "$title" \
-    --env "GH_REPO=$GH_REPO" --env "MMW_HOME=$MMW_HOME" --env "MMW_RUNNER=$RUNNER_NAME")" \
+    --env "GH_REPO=$GH_REPO" --env "MMW_HOME=$MMW_HOME" --env "MMW_RUNNER=$RUNNER_NAME" ${extra[@]+"${extra[@]}"})" \
     || return 2
   [ -n "$session" ] || return 2
   printf '%s\n' "$session" | tail -n 1
@@ -280,8 +303,46 @@ session_command() {
   fi
 }
 
+source "$SKILL_ROOT/scripts/dispatch-worktrees.sh"
+source "$SKILL_ROOT/scripts/dispatch-git.sh"
+source "$SKILL_ROOT/scripts/dispatch-finish.sh"
+source "$SKILL_ROOT/scripts/dispatch-ticket.sh"
+
 case "${1:-}" in
-  send) shift; send_many "$@" ;;
+  open|open-ticket|start|advance|integrate|integrated|retract|wait|status|findings|summary|finish|suspend|route)
+    [[ "${2:-}" =~ ^[1-9][0-9]*$ ]] || refuse 'a positive issue number is required' ;;
+  land)
+    for number in "${@:2}"; do [[ "$number" =~ ^[1-9][0-9]*$ ]] || refuse 'land requires positive ticket numbers'; done ;;
+esac
+
+case "${1:-}" in
+  self|brief|report|send|resume|stop|ack|queue|wait-wake|watchdog) ;;
+  *) repo="$(repo_slug)" || exit 2; export GH_REPO="$repo" ;;
+esac
+
+case "${1:-}" in
+  open) [ "$#" -ge 2 ] || usage; shift; open_night "$@" ;;
+  open-ticket) [ "$#" -ge 2 ] || usage; shift; open_ticket "$@" ;;
+  start) [ "$#" -ge 3 ] || usage; shift; start_one "$@" ;;
+  advance) [ "$#" -eq 2 ] || usage; export MMW_DISPATCH_ADVANCE=1; advance "$2" ;;
+  integrate) [ "$#" -eq 2 ] || usage; integrate_ticket "$2" ;;
+  integrated) [ "$#" -eq 2 ] || usage; integrated_since_start "$2" ;;
+  land) [ "$#" -ge 2 ] || usage; shift; land_tickets "$@" ;;
+  retract) [ "$#" -eq 2 ] || usage; retract_one "$2" ;;
+  wait) [ "$#" -eq 3 ] || usage; wait_one "$2" "$3" ;;
+  status) [ "$#" -eq 2 ] || usage; python3 "$STATUS" --table "$2" && night_orchestrator_line "$2" ;;
+  findings) [ "$#" -eq 2 ] || usage; python3 "$STATUS" --findings "$2" ;;
+  summary) [ "$#" -eq 2 ] || usage; summary_spec "$2" ;;
+  finish) [ "$#" -eq 2 ] || usage; finish_spec "$2" ;;
+  suspend) [ "$#" -eq 2 ] || usage; suspend_night "$2" ;;
+  pr) shift; python3 "$PR" "$@" ;;
+  route) [ "$#" -ge 4 ] || usage; number="$2"; child="$3"; resolution="$4"; shift 4; python3 "$VERIFY" "$number" --route "$child" "$resolution" "$@" ;;
+  send)
+    shift
+    case "${1:-}" in
+      worker|reviewer) repo="$(repo_slug)" || exit 2; export GH_REPO="$repo"; send_ticket "$@" ;;
+      *) send_many "$@" ;;
+    esac ;;
   report) [ "$#" -eq 3 ] || usage; report_brief "$2" "$3" ;;
   brief)
     [ "$#" -eq 3 ] || usage
@@ -290,7 +351,9 @@ case "${1:-}" in
       close) close_batch "$3" ;;
       *) usage ;;
     esac ;;
-  resume) [ "$#" -eq 3 ] || usage; session_command resume "$2" "$3" ;;
+  resume)
+    [ "$#" -eq 3 ] || usage
+    case "$2" in */*) session_command resume "$2" "$3" ;; *) repo="$(repo_slug)" || exit 2; export GH_REPO="$repo"; resume_one "$2" "$3" ;; esac ;;
   stop) [ "$#" -eq 2 ] || usage; session_command stop "$2" ;;
   ack) [ "$#" -eq 3 ] || usage; notification_command ack "$2" "$3" ;;
   queue|wait-wake) [ "$#" -eq 1 ] || usage; notification_command "$1" ;;

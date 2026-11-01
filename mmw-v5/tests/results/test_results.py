@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,7 +25,7 @@ lock=open(str(p)+'.lock','a');fcntl.flock(lock,fcntl.LOCK_EX)
 s=json.loads(p.read_text());a=sys.argv[1:]
 def save():p.write_text(json.dumps(s))
 if a[:2]==['repo','view']:
- assert a[2]=='https://github.test/owner/repo.git'
+ assert a[2]==os.environ.get('FAKE_ORIGIN_URL','https://github.test/owner/repo.git')
  assert 'GH_REPO' not in os.environ
  print('owner/repo');sys.exit()
 if a[0]=='issue':assert os.environ.get('GH_REPO')=='owner/repo'
@@ -55,15 +56,20 @@ elif a[:2]==['issue','close']:
  if s.get('fail_close',0):
   s['fail_close']-=1;save();print('close refused',file=sys.stderr);sys.exit(1)
  row=s['issues'][a[2]];row['state']='CLOSED'
- row['stateReason']='COMPLETED' if a[a.index('--reason')+1]=='completed' else 'NOT_PLANNED'
+ if '--duplicate-of' in a:
+  row['duplicateOf']=int(a[a.index('--duplicate-of')+1]);row['stateReason']='NOT_PLANNED'
+ else:row['stateReason']='COMPLETED' if a[a.index('--reason')+1]=='completed' else 'NOT_PLANNED'
  s['mutations'].append('close');save()
 elif a[:2]==['issue','edit']:
  if s.get('fail_edit',0):
   s['fail_edit']-=1;save();print('edit refused',file=sys.stderr);sys.exit(1)
  row=s['issues'][a[2]];names={x['name'] for x in row['labels']}
- if '--add-label' in a:names.add(a[a.index('--add-label')+1])
- if '--remove-label' in a:names.discard(a[a.index('--remove-label')+1])
+ for i,arg in enumerate(a):
+  if arg=='--add-label':names.add(a[i+1])
+  if arg=='--remove-label':names.discard(a[i+1])
  row['labels']=[{'name':n} for n in sorted(names)]
+ if '--parent' in a:row['parent']={'number':int(a[a.index('--parent')+1])}
+ if '--remove-parent' in a:row['parent']=None
  if '--remove-assignee' in a:row['assignees']=[]
  s['mutations'].append('edit');save()
 elif a[:2]==['issue','create']:
@@ -88,7 +94,10 @@ class TicketResults(unittest.TestCase):
         self.git("config", "user.email", "test@example.invalid")
         self.git("config", "user.name", "Test")
         self.git("config", "core.hooksPath", "/dev/null")
+        self.remote = self.root / "origin.git"
+        subprocess.run(["git", "init", "--bare", "-q", str(self.remote)], check=True)
         self.git("remote", "add", "origin", "https://github.test/owner/repo.git")
+        self.git("config", f"url.{self.remote.as_uri()}.insteadOf", "https://github.test/owner/repo.git")
         (self.repo / ".gitignore").write_text(".scratch/\n")
         (self.repo / "code.txt").write_text("baseline\n")
         self.git("add", ".")
@@ -106,7 +115,8 @@ class TicketResults(unittest.TestCase):
         self.store = self.root / "tracker.json"
         self.env = dict(os.environ, PATH=str(binary)+os.pathsep+os.environ["PATH"],
                         MMW_HOME=str(self.home), GH_REPO="wrong/repository", CLICOLOR_FORCE="1",
-                        PASEO_AGENT_ID="worker-1", FAKE_TRACKER=str(self.store))
+                        PASEO_AGENT_ID="worker-1", FAKE_TRACKER=str(self.store), FAKE_ORIGIN_URL=self.remote.as_uri())
+        self.env.pop("MMW_TICKET", None)
         self.original_body = "## Parent\n#60\n## What to build\nDeliver output\n## Acceptance criteria\n- [ ] The caller gets the result\n## Blocked by\nNone\n"
         self.state = {"issues": {"61": {"number": 61, "state": "OPEN", "stateReason": None,
             "labels": [{"name": "ready-for-agent"}], "parent": {"number": 60},
@@ -156,6 +166,95 @@ class TicketResults(unittest.TestCase):
         self.assertEqual((payload["commit"], payload["into"], payload["session"]), (self.head, "integration", "worker-1"))
         self.assertTrue({"counts", "abandoned", "outside_owns", "shape"}.isdisjoint(payload))
         self.assertIn(self.report.read_text().strip(), folded["outcome"]["body"])
+        self.assertTrue(self.git("ls-remote", "--heads", "origin", "refs/heads/issue-61").startswith(self.head + "\t"))
+
+    def test_rejected_push_keeps_the_ticket_open_and_unpushed_work_intact(self):
+        hook = self.remote / "hooks" / "pre-receive"
+        hook.write_text("#!/bin/sh\necho 'remote rejects this push' >&2\nexit 1\n")
+        hook.chmod(0o755)
+        result = self.complete()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("origin rejected", result.stderr)
+        ticket = self.reload()
+        self.assertEqual((ticket["state"], self.state["mutations"]), ("OPEN", []))
+        self.assertFalse(events.fold(ticket["comments"])["passed"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.head)
+        self.assertEqual(self.git("ls-remote", "--heads", "origin", "refs/heads/issue-61"), "")
+        self.assertEqual((self.repo / "code.txt").read_text(), "output\n")
+
+    def test_completion_never_force_pushes_over_a_divergent_remote_branch(self):
+        remote_head = self.git("commit-tree", "HEAD^{tree}", "-p", self.base, "-m", "other output")
+        self.git("push", "origin", f"{remote_head}:refs/heads/issue-61")
+        result = self.complete()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(self.git("ls-remote", "--heads", "origin", "refs/heads/issue-61").split()[0], remote_head)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.head)
+        ticket = self.reload()
+        self.assertEqual((ticket["state"], self.state["mutations"]), ("OPEN", []))
+
+    def test_check_only_does_not_push_the_output_branch(self):
+        self.assert_ok(self.complete("--check-only"))
+        self.assertEqual(self.git("ls-remote", "--heads", "origin", "refs/heads/issue-61"), "")
+        self.reload()
+        self.assertEqual(self.state["mutations"], [])
+
+    def test_unconfirmed_remote_commit_does_not_close_or_pass_the_ticket(self):
+        actual_git = shutil.which("git")
+        wrapper = self.root / "bin/git"
+        wrapper.write_text(f"#!{sys.executable}\n" +
+                           "import os,sys\n" +
+                           "if sys.argv[1:3]==['ls-remote','--heads']:\n" +
+                           " print('" + "0" * 40 + "\\trefs/heads/issue-61');sys.exit(0)\n" +
+                           f"os.execv({actual_git!r},[{actual_git!r},*sys.argv[1:]])\n")
+        wrapper.chmod(0o755)
+        result = self.complete()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("could not be confirmed", result.stderr)
+        ticket = self.reload()
+        self.assertEqual((ticket["state"], self.state["mutations"]), ("OPEN", []))
+        self.assertEqual(self.git("ls-remote", "--heads", "origin", "refs/heads/issue-61").split()[0], self.head)
+
+    def test_standalone_completion_cannot_publish_from_another_output_branch(self):
+        self.state["issues"]["61"]["comments"] = []
+        self.save()
+        self.git("checkout", "-qb", "another-output")
+        result = self.complete("--into", "integration")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.reload()
+        self.assertEqual(self.state["mutations"], [])
+        self.assertEqual(self.git("ls-remote", "--heads", "origin", "refs/heads/issue-61"), "")
+
+    def test_dispatched_startup_must_be_recorded_before_the_worker_reports(self):
+        self.state["issues"]["61"]["comments"] = []
+        self.save()
+        env = dict(self.env, MMW_TICKET="61")
+        result = self.run_tool("--closeout", self.report, "--result", "complete", "--commit", self.head,
+                               "--into", "integration", env=env)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("retry", result.stderr)
+        self.assertIn("worker.started", result.stderr)
+        self.reload()
+        self.assertEqual(self.state["mutations"], [])
+        self.assertEqual(self.git("ls-remote", "--heads", "origin", "refs/heads/issue-61"), "")
+        self.add_event("worker.started", session="worker-1", runner="paseo", machine=socket.gethostname(),
+                       host="codex", model="test-model", effort="high", grade="junior-worker",
+                       worktree=str(self.repo), branch="issue-61", base=self.base, into="integration")
+        self.assert_ok(self.run_tool("--closeout", self.report, "--result", "complete", "--commit", self.head, env=env))
+
+    def test_dispatch_marker_for_another_ticket_cannot_report_this_ticket(self):
+        result = self.run_tool("--closeout", self.report, "--result", "complete", "--commit", self.head,
+                               env=dict(self.env, MMW_TICKET="99"))
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.reload()
+        self.assertEqual(self.state["mutations"], [])
+
+    def test_reviewer_cannot_report_before_its_dispatched_startup_is_recorded(self):
+        env = dict(self.env, MMW_TICKET="61", PASEO_AGENT_ID="reviewer-1")
+        result = self.run_tool("--review", self.report, "--base", self.base, "--head", self.head, env=env)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("reviewer.started", result.stderr)
+        self.reload()
+        self.assertEqual(self.state["mutations"], [])
 
     def test_incomplete_output_stays_open_and_does_not_claim_a_pass(self):
         (self.repo / "code.txt").write_text("unfinished\n")
