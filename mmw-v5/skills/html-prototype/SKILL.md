@@ -5,6 +5,8 @@ description: Direct-invocation specialist for polished, responsive, self-contain
 
 # HTML Prototype
 
+Before shaping the artifact, read and apply the `principle-write-for-where-it-is-read`, `principle-everything-at-hand`, and `principle-anchor-every-reference` skills.
+
 Build a credible model of a product decision. Match the artifact to the user's context instead of applying a recurring house style. The goal is not to make every possible screen. The goal is to make the important visual or behavioral question testable.
 
 ## Choose the fidelity mode
@@ -17,6 +19,10 @@ Use one of two modes:
 Do not create a separate `html-mockup` skill. Do not add behavior merely to make a mockup seem more complete. If a user asks for both modes, preserve the same content and structure so changes in fidelity remain easy to compare.
 
 ## Derive the direction from context
+
+When describing supplied files or an existing system, read and apply `principle-read-before-you-conclude` before deciding what the artifact says.
+
+When working from approved wording, decisions, or designs, read and apply `principle-baseline-is-the-contract` before changing their presentation.
 
 Inspect the conversation, supplied references, and project before designing. Look for design-system documentation, tokens, existing components, product screenshots, and nearby artifacts.
 

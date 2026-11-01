@@ -15,6 +15,8 @@ Use a table when exact values matter more than shape. A chart and a compact tabl
 
 ## Make the data honest
 
+Before interpreting or presenting measured results or numerical comparisons, read and apply `principle-explain-the-number`.
+
 - Label units, time ranges, sources, and important filters.
 - Use scales that support the intended comparison. Make truncation or nonlinearity explicit.
 - Separate measured values, estimates, targets, and forecasts visually and in text.

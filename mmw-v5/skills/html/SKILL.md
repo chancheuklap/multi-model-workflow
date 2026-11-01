@@ -5,6 +5,8 @@ description: Create or redesign self-contained single-file HTML artifacts with a
 
 # HTML
 
+Before shaping the artifact, read and apply the `principle-write-for-where-it-is-read`, `principle-everything-at-hand`, and `principle-anchor-every-reference` skills.
+
 Build one self-contained HTML file that makes the subject clearer, easier to use, or easier to understand. The standard is consistent care, not a consistent look. Do not reproduce a house palette, typography stack, card system, or layout from prior runs.
 
 ## Route the request first
@@ -24,6 +26,10 @@ Use the narrowest skill that owns the main review question:
 These sibling links are the nesting mechanism when the collection is installed together. If a specialized skill is unavailable, continue here and load the closest reference below. Do not make the user install another skill before completing the request.
 
 ## Read the room before designing
+
+When describing supplied files or an existing system, read and apply `principle-read-before-you-conclude` before deciding what the artifact says.
+
+When working from approved wording, decisions, or designs, read and apply `principle-baseline-is-the-contract` before changing their presentation.
 
 Inspect the user's request and any material they supplied. When working in a repository, look for its design language in `AGENTS.md`, `CLAUDE.md`, design-system documentation, tokens, existing components, and nearby artifacts.
 

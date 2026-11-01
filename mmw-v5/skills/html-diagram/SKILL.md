@@ -5,9 +5,15 @@ description: Direct-invocation specialist for self-contained HTML diagrams whose
 
 # HTML Diagram
 
+Before shaping the artifact, read and apply the `principle-write-for-where-it-is-read`, `principle-everything-at-hand`, and `principle-anchor-every-reference` skills.
+
 Build the smallest visual model that makes the relationship easier to understand than prose alone. Match the notation and visual language to the user's project and subject. Do not force every topic into the same SVG boxes and arrows.
 
 ## Choose the right model
+
+When describing supplied files or an existing system, read and apply `principle-read-before-you-conclude` before deciding what the artifact says.
+
+When working from approved wording, decisions, or designs, read and apply `principle-baseline-is-the-contract` before changing their presentation.
 
 Identify the question the reader should answer, then select the form:
 
@@ -19,6 +25,8 @@ Identify the question the reader should answer, then select the form:
 - timeline for change over time;
 - matrix for repeated relationships;
 - quantitative view when magnitude matters.
+
+Before interpreting or presenting measured results or numerical comparisons, read and apply `principle-explain-the-number`.
 
 Decide what must remain visible together and what can be revealed on demand. Use a simpler form when it carries the same meaning.
 
