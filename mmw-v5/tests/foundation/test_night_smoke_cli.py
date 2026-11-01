@@ -31,3 +31,14 @@ class GreetingCliTests(unittest.TestCase):
                     self.assertEqual(result.stdout, '')
                     self.assertTrue(result.stderr.strip())
                     self.assertNotIn('Traceback', result.stderr)
+
+    def test_invalid_arguments_show_usage_error(self):
+        for args in (['Ada'], ['--config', 'path'], ['--config'],
+                     ['--config', 'path', 'Ada', 'extra']):
+            with self.subTest(args=args):
+                result = subprocess.run([sys.executable, str(CLI), *args],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, '')
+                self.assertTrue(result.stderr.strip())
+                self.assertNotIn('Traceback', result.stderr)
