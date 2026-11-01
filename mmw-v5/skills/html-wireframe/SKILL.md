@@ -15,7 +15,7 @@ When describing supplied files or an existing system, read and apply **principle
 
 When working from approved wording, decisions, or designs, read and apply **principle-baseline-is-the-contract** before changing their presentation.
 
-Read the conversation, supplied brief, and nearby project material before choosing a layout. Reuse the project's vocabulary, content model, and known product constraints.
+Read the conversation, supplied brief, and nearby project material before choosing a layout. Reuse the project's content model and known product constraints.
 
 Authority runs in this order:
 

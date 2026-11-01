@@ -1,6 +1,6 @@
 # Ambiguity scan
 
-Read only the source plan, spec, or conversation supplied by the caller and the drafted tickets. Run one pass. Write nothing on the tracker.
+Read only the source plan, spec, or conversation supplied by the caller, the drafted tickets, and any glossary map or definitions needed by **principle-anchor-every-reference**. Run one pass. Write nothing on the tracker.
 
 It is very likely that important decisions are missing or ambiguous, even if the spec looks good on the surface. Be skeptical, adversarial, and actively try to find gaps.
 
@@ -47,8 +47,7 @@ Constraints & Tradeoffs:
 - Explicit tradeoffs or rejected alternatives
 
 Terminology & Consistency:
-- Canonical glossary terms
-- Avoided synonyms / deprecated terms
+- Use **principle-anchor-every-reference** to check terminology in the sources and drafted tickets.
 
 Completion Signals:
 - Acceptance criteria testability

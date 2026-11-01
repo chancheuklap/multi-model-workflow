@@ -19,7 +19,7 @@ Use the behavior, test seam, acceptance requirements, and test precedent supplie
 | A permitted Vitest module override | Vitest module overrides |
 | Scripted agent execution and session wiring | Scripted agent fixtures |
 
-When exploring the codebase, read `GLOSSARY.md` (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.
+Apply **principle-anchor-every-reference** to test names and interface vocabulary, and respect ADRs in the area you're touching.
 
 A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 
