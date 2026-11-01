@@ -12,3 +12,17 @@ def greet(name, config_path):
         raise ValueError('prefix must be a non-empty string')
     prefix = prefix.strip()
     return f'{prefix}, {name}!'
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', required=True)
+    parser.add_argument('name')
+    args = parser.parse_args()
+    try:
+        greeting = greet(args.name, args.config)
+    except (OSError, ValueError) as error:
+        parser.exit(2, f"{error}\n")
+    print(greeting)
