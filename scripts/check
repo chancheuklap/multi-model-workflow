@@ -52,6 +52,7 @@ SHARED = (
 STEPS = {
     "foundation": ("python3 -m unittest discover -s mmw-v5/tests/foundation", ["python3", "git"]),
     "sessions": ("python3 -m unittest discover -s mmw-v5/tests/sessions", ["python3", "bash", "git", "node"]),
+    "notifications": ("python3 -m unittest discover -s mmw-v5/tests/notifications", ["python3", "bash", "git"]),
     "shared-checks": (SHARED, ["python3", "uv"]),
     "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
     "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
@@ -82,9 +83,15 @@ STEPS = {
 DISPATCH = "mmw-v4/skills/dispatch/"
 VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
+    *[("mmw-v5/tools/dispatch/scripts/" + path, ["notifications"]) for path in (
+        "relay.py", "watchdog.py", "briefs.py", "statedir.py", "ghlist.py", "runners/paseo.sh",
+    )],
+    ("mmw-v5/tools/verify-ticket/scripts/events.py", ["notifications", "sessions"]),
+    ("mmw-v5/tests/notifications/", ["notifications"]),
     *[("mmw-v5/tools/dispatch/" + path, ["sessions"]) for path in (
         "roles.json", "hosts.json", "scripts/models.py", "scripts/briefs.py",
         "scripts/dispatch.sh", "scripts/runners/", "scripts/statedir.py", "scripts/tracker.py",
+        "scripts/relay.py", "scripts/watchdog.py", "scripts/ghlist.py",
     )],
     ("mmw-v5/tests/sessions/", ["sessions"]),
     *[("mmw-v5/tools/" + path, ["foundation"]) for path in (

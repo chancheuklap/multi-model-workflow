@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Session dispatch for caller-supplied task files. Results are local brief records;
-# notifications and ticket/Git operations are separate capabilities.
+# Session dispatch for caller-supplied task files, with result notifications.
+# Ticket closeout and Git operations are separate capabilities.
 # Exit 0: completed the requested operation. Exit 2: refused, with a reason on stderr.
 # Resume preserves adapter receipts: 3 means retryable; 4 means delivery is unconfirmed
 # and must not be repeated.
@@ -11,6 +11,8 @@ SKILL_ROOT="$(dirname "$(dirname "$SELF")")"
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 BRIEFS="$SKILL_ROOT/scripts/briefs.py"
 TRACKER="$SKILL_ROOT/scripts/tracker.py"
+RELAY="$SKILL_ROOT/scripts/relay.py"
+WATCHDOG="$SKILL_ROOT/scripts/watchdog.py"
 MMW_HOME="$(python3 -c 'import os; from pathlib import Path; print(Path(os.environ.get("MMW_HOME") or "~/.mmw-v5").expanduser().resolve())')" || exit 2
 export MMW_HOME
 MODELS_JSON="$MMW_HOME/models.json"
@@ -29,6 +31,10 @@ usage: dispatch.sh send <role> [--cwd DIR] [--follow FILE] <task file>...
        dispatch.sh brief show|close <batch>
        dispatch.sh resume <batch>/<n> <message>
        dispatch.sh stop <batch>/<n>
+       dispatch.sh ack brief <batch> | <ticket> <event>
+       dispatch.sh queue
+       dispatch.sh wait-wake
+       dispatch.sh watchdog arm|status
        dispatch.sh self
 USAGE
   exit 2
@@ -51,7 +57,7 @@ runner_call() {
 use_runner() {
   RUNNER_NAME="$1"
   RUNNER="$SKILL_ROOT/scripts/runners/$1.sh"
-  [ -f "$RUNNER" ] || refuse "no runner adapter for $1 at $RUNNER; choose a runner with models.py config set runner <name>"
+  [ -f "$RUNNER" ] || refuse "no runner adapter for $1 at $RUNNER; choose a runner with models.py config runner <name>"
 }
 
 own_session() {
@@ -82,6 +88,25 @@ own_session() {
 
 repo_slug() {
   python3 "$TRACKER"
+}
+
+watch_batch() {
+  local repo="$1" batch="$2" name="$3" session="$4"
+  python3 "$RELAY" start --repo "$repo" --briefs "$batch" --runner "$name" --session "$session" >&2 || return 2
+  if ! python3 "$WATCHDOG" arm --repo "$repo" >&2; then
+    python3 "$RELAY" stop --repo "$repo" --briefs "$batch" --keep-briefs >&2
+    echo "dispatch: watchdog could not be armed for batch $batch; no session was started. Inspect watchdog.log and retry" >&2
+    return 2
+  fi
+}
+
+close_batch_watch() {
+  local repo="$1" batch="$2" keep="${3:-}" code
+  local -a args=()
+  [ -z "$keep" ] || args+=(--keep-briefs)
+  python3 "$RELAY" stop --repo "$repo" --briefs "$batch" ${args[@]+"${args[@]}"} >&2
+  code=$?
+  case "$code" in 0|3) return 0 ;; *) return 2 ;; esac
 }
 
 brief_footer() {
@@ -120,6 +145,7 @@ close_batch() {
     echo "dispatch: batch $batch keeps its records and answers because sessions could not be stopped:$failed; resolve the runner error and retry brief close" >&2
     return 2
   fi
+  close_batch_watch "$repo" "$batch" "$keep" || return 2
   [ -z "$keep" ] || return 0
   python3 "$BRIEFS" forget --repo "$repo" --batch "$batch" || return 2
   echo "dispatch: closed brief batch $batch" >&2
@@ -176,6 +202,10 @@ send_many() {
   python3 "$BRIEFS" check-references --repo "$repo" -- "${files[@]}" || return 2
   batch="$(python3 "$BRIEFS" new --repo "$repo" --role "$role" --count "${#files[@]}" \
     --runner "$parent_runner" --session "$parent_session" --worktree "$cwd")" || return 2
+  if ! watch_batch "$repo" "$batch" "$parent_runner" "$parent_session"; then
+    close_batch_watch "$repo" "$batch" keep
+    refuse "notifications could not start for batch $batch; its records were kept, and no child was started"
+  fi
   for file in "${files[@]}"; do
     n=$((n + 1))
     copy="$(python3 "$BRIEFS" brief --repo "$repo" --brief "$batch/$n" --file "$file" \
@@ -204,7 +234,27 @@ send_many() {
     started+=("$batch/$n"$'\t'"$session")
   done
   printf '%s\n' "${started[@]}"
-  echo "dispatch: brief batch $batch: ${#files[@]} sessions on $RUNNER_NAME; read answers with dispatch.sh brief show $batch. Notifications are not enabled by this command yet" >&2
+  echo "dispatch: brief batch $batch: ${#files[@]} sessions on $RUNNER_NAME; relay notifies $parent_runner session $parent_session when every answer is reported or lost" >&2
+}
+
+notification_command() {
+  local action="$1" repo identity name session
+  shift
+  repo="$(repo_slug)" || return 2
+  export GH_REPO="$repo"
+  identity="$(own_session)" || return 2
+  name="${identity%%$'\t'*}"
+  session="${identity#*$'\t'}"
+  case "$action" in
+    ack)
+      if [ "$1" = brief ]; then
+        python3 "$RELAY" ack --repo "$repo" --runner "$name" --session "$session" --batch "$2"
+      else
+        python3 "$RELAY" ack --repo "$repo" --runner "$name" --session "$session" --ticket "${1#\#}" --event "$2"
+      fi ;;
+    queue) python3 "$RELAY" queue --repo "$repo" --runner "$name" --session "$session" ;;
+    wait-wake) runner_call "$name" await-wake --repo "$repo" --session "$session" ;;
+  esac
 }
 
 report_brief() {
@@ -242,6 +292,11 @@ case "${1:-}" in
     esac ;;
   resume) [ "$#" -eq 3 ] || usage; session_command resume "$2" "$3" ;;
   stop) [ "$#" -eq 2 ] || usage; session_command stop "$2" ;;
+  ack) [ "$#" -eq 3 ] || usage; notification_command ack "$2" "$3" ;;
+  queue|wait-wake) [ "$#" -eq 1 ] || usage; notification_command "$1" ;;
+  watchdog)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in arm|status) repo="$(repo_slug)" && python3 "$WATCHDOG" "$2" --repo "$repo" ;; *) usage ;; esac ;;
   self) [ "$#" -eq 1 ] || usage; own_session ;;
   *) usage ;;
 esac

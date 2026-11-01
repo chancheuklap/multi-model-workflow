@@ -15,7 +15,7 @@ written in the repository's machine-local state directory (statedir.py).
 
 **A batch** is what one `dispatch.sh send <role> <file>...` call starts: one session per
 brief file, all of one role, all answering one parent session. The caller reads results with `dispatch.sh brief show <batch>`.
-Notification watches are provided separately by relay.py when available.
+relay.py delivers that batch's completion notification to its sender.
 
 Files, under `<state>/briefs/<batch>/`:
 
@@ -24,12 +24,14 @@ Files, under `<state>/briefs/<batch>/`:
     <n>/brief.md      the brief the child reads: the parent's file, then how to report
     <n>/started.json  the child's runner, session, host, model, effort, when it started
     <n>/result.md     what the child reported, copied from the file it named
-    <n>/reported.json when it reported; written after result.md, so a reader that sees it
-                      sees the whole result
+    <n>/reported.json report time, byte count and the submitting runner/session identity;
+                      written after result.md
     <n>/lost.json     when and why the child was found gone without reporting (watchdog.py)
     woken.json        the relay queued the batch's wake (relay.py)
 
-A brief is open while it has neither `reported.json` nor `lost.json`. The directory is
+A result counts as reported only after its submitter matches started.json. An early
+result stays pending until startup records that identity. A lost brief retains its reason.
+The directory is
 removed by `dispatch.sh brief close <batch>` after its sessions stop.
 
 Exit codes: 0 done; 2 refused, the reason and the way out on stderr.
@@ -110,6 +112,16 @@ def batch_record(state: Path, batch: str) -> dict | None:
     return _read(batch_dir(state, batch) / "batch.json")
 
 
+def _accepted_report(here: Path, started: dict | None) -> bool:
+    receipt = _read(here / "reported.json")
+    if not receipt or not started:
+        return False
+    # Earlier v5 receipts were written only after startup and carried no identity.
+    if "runner" not in receipt and "session" not in receipt:
+        return True
+    return (receipt.get("runner"), receipt.get("session")) == (started.get("runner"), started.get("session"))
+
+
 def briefs_of(state: Path, batch: str) -> list[dict]:
     """Each brief of the batch, in order: `n`, `state` (`starting`, `open`, `reported` or
     `lost`), what `started.json` says, `result` (the path, once reported) and `lost` (why).
@@ -125,7 +137,7 @@ def briefs_of(state: Path, batch: str) -> list[dict]:
         lost = _read(here / "lost.json")
         entry = {"n": n, "role": record.get("role"), "started": started, "result": None,
                  "lost": None}
-        if (here / "reported.json").is_file():
+        if _accepted_report(here, started):
             entry.update(state="reported", result=str(here / "result.md"))
         elif lost is not None:
             entry.update(state="lost", lost=lost.get("why"))
@@ -237,12 +249,21 @@ def mark_started(state: Path, batch: str, n: int, started: dict) -> None:
     if _read(directory / "batch.json") is None:
         raise Refusal(f"batch {batch} is gone; nothing was recorded")
     with _lock(directory):
-        _write(directory / str(n) / "started.json", {**started, "at": now_iso()})
+        here = directory / str(n)
+        receipt = _read(here / "reported.json") or {}
+        if ("runner" in receipt or "session" in receipt) and (
+                receipt.get("runner"), receipt.get("session")) != (started.get("runner"), started.get("session")):
+            raise Refusal(f"brief {batch}/{n} has an early report from a different session; "
+                          f"expected {started.get('runner')} session {started.get('session')}, "
+                          f"got {receipt.get('runner')} session {receipt.get('session')}")
+        if (here / "lost.json").is_file():
+            raise Refusal(f"brief {batch}/{n} is already lost; startup was not recorded")
+        _write(here / "started.json", {**started, "at": now_iso()})
 
 
 def report(state: Path, batch: str, n: int, source: Path, runner: str, session: str) -> Path:
-    """Copy the child's result into the batch, then mark it reported. Only the session
-    recorded as that brief's child may report it."""
+    """Keep a child's result and identity. An early result becomes reported only when
+    startup records that same session, so runner receipt timing cannot lose the answer."""
     directory = batch_dir(state, batch)
     record = _read(directory / "batch.json")
     if record is None:
@@ -262,7 +283,7 @@ def report(state: Path, batch: str, n: int, source: Path, runner: str, session: 
     here = directory / str(n)
     with _lock(directory):
         started = _read(here / "started.json") or {}
-        if (started.get("runner"), started.get("session")) != (runner, session):
+        if started and (started.get("runner"), started.get("session")) != (runner, session):
             raise Refusal(f"brief {batch}/{n} was started as {started.get('runner')} session "
                           f"{started.get('session')}, and this is {runner} session {session}. "
                           f"Only that session reports it.")
@@ -274,7 +295,8 @@ def report(state: Path, batch: str, n: int, source: Path, runner: str, session: 
                           f"({lost.get('why')}), and the session that briefed you has been "
                           f"told so. This result is not taken.")
         statedir.write_atomic(here / "result.md", text)
-        _write(here / "reported.json", {"at": now_iso(), "bytes": len(text.encode())})
+        _write(here / "reported.json", {"at": now_iso(), "bytes": len(text.encode()),
+                                        "runner": runner, "session": session})
     return here / "result.md"
 
 
@@ -286,7 +308,7 @@ def mark_lost(state: Path, batch: str, n: int, why: str) -> bool:
         return False
     here = directory / str(n)
     with _lock(directory):
-        if (here / "reported.json").is_file() or (here / "lost.json").is_file():
+        if _accepted_report(here, _read(here / "started.json")) or (here / "lost.json").is_file():
             return False
         _write(here / "lost.json", {"at": now_iso(), "why": why})
     return True
@@ -401,7 +423,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "report":
             batch, n = parse_brief(args.brief)
             path = report(state, batch, n, Path(args.file), args.runner, args.session)
-            print(f"reported brief {batch}/{n}: kept as {path}")
+            print(f"stored answer for brief {batch}/{n}: {path}")
         elif args.command == "show":
             briefs = briefs_of(state, args.batch)
             if not briefs:

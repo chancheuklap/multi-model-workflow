@@ -122,5 +122,34 @@ class ReportTest(BriefCase):
         with self.assertRaises(briefs.Refusal):
             self.report(1)
 
+class EarlyReportTest(BriefCase):
+    def test_answer_waits_for_matching_startup_identity_before_completing(self):
+        batch = briefs.create(self.state, "researcher", 1, *PARENT)
+        kept = briefs.report(self.state, batch, 1, self.result, "paseo", "fast-child")
+        self.assertEqual(kept.read_text(), "the findings, cited\n")
+        self.assertFalse(briefs.complete(self.state, batch))
+        self.assertEqual(briefs.briefs_of(self.state, batch)[0]["state"], "starting")
+        briefs.mark_started(self.state, batch, 1, {"runner": "paseo", "session": "fast-child"})
+        self.assertTrue(briefs.complete(self.state, batch))
+        self.assertEqual(briefs.briefs_of(self.state, batch)[0]["state"], "reported")
+
+    def test_an_early_answer_from_another_session_cannot_complete_the_task(self):
+        batch = briefs.create(self.state, "researcher", 1, *PARENT)
+        briefs.report(self.state, batch, 1, self.result, "paseo", "other-child")
+        with self.assertRaisesRegex(briefs.Refusal, "different session"):
+            briefs.mark_started(self.state, batch, 1, {"runner": "paseo", "session": "real-child"})
+        self.assertFalse(briefs.complete(self.state, batch))
+        self.assertIsNone(briefs.briefs_of(self.state, batch)[0]["result"])
+
+    def test_lost_startup_does_not_promote_a_pending_answer_to_reported(self):
+        batch = briefs.create(self.state, "researcher", 1, *PARENT)
+        briefs.report(self.state, batch, 1, self.result, "paseo", "fast-child")
+        self.assertTrue(briefs.mark_lost(self.state, batch, 1, "startup failed"))
+        with self.assertRaisesRegex(briefs.Refusal, "already lost"):
+            briefs.mark_started(self.state, batch, 1, {"runner": "paseo", "session": "fast-child"})
+        self.assertEqual(briefs.briefs_of(self.state, batch)[0]["state"], "lost")
+        self.assertIsNone(briefs.briefs_of(self.state, batch)[0]["result"])
+
+
 if __name__ == "__main__":
     unittest.main()
