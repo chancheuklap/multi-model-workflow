@@ -34,6 +34,8 @@ Break the work into **tracer bullet** tickets, applying **principle-write-for-wh
 
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
+For each ticket an agent works, propose `junior-worker` or `senior-worker` and a one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose supplied test seam already names a precedent to copy stays on `junior-worker`.
+
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
 ### 4. Scan for ambiguities
@@ -49,6 +51,7 @@ Present the proposed breakdown as a numbered list. For each ticket, show:
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Worker**: the proposed `junior-worker` or `senior-worker` label and its one-line reason; for work only a person can do, state `ready-for-human` instead.
 
 Ask the user:
 
@@ -60,7 +63,13 @@ Iterate until the user approves the breakdown. Write every agreed clarification 
 
 ### 6. Publish the tickets to the configured tracker
 
-- **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. If the source was an existing issue, make each ticket its sub-issue (tracker doc's operation). Apply the `ready-for-agent` triage label unless instructed otherwise; the tickets are agent-grabbable by construction.
+- **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. If the source was an existing issue, make each ticket its sub-issue (tracker doc's operation).
+
+Before publishing, create missing labels with `python3 LABEL_SETUP`, where `LABEL_SETUP` is `../../tools/setup-mmw/scripts/labels.py` resolved from this skill's directory to an absolute path in the installed runtime. Run it from the consuming repository without `--migrate`.
+
+Each ticket carries `mmw:ticket`. A ticket an agent works also carries `ready-for-agent` and exactly one approved worker-grade label, `junior-worker` or `senior-worker`. A ticket only a person can act on carries `ready-for-human` instead, and no worker-grade label. Queue labels are mutually exclusive: work awaiting the owner's decision stays in `needs-triage` until the owner releases it. Planned implementation tickets carry neither `bug` nor `enhancement`.
+
+Read each published ticket back to confirm its body, labels, parent and blocking edges match the approved drafts. A parent spec carries `mmw:spec` and no queue or worker-grade label.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 

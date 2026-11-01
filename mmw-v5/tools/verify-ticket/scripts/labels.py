@@ -24,7 +24,6 @@ GRADE_LABELS = {
 }
 
 WAYFINDER_LABELS = {
-    "wayfinder:map": ("BFDADC", "这张 issue 是一张 map，不是一件待办"),
     "wayfinder:research": ("FEF2C0", "decision ticket，开一个 researcher 查一条事实就能解掉"),
     "wayfinder:prototype": ("BFD4F2", "decision ticket，要先做一个粗糙版本给用户走查"),
     "wayfinder:grilling": ("D93F0B", "decision ticket，靠跟人对谈解掉"),

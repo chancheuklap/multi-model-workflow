@@ -295,7 +295,8 @@ class ToolCommands(unittest.TestCase):
         first = json.loads(self.state_path.read_text())['labels']
         self.assertIn({"name": "needs-triage", "color": "123456", "description": "project-owned"}, first)
         names = {label['name'] for label in first}
-        self.assertTrue({"mmw:spec", "mmw:ticket", "ready-for-agent", "junior-worker", "wayfinder:map"}.issubset(names))
+        self.assertTrue({"mmw:map", "mmw:spec", "mmw:ticket", "ready-for-agent", "junior-worker"}.issubset(names))
+        self.assertNotIn("wayfinder:map", names)
         run = self.run_tool("setup-mmw", "labels.py")
         self.assert_ok(run)
         self.assertEqual(json.loads(self.state_path.read_text())['labels'], first)

@@ -14,7 +14,7 @@ Choose the first matching kind:
 
 An implementation mistake within this ticket is repaired here. An internal engineering choice with no unresolved product promise is yours to make and explain. A change necessary for assigned behavior does not become optional because it touches another file.
 
-Write a UTF-8 file with the child's title on the first line and its explanation below, then run `python3 verify-ticket.py N --sub-issue KIND FILE`. The whole file becomes the body. If child creation succeeded but its event failed, use the error's `--existing CHILD` retry with the same report; do not create a duplicate.
+Write a UTF-8 file with the child's title on the first line and its explanation below, then run `python3 verify-ticket.py N --sub-issue KIND FILE`. The whole file becomes the body. The command adds `mmw:child`, adds `needs-triage` for `decision` and `deferred`, and records the kind in the event; a child has no worker-grade label. If child creation succeeded but its event failed, use the error's `--existing CHILD` retry with the same report; do not create a duplicate.
 
 For a contract or fault that blocks further work, retain the work and wait for the coordinator through the shared dispatch method. Continue unaffected work when it can proceed. If the coordinator says the blocker will not be resolved in this run, go directly to [Worker: Verify the final output and return it](worker.md#5-verify-the-final-output-and-return-it) and close out as `incomplete`, naming the child and the work or proof not performed. Creating a child does not automatically suspend a session or grant permission to change the agreed behavior.
 

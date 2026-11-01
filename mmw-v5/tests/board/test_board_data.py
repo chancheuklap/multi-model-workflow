@@ -81,7 +81,7 @@ def scenario():
     passed = event("ticket.passed", 13, commit="a" * 40)
     return {
         "maps": [{"number": 1, "title": "task", "state": "OPEN",
-                  "labels": [{"name": "mmw:map"}, {"name": "wayfinder:map"}]}],
+                  "labels": [{"name": "mmw:map"}]}],
         "trees": [tree_fixture()],
         "comments": {
             "11": [{"etag": '"eleven"', "comments": [landed, routed]}],
