@@ -15,12 +15,6 @@ Check the real thing, not a proxy:
 - When verification fails, suspect the observation method before suspecting the system
 - Before acting on a finding, check its exact claim against the current version of the real artifact, including the reachable path or state it depends on. A plausible fix or a true fact about nearby code neither proves nor disproves that claim. Keep an unsettled claim unverified.
 
-**In a diff:**
-
-- Code that checks liveness by a file's mtime or cached state instead of the actual value, or trusts a delegate's self-report instead of its output artifact: read the real thing.
-- Something the ticket, a named spec section or a baseline asked for that the diff does not do, or does only in part, is not done (**Done means done** below).
-- A claim about a host's or a tool's behavior recorded from documentation: record it from a dated, version-pinned measurement of a real run.
-
 ## Script the check when you can
 
 The strongest proof is a deterministic script that re-runs the same comparison, not a one-time eyeball. Write the script, run it, and keep its output as an artifact a reviewer can re-run instead of trusting your word.

@@ -13,8 +13,4 @@ If the lesson needs judgment and cannot be encoded, make the instruction more pr
 
 Enforce an existing rule structurally when possible, rather than writing another copy of the warning.
 
-**In a diff:**
-
-- A comment or convention saying "don't do X" that a type, a lint or a runtime check could enforce: offer that mechanism (**Pick the strongest mechanism**), and delete the instruction once it exists.
-
 **Corollary:** If the fix is structural, only use the structural fix. The instruction is the symptom.

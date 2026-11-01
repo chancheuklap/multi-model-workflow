@@ -32,13 +32,4 @@ When two or more fixes that share one premise have failed the same gate, suspect
 
 **Stop:** Do not start the next fix before the shared premise is written down and tested.
 
-**In a diff:**
-
-- A guard clause that masks a broken invariant, a retry that hides a broken contract, or a cast that silences a modeling error covers a symptom: find what breaks the invariant and fix it there.
-- A fix in one module that belongs in another module's contract: move it to the contract that broke.
-- A workaround: ask why it is needed and what the proper fix would be.
-- A defect fixed at the one caller that met it, while the shared code still hands it to the other callers: fix the shared source.
-- A comment that explains a surprise in our own code: delete it, and reshape the code (rename, extract, type, rearchitect) until the behavior is obvious without prose.
-- A test change that weakens an existing assertion, or bends the check as the last pattern line says: put the check back. An honest "not met" costs the owner one look; a false pass lands broken behavior under a green mark, and everything built on it inherits it.
-
 **Stop:** when no fix is in sight, stop trying and record what each round tried. That record is the whole account of the trying.

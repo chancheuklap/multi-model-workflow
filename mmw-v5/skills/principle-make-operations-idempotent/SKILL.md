@@ -19,8 +19,3 @@ Anything a run leaves behind, such as a lock, a temporary file, a half-written r
 3. Does re-execution converge to the same end state?
 
 If any answer is "it depends on what state was left behind," the operation needs a reconciliation step.
-
-**In a diff:**
-
-- A state-mutating operation whose second run, or whose run after a crash halfway, depends on what was left behind: add the reconciliation step.
-- Related updates that can leave state half-applied: make them one atomic step (write then rename, one transaction, a compare-and-swap).

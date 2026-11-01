@@ -23,16 +23,3 @@ Reach for:
 Do not force an abstraction. Prefer boring code if the current shape is already clear, local, and unlikely to grow. Be skeptical of an abstraction that adds indirection without removing branches, duplicated rules, invalid states, or lifecycle risk.
 
 The sign that you skipped this is a new feature that grows an existing if/else chain by one more branch, or a second boolean that must stay in sync with the first. Temporal decomposition is another sign. Phase-named modules repeat the same domain rules across steps.
-
-**In a diff:**
-
-- The same logic shape in more than one place is extracted when a change to one copy would have to change the other. Similar statements alone do not justify an abstraction.
-- A data structure that does not match the dominant access patterns: choose one that does.
-- New one-off conditionals inserted into a flow that was not about them: move the logic into the helper, module, state machine or table it belongs to.
-- A generic or magic mechanism that hides a simple data-shape assumption, where direct code would do: write the direct, boring version.
-- Feature Envy, a function that reaches into another object's data more than its own: move it onto that data.
-- Data Clumps, the same few fields or parameters travelling together: bundle them into one type.
-- Repeated Switches, the same `switch` or if-cascade on the same type in more than one place: replace them with one map or one polymorphic call both sites share.
-- Shotgun Surgery, one logical change scattered as edits across many files: gather what changes together into one module.
-- Divergent Change, one module edited for several unrelated reasons: split it so each part changes for one reason.
-- Refused Bequest, a subclass or implementer that ignores most of what it inherits: drop the inheritance and compose.

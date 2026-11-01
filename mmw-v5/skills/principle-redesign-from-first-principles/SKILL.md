@@ -13,7 +13,3 @@ When integrating a change, don't bolt it onto the existing design. Redesign as i
 - Think about the whole redesign, then deliver it incrementally
 
 This is the method for preserving option value when integrating changes into an existing design.
-
-**In a diff:**
-
-- A change patched onto the design rather than read as if the design always held it: ask whether the code would look like this had the requirement been known from the start, and write that form. One that reaches beyond the ticket's files is a finding outside the ticket.
