@@ -21,6 +21,8 @@ Before writing code, write down what state model and what question you're protot
 
 ### 2. Isolate the logic in a portable module
 
+Apply **principle-model-the-domain**.
+
 Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module that could be lifted out and dropped into the real codebase later. The page around it is throwaway; this module isn't.
 
 The right shape depends on the question:

@@ -11,7 +11,7 @@ A spec is the last text a person checks before agents build from it unattended: 
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Apply **principle-anchor-every-reference** throughout the spec, and respect any ADRs in the area you're touching.
 
-2. Sketch out the seams at which you're going to test the feature.
+2. Apply **principle-model-the-domain**. Sketch out the seams at which you're going to test the feature.
 
 A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 

@@ -85,6 +85,8 @@ contracts. Keep inherently live-only checks narrow and opt-in.
 
 ### Designing for Mockability
 
+Apply **principle-boundary-discipline**.
+
 When implementing an assigned system boundary, use these patterns for choices left open by the supplied contract and test seam.
 
 At system boundaries, design interfaces that are easy to mock:

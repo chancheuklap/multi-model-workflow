@@ -35,6 +35,8 @@ Search the repo for every file that documents how code should be written. When `
 
 ### 4. Spawn the axis sub-agents in parallel
 
+Apply **principle-write-for-where-it-is-read**.
+
 Use the host's general-purpose subagents and existing model settings. Issue one Standards call, one Spec call, and one Tests call together, in the foreground. Each reviewer works only its own axis and does not read the other reviewer's analysis.
 
 Give the Spec and Tests reviewers separate temporary directories for reproduction scripts and output, and include the corresponding path in each prompt. Reproductions use the reviewed commit and independent test data without changing the reviewed code; Tests controls that alter code run in an isolated copy.

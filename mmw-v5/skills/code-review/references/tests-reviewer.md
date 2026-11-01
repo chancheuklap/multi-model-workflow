@@ -130,15 +130,14 @@ when assessing the fixture.
 
 ### Failure diagnosis
 
+Apply **principle-fix-root-causes**.
+
 - Failures = defects. Bounded reproduction attempt (same shard order first, when applicable);
   identify owner; fix product, fixture, shared-state, ordering bugs.
 - Proven repair: add regression; cite another owner's fix when applicable.
 
 - Safe fix cannot be established/completed: record original failure, attempts,
   evidence, uncertainty in the review report.
-
-- Never hide failures with retries, longer timeouts, weaker assertions, broader
-  mocks, altered baselines.
 
 ### Order-dependent failures
 
@@ -180,6 +179,8 @@ Use an alternative within the supplied acceptance requirements. State which
 required proof remains unavailable.
 
 ### Test-cost comparisons
+
+Apply **principle-explain-the-number**.
 
 For a claim about a change in test cost:
 
