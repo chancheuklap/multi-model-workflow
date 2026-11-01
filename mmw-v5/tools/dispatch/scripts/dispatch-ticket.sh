@@ -787,7 +787,9 @@ spec=importlib.util.spec_from_file_location('dispatch_statedir',script)
 mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
 try:
     with mod.locked(Path(lock),wait=6,purpose=f'starting ticket #{number}'):
-        raise SystemExit(subprocess.call(['bash',dispatch,'start',number,kind,'--task',task],env=dict(os.environ,MMW_TICKET_START_LOCKED=number)))
+        raise SystemExit(subprocess.call(['bash',dispatch,'start',number,kind,'--task',task],
+            env=dict(os.environ,MMW_TICKET_START_LOCKED=number),
+            pass_fds=(3,4) if os.environ.get('MMW_NATIVE_TOOLS') == '1' else ()))
 except mod.LockHeld as exc:print(f'dispatch: {exc}',file=sys.stderr);raise SystemExit(2)
 PY
     return "$?"

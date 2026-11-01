@@ -179,6 +179,21 @@ class TicketDispatch(unittest.TestCase):
     def test_missing_task_cannot_start_a_worker(self):
         self.open();r=self.command('start',61,'worker');self.assertEqual(r.returncode,2);self.assertEqual(self.starts(),[])
 
+    def test_native_executor_channels_reach_worker_through_start_lock(self):
+        self.open()
+        (self.root / 'runner.py').write_text(RUNNER.replace(
+            "elif a[0]=='start':",
+            "elif a[0]=='start':\n import stat\n"
+            " assert os.environ.get('MMW_NATIVE_TOOLS') == '1'\n"
+            " assert all(stat.S_ISFIFO(os.fstat(fd).st_mode) for fd in (3, 4))"))
+        result = subprocess.run([
+            'bash', '-c', 'exec 3>&1 4<&0; export MMW_NATIVE_TOOLS=1; exec bash "$@"',
+            'native-test', str(self.dispatch), 'advance', '60'],
+            cwd=self.repo, env=self.env, input='', capture_output=True, text=True, timeout=30)
+        self.ok(result)
+        self.assertEqual(len(self.starts()), 1)
+        self.assertTrue(self.events.fold(self.reload()['issues']['61']['comments'])['held'])
+
     def add_event(self,n,event,**fields):
         self.reload();self.state['issues'][str(n)]['comments'].append({'id':self.state['next_comment'],'body':self.events.build(event,ticket=n,spec=60,line=event,**fields)})
         self.state['next_comment']+=1;self.save()
