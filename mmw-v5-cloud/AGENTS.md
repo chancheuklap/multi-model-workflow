@@ -1,7 +1,9 @@
 # MMW v5 cloud edition
 
-This directory contains cloud-specific deliverables. Shared skills and reusable code come from `mmw-v5/` at packaging time; do not copy and maintain a second source of them here. The installed package is self-contained and never imports this development checkout.
+This directory is a complete cloud edition: all skills, tools, board assets and project configuration are present here. It packages and runs without reading `mmw-v5/` or importing the MMW development checkout.
 
-Keep cloud dispatch native: only the local Coordinator reads or writes GitHub Issues, dependencies, comments and PRs. Cloud agents return through their native parent-child channel. No local runners, relay, event/report protocol or new session registry belongs in this edition.
+Except for dispatch, skill files must match the local edition byte-for-byte. Apply ordinary skill changes to both complete editions. Keep role orchestration and cloud-specific commands in dispatch and its tools.
+
+Only the local Coordinator reads or writes GitHub Issues, dependencies, comments and PRs. Cloud agents use their native parent-child channel. Local runners, relay and event/report protocols belong to the local edition.
 
 Skills remain model-invocable. Put role documents in `references/` with lowercase, hyphen-separated filenames.

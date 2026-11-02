@@ -14,7 +14,6 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
-import zipfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,9 +32,10 @@ def run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     return result
 
 
-def manifests(committed: bool = False) -> tuple[list[dict], str]:
+def manifests(committed: bool = False, edition: str = "local") -> tuple[list[dict], str]:
+    paths = MANIFESTS if edition == "local" else ("mmw-v5-cloud/plugin.json",)
     rows = [json.loads(run("git", "show", f"HEAD:{path}").stdout if committed
-                       else (ROOT / path).read_text(encoding="utf-8")) for path in MANIFESTS]
+                       else (ROOT / path).read_text(encoding="utf-8")) for path in paths]
     version = rows[0]["version"]
     match = VERSION.fullmatch(version) if isinstance(version, str) else None
     if not match or any(part.isdigit() and len(part) > 1 and part.startswith("0")
@@ -60,60 +60,28 @@ def bump() -> str:
         new = f"{match[1]}.{match[2]}.{match[3]}-" + ".".join(parts)
     else:
         new = f"{match[1]}.{match[2]}.{int(match[3]) + 1}"
-    for path, row in zip(MANIFESTS, rows):
+    paths = list(MANIFESTS)
+    if (ROOT / "mmw-v5-cloud/plugin.json").is_file():
+        cloud_rows, cloud_version = manifests(edition="cloud")
+        if cloud_version != old:
+            raise ValueError("local and cloud editions must have the same release version")
+        paths.append("mmw-v5-cloud/plugin.json")
+        rows.extend(cloud_rows)
+    for path, row in zip(paths, rows):
         row["version"] = new
         (ROOT / path).write_text(json.dumps(row, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return f"{old} -> {new}; run local checks and commit both manifests with the release on dev"
+    return f"{old} -> {new}; run local checks and commit the edition manifests with the release on dev"
 
 
 def package(output: Path, edition: str = "local") -> str:
-    _, version = manifests(committed=True)
+    _, version = manifests(committed=True, edition=edition)
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    if edition == "local":
-        run("git", "archive", "--format=zip", "--prefix=mmw-v5/", f"--output={output}",
-            "HEAD:mmw-v5", *PACKAGE_PATHS)
-    else:
-        entries = run("git", "ls-tree", "-r", "-z", "HEAD").stdout.split("\0")
-        files = {}
-        for entry in filter(None, entries):
-            metadata, source = entry.split("\t", 1)
-            mode, kind, blob = metadata.split()
-            if kind != "blob":
-                continue
-            target = None
-            if source.startswith("mmw-v5/skills/") and not source.startswith("mmw-v5/skills/dispatch/"):
-                target = source.removeprefix("mmw-v5/")
-            elif source.startswith("mmw-v5/board/page/"):
-                target = source.removeprefix("mmw-v5/")
-                if target.endswith("/board-logic.mjs"):
-                    target = "board/page/board-layout.mjs"
-                elif target.endswith("/detail.mjs"):
-                    target = "board/page/detail-layout.mjs"
-                elif target.endswith("/settings.mjs"):
-                    continue
-                elif target.endswith("/topbar.mjs"):
-                    target = "board/page/topbar-layout.mjs"
-                elif target.endswith("/styles/settings.css"):
-                    target = "board/page/styles/settings-layout.css"
-            elif source in ("mmw-v5/board/gates.py", "mmw-v5/tools/verify-ticket/scripts/labels.py", "mmw-v5/plugin.json"):
-                target = source.removeprefix("mmw-v5/")
-            elif source.startswith("mmw-v5-cloud/"):
-                relative = source.removeprefix("mmw-v5-cloud/")
-                if relative.startswith(("skills/", "tools/", "board/")) or relative in ("models.json", "README.md"):
-                    target = relative
-            if target:
-                files[target] = (source, mode, blob)
-        if "skills/dispatch/SKILL.md" not in files or "models.json" not in files:
-            raise ValueError("commit the cloud edition before packaging it")
-        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            for target, (source, mode, blob) in sorted(files.items()):
-                info = zipfile.ZipInfo(".agents/" + target)
-                info.create_system = 3
-                info.external_attr = int(mode, 8) << 16
-                info.compress_type = zipfile.ZIP_DEFLATED
-                content = subprocess.run(["git", "cat-file", "blob", blob], cwd=ROOT, capture_output=True, check=True).stdout
-                archive.writestr(info, content)
+    source = "mmw-v5" if edition == "local" else "mmw-v5-cloud"
+    prefix = "mmw-v5/" if edition == "local" else ".agents/"
+    paths = PACKAGE_PATHS if edition == "local" else ("plugin.json", "README.md", "models.json", "skills", "tools", "board")
+    run("git", "archive", "--format=zip", f"--prefix={prefix}", f"--output={output}",
+        f"HEAD:{source}", *paths)
     return version
 
 
@@ -125,6 +93,9 @@ def publish() -> str:
     if commit != os.environ.get("GITHUB_SHA"):
         raise ValueError("checkout HEAD does not match the main push being published")
     _, version = manifests(committed=True)
+    has_cloud = run("git", "cat-file", "-e", "HEAD:mmw-v5-cloud/plugin.json", check=False).returncode == 0
+    if has_cloud and manifests(committed=True, edition="cloud")[1] != version:
+        raise ValueError("local and cloud editions must have the same release version")
     tag = f"v{version}"
     refs = run("git", "ls-remote", "origin", f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}").stdout.splitlines()
     targets = dict(line.split()[::-1] for line in refs)
@@ -138,7 +109,7 @@ def publish() -> str:
         archive = Path(directory) / f"mmw-v5-{version}.zip"
         package(archive)
         archives = [str(archive)]
-        if run("git", "cat-file", "-e", "HEAD:mmw-v5-cloud/skills/dispatch/SKILL.md", check=False).returncode == 0:
+        if has_cloud:
             cloud_archive = Path(directory) / f"mmw-v5-cloud-{version}.zip"
             package(cloud_archive, "cloud")
             archives.append(str(cloud_archive))
@@ -158,7 +129,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("bump", help="increment dev's prerelease counter, or patch for a stable version")
-    pack = commands.add_parser("package", help="archive only the committed plugin; never install it")
+    pack = commands.add_parser("package", help="archive only the selected complete edition; never install it")
     pack.add_argument("--output", type=Path, required=True)
     pack.add_argument("--edition", choices=("local", "cloud"), default="local")
     commands.add_parser("publish", help="publish the existing committed version from the main-push workflow")

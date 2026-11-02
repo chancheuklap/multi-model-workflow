@@ -24,7 +24,7 @@ Done when the behavior and tests are implemented in a committed candidate, or un
 
 Fetch and merge current NIGHT changes into your branch, resolve conflicts preserving already-landed behavior, verify affected work and commit the candidate. A conflict between required behaviors returns to the Coordinator as a contract problem.
 
-Invoke this runtime's `code-review` complete-review process once. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the candidate, complete task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-the-installed-runtime). Code review owns preparation, the three native axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#start-a-subagent), then [receive results](../SKILL.md#talk-wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation. No independent Main Reviewer is dispatched in this edition.
+Invoke this runtime's [code-review](../../code-review/SKILL.md) and follow its existing [Main reviewer method](../../code-review/references/main-reviewer.md) in this session. This is the review method, not a new independent Reviewer session. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the candidate, complete task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-the-installed-runtime). Code review owns preparation, the three native axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#start-a-subagent), then [receive results](../SKILL.md#talk-wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation. No independent Main Reviewer is dispatched in this edition.
 
 Done when a complete review has returned checked reports or an explicit missing/invalid review requiring recovery.
 
@@ -32,7 +32,7 @@ Done when a complete review has returned checked reports or an explicit missing/
 
 First handle findings belonging to the ticket's behavior, decisions, baselines and changed behavior. Fix supported defects. An in-ticket finding you do not fix needs concrete evidence disproving that specific claim; a true fact about nearby code is not a refutation. Report supported unrelated defects to the Coordinator instead of expanding the ticket.
 
-Preserve original reports, dispositions and limitations. Fix and verify the implementation. For necessary follow-up review, return to `code-review` with the existing reports, current candidate and actual changes; its method obtains the missing or affected evidence. A missing axis is not a pass. Do not loop merely to obtain zero findings.
+Preserve original reports, dispositions and limitations. Fix and verify the implementation. For necessary follow-up review, preserve reports that still cover the output and dispatch only the missing or affected axes, using their existing `code-review` references and the updated pinned comparison. A missing axis is not a pass. Do not loop merely to obtain zero findings.
 
 Done when every finding has a supported disposition and required review evidence is valid for the output or explicitly unavailable.
 

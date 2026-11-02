@@ -1,6 +1,8 @@
 # MMW v5 cloud edition
 
-本目录只维护云端专用 dispatch、工具与 board 适配。code-review、write-tests、principle 等共同技能来自 `mmw-v5/skills/`，打包时复制，安装后完全独立，不读取 MMW 开发仓库。
+本目录是一套完整的 MMW v5 云端版本，包含全部技能、工具、任务板、模型配置及版本清单。除 dispatch 外，code-review、write-tests、principle 等技能与本地版逐文件一致。派发差异在本版 dispatch 及配套脚本内处理。
+
+本版的打包和运行都只读取本目录，不需要本地版目录，也不在发布时拼装另一版的文件。
 
 ## 与本地版分开使用
 
@@ -31,4 +33,4 @@ dispatch.sh board --port 47100
 
 ## 开发与打包
 
-开发仓库运行 `python3 scripts/release-mmw-v5.py package --edition cloud --output /tmp/mmw-v5-cloud.zip`。只打包同一个 HEAD 中已提交的共同源码和云端专用内容；不安装、不发布。main 发布在同一 Release 附上两版 ZIP，不在 GitHub 跑测试。
+开发仓库运行 `python3 scripts/release-mmw-v5.py package --edition cloud --output /tmp/mmw-v5-cloud.zip`。只打包同一个 HEAD 中已提交的 `mmw-v5-cloud/` 内容；不安装、不发布。main 发布在同一 Release 附上两版 ZIP，不在 GitHub 跑测试。

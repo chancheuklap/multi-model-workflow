@@ -12,15 +12,28 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[3]
 
 class InstalledCloudPackage(unittest.TestCase):
+    def test_both_editions_contain_identical_non_dispatch_skills(self):
+        def inventory(edition):
+            folder = ROOT / edition / "skills"
+            return {p.relative_to(folder): p.read_bytes() for p in folder.rglob("*")
+                    if p.is_file() and p.relative_to(folder).parts[0] != "dispatch"
+                    and "__pycache__" not in p.parts}
+        local = inventory("mmw-v5")
+        cloud = inventory("mmw-v5-cloud")
+        self.assertEqual(local.keys(), cloud.keys())
+        for path, content in local.items():
+            self.assertEqual(content, cloud[path], str(path))
+            self.assertFalse((ROOT / "mmw-v5-cloud/skills" / path).is_symlink())
+
     def test_complete_project_runtime_works_without_development_checkout(self):
         with tempfile.TemporaryDirectory(prefix='mmw-cloud-package-') as tmp:
             base=Path(tmp); source=base/'source'; source.mkdir()
             def git(folder,*args):
-                return subprocess.run(['git',*args],cwd=folder,capture_output=True,text=True,check=True).stdout.strip()
+                return subprocess.run(['git',*args],cwd=folder,env=env,capture_output=True,text=True,check=True).stdout.strip()
             env=dict(os.environ,GIT_CONFIG_GLOBAL=os.devnull,GIT_CONFIG_NOSYSTEM='1')
-            for name in ['mmw-v5/skills','mmw-v5/board','mmw-v5-cloud']:
+            for name in ['mmw-v5-cloud']:
                 shutil.copytree(ROOT/name,source/name,ignore=shutil.ignore_patterns('__pycache__'))
-            for name in ['scripts/release-mmw-v5.py','mmw-v5/plugin.json','mmw-v5/.cursor-plugin/plugin.json','mmw-v5/tools/verify-ticket/scripts/labels.py']:
+            for name in ['scripts/release-mmw-v5.py']:
                 dest=source/name; dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/name,dest)
             git(source,'init','-q','-b','dev');git(source,'config','user.name','Package test');git(source,'config','user.email','test@example.invalid')
             git(source,'add','.');git(source,'commit','-q','-m','candidate')
@@ -31,8 +44,8 @@ class InstalledCloudPackage(unittest.TestCase):
             with zipfile.ZipFile(archive) as z:
                 z.extractall(project)
                 names=z.namelist()
-                self.assertFalse(any(x in name for name in names for x in ['/runners/','/relay.py','/events.py','/main-reviewer.md','/children.md']))
-                for relative in ['skills/code-review/SKILL.md','skills/write-tests/SKILL.md','board/page/app.mjs','board/page/board-layout.mjs','board/page/detail-layout.mjs','board/page/topbar-layout.mjs','board/page/styles/settings-layout.css','board/gates.py']:
+                self.assertFalse(any(x in name for name in names for x in ['/runners/','/relay.py','/events.py','/children.md']))
+                for relative in ['skills/code-review/SKILL.md','skills/code-review/references/main-reviewer.md','skills/write-tests/SKILL.md','board/page/app.mjs','board/page/board-layout.mjs','board/page/detail-layout.mjs','board/page/topbar-layout.mjs','board/page/styles/settings-layout.css','board/gates.py']:
                     self.assertTrue((project/'.agents'/relative).is_file(),relative)
             shutil.rmtree(source)  # Installed runtime cannot reach development sources.
             git(project,'init','-q','-b','night/test');git(project,'config','user.name','Consumer test');git(project,'config','user.email','test@example.invalid')

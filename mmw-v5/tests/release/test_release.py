@@ -142,7 +142,29 @@ else:
             self.assertTrue((archive.getinfo("mmw-v5/tools/dispatch/run.sh").external_attr >> 16) & 0o111)
             self.assertFalse(any("private.txt" in p or "AGENTS.md" in p or "secret" in p for p in archive.namelist()))
 
-    def test_cloud_archive_combines_shared_skills_and_only_cloud_runtime(self):
+    def complete_cloud_fixture(self):
+        for path, text in {
+            "plugin.json": '{"name":"mmw-v5","version":"5.0.0-beta.2"}',
+            "README.md": "Complete cloud edition",
+            "skills/example/SKILL.md": "Original skill",
+            "skills/dispatch/SKILL.md": "Cloud dispatch",
+            "models.json": '{"max_workers":3,"rows":{}}',
+            "tools/dispatch/scripts/dispatch.sh": "#!/bin/bash\nexit 0\n",
+            "board/page/index.html": "Cloud board",
+            "board/page/board-layout.mjs": "cloud edition geometry",
+            "board/page/board-logic.mjs": "native cloud facts",
+        }.items():
+            self.write("mmw-v5-cloud/" + path, text)
+
+    def test_bump_updates_both_complete_editions(self):
+        self.complete_cloud_fixture()
+        result = self.command("bump")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for path in ["mmw-v5/plugin.json", "mmw-v5/.cursor-plugin/plugin.json", "mmw-v5-cloud/plugin.json"]:
+            self.assertEqual(json.loads((self.root / path).read_text())["version"], "5.0.0-beta.3")
+
+    def test_cloud_archive_uses_only_its_own_complete_directory(self):
+        self.complete_cloud_fixture()
         self.write("mmw-v5-cloud/skills/dispatch/SKILL.md", "Cloud dispatch")
         self.write("mmw-v5-cloud/models.json", '{"max_workers":3,"rows":{}}')
         self.write("mmw-v5-cloud/tools/dispatch/scripts/dispatch.sh", "#!/bin/bash\nexit 0\n")
@@ -152,6 +174,8 @@ else:
         self.write("mmw-v5-cloud/board/page/board-logic.mjs", "native cloud facts")
         self.commit("cloud edition")
         self.write("mmw-v5-cloud/models.json", "uncommitted data")
+        self.git("rm", "-rq", "mmw-v5")
+        self.git("commit", "--quiet", "-m", "cloud edition stands alone")
         output = Path(self.temp.name) / "cloud.zip"
         result = self.command("package", "--edition", "cloud", "--output", str(output))
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -159,13 +183,14 @@ else:
             names = archive.namelist()
             self.assertEqual(archive.read(".agents/skills/example/SKILL.md"), b"Original skill")
             self.assertEqual(archive.read(".agents/skills/dispatch/SKILL.md"), b"Cloud dispatch")
-            self.assertEqual(archive.read(".agents/board/page/board-layout.mjs"), b"shared geometry")
+            self.assertEqual(archive.read(".agents/board/page/board-layout.mjs"), b"cloud edition geometry")
             self.assertEqual(archive.read(".agents/board/page/board-logic.mjs"), b"native cloud facts")
             self.assertEqual(json.loads(archive.read(".agents/models.json"))["max_workers"], 3)
             self.assertEqual(json.loads(archive.read(".agents/plugin.json"))["version"], "5.0.0-beta.2")
             self.assertFalse(any("relay" in name or "runners" in name or "private.txt" in name for name in names))
 
     def test_cloud_publication_attaches_both_editions_without_tests(self):
+        self.complete_cloud_fixture()
         self.write("mmw-v5-cloud/skills/dispatch/SKILL.md", "Cloud dispatch")
         self.write("mmw-v5-cloud/models.json", '{"max_workers":3,"rows":{}}')
         self.commit("cloud edition")

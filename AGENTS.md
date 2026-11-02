@@ -6,7 +6,7 @@ Keep a line here only when all three tests hold:
 - Getting it wrong is costly or cannot be undone.
 - It is the owner's rule or a fact outside the repository, not an inventory of repository contents, so it stays true as the code changes.
 
-`mmw-v5/` is the local edition; `mmw-v5-cloud/` holds cloud-specific deliverables. Shared skills are maintained only in `mmw-v5/` and copied into complete cloud release packages. Other version directories, `archive/`, `deprecated/`, `docs/research/` and `upstream/` are history or read-only. They can supply reference material when the task calls for it; they are not current working instructions. Run none of their scripts.
+`mmw-v5/` and `mmw-v5-cloud/` are two complete editions, local and cloud respectively. Each contains its full skills and runtime. Except for dispatch, skills in both editions stay byte-for-byte identical. Keep edition-specific orchestration in dispatch and its tools; packaging reads each edition only from its own directory. Other version directories, `archive/`, `deprecated/`, `docs/research/` and `upstream/` are history or read-only. They can supply reference material when the task calls for it; they are not current working instructions. Run none of their scripts.
 
 MMW v5 is the owner's general workflow for developing projects across consuming repositories. This repository is one of those projects and delivers the plugin itself, so the installed MMW v5 can be used to develop MMW.
 
