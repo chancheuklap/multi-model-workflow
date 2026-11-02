@@ -1,12 +1,17 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mmw-v5",
-  "version": "5.0.0-beta.2",
+  "version": "5.0.0-beta.3",
   "description": "MMW v5 skills, independent-session dispatch tools, and local task board",
   "author": {
     "name": "MMW"
   },
-  "keywords": ["workflow", "skills", "dispatch", "code-review"],
+  "keywords": [
+    "workflow",
+    "skills",
+    "dispatch",
+    "code-review"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
