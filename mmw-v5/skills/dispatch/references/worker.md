@@ -26,9 +26,9 @@ Done when the assigned behavior and required tests are implemented and the revie
 
 ## 3. Integrate and prepare an independent review
 
-Run `dispatch.sh integrate N` in this ticket's worktree before review. It merges the recorded target's origin tip. Exit 3 leaves a conflict for you to resolve. Preserve already-landed behavior as well as this ticket's requirements. A conflict that cannot satisfy both needs a contract child. Never rebase, abort or push from this integration. Exit 2 names what prevented it; a pipeline fault uses its child route.
+Run `dispatch.sh integrate N` in this ticket's worktree before review. It merges the recorded target's origin tip. On exit 3, preserve the in-progress merge and report the blocked integration through a `fault` child using [Record and resolve a child](../SKILL.md#record-and-resolve-a-child). Include the worktree, both commit SHAs, incoming tickets and conflicted files. Wait without editing the worktree while the [Coordinator resolves the conflict](coordinator.md#resolve-merge-conflicts). On its continuation, read the resolution and rerun `integrate N`. Never rebase, abort or push from this integration. Exit 2 names what prevented it; a pipeline fault uses its child route.
 
-After the merge and any resolution, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
+After integration, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
 
 [Send one independent main reviewer](../SKILL.md#send-an-independent-session), with role `reviewer`, this ticket's N and this installed `skills/dispatch/SKILL.md` as FILE. The script supplies accurate base/head. [Wait for its result](../SKILL.md#wait-and-continue), leaving the reviewed worktree unchanged while it works.
 

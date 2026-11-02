@@ -290,6 +290,40 @@ class TicketDispatch(unittest.TestCase):
         self.assertTrue((self.repo/'.worktrees/issue-61').is_dir());self.assertEqual(self.git('rev-parse','issue-61'),passed)
         event=self.events.newest(self.state['issues']['61']['comments'],'ticket.bounced');self.assertIn('FAIL unit',event['body'])
 
+    def test_landing_conflict_is_resolved_and_landed_by_coordinator(self):
+        self.started();tree=self.repo/'.worktrees/issue-61'
+        passed=self.output(filename='code',text='ticket behavior\n')
+        (self.repo/'code').write_text('landed behavior\n')
+        self.git('add','.');self.git('commit','-qm','other landed ticket');self.git('push','-q','origin','batch')
+        before=self.git('rev-parse','origin/batch')
+        failed=self.command('advance',60)
+        self.assertNotEqual(failed.returncode,0)
+        self.assertIn('Coordinator: resolve the merge of '+passed,failed.stderr)
+        self.assertEqual(len(self.starts()),1)
+        issue=self.reload()['issues']['61']
+        self.assertEqual(issue['state'],'CLOSED')
+        self.assertTrue(self.events.fold(issue['comments'])['passed'])
+        self.assertFalse(self.events.fold(issue['comments'])['bounced'])
+        self.assertEqual(self.git('rev-parse','origin/batch'),before)
+        self.assertFalse(self.events.fold(self.state['issues']['61']['comments'])['landed'])
+
+        # Coordinator integrates the passed output without another Worker round.
+        merge=self.repo/'.worktrees/coordinator-integration'
+        self.git('worktree','add','--detach',merge,'origin/batch')
+        conflict=subprocess.run(['git','merge','--no-ff','--no-edit',passed],cwd=merge,capture_output=True)
+        self.assertNotEqual(conflict.returncode,0)
+        self.git('rev-parse','--verify','MERGE_HEAD',cwd=merge)
+        (merge/'code').write_text('landed behavior\nticket behavior\n')
+        self.git('add','code',cwd=merge)
+        subprocess.run(['bash','scripts/check'],cwd=merge,env=self.env,check=True,capture_output=True)
+        self.git('commit','-qm','resolve both ticket intents',cwd=merge)
+        self.git('push','-q','origin','HEAD:batch',cwd=merge)
+        self.ok(self.command('advance',60))
+        self.assertTrue(self.events.fold(self.reload()['issues']['61']['comments'])['landed'])
+        self.assertEqual(self.git('show','origin/batch:code'),'landed behavior\nticket behavior')
+        self.assertEqual(len(self.starts()),2)
+        self.assertIn('#62 worker',self.starts()[-1])
+
     def test_cannot_run_checks_keeps_pass_and_origin_unchanged(self):
         self.started();self.output(check='echo ENV unavailable; exit 2');before=self.git('rev-parse','origin/batch')
         self.assertNotEqual(self.command('land',61).returncode,0);self.assertEqual(self.git('rev-parse','origin/batch'),before)

@@ -43,7 +43,7 @@ Done when eligible work is dispatched within the authorized scope and available 
 
 [Receive the original Worker's problem](../SKILL.md#wait-and-continue). Create a native child under its ticket. State the problem, evidence, affected requirement, what you tried and what decision or repair is needed. Use normal `gh issue create --parent N --label mmw:child --title TITLE --body-file FILE`; add `--blocking N` only if the problem truly blocks N. A sub-issue relationship alone does not mean blocking.
 
-While a worker holds a ticket, its code is the worker's. Never edit its worktree or branch.
+While a worker holds a ticket, its code is the worker's. Edit its branch only for a merge conflict it has handed to you while waiting, as described in [Resolve merge conflicts](#resolve-merge-conflicts).
 
 Use written authority in order: owner decisions and ADRs, the spec, an accepted prototype, domain documents and the ticket. Correct lower-authority material when the source settles the matter.
 
@@ -69,11 +69,21 @@ Done when the complete pushed output and evidence have a PR with the correct tar
 
 ## 5. Land and advance dependencies
 
-Use `dispatch.sh land PR --into NIGHT --head SHA --check COMMAND` for each actual candidate, with the final Worker SHA and the project's required verification command. This mechanical operation validates the real merge candidate before updating NIGHT; it does not judge review evidence for you. It neither triggers CI workflows nor bypasses repository merge rules.
+Use `dispatch.sh land PR --into NIGHT --head SHA --check COMMAND` for each actual candidate, with the current PR head SHA and the project's required verification command. This mechanical operation validates the real merge candidate before updating NIGHT; it does not judge review evidence for you. It neither triggers CI workflows nor bypasses repository merge rules.
 
-On conflict or failed checks, give the exact failure to the original Worker to repair on the same branch/PR. On success, confirm the remote NIGHT contains the result, record the outcome and close the execution ticket with `gh issue close`. For a spec, re-read dependencies and immediately dispatch newly eligible work within that spec; unrelated Workers can still be running. For one ticket, proceed to [Deliver the authorized output](#6-deliver-the-authorized-output); do not dispatch sibling tickets.
+On conflict, [resolve it yourself](#resolve-merge-conflicts). For failed checks, inspect whether the cause is an integration interaction or an in-ticket defect: resolve the interaction yourself; return an in-ticket defect with the exact failure to the original Worker. On success, confirm the remote NIGHT contains the result, record the outcome and close the execution ticket with `gh issue close`. For a spec, re-read dependencies and immediately dispatch newly eligible work within that spec; unrelated Workers can still be running. For one ticket, proceed to [Deliver the authorized output](#6-deliver-the-authorized-output); do not dispatch sibling tickets.
 
-Done when the result is actually integrated or its failure is back with the original Worker, and dependency decisions reflect that fact.
+Done when the result is actually integrated or its failure has an explicit repair in progress, and dependency decisions reflect that fact.
+
+## Resolve merge conflicts
+
+You resolve merge conflicts from the full spec, repository and both changes' sources. Read the affected tickets, their decisions and review evidence. Preserve already-landed behavior as well as this ticket's requirements. Record the resolution, its sources, commit and verification on the ticket. If the requirements themselves contradict one another, use the contract-decision rules in step 3.
+
+For a Worker's blocked integration, use a separate local checkout of its pushed branch, at the pre-merge HEAD it supplied. Merge the incoming NIGHT commit it named and resolve the conflict. For a landing conflict, the landing command discards its temporary candidate; check out the returned Worker branch locally and merge current NIGHT into it. In both cases, run the affected checks, commit and push the resolved Worker branch.
+
+For a blocked integration, send the resolution and its SHA directly to the original Worker so it continues its original task. For a landing conflict, update the existing PR and retry `land` with your resolution's SHA and the required verification command.
+
+Done when the resolved integration is committed and checked, and the original task has continued or the landing is recorded.
 
 ## 6. Deliver the authorized output
 
@@ -85,6 +95,8 @@ Record unsupported or already-repaired claims with evidence; arrange actual nece
 
 Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
 
-Create NIGHT → PROJECT delivery PR with normal `gh pr create`. Explain the result, actual verification, limitations and owner decisions. After the owner accepts and authorizes this delivery, merge that PR and confirm PROJECT contains the accepted output. Owner acceptance does not authorize marking unfinished tickets complete. PROJECT → dev → main and publication remain separately authorized.
+Invoke this runtime's [pr](../../pr/SKILL.md) skill to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the NIGHT → PROJECT delivery PR with `gh pr create --base PROJECT --head NIGHT --title TITLE --body-file FILE`.
+
+After the owner accepts and authorizes this delivery, merge that PR and confirm PROJECT contains the accepted output. Owner acceptance does not authorize marking unfinished tickets complete. PROJECT → dev → main and publication remain separately authorized.
 
 Done when the owner has the delivered result and its real limits. No relay, private summary/finish protocol, retro or CI job is required.

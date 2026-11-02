@@ -26,9 +26,9 @@ Done when the assigned behavior and required tests are implemented and the revie
 
 ## 3. Run one complete code review
 
-Fetch and merge current NIGHT changes into your branch. Preserve already-landed behavior as well as this ticket's requirements. A conflict between required behaviors returns to the Coordinator as a contract problem.
+Fetch and merge current NIGHT changes into your branch. On conflict, push the committed pre-merge HEAD and report both commit SHAs and conflicted files directly to the Coordinator. Wait without editing the branch while the [Coordinator resolves the conflict](coordinator.md#resolve-merge-conflicts). After it returns the pushed resolution, run `git merge --abort` to clear your failed local merge, fetch and fast-forward your branch to that resolution.
 
-After the merge and any resolution, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
+After integration, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
 
 Invoke this runtime's [code-review](../../code-review/SKILL.md) and follow its existing [Main reviewer method](../../code-review/references/main-reviewer.md) in this session. This is the review method, not a new independent Reviewer session. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the candidate, complete task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Code review owns preparation, the three native axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation. No independent Main Reviewer is dispatched in this edition.
 
@@ -62,6 +62,6 @@ For incomplete work, push saved commits when possible and say explicitly if work
 
 The Coordinator creates the PR. The Coordinator owns landing and delivery.
 
-Continue the same branch when the Coordinator sends a correction, integrated repair or merge failure through the [native channel](../SKILL.md#wait-and-continue); integrate needed NIGHT changes, fix, verify and return the new evidence.
+Continue the same branch when the Coordinator sends an in-ticket correction through the [native channel](../SKILL.md#wait-and-continue); fix, verify and return the new evidence.
 
 Done when the Coordinator has the actual complete or incomplete result and its evidence, or the delivery failure itself has been reported.

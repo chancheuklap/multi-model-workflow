@@ -8,7 +8,7 @@ Use [Send](../SKILL.md#send-an-independent-session), [Wait](../SKILL.md#wait-and
 
 ## Choose the authorized scope
 
-For a spec batch, follow steps 1–5 below. For one ticket, follow [Deliver one ticket](#deliver-one-ticket).
+For a spec batch, follow steps 1–6 below. For one ticket, follow [Deliver one ticket](#deliver-one-ticket).
 
 The ticket itself is the execution object, not a container of tasks. Its parent spec supplies requirements, not permission to dispatch sibling tickets.
 
@@ -18,7 +18,7 @@ Read the authorized ticket, comments, children, applicable spec decisions and ba
 
 [Wait and continue](../SKILL.md#wait-and-continue). Handle children under the authority and repair rules in [Handle a result or child](#3-handle-a-result-or-child), using [Record and resolve a child](../SKILL.md#record-and-resolve-a-child) and [Resume a session](../SKILL.md#resume-a-session); skip that step's Spec-wide status/advance actions. For a stopped Worker, preserve its recorded work and identity and decide recovery within the same ticket's authorization.
 
-After the Worker returns `complete` or `incomplete` and related matters have a disposition, run `dispatch.sh land N`. Complete attempts landing; incomplete preserves the work and ends the ticket's hold/watch. Read the actual `landed`, `returned` or `bounced` result and watch state: exit 0 alone does not prove code was merged. A bounce remains unfinished and may need another authorized attempt on the same ticket. Report the actual output, verification and limitations through [Return](../SKILL.md#return-the-assigned-result); do not enter the Spec's advance/summary loop or start sibling work.
+After the Worker returns `complete` or `incomplete` and related matters have a disposition, run `dispatch.sh land N`. Complete attempts landing; incomplete preserves the work and ends the ticket's hold/watch. Read the actual `landed`, `returned` or `bounced` result and watch state: exit 0 alone does not prove code was merged. For a conflict, [resolve it yourself](#resolve-merge-conflicts) before another attempt on the same ticket. Other bounces remain unfinished and need their stated repair. Report the actual output, verification and limitations through [Return](../SKILL.md#return-the-assigned-result); do not enter the Spec's advance/summary loop or start sibling work.
 
 Done when the ticket has its actual landing or unfinished disposition, and the single-ticket watch is closed or its named recovery remains explicit.
 
@@ -46,6 +46,8 @@ Run `dispatch.sh status SPEC`, then `dispatch.sh advance SPEC`. The script handl
 
 Exit 4 reports refused starts; read each reason rather than blindly retrying it. Exit 2 reports a condition that prevented some work; read the actual state before retrying because other outputs may already have landed. If workers remain active, [wait through the common operation](../SKILL.md#wait-and-continue). If none remain, inspect why queued work cannot start.
 
+If landing reports a conflict, [resolve it yourself](#resolve-merge-conflicts) before advancing that ticket again.
+
 Done when every attempted operation has a known outcome and the session is waiting for active work or handling a named obstruction.
 
 ## 3. Handle a result or child
@@ -58,10 +60,10 @@ Handle each wake in arrival order, one wake at a time. [Read and ack](../SKILL.m
 | `ticket.returned` | Read the unfinished result and preserve its workspace for triage; continue other work that can proceed. |
 | `ticket.refused` or a refused start | Resolve its stated prerequisite within scope, then advance. |
 | `worker.lost` or a stopped worker whose hold remains | Use the recorded session identity. `retract N` only releases a worker confirmed stopped and preserves its work; then advance can start its replacement. |
-| `child.opened` | Read [Record and resolve a child](../SKILL.md#record-and-resolve-a-child) and the actual child. Settle the matter from existing authority or leave an owner-only choice explicit. |
+| `child.opened` | Read [Record and resolve a child](../SKILL.md#record-and-resolve-a-child) and the actual child. A blocked merge uses [Resolve merge conflicts](#resolve-merge-conflicts); otherwise settle the matter from existing authority or leave an owner-only choice explicit. |
 | `watchdog:` alert | Read its named condition. Silence alone does not prove a worker is gone. Repair the condition or explicitly suspend; do not kill unrelated processes. |
 
-While a worker holds a ticket, its code is the worker's. Never edit its worktree or branch.
+While a worker holds a ticket, its code is the worker's. Edit its worktree or branch only for a merge conflict it has handed to you while waiting, as described in [Resolve merge conflicts](#resolve-merge-conflicts).
 
 Correct the requirements or baseline it works from, then tell it through `resume`. A replacement has none of the instructions sent only inside the old session, so record decisions on the tracker and name them in its continuation.
 
@@ -100,13 +102,29 @@ If new tickets belong in this batch, advance and continue the same loop. Leave o
 
 Done when every remaining finding has an evidenced resolution or an explicit destination the batch's summary can report.
 
+## Resolve merge conflicts
+
+You resolve merge conflicts from the full spec, repository and both changes' sources. Read the affected tickets, their decisions and review evidence. Preserve already-landed behavior as well as this ticket's requirements. Record the resolution, its sources, commit and verification on the ticket. If the requirements themselves contradict one another, use the contract-decision rules in step 3.
+
+For a Worker's blocked integration, use the ticket worktree it handed over, with its merge still in progress. Complete the resolution, run the affected checks, commit and push the ticket branch. Resolve its child as `fixed` with that commit, then [resume the Worker](../SKILL.md#resume-a-session) with the resolution so it continues its original task.
+
+For a landing conflict, the script discards its failed merge attempt and leaves the ticket's passed result unchanged. In a separate integration checkout at `origin/BASE`, merge the exact passed commit named by the error and resolve the conflict. Run the required repository checks, commit the merge and fast-forward push `HEAD:BASE` to origin. Then rerun `advance SPEC`, or `land N` for one ticket, to record the landing and release its dependencies.
+
+Done when the resolved integration is committed and checked, and the original task has continued or the landing is recorded.
+
 ## 5. Deliver the batch
 
 Run `dispatch.sh summary SPEC` after active work, pending landings and findings are settled. It runs the repository's full checks on the actual integration output; it does not prove every prose acceptance requirement.
 
 Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
 
-Create the delivery PR with `dispatch.sh pr --base PROJECT --head BASE --title TITLE --body-file FILE`. Explain the result, actual verification, limitations and owner decisions. The watch closes with summary; a later delivery repair is an explicit repair of that output, not permission to reopen the dispatch loop unnoticed.
+The watch closes with summary; a later delivery repair is an explicit repair of that output, not permission to reopen the dispatch loop unnoticed.
+
+Done when the actual integration output has its final checks and a complete account of delivered and unfinished work.
+
+## 6. Create the delivery PR and finish
+
+Invoke this runtime's [pr](../../pr/SKILL.md) skill to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the delivery PR with `dispatch.sh pr --base PROJECT --head BASE --title TITLE --body-file FILE`.
 
 Only after the user has accepted the pull request, run `dispatch.sh finish SPEC`. An open-ticket refusal needs the owner's disposition of that unfinished work. Owner acceptance does not authorize marking unfinished tickets complete. Keep the delivery and unresolved tickets recorded until the existing finish conditions hold. Keep the exact checked version current when repairing a refusal. Do not merge the receiving project branch into the repository's default branch here; that remains the owner's release decision.
 

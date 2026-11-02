@@ -53,9 +53,10 @@ integrate_conflict_report() {
     echo "  conflicted files:"
     git -C "$root" diff --name-only --diff-filter=U | sed 's/^/    /'
     echo
-    echo "  Resolve the conflicted files, run the relevant"
-    echo "  tests that cover the conflicted files, commit the merge,"
-    echo "  then run dispatch.sh integrate $number again."
+    echo "  Hand this integration to the Coordinator through dispatch's"
+    echo "  blocked-merge route and wait without editing this worktree."
+    echo "  The Coordinator resolves and commits the merge; after its"
+    echo "  continuation, run dispatch.sh integrate $number again."
   } >&2
 }
 
@@ -576,12 +577,9 @@ land_one_via_origin() {
             | python3 -c 'import json, sys; print(json.dumps([l.rstrip("\n") for l in sys.stdin if l.strip()]))')"
           git -C "$merge_root" merge --abort >/dev/null 2>&1 || true
           git -C "$merge_root" reset --hard "origin/$into" >/dev/null
-          if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" conflict "$files"; then
-            release_merge_lock
-            return 2
-          fi
+          echo "dispatch: #$number conflicts in $files; Coordinator: resolve the merge of $passed into origin/$into in a separate integration checkout, run repository checks, commit and fast-forward push HEAD:$into, then retry advance or land. The passed result is unchanged; no Worker was requeued." >&2
           release_merge_lock
-          return 1
+          return 2
         fi
         release_merge_lock
         [ "$attempt" -lt "$MERGE_TRIES" ] && { sleep 2; continue; }
