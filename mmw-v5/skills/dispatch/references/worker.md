@@ -1,6 +1,6 @@
 # Worker
 
-You own one ticket's implementation and corrections. Your first message supplies its identity, target and report command. Use the shared dispatch operations; the task is complete only after the actual result has been submitted through that command.
+You own one ticket's implementation and corrections on the assigned branch. Your first message supplies its identity, target and report command. Use the shared dispatch operations; the task is complete only after the actual result has been submitted through that command.
 
 ## 1. Read the task and recover existing work
 
@@ -14,9 +14,11 @@ Done when you know the required behavior, sources, verification and current outp
 
 Call this v5 runtime's `write-tests` skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
-Make engineering choices the sources leave open and record the consequential reasons for the reviewer. A conflicting baseline, missing product decision or unavailable environment uses [Record and resolve a child](../SKILL.md#record-and-resolve-a-child); continue unaffected work where possible. Do not ask a person at this unattended session's screen or quietly change acceptance requirements.
+Make engineering choices the sources leave open and record the consequential reasons for review.
 
-For a contract or fault that blocks further work, retain the work and [wait for the Coordinator](../SKILL.md#wait-read-and-acknowledge). Continue unaffected work when it can proceed. If the Coordinator says the blocker will not be resolved in this run, go directly to [Verify the final output and return it](#5-verify-the-final-output-and-return-it) and close out as `incomplete`, naming the child and the work or proof not performed. Creating a child does not automatically suspend a session or grant permission to change the agreed behavior.
+A conflicting baseline, missing product decision or unavailable environment uses [Record and resolve a child](../SKILL.md#record-and-resolve-a-child); continue unaffected work where possible. Do not ask a person at this unattended session's screen or quietly change acceptance requirements.
+
+For a contract or fault that blocks further work, retain the work and [wait for the Coordinator](../SKILL.md#wait-and-continue). Continue unaffected work when it can proceed. If the Coordinator says the blocker will not be resolved in this run, go directly to [Verify the final output and return it](#5-verify-the-final-output-and-return-it) and close out as `incomplete`, naming the child and the work or proof not performed. Creating a child does not automatically suspend a session or grant permission to change the agreed behavior.
 
 Run the task's required tests and observable acceptance proof. Commit work on the assigned ticket branch, following the repository's actual commit checks. Report failing-before evidence, passing results and unavailable proof as they actually occurred; a test passing is not a substitute for the behavior the ticket promises.
 
@@ -24,32 +26,40 @@ Done when the assigned behavior and required tests are implemented and the revie
 
 ## 3. Integrate and prepare an independent review
 
-Run `dispatch.sh integrate N` in this ticket's worktree before review. It merges the recorded target's origin tip. Exit 3 leaves a conflict for you to resolve; preserve already-landed behavior as well as this ticket's requirements. A conflict that cannot satisfy both needs a contract child. Never rebase, abort or push from this integration. Exit 2 names what prevented it; a pipeline fault uses its child route.
+Run `dispatch.sh integrate N` in this ticket's worktree before review. It merges the recorded target's origin tip. Exit 3 leaves a conflict for you to resolve. Preserve already-landed behavior as well as this ticket's requirements. A conflict that cannot satisfy both needs a contract child. Never rebase, abort or push from this integration. Exit 2 names what prevented it; a pipeline fault uses its child route.
 
 After the merge and any resolution, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
 
-[Send one independent main reviewer](../SKILL.md#send-an-independent-session), with role `reviewer`, this ticket's N and this installed `skills/dispatch/SKILL.md` as FILE. The script supplies accurate base/head. [Wait for its result](../SKILL.md#wait-read-and-acknowledge), leaving the reviewed worktree unchanged while it works.
+[Send one independent main reviewer](../SKILL.md#send-an-independent-session), with role `reviewer`, this ticket's N and this installed `skills/dispatch/SKILL.md` as FILE. The script supplies accurate base/head. [Wait for its result](../SKILL.md#wait-and-continue), leaving the reviewed worktree unchanged while it works.
 
 Done when an independent reviewer has reported against the candidate, or its loss/failure is explicitly being recovered rather than counted as a clean review.
 
 ## 4. Read and handle the review
 
-On `reviewer.reported`, [read the actual report and acknowledge it](../SKILL.md#wait-read-and-acknowledge). On `reviewer.lost`, [send a replacement reviewer](../SKILL.md#send-an-independent-session) for the same current candidate; a missing report is not a review. A bad ref, empty diff or unavailable axis remains an explicit review limitation.
+On `reviewer.reported`, [read the actual report and acknowledge it](../SKILL.md#wait-and-continue). On `reviewer.lost`, [send a replacement reviewer](../SKILL.md#send-an-independent-session) for the same current candidate; a missing report is not a review. A bad ref, empty diff or unavailable axis remains an explicit review limitation.
 
-First handle findings belonging to this ticket's behavior, applicable decisions, accepted baselines and changed behavior. Fix supported defects. An in-ticket finding you do not fix needs concrete evidence disproving that specific claim; a true fact about nearby code is not a refutation. A supported unrelated defect becomes a `finding` child instead of silently expanding the ticket. Scope comes from the actual task, not a required Owns field or the number of files touched.
+Preserve original reports, dispositions and limitations.
 
-The normal path is independent review, fixes, then final verification. Do not loop reviews merely to obtain zero findings. If a required axis was unavailable, the review was invalid, or later changes invalidate necessary review evidence, obtain the missing review on the new commit with a fresh `send reviewer` call. A completed reviewer's old base/head cannot be reused as a review of new output.
+First handle findings belonging to this ticket's behavior, applicable decisions, accepted baselines and changed behavior. Fix supported defects. An in-ticket finding you do not fix needs concrete evidence disproving that specific claim; a true fact about nearby code is not a refutation. Scope comes from the actual task, not a required Owns field or the number of files touched.
 
-Done when each finding has a supported disposition and the required independent review has real evidence or an explicit unfinished limitation.
+Report supported unrelated defects as `finding` children instead of expanding the ticket.
+
+The normal path is independent review, fixes, then final verification. If a required axis was unavailable, the review was invalid, or later changes invalidate necessary review evidence, obtain the missing review on the new commit with a fresh `send reviewer` call. A completed reviewer's old base/head cannot be reused as a review of new output.
+
+Do not loop reviews merely to obtain zero findings.
+
+Done when every finding has a supported disposition and required review evidence is valid for the output or explicitly unavailable.
 
 ## 5. Verify the final output and return it
 
-On the coordinator's instruction to hand blocked work back, enter this step directly and report `incomplete`. Preserve unfinished output and state which implementation, review or proof could not be performed; those unavailable steps are not prerequisites for an honest handback.
+On the Coordinator's instruction to hand blocked work back, enter this step directly and report `incomplete`. Preserve unfinished output and state which implementation, review or proof could not be performed; those unavailable steps are not prerequisites for an honest handback.
 
-After fixes and any necessary further integration, verify the final committed output against the ticket and baselines. Rerun affected proof; reuse results only when they still cover that output. Read the task once more as the owner will read the result. A required behavior or proof that remains unavailable means the result is incomplete, with its actual reason.
+After fixes and any necessary further integration, verify the final committed output against the ticket and baselines. Rerun affected proof; reuse results only when they still cover that output. Read the task once more as the owner will read the result. A required behavior, review or proof that remains unavailable means the result is incomplete, with its actual reason.
 
-Write a report stating the implemented result, actual checks and outcomes, reviewed commit and subsequent fixes, final verification, consequential decisions and remaining children or limitations. [Return the assigned result](../SKILL.md#return-the-assigned-result) using the supplied closeout command with the actual full HEAD SHA and explicit `complete` or `incomplete`. A complete output must be committed and clean; the tool pushes it before closing and recording the pass. Submission failure is not delivery: [handle its actual failure](../SKILL.md#handle-command-failures) without inventing a successful result.
+Write a report stating the implemented result, actual checks and outcomes, reviewed commit and subsequent fixes, final verification, consequential decisions and remaining children or limitations.
 
-Open no delivery PR and do not land your own ticket. The coordinator receives the recorded result and owns batch landing and delivery.
+[Return the assigned result](../SKILL.md#return-the-assigned-result) using the supplied closeout command with the actual full HEAD SHA and explicit `complete` or `incomplete`. A complete output must be committed and clean; the tool pushes it before closing and recording the pass. Submission failure is not delivery: [handle its actual failure](../SKILL.md#handle-command-failures) without inventing a successful result.
+
+Open no delivery PR and do not land your own ticket. The Coordinator owns landing and delivery.
 
 Done when the closeout command records the actual result, or its unresolved failure is preserved and reported as a pipeline fault.

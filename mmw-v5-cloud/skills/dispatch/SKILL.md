@@ -1,44 +1,70 @@
 ---
 name: dispatch
-description: Coordinate an authorized spec or one ticket using cloud agents, carry out an assigned cloud Worker task, or dispatch native cloud subagents for a current working method.
+description: Coordinate an authorized spec or one ticket, send a native cloud agent, or carry out an assignment sent by dispatch. Use when dispatching, receiving the assigned role, or continuing the assigned task.
 ---
 
 # Dispatch
 
-## Enter with your assignment
+## Understand your assignment
 
-Use your assigned role and scope. Coordinating an authorized Spec or one ticket uses [Coordinator](references/coordinator.md); an assigned `worker` uses [Worker](references/worker.md). These references supply ordered work and call the common methods below.
+On first entry, read this file in full. Use the role assigned to you, not the sender's role. Read the additional task files named in your first message; they supply the particular task. Keep the ticket, source decisions and assigned scope authoritative.
 
-An agent borrowing dispatch keeps its current role and working method. Assigned Standards, Spec and Tests reviewers enter `code-review` and their assigned axis reference. Researcher, advisor and candidate assignments follow their supplied brief and method. A result or follow-up continues the same task, rather than restarting its workflow.
+| Your assignment | Working sequence |
+| --- | --- |
+| Coordinate an authorized spec or one ticket, or continue its results | [Coordinator](references/coordinator.md) |
+| Assigned role `worker` | [Worker](references/worker.md) |
 
-## Use the installed runtime
+The reference supplies your ordered work. Its steps point back to the common operations below. Sending another task or receiving a notification does not change your role or restart your workflow. An agent borrowing dispatch for its current method uses the common operations and then returns to that method.
 
-Use the project-installed MMW runtime and `.agents/models.json` fixed by this night's starting commit. Resolve skill and tool paths from that installation in your own checkout. Run repository commands from the consuming checkout.
+Native axis reviewers inside `code-review` follow their assigned review references. Researcher, advisor and candidate assignments follow their supplied brief and method.
 
-From this skill directory, `../../tools/dispatch/scripts/dispatch.sh` supplies `status`, `land` and `board`; `../../tools/dispatch/scripts/models.py` reads project model settings. Use their absolute paths. Ordinary branch operations use Git. The runtime and model configuration stay fixed for this run while product code advances.
+## Use this run's tools
 
-Read this run's full configuration with `python3 MODELS show --at RUNTIME_COMMIT`, or one role with `python3 MODELS row ROLE HOST --at RUNTIME_COMMIT`; for review axes use ROLE `review-axis`. RUNTIME_COMMIT is the existing starting commit of this run, supplied in the assignment; reading its Git version keeps board edits for the next run. HOST is the actual native host, such as `codex` or `cursor`. Pass returned non-`inherit` settings to the native tool when it supports them. A configured model or host does not create a tool capability; report an unsupported choice rather than launching another CLI or silently selecting a replacement model.
+Run commands from the consuming repository's checkout, not the skill directory. Resolve the following paths from this skill's directory and use their absolute paths:
+
+| Name used below | Path relative to this skill's directory |
+| --- | --- |
+| `dispatch.sh` | `../../tools/dispatch/scripts/dispatch.sh` |
+| `models.py` | `../../tools/dispatch/scripts/models.py` |
+
+Use skills and tools from this installation. Keep this runtime, its model configuration and its working instructions fixed for the run; changing the product under review does not change the tools controlling it.
+
+Use the project-installed MMW runtime and `.agents/models.json` fixed by this night's starting commit. `dispatch.sh` supplies `status`, `land` and `board`. Ordinary branch operations use Git.
+
+Read this run's full configuration with `python3 models.py show --at RUNTIME_COMMIT`, or one role with `python3 models.py row ROLE HOST --at RUNTIME_COMMIT`; for review axes use ROLE `review-axis`. RUNTIME_COMMIT is the existing starting commit of this run, supplied in the assignment; reading its Git version keeps board edits for the next run. HOST is the actual native host, such as `codex` or `cursor`. Pass returned non-`inherit` model and effort values to the host's subagent call.
+
+A configured model or host does not create a tool capability; report an unsupported choice rather than launching another CLI or silently selecting a replacement model.
 
 ## Prepare an assignment
 
-Give each subagent a self-contained assignment: task and source material, scope, working method, code version when relevant, and expected result. Supply required Issue bodies and relevant comments as content, not only GitHub links.
+Name the outcome, scope, sources, working method, verification and expected answer so the assigned agent needs none of your conversation. Include the code version when relevant.
+
+Supply required Issue bodies and relevant comments as content, not only GitHub links.
 
 Use the kickoff template supplied by the current working method when it has one; otherwise provide the complete assignment described here. The Coordinator's Worker template is in its reference; axis assignments are defined by `code-review`. Use this run's project model settings.
 
-## Start a subagent
+## Send a native cloud agent
 
 Use this host's actual native cloud-agent tools to send the assignment and supported settings. Workers and assistance tasks execute in the cloud; review axes execute in the Worker's cloud environment or assigned isolated copies. Retain the native reference for subsequent conversation. The native tool establishes the parent-child relationship; there is no separate registration command.
 
-## Talk, wait and continue
+## Wait and continue
 
-Use the native parent-child channel for questions, results and follow-ups to the same agent. Read the actual returned evidence before continuing the role step that dispatched it. Wait using the host's supported mechanism; a missing or failed response remains unresolved. Preserve valid work and send precise corrections to the original agent.
+Do not interrupt dispatched agents or repeat their work. Read the actual returned evidence before continuing the role step that dispatched it.
 
-## Return a usable result
+Use the native parent-child channel for questions, results and follow-ups to the same agent. Wait using the host's supported mechanism. Preserve valid work. Give the exact correction, its source, any commit to integrate and the work to continue.
 
-Return the actual result and evidence to the assigned recipient, including relevant commits and limitations. Report problems, their evidence, blocking effect and requested action directly to the parent.
+A lost or incomplete result is a limitation, not a clean review or a successful task.
+
+## Return the assigned result
+
+Return the assigned result with its actual evidence and limitations. Preserve the ticket, target and code-version identity supplied in your assignment. The role reference or assigned method specifies the required result and completion condition; a method's answer alone is not a delivered assignment.
+
+State what was done, the checks actually run, what the evidence establishes and what remains.
+
+Report problems, their evidence, blocking effect and requested action directly to the parent.
 
 The local Coordinator handles the workflow's GitHub records. Cloud agents need Git access for their assigned branches, not `gh` or Issue/PR API access. The Coordinator preserves original reports, decisions and results as ordinary records; native conversation delivers the handoff. Its role reference defines when to record each result. Root Coordinators deliver their result to the owner.
 
-## Read command outcomes before retrying
+## Handle command failures
 
-Read the result of a tool or command before repeating an action. Inspect what it already changed and preserve unresolved failures in the result. Each role's reference identifies the operations that role performs.
+Read the result of a tool or command before repeating an action. Inspect what it already changed and preserve unresolved failures in the result.

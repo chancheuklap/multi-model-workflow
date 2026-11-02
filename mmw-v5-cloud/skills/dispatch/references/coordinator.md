@@ -1,10 +1,16 @@
 # Coordinator
 
-You own the authorized Spec or one ticket from execution Go to delivery. Use [the common runtime and tools](../SKILL.md#use-the-installed-runtime). You run locally and perform all GitHub Issue, dependency, comment and PR operations. A child returned with an evidenced reason is a valid unfinished outcome; weakened requirements are not.
+You own the authorized spec or one ticket, from the owner's execution Go to its delivered result. Deliver the authorized output, not a count of closed tickets. A ticket handed back with its reason is a valid outcome; weakened requirements or repeated `continue` messages to manufacture a pass are not.
+
+Each decision leaves its reason on the child, ticket or spec where the next reader will look. A reason that lives only in this session is lost when it ends.
+
+Use [this run's tools](../SKILL.md#use-this-runs-tools). You run locally and perform all GitHub Issue, dependency, comment and PR operations.
 
 ## 1. Read the scope and establish the NIGHT branch
 
-Read full Spec/ticket bodies and comments, accepted implementation/testing decisions, baselines, out-of-scope work and native blocking relationships. Authorized agent tickets have `mmw:ticket`, `ready-for-agent` and one of `junior-worker` or `senior-worker`. Keep `ready-for-human` and `needs-triage` work out of automatic dispatch.
+Read the spec or ticket, its full body and comments, its children and native blocking relationships. Confirm the agreed implementation and testing decisions, accepted baselines and out-of-scope work.
+
+The spec has `mmw:spec` and no queue or worker-grade label. Agent tickets have `mmw:ticket`, `ready-for-agent` and exactly one of `junior-worker` or `senior-worker`; human tickets have `mmw:ticket`, `ready-for-human` and no worker grade. Leave work in `needs-triage` until the owner releases it; human and triage tickets are not frontier work for workers.
 
 Select the explicitly authorized project branch and NIGHT branch. Ordinary Git creates NIGHT from the selected project commit and pushes it. Continue an existing NIGHT when that is the assignment; do not silently substitute `main` or `dev`. The project installation and models are already present unless an installation/update was separately authorized. Use that fixed runtime for the run.
 
@@ -12,9 +18,11 @@ Done when the execution scope, NIGHT/PROJECT branches and runtime are establishe
 
 ## 2. Dispatch only authorized, unblocked work
 
-For a Spec, `dispatch.sh status SPEC --into NIGHT` reads its executable tickets, native children, blockers and actual PR/landing facts. For one ticket, use `status N --ticket --into NIGHT`: the ticket itself is the task, not its children, and its parent Spec does not authorize siblings. Read full source/comments before dispatch, not only the status summary.
+For a spec, `dispatch.sh status SPEC --into NIGHT` reads its executable tickets, native children, blockers and actual PR/landing facts. For one ticket, use `status N --ticket --into NIGHT`. Read full source/comments before dispatch, not only the status summary.
 
-Read this run's configuration through the [common runtime operation](../SKILL.md#use-the-installed-runtime). Use your native child tasks to know what is already assigned and how many Worker slots remain under its `max_workers`. A new Worker requires every code predecessor actually merged into NIGHT. Read NIGHT's latest full SHA and [prepare](../SKILL.md#prepare-an-assignment) a self-contained assignment. Use the chosen worker-grade model settings and [start the native Cloud Worker](../SKILL.md#start-a-subagent).
+The ticket itself is the execution object, not a container of tasks. Its parent spec supplies requirements, not permission to dispatch sibling tickets.
+
+Read this run's configuration through the [common tools operation](../SKILL.md#use-this-runs-tools). Use your native child tasks to know what is already assigned and how many Worker slots remain under its `max_workers`. A new Worker requires every code predecessor actually merged into NIGHT. Read NIGHT's latest full SHA and [prepare](../SKILL.md#prepare-an-assignment) a self-contained assignment. Use the chosen worker-grade model settings and [send the native Cloud Worker](../SKILL.md#send-a-native-cloud-agent).
 
 Worker kickoff template:
 
@@ -33,15 +41,21 @@ Done when eligible work is dispatched within the authorized scope and available 
 
 ## 3. Handle problems and unfinished returns
 
-[Receive the original Worker's problem](../SKILL.md#talk-wait-and-continue). Create a native child under its ticket, writing the problem, evidence, affected requirement, attempted work and required action. Use normal `gh issue create --parent N --label mmw:child --title TITLE --body-file FILE`; add `--blocking N` only if the problem truly blocks N. A sub-issue relationship alone does not mean blocking.
+[Receive the original Worker's problem](../SKILL.md#wait-and-continue). Create a native child under its ticket. State the problem, evidence, affected requirement, what you tried and what decision or repair is needed. Use normal `gh issue create --parent N --label mmw:child --title TITLE --body-file FILE`; add `--blocking N` only if the problem truly blocks N. A sub-issue relationship alone does not mean blocking.
 
-Use existing authority in order: owner decisions/ADRs, the Spec, accepted prototype and domain sources, then the ticket. Correct lower-authority input where the source settles the matter; record the reason and affected tasks. Never edit an active Worker's output or branch. Record the correction on the child and reply directly to the original Worker with its sources and any commit to integrate.
+While a worker holds a ticket, its code is the worker's. Never edit its worktree or branch.
 
-When an independent repair is actually needed, prepare its real ticket with only the `<issue-template>` block in [to-tickets](../../to-tickets/SKILL.md), not that skill's interactive Process. State the required behavior and acceptance criteria, preserve applicable Spec/baselines, and give it `mmw:ticket`, `ready-for-agent` and exactly one worker-grade label. If promoting the child itself, replace `mmw:child` with `mmw:ticket`. Preserve the original child relationship; do not reparent merely to fit a fixed-depth query. Add a real dependency before dispatching any work it blocks. After the repair actually lands in NIGHT, directly tell the original Worker to integrate and continue.
+Use written authority in order: owner decisions and ADRs, the spec, an accepted prototype, domain documents and the ticket. Correct lower-authority material when the source settles the matter.
+
+Record the reason and affected tasks. Record the correction on the child and reply directly to the original Worker with its sources and any commit to integrate.
+
+When an independent repair is actually needed, prepare its real ticket. Use only the `<issue-template>` block in [to-tickets](../../to-tickets/SKILL.md) as the ticket format, not that skill's interactive Process. State the required behavior and acceptance criteria, preserve the applicable spec and baselines, and set native blocking relationships. Give the destination `ready-for-agent` as its only queue label and exactly one of `junior-worker` or `senior-worker`. Give the destination `mmw:ticket`; if promoting the child itself, replace `mmw:child` with `mmw:ticket`. Preserve the original child relationship; do not reparent merely to fit a fixed-depth query. Add a real dependency before dispatching any work it blocks. After the repair actually lands in NIGHT, directly tell the original Worker to integrate and continue.
+
+Do not turn an unresolved owner decision or a proposed expansion of the spec into ready work.
 
 Keep owner-only product changes and scope expansions in `needs-triage`, with alternatives/recommendation and the affected tasks. For a blocker this run cannot solve, explicitly ask the Worker to preserve its output and hand back `incomplete`; continue unaffected work. On incomplete return, preserve its output, reason and missing proof, finish that assignment, leave the ticket unfinished and release no code dependency.
 
-An optional expansion is recorded for later, not converted into ready work. Close a child only when its disposition is real; closure records facts, while your native reply continues the Worker.
+Close a child only when its disposition is real; closure records facts, while your native reply continues the Worker.
 
 Done when each received problem has a decision, repair destination or explicit unfinished outcome.
 
@@ -63,8 +77,14 @@ Done when the result is actually integrated or its failure is back with the orig
 
 ## 6. Deliver the authorized output
 
-Inspect the actual open children and out-of-scope findings, not only messages received. Check each against current output. Record unsupported or already-repaired claims with evidence; arrange actual necessary repairs within authorization, avoiding overlap with active Workers. Preserve optional work and owner-only choices for later.
+Inspect the actual open children and out-of-scope findings, not only messages received. Check each child against the current output.
 
-Summarize actual merged outcomes and unfinished/human/blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observation/checks when earlier evidence does not cover the integration output. Create NIGHT → PROJECT delivery PR with normal `gh pr create`. After the owner accepts and authorizes this delivery, merge that PR and confirm PROJECT contains the accepted output. Owner acceptance does not authorize marking unfinished tickets complete. PROJECT → dev → main and publication remain separately authorized.
+Check each finding against the current output before deciding its repair.
+
+Record unsupported or already-repaired claims with evidence; arrange actual necessary repairs within authorization, avoiding overlap with active Workers. Leave optional future work and owner-only decisions explicitly recorded instead of silently absorbing them.
+
+Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
+
+Create NIGHT → PROJECT delivery PR with normal `gh pr create`. Explain the result, actual verification, limitations and owner decisions. After the owner accepts and authorizes this delivery, merge that PR and confirm PROJECT contains the accepted output. Owner acceptance does not authorize marking unfinished tickets complete. PROJECT → dev → main and publication remain separately authorized.
 
 Done when the owner has the delivered result and its real limits. No relay, private summary/finish protocol, retro or CI job is required.

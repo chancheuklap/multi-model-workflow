@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Coordinate an authorized spec or one ticket, send an independent agent session, or carry out an assignment sent by dispatch. Use when dispatching, receiving the assigned role, or continuing its recorded results.
+description: Coordinate an authorized spec or one ticket, send an independent agent session, or carry out an assignment sent by dispatch. Use when dispatching, receiving the assigned role, or continuing the assigned task.
 ---
 
 # Dispatch
@@ -18,7 +18,7 @@ On first entry, read this file in full. Use the role assigned to you, not the se
 
 The reference supplies your ordered work. Its steps point back to the common operations below. Sending another task or receiving a notification does not change your role or restart your workflow. An agent borrowing dispatch for its current method uses the common operations and then returns to that method.
 
-Native axis reviewers inside `code-review` follow their assigned review references; Send below starts independent sessions, not native subagents.
+Native axis reviewers inside `code-review` follow their assigned review references. Send below starts independent sessions, not native subagents.
 
 ## Use this run's tools
 
@@ -31,41 +31,53 @@ Run commands from the consuming repository's checkout, not the skill directory. 
 | `verify-ticket.py` | `../../tools/verify-ticket/scripts/verify-ticket.py` |
 | `events.py` | `../../tools/verify-ticket/scripts/events.py` |
 
-References to v5 skills also mean this same v5 directory. Use the supplied `MMW_HOME` and command environment. Keep this runtime and its working instructions fixed for the run; changing the product under review does not change the tools controlling it.
+Use skills and tools from this installation. Keep this runtime, its model configuration and its working instructions fixed for the run; changing the product under review does not change the tools controlling it.
+
+Use the supplied `MMW_HOME` and command environment.
 
 Before running dispatch commands, query `python3 models.py executor`. An empty answer uses the host's usual shell tool. A returned file is the calling runner's tool executor: read and evaluate it in the current host's tool runtime, then call the returned function with the tool bindings, shell command and optional `{cwd}`. Use its `exitCode` and `output` as the command result.
 
 The scripts choose the configured host, model, effort and runner. For a ticket, the worker grade selects the worker row; reviewer uses its own row. `python3 models.py subagent ROW HOST` returns settings for native subagents, not a new independent session. Pass returned non-`inherit` model and effort values to the host's subagent call.
 
+## Prepare an assignment
+
+Name the outcome, scope, sources, working method, verification and expected answer so the assigned agent needs none of your conversation. Include the code version when relevant.
+
 ## Send an independent session
 
 A ticket sender uses `dispatch.sh send worker|reviewer N --task FILE`. The script supplies the recipient's role, ticket, comparison and report command and directs it into this dispatch skill. Use this `SKILL.md` as FILE for the automatic ticket workflow; when the caller supplies an additional assignment file, pass that file instead. The recipient reads that file as additional input after this entry. A sender starting a worker outside an open watch must also supply the authorized target as `--into BASE`.
 
-For a brief, the sender writes the actual task to a file and uses `dispatch.sh send ROLE [--cwd DIR] [--follow METHOD_FILE] BRIEF_FILE...`. Each file starts one independent session. Name the outcome, scope, sources, verification and expected answer so its reader needs none of your conversation. A method file supplies the assigned method; do not duplicate it into the brief.
+For a brief, the sender [prepares the assignment](#prepare-an-assignment), writes it to a file and uses `dispatch.sh send ROLE [--cwd DIR] [--follow METHOD_FILE] BRIEF_FILE...`. Each file starts one independent session. A method file supplies the assigned method; do not duplicate it into the brief.
 
-## Wait, read and acknowledge
+## Wait and continue
 
-After dispatching, end the turn and let the relay wake the original session. Do not interrupt dispatched sessions or repeat their work. For `codex-app`, keep this session waiting through the caller's tool executor with `dispatch.sh wait-wake`. Use this active-wait path for another runner only when it supports the command and cannot reliably resume an ended turn. If the adapter cannot wait, report its reason and end the turn rather than repeatedly querying child progress.
+Do not interrupt dispatched agents or repeat their work. Read the actual returned evidence before continuing the role step that dispatched it.
+
+After dispatching, end the turn and let the relay wake the original session. For `codex-app`, keep this session waiting through the caller's tool executor with `dispatch.sh wait-wake`. Use this active-wait path for another runner only when it supports the command and cannot reliably resume an ended turn. If the adapter cannot wait, report its reason and end the turn rather than repeatedly querying child progress.
 
 Handle each wake in arrival order, one wake at a time:
 
 1. Read what the notification names. For `reviewer.reported`, `dispatch.sh wait N reviewer` prints the review and its comparison. For a ticket outcome or child, read the full corresponding tracker comment and child. For `brief B done`, `dispatch.sh brief show B` gives each answer's path and state; read all answers.
 2. Acknowledge after reading and before long work: `dispatch.sh ack N EVENT`, or `dispatch.sh ack brief B`. A `watchdog:` alert is not acked.
-3. Continue the step that sent the work. `wait N reviewer` reads the current result once; it does not wait for one to appear. A lost or incomplete result is a limitation, not a clean review or a successful task.
+3. Continue the step that sent the work. `wait N reviewer` reads the current result once; it does not wait for one to appear.
+
+A lost or incomplete result is a limitation, not a clean review or a successful task.
 
 Closeout, review and child events notify their existing recipients automatically.
 
 ## Return the assigned result
 
-When the first message or brief supplies a report command, the recipient saves the actual result to a UTF-8 file and executes that command successfully before handing back. Preserve its ticket, target and code-version identity. The role reference specifies the required result and completion condition; a method's answer alone is not a delivered assignment.
+Return the assigned result with its actual evidence and limitations. Preserve the ticket, target and code-version identity supplied in your assignment. The role reference or assigned method specifies the required result and completion condition; a method's answer alone is not a delivered assignment.
 
-State what was done, the checks actually run, what the evidence establishes and what remains. A lost or incomplete report is not a successful task.
+State what was done, the checks actually run, what the evidence establishes and what remains.
+
+When the first message or brief supplies a report command, the recipient saves the actual result to a UTF-8 file and executes that command successfully before handing back.
 
 The brief sender reads all answers through the common Wait operation. Answers remain available until `dispatch.sh brief close B`; close the batch when no later step needs them.
 
 ## Record and resolve a child
 
-Use the current ticket's native child issues to preserve matters that cannot be settled within its assigned work. The child body is written for a receiver who has seen none of your session: state the problem, evidence, affected requirement, what you tried and what decision or repair is needed.
+Use the current ticket's native child issues to preserve matters that cannot be settled within its assigned work. The child body is written for a receiver who has seen none of your session. State the problem, evidence, affected requirement, what you tried and what decision or repair is needed.
 
 Choose the first matching kind:
 
@@ -96,4 +108,6 @@ To continue an existing ticket session, its caller uses `dispatch.sh resume N ME
 
 ## Handle command failures
 
-Read a command's refusal before deciding its recovery. Tracker writes can partially succeed; follow the same-command retry or `--existing` recovery named by the error. A notification can interrupt a command: inspect its receipt and recorded state before repeating it. For `resume`, exit 4 means the message was handed over without a confirmed turn start; do not send it again. Exit 3 means it was not accepted; repair the cause before retrying. Exit 2 names the refusal and does not silently start a replacement.
+Read the result of a tool or command before repeating an action. Inspect what it already changed and preserve unresolved failures in the result.
+
+Tracker writes can partially succeed; follow the same-command retry or `--existing` recovery named by the error. A notification can interrupt a command: inspect its receipt and recorded state before repeating it. For `resume`, exit 4 means the message was handed over without a confirmed turn start; do not send it again. Exit 3 means it was not accepted; repair the cause before retrying. Exit 2 names the refusal and does not silently start a replacement.
