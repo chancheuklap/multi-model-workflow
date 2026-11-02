@@ -71,7 +71,7 @@ Done when the complete pushed output and evidence have a PR with the correct tar
 
 Use `dispatch.sh land PR --into NIGHT --head SHA --check COMMAND` for each actual candidate, with the final Worker SHA and the project's required verification command. This mechanical operation validates the real merge candidate before updating NIGHT; it does not judge review evidence for you. It neither triggers CI workflows nor bypasses repository merge rules.
 
-On conflict or failed checks, give the exact failure to the original Worker to repair on the same branch/PR. On success, confirm the remote NIGHT contains the result, record the outcome and close the execution ticket with `gh issue close`. Re-read dependencies and immediately dispatch newly eligible work; unrelated Workers can still be running.
+On conflict or failed checks, give the exact failure to the original Worker to repair on the same branch/PR. On success, confirm the remote NIGHT contains the result, record the outcome and close the execution ticket with `gh issue close`. For a spec, re-read dependencies and immediately dispatch newly eligible work within that spec; unrelated Workers can still be running. For one ticket, proceed to [Deliver the authorized output](#6-deliver-the-authorized-output); do not dispatch sibling tickets.
 
 Done when the result is actually integrated or its failure is back with the original Worker, and dependency decisions reflect that fact.
 
