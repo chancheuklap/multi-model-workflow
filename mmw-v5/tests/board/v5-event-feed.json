@@ -1,0 +1,1368 @@
+{
+  "ticket.returned-then-start-same-second": {
+    "tasks": [
+      {
+        "n": 10,
+        "kind": "spec",
+        "title": "Plain v5 spec",
+        "state": "open",
+        "decisions": [],
+        "specs": [
+          {
+            "n": 10,
+            "title": "Plain v5 spec",
+            "tickets": [
+              {
+                "n": 11,
+                "title": "Produce output",
+                "state": "open",
+                "state_reason": null,
+                "blocked": [],
+                "blockers": [],
+                "blocker_hold": "open",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 11,
+                  "events": [
+                    {
+                      "comment": 1,
+                      "event": "worker.started",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "worker.started"
+                    },
+                    {
+                      "comment": 2,
+                      "event": "ticket.returned",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "worker",
+                      "line": "ticket.returned"
+                    },
+                    {
+                      "comment": 3,
+                      "event": "worker.started",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "new worker"
+                    }
+                  ],
+                  "last": {
+                    "comment": 3,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "new worker",
+                    "body": "new worker\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\",\"stage\":\"dispatch\",\"actor\":\"main\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\",\"session\":\"worker-2\",\"runner\":\"paseo\",\"machine\":\"test-machine\",\"host\":\"codex\",\"model\":\"test-model\",\"effort\":\"high\",\"grade\":\"junior-worker\",\"worktree\":\"/repo/.worktrees/issue-11\",\"branch\":\"issue-11\",\"base\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"into\":\"batch\"} -->",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  },
+                  "unreadable": [],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": false,
+                  "returned": true,
+                  "outcome": {
+                    "comment": 2,
+                    "event": "ticket.returned",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "worker",
+                    "line": "ticket.returned",
+                    "body": "ticket.returned\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.returned\",\"stage\":\"close\",\"actor\":\"worker\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\"} -->\n",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.returned",
+                      "stage": "close",
+                      "actor": "worker",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z"
+                    }
+                  },
+                  "landed": false,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": false,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": {
+                      "comment": 2,
+                      "event": "ticket.returned",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "worker",
+                      "line": "ticket.returned",
+                      "body": "ticket.returned\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.returned\",\"stage\":\"close\",\"actor\":\"worker\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\"} -->\n",
+                      "payload": {
+                        "v": 1,
+                        "event": "ticket.returned",
+                        "stage": "close",
+                        "actor": "worker",
+                        "spec": 10,
+                        "ticket": 11,
+                        "at": "2026-09-11T00:00:00Z"
+                      }
+                    },
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 1,
+                      "live": false,
+                      "ended_by": "ticket.returned"
+                    },
+                    {
+                      "kind": "worker",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 3,
+                      "live": true,
+                      "ended_by": null
+                    }
+                  ],
+                  "claim_hold": false,
+                  "ever_held": true,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": {
+                    "kind": "worker",
+                    "session": "worker-2",
+                    "runner": "paseo",
+                    "host": "codex",
+                    "model": "test-model",
+                    "effort": "high",
+                    "grade": "junior-worker",
+                    "worktree": "/repo/.worktrees/issue-11",
+                    "branch": "issue-11",
+                    "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "into": "batch",
+                    "machine": "test-machine",
+                    "started_at": "2026-09-11T00:00:00Z",
+                    "comment": 3,
+                    "live": true,
+                    "ended_by": null
+                  },
+                  "live_workers": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 3,
+                      "live": true,
+                      "ended_by": null
+                    }
+                  ],
+                  "holders": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 3,
+                      "live": true,
+                      "ended_by": null
+                    }
+                  ],
+                  "held": true,
+                  "hold_ended": false
+                },
+                "events": [
+                  {
+                    "comment": 1,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "worker.started",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  },
+                  {
+                    "comment": 2,
+                    "event": "ticket.returned",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "worker",
+                    "line": "ticket.returned",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.returned",
+                      "stage": "close",
+                      "actor": "worker",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z"
+                    }
+                  },
+                  {
+                    "comment": 3,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "new worker",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  }
+                ]
+              },
+              {
+                "n": 12,
+                "title": "Use output",
+                "state": "open",
+                "state_reason": null,
+                "blocked": [
+                  11
+                ],
+                "blockers": [
+                  {
+                    "number": 11,
+                    "title": "Produce output",
+                    "state": "open",
+                    "state_reason": null,
+                    "spec": 10,
+                    "readable": true,
+                    "blocker_hold": "open"
+                  }
+                ],
+                "blocker_hold": "open",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 12,
+                  "events": [],
+                  "last": null,
+                  "unreadable": [],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": false,
+                  "returned": false,
+                  "outcome": null,
+                  "landed": false,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": false,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": null,
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [],
+                  "claim_hold": false,
+                  "ever_held": false,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": null,
+                  "live_workers": [],
+                  "holders": [],
+                  "held": false,
+                  "hold_ended": false
+                },
+                "events": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "repo": "owner/plain",
+    "read_at": "2026-11-01T10:01:26Z"
+  },
+  "ticket.bounced-then-start-same-second": {
+    "tasks": [
+      {
+        "n": 10,
+        "kind": "spec",
+        "title": "Plain v5 spec",
+        "state": "open",
+        "decisions": [],
+        "specs": [
+          {
+            "n": 10,
+            "title": "Plain v5 spec",
+            "tickets": [
+              {
+                "n": 11,
+                "title": "Produce output",
+                "state": "open",
+                "state_reason": null,
+                "blocked": [],
+                "blockers": [],
+                "blocker_hold": "open",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 11,
+                  "events": [
+                    {
+                      "comment": 1,
+                      "event": "worker.started",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "worker.started"
+                    },
+                    {
+                      "comment": 2,
+                      "event": "ticket.bounced",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "ticket.bounced"
+                    },
+                    {
+                      "comment": 3,
+                      "event": "worker.started",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "new worker"
+                    }
+                  ],
+                  "last": {
+                    "comment": 3,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "new worker",
+                    "body": "new worker\n\n<!-- mmw {\"v\":1,\"event\":\"worker.started\",\"stage\":\"dispatch\",\"actor\":\"main\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\",\"session\":\"worker-2\",\"runner\":\"paseo\",\"machine\":\"test-machine\",\"host\":\"codex\",\"model\":\"test-model\",\"effort\":\"high\",\"grade\":\"junior-worker\",\"worktree\":\"/repo/.worktrees/issue-11\",\"branch\":\"issue-11\",\"base\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"into\":\"batch\"} -->",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  },
+                  "unreadable": [],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": false,
+                  "returned": false,
+                  "outcome": null,
+                  "landed": false,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": true,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": null,
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 1,
+                      "live": false,
+                      "ended_by": "ticket.bounced"
+                    },
+                    {
+                      "kind": "worker",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 3,
+                      "live": true,
+                      "ended_by": null
+                    }
+                  ],
+                  "claim_hold": false,
+                  "ever_held": true,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": {
+                    "kind": "worker",
+                    "session": "worker-2",
+                    "runner": "paseo",
+                    "host": "codex",
+                    "model": "test-model",
+                    "effort": "high",
+                    "grade": "junior-worker",
+                    "worktree": "/repo/.worktrees/issue-11",
+                    "branch": "issue-11",
+                    "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "into": "batch",
+                    "machine": "test-machine",
+                    "started_at": "2026-09-11T00:00:00Z",
+                    "comment": 3,
+                    "live": true,
+                    "ended_by": null
+                  },
+                  "live_workers": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 3,
+                      "live": true,
+                      "ended_by": null
+                    }
+                  ],
+                  "holders": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 3,
+                      "live": true,
+                      "ended_by": null
+                    }
+                  ],
+                  "held": true,
+                  "hold_ended": false
+                },
+                "events": [
+                  {
+                    "comment": 1,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "worker.started",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  },
+                  {
+                    "comment": 2,
+                    "event": "ticket.bounced",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "ticket.bounced",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.bounced",
+                      "stage": "land",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "reason": "checks",
+                      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  },
+                  {
+                    "comment": 3,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "new worker",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-2",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  }
+                ]
+              },
+              {
+                "n": 12,
+                "title": "Use output",
+                "state": "open",
+                "state_reason": null,
+                "blocked": [
+                  11
+                ],
+                "blockers": [
+                  {
+                    "number": 11,
+                    "title": "Produce output",
+                    "state": "open",
+                    "state_reason": null,
+                    "spec": 10,
+                    "readable": true,
+                    "blocker_hold": "open"
+                  }
+                ],
+                "blocker_hold": "open",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 12,
+                  "events": [],
+                  "last": null,
+                  "unreadable": [],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": false,
+                  "returned": false,
+                  "outcome": null,
+                  "landed": false,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": false,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": null,
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [],
+                  "claim_hold": false,
+                  "ever_held": false,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": null,
+                  "live_workers": [],
+                  "holders": [],
+                  "held": false,
+                  "hold_ended": false
+                },
+                "events": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "repo": "owner/plain",
+    "read_at": "2026-11-01T10:01:26Z"
+  },
+  "landed-with-unreadable-event": {
+    "tasks": [
+      {
+        "n": 10,
+        "kind": "spec",
+        "title": "Plain v5 spec",
+        "state": "open",
+        "decisions": [],
+        "specs": [
+          {
+            "n": 10,
+            "title": "Plain v5 spec",
+            "tickets": [
+              {
+                "n": 11,
+                "title": "Produce output",
+                "state": "closed",
+                "state_reason": "COMPLETED",
+                "blocked": [],
+                "blockers": [],
+                "blocker_hold": "its events cannot be read",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 11,
+                  "events": [
+                    {
+                      "comment": 1,
+                      "event": "worker.started",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "worker.started"
+                    },
+                    {
+                      "comment": 2,
+                      "event": "ticket.passed",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "worker",
+                      "line": "ticket.passed"
+                    },
+                    {
+                      "comment": 3,
+                      "event": "ticket.landed",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "ticket.landed"
+                    }
+                  ],
+                  "last": {
+                    "comment": 3,
+                    "event": "ticket.landed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "ticket.landed",
+                    "body": "ticket.landed\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.landed\",\"stage\":\"land\",\"actor\":\"main\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\"} -->\n",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.landed",
+                      "stage": "land",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z"
+                    }
+                  },
+                  "unreadable": [
+                    {
+                      "comment": 4,
+                      "line": "<!-- mmw {\"v\":1,\"event\":\"unknown.event\"} -->",
+                      "reason": "`unknown.event` is not an event of this pipeline"
+                    }
+                  ],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": true,
+                  "returned": false,
+                  "outcome": {
+                    "comment": 2,
+                    "event": "ticket.passed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "worker",
+                    "line": "ticket.passed",
+                    "body": "ticket.passed\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.passed\",\"stage\":\"close\",\"actor\":\"worker\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\",\"commit\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"} -->\n",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.passed",
+                      "stage": "close",
+                      "actor": "worker",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  },
+                  "landed": true,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": false,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": {
+                      "comment": 2,
+                      "event": "ticket.passed",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "worker",
+                      "line": "ticket.passed",
+                      "body": "ticket.passed\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.passed\",\"stage\":\"close\",\"actor\":\"worker\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\",\"commit\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"} -->\n",
+                      "payload": {
+                        "v": 1,
+                        "event": "ticket.passed",
+                        "stage": "close",
+                        "actor": "worker",
+                        "spec": 10,
+                        "ticket": 11,
+                        "at": "2026-09-11T00:00:00Z",
+                        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                      }
+                    },
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 1,
+                      "live": false,
+                      "ended_by": "ticket.landed"
+                    }
+                  ],
+                  "claim_hold": false,
+                  "ever_held": true,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": {
+                    "kind": "worker",
+                    "session": "worker-1",
+                    "runner": "paseo",
+                    "host": "codex",
+                    "model": "test-model",
+                    "effort": "high",
+                    "grade": "junior-worker",
+                    "worktree": "/repo/.worktrees/issue-11",
+                    "branch": "issue-11",
+                    "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "into": "batch",
+                    "machine": "test-machine",
+                    "started_at": "2026-09-11T00:00:00Z",
+                    "comment": 1,
+                    "live": false,
+                    "ended_by": "ticket.landed"
+                  },
+                  "live_workers": [],
+                  "holders": [],
+                  "held": false,
+                  "hold_ended": true
+                },
+                "events": [
+                  {
+                    "comment": 1,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "worker.started",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  },
+                  {
+                    "comment": 2,
+                    "event": "ticket.passed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "worker",
+                    "line": "ticket.passed",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.passed",
+                      "stage": "close",
+                      "actor": "worker",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  },
+                  {
+                    "comment": 3,
+                    "event": "ticket.landed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "ticket.landed",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.landed",
+                      "stage": "land",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z"
+                    }
+                  }
+                ]
+              },
+              {
+                "n": 12,
+                "title": "Use output",
+                "state": "open",
+                "state_reason": null,
+                "blocked": [
+                  11
+                ],
+                "blockers": [
+                  {
+                    "number": 11,
+                    "title": "Produce output",
+                    "state": "closed",
+                    "state_reason": "COMPLETED",
+                    "spec": 10,
+                    "readable": true,
+                    "blocker_hold": "its events cannot be read"
+                  }
+                ],
+                "blocker_hold": "open",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 12,
+                  "events": [],
+                  "last": null,
+                  "unreadable": [],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": false,
+                  "returned": false,
+                  "outcome": null,
+                  "landed": false,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": false,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": null,
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [],
+                  "claim_hold": false,
+                  "ever_held": false,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": null,
+                  "live_workers": [],
+                  "holders": [],
+                  "held": false,
+                  "hold_ended": false
+                },
+                "events": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "repo": "owner/plain",
+    "read_at": "2026-11-01T10:01:26Z"
+  },
+  "landed-after-comment-repair": {
+    "tasks": [
+      {
+        "n": 10,
+        "kind": "spec",
+        "title": "Plain v5 spec",
+        "state": "open",
+        "decisions": [],
+        "specs": [
+          {
+            "n": 10,
+            "title": "Plain v5 spec",
+            "tickets": [
+              {
+                "n": 11,
+                "title": "Produce output",
+                "state": "closed",
+                "state_reason": "COMPLETED",
+                "blocked": [],
+                "blockers": [],
+                "blocker_hold": "",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 11,
+                  "events": [
+                    {
+                      "comment": 1,
+                      "event": "worker.started",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "worker.started"
+                    },
+                    {
+                      "comment": 2,
+                      "event": "ticket.passed",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "worker",
+                      "line": "ticket.passed"
+                    },
+                    {
+                      "comment": 3,
+                      "event": "ticket.landed",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "main",
+                      "line": "ticket.landed"
+                    }
+                  ],
+                  "last": {
+                    "comment": 3,
+                    "event": "ticket.landed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "ticket.landed",
+                    "body": "ticket.landed\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.landed\",\"stage\":\"land\",\"actor\":\"main\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\"} -->\n",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.landed",
+                      "stage": "land",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z"
+                    }
+                  },
+                  "unreadable": [],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": true,
+                  "returned": false,
+                  "outcome": {
+                    "comment": 2,
+                    "event": "ticket.passed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "worker",
+                    "line": "ticket.passed",
+                    "body": "ticket.passed\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.passed\",\"stage\":\"close\",\"actor\":\"worker\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\",\"commit\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"} -->\n",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.passed",
+                      "stage": "close",
+                      "actor": "worker",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  },
+                  "landed": true,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": false,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": {
+                      "comment": 2,
+                      "event": "ticket.passed",
+                      "at": "2026-09-11T00:00:00Z",
+                      "actor": "worker",
+                      "line": "ticket.passed",
+                      "body": "ticket.passed\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.passed\",\"stage\":\"close\",\"actor\":\"worker\",\"spec\":10,\"ticket\":11,\"at\":\"2026-09-11T00:00:00Z\",\"commit\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"} -->\n",
+                      "payload": {
+                        "v": 1,
+                        "event": "ticket.passed",
+                        "stage": "close",
+                        "actor": "worker",
+                        "spec": 10,
+                        "ticket": 11,
+                        "at": "2026-09-11T00:00:00Z",
+                        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                      }
+                    },
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [
+                    {
+                      "kind": "worker",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch",
+                      "machine": "test-machine",
+                      "started_at": "2026-09-11T00:00:00Z",
+                      "comment": 1,
+                      "live": false,
+                      "ended_by": "ticket.landed"
+                    }
+                  ],
+                  "claim_hold": false,
+                  "ever_held": true,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": {
+                    "kind": "worker",
+                    "session": "worker-1",
+                    "runner": "paseo",
+                    "host": "codex",
+                    "model": "test-model",
+                    "effort": "high",
+                    "grade": "junior-worker",
+                    "worktree": "/repo/.worktrees/issue-11",
+                    "branch": "issue-11",
+                    "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "into": "batch",
+                    "machine": "test-machine",
+                    "started_at": "2026-09-11T00:00:00Z",
+                    "comment": 1,
+                    "live": false,
+                    "ended_by": "ticket.landed"
+                  },
+                  "live_workers": [],
+                  "holders": [],
+                  "held": false,
+                  "hold_ended": true
+                },
+                "events": [
+                  {
+                    "comment": 1,
+                    "event": "worker.started",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "worker.started",
+                    "payload": {
+                      "v": 1,
+                      "event": "worker.started",
+                      "stage": "dispatch",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "session": "worker-1",
+                      "runner": "paseo",
+                      "machine": "test-machine",
+                      "host": "codex",
+                      "model": "test-model",
+                      "effort": "high",
+                      "grade": "junior-worker",
+                      "worktree": "/repo/.worktrees/issue-11",
+                      "branch": "issue-11",
+                      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "into": "batch"
+                    }
+                  },
+                  {
+                    "comment": 2,
+                    "event": "ticket.passed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "worker",
+                    "line": "ticket.passed",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.passed",
+                      "stage": "close",
+                      "actor": "worker",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z",
+                      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  },
+                  {
+                    "comment": 3,
+                    "event": "ticket.landed",
+                    "at": "2026-09-11T00:00:00Z",
+                    "actor": "main",
+                    "line": "ticket.landed",
+                    "payload": {
+                      "v": 1,
+                      "event": "ticket.landed",
+                      "stage": "land",
+                      "actor": "main",
+                      "spec": 10,
+                      "ticket": 11,
+                      "at": "2026-09-11T00:00:00Z"
+                    }
+                  }
+                ]
+              },
+              {
+                "n": 12,
+                "title": "Use output",
+                "state": "open",
+                "state_reason": null,
+                "blocked": [
+                  11
+                ],
+                "blockers": [
+                  {
+                    "number": 11,
+                    "title": "Produce output",
+                    "state": "closed",
+                    "state_reason": "COMPLETED",
+                    "spec": 10,
+                    "readable": true,
+                    "blocker_hold": ""
+                  }
+                ],
+                "blocker_hold": "open",
+                "closeout": null,
+                "children": [],
+                "fold": {
+                  "issue": 12,
+                  "events": [],
+                  "last": null,
+                  "unreadable": [],
+                  "claimed": false,
+                  "claimant": null,
+                  "refused": null,
+                  "passed": false,
+                  "returned": false,
+                  "outcome": null,
+                  "landed": false,
+                  "released": null,
+                  "regressed": false,
+                  "bounced": false,
+                  "suspended": false,
+                  "review": null,
+                  "decided": 0,
+                  "results": {
+                    "worker": null,
+                    "reviewer": null
+                  },
+                  "checks": {
+                    "self": null,
+                    "reverify": null,
+                    "repo-checks": null,
+                    "baseline": null,
+                    "repository": null
+                  },
+                  "children": {},
+                  "sessions": [],
+                  "claim_hold": false,
+                  "ever_held": false,
+                  "spec_opened": false,
+                  "spec_closed": false,
+                  "spec_merged": false,
+                  "worker": null,
+                  "live_workers": [],
+                  "holders": [],
+                  "held": false,
+                  "hold_ended": false
+                },
+                "events": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "repo": "owner/plain",
+    "read_at": "2026-11-01T10:01:26Z"
+  }
+}

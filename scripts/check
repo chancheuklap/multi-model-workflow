@@ -50,6 +50,12 @@ SHARED = (
 
 # step: (command, tools it needs on PATH)
 STEPS = {
+    "foundation": ("python3 -m unittest discover -s mmw-v5/tests/foundation", ["python3", "git"]),
+    "sessions": ("python3 -m unittest discover -s mmw-v5/tests/sessions", ["python3", "bash", "git", "node"]),
+    "notifications": ("python3 -m unittest discover -s mmw-v5/tests/notifications", ["python3", "bash", "git"]),
+    "results": ("python3 -m unittest discover -s mmw-v5/tests/results", ["python3", "bash", "git"]),
+    "pipeline": ("python3 -m unittest discover -s mmw-v5/tests/pipeline", ["python3", "bash", "git"]),
+    "board-v5": ("bash mmw-v5/tests/board/run.sh", ["python3", "bash", "git", "node", "uv"]),
     "shared-checks": (SHARED, ["python3", "uv"]),
     "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
     "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
@@ -80,6 +86,40 @@ STEPS = {
 DISPATCH = "mmw-v4/skills/dispatch/"
 VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
+    ("mmw-v5/board/", ["board-v5"]),
+    ("mmw-v5/tests/board/", ["board-v5"]),
+    ("mmw-v5/tools/dispatch/", ["board-v5"]),
+    ("mmw-v5/tools/verify-ticket/scripts/", ["board-v5"]),
+    ("mmw-v5/tools/dispatch/", ["pipeline"]),
+    ("mmw-v5/tools/verify-ticket/scripts/", ["pipeline"]),
+    ("mmw-v5/tests/pipeline/", ["pipeline"]),
+    *[("mmw-v5/tools/" + path, ["results"]) for path in (
+        "verify-ticket/scripts/verify-ticket.py", "verify-ticket/scripts/repository_checks.py",
+        "verify-ticket/scripts/events.py", "verify-ticket/scripts/labels.py",
+        "setup-mmw/scripts/check.py", "setup-mmw/scripts/labels.py",
+        "dispatch/scripts/tracker.py", "dispatch/scripts/statedir.py", "dispatch/scripts/models.py",
+        "dispatch/scripts/dispatch.sh", "dispatch/scripts/relay.py", "dispatch/scripts/briefs.py",
+        "dispatch/scripts/ghlist.py", "dispatch/scripts/runners/", "dispatch/roles.json", "dispatch/hosts.json",
+    )],
+    ("mmw-v5/tests/results/", ["results"]),
+    *[("mmw-v5/tools/dispatch/scripts/" + path, ["notifications"]) for path in (
+        "relay.py", "watchdog.py", "briefs.py", "statedir.py", "ghlist.py", "runners/paseo.sh",
+    )],
+    ("mmw-v5/tools/verify-ticket/scripts/events.py", ["notifications", "sessions"]),
+    ("mmw-v5/tests/notifications/", ["notifications"]),
+    *[("mmw-v5/tools/dispatch/" + path, ["sessions"]) for path in (
+        "roles.json", "hosts.json", "scripts/models.py", "scripts/briefs.py",
+        "scripts/dispatch.sh", "scripts/runners/", "scripts/statedir.py", "scripts/tracker.py",
+        "scripts/relay.py", "scripts/watchdog.py", "scripts/ghlist.py",
+    )],
+    ("mmw-v5/tests/sessions/", ["sessions"]),
+    *[("mmw-v5/tools/" + path, ["foundation"]) for path in (
+        "dispatch/scripts/tracker.py", "dispatch/scripts/ghlist.py",
+        "dispatch/scripts/statedir.py", "dispatch/scripts/status.py",
+        "verify-ticket/scripts/events.py", "verify-ticket/scripts/issue_tree.py",
+        "verify-ticket/scripts/labels.py", "setup-mmw/scripts/labels.py",
+    )],
+    ("mmw-v5/tests/foundation/", ["foundation"]),
     # The shared checks read every module path, skill wiring and frontmatter under mmw-v4/.
     ("mmw-v4/", ["shared-checks"]),
     ("mmw-v4/skills/", ["check-interfaces"]),
@@ -117,7 +157,7 @@ MAP = [
 ]
 
 # Test roots: every directory directly under each must be a suite above or listed here.
-TEST_ROOTS = ["mmw-v4/tests"]
+TEST_ROOTS = ["mmw-v4/tests", "mmw-v5/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
@@ -164,7 +204,8 @@ def self_check() -> list[str]:
         for child in sorted((ROOT / root).iterdir()):
             if child.is_dir() and child.name != "__pycache__" and not child.name.startswith("."):
                 rel = f"{root}/{child.name}"
-                if root == "mmw-v4/tests" and child.name in STEPS:
+                if any(prefix == rel + "/" and names and all(name in STEPS for name in names)
+                       for prefix, names in MAP):
                     continue
                 if rel not in EXCLUDED:
                     found.append(f"{rel} is a test directory STEPS and MAP in scripts/check do not name; "
@@ -263,7 +304,7 @@ def main(argv: list[str]) -> int:
     else:
         if tier == "all":
             names = list(STEPS)
-            paths = git("ls-files", "mmw-v4", "scripts").stdout.split()
+            paths = git("ls-files", "mmw-v4", "mmw-v5", "scripts").stdout.split()
             print("tier --all: every step")
         else:
             base = os.environ.get("MMW_BASE_REF") or DEFAULT_BASE

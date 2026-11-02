@@ -1,0 +1,3 @@
+interface:
+  display_name: "Dispatch"
+  short_description: "Dispatch independent sessions and follow assigned roles"

@@ -1,0 +1,26 @@
+/* Right column. Shared parts (type, row, log, button) live on `.board` in board.css.
+   What is only this column: its padding and the blocks the design draws inline. */
+.detail {
+  height: 100%; background: var(--panel); border-left: 1px solid var(--rule); overflow-y: auto;
+  padding: var(--sp-16) var(--sp-20) var(--sp-24);
+  display: flex; flex-direction: column; gap: var(--sp-16);
+}
+.detail-head { display: flex; align-items: center; gap: var(--sp-8); }
+.detail-head > .eyebrow { flex: 1; min-width: 0; }
+.detail-id { display: flex; flex-direction: column; gap: var(--sp-6); }
+.detail-status { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-8); }
+.detail-status > .meta { margin-left: auto; }
+.detail .counters { margin-left: 0; }
+.detail .github { align-self: flex-start; }
+.detail .row-none { margin: 0; }
+.detail .sub-issue { cursor: default; }
+.detail .kv-who { display: flex; align-items: baseline; gap: var(--sp-8); }
+.detail .callout {
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  border-left: 2px solid var(--orange); background: var(--orange-tint);
+  border-radius: 0 var(--r-md) var(--r-md) 0; padding: var(--sp-8) var(--sp-12); font-size: var(--t-meta);
+}
+.detail .why-item { color: var(--muted); line-height: var(--lh-body); }
+.detail .why-item b { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } }

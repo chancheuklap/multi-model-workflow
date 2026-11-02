@@ -1,0 +1,69 @@
+{
+  "roles": [
+    {
+      "name": "junior-worker",
+      "sent_with": "ticket",
+      "default": {
+        "host": "codex",
+        "model": "gpt 6.1 sol",
+        "effort": "medium"
+      }
+    },
+    {
+      "name": "senior-worker",
+      "sent_with": "ticket",
+      "default": {
+        "host": "codex",
+        "model": "gpt 6.1 sol",
+        "effort": "high"
+      }
+    },
+    {
+      "name": "reviewer",
+      "sent_with": "ticket",
+      "default": {
+        "host": "claude",
+        "model": "sonnet",
+        "effort": "high"
+      }
+    },
+    {
+      "name": "researcher",
+      "sent_with": "brief",
+      "default": {
+        "host": "codex",
+        "model": "gpt 6.1 sol",
+        "effort": "medium"
+      }
+    },
+    {
+      "name": "candidate",
+      "sent_with": "brief",
+      "default": {
+        "host": "claude",
+        "model": "opus",
+        "effort": "high"
+      }
+    },
+    {
+      "name": "advisor",
+      "sent_with": "brief",
+      "default": {
+        "host": "claude",
+        "model": "fable",
+        "effort": "medium"
+      }
+    }
+  ],
+  "subagents": [
+    {
+      "name": "review-axis"
+    },
+    {
+      "name": "reader"
+    },
+    {
+      "name": "default"
+    }
+  ]
+}
