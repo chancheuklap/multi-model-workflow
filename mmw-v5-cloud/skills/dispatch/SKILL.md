@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Coordinate an authorized spec or one ticket, send a native cloud agent, or carry out an assignment sent by dispatch. Use when dispatching, receiving the assigned role, or continuing the assigned task.
+description: Coordinate an authorized spec or one ticket, dispatch a Cloud Worker or review-axis subagent, or carry out an assigned ticket. Use when starting or continuing this automated workflow.
 ---
 
 # Dispatch
@@ -16,7 +16,7 @@ On first entry, read this file in full. Use the role assigned to you, not the se
 
 The reference supplies your ordered work. Its steps point back to the common operations below. Sending another task or receiving a notification does not change your role or restart your workflow. An agent borrowing dispatch for its current method uses the common operations and then returns to that method.
 
-Native axis reviewers inside `code-review` follow their assigned review references. Researcher, advisor and candidate assignments follow their supplied brief and method.
+Native axis reviewers inside `code-review` follow their assigned review references.
 
 ## Use this run's tools
 
@@ -37,15 +37,13 @@ A configured model or host does not create a tool capability; report an unsuppor
 
 ## Prepare an assignment
 
-Name the outcome, scope, sources, working method, verification and expected answer so the assigned agent needs none of your conversation. Include the code version when relevant.
+Use the Worker kickoff template in the Coordinator reference when sending a Worker. For review axes, use the assignments defined by **code-review**. Use the task's actual repository, branch, commit and source material in the applicable fields.
 
 Supply required Issue bodies and relevant comments as content, not only GitHub links.
 
-Use the kickoff template supplied by the current working method when it has one; otherwise provide the complete assignment described here. The Coordinator's Worker template is in its reference; axis assignments are defined by `code-review`. Use this run's project model settings.
-
 ## Send a native cloud agent
 
-Use this host's actual native cloud-agent tools to send the assignment and supported settings. Workers and assistance tasks execute in the cloud; review axes execute in the Worker's cloud environment or assigned isolated copies. Retain the native reference for subsequent conversation. The native tool establishes the parent-child relationship; there is no separate registration command.
+Use this host's actual native cloud-agent tools to send the assignment and supported settings. Workers execute in the cloud; review axes execute in the Worker's cloud environment or assigned isolated copies. Retain the native reference for subsequent conversation. The native tool establishes the parent-child relationship; there is no separate registration command.
 
 ## Wait and continue
 

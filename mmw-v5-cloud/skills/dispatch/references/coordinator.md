@@ -22,7 +22,7 @@ For a spec, `dispatch.sh status SPEC --into NIGHT` reads its executable tickets,
 
 The ticket itself is the execution object, not a container of tasks. Its parent spec supplies requirements, not permission to dispatch sibling tickets.
 
-Read this run's configuration through the [common tools operation](../SKILL.md#use-this-runs-tools). Use your native child tasks to know what is already assigned and how many Worker slots remain under its `max_workers`. A new Worker requires every code predecessor actually merged into NIGHT. Read NIGHT's latest full SHA and [prepare](../SKILL.md#prepare-an-assignment) a self-contained assignment. Use the chosen worker-grade model settings and [send the native Cloud Worker](../SKILL.md#send-a-native-cloud-agent).
+Read this run's configuration through the [common tools operation](../SKILL.md#use-this-runs-tools). Use your native child tasks to know what is already assigned and how many Worker slots remain under its `max_workers`. A new Worker requires every code predecessor actually merged into NIGHT. Read NIGHT's latest full SHA and [fill the Worker kickoff template](../SKILL.md#prepare-an-assignment). Use the chosen worker-grade model settings and [send the native Cloud Worker](../SKILL.md#send-a-native-cloud-agent).
 
 Worker kickoff template:
 

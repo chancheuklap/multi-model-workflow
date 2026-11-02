@@ -39,7 +39,7 @@ Before running dispatch commands, query `python3 models.py executor`. An empty a
 
 The scripts choose the configured host, model, effort and runner. For a ticket, the worker grade selects the worker row; reviewer uses its own row. `python3 models.py subagent ROW HOST` returns settings for native subagents, not a new independent session. Pass returned non-`inherit` model and effort values to the host's subagent call.
 
-## Prepare an assignment
+## Prepare a brief
 
 Name the outcome, scope, sources, working method, verification and expected answer so the assigned agent needs none of your conversation. Include the code version when relevant.
 
@@ -47,7 +47,7 @@ Name the outcome, scope, sources, working method, verification and expected answ
 
 A ticket sender uses `dispatch.sh send worker|reviewer N --task FILE`. The script supplies the recipient's role, ticket, comparison and report command and directs it into this dispatch skill. Use this `SKILL.md` as FILE for the automatic ticket workflow; when the caller supplies an additional assignment file, pass that file instead. The recipient reads that file as additional input after this entry. A sender starting a worker outside an open watch must also supply the authorized target as `--into BASE`.
 
-For a brief, the sender [prepares the assignment](#prepare-an-assignment), writes it to a file and uses `dispatch.sh send ROLE [--cwd DIR] [--follow METHOD_FILE] BRIEF_FILE...`. Each file starts one independent session. A method file supplies the assigned method; do not duplicate it into the brief.
+For a brief, the sender [prepares the brief](#prepare-a-brief), writes it to a file and uses `dispatch.sh send ROLE [--cwd DIR] [--follow METHOD_FILE] BRIEF_FILE...`. Each file starts one independent session. A method file supplies the assigned method; do not duplicate it into the brief.
 
 ## Wait and continue
 
