@@ -115,7 +115,7 @@ Mock at **system boundaries** only:
 - File system (sometimes)
 
 For a Vitest module override, consult the export-completeness and state-isolation
-conditions in [Vitest module overrides](../../write-tests/SKILL.md#vitest-module-overrides)
+conditions in the `Vitest module overrides` section of **write-tests**
 when assessing the fixture.
 
 ## Regression evidence and failure diagnosis

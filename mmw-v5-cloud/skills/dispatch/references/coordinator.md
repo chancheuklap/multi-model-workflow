@@ -49,7 +49,7 @@ Use written authority in order: owner decisions and ADRs, the spec, an accepted 
 
 Record the reason and affected tasks. Record the correction on the child and reply directly to the original Worker with its sources and any commit to integrate.
 
-When an independent repair is actually needed, prepare its real ticket. Use only the `<issue-template>` block in [to-tickets](../../to-tickets/SKILL.md) as the ticket format, not that skill's interactive Process. State the required behavior and acceptance criteria, preserve the applicable spec and baselines, and set native blocking relationships. Give the destination `ready-for-agent` as its only queue label and exactly one of `junior-worker` or `senior-worker`. Give the destination `mmw:ticket`; if promoting the child itself, replace `mmw:child` with `mmw:ticket`. Preserve the original child relationship; do not reparent merely to fit a fixed-depth query. Add a real dependency before dispatching any work it blocks. After the repair actually lands in NIGHT, directly tell the original Worker to integrate and continue.
+When an independent repair is actually needed, prepare its real ticket. Use only the `<issue-template>` block in **to-tickets** as the ticket format, not that skill's interactive Process. State the required behavior and acceptance criteria, preserve the applicable spec and baselines, and set native blocking relationships. Give the destination `ready-for-agent` as its only queue label and exactly one of `junior-worker` or `senior-worker`. Give the destination `mmw:ticket`; if promoting the child itself, replace `mmw:child` with `mmw:ticket`. Preserve the original child relationship; do not reparent merely to fit a fixed-depth query. Add a real dependency before dispatching any work it blocks. After the repair actually lands in NIGHT, directly tell the original Worker to integrate and continue.
 
 Do not turn an unresolved owner decision or a proposed expansion of the spec into ready work.
 
@@ -95,7 +95,7 @@ Record unsupported or already-repaired claims with evidence; arrange actual nece
 
 Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
 
-Invoke this runtime's [pr](../../pr/SKILL.md) skill to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the NIGHT → PROJECT delivery PR with `gh pr create --base PROJECT --head NIGHT --title TITLE --body-file FILE`.
+Invoke this runtime's **pr** skill to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the NIGHT → PROJECT delivery PR with `gh pr create --base PROJECT --head NIGHT --title TITLE --body-file FILE`.
 
 After the owner accepts and authorizes this delivery, merge that PR and confirm PROJECT contains the accepted output. Owner acceptance does not authorize marking unfinished tickets complete. PROJECT → dev → main and publication remain separately authorized.
 

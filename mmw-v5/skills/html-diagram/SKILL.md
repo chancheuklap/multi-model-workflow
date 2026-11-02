@@ -42,7 +42,7 @@ Use HTML and CSS, SVG, Canvas, or WebGL according to the information and scale. 
 
 Add sequencing, filtering, path tracing, pan and zoom, or animation only when it helps answer the stated question. Keep overlays dismissible, controls keyboard-accessible, and motion compatible with `prefers-reduced-motion`.
 
-When [**design-artifact**](../design-artifact/SKILL.md) is available, read it for
+When **design-artifact** is available, read it for
 the diagram's surrounding composition and visual register. Keep the chosen
 diagram grammar, label legibility, and relationships authoritative over
 decorative treatment.

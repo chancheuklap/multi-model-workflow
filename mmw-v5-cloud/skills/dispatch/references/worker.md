@@ -14,7 +14,7 @@ Done when the task, sources, branch and initial code version are clear, or the m
 
 ## 2. Write tests and implement
 
-Call this v5 runtime's `write-tests` skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
+Call this v5 runtime's **write-tests** skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
 Make engineering choices the sources leave open and record the consequential reasons for review.
 
@@ -30,7 +30,7 @@ Fetch and merge current NIGHT changes into your branch. On conflict, push the co
 
 After integration, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
 
-Invoke this runtime's [code-review](../../code-review/SKILL.md) and follow its existing [Main reviewer method](../../code-review/references/main-reviewer.md) in this session. This is the review method, not a new independent Reviewer session. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the candidate, complete task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Code review owns preparation, the three native axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation. No independent Main Reviewer is dispatched in this edition.
+Invoke this runtime's **code-review** and follow its existing [Main reviewer method](../../code-review/references/main-reviewer.md) in this session. This is the review method, not a new independent Reviewer session. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the candidate, complete task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Code review owns preparation, the three native axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation. No independent Main Reviewer is dispatched in this edition.
 
 Done when a complete review has returned checked reports or an explicit missing/invalid review requiring recovery.
 

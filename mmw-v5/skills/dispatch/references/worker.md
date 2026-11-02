@@ -12,7 +12,7 @@ Done when you know the required behavior, sources, verification and current outp
 
 ## 2. Write tests and implement
 
-Call this v5 runtime's `write-tests` skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
+Call this v5 runtime's **write-tests** skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
 Make engineering choices the sources leave open and record the consequential reasons for review.
 

@@ -44,7 +44,7 @@ Before coding, settle:
 
 When no design system exists, create a specific direction from the subject and use case. Do not default to a gradient, a dark dashboard, interchangeable cards, or decorative metrics. A prototype for a field tool, an editorial workflow, and a financial approval should not feel like the same product.
 
-When [**design-artifact**](../design-artifact/SKILL.md) is available and the visual
+When **design-artifact** is available and the visual
 direction remains open, read and compose it with this skill. Use it to choose
 the register, palette, type, and composition; keep this skill authoritative for
 fidelity, state, and interaction completeness.

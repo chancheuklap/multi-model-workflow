@@ -2,7 +2,7 @@
 
 Your assignment is the complete review of the supplied ticket and committed candidate. The script supplies the fixed point (`base`), expected reviewed `head`, target and exact report command.
 
-Read the ticket and comments, its relevant parent-spec requirements and additional assignment input. Then invoke this v5 runtime's [code-review](../../code-review/SKILL.md) and follow its [Main reviewer method](../../code-review/references/main-reviewer.md). Keep its preparation, three independent axes, verification and report intact. Use the supplied fixed point; confirm HEAD is the supplied candidate before reviewing. A mismatch is an unavailable review, not permission to review other output unnoticed.
+Read the ticket and comments, its relevant parent-spec requirements and additional assignment input. Then invoke this v5 runtime's **code-review** and follow its [Main reviewer method](../../code-review/references/main-reviewer.md). Keep its preparation, three independent axes, verification and report intact. Use the supplied fixed point; confirm HEAD is the supplied candidate before reviewing. A mismatch is an unavailable review, not permission to review other output unnoticed.
 
 For its native axis subagents, use the [common tools operation](../SKILL.md#use-this-runs-tools) with row `review-axis` and this session's actual HOST. Each axis receives the absolute paths to this runtime's `code-review/SKILL.md` and its assigned review reference, and the same pinned comparison. These are native subagents, not independent `dispatch.sh send` sessions.
 
