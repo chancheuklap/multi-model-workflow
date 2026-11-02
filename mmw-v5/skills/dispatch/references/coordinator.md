@@ -1,8 +1,22 @@
 # Coordinator
 
-You own the batch, from the owner's execution Go to its delivered result. The night's output is a batch the user can accept, not a count of closed tickets. A ticket handed back with its reason is a valid outcome; weakened requirements or repeated `continue` messages to manufacture a pass are not.
+You own the authorized spec batch or one ticket, from the owner's execution Go to its delivered result. The night's output is a batch the user can accept, not a count of closed tickets. A ticket handed back with its reason is a valid outcome; weakened requirements or repeated `continue` messages to manufacture a pass are not.
 
-Each decision leaves its reason on the child, ticket or spec where the next reader will look. A reason that lives only in this session is lost when it ends. Use the shared dispatch operations for sending, waiting, reading, acknowledgement and result handling.
+Each decision leaves its reason on the child, ticket or spec where the next reader will look. A reason that lives only in this session is lost when it ends. Use [Send](../SKILL.md#send-an-independent-session), [Wait](../SKILL.md#wait-read-and-acknowledge), [Return](../SKILL.md#return-the-assigned-result) and [Handle command failures](../SKILL.md#handle-command-failures) at the steps below.
+
+## Choose the authorized scope
+
+For a spec batch, follow steps 1–5 below. For one ticket, follow [Deliver one ticket](#deliver-one-ticket); the ticket itself is the execution object, not a container of tasks. Its parent spec supplies requirements, not permission to dispatch sibling tickets.
+
+## Deliver one ticket
+
+Read the authorized ticket, comments, children, applicable spec decisions and baselines. Confirm the explicit integration target within the owner's authorization. Use [this run's tools](../SKILL.md#use-this-runs-tools) and [Send an independent session](../SKILL.md#send-an-independent-session) with role `worker`, its ticket N and the installed dispatch entry as FILE, or the caller's supplied assignment. Outside an open watch, supply `--into BASE`; Send opens the single-ticket watch before starting the Worker.
+
+[Wait, read and acknowledge](../SKILL.md#wait-read-and-acknowledge). Handle children under the authority and repair rules in [Handle a result or child](#3-handle-a-result-or-child), using [Record and resolve a child](../SKILL.md#record-and-resolve-a-child) and [Resume a session](../SKILL.md#resume-a-session); skip that step's Spec-wide status/advance actions. For a stopped Worker, preserve its recorded work and identity and decide recovery within the same ticket's authorization.
+
+After the Worker returns `complete` or `incomplete` and related matters have a disposition, run `dispatch.sh land N`. Complete attempts landing; incomplete preserves the work and ends the ticket's hold/watch. Read the actual `landed`, `returned` or `bounced` result and watch state: exit 0 alone does not prove code was merged. A bounce remains unfinished and may need another authorized attempt on the same ticket. Report the actual output, verification and limitations through [Return](../SKILL.md#return-the-assigned-result); do not enter the Spec's advance/summary loop or start sibling work.
+
+Done when the ticket has its actual landing or unfinished disposition, and the single-ticket watch is closed or its named recovery remains explicit.
 
 ## 1. Read and open the batch
 
@@ -24,13 +38,13 @@ Done when the watch records this coordinator and the explicit target, with the s
 
 Run `dispatch.sh status SPEC`, then `dispatch.sh advance SPEC`. The script handles passed outputs, releases ended holds, reads dependencies again and starts the eligible tickets within `max_workers`. It selects each worker's configured model. Do not maintain a second frontier or merge tickets yourself alongside `advance`.
 
-Exit 4 reports refused starts; read each reason rather than blindly retrying it. Exit 2 reports a condition that prevented some work; read the actual state before retrying because other outputs may already have landed. If workers remain active, wait through the shared dispatch method. If none remain, inspect why queued work cannot start.
+Exit 4 reports refused starts; read each reason rather than blindly retrying it. Exit 2 reports a condition that prevented some work; read the actual state before retrying because other outputs may already have landed. If workers remain active, [wait through the common operation](../SKILL.md#wait-read-and-acknowledge). If none remain, inspect why queued work cannot start.
 
 Done when every attempted operation has a known outcome and the session is waiting for active work or handling a named obstruction.
 
 ## 3. Handle a result or child
 
-Handle each wake in arrival order, one wake at a time. Read and ack through the shared method, run `status SPEC`, and take every action the current state needs, not only the ticket named by the wake.
+Handle each wake in arrival order, one wake at a time. [Read and ack](../SKILL.md#wait-read-and-acknowledge), run `status SPEC`, and take every action the current state needs, not only the ticket named by the wake.
 
 | Recorded result | Action |
 | --- | --- |
@@ -38,12 +52,12 @@ Handle each wake in arrival order, one wake at a time. Read and ack through the 
 | `ticket.returned` | Read the unfinished result and preserve its workspace for triage; continue other work that can proceed. |
 | `ticket.refused` or a refused start | Resolve its stated prerequisite within scope, then advance. |
 | `worker.lost` or a stopped worker whose hold remains | Use the recorded session identity. `retract N` only releases a worker confirmed stopped and preserves its work; then advance can start its replacement. |
-| `child.opened` | Read [Children and decisions](children.md) and the actual child. Settle the matter from existing authority or leave an owner-only choice explicit. |
+| `child.opened` | Read [Record and resolve a child](../SKILL.md#record-and-resolve-a-child) and the actual child. Settle the matter from existing authority or leave an owner-only choice explicit. |
 | `watchdog:` alert | Read its named condition. Silence alone does not prove a worker is gone. Repair the condition or explicitly suspend; do not kill unrelated processes. |
 
 While a worker holds a ticket, its code is the worker's: correct the requirements or baseline it works from, then tell it through `resume`; never edit its worktree or branch. A replacement has none of the instructions sent only inside the old session, so record decisions on the tracker and name them in its continuation.
 
-For a `contract` child, use written authority to settle the conflict: owner decisions and ADRs, the spec, an accepted prototype, domain documents and the ticket. Correct lower-authority material when the source settles the matter. Edit a tracker-owned spec or ticket directly, recording the change and reason. For a repository-owned baseline, use a checkout tracking `origin/BASE`, outside the worker's worktree: fetch, commit the correction and its proof, run `MMW_BASE_REF=PARENT scripts/check` on that commit, then fast-forward push. `PARENT` is the correction commit's parent. This corrects the worker's input while it waits; the worker's output remains theirs. Correct every not-yet-landed ticket derived from the same bad statement. Record the authority, published items corrected and tickets checked on the child, route it `fixed`, then resume the active worker with the exact correction and any commit to integrate.
+For a `contract` child, use written authority to settle the conflict: owner decisions and ADRs, the spec, an accepted prototype, domain documents and the ticket. Correct lower-authority material when the source settles the matter. Edit a tracker-owned spec or ticket directly, recording the change and reason. For a repository-owned baseline, use a checkout tracking `origin/BASE`, outside the worker's worktree: fetch, commit the correction and its proof, run `MMW_BASE_REF=PARENT scripts/check` on that commit, then fast-forward push. `PARENT` is the correction commit's parent. This corrects the worker's input while it waits; the worker's output remains theirs. Correct every not-yet-landed ticket derived from the same bad statement. Record the authority, published items corrected and tickets checked on the child, route it `fixed`, then [resume the active worker](../SKILL.md#resume-a-session) with the exact correction and any commit to integrate.
 
 When no authority settles a blocking contract, or the correction would overturn the owner's decision or expand the spec, leave the choice to the owner. Add `needs-triage` to the child. Find every not-yet-started ticket derived from the same spec decision and move it from `ready-for-agent` to `needs-triage`. Comment on the child with the unresolved options, your recommendation and the ticket numbers moved; leave it open. For a ticket already being worked, use `resume N MESSAGE` to tell its worker to preserve its work and close out as `incomplete`, with the reason pointing to this child. Read and acknowledge `ticket.returned` before treating that worker's task as handed back. Continue the batch's unaffected work.
 
@@ -55,7 +69,7 @@ After handling the state, run `advance SPEC` once. When it leaves no frontier wo
 
 Run `dispatch.sh findings SPEC`. A `finding` wakes nobody, so notifications are not an inventory of remaining work.
 
-Check each finding against the current batch output before deciding its repair. Record a finding that never held as `stale --reason invalid`; one repaired elsewhere as `stale --reason fixed-elsewhere`. An actual repair is `fixed`, not stale. Use the report and commit rules in Children and decisions.
+Check each finding against the current batch output before deciding its repair. Record a finding that never held as `stale --reason invalid`; one repaired elsewhere as `stale --reason fixed-elsewhere`. An actual repair is `fixed`, not stale. Use the [common child report and commit rules](../SKILL.md#record-and-resolve-a-child).
 
 Judge each supported finding in order, first match wins:
 

@@ -142,6 +142,39 @@ else:
             self.assertTrue((archive.getinfo("mmw-v5/tools/dispatch/run.sh").external_attr >> 16) & 0o111)
             self.assertFalse(any("private.txt" in p or "AGENTS.md" in p or "secret" in p for p in archive.namelist()))
 
+    def test_cloud_archive_combines_shared_skills_and_only_cloud_runtime(self):
+        self.write("mmw-v5-cloud/skills/dispatch/SKILL.md", "Cloud dispatch")
+        self.write("mmw-v5-cloud/models.json", '{"max_workers":3,"rows":{}}')
+        self.write("mmw-v5-cloud/tools/dispatch/scripts/dispatch.sh", "#!/bin/bash\nexit 0\n")
+        self.write("mmw-v5/skills/dispatch/SKILL.md", "Local dispatch")
+        self.write("mmw-v5/tools/dispatch/scripts/relay.py", "local only")
+        self.write("mmw-v5/board/page/board-logic.mjs", "shared geometry")
+        self.write("mmw-v5-cloud/board/page/board-logic.mjs", "native cloud facts")
+        self.commit("cloud edition")
+        self.write("mmw-v5-cloud/models.json", "uncommitted data")
+        output = Path(self.temp.name) / "cloud.zip"
+        result = self.command("package", "--edition", "cloud", "--output", str(output))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with zipfile.ZipFile(output) as archive:
+            names = archive.namelist()
+            self.assertEqual(archive.read(".agents/skills/example/SKILL.md"), b"Original skill")
+            self.assertEqual(archive.read(".agents/skills/dispatch/SKILL.md"), b"Cloud dispatch")
+            self.assertEqual(archive.read(".agents/board/page/board-layout.mjs"), b"shared geometry")
+            self.assertEqual(archive.read(".agents/board/page/board-logic.mjs"), b"native cloud facts")
+            self.assertEqual(json.loads(archive.read(".agents/models.json"))["max_workers"], 3)
+            self.assertEqual(json.loads(archive.read(".agents/plugin.json"))["version"], "5.0.0-beta.2")
+            self.assertFalse(any("relay" in name or "runners" in name or "private.txt" in name for name in names))
+
+    def test_cloud_publication_attaches_both_editions_without_tests(self):
+        self.write("mmw-v5-cloud/skills/dispatch/SKILL.md", "Cloud dispatch")
+        self.write("mmw-v5-cloud/models.json", '{"max_workers":3,"rows":{}}')
+        self.commit("cloud edition")
+        result = self.command("publish", GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        create = next(row for row in self.calls() if row[:2] == ["release", "create"])
+        self.assertTrue(any("mmw-v5-cloud-5.0.0-beta.2.zip" in arg for arg in create))
+        self.assertFalse(any(row[:2] == ["workflow", "run"] for row in self.calls()))
+
     def test_mismatched_committed_versions_are_not_packaged(self):
         self.write("mmw-v5/.cursor-plugin/plugin.json", '{"name":"mmw-v5","version":"5.0.0-beta.1"}')
         self.commit("mismatch")

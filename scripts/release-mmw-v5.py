@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import zipfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -65,12 +66,54 @@ def bump() -> str:
     return f"{old} -> {new}; run local checks and commit both manifests with the release on dev"
 
 
-def package(output: Path) -> str:
+def package(output: Path, edition: str = "local") -> str:
     _, version = manifests(committed=True)
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    run("git", "archive", "--format=zip", "--prefix=mmw-v5/", f"--output={output}",
-        "HEAD:mmw-v5", *PACKAGE_PATHS)
+    if edition == "local":
+        run("git", "archive", "--format=zip", "--prefix=mmw-v5/", f"--output={output}",
+            "HEAD:mmw-v5", *PACKAGE_PATHS)
+    else:
+        entries = run("git", "ls-tree", "-r", "-z", "HEAD").stdout.split("\0")
+        files = {}
+        for entry in filter(None, entries):
+            metadata, source = entry.split("\t", 1)
+            mode, kind, blob = metadata.split()
+            if kind != "blob":
+                continue
+            target = None
+            if source.startswith("mmw-v5/skills/") and not source.startswith("mmw-v5/skills/dispatch/"):
+                target = source.removeprefix("mmw-v5/")
+            elif source.startswith("mmw-v5/board/page/"):
+                target = source.removeprefix("mmw-v5/")
+                if target.endswith("/board-logic.mjs"):
+                    target = "board/page/board-layout.mjs"
+                elif target.endswith("/detail.mjs"):
+                    target = "board/page/detail-layout.mjs"
+                elif target.endswith("/settings.mjs"):
+                    continue
+                elif target.endswith("/topbar.mjs"):
+                    target = "board/page/topbar-layout.mjs"
+                elif target.endswith("/styles/settings.css"):
+                    target = "board/page/styles/settings-layout.css"
+            elif source in ("mmw-v5/board/gates.py", "mmw-v5/tools/verify-ticket/scripts/labels.py", "mmw-v5/plugin.json"):
+                target = source.removeprefix("mmw-v5/")
+            elif source.startswith("mmw-v5-cloud/"):
+                relative = source.removeprefix("mmw-v5-cloud/")
+                if relative.startswith(("skills/", "tools/", "board/")) or relative in ("models.json", "README.md"):
+                    target = relative
+            if target:
+                files[target] = (source, mode, blob)
+        if "skills/dispatch/SKILL.md" not in files or "models.json" not in files:
+            raise ValueError("commit the cloud edition before packaging it")
+        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for target, (source, mode, blob) in sorted(files.items()):
+                info = zipfile.ZipInfo(".agents/" + target)
+                info.create_system = 3
+                info.external_attr = int(mode, 8) << 16
+                info.compress_type = zipfile.ZIP_DEFLATED
+                content = subprocess.run(["git", "cat-file", "blob", blob], cwd=ROOT, capture_output=True, check=True).stdout
+                archive.writestr(info, content)
     return version
 
 
@@ -94,12 +137,17 @@ def publish() -> str:
     with tempfile.TemporaryDirectory(prefix="mmw-v5-release-") as directory:
         archive = Path(directory) / f"mmw-v5-{version}.zip"
         package(archive)
+        archives = [str(archive)]
+        if run("git", "cat-file", "-e", "HEAD:mmw-v5-cloud/skills/dispatch/SKILL.md", check=False).returncode == 0:
+            cloud_archive = Path(directory) / f"mmw-v5-cloud-{version}.zip"
+            package(cloud_archive, "cloud")
+            archives.append(str(cloud_archive))
         if existing.returncode == 0:
-            run("gh", "release", "upload", tag, str(archive), "--repo", repo, "--clobber")
+            run("gh", "release", "upload", tag, *archives, "--repo", repo, "--clobber")
         else:
-            args = ["gh", "release", "create", tag, str(archive), "--repo", repo,
+            args = ["gh", "release", "create", tag, *archives, "--repo", repo,
                     "--target", commit, "--title", f"MMW v5 {version}",
-                    "--notes", f"MMW v5 plugin at commit {commit}.\n\nInstall from this repository's main-branch plugin marketplace. The ZIP contains the complete plugin for local installation."]
+                    "--notes", f"MMW v5 plugin at commit {commit}.\n\nInstall from this repository's main-branch plugin marketplace. The local ZIP contains the complete plugin; the cloud ZIP contains the self-contained project .agents runtime when present."]
             if "-" in version:
                 args.append("--prerelease")
             run(*args)
@@ -112,13 +160,14 @@ def main() -> None:
     commands.add_parser("bump", help="increment dev's prerelease counter, or patch for a stable version")
     pack = commands.add_parser("package", help="archive only the committed plugin; never install it")
     pack.add_argument("--output", type=Path, required=True)
+    pack.add_argument("--edition", choices=("local", "cloud"), default="local")
     commands.add_parser("publish", help="publish the existing committed version from the main-push workflow")
     args = parser.parse_args()
     try:
         if args.command == "bump":
             print(bump())
         elif args.command == "package":
-            print(json.dumps({"version": package(args.output), "archive": str(args.output.resolve())}))
+            print(json.dumps({"version": package(args.output, args.edition), "edition": args.edition, "archive": str(args.output.resolve())}))
         else:
             print(publish())
     except (OSError, KeyError, ValueError, RuntimeError) as error:

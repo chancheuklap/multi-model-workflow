@@ -6,7 +6,7 @@ Keep a line here only when all three tests hold:
 - Getting it wrong is costly or cannot be undone.
 - It is the owner's rule or a fact outside the repository, not an inventory of repository contents, so it stays true as the code changes.
 
-Only `mmw-v5/` is live. Other version directories, `archive/`, `deprecated/`, `docs/research/` and `upstream/` are history or read-only. They can supply reference material when the task calls for it; they are not current working instructions. Run none of their scripts.
+`mmw-v5/` is the local edition; `mmw-v5-cloud/` holds cloud-specific deliverables. Shared skills are maintained only in `mmw-v5/` and copied into complete cloud release packages. Other version directories, `archive/`, `deprecated/`, `docs/research/` and `upstream/` are history or read-only. They can supply reference material when the task calls for it; they are not current working instructions. Run none of their scripts.
 
 MMW v5 is the owner's general workflow for developing projects across consuming repositories. This repository is one of those projects and delivers the plugin itself, so the installed MMW v5 can be used to develop MMW.
 
@@ -33,7 +33,7 @@ When this repository consumes MMW v5, the installed plugin used to open a night 
 
 - Releasing and updating installed hosts are the owner's calls. Commit completed changes on the assigned development branch; do not merge or push to `main`, publish, or update installed plugins without authorization.
 - Prepare version changes on `dev` with `python3 scripts/release-mmw-v5.py bump` and run the relevant checks locally before committing. Pushing `dev` does not publish. Merging and pushing to `main` publishes the committed version as a tag, GitHub Release and plugin ZIP; GitHub does not change the version or run tests.
-- Codex and Cursor consume complete plugins from the GitHub `main` branch through their native plugin systems. Do not install skill-only copies or point consuming agents at this development repository. Installation and update commands live in `mmw-v5/README.md`.
+- The local edition is a complete plugin installed from GitHub `main`. The cloud edition is a complete published `.agents/` runtime committed to a consuming project, with only project models.json as its configuration. Do not point either edition at this development repository or update a running installation. Installation guidance lives in the edition READMEs.
 - Local configuration and runtime records live outside the plugin at `~/.mmw-v5`, or the directory selected by `MMW_HOME`. Preserve them when replacing or updating plugins. Codex and Cursor share the same MMW configuration when they use the same directory.
 - Never put credentials under plugin skills or scripts: the same installed plugin is used across consuming repositories.
 - `.worktrees/mmw-installed` is a hand-made checkout, not a pipeline worktree. Never prune it.

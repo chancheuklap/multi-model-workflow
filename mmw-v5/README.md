@@ -1,6 +1,8 @@
-# 安装和发布 MMW v5
+# 安装和发布 MMW v5 本地版
 
-MMW v5 从 GitHub 的 `main` 分支分发。Codex、Cursor 安装同一份插件，包含 `skills/`、`tools/` 和 `board/`。宿主读取自己的安装副本；Agent 在使用 MMW 时不读取 MMW 开发仓库。
+这里是本地独立会话版本。云端专用源码在 `mmw-v5-cloud/`；共同技能仍只在本目录维护。云端发布包将共同技能与云端专用内容组成项目 `.agents/`，不共用本地版 dispatch 或本机模型配置。
+
+MMW v5 本地版从 GitHub 的 `main` 分支分发。Codex、Cursor 安装同一份插件，包含 `skills/`、`tools/` 和 `board/`。宿主读取自己的安装副本；Agent 在使用 MMW 时不读取 MMW 开发仓库。
 
 ## 从 GitHub 安装到 Codex
 
@@ -69,7 +71,7 @@ MMW_BASE_REF=origin/main scripts/check
 
 `bump` 同步修改 portable 和 Cursor 清单的版本号。预发布版本递增末尾编号，例如 `5.0.0-beta.2 → 5.0.0-beta.3`；稳定版本递增 patch。它不提交、不推送、不发布。Agent 在本地检查通过后，将版本变更与本次代码一起提交、推送到 `dev`。
 
-推送 `dev` 不触发发布。合并并推送到 `main` 后，`.github/workflows/release-mmw-v5.yml` 自动按已经提交的版本打 tag、创建 GitHub Release 并附上完整插件 ZIP。云端不改版本号、不回写分支、不创建版本 PR、不运行测试。
+推送 `dev` 不触发发布。合并并推送到 `main` 后，`.github/workflows/release-mmw-v5.yml` 自动按已经提交的版本打 tag、创建 GitHub Release，并附上本地 plugin 与云端项目运行包两份 ZIP。云端不改版本号、不回写分支、不创建版本 PR、不运行测试。
 
 发版任务只打包该提交中的插件文件；已用于另一提交的版本号不能再次发布。需要新版本时先回到 `dev` 准备版本号。
 
