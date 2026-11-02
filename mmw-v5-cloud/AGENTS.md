@@ -4,6 +4,6 @@ This directory is a complete cloud edition: all skills, tools, board assets and 
 
 Preserve the professional methods and standards shared with the local edition. Adapt dispatch-related roles, inputs, communication and reporting where this edition's workflow requires it.
 
-Only the local Coordinator reads or writes GitHub Issues, dependencies, comments and PRs. Cloud agents use their native parent-child channel. Local runners, relay and event/report protocols belong to the local edition.
+The local Coordinator manages GitHub Issues, dependencies, final PR bodies and merges. Cloud Workers push their assigned branches and create their draft PRs. Cloud agents return questions and work reports through the host's native tools; the caller resumes the same agent with its answer. Local runners, relay and event/report protocols belong to the local edition.
 
 Skills remain model-invocable. Put role documents in `references/` with lowercase, hyphen-separated filenames.

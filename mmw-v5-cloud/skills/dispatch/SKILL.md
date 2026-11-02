@@ -45,13 +45,17 @@ Supply required Issue bodies and relevant comments as content, not only GitHub l
 
 ## Send a native cloud agent
 
-Use this host's actual native cloud-agent tools to send the assignment and supported settings. Workers execute in the cloud; review axes execute in the Worker's cloud environment or assigned isolated copies. Retain the native reference for subsequent conversation. The native tool establishes the parent-child relationship; there is no separate registration command.
+In Cursor, start a Cloud Worker with native `Task` and select the cloud environment. Review axes use the native Task calls assigned by **code-review**. Pass this run's configured model and effort through the settings the tool supports. Retain the returned Agent ID with its ticket or review axis.
+
+On another host, use its native cloud dispatch and continuation tools. Report a missing operation or unsupported setting. Cursor's `Task` and `resume` names apply to Cursor; dispatch uses the host's native tools under the existing subscription.
 
 ## Wait and continue
 
 Do not interrupt dispatched agents or repeat their work. Read the actual returned evidence before continuing the role step that dispatched it.
 
-Use the native parent-child channel for questions, results and follow-ups to the same agent. Wait using the host's supported mechanism. Preserve valid work. Give the exact correction, its source, any commit to integrate and the work to continue.
+In Cursor, read the assigned agent's reply from the `Task` result. To answer its question or continue its work, call `Task` with `resume` set to that original Agent ID. Give the answer or correction, its source, any commit to integrate and the work to continue.
+
+A Task completion notification means that one call returned. Read the returned message to decide whether the agent needs an answer, has finished its assignment, or is handing back unfinished work. Continue a question through the original Agent ID.
 
 A lost or incomplete result is a limitation, not a clean review or a successful task.
 
@@ -61,11 +65,11 @@ Apply **principle-prove-it-works**.
 
 Return the assigned result with its actual evidence and limitations. Preserve the ticket, target and code-version identity supplied in your assignment. The role reference or assigned method specifies the required result and completion condition; a method's answer alone is not a delivered assignment.
 
+Return the result in your final reply to the caller. In Cursor, this reply is the Task result. When you need the caller's answer before proceeding, return the question, the reason work is blocked and what you need from the caller, then end this turn. Continue the same assignment when the caller resumes you with its answer.
+
 State what was done, the checks actually run, what the evidence establishes and what remains.
 
-Report problems, their evidence, blocking effect and requested action directly to the parent.
-
-The local Coordinator handles the workflow's GitHub records. Cloud agents need Git access for their assigned branches, not `gh` or Issue/PR API access. The Coordinator preserves original reports, decisions and results as ordinary records; native conversation delivers the handoff. Its role reference defines when to record each result. Root Coordinators deliver their result to the owner.
+The Coordinator records implementation, review handling and verification in the ticket PR body. Issues and child issues hold requirements, dependencies and decisions. The role references specify who creates the PR, records a child and merges the output. The Coordinator delivers the authorized output to the owner.
 
 ## Handle command failures
 

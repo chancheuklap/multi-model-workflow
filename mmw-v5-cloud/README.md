@@ -14,7 +14,9 @@
 
 ## 使用
 
-本地 Coordinator 在选定开夜分支调用项目的 `dispatch` 技能；它负责全部 GitHub 操作。Cloud Worker 使用自己的分支和 Git 权限，直接交回问题、提交、审查与验证证据。三轴 Reviewer 使用共同 `code-review` 技能。
+本地 Coordinator 在选定开夜分支调用项目的 `dispatch` 技能，管理 Issue、依赖、PR 最终正文和合并。Cloud Worker 在自己的分支写测试和代码，首次提交并推送后创建指向 NIGHT 的 draft PR；它调用 `code-review` 组织三轴审查、处理问题，再返回工作报告。Coordinator 调用 `pr` 将实施、审查处理和验证结果写入同一 PR 正文，合并到 NIGHT 后关闭 ticket，按依赖推进后续工作。任务完成报告不重复写入 Issue 评论。
+
+Cursor 使用原生 `Task` 的 cloud 环境派发 Worker，从 Task 返回正文读取问题和报告，用 `resume` 指定原 Agent ID 继续工作。Worker 需要 Coordinator 答复时，返回问题并结束本轮；Coordinator 收到后作答并恢复同一个 Worker。Task 的 Completed 通知表示一次调用返回，ticket 是否完成取决于实际合并结果。`max_workers` 限制正在执行的 Worker 回合；等待答复时 ticket 仍归原 Worker，继续执行时使用原 Agent ID。
 
 在 Coordinator 的使用项目目录中，解析工具绝对路径后：
 
@@ -30,7 +32,7 @@ dispatch.sh board --port 47100
 
 `models.py` 使用 `python3` 调用，`dispatch.sh` 使用 Bash。board 在本地运行，沿用共同界面，展示普通 GitHub 工作记录与真实依赖／合并，不推测云端 Agent 活跃状态。配置编辑写项目文件，提交后供下一次运行使用。标签初始化由本地 Coordinator 在项目设置时运行 `tools/setup-mmw/scripts/labels.py`；不迁移私有事件。
 
-原生云端启动、父子返回／继续、三级 Agent 树和 Git 推送能力需在 Codex／Cursor 实际环境分别验收。本版本的提示词与机械工具不会用虚构工具名或新 relay 伪造宿主支持。此目录的落地不表示已完成账户级云端验收。
+Cursor 的本地 Task 派发 Cloud Worker、读取返回正文、resume 原 Agent 并收到答复已实测通过；Cloud Worker 并行派出三个审查代理并收到返回也已实测通过。真实代码推送和 draft PR 创建尚未实测。Codex 的云端原生派发与续做尚未实测；模型配置中的宿主名称不代表该宿主已提供对应工具。
 
 ## 开发与打包
 
