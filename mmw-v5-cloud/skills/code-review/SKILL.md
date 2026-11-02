@@ -5,6 +5,8 @@ description: "Use when the user wants to review a branch, a PR, work-in-progress
 
 # Code review
 
+When assigned a complete review, perform it in this session, whether you are an independent main reviewer or an implementation worker. After completing the review, return to the task that invoked this skill.
+
 Follow the reference for the review task you were assigned:
 
 | Your task | Read and follow |

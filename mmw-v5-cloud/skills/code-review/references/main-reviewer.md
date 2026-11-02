@@ -8,7 +8,7 @@ Three-axis review of the diff between `HEAD` and the fixed point supplied in you
 
 The axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. Start every sub-agent with a fresh context window.
 
-Report findings. Do not apply fixes. Read issue sources through the repository's configured tracker or the host's tools, including their full bodies and comments.
+Report findings. Do not apply fixes during this review. Read issue sources through the repository's configured tracker or the host's tools, including their full bodies and comments.
 
 ## Process
 

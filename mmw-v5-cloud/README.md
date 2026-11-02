@@ -1,13 +1,14 @@
 # MMW v5 cloud edition
 
-本目录是一套完整的 MMW v5 云端版本，包含全部技能、工具、任务板、模型配置及版本清单。除 dispatch 外，code-review、write-tests、principle 等技能与本地版逐文件一致。派发差异在本版 dispatch 及配套脚本内处理。
+本目录是一套完整的 MMW v5 云端版本，包含全部技能、工具、任务板、模型配置及版本清单。共同专业方法和标准保留原文，涉及派发的角色、输入、通信和回报按本版工作链适配。
 
 本版的打包和运行都只读取本目录，不需要本地版目录，也不在发布时拼装另一版的文件。
 
 ## 与本地版分开使用
 
 - 本地版仍是 `mmw-v5/` 完整 plugin，使用本机 MMW_HOME、独立会话与原有通知链。
-- 云端发布包包含 `.agents/skills/`、`.agents/tools/`、`.agents/board/`、`.agents/models.json` 和发布包本身的 `plugin.json`。只把已发布云端包安装到使用 MMW 的项目，提交到项目分支并推送。项目不同时加载本地版同名 dispatch。
+- 使用时在本地版与云端版中选择一套完整安装。安装云端版时，本地 Coordinator 和 Cloud Worker 都使用云端版的技能、工具与配置。
+- 云端发布包包含 `.agents/skills/`、`.agents/tools/`、`.agents/board/`、`.agents/models.json` 和发布包本身的 `plugin.json`。把已发布云端包安装到使用 MMW 的项目，提交到项目分支并推送。
 - 首次安装或实际授权变更时才更新；普通开夜复用已有安装／配置。不新增版本清单或锁系统。
 - 模型配置只有项目 `.agents/models.json` 一份。`inherit` 沿用宿主；填写实际原生工具支持的 model／effort。云端没有本地 CLI 扫描、runner 或模型目录缓存。
 

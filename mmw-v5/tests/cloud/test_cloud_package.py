@@ -12,18 +12,14 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[3]
 
 class InstalledCloudPackage(unittest.TestCase):
-    def test_both_editions_contain_identical_non_dispatch_skills(self):
+    def test_both_editions_expose_the_complete_skill_set(self):
         def inventory(edition):
             folder = ROOT / edition / "skills"
-            return {p.relative_to(folder): p.read_bytes() for p in folder.rglob("*")
-                    if p.is_file() and p.relative_to(folder).parts[0] != "dispatch"
-                    and "__pycache__" not in p.parts}
+            return {p.parent.name for p in folder.glob("*/SKILL.md") if p.is_file()}
         local = inventory("mmw-v5")
         cloud = inventory("mmw-v5-cloud")
-        self.assertEqual(local.keys(), cloud.keys())
-        for path, content in local.items():
-            self.assertEqual(content, cloud[path], str(path))
-            self.assertFalse((ROOT / "mmw-v5-cloud/skills" / path).is_symlink())
+        self.assertTrue(local)
+        self.assertEqual(local, cloud)
 
     def test_complete_project_runtime_works_without_development_checkout(self):
         with tempfile.TemporaryDirectory(prefix='mmw-cloud-package-') as tmp:
