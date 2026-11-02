@@ -1,6 +1,6 @@
 import {hhmm, minutes} from "./shared.mjs";
 
-// The two axes a ticket is read on, both defined in `docs/contexts/task-board/CONTEXT.md`:
+// The two axes a ticket is read on:
 // the phase is where the ticket stands inside itself, the lamp is what it wants from the
 // outside. A ticket can be `working` and still want nothing, or `landed` and still need a
 // person, so neither word can be read off the other.
