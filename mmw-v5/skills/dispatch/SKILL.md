@@ -7,6 +7,8 @@ description: Coordinate an authorized spec or one ticket, send an independent ag
 
 ## Understand your assignment
 
+Apply **principle-baseline-is-the-contract** and **principle-never-block-on-the-human**.
+
 On first entry, read this file in full. Use the role assigned to you, not the sender's role. Read the additional task files named in your first message; they supply the particular task. Keep the ticket, source decisions and assigned scope authoritative.
 
 | Your assignment | Working sequence |
@@ -66,6 +68,8 @@ A lost or incomplete result is a limitation, not a clean review or a successful 
 Closeout, review and child events notify their existing recipients automatically.
 
 ## Return the assigned result
+
+Apply **principle-prove-it-works**.
 
 Return the assigned result with its actual evidence and limitations. Preserve the ticket, target and code-version identity supplied in your assignment. The role reference or assigned method specifies the required result and completion condition; a method's answer alone is not a delivered assignment.
 

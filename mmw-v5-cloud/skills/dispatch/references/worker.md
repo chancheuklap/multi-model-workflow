@@ -36,6 +36,8 @@ Done when a complete review has returned checked reports or an explicit missing/
 
 ## 4. Read and handle the review
 
+Apply **principle-fix-root-causes**.
+
 Preserve original reports, dispositions and limitations.
 
 First handle findings belonging to this ticket's behavior, applicable decisions, accepted baselines and changed behavior. Fix supported defects. An in-ticket finding you do not fix needs concrete evidence disproving that specific claim; a true fact about nearby code is not a refutation. Scope comes from the actual task, not a required Owns field or the number of files touched.

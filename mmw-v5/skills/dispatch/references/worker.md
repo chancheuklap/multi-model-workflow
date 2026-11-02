@@ -36,6 +36,8 @@ Done when an independent reviewer has reported against the candidate, or its los
 
 ## 4. Read and handle the review
 
+Apply **principle-fix-root-causes**.
+
 On `reviewer.reported`, [read the actual report and acknowledge it](../SKILL.md#wait-and-continue). On `reviewer.lost`, [send a replacement reviewer](../SKILL.md#send-an-independent-session) for the same current candidate; a missing report is not a review. A bad ref, empty diff or unavailable axis remains an explicit review limitation.
 
 Preserve original reports, dispositions and limitations.
