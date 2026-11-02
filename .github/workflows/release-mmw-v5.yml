@@ -1,0 +1,29 @@
+name: Release MMW v5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mmw-v5/**'
+      - '.agents/plugins/marketplace.json'
+      - '.cursor-plugin/marketplace.json'
+      - 'scripts/release-mmw-v5.py'
+      - '.github/workflows/release-mmw-v5.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mmw-v5-release
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Publish the prepared version
+        run: python3 scripts/release-mmw-v5.py publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

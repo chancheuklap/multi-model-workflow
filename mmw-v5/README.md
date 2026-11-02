@@ -1,45 +1,82 @@
-# 安装 MMW v5
+# 安装和发布 MMW v5
 
-使用完整的 MMW v5 发布包。Codex 和 Cursor 共用根目录的 `plugin.json`、`skills/`、`tools/` 和 `board/`。解压后保持目录关系，安装副本中不保留指向 MMW 开发仓库的链接。
+MMW v5 从 GitHub 的 `main` 分支分发。Codex、Cursor 安装同一份插件，包含 `skills/`、`tools/` 和 `board/`。宿主读取自己的安装副本；Agent 在使用 MMW 时不读取 MMW 开发仓库。
 
-以下步骤假定发布包解压在 `~/Downloads/mmw-v5`。使用其他目录时，将命令中的这个路径替换为实际路径。
+## 从 GitHub 安装到 Codex
 
-## 在 Codex 中安装
+```sh
+codex plugin marketplace add chancheuklap/multi-model-workflow --ref main
+codex plugin add mmw-v5@mmw-v5
+```
 
-1. 注册发布包自带的本地插件目录：
+更新插件源并安装其中的版本：
 
-   ```sh
-   codex plugin marketplace add "$HOME/Downloads/mmw-v5"
-   ```
+```sh
+codex plugin marketplace upgrade mmw-v5
+codex plugin add mmw-v5@mmw-v5
+```
 
-2. 安装插件：
+重启宿主，在新对话中确认 `dispatch`、`code-review` 和 `write-tests` 可用。插件源必须指定 `main`；本仓库的默认分支是 `dev`。
 
-   ```sh
-   codex plugin add mmw-v5@mmw-v5-local
-   ```
+## 从 GitHub 安装到 Cursor
 
-3. 在新对话中确认 MMW v5 的 `dispatch`、`code-review` 和 `write-tests` 技能可用。
+注册插件源：
 
-Codex 从自己的插件缓存读取安装副本。开发仓库只用于制作后续版本，不参与运行。
+```sh
+agent plugin marketplace add https://github.com/chancheuklap/multi-model-workflow --git-ref main
+```
 
-## 在 Cursor 中安装
+然后打开 **Customize → Plugins**，从 `mmw-v5` 插件源安装 MMW v5。注册来源不会自动安装插件。本机 Cursor CLI 没有独立的非交互插件安装命令。
 
-1. 将同一份插件包复制到 Cursor 的本地插件目录：
+重新索引来源：
 
-   ```sh
-   mkdir -p "$HOME/.cursor/plugins/local"
-   cp -R "$HOME/Downloads/mmw-v5" "$HOME/.cursor/plugins/local/mmw-v5"
-   ```
+```sh
+agent plugin marketplace update mmw-v5
+```
 
-   首次安装时，目标 `mmw-v5` 目录应不存在。更新时替换完整副本，不把新目录嵌套到旧目录中。
+在 Customize 中更新插件，重载窗口后确认实际安装版本。个人 GitHub 导入存在固定旧提交的已知问题，来源刷新成功不能代替安装版本确认。Teams、Enterprise 的 GitHub 插件源可以配置 Auto Refresh；个人安装不承诺自动升级。见 [Cursor 更新说明](https://cursor.com/docs/plugins#keep-plugins-up-to-date)和[个人导入问题](https://forum.cursor.com/t/add-plugin-github-imports-can-get-stuck-on-stale-plugin-versions/163895)。
 
-2. 在 Cursor 中执行 **Developer: Reload Window**。
-3. 打开 **Customize**，确认 MMW v5 及其技能已加载。Enterprise 的本地插件导入需要管理员允许。
+## 从旧本地包切换
 
-使用 Cursor CLI 时，通过已复制的插件目录启动：
+先结束正在运行的 night。Codex 旧来源名是 `mmw-v5-local`，切换前移除旧安装，避免重复技能：
+
+```sh
+codex plugin remove mmw-v5@mmw-v5-local
+```
+
+Cursor 先将旧 MMW v5 本地副本移出 `~/.cursor/plugins/local/`，重载窗口，再安装 GitHub 来源。保留 `~/.mmw-v5` 中的模型配置和运行记录。
+
+## 本地发布包
+
+GitHub Release 的 ZIP 是完整插件包，供本地或离线安装；从 GitHub 插件源安装不需要 ZIP。解压后的 `mmw-v5` 目录含独立的 `mmw-v5-local` 插件源，也可完整复制到 Cursor 的 `~/.cursor/plugins/local/mmw-v5`，随后重载窗口。保持目录关系，不保留指向开发仓库的链接。
+
+Cursor CLI 也可以通过已安装的完整本地副本启动：
 
 ```sh
 agent --plugin-dir "$HOME/.cursor/plugins/local/mmw-v5"
+```
+
+## 准备和发布版本
+
+以下命令只在维护 MMW 的开发仓库中运行；安装副本不包含发布脚本。
+
+准备一次发布时，在 `dev` 上运行一次：
+
+```sh
+python3 scripts/release-mmw-v5.py bump
+MMW_BASE_REF=origin/main scripts/check
+```
+
+`bump` 同步修改 portable 和 Cursor 清单的版本号。预发布版本递增末尾编号，例如 `5.0.0-beta.2 → 5.0.0-beta.3`；稳定版本递增 patch。它不提交、不推送、不发布。Agent 在本地检查通过后，将版本变更与本次代码一起提交、推送到 `dev`。
+
+推送 `dev` 不触发发布。合并并推送到 `main` 后，`.github/workflows/release-mmw-v5.yml` 自动按已经提交的版本打 tag、创建 GitHub Release 并附上完整插件 ZIP。云端不改版本号、不回写分支、不创建版本 PR、不运行测试。
+
+发版任务只打包该提交中的插件文件；已用于另一提交的版本号不能再次发布。需要新版本时先回到 `dev` 准备版本号。
+
+如需在本地检查已提交版本的 ZIP：
+
+```sh
+python3 scripts/release-mmw-v5.py package --output /tmp/mmw-v5.zip
 ```
 
 ## 配置和使用
@@ -52,4 +89,4 @@ agent --plugin-dir "$HOME/.cursor/plugins/local/mmw-v5"
 
 替换旧 v4 时，先结束旧运行，再移除旧 MMW 技能入口和旧 hook，然后启用 v5。一次运行始终使用同一份插件副本，运行期间不更新或卸载插件。
 
-安装格式依据：[Codex 插件安装文档](https://developers.openai.com/plugins/build/plugins)、[Cursor 支持的插件格式](https://cursor.com/docs/reference/plugins)、[Cursor 本地插件安装](https://cursor.com/docs/plugins#test-plugins-locally)。
+安装格式依据：[Codex 插件安装文档](https://developers.openai.com/plugins/build/plugins)、[Cursor 支持的插件格式](https://cursor.com/docs/reference/plugins)、[Cursor CLI 插件源命令](https://cursor.com/docs/cli/changelog)。

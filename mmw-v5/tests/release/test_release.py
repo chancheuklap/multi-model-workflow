@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+import zipfile
+
+
+ROOT = Path(__file__).resolve().parents[3]
+SCRIPT = ROOT / "scripts/release-mmw-v5.py"
+
+
+class ReleaseTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="mmw-release-test-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / "repo"
+        self.root.mkdir()
+        self.remote = Path(self.temp.name) / "remote.git"
+        subprocess.run(["git", "init", "--bare", "--quiet", str(self.remote)], check=True)
+        self.git("init", "--quiet", "--initial-branch=dev")
+        self.git("config", "user.name", "Release test")
+        self.git("config", "user.email", "test@example.invalid")
+        self.git("remote", "add", "origin", str(self.remote))
+        self.write("scripts/release-mmw-v5.py", SCRIPT.read_text())
+        for path in ("plugin.json", ".cursor-plugin/plugin.json"):
+            self.write("mmw-v5/" + path, json.dumps({"name": "mmw-v5", "version": "5.0.0-beta.2"}))
+        for path, text in {
+            "README.md": "Read me", ".agents/plugins/marketplace.json": '{"name":"mmw-v5-local"}',
+            "skills/example/SKILL.md": "Original skill", "tools/dispatch/run.sh": "#!/bin/sh\nexit 0\n",
+            "board/page/index.html": "Board", "tests/private.txt": "not installed", "AGENTS.md": "development only",
+        }.items():
+            self.write("mmw-v5/" + path, text)
+        (self.root / "mmw-v5/tools/dispatch/run.sh").chmod(0o755)
+        self.commit("initial")
+        self.bin = Path(self.temp.name) / "bin"
+        self.bin.mkdir()
+        self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
+                        GITHUB_REPOSITORY="example/mmw", GITHUB_EVENT_NAME="push", GITHUB_REF="refs/heads/main",
+                        GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip(), GH_TOKEN="test-only")
+        self.log = Path(self.temp.name) / "gh.jsonl"
+        self.env["RELEASE_TEST_LOG"] = str(self.log)
+        self.write_gh()
+
+    def write(self, path, text):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    def git(self, *args):
+        return subprocess.run(["git", *args], cwd=self.root, capture_output=True, text=True, check=True)
+
+    def commit(self, message):
+        self.git("add", ".")
+        self.git("commit", "--quiet", "-m", message)
+
+    def command(self, *args, **env):
+        return subprocess.run([sys.executable, str(self.root / "scripts/release-mmw-v5.py"), *args],
+                              cwd=self.root, env=dict(self.env, **env), capture_output=True, text=True)
+
+    def write_gh(self):
+        gh = self.bin / "gh"
+        gh.write_text("#!" + sys.executable + "\n" + '''
+import json,os,pathlib,subprocess,sys,zipfile
+a=sys.argv[1:]
+log=pathlib.Path(os.environ['RELEASE_TEST_LOG'])
+with log.open('a') as out:out.write(json.dumps(a)+'\\n')
+state=log.with_suffix('.state')
+if a[:2]==['release','view']:
+ if os.environ.get('RELEASE_TEST_NETWORK_ERROR'):
+  print('network unavailable',file=sys.stderr);sys.exit(1)
+ if not state.exists():print('release not found',file=sys.stderr);sys.exit(1)
+ print('https://example.invalid/release' if '--jq' in a else json.dumps({'url':'https://example.invalid/release'}))
+elif a[:2] in (['release','create'],['release','upload']):
+ archive=pathlib.Path(a[3])
+ with zipfile.ZipFile(archive) as z:
+  data={'version':json.loads(z.read('mmw-v5/plugin.json'))['version'],'files':z.namelist()}
+ log.with_suffix('.archive').write_text(json.dumps(data))
+ if a[1]=='create':
+  subprocess.run(['git','push','--quiet','origin', 'HEAD:refs/tags/'+a[2]],check=True)
+ state.write_text('published')
+else:
+ print('unexpected gh command '+repr(a),file=sys.stderr);sys.exit(2)
+''')
+        gh.chmod(0o755)
+
+    def calls(self):
+        return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+
+    def test_github_marketplaces_resolve_the_same_complete_plugin(self):
+        codex = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
+        cursor = json.loads((ROOT / ".cursor-plugin/marketplace.json").read_text())
+        codex_entry = next(row for row in codex["plugins"] if row["name"] == "mmw-v5")
+        cursor_entry = next(row for row in cursor["plugins"] if row["name"] == "mmw-v5")
+        codex_root = (ROOT / codex_entry["source"]["path"]).resolve()
+        cursor_root = (ROOT / cursor_entry["source"]).resolve()
+        self.assertEqual(codex_root, cursor_root)
+        portable = json.loads((codex_root / "plugin.json").read_text())
+        overlay = json.loads((cursor_root / ".cursor-plugin/plugin.json").read_text())
+        self.assertEqual(portable["name"], codex_entry["name"])
+        self.assertEqual(portable["version"], overlay["version"])
+        self.assertTrue((codex_root / "skills/dispatch/SKILL.md").is_file())
+        self.assertTrue((codex_root / "tools/dispatch/scripts/dispatch.sh").is_file())
+        self.assertTrue((codex_root / "board/server.py").is_file())
+
+    def test_bump_prepares_dev_without_committing_or_publishing(self):
+        before = self.git("rev-parse", "HEAD").stdout
+        result = self.command("bump")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for path in ("plugin.json", ".cursor-plugin/plugin.json"):
+            self.assertEqual(json.loads((self.root / "mmw-v5" / path).read_text())["version"], "5.0.0-beta.3")
+        self.assertEqual(self.git("rev-parse", "HEAD").stdout, before)
+        self.assertEqual(self.calls(), [])
+
+    def test_stable_version_increments_patch(self):
+        for path in ("plugin.json", ".cursor-plugin/plugin.json"):
+            self.write("mmw-v5/" + path, json.dumps({"name": "mmw-v5", "version": "5.0.4"}))
+        self.assertEqual(self.command("bump").returncode, 0)
+        self.assertEqual(json.loads((self.root / "mmw-v5/plugin.json").read_text())["version"], "5.0.5")
+
+    def test_bump_on_main_changes_nothing(self):
+        self.git("switch", "--quiet", "-c", "main")
+        result = self.command("bump")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("on dev", result.stderr)
+        self.assertEqual(self.git("status", "--porcelain").stdout, "")
+
+    def test_package_uses_committed_files_and_preserves_tools(self):
+        self.write("mmw-v5/skills/example/SKILL.md", "uncommitted edit")
+        self.write("mmw-v5/tools/untracked-secret.txt", "not committed")
+        output = Path(self.temp.name) / "plugin.zip"
+        result = self.command("package", "--output", str(output))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with zipfile.ZipFile(output) as archive:
+            self.assertEqual(archive.read("mmw-v5/skills/example/SKILL.md"), b"Original skill")
+            self.assertIn("mmw-v5/.cursor-plugin/plugin.json", archive.namelist())
+            self.assertIn("mmw-v5/board/page/index.html", archive.namelist())
+            self.assertTrue((archive.getinfo("mmw-v5/tools/dispatch/run.sh").external_attr >> 16) & 0o111)
+            self.assertFalse(any("private.txt" in p or "AGENTS.md" in p or "secret" in p for p in archive.namelist()))
+
+    def test_mismatched_committed_versions_are_not_packaged(self):
+        self.write("mmw-v5/.cursor-plugin/plugin.json", '{"name":"mmw-v5","version":"5.0.0-beta.1"}')
+        self.commit("mismatch")
+        result = self.command("package", "--output", str(Path(self.temp.name) / "bad.zip"))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("same name and version", result.stderr)
+
+    def test_dev_and_pr_events_cannot_publish(self):
+        for changes in ({"GITHUB_REF": "refs/heads/dev"}, {"GITHUB_EVENT_NAME": "pull_request"}):
+            with self.subTest(changes=changes):
+                self.assertEqual(self.command("publish", **changes).returncode, 2)
+        self.assertEqual(self.calls(), [])
+
+    def test_main_publishes_prepared_version_and_retry_reuses_release(self):
+        before = self.git("rev-parse", "HEAD").stdout
+        result = self.command("publish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        create = next(row for row in self.calls() if row[:2] == ["release", "create"])
+        self.assertEqual(create[2], "v5.0.0-beta.2")
+        self.assertIn("--prerelease", create)
+        self.assertEqual(create[create.index("--target") + 1], before.strip())
+        archive = json.loads(self.log.with_suffix(".archive").read_text())
+        self.assertEqual(archive["version"], "5.0.0-beta.2")
+        self.assertEqual(self.git("status", "--porcelain").stdout, "")
+        self.assertEqual(self.git("rev-parse", "HEAD").stdout, before)
+        result = self.command("publish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(sum(row[:2] == ["release", "create"] for row in self.calls()), 1)
+        self.assertTrue(any(row[:2] == ["release", "upload"] for row in self.calls()))
+
+    def test_existing_version_at_another_commit_cannot_be_overwritten(self):
+        self.git("push", "--quiet", "origin", "HEAD:refs/tags/v5.0.0-beta.2")
+        self.write("mmw-v5/README.md", "changed without a version bump")
+        self.commit("next code")
+        result = self.command("publish", GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip())
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("another commit", result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_failed_release_lookup_does_not_attempt_a_write(self):
+        result = self.command("publish", RELEASE_TEST_NETWORK_ERROR="1")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("network unavailable", result.stderr)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertEqual(self.calls()[0][:2], ["release", "view"])
+
+
+if __name__ == "__main__":
+    unittest.main()

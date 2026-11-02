@@ -1,0 +1,11 @@
+{
+  "name": "mmw-v5",
+  "owner": { "name": "MMW" },
+  "plugins": [
+    {
+      "name": "mmw-v5",
+      "source": "./mmw-v5",
+      "description": "MMW v5 skills, independent-session dispatch tools, and local task board"
+    }
+  ]
+}
