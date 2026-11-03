@@ -17,6 +17,10 @@ Answer these from the codebase and only ask the user what you cannot observe:
 - **Observe:** what evidence can be captured? Screenshots, terminal transcripts, response bodies, logs, exit codes, DB state.
 - **Isolate:** can two instances run side by side (ports, data dirs, profiles)? If not, say so in the generated skill: refusing to double-drive a shared instance beats corrupting the user's session.
 
+The skill you generate is the project's verification system. Its name is `verify-<app>`, and it lives at `.cursor/skills/verify-<app>/`. Later agents start the app, drive it, and keep evidence by reading that skill.
+
+When e2e can drive the surface a person touches, e2e is the harness. Install `e2e` and the engine packages that `npx e2e guide setup` names for the surface in front of you, with the project's package manager. A surface that guide adds later uses the engine it names there. Do not run `e2e init`, do not install the e2e skill, and do not register MCP or a model. Run `npx e2e guide setup` and `npx e2e guide writing-tests`, and follow them for the config and the scripts. Scripts use `screen` and `expect` only. Put `e2e.config.ts` and the scripts inside `verify-<app>/`, not in the product's test suite. Those guides' test globs cannot contain `..`, so the scripts stay in that directory. The app command's `cwd` is the repository root. A site starts with `app.command`. A window that already is the app, such as Electron, attaches with `connect` to that window's own debugging port, and each script starts its own app. Doctor is `npx e2e list` and then one smoke script. Drive and Evidence name those scripts, `trace.md`, and a durable `--output`. A surface those guides cannot drive keeps the generic recipe from the interview above.
+
 If the checkout doesn't build or start as-is, fix that first (or report it precisely) before generating; a skill written against a broken base teaches wrong steps. When an irrelevant missing asset blocks startup (a static dir the API never serves, a sample config), the generated skill may create it, clearly marked as verification scaffolding, and remove it in cleanup.
 
 ## 2. Generate the skill
@@ -29,6 +33,8 @@ Write `.cursor/skills/verify-<app>/SKILL.md` with YAML frontmatter (`name: verif
 - **Evidence:** what to capture for a proof and where it goes. State the proof standards: exercise the real user path, not internal setters or test-only endpoints; capture the action and the resulting state, not just the final screen; verify side effects (files written, rows inserted, messages sent) alongside what's visible; mocks only where a production boundary already isolates the external system. When the safe path is a dry-run or test mode, verify what it actually skips by observing (files, network, git refs) rather than trusting its name: some dry-runs still touch the network or open a browser.
 - **Cleanup:** how to tear down instances the run created. Never kill by process name; kill what you started. Cleanup removes instances and scratch state, never the evidence: proof artifacts survive the teardown, in a location the skill names.
 - **Helpers:** any script the skill ships is executable and its invocation is shown in the skill body. A helper the reader has to reverse-engineer is not a helper.
+
+When e2e is the harness, Doctor, Drive, and Evidence follow the e2e paragraph above, and the feature file's third H2 is `Driving it with e2e`.
 
 ## 3. Seed the feature map
 

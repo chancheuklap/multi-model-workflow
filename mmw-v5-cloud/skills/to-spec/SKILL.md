@@ -19,7 +19,7 @@ Existing seams should be preferred to new ones. Use the highest seam possible. I
 
 The seam is yours to decide, not the user's: they are not asked to confirm it.
 
-3. Write the spec using the template below. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract". Call the Skill tool with "technical-writing" and write the prose through it. The template is the structure. Then publish it to the project issue tracker. Give it the `mmw:spec` label and no queue or worker-grade label: a spec is a container for the tickets underneath it, not a piece of work. Before publishing, create missing labels with `python3 LABEL_SETUP`, where `LABEL_SETUP` is `../../tools/setup-mmw/scripts/labels.py` resolved from this skill's directory to an absolute path in the installed runtime. Run it from the consuming repository without `--migrate`. Read the published spec back to confirm its body and labels.
+3. Write the spec using the template below. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract". Call the Skill tool with "technical-writing" and write the prose through it. The template is the structure. The User Stories section says how an observable result is written for the project's verification skill. Then publish it to the project issue tracker. Give it the `mmw:spec` label and no queue or worker-grade label: a spec is a container for the tickets underneath it, not a piece of work. Before publishing, create missing labels with `python3 LABEL_SETUP`, where `LABEL_SETUP` is `../../tools/setup-mmw/scripts/labels.py` resolved from this skill's directory to an absolute path in the installed runtime. Run it from the consuming repository without `--migrate`. Read the published spec back to confirm its body and labels.
 
 4. Call the Skill tool with "big-pics-little-words" to visualize the whole spec.
 
@@ -42,6 +42,8 @@ A LONG, numbered list of user stories. Each user story should be in the format o
 <user-story-example>
 1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
 </user-story-example>
+
+The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`. `create-verification-skill` writes that skill once the app starts. Its scripts drive the real app and assert what a person can observe, by copying a sentence from these stories. When a story states such a result, write that result as its own sentence, one a script can copy unchanged. That sentence is the expected result. This spec does not create `verify-<app>` and does not edit its `features/` map.
 
 This list of user stories should be extremely extensive and cover all aspects of the feature.
 

@@ -54,6 +54,8 @@ A conflicting baseline, missing product decision or unavailable environment uses
 
 For a contract or fault that blocks further work, retain the work and [wait for the Coordinator](../SKILL.md#wait-and-continue). Continue unaffected work when it can proceed. If the Coordinator says the blocker will not be resolved in this run, go directly to [Verify the final output and return it](#5-verify-the-final-output-and-return-it) and close out as `incomplete`, naming the child and the work or proof not performed. Creating a child does not automatically suspend a session or grant permission to change the agreed behavior.
 
+The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`. Its `features/` map records how a person reaches each part and how to drive it. Its scripts drive the real app. The text a script checks is the spec sentence on the ticket, copied unchanged; that sentence is the expected result. When this ticket changes a surface that skill covers, write the drive script in the form that skill's harness section names, and only after that surface works on this branch. Copy this ticket's user path into the feature file. Read control names from the live surface. Fill that file's driving section and any Gotchas this run shows. Run the script until it passes, and include it in the commit. `maintain-verification-skill` is a later pass over the whole map; this step does not call it. `write-tests` covers this ticket's named code seams and does not write this script.
+
 Run the task's required tests and observable acceptance proof. Commit work on the assigned ticket branch, following the repository's actual commit checks. Report failing-before evidence, passing results and unavailable proof as they actually occurred; a test passing is not a substitute for the behavior the ticket promises.
 
 Done when the assigned behavior and required tests are implemented and the reviewable output is committed, or unfinished work has a recorded reason.
@@ -62,7 +64,7 @@ Done when the assigned behavior and required tests are implemented and the revie
 
 Run `dispatch.sh integrate N` in this ticket's worktree before review. It merges the recorded target's origin tip. On exit 3, preserve the in-progress merge and report the blocked integration through a `fault` child using [Record and resolve a child](../SKILL.md#record-and-resolve-a-child). Include the worktree, both commit SHAs, incoming tickets and conflicted files. Wait without editing the worktree while the [Coordinator resolves the conflict](coordinator.md#resolve-merge-conflicts). On its continuation, read the resolution and rerun `integrate N`. Never rebase, abort or push from this integration. Exit 2 names what prevented it; a pipeline fault uses its child route.
 
-After integration, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
+After integration, run the affected verification and commit the candidate. If that merge changed a surface `verify-<app>` drives, update that skill's script to the merged surface, run it, and commit it before review. The review compares committed output; uncommitted work is outside it.
 
 Call the Skill tool with "no-comments" for this committed diff. Commit what it changes before review.
 
