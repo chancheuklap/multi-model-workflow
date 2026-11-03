@@ -114,18 +114,22 @@ class CloudRuntime(unittest.TestCase):
     def test_model_reads_project_not_local_home(self):
         folder=self.root/'.cursor'; folder.mkdir(); config=json.loads((ROOT/'mmw-v5-cloud/models.json').read_text())
         config['rows']['codex']['review-axis']={'model':'chosen-native-id','effort':'high'}
+        config['rows']['cursor']['review-axis']={'model':'cursor-review-model','effort':'high','context':'256k','fast':True}
         models.write_config(config)
         self.commit('project model configuration')
         fixed = self.git('rev-parse','HEAD')
         changed = json.loads(json.dumps(config)); changed['rows']['codex']['review-axis']['model'] = 'next-run-only'; models.write_config(changed)
         with patch.dict(os.environ,{'MMW_HOME':str(self.root/'unused-local-home')}):
             self.assertEqual(models.row('review-axis','codex',fixed),{'model':'chosen-native-id','effort':'high'})
-            self.assertEqual(models.row('review-axis','cursor',fixed),{'model':'grok-4.7[effort=high,context=256k,fast=true]'})
-        self.assertEqual(models.row('junior-worker','codex',fixed),{'model':'gpt-6.1-sol','effort':'high'})
+            self.assertEqual(models.row('review-axis','cursor',fixed),{'model':'cursor-review-model[effort=high,context=256k,fast=true]'})
+        self.assertEqual(models.row('junior-worker','codex',fixed),config['rows']['codex']['junior-worker'])
 
     def test_native_host_settings_apply_to_each_worker_grade_and_review_role(self):
         (self.root/'.cursor').mkdir()
-        config=json.loads((ROOT/'mmw-v5-cloud/models.json').read_text())
+        config={'max_workers':3,'rows':{
+            'codex':{role:{'model':'gpt-6.1-sol','effort':'high'} for role in models.ROLES},
+            'cursor':{role:{'model':'grok-4.7','effort':'high','context':'256k','fast':True} for role in models.ROLES},
+        }}
         config['rows']['codex']['senior-worker']['model']='senior-specific-model'
         config['rows']['cursor']['junior-worker']['fast']=False
         models.write_config(config);self.commit('host-specific role settings')
