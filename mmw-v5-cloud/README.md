@@ -14,6 +14,18 @@
 
 ## 使用
 
+本地 Coordinator 在 Codex 或 Cursor 安装 GitHub 来源的 `mmw-v5-cloud` plugin；本地会话版的 plugin 名称是 `mmw-v5`，切换前卸载它。两者从同一个 GitHub marketplace 分发，选择一套安装。
+
+Codex：
+
+```sh
+codex plugin marketplace add chancheuklap/multi-model-workflow --ref main
+codex plugin remove mmw-v5@mmw-v5
+codex plugin add mmw-v5-cloud@mmw-v5
+```
+
+Cursor：刷新已导入的 `chancheuklap/multi-model-workflow` marketplace，卸载 `mmw-v5`，安装 `mmw-v5-cloud`。本机 plugin 供 Coordinator 使用；Cloud Worker 从使用项目中已提交的 `.agents/` 取得同一版技能、工具和模型配置。Release 中的云端 ZIP 仍用于安装这份项目运行包。
+
 本地 Coordinator 在选定开夜分支调用项目的 `dispatch` 技能，管理 Issue、依赖、PR 最终正文和合并。Cloud Worker 在自己的分支写测试和代码，首次提交并推送后创建指向 NIGHT 的 draft PR；它调用 `code-review` 组织三轴审查、处理问题，再返回工作报告。Coordinator 调用 `pr` 将实施、审查处理和验证结果写入同一 PR 正文，合并到 NIGHT 后关闭 ticket，按依赖推进后续工作。任务完成报告不重复写入 Issue 评论。
 
 Cursor 使用原生 `Task` 的 cloud 环境派发 Worker，从 Task 返回正文读取问题和报告，用 `resume` 指定原 Agent ID 继续工作。Worker 需要 Coordinator 答复时，返回问题并结束本轮；Coordinator 收到后作答并恢复同一个 Worker。Task 的 Completed 通知表示一次调用返回，ticket 是否完成取决于实际合并结果。`max_workers` 限制正在执行的 Worker 回合；等待答复时 ticket 仍归原 Worker，继续执行时使用原 Agent ID。

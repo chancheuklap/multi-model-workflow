@@ -94,18 +94,21 @@ else:
     def test_github_marketplaces_resolve_the_same_complete_plugin(self):
         codex = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
         cursor = json.loads((ROOT / ".cursor-plugin/marketplace.json").read_text())
-        codex_entry = next(row for row in codex["plugins"] if row["name"] == "mmw-v5")
-        cursor_entry = next(row for row in cursor["plugins"] if row["name"] == "mmw-v5")
-        codex_root = (ROOT / codex_entry["source"]["path"]).resolve()
-        cursor_root = (ROOT / cursor_entry["source"]).resolve()
-        self.assertEqual(codex_root, cursor_root)
-        portable = json.loads((codex_root / "plugin.json").read_text())
-        overlay = json.loads((cursor_root / ".cursor-plugin/plugin.json").read_text())
-        self.assertEqual(portable["name"], codex_entry["name"])
-        self.assertEqual(portable["version"], overlay["version"])
-        self.assertTrue((codex_root / "skills/dispatch/SKILL.md").is_file())
-        self.assertTrue((codex_root / "tools/dispatch/scripts/dispatch.sh").is_file())
-        self.assertTrue((codex_root / "board/server.py").is_file())
+        for name in ("mmw-v5", "mmw-v5-cloud"):
+            with self.subTest(plugin=name):
+                codex_entry = next(row for row in codex["plugins"] if row["name"] == name)
+                cursor_entry = next(row for row in cursor["plugins"] if row["name"] == name)
+                codex_root = (ROOT / codex_entry["source"]["path"]).resolve()
+                cursor_root = (ROOT / cursor_entry["source"]).resolve()
+                self.assertEqual(codex_root, cursor_root)
+                portable = json.loads((codex_root / "plugin.json").read_text())
+                overlay = json.loads((cursor_root / ".cursor-plugin/plugin.json").read_text())
+                self.assertEqual(portable["name"], name)
+                self.assertEqual(overlay["name"], name)
+                self.assertEqual(portable["version"], overlay["version"])
+                self.assertTrue((codex_root / "skills/dispatch/SKILL.md").is_file())
+                self.assertTrue((codex_root / "tools/dispatch/scripts/dispatch.sh").is_file())
+                self.assertTrue((codex_root / "board/server.py").is_file())
 
     def test_bump_prepares_dev_without_committing_or_publishing(self):
         before = self.git("rev-parse", "HEAD").stdout
@@ -144,7 +147,8 @@ else:
 
     def complete_cloud_fixture(self):
         for path, text in {
-            "plugin.json": '{"name":"mmw-v5","version":"5.0.0-beta.2"}',
+            "plugin.json": '{"name":"mmw-v5-cloud","version":"5.0.0-beta.2"}',
+            ".cursor-plugin/plugin.json": '{"name":"mmw-v5-cloud","version":"5.0.0-beta.2"}',
             "README.md": "Complete cloud edition",
             "skills/example/SKILL.md": "Original skill",
             "skills/dispatch/SKILL.md": "Cloud dispatch",
@@ -160,7 +164,7 @@ else:
         self.complete_cloud_fixture()
         result = self.command("bump")
         self.assertEqual(result.returncode, 0, result.stderr)
-        for path in ["mmw-v5/plugin.json", "mmw-v5/.cursor-plugin/plugin.json", "mmw-v5-cloud/plugin.json"]:
+        for path in ["mmw-v5/plugin.json", "mmw-v5/.cursor-plugin/plugin.json", "mmw-v5-cloud/plugin.json", "mmw-v5-cloud/.cursor-plugin/plugin.json"]:
             self.assertEqual(json.loads((self.root / path).read_text())["version"], "5.0.0-beta.3")
 
     def test_cloud_archive_uses_only_its_own_complete_directory(self):

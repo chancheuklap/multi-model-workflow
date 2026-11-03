@@ -18,6 +18,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = ("mmw-v5/plugin.json", "mmw-v5/.cursor-plugin/plugin.json")
+CLOUD_MANIFESTS = ("mmw-v5-cloud/plugin.json", "mmw-v5-cloud/.cursor-plugin/plugin.json")
 PACKAGE_PATHS = (
     "plugin.json", "README.md", ".agents/plugins/marketplace.json",
     ".cursor-plugin/plugin.json", "skills", "tools", "board",
@@ -33,7 +34,7 @@ def run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
 
 
 def manifests(committed: bool = False, edition: str = "local") -> tuple[list[dict], str]:
-    paths = MANIFESTS if edition == "local" else ("mmw-v5-cloud/plugin.json",)
+    paths = MANIFESTS if edition == "local" else CLOUD_MANIFESTS
     rows = [json.loads(run("git", "show", f"HEAD:{path}").stdout if committed
                        else (ROOT / path).read_text(encoding="utf-8")) for path in paths]
     version = rows[0]["version"]
@@ -41,7 +42,8 @@ def manifests(committed: bool = False, edition: str = "local") -> tuple[list[dic
     if not match or any(part.isdigit() and len(part) > 1 and part.startswith("0")
                         for part in (match[4] or "").split(".")):
         raise ValueError(f"invalid plugin version: {version}")
-    if any(row.get("name") != "mmw-v5" or row.get("version") != version for row in rows):
+    name = "mmw-v5" if edition == "local" else "mmw-v5-cloud"
+    if any(row.get("name") != name or row.get("version") != version for row in rows):
         raise ValueError("portable and Cursor plugin manifests must have the same name and version")
     return rows, version
 
@@ -65,7 +67,7 @@ def bump() -> str:
         cloud_rows, cloud_version = manifests(edition="cloud")
         if cloud_version != old:
             raise ValueError("local and cloud editions must have the same release version")
-        paths.append("mmw-v5-cloud/plugin.json")
+        paths.extend(CLOUD_MANIFESTS)
         rows.extend(cloud_rows)
     for path, row in zip(paths, rows):
         row["version"] = new
