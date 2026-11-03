@@ -42,7 +42,7 @@
 
 提取来源：`mmw-v5/skills/principle-files-describe-the-present/SKILL.md` 的 `In a diff` 小节。
 
-- A comment that restates the code or narrates steps (`// Phase 1: add cards`): delete it; only a non-obvious why stays (**mmw-mode** `## Comments`).
+- A comment that restates the code or narrates steps (`// Phase 1: add cards`): delete it; only a non-obvious why stays.
 - A file, comment or docstring that says what changed ("now", "previously", "no longer") instead of what is true: rewrite it as what is true.
 
 ## principle-fix-root-causes

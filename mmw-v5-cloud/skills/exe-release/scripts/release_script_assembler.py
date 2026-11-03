@@ -1,0 +1,733 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pydantic>=2"]
+# ///
+"""把受 schema 约束的 release adapter 装配为构建机输入。"""
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path, PurePosixPath
+
+from builders import nuitka
+from release_contracts import (
+    BuildTarget,
+    ReleaseAdapterManifest,
+)
+
+
+def powershell_literal(value: str) -> str:
+    """把一个动态值表示成不求值的 PowerShell 单引号字面量。"""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def assert_repo_relative(value: str, *, field: str) -> PurePosixPath:
+    path = PurePosixPath(value)
+    if (
+        not value
+        or "\\" in value
+        or path.is_absolute()
+        or ":" in path.parts[0]
+        or ".." in path.parts
+    ):
+        raise ValueError(f"{field} must be a repository-relative POSIX path with no ..")
+    return path
+
+
+_TEMPLATE = "nuitka_electron.ps1.tmpl"
+# 前端包管理器与它的两条命令。所有产品同一套；哪天真有产品不一样，那时它才是钥匙的字段。
+_PACKAGE_MANAGER = "pnpm"
+_INSTALL_ARGS = ["install", "--frozen-lockfile", "--prefer-offline"]
+_BUILD_SCRIPT = "build"
+
+
+def _assert_safe_argv(argv: list[str], *, field: str) -> None:
+    for index, token in enumerate(argv):
+        if any(char in token for char in ("\n", "\r", "\x00", "&", ";", "|")):
+            raise ValueError(f"{field}[{index}] holds a shell control character that is not allowed")
+
+
+def _render_hook_functions() -> str:
+    """v2 的钩子辅助函数。
+
+    跟 v1 的差别有两处，都不是修辞：v2 里缺席的钩子整步都不生成，所以没有「跳过」要打印；
+    钩子的 cwd 注释也不再提 Electron——一个没有外壳的产品，脚本里根本没有那个变量。
+    """
+    return """function Invoke-ReleaseHook {
+  param([string]$Name, [string[]]$Argv, [string]$Phase)
+  $command = [string]$Argv[0]
+  $arguments = @()
+  if ($Argv.Count -gt 1) { $arguments += @($Argv[1..($Argv.Count - 1)]) }
+  $arguments += @('--release-context', $ReleaseContextPath, '--release-phase', $Phase)
+  # A hook's argv is relative to the repository. This round's source is unpacked into $RepoRoot, so
+  # a hook runs from there and not from wherever a build step happened to leave the working
+  # directory. $ReleaseContextPath was made absolute at the top of this script, so no cd affects it.
+  Push-Location $RepoRoot
+  try {
+    & $command @arguments
+    if ($LASTEXITCODE -ne 0) { throw "Release hook failed: $Name phase=$Phase" }
+  } finally {
+    Pop-Location
+  }
+}"""
+
+
+# 编译与打包的步骤在技能里，产品仓库只留它自己独有的交付格式（例如自更新 feed 和它手写的
+# NSIS）。步号不写死在模板里——哪几步存在由钥匙决定，所以步号是算出来的。
+
+# 钩子挂阶段，不挂步号。
+_HOOK_PHASES = {
+    "runtime_prepare": "runtime_ready",
+    "asset_parity": "runtime_ready",
+    "credential_proof": "runtime_ready",
+    "backend_verify": "backend_ready",
+    "artifact_scan": "artifact_ready",
+    "installer": "installer_ready",
+    "package_integrity": "release_ready",
+}
+
+
+def _ps(value: str) -> str:
+    return powershell_literal(value)
+
+
+def _hook_line(name: str, argv: list[str], indent: str = "  ") -> str:
+    _assert_safe_argv(argv, field=f"build_hooks.{name}")
+    tokens = ", ".join(_ps(token) for token in argv)
+    return (
+        f"{indent}Invoke-ReleaseHook -Name {_ps(name)} -Argv @({tokens}) "
+        f"-Phase {_ps(_HOOK_PHASES[name])}"
+    )
+
+
+def _steps(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
+    """算出这把钥匙要走哪几步。每一步是 (标题, PowerShell 行, 这一步回调了哪些钩子)。"""
+    hooks = manifest.build_hooks
+    backend = manifest.python_backend
+    electron = manifest.electron
+    desktop_dir = manifest.build_target.desktop_dir
+    steps: list[dict[str, object]] = []
+
+    tools = ", ".join(_ps(tool) for tool in _required_tools(manifest))
+    steps.append(
+        {
+            "title": "Validate prerequisites",
+            "hooks": [],
+            "lines": [
+                f"  foreach ($tool in @({tools})) {{",
+                "    Assert-Tool $tool",
+                "  }",
+            ],
+        }
+    )
+
+    if manifest.vendor_artifacts:
+        steps.append(
+            {
+                "title": "Fetch vendor artifacts",
+                "hooks": [],
+                "lines": _vendor_artifact_lines(manifest),
+            }
+        )
+
+    install_args = ", ".join(_ps(arg) for arg in _INSTALL_ARGS)
+    steps.append(
+        {
+            "title": "Install frontend dependencies",
+            "hooks": [],
+            "lines": [
+                f"  Invoke-Checked -Command {_ps(_PACKAGE_MANAGER)} "
+                f"-WorkingDirectory $DesktopDir -Arguments @({install_args})",
+            ],
+        }
+    )
+
+    # runtime_ready 这个阶段里有三个钩子，但它们不在同一个时刻：`runtime_prepare` 是**抓**
+    # （造嵌入式解释器、按清单下载资源），`asset_parity` 与 `credential_proof` 是**核对抓完
+    # 的结果**。技能把随包资产落地，属于「抓」的最后一步，必须夹在两者中间——放到核对之后，
+    # 产品的核对就会在资产还没到位时说它缺；放到抓之前，抓下来的东西又会盖在半棵树上。
+    # 这不是假设：小刺猬的 BGM 下载成功，而 asset_parity 报 bgm_manifest.json 缺失，
+    # 因为那份 manifest 由这一步从仓库拷过去，当时排在核对之后。
+    if hooks.runtime_prepare is not None:
+        steps.append(
+            {
+                "title": "Prepare runtime",
+                "hooks": ["runtime_prepare"],
+                "lines": [_hook_line("runtime_prepare", hooks.runtime_prepare)],
+            }
+        )
+
+    if manifest.runtime_assets is not None:
+        steps.append(
+            {
+                "title": "Stage runtime assets",
+                "hooks": [],
+                "lines": _runtime_asset_lines(manifest, desktop_dir),
+            }
+        )
+
+    check_runtime_hooks = [
+        name for name in ("asset_parity", "credential_proof") if getattr(hooks, name) is not None
+    ]
+    if check_runtime_hooks:
+        steps.append(
+            {
+                "title": "Check runtime assets",
+                "hooks": check_runtime_hooks,
+                "lines": [
+                    _hook_line(name, getattr(hooks, name)) for name in check_runtime_hooks
+                ],
+            }
+        )
+
+    steps.append(
+        {
+            "title": "Compile Python backend",
+            "hooks": [],
+            "lines": _compile_lines(backend, manifest.build_target, desktop_dir),
+        }
+    )
+
+    verify_lines: list[str] = []
+    if backend.smoke is not None:
+        exe = nuitka.expand(
+            f"{backend.output_dir}/{backend.smoke.exe}",
+            desktop_dir=desktop_dir,
+            build_root=backend.build_root,
+        )
+        verify_lines.append(
+            f"  Invoke-BuiltExeSmoke -Exe (Join-Path $RepoRoot {_ps(exe)}) "
+            "-Arguments @("
+            + ", ".join(_ps(arg) for arg in backend.smoke.args)
+            + ") "
+            f"-TimeoutSeconds {backend.smoke.timeout_seconds}"
+        )
+    verify_hooks = ["backend_verify"] if hooks.backend_verify is not None else []
+    for name in verify_hooks:
+        verify_lines.append(_hook_line(name, getattr(hooks, name)))
+    if verify_lines:
+        steps.append(
+            {
+                "title": "Verify compiled backend",
+                "hooks": verify_hooks,
+                "lines": verify_lines,
+            }
+        )
+
+    steps.append(
+        {
+            "title": "Build Electron application",
+            "hooks": [],
+            "lines": [
+                f"  Invoke-Checked -Command {_ps(_PACKAGE_MANAGER)} "
+                f"-WorkingDirectory $DesktopDir "
+                f"-Arguments @('run', {_ps(_BUILD_SCRIPT)})",
+            ],
+        }
+    )
+    steps.append(
+        {
+            "title": "Build win-unpacked",
+            "hooks": [],
+            "lines": [
+                f"  Invoke-Checked -Command {_ps(_PACKAGE_MANAGER)} "
+                "-WorkingDirectory $DesktopDir "
+                "-Arguments @('exec', 'electron-builder', '--win', 'dir', "
+                "'--publish', 'never', \"-c.compression=$BuilderCompression\")",
+                "  if (-not (Test-Path $UnpackedDir)) {",
+                "    throw 'electron-builder did not create the unpacked directory'",
+                "  }",
+            ],
+        }
+    )
+
+    # 扫源码泄漏是技能每次都做的，不是产品可选的检查：编译这一整套动作的目的就是
+    # 不发源码。产品的 artifact_scan 钩子加在它后面，扫产品自己关心的东西。
+    scan_lines = _source_scan_lines(manifest)
+    if hooks.artifact_scan is not None:
+        scan_lines.append(_hook_line("artifact_scan", hooks.artifact_scan))
+    if scan_lines:
+        steps.append(
+            {
+                "title": "Scan release artifacts",
+                "hooks": ["artifact_scan"] if hooks.artifact_scan is not None else [],
+                "lines": scan_lines,
+            }
+        )
+
+    if electron.installer == "electron_builder":
+        steps.append(
+            {
+                "title": "Build installer",
+                "hooks": [],
+                "lines": _nsis_lines(),
+            }
+        )
+    elif hooks.installer is not None:
+        steps.append(
+            {
+                "title": "Build installer",
+                "hooks": ["installer"],
+                "lines": [_hook_line("installer", hooks.installer)],
+            }
+        )
+
+    # 先跑钩子再断言安装包在位。installer_glob 指的是「交付件最后落在哪」，而产品完全可以
+    # 让 package_integrity 这个钩子来落它——只有两道闸都判过才把安装包拷进交付目录，是合理
+    # 的设计。断言写在钩子前面，这类产品第一次就被拒，而它其实什么都没做错。
+    verify_lines = _license_gate_lines(manifest)
+    if hooks.package_integrity is not None:
+        verify_lines.append(_hook_line("package_integrity", hooks.package_integrity))
+    if _has_installer_step(manifest) and manifest.build_target.installer_glob:
+        verify_lines.append(
+            "  Assert-InstallerProduced -Glob (Join-Path $RepoRoot "
+            f"{_ps(manifest.build_target.installer_glob)})"
+        )
+    if verify_lines:
+        steps.append(
+            {
+                "title": "Verify package integrity",
+                "hooks": ["package_integrity"] if hooks.package_integrity is not None else [],
+                "lines": verify_lines,
+            }
+        )
+    return steps
+
+
+def _vendor_artifact_lines(manifest) -> list[str]:
+    """把第三方二进制拷进仓库并对哈希。写在这里而不是每个产品各写一份 Python。"""
+    lines: list[str] = []
+    for artifact in manifest.vendor_artifacts:
+        members = ", ".join(
+            "@{File = "
+            + _ps(member.file)
+            + "; Dest = "
+            + _ps(member.dest)
+            + "; Sha256Key = "
+            + _ps(member.sha256_key)
+            + "}"
+            for member in artifact.members
+        )
+        lines.append(
+            f"  Get-VendorArtifact -Name {_ps(artifact.name)} "
+            f"-LockPath (Join-Path $RepoRoot {_ps(artifact.lock)}) "
+            f"-Members @({members}) "
+            "-CacheRoot $CacheRoot -RepoRoot $RepoRoot"
+        )
+    return lines
+
+
+def _runtime_asset_lines(manifest, desktop_dir: str | None) -> list[str]:
+    """把「这份数据随包出厂，但不嵌进编译产物」变成拷贝加落地校验。
+
+    嵌进去（`include_data_dirs`）与放旁边是两种落点，理由各不相同：有的包 Nuitka 根本嵌不
+    进去（构建日志里别的包都有 included data file 记录，它一条没有），有的资源大到不值得
+    每次启动解压一遍，有的装完之后还要能单独替换。少了这一种落点，产品只能在自己仓库写一份
+    拷贝脚本——两个产品就是两份，而其中一份改了三轮长构建都没生效，因为出包不调用它。
+    """
+    spec = manifest.runtime_assets
+    backend = manifest.python_backend
+    runner = ", ".join(_ps(token) for token in backend.runner)
+    lines: list[str] = []
+    for entry in spec.entries:
+        dest = nuitka.expand(
+            f"{spec.root.rstrip('/')}/{entry.dest.lstrip('/')}",
+            desktop_dir=desktop_dir,
+            build_root=backend.build_root,
+        )
+        call = (
+            f"  Copy-RuntimeAsset -Label {_ps(entry.dest)} "
+            f"-Dest (Join-Path $RepoRoot {_ps(dest)}) -RepoRoot $RepoRoot -Runner @({runner})"
+        )
+        if entry.source:
+            call += f" -Source {_ps(entry.source)}"
+        else:
+            members = ", ".join(_ps(member) for member in entry.members)
+            call += f" -SourcePackage {_ps(entry.source_package)} -Members @({members})"
+        lines.append(call)
+    return lines
+
+
+def _license_gate_lines(manifest) -> list[str]:
+    """把「这份许可证随包出厂」变成安装包做完之后的一道闸。
+
+    拷进仓库和随包出厂是两件事，中间隔着一份打包过滤规则。闸门不认路径，只认字节。
+
+    位置在装完安装包之后，不在打包之后：有的产品的 unpacked 目录只是个壳，真正交给客户的
+    那棵树由它自己的 installer 钩子在别处装配（钥匙的 `package_tree` 指出来）。
+    """
+    licenses: list[tuple[str, str]] = []
+    for artifact in manifest.vendor_artifacts:
+        for member in artifact.members:
+            if member.license:
+                licenses.append((artifact.name, member.dest))
+        for notice in artifact.notices:
+            licenses.append((artifact.name, notice))
+    if not licenses:
+        return []
+    entries = ", ".join(
+        "@{Name = " + _ps(name) + "; Path = " + _ps(path) + "}" for name, path in licenses
+    )
+    tree = manifest.build_target.package_tree
+    package_dir = (
+        f"(Join-Path $RepoRoot {_ps(tree)})" if tree else "$UnpackedDir"
+    )
+    return [
+        f"  Assert-LicensesShipped -Licenses @({entries}) "
+        f"-RepoRoot $RepoRoot -PackageDir {package_dir}"
+    ]
+
+
+def _required_tools(manifest: ReleaseAdapterManifest) -> list[str]:
+    """第一步要检查哪几件工具。
+
+    先从钥匙已经说过的话里推：脚本直接调的每一条命令的第一个词——编译用的解释器命令、
+    前端包管理器、构建机准备脚本。钥匙的 `toolchain` 是**补充**，写这些之外还要什么
+    （比如产品自己那套安装包要的 makensis）。
+
+    让每把钥匙自己抄一遍这份清单，是在要求它把已经说过的话再说一次：抄漏了要等构建
+    跑到那一步才炸，抄多了会把一台本来能用的构建机挡在第一步——electron-builder 自带
+    NSIS，钥匙却写着要独立 makensis，就是这种。
+    """
+    tools: list[str] = [manifest.python_backend.runner[0]]
+    tools.append(_PACKAGE_MANAGER)
+    if manifest.build_machine and manifest.build_machine.setup:
+        tools.append(manifest.build_machine.setup[0])
+    tools.extend(manifest.toolchain)
+    seen: list[str] = []
+    for tool in tools:
+        # 带路径分隔符的不是 PATH 上的命令，是一条具体路径，Get-Command 查它没有意义。
+        if tool not in seen and "/" not in tool and "\\" not in tool:
+            seen.append(tool)
+    return seen
+
+
+def _has_installer_step(manifest: ReleaseAdapterManifest) -> bool:
+    electron = manifest.electron
+    return bool(
+        electron.installer == "electron_builder"
+        or manifest.build_hooks.installer is not None
+    )
+
+
+def _source_scan_lines(manifest: ReleaseAdapterManifest) -> list[str]:
+    """扫哪几棵树、拿什么算「这个产品自己的代码」——都从钥匙已有的字段推，不新增字段。
+
+    树：Electron 打出来的目录，和后端编译产物的目录。
+
+    自己的代码：仓库源码根下的顶层名字，在构建机上现读（源码根取编译入口的第一段，
+    `src/hedgehog/__main__.py` → `src`）。**不是 include_packages**——那一份里混着第三方
+    依赖（真实的一把钥匙里 `hedgehog` 跟 `moderngl`、`glcontext` 并排），拿它当业务代码，
+    嵌入式运行时里合法的第三方 .py 会被整片判成泄漏，出包卡在一个不存在的问题上。
+    """
+    backend = manifest.python_backend
+    source_roots = sorted(
+        {
+            PurePosixPath(target.entrypoint).parts[0]
+            for target in backend.targets
+            if len(PurePosixPath(target.entrypoint).parts) > 1
+        }
+    )
+    if not source_roots:
+        return []
+    desktop_dir = manifest.build_target.desktop_dir
+    roots: list[str] = []
+    roots.append("$UnpackedDir")
+    roots.append(
+        "(Join-Path $RepoRoot "
+        + _ps(
+            nuitka.expand(
+                backend.output_dir,
+                desktop_dir=desktop_dir,
+                build_root=backend.build_root,
+            )
+        )
+        + ")"
+    )
+    return [
+        "  Assert-NoBusinessSource -Roots @(" + ", ".join(roots) + ") "
+        "-SourceRoots @(" + ", ".join(_ps(name) for name in source_roots) + ")"
+    ]
+
+
+def _report_dir_lines(backend) -> list[str]:
+    if not backend.required_modules_file:
+        return []
+    return [
+        "  New-Item -ItemType Directory -Force -Path "
+        f"(Join-Path $RepoRoot {_ps(nuitka.REPORT_DIR)}) | Out-Null"
+    ]
+
+
+def _required_modules_lines(backend) -> list[str]:
+    """编完对照模块清单：源码运行加载过的模块，编译产物里必须有。"""
+    if not backend.required_modules_file:
+        return []
+    reports = ", ".join(
+        f"(Join-Path $RepoRoot {_ps(nuitka.report_path(target))})"
+        for target in backend.targets
+    )
+    runner = ", ".join(_ps(token) for token in backend.runner)
+    return [
+        "  Assert-CompiledModules "
+        f"-Reports @({reports}) "
+        f"-RequiredFile (Join-Path $RepoRoot {_ps(backend.required_modules_file)}) "
+        f"-Runner @({runner}) -RepoRoot $RepoRoot"
+    ]
+
+
+def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) -> list[str]:
+    """编译后端。原生扩展缺的 DLL 先探再编——探不到当场停，不进几十分钟的编译。"""
+    nuitka.validate_import_plan(backend)
+    lines: list[str] = []
+    runner = ", ".join(_ps(token) for token in backend.runner)
+    for name, value in backend.env.items():
+        rendered = _ps(value)
+        if "${REPO_ROOT}" in value:
+            head, _, tail = value.partition("${REPO_ROOT}")
+            pieces = [p for p in (_ps(head), "$RepoRoot", _ps(tail)) if p != "''"]
+            rendered = pieces[0] if len(pieces) == 1 else "(" + " + ".join(pieces) + ")"
+        lines.append(f"  $env:{name} = {rendered}")
+    for source, name in nuitka.probe_names(build_target.native_ext_dll):
+        var = f"$Dll_{nuitka.probe_var(f'{source}:{name}')}"
+        lines.append(
+            f"  {var} = Resolve-BuildDll -Source {_ps(source)} -Name {_ps(name)} "
+            f"-RunnerArgv @({runner}) -WorkingDirectory $RepoRoot"
+        )
+    commands = nuitka.commands(
+        backend,
+        desktop_dir=desktop_dir,
+        native_ext_dll=build_target.native_ext_dll,
+    )
+    compile_lines: list[str] = []
+    for target, segments in zip(backend.targets, commands, strict=True):
+        argv = nuitka.powershell_argv(segments)
+        compile_lines.append(f"  Write-Host {_ps('  compiling ' + target.exe)}")
+        compile_lines.append(f"  $argv = {argv}")
+        compile_lines.append(
+            "  Invoke-Checked -Command ([string]$argv[0]) "
+            "-Arguments @($argv[1..($argv.Count - 1)]) -WorkingDirectory $RepoRoot"
+        )
+    # 编译完当场验：每个 exe 装的必须是这一轮为它自己编出来的 payload。
+    out_dir = nuitka.expand(
+        backend.output_dir, desktop_dir=desktop_dir, build_root=backend.build_root
+    )
+    exes = ", ".join(
+        "(Join-Path $RepoRoot "
+        + _ps(
+            nuitka.expand(
+                f"{backend.output_dir}/{target.exe}",
+                desktop_dir=desktop_dir,
+                build_root=backend.build_root,
+            )
+        )
+        + ")"
+        for target in backend.targets
+    )
+    assert_line = (
+        f"  Assert-OnefilePayloads -OutputDir (Join-Path $RepoRoot {_ps(out_dir)}) "
+        f"-Exes @({exes})"
+    )
+    # 校验完就把编译中间产物删掉。Nuitka 的 <入口>.dist 和 <入口>.onefile-build 是编译过程
+    # 的临时目录，编完就没用了，而它们跟成品 exe 躺在同一个目录里——那个目录整个进安装包。
+    # 于是同一份内容发三遍：exe 里一份、dist 一份、payload.bin 一份。删在校验之后，是因为
+    # 校验正要读 payload。
+    cleanup_line = (
+        f"  Remove-CompilerIntermediates -OutputDir (Join-Path $RepoRoot {_ps(out_dir)})"
+    )
+
+    compile_lines = [*_report_dir_lines(backend), *compile_lines, *_required_modules_lines(backend)]
+
+    if not backend.isolate_dirs:
+        return [*lines, *compile_lines, assert_line, cleanup_line]
+
+    isolate = ", ".join(
+        f"(Join-Path $RepoRoot {_ps(nuitka.expand(path, desktop_dir=desktop_dir, build_root=backend.build_root))})"
+        for path in backend.isolate_dirs
+    )
+    lines.append(
+        "  $moved = Move-AsideForCompile -Paths @(" + isolate + ") "
+        "-Holding (Join-Path $RepoRoot 'runtime/.mmw-compile-holding')"
+    )
+    lines.append("  try {")
+    lines.extend("  " + line for line in compile_lines)
+    lines.append("  }")
+    lines.append("  finally { Restore-AfterCompile -Moved $moved }")
+    lines.append(assert_line)
+    lines.append(cleanup_line)
+    return lines
+
+
+def _nsis_lines() -> list[str]:
+    """electron-builder 出 NSIS。
+
+    不用 Invoke-Checked：electron-builder 打完 NSIS 清理临时 nsis.7z 偶发 ENOENT unlink
+    竞态返非零，而安装包其实已产出。捕获合并输出（内存变量，不用 Out-File——脱附会话不可靠），
+    安装包已产出且日志命中 nsis.7z ENOENT 时只告警继续，否则 throw。
+    """
+    return [
+        f"  $nsisOut = (& {_PACKAGE_MANAGER} --dir $DesktopDir exec electron-builder --win nsis "
+        "--publish never --prepackaged $UnpackedDir "
+        '"-c.compression=$BuilderCompression" 2>&1 | Out-String)',
+        "  $nsisExit = $LASTEXITCODE",
+        "  Write-Host $nsisOut",
+        "  $installerExists = [bool](Get-ChildItem -Path $DistDir -Filter '*.exe' "
+        "-File -ErrorAction SilentlyContinue)",
+        "  if ($nsisExit -ne 0) {",
+        "    $enoent = ($nsisOut -like '*ENOENT: no such file or directory, unlink*' "
+        "-and $nsisOut -like '*nsis.7z*')",
+        "    if ($enoent -and $installerExists) {",
+        "      Write-Host '  electron-builder NSIS cleanup ENOENT after installer "
+        "output; continuing to artifact verification' -ForegroundColor Yellow",
+        "    } else {",
+        '      throw "electron-builder NSIS failed ($nsisExit)"',
+        "    }",
+        "  }",
+        "  if (-not $installerExists) {",
+        "    throw 'electron-builder did not create an installer'",
+        "  }",
+    ]
+
+
+def _render_pipeline(steps: list[dict[str, object]]) -> str:
+    total = len(steps)
+    blocks: list[str] = []
+    for index, step in enumerate(steps, start=1):
+        lines = [f'  Step "[{index}/{total}] {step["title"]}"']
+        lines.extend(step["lines"])  # type: ignore[arg-type]
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
+def _electron_setup(manifest: ReleaseAdapterManifest) -> str:
+    """Electron 外壳那几个路径变量。"""
+    electron = manifest.electron
+    desktop_dir = manifest.build_target.desktop_dir
+    compression = (
+        f"if ($env:{electron.compression_env}) "
+        f"{{ $env:{electron.compression_env} }} else {{ {_ps(electron.compression)} }}"
+        if electron.compression_env
+        else _ps(electron.compression)
+    )
+    return "\n".join(
+        [
+            f"$DesktopDir = Join-Path $RepoRoot {_ps(desktop_dir)}",
+            f"$DistDir = Join-Path $DesktopDir {_ps(electron.dist_dir)}",
+            f"$UnpackedDir = Join-Path $DesktopDir {_ps(electron.unpacked_dir)}",
+            "",
+            "# Installer compression: an embedded runtime is hundreds of MB, so the level really",
+            "# changes what the customer downloads. Default to maximum; drop it to store through the",
+            "# environment variable when verifying on the machine and speed matters more.",
+            f"$BuilderCompression = {compression}",
+        ]
+    )
+
+
+def _render_bootstrap(
+    context_path: Path, manifest: ReleaseAdapterManifest
+) -> str:
+    template = (Path(__file__).parent / "release_templates" / _TEMPLATE).read_text(
+        encoding="utf-8"
+    )
+    steps = _steps(manifest)
+    replacements = {
+        "${CONTEXT_DEFAULT_PATH}": _ps(context_path.name),
+        "${ELECTRON_SETUP}": _electron_setup(manifest),
+        "${RENDERED_HOOK_FUNCTIONS}": (
+            _render_hook_functions()
+            if any(step["hooks"] for step in steps)
+            else ""
+        ),
+        "${STEP_TOTAL}": str(len(steps)),
+        "${PIPELINE}": _render_pipeline(steps),
+    }
+    rendered = template
+    for token, value in replacements.items():
+        rendered = rendered.replace(token, value)
+    if re.search(r"\$\{[^}]+\}", rendered):
+        raise ValueError("the release template still holds an unconsumed token")
+    return rendered
+
+
+def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None:
+    if not repo_root.is_dir():
+        raise ValueError(f"--repo-root does not exist or is not a directory: {repo_root}")
+    if output.parent.resolve() != context_output.parent.resolve():
+        raise ValueError("--output and --context-output must live in the same directory")
+    for label, path in (("--output", output), ("--context-output", context_output)):
+        if not path.name:
+            raise ValueError(f"{label} must point at a file")
+
+
+def _validate_manifest_paths(manifest: ReleaseAdapterManifest) -> None:
+    assert_repo_relative(
+        manifest.build_target.desktop_dir, field="build_target.desktop_dir"
+    )
+    for index, root in enumerate(manifest.build_target.asset_roots):
+        assert_repo_relative(root, field=f"build_target.asset_roots[{index}]")
+
+
+def assemble(
+    adapter: Path, repo_root: Path, output: Path, context_output: Path
+) -> None:
+    """校验 adapter 后，成对写入 PowerShell 与它唯一对应的上下文。"""
+    manifest = ReleaseAdapterManifest.model_validate_json(
+        adapter.read_text(encoding="utf-8")
+    )
+    _validate_paths(repo_root, output, context_output)
+    _validate_manifest_paths(manifest)
+    context = {
+        "schema_version": manifest.schema_version,
+        "product": manifest.product,
+        "repo_root": str(repo_root.resolve()),
+        "build_target": manifest.build_target.model_dump(mode="json"),
+        "build_hooks": manifest.build_hooks.model_dump(mode="json"),
+        "build_machine": (
+            manifest.build_machine.model_dump(mode="json")
+            if manifest.build_machine
+            else None
+        ),
+    }
+    # 钩子要读得到「这次按哪把钥匙编的」——产品仓库的收尾步骤（例如自己组装 bundle）
+    # 得知道编译产物叫什么、落在哪。
+    context["python_backend"] = manifest.python_backend.model_dump(mode="json")
+    context["electron"] = manifest.electron.model_dump(mode="json")
+    # render_bootstrap 拿到的钥匙已经在上面通过了 schema 校验，渲染不需要单独的
+    # 一致性检查:两个文件按各自的编码直接写,写哪个都不需要另一个先存在。
+    script = _render_bootstrap(context_output, manifest)
+    context_output.parent.mkdir(parents=True, exist_ok=True)
+    context_output.write_text(
+        json.dumps(context, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(script, encoding="utf-8-sig")
+
+
+def _fail(message: str) -> int:
+    print(f"INVALID: {message}", file=sys.stderr)
+    return 3
+
+
+def cmd_assemble(args: argparse.Namespace) -> int:
+    try:
+        assemble(args.adapter, args.repo_root, args.output, args.context_output)
+    except Exception as exc:  # noqa: BLE001 - CLI must surface invalid release input.
+        return _fail(str(exc))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="release_script_assembler")
+    sub = parser.add_subparsers(dest="command", required=True)
+    assemble_parser = sub.add_parser("assemble")
+    assemble_parser.add_argument("--adapter", type=Path, required=True)
+    assemble_parser.add_argument("--repo-root", type=Path, required=True)
+    assemble_parser.add_argument("--output", type=Path, required=True)
+    assemble_parser.add_argument("--context-output", type=Path, required=True)
+    args = parser.parse_args(argv)
+    return cmd_assemble(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
