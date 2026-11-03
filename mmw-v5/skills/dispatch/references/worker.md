@@ -64,6 +64,8 @@ Run `dispatch.sh integrate N` in this ticket's worktree before review. It merges
 
 After integration, run the affected verification and commit the candidate. The review compares committed output; uncommitted work is outside it.
 
+Call the Skill tool with "no-comments" for this committed diff. Commit what it changes before review.
+
 [Send one independent main reviewer](../SKILL.md#send-an-independent-session), with role `reviewer`, this ticket's N and this installed `skills/dispatch/SKILL.md` as FILE. The script supplies accurate base/head. [Wait for its result](../SKILL.md#wait-and-continue), leaving the reviewed worktree unchanged while it works.
 
 Done when an independent reviewer has reported against the candidate, or its loss/failure is explicitly being recovered rather than counted as a clean review.

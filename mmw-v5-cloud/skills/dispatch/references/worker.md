@@ -66,6 +66,8 @@ Fetch and merge current NIGHT changes into your branch. On conflict, push the co
 
 After integration, run the affected verification, commit and push the candidate. The review compares committed output; uncommitted work is outside it.
 
+Call the Skill tool with "no-comments" for this committed diff. Commit and push what it changes before review.
+
 Call the Skill tool with "code-review" for the main reviewer in this session. Perform preparation and aggregation here. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the pushed candidate, task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Each axis assignment includes the repository, Worker branch and pushed candidate SHA through [Prepare an assignment](../SKILL.md#prepare-an-assignment), together with its assigned review instructions. Code review owns the three axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation.
 
 Done when a complete review has returned checked reports or an explicit missing/invalid review requiring recovery.
