@@ -5,7 +5,7 @@ description: Build and sharpen a project's domain model. Use when discussing cod
 
 # Domain Modeling
 
-Actively build and sharpen the project's domain model as you design. This is the *active* discipline: challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (For using established vocabulary, apply **principle-anchor-every-reference**. This skill is for when you're changing the model, not just consuming it.)
+Actively build and sharpen the project's domain model as you design. This is the *active* discipline: challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (For using established vocabulary, call the Skill tool with "principle-anchor-every-reference". This skill is for when you're changing the model, not just consuming it.)
 
 ## File structure
 
@@ -40,6 +40,8 @@ If a `GLOSSARY-MAP.md` exists at the root, the repo has multiple contexts. The m
 Create files lazily: only when you have something to write. If no `GLOSSARY.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
 
 ## During the session
+
+When you write a glossary entry or an ADR, call the Skill tool with "technical-writing". A glossary entry is reference. An ADR is explanation.
 
 ### Challenge against the glossary
 

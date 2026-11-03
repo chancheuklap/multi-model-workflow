@@ -1,184 +1,79 @@
 ---
 name: write-tests
-description: Write tests for specified behavior, regressions, or behavior-preserving refactoring.
+description: Write tests while landing code for a specified behavior, a cheap bug regression, or a behavior-preserving move, at the seam the task supplies.
 ---
 
 # Write tests
 
-Use the behavior, test seam, acceptance requirements, and test precedent supplied by the spec, ticket, or task. Follow the project's existing test runner and fixture conventions.
+When the caller asks for the judgment, the examples, or the mocking guideline, read [the judgment](references/judgment.md), [the examples](references/tests.md), and [mocking.md](references/mocking.md) when a mock is involved. Stop there. The steps below are for landing code.
 
-| Test work | Method |
+You are the worker landing this ticket's code. Apply this during that implementation. The review of these tests is a later step, not a step of this cycle.
+
+Use the behavior, test seam, acceptance requirements, and test precedent supplied by the spec, ticket, or task. Call the Skill tool with "principle-baseline-is-the-contract" for those decisions. Call the Skill tool with "principle-anchor-every-reference" for test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
+
+Read [the judgment](references/judgment.md) before the loop and apply it on every cycle. See [tests.md](references/tests.md) for examples. Read [mocking.md](references/mocking.md) when a test needs a mock, or when you are implementing a system boundary.
+
+## The seam you test at
+
+Test only at seams the task already names. No test is written at a seam the task did not supply. You can't test everything, so the task's seams are how testing effort lands on the critical paths and complex logic instead of every edge case.
+
+When the task names no seam, report that gap to the caller before any test exists.
+
+For each seam the task names, state one line on what a test there catches and what it misses.
+
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), call the Skill tool with "codebase-dic" for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run. The task's named seam stays.
+
+Done when every test you will add sits on a seam the task names, and each of those seams has its one-line note.
+
+| The task | Follow |
 | --- | --- |
-| Tests for a specified feature | Through the interface, then One slice at a time |
-| A bug with a practical regression path | Regression workflow |
-| A failing-before test is impractical | Alternative regression check |
-| Behavior-preserving refactoring | Refactor under green tests |
-| A capacity or live-provider regression | Capacity and provider regressions |
-| A fixture with temporary files or controlled time | Fixtures |
-| Implement an assigned system boundary | Designing for Mockability, within the supplied contract and test seam |
-| A permitted Vitest module override | Vitest module overrides |
-| Scripted agent execution and session wiring | Scripted agent fixtures |
+| Specified behavior the task adds | [Specified behavior](#specified-behavior) |
+| A bug with a clear, cheap test path | [A bug with a cheap test path](#a-bug-with-a-cheap-test-path) |
+| A bug whose only new test would be impractical | [When a failing test is impractical](#when-a-failing-test-is-impractical) |
+| A move that preserves behavior | [A behavior-preserving move](#a-behavior-preserving-move) |
 
-Apply **principle-anchor-every-reference** to test names and interface vocabulary, and respect ADRs in the area you're touching.
+## Specified behavior
 
-A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
-
-## Through the interface
-
-Derive the expected value from the requirement, not from a run of the code. Assert what the contract promises, no less and no more.
-
-**Integration-style**: Test through real interfaces, not mocks of internal parts.
-
-```typescript
-// GOOD: Tests observable behavior
-test("user can checkout with valid cart", async () => {
-  const cart = createCart();
-  cart.add(product);
-  const result = await checkout(cart, paymentMethod);
-  expect(result.status).toBe("confirmed");
-});
-```
-
-## One slice at a time
-
-- **Horizontal slicing**: writing all tests first, then all implementation. Bulk tests verify _imagined_ behavior: you test the _shape_ of things rather than user-facing behavior, the tests go insensitive to real changes, and you commit to test structure before understanding the implementation. Work in **vertical slices** instead: one test → one implementation → repeat, each test a **tracer bullet** that responds to what the last cycle taught you.
+Answer the authoring gate in the judgment before adding a test. Repeat the cycle for each behavior the task specifies.
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
+- **Refactoring is not part of the loop.** It belongs to the review stage, not the red → green implementation cycle.
 
-- **Refactoring is not part of the loop.**
+One cycle is done when that test failed because the behavior was absent, then passed from the smallest implementation of that behavior. Start the next cycle only after that. The branch is done when every behavior the task specifies has been through one cycle.
 
-## Regression workflow
+## A bug with a cheap test path
 
 When fixing a bug with a clear, cheap test path, make the broken behavior executable before changing production code. The goal is a focused regression test that fails before the fix and passes after it.
 
 1. **Understand the bug.** Identify the intended behavior, current behavior, affected path, and smallest observable reproduction.
-2. **Choose the narrowest executable check.** Prefer the closest unit, component, integration, or regression test already used for that codepath. If no practical test path is obvious, do not create one from scratch just to satisfy the workflow.
+2. **Choose the narrowest executable check.** Prefer the closest unit, component, integration, or regression test already used for that codepath. If no practical test path is obvious, do not create one from scratch just to satisfy the workflow. Follow [When a failing test is impractical](#when-a-failing-test-is-impractical).
 3. **Write the failing test first.** Add the smallest focused test that would have caught the bug. The test should encode intended behavior, not mirror the current implementation.
 4. **Run the new test before fixing.** Confirm it fails for the intended reason. If it passes or fails for an unrelated reason, correct the test or reproduction before editing the implementation.
 5. **Fix the bug.** Make the smallest production change that satisfies the intended behavior while preserving nearby contracts.
 6. **Rerun the regression test.** Confirm the test now passes.
 
-## Alternative regression check
+Follow the guardrails in the judgment. If the bug exposes a broader class of failures, first land the focused regression path, then consider additional sibling coverage.
+
+Done when the new test failed for the intended reason before the fix and passes after it.
+
+## When a failing test is impractical
+
+Do not force a test when it would be impractical. If the available test would require broad harness setup, brittle mocks, slow end-to-end infrastructure, production-only state, vague reproduction steps, or large unrelated fixture churn, skip adding a new test and use the closest useful verification instead.
 
 Use the closest executable regression check instead: a targeted script, manual reproduction command, browser automation, snapshot comparison, log assertion, or focused integration check.
 
-Use an alternative within the supplied acceptance requirements. State which required proof remains unavailable.
+Prefer no new test over a bad test. The judgment says what a bad test is.
 
-## Refactor under green tests
+Done when that closest check has been run and no bad test was added.
 
-Refactor under green tests and preserve distinct contracts when
-consolidating coverage.
+## A behavior-preserving move
 
-## Capacity and provider regressions
+When the task moves structure and the behavior stays the same, run the tests already at the task's seam and keep them green. Leave an existing test in place unless the task tells you to remove it.
 
-Pass bounded synthetic inventories and fixed timing through real planners for
-capacity bugs. Preserve coverage, ownership, and execution-budget assertions;
-keep real-checkout inventory coverage in its existing integration tests.
+The red → green loop is for a behavior the task adds or repairs. Structural cleanup that is not this task waits for the review stage.
 
-For live provider bugs, prefer a CI-safe regression at the smallest production
-composition reaching the defect: real adapters with captured requests, Gateway
-integration for session/history/tool pipelines, or independent parser unit
-contracts. Keep inherently live-only checks narrow and opt-in.
-
-## Fixtures
-
-### Designing for Mockability
-
-Apply **principle-boundary-discipline**.
-
-When implementing an assigned system boundary, use these patterns for choices left open by the supplied contract and test seam.
-
-At system boundaries, design interfaces that are easy to mock:
-
-**1. Use dependency injection**
-
-Pass external dependencies in rather than creating them internally:
-
-```typescript
-// Easy to mock
-function processPayment(order, paymentClient) {
-  return paymentClient.charge(order.total);
-}
-
-// Hard to mock
-function processPayment(order) {
-  const client = new StripeClient(process.env.STRIPE_KEY);
-  return client.charge(order.total);
-}
-```
-
-**2. Prefer SDK-style interfaces over generic fetchers**
-
-Create specific functions for each external operation instead of one generic function with conditional logic:
-
-```typescript
-// GOOD: Each function is independently mockable
-const api = {
-  getUser: (id) => fetch(`/users/${id}`),
-  getOrders: (userId) => fetch(`/users/${userId}/orders`),
-  createOrder: (data) => fetch('/orders', { method: 'POST', body: data }),
-};
-
-// BAD: Mocking requires conditional logic inside the mock
-const api = {
-  fetch: (endpoint, options) => fetch(endpoint, options),
-};
-```
-
-The SDK approach means:
-- Each mock returns one specific shape
-- No conditional logic in test setup
-- Easier to see which endpoints a test exercises
-- Type safety per endpoint
-
-### Fixture lifetime
-
-When the project provides shared helpers for test-owned temporary directories,
-use them so ownership is explicit and cleanup stays in the test lifecycle.
-
-For time controlled by the test, use the supplied injected clock or the project's
-fake timers instead of real sleeps.
-
-- Async E2E waits: produced state, never action return.
-
-Import narrow APIs, not broad barrels.
-
-### Vitest module overrides
-
-Use this recipe only in a project that already uses Vitest, for a fixture
-permitted by the task.
-
-New first-party `vi.mock` and `vi.doMock` factories should preserve the real
-module's exports when the fixture only needs to override a few functions:
-
-```ts
-vi.mock("./runtime.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./runtime.js")>()),
-  start: vi.fn(),
-}));
-```
-
-Use pass-through for **export completeness** only. `importOriginal` and
-`vi.importActual` can return a separate module instance for stateful singletons;
-they do not guarantee shared state or lifecycle identity. Keep a closed mock when
-isolating real state or initialization is the fixture's purpose:
-
-```ts
-// Keep the database and process-wide cache outside this fixture.
-vi.mock("./runtime.js", () => ({ start: vi.fn() }));
-```
-
-## Scripted agent fixtures
-
-For deterministic tests of agent execution and session wiring, use fixed inputs
-and mock providers:
-
-- A scenario runner using mock providers to assert tool calls + order, skill file reads, and session wiring.
-- A small suite of skill-focused scenarios (use vs avoid, gating, prompt injection).
-
-Scripted provider outputs exercise the host's handling of those outputs; they do
-not establish how a real model chooses a skill.
+Done when the same tests pass after the move that passed before it. In the evidence, name that green run from before the move and the green run after it.
 
 ## Evidence
 
@@ -187,3 +82,5 @@ Report the evidence, not just the outcome:
 - Name the failing-before test or executable check and the failure it produced.
 - Name the passing-after test run and any nearby validation performed.
 - If failing-before evidence could not be demonstrated, state why and describe the closest regression check used instead.
+
+Done when those three points are reported.

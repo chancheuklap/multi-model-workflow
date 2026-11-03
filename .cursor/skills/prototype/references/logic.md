@@ -21,7 +21,7 @@ Before writing code, write down what state model and what question you're protot
 
 ### 2. Isolate the logic in a portable module
 
-Apply **principle-model-the-domain**.
+Call the Skill tool with "principle-model-the-domain" for the domain model.
 
 Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module that could be lifted out and dropped into the real codebase later. The page around it is throwaway; this module isn't.
 
@@ -38,7 +38,7 @@ Pick whichever shape best fits the question being asked, *not* whichever is easi
 
 One file, plain HTML/CSS/JS: no framework, no bundler, no server, everything inline so it opens by double-click and survives being emailed around. Anyone should be able to run it by opening it.
 
-Write it for a non-developer, applying **principle-anchor-every-reference** to labels. Buttons and state read like the business, not the reducer. Explain in plain words what's happening.
+Write it for a non-developer. Call the Skill tool with "principle-anchor-every-reference" for the labels. Buttons and state read like the business, not the reducer. Explain in plain words what's happening.
 
 Lay it out with a clean hierarchy, top to bottom:
 

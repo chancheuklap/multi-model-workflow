@@ -14,11 +14,47 @@ Done when the task, sources, branch and initial code version are clear, or the m
 
 ## 2. Write tests and implement
 
-Call this v5 runtime's **write-tests** skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
+When the ticket is sustained improvement of one metric against a target, call the Skill tool with "hillclimb". That skill completes this step. Each attempt stays on this ticket.
+
+When the ticket preserves behavior and changes structure, call the Skill tool with "refactoring". That skill completes this step.
+
+Call the Skill tool with "write-tests" for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
+
+Implement directly when the ticket's interface is already decided, or when the change stays inside one function.
+
+When the interface is still open and the change crosses a function boundary, call the Skill tool with "codebase-design" for Phase A, Phase B, and Phase C. Default: proceed directly to implementation with the synthesized design. No human checkpoint.
+
+### Phase D: Implement against the sketch
+
+Replace `not implemented` bodies with code, pseudocode with logic. The synthesized sketch is the contract. Deviations from it are signal to surface, not friction to absorb silently. If a function needs a parameter the sketch didn't anticipate, ask whether the sketch was wrong, the requirement was missed, or the implementation is overreaching. Planned and scoped breakage during fill-in is fine. Call the Skill tool with "principle-outcome-oriented-execution".
+
+### Phase E: Scrap when the architecture is wrong
+
+If implementation keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design. Call the Skill tool twice, for "principle-redesign-from-first-principles" and "principle-fix-root-causes".
+
+The signal is a *pattern*, not single instances. Tells:
+
+- The same shape of workaround appearing repeatedly across unrelated code.
+- Multiple unrelated edge cases that all need special-case branches.
+- Types that need escape hatches (`any`, casts, optional fields always set in practice) to compile.
+- The "we need a lock" reflex when the sketch said the state wasn't shared.
+- Callers having to know the abstraction's internal rules to use it.
+- Two or more independent Phase D deviations of the same shape across the implementation.
+
+Use judgment. A few edge cases don't condemn an architecture. Some problems are legitimately complex. Complexity in the data is not complexity in the design.
+
+When you scrap:
+
+1. Re-read what's been built.
+2. Call the Skill tool with "principle-redesign-from-first-principles". Redesign as if the new constraints had been day-one assumptions.
+3. Call the Skill tool with "principle-subtract-before-you-add". The new sketch should be smaller than the old one before it grows.
+4. Call the Skill tool with "codebase-design" and return to its Phase B.
 
 Make engineering choices the sources leave open and record the consequential reasons for review.
 
 An implementation mistake within this ticket is repaired here. For an out-of-scope defect, conflicting baseline, unresolved product choice or unavailable environment, state the problem, evidence, affected requirement, what you tried and what decision or repair is needed. When it needs the Coordinator's action before you can continue, [return the problem](../SKILL.md#return-the-assigned-result) and continue from this step after its reply. Include non-blocking findings in the final work report. On an instruction to hand work back, go directly to step 5 with `incomplete`.
+
+The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`. Its `features/` map records how a person reaches each part and how to drive it. Its scripts drive the real app. The text a script checks is the spec sentence on the ticket, copied unchanged; that sentence is the expected result. When the project has `verify-<app>` and this ticket changes a surface a person uses, write the drive script in the form that skill's harness section names, and only after that surface works on this branch. Copy this ticket's user path into its feature file, creating that file when the path is new. Read control names from the live surface. Fill that file's driving section and any Gotchas this run shows. Run the script until it passes, and include it in the commit. `maintain-verification-skill` is a later pass over the whole map; this step does not call it. `write-tests` covers this ticket's named code seams and does not write this script.
 
 Run the task's required tests and observable acceptance proof. Commit work on the assigned ticket branch, following the repository's actual commit checks. Report failing-before evidence, passing results and unavailable proof as they actually occurred; a test passing is not a substitute for the behavior the ticket promises.
 
@@ -30,15 +66,19 @@ Done when the assigned behavior and required tests are implemented, the candidat
 
 Fetch and merge current NIGHT changes into your branch. On conflict, push the committed pre-merge HEAD and [return both commit SHAs and conflicted files](../SKILL.md#return-the-assigned-result) for the [Coordinator to resolve](coordinator.md#resolve-merge-conflicts). After it resumes you with the pushed resolution, run `git merge --abort` to clear your failed local merge, fetch and fast-forward your branch to that resolution.
 
-After integration, run the affected verification, commit and push the candidate. The review compares committed output; uncommitted work is outside it.
+After integration, run the affected verification, commit and push the candidate. If that merge changed a surface `verify-<app>` drives, update that skill's script to the merged surface, run it, and commit and push it before review. The review compares committed output; uncommitted work is outside it.
 
-Invoke this runtime's **code-review** and follow its existing [Main reviewer method](../../code-review/references/main-reviewer.md) in this session. Perform preparation and aggregation here. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the pushed candidate, task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Each axis assignment includes the repository, Worker branch and pushed candidate SHA through [Prepare an assignment](../SKILL.md#prepare-an-assignment), together with its assigned review instructions. Code review owns the three axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation.
+Call the Skill tool with "no-comments" for this committed diff. Commit and push what it changes before review.
+
+Call the Skill tool with "code-review" for the main reviewer in this session. Perform preparation and aggregation here. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the pushed candidate, task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Each axis assignment includes the repository, Worker branch and pushed candidate SHA through [Prepare an assignment](../SKILL.md#prepare-an-assignment), together with its assigned review instructions. Code review owns the three axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation.
+
+After that review returns, run the project's verification skill on the pushed candidate when the project has `verify-<app>` and the candidate changes a surface a person uses. The skill is `verify-<app>` at `.cursor/skills/verify-<app>/`: it starts the app and drives the features this ticket names. Run Doctor, then those features. Check that the text the script asserts is the spec sentence on the ticket, copied unchanged as the expected result. Do not write or edit the script or the feature map. A missing script is a review result, not a reason to write one. Report this pass in its own section beside Standards, Spec, and Tests.
 
 Done when a complete review has returned checked reports or an explicit missing/invalid review requiring recovery.
 
 ## 4. Read and handle the review
 
-Apply **principle-fix-root-causes**.
+Call the Skill tool with "principle-fix-root-causes" for the findings you handle.
 
 Preserve original reports, dispositions and limitations.
 

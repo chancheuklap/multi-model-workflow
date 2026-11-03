@@ -15,13 +15,13 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 ### 2. Explore the codebase (optional)
 
-If you have not already explored the codebase, do so to understand the current state of the code. Apply **principle-anchor-every-reference** to ticket titles and descriptions, and respect ADRs in the area you're touching.
+If you have not already explored the codebase, do so to understand the current state of the code. Call the Skill tool with "principle-anchor-every-reference" for ticket titles and descriptions, and respect ADRs in the area you're touching.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
 ### 3. Draft vertical slices
 
-Break the work into **tracer bullet** tickets, applying **principle-write-for-where-it-is-read** and **principle-baseline-is-the-contract**
+Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract". Call the Skill tool with "technical-writing" and write each ticket's prose through it. The issue template is the structure.
 
 <vertical-slice-rules>
 
@@ -31,6 +31,10 @@ Break the work into **tracer bullet** tickets, applying **principle-write-for-wh
 - Any prefactoring should be done first
 
 </vertical-slice-rules>
+
+The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`: a `features/` map of how a person reaches each part, plus the scripts that drive the real app. A ticket that changes a surface a person uses names that feature file and copies the spec sentences the surface must show. The worker writes the drive script from those sentences. The review runs `verify-<app>` and checks that the script asserts them. This step does not write the script.
+
+Call the Skill tool with "principle-separate-before-serializing-shared-state" before settling the blocking edges, and before sequencing a wide refactor whose tickets would write one shared symbol.
 
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 

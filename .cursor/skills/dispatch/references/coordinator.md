@@ -49,7 +49,7 @@ Use written authority in order: owner decisions and ADRs, the spec, an accepted 
 
 For a child, record the decision, its reason and affected tasks there.
 
-When an independent repair is actually needed, prepare its real ticket. Use only the `<issue-template>` block in **to-tickets** as the ticket format, not that skill's interactive Process. State the required behavior and acceptance criteria, preserve the applicable spec and baselines, and set native blocking relationships. Give the destination `ready-for-agent` as its only queue label and exactly one of `junior-worker` or `senior-worker`. Give the destination `mmw:ticket`; if promoting the child itself, replace `mmw:child` with `mmw:ticket`. Preserve the original child relationship; do not reparent merely to fit a fixed-depth query. Add a real dependency before dispatching any work it blocks.
+When an independent repair is actually needed, prepare its real ticket. Call the Skill tool with "to-tickets" for the issue template. Use only that template as the ticket format, not that skill's interactive Process. State the required behavior and acceptance criteria, preserve the applicable spec and baselines, and set native blocking relationships. Give the destination `ready-for-agent` as its only queue label and exactly one of `junior-worker` or `senior-worker`. Give the destination `mmw:ticket`; if promoting the child itself, replace `mmw:child` with `mmw:ticket`. Preserve the original child relationship; do not reparent merely to fit a fixed-depth query. Add a real dependency before dispatching any work it blocks.
 
 Do not turn an unresolved owner decision or a proposed expansion of the spec into ready work.
 
@@ -67,7 +67,7 @@ For unrelated findings that need a tracked decision or repair, create children a
 
 For `complete`, confirm the reported PR's head branch is `issue-N`, its base is this NIGHT and its head SHA matches the reported output.
 
-When the report names a PR, invoke this runtime's **pr** skill to write its body from the work report, keeping the ticket link. Save the body to a UTF-8 file and update it with `gh pr edit PR --body-file FILE`. Record the implementation, review handling, verification and any unfinished work in this body.
+When the report names a PR, call the Skill tool with "pr" to write its body from the work report, keeping the ticket link. Save the body to a UTF-8 file and update it with `gh pr edit PR --body-file FILE`. Record the implementation, review handling, verification and any unfinished work in this body.
 
 For `complete`, mark the PR ready with `gh pr ready PR` and proceed to step 5. The ticket stays open until its code is merged into NIGHT.
 
@@ -101,7 +101,7 @@ Record unsupported or already-repaired claims with evidence on their child issue
 
 Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
 
-Invoke this runtime's **pr** skill to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the NIGHT → PROJECT delivery PR with `gh pr create --base PROJECT --head NIGHT --title TITLE --body-file FILE`.
+Call the Skill tool with "pr" to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the NIGHT → PROJECT delivery PR with `gh pr create --base PROJECT --head NIGHT --title TITLE --body-file FILE`.
 
 After the owner accepts and authorizes this delivery, merge that PR and confirm PROJECT contains the accepted output. Owner acceptance does not authorize marking unfinished tickets complete. PROJECT → dev → main and publication remain separately authorized.
 

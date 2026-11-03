@@ -35,7 +35,7 @@ Search the repo for every file that documents how code should be written. When `
 
 ### 4. Spawn the axis sub-agents in parallel
 
-Apply **principle-write-for-where-it-is-read**.
+Call the Skill tool with "principle-write-for-where-it-is-read" for the report the caller will read.
 
 Use the host's general-purpose subagents and existing model settings. Issue one Standards call, one Spec call, and one Tests call together, in the foreground. Each reviewer works only its own axis and does not read the other reviewer's analysis.
 
@@ -47,20 +47,20 @@ Resolve each review reference below from this document's directory and include i
 
 - The full diff command and commit list.
 - The list of standards-source files you found in step 3.
-- The instruction: "Invoke **code-review** and follow [Standards reviewer](standards-reviewer.md). Return the Standards report to me."
+- The instruction: "Call the Skill tool with "code-review" for the Standards reviewer. Follow [Standards reviewer](standards-reviewer.md). Return the Standards report to me."
 
 **Spec sub-agent prompt** should include:
 
 - The diff command and commit list.
 - The path or fetched contents of the spec.
-- The instruction: "Invoke **code-review** and follow [Spec reviewer](spec-reviewer.md). Return the Spec report and reproduction materials to me."
+- The instruction: "Call the Skill tool with "code-review" for the Spec reviewer. Follow [Spec reviewer](spec-reviewer.md). Return the Spec report and reproduction materials to me."
 
 **Tests sub-agent prompt** should include:
 
 - The reviewed commit ID, full diff command, and commit list.
 - The review task, available spec or ticket, and its testing decisions and acceptance criteria.
 - The temporary reproduction directory assigned to the Tests reviewer.
-- The instruction: "Invoke **code-review** and follow [Tests reviewer](tests-reviewer.md). Return the Tests report and reproduction materials to me."
+- The instruction: "Call the Skill tool with "code-review" for the Tests reviewer. Follow [Tests reviewer](tests-reviewer.md). Return the Tests report and reproduction materials to me."
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report. The Tests reviewer can still assess the tests and available task evidence, and records the missing requirement source as a limitation. Wait for every axis you started before verifying and aggregating its findings.
 
