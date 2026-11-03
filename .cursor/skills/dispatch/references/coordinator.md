@@ -77,7 +77,7 @@ Done when the Worker report is recorded in its PR body or blocking child, and th
 
 ## 5. Land and advance dependencies
 
-Use `dispatch.sh land PR --into NIGHT --head SHA --check COMMAND` for each actual candidate, with the current PR head SHA and the project's required verification command. This operation checks the merge candidate before updating NIGHT and follows repository merge rules.
+Use `dispatch.sh land PR --into NIGHT --head SHA` for each actual candidate, with the current PR head SHA. It runs the repository's executable `scripts/check` on that merge, with `MMW_BASE_REF` set to `origin/NIGHT`: the tests and the Postgres parameter proof this merge touches. Format, lint, types, and the static parameter rules already ran in the commit hook. A missing file, a red result, or a check this machine cannot run leaves NIGHT unchanged.
 
 On conflict, [resolve it yourself](#resolve-merge-conflicts). For failed checks, inspect whether the cause is an integration interaction or an in-ticket defect: resolve the interaction yourself; [resume the original Worker](../SKILL.md#wait-and-continue) with an in-ticket defect's exact failing command and output. On success, confirm the remote NIGHT contains the result and close the execution ticket with `gh issue close N`. For a spec, re-read dependencies, [resume assigned Workers whose awaited repair has landed](../SKILL.md#wait-and-continue) and dispatch newly eligible tickets within `max_workers`; unrelated Workers can still be running. For one ticket, proceed to [Deliver the authorized output](#6-deliver-the-authorized-output); do not dispatch sibling tickets.
 
@@ -87,9 +87,9 @@ Done when the result is actually integrated or its failure has an explicit repai
 
 You resolve merge conflicts from the full spec, repository and both changes' sources. Read the affected tickets, their decisions and PR diffs. Preserve already-landed behavior as well as this ticket's requirements. Record the resolution, its sources, commit and verification in the ticket PR body. If the requirements themselves contradict one another, use the contract-decision rules in step 3.
 
-For a Worker's blocked integration, use a separate local checkout of its pushed branch, at the pre-merge HEAD it supplied. Merge the incoming NIGHT commit it named and resolve the conflict. For a landing conflict, the landing command discards its temporary candidate; check out the returned Worker branch locally and merge current NIGHT into it. In both cases, run the affected checks, commit and push the resolved Worker branch.
+For a Worker's blocked integration, use a separate local checkout of its pushed branch, at the pre-merge HEAD it supplied. Merge the incoming NIGHT commit it named and resolve the conflict. For a landing conflict, the landing command discards its temporary candidate; check out the returned Worker branch locally and merge current NIGHT into it. In both cases, run `MMW_BASE_REF=origin/NIGHT scripts/check`, commit and push the resolved Worker branch.
 
-For a blocked integration, [resume the original Worker](../SKILL.md#wait-and-continue) with the resolution and its SHA so it continues its original task. For a landing conflict, update the existing PR body and retry `land` with your resolution's SHA and the required verification command.
+For a blocked integration, [resume the original Worker](../SKILL.md#wait-and-continue) with the resolution and its SHA so it continues its original task. For a landing conflict, update the existing PR body and retry `land` with your resolution's SHA.
 
 Done when the resolved integration is committed and checked, and the original task has continued or the landing is recorded.
 
@@ -102,6 +102,8 @@ Record unsupported or already-repaired claims with evidence on their child issue
 Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
 
 Call the Skill tool with "pr" to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the NIGHT → PROJECT delivery PR with `gh pr create --base PROJECT --head NIGHT --title TITLE --body-file FILE`.
+
+After that pull request exists, call the Skill tool with "retro". It reviews this delivery and commits any repeated-mistake fixes on NIGHT, which this pull request already tracks.
 
 After the owner accepts and authorizes this delivery, merge that PR and confirm PROJECT contains the accepted output. Owner acceptance does not authorize marking unfinished tickets complete. PROJECT → dev → main and publication remain separately authorized.
 

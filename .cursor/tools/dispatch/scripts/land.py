@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Validate one PR's actual NIGHT merge candidate, then merge that exact PR head."""
+"""Validate one PR's actual NIGHT merge candidate with scripts/check, then merge that exact PR head."""
 from __future__ import annotations
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
 from status import GitHub, command
 
 
-def land(number: int, into: str, head: str, check: str, *, api=None) -> dict:
+def land(number: int, into: str, head: str, *, api=None) -> dict:
     api = api or GitHub()
     root = Path(command('git', 'rev-parse', '--show-toplevel'))
     pr = api.get(f'pulls/{number}')
@@ -29,9 +30,14 @@ def land(number: int, into: str, head: str, check: str, *, api=None) -> dict:
         try:
             command('git', 'merge', '--no-ff', '--no-edit', head, cwd=candidate)
             tree = command('git', 'write-tree', cwd=candidate)
-            run = subprocess.run(['bash', '-c', check], cwd=candidate, text=True)
+            path = candidate / 'scripts' / 'check'
+            if not (path.is_file() and os.access(path, os.X_OK)):
+                raise RuntimeError('the merge candidate has no executable scripts/check; NIGHT was not updated')
+            env = os.environ.copy()
+            env['MMW_BASE_REF'] = f'origin/{into}'
+            run = subprocess.run([str(path)], cwd=candidate, env=env, text=True)
             if run.returncode:
-                raise RuntimeError(f'candidate check exited {run.returncode}; NIGHT was not updated')
+                raise RuntimeError(f'scripts/check exited {run.returncode}; NIGHT was not updated')
             if subprocess.run(['git', 'diff', '--quiet'], cwd=candidate).returncode:
                 raise RuntimeError('verification changed tracked candidate files; NIGHT was not updated')
             if command('git', 'write-tree', cwd=candidate) != tree:
@@ -56,10 +62,10 @@ def land(number: int, into: str, head: str, check: str, *, api=None) -> dict:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('pr', type=int); parser.add_argument('--into', required=True)
-    parser.add_argument('--head', required=True); parser.add_argument('--check', required=True)
+    parser.add_argument('--head', required=True)
     args = parser.parse_args()
     try:
-        print(json.dumps(land(args.pr, args.into, args.head, args.check)))
+        print(json.dumps(land(args.pr, args.into, args.head)))
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
         parser.exit(2, f'land: {exc}\n')
 
