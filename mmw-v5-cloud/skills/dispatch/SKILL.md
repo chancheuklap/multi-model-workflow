@@ -31,7 +31,7 @@ Run commands from the consuming repository's checkout, not the skill directory. 
 
 Use skills and tools from this installation. Keep this runtime, its model configuration and its working instructions fixed for the run; changing the product under review does not change the tools controlling it.
 
-Use the project-installed MMW runtime and `.agents/models.json` fixed by this night's starting commit. `dispatch.sh` supplies `status`, `land` and `board`. Ordinary branch operations use Git.
+Use this installation's MMW runtime and the project's `.cursor/models.json` fixed by this night's starting commit. In Cursor, the runtime is installed in the project's `.cursor/`; in Codex, it is installed as a plugin. `dispatch.sh` supplies `status`, `land` and `board`. Ordinary branch operations use Git.
 
 Read this run's full configuration with `python3 models.py show --at RUNTIME_COMMIT`, or one role with `python3 models.py row ROLE HOST --at RUNTIME_COMMIT`; for review axes use ROLE `review-axis`. RUNTIME_COMMIT is the existing starting commit of this run, supplied in the assignment; reading its Git version keeps board edits for the next run. HOST is the actual native host, such as `codex` or `cursor`. Pass returned non-`inherit` model and effort values to the host's subagent call.
 

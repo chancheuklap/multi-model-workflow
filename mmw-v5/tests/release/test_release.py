@@ -185,12 +185,12 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         with zipfile.ZipFile(output) as archive:
             names = archive.namelist()
-            self.assertEqual(archive.read(".agents/skills/example/SKILL.md"), b"Original skill")
-            self.assertEqual(archive.read(".agents/skills/dispatch/SKILL.md"), b"Cloud dispatch")
-            self.assertEqual(archive.read(".agents/board/page/board-layout.mjs"), b"cloud edition geometry")
-            self.assertEqual(archive.read(".agents/board/page/board-logic.mjs"), b"native cloud facts")
-            self.assertEqual(json.loads(archive.read(".agents/models.json"))["max_workers"], 3)
-            self.assertEqual(json.loads(archive.read(".agents/plugin.json"))["version"], "5.0.0-beta.2")
+            self.assertEqual(archive.read(".cursor/skills/example/SKILL.md"), b"Original skill")
+            self.assertEqual(archive.read(".cursor/skills/dispatch/SKILL.md"), b"Cloud dispatch")
+            self.assertEqual(archive.read(".cursor/board/page/board-layout.mjs"), b"cloud edition geometry")
+            self.assertEqual(archive.read(".cursor/board/page/board-logic.mjs"), b"native cloud facts")
+            self.assertEqual(json.loads(archive.read(".cursor/models.json"))["max_workers"], 3)
+            self.assertEqual(json.loads(archive.read(".cursor/plugin.json"))["version"], "5.0.0-beta.2")
             self.assertFalse(any("relay" in name or "runners" in name or "private.txt" in name for name in names))
 
     def test_cloud_publication_attaches_both_editions_without_tests(self):

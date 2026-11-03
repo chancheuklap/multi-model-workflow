@@ -1,0 +1,11 @@
+{
+  "max_workers": 3,
+  "rows": {
+    "junior-worker": {"host": "inherit", "model": "inherit", "effort": "inherit"},
+    "senior-worker": {"host": "inherit", "model": "inherit", "effort": "inherit"},
+    "advisor": {"host": "inherit", "model": "inherit", "effort": "inherit"},
+    "researcher": {"host": "inherit", "model": "inherit", "effort": "inherit"},
+    "candidate": {"host": "inherit", "model": "inherit", "effort": "inherit"},
+    "review-axis": {"host": "inherit", "model": "inherit", "effort": "inherit"}
+  }
+}

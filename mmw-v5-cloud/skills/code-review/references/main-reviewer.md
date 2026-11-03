@@ -41,24 +41,26 @@ Use the host's general-purpose subagents and existing model settings. Issue one 
 
 Give the Spec and Tests reviewers separate temporary directories for reproduction scripts and output, and include the corresponding path in each prompt. Reproductions use the reviewed commit and independent test data without changing the reviewed code; Tests controls that alter code run in an isolated copy.
 
+Resolve each review reference below from this document's directory and include its resolved path in the corresponding assignment.
+
 **Standards sub-agent prompt** should include:
 
 - The full diff command and commit list.
 - The list of standards-source files you found in step 3.
-- The instruction: "Invoke `code-review` and follow `references/standards-reviewer.md`. Return the Standards report to me."
+- The instruction: "Invoke **code-review** and follow [Standards reviewer](standards-reviewer.md). Return the Standards report to me."
 
 **Spec sub-agent prompt** should include:
 
 - The diff command and commit list.
 - The path or fetched contents of the spec.
-- The instruction: "Invoke `code-review` and follow `references/spec-reviewer.md`. Return the Spec report and reproduction materials to me."
+- The instruction: "Invoke **code-review** and follow [Spec reviewer](spec-reviewer.md). Return the Spec report and reproduction materials to me."
 
 **Tests sub-agent prompt** should include:
 
 - The reviewed commit ID, full diff command, and commit list.
 - The review task, available spec or ticket, and its testing decisions and acceptance criteria.
 - The temporary reproduction directory assigned to the Tests reviewer.
-- The instruction: "Invoke `code-review` and follow `references/tests-reviewer.md`. Return the Tests report and reproduction materials to me."
+- The instruction: "Invoke **code-review** and follow [Tests reviewer](tests-reviewer.md). Return the Tests report and reproduction materials to me."
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report. The Tests reviewer can still assess the tests and available task evidence, and records the missing requirement source as a limitation. Wait for every axis you started before verifying and aggregating its findings.
 

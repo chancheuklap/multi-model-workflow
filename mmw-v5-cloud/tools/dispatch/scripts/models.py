@@ -12,7 +12,7 @@ ROLES = ('junior-worker', 'senior-worker', 'advisor', 'researcher', 'candidate',
 
 def config_path() -> Path:
     root = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=True).stdout.strip()
-    return Path(root) / '.agents' / 'models.json'
+    return Path(root) / '.cursor' / 'models.json'
 
 
 def validate(value: dict) -> dict:
@@ -34,7 +34,7 @@ def read_config(at: str | None = None) -> dict:
     if at is None:
         text = config_path().read_text(encoding="utf-8")
     else:
-        text = subprocess.run(["git", "show", f"{at}:.agents/models.json"], capture_output=True, text=True, check=True).stdout
+        text = subprocess.run(["git", "show", f"{at}:.cursor/models.json"], capture_output=True, text=True, check=True).stdout
     return validate(json.loads(text))
 
 
