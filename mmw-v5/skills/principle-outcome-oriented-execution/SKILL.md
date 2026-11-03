@@ -13,6 +13,6 @@ Optimize for the intended, verifiable end state at declared verification boundar
 
 - Use this for planned rewrites and migrations with explicit phase boundaries. Declare where temporary breakage is acceptable, scoped and reversible.
 - Before changing an internal API, find every caller. Update callers and tests to the new contract, and remove tests that only protect the old implementation details.
-- Keep high-signal checks for actively touched areas during the transition. **principle-sequence-verifiable-units** governs the check at each unit.
+- Keep high-signal checks for actively touched areas during the transition. Call the Skill tool with "principle-sequence-verifiable-units" for the check at each unit.
 - At migration completion, delete the superseded API, branch, guard or file and any temporary compatibility code. Require the plan's full static and runtime verification there.
 - Coordinated breaking changes require that no external user depends on backward compatibility. Preserve an external contract until its migration is explicitly agreed.

@@ -5,9 +5,11 @@ description: Write tests while landing code for a specified behavior, a cheap bu
 
 # Write tests
 
-You are the worker landing this ticket's code. Apply this during that implementation. The review of these tests is a later step under **code-review**, not a step of this cycle.
+When the caller asks for the judgment, the examples, or the mocking guideline, read [the judgment](references/judgment.md), [the examples](references/tests.md), and [mocking.md](references/mocking.md) when a mock is involved. Stop there. The steps below are for landing code.
 
-Use the behavior, test seam, acceptance requirements, and test precedent supplied by the spec, ticket, or task. Apply **principle-baseline-is-the-contract** to those decisions. Apply **principle-anchor-every-reference** to test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
+You are the worker landing this ticket's code. Apply this during that implementation. The review of these tests is a later step, not a step of this cycle.
+
+Use the behavior, test seam, acceptance requirements, and test precedent supplied by the spec, ticket, or task. Call the Skill tool with "principle-baseline-is-the-contract" for those decisions. Call the Skill tool with "principle-anchor-every-reference" for test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
 
 Read [the judgment](references/judgment.md) before the loop and apply it on every cycle. See [tests.md](references/tests.md) for examples. Read [mocking.md](references/mocking.md) when a test needs a mock, or when you are implementing a system boundary.
 
@@ -36,7 +38,7 @@ Answer the authoring gate in the judgment before adding a test. Repeat the cycle
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** It belongs to the review stage (see the **code-review** skill), not the red → green implementation cycle.
+- **Refactoring is not part of the loop.** It belongs to the review stage, not the red → green implementation cycle.
 
 One cycle is done when that test failed because the behavior was absent, then passed from the smallest implementation of that behavior. Start the next cycle only after that. The branch is done when every behavior the task specifies has been through one cycle.
 

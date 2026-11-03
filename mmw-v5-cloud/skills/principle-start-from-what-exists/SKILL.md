@@ -18,4 +18,4 @@ Every design and every implementation starts from what already exists.
 
 **Does not apply** to trivial changes in existing code, to fixing a bug in place, or when the owner has already named the project to build on. A ticket's settled approach counts as a named project.
 
-Distinct from **principle-first-principles-thinking**, which says, while reasoning, to use a proven pattern that already fits. This is the search you run before you build, and the record you leave of it.
+Distinct from "principle-first-principles-thinking", which says, while reasoning, to use a proven pattern that already fits. This is the search you run before you build, and the record you leave of it.

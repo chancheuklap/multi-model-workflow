@@ -5,18 +5,18 @@ description: Direct-invocation specialist for clear, self-contained HTML plans t
 
 # HTML Plan
 
-Before shaping the artifact, read and apply the **principle-write-for-where-it-is-read**, **principle-everything-at-hand**, and **principle-anchor-every-reference** skills.
+Before shaping the artifact, call the Skill tool three times, for "principle-write-for-where-it-is-read", "principle-everything-at-hand", and "principle-anchor-every-reference".
 
 Turn source material into a plan people can inspect and act on. Preserve the user's scope, ordering, commitments, and terminology unless they ask for broader synthesis.
 
 ## Shape the document around the work
 
-When describing supplied files or an existing system, read and apply **principle-read-before-you-conclude** before deciding what the artifact says.
+When describing supplied files or an existing system, call the Skill tool with "principle-read-before-you-conclude" before deciding what the artifact says.
 
 Read the conversation, project instructions, and supplied plan before designing. Match an existing design language when one is present. Otherwise derive a quiet, workmanlike direction from the audience and subject.
 
-When **design-artifact** is available, read its
-fundamentals to make that direction intentional. Keep this skill's traceability
+When design-artifact is available, call the Skill tool with "design-artifact" for
+fundamentals that make that direction intentional. Keep this skill's traceability
 and source-preservation rules authoritative; creative direction must not
 inflate the plan into a dashboard or campaign page.
 
@@ -33,7 +33,7 @@ Do not add a timeline, progress percentage, status badge, or dashboard summary u
 
 ## Preserve traceability
 
-When working from approved wording, decisions, or designs, read and apply **principle-baseline-is-the-contract** before changing their presentation.
+When working from approved wording, decisions, or designs, call the Skill tool with "principle-baseline-is-the-contract" before changing their presentation.
 
 - Keep source commitments recognizable.
 - Separate accepted decisions from assumptions and open questions.

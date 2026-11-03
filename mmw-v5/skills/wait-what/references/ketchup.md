@@ -2,7 +2,7 @@
 
 Catch the user up on what changed in this chat since the last message they wrote before `/wait-what ketchup`, and help them understand each change, not only where it stands. Give them every pending decision with the context needed to understand it where they read it. Notifications and subagent results are not their messages. Assume the user remembers their last message and nothing after it.
 
-Use **wait-what**'s opening voice: give a little context, use ASD-STE100 Simplified Technical English, and apply **principle-anchor-every-reference**, like one person catching up another. Say what changed for the user, not how you did it. Say "the tests pass", not "CI is green". Leave out hashes, file paths, commands, build numbers, and test counts unless the user needs one to act. Call each PR, branch, or agent by a name the user would know, not by a label you invented. If a fact needs context to make sense, give the context or leave the fact out.
+Use this skill's opening voice: give a little context, use ASD-STE100 Simplified Technical English, and call the Skill tool with "principle-anchor-every-reference", like one person catching up another. Say what changed for the user, not how you did it. Say "the tests pass", not "CI is green". Leave out hashes, file paths, commands, build numbers, and test counts unless the user needs one to act. Call each PR, branch, or agent by a name the user would know, not by a label you invented. If a fact needs context to make sense, give the context or leave the fact out.
 
 ## Gather what changed
 
@@ -14,7 +14,7 @@ Group items that share one decision. For each item, collect its original source 
 
 ## Write the reply
 
-Keep the progress account short. Let the reply grow with the pending decisions, keeping every item and the information needed to understand it. A count or link cannot replace an item. Links add detail. The reading place itself must carry the decision context. When something is easier to grasp as a picture than as sentences, use **big-pics-little-words** to visualize it: how a design or system works, a PR stack or dependency chain with each PR's state, a before and after of a fix, or options side by side. Never draw a status list or boxes with nothing connecting them. Never give a fact twice, in text or across visuals. Leave out work that changed nothing for the user.
+Keep the progress account short. Let the reply grow with the pending decisions, keeping every item and the information needed to understand it. A count or link cannot replace an item. Links add detail. The reading place itself must carry the decision context. When something is easier to grasp as a picture than as sentences, call the Skill tool with "big-pics-little-words" to visualize it: how a design or system works, a PR stack or dependency chain with each PR's state, a before and after of a fix, or options side by side. Never draw a status list or boxes with nothing connecting them. Never give a fact twice, in text or across visuals. Leave out work that changed nothing for the user.
 
 Open with one sentence that says how many things need the user, or that nothing does. If nothing happened and nothing waits on the user, say so and stop.
 
@@ -28,8 +28,8 @@ The overview makes all pending decisions visible. Recommend which decision to di
 
 ## Visuals
 
-A visual is a picture: a screenshot, a video, a Mermaid diagram, a chart or diagram from **big-pics-little-words**, or a generated image. A Markdown table is not a visual, even with before and after columns.
+A visual is a picture: a screenshot, a video, a Mermaid diagram, a chart or diagram made with big-pics-little-words, or a generated image. A Markdown table is not a visual, even with before and after columns.
 
 Keep each visual small enough to read at a glance: at most six boxes, with at most eight words in each. Write labels as plain words a person would say, not tags like "Tests: pass". A fact that needs a sentence belongs in the text, or nowhere.
 
-Embed screenshots and videos inline when the change is visible, not only as links. If a visible change has none, mark its summary line "No screenshot yet," and say there what changed on screen. Use **big-pics-little-words** to draw diagrams and charts from facts you have. Never invent a number, and never draw or generate a picture of a screen you did not capture. Link only artifacts that exist.
+Embed screenshots and videos inline when the change is visible, not only as links. If a visible change has none, mark its summary line "No screenshot yet," and say there what changed on screen. Call the Skill tool with "big-pics-little-words" to draw diagrams and charts from facts you have. Never invent a number, and never draw or generate a picture of a screen you did not capture. Link only artifacts that exist.

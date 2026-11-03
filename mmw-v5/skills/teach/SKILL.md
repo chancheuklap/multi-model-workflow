@@ -132,7 +132,7 @@ Some learning topics lend themselves to reference:
 - Exercises and routines for fitness
 - Glossaries for any topic with its own nomenclature
 
-Glossaries, in particular, are an essential reference. Apply **principle-anchor-every-reference** in every lesson.
+Glossaries, in particular, are an essential reference. Call the Skill tool with "principle-anchor-every-reference" in every lesson.
 
 ## `NOTES.md`
 

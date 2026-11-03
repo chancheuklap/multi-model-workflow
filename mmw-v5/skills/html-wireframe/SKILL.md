@@ -5,15 +5,15 @@ description: Direct-invocation specialist for low-fidelity, self-contained HTML 
 
 # HTML Wireframe
 
-Before shaping the artifact, read and apply the **principle-write-for-where-it-is-read**, **principle-everything-at-hand**, and **principle-anchor-every-reference** skills.
+Before shaping the artifact, call the Skill tool three times, for "principle-write-for-where-it-is-read", "principle-everything-at-hand", and "principle-anchor-every-reference".
 
 Turn a product question into a low-fidelity HTML artifact that is easy to inspect, change, and discuss. The wireframe should help reviewers decide what belongs on the screen and how the task should work. It should not look like a finished product.
 
 ## Establish the review question
 
-When describing supplied files or an existing system, read and apply **principle-read-before-you-conclude** before deciding what the artifact says.
+When describing supplied files or an existing system, call the Skill tool with "principle-read-before-you-conclude" before deciding what the artifact says.
 
-When working from approved wording, decisions, or designs, read and apply **principle-baseline-is-the-contract** before changing their presentation.
+When working from approved wording, decisions, or designs, call the Skill tool with "principle-baseline-is-the-contract" before changing their presentation.
 
 Read the conversation, supplied brief, and nearby project material before choosing a layout. Reuse the project's content model and known product constraints.
 
@@ -36,7 +36,7 @@ Use real labels and representative content. Low fidelity is not permission to us
 
 ## Explore structure before style
 
-When **design-artifact** is available, read it for
+When design-artifact is available, call the Skill tool with "design-artifact" for
 subject-specific composition and hierarchy guidance without importing editorial
 polish. This skill's low-fidelity contract remains authoritative.
 

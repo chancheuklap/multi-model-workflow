@@ -1,6 +1,6 @@
 # GLOSSARY.md Format
 
-`GLOSSARY.md` is the canonical language for this teaching workspace. Apply **principle-anchor-every-reference** when writing explainers, exercises, learning records, and definitions. Building it is itself part of learning: compressing a concept into a tight definition is evidence the user understands it.
+`GLOSSARY.md` is the canonical language for this teaching workspace. Call the Skill tool with "principle-anchor-every-reference" when writing explainers, exercises, learning records, and definitions. Building it is itself part of learning: compressing a concept into a tight definition is evidence the user understands it.
 
 ## Structure
 

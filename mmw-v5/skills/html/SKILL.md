@@ -5,7 +5,7 @@ description: Create or redesign self-contained single-file HTML artifacts with a
 
 # HTML
 
-Before shaping the artifact, read and apply the **principle-write-for-where-it-is-read**, **principle-everything-at-hand**, and **principle-anchor-every-reference** skills.
+Before shaping the artifact, call the Skill tool three times, for "principle-write-for-where-it-is-read", "principle-everything-at-hand", and "principle-anchor-every-reference".
 
 Build one self-contained HTML file that makes the subject clearer, easier to use, or easier to understand. The standard is consistent care, not a consistent look. Do not reproduce a house palette, typography stack, card system, or layout from prior runs.
 
@@ -13,23 +13,22 @@ Build one self-contained HTML file that makes the subject clearer, easier to use
 
 Use the narrowest skill that owns the main review question:
 
-- Read and compose **design-artifact** with the
-  chosen workflow when palette, type, composition, theming, or overall visual
+- Call the Skill tool with "design-artifact" for creative direction when palette, type, composition, theming, or overall visual
   register remain open. It provides creative direction; it does not replace the
   specialist that owns fidelity, structure, or behavior.
-- Read and follow **html-wireframe** when structure, information hierarchy, navigation, or task flow is still unsettled. It should remain visibly low fidelity and may compare two or three layout directions.
-- Read and follow **html-prototype** when the user needs a polished mockup or a working interactive flow. A mockup is the static fidelity mode inside that skill.
-- Read and follow **html-plan** when the artifact is primarily a plan, roadmap, implementation sequence, or rollout document whose source commitments must remain easy to verify.
-- Read and follow **html-diagram** when relationships, sequence, topology, state, hierarchy, or system behavior are the main content.
-- Continue with **html** for reports, explainers, presentations, landing pages, data stories, tools, and mixed artifacts that do not have a clearer owner.
+- Call the Skill tool with "html-wireframe" when structure, information hierarchy, navigation, or task flow is still unsettled. It should remain visibly low fidelity and may compare two or three layout directions.
+- Call the Skill tool with "html-prototype" when the user needs a polished mockup or a working interactive flow. A mockup is the static fidelity mode inside that skill.
+- Call the Skill tool with "html-plan" when the artifact is primarily a plan, roadmap, implementation sequence, or rollout document whose source commitments must remain easy to verify.
+- Call the Skill tool with "html-diagram" when relationships, sequence, topology, state, hierarchy, or system behavior are the main content.
+- Continue in this skill for reports, explainers, presentations, landing pages, data stories, tools, and mixed artifacts that do not have a clearer owner.
 
 These skill calls are the nesting mechanism when the collection is installed together. If a specialized skill is unavailable, continue here and load the closest reference below. Do not make the user install another skill before completing the request.
 
 ## Read the room before designing
 
-When describing supplied files or an existing system, read and apply **principle-read-before-you-conclude** before deciding what the artifact says.
+When describing supplied files or an existing system, call the Skill tool with "principle-read-before-you-conclude" before deciding what the artifact says.
 
-When working from approved wording, decisions, or designs, read and apply **principle-baseline-is-the-contract** before changing their presentation.
+When working from approved wording, decisions, or designs, call the Skill tool with "principle-baseline-is-the-contract" before changing their presentation.
 
 Inspect the user's request and any material they supplied. When working in a repository, look for its design language in `AGENTS.md`, `CLAUDE.md`, design-system documentation, tokens, existing components, and nearby artifacts.
 
@@ -48,8 +47,7 @@ Before coding, settle five things in working notes:
 - **Fidelity:** whether to preserve the user's structure and wording or synthesize more freely.
 - **Interaction:** what benefits from exploration, sequencing, filtering, or motion, if anything.
 
-If the project already answers the visual questions, follow it. Otherwise read
-and compose **design-artifact** when it is
+If the project already answers the visual questions, follow it. Otherwise call the Skill tool with "design-artifact" when it is
 available. If the collection was installed without that sibling skill, read
 [`references/creative-direction.md`](references/creative-direction.md) before
 choosing the palette, type, composition, or motion.

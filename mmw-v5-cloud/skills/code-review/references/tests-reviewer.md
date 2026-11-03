@@ -4,9 +4,9 @@ You are the Tests reviewer assigned for one change. The worker who landed the co
 
 Review the tests and the production paths they exercise in the assigned change. Read the spec, ticket, testing decisions, and acceptance criteria supplied in your assignment. Read the relevant tests in full, including parameter tables. When behavior changed and the change adds no new test, inspect the existing proof.
 
-Apply **principle-baseline-is-the-contract** to those supplied decisions, and judge that agreed contract. Apply **principle-anchor-every-reference** to names in the report. A missing task source is an evidence limitation.
+Call the Skill tool with "principle-baseline-is-the-contract" for those supplied decisions, and judge that agreed contract. Call the Skill tool with "principle-anchor-every-reference" for names in the report. A missing task source is an evidence limitation.
 
-Read and apply [the test judgment](../../write-tests/references/judgment.md). See [tests.md](../../write-tests/references/tests.md) for the examples. When the change adds or alters a mock, fake, or test double, read [mocking.md](../../write-tests/references/mocking.md).
+Call the Skill tool with "write-tests" for the judgment, the examples, and the mocking guideline.
 
 Where the judgment says to rewrite or delete a test, that correction is a finding. Quote the test, the criterion, and the correction.
 
@@ -22,7 +22,7 @@ When you need the words for that finding, call the Skill tool with "codebase-des
 
 Apply the authoring gate, the two edits, the anti-patterns, and the guardrails in the judgment to every test in the change. A violation is a finding.
 
-Reject new matches in this change unless the [retention bar](../../write-tests/references/judgment.md#retention-bar) identifies an independent contract. Audit existing matches in this change:
+Reject new matches in this change unless the retention bar in that judgment identifies an independent contract. Audit existing matches in this change:
 
 - Assertion-free probes, self-comparisons, identity copiers, subject-generated expected values.
 - Copied inventories/manifests/export lists; exact source/import/string greps.

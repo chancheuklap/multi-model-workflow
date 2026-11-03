@@ -1,6 +1,6 @@
 # Ambiguity scan
 
-Read only the source plan, spec, or conversation supplied by the caller, the drafted tickets, and any glossary map or definitions needed by **principle-anchor-every-reference**. Run one pass. Write nothing on the tracker.
+Read only the source plan, spec, or conversation supplied by the caller, the drafted tickets, and any glossary map or definitions. Call the Skill tool with "principle-anchor-every-reference" for those names. Run one pass. Write nothing on the tracker.
 
 It is very likely that important decisions are missing or ambiguous, even if the spec looks good on the surface. Be skeptical, adversarial, and actively try to find gaps.
 
@@ -47,7 +47,7 @@ Constraints & Tradeoffs:
 - Explicit tradeoffs or rejected alternatives
 
 Terminology & Consistency:
-- Use **principle-anchor-every-reference** to check terminology in the sources and drafted tickets.
+- Call the Skill tool with "principle-anchor-every-reference" to check terminology in the sources and drafted tickets.
 
 Completion Signals:
 - Acceptance criteria testability

@@ -14,7 +14,7 @@ Done when the task, sources, branch and initial code version are clear, or the m
 
 ## 2. Write tests and implement
 
-Call this v5 runtime's **write-tests** skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
+Call the Skill tool with "write-tests" for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
 Make engineering choices the sources leave open and record the consequential reasons for review.
 
@@ -32,13 +32,13 @@ Fetch and merge current NIGHT changes into your branch. On conflict, push the co
 
 After integration, run the affected verification, commit and push the candidate. The review compares committed output; uncommitted work is outside it.
 
-Invoke this runtime's **code-review** and follow its existing [Main reviewer method](../../code-review/references/main-reviewer.md) in this session. Perform preparation and aggregation here. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the pushed candidate, task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Each axis assignment includes the repository, Worker branch and pushed candidate SHA through [Prepare an assignment](../SKILL.md#prepare-an-assignment), together with its assigned review instructions. Code review owns the three axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation.
+Call the Skill tool with "code-review" for the main reviewer in this session. Perform preparation and aggregation here. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the pushed candidate, task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Each axis assignment includes the repository, Worker branch and pushed candidate SHA through [Prepare an assignment](../SKILL.md#prepare-an-assignment), together with its assigned review instructions. Code review owns the three axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation.
 
 Done when a complete review has returned checked reports or an explicit missing/invalid review requiring recovery.
 
 ## 4. Read and handle the review
 
-Apply **principle-fix-root-causes**.
+Call the Skill tool with "principle-fix-root-causes" for the findings you handle.
 
 Preserve original reports, dispositions and limitations.
 

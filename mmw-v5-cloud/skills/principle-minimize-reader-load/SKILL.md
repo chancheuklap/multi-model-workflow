@@ -5,7 +5,7 @@ description: Use when shaping modules, helpers, dependencies, or mutable state. 
 
 # Minimize Reader Load
 
-Maintainability is the work a reader must do to understand code. Track two axes: **layers to trace** (indirections between the question and the answer) and **state to hold** (hidden or mutable context the reader must keep in their head). LOC, cyclomatic complexity, and "clean architecture" are proxies. Reader load is the thing that matters. The two axes are independent. A flat file with 50 globals can be as hard to reason about as a 6-layer adapter stack. Guard both. This is the human analog of **principle-guard-the-context-window**. Working memory is finite for readers too.
+Maintainability is the work a reader must do to understand code. Track two axes: **layers to trace** (indirections between the question and the answer) and **state to hold** (hidden or mutable context the reader must keep in their head). LOC, cyclomatic complexity, and "clean architecture" are proxies. Reader load is the thing that matters. The two axes are independent. A flat file with 50 globals can be as hard to reason about as a 6-layer adapter stack. Guard both. This is the human analog of "principle-guard-the-context-window". Working memory is finite for readers too.
 
 - **Keep logic in one function by default.** Extract a helper only for composition or reuse, to hide a genuinely complex boundary, or to name a real concept that makes the caller clearer. Otherwise keep simple expressions and single-use logic inline.
 - **Make adjacent layers change the abstraction.** A layer that repeats the same methods and arguments adds reader load without compression. Collapse pass-through layers.

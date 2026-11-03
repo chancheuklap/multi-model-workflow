@@ -15,4 +15,4 @@ Before measuring, and before trusting, reporting or acting on the result, establ
 
 The **benchmark-checklist** skill owns the performance measurement procedure, including profiling the resource limiter, tuning comparisons and repeated runs. Agent evals need evidence of task execution and a supported conclusion, not a CPU or I/O limiter by default.
 
-Distinct from **principle-prove-it-works**, which checks that an output is real.
+Distinct from "principle-prove-it-works", which checks that an output is real.

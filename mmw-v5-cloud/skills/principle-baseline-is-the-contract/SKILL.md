@@ -15,4 +15,4 @@ A baseline is a decision someone already paid for: a user's answer, a prototype 
 - When something you were told to follow does not hold (it lacks a state, field, interaction or case, or contradicts another source), keep going on what still holds and raise the gap where whoever owns the baseline sees it. Quote what does not hold, and state what in that same source still holds and must be preserved.
 - Never quietly change a baseline, never quietly add around one.
 
-Distinct from **principle-redesign-from-first-principles**, which redesigns around a new requirement. A baseline belongs to whoever decided it: when it looks wrong, take it back to them instead of redesigning it yourself.
+Distinct from "principle-redesign-from-first-principles", which redesigns around a new requirement. A baseline belongs to whoever decided it: when it looks wrong, take it back to them instead of redesigning it yourself.

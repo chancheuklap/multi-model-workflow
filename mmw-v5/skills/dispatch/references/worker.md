@@ -12,7 +12,7 @@ Done when you know the required behavior, sources, verification and current outp
 
 ## 2. Write tests and implement
 
-Call this v5 runtime's **write-tests** skill for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
+Call the Skill tool with "write-tests" for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
 Make engineering choices the sources leave open and record the consequential reasons for review.
 
@@ -36,7 +36,7 @@ Done when an independent reviewer has reported against the candidate, or its los
 
 ## 4. Read and handle the review
 
-Apply **principle-fix-root-causes**.
+Call the Skill tool with "principle-fix-root-causes" for the findings you handle.
 
 On `reviewer.reported`, [read the actual report and acknowledge it](../SKILL.md#wait-and-continue). On `reviewer.lost`, [send a replacement reviewer](../SKILL.md#send-an-independent-session) for the same current candidate; a missing report is not a review. A bad ref, empty diff or unavailable axis remains an explicit review limitation.
 

@@ -15,13 +15,13 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 ### 2. Explore the codebase (optional)
 
-If you have not already explored the codebase, do so to understand the current state of the code. Apply **principle-anchor-every-reference** to ticket titles and descriptions, and respect ADRs in the area you're touching.
+If you have not already explored the codebase, do so to understand the current state of the code. Call the Skill tool with "principle-anchor-every-reference" for ticket titles and descriptions, and respect ADRs in the area you're touching.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
 ### 3. Draft vertical slices
 
-Break the work into **tracer bullet** tickets, applying **principle-write-for-where-it-is-read** and **principle-baseline-is-the-contract**
+Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract"
 
 <vertical-slice-rules>
 
