@@ -22,9 +22,9 @@ For a spec, `dispatch.sh status SPEC --into NIGHT` reads its executable tickets,
 
 The ticket itself is the execution object, not a container of tasks. Its parent spec supplies requirements, not permission to dispatch sibling tickets.
 
-Read this run's configuration through the [common tools operation](../SKILL.md#use-this-runs-tools). Keep each assigned ticket paired with its Worker Agent ID across questions and replies. Count running Worker calls toward `max_workers`; start or resume Workers within that limit. A Worker that returned a question still owns its ticket, so continue it through the original Agent ID rather than dispatching the ticket again. Dispatch eligible, unassigned tickets in parallel.
+Read this run's configuration through the [common tools operation](../SKILL.md#use-this-runs-tools). The ticket's approved `junior-worker` or `senior-worker` label determines its Worker grade. Set ROLE to that label when reading the model configuration row. Keep each assigned ticket paired with its Worker Agent ID across questions and replies. Count running Worker calls toward `max_workers`; start or resume Workers within that limit. A Worker that returned a question still owns its ticket, so continue it through the original Agent ID rather than dispatching the ticket again. Dispatch eligible, unassigned tickets in parallel.
 
-A new Worker requires every code predecessor actually merged into NIGHT. Fetch and fast-forward this checkout to `origin/NIGHT` before dispatch, then read its full SHA and [fill the Worker kickoff template](../SKILL.md#prepare-an-assignment). Use the chosen worker-grade model settings and [send the native Cloud Worker](../SKILL.md#send-a-native-cloud-agent). Handle returned questions under step 3 and final work reports under step 4.
+A new Worker requires every code predecessor actually merged into NIGHT. Fetch and fast-forward this checkout to `origin/NIGHT` before dispatch, then read its full SHA and [fill the Worker kickoff template](../SKILL.md#prepare-an-assignment). Use the model settings returned for that Worker grade and [send the native Cloud Worker](../SKILL.md#send-a-native-cloud-agent). Handle returned questions under step 3 and final work reports under step 4.
 
 Worker kickoff template:
 

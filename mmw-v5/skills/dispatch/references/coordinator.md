@@ -42,7 +42,7 @@ Done when the watch records this coordinator and the explicit target, with the s
 
 ## 2. Advance the frontier
 
-Run `dispatch.sh status SPEC`, then `dispatch.sh advance SPEC`. The script handles passed outputs, releases ended holds, reads dependencies again and starts the eligible tickets within `max_workers`. It selects each worker's configured model. Do not maintain a second frontier or merge tickets yourself alongside `advance`.
+Run `dispatch.sh status SPEC`, then `dispatch.sh advance SPEC`. The script handles passed outputs, releases ended holds, reads dependencies again and starts the eligible tickets within `max_workers`. The ticket's approved `junior-worker` or `senior-worker` label determines its Worker grade. The script selects the same-named model configuration row. Do not maintain a second frontier or merge tickets yourself alongside `advance`.
 
 Exit 4 reports refused starts; read each reason rather than blindly retrying it. Exit 2 reports a condition that prevented some work; read the actual state before retrying because other outputs may already have landed. If workers remain active, [wait through the common operation](../SKILL.md#wait-and-continue). If none remain, inspect why queued work cannot start.
 
