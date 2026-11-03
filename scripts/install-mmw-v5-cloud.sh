@@ -46,7 +46,7 @@ with zipfile.ZipFile(archive) as package:
         relative = PurePosixPath(member.filename[len(prefix):])
         if relative.is_absolute() or '..' in relative.parts:
             raise SystemExit('Invalid archive path: ' + str(relative))
-        if relative.parts[0] not in ('skills', 'tools', 'board', 'models.json', 'plugin.json', 'README.md'):
+        if relative.parts[0] not in ('skills', 'tools', 'board', 'models.json', 'plugin.json'):
             continue
         target = destination / str(relative)
         if str(relative) == 'models.json' and target.exists():

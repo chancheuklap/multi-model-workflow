@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = ("mmw-v5/plugin.json", "mmw-v5/.cursor-plugin/plugin.json")
 CLOUD_MANIFESTS = ("mmw-v5-cloud/plugin.json", "mmw-v5-cloud/.cursor-plugin/plugin.json")
 PACKAGE_PATHS = (
-    "plugin.json", "README.md", ".agents/plugins/marketplace.json",
+    "plugin.json", ".agents/plugins/marketplace.json",
     ".cursor-plugin/plugin.json", "skills", "tools", "board",
 )
 VERSION = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*))?")
@@ -81,7 +81,7 @@ def package(output: Path, edition: str = "local") -> str:
     output.parent.mkdir(parents=True, exist_ok=True)
     source = "mmw-v5" if edition == "local" else "mmw-v5-cloud"
     prefix = "mmw-v5/" if edition == "local" else ".cursor/"
-    paths = PACKAGE_PATHS if edition == "local" else ("plugin.json", "README.md", "models.json", "skills", "tools", "board")
+    paths = PACKAGE_PATHS if edition == "local" else ("plugin.json", "models.json", "skills", "tools", "board")
     run("git", "archive", "--format=zip", f"--prefix={prefix}", f"--output={output}",
         f"HEAD:{source}", *paths)
     return version

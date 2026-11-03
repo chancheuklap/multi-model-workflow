@@ -30,7 +30,7 @@ class ReleaseTest(unittest.TestCase):
         for path in ("plugin.json", ".cursor-plugin/plugin.json"):
             self.write("mmw-v5/" + path, json.dumps({"name": "mmw-v5", "version": "5.0.0-beta.2"}))
         for path, text in {
-            "README.md": "Read me", ".agents/plugins/marketplace.json": '{"name":"mmw-v5-local"}',
+            ".agents/plugins/marketplace.json": '{"name":"mmw-v5-local"}',
             "skills/example/SKILL.md": "Original skill", "tools/dispatch/run.sh": "#!/bin/sh\nexit 0\n",
             "board/page/index.html": "Board", "tests/private.txt": "not installed", "AGENTS.md": "development only",
         }.items():
@@ -149,7 +149,6 @@ else:
         for path, text in {
             "plugin.json": '{"name":"mmw-v5-cloud","version":"5.0.0-beta.2"}',
             ".cursor-plugin/plugin.json": '{"name":"mmw-v5-cloud","version":"5.0.0-beta.2"}',
-            "README.md": "Complete cloud edition",
             "skills/example/SKILL.md": "Original skill",
             "skills/dispatch/SKILL.md": "Cloud dispatch",
             "models.json": '{"max_workers":3,"rows":{}}',
@@ -236,7 +235,7 @@ else:
 
     def test_existing_version_at_another_commit_cannot_be_overwritten(self):
         self.git("push", "--quiet", "origin", "HEAD:refs/tags/v5.0.0-beta.2")
-        self.write("mmw-v5/README.md", "changed without a version bump")
+        self.write("mmw-v5/skills/example/SKILL.md", "changed without a version bump")
         self.commit("next code")
         result = self.command("publish", GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip())
         self.assertEqual(result.returncode, 2)
