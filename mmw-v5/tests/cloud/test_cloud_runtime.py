@@ -112,7 +112,7 @@ class CloudRuntime(unittest.TestCase):
         self.assertFalse((self.root/'should-not-exist').exists())
 
     def test_model_reads_project_not_local_home(self):
-        folder=self.root/'.agents'; folder.mkdir(); config=json.loads((ROOT/'mmw-v5-cloud/models.json').read_text())
+        folder=self.root/'.cursor'; folder.mkdir(); config=json.loads((ROOT/'mmw-v5-cloud/models.json').read_text())
         config['rows']['review-axis']={'host':'codex','model':'chosen-native-id','effort':'high'}
         models.write_config(config)
         self.commit('project model configuration')

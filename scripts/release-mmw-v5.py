@@ -80,7 +80,7 @@ def package(output: Path, edition: str = "local") -> str:
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     source = "mmw-v5" if edition == "local" else "mmw-v5-cloud"
-    prefix = "mmw-v5/" if edition == "local" else ".agents/"
+    prefix = "mmw-v5/" if edition == "local" else ".cursor/"
     paths = PACKAGE_PATHS if edition == "local" else ("plugin.json", "README.md", "models.json", "skills", "tools", "board")
     run("git", "archive", "--format=zip", f"--prefix={prefix}", f"--output={output}",
         f"HEAD:{source}", *paths)
@@ -120,7 +120,7 @@ def publish() -> str:
         else:
             args = ["gh", "release", "create", tag, *archives, "--repo", repo,
                     "--target", commit, "--title", f"MMW v5 {version}",
-                    "--notes", f"MMW v5 plugin at commit {commit}.\n\nInstall from this repository's main-branch plugin marketplace. The local ZIP contains the complete plugin; the cloud ZIP contains the self-contained project .agents runtime when present."]
+                    "--notes", f"MMW v5 plugin at commit {commit}.\n\nInstall the Codex plugin from this repository's main-branch marketplace. The local ZIP contains the complete plugin; the cloud ZIP contains the self-contained project .cursor runtime when present."]
             if "-" in version:
                 args.append("--prerelease")
             run(*args)
