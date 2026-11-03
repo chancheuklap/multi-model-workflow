@@ -1,6 +1,6 @@
 {
   "name": "mmw-v5-cloud",
-  "version": "5.0.0-beta.5",
+  "version": "5.0.0-beta.6",
   "description": "MMW v5 cloud edition for a local Coordinator and Cloud Workers",
   "author": {
     "name": "MMW"
