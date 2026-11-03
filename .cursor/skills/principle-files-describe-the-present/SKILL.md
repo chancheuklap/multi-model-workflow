@@ -13,4 +13,4 @@ A file describes its subject, never its own history.
 - The exception is a file whose subject is a decision or a change: an ADR, a changelog, a merge-note, a commit message, or a ticket comment records the alternatives considered, what superseded what, and why, because that record is the subject.
 - This rule is about what the file says, not how you edit it. When it will not affect the end result, surgically edit the file rather than rewrite the entire thing.
 
-Distinct from **mmw-mode** `## Comments`, which keeps a code comment only for a non-obvious why. This covers the whole file, prose and code alike.
+A code comment stays only for a non-obvious why. This covers the whole file, prose and code alike.

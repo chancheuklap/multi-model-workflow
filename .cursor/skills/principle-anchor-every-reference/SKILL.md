@@ -13,7 +13,7 @@ Every reference in a reply or a document is anchored. The reader shares none of 
 - If the project root has `GLOSSARY-MAP.md`, follow it to the relevant `GLOSSARY.md`. Otherwise use the root `GLOSSARY.md` when it exists.
 - Name each part of a product as the project's glossary names it, or, with no glossary, as its users name it. Read the relevant definition when it is absent from the current context or the topic changes; the name alone does not establish its meaning. Follow the definition's `_Avoid_` guidance.
 - Replace an invented label or a reference that requires looking back with the source name and enough explanation to identify its subject. A numbered mark on a page carries its explanation beside it.
-- Add a file path with its section heading, identifier or rule number when the reader needs to locate or check the source. Add line numbers only where a ticket, a `CHECK:` line or a review comment needs a jump location.
+- Add a file path with its section heading, identifier or rule number when the reader needs to locate or check the source. Add line numbers only where a ticket or a review comment needs a jump location.
 - A path is an address, not an explanation. Tell the owner what the reference means for the result or decision, and keep code out of the report unless asked.
 
 Distinct from the **technical-writing** skill, which says to write real paths and symbols in a document. This says where a name comes from and that it stays the same everywhere.
