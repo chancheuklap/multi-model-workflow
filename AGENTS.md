@@ -12,7 +12,7 @@ MMW v5 is the owner's general workflow for developing projects across consuming 
 
 The skills in this repository are deliverables, not the working instructions of an agent working on it. Use the host's installed skills. An explicit task to inspect or edit repository skills does not make those files the runtime for that task.
 
-Keep skills atomic. Workflows come from composing skills and dispatch role references; do not repeat the surrounding workflow inside each skill. Preserve source wording when importing or combining upstream prompts; deduplicate, arrange and adapt only as needed for the assigned role and use.
+Keep skills atomic. Workflows come from composing skills and dispatch role references; do not repeat the surrounding workflow inside each skill. The skills in both editions are adaptations and extensions of Matt Pocock's skills, pstack, and the other reference projects under `upstream/`. Preserve source wording when importing or combining those prompts; deduplicate, arrange and adapt only as needed for the assigned role and use.
 
 No part of MMW v5 may become reliable or complete by growing more complex; that only makes it more tedious and rigid. Before fixing a break, read the whole source of the chain around it, work out what each step was meant to do and what it actually does, and look for a step that is redundant, duplicated, wrong, or costs more than it returns: such a step is deleted or reshaped, not repaired. Before fixing or adding anything, ask whether the main path already catches the failure, even later. If it does, delete the extra layer rather than add a gate, field, command, fallback or rule. A real incident alone does not justify a layer.
 
