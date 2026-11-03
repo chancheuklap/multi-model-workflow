@@ -34,7 +34,7 @@ When this repository consumes MMW v5, the installed plugin used to open a night 
 - Releasing and updating installed hosts are the owner's calls. Commit completed changes on the assigned development branch; do not merge or push to `main`, publish, or update installed plugins without authorization.
 - Prepare version changes on `dev` with `python3 scripts/release-mmw-v5.py bump` and run the relevant checks locally before committing. Pushing `dev` does not publish. Merging and pushing to `main` publishes the committed version as a tag, GitHub Release and plugin ZIP; GitHub does not change the version or run tests.
 - Install one complete edition. Codex uses the GitHub `main` plugin: `mmw-v5` for local sessions or `mmw-v5-cloud` for cloud dispatch. Cursor uses the cloud edition copied into the consuming project's `.cursor/`, shared by its local and cloud agents. Cloud model configuration lives in the project's `.cursor/models.json`. Use the installed copy, not the edition's development directory. Installation guidance lives in the edition READMEs.
-- Local configuration and runtime records live outside the plugin at `~/.mmw-v5`, or the directory selected by `MMW_HOME`. Preserve them when replacing or updating plugins. Codex and Cursor share the same MMW configuration when they use the same directory.
+- The local-session edition keeps configuration and runtime records outside the plugin at `~/.mmw-v5`, or the directory selected by `MMW_HOME`. Preserve them when replacing or updating plugins.
 - Never put credentials under plugin skills or scripts: the same installed plugin is used across consuming repositories.
 - `.worktrees/mmw-installed` is a hand-made checkout, not a pipeline worktree. Never prune it.
 
