@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import unittest
@@ -112,22 +113,54 @@ class PipelineIntegrity(unittest.TestCase):
         self.assertEqual(fixture.git("rev-parse", "origin/project"), before)
         self.assertNotEqual(fixture.reload()["issues"]["60"]["state"], "CLOSED")
 
-    def test_summary_does_not_claim_all_from_default_check_proof(self):
+    def test_summary_runs_scripts_check_against_the_project_branch(self):
         fixture = self.fixture
         fixture.open()
         self.close_unused_tickets()
-        self.write_check_with_red_full_suite()
-        checked = fixture.ok(self.tool("--repository-check", "--base", "HEAD"))
-        proof = json.loads(checked.stdout)["proof"]
-        self.assertEqual(proof["tier"], "default")
-        fixture.add_event(60, "spec.checked", result="met", **proof)
+        (fixture.repo / "scripts/check").write_text(
+            """#!/usr/bin/env bash
+if [ "$#" -ne 0 ]; then echo FAIL args; exit 1; fi
+base="$(git rev-parse --verify "${MMW_BASE_REF}^{commit}" 2>/dev/null || true)"
+project="$(git rev-parse --verify "origin/project^{commit}")"
+if [ "$base" != "$project" ]; then printf 'FAIL base %s\\n' "${MMW_BASE_REF:-unset}"; exit 1; fi
+echo PASS unit
+""")
+        fixture.git("add", ".")
+        fixture.git("commit", "-qm", "scoped check")
+        fixture.git("push", "-q", "origin", "batch")
 
         result = fixture.command("summary", 60)
 
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertNotIn("CHECK PASS all", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        record = fixture.events.newest(
+            fixture.reload()["issues"]["60"]["comments"], "spec.checked")["payload"]
+        self.assertEqual(record["tier"], "default")
+        self.assertEqual(record["commit"], fixture.git("rev-parse", "origin/batch"))
+        self.assertEqual(record["base"], fixture.git("rev-parse", "origin/project"))
+        self.assertNotEqual(record["commit"], record["base"])
+
+    def test_summary_reuses_the_same_scoped_check_proof(self):
+        fixture = self.fixture
+        fixture.open()
+        self.close_unused_tickets()
+        (fixture.repo / "scripts/check").write_text(
+            "#!/usr/bin/env bash\necho FAIL unit\nexit 1\n")
+        fixture.git("add", ".")
+        fixture.git("commit", "-qm", "red check")
+        fixture.git("push", "-q", "origin", "batch")
+        tip = fixture.git("rev-parse", "origin/batch")
+        project = fixture.git("rev-parse", "origin/project")
+        self.assertNotEqual(tip, project)
+        fixture.add_event(60, "spec.checked", result="met", tier="default",
+                          commit=tip, base=project, machine=socket.gethostname(),
+                          steps=["unit"])
+
+        result = fixture.command("summary", 60)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("FAIL unit", result.stdout + result.stderr)
         comments = fixture.reload()["issues"]["60"]["comments"]
-        self.assertFalse(fixture.events.fold(comments)["spec_closed"])
+        self.assertTrue(fixture.events.fold(comments)["spec_closed"])
 
     def test_actual_reports_push_output_and_notify_worker_then_orchestrator(self):
         fixture = self.fixture

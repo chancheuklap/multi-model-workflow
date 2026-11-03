@@ -379,7 +379,7 @@ class TicketDispatch(unittest.TestCase):
         self.ok(self.command('summary',60));self.assertEqual(len(self.reload()['issues']['60']['comments']),count)
         fold=self.events.fold(self.state['issues']['60']['comments']);self.assertTrue(fold['spec_closed'])
         record=self.events.newest(self.state['issues']['60']['comments'],'spec.checked')['payload']
-        self.assertEqual(record['commit'],self.git('rev-parse','origin/batch'));self.assertEqual(record['tier'],'all')
+        self.assertEqual(record['commit'],self.git('rev-parse','origin/batch'));self.assertEqual(record['base'],self.git('rev-parse','origin/project'));self.assertNotEqual(record['commit'],record['base']);self.assertEqual(record['tier'],'default')
         self.assertEqual(json.loads(self.watches.read_text()),{})
 
     def test_summary_red_check_keeps_watch_and_does_not_claim_closed(self):

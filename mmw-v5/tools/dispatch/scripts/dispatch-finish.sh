@@ -431,7 +431,7 @@ finish_spec() {
         echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into, checked when #$checked_by landed"
       elif git -C "$MERGE_ROOT" merge-base --is-ancestor "$base" "origin/$into" \
          && repository_proof "$spec" "$tip" "$base" >/dev/null; then
-        echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into at ${tip:0:12}, which passed --all on this machine"
+        echo "finish #$spec: repository checks not run again: the merge's tree is origin/$into at ${tip:0:12}, which passed on this machine"
       else
         run_merge_checks "$MERGE_ROOT" "origin/$project" "$root" "spec-$spec"; rc=$?
       fi

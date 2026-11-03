@@ -92,7 +92,7 @@ Judge each supported finding in order, first match wins:
 3. Does the repair require coupled design across files, where how one is fixed decides how another must be fixed? Make it a `senior-worker` ticket. A name repeated through prose is mechanical work, not design coupling.
 4. Nothing matched: fix it yourself. The default is to fix it, not to open a ticket.
 
-The ones you fix: work on the batch branch after workers stop. Fetch, commit only the finding's cause and its proof, run the applicable repository checks, then fast-forward push before recording it `fixed`. Do not repair concurrently with another worker's overlapping change.
+The ones you fix: work on the batch branch after workers stop. Fetch, commit only the finding's cause and its proof, run `MMW_BASE_REF=PARENT scripts/check` (`PARENT` is that commit's parent), then fast-forward push before recording it `fixed`. Do not repair concurrently with another worker's overlapping change.
 
 The ones that become tickets: open as few as possible. A finding that stands alone becomes a ticket in place by rewriting its body; findings with one implementation can share one destination. Call the Skill tool with "to-tickets" for the issue template. Use only that template as the ticket format, not that skill's interactive Process. These tickets execute in the already-authorized batch. State the required behavior and acceptance criteria, preserve the applicable spec and baselines, and set native blocking relationships. Give the destination `ready-for-agent` as its only queue label and exactly one of `junior-worker` or `senior-worker`. Use `senior-worker` for the cases above; otherwise use the worker-grade selection in the `Draft vertical slices` section from that same call. Then use `became-ticket` with the actual destination; the route gives it `mmw:ticket`, removes the previous child or problem kind and links it to the spec, but does not write its body or queue it for you. Read the destination back to confirm its task, labels, parent and blockers.
 
@@ -108,13 +108,13 @@ You resolve merge conflicts from the full spec, repository and both changes' sou
 
 For a Worker's blocked integration, use the ticket worktree it handed over, with its merge still in progress. Complete the resolution, run the affected checks, commit and push the ticket branch. Resolve its child as `fixed` with that commit, then [resume the Worker](../SKILL.md#resume-a-session) with the resolution so it continues its original task.
 
-For a landing conflict, the script discards its failed merge attempt and leaves the ticket's passed result unchanged. In a separate integration checkout at `origin/BASE`, merge the exact passed commit named by the error and resolve the conflict. Run the required repository checks, commit the merge and fast-forward push `HEAD:BASE` to origin. Then rerun `advance SPEC`, or `land N` for one ticket, to record the landing and release its dependencies.
+For a landing conflict, the script discards its failed merge attempt and leaves the ticket's passed result unchanged. In a separate integration checkout at `origin/BASE`, merge the exact passed commit named by the error and resolve the conflict. Run `MMW_BASE_REF=origin/BASE scripts/check`, commit the merge and fast-forward push `HEAD:BASE` to origin. Then rerun `advance SPEC`, or `land N` for one ticket, to record the landing and release its dependencies.
 
 Done when the resolved integration is committed and checked, and the original task has continued or the landing is recorded.
 
 ## 5. Deliver the batch
 
-Run `dispatch.sh summary SPEC` after active work, pending landings and findings are settled. It runs the repository's full checks on the actual integration output; it does not prove every prose acceptance requirement.
+Run `dispatch.sh summary SPEC` after active work, pending landings and findings are settled. It runs `scripts/check` on the integration branch with `MMW_BASE_REF` set to `origin/PROJECT`, so the selected tests are the ones this batch's diff touches. Landing runs that same command with `MMW_BASE_REF` set to the branch the ticket merges into. It does not prove every prose acceptance requirement.
 
 Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
 
@@ -125,6 +125,8 @@ Done when the actual integration output has its final checks and a complete acco
 ## 6. Create the delivery PR and finish
 
 Call the Skill tool with "pr" to write the delivery PR body. Include the actual verification, limitations and owner decisions. Save the body to a UTF-8 file and create the delivery PR with `dispatch.sh pr --base PROJECT --head BASE --title TITLE --body-file FILE`.
+
+After that pull request exists, call the Skill tool with "retro". It reviews this delivery and commits any repeated-mistake fixes on the branch the pull request already tracks.
 
 Only after the user has accepted the pull request, run `dispatch.sh finish SPEC`. An open-ticket refusal needs the owner's disposition of that unfinished work. Owner acceptance does not authorize marking unfinished tickets complete. Keep the delivery and unresolved tickets recorded until the existing finish conditions hold. Keep the exact checked version current when repairing a refusal. Do not merge the receiving project branch into the repository's default branch here; that remains the owner's release decision.
 

@@ -3,7 +3,7 @@
 
     verify-ticket.py N --closeout FILE --result complete|incomplete --commit SHA [--into BRANCH]
     verify-ticket.py N --review FILE --base REF --head SHA
-    verify-ticket.py [N] --repository-check --base REF [--tier default|all]
+    verify-ticket.py [N] --repository-check --base REF
     verify-ticket.py N --sub-issue KIND FILE [--existing CHILD]
     verify-ticket.py N --route CHILD fixed --report FILE [--commit SHA]
     verify-ticket.py N --route CHILD stale --report FILE --reason invalid|fixed-elsewhere
@@ -478,7 +478,6 @@ def main(argv=None) -> int:
     parser.add_argument("--into")
     parser.add_argument("--base")
     parser.add_argument("--head")
-    parser.add_argument("--tier", choices=("default", "all"), default="default")
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--report", type=Path)
     parser.add_argument("--reason", choices=("invalid", "fixed-elsewhere"))
@@ -492,7 +491,7 @@ def main(argv=None) -> int:
             if not args.base:
                 raise Refusal("--repository-check needs --base REF")
             root = Path(git("rev-parse", "--show-toplevel"))
-            checked = run_repository_check(root, args.base, root if args.ticket else None, args.ticket, args.tier)
+            checked = run_repository_check(root, args.base, root if args.ticket else None, args.ticket)
             print(json.dumps(checked, ensure_ascii=False))
             return {"pass": 0, "red": 1, "missing": 2, "cannot-run": 2}[checked["status"]]
         if args.ticket is None or args.ticket < 1:

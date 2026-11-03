@@ -276,9 +276,8 @@ def _run(path: Path, root: Path, env: dict, *args: str) -> tuple[int, str]:
 
 def run_repository_check(root: Path | str, base_ref: str,
                          worktree: Path | str | None = None,
-                         ticket: str | int | None = None, tier: str = "default") -> dict:
-    """Run one tier of `scripts/check` at `root` with `MMW_BASE_REF=base_ref`: the
-    default tier, or `--all` when `tier` is `all`.
+                         ticket: str | int | None = None) -> dict:
+    """Run `scripts/check` at `root` with `MMW_BASE_REF=base_ref` and no further arguments.
 
     Returns `{"status", "failed", "detail", "proof", "output"}`. `output` is the combined
     stdout and stderr of the check, or empty when it did not start. `proof` identifies a green or red run,
@@ -291,8 +290,6 @@ def run_repository_check(root: Path | str, base_ref: str,
     under `worktree`'s `.scratch/checks/<ticket>/`. `detail` says what happened, with
     the last lines and the log's path, for every status but `pass`.
     """
-    if tier not in ("default", "all"):
-        raise ValueError(f"unknown repository-check tier {tier!r}; choose default or all")
     root = Path(root)
     missing = repository_check_missing(root)
     if missing:
@@ -302,14 +299,14 @@ def run_repository_check(root: Path | str, base_ref: str,
     env["MMW_BASE_REF"] = base_ref
     before = tree_identity(root, base_ref)
     try:
-        code, output = _run(path, root, env, *(["--all"] if tier == "all" else []))
+        code, output = _run(path, root, env)
     except OSError as exc:
         return {"status": "cannot-run", "failed": [],
                 "detail": f"{path} could not be started: {exc}", "proof": None, "output": ""}
     proof = None
     if code in (0, 1) and before is not None and tree_identity(root, base_ref) == before:
         steps = re.findall(r"^(?:PASS|FAIL)\s+(\S+)", output, re.M)
-        proof = proof_fields(tier, *before, steps)
+        proof = proof_fields("default", *before, steps)
     if code == 0:
         return {"status": "pass", "failed": [], "detail": "", "proof": proof, "output": output}
     log = _write_check_log(worktree, ticket, 1, output, [False])
@@ -349,10 +346,10 @@ def proof_fields(tier: str, commit: str, base: str, steps: list[str]) -> dict:
 
 
 def covering_proof(comments: list, commit: str, base: str) -> dict | None:
-    """The newest green `spec.checked` record that proves the default tier of `commit`
+    """The newest green `spec.checked` record that proves the scoped check of `commit`
     against `base` on this machine: a default-tier record of that exact commit and base,
-    or an `all` record of that commit with any base, since `--all` runs everything any
-    selection can. None when no record covers it; the step then runs.
+    or an `all` record of that commit with any base, since a full run of that commit
+    covers every selection. None when no record covers it; the step then runs.
     Unreadable event blocks raise ValueError: incomplete records cannot authorize reuse."""
     machine = socket.gethostname()
     found = None

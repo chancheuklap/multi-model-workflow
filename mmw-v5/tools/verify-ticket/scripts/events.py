@@ -102,8 +102,8 @@ EVENTS: dict[str, dict] = {
     "spec.opened":       {"stage": "night",    "actor": "main"},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
     "spec.closed":       {"stage": "night",    "actor": "main"},
-    # One green run of the repository's check on the night branch, recorded by the run
-    # itself: `tier` `all` at night end, which `finish` reuses when its merge is that tree.
+    # One green `scripts/check` of this commit. `default` is the scoped run against
+    # `base`. `all` is a full run of the same commit and covers that scoped check.
     "spec.checked":      {"stage": "land",     "actor": "main",
                           "required": ("tier", "commit", "base", "machine", "result"),
                           "closed": {"tier": ("default", "all"), "result": ("met",)},

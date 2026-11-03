@@ -41,13 +41,6 @@ class CheckProof(unittest.TestCase):
             "tier": "default", "commit": self.head, "base": self.head,
             "machine": socket.gethostname(), "steps": ["unit"]})
 
-    def test_all_tier_passes_the_flag_and_records_all_steps(self):
-        self.check_script('[ "$1" = --all ] || exit 2; printf "PASS lint\\nPASS unit\\n"')
-        result = vt.run_repository_check(self.root, "HEAD", tier="all")
-        self.assertEqual(result["status"], "pass")
-        self.assertEqual(result["proof"]["tier"], "all")
-        self.assertEqual(result["proof"]["steps"], ["lint", "unit"])
-
     def test_proof_resolves_the_base_independently_of_head(self):
         base = self.head
         self.check_script("printf 'PASS changed\\n'; exit 0")
@@ -56,12 +49,6 @@ class CheckProof(unittest.TestCase):
         self.assertEqual((result["proof"]["commit"], result["proof"]["base"]),
                          (self.head, base))
         self.assertNotEqual(self.head, base)
-
-    def test_invalid_tier_is_rejected_before_the_check_runs(self):
-        self.check_script("touch ran; exit 0")
-        with self.assertRaisesRegex(ValueError, "tier.*default.*all"):
-            vt.run_repository_check(self.root, "HEAD", tier="everything")
-        self.assertFalse((self.root / "ran").exists())
 
     def test_dirty_or_untracked_work_produces_no_commit_proof(self):
         (self.root / "data.txt").write_text("changed\n")
@@ -101,13 +88,13 @@ class CheckProof(unittest.TestCase):
 
         def run(args, **kwargs):
             if args[0] == str(self.root / "scripts" / "check"):
-                calls.append(kwargs)
+                calls.append((list(args), kwargs))
             return original(args, **kwargs)
 
         with mock.patch.object(vt.subprocess, "run", side_effect=run):
             self.assertEqual(vt.run_repository_check(self.root, "HEAD")["status"], "pass")
-        self.assertEqual(len(calls), 1)
-        self.assertNotIn("timeout", calls[0])
+        self.assertEqual(calls[0][0], [str(self.root / "scripts" / "check")])
+        self.assertNotIn("timeout", calls[0][1])
 
     def test_failed_excerpt_requires_no_node_and_full_log_is_preserved(self):
         self.check_script("printf 'src/file.py:7 problem\\nFAIL unit\\n' >&2; exit 1")

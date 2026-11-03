@@ -44,7 +44,15 @@ class CloudRuntime(unittest.TestCase):
         subprocess.run(['git', 'init', '--bare', '-q', str(self.remote)], check=True)
         self.git('init', '-q', '-b', 'night/test'); self.git('config', 'user.name', 'Cloud test'); self.git('config', 'user.email', 'test@example.invalid')
         self.git('remote', 'add', 'origin', str(self.remote))
-        (self.root / 'base.txt').write_text('base\n'); self.commit('base'); self.base = self.git('rev-parse', 'HEAD')
+        (self.root / 'base.txt').write_text('base\n')
+        check = self.root / 'scripts' / 'check'
+        check.parent.mkdir()
+        check.write_text('#!/usr/bin/env bash\n'
+                         '[ "$MMW_BASE_REF" = origin/night/test ] || exit 9\n'
+                         '[ $# -eq 0 ] || exit 8\n'
+                         'exit 0\n')
+        check.chmod(0o755)
+        self.commit('base'); self.base = self.git('rev-parse', 'HEAD')
         self.git('push', '-q', 'origin', 'night/test')
         self.git('switch', '-q', '-c', 'issue-1'); (self.root / 'feature.txt').write_text('work\n'); self.commit('work')
         self.head = self.git('rev-parse', 'HEAD'); self.git('push', '-q', 'origin', 'HEAD:refs/pull/7/head'); self.git('switch', '-q', 'night/test')
@@ -57,6 +65,17 @@ class CloudRuntime(unittest.TestCase):
     def git(self, *args):
         return subprocess.run(['git', *args], capture_output=True, text=True, check=True).stdout.strip()
     def commit(self, message): self.git('add', '.'); self.git('commit', '-q', '-m', message)
+
+    def publish_pr_check(self, body):
+        self.git('switch', '-q', 'issue-1')
+        path = self.root / 'scripts' / 'check'
+        path.write_text('#!/usr/bin/env bash\n' + body + '\n')
+        path.chmod(0o755)
+        self.commit('check')
+        self.head = self.git('rev-parse', 'HEAD')
+        self.git('push', '-q', '--force', 'origin', 'HEAD:refs/pull/7/head')
+        self.git('switch', '-q', 'night/test')
+        self.pr['head']['sha'] = self.head
     def merge_command(self, *args, **kwargs):
         if args[:4] == ('gh', 'api', '--method', 'PUT'):
             self.merges += 1
@@ -77,23 +96,54 @@ class CloudRuntime(unittest.TestCase):
 
     def test_landing_releases_only_actual_merged_dependency(self):
         with patch.object(land, 'command', self.merge_command):
-            result = land.land(7, 'night/test', self.head, 'git cat-file -e HEAD:feature.txt', api=self.api)
+            result = land.land(7, 'night/test', self.head, api=self.api)
         self.assertEqual(self.merges, 1); self.assertEqual(result['merged_commit'], self.git('rev-parse','HEAD'))
         plan = status.read_plan(90, 'night/test', api=self.api)
         self.assertTrue(plan['tickets'][0]['landed']); self.assertTrue(plan['tickets'][1]['eligible'])
 
     def test_failed_checks_do_not_update_night(self):
+        self.publish_pr_check('exit 7')
         with patch.object(land, 'command', self.merge_command):
-            with self.assertRaisesRegex(RuntimeError, 'NIGHT was not updated'):
-                land.land(7, 'night/test', self.head, 'exit 7', api=self.api)
+            with self.assertRaisesRegex(RuntimeError, 'scripts/check exited 7'):
+                land.land(7, 'night/test', self.head, api=self.api)
         self.assertEqual(self.merges,0); self.assertEqual(self.git('rev-parse','origin/night/test'), self.base)
         self.assertEqual(self.git('worktree','list','--porcelain').count('worktree '), 1)
 
     def test_check_modifying_tracked_candidate_is_not_landed(self):
+        self.publish_pr_check('echo changed > base.txt')
         with patch.object(land, 'command', self.merge_command):
             with self.assertRaisesRegex(RuntimeError, 'changed tracked candidate'):
-                land.land(7, 'night/test', self.head, 'echo changed > base.txt', api=self.api)
+                land.land(7, 'night/test', self.head, api=self.api)
         self.assertEqual(self.merges,0)
+
+    def test_missing_check_does_not_update_night(self):
+        self.git('switch', '-q', 'issue-1')
+        self.git('rm', '-q', 'scripts/check')
+        self.commit('drop check')
+        self.head = self.git('rev-parse', 'HEAD')
+        self.git('push', '-q', '--force', 'origin', 'HEAD:refs/pull/7/head')
+        self.git('switch', '-q', 'night/test')
+        self.pr['head']['sha'] = self.head
+        with patch.object(land, 'command', self.merge_command):
+            with self.assertRaisesRegex(RuntimeError, 'no executable scripts/check'):
+                land.land(7, 'night/test', self.head, api=self.api)
+        self.assertEqual(self.merges, 0)
+        self.assertEqual(self.git('rev-parse', 'origin/night/test'), self.base)
+
+    def test_non_executable_check_does_not_update_night(self):
+        self.git('switch', '-q', 'issue-1')
+        (self.root / 'scripts' / 'check').chmod(0o644)
+        self.git('add', '--chmod=-x', 'scripts/check')
+        self.commit('drop check mode')
+        self.head = self.git('rev-parse', 'HEAD')
+        self.git('push', '-q', '--force', 'origin', 'HEAD:refs/pull/7/head')
+        self.git('switch', '-q', 'night/test')
+        self.pr['head']['sha'] = self.head
+        with patch.object(land, 'command', self.merge_command):
+            with self.assertRaisesRegex(RuntimeError, 'no executable scripts/check'):
+                land.land(7, 'night/test', self.head, api=self.api)
+        self.assertEqual(self.merges, 0)
+        self.assertEqual(self.git('rev-parse', 'origin/night/test'), self.base)
 
     def test_conflict_is_preserved_as_failure_without_merging(self):
         self.git('switch','-q','issue-1'); (self.root/'base.txt').write_text('worker\n'); self.commit('worker base'); self.head=self.git('rev-parse','HEAD')
@@ -102,13 +152,13 @@ class CloudRuntime(unittest.TestCase):
         self.pr['head']['sha']=self.head; self.pr['base']['sha']=self.git('rev-parse','HEAD')
         with patch.object(land,'command',self.merge_command):
             with self.assertRaisesRegex(RuntimeError,'CONFLICT'):
-                land.land(7,'night/test',self.head,'true',api=self.api)
+                land.land(7,'night/test',self.head,api=self.api)
         self.assertEqual(self.merges,0)
 
     def test_wrong_target_or_head_never_runs_checks(self):
         for into, head in [('dev',self.head),('night/test',self.base)]:
             with self.subTest(into=into,head=head):
-                with self.assertRaises(ValueError):land.land(7,into,head,'touch should-not-exist',api=self.api)
+                with self.assertRaises(ValueError):land.land(7,into,head,api=self.api)
         self.assertFalse((self.root/'should-not-exist').exists())
 
     def test_model_reads_project_not_local_home(self):

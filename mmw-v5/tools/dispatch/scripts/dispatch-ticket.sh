@@ -887,21 +887,28 @@ send_ticket() {
 }
 
 summary_checks() {
-  local spec="$1" root="$2" into="$3" expected="$4" out tip proof status detail
+  local spec="$1" root="$2" into="$3" expected="$4" out tip proof status detail project base
+  project="$(newest_field "$spec" project spec.opened 2>/dev/null)" || project=""
+  [ -n "$project" ] || { echo "dispatch: #$spec has no project branch, so summary has no base for scripts/check" >&2; return 2; }
   prepare_merge_worktree "$root" "$into" || return 2
   tip="$(git -C "$MERGE_ROOT" rev-parse HEAD)"
   if [ "$tip" != "$expected" ]; then release_merge_lock;echo "dispatch: origin/$into moved; retry summary" >&2;return 2;fi
-  if repository_proof "$spec" "$tip" "$tip" all >/dev/null; then
-    release_merge_lock;echo "CHECK PASS all: origin/$into at $tip, reused spec.checked";return 0
+  base="$(git -C "$MERGE_ROOT" rev-parse --verify "origin/$project^{commit}" 2>/dev/null)" || {
+    release_merge_lock
+    echo "dispatch: origin/$project does not resolve, so summary cannot run scripts/check" >&2
+    return 2
+  }
+  if repository_proof "$spec" "$tip" "$base" >/dev/null; then
+    release_merge_lock;echo "CHECK PASS: origin/$into at $tip, reused spec.checked";return 0
   fi
-  out="$(python3 - "$VERIFY" "$MERGE_ROOT" "$root" "$spec" <<'PY'
+  out="$(python3 - "$VERIFY" "$MERGE_ROOT" "$root" "$spec" "$base" <<'PY'
 import importlib.util,json,sys
 from pathlib import Path
-script,root,worktree,number=sys.argv[1:]
+script,root,worktree,number,base=sys.argv[1:]
 sys.path.insert(0,str(Path(script).parent))
 spec=importlib.util.spec_from_file_location('dispatch_checks',script)
 mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
-result=mod.run_repository_check(Path(root),'HEAD',worktree,f'spec-{number}',tier='all')
+result=mod.run_repository_check(Path(root),base,worktree,f'spec-{number}')
 if result['status']=='pass' and not result['proof']:
     result['status']='cannot-run';result['detail']='the checkout changed during scripts/check; no commit names that checked output'
 print(result['status']);print(json.dumps(result['proof'] or {}));print(result['detail'])
@@ -914,9 +921,9 @@ PY
   local field
   while IFS= read -r field;do fields+=(--json-field "$field");done < <(python3 -c 'import json,sys
 for k,v in json.loads(sys.argv[1]).items():print(k+"="+json.dumps(v))' "$proof")
-  post_event "$spec" spec.checked --spec "$spec" --line "Repository checks --all passed on $into at $tip" \
+  post_event "$spec" spec.checked --spec "$spec" --line "Repository checks passed on $into at $tip" \
     "${fields[@]}" --field result=met || return 2
-  echo "CHECK PASS all: origin/$into at $tip"
+  echo "CHECK PASS: origin/$into at $tip"
 }
 
 summary_spec() {
@@ -931,7 +938,7 @@ summary_spec() {
   IFS=/ read -r _ _ _ _ unread open <<<"$counts"
   case "$unread:$open" in 0:0) ;; *) refuse "#$spec has unresolved or unread findings: ${counts:-count unavailable}; route them before summary" ;; esac
   summary_checks "$spec" "$root" "$into" "$expected" || return 2
-  body="$body"$'\n'"Landed: $landed; repository checks --all passed on $expected"
+  body="$body"$'\n'"Landed: $landed; repository checks passed on $expected"
   previous="$(newest_field "$spec" commit spec.closed spec.opened spec.suspended)" || previous=""
   if [ "$previous" != "$expected" ]; then
     post_event "$spec" spec.closed --spec "$spec" --line "$(printf '%s\n' "$body" | head -1)" \
