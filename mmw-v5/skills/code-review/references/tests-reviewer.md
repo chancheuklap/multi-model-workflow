@@ -16,6 +16,8 @@ Use the assigned isolated copy at the reviewed commit for a reproduction or a de
 
 A test belongs at a seam the spec, ticket, or task named. A test at any other seam is a finding.
 
+Scripts and feature files under `.cursor/skills/verify-<app>/` are the project's verification skill. That skill drives the real app and asserts a sentence copied from the spec. Those files are not seam tests. This axis judges the seam tests the spec, ticket, or task named. The verification pass beside this review runs the skill's scripts and checks that asserted sentence. A missing script is that pass's result. This axis does not ask those scripts for a failing-before run and does not report them as a seam finding.
+
 When you need the words for that finding, call the Skill tool with "codebase-dic". It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
 ## The change's tests
