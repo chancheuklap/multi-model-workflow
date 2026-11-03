@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 
 ROLES = ('junior-worker', 'senior-worker', 'advisor', 'researcher', 'candidate', 'review-axis')
+HOSTS = ('codex', 'cursor')
 
 
 def config_path() -> Path:
@@ -21,10 +22,19 @@ def validate(value: dict) -> dict:
     rows = value.get('rows')
     if not isinstance(rows, dict):
         raise ValueError('rows must be an object of native role settings')
-    for role in ROLES:
-        row = rows.get(role)
-        if not isinstance(row, dict) or any(not isinstance(row.get(k), str) or not row[k].strip() for k in ('host', 'model', 'effort')):
-            raise ValueError(f'{role} needs host, model and effort (or inherit)')
+    for host in HOSTS:
+        roles = rows.get(host)
+        if not isinstance(roles, dict):
+            raise ValueError(f'rows needs a {host} group with settings for each role')
+        for role in ROLES:
+            row = roles.get(role)
+            if not isinstance(row, dict) or any(not isinstance(row.get(k), str) or not row[k].strip() for k in ('model', 'effort')):
+                raise ValueError(f'{host}/{role} needs model and effort (or inherit)')
+            if host == 'cursor':
+                if 'context' in row and (not isinstance(row['context'], str) or not row['context'].strip()):
+                    raise ValueError(f'{host}/{role} context must be a non-empty string, such as 256k')
+                if 'fast' in row and type(row['fast']) is not bool:
+                    raise ValueError(f'{host}/{role} fast must be true or false')
     if 'runner' in value or 'subagents' in value:
         raise ValueError('cloud models use native rows, not local runner/subagent configuration')
     return value
@@ -39,10 +49,14 @@ def read_config(at: str | None = None) -> dict:
 
 
 def row(role: str, host: str, at: str) -> dict:
-    chosen = dict(read_config(at)['rows'][role])
-    if chosen['host'] not in ('inherit', host):
-        raise ValueError(f'{role} requests {chosen["host"]}; this native host is {host}')
-    return {key: val for key, val in chosen.items() if val != 'inherit' and key != 'host'}
+    if host not in HOSTS:
+        raise ValueError(f'unsupported native host: {host}')
+    chosen = {key: val for key, val in read_config(at)['rows'][host][role].items() if val != 'inherit'}
+    if host == 'cursor' and chosen.get('model'):
+        options = [f'{key}={str(chosen[key]).lower()}' for key in ('effort', 'context', 'fast') if key in chosen]
+        model = chosen['model'] + ('[' + ','.join(options) + ']' if options else '')
+        return {'model': model}
+    return chosen
 
 
 def write_config(value: dict) -> None:
@@ -61,7 +75,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     show = sub.add_parser('show'); show.add_argument('--at', required=True, help='the existing run starting commit')
-    get = sub.add_parser('row'); get.add_argument('role', choices=ROLES); get.add_argument('host'); get.add_argument('--at', required=True, help='the existing run starting commit that fixes the model configuration')
+    get = sub.add_parser('row'); get.add_argument('role', choices=ROLES); get.add_argument('host', choices=HOSTS); get.add_argument('--at', required=True, help='the existing run starting commit that fixes the model configuration')
     args = parser.parse_args()
     try:
         print(json.dumps(read_config(args.at) if args.command == 'show' else row(args.role, args.host, args.at), ensure_ascii=False))

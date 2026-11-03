@@ -10,7 +10,7 @@
 - 使用时在本地版与云端版中选择一套完整安装。安装云端版时，本地 Coordinator 和 Cloud Worker 都使用云端版的技能、工具与配置。
 - Cursor 的云端发布包包含 `.cursor/skills/`、`.cursor/tools/`、`.cursor/board/`、`.cursor/models.json` 和版本清单。把已发布云端包解压到使用 MMW 的项目根目录，提交到项目分支并推送。本地和云端 Cursor 都从这个项目的 `.cursor/skills/` 发现技能。
 - 首次安装或实际授权变更时才更新；普通开夜复用已有安装／配置。不新增版本清单或锁系统。
-- 模型配置只有项目 `.cursor/models.json` 一份，Codex plugin 也读取这份项目配置。`inherit` 沿用宿主；填写实际原生工具支持的 model／effort。云端没有本地 CLI 扫描、runner 或模型目录缓存。
+- 模型配置只有项目 `.cursor/models.json` 一份，Codex plugin 也读取这份项目配置。`rows.codex` 和 `rows.cursor` 分别配置各宿主的六个角色。Codex 默认全部使用 `gpt-6.1-sol`、`high`；Cursor 默认全部使用 `grok-4.7`、`high`、`256k`、fast。`inherit` 沿用宿主；填写实际原生工具支持的值。云端没有本地 CLI 扫描、runner 或模型目录缓存。
 
 ## 使用
 

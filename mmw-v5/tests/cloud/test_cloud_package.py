@@ -64,7 +64,7 @@ else:
             fixed=git(project,'rev-parse','HEAD')
             tool=project/'.cursor/tools/dispatch/scripts/models.py'
             run=subprocess.run([sys.executable,str(tool),'row','review-axis','codex','--at',fixed],cwd=project,env=env,capture_output=True,text=True)
-            self.assertEqual(run.returncode,0,run.stderr);self.assertEqual(json.loads(run.stdout),{})
+            self.assertEqual(run.returncode,0,run.stderr);self.assertEqual(json.loads(run.stdout),{'model':'gpt-6.1-sol','effort':'high'})
             server=project/'.cursor/board/server.py'
             run=subprocess.run([sys.executable,str(server),'--help'],cwd=project,env=env,capture_output=True,text=True)
             self.assertEqual(run.returncode,0,run.stderr)

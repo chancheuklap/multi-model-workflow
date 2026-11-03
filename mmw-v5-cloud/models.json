@@ -1,11 +1,21 @@
 {
   "max_workers": 3,
   "rows": {
-    "junior-worker": {"host": "inherit", "model": "inherit", "effort": "inherit"},
-    "senior-worker": {"host": "inherit", "model": "inherit", "effort": "inherit"},
-    "advisor": {"host": "inherit", "model": "inherit", "effort": "inherit"},
-    "researcher": {"host": "inherit", "model": "inherit", "effort": "inherit"},
-    "candidate": {"host": "inherit", "model": "inherit", "effort": "inherit"},
-    "review-axis": {"host": "inherit", "model": "inherit", "effort": "inherit"}
+    "codex": {
+      "junior-worker": {"model": "gpt-6.1-sol", "effort": "high"},
+      "senior-worker": {"model": "gpt-6.1-sol", "effort": "high"},
+      "advisor": {"model": "gpt-6.1-sol", "effort": "high"},
+      "researcher": {"model": "gpt-6.1-sol", "effort": "high"},
+      "candidate": {"model": "gpt-6.1-sol", "effort": "high"},
+      "review-axis": {"model": "gpt-6.1-sol", "effort": "high"}
+    },
+    "cursor": {
+      "junior-worker": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
+      "senior-worker": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
+      "advisor": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
+      "researcher": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
+      "candidate": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
+      "review-axis": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true}
+    }
   }
 }

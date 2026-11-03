@@ -33,7 +33,7 @@ Use skills and tools from this installation. Keep this runtime, its model config
 
 Use this installation's MMW runtime and the project's `.cursor/models.json` fixed by this night's starting commit. In Cursor, the runtime is installed in the project's `.cursor/`; in Codex, it is installed as a plugin. `dispatch.sh` supplies `status`, `land` and `board`. Ordinary branch operations use Git.
 
-Read this run's full configuration with `python3 models.py show --at RUNTIME_COMMIT`, or one role with `python3 models.py row ROLE HOST --at RUNTIME_COMMIT`; for review axes use ROLE `review-axis`. RUNTIME_COMMIT is the existing starting commit of this run, supplied in the assignment; reading its Git version keeps board edits for the next run. HOST is the actual native host, such as `codex` or `cursor`. Pass returned non-`inherit` model and effort values to the host's subagent call.
+Read this run's full configuration with `python3 models.py show --at RUNTIME_COMMIT`, or one role with `python3 models.py row ROLE HOST --at RUNTIME_COMMIT`; for review axes use ROLE `review-axis`. RUNTIME_COMMIT is the existing starting commit of this run, supplied in the assignment; reading its Git version keeps board edits for the next run. HOST selects the `codex` or `cursor` group in `rows`, according to the actual native host. On Codex, pass the returned model and effort to its subagent call. On Cursor, pass the returned model unchanged to Task's model argument; it includes the configured effort, context window and fast setting.
 
 A configured model or host does not create a tool capability; report an unsupported choice rather than launching another CLI or silently selecting a replacement model.
 
