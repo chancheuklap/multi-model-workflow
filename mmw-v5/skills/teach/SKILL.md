@@ -6,6 +6,8 @@ argument-hint: "What would you like to learn about?"
 
 The user has asked you to teach them something. This is a stateful request - they intend to learn the topic over multiple sessions.
 
+Call the Skill tool with "technical-writing" for the words a person reads: the mission, each lesson, each learning record, and each reference sheet. A lesson is a tutorial. The mission and a learning record are explanation. A reference sheet is reference.
+
 ## Teaching Workspace
 
 Treat the current directory as a teaching workspace. Workspace paths (`./lessons/` and the rest) resolve from the directory `/teach` was run in; only the `references/*-format.md` links resolve from this skill's folder. The state of their learning is captured in this directory in several files:

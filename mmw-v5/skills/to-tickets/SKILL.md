@@ -21,7 +21,7 @@ Look for opportunities to prefactor the code to make the implementation easier. 
 
 ### 3. Draft vertical slices
 
-Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract"
+Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract". Call the Skill tool with "technical-writing" and write each ticket's prose through it. The issue template is the structure.
 
 <vertical-slice-rules>
 

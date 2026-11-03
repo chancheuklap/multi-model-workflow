@@ -19,7 +19,7 @@ Existing seams should be preferred to new ones. Use the highest seam possible. I
 
 The seam is yours to decide, not the user's: they are not asked to confirm it.
 
-3. Write the spec using the template below. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract", then publish it to the project issue tracker. Give it the `mmw:spec` label and no queue or worker-grade label: a spec is a container for the tickets underneath it, not a piece of work. Before publishing, create missing labels with `python3 LABEL_SETUP`, where `LABEL_SETUP` is `../../tools/setup-mmw/scripts/labels.py` resolved from this skill's directory to an absolute path in the installed runtime. Run it from the consuming repository without `--migrate`. Read the published spec back to confirm its body and labels.
+3. Write the spec using the template below. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract". Call the Skill tool with "technical-writing" and write the prose through it. The template is the structure. Then publish it to the project issue tracker. Give it the `mmw:spec` label and no queue or worker-grade label: a spec is a container for the tickets underneath it, not a piece of work. Before publishing, create missing labels with `python3 LABEL_SETUP`, where `LABEL_SETUP` is `../../tools/setup-mmw/scripts/labels.py` resolved from this skill's directory to an absolute path in the installed runtime. Run it from the consuming repository without `--migrate`. Read the published spec back to confirm its body and labels.
 
 4. Call the Skill tool with "big-pics-little-words" to visualize the whole spec.
 
