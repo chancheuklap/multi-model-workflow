@@ -38,4 +38,14 @@ When this repository consumes MMW v5, the installed plugin used to open a night 
 - Never put credentials under plugin skills or scripts: the same installed plugin is used across consuming repositories.
 - `.worktrees/mmw-installed` is a hand-made checkout, not a pipeline worktree. Never prune it.
 
+## Install the Cursor cloud edition
+
+When the owner authorizes installation or an update, run this command from the consuming repository. It downloads the cloud edition from the GitHub `mmw-v5` development branch and installs its skills, tools, board and default configuration into that repository's `.cursor/`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/mmw-v5/scripts/install-mmw-v5-cloud.sh | bash -s -- --ref mmw-v5
+```
+
+The installer preserves an existing `.cursor/models.json` and other Cursor files. Commit and push `.cursor/` on the assigned branch so local and cloud Cursor agents receive the same runtime. Use this development-branch command until the installer and `.cursor/` release package are published on `main`. Codex continues to use its installed plugin; this command does not change it.
+
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
