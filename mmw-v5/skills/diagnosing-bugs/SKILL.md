@@ -111,28 +111,31 @@ Tool preference:
 
 **Perf branch.** For performance regressions, logs are usually wrong. Instead: establish a baseline measurement (timing harness, `performance.now()`, profiler, query plan), then bisect. Measure first, fix second.
 
-## Phase 5: Fix + regression test
+## Phase 5: Hand the fix to a Worker
 
-Write the regression test **before the fix**, but only if there is a **correct seam** for it.
+Withdraw the probes and throwaway drafts this diagnosis added to the product. The red command and the minimised repro go on the ticket, so the Worker can rebuild them.
+
+The regression test is written **before the fix**, and only at a **correct seam**.
 
 A correct seam is one where the test exercises the **real bug pattern** as it occurs at the call site. If the only available seam is too shallow (single-caller test when the bug needs multiple callers, unit test that can't replicate the chain that triggered the bug), a regression test there gives false confidence.
 
-**If no correct seam exists, that itself is the finding.** Note it. The codebase architecture is preventing the bug from being locked down. Flag this for the next phase.
+**If no correct seam exists, that itself is the finding.** Note it on the ticket. The codebase architecture is preventing the bug from being locked down.
 
-If a correct seam exists:
+Call the Skill tool with "to-tickets" for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket carries this fix. Blocked by: None (can start immediately).
 
-1. Turn the minimised repro into a failing test at that seam.
-2. Watch it fail. If you forced the red by mutating code or a fixture, `diff` against a pristine copy to prove the mutation landed before you trust it.
-3. Apply the fix.
-4. Watch it pass.
-5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
+What to build is the behaviour the user sees once the bug is gone. The hypothesis that survived is the fix, written there.
 
-## Phase 6: Cleanup
+Acceptance criteria:
 
-Required before declaring done:
+- [ ] The Phase 1 command goes green on the original, un-minimised scenario
+- [ ] The regression test locks the minimised repro at the named seam, written before the fix, or the ticket records that no correct seam exists
+- [ ] `grep` of the `[DEBUG-...]` prefix is clean, and throwaway prototypes from this diagnosis are gone
+- [ ] The hypothesis that turned out correct is stated in the commit message, so the next debugger learns
 
-- [ ] Original repro no longer reproduces (re-run the Phase 1 loop)
-- [ ] Regression test passes (or absence of seam is documented)
-- [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
-- [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
-- [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns
+A missing correct seam, or a fix that crosses a function boundary, is `senior-worker`. Otherwise use the worker-grade selection in the `Draft vertical slices` section from that same call.
+
+Show the ticket to the user before publishing. Don't block on it; publish and proceed if the user is AFK.
+
+Call the Skill tool with "dispatch" and send this ticket as its Coordinator.
+
+Done when the ticket is published and the Worker has been sent. The Worker applies the fix.

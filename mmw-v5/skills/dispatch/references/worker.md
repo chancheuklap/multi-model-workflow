@@ -12,6 +12,10 @@ Done when you know the required behavior, sources, verification and current outp
 
 ## 2. Write tests and implement
 
+When the ticket is sustained improvement of one metric against a target, call the Skill tool with "hillclimb". That skill completes this step. Each attempt stays on this ticket.
+
+When the ticket preserves behavior and changes structure, call the Skill tool with "refactoring". That skill completes this step.
+
 Call the Skill tool with "write-tests" for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
 Implement directly when the ticket's interface is already decided, or when the change stays inside one function.
