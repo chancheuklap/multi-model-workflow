@@ -32,6 +32,8 @@ Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "p
 
 </vertical-slice-rules>
 
+Call the Skill tool with "principle-separate-before-serializing-shared-state" before settling the blocking edges, and before sequencing a wide refactor whose tickets would write one shared symbol.
+
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
 For each ticket an agent works, propose `junior-worker` or `senior-worker` and a one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose supplied test seam already names a precedent to copy stays on `junior-worker`.
