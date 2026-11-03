@@ -1,6 +1,16 @@
 # Skill mechanics
 
-The skill-specific branch of [`writing-for-agents`](../SKILL.md): frontmatter and splitting by invocation. Everything else about writing it is the universal reference in `../SKILL.md`.
+The skill-specific branch of [`writing-for-agents`](../SKILL.md): who uses the skill, and how invocation splits it. Everything else about writing it is the universal reference in `../SKILL.md`.
+
+## Who uses it
+
+Name the role and the moment before any step. The role is the identity of the agent reading the skill. The moment is the job they are in the middle of.
+
+Write the prompt for that role at that moment. The worker landing a ticket is told what to change. The reviewer that worker sends is told what to judge and what to report; the reviewed files stay as they are. The opening lines state the role and the moment, so a later reader does not have to infer them.
+
+A prompt that names no role hands every job in the material to whoever opened it.
+
+When two roles need the same judgment, keep that judgment in one place. Each role's document says only what that role does with it.
 
 ## Invocation
 
