@@ -16,7 +16,7 @@ Use the assigned isolated copy at the reviewed commit for a reproduction or a de
 
 A test belongs at a seam the spec, ticket, or task named. A test at any other seam is a finding.
 
-When you need the words for that finding, call the Skill tool with "codebase-design". It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
+When you need the words for that finding, call the Skill tool with "codebase-dic". It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
 ## The change's tests
 

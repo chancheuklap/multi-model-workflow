@@ -12,6 +12,36 @@ Done when you know the required behavior, sources, verification and current outp
 
 ## 2. Write tests and implement
 
+Implement directly when the ticket's interface is already decided, or when the change stays inside one function.
+
+When the interface is still open and the change crosses a function boundary, call the Skill tool with "codebase-design" for Phase A, Phase B, and Phase C. Default: proceed directly to implementation with the synthesized design. No human checkpoint.
+
+### Phase D: Implement against the sketch
+
+Replace `not implemented` bodies with code, pseudocode with logic. The synthesized sketch is the contract. Deviations from it are signal to surface, not friction to absorb silently. If a function needs a parameter the sketch didn't anticipate, ask whether the sketch was wrong, the requirement was missed, or the implementation is overreaching. Planned and scoped breakage during fill-in is fine. Call the Skill tool with "principle-outcome-oriented-execution".
+
+### Phase E: Scrap when the architecture is wrong
+
+If implementation keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design. Call the Skill tool twice, for "principle-redesign-from-first-principles" and "principle-fix-root-causes".
+
+The signal is a *pattern*, not single instances. Tells:
+
+- The same shape of workaround appearing repeatedly across unrelated code.
+- Multiple unrelated edge cases that all need special-case branches.
+- Types that need escape hatches (`any`, casts, optional fields always set in practice) to compile.
+- The "we need a lock" reflex when the sketch said the state wasn't shared.
+- Callers having to know the abstraction's internal rules to use it.
+- Two or more independent Phase D deviations of the same shape across the implementation.
+
+Use judgment. A few edge cases don't condemn an architecture. Some problems are legitimately complex. Complexity in the data is not complexity in the design.
+
+When you scrap:
+
+1. Re-read what's been built.
+2. Call the Skill tool with "principle-redesign-from-first-principles". Redesign as if the new constraints had been day-one assumptions.
+3. Call the Skill tool with "principle-subtract-before-you-add". The new sketch should be smaller than the old one before it grows.
+4. Call the Skill tool with "codebase-design" and return to its Phase B.
+
 Call the Skill tool with "write-tests" for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
 Make engineering choices the sources leave open and record the consequential reasons for review.

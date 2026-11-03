@@ -1,114 +1,89 @@
 ---
 name: codebase-design
-description: Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.
+description: Sketch types, signatures, and module structure before code. Use when designing or improving a module's interface, deciding where a seam goes, or exploring alternative interfaces for a chosen deepening candidate. Return the chosen sketch to the caller. The vocabulary is codebase-dic.
 ---
 
-# Codebase Design
+# codebase-design
 
-Design **deep modules**: a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface. Use this language and these principles wherever code is being designed or restructured. The aim is leverage for callers, locality for maintainers, and testability for everyone.
+You are called while a shape is still open. The caller is the Worker landing a ticket, or the agent in improve-codebase-architecture after a deepening candidate is chosen. The moment is before code is written against that shape. Return the chosen sketch. The caller writes the code, or shows the sketch to a person.
 
-## Glossary
+Call the Skill tool with "codebase-dic" for the vocabulary: module, interface, depth, seam, adapter, leverage, locality.
 
-Use these terms exactly: don't substitute "component," "service," "API," or "boundary." Consistent language is the whole point.
+Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Open a todolist with one entry per phase before starting.
 
-**Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, or tier-spanning slice. _Avoid_: unit, component, service.
+1. Ground
+2. Sketch
+3. Agree
 
-**Interface**: everything a caller must know to use the module correctly: the type signature, but also invariants, ordering constraints, error modes, required configuration, and performance characteristics. _Avoid_: API, signature (too narrow, they refer only to the type-level surface).
+## Phase A: Ground the problem
 
-**Implementation**: what's inside a module, its body of code. Distinct from **Adapter**: a thing can be a small adapter with a large implementation (a Postgres repo) or a large adapter with a small implementation (an in-memory fake). Reach for "adapter" when the seam is the topic; "implementation" otherwise.
+Build a real mental model of every system the new code touches. Naming a file isn't grounding. If the design redefines ownership or layering, read the existing rationale so it becomes a constraint, not a guess.
 
-**Depth**: leverage at the interface. The amount of behaviour a caller (or test) can exercise per unit of interface they have to learn. A module is **deep** when a large amount of behaviour sits behind a small interface, **shallow** when the interface is nearly as complex as the implementation.
+Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 
-**Seam** _(Michael Feathers)_: a place where you can alter behaviour without editing in that place; the *location* at which a module's interface lives. Where to put the seam is its own design decision, distinct from what goes behind it. _Avoid_: boundary (overloaded with DDD's bounded context).
+Done when you can name every system the new code touches, or the work is greenfield.
 
-**Adapter**: a concrete thing that satisfies an interface at a seam. Describes *role* (what slot it fills), not substance (what's inside).
+## Phase B: Sketch
 
-**Leverage**: what callers get from depth. More capability per unit of interface they learn. One implementation pays back across N call sites and M tests.
+Design it twice. Whole-shape alternatives, not point fixes inside one shape. Based on "Design It Twice" (Ousterhout): your first idea is unlikely to be the best.
 
-**Locality**: what maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place rather than spreading across callers. Fix once, fixed everywhere.
+### 1. Frame the problem space
 
-## Deep vs shallow
+Before spawning sub-agents, write a user-facing explanation of the problem space for the chosen candidate:
 
-**Deep module** = small interface + lots of implementation:
+- The constraints any new interface would need to satisfy
+- The dependencies it would rely on, and which category they fall into (see [deepening.md](references/deepening.md))
+- A rough illustrative code sketch to ground the constraints, not a proposal, just a way to make the constraints concrete
 
-```
-┌─────────────────────┐
-│   Small Interface   │  ← Few methods, simple params
-├─────────────────────┤
-│                     │
-│  Deep Implementation│  ← Complex logic hidden
-│                     │
-└─────────────────────┘
-```
+Hand this explanation to the caller, then immediately proceed to Step 2. The caller reads it while the sub-agents work in parallel.
 
-**Shallow module** = large interface + little implementation (avoid):
+Done when the constraints, the dependency categories, and the rough sketch are in the explanation.
 
-```
-┌─────────────────────────────────┐
-│       Large Interface           │  ← Many methods, complex params
-├─────────────────────────────────┤
-│  Thin Implementation            │  ← Just passes through
-└─────────────────────────────────┘
-```
+### 2. Spawn sub-agents
 
-When designing an interface, ask:
+Spawn 3+ sub-agents in parallel, each with a fresh context window. Each must produce a **radically different** interface for the module.
 
-- Can I reduce the number of methods?
-- Can I simplify the parameters?
-- Can I hide more complexity inside?
+Pass [runner-prompt.md](references/runner-prompt.md) as each runner's prompt. Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [deepening.md](references/deepening.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
 
-## Principles
+- Agent 1: "Minimize the interface: aim for 1–3 entry points max. Maximise leverage per entry point."
+- Agent 2: "Maximise flexibility: support many use cases and extension."
+- Agent 3: "Optimise for the most common caller: make the default case trivial."
+- Agent 4 (if applicable): "Design around ports & adapters for cross-seam dependencies."
 
-- **Depth is a property of the interface, not the implementation.** A deep module can be internally composed of small, mockable, swappable parts; they just aren't part of the interface. A module can have **internal seams** (private to its implementation, used by its own tests) as well as the **external seam** at its interface.
-- **The deletion test.** Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
-- **The interface is the test surface.** Callers and tests cross the same seam. If you want to test *past* the interface, the module is probably the wrong shape.
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a seam unless something actually varies across it.
+Include both the codebase-dic vocabulary and GLOSSARY.md vocabulary in the brief so each sub-agent names things consistently with the architecture language and the project's domain language.
 
-## Designing for testability
+Each sub-agent outputs:
 
-Good interfaces make testing natural:
+1. Interface (types, methods, params, plus invariants, ordering, error modes)
+2. Usage example showing how callers use it
+3. What the implementation hides behind the seam
+4. Dependency strategy and adapters (see [deepening.md](references/deepening.md))
+5. Trade-offs: where leverage is high, where it's thin
 
-1. **Accept dependencies, don't create them.**
+Done when at least three candidates have returned those outputs, and a fourth only when its constraint applies.
 
-   ```typescript
-   // Testable
-   function processOrder(order, paymentGateway) {}
+### Screen every candidate against design-red-flags
 
-   // Hard to test
-   function processOrder(order) {
-     const gateway = new StripeGateway();
-   }
-   ```
+Screen every candidate against [design-red-flags.md](references/design-red-flags.md) before synthesis. Assume the next contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Prefer the design where a change that looks right from one file is right for the whole repo.
 
-2. **Return results, don't produce side effects.**
+Done when every candidate has been revised or rejected against those flags.
 
-   ```typescript
-   // Testable
-   function calculateDiscount(cart): Discount {}
+### 3. Present and compare
 
-   // Hard to test
-   function applyDiscount(cart): void {
-     cart.total -= discount;
-   }
-   ```
+Return the designs to the caller one at a time, then compare them in prose. Compare viable candidates on interface **depth** (leverage at the interface), **locality** (where change concentrates), and **seam placement**. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
 
-3. **Small surface area.** Fewer methods = fewer tests needed. Fewer params = simpler test setup.
+After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated: the caller wants a strong read, not a menu.
 
-## Relationships
+The recommendation fills the rationale's [Synthesis decision](references/rationale-template.md#synthesis-decision).
 
-- A **Module** has exactly one **Interface** (the surface it presents to callers and tests).
-- **Depth** is a property of a **Module**, measured against its **Interface**.
-- A **Seam** is where a **Module**'s **Interface** lives.
-- An **Adapter** sits at a **Seam** and satisfies the **Interface**.
-- **Depth** produces **Leverage** for callers and **Locality** for maintainers.
+Done when the rationale's Synthesis decision names the base, what was adapted from the others, and what was rejected.
 
-## Rejected framings
+## Phase C: Agree
 
-- **Depth as ratio of implementation-lines to interface-lines** (Ousterhout): rewards padding the implementation. We use depth-as-leverage instead.
-- **"Interface" as the TypeScript `interface` keyword or a class's public methods**: too narrow: interface here includes every fact a caller must know.
-- **"Boundary"**: overloaded with DDD's bounded context. Say **seam** or **interface**.
+Return the synthesized design to the caller.
 
-## Going deeper
+## Outputs
 
-- **Deepening a cluster given its dependencies**, see [deepening.md](references/deepening.md): dependency categories, seam discipline, and replace-don't-layer testing.
-- **Exploring alternative interfaces**, see [design-it-twice.md](references/design-it-twice.md): spin up parallel sub-agents to design the interface several radically different ways, then compare on depth, locality, and seam placement.
+The caller's usage is written first and the type sketch derived from it. One file with new types and signatures for small changes. Module map plus type definitions for larger work. The rationale ships alongside, shaped per [rationale-template.md](references/rationale-template.md), including the usage sketch and the synthesis decision.
+
+Done when that package is in the caller's hands.
