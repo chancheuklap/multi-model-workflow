@@ -203,11 +203,11 @@ class DispatchCommands(unittest.TestCase):
 
     def test_each_brief_role_receives_dispatch_route_before_assignment_input(self):
         config = json.loads((self.home / "models.json").read_text())
-        for role in ("researcher", "advisor", "candidate"):
+        for role in ("researcher", "advisor", "candidate", "verifier"):
             config["rows"][role] = {"host": "codex", "model": "test-model", "effort": "high"}
         (self.home / "models.json").write_text(json.dumps(config))
         skill = TOOLS.parents[1] / "skills/dispatch/SKILL.md"
-        for role in ("researcher", "advisor", "candidate"):
+        for role in ("researcher", "advisor", "candidate", "verifier"):
             with self.subTest(role=role):
                 sent = self.run_command("send", role, self.task)
                 self.assertEqual(sent.returncode, 0, sent.stdout + sent.stderr)

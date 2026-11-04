@@ -28,6 +28,15 @@
       }
     },
     {
+      "name": "verifier",
+      "sent_with": "brief",
+      "default": {
+        "host": "claude",
+        "model": "sonnet",
+        "effort": "high"
+      }
+    },
+    {
       "name": "researcher",
       "sent_with": "brief",
       "default": {

@@ -375,7 +375,8 @@ case "${1:-}" in
   send)
     shift
     case "${1:-}" in
-      worker|reviewer) repo="$(repo_slug)" || exit 2; export GH_REPO="$repo"; send_ticket "$@" ;;
+      worker) repo="$(repo_slug)" || exit 2; export GH_REPO="$repo"; send_ticket "$@" ;;
+      reviewer) if [[ ${2:-} =~ ^[1-9][0-9]*$ ]]; then repo="$(repo_slug)" || exit 2; export GH_REPO="$repo"; send_ticket "$@"; else send_many "$@"; fi ;;
       *) send_many "$@" ;;
     esac ;;
   report) [ "$#" -eq 3 ] || usage; report_brief "$2" "$3" ;;

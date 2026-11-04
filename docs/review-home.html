@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>审查归谁读</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231f6b4a'/%3E%3Cpath d='M8 10h16M8 16h10M8 22h16' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --ink: #1b2430; --muted: #51616e; --paper: #eef3f1; --desk: #d7e2dc; --slip: #f7faf8;
+    --line: #b7c7c0; --brass: #8a6424; --brass-soft: #f3e6c8; --ok: #1f6b4a; --ok-soft: #dceee4;
+    --bad: #8a3030; --bad-soft: #f6e4e2; --track: #243246; color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e6eef0; --muted: #a8b8c0; --paper: #10161b; --desk: #1a262c; --slip: #22333b;
+      --line: #3a4e56; --brass: #e2c27a; --brass-soft: #3a3220; --ok: #8fd0b0; --ok-soft: #1a3330;
+      --bad: #f0b4ae; --bad-soft: #3a2424; --track: #d5e2ea; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e6eef0; --muted: #a8b8c0; --paper: #10161b; --desk: #1a262c; --slip: #22333b;
+    --line: #3a4e56; --brass: #e2c27a; --brass-soft: #3a3220; --ok: #8fd0b0; --ok-soft: #1a3330;
+    --bad: #f0b4ae; --bad-soft: #3a2424; --track: #d5e2ea; color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --ink: #1b2430; --muted: #51616e; --paper: #eef3f1; --desk: #d7e2dc; --slip: #f7faf8;
+    --line: #b7c7c0; --brass: #8a6424; --brass-soft: #f3e6c8; --ok: #1f6b4a; --ok-soft: #dceee4;
+    --bad: #8a3030; --bad-soft: #f6e4e2; --track: #243246; color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); background: var(--paper);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    font-size: 17px; line-height: 1.45;
+  }
+  h1, h2, h3 { font-family: "Songti SC", Palatino, "Iowan Old Style", serif; font-weight: 600; margin: 0; text-wrap: balance; }
+  h1 { font-size: 42px; letter-spacing: -0.02em; }
+  h2 { font-size: 26px; }
+  h3 { font-size: 18px; margin-bottom: 8px; }
+  p { margin: 0; }
+  button { font: inherit; color: inherit; }
+  .wrap { width: min(1100px, calc(100% - 28px)); margin: 0 auto; padding: 28px 0 72px; }
+  header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+  .lede { margin-top: 10px; max-width: 40rem; font-size: 18px; }
+  .theme { border: 1px solid var(--line); background: var(--slip); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+  .theme:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; align-items: start; }
+  .yard { background: var(--slip); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .yard.now { box-shadow: inset 0 0 0 2px var(--bad-soft); }
+  .yard.next { box-shadow: inset 0 0 0 2px var(--ok-soft); }
+  .kicker { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .now .kicker { color: var(--bad); }
+  .next .kicker { color: var(--ok); }
+  .yard h2 { margin: 4px 0 12px; }
+  .home { border-radius: 12px; padding: 10px 12px; background: var(--desk); }
+  .home + .home, .arrow + .home { margin-top: 8px; }
+  .home.dispatch { border-left: 8px solid var(--track); }
+  .home.review { border-left: 8px solid var(--brass); background: var(--brass-soft); }
+  .home b, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 15px; }
+  .role { display: block; color: var(--muted); font-size: 13px; margin-bottom: 2px; }
+  .who { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .who span {
+    background: var(--slip); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; font-size: 14px;
+  }
+  .badchip { background: var(--bad-soft); border-color: transparent; }
+  .okchip { background: var(--ok-soft); border-color: transparent; }
+  .arrow { text-align: center; color: var(--muted); font-size: 13px; margin: 6px 0; }
+  .legend { margin-top: 12px; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+  .sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .sw.track { background: var(--track); }
+  .sw.brass { background: var(--brass); }
+  table { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .note { margin-top: 14px; color: var(--muted); font-size: 15px; max-width: 46rem; }
+  @media (max-width: 800px) {
+    .pair { grid-template-columns: 1fr; }
+    h1 { font-size: 34px; }
+    header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>审查归谁读</h1>
+      <p class="lede">是。Dispatch reviewer 跟 Coordinator 走，放进 dispatch。code-review 只留给 Standards、Spec、Tests。Coordinator 那一节仍只写这场 night 的事实，用一句话指向那份文件。</p>
+      <p class="note">这一节已经收进完整设计 <a href="dispatch-design.html">docs/dispatch-design.html</a>。三个轴的云端检出、卡上的字和命令，都在那一页。</p>
+    </div>
+    <button class="theme" type="button" id="theme">切换明暗</button>
+  </header>
+
+  <div class="pair">
+    <section class="yard now" aria-label="现在">
+      <div class="kicker">现在 · cloud</div>
+      <h2>派发的人去读审查技能</h2>
+      <div class="home dispatch">
+        <span class="role">dispatch</span>
+        <b>Coordinator</b>
+        <div class="who"><span>Worker</span><span>Verifier</span></div>
+      </div>
+      <p class="arrow">Coordinator 叫 code-review，再去读里面的派发文件</p>
+      <div class="home review">
+        <span class="role">code-review · 描述仍是「审查一个分支或 PR」</span>
+        <b>dispatch-reviewer</b>
+        <div class="who">
+          <span class="badchip">正文开头写成 Coordinator</span>
+          <span>收 sources</span>
+          <span>钉住比较</span>
+          <span>派三个轴</span>
+          <span>核对并汇总</span>
+        </div>
+        <div class="who">
+          <span>Standards</span>
+          <span>Spec</span>
+          <span>Tests</span>
+        </div>
+      </div>
+      <p class="arrow">三个轴再叫一次 code-review，读自己那一轴</p>
+      <div class="legend">
+        <div><i class="sw track"></i>dispatch。读者是 Coordinator、Worker、Verifier。</div>
+        <div><i class="sw brass"></i>code-review。现在同时装着派发者和三个轴。</div>
+      </div>
+    </section>
+
+    <section class="yard next" aria-label="挪法">
+      <div class="kicker">挪法</div>
+      <h2>谁派发，谁读 dispatch</h2>
+      <div class="home dispatch">
+        <span class="role">dispatch</span>
+        <b>Coordinator</b>
+        <div class="who"><span>Worker</span><span>Verifier</span><span class="okchip">Dispatch reviewer</span></div>
+      </div>
+      <p class="arrow">三个轴的提示词仍叫 code-review</p>
+      <div class="home review">
+        <span class="role">code-review · 描述改成三个轴</span>
+        <b>Standards</b>　<b>Spec</b>　<b>Tests</b>
+        <div class="who"><span class="okchip">各读自己的文件</span><span>怎么判断留在这里</span></div>
+      </div>
+      <div class="legend">
+        <div><i class="sw track"></i>Dispatch reviewer 收 sources、钉住比较、派出三个轴、核对并汇总。文件跟 Coordinator 放在一起。</div>
+        <div><i class="sw brass"></i>一个轴怎么下判断，仍在 code-review。</div>
+        <div>Coordinator 的「Review the night branch」不把这些步骤再抄进去。</div>
+      </div>
+    </section>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>谁在读</th><th>现在</th><th>挪完</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Coordinator，票都 land 之后</td>
+        <td>先读 dispatch 里这场 night 的事实，再跳进 code-review 去派三个轴。</td>
+        <td>两份都在 dispatch。夜的事实仍是那一节。派三个轴的做法是旁边的 Dispatch reviewer。</td>
+      </tr>
+      <tr>
+        <td>Standards、Spec、Tests</td>
+        <td>叫 code-review，读自己的轴。</td>
+        <td>还是这样。</td>
+      </tr>
+      <tr>
+        <td>有人说审查一个分支或 PR</td>
+        <td>描述写在 code-review 上。打开后正文却从 Coordinator 讲起。</td>
+        <td>完整审查是 dispatch 的一份任务。code-review 不再接这句。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="note">判断标准仍在三个轴的文件里，不跟着派发文件搬走。本地版仍由 main reviewer 做完整审查，这次不动。这一页是挪法，技能还没改。</p>
+</div>
+<script>
+  document.getElementById("theme").addEventListener("click", () => {
+    const root = document.documentElement;
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : current === "light" ? "dark" : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+    root.setAttribute("data-theme", next);
+  });
+</script>
+</body>
+</html>

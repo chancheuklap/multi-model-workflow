@@ -1,6 +1,6 @@
 # Standards reviewer
 
-Review the diff using the diff command, commit list, and standards-source files in your assignment. Read the standards sources and apply the following baseline.
+Review the diff named in your assignment. Read every standards file it names, then search this checkout for every other file that documents how code should be written. Apply the following baseline.
 
 On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
 
@@ -26,4 +26,4 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 
 Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words.
 
-Return the report to the reviewer who assigned you.
+Return the report to the session that assigned you.

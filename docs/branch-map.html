@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分支各归各位</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231f6b4a'/%3E%3Cpath d='M6 22h20M6 16h12M6 10h20' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --ink: #1b2430; --muted: #51616e; --paper: #eef3f1; --desk: #d7e2dc; --slip: #f7faf8;
+    --line: #b7c7c0; --brass: #8a6424; --brass-soft: #f3e6c8; --ok: #1f6b4a; --ok-soft: #dceee4;
+    --bad: #8a3030; --bad-soft: #f6e4e2; --track: #243246; color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e6eef0; --muted: #a8b8c0; --paper: #10161b; --desk: #1a262c; --slip: #22333b;
+      --line: #3a4e56; --brass: #e2c27a; --brass-soft: #3a3220; --ok: #8fd0b0; --ok-soft: #1a3330;
+      --bad: #f0b4ae; --bad-soft: #3a2424; --track: #d5e2ea; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e6eef0; --muted: #a8b8c0; --paper: #10161b; --desk: #1a262c; --slip: #22333b;
+    --line: #3a4e56; --brass: #e2c27a; --brass-soft: #3a3220; --ok: #8fd0b0; --ok-soft: #1a3330;
+    --bad: #f0b4ae; --bad-soft: #3a2424; --track: #d5e2ea; color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --ink: #1b2430; --muted: #51616e; --paper: #eef3f1; --desk: #d7e2dc; --slip: #f7faf8;
+    --line: #b7c7c0; --brass: #8a6424; --brass-soft: #f3e6c8; --ok: #1f6b4a; --ok-soft: #dceee4;
+    --bad: #8a3030; --bad-soft: #f6e4e2; --track: #243246; color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); background: var(--paper);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    font-size: 17px; line-height: 1.45;
+  }
+  h1, h2, h3 { font-family: "Songti SC", Palatino, "Iowan Old Style", serif; font-weight: 600; margin: 0; text-wrap: balance; }
+  h1 { font-size: 42px; letter-spacing: -0.02em; }
+  h2 { font-size: 26px; }
+  h3 { font-size: 18px; }
+  p { margin: 0; }
+  button { font: inherit; color: inherit; }
+  .wrap { width: min(1100px, calc(100% - 28px)); margin: 0 auto; padding: 28px 0 72px; }
+  header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+  .lede { margin-top: 10px; max-width: 40rem; font-size: 18px; }
+  .theme { border: 1px solid var(--line); background: var(--slip); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+  .theme:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; align-items: start; }
+  .yard { background: var(--slip); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .yard.now { box-shadow: inset 0 0 0 2px var(--bad-soft); }
+  .yard.next { box-shadow: inset 0 0 0 2px var(--ok-soft); }
+  .kicker { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .now .kicker { color: var(--bad); }
+  .next .kicker { color: var(--ok); }
+  .yard h2 { margin: 4px 0 12px; }
+  .rail, .siding, .ghost {
+    border-radius: 12px; padding: 10px 12px; background: var(--desk);
+  }
+  .rail { border-left: 8px solid var(--track); }
+  .rail b, .siding b, .ghost b { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 16px; }
+  .role { display: block; color: var(--muted); font-size: 13px; margin-bottom: 2px; }
+  .riders, .who { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .riders span, .who span, .chip {
+    background: var(--slip); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; font-size: 14px;
+  }
+  .badchip { background: var(--bad-soft); border-color: transparent; }
+  .okchip { background: var(--ok-soft); border-color: transparent; }
+  .flow { text-align: center; color: var(--muted); font-size: 13px; margin: 6px 0; }
+  .sidings { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sidings.solo { grid-template-columns: 1fr; }
+  .siding { border-left: 8px solid var(--brass); background: var(--brass-soft); }
+  .ghost { margin-top: 8px; border: 1px dashed var(--bad); background: transparent; color: var(--bad); }
+  .nights { display: grid; gap: 12px; }
+  .one-night { display: grid; gap: 8px; }
+  .legend { margin-top: 12px; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+  .sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .sw.track { background: var(--track); }
+  .sw.brass { background: var(--brass); }
+  .sw.dash { background: transparent; border: 1px dashed var(--bad); height: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  td.mono, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .note { margin-top: 14px; color: var(--muted); font-size: 15px; max-width: 46rem; }
+  @media (max-width: 800px) {
+    .pair, .sidings { grid-template-columns: 1fr; }
+    h1 { font-size: 34px; }
+    header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>分支各归各位</h1>
+      <p class="lede">合进去朝上。Worker 和第一个 verifier 站在 <span class="mono">ticket/issue-N</span>。Coordinator、Standards、Spec、Tests 和第二个 verifier 站在 <span class="mono">night/spec-N</span> 或 <span class="mono">night/ticket-N</span>。<span class="mono">project/&lt;project name&gt;</span> 从 <span class="mono">dev</span> 切开。整个 project 做完，合进 <span class="mono">dev</span> 测试，再合进 <span class="mono">main</span> 部署。N 是 issue 编号。</p>
+    </div>
+    <button class="theme" type="button" id="theme">切换明暗</button>
+  </header>
+
+  <div class="pair">
+    <section class="yard now" aria-label="现在">
+      <div class="kicker">已安装的 .cursor/</div>
+      <h2>一条轨道，上面站满人</h2>
+      <div class="rail">
+        <span class="role">project branch，写成记号</span>
+        <b>PROJECT</b>
+      </div>
+      <p class="flow">delivery PR 指向这个记号</p>
+      <div class="rail">
+        <span class="role">night branch，写成记号</span>
+        <b>NIGHT</b>
+        <div class="riders">
+          <span class="badchip">Worker 18 从这里开</span>
+          <span class="badchip">Worker 19 从这里开</span>
+          <span>第一个 verifier 跟 Worker 留在这场</span>
+          <span>Coordinator 检出在这里</span>
+          <span>Standards、Spec、Tests</span>
+          <span>第二个 verifier 从这里开</span>
+        </div>
+      </div>
+      <div class="ghost">
+        <span class="role">prompt 里另写了一句</span>
+        <b>issue-18</b>　<b>issue-19</b>
+        <p>卡的起点不是这两条。Worker 要自己再切过去。</p>
+      </div>
+      <p class="flow">另一场 night 也被写成 NIGHT。仓库里不能有两条同名分支。</p>
+      <div class="legend">
+        <div><i class="sw track"></i>实线是卡真正启动的 git 分支</div>
+        <div><i class="sw dash"></i>虚线只写在句子里，卡不从那里开</div>
+        <div>合进去的方向朝上。</div>
+      </div>
+    </section>
+
+    <section class="yard next" aria-label="改法">
+      <div class="kicker">cloud 版</div>
+      <h2>verifier 跟 Worker，reviewer 跟 Coordinator</h2>
+      <div class="rail">
+        <span class="role">main branch · 部署</span>
+        <b>main</b>
+      </div>
+      <p class="flow">dev 合进 main</p>
+      <div class="rail">
+        <span class="role">dev branch · 测试</span>
+        <b>dev</b>
+      </div>
+      <p class="flow">整个 project 做完，再合进来</p>
+      <div class="rail">
+        <span class="role">project branch · 从 dev 切开</span>
+        <b>project/glossary</b>
+        <div class="who"><span>例子。换成这场 project 的名字。</span></div>
+      </div>
+      <p class="flow">每场 night 一条 delivery PR，合进上面这条</p>
+      <div class="nights">
+        <div class="one-night">
+          <div class="rail">
+            <span class="role">spec 76 的 night branch · 76 是 issue 编号</span>
+            <b>night/spec-76</b>
+            <div class="who">
+              <span class="okchip">Coordinator</span>
+              <span class="okchip">Standards</span>
+              <span class="okchip">Spec</span>
+              <span class="okchip">Tests</span>
+              <span class="okchip">第二个 verifier</span>
+            </div>
+          </div>
+          <p class="flow">Worker 的 PR，合进 night/spec-76</p>
+          <div class="sidings">
+            <div class="siding">
+              <span class="role">ticket 18</span>
+              <b>ticket/issue-18</b>
+              <div class="who"><span>Worker</span><span>第一个 verifier</span></div>
+            </div>
+            <div class="siding">
+              <span class="role">ticket 19</span>
+              <b>ticket/issue-19</b>
+              <div class="who"><span>Worker</span><span>第一个 verifier</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="one-night">
+          <div class="rail">
+            <span class="role">同一仓库的另一场 · spec 80</span>
+            <b>night/spec-80</b>
+            <div class="who">
+              <span class="okchip">Coordinator</span>
+              <span class="okchip">Standards</span>
+              <span class="okchip">Spec</span>
+              <span class="okchip">Tests</span>
+              <span class="okchip">第二个 verifier</span>
+            </div>
+          </div>
+          <p class="flow">Worker 的 PR，合进 night/spec-80</p>
+          <div class="sidings solo">
+            <div class="siding">
+              <span class="role">ticket 21</span>
+              <b>ticket/issue-21</b>
+              <div class="who"><span>Worker</span><span>第一个 verifier</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <div><i class="sw track"></i>main、dev、project branch、night branch。合进去朝上。</div>
+        <div><i class="sw brass"></i>issue-N branch。一个 Worker 一条，卡从这里开。第一个 verifier 跟 Worker 留在这条，不开新分支。</div>
+        <div>Standards、Spec、Tests 跟 Coordinator 留在这场 night branch，不开新分支。第二个 verifier 也在这条上：票已经 land 上来。</div>
+        <div>只有一张票的 night，night branch 写成 <span class="mono">night/ticket-N</span>。Worker 仍在 <span class="mono">ticket/issue-N</span>。</div>
+      </div>
+    </section>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>词</th><th>已安装的 .cursor/</th><th>cloud 版</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>night</td>
+        <td>这一场运行。命令里的 <span class="mono">NIGHT</span> 又拿它当分支名。</td>
+        <td>只指这一场运行。</td>
+      </tr>
+      <tr>
+        <td>night branch</td>
+        <td>记号 <span class="mono">NIGHT</span>。两场会抢同一个名字。</td>
+        <td><span class="mono">night/spec-N</span> 或 <span class="mono">night/ticket-N</span>。N 是这场 spec 或这张票的 issue 编号。Coordinator、Standards、Spec、Tests、第二个 verifier 在这条上。</td>
+      </tr>
+      <tr>
+        <td>project branch</td>
+        <td>记号 <span class="mono">PROJECT</span>。</td>
+        <td><span class="mono">project/&lt;project name&gt;</span>，从 <span class="mono">dev</span> 切开。delivery PR 合进这里。</td>
+      </tr>
+      <tr>
+        <td>issue-N branch</td>
+        <td>写在 prompt 里，例如 <span class="mono">issue-18</span>。卡从 <span class="mono">NIGHT</span> 开。</td>
+        <td><span class="mono">ticket/issue-N</span>。Worker 和第一个 verifier 在这条上。卡从这里开。</td>
+      </tr>
+      <tr>
+        <td>dev branch</td>
+        <td>写在 <span class="mono">PROJECT</span> 后面。</td>
+        <td>分支名就是 <span class="mono">dev</span>。整个 project 做完，合进来测试。</td>
+      </tr>
+      <tr>
+        <td>main branch</td>
+        <td>写在 dev branch 后面。</td>
+        <td>分支名就是 <span class="mono">main</span>。<span class="mono">dev</span> 合进来部署。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="note">右边是仓库里的 cloud 版。左边是已经装上的 <span class="mono">.cursor/</span>，还没换成这一版。本地脚本给 Worker 的分支仍叫 <span class="mono">issue-&lt;票号&gt;</span>。</p>
+</div>
+<script>
+  document.getElementById("theme").addEventListener("click", () => {
+    const root = document.documentElement;
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : current === "light" ? "dark" : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+    root.setAttribute("data-theme", next);
+  });
+</script>
+</body>
+</html>

@@ -22,7 +22,8 @@ export const LocalConfig = {
   ROLE_WHAT: {
     "junior-worker": "贴 junior-worker label 的 ticket",
     "senior-worker": "贴 senior-worker label 的 ticket",
-    reviewer: "review 每张 ticket 的改动",
+    reviewer: "整晚审一次 night branch，开三个轴",
+    verifier: "跑 verify-<app>，不改 drive script",
     advisor: "被问到时给第二意见",
     researcher: "被派去读一处来源或一类证据，交回注明出处的发现",
     candidate: "被派去设计同一个问题的几个候选方案之一",

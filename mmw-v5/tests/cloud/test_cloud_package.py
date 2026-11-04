@@ -57,8 +57,10 @@ else:
             with zipfile.ZipFile(archive) as z:
                 names=z.namelist()
                 self.assertFalse(any(x in name for name in names for x in ['/runners/','/relay.py','/events.py','/children.md']))
-                for relative in ['skills/code-review/SKILL.md','skills/code-review/references/main-reviewer.md','skills/write-tests/SKILL.md','board/page/app.mjs','board/page/board-layout.mjs','board/page/detail-layout.mjs','board/page/topbar-layout.mjs','board/page/styles/settings-layout.css','board/gates.py']:
+                for relative in ['skills/code-review/SKILL.md','skills/dispatch/references/dispatch-reviewer.md','skills/write-tests/SKILL.md','board/page/app.mjs','board/page/board-layout.mjs','board/page/detail-layout.mjs','board/page/topbar-layout.mjs','board/page/styles/settings-layout.css','board/gates.py']:
                     self.assertTrue((project/'.cursor'/relative).is_file(),relative)
+                self.assertFalse((project/'.cursor/skills/code-review/references/dispatch-reviewer.md').exists())
+                self.assertFalse((project/'.cursor/skills/code-review/references/main-reviewer.md').exists())
             shutil.rmtree(source)  # Installed runtime cannot reach development sources.
             git(project,'add','.cursor');git(project,'commit','-q','-m','runtime')
             fixed=git(project,'rev-parse','HEAD')

@@ -32,7 +32,7 @@ Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "p
 
 </vertical-slice-rules>
 
-The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`: a `features/` map of how a person reaches each part, plus the scripts that drive the real app. A ticket that changes a surface a person uses names that feature file and copies the spec sentences the surface must show. The worker writes the drive script from those sentences. The review runs `verify-<app>` and checks that the script asserts them. This step does not write the script.
+The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`: a `features/` map of how a person reaches each part, plus the scripts that drive the real app. A ticket that changes a surface a person uses names that feature file and copies the spec sentences the surface must show. The worker writes the drive script from those sentences. The verifier runs `verify-<app>` and checks that the script asserts them. This step does not write the script.
 
 Call the Skill tool with "principle-separate-before-serializing-shared-state" before settling the blocking edges, and before sequencing a wide refactor whose tickets would write one shared symbol.
 

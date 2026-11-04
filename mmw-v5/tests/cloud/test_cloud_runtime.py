@@ -54,12 +54,12 @@ class CloudRuntime(unittest.TestCase):
         check.chmod(0o755)
         self.commit('base'); self.base = self.git('rev-parse', 'HEAD')
         self.git('push', '-q', 'origin', 'night/test')
-        self.git('switch', '-q', '-c', 'issue-1'); (self.root / 'feature.txt').write_text('work\n'); self.commit('work')
+        self.git('switch', '-q', '-c', 'ticket/issue-1'); (self.root / 'feature.txt').write_text('work\n'); self.commit('work')
         self.head = self.git('rev-parse', 'HEAD'); self.git('push', '-q', 'origin', 'HEAD:refs/pull/7/head'); self.git('switch', '-q', 'night/test')
         self.api = API(); self.api.add(90, 'mmw:spec'); self.api.add(1); self.api.add(2); self.api.children[90] = [1, 2]
         self.api.blockers[2] = [1]
         self.pr = {'number':7,'state':'open','draft':False,'merged_at':None,'merge_commit_sha':None,
-                   'head':{'ref':'issue-1','sha':self.head},'base':{'ref':'night/test','sha':self.base,'repo':{'full_name':self.api.repo}}}
+                   'head':{'ref':'ticket/issue-1','sha':self.head},'base':{'ref':'night/test','sha':self.base,'repo':{'full_name':self.api.repo}}}
         self.api.prs = [self.pr]; self.merges = 0
 
     def git(self, *args):
@@ -67,7 +67,7 @@ class CloudRuntime(unittest.TestCase):
     def commit(self, message): self.git('add', '.'); self.git('commit', '-q', '-m', message)
 
     def publish_pr_check(self, body):
-        self.git('switch', '-q', 'issue-1')
+        self.git('switch', '-q', 'ticket/issue-1')
         path = self.root / 'scripts' / 'check'
         path.write_text('#!/usr/bin/env bash\n' + body + '\n')
         path.chmod(0o755)
@@ -102,22 +102,25 @@ class CloudRuntime(unittest.TestCase):
         self.assertTrue(plan['tickets'][0]['landed']); self.assertTrue(plan['tickets'][1]['eligible'])
 
     def test_failed_checks_do_not_update_night(self):
-        self.publish_pr_check('exit 7')
+        self.publish_pr_check('echo check-failed >&2; exit 7')
         with patch.object(land, 'command', self.merge_command):
-            with self.assertRaisesRegex(RuntimeError, 'scripts/check exited 7'):
+            with self.assertRaises(RuntimeError) as caught:
                 land.land(7, 'night/test', self.head, api=self.api)
+        message = str(caught.exception)
+        self.assertIn('scripts/check exited 7', message)
+        self.assertIn('check-failed', message)
         self.assertEqual(self.merges,0); self.assertEqual(self.git('rev-parse','origin/night/test'), self.base)
         self.assertEqual(self.git('worktree','list','--porcelain').count('worktree '), 1)
 
-    def test_check_modifying_tracked_candidate_is_not_landed(self):
+    def test_check_modifying_tracked_files_is_not_landed(self):
         self.publish_pr_check('echo changed > base.txt')
         with patch.object(land, 'command', self.merge_command):
-            with self.assertRaisesRegex(RuntimeError, 'changed tracked candidate'):
+            with self.assertRaisesRegex(RuntimeError, 'changed tracked files'):
                 land.land(7, 'night/test', self.head, api=self.api)
         self.assertEqual(self.merges,0)
 
     def test_missing_check_does_not_update_night(self):
-        self.git('switch', '-q', 'issue-1')
+        self.git('switch', '-q', 'ticket/issue-1')
         self.git('rm', '-q', 'scripts/check')
         self.commit('drop check')
         self.head = self.git('rev-parse', 'HEAD')
@@ -131,7 +134,7 @@ class CloudRuntime(unittest.TestCase):
         self.assertEqual(self.git('rev-parse', 'origin/night/test'), self.base)
 
     def test_non_executable_check_does_not_update_night(self):
-        self.git('switch', '-q', 'issue-1')
+        self.git('switch', '-q', 'ticket/issue-1')
         (self.root / 'scripts' / 'check').chmod(0o644)
         self.git('add', '--chmod=-x', 'scripts/check')
         self.commit('drop check mode')
@@ -146,7 +149,7 @@ class CloudRuntime(unittest.TestCase):
         self.assertEqual(self.git('rev-parse', 'origin/night/test'), self.base)
 
     def test_conflict_is_preserved_as_failure_without_merging(self):
-        self.git('switch','-q','issue-1'); (self.root/'base.txt').write_text('worker\n'); self.commit('worker base'); self.head=self.git('rev-parse','HEAD')
+        self.git('switch','-q','ticket/issue-1'); (self.root/'base.txt').write_text('worker\n'); self.commit('worker base'); self.head=self.git('rev-parse','HEAD')
         self.git('push','-q','--force','origin','HEAD:refs/pull/7/head'); self.git('switch','-q','night/test')
         (self.root/'base.txt').write_text('night\n'); self.commit('night base'); self.git('push','-q','origin','night/test')
         self.pr['head']['sha']=self.head; self.pr['base']['sha']=self.git('rev-parse','HEAD')
@@ -171,7 +174,7 @@ class CloudRuntime(unittest.TestCase):
         changed = json.loads(json.dumps(config)); changed['rows']['codex']['review-axis']['model'] = 'next-run-only'; models.write_config(changed)
         with patch.dict(os.environ,{'MMW_HOME':str(self.root/'unused-local-home')}):
             self.assertEqual(models.row('review-axis','codex',fixed),{'model':'chosen-native-id','effort':'high'})
-            self.assertEqual(models.row('review-axis','cursor',fixed),{'model':'cursor-review-model[effort=high,context=256k,fast=true]'})
+            self.assertEqual(models.row('review-axis','cursor',fixed),{'model':'cursor-review-model-high-fast'})
         self.assertEqual(models.row('junior-worker','codex',fixed),config['rows']['codex']['junior-worker'])
 
     def test_native_host_settings_apply_to_each_worker_grade_and_review_role(self):
@@ -185,12 +188,88 @@ class CloudRuntime(unittest.TestCase):
         models.write_config(config);self.commit('host-specific role settings')
         fixed=self.git('rev-parse','HEAD')
         self.assertEqual(models.row('senior-worker','codex',fixed),{'model':'senior-specific-model','effort':'high'})
-        self.assertEqual(models.row('junior-worker','cursor',fixed),{'model':'grok-4.7[effort=high,context=256k,fast=false]'})
+        self.assertEqual(models.row('junior-worker','cursor',fixed),{'model':'grok-4.7-high'})
         for role in models.ROLES:
             if role!='senior-worker':
                 self.assertEqual(models.row(role,'codex',fixed),{'model':'gpt-6.1-sol','effort':'high'})
             if role!='junior-worker':
-                self.assertEqual(models.row(role,'cursor',fixed),{'model':'grok-4.7[effort=high,context=256k,fast=true]'})
+                self.assertEqual(models.row(role,'cursor',fixed),{'model':'grok-4.7-high-fast'})
+
+    def test_spawn_prints_worker_and_verifier_cards(self):
+        folder = self.root / '.cursor'
+        folder.mkdir()
+        models.write_config(json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text()))
+        self.commit('models')
+        self.git('branch', 'dev')
+        self.git('branch', 'project/demo')
+        self.git('branch', 'night/spec-90')
+        self.git('push', '-q', 'origin', 'dev', 'project/demo', 'night/spec-90')
+        self.git('switch', '-q', 'night/spec-90')
+        api = API()
+        api.add(90, 'mmw:spec')
+        api.add(18)
+        plain = API()
+        plain.add(18)
+        plain.items[18]['labels'] = [{'name': 'mmw:ticket'}, {'name': 'ready-for-agent'}]
+        self.assertEqual(models.spawn_worker('cursor', '18', api=plain)['cards'], [])
+
+        worker = models.spawn_worker('cursor', '18', api=api)
+        card = worker['cards'][0]
+        self.assertEqual(card['environment'], 'cloud')
+        self.assertEqual(card['cloud_base_branch'], 'ticket/issue-18')
+        self.assertIn('Night branch: night/spec-90', card['prompt'])
+        self.assertIn('issue-N branch: ticket/issue-18', card['prompt'])
+        self.assertIn('Load the installed dispatch skill.', card['prompt'])
+        self.assertNotIn('work report', card['prompt'])
+        self.assertEqual(card['model'], 'grok-4.7-high-fast')
+        self.assertFalse(card['run_in_background'])
+        self.assertEqual(self.git('rev-parse', '--abbrev-ref', 'HEAD'), 'night/spec-90')
+        self.assertEqual(self.git('rev-parse', 'origin/ticket/issue-18'), self.git('rev-parse', 'HEAD'))
+        again = models.spawn_worker('cursor', '18', api=api)
+        self.assertEqual(again['cards'][0]['cloud_base_branch'], 'ticket/issue-18')
+        codex = models.spawn_worker('codex', '18', api=api)['cards'][0]
+        self.assertEqual(codex['model'], 'gpt-6.1-sol')
+        self.assertEqual(codex['effort'], 'medium')
+        self.assertNotIn('environment', codex)
+        quiet = models.spawn_review('cursor', api=api)
+        self.assertEqual(quiet['cards'], [])
+        self.assertIn('standards', quiet['skipped'])
+
+        self.git('switch', '-q', '-c', 'ticket/issue-18', 'origin/ticket/issue-18')
+        base = self.git('rev-parse', 'night/spec-90')
+        bare = self.git('rev-parse', 'HEAD')
+        api.prs = [{'number': 8, 'state': 'open', 'draft': True, 'head': {'ref': 'ticket/issue-18', 'sha': bare},
+                    'base': {'ref': 'night/spec-90', 'sha': base, 'repo': {'full_name': api.repo}}}]
+        self.assertEqual(models.spawn_verifier('cursor', api=api)['cards'], [])
+        feature = folder / 'skills' / 'verify-demo' / 'features' / 'login.md'
+        feature.parent.mkdir(parents=True)
+        (feature.parent.parent / 'SKILL.md').write_text('name: verify-demo\n')
+        feature.write_text('login\n')
+        self.commit('feature')
+        head = self.git('rev-parse', 'HEAD')
+        self.git('push', '-q', 'origin', 'ticket/issue-18')
+        api.prs[0]['head']['sha'] = head
+        ticket = models.spawn_verifier('cursor', api=api)
+        self.assertNotIn('environment', ticket['cards'][0])
+        self.assertIn(f'Commit: {head}', ticket['cards'][0]['prompt'])
+        self.assertIn('.cursor/skills/verify-demo/features/login.md', ticket['cards'][0]['prompt'])
+        self.assertIn('Return pass or fail to the Worker.', ticket['cards'][0]['prompt'])
+        self.git('commit', '-q', '--allow-empty', '-m', 'unpushed')
+        with self.assertRaisesRegex(ValueError, 'HEAD is not pushed'):
+            models.spawn_verifier('cursor', api=api)
+
+        self.git('switch', '-q', 'night/spec-90')
+        (self.root / 'night.txt').write_text('night\n')
+        self.commit('night')
+        self.git('push', '-q', 'origin', 'night/spec-90')
+        review = models.spawn_review('cursor', api=api)
+        self.assertEqual([item['description'] for item in review['cards']], ['Standards', 'Spec', 'Tests'])
+        self.assertEqual(review['cards'][0]['cloud_base_branch'], 'night/spec-90')
+        self.assertIn('Spec #90', review['cards'][1]['prompt'])
+        self.assertIn('verifier', review['skipped'])
+        opened = models.open_night('other', '', '3')
+        self.assertEqual(opened['night_branch'], 'night/ticket-3')
+        self.assertEqual(self.git('rev-parse', '--abbrev-ref', 'HEAD'), 'night/ticket-3')
 
     def test_partial_or_malformed_github_pages_fail_explicitly(self):
         api=object.__new__(status.GitHub);api.repo='example/project'

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>派发卡</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%238a6424'/%3E%3Cpath d='M8 16.5 l5 5 11-12' fill='none' stroke='white' stroke-width='2.4'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --ink: #1b2430;
+    --muted: #51616e;
+    --paper: #eef3f1;
+    --desk: #d7e2dc;
+    --slip: #f7faf8;
+    --line: #b7c7c0;
+    --brass: #8a6424;
+    --brass-soft: #f3e6c8;
+    --ok: #1f6b4a;
+    --ok-soft: #dceee4;
+    --fixed: #e7eeea;
+    --shadow: 0 1px 0 rgba(27, 36, 48, 0.04);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e6eef0; --muted: #a8b8c0; --paper: #10161b; --desk: #1a262c; --slip: #22333b;
+      --line: #3a4e56; --brass: #e2c27a; --brass-soft: #3a3220; --ok: #8fd0b0; --ok-soft: #1a3330;
+      --fixed: #1a2824; --shadow: none; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e6eef0; --muted: #a8b8c0; --paper: #10161b; --desk: #1a262c; --slip: #22333b;
+    --line: #3a4e56; --brass: #e2c27a; --brass-soft: #3a3220; --ok: #8fd0b0; --ok-soft: #1a3330;
+    --fixed: #1a2824; --shadow: none; color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --ink: #1b2430; --muted: #51616e; --paper: #eef3f1; --desk: #d7e2dc; --slip: #f7faf8;
+    --line: #b7c7c0; --brass: #8a6424; --brass-soft: #f3e6c8; --ok: #1f6b4a; --ok-soft: #dceee4;
+    --fixed: #e7eeea; --shadow: 0 1px 0 rgba(27, 36, 48, 0.04); color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 420px at 8% -12%, var(--desk), transparent 55%), var(--paper);
+    color: var(--ink);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+    font-size: 17px;
+    line-height: 1.45;
+  }
+  h1, h2, h3 { font-family: "Songti SC", "Iowan Old Style", Palatino, "Palatino Linotype", serif; font-weight: 600; margin: 0; text-wrap: balance; }
+  p { margin: 0; }
+  a { color: inherit; }
+  .wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 72px; }
+  header.top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+  h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.05; }
+  h2 { font-size: 30px; }
+  h3 { font-size: 18px; }
+  .lede { margin-top: 12px; max-width: 40em; font-size: 20px; }
+  .quiet { color: var(--muted); }
+  button.theme, .jump a {
+    border: 1px solid var(--line); background: var(--slip); color: var(--ink);
+    border-radius: 999px; padding: 8px 14px; font: inherit; cursor: pointer; text-decoration: none;
+    white-space: nowrap;
+  }
+  button.theme { flex: none; }
+  button.theme:focus-visible, .jump a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .legend {
+    position: sticky; top: 0; z-index: 3;
+    display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+    margin: 18px 0; padding: 10px 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+  .sw { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 6px; border: 1px solid var(--line); }
+  .sw.you { background: var(--brass-soft); border-color: var(--brass); }
+  .sw.look { background: var(--ok-soft); border-color: var(--ok); }
+  .sw.fix { background: var(--fixed); }
+  .jump { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+  table { width: 100%; border-collapse: collapse; background: var(--slip); border: 1px solid var(--line); margin-top: 10px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 13px; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  .mono, code, .cmd { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 0.86em; }
+  .station { margin-top: 34px; scroll-margin-top: 168px; }
+  .station .who { margin-top: 6px; max-width: 44em; }
+  .cmd {
+    margin-top: 12px; padding: 12px 14px; background: var(--ink); color: var(--paper);
+    overflow-wrap: anywhere; white-space: pre-wrap; max-width: 100%;
+  }
+  .split { display: grid; grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.2fr); gap: 14px; margin-top: 12px; align-items: start; }
+  .panel { background: var(--desk); border: 1px solid var(--line); padding: 12px; }
+  .panel h3 { margin-bottom: 8px; }
+  .slip { background: var(--slip); border: 1px solid var(--line); padding: 10px 12px; }
+  .slip + .slip, .row + .row { margin-top: 8px; }
+  .k { font-size: 13px; letter-spacing: 0.04em; color: var(--muted); }
+  .v { font-size: 18px; margin-top: 2px; }
+  .tag { display: inline-block; font-size: 12px; letter-spacing: 0.04em; padding: 1px 6px; margin-right: 6px; border: 1px solid var(--line); }
+  .you { background: var(--brass-soft); }
+  .look { background: var(--ok-soft); }
+  .fix { background: var(--fixed); }
+  .you .tag { border-color: var(--brass); color: var(--brass); }
+  .look .tag { border-color: var(--ok); color: var(--ok); }
+  .note { margin-top: 6px; font-size: 14px; color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .card { background: var(--slip); border: 2px solid var(--brass); padding: 12px; min-width: 0; }
+  .card h3 { color: var(--brass); margin-bottom: 8px; }
+  .line { padding: 8px 10px; border: 1px solid var(--line); }
+  .line + .line { margin-top: 6px; }
+  .line p { margin-top: 4px; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .panel, .station, .wrap { min-width: 0; }
+  .map { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+  .map a {
+    display: block; background: var(--slip); border: 1px solid var(--line); padding: 12px; text-decoration: none; color: inherit;
+  }
+  .map a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .map strong { display: block; font-family: "Songti SC", Palatino, serif; font-size: 20px; }
+  .codex { margin-top: 8px; padding: 8px 10px; border: 1px dashed var(--ok); background: var(--ok-soft); }
+  .stop { margin-top: 8px; padding: 8px 10px; border: 1px dashed var(--ink); background: var(--slip); }
+  @media (max-width: 900px) {
+    .split, .cards, .two, .map { grid-template-columns: 1fr; }
+    .jump { margin-left: 0; }
+    h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>派发卡</h1>
+      <p class="lede">这个 night 里每一次派发在 <a href="night-flow.html">night 的派发</a>。这一页是 research 的卡，以及 Worker 问问题时怎么续上。</p>
+      <p class="quiet" style="margin-top:8px">researcher 这一种还没有。有这个 night 的 RUNTIME_COMMIT 就交它。没有这场的起始提交，就交当前提交。</p>
+    </div>
+    <button class="theme" type="button" id="theme">切换明暗</button>
+  </header>
+
+  <div class="legend">
+    <span><i class="sw you"></i>代理交的</span>
+    <span><i class="sw look"></i>命令查到后填上的</span>
+    <span><i class="sw fix"></i>固定句，每次都一样</span>
+    <nav class="jump">
+      <a href="night-flow.html">night</a>
+      <a href="#research">research</a>
+      <a href="#resume">继续</a>
+    </nav>
+  </div>
+
+  <div class="map">
+    <a href="night-flow.html"><span class="k">Coordinator、Worker</span><strong>night 里的卡</strong><span class="quiet">Worker 和 verifier 由 spawn 印。Standards、Spec、Tests 由 dispatch-reviewer 派。</span></a>
+    <a href="#research"><span class="k">research 或 wayfinder</span><strong>1 张 researcher 卡</strong><span class="quiet">wayfinder 多交两格</span></a>
+    <a href="#resume"><span class="k">已经开过的 Worker</span><strong>不跑命令</strong><span class="quiet">只交 Agent ID 和要说的话</span></a>
+  </div>
+
+  <h2 style="margin-top:28px">模型这一格印什么</h2>
+  <p class="who">按仓库里现在这份 models.json。Cursor 把模型、effort、fast 收成一条。context 留在文件里，不进卡。</p>
+  <table>
+    <thead><tr><th>角色</th><th>Cursor 印出</th><th>Codex 印出</th></tr></thead>
+    <tbody>
+      <tr><td>junior-worker</td><td class="mono">grok-4.7-high-fast</td><td class="mono">gpt-6.1-sol，effort medium</td></tr>
+      <tr><td>senior-worker</td><td class="mono">grok-4.7-xhigh-fast</td><td class="mono">gpt-6.1-sol，effort high</td></tr>
+      <tr><td>review-axis</td><td class="mono">grok-4.7-xhigh-fast</td><td class="mono">gpt-6.1-sol，effort high</td></tr>
+      <tr><td>researcher</td><td class="mono">grok-4.7-high-fast</td><td class="mono">gpt-6.1-sol，effort high</td></tr>
+    </tbody>
+  </table>
+  <p class="note">advisor 和 candidate 有行，这条命令还没有它们的种类。</p>
+
+  <section class="station" id="research">
+    <h2>research</h2>
+    <p class="who">直接叫 research，和 wayfinder 的一张 research ticket，用同一条命令。wayfinder 多交分支和 ticket 号，提示词里多出对应的两句。一张 ticket 一个后台代理。</p>
+    <div class="two">
+      <div class="panel">
+        <h3>调用 research 的那场交</h3>
+        <div class="cmd">python3 models.py spawn researcher --host cursor --at &lt;RUNTIME_COMMIT 或当前提交&gt; --question question.md</div>
+        <div class="slip you" style="margin-top:8px"><div class="k">--at</div><div class="v">有这个 night 的 RUNTIME_COMMIT 就交它，没有就交当前提交</div></div>
+        <div class="slip you"><div class="k">--question question.md</div><div class="v">要查的那个问题，全文</div></div>
+      </div>
+      <div class="panel">
+        <h3>wayfinder 再交这两格</h3>
+        <div class="cmd">python3 models.py spawn researcher --host cursor --at &lt;RUNTIME_COMMIT 或当前提交&gt; --question question.md --branch research/api-limits --ticket 18</div>
+        <div class="slip you" style="margin-top:8px"><div class="k">--branch</div><div class="v">research/api-limits</div></div>
+        <div class="slip you"><div class="k">--ticket</div><div class="v">18</div><p class="note">发现写在这个分支上，并在 ticket 上留指针。推上去，不开 PR。</p></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>印出 1 张</h3>
+      <div class="two">
+        <div>
+          <div class="line look"><span class="tag">命令填</span><div class="v mono">模型 grok-4.7-high-fast</div></div>
+          <div class="line fix"><span class="tag">固定</span><div class="v">种类 generalPurpose</div></div>
+          <div class="line fix"><span class="tag">固定</span><div class="v">环境留在叫它的这场</div></div>
+          <div class="line fix"><span class="tag">固定</span><div class="v">后台：调用它的那场继续干活</div></div>
+          <div class="line look"><span class="tag">命令填</span><div class="v">名称取问题文件的第一行</div></div>
+        </div>
+        <div>
+          <div class="line fix"><span class="tag">固定</span> 1. 对着原始来源查。官方文档、源码、规格、第一方接口。每一句追到拥有它的来源。</div>
+          <div class="line fix"><span class="tag">固定</span> 2. 写成一篇 Markdown，每句带来源。用 technical-writing 写这个文件。</div>
+          <div class="line fix"><span class="tag">固定</span> 3. 直接调用：存到仓库里已经在放这类笔记的地方。</div>
+          <div class="line you"><span class="tag">wayfinder</span> 3. wayfinder：写到 research/api-limits，推上去，不开 PR，并在 ticket #18 上留指针。</div>
+          <p class="note">第 3 句只印其中一句。wayfinder 交了 --branch 就印这一句。</p>
+          <div class="line you"><span class="tag">research 这场</span> 问题全文接在后面。</div>
+        </div>
+      </div>
+      <div class="codex"><span class="tag">Codex</span> 同一份提示词。模型 gpt-6.1-sol，effort high。</div>
+    </div>
+  </section>
+
+  <section class="station" id="resume">
+    <h2>继续已经开的 Worker</h2>
+    <p class="who">Coordinator 回答 Worker 在实现途中的问题，走这里。verify-&lt;app&gt; 没通过不走这里：Worker 用修好后的 ticket head 再跑 spawn verifier，那张卡在 <a href="night-flow.html">night 的派发</a>。</p>
+    <div class="split">
+      <div class="panel">
+        <h3>Coordinator 交进去，不经过这条命令</h3>
+        <div class="slip you"><div class="k">Agent ID</div><div class="v">开 Worker 时 Task 返回的那一个</div></div>
+        <div class="slip you"><div class="k">要说的话</div><div class="v">答案、来源、要它并入的提交、接下来做的事</div></div>
+      </div>
+      <div class="card">
+        <h3>直接交给 Task 的只有这些</h3>
+        <div class="line you"><span class="tag">Coordinator</span><div class="v">resume = 那个 Agent ID</div></div>
+        <div class="line you"><span class="tag">Coordinator</span><div class="v">prompt = 要说的话</div></div>
+        <div class="line fix"><span class="tag">固定</span><div class="v">名称仍是 Implement ticket #18</div></div>
+        <div class="line fix"><span class="tag">固定</span><div class="v">模型、环境、后台都不交。还是开它时的那一个模型。</div></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="note" style="margin-top:28px">主机拒绝卡上的模型：代理报告拒绝，停下，不换一个模型。</p>
+</div>
+<script>
+  const root = document.documentElement;
+  document.getElementById("theme").addEventListener("click", () => {
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : current === "light" ? "dark" : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+    root.setAttribute("data-theme", next);
+  });
+</script>
+</body>
+</html>

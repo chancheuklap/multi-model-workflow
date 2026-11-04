@@ -13,7 +13,7 @@ The role that owns an authorized spec or one ticket from the owner's execution G
 _Avoid_: any invented Chinese name.
 
 **Worker**:
-The assigned role `worker`. A Worker pushes the issue-N branch and opens the PR for its ticket.
+The assigned role `worker`. A Worker pushes the issue-N branch, opens the PR for its ticket, and in the cloud edition writes the ticket's result in that PR.
 _Avoid_: Cloud Worker, native Cloud Worker, implementation worker, implementation agent, and any invented Chinese name.
 
 **owner**:
@@ -21,12 +21,20 @@ The person who gives the execution Go, releases work out of `needs-triage`, and 
 _Avoid_: operator, human, and any invented Chinese name.
 
 **main reviewer**:
-The role that runs the three-axis review and aggregates the axis findings. The axes are parallel sub-agents.
-_Avoid_: any invented Chinese name.
+The local edition's review of one comparison, held in the reviewer session.
+_Avoid_: verifier, and any invented Chinese name.
 
 **retro agent**:
 The agent that reads a diff for retro and catches a repeated mistake. It is not the main reviewer.
 _Avoid_: reviewer agent, review agent, and any invented Chinese name.
+
+**candidate**:
+A brief role. It produces one design for a question that is also given to other sessions of this role.
+_Avoid_: ticket head, and any invented Chinese name.
+
+**verifier**:
+The role that runs `verify-<app>` on the commit it is given. It does not edit the drive script or the feature map.
+_Avoid_: main reviewer, and any invented Chinese name.
 
 ### Work objects
 
@@ -59,11 +67,11 @@ The tracker link that names the tickets one ticket waits on.
 _Avoid_: blocking edge, blocker, dependency, native blocking, and any invented Chinese name.
 
 **work report**:
-The report a Worker returns to the Coordinator for its ticket.
+In the local edition, the report a Worker returns to the Coordinator for its ticket. In the cloud edition that record is the ticket PR.
 _Avoid_: final work report, Worker report, final report, and any invented Chinese name.
 
 **PR**:
-The pull request a Worker opens for its ticket and the Coordinator records. Draft is a state of this PR.
+The pull request a Worker opens for its ticket. Draft is a state of this PR. In the cloud edition the Worker writes the result in the body and the Coordinator marks it ready. In the local edition the Coordinator writes the body.
 _Avoid_: ticket PR, draft PR, and any invented Chinese name.
 
 **delivery PR**:
@@ -95,11 +103,11 @@ A ticket whose result is already merged into the night branch. A new Worker for 
 _Avoid_: any invented Chinese name.
 
 **Agent ID**:
-The identifier returned when a Worker or a review axis is started. The Coordinator keeps it with that ticket or axis.
+The identifier returned when a Worker, a review axis, or a verifier is started. The Coordinator keeps the Worker's Agent ID with its ticket. A verifier that does not pass is started again; that new start has its own Agent ID.
 _Avoid_: any invented Chinese name.
 
 **max_workers**:
-The limit on how many Worker calls run at once in this run.
+The limit on how many Worker calls run at once in a local run. A cloud night dispatches every eligible ticket.
 _Avoid_: any invented Chinese name.
 
 **RUNTIME_COMMIT**:
@@ -122,26 +130,26 @@ _Avoid_: any invented Chinese name.
 
 **night**:
 One unattended run.
-_Avoid_: any invented Chinese name.
+_Avoid_: night branch, NIGHT, and any invented Chinese name.
 
 **night branch**:
-The branch the Coordinator creates for one night, from the selected project commit, and lands ticket results onto. A command that writes NIGHT means this branch.
-_Avoid_: NIGHT, and any invented Chinese name.
+The branch named `night/spec-N` for one spec, or `night/ticket-N` for one ticket. N is that issue's number.
+_Avoid_: night, NIGHT, and any invented Chinese name.
 
 **issue-N branch**:
-The branch a Worker pushes for ticket N.
+The branch named `ticket/issue-N` for ticket N. N is that ticket's issue number.
 _Avoid_: any invented Chinese name.
 
 **project branch**:
-The branch a delivery PR merges into. A command that writes PROJECT means this branch.
-_Avoid_: PROJECT, and any invented Chinese name.
+The branch named `project/<project name>`, cut from the dev branch. A delivery PR merges into it.
+_Avoid_: dev, dev branch, PROJECT, and any invented Chinese name.
 
 **dev branch**:
-The branch after the project branch. Publication from the dev branch is a further authorization.
-_Avoid_: the dev, and any invented Chinese name.
+The branch named `dev`. A finished project branch merges into it for testing.
+_Avoid_: project branch, the dev, and any invented Chinese name.
 
 **main branch**:
-The branch after the dev branch. Reaching it is separately authorized from accepting a delivery PR.
+The branch named `main`. The dev branch merges into it for deployment.
 _Avoid_: any invented Chinese name.
 
 ### Labels
@@ -233,6 +241,10 @@ _Avoid_: any invented Chinese name.
 **pinned comparison**:
 The commit a review or a Worker measures a change against.
 _Avoid_: fixed point, and any invented Chinese name.
+
+**ticket head**:
+The current commit on the issue-N branch for one ticket. Review measures it against the pinned comparison, land merges it into the night branch, and a `--head` value names it.
+_Avoid_: candidate, and any invented Chinese name.
 
 ### Baselines
 

@@ -60,43 +60,41 @@ Run the task's required tests and observable acceptance proof. Commit work on th
 
 Done when the assigned behavior and required tests are implemented and the reviewable output is committed, or unfinished work has a recorded reason.
 
-## 3. Integrate and prepare an independent review
+## 3. Integrate and send the verifier
 
-Run `dispatch.sh integrate N` in this ticket's worktree before review. It merges the recorded target's origin tip. On exit 3, preserve the in-progress merge and report the blocked integration through a `fault` child using [Record and resolve a child](../SKILL.md#record-and-resolve-a-child). Include the worktree, both commit SHAs, incoming tickets and conflicted files. Wait without editing the worktree while the [Coordinator resolves the conflict](coordinator.md#resolve-merge-conflicts). On its continuation, read the resolution and rerun `integrate N`. Never rebase, abort or push from this integration. Exit 2 names what prevented it; a pipeline fault uses its child route.
+Run `dispatch.sh integrate N` in this ticket's worktree before the verifier. It merges the recorded target's origin tip. On exit 3, preserve the in-progress merge and report the blocked integration through a `fault` child using [Record and resolve a child](../SKILL.md#record-and-resolve-a-child). Include the worktree, both commit SHAs, incoming tickets and conflicted files. Wait without editing the worktree while the [Coordinator resolves the conflict](coordinator.md#resolve-merge-conflicts). On its continuation, read the resolution and rerun `integrate N`. Never rebase, abort or push from this integration. Exit 2 names what prevented it; a pipeline fault uses its child route.
 
-After integration, run the affected verification and commit the candidate. If that merge changed a surface `verify-<app>` drives, update that skill's script to the merged surface, run it, and commit it before review. The review compares committed output; uncommitted work is outside it.
+After integration, run the affected verification and commit the ticket head. If that merge changed a surface `verify-<app>` drives, update that skill's script to the merged surface, run it, and commit it before the verifier runs. The verifier runs the committed ticket head. Uncommitted work is outside it.
 
-Call the Skill tool with "no-comments" for this committed diff. Commit what it changes before review.
+Call the Skill tool with "no-comments" for this committed diff. Commit what it changes before the verifier runs.
 
-[Send one independent main reviewer](../SKILL.md#send-an-independent-session), with role `reviewer`, this ticket's N and this installed `skills/dispatch/SKILL.md` as FILE. The script supplies accurate base/head. [Wait for its result](../SKILL.md#wait-and-continue), leaving the reviewed worktree unchanged while it works.
+When the project has `verify-<app>` and this ticket changes a surface a person uses, write a brief that names this ticket, the ticket head, the `verify-<app>` directory, and the feature files. [Send a verifier](../SKILL.md#send-an-independent-session) with role `verifier`, `--cwd` set to this ticket's checkout, and this installed `skills/dispatch/SKILL.md` as the method file. [Wait for its result](../SKILL.md#wait-and-continue). Leave the checkout unchanged while it runs.
 
-Done when an independent reviewer has reported against the candidate, or its loss/failure is explicitly being recovered rather than counted as a clean review.
+When the project has no `verify-<app>`, or this ticket does not change a surface a person uses, go to step 5.
 
-## 4. Read and handle the review
+Done when the verifier has reported, or this ticket has no verifier to send.
 
-Call the Skill tool with "principle-fix-root-causes" for the findings you handle.
+## 4. Read the verifier result
 
-On `reviewer.reported`, [read the actual report and acknowledge it](../SKILL.md#wait-and-continue). On `reviewer.lost`, [send a replacement reviewer](../SKILL.md#send-an-independent-session) for the same current candidate; a missing report is not a review. A bad ref, empty diff or unavailable axis remains an explicit review limitation.
+Call the Skill tool with "principle-fix-root-causes" for a failure you handle.
 
-Preserve original reports, dispositions and limitations.
+On `brief B done`, [read the verifier result](../SKILL.md#wait-and-continue) with `dispatch.sh brief show B`. A lost brief is not a pass. Send a new verifier for the same ticket head.
 
-First handle findings belonging to this ticket's behavior, applicable decisions, accepted baselines and changed behavior. Fix supported defects. An in-ticket finding you do not fix needs concrete evidence disproving that specific claim; a true fact about nearby code is not a refutation. Scope comes from the actual task, not a required Owns field or the number of files touched.
+When the verifier does not pass, fix the ticket and commit the new ticket head. Send a new verifier brief for that commit. A pass on an older ticket head does not cover the new one.
 
-Report supported unrelated defects as `finding` children instead of expanding the ticket.
+When the verifier passes, the ticket head it ran is the one the report names. Go to step 5.
 
-The normal path is independent review, fixes, then final verification. If a required axis was unavailable, the review was invalid, or later changes invalidate necessary review evidence, obtain the missing review on the new commit with a fresh `send reviewer` call. A completed reviewer's old base/head cannot be reused as a review of new output.
+Report a supported defect that is outside this ticket as a `finding` child.
 
-Do not loop reviews merely to obtain zero findings.
-
-Done when every finding has a supported disposition and required review evidence is valid for the output or explicitly unavailable.
+Done when the latest ticket head has a verifier pass, or step 3 sent no verifier.
 
 ## 5. Verify the final output and return it
 
-On the Coordinator's instruction to hand blocked work back, enter this step directly and report `incomplete`. Preserve unfinished output and state which implementation, review or proof could not be performed; those unavailable steps are not prerequisites for an honest handback.
+On the Coordinator's instruction to hand blocked work back, enter this step directly and report `incomplete`. Preserve unfinished output and state which implementation or proof could not be performed. Those unavailable steps are not prerequisites for an honest handback.
 
-After fixes and any necessary further integration, verify the final committed output against the ticket and baselines. Rerun affected proof; reuse results only when they still cover that output. Read the task once more as the owner will read the result. A required behavior, review or proof that remains unavailable means the result is incomplete, with its actual reason.
+When the commit changed after the verifier passed, rerun the affected proof and send a new verifier for the new ticket head. Reuse the verifier result only when it still covers the commit you return. Read the task once more as the owner will read the result. When a required behavior is unfinished, or this ticket required a verifier and that verifier did not pass, the result is incomplete, with its actual reason.
 
-Write a report stating the implemented result, actual checks and outcomes, reviewed commit and subsequent fixes, final verification, consequential decisions and remaining children or limitations.
+Write a report stating the implemented result, the ticket head the verifier ran and its pass or fail, the commands and outcomes, consequential decisions, and remaining children or limitations.
 
 [Return the assigned result](../SKILL.md#return-the-assigned-result) using the supplied closeout command with the actual full HEAD SHA and explicit `complete` or `incomplete`. A complete output must be committed and clean; the tool pushes it before closing and recording the pass. Submission failure is not delivery: [handle its actual failure](../SKILL.md#handle-command-failures) without inventing a successful result.
 

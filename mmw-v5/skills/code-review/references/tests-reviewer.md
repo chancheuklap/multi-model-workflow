@@ -10,13 +10,13 @@ Call the Skill tool with "write-tests" for the judgment, the examples, and the m
 
 Where the judgment says to rewrite or delete a test, that correction is a finding. Quote the test, the criterion, and the correction.
 
-Use the assigned isolated copy at the reviewed commit for a reproduction or a deliberate mutation, with independent inputs. Restore the copy after the mutation. The mutation shows whether a test fails; it is not a change to the candidate.
+Use the assigned isolated copy at the reviewed commit for a reproduction or a deliberate mutation, with independent inputs. Restore the copy after the mutation. The mutation shows whether a test fails; it is not a change to the ticket head.
 
 ## Agreed seams
 
 A test belongs at a seam the spec, ticket, or task named. A test at any other seam is a finding.
 
-Scripts and feature files under `.cursor/skills/verify-<app>/` are the project's verification skill. That skill drives the real app and asserts a sentence copied from the spec. Those files are not seam tests. This axis judges the seam tests the spec, ticket, or task named. The verification pass beside this review runs the skill's scripts and checks that asserted sentence. A missing script is that pass's result. This axis does not ask those scripts for a failing-before run and does not report them as a seam finding.
+Scripts and feature files under `.cursor/skills/verify-<app>/` are the project's verification skill. That skill drives the real app and asserts a sentence copied from the spec. Those files are not seam tests. This axis judges the seam tests the spec, ticket, or task named. The verifier runs the skill's scripts and checks that asserted sentence. A missing script is the verifier's result. This axis does not run those scripts, does not ask them for a failing-before run, and does not report them as a seam finding.
 
 When you need the words for that finding, call the Skill tool with "codebase-dic". It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 

@@ -9,7 +9,7 @@ Do not invent a Chinese name for a skill, or for any term in this file.
 ### Workflow
 
 **dispatch**:
-The skill that coordinates an authorized spec or one ticket, sends a Worker or a review-axis subagent, or carries out an assigned ticket.
+The skill that coordinates an authorized spec or one ticket, carries out the assigned night role, or reviews a branch, a PR, or since a commit.
 _Avoid_: any invented Chinese name.
 
 **to-spec**:
@@ -33,7 +33,7 @@ The skill for writing a PR body.
 _Avoid_: any invented Chinese name.
 
 **code-review**:
-The skill for reviewing a branch, a PR, or other uncommitted changes.
+The skill for the assigned role Standards, Spec, or Tests.
 _Avoid_: any invented Chinese name.
 
 **wait-what**:

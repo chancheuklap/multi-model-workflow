@@ -16,6 +16,7 @@ On first entry, read this file in full. Use the role assigned to you, not the se
 | Coordinate an authorized spec or one ticket, or continue its results | [Coordinator](references/coordinator.md) |
 | Assigned role `worker` | [Worker](references/worker.md) |
 | Assigned role `reviewer` | [Reviewer](references/reviewer.md) |
+| Assigned role `verifier` | [Verifier](references/verifier.md) |
 | Assigned role `researcher`, `advisor` or `candidate`, with a brief | [Brief assignment](references/brief.md) |
 
 The reference supplies your ordered work. Its steps point back to the common operations below. Sending another task or receiving a notification does not change your role or restart your workflow. An agent borrowing dispatch for its current method uses the common operations and then returns to that method.
@@ -39,7 +40,7 @@ Use the supplied `MMW_HOME` and command environment.
 
 Before running dispatch commands, query `python3 models.py executor`. An empty answer uses the host's usual shell tool. A returned file is the calling runner's tool executor: read and evaluate it in the current host's tool runtime, then call the returned function with the tool bindings, shell command and optional `{cwd}`. Use its `exitCode` and `output` as the command result.
 
-The scripts choose the configured host, model, effort and runner. For a ticket, the worker grade selects the worker row; reviewer uses its own row. `python3 models.py subagent ROW HOST` returns settings for native subagents, not a new independent session. Pass returned non-`inherit` model and effort values to the host's subagent call.
+The scripts choose the configured host, model, effort and runner. For a ticket, the worker grade selects the worker row. Reviewer and verifier use their own rows. `python3 models.py subagent ROW HOST` returns settings for native subagents, not a new independent session. Pass returned non-`inherit` model and effort values to the host's subagent call. `max_workers` counts Workers. A reviewer and a verifier do not count.
 
 ## Prepare a brief
 
@@ -47,9 +48,9 @@ Name the outcome, scope, sources, working method, verification and expected answ
 
 ## Send an independent session
 
-A ticket sender uses `dispatch.sh send worker|reviewer N --task FILE`. The script supplies the recipient's role, ticket, comparison and report command and directs it into this dispatch skill. Use this `SKILL.md` as FILE for the automatic ticket workflow; when the caller supplies an additional assignment file, pass that file instead. The recipient reads that file as additional input after this entry. A sender starting a worker outside an open watch must also supply the authorized target as `--into BASE`.
+A ticket sender uses `dispatch.sh send worker|reviewer N --task FILE`. The script supplies the recipient's role, ticket, comparison and report command and directs it into this dispatch skill. Use this `SKILL.md` as FILE for the automatic ticket workflow; when the caller supplies an additional assignment file, pass that file instead. The recipient reads that file as additional input after this entry. A sender starting a worker outside an open watch must also supply the authorized target as `--into BASE`. The night's reviewer uses the brief form below.
 
-For a brief, the sender [prepares the brief](#prepare-a-brief), writes it to a file and uses `dispatch.sh send ROLE [--cwd DIR] [--follow METHOD_FILE] BRIEF_FILE...`. Each file starts one independent session. A method file supplies the assigned method; do not duplicate it into the brief.
+A verifier uses that brief form, with `--cwd` set to the checkout it runs in. For a brief, the sender [prepares the brief](#prepare-a-brief), writes it to a file and uses `dispatch.sh send ROLE [--cwd DIR] [--follow METHOD_FILE] BRIEF_FILE...`. Each file starts one independent session. A method file supplies the assigned method; do not duplicate it into the brief. Follow with this installed `skills/dispatch/SKILL.md` so the recipient takes its role route.
 
 ## Wait and continue
 

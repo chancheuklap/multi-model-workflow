@@ -18,7 +18,7 @@ Read the authorized ticket, comments, children, applicable spec decisions and ba
 
 [Wait and continue](../SKILL.md#wait-and-continue). Handle children under the authority and repair rules in [Handle a result or child](#3-handle-a-result-or-child), using [Record and resolve a child](../SKILL.md#record-and-resolve-a-child) and [Resume a session](../SKILL.md#resume-a-session); skip that step's Spec-wide status/advance actions. For a stopped Worker, preserve its recorded work and identity and decide recovery within the same ticket's authorization.
 
-After the Worker returns `complete` or `incomplete` and related matters have a disposition, run `dispatch.sh land N`. Complete attempts landing; incomplete preserves the work and ends the ticket's hold/watch. Read the actual `landed`, `returned` or `bounced` result and watch state: exit 0 alone does not prove code was merged. For a conflict, [resolve it yourself](#resolve-merge-conflicts) before another attempt on the same ticket. Other bounces remain unfinished and need their stated repair. Report the actual output, verification and limitations through [Return](../SKILL.md#return-the-assigned-result); do not enter the Spec's advance/summary loop or start sibling work.
+After the Worker returns `complete` or `incomplete` and related matters have a disposition, run `dispatch.sh land N`. Complete attempts landing; incomplete preserves the work and ends the ticket's hold/watch. Read the actual `landed`, `returned` or `bounced` result and watch state: exit 0 alone does not prove code was merged. For a conflict, [resolve it yourself](#resolve-merge-conflicts) before another attempt on the same ticket. Other bounces remain unfinished and need their stated repair. After a landing, [review the night branch](#review-the-night-branch) for this ticket, then report the actual output, verification, and limitations through [Return](../SKILL.md#return-the-assigned-result). An incomplete ticket that did not land has no night review. Do not enter the Spec's advance/summary loop or start sibling work.
 
 Done when the ticket has its actual landing or unfinished disposition, and the single-ticket watch is closed or its named recovery remains explicit.
 
@@ -100,7 +100,7 @@ Do not turn an unresolved owner decision or a proposed expansion of the spec int
 
 If new tickets belong in this batch, advance and continue the same loop. Leave optional future work and owner-only decisions explicitly recorded instead of silently absorbing them.
 
-Done when every remaining finding has an evidenced resolution or an explicit destination the batch's summary can report.
+Done when every remaining finding has an evidenced resolution or an explicit destination the batch's summary can report. Then [review the night branch](#review-the-night-branch).
 
 ## Resolve merge conflicts
 
@@ -112,11 +112,25 @@ For a landing conflict, the script discards its failed merge attempt and leaves 
 
 Done when the resolved integration is committed and checked, and the original task has continued or the landing is recorded.
 
+## Review the night branch
+
+Enter here when every ticket that will land has landed and no Worker is running. A ticket left unfinished stays unfinished and does not block this review.
+
+The pinned comparison is the commit the night branch was created from. The commit to review is the night branch commit after those landings. Use a checkout of that commit. Leave it unchanged until both sessions have reported.
+
+Write one brief that names that pinned comparison as `base`, that commit as `head`, the spec, and every standards file. `CODING_STANDARDS.md` and `CONTRIBUTING.md` are on that list when they exist. Write a second brief that names the same commit, the `verify-<app>` directory, and every feature file the landed tickets named.
+
+[Send the reviewer](../SKILL.md#send-an-independent-session) and [send the verifier](../SKILL.md#send-an-independent-session) with `--cwd` set to that checkout and this installed `skills/dispatch/SKILL.md` as the method file. Wait for both. The reviewer runs the three axes. The verifier runs `verify-<app>`. When the project has no `verify-<app>`, send the reviewer only and record that absence as the verifier result.
+
+Fix a supported defect on the night branch. Commit and push that repair. Do not send another reviewer or verifier.
+
+Done when each returned report has a fix on the night branch or a recorded reason it was not fixed.
+
 ## 5. Deliver the batch
 
-Run `dispatch.sh summary SPEC` after active work, pending landings and findings are settled. It runs `scripts/check` on the integration branch with `MMW_BASE_REF` set to `origin/PROJECT`, so the selected tests are the ones this batch's diff touches. Landing runs that same command with `MMW_BASE_REF` set to the branch the ticket merges into. It does not prove every prose acceptance requirement.
+Run `dispatch.sh summary SPEC` after [Review the night branch](#review-the-night-branch). It runs `scripts/check` on the integration branch with `MMW_BASE_REF` set to `origin/PROJECT`, so the selected tests are the ones this batch's diff touches. Landing runs that same command with `MMW_BASE_REF` set to the branch the ticket merges into. It does not prove every prose acceptance requirement.
 
-Summarize actual merged outcomes and unfinished, human and blocked work with their reasons and destinations. Reuse valid evidence; obtain the project's required final observations and checks when earlier evidence does not cover the integration output.
+Summarize actual merged outcomes and unfinished, human, and blocked work with their reasons and destinations. The night verifier's result is the observation of the landed night branch. Reuse it. Do not run `verify-<app>` again.
 
 The watch closes with summary; a later delivery repair is an explicit repair of that output, not permission to reopen the dispatch loop unnoticed.
 

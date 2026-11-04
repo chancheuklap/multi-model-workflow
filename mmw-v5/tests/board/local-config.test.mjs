@@ -216,7 +216,7 @@ test("crossing paseo asks for a rescan", () => {
 test("the sheet has one row per role of roles.json, in its order, each with what it does", () => {
   const roles = JSON.parse(readFileSync(new URL("../../tools/dispatch/roles.json", import.meta.url)))
     .roles.map(role => role.name);
-  assert.deepEqual(roles, ["junior-worker", "senior-worker", "reviewer", "researcher", "candidate", "advisor"]);
+  assert.deepEqual(roles, ["junior-worker", "senior-worker", "reviewer", "verifier", "researcher", "candidate", "advisor"]);
   const rows = Object.fromEntries(roles.map(role => [role, copy(saved.rows.reviewer)]));
   const config = {runner: "orca", rows};
   const view = settingsView({draft: copy(config), saved: copy(config)}, scan, CATALOG);
