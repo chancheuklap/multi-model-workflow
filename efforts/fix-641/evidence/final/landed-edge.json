@@ -1,7 +1,0 @@
-{
-  "scenario": "landed-edge",
-  "passed": true,
-  "cardPhase": "landed",
-  "blockedEdges": 0,
-  "consoleErrors": []
-}
