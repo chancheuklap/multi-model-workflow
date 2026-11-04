@@ -1,5 +1,4 @@
 {
-  "max_workers": 3,
   "rows": {
     "codex": {
       "junior-worker": {"model": "gpt-6.1-sol", "effort": "medium"},
@@ -7,7 +6,8 @@
       "advisor": {"model": "gpt-6-astra", "effort": "high"},
       "researcher": {"model": "gpt-6.1-sol", "effort": "high"},
       "candidate": {"model": "gpt-6.1-sol", "effort": "high"},
-      "review-axis": {"model": "gpt-6.1-sol", "effort": "high"}
+      "review-axis": {"model": "gpt-6.1-sol", "effort": "high"},
+      "verifier": {"model": "gpt-6.1-sol", "effort": "high"}
     },
     "cursor": {
       "junior-worker": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
@@ -15,7 +15,8 @@
       "advisor": {"model": "grok-4.7", "effort": "xhigh", "context": "256k", "fast": true},
       "researcher": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
       "candidate": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true},
-      "review-axis": {"model": "grok-4.7", "effort": "xhigh", "context": "256k", "fast": true}
+      "review-axis": {"model": "grok-4.7", "effort": "xhigh", "context": "256k", "fast": true},
+      "verifier": {"model": "grok-4.7", "effort": "high", "context": "256k", "fast": true}
     }
   }
 }
