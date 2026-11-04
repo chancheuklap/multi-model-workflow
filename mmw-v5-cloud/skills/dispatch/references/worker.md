@@ -86,7 +86,7 @@ When the verifier returns unavailable, do not change the product. Check out the 
 
 When the verifier fails, the head has moved since the pass, or the Coordinator resumes you with the output of a failed `scripts/check`, fix, push, and run `dispatch.sh spawn verifier` again. Send that as a new card. A pass covers only the commit it ran.
 
-When the passing commit is the PR head, or there was no verifier, write the PR. The body names the ticket, what you implemented, the commands and results, consequential decisions, findings outside this ticket, and any unfinished work with its reason. Name the commit a verifier passed. An unfinished ticket stays draft, with the reason in the PR. With no PR, return the reason to the Coordinator. You do not create the child issue.
+When the passing commit is the PR head, or there was no verifier, write the PR. Call the Skill tool with "pr" for the PR body. Include the ticket, what you implemented, the commands and results, consequential decisions, findings outside this ticket, and any unfinished work with its reason. Name the commit a verifier passed. An unfinished ticket stays draft, with the reason in the PR. With no PR, return the reason to the Coordinator. You do not create the child issue.
 
 On an instruction to hand work back, enter here. Preserve unfinished output and name the proof that could not be run.
 
