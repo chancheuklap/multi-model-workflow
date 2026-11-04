@@ -244,16 +244,20 @@ function decisionCard(item, onPick) {
 
 function ticketCard(item, onPick) {
   const ui = "画布.ticket-card";
-  const pill = document.createElement("span");
-  pill.className = item.pillCls;
-  dataUi(pill, `${ui}.phase`);
-  pill.textContent = item.phase;
+  const right = [];
+  if (item.phase) {
+    const pill = document.createElement("span");
+    pill.className = item.pillCls;
+    dataUi(pill, `${ui}.phase`);
+    pill.textContent = item.phase;
+    right.push(pill);
+  }
   const run = document.createElement("div");
   run.className = item.runCls;
   dataUi(run, `${ui}.run`);
   run.textContent = item.run;
   return cardShell(item, onPick, {
-    ui, lampTitle: true, titled: true, titleCls: "card-title", right: [pill], after: [run],
+    ui, lampTitle: true, titled: true, titleCls: "card-title", right, after: [run],
   });
 }
 
@@ -270,17 +274,9 @@ function legend() {
     span.append(line, text);
     return span;
   };
-  const bar = document.createElement("span");
-  bar.className = "legend-item";
-  dataUi(bar, "画布.legend.closeout");
-  const mark = document.createElement("span");
-  mark.className = "legend-bar";
-  bar.append(mark, "closing pass");
   root.append(
     item("legend-line", "contains · cleared", "walked"),
-    item("legend-line flow", "cleared · working", "flow"),
     item("legend-line blocked", "blocked", "blocked"),
-    bar,
   );
   return root;
 }
