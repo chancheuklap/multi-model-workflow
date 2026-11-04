@@ -9,11 +9,11 @@ Do not invent a Chinese name for a term in this file, or for any MMW skill. Use 
 ### Roles
 
 **Coordinator**:
-The role that owns an authorized spec or one ticket from the owner's execution Go through to the delivery PR. This role runs locally and manages issues, Blocked by links, PR bodies, and merges.
+The role that owns an authorized spec or one ticket from the owner's execution Go through to the delivery PR. This role runs in a Cursor cloud agent and manages issues, Blocked by links, PR bodies, and merges.
 _Avoid_: any invented Chinese name.
 
 **Worker**:
-The assigned role `worker`. A Worker pushes the issue-N branch, opens the PR for its ticket, and in the cloud edition writes the ticket's result in that PR.
+The assigned role `worker`. A Worker pushes the issue-N branch, opens the PR for its ticket, and writes the ticket's result in that PR.
 _Avoid_: Cloud Worker, native Cloud Worker, implementation worker, implementation agent, and any invented Chinese name.
 
 **owner**:
@@ -21,7 +21,7 @@ The person who gives the execution Go, releases work out of `needs-triage`, and 
 _Avoid_: operator, human, and any invented Chinese name.
 
 **main reviewer**:
-The local edition's review of one comparison, held in the reviewer session.
+A name this workflow does not use. The three axes review one comparison.
 _Avoid_: verifier, and any invented Chinese name.
 
 **retro agent**:
@@ -67,11 +67,11 @@ The tracker link that names the tickets one ticket waits on.
 _Avoid_: blocking edge, blocker, dependency, native blocking, and any invented Chinese name.
 
 **work report**:
-In the local edition, the report a Worker returns to the Coordinator for its ticket. In the cloud edition that record is the ticket PR.
+The ticket PR. It records what the Worker did for its ticket.
 _Avoid_: final work report, Worker report, final report, and any invented Chinese name.
 
 **PR**:
-The pull request a Worker opens for its ticket. Draft is a state of this PR. In the cloud edition the Worker writes the result in the body and the Coordinator marks it ready. In the local edition the Coordinator writes the body.
+The pull request a Worker opens for its ticket. Draft is a state of this PR. The Worker writes the result in the body and the Coordinator marks it ready.
 _Avoid_: ticket PR, draft PR, and any invented Chinese name.
 
 **delivery PR**:
@@ -107,7 +107,7 @@ The identifier returned when a Worker, a review axis, or a verifier is started. 
 _Avoid_: any invented Chinese name.
 
 **max_workers**:
-The limit on how many Worker calls run at once in a local run. A cloud night dispatches every eligible ticket.
+A configuration key this workflow drops. A night dispatches every eligible ticket.
 _Avoid_: any invented Chinese name.
 
 **RUNTIME_COMMIT**:

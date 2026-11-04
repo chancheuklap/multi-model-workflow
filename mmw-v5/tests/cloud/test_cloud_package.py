@@ -12,14 +12,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[3]
 
 class InstalledCloudPackage(unittest.TestCase):
-    def test_both_editions_expose_the_complete_skill_set(self):
-        def inventory(edition):
-            folder = ROOT / edition / "skills"
-            return {p.parent.name for p in folder.glob("*/SKILL.md") if p.is_file()}
-        local = inventory("mmw-v5")
-        cloud = inventory("mmw-v5-cloud")
-        self.assertTrue(local)
-        self.assertEqual(local, cloud)
+    def test_cloud_edition_exposes_its_skill_set(self):
+        names = {p.parent.name for p in (ROOT / "mmw-v5-cloud/skills").glob("*/SKILL.md") if p.is_file()}
+        self.assertIn("dispatch", names)
 
     def test_complete_project_runtime_works_without_development_checkout(self):
         with tempfile.TemporaryDirectory(prefix='mmw-cloud-package-') as tmp:
@@ -34,7 +29,7 @@ class InstalledCloudPackage(unittest.TestCase):
             git(source,'init','-q','-b','dev');git(source,'config','user.name','Package test');git(source,'config','user.email','test@example.invalid')
             git(source,'add','.');git(source,'commit','-q','-m','candidate')
             archive=base/'cloud.zip'
-            run=subprocess.run([sys.executable,str(source/'scripts/release-mmw-v5.py'),'package','--edition','cloud','--output',str(archive)],env=env,capture_output=True,text=True)
+            run=subprocess.run([sys.executable,str(source/'scripts/release-mmw-v5.py'),'package','--output',str(archive)],env=env,capture_output=True,text=True)
             self.assertEqual(run.returncode,0,run.stderr)
             project=base/'consumer';project.mkdir()
             git(project,'init','-q','-b','night/test');git(project,'config','user.name','Consumer test');git(project,'config','user.email','test@example.invalid')

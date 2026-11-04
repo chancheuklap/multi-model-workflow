@@ -28,14 +28,15 @@ class ReleaseTest(unittest.TestCase):
         self.git("remote", "add", "origin", str(self.remote))
         self.write("scripts/release-mmw-v5.py", SCRIPT.read_text())
         for path in ("plugin.json", ".cursor-plugin/plugin.json"):
-            self.write("mmw-v5/" + path, json.dumps({"name": "mmw-v5", "version": "5.0.0-beta.2"}))
+            self.write("mmw-v5-cloud/" + path, json.dumps({"name": "mmw-v5-cloud", "version": "5.0.0-beta.2"}))
         for path, text in {
-            ".agents/plugins/marketplace.json": '{"name":"mmw-v5-local"}',
-            "skills/example/SKILL.md": "Original skill", "tools/dispatch/run.sh": "#!/bin/sh\nexit 0\n",
+            "models.json": '{"rows":{}}',
+            "skills/example/SKILL.md": "Original skill",
+            "tools/dispatch/scripts/dispatch.sh": "#!/bin/sh\nexit 0\n",
             "board/page/index.html": "Board", "tests/private.txt": "not installed", "AGENTS.md": "development only",
         }.items():
-            self.write("mmw-v5/" + path, text)
-        (self.root / "mmw-v5/tools/dispatch/run.sh").chmod(0o755)
+            self.write("mmw-v5-cloud/" + path, text)
+        (self.root / "mmw-v5-cloud/tools/dispatch/scripts/dispatch.sh").chmod(0o755)
         self.commit("initial")
         self.bin = Path(self.temp.name) / "bin"
         self.bin.mkdir()
@@ -78,7 +79,7 @@ if a[:2]==['release','view']:
 elif a[:2] in (['release','create'],['release','upload']):
  archive=pathlib.Path(a[3])
  with zipfile.ZipFile(archive) as z:
-  data={'version':json.loads(z.read('mmw-v5/plugin.json'))['version'],'files':z.namelist()}
+  data={'version':json.loads(z.read('.cursor/plugin.json'))['version'],'files':z.namelist()}
  log.with_suffix('.archive').write_text(json.dumps(data))
  if a[1]=='create':
   subprocess.run(['git','push','--quiet','origin', 'HEAD:refs/tags/'+a[2]],check=True)
@@ -94,7 +95,10 @@ else:
     def test_github_marketplaces_resolve_the_same_complete_plugin(self):
         codex = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
         cursor = json.loads((ROOT / ".cursor-plugin/marketplace.json").read_text())
-        for name in ("mmw-v5", "mmw-v5-cloud"):
+        names = [row["name"] for row in codex["plugins"]]
+        self.assertEqual(names, ["mmw-v5-cloud"])
+        self.assertEqual([row["name"] for row in cursor["plugins"]], ["mmw-v5-cloud"])
+        for name in ("mmw-v5-cloud",):
             with self.subTest(plugin=name):
                 codex_entry = next(row for row in codex["plugins"] if row["name"] == name)
                 cursor_entry = next(row for row in cursor["plugins"] if row["name"] == name)
@@ -115,15 +119,15 @@ else:
         result = self.command("bump")
         self.assertEqual(result.returncode, 0, result.stderr)
         for path in ("plugin.json", ".cursor-plugin/plugin.json"):
-            self.assertEqual(json.loads((self.root / "mmw-v5" / path).read_text())["version"], "5.0.0-beta.3")
+            self.assertEqual(json.loads((self.root / "mmw-v5-cloud" / path).read_text())["version"], "5.0.0-beta.3")
         self.assertEqual(self.git("rev-parse", "HEAD").stdout, before)
         self.assertEqual(self.calls(), [])
 
     def test_stable_version_increments_patch(self):
         for path in ("plugin.json", ".cursor-plugin/plugin.json"):
-            self.write("mmw-v5/" + path, json.dumps({"name": "mmw-v5", "version": "5.0.4"}))
+            self.write("mmw-v5-cloud/" + path, json.dumps({"name": "mmw-v5-cloud", "version": "5.0.4"}))
         self.assertEqual(self.command("bump").returncode, 0)
-        self.assertEqual(json.loads((self.root / "mmw-v5/plugin.json").read_text())["version"], "5.0.5")
+        self.assertEqual(json.loads((self.root / "mmw-v5-cloud/plugin.json").read_text())["version"], "5.0.5")
 
     def test_bump_on_main_changes_nothing(self):
         self.git("switch", "--quiet", "-c", "main")
@@ -133,16 +137,17 @@ else:
         self.assertEqual(self.git("status", "--porcelain").stdout, "")
 
     def test_package_uses_committed_files_and_preserves_tools(self):
-        self.write("mmw-v5/skills/example/SKILL.md", "uncommitted edit")
-        self.write("mmw-v5/tools/untracked-secret.txt", "not committed")
+        self.write("mmw-v5-cloud/skills/example/SKILL.md", "uncommitted edit")
+        self.write("mmw-v5-cloud/tools/untracked-secret.txt", "not committed")
         output = Path(self.temp.name) / "plugin.zip"
         result = self.command("package", "--output", str(output))
         self.assertEqual(result.returncode, 0, result.stderr)
         with zipfile.ZipFile(output) as archive:
-            self.assertEqual(archive.read("mmw-v5/skills/example/SKILL.md"), b"Original skill")
-            self.assertIn("mmw-v5/.cursor-plugin/plugin.json", archive.namelist())
-            self.assertIn("mmw-v5/board/page/index.html", archive.namelist())
-            self.assertTrue((archive.getinfo("mmw-v5/tools/dispatch/run.sh").external_attr >> 16) & 0o111)
+            self.assertEqual(archive.read(".cursor/skills/example/SKILL.md"), b"Original skill")
+            self.assertIn(".cursor/plugin.json", archive.namelist())
+            self.assertIn(".cursor/board/page/index.html", archive.namelist())
+            info = archive.getinfo(".cursor/tools/dispatch/scripts/dispatch.sh")
+            self.assertTrue((info.external_attr >> 16) & 0o111)
             self.assertFalse(any("private.txt" in p or "AGENTS.md" in p or "secret" in p for p in archive.namelist()))
 
     def complete_cloud_fixture(self):
@@ -159,12 +164,12 @@ else:
         }.items():
             self.write("mmw-v5-cloud/" + path, text)
 
-    def test_bump_updates_both_complete_editions(self):
-        self.complete_cloud_fixture()
+    def test_bump_updates_the_cloud_edition_and_leaves_the_retired_tree(self):
+        self.write("mmw-v5/plugin.json", json.dumps({"name": "mmw-v5", "version": "5.0.0-beta.2"}))
         result = self.command("bump")
         self.assertEqual(result.returncode, 0, result.stderr)
-        for path in ["mmw-v5/plugin.json", "mmw-v5/.cursor-plugin/plugin.json", "mmw-v5-cloud/plugin.json", "mmw-v5-cloud/.cursor-plugin/plugin.json"]:
-            self.assertEqual(json.loads((self.root / path).read_text())["version"], "5.0.0-beta.3")
+        self.assertEqual(json.loads((self.root / "mmw-v5-cloud/plugin.json").read_text())["version"], "5.0.0-beta.3")
+        self.assertEqual(json.loads((self.root / "mmw-v5/plugin.json").read_text())["version"], "5.0.0-beta.2")
 
     def test_cloud_archive_uses_only_its_own_complete_directory(self):
         self.complete_cloud_fixture()
@@ -180,7 +185,7 @@ else:
         self.git("rm", "-rq", "mmw-v5")
         self.git("commit", "--quiet", "-m", "cloud edition stands alone")
         output = Path(self.temp.name) / "cloud.zip"
-        result = self.command("package", "--edition", "cloud", "--output", str(output))
+        result = self.command("package", "--output", str(output))
         self.assertEqual(result.returncode, 0, result.stderr)
         with zipfile.ZipFile(output) as archive:
             names = archive.namelist()
@@ -192,7 +197,7 @@ else:
             self.assertEqual(json.loads(archive.read(".cursor/plugin.json"))["version"], "5.0.0-beta.2")
             self.assertFalse(any("relay" in name or "runners" in name or "private.txt" in name for name in names))
 
-    def test_cloud_publication_attaches_both_editions_without_tests(self):
+    def test_publication_attaches_the_cloud_archive_without_tests(self):
         self.complete_cloud_fixture()
         self.write("mmw-v5-cloud/skills/dispatch/SKILL.md", "Cloud dispatch")
         self.write("mmw-v5-cloud/models.json", '{"max_workers":3,"rows":{}}')
@@ -200,11 +205,12 @@ else:
         result = self.command("publish", GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip())
         self.assertEqual(result.returncode, 0, result.stderr)
         create = next(row for row in self.calls() if row[:2] == ["release", "create"])
-        self.assertTrue(any("mmw-v5-cloud-5.0.0-beta.2.zip" in arg for arg in create))
+        self.assertTrue(any(arg.endswith("mmw-v5-cloud-5.0.0-beta.2.zip") for arg in create))
+        self.assertFalse(any(arg.endswith("mmw-v5-5.0.0-beta.2.zip") for arg in create))
         self.assertFalse(any(row[:2] == ["workflow", "run"] for row in self.calls()))
 
     def test_mismatched_committed_versions_are_not_packaged(self):
-        self.write("mmw-v5/.cursor-plugin/plugin.json", '{"name":"mmw-v5","version":"5.0.0-beta.1"}')
+        self.write("mmw-v5-cloud/.cursor-plugin/plugin.json", '{"name":"mmw-v5-cloud","version":"5.0.0-beta.1"}')
         self.commit("mismatch")
         result = self.command("package", "--output", str(Path(self.temp.name) / "bad.zip"))
         self.assertEqual(result.returncode, 2)
@@ -235,7 +241,7 @@ else:
 
     def test_existing_version_at_another_commit_cannot_be_overwritten(self):
         self.git("push", "--quiet", "origin", "HEAD:refs/tags/v5.0.0-beta.2")
-        self.write("mmw-v5/skills/example/SKILL.md", "changed without a version bump")
+        self.write("mmw-v5-cloud/skills/example/SKILL.md", "changed without a version bump")
         self.commit("next code")
         result = self.command("publish", GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip())
         self.assertEqual(result.returncode, 2)

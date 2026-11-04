@@ -24,9 +24,9 @@ Do not invent a Chinese name for an MMW skill or for any term in these files. Us
 - `scripts/check` is the landing check. The pre-commit hook is the check that runs on a commit.
 - night is one unattended run. Its night branch is named `night/spec-N` or `night/ticket-N`. The project branch is named `project/<project name>` and is cut from the dev branch. The issue-N branch is named `ticket/issue-N`. N is the issue number.
 - A sub-issue is the tracker's parent link. `mmw:child` is a label, not that link.
-- The Worker and the first verifier share the Worker's issue-N checkout. The Coordinator stays on this Mac on the night branch. Standards, Spec, Tests, and the second verifier each open a new cloud checkout of that night branch.
+- The Worker and the first verifier share the Worker's issue-N checkout. The Coordinator stays on the night branch in its cloud agent. Standards, Spec, Tests, and the second verifier each open a new cloud checkout of that night branch and leave that temporary branch unpushed.
 - A PR merges the issue-N branch into the night branch. A delivery PR merges the night branch into the project branch. A finished project branch merges into the dev branch for testing, and the dev branch merges into the main branch for deployment. The ticket head is the current commit on the issue-N branch. The role candidate is a brief session that designs one answer. The word candidate is not a name for that commit.
-- A verifier runs `verify-<app>` on the commit it is given. On a cloud night, dispatch says when and how the three axes are sent. code-review says how each axis judges. A main reviewer is the local edition's review of one comparison, held in the reviewer session.
+- A verifier runs `verify-<app>` on the commit it is given. Dispatch says when and how the three axes are sent. code-review says how each axis judges.
 - tracer bullet and vertical slice are both names for one ticket shape. Both stay.
 - contract is promised behavior a caller or a test relies on. A sketch, a settled baseline, and the last step of expand-contract are not a contract. accepted baseline, smell baseline, measurement baseline, and settled baseline are different terms.
 - product regression is broken app behavior found while maintaining a feature map. control skill is not a term. pinned comparison is the commit a review measures against.

@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'mmw-v5/**'
       - 'mmw-v5-cloud/**'
       - '.agents/plugins/marketplace.json'
       - '.cursor-plugin/marketplace.json'
