@@ -17,7 +17,7 @@ Sketch types, function signatures, class shapes, and module boundaries with `not
 
 ## Phase A: Ground the problem
 
-Build a real mental model of every system the new code touches. Naming a file isn't grounding. If the design redefines ownership or layering, read the existing rationale so it becomes a constraint, not a guess.
+Build a real mental model of every system the new code touches. Call the Skill tool with "how" for those systems. Naming a file isn't grounding. If the design redefines ownership or layering, read the existing rationale so it becomes a constraint, not a guess.
 
 Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 

@@ -15,7 +15,7 @@ Capture a baseline trace on the surface where the slowness shows. Vet the baseli
 
 ## 2. Ground the hypotheses
 
-Read the system and the evidence already in hand to ground hypotheses. Don't claim a perf ceiling without running it first.
+Call the Skill tool with "how" for the system to ground hypotheses. Read the evidence already in hand. Don't claim a perf ceiling without running it first.
 
 Try the performance mantras in order, cheapest first:
 
