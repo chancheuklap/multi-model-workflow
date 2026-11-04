@@ -13,7 +13,7 @@ Redact every secret before showing a measurement: write `<REDACTED>` in its plac
 
 ## 1. Ground the workload
 
-Read the target and name the realistic workload dimensions that can move the result (data size, history, state, concurrency). Select a case that reproduces the complaint. If no case reproduces it, fix the repro instead of hillclimbing. Then fix one metric, the direction that counts as better, and a checkable stop predicate that pairs a target with a floor on attempts so a lucky early win can't end the run (the example "at least 50% better than baseline and at least 10 iterations" is this shape). Use the numbers on the ticket when given, otherwise agree them.
+Call the Skill tool with "how" for the target, and name the realistic workload dimensions that can move the result (data size, history, state, concurrency). Select a case that reproduces the complaint. If no case reproduces it, fix the repro instead of hillclimbing. Then fix one metric, the direction that counts as better, and a checkable stop predicate that pairs a target with a floor on attempts so a lucky early win can't end the run (the example "at least 50% better than baseline and at least 10 iterations" is this shape). Use the numbers on the ticket when given, otherwise agree them.
 
 ## 2. Freeze the harness
 
