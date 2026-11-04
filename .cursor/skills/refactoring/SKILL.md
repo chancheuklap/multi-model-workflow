@@ -41,6 +41,6 @@ Call the Skill tool with "principle-minimize-reader-load". The success measure i
 
 Rebase into small ordered commits. A subtraction commit, then the reshape, then any follow-on cleanup. Call the Skill tool with "principle-sequence-verifiable-units", so each behavior-preserving slice stays green before the next.
 
-The work report carries the structure that changed, the pin you held it against, the equivalence proof, the reader-load delta, what shipped and what got reverted. No new behavior.
+The PR record carries the structure that changed, the pin you held it against, the equivalence proof, the reader-load delta, what shipped and what got reverted. No new behavior.
 
 Done when the pin is green, the proof has run, and the commits are in that order.

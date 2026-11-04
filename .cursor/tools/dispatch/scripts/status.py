@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import json
+import re
 import subprocess
 from urllib.parse import quote
 
@@ -40,6 +41,15 @@ def labels(issue):
     return [label['name'] if isinstance(label, dict) else label for label in issue.get('labels', [])]
 
 
+def current_night():
+    branch = command('git', 'rev-parse', '--abbrev-ref', 'HEAD')
+    match = re.fullmatch(r'night/(spec|ticket)-(\d+)', branch)
+    if not match:
+        raise ValueError('this checkout is not night/spec-N or night/ticket-N')
+    kind, number = match.group(1), int(match.group(2))
+    return {'branch': branch, 'kind': kind, 'number': number, 'single': kind == 'ticket'}
+
+
 def read_plan(number, into, *, single=False, api=None):
     api = api or GitHub()
     command('git', 'check-ref-format', '--branch', into)
@@ -74,7 +84,7 @@ def read_plan(number, into, *, single=False, api=None):
 
     def landing(n):
         if n not in merged_cache:
-            candidates = [pr for pr in prs if pr['head']['ref'] == f'issue-{n}']
+            candidates = [pr for pr in prs if pr['head']['ref'] == f'ticket/issue-{n}']
             landed = False
             for pr in candidates:
                 sha = pr.get('merge_commit_sha')
@@ -97,8 +107,8 @@ def read_plan(number, into, *, single=False, api=None):
             blockers.append({'number': source['number'], 'title': source['title'], 'resolved': resolved})
         grades = [tag for tag in tags if tag in ('junior-worker', 'senior-worker')]
         reasons = []
-        if landed: reasons.append('already merged into NIGHT')
-        elif issue['state'] != 'open': reasons.append('ticket closed without proven NIGHT landing')
+        if landed: reasons.append('already merged into the night branch')
+        elif issue['state'] != 'open': reasons.append('ticket closed without a proven landing on the night branch')
         if 'ready-for-agent' not in tags or any(tag in tags for tag in ('needs-triage', 'ready-for-human', 'wontfix')):
             reasons.append('not in the authorized agent queue')
         if len(grades) != 1: reasons.append('ticket needs exactly one worker grade')
@@ -113,11 +123,21 @@ def read_plan(number, into, *, single=False, api=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('number', type=int); parser.add_argument('--into', required=True)
+    parser.add_argument('number', nargs='?', type=int)
+    parser.add_argument('--into', default='')
     parser.add_argument('--ticket', action='store_true')
     args = parser.parse_args()
     try:
-        print(json.dumps(read_plan(args.number, args.into, single=args.ticket), ensure_ascii=False))
+        if args.number is None:
+            if args.into or args.ticket:
+                raise ValueError('status with no number reads the night branch name')
+            night = current_night()
+            number, into, single = night['number'], night['branch'], night['single']
+        else:
+            if not args.into:
+                raise ValueError('status N requires --into')
+            number, into, single = args.number, args.into, args.ticket
+        print(json.dumps(read_plan(number, into, single=single), ensure_ascii=False))
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
         parser.exit(2, f'status: {exc}\n')
 

@@ -45,7 +45,7 @@ Acceptance criteria:
 
 - [ ] The post-fix trace is vetted with benchmark-checklist, on the same surface as the baseline
 - [ ] The artifacts are parsed and compared. "Inconclusive" or wrong-surface is not a pass
-- [ ] The work report carries the baseline number, the post-fix number, the delta, and the artifact path
+- [ ] The PR record carries the baseline number, the post-fix number, the delta, and the artifact path
 
 For sustained improvement against a metric rather than a one-off fix, What to build is sustained improvement of one metric against a target, and it names the metric, the direction that counts as better, and the stop predicate.
 

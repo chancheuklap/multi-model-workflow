@@ -1,16 +1,18 @@
 # Worker
 
-You own one ticket's implementation and corrections on the assigned branch. Your assignment supplies complete task sources, the repository, NIGHT branch and starting commit, Worker branch and this run's installed runtime. Use [this run's tools](../SKILL.md#use-this-runs-tools). Return through the native parent-child channel.
+You own one ticket's implementation and corrections on `ticket/issue-N`. The card names the ticket, the night branch, and that branch. This checkout is that branch.
 
 ## 1. Read the task and recover existing work
 
+Call the Skill tool with "principle-baseline-is-the-contract" for the ticket and its baselines. Call the Skill tool with "principle-never-block-on-the-human".
+
 Read the repository instructions, the full ticket and comments, its open children, and the sources it names. For a spec ticket, read the parent's goal, applicable Implementation Decisions, Testing Decisions and Out of Scope. Read the accepted baselines and the project's relevant glossary definitions. Keep decided behavior, interfaces and test boundaries fixed.
 
-If required tracker material is missing or outdated, [return a request for it](../SKILL.md#return-the-assigned-result). Continue from this step when the Coordinator resumes you with the material.
+If required tracker material is missing or outdated, return a request for it to the sender and end the turn. Continue from this step when the Coordinator resumes you with the material.
 
-Fetch the assigned NIGHT branch and create your assigned Worker branch from the supplied full commit. Confirm that commit is the assigned starting point; an unrelated `main` or `dev` checkout is not the task's input. Recover already-existing work on this branch when continuing the same assignment.
+When this branch already contains commits for this ticket, continue from those commits.
 
-Done when the task, sources, branch and initial code version are clear, or the missing input has been returned to the Coordinator.
+Done when the task, sources, and code version are clear, or the missing input has been returned.
 
 ## 2. Write tests and implement
 
@@ -23,6 +25,8 @@ Call the Skill tool with "write-tests" for the applicable test work, using the s
 Implement directly when the ticket's interface is already decided, or when the change stays inside one function.
 
 When the interface is still open and the change crosses a function boundary, call the Skill tool with "codebase-design" for Phase A, Phase B, and Phase C. Default: proceed directly to implementation with the synthesized design. No human checkpoint.
+
+Phase D and Phase E apply only after that call has returned a sketch. hillclimb, refactoring, and direct implementation do not enter them.
 
 ### Phase D: Implement against the sketch
 
@@ -52,65 +56,38 @@ When you scrap:
 
 Make engineering choices the sources leave open and record the consequential reasons for review.
 
-An implementation mistake within this ticket is repaired here. For an out-of-scope defect, conflicting baseline, unresolved product choice or unavailable environment, state the problem, evidence, affected requirement, what you tried and what decision or repair is needed. When it needs the Coordinator's action before you can continue, [return the problem](../SKILL.md#return-the-assigned-result) and continue from this step after its reply. Include non-blocking findings in the final work report. On an instruction to hand work back, go directly to step 5 with `incomplete`.
+An implementation mistake within this ticket is repaired here. For an out-of-scope defect, conflicting baseline, unresolved product choice or unavailable environment, state the problem, evidence, affected requirement, what you tried and what decision or repair is needed. When it needs the Coordinator's action before you can continue, return the problem to the sender and end the turn. Continue from this step after its reply. Write non-blocking findings in the PR. On an instruction to hand work back, go directly to step 4 and leave the PR draft.
 
-The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`. Its `features/` map records how a person reaches each part and how to drive it. Its scripts drive the real app. The text a script checks is the spec sentence on the ticket, copied unchanged; that sentence is the expected result. When the project has `verify-<app>` and this ticket changes a surface a person uses, write the drive script in the form that skill's harness section names, and only after that surface works on this branch. Copy this ticket's user path into its feature file, creating that file when the path is new. Read control names from the live surface. Fill that file's driving section and any Gotchas this run shows. Run the script until it passes, and include it in the commit. `maintain-verification-skill` is a later pass over the whole map; this step does not call it. `write-tests` covers this ticket's named code seams and does not write this script.
+When the ticket names a feature file and the sentence to show, write the drive script after the surface works. That file is a page under `.cursor/skills/verify-<app>/features/`. Copy the ticket's sentence into the page unchanged. Read that verify skill and write the script the way its Drive section already drives the app. The script checks for the same sentence. Put the script in that skill, next to the page. Run it until it passes, and commit the script and the page. `write-tests` writes seam tests, not this script. `maintain-verification-skill` is a later pass over the whole map, not this ticket. When the ticket names neither a feature file nor a sentence, do not write them.
 
-Run the task's required tests and observable acceptance proof. Commit work on the assigned ticket branch, following the repository's actual commit checks. Report failing-before evidence, passing results and unavailable proof as they actually occurred; a test passing is not a substitute for the behavior the ticket promises.
+Run the task's required tests. Call the Skill tool with "principle-prove-it-works". Commit on `ticket/issue-N`. Keep failing-before evidence, passing results, and unavailable proof as they occurred. A passing test does not stand in for the behavior the ticket promises.
 
-After the first implementation commit, push `issue-N` and create its draft PR with `issue-N` as head and the assigned NIGHT branch as base. Put the ticket link in the PR body. Use the host's native PR tool; in Cursor, use `ManagePullRequest`'s `create_pr` with `draft` enabled, `branch_name` set to `issue-N` and `base_branch` set to NIGHT. Continue using this PR as you push later commits.
+After the first implementation commit, push and open the draft PR: head `ticket/issue-N`, base the night branch, ticket linked in the body. In Cursor, `ManagePullRequest` `create_pr` with `draft` enabled. Later commits use this PR.
 
-Done when the assigned behavior and required tests are implemented, the candidate is pushed and the draft PR exists, or unfinished work has a recorded reason.
+Done when that behavior is pushed and the draft PR exists, or the unfinished reason is ready for the PR.
 
-## 3. Run one complete code review
+## 3. Send the verifier
 
-Fetch and merge current NIGHT changes into your branch. On conflict, push the committed pre-merge HEAD and [return both commit SHAs and conflicted files](../SKILL.md#return-the-assigned-result) for the [Coordinator to resolve](coordinator.md#resolve-merge-conflicts). After it resumes you with the pushed resolution, run `git merge --abort` to clear your failed local merge, fetch and fast-forward your branch to that resolution.
+Fetch and merge the current night branch into `ticket/issue-N`, so the verifier runs on a head that already contains what this night has landed. On conflict, push the committed pre-merge HEAD and return both SHAs and the conflicted files for the [Coordinator to resolve](coordinator.md#resolve-merge-conflicts). End the turn. After the resume, run `git merge --abort`, then fetch and fast-forward to the resolution.
 
-After integration, run the affected verification, commit and push the candidate. If that merge changed a surface `verify-<app>` drives, update that skill's script to the merged surface, run it, and commit and push it before review. The review compares committed output; uncommitted work is outside it.
+If that merge changed the feature file this ticket named, update the drive script, run it, commit, and push before the verifier. Call the Skill tool with "no-comments" for this diff and commit what it changes before the verifier. Push that commit too. The verifier runs the pushed head, and the PR head has to be that same commit.
 
-Call the Skill tool with "no-comments" for this committed diff. Commit and push what it changes before review.
+Run `dispatch.sh spawn verifier`. A printed card is a new Task: hand it over as [Dispatch](../SKILL.md) describes and wait. Resuming an older verifier would rerun the old commit. No card means this ticket has no verifier: go to step 4 and write the PR. When the command says the head is not pushed, push and run the command again. Any other error from the command: return that error to the Coordinator and end the turn. Do not write the PR as verified.
 
-Call the Skill tool with "code-review" for the main reviewer in this session. Perform preparation and aggregation here. Supply the full NIGHT commit actually integrated before this review as the fixed point, not merely the initial dispatch commit. Supply the pushed candidate, task material and this run's `review-axis` settings from the [common tools operation](../SKILL.md#use-this-runs-tools). Each axis assignment includes the repository, Worker branch and pushed candidate SHA through [Prepare an assignment](../SKILL.md#prepare-an-assignment), together with its assigned review instructions. Code review owns the three axes, isolation, verification and aggregation. Use [native dispatch](../SKILL.md#send-a-native-cloud-agent), then [receive results](../SKILL.md#wait-and-continue) within that professional method. Obtain the checked per-axis reports before returning to implementation.
+Done when the verifier has returned. No card continues at step 4.
 
-After that review returns, run the project's verification skill on the pushed candidate when the project has `verify-<app>` and the candidate changes a surface a person uses. The skill is `verify-<app>` at `.cursor/skills/verify-<app>/`: it starts the app and drives the features this ticket names. Run Doctor, then those features. Check that the text the script asserts is the spec sentence on the ticket, copied unchanged as the expected result. Do not write or edit the script or the feature map. A missing script is a review result, not a reason to write one. Report this pass in its own section beside Standards, Spec, and Tests.
+## 4. Write the result in the PR
 
-Done when a complete review has returned checked reports or an explicit missing/invalid review requiring recovery.
+Call the Skill tool with "principle-fix-root-causes" for a failure you handle.
 
-## 4. Read and handle the review
+When the verifier returns unavailable, do not change the product. Check out the commit the card named and send a new verifier card. If HEAD cannot be that commit, return the verifier's message to the Coordinator and end the turn.
 
-Call the Skill tool with "principle-fix-root-causes" for the findings you handle.
+When the verifier fails, the head has moved since the pass, or the Coordinator resumes you with the output of a failed `scripts/check`, fix, push, and run `dispatch.sh spawn verifier` again. Send that as a new card. A pass covers only the commit it ran.
 
-Preserve original reports, dispositions and limitations.
+When the passing commit is the PR head, or there was no verifier, write the PR. The body names the ticket, what you implemented, the commands and results, consequential decisions, findings outside this ticket, and any unfinished work with its reason. Name the commit a verifier passed. An unfinished ticket stays draft, with the reason in the PR. With no PR, return the reason to the Coordinator. You do not create the child issue.
 
-First handle findings belonging to this ticket's behavior, applicable decisions, accepted baselines and changed behavior. Fix supported defects. An in-ticket finding you do not fix needs concrete evidence disproving that specific claim; a true fact about nearby code is not a refutation. Scope comes from the actual task, not a required Owns field or the number of files touched.
+On an instruction to hand work back, enter here. Preserve unfinished output and name the proof that could not be run.
 
-Include supported unrelated defects in the work report instead of expanding the ticket.
+Return the PR number and that commit to the sender. With no PR, return the reason.
 
-Fix and verify the implementation. For necessary follow-up review, preserve reports that still cover the output and dispatch only the missing or affected axes, using their existing `code-review` references and the updated pinned comparison. A missing axis is not a pass.
-
-Do not loop reviews merely to obtain zero findings.
-
-Done when every finding has a supported disposition and required review evidence is valid for the output or explicitly unavailable.
-
-## 5. Verify the final output and return it
-
-On the Coordinator's instruction to hand blocked work back, enter this step directly and report `incomplete`. Preserve unfinished output and state which implementation, review or proof could not be performed; those unavailable steps are not prerequisites for an honest handback.
-
-After fixes and any necessary further integration, verify the final committed output against the ticket and baselines. Rerun affected proof; reuse results only when they still cover that output. Read the task once more as the owner will read the result. Report `incomplete` if any required behavior, review or verification is unfinished or failed, and state the reason; otherwise report `complete`.
-
-For `complete`, commit and push the final output to the assigned branch. For `incomplete`, push saved commits when possible and state any work that remains only in your environment.
-
-Write the work report for the Coordinator. Include:
-
-- The ticket number and `complete` or `incomplete`.
-- The PR address, if created, the Worker branch and full output SHA.
-- What you implemented, which commit was reviewed, and how you fixed or rejected the review findings, with the supporting evidence.
-- The verification commands actually run and their results, consequential decisions, unrelated findings, and any unfinished work with its reason.
-
-[Return the report to the Coordinator](../SKILL.md#return-the-assigned-result), with its evidence in the reply text so the local Coordinator can write the PR body.
-
-The Coordinator writes the final PR body and owns landing and delivery.
-
-Continue the same branch when the Coordinator sends an in-ticket correction through the [native channel](../SKILL.md#wait-and-continue); fix, verify and return the new evidence.
-
-Done when your final reply has returned the ticket's work report and actual code location, or has reported the delivery failure and the work it left unfinished.
+Done when the PR holds that result and the reply names it, or the unfinished reason has been returned.

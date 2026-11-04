@@ -3,12 +3,17 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
-ROLES = ('junior-worker', 'senior-worker', 'advisor', 'researcher', 'candidate', 'review-axis')
+from status import GitHub, current_night, labels, read_plan
+
+ROLES = ('junior-worker', 'senior-worker', 'advisor', 'researcher', 'candidate', 'review-axis', 'verifier')
 HOSTS = ('codex', 'cursor')
+WORKER_GRADES = ('junior-worker', 'senior-worker')
 
 
 def config_path() -> Path:
@@ -17,8 +22,9 @@ def config_path() -> Path:
 
 
 def validate(value: dict) -> dict:
-    if not isinstance(value, dict) or type(value.get('max_workers')) is not int or value['max_workers'] < 1:
-        raise ValueError('max_workers must be a positive integer')
+    if not isinstance(value, dict):
+        raise ValueError('models config must be an object')
+    value = {key: item for key, item in value.items() if key != 'max_workers'}
     rows = value.get('rows')
     if not isinstance(rows, dict):
         raise ValueError('rows must be an object of native role settings')
@@ -48,15 +54,390 @@ def read_config(at: str | None = None) -> dict:
     return validate(json.loads(text))
 
 
+def cursor_model(chosen: dict) -> str:
+    model = chosen['model']
+    effort = chosen.get('effort')
+    if effort and not model.endswith(f'-{effort}'):
+        model = f'{model}-{effort}'
+    if chosen.get('fast') is True and not model.endswith('-fast'):
+        model = f'{model}-fast'
+    return model
+
+
 def row(role: str, host: str, at: str) -> dict:
     if host not in HOSTS:
         raise ValueError(f'unsupported native host: {host}')
     chosen = {key: val for key, val in read_config(at)['rows'][host][role].items() if val != 'inherit'}
     if host == 'cursor' and chosen.get('model'):
-        options = [f'{key}={str(chosen[key]).lower()}' for key in ('effort', 'context', 'fast') if key in chosen]
-        model = chosen['model'] + ('[' + ','.join(options) + ']' if options else '')
-        return {'model': model}
+        return {'model': cursor_model(chosen)}
     return chosen
+
+
+def git_text(*args: str) -> str:
+    run = subprocess.run(['git', *args], capture_output=True, text=True)
+    if run.returncode != 0:
+        detail = (run.stderr or run.stdout).strip()
+        raise ValueError(detail or 'git failed')
+    return run.stdout.strip()
+
+
+def commit_of(ref: str) -> str:
+    try:
+        return git_text('rev-parse', '--verify', f'{ref}^{{commit}}')
+    except ValueError as exc:
+        raise ValueError(f'{ref} does not resolve') from exc
+
+
+def require_file(path: str, label: str) -> str:
+    if not path or not Path(path).is_file():
+        raise ValueError(f'{label} is not a file: {path}')
+    return str(Path(path).resolve())
+
+
+def task_card(host: str, chosen: dict, description: str, prompt: str, *, environment: str | None = None, base: str | None = None) -> dict:
+    if host == 'cursor':
+        card = {
+            'description': description,
+            'prompt': prompt,
+            'model': chosen['model'],
+            'subagent_type': 'generalPurpose',
+            'run_in_background': False,
+        }
+        if environment:
+            card['environment'] = environment
+            card['cloud_base_branch'] = base
+        return card
+    return {'description': description, 'prompt': prompt, 'model': chosen['model'], 'effort': chosen.get('effort', '')}
+
+
+def ref_exists(ref: str) -> bool:
+    return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], capture_output=True).returncode == 0
+
+
+def is_ancestor(older: str, newer: str) -> bool:
+    return subprocess.run(['git', 'merge-base', '--is-ancestor', older, newer], capture_output=True).returncode == 0
+
+
+def exists_at(commit: str, path: str) -> bool:
+    return subprocess.run(['git', 'cat-file', '-e', f'{commit}:{path}'], capture_output=True).returncode == 0
+
+
+def native_host(explicit: str = '') -> str:
+    if explicit:
+        if explicit not in HOSTS:
+            raise ValueError(f'unsupported native host: {explicit}')
+        return explicit
+    if os.environ.get('CURSOR_AGENT'):
+        return 'cursor'
+    if any(os.environ.get(key) for key in ('CODEX_THREAD_ID', 'CODEX_SANDBOX', 'CODEX_CI')):
+        return 'codex'
+    raise ValueError('pass --host cursor or --host codex')
+
+
+def fetch_origin() -> None:
+    run = subprocess.run(['git', 'fetch', 'origin'], capture_output=True, text=True)
+    if run.returncode != 0:
+        raise ValueError((run.stderr or run.stdout).strip() or 'git fetch failed')
+
+
+def publish(ref: str, sha: str) -> None:
+    git_text('push', 'origin', f'{sha}:refs/heads/{ref}')
+    git_text('fetch', 'origin', f'+refs/heads/{ref}:refs/remotes/origin/{ref}')
+
+
+def project_fork(night: str) -> tuple[str, str]:
+    night_sha = commit_of(night)
+    found = []
+    listing = git_text('for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/project')
+    for ref in listing.splitlines():
+        if not ref.startswith('origin/project/'):
+            continue
+        try:
+            base = git_text('merge-base', night_sha, ref)
+        except ValueError:
+            continue
+        if is_ancestor(base, night_sha):
+            found.append((ref.removeprefix('origin/'), base))
+    if not found:
+        raise ValueError(f'no project branch is a base of {night}')
+    bases = {base for _ref, base in found}
+    closest = []
+    for ref, base in found:
+        older = any(base != other and is_ancestor(base, other) for other in bases)
+        if not older:
+            closest.append((ref, base))
+    distinct = {base for _ref, base in closest}
+    if len(distinct) != 1:
+        names = ', '.join(ref for ref, _base in closest)
+        raise ValueError(f'project branch tie: {names}')
+    return closest[0]
+
+
+def resolve_at(at: str | None) -> str:
+    if at:
+        return at
+    branch = git_text('rev-parse', '--abbrev-ref', 'HEAD')
+    if re.fullmatch(r'night/(spec|ticket)-\d+', branch):
+        _project, fork = project_fork(branch)
+        return fork
+    return 'HEAD'
+
+
+def open_night(project: str, spec: str, ticket: str) -> dict:
+    if bool(spec) == bool(ticket):
+        raise ValueError('open takes exactly one of --spec and --ticket')
+    number = spec or ticket
+    if not number.isdigit() or number == '0':
+        raise ValueError('the issue number is a positive integer')
+    project_branch = f'project/{project}'
+    night = f'night/spec-{spec}' if spec else f'night/ticket-{ticket}'
+    git_text('check-ref-format', '--branch', project_branch)
+    git_text('check-ref-format', '--branch', night)
+    fetch_origin()
+    if not ref_exists(f'origin/{project_branch}'):
+        if not ref_exists('origin/dev'):
+            raise ValueError('origin/dev does not resolve')
+        publish(project_branch, commit_of('origin/dev'))
+    if not ref_exists(f'origin/{night}'):
+        publish(night, commit_of(f'origin/{project_branch}'))
+    if ref_exists(f'refs/heads/{night}'):
+        git_text('checkout', night)
+        git_text('merge', '--ff-only', f'origin/{night}')
+    else:
+        git_text('checkout', '-b', night, f'origin/{night}')
+    _project, fork = project_fork(night)
+    return {'project_branch': project_branch, 'night_branch': night, 'fork': fork}
+
+
+def aligned_tip(branch: str) -> str:
+    fetch_origin()
+    local = commit_of('HEAD')
+    remote = f'origin/{branch}'
+    if not ref_exists(remote):
+        publish(branch, local)
+        return local
+    remote_sha = commit_of(remote)
+    if local == remote_sha:
+        return local
+    if is_ancestor(remote_sha, local):
+        publish(branch, local)
+        return local
+    if is_ancestor(local, remote_sha):
+        git_text('merge', '--ff-only', remote)
+        return commit_of('HEAD')
+    raise ValueError(f'{branch} diverged from origin')
+
+
+def ensure_ticket_branch(ticket: str, tip: str) -> str:
+    name = f'ticket/issue-{ticket}'
+    git_text('check-ref-format', '--branch', name)
+    remote = f'origin/{name}'
+    fetched = subprocess.run(['git', 'fetch', 'origin', f'+refs/heads/{name}:refs/remotes/origin/{name}'], capture_output=True, text=True)
+    if fetched.returncode == 0 and ref_exists(remote):
+        return name
+    publish(name, tip)
+    return name
+
+
+def verify_skill_names(commit: str) -> list[str]:
+    listing = git_text('ls-tree', '-r', '--name-only', commit)
+    names = []
+    for line in listing.splitlines():
+        match = re.fullmatch(r'\.cursor/skills/(verify-[^/]+)/SKILL\.md', line)
+        if match:
+            names.append(match.group(1))
+    return names
+
+
+def named_feature_paths(bodies: list[str], commit: str) -> list[str]:
+    found = []
+    for body in bodies:
+        for match in re.findall(r'\.cursor/skills/verify-[^\s]+/features/[^\s]+', body):
+            path = match.rstrip(').,;`\'"')
+            if path not in found and exists_at(commit, path):
+                found.append(path)
+    return found
+
+
+def feature_changes(base: str, head: str) -> list[str]:
+    names = git_text('diff', '--name-only', base, head, '--', '.cursor/skills')
+    found = []
+    for line in names.splitlines():
+        if re.fullmatch(r'\.cursor/skills/verify-[^/]+/features/.+', line) and exists_at(head, line):
+            found.append(line)
+    return found
+
+
+def worker_grade(ticket: str, api) -> str | None:
+    grades = [name for name in labels(api.issue(int(ticket))) if name in WORKER_GRADES]
+    if len(grades) != 1:
+        return None
+    return grades[0]
+
+
+def spawn_worker(host: str, ticket: str, *, api=None) -> dict:
+    if not ticket.isdigit() or ticket == '0':
+        raise ValueError('--ticket is a positive issue number')
+    night = current_night()
+    api = api or GitHub()
+    grade = worker_grade(ticket, api)
+    if grade is None:
+        return {'host': host, 'skipped': ['worker'], 'cards': []}
+    tip = aligned_tip(night['branch'])
+    worker_branch = ensure_ticket_branch(ticket, tip)
+    _project, fork = project_fork(night['branch'])
+    chosen = row(grade, host, fork)
+    prompt = '\n'.join([
+        'Load the installed dispatch skill.',
+        'Assigned role: worker.',
+        'Follow the Worker reference.',
+        'When the verifier fails, fix the ticket and send a new verifier card.',
+        'When the passing commit is the PR head, write the result in the PR.',
+        '',
+        f'Ticket #{ticket}',
+        f'Night branch: {night["branch"]}',
+        f'issue-N branch: {worker_branch}',
+    ])
+    return {'host': host, 'skipped': [], 'cards': [task_card(
+        host, chosen, f'Implement ticket #{ticket}', prompt, environment='cloud', base=worker_branch)]}
+
+
+def open_pr(api, branch: str) -> dict:
+    matched = [pr for pr in api.listing('pulls?state=open')
+               if pr['head']['ref'] == branch and pr['state'] == 'open' and str(pr['base']['ref']).startswith('night/')]
+    if len(matched) != 1:
+        raise ValueError(f'{branch} needs one open PR into a night branch')
+    return matched[0]
+
+
+def spawn_verifier(host: str, *, api=None) -> dict:
+    branch = git_text('rev-parse', '--abbrev-ref', 'HEAD')
+    if not re.fullmatch(r'ticket/issue-\d+', branch):
+        raise ValueError('spawn verifier runs on ticket/issue-N')
+    fetch_origin()
+    remote = f'origin/{branch}'
+    if not ref_exists(remote):
+        raise ValueError('HEAD is not pushed')
+    local, pushed = commit_of('HEAD'), commit_of(remote)
+    if local != pushed:
+        raise ValueError('HEAD is not pushed')
+    api = api or GitHub()
+    pr = open_pr(api, branch)
+    if pr['head']['sha'] != pushed:
+        raise ValueError('PR head is not the pushed HEAD')
+    skills = verify_skill_names(pushed)
+    if len(skills) > 1:
+        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
+    features = feature_changes(pr['base']['sha'], pushed)
+    if len(skills) != 1 or not features:
+        return {'host': host, 'skipped': ['verifier'], 'cards': []}
+    _project, fork = project_fork(f'origin/{pr["base"]["ref"]}')
+    chosen = row('verifier', host, fork)
+    prompt = '\n'.join([
+        'Load the installed dispatch skill.',
+        'Assigned role: verifier.',
+        'Follow the Verifier reference.',
+        'Return pass or fail to the Worker.',
+        '',
+        f'Branch: {branch}',
+        f'Commit: {pushed}',
+        'Features:',
+        *features,
+    ])
+    return {'host': host, 'skipped': [], 'cards': [task_card(host, chosen, f'Verify {branch}', prompt)]}
+
+
+def axis_card(host: str, chosen: dict, role: str, night: str, fork: str, tip: str, spec_line: str, landed_line: str, *, standards: list[str] | None = None) -> dict:
+    title = {'standards': 'Standards', 'spec': 'Spec', 'tests': 'Tests'}[role]
+    returns = {
+        'standards': 'Return the Standards report to the Coordinator.',
+        'spec': 'Return the Spec report and reproduction materials to the Coordinator.',
+        'tests': 'Return the Tests report and reproduction materials to the Coordinator.',
+    }[role]
+    lines = [
+        'Load the installed dispatch skill.',
+        f'Assigned role: {role}.',
+        f'Call code-review and follow the {title} reference.',
+        returns,
+        '',
+        f'Night branch: {night}',
+        f'Pinned comparison: {fork}',
+        f'Reviewed commit: {tip}',
+        f'Diff: git diff {fork} {tip}',
+        spec_line,
+        landed_line,
+    ]
+    if standards:
+        lines.append('Standards: ' + ', '.join(standards))
+    return task_card(host, chosen, title, '\n'.join(lines), environment='cloud', base=night)
+
+
+def spawn_review(host: str, *, api=None) -> dict:
+    night = current_night()
+    tip = aligned_tip(night['branch'])
+    project, fork = project_fork(night['branch'])
+    api = api or GitHub()
+    plan = read_plan(night['number'], night['branch'], single=night['single'], api=api)
+    landed = [row_item for row_item in plan['tickets'] if row_item['landed']]
+    landed_line = 'Landed tickets: ' + (', '.join(f'#{item["number"]}' for item in landed) if landed else 'none')
+    spec_line = f'Spec #{night["number"]}' if night['kind'] == 'spec' else 'Spec: none'
+    skipped = []
+    cards = []
+    diff = git_text('diff', '--name-only', fork, tip)
+    if diff.strip():
+        chosen = row('review-axis', host, fork)
+        present = [name for name in ('CODING_STANDARDS.md', 'CONTRIBUTING.md') if exists_at(tip, name)]
+        cards.append(axis_card(host, chosen, 'standards', night['branch'], fork, tip, spec_line, landed_line, standards=present))
+        if night['kind'] == 'spec':
+            cards.append(axis_card(host, chosen, 'spec', night['branch'], fork, tip, spec_line, landed_line))
+        else:
+            skipped.append('spec')
+        cards.append(axis_card(host, chosen, 'tests', night['branch'], fork, tip, spec_line, landed_line))
+    else:
+        skipped.extend(['standards', 'spec', 'tests'])
+    skills = verify_skill_names(tip)
+    if len(skills) > 1:
+        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
+    features = feature_changes(fork, tip)
+    if features:
+        for path in named_feature_paths([item.get('body') or '' for item in landed], tip):
+            if path not in features:
+                features.append(path)
+    if len(skills) == 1 and features:
+        chosen = row('verifier', host, fork)
+        prompt = '\n'.join([
+            'Load the installed dispatch skill.',
+            'Assigned role: verifier.',
+            'Follow the Verifier reference.',
+            'Return pass or fail to the Coordinator.',
+            '',
+            f'Night branch: {night["branch"]}',
+            f'Commit: {tip}',
+            'Features:',
+            *features,
+        ])
+        cards.append(task_card(host, chosen, f'Verify {night["branch"]}', prompt, environment='cloud', base=night['branch']))
+    else:
+        skipped.append('verifier')
+    return {'host': host, 'skipped': skipped, 'cards': cards, 'project_branch': project, 'fork': fork, 'reviewed': tip}
+
+
+def spawn_researcher(host: str, question: str, at: str | None = None) -> dict:
+    path = require_file(question, '--question')
+    text = Path(path).read_text(encoding='utf-8').rstrip()
+    chosen = row('researcher', host, resolve_at(at))
+    prompt = '\n'.join([
+        'Load the research skill.',
+        'Investigate this question. Write the notes file.',
+        'Do not start another agent.',
+        '',
+        'Question:',
+        text,
+    ])
+    card = task_card(host, chosen, 'Research', prompt)
+    if host == 'cursor':
+        card['run_in_background'] = True
+    return {'host': host, 'skipped': [], 'cards': [card]}
 
 
 def write_config(value: dict) -> None:
@@ -72,15 +453,48 @@ def write_config(value: dict) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(prog='dispatch.sh', description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
-    show = sub.add_parser('show'); show.add_argument('--at', required=True, help='the existing run starting commit')
-    get = sub.add_parser('row'); get.add_argument('role', choices=ROLES); get.add_argument('host', choices=HOSTS); get.add_argument('--at', required=True, help='the existing run starting commit that fixes the model configuration')
+    opened = sub.add_parser('open')
+    opened.add_argument('--host', required=True, choices=HOSTS)
+    opened.add_argument('--project', required=True)
+    group = opened.add_mutually_exclusive_group(required=True)
+    group.add_argument('--spec', default='')
+    group.add_argument('--ticket', default='')
+    show = sub.add_parser('show')
+    show.add_argument('--at', default='')
+    get = sub.add_parser('row')
+    get.add_argument('role', choices=ROLES)
+    get.add_argument('host', choices=HOSTS)
+    get.add_argument('--at', required=True)
+    spawn = sub.add_parser('spawn')
+    spawn.add_argument('kind', choices=('worker', 'verifier', 'review', 'researcher'))
+    spawn.add_argument('--host', default='', choices=('', *HOSTS))
+    spawn.add_argument('--ticket', default='')
+    spawn.add_argument('--question', default='')
     args = parser.parse_args()
     try:
-        print(json.dumps(read_config(args.at) if args.command == 'show' else row(args.role, args.host, args.at), ensure_ascii=False))
-    except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        parser.exit(2, f'models: {exc}\n')
+        if args.command == 'open':
+            printed = open_night(args.project, args.spec, args.ticket)
+        elif args.command == 'show':
+            printed = read_config(resolve_at(args.at or None))
+        elif args.command == 'row':
+            printed = row(args.role, args.host, args.at)
+        elif args.kind == 'worker':
+            if not args.ticket:
+                raise ValueError('worker spawn needs --ticket')
+            printed = spawn_worker(native_host(args.host), args.ticket)
+        elif args.kind == 'verifier':
+            printed = spawn_verifier(native_host(args.host))
+        elif args.kind == 'review':
+            printed = spawn_review(native_host(args.host))
+        else:
+            if not args.host or not args.question:
+                raise ValueError('researcher spawn needs --host and --question')
+            printed = spawn_researcher(args.host, args.question)
+        print(json.dumps(printed, ensure_ascii=False, indent=2))
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+        parser.exit(2, f'dispatch: {exc}\n')
 
 if __name__ == '__main__':
     main()

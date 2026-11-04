@@ -39,7 +39,7 @@ class BoardStore:
                 api = GitHub()
                 branch = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True, check=True).stdout.strip()
                 if not branch:
-                    raise ValueError('open the cloud board from the Coordinator NIGHT checkout')
+                    raise ValueError('open the cloud board from the Coordinator night-branch checkout')
                 specs = api.listing('issues?state=open&labels=mmw:spec')
                 tasks = []
                 by_spec = {}
