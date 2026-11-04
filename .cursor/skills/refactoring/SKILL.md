@@ -11,7 +11,7 @@ If the cleanup reveals a missing feature or a real bug, record it for the Coordi
 
 ## 1. Pin the behavior
 
-Read the contract from the affected subsystem, the glossary, and the ticket. Call the Skill tool with "write-tests" to pin it with a characterization test, snapshot, or equivalence harness before any structure moves. If the area has no coverage, write the pin before touching structure. Type check and lint are not a pin.
+Read the contract from the glossary and the ticket. Call the Skill tool with "how" for the affected subsystem. Call the Skill tool with "write-tests" to pin it with a characterization test, snapshot, or equivalence harness before any structure moves. If the area has no coverage, write the pin before touching structure. Type check and lint are not a pin.
 
 ## 2. Name the missing structure
 

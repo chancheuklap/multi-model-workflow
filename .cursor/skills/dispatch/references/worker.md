@@ -24,7 +24,7 @@ When the ticket preserves behavior and changes structure, call the Skill tool wi
 
 Call the Skill tool with "write-tests" for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
-Implement directly when the ticket's interface is already decided, or when the change stays inside one function.
+Implement directly when the ticket's interface is already decided, or when the change stays inside one function. When a surrounding subsystem exists, call the Skill tool with "how" for that subsystem before writing the change.
 
 When the interface is still open and the change crosses a function boundary, call the Skill tool with "codebase-design" for Phase A, Phase B, and Phase C. Default: proceed directly to implementation with the synthesized design. No human checkpoint.
 
@@ -51,7 +51,7 @@ Use judgment. A few edge cases don't condemn an architecture. Some problems are 
 
 When you scrap:
 
-1. Re-read what's been built.
+1. Call the Skill tool with "how" to re-read what's been built.
 2. Call the Skill tool with "principle-redesign-from-first-principles". Redesign as if the new constraints had been day-one assumptions.
 3. Call the Skill tool with "principle-subtract-before-you-add". The new sketch should be smaller than the old one before it grows.
 4. Call the Skill tool with "codebase-design" and return to its Phase B.
@@ -86,7 +86,7 @@ When the verifier returns unavailable, do not change the product. Check out the 
 
 When the verifier fails, the head has moved since the pass, or the Coordinator resumes you with the output of a failed `scripts/check`, fix, push, and run `dispatch.sh spawn verifier` again. Send that as a new card. A pass covers only the commit it ran.
 
-When the passing commit is the PR head, or there was no verifier, write the PR. The body names the ticket, what you implemented, the commands and results, consequential decisions, findings outside this ticket, and any unfinished work with its reason. Name the commit a verifier passed. An unfinished ticket stays draft, with the reason in the PR. With no PR, return the reason to the Coordinator. You do not create the child issue.
+When the passing commit is the PR head, or there was no verifier, write the PR. Call the Skill tool with "pr" for the PR body. Include the ticket, what you implemented, the commands and results, consequential decisions, findings outside this ticket, and any unfinished work with its reason. Name the commit a verifier passed. An unfinished ticket stays draft, with the reason in the PR. With no PR, return the reason to the Coordinator. You do not create the child issue.
 
 On an instruction to hand work back, enter here. Preserve unfinished output and name the proof that could not be run.
 
