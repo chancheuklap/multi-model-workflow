@@ -5,7 +5,8 @@ function markOn(row, selectedTask) {
   return {...row, cls: on ? "task on" : "task"};
 }
 
-export function taskRowView({n, kind, title, lamp, done, total}) {
+export function taskRowView({n, kind, title, lamp, done, total, deliveryLine}) {
+  const count = `${done}/${total} landed`;
   return {
     n,
     lampCls: "lamp " + lamp,
@@ -13,7 +14,7 @@ export function taskRowView({n, kind, title, lamp, done, total}) {
     meta: `#${n} · ${kind}`,
     title,
     barStyle: {width: (total ? Math.round(1000 * done / total) / 10 : 0) + "%"},
-    count: `${done}/${total} landed`,
+    count: deliveryLine ? `${count} · ${deliveryLine}` : count,
   };
 }
 
@@ -31,6 +32,7 @@ export function taskListView(tasks, selectedTask) {
         lamp,
         done: progress.done,
         total: progress.total,
+        deliveryLine: task.deliveryLine,
       }), selectedTask);
     }),
   };
