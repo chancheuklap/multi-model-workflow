@@ -1,12 +1,12 @@
 # Dispatch reviewer
 
-You are the Coordinator on this Mac. You reach this after every ticket that will land has landed, and no Worker is running.
+You are the Coordinator. You reach this after every ticket that will land has landed, and no Worker is running.
 
 ## 1. Send
 
 Run `dispatch.sh spawn review` and hand each printed card to Task in this turn, as [Dispatch](../SKILL.md) describes. Wait for all of them.
 
-One command sends this night's cards: Standards, Spec, and Tests, each on a new cloud checkout of the night branch, and the second verifier on that same branch. Spec is omitted when the night has no spec. A card listed under `skipped` does not run. A command error is a limitation of this review, not a pass.
+One command sends this night's cards: Standards, Spec, and Tests, and the second verifier. Each runs in its own cloud VM, starting from the night branch's reviewed commit, and the card tells it to keep that temporary branch name and push nothing. Spec is omitted when the night has no spec. A card listed under `skipped` does not run. A command error is a limitation of this review, not a pass.
 
 Each printed card names what that reviewer uses: the diff, the pinned comparison, the reviewed commit, the spec or `Spec: none`, the landed tickets, any standards files, and, on the verifier card, the feature files. Pass the card through. The reviewer does not choose a different range.
 

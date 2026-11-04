@@ -183,6 +183,17 @@ def resolve_at(at: str | None) -> str:
     return 'HEAD'
 
 
+def adopt_branch(name: str) -> None:
+    current = git_text('rev-parse', '--abbrev-ref', 'HEAD')
+    if current == 'HEAD':
+        raise ValueError('this checkout is detached; open the night from a branch')
+    if current == name:
+        return
+    if ref_exists(f'refs/heads/{name}'):
+        raise ValueError(f'{name} is another branch in this checkout')
+    git_text('branch', '-m', current, name)
+
+
 def open_night(project: str, spec: str, ticket: str) -> dict:
     if bool(spec) == bool(ticket):
         raise ValueError('open takes exactly one of --spec and --ticket')
@@ -198,13 +209,20 @@ def open_night(project: str, spec: str, ticket: str) -> dict:
         if not ref_exists('origin/dev'):
             raise ValueError('origin/dev does not resolve')
         publish(project_branch, commit_of('origin/dev'))
-    if not ref_exists(f'origin/{night}'):
-        publish(night, commit_of(f'origin/{project_branch}'))
-    if ref_exists(f'refs/heads/{night}'):
-        git_text('checkout', night)
-        git_text('merge', '--ff-only', f'origin/{night}')
+    remote_night = f'origin/{night}'
+    if ref_exists(remote_night):
+        head, tip = commit_of('HEAD'), commit_of(remote_night)
+        if head != tip:
+            if not is_ancestor(head, tip):
+                raise ValueError(f'start from {night}; this checkout has commits that branch does not')
+            git_text('merge', '--ff-only', remote_night)
+        adopt_branch(night)
     else:
-        git_text('checkout', '-b', night, f'origin/{night}')
+        if commit_of('HEAD') != commit_of(f'origin/{project_branch}'):
+            raise ValueError(f'start from {project_branch} to open {night}')
+        adopt_branch(night)
+        publish(night, commit_of('HEAD'))
+    git_text('branch', '--set-upstream-to', remote_night)
     _project, fork = project_fork(night)
     return {'project_branch': project_branch, 'night_branch': night, 'fork': fork}
 
@@ -228,15 +246,14 @@ def aligned_tip(branch: str) -> str:
     raise ValueError(f'{branch} diverged from origin')
 
 
-def ensure_ticket_branch(ticket: str, tip: str) -> str:
+def ticket_start(ticket: str, night_branch: str) -> str:
     name = f'ticket/issue-{ticket}'
     git_text('check-ref-format', '--branch', name)
     remote = f'origin/{name}'
     fetched = subprocess.run(['git', 'fetch', 'origin', f'+refs/heads/{name}:refs/remotes/origin/{name}'], capture_output=True, text=True)
     if fetched.returncode == 0 and ref_exists(remote):
         return name
-    publish(name, tip)
-    return name
+    return night_branch
 
 
 def verify_skill_names(commit: str) -> list[str]:
@@ -283,8 +300,8 @@ def spawn_worker(host: str, ticket: str, *, api=None) -> dict:
     grade = worker_grade(ticket, api)
     if grade is None:
         return {'host': host, 'skipped': ['worker'], 'cards': []}
-    tip = aligned_tip(night['branch'])
-    worker_branch = ensure_ticket_branch(ticket, tip)
+    aligned_tip(night['branch'])
+    start = ticket_start(ticket, night['branch'])
     _project, fork = project_fork(night['branch'])
     chosen = row(grade, host, fork)
     prompt = '\n'.join([
@@ -296,10 +313,11 @@ def spawn_worker(host: str, ticket: str, *, api=None) -> dict:
         '',
         f'Ticket #{ticket}',
         f'Night branch: {night["branch"]}',
-        f'issue-N branch: {worker_branch}',
+        f'issue-N branch: ticket/issue-{ticket}',
+        f'Before the first push, rename the current branch to ticket/issue-{ticket}.',
     ])
     return {'host': host, 'skipped': [], 'cards': [task_card(
-        host, chosen, f'Implement ticket #{ticket}', prompt, environment='cloud', base=worker_branch)]}
+        host, chosen, f'Implement ticket #{ticket}', prompt, environment='cloud', base=start)]}
 
 
 def open_pr(api, branch: str) -> dict:
@@ -360,6 +378,7 @@ def axis_card(host: str, chosen: dict, role: str, night: str, fork: str, tip: st
         f'Call code-review and follow the {title} reference.',
         returns,
         '',
+        'This checkout is a temporary branch at the reviewed commit. Keep its name and push nothing.',
         f'Night branch: {night}',
         f'Pinned comparison: {fork}',
         f'Reviewed commit: {tip}',
@@ -410,6 +429,7 @@ def spawn_review(host: str, *, api=None) -> dict:
             'Assigned role: verifier.',
             'Follow the Verifier reference.',
             'Return pass or fail to the Coordinator.',
+            'This checkout is a temporary branch at the named commit. Keep its name and push nothing.',
             '',
             f'Night branch: {night["branch"]}',
             f'Commit: {tip}',

@@ -2,7 +2,7 @@
 
 You own the authorized spec or one ticket, from the owner's execution Go to its delivered result. A ticket handed back with its reason is a valid outcome. A weakened requirement is not.
 
-You run on this Mac. You manage GitHub Issues, Blocked by links, and merges. Each Worker is a cloud subagent for one ticket. It works on `ticket/issue-N`, opens a draft PR into the night branch, and writes what it did in that PR. You read the PR. When the ticket is finished you mark the PR ready and land it. Until then the PR stays draft. That PR is the record. Land reads it.
+You run in a Cursor cloud agent. Manage GitHub Issues, Blocked by links, and merges with gh from this VM. Each Worker is a cloud subagent for one ticket. It renames its branch to `ticket/issue-N`, opens a draft PR into the night branch, and writes what it did in that PR. You read the PR. When the ticket is finished you mark the PR ready and land it. Until then the PR stays draft. That PR is the record. Land reads it.
 
 Each decision stays on the child, ticket, spec, or PR the next reader will open.
 
@@ -22,9 +22,11 @@ dispatch.sh open --host HOST --project NAME --spec N
 
 For one ticket, pass `--ticket N` instead of `--spec N`. HOST is `cursor` on Cursor and `codex` on Codex.
 
-The command creates or reuses the project branch and the night branch, pushes them, and leaves this checkout on the night branch. Stay on it. The printed `fork` is the commit where the night branch was cut from the project branch.
+The command publishes `project/<name>` at `origin/dev` when that ref is missing. It renames the current branch to the night branch and publishes that branch. This checkout stays that branch. The printed `fork` is the commit where the night branch was cut from the project branch.
 
-Done when this checkout is the night branch and the scope is read.
+When the night branch already exists, start this agent from that branch. The command fast-forwards to it and renames the current branch. When it does not exist, start this agent from the project branch, or from `dev` when this command creates the project branch.
+
+Done when this branch is named the night branch, matches its remote, and the scope is read.
 
 ## 2. Dispatch
 
@@ -38,7 +40,7 @@ dispatch.sh status
 dispatch.sh spawn worker --ticket N
 ```
 
-The command creates or reuses `ticket/issue-N` from the night-branch tip and pushes it. If origin already has that branch, the command keeps it. You stay on the night branch. The printed card is the Worker. A ticket without exactly one worker grade prints no card; say so and leave that ticket.
+The Worker renames its own branch to `ticket/issue-N`. When origin already has that branch, the card starts from it. Otherwise the card starts from the night branch. This checkout stays the night branch. The printed card is the Worker. A ticket without exactly one worker grade prints no card; say so and leave that ticket.
 
 Hand each printed card over as [Dispatch](../SKILL.md) describes, and wait.
 
@@ -103,7 +105,7 @@ Done when the result is on the night branch, or the failure has a repair in prog
 
 Read the affected tickets, their decisions, and both diffs. Preserve landed behavior and this ticket's requirements. Record the resolution, its sources, the commit, and the check in the PR. Contradictory requirements use step 3.
 
-Use a separate checkout, so this night-branch checkout stays as it is. For a conflict the Worker handed you, that checkout is its pushed `ticket/issue-N` at the pre-merge HEAD it named. Merge the night-branch commit it named and resolve. For a land conflict, that checkout is `ticket/issue-N`. Merge the current night branch into it. Run `MMW_BASE_REF=origin/<night-branch> scripts/check`, commit, and push.
+Keep this checkout on the night branch. Add a worktree for the conflict. For a conflict the Worker handed you, that worktree is its pushed `ticket/issue-N` at the pre-merge HEAD it named. Merge the night-branch commit it named and resolve. For a land conflict, that worktree is `ticket/issue-N`. Merge the current night branch into it. Run `MMW_BASE_REF=origin/<night-branch> scripts/check`, commit, and push that ticket branch.
 
 Resume the Worker with the resolution and its SHA. For a land conflict, retry `dispatch.sh land PR`.
 
@@ -113,7 +115,7 @@ Done when the resolution is pushed and checked, and the Worker has continued or 
 
 Follow [Dispatch reviewer](dispatch-reviewer.md). That reference sends Standards, Spec, Tests, and the second verifier, checks their reports, and brings back one report. This review runs once. A request to review a PR does not start it again, and it does not change the night branch under review.
 
-A hard finding is a documented-standard breach, a spec finding, a test finding the check kept, or a failed second verifier. Repair each one on the night branch, or record why it was not repaired. Commit and push once. The Worker is not called back. Do not send the axes or the verifier again.
+A hard finding is a documented-standard breach, a spec finding, a test finding the check kept, or a failed second verifier. Repair each one on this night branch, or record why it was not repaired. Commit and push this branch once. The Worker is not called back. Do not send the axes or the verifier again.
 
 A judgement call is not a code change. Carry each one forward: the finding, your judgment, and your recommendation.
 
@@ -135,8 +137,8 @@ Call the Skill tool with "pr" for the delivery PR body. Include the verification
 gh pr create --base <project-branch> --head <night-branch> --title TITLE --body-file FILE
 ```
 
-After that PR exists, report each judgement call in the conversation with the owner: the finding, your judgment, and your recommendation. Then call the Skill tool with "retro". Its commits land on the night branch, which this PR already tracks.
+After that PR exists, report each judgement call in the conversation with the owner: the finding, your judgment, and your recommendation. Then call the Skill tool with "retro". Its commits land on this night branch. Push this branch. The delivery PR already tracks it.
 
-After the owner accepts and authorizes this delivery, merge that PR and confirm the project branch contains it. Acceptance leaves unfinished tickets unfinished. Merging the project branch into `dev` for testing, and `dev` into `main` for deployment, are separately authorized.
+After the owner accepts and authorizes this delivery, merge that PR with `gh pr merge --merge` and confirm the project branch contains it. This checkout stays the night branch. Acceptance leaves unfinished tickets unfinished. Merging the project branch into `dev` for testing, and `dev` into `main` for deployment, are separately authorized and use gh. This checkout stays the night branch.
 
 Done when the owner has the delivered result and its real limits.
