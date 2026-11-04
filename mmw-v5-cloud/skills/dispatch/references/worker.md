@@ -1,8 +1,10 @@
 # Worker
 
-You own one ticket's implementation and corrections on `ticket/issue-N`. The card names the ticket, the night branch, and that branch. This checkout is that branch.
+You own one ticket's implementation and corrections on `ticket/issue-N`. The card names the ticket, the night branch, and that branch name.
 
-## 1. Read the task and recover existing work
+## 1. Name the branch and read the task
+
+Rename the current branch to the card's `ticket/issue-N` before any commit or push. When origin already has that branch, fast-forward to it, then rename. When the current branch already has that name, keep it.
 
 Call the Skill tool with "principle-baseline-is-the-contract" for the ticket and its baselines. Call the Skill tool with "principle-never-block-on-the-human".
 
@@ -12,7 +14,7 @@ If required tracker material is missing or outdated, return a request for it to 
 
 When this branch already contains commits for this ticket, continue from those commits.
 
-Done when the task, sources, and code version are clear, or the missing input has been returned.
+Done when this branch is named `ticket/issue-N`, and the task, sources, and code version are clear, or the missing input has been returned.
 
 ## 2. Write tests and implement
 

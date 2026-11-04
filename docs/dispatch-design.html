@@ -145,33 +145,32 @@
 
   <h2 id="rooms">三个地方</h2>
   <div class="rooms">
-    <article class="room local">
-      <div class="kicker">这台 Mac</div>
-      <h3>建分支，推送，派发</h3>
+    <article class="room cloud">
+      <div class="kicker">云端 · Coordinator 这场</div>
+      <h3>夜班分支</h3>
       <div class="who"><span>Coordinator</span><span>researcher</span></div>
-      <p>建 project branch 和 night branch，推上去。派 Worker 时再从 night branch 建出 ticket/issue-N，推上去。</p>
+      <p>第一次推送前，把自己的临时分支改名为 night branch。project branch 只是从 dev 推上去的一个名字。派 Worker 时不另建 ticket 分支。</p>
     </article>
     <article class="room cloud">
       <div class="kicker">云端 · 同一份检出</div>
       <h3>Worker 的 issue-N branch</h3>
       <div class="who"><span>Worker</span><span>first verifier</span></div>
-      <p>云端从这条已推送的分支打开，用 gh 读这张 issue。first verifier 是同一个分支上的 subagent，跑 verify-&lt;app&gt;。</p>
+      <p>云端从夜班尖端，或已有的 ticket 分支打开。Worker 把当前分支改名为 ticket/issue-N，再推送。first verifier 是同一个分支上的 subagent，跑 verify-&lt;app&gt;。</p>
     </article>
     <article class="room cloud">
       <div class="kicker">云端 · 各自新开一份</div>
-      <h3>night branch</h3>
+      <h3>读夜班提交</h3>
       <div class="who"><span>Standards</span><span>Spec</span><span>Tests</span><span>second verifier</span></div>
-      <p>从已推送的 night branch 打开。用 gh 读 spec 和 ticket。比的是这条分支和它起点之间的 diff。</p>
+      <p>各自从夜班提交打开一条临时分支。用 gh 读 spec 和 ticket。比的是这个提交和它起点之间的 diff。不改名，不推送。</p>
     </article>
   </div>
   <div class="legend">
-    <span><i class="sw local"></i>这台 Mac</span>
     <span><i class="sw cloud"></i>云端检出</span>
     <span><i class="sw stamp"></i>卡上的固定句，每张 night 卡都一样</span>
     <span><i class="sw script"></i>命令写进卡的正文</span>
     <span><i class="sw typed"></i>发送者要打的</span>
   </div>
-  <p class="note">这台 Mac 上的 gh 读得到 issue。你的云端 worker 连的就是这台 Mac，用的是你的登录。分支名里的号就是那张 issue：ticket/issue-18 读 18，night/spec-76 读 76。</p>
+  <p class="note">Coordinator 和 Worker 都在云端，用 gh 读 issue。分支名里的号就是那张 issue：ticket/issue-18 读 18，night/spec-76 读 76。</p>
 
   <h2 id="order">整场顺序</h2>
   <p class="note">例子用 spec 76、ticket 18。N 是 issue 号。project 名是 owner 授权的那个名字。</p>
@@ -179,24 +178,24 @@
     <li>
       <span class="n">1</span>
       <div>
-        <strong>open</strong> · Coordinator · 这台 Mac
-        <p>发送者打 host、project 名，以及 spec 号或这一张 ticket 的号，两样里打一样。命令建立或沿用 <span class="mono">project/&lt;project name&gt;</span>，从 dev branch 切出。night branch 是 <span class="mono">night/spec-76</span> 或 <span class="mono">night/ticket-N</span>，从 project branch 的尖端切出。origin 上已有的就沿用。推送，停在 night branch 上。</p>
+        <strong>open</strong> · Coordinator · 云端
+        <p>发送者打 host、project 名，以及 spec 号或这一张 ticket 的号，两样里打一样。夜班已存在，这场从那条 night branch 开始；还没有，就从 project branch 开始，project branch 也没有就从 dev 开始。命令把 project branch 按 dev 的提交推上去（缺了才推）。然后把当前分支改名为 <span class="mono">night/spec-76</span> 或 <span class="mono">night/ticket-N</span>，推上去。</p>
         <p>起点就是这两条分支的 merge-base。pinned comparison 和 RUNTIME_COMMIT 都是这一个提交。命令现算，不另存。</p>
       </div>
     </li>
     <li>
       <span class="n">2</span>
       <div>
-        <strong>spawn worker --ticket 18</strong> · Coordinator · 这台 Mac
+        <strong>spawn worker --ticket 18</strong> · Coordinator · 夜班分支
         <p>eligible 的 ticket 一起派。命令不自己挑。它读标签，正好是 <span class="mono">junior-worker</span> 或 <span class="mono">senior-worker</span> 才印卡。模型用那一行。</p>
-        <p>命令从当前 night branch 的尖端建出 <span class="mono">ticket/issue-18</span>，推上去。origin 上已有这条分支就留着，不重置。Coordinator 留在 night branch。云端从 <span class="mono">ticket/issue-18</span> 打开。</p>
+        <p>命令不建 <span class="mono">ticket/issue-18</span>。origin 上已有这条分支，卡就从它打开；还没有，卡从 night branch 打开。Coordinator 留在 night branch。Worker 自己把分支改名为 <span class="mono">ticket/issue-18</span>。</p>
       </div>
     </li>
     <li>
       <span class="n">3</span>
       <div>
-        <strong>Worker 实现</strong> · 云端 · <span class="mono">ticket/issue-18</span>
-        <p>步骤在 Worker reference 里，不在卡上。票上写了 feature file 的路径和要原样出现的那一句，Worker 才在 verify 技能里写 drive script，跑到通过，和那一页一起提交。票上没写，就不写。然后推送，开 PR：head 是 <span class="mono">ticket/issue-18</span>，base 是 night branch，保持 draft。这张 PR 就是这张 ticket 的记录。</p>
+        <strong>Worker 实现</strong> · 云端 · 改名为 <span class="mono">ticket/issue-18</span>
+        <p>步骤在 Worker reference 里，不在卡上。第一次推送前把当前分支改名为 <span class="mono">ticket/issue-18</span>。票上写了 feature file 的路径和要原样出现的那一句，Worker 才在 verify 技能里写 drive script，跑到通过，和那一页一起提交。票上没写，就不写。然后推送，开 PR：head 是 <span class="mono">ticket/issue-18</span>，base 是 night branch，保持 draft。这张 PR 就是这张 ticket 的记录。</p>
       </div>
     </li>
     <li>
@@ -215,7 +214,7 @@
     <li>
       <span class="n">5</span>
       <div>
-        <strong>land</strong> · Coordinator · 这台 Mac · 没有卡
+        <strong>land</strong> · Coordinator · 夜班分支 · 没有卡
         <p>Worker 是 Coordinator 的 cloud subagent。这一轮结束，Coordinator 读这张 PR。land 只打 PR 号，要合进去的提交就是 PR 现在的 head。派过 verifier 的，PR 里通过的那个提交必须就是这个 head。没做完的留着 draft。</p>
         <div class="outs">
           <p><strong>scripts/check 不过。</strong> 命令带上检查的输出。resume 原来的 Worker。它修好、推送，再派一张新的 verifier。通过的提交成为 PR head 之后，再 land。</p>
@@ -227,15 +226,15 @@
     <li>
       <span class="n">6</span>
       <div>
-        <strong>spawn review</strong> · Coordinator · 这台 Mac · 不用打参数
-        <p>每一张会 land 的 ticket 都 land 了，而且没有 Worker 还在跑，才到这里。没做完的留下，不挡住这场审查。三个轴和 second verifier 从已推送的 night branch 打开，自己用 gh 读 issue。命令只把起点和当前尖端两个 SHA 写上卡。核对和汇总回到这台 Mac。</p>
+        <strong>spawn review</strong> · Coordinator · 夜班分支 · 不用打参数
+        <p>每一张会 land 的 ticket 都 land 了，而且没有 Worker 还在跑，才到这里。没做完的留下，不挡住这场审查。三个轴和 second verifier 各自从夜班提交打开一条临时分支，自己用 gh 读 issue，不改名，不推送。命令把起点和当前尖端两个 SHA 写上卡。核对和汇总由 Coordinator 做。</p>
       </div>
     </li>
     <li>
       <span class="n">7</span>
       <div>
-        <strong>改 night branch，然后交付</strong> · Coordinator · 这台 Mac · 没有卡
-        <p>硬问题，包括 second verifier 的失败，改在 night branch 上，提交并推送。这一改结束这场 night 的审查。judgement call 不改代码：Coordinator 写下判断和建议，放进 delivery PR，再在对话里汇报。delivery PR 是 night branch 到 project branch。retro 在这张 PR 出现之后。并回 dev branch 做测试、再并回 main branch 做部署，仍是另一次授权。</p>
+        <strong>改 night branch，然后交付</strong> · Coordinator · 夜班分支 · 没有卡
+        <p>硬问题，包括 second verifier 的失败，改在这条 night branch 上，提交并推送。这一改结束这场 night 的审查。judgement call 不改代码：Coordinator 写下判断和建议，放进 delivery PR，再在对话里汇报。delivery PR 是 night branch 到 project branch。retro 在这张 PR 出现之后，提交仍在这条 night branch 上。并回 dev branch 做测试、再并回 main branch 做部署，仍是另一次授权，用 gh，不把这场检出切过去。</p>
       </div>
     </li>
   </ol>
@@ -318,7 +317,7 @@
   <ol class="track">
     <li><span class="n">1</span><div>跑 <span class="mono">spawn review</span>。命令快进 night branch，算出它和 project branch 的 merge-base，把起点、尖端、spec 号、已 land 的 ticket 号写上卡。</div></li>
     <li><span class="n">2</span><div>同一个回合把 Standards、Spec、Tests、second verifier 的卡交给 Task。等它们回来。</div></li>
-    <li><span class="n">3</span><div>在这台 Mac 上核对每条发现。对不上的删掉并写下原因。</div></li>
+    <li><span class="n">3</span><div>Coordinator 核对每条发现。对不上的删掉并写下原因。</div></li>
     <li><span class="n">4</span><div>按 Standards、Spec、Tests 分栏汇总。不合成一个高低。然后回到 coordinator.md。</div></li>
   </ol>
   <p class="filecap">coordinator.md 的 Review the night branch 说明这场审查是什么、改在哪里。派卡的命令在 dispatch-reviewer.md。</p>
@@ -336,7 +335,7 @@ A judgement call is not a code change. Carry forward the finding, your judgment,
     <div class="face">
       <div class="kicker">Coordinator → Worker</div>
       <h3>Worker</h3>
-      <p>云端从刚推送的 <span class="mono">ticket/issue-18</span> 打开。模型行是 ticket 上的 worker grade。<span class="mono">environment cloud</span>。前台。</p>
+      <p>origin 已有 <span class="mono">ticket/issue-18</span> 就从它打开，否则从 night branch 打开。模型行是 ticket 上的 worker grade。<span class="mono">environment cloud</span>。前台。</p>
     </div>
     <div class="slip">
       <div class="band stamp"><span class="tag">固定</span><pre>Load the installed dispatch skill.
@@ -346,7 +345,8 @@ When the verifier fails, fix the ticket and send a new verifier card.
 When the passing commit is the PR head, write the result in the PR.</pre></div>
       <div class="band script"><span class="tag">命令写入</span><pre>Ticket #18
 Night branch: night/spec-76
-issue-N branch: ticket/issue-18</pre></div>
+issue-N branch: ticket/issue-18
+Before the first push, rename the current branch to ticket/issue-18.</pre></div>
       <div class="band typed"><span class="tag">发送者打的命令</span><pre>dispatch.sh spawn worker --ticket 18</pre></div>
     </div>
   </article>
@@ -375,14 +375,15 @@ Features:
     <div class="face">
       <div class="kicker">Coordinator → 三个轴</div>
       <h3>Standards、Spec、Tests</h3>
-      <p>各一张卡，同一个回合，各开一份 night branch。模型行 <span class="mono">review-axis</span>。<span class="mono">environment cloud</span>。Spec 的夜才有 Spec 这张卡。它们用 gh 读卡上的那些号。</p>
+      <p>各一张卡，同一个回合。各从夜班提交打开一条临时分支，不改名，不推送。模型行 <span class="mono">review-axis</span>。<span class="mono">environment cloud</span>。Spec 的夜才有 Spec 这张卡。它们用 gh 读卡上的那些号。</p>
     </div>
     <div class="slip">
       <div class="band stamp"><span class="tag">固定 · 以 Standards 为例</span><pre>Load the installed dispatch skill.
 Assigned role: standards.
 Call code-review and follow the Standards reference.
 Return the Standards report to the Coordinator.</pre></div>
-      <div class="band script"><span class="tag">命令写入</span><pre>Night branch: night/spec-76
+      <div class="band script"><span class="tag">命令写入</span><pre>This checkout is a temporary branch at the reviewed commit. Keep its name and push nothing.
+Night branch: night/spec-76
 Pinned comparison: &lt;和 project branch 的 merge-base&gt;
 Reviewed commit: &lt;night branch 的尖端&gt;
 Diff: git diff &lt;pinned&gt; &lt;reviewed&gt;
@@ -403,7 +404,8 @@ Landed tickets: #18</pre></div>
       <div class="band stamp"><span class="tag">固定</span><pre>Load the installed dispatch skill.
 Assigned role: verifier.
 Follow the Verifier reference.
-Return pass or fail to the Coordinator.</pre></div>
+Return pass or fail to the Coordinator.
+This checkout is a temporary branch at the named commit. Keep its name and push nothing.</pre></div>
       <div class="band script"><span class="tag">命令写入</span><pre>Night branch: night/spec-76
 Commit: &lt;night branch 的尖端&gt;
 Features:
@@ -416,7 +418,7 @@ Features:
     <div class="face">
       <div class="kicker">night 之外</div>
       <h3>researcher</h3>
-      <p>留在这台 Mac。模型行 <span class="mono">researcher</span>。不写 <span class="mono">environment</span>。后台跑。它做完研究，不再派下一个。</p>
+      <p>跟 Coordinator 留在这场，不另开云端。模型行 <span class="mono">researcher</span>。不写 <span class="mono">environment</span>。后台跑。它做完研究，不再派下一个。</p>
     </div>
     <div class="slip">
       <div class="band stamp"><span class="tag">固定</span><pre>Load the research skill.
@@ -439,15 +441,15 @@ Do not start another agent.</pre></div>
       <tbody>
         <tr>
           <td class="mono">open</td>
-          <td>Coordinator，这台 Mac</td>
+          <td>Coordinator，云端</td>
           <td class="mono">--host --project，外加 --spec 或 --ticket</td>
-          <td>从 dev branch 建或沿用 project branch，从它的尖端建或沿用 night branch，推送。</td>
+          <td>缺了才从 dev 推出 project branch。把当前分支改名为 night branch 并推送。夜班已在 origin 上就先快进到它。</td>
         </tr>
         <tr>
           <td class="mono">spawn worker --ticket N</td>
-          <td>Coordinator，这台 Mac，当前分支是 night branch</td>
+          <td>Coordinator，当前分支是 night branch</td>
           <td>ticket 号</td>
-          <td>当前 night branch、ticket 的 worker grade、gh 上这张 issue 的号。建好 <span class="mono">ticket/issue-N</span> 并推送，印一张卡。</td>
+          <td>当前 night branch、ticket 的 worker grade、gh 上这张 issue 的号。origin 已有 <span class="mono">ticket/issue-N</span> 就从它发卡，否则从 night branch 发卡。</td>
         </tr>
         <tr>
           <td class="mono">spawn verifier</td>
@@ -457,13 +459,13 @@ Do not start another agent.</pre></div>
         </tr>
         <tr>
           <td class="mono">spawn review</td>
-          <td>Coordinator，这台 Mac</td>
+          <td>Coordinator，夜班分支</td>
           <td>没有</td>
           <td>当前 night branch、它和 project branch 的 merge-base、status 里已 land 的 ticket 号。印出最多四张卡。</td>
         </tr>
         <tr>
           <td class="mono">spawn researcher --question FILE</td>
-          <td>这台 Mac，night 之外也可以</td>
+          <td>Coordinator 这场，不另开云端</td>
           <td class="mono">--question，以及 --host</td>
           <td>问题文件的正文。模型读 researcher 那一行。印一张后台卡。</td>
         </tr>
@@ -475,13 +477,13 @@ Do not start another agent.</pre></div>
         </tr>
         <tr>
           <td class="mono">status</td>
-          <td>Coordinator，这台 Mac</td>
+          <td>Coordinator，夜班分支</td>
           <td>没有</td>
           <td>当前分支名里的 spec 号或 ticket 号。已 land 的判定和现在一样。</td>
         </tr>
         <tr>
           <td class="mono">land PR</td>
-          <td>Coordinator，这台 Mac</td>
+          <td>Coordinator，夜班分支</td>
           <td>PR 号</td>
           <td>这张 PR 的 head，和当前 night branch。PR 必须指向这个仓库和这条分支。</td>
         </tr>

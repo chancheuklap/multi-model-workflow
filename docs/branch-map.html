@@ -94,7 +94,7 @@
   <header>
     <div>
       <h1>分支各归各位</h1>
-      <p class="lede">合进去朝上。Worker 和第一个 verifier 站在 <span class="mono">ticket/issue-N</span>。Coordinator、Standards、Spec、Tests 和第二个 verifier 站在 <span class="mono">night/spec-N</span> 或 <span class="mono">night/ticket-N</span>。<span class="mono">project/&lt;project name&gt;</span> 从 <span class="mono">dev</span> 切开。整个 project 做完，合进 <span class="mono">dev</span> 测试，再合进 <span class="mono">main</span> 部署。N 是 issue 编号。</p>
+      <p class="lede">合进去朝上。Coordinator 把自己的云端分支改名为 <span class="mono">night/spec-N</span> 或 <span class="mono">night/ticket-N</span>。Worker 把自己的云端分支改名为 <span class="mono">ticket/issue-N</span>，第一个 verifier 跟在那场。Standards、Spec、Tests 和第二个 verifier 读夜班提交，不推送。<span class="mono">project/&lt;project name&gt;</span> 从 <span class="mono">dev</span> 切开。整个 project 做完，合进 <span class="mono">dev</span> 测试，再合进 <span class="mono">main</span> 部署。N 是 issue 编号。</p>
     </div>
     <button class="theme" type="button" id="theme">切换明暗</button>
   </header>
@@ -159,10 +159,6 @@
             <b>night/spec-76</b>
             <div class="who">
               <span class="okchip">Coordinator</span>
-              <span class="okchip">Standards</span>
-              <span class="okchip">Spec</span>
-              <span class="okchip">Tests</span>
-              <span class="okchip">第二个 verifier</span>
             </div>
           </div>
           <p class="flow">Worker 的 PR，合进 night/spec-76</p>
@@ -185,10 +181,6 @@
             <b>night/spec-80</b>
             <div class="who">
               <span class="okchip">Coordinator</span>
-              <span class="okchip">Standards</span>
-              <span class="okchip">Spec</span>
-              <span class="okchip">Tests</span>
-              <span class="okchip">第二个 verifier</span>
             </div>
           </div>
           <p class="flow">Worker 的 PR，合进 night/spec-80</p>
@@ -204,7 +196,7 @@
       <div class="legend">
         <div><i class="sw track"></i>main、dev、project branch、night branch。合进去朝上。</div>
         <div><i class="sw brass"></i>issue-N branch。一个 Worker 一条，卡从这里开。第一个 verifier 跟 Worker 留在这条，不开新分支。</div>
-        <div>Standards、Spec、Tests 跟 Coordinator 留在这场 night branch，不开新分支。第二个 verifier 也在这条上：票已经 land 上来。</div>
+        <div>Standards、Spec、Tests 和第二个 verifier 读这场 night branch 的提交。它们各用一条临时分支，不改名，不推送。</div>
         <div>只有一张票的 night，night branch 写成 <span class="mono">night/ticket-N</span>。Worker 仍在 <span class="mono">ticket/issue-N</span>。</div>
       </div>
     </section>
@@ -223,7 +215,7 @@
       <tr>
         <td>night branch</td>
         <td>记号 <span class="mono">NIGHT</span>。两场会抢同一个名字。</td>
-        <td><span class="mono">night/spec-N</span> 或 <span class="mono">night/ticket-N</span>。N 是这场 spec 或这张票的 issue 编号。Coordinator、Standards、Spec、Tests、第二个 verifier 在这条上。</td>
+        <td><span class="mono">night/spec-N</span> 或 <span class="mono">night/ticket-N</span>。N 是这场 spec 或这张票的 issue 编号。Coordinator 把云端分支改成这个名字。Standards、Spec、Tests、第二个 verifier 读这个提交。</td>
       </tr>
       <tr>
         <td>project branch</td>
@@ -233,7 +225,7 @@
       <tr>
         <td>issue-N branch</td>
         <td>写在 prompt 里，例如 <span class="mono">issue-18</span>。卡从 <span class="mono">NIGHT</span> 开。</td>
-        <td><span class="mono">ticket/issue-N</span>。Worker 和第一个 verifier 在这条上。卡从这里开。</td>
+        <td><span class="mono">ticket/issue-N</span>。Worker 把云端分支改成这个名字。第一个 verifier 跟在这场。origin 已有这条分支，卡从这里开；还没有，卡从 night branch 开。</td>
       </tr>
       <tr>
         <td>dev branch</td>
