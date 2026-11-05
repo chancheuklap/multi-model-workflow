@@ -49,7 +49,7 @@ When the layout is still unsettled, create two or three meaningfully different d
 - overview versus step-by-step flow;
 - desktop-to-mobile reflow.
 
-Do not call color changes or minor card rearrangements separate directions. Give each direction a short descriptive name and one sentence about its tradeoff.
+Do not call color changes or minor card rearrangements separate directions. Give each direction a descriptive name and explain its tradeoff.
 
 Keep the directions in one HTML file when practical. Use a small, keyboard-operable selector so reviewers can compare them without opening several files. Preserve the same core content and task across directions. If the user has already chosen a structure, build that direction only.
 

@@ -26,7 +26,7 @@ Write the checked reports under `## Standards`, `## Spec`, and `## Tests`. Keep 
 
 End with the count of supported findings in each axis.
 
-Then one line, separate from the three axes: `Verifier: pass`, `Verifier: fail`, `Verifier: skipped`, or `Verifier: unavailable`. When a verifier ran, include the commands and results. A judgement call stays under its axis with that label. It is not a hard finding.
+Then state the verifier result separately from the three axes: `Verifier: pass`, `Verifier: fail`, `Verifier: skipped`, or `Verifier: unavailable`. When a verifier ran, include the commands and results. A judgement call stays under its axis with that label. It is not a hard finding.
 
 Return this report to the Coordinator reference. Hard findings are repaired there. Judgement calls are carried to the delivery PR.
 

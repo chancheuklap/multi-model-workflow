@@ -64,6 +64,6 @@ When the change removes a source grep or a plan assertion, the remaining proof i
 
 ## Report
 
-Report each finding with the test location, the evidence, and the proposed correction. Keep the findings summary under 400 words. Attach reproduction setup, commands, actual output, and required output separately. State unverified limits.
+Report each finding with the test location, the evidence, and the proposed correction. Attach reproduction setup, commands, actual output, and required output separately. State unverified limits.
 
 Return the report, reproduction scripts, and their output to the session that assigned you.

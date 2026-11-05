@@ -25,7 +25,7 @@ Only edit the verification skill's own directory (its SKILL.md, features/, and a
 
 1. **Index hygiene.** Read the feature map README and glob its sibling files. Fix missing, extra, duplicate, or dead entries. Lightweight; no generated inventory.
 
-2. **Source wave.** Prepare one assignment for a fresh read-only subagent per feature file. Each explains "how does this user-facing feature work?" from source, flags likely doc drift with citations, and returns one concise live-verification recipe. Children never drive the app and never edit files. Return shape: feature summary / source entry points / likely drift or none / one recipe. Save each prompt to FILE, run `dispatch.sh spawn researcher --prompt FILE`, and send the printed assignments concurrently as [Dispatch](../dispatch/SKILL.md) describes.
+2. **Source wave.** Prepare one assignment for a fresh read-only subagent per feature file. Each explains "how does this user-facing feature work?" from source, flags likely doc drift with citations, and returns one live-verification recipe. Children never drive the app and never edit files. Return shape: feature summary / source entry points / likely drift or none / one recipe. Save each prompt to FILE, run `dispatch.sh spawn researcher --prompt FILE`, and send the printed assignments concurrently as [Dispatch](../dispatch/SKILL.md) describes.
 
 3. **Reconcile.** Every feature file has a returned summary. Merge overlapping recipes into as few app states as practical. Spot-check cited drift; don't re-prove clean claims. Sweep recent churn for user-facing surfaces missing from the map — require a concrete source path before calling one missing.
 
@@ -35,4 +35,4 @@ Only edit the verification skill's own directory (its SKILL.md, features/, and a
 
 6. **Ship or stop.** For changed: one PR of proven corrections, re-read every changed file first. For clean or blocked: no PR, report the outcome and the coverage honestly.
 
-Keep concise run notes (features covered, unreachable prerequisites, confirmed drift, outcome) in a scratch location; don't commit them.
+Keep run notes (features covered, unreachable prerequisites, confirmed drift, outcome) in a scratch location; don't commit them.

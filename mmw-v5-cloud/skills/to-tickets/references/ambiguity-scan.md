@@ -59,22 +59,21 @@ Misc / Placeholders:
 
 ## Questions
 
-Generate a prioritized queue of candidate questions. Maximum of 5 questions. Apply these constraints:
+Generate a prioritized queue of candidate questions. Apply these constraints:
 
 - Only include questions whose answers change what a ticket delivers or what its criteria check.
 - Exclude questions already answered, trivial stylistic preferences, or plan-level execution details (unless blocking correctness).
 - Prefer questions that reduce downstream rework risk or prevent misaligned acceptance tests.
-- If more than 5 categories remain unresolved, select the top 5 by Impact × Uncertainty.
 
 Each question carries:
 
 - One full interrogative that ends with `?`. The question text before the `?` must make sense on its own. Never use a topic label, section heading, or requirement id as the question itself.
 - Use everyday wording; introduce jargon only if defined in the same sentence. A reader who has not read this file must be able to answer from the Question line alone.
-- One plain-language "Why it matters" sentence (the stake for what a ticket delivers or what its criteria check).
+- A plain-language "Why it matters" explanation (the stake for what a ticket delivers or what its criteria check).
 - The source sentence it cites, quoted.
 - The drafts it touches, each by its file name.
-- 2–5 distinct, mutually exclusive options.
-- `Recommended: Option X, because <1–2 sentences of reasoning>`, chosen from best practices for the project type, common patterns in similar implementations, risk reduction, and alignment with explicit project goals or constraints visible in the source. Present the recommendation first.
+- Distinct, mutually exclusive options.
+- `Recommended: Option X, because <reasoning>`, chosen from best practices for the project type, common patterns in similar implementations, risk reduction, and alignment with explicit project goals or constraints visible in the source. Present the recommendation first.
 
 Present every question in this pass. This is not a sequential loop.
 

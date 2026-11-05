@@ -19,11 +19,11 @@ Test only at seams the task already names. No test is written at a seam the task
 
 When the task names no seam, report that gap to the caller before any test exists.
 
-For each seam the task names, state one line on what a test there catches and what it misses.
+For each seam the task names, state what a test there catches and what it misses.
 
 When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), use **codebase-dic** for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run. The task's named seam stays.
 
-Done when every test you will add sits on a seam the task names, and each of those seams has its one-line note.
+Done when every test you will add sits on a seam the task names, and each of those seams has its note.
 
 | The task | Follow |
 | --- | --- |

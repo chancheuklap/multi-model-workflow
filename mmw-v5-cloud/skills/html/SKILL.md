@@ -78,4 +78,4 @@ Write the file to the requested location, or choose a clear filename in the curr
 
 Before delivery, run one originality check: if the subject were swapped for a neighboring topic, would the same visual concept still make just as much sense? If yes, the direction is too generic; revise the composition, type, color, imagery, or interaction so it belongs to this subject.
 
-Show the HTML to the user and link the file. Include a short description of the artifact's visual and interaction choices.
+Show the HTML to the user and link the file. Include a description of the artifact's visual and interaction choices.

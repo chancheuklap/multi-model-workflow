@@ -25,7 +25,7 @@ When debugging, fix the fault, not the place where it surfaced. The symptom is w
 
 When two or more fixes that share one premise have failed the same gate, suspect the premise. Each failed fix is evidence against the belief it assumed.
 
-- Write the premise down as the one sentence every failed fix assumed.
+- Write down the premise every failed fix assumed.
 - Before the next fix, make an observation that would differ if the premise were false. Look at how failures are distributed, not only at their size. Make the check rerunnable and use **principle-build-the-lever**.
 - If the evidence contradicts the premise, look for what the failures share that it did not predict. If it confirms the premise, ask the next "why". The earlier fixes may have treated a consequence.
 - Remove the enabling condition rather than compensating for it, and use **principle-subtract-before-you-add**. A cleanup mechanism leaves the cause in place and adds work on every run.

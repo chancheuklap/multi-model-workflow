@@ -51,6 +51,6 @@ Stop when the predicate is met, or when the remaining ideas are marginal and not
 
 ## 8. Report
 
-The PR record carries the metric and target, baseline to final with the percent delta, iterations run (kept vs reverted), each accepted fix on one line, the `decision.tsv` path, and the best idea you would try next if pushed further.
+The PR record carries the metric and target, baseline to final with the percent delta, iterations run (kept vs reverted), each accepted fix, the `decision.tsv` path, and the best idea you would try next if pushed further.
 
 Done when the predicate is met or the stuck state is on the report, every attempt is a row, and each accepted win is its own commit on this ticket.

@@ -51,10 +51,10 @@ When working from approved wording, decisions, or designs, use **principle-basel
 
 ## Process
 
-Code comes second. First, rough out a short design plan — a tight token system spanning color, type, and layout:
+Code comes second. First, rough out a design plan — a tight token system spanning color, type, and layout:
 - **Color**: 4–6 hex values, each with a name.
 - **Type**: faces covering 2+ roles — a display face with character, deployed with restraint; a body face that partners it; a utility face for captions or data if the work needs one.
-- **Layout**: the organizing idea, captured in a sentence or two.
+- **Layout**: the organizing idea.
 
 Build only after that, executing the plan and tracing every color and type decision back to it.
 

@@ -7,9 +7,9 @@ Create the `docs/adr/` directory lazily: only when the first ADR is needed.
 ## Template
 
 ```md
-# {Short title of the decision}
+# {Title of the decision}
 
-{1-3 sentences: what's the context, what did we decide, and why.}
+{What's the context, what did we decide, and why.}
 ```
 
 That's it. An ADR can be a single paragraph. The value is in recording *that* a decision was made and *why*, not in filling out sections.

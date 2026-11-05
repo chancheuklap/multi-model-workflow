@@ -16,11 +16,11 @@ Choose a register that fits:
 
 Do not confuse restraint with neglect or expression with a theatrical hero. Finish the chosen register properly.
 
-## Make a short design plan
+## Make a design plan
 
 Before writing CSS, decide:
 
-- The visual premise in one sentence.
+- The visual premise.
 - The hierarchy and organizing layout.
 - The color roles and why they belong to the subject.
 - The type roles and the voice each contributes.

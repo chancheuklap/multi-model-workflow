@@ -38,7 +38,7 @@ Use **principle-separate-before-serializing-shared-state** before settling the b
 
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
-For each ticket an agent works, propose `junior-worker` or `senior-worker` and a one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose supplied test seam already names a precedent to copy stays on `junior-worker`.
+For each ticket an agent works, propose `junior-worker` or `senior-worker` and a reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose supplied test seam already names a precedent to copy stays on `junior-worker`.
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
@@ -52,10 +52,10 @@ Bring the scan's questions into the quiz below, alongside the affected tickets, 
 
 Present the proposed breakdown as a numbered list. For each ticket, show:
 
-- **Title**: short descriptive name
+- **Title**: descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Worker**: the proposed `junior-worker` or `senior-worker` label and its one-line reason; for work only a person can do, state `ready-for-human` instead.
+- **Worker**: the proposed `junior-worker` or `senior-worker` label and its reason; for work only a person can do, state `ready-for-human` instead.
 
 Ask the user:
 
