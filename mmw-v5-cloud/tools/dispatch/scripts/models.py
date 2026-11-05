@@ -15,15 +15,12 @@ HOST = None
 WORKER_GRADES = ('junior-worker', 'senior-worker')
 
 
-def installation() -> Path:
-    path = Path(__file__).resolve().parents[3]
-    if path.name != '.agents':
-        raise ValueError('cloud runtime needs a project .agents installation')
-    return path
+def project_agents() -> Path:
+    return Path(git_text('rev-parse', '--show-toplevel')).resolve() / '.agents'
 
 
 def config_path() -> Path:
-    return installation() / 'models.json'
+    return project_agents() / 'models.json'
 
 
 def validate(value: dict) -> dict:
@@ -232,7 +229,7 @@ def verify_skill_names(commit: str) -> list[str]:
     listing = git_text('ls-tree', '-r', '--name-only', commit)
     names = []
     for line in listing.splitlines():
-        match = re.fullmatch(re.escape(installation().name) + r'/skills/(verify-[^/]+)/SKILL\.md', line)
+        match = re.fullmatch(re.escape(project_agents().name) + r'/skills/(verify-[^/]+)/SKILL\.md', line)
         if match:
             names.append(match.group(1))
     return names
@@ -241,7 +238,7 @@ def verify_skill_names(commit: str) -> list[str]:
 def named_feature_paths(bodies: list[str], commit: str) -> list[str]:
     found = []
     for body in bodies:
-        for match in re.findall(re.escape(installation().name) + r'/skills/verify-[^\s]+/features/[^\s]+', body):
+        for match in re.findall(re.escape(project_agents().name) + r'/skills/verify-[^\s]+/features/[^\s]+', body):
             path = match.rstrip(').,;`\'"')
             if path not in found and exists_at(commit, path):
                 found.append(path)
@@ -249,10 +246,10 @@ def named_feature_paths(bodies: list[str], commit: str) -> list[str]:
 
 
 def feature_changes(base: str, head: str) -> list[str]:
-    names = git_text('diff', '--name-only', base, head, '--', f'{installation().name}/skills')
+    names = git_text('diff', '--name-only', base, head, '--', f'{project_agents().name}/skills')
     found = []
     for line in names.splitlines():
-        if re.fullmatch(re.escape(installation().name) + r'/skills/verify-[^/]+/features/.+', line) and exists_at(head, line):
+        if re.fullmatch(re.escape(project_agents().name) + r'/skills/verify-[^/]+/features/.+', line) and exists_at(head, line):
             found.append(line)
     return found
 

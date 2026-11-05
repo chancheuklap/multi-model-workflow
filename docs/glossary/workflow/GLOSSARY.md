@@ -123,7 +123,7 @@ The project checkout the run works in. Commands run there.
 _Avoid_: any invented Chinese name.
 
 **MMW runtime**:
-The installed skills and tools fixed for this run. Cursor and Codex share the project's `.agents/` installation.
+The installed skills and tools fixed for this run. The runtime is separate from the consuming repository's model configuration.
 _Avoid_: any invented Chinese name.
 
 **execution Go**:

@@ -70,7 +70,8 @@ class CloudRuntime(unittest.TestCase):
     def commit(self, message): self.git('add', '.'); self.git('commit', '-q', '-m', message)
 
     def model_tool(self, host):
-        path = self.root / '.agents' / 'tools/dispatch/scripts/models.py'
+        path = Path(self.temp.name) / 'home/.agents/mmw/tools/dispatch/scripts/models.py'
+        (self.root / '.agents').mkdir(exist_ok=True)
         path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(TOOLS / 'models.py', path)
         shutil.copy2(TOOLS / 'status.py', path.with_name('status.py'))
@@ -209,7 +210,7 @@ class CloudRuntime(unittest.TestCase):
 
     def check_assignments(self, host):
         tool = self.codex if host == 'codex' else self.models
-        folder = tool.installation()
+        folder = tool.project_agents()
         config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
         self.models.write_config(config); self.codex.write_config(config)
         self.commit('models')
