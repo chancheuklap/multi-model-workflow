@@ -1,12 +1,7 @@
 {
   "name": "mmw-v5",
-  "interface": { "displayName": "MMW v5" },
-  "plugins": [
-    {
-      "name": "mmw-v5-cloud",
-      "source": { "source": "local", "path": "./mmw-v5-cloud" },
-      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
-      "category": "Productivity"
-    }
-  ]
+  "interface": {
+    "displayName": "MMW v5"
+  },
+  "plugins": []
 }

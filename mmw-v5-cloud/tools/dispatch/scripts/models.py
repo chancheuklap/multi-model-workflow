@@ -3,7 +3,6 @@
 from __future__ import annotations
 import argparse
 import json
-import os
 from pathlib import Path
 import re
 import subprocess
@@ -13,12 +12,19 @@ from status import GitHub, current_night, labels, read_plan
 
 ROLES = ('junior-worker', 'senior-worker', 'advisor', 'researcher', 'candidate', 'review-axis', 'verifier')
 HOSTS = ('codex', 'cursor')
+INSTALLATIONS = {'.agents': 'codex', '.cursor': 'cursor'}
 WORKER_GRADES = ('junior-worker', 'senior-worker')
 
 
+def installation() -> Path:
+    path = Path(__file__).resolve().parents[3]
+    if path.name not in INSTALLATIONS:
+        raise ValueError('cloud runtime needs a project .agents or .cursor installation')
+    return path
+
+
 def config_path() -> Path:
-    root = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=True).stdout.strip()
-    return Path(root) / '.cursor' / 'models.json'
+    return installation() / 'models.json'
 
 
 def validate(value: dict) -> dict:
@@ -28,19 +34,19 @@ def validate(value: dict) -> dict:
     rows = value.get('rows')
     if not isinstance(rows, dict):
         raise ValueError('rows must be an object of native role settings')
-    for host in HOSTS:
-        roles = rows.get(host)
-        if not isinstance(roles, dict):
-            raise ValueError(f'rows needs a {host} group with settings for each role')
-        for role in ROLES:
-            row = roles.get(role)
-            if not isinstance(row, dict) or any(not isinstance(row.get(k), str) or not row[k].strip() for k in ('model', 'effort')):
-                raise ValueError(f'{host}/{role} needs model and effort (or inherit)')
-            if host == 'cursor':
-                if 'context' in row and (not isinstance(row['context'], str) or not row['context'].strip()):
-                    raise ValueError(f'{host}/{role} context must be a non-empty string, such as 256k')
-                if 'fast' in row and type(row['fast']) is not bool:
-                    raise ValueError(f'{host}/{role} fast must be true or false')
+    host = native_host()
+    roles = rows.get(host)
+    if not isinstance(roles, dict):
+        raise ValueError(f'rows needs a {host} group with settings for each role')
+    for role in ROLES:
+        row = roles.get(role)
+        if not isinstance(row, dict) or any(not isinstance(row.get(k), str) or not row[k].strip() for k in ('model', 'effort')):
+            raise ValueError(f'{host}/{role} needs model and effort (or inherit)')
+        if host == 'cursor':
+            if 'context' in row and (not isinstance(row['context'], str) or not row['context'].strip()):
+                raise ValueError(f'{host}/{role} context must be a non-empty string, such as 256k')
+            if 'fast' in row and type(row['fast']) is not bool:
+                raise ValueError(f'{host}/{role} fast must be true or false')
     if 'runner' in value or 'subagents' in value:
         raise ValueError('cloud models use native rows, not local runner/subagent configuration')
     return value
@@ -50,7 +56,9 @@ def read_config(at: str | None = None) -> dict:
     if at is None:
         text = config_path().read_text(encoding="utf-8")
     else:
-        text = subprocess.run(["git", "show", f"{at}:.cursor/models.json"], capture_output=True, text=True, check=True).stdout
+        root = Path(git_text("rev-parse", "--show-toplevel")).resolve()
+        relative = config_path().relative_to(root).as_posix()
+        text = subprocess.run(["git", "show", f"{at}:{relative}"], capture_output=True, text=True, check=True).stdout
     return validate(json.loads(text))
 
 
@@ -65,8 +73,7 @@ def cursor_model(chosen: dict) -> str:
 
 
 def row(role: str, host: str, at: str) -> dict:
-    if host not in HOSTS:
-        raise ValueError(f'unsupported native host: {host}')
+    host = native_host(host)
     chosen = {key: val for key, val in read_config(at)['rows'][host][role].items() if val != 'inherit'}
     if host == 'cursor' and chosen.get('model'):
         return {'model': cursor_model(chosen)}
@@ -123,15 +130,10 @@ def exists_at(commit: str, path: str) -> bool:
 
 
 def native_host(explicit: str = '') -> str:
-    if explicit:
-        if explicit not in HOSTS:
-            raise ValueError(f'unsupported native host: {explicit}')
-        return explicit
-    if os.environ.get('CURSOR_AGENT'):
-        return 'cursor'
-    if any(os.environ.get(key) for key in ('CODEX_THREAD_ID', 'CODEX_SANDBOX', 'CODEX_CI')):
-        return 'codex'
-    raise ValueError('pass --host cursor or --host codex')
+    host = INSTALLATIONS[installation().name]
+    if explicit and explicit != host:
+        raise ValueError(f'{installation().name} installation uses {host}, not {explicit}')
+    return host
 
 
 def fetch_origin() -> None:
@@ -462,7 +464,12 @@ def spawn_researcher(host: str, question: str, at: str | None = None) -> dict:
 
 def write_config(value: dict) -> None:
     path = config_path()
-    text = json.dumps(validate(value), ensure_ascii=False, indent=2) + '\n'
+    value = validate(value)
+    if path.exists():
+        current = read_config()
+        host = native_host()
+        value = {**current, 'rows': {**current['rows'], host: value['rows'][host]}}
+    text = json.dumps(value, ensure_ascii=False, indent=2) + '\n'
     with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, prefix='.models-', delete=False) as output:
         temporary = Path(output.name)
         output.write(text)

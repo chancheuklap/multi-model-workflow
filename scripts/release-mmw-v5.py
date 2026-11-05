@@ -66,7 +66,7 @@ def package(output: Path) -> str:
     _, version = manifests(committed=True)
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    run("git", "archive", "--format=zip", "--prefix=.cursor/", f"--output={output}",
+    run("git", "archive", "--format=zip", "--prefix=mmw-v5-cloud/", f"--output={output}",
         "HEAD:mmw-v5-cloud", *PACKAGE_PATHS)
     return version
 
@@ -96,7 +96,7 @@ def publish() -> str:
         else:
             args = ["gh", "release", "create", tag, str(archive), "--repo", repo,
                     "--target", commit, "--title", f"MMW v5 {version}",
-                    "--notes", f"MMW v5 cloud edition at commit {commit}.\n\nThe ZIP is the project .cursor runtime. Install the Codex plugin from this repository's main-branch marketplace."]
+                    "--notes", f"MMW v5 cloud edition at commit {commit}.\n\nInstall the complete cloud ZIP into the consuming repository with scripts/install-mmw-v5-cloud.sh --host cursor|codex."]
             if "-" in version:
                 args.append("--prerelease")
             run(*args)

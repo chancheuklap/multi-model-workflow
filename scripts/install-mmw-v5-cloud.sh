@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-# Install the cloud edition into the current Git repository's .cursor directory.
+# Install the complete cloud edition into the project's native host directory.
 set -euo pipefail
 
 ref=""
-case "$#" in
-  0) ;;
-  2) if [[ "$1" == --ref && -n "$2" ]]; then ref="$2"; else echo 'usage: install-mmw-v5-cloud.sh [--ref BRANCH_OR_TAG_OR_SHA]' >&2; exit 2; fi ;;
-  *) echo 'usage: install-mmw-v5-cloud.sh [--ref BRANCH_OR_TAG_OR_SHA]' >&2; exit 2 ;;
-esac
+host=""
+usage() { echo 'usage: install-mmw-v5-cloud.sh --host cursor|codex [--ref BRANCH_OR_TAG_OR_SHA]' >&2; exit 2; }
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --host) [[ "$#" -ge 2 && -z "$host" ]] || usage; host="$2"; shift 2 ;;
+    --ref) [[ "$#" -ge 2 && -n "$2" && -z "$ref" ]] || usage; ref="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+[[ "$host" == cursor || "$host" == codex ]] || usage
 
 project="$(git rev-parse --show-toplevel)"
 temporary="$(mktemp -d)"
@@ -23,19 +28,19 @@ else
   curl -fsSL "https://github.com/$repository/releases/download/v$version/mmw-v5-cloud-$version.zip" -o "$temporary/cloud.zip"
 fi
 
-python3 - "$temporary/cloud.zip" "$project" "$ref" <<'PY'
+python3 - "$temporary/cloud.zip" "$project" "$ref" "$host" <<'PY'
 import json
 from pathlib import Path, PurePosixPath
 import sys
 import zipfile
 
-archive, project, ref = sys.argv[1:]
-destination = Path(project) / '.cursor'
+archive, project, ref, host = sys.argv[1:]
+destination = Path(project) / ('.agents' if host == 'codex' else '.cursor')
 with zipfile.ZipFile(archive) as package:
     if ref:
         prefix = package.namelist()[0].split('/')[0] + '/mmw-v5-cloud/'
     else:
-        prefix = '.cursor/'
+        prefix = 'mmw-v5-cloud/'
     manifest = json.loads(package.read(prefix + 'plugin.json'))
     if manifest['name'] != 'mmw-v5-cloud':
         raise SystemExit('The download is not the MMW v5 cloud edition')
@@ -53,11 +58,20 @@ with zipfile.ZipFile(archive) as package:
             print('Keep existing configuration: ' + str(target))
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(package.read(member))
+        content = package.read(member)
+        if str(relative) == 'models.json' and host == 'codex':
+            legacy = Path(project) / '.cursor' / 'models.json'
+            if legacy.exists():
+                previous = json.loads(legacy.read_text(encoding='utf-8'))
+                settings = json.loads(content)
+                if isinstance(previous.get('rows', {}).get('codex'), dict):
+                    settings['rows']['codex'] = previous['rows']['codex']
+                    content = (json.dumps(settings, ensure_ascii=False, indent=2) + '\n').encode()
+        target.write_bytes(content)
         mode = (member.external_attr >> 16) & 0o777
         if mode:
             target.chmod(mode)
         installed += 1
 print(f'Installed MMW v5 Cloud {manifest["version"]} into {destination} ({installed} files)')
-print('Commit and push .cursor/ so Cloud Workers receive the same runtime.')
+print(f'Commit and push {destination.name}/ so Cloud Workers receive the same runtime.')
 PY

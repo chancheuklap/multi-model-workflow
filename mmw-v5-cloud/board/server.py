@@ -38,7 +38,7 @@ def handler(token):
                 if (self.command, path) in (('GET', '/api/board'), ('POST', '/api/board/refresh')):
                     self.respond(*board_data.handle(self))
                 elif self.command == 'GET' and path == '/api/settings':
-                    self.send_json(200, {**models.read_config(), 'store': str(models.config_path())})
+                    self.send_json(200, {**models.read_config(), 'store': str(models.config_path()), 'host': models.native_host()})
                 elif self.command == 'PUT' and path == '/api/settings':
                     data = json.loads(self.rfile.read(int(self.headers.get('Content-Length', '0'))))
                     models.write_config(data); self.send_json(200, {'saved': True})

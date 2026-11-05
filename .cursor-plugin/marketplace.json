@@ -1,11 +1,7 @@
 {
   "name": "mmw-v5",
-  "owner": { "name": "MMW" },
-  "plugins": [
-    {
-      "name": "mmw-v5-cloud",
-      "source": "./mmw-v5-cloud",
-      "description": "MMW v5 skills, cloud-agent dispatch, and task board"
-    }
-  ]
+  "owner": {
+    "name": "MMW"
+  },
+  "plugins": []
 }
