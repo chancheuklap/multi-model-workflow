@@ -79,6 +79,41 @@ else:
         names = {p.parent.name for p in (ROOT / 'mmw-v5-cloud/skills').glob('*/SKILL.md')}
         self.assertTrue({'dispatch', 'research', 'how', 'code-review'} <= names)
 
+    def test_researcher_dispatch_preserves_each_callers_prompt(self):
+        installations = {host: self.install(host) for host in ('cursor', 'codex')}
+        selected = {}
+        for host, installation in installations.items():
+            path = installation / 'models.json'
+            config = json.loads(path.read_text())
+            config['rows'][host]['researcher']['model'] = 'selected-researcher-' + host
+            selected[host] = config['rows'][host]['researcher'].copy()
+            path.write_text(json.dumps(config))
+        self.git(self.project, 'add', '.')
+        self.git(self.project, 'commit', '-qm', 'researcher settings')
+        sources = ROOT / 'mmw-v5-cloud/skills'
+        prompts = {
+            'grilling': 'Find which process owns the project port. Return the PID and command; keep interviewing independent questions.',
+            'codebase-design': (sources / 'codebase-design/references/runner-prompt.md').read_text(),
+            'no-comments': (sources / 'no-comments/references/comment-sicko.md').read_text(),
+            'to-tickets': (sources / 'to-tickets/references/ambiguity-scan.md').read_text(),
+            'maintain-verification-skill': 'Read login.md and its source. Report feature summary / source entry points / likely drift or none / one recipe. Never edit or drive the app.',
+            'improve-codebase-architecture': 'Walk the selected subsystem. Find shallow modules and coupling. Apply the deletion test and return findings.',
+            'wayfinder': 'Use research for ticket #7 in an isolated checkout from map-3. Save findings on research/service-api, push the branch, and open no PR.',
+        }
+        for host, installation in installations.items():
+            for caller, body in prompts.items():
+                with self.subTest(host=host, caller=caller):
+                    text = f'\nAssigned task: {caller} — 保留原任务\n\n{body}\n\n'
+                    prompt = self.base / f'{caller} prompt.md'
+                    prompt.write_text(text, encoding='utf-8')
+                    result = self.run_command(self.project, 'bash',
+                                              str(installation / 'tools/dispatch/scripts/dispatch.sh'),
+                                              'spawn', 'researcher', '--prompt', str(prompt))
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    card, = json.loads(result.stdout)['cards']
+                    self.assertEqual(card['prompt'], text)
+                    self.assertEqual(card['model_row'], {'role': 'researcher', **selected[host]})
+
     def test_complete_runtime_installs_for_both_hosts_and_uses_its_own_config(self):
         installations = [self.install('cursor'), self.install('codex')]
         snapshots = {}

@@ -7,7 +7,7 @@ description: Investigate a question against high-trust primary sources and captu
 
 When another agent assigns you this question, investigate it and write the notes file. That work is below.
 
-Otherwise, write the question to a file. Resolve `../../tools/dispatch/scripts/dispatch.sh` from this file and run `dispatch.sh spawn researcher --question FILE` in the consuming repository. Send the assignment as [Dispatch](../dispatch/SKILL.md) describes. Continue your own work while the researcher runs.
+Otherwise, write a prompt asking the subagent to use **research** for the question and its sources. Save it to a file, run `dispatch.sh spawn researcher --prompt FILE`, and send the printed assignment as [Dispatch](../dispatch/SKILL.md) describes. Continue your own work while the researcher runs.
 
 ## Investigate
 

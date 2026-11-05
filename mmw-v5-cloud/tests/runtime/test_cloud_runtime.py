@@ -260,7 +260,7 @@ class CloudRuntime(unittest.TestCase):
         question = self.root / 'question.md'; question.write_text('Trace the login flow.')
         researcher = tool.spawn_researcher(str(question))['cards'][0]
         self.assertEqual(researcher['model_row']['model'], config['rows'][host]['researcher']['model'])
-        self.assertIn(question.read_text(), researcher['prompt'])
+        self.assertEqual(question.read_text(), researcher['prompt'])
         self.git('commit', '-q', '--allow-empty', '-m', 'unpushed')
         with self.assertRaisesRegex(ValueError, 'HEAD is not pushed'): tool.spawn_verifier(api=api)
         self.git('reset', '--hard', head)
@@ -294,12 +294,12 @@ class CloudRuntime(unittest.TestCase):
         question = self.root / 'question.md'; question.write_text('Read the existing feature map.')
         for tool, host in [(self.models, 'cursor'), (self.codex, 'codex')]:
             with self.subTest(host=host):
-                run = subprocess.run([sys.executable, tool.__file__, 'spawn', 'researcher', '--question', str(question)],
+                run = subprocess.run([sys.executable, tool.__file__, 'spawn', 'researcher', '--prompt', str(question)],
                                      capture_output=True, text=True)
                 self.assertEqual(run.returncode, 0, run.stderr)
                 card = json.loads(run.stdout)['cards'][0]
                 self.assertEqual(card['model_row'], {'role': 'researcher', **config['rows'][host]['researcher']})
-                self.assertIn(question.read_text(), card['prompt'])
+                self.assertEqual(question.read_text(), card['prompt'])
 
     def test_open_night_adopts_and_resumes_published_branch(self):
         config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())

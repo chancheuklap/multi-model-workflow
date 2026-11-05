@@ -15,6 +15,8 @@ Each card supplies the prompt and model row for an assignment. Send each assignm
 
 Read another role's model row with `dispatch.sh row ROLE`. `inherit` keeps the sender's setting for that field.
 
+`dispatch.sh spawn researcher --prompt FILE` uses the researcher model row and copies the file's full text into the assignment's prompt. The sending skill supplies the task.
+
 Return the result the reference names, with the evidence it names. A question returns to the sender and ends the turn. Continue the same subagent with the answer. A returned result continues the step that sent it, from the action that step was waiting on. A missing or incomplete result is a limitation of that step, not a success.
 
 When no assigned role is named and the request is to review a branch, a PR, or since a commit, stop. The only review is the Coordinator's night-branch review, and it runs once from that step. It reviews the night branch, not the named PR. If this checkout is not a night branch, say that.

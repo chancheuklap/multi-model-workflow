@@ -422,18 +422,11 @@ def spawn_review(*, api=None) -> dict:
     return {'host': host, 'skipped': skipped, 'cards': cards, 'project_branch': project, 'fork': fork, 'reviewed': tip}
 
 
-def spawn_researcher(question: str, at: str | None = None) -> dict:
-    path = require_file(question, '--question')
-    text = Path(path).read_text(encoding='utf-8').rstrip()
+def spawn_researcher(prompt: str, at: str | None = None) -> dict:
+    path = require_file(prompt, '--prompt')
     chosen = row('researcher', resolve_at(at))
-    prompt = '\n'.join([
-        'Load the research skill.',
-        'Investigate this question. Write the notes file.',
-        '',
-        'Question:',
-        text,
-    ])
-    return {'host': native_host(), 'skipped': [], 'cards': [assignment('researcher', chosen, 'Research', prompt)]}
+    text = Path(path).read_text(encoding='utf-8')
+    return {'host': native_host(), 'skipped': [], 'cards': [assignment('researcher', chosen, 'Researcher', text)]}
 
 
 def write_config(value: dict) -> None:
@@ -469,7 +462,7 @@ def main():
     spawn = sub.add_parser('spawn')
     spawn.add_argument('kind', choices=('worker', 'verifier', 'review', 'researcher'))
     spawn.add_argument('--ticket', default='')
-    spawn.add_argument('--question', default='')
+    spawn.add_argument('--prompt', default='')
     args = parser.parse_args()
     try:
         if args.command == 'open':
@@ -487,9 +480,9 @@ def main():
         elif args.kind == 'review':
             printed = spawn_review()
         else:
-            if not args.question:
-                raise ValueError('researcher spawn needs --question')
-            printed = spawn_researcher(args.question)
+            if not args.prompt:
+                raise ValueError('researcher spawn needs --prompt')
+            printed = spawn_researcher(args.prompt)
         print(json.dumps(printed, ensure_ascii=False, indent=2))
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         parser.exit(2, f'dispatch: {exc}\n')
