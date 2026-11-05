@@ -31,7 +31,7 @@ import zipfile
 
 archive, project, host, cloud = sys.argv[1:]
 project = Path(project)
-folder = '.agents' if host == 'codex' else '.cursor'
+folder = '.agents'
 destination = project / folder
 
 
@@ -52,22 +52,29 @@ def ignore_path(path):
     return '/' + re.sub(r'([\\*?\[\]#! ])', r'\\\1', path)
 
 
-# Keep ownership in the Git exclude block itself, so removed package files can be
+# Keep ownership in the Git ignore block itself, so removed package files can be
 # cleaned on an update without deleting project-owned files in the same folders.
+ignore = project / '.gitignore'
+ignored = ignore.read_text() if ignore.exists() else ''
 exclude = Path(git('rev-parse', '--path-format=absolute', '--git-path', 'info/exclude').strip())
 excluded = exclude.read_text() if exclude.exists() else ''
-begin, end = f'# MMW cloud {host} BEGIN', f'# MMW cloud {host} END'
+begin, end = '# MMW cloud BEGIN', '# MMW cloud END'
 previous = set()
-if begin in excluded:
-    block = excluded.split(begin, 1)[1].split(end, 1)[0]
+blocks = [ignored.split(begin, 1)[1].split(end, 1)[0]] if begin in ignored else []
+for old_host in ('cursor', 'codex'):
+    old_begin, old_end = f'# MMW cloud {old_host} BEGIN', f'# MMW cloud {old_host} END'
+    if old_begin in excluded:
+        blocks.append(excluded.split(old_begin, 1)[1].split(old_end, 1)[0])
+        excluded = re.sub(re.escape(old_begin) + r'\n.*?' + re.escape(old_end) + r'\n?', '', excluded, flags=re.S)
+for block in blocks:
     for line in block.splitlines():
         path = re.sub(r'\\(.)', r'\1', line).removeprefix('/')
         relative = PurePosixPath(path)
-        if path.startswith(folder + '/') and '..' not in relative.parts and '*' not in path and path != folder + '/models.json':
+        if path.startswith(('.agents/', '.cursor/')) and '..' not in relative.parts and '*' not in path and relative.name != 'models.json':
             previous.add(path)
 
 # Validate existing cloud configuration before changing the installation.
-environment = destination / 'environment.json'
+environment = project / '.cursor' / 'environment.json'
 settings = None
 if cloud == '1' and host == 'cursor':
     settings = json.loads(environment.read_text()) if environment.exists() else {}
@@ -98,9 +105,10 @@ with zipfile.ZipFile(archive) as package:
     if tracked:
         git('rm', '--cached', '--', *tracked)
         print(f'Retired tracked MMW runtime files: {len(tracked)} (kept on disk)')
-    exclude.parent.mkdir(parents=True, exist_ok=True)
     patterns = [ignore_path(path) for path in sorted(managed)] + [f'/{folder}/**/__pycache__/']
-    exclude.write_text(replace_block(excluded, begin, end, '\n'.join(patterns)))
+    ignore.write_text(replace_block(ignored, begin, end, '\n'.join(patterns)))
+    if exclude.exists():
+        exclude.write_text(excluded)
     for path in previous - managed:
         target = project / path
         if target.is_file() or target.is_symlink():
@@ -115,21 +123,22 @@ with zipfile.ZipFile(archive) as package:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         content = package.read(member)
-        if str(relative) == 'models.json' and host == 'codex':
+        if str(relative) == 'models.json':
             legacy = Path(project) / '.cursor' / 'models.json'
             if legacy.exists():
-                previous = json.loads(legacy.read_text(encoding='utf-8'))
-                settings = json.loads(content)
-                if isinstance(previous.get('rows', {}).get('codex'), dict):
-                    settings['rows']['codex'] = previous['rows']['codex']
-                    content = (json.dumps(settings, ensure_ascii=False, indent=2) + '\n').encode()
+                legacy_models = json.loads(legacy.read_text(encoding='utf-8'))
+                defaults = json.loads(content)
+                for old_host in ('cursor', 'codex'):
+                    if isinstance(legacy_models.get('rows', {}).get(old_host), dict):
+                        defaults['rows'][old_host] = legacy_models['rows'][old_host]
+                content = (json.dumps(defaults, ensure_ascii=False, indent=2) + '\n').encode()
         target.write_bytes(content)
         mode = (member.external_attr >> 16) & 0o777
         if mode:
             target.chmod(mode)
         installed += 1
 
-configuration = [folder + '/models.json']
+configuration = ['.gitignore', folder + '/models.json']
 if cloud == '1':
     setup = destination / 'cloud-setup.sh'
     setup.write_text('''#!/usr/bin/env bash
@@ -145,8 +154,9 @@ curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/m
             before = settings.get(field, '')
             if command not in before:
                 settings[field] = command + (' && (\n' + before + '\n)' if before.strip() else '')
+        environment.parent.mkdir(parents=True, exist_ok=True)
         environment.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + '\n')
-        configuration.append(folder + '/environment.json')
+        configuration.append('.cursor/environment.json')
         print('Cloud configuration: .cursor/environment.json (install and start)')
         print('Select this repository as the saved Cursor environment.json location, then build it.')
     else:

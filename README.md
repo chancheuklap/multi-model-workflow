@@ -54,10 +54,10 @@ curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/m
 
 #### Cursor Cloud
 
-安装器写入 `.cursor/cloud-setup.sh`，并把准备脚本接入 `.cursor/environment.json` 的 `install` 和 `start`，保留已有命令和其他配置。在当前云端环境的设置中：
+安装器写入 `.agents/cloud-setup.sh`，并把准备脚本接入 `.cursor/environment.json` 的 `install` 和 `start`，保留已有命令和其他配置。`.cursor/environment.json` 是 Cursor 的平台配置入口，MMW 安装文件统一放在 `.agents/`。在当前云端环境的设置中：
 
 1. 将 **environment.json location** 指向消费仓库的 `.cursor/environment.json`。
-2. 多仓库环境在环境的安装和启动命令中，接入每个消费仓库的 `bash .cursor/cloud-setup.sh`，从对应仓库执行。
+2. 多仓库环境在环境的安装和启动命令中，接入每个消费仓库的 `bash .agents/cloud-setup.sh`，从对应仓库执行。
 3. 保存环境，完成并启用成功的 **Build**。检查保存的个人或团队环境实际使用了本次配置。
 
 Cursor 使用保存的环境配置，只有文件绑定生效后，仓库的 `environment.json` 才会被读取。[Cursor 官方环境说明](https://cursor.com/docs/cloud-agent/setup)。
@@ -91,13 +91,15 @@ curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/m
 | 宿主 | 安装位置 | 项目模型配置 |
 | --- | --- | --- |
 | Codex | `.agents/` | `.agents/models.json` 中的 `rows.codex` |
-| Cursor | `.cursor/` | `.cursor/models.json` 中的 `rows.cursor` |
+| Cursor | `.agents/` | `.agents/models.json` 中的 `rows.cursor` |
 
-安装器保留已有目标 `models.json`。首次 Codex 安装缺少该文件时，带入旧 `.cursor/models.json` 的 `rows.codex`；没有旧设置才使用默认值。Cursor 同时发现 `.cursor/skills/` 和 `.agents/skills/`，两种宿主各用自己的工作目录，避免同名技能重复。
+两种宿主共用一份 `.agents/` 安装，Cursor 也能发现 `.agents/skills/`。安装器保留已有 `.agents/models.json`；缺少该文件时，带入旧 `.cursor/models.json` 中两种宿主的模型行，没有旧设置才使用默认值。迁移旧安装时，保留项目自己的 Cursor 规则，清理旧 `.cursor/` 中的 MMW 技能和工具副本。
 
-安装器把 MMW 自带文件登记到 Git 本地排除清单；以前已提交的对应运行时文件会退出 Git 跟踪，磁盘副本保留。项目自己的技能和其他文件继续正常管理。
+模型命令和任务板使用 `--host HOST` 选择当前宿主，HOST 为 `cursor` 或 `codex`，与安装位置无关。例如读取研究角色时，运行 `.agents/tools/dispatch/scripts/dispatch.sh row researcher --host HOST`。由 agent 填入当前宿主，用户无需提供参数。
 
-在授权分支提交并推送模型配置。云端配置还要提交生成的准备脚本，以及 Cursor 的 `environment.json` 或 Codex 的 `AGENTS.md` 改动。让后续环境准备能读取包含配置的分支，模型配置进入新 night 的基线。MMW 技能、工具、board 和安装目录里的 `plugin.json` 留在本地，不提交运行时或版本锁定文件。
+安装器在仓库根 `.gitignore` 的 `MMW cloud` 区块中逐个排除 MMW 自带文件，并迁移旧 `.git/info/exclude` 里的 MMW 排除规则。模型配置、云端准备脚本、项目自己的技能和其他文件继续正常管理。以前已提交的对应运行时文件会退出 Git 跟踪，当前安装的磁盘副本保留。
+
+在授权分支提交并推送 `.gitignore` 和模型配置。云端配置还要提交生成的准备脚本，以及 Cursor 的 `environment.json` 或 Codex 的 `AGENTS.md` 改动。让后续环境准备能读取包含配置的分支，模型配置进入新 night 的基线。MMW 技能、工具、board 和安装目录里的 `plugin.json` 留在本地，不提交运行时或版本锁定文件。
 
 完成前验证：
 

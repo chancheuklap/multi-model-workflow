@@ -60,7 +60,7 @@ Each sub-agent outputs:
 4. Dependency strategy and adapters (see [deepening.md](references/deepening.md))
 5. Trade-offs: where leverage is high, where it's thin
 
-Save each completed prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE`. Send all printed assignments in parallel as [Dispatch](../dispatch/SKILL.md) describes.
+Save each completed prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send all printed assignments in parallel as [Dispatch](../dispatch/SKILL.md) describes.
 
 Done when at least three candidates have returned those outputs, and a fourth only when its constraint applies.
 

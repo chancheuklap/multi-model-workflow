@@ -37,7 +37,7 @@ dispatch.sh status
 `status` names the tickets and which of them are eligible. Read each candidate's comments with gh before you dispatch it. Dispatch every eligible ticket, in parallel.
 
 ```text
-dispatch.sh spawn worker --ticket N
+dispatch.sh spawn worker --ticket N --host HOST
 ```
 
 The Worker renames its own branch to `ticket/issue-N`. When origin already has that branch, the assignment starts from it. Otherwise it starts from the night branch. This checkout stays the night branch. Each printed card is one Worker assignment. A ticket without exactly one worker grade prints no card; say so and leave that ticket.

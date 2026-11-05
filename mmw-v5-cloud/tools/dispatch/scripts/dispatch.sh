@@ -6,5 +6,5 @@ case "${1:-}" in
   status|land) command="$1"; shift; exec python3 "$scripts/$command.py" "$@" ;;
   open|show|row|spawn) command="$1"; shift; exec python3 "$scripts/models.py" "$command" "$@" ;;
   board) shift; exec python3 "$scripts/../../../board/server.py" "$@" ;;
-  *) echo 'usage: dispatch.sh open --project NAME (--spec N | --ticket N) | show | row ROLE [--at COMMIT] | spawn worker --ticket N | spawn verifier | spawn review | spawn researcher --prompt FILE | status [N --into NIGHT [--ticket]] | land PR | board [--port PORT]' >&2; exit 2 ;;
+  *) echo 'usage: dispatch.sh open --project NAME (--spec N | --ticket N) | show --host HOST | row ROLE --host HOST [--at COMMIT] | spawn worker --ticket N --host HOST | spawn verifier --host HOST | spawn review --host HOST | spawn researcher --prompt FILE --host HOST | status [N --into NIGHT [--ticket]] | land PR | board --host HOST [--port PORT]; HOST is cursor or codex' >&2; exit 2 ;;
 esac

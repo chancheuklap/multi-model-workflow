@@ -11,14 +11,14 @@ import tempfile
 from status import GitHub, current_night, labels, read_plan
 
 ROLES = ('junior-worker', 'senior-worker', 'advisor', 'researcher', 'candidate', 'review-axis', 'verifier')
-INSTALLATIONS = {'.agents': 'codex', '.cursor': 'cursor'}
+HOST = None
 WORKER_GRADES = ('junior-worker', 'senior-worker')
 
 
 def installation() -> Path:
     path = Path(__file__).resolve().parents[3]
-    if path.name not in INSTALLATIONS:
-        raise ValueError('cloud runtime needs a project .agents or .cursor installation')
+    if path.name != '.agents':
+        raise ValueError('cloud runtime needs a project .agents installation')
     return path
 
 
@@ -103,7 +103,7 @@ def exists_at(commit: str, path: str) -> bool:
 
 
 def native_host() -> str:
-    return INSTALLATIONS[installation().name]
+    return HOST
 
 
 def fetch_origin() -> None:
@@ -442,23 +442,27 @@ def write_config(value: dict) -> None:
 
 
 def main():
+    global HOST
     parser = argparse.ArgumentParser(prog='dispatch.sh', description=__doc__)
+    model_args = argparse.ArgumentParser(add_help=False)
+    model_args.add_argument('--host', choices=('cursor', 'codex'), required=True)
     sub = parser.add_subparsers(dest='command', required=True)
     opened = sub.add_parser('open')
     opened.add_argument('--project', required=True)
     group = opened.add_mutually_exclusive_group(required=True)
     group.add_argument('--spec', default='')
     group.add_argument('--ticket', default='')
-    show = sub.add_parser('show')
+    show = sub.add_parser('show', parents=[model_args])
     show.add_argument('--at', default='')
-    get = sub.add_parser('row')
+    get = sub.add_parser('row', parents=[model_args])
     get.add_argument('role', choices=ROLES)
     get.add_argument('--at', default='')
-    spawn = sub.add_parser('spawn')
+    spawn = sub.add_parser('spawn', parents=[model_args])
     spawn.add_argument('kind', choices=('worker', 'verifier', 'review', 'researcher'))
     spawn.add_argument('--ticket', default='')
     spawn.add_argument('--prompt', default='')
     args = parser.parse_args()
+    HOST = getattr(args, 'host', None)
     try:
         if args.command == 'open':
             printed = open_night(args.project, args.spec, args.ticket)

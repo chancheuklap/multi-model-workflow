@@ -63,8 +63,11 @@ def handler(token):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('--port', type=int, default=47100)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--port', type=int, default=47100)
+    parser.add_argument('--host', choices=('cursor', 'codex'), required=True)
     args = parser.parse_args()
+    models.HOST = args.host
     server = http.server.ThreadingHTTPServer(('127.0.0.1', args.port), handler(secrets.token_urlsafe(32)))
     print(f'http://127.0.0.1:{server.server_port}', flush=True)
     try: server.serve_forever()

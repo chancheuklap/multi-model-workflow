@@ -75,7 +75,7 @@ else:
         result = self.run_command(cwd or self.project, 'bash', str(ROOT / 'scripts/install-mmw-v5-cloud.sh'),
                                   '--host', host, *options)
         self.assertEqual(result.returncode, 0, result.stderr)
-        return self.project / ('.agents' if host == 'codex' else '.cursor')
+        return self.project / '.agents'
 
     def test_cloud_edition_includes_research_and_current_roles(self):
         names = {p.parent.name for p in (ROOT / 'mmw-v5-cloud/skills').glob('*/SKILL.md')}
@@ -110,18 +110,17 @@ else:
                     prompt.write_text(text, encoding='utf-8')
                     result = self.run_command(self.project, 'bash',
                                               str(installation / 'tools/dispatch/scripts/dispatch.sh'),
-                                              'spawn', 'researcher', '--prompt', str(prompt))
+                                              'spawn', 'researcher', '--prompt', str(prompt), '--host', host)
                     self.assertEqual(result.returncode, 0, result.stderr)
                     card, = json.loads(result.stdout)['cards']
                     self.assertEqual(card['prompt'], text)
                     self.assertEqual(card['model_row'], {'role': 'researcher', **selected[host]})
 
     def test_complete_runtime_installs_for_both_hosts_and_uses_its_own_config(self):
-        installations = [self.install('cursor'), self.install('codex')]
+        installations = {host: self.install(host) for host in ('cursor', 'codex')}
         snapshots = {}
-        for installation in installations:
-            with self.subTest(installation=installation.name):
-                host = 'codex' if installation.name == '.agents' else 'cursor'
+        for host, installation in installations.items():
+            with self.subTest(host=host):
                 config = installation / 'models.json'
                 settings = json.loads(config.read_text())
                 settings['rows'][host]['review-axis']['model'] = 'chosen-' + host
@@ -143,14 +142,14 @@ else:
         self.git(self.project, 'add', '.')
         self.git(self.project, 'commit', '-qm', 'installed runtimes')
         fixed = self.git(self.project, 'rev-parse', 'HEAD')
-        for installation, host in zip(installations, ['cursor', 'codex']):
+        for host, installation in installations.items():
             config = installation / 'models.json'
             changed = json.loads(config.read_text())
             changed['rows'][host]['review-axis']['model'] = 'next-run-only'
             config.write_text(json.dumps(changed))
             result = self.run_command(self.project, sys.executable,
                                       str(installation / 'tools/dispatch/scripts/models.py'),
-                                      'row', 'review-axis', '--at', fixed)
+                                      'row', 'review-axis', '--at', fixed, '--host', host)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout), snapshots[host])
             self.check_board_settings(installation, host)
@@ -160,7 +159,7 @@ else:
                                  for x in ['/runners/', '/relay.py', '/events.py', '/children.md']))
 
     def check_board_settings(self, installation, host):
-        process = subprocess.Popen([sys.executable, str(installation / 'board/server.py'), '--port', '0'],
+        process = subprocess.Popen([sys.executable, str(installation / 'board/server.py'), '--port', '0', '--host', host],
                                    cwd=self.project, env=self.env, stdout=subprocess.PIPE,
                                    stderr=subprocess.DEVNULL, text=True)
         try:
@@ -174,8 +173,6 @@ else:
             self.assertEqual(settings['host'], host)
             self.assertEqual(settings['store'], str(installation / 'models.json'))
             previous = json.loads((installation / 'models.json').read_text())
-            other_install = self.project / ('.cursor' if host == 'codex' else '.agents') / 'models.json'
-            other_bytes = other_install.read_bytes()
             settings['rows'][host]['review-axis']['model'] = 'saved-' + host
             payload = {'rows': {host: settings['rows'][host]}}
             request = urllib.request.Request(address + '/api/settings', method='PUT',
@@ -189,22 +186,26 @@ else:
             self.assertEqual(saved['rows'][host]['review-axis']['model'], 'saved-' + host)
             self.assertEqual(saved['rows'][other_host], previous['rows'][other_host])
             self.assertNotIn('max_workers', saved)
-            self.assertEqual(other_install.read_bytes(), other_bytes)
         finally:
             process.terminate()
             process.wait(timeout=5)
             process.stdout.close()
 
-    def test_codex_migrates_legacy_choices_once_and_updates_preserve_project_files(self):
-        legacy = self.install('cursor') / 'models.json'
-        previous = json.loads(legacy.read_text())
+    def test_shared_install_migrates_both_legacy_rows_and_preserves_project_files(self):
+        legacy = self.project / '.cursor/models.json'
+        legacy.parent.mkdir()
+        previous = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
         previous['rows']['codex']['senior-worker']['model'] = 'legacy-codex-choice'
+        previous['rows']['cursor']['senior-worker']['model'] = 'legacy-cursor-choice'
         legacy.write_text(json.dumps(previous))
         before = legacy.read_bytes()
-        installation = self.install('codex')
+        installation = self.install('cursor', '--cloud')
         settings = installation / 'models.json'
         migrated = json.loads(settings.read_text())
         self.assertEqual(migrated['rows']['codex'], previous['rows']['codex'])
+        self.assertEqual(migrated['rows']['cursor'], previous['rows']['cursor'])
+        environment = json.loads((self.project / '.cursor/environment.json').read_text())
+        self.assertEqual(environment['install'], 'bash .agents/cloud-setup.sh')
         self.assertEqual(legacy.read_bytes(), before)
         migrated['rows']['codex']['senior-worker']['model'] = 'kept-existing-choice'
         settings.write_text(json.dumps(migrated))
@@ -224,13 +225,14 @@ else:
         settings = json.loads(config.read_text())
         settings['rows']['cursor']['senior-worker']['model'] = 'kept-cursor-choice'
         config.write_text(json.dumps(settings))
-        rules = installation / 'rules/owner.mdc'
-        rules.parent.mkdir()
+        rules = self.project / '.cursor/rules/owner.mdc'
+        rules.parent.mkdir(parents=True)
         rules.write_text('Keep project rules\n')
         self.install('cursor')
         self.assertEqual(json.loads(config.read_text()), settings)
         self.assertEqual(rules.read_text(), 'Keep project rules\n')
-        self.assertFalse((self.project / '.agents').exists())
+        self.assertTrue((self.project / '.agents/skills/dispatch/SKILL.md').is_file())
+        self.assertFalse((self.project / '.cursor/plugin.json').exists())
 
     def test_installer_requires_a_known_explicit_host(self):
         for args in [[], ['--host', 'unknown'], ['--host'], ['--ref', 'candidate'],
@@ -258,7 +260,7 @@ else:
             with self.subTest(host=host):
                 installation = self.install(host)
                 custom = installation / 'skills/owner/SKILL.md'
-                custom.parent.mkdir(parents=True)
+                custom.parent.mkdir(parents=True, exist_ok=True)
                 custom.write_text('project-owned skill\n')
                 self.git(self.project, 'add', '.')
                 indexed = self.git(self.project, 'ls-files').splitlines()
@@ -282,6 +284,7 @@ else:
                 self.assertIn(custom.relative_to(self.project).as_posix(), indexed)
                 self.assertEqual((installation / 'models.json').read_bytes(), config)
                 self.assertFalse((installation / 'cloud-setup.sh').exists())
+                self.git(self.project, 'commit', '-qm', 'retire tracked runtime ' + host)
 
     def test_cloud_configuration_bootstraps_independent_clones(self):
         for host in ('codex', 'cursor'):
@@ -323,7 +326,7 @@ else:
             result = self.run_command(self.project, 'bash', '-c', settings[field])
             self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.project / 'setup.log').read_text(), 'dependencies\nservices\n')
-        self.assertEqual(settings['start'].count('bash .cursor/cloud-setup.sh'), 1)
+        self.assertEqual(settings['start'].count('bash .agents/cloud-setup.sh'), 1)
         self.assertTrue((installation / 'skills/dispatch/SKILL.md').is_file())
 
     def test_codex_cloud_setup_preserves_project_instructions_and_is_idempotent(self):
@@ -358,13 +361,54 @@ else:
     def test_failed_download_does_not_rewrite_configuration_or_use_cached_runtime(self):
         installation = self.install('cursor', '--cloud')
         before = (installation / 'plugin.json').read_bytes()
-        settings = (installation / 'environment.json').read_bytes()
+        environment = self.project / '.cursor/environment.json'
+        settings = environment.read_bytes()
         self.env['CLOUD_TEST_DOWNLOAD_FAIL'] = '1'
         result = self.run_command(self.project, 'bash', str(installation / 'cloud-setup.sh'))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('download failed', result.stderr)
         self.assertEqual((installation / 'plugin.json').read_bytes(), before)
-        self.assertEqual((installation / 'environment.json').read_bytes(), settings)
+        self.assertEqual(environment.read_bytes(), settings)
+
+    def test_shared_installation_uses_committed_gitignore(self):
+        ignore = self.project / '.gitignore'
+        ignore.write_text('owner-build/\n')
+        self.install('codex')
+        first = ignore.read_bytes()
+        self.install('cursor')
+        self.assertEqual(ignore.read_bytes(), first)
+        self.assertTrue(ignore.read_text().startswith('owner-build/\n'))
+        self.assertFalse((self.project / '.cursor').exists())
+        self.assertTrue((self.project / '.agents/skills/research/SKILL.md').is_file())
+        # Ignore rules must survive a fresh clone, not depend on this machine.
+        self.git(self.project, 'add', '.')
+        self.git(self.project, 'commit', '-qm', 'shared installation configuration')
+        clone = self.base / 'ignore-only-clone'
+        self.git(self.project, 'clone', '-q', str(self.project), str(clone))
+        runtime = clone / '.agents/skills/dispatch/SKILL.md'
+        runtime.parent.mkdir(parents=True)
+        runtime.write_text('local runtime file\n')
+        result = self.run_command(clone, 'git', 'check-ignore', '-v', str(runtime))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.startswith('.gitignore:'), result.stdout)
+        self.assertEqual(self.git(clone, 'status', '--porcelain'), '')
+
+    def test_old_local_exclusions_migrate_and_retire_only_owned_runtime_files(self):
+        old = self.project / '.cursor/skills/dispatch/SKILL.md'
+        old.parent.mkdir(parents=True)
+        old.write_text('old MMW runtime\n')
+        custom = self.project / '.cursor/skills/owner/SKILL.md'
+        custom.parent.mkdir(parents=True)
+        custom.write_text('keep project skill\n')
+        exclude = self.project / '.git/info/exclude'
+        exclude.write_text('owner-cache/\n# MMW cloud cursor BEGIN\n/.cursor/skills/dispatch/SKILL.md\n# MMW cloud cursor END\n')
+        self.install('cursor')
+        self.assertFalse(old.exists())
+        self.assertEqual(custom.read_text(), 'keep project skill\n')
+        self.assertEqual(exclude.read_text(), 'owner-cache/\n')
+        result = self.run_command(self.project, 'git', 'check-ignore', '-v', '.agents/skills/dispatch/SKILL.md')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.startswith('.gitignore:'), result.stdout)
 
 
 if __name__ == '__main__':

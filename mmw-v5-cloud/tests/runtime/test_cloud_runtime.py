@@ -70,11 +70,13 @@ class CloudRuntime(unittest.TestCase):
     def commit(self, message): self.git('add', '.'); self.git('commit', '-q', '-m', message)
 
     def model_tool(self, host):
-        path = self.root / ('.agents' if host == 'codex' else '.cursor') / 'tools/dispatch/scripts/models.py'
+        path = self.root / '.agents' / 'tools/dispatch/scripts/models.py'
         path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(TOOLS / 'models.py', path)
         shutil.copy2(TOOLS / 'status.py', path.with_name('status.py'))
-        return load('models', path)
+        tool = load('models', path)
+        tool.HOST = host
+        return tool
 
     def publish_pr_check(self, body):
         self.git('switch', '-q', 'ticket/issue-1')
@@ -294,7 +296,7 @@ class CloudRuntime(unittest.TestCase):
         question = self.root / 'question.md'; question.write_text('Read the existing feature map.')
         for tool, host in [(self.models, 'cursor'), (self.codex, 'codex')]:
             with self.subTest(host=host):
-                run = subprocess.run([sys.executable, tool.__file__, 'spawn', 'researcher', '--prompt', str(question)],
+                run = subprocess.run([sys.executable, tool.__file__, 'spawn', 'researcher', '--prompt', str(question), '--host', host],
                                      capture_output=True, text=True)
                 self.assertEqual(run.returncode, 0, run.stderr)
                 card = json.loads(run.stdout)['cards'][0]
@@ -322,12 +324,14 @@ class CloudRuntime(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'start from project/other'):
             self.models.open_night('other', '', '4')
 
-    def test_only_installed_host_is_required_and_never_reads_the_other_install(self):
+    def test_hosts_share_config_and_only_validate_the_selected_host(self):
         config=json.loads((ROOT/'mmw-v5-cloud/models.json').read_text())
         for tool, host in [(self.codex,'codex'),(self.models,'cursor')]:
             selected={'rows':{host:config['rows'][host]}}
+            tool.config_path().unlink(missing_ok=True)
             tool.write_config(selected)
             self.assertEqual(tool.read_config(),selected)
+        self.assertEqual(self.codex.config_path(),self.models.config_path())
         self.codex.config_path().unlink()
         with self.assertRaises(FileNotFoundError): self.codex.read_config()
         self.assertEqual(self.models.native_host(), 'cursor')
