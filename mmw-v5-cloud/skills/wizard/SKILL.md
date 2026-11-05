@@ -13,7 +13,7 @@ A wizard is ephemeral by default: built for one run, saved to a scratch or `scri
 
 ## Process
 
-Call the Skill tool with "technical-writing" for every instruction a person reads, including a README line that points at the script. Those instructions are a how-to.
+Use **technical-writing** for every instruction a person reads, including a README line that points at the script. Those instructions are a how-to.
 
 ### 1. Scope the procedure
 

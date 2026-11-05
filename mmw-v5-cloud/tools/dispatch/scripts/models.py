@@ -11,7 +11,6 @@ import tempfile
 from status import GitHub, current_night, labels, read_plan
 
 ROLES = ('junior-worker', 'senior-worker', 'advisor', 'researcher', 'candidate', 'review-axis', 'verifier')
-HOSTS = ('codex', 'cursor')
 INSTALLATIONS = {'.agents': 'codex', '.cursor': 'cursor'}
 WORKER_GRADES = ('junior-worker', 'senior-worker')
 
@@ -62,22 +61,8 @@ def read_config(at: str | None = None) -> dict:
     return validate(json.loads(text))
 
 
-def cursor_model(chosen: dict) -> str:
-    model = chosen['model']
-    effort = chosen.get('effort')
-    if effort and not model.endswith(f'-{effort}'):
-        model = f'{model}-{effort}'
-    if chosen.get('fast') is True and not model.endswith('-fast'):
-        model = f'{model}-fast'
-    return model
-
-
-def row(role: str, host: str, at: str) -> dict:
-    host = native_host(host)
-    chosen = {key: val for key, val in read_config(at)['rows'][host][role].items() if val != 'inherit'}
-    if host == 'cursor' and chosen.get('model'):
-        return {'model': cursor_model(chosen)}
-    return chosen
+def row(role: str, at: str) -> dict:
+    return read_config(at)['rows'][native_host()][role]
 
 
 def git_text(*args: str) -> str:
@@ -101,20 +86,8 @@ def require_file(path: str, label: str) -> str:
     return str(Path(path).resolve())
 
 
-def task_card(host: str, chosen: dict, description: str, prompt: str, *, environment: str | None = None, base: str | None = None) -> dict:
-    if host == 'cursor':
-        card = {
-            'description': description,
-            'prompt': prompt,
-            'model': chosen['model'],
-            'subagent_type': 'generalPurpose',
-            'run_in_background': False,
-        }
-        if environment:
-            card['environment'] = environment
-            card['cloud_base_branch'] = base
-        return card
-    return {'description': description, 'prompt': prompt, 'model': chosen['model'], 'effort': chosen.get('effort', '')}
+def assignment(role: str, chosen: dict, description: str, prompt: str) -> dict:
+    return {'description': description, 'prompt': prompt, 'model_row': {'role': role, **chosen}}
 
 
 def ref_exists(ref: str) -> bool:
@@ -129,11 +102,8 @@ def exists_at(commit: str, path: str) -> bool:
     return subprocess.run(['git', 'cat-file', '-e', f'{commit}:{path}'], capture_output=True).returncode == 0
 
 
-def native_host(explicit: str = '') -> str:
-    host = INSTALLATIONS[installation().name]
-    if explicit and explicit != host:
-        raise ValueError(f'{installation().name} installation uses {host}, not {explicit}')
-    return host
+def native_host() -> str:
+    return INSTALLATIONS[installation().name]
 
 
 def fetch_origin() -> None:
@@ -179,7 +149,7 @@ def resolve_at(at: str | None) -> str:
     if at:
         return at
     branch = git_text('rev-parse', '--abbrev-ref', 'HEAD')
-    if re.fullmatch(r'night/(spec|ticket)-\d+', branch):
+    if re.fullmatch(r'(night/(spec|ticket)|ticket/issue)-\d+', branch):
         _project, fork = project_fork(branch)
         return fork
     return 'HEAD'
@@ -262,7 +232,7 @@ def verify_skill_names(commit: str) -> list[str]:
     listing = git_text('ls-tree', '-r', '--name-only', commit)
     names = []
     for line in listing.splitlines():
-        match = re.fullmatch(r'\.cursor/skills/(verify-[^/]+)/SKILL\.md', line)
+        match = re.fullmatch(re.escape(installation().name) + r'/skills/(verify-[^/]+)/SKILL\.md', line)
         if match:
             names.append(match.group(1))
     return names
@@ -271,7 +241,7 @@ def verify_skill_names(commit: str) -> list[str]:
 def named_feature_paths(bodies: list[str], commit: str) -> list[str]:
     found = []
     for body in bodies:
-        for match in re.findall(r'\.cursor/skills/verify-[^\s]+/features/[^\s]+', body):
+        for match in re.findall(re.escape(installation().name) + r'/skills/verify-[^\s]+/features/[^\s]+', body):
             path = match.rstrip(').,;`\'"')
             if path not in found and exists_at(commit, path):
                 found.append(path)
@@ -279,10 +249,10 @@ def named_feature_paths(bodies: list[str], commit: str) -> list[str]:
 
 
 def feature_changes(base: str, head: str) -> list[str]:
-    names = git_text('diff', '--name-only', base, head, '--', '.cursor/skills')
+    names = git_text('diff', '--name-only', base, head, '--', f'{installation().name}/skills')
     found = []
     for line in names.splitlines():
-        if re.fullmatch(r'\.cursor/skills/verify-[^/]+/features/.+', line) and exists_at(head, line):
+        if re.fullmatch(re.escape(installation().name) + r'/skills/verify-[^/]+/features/.+', line) and exists_at(head, line):
             found.append(line)
     return found
 
@@ -294,7 +264,8 @@ def worker_grade(ticket: str, api) -> str | None:
     return grades[0]
 
 
-def spawn_worker(host: str, ticket: str, *, api=None) -> dict:
+def spawn_worker(ticket: str, *, api=None) -> dict:
+    host = native_host()
     if not ticket.isdigit() or ticket == '0':
         raise ValueError('--ticket is a positive issue number')
     night = current_night()
@@ -305,21 +276,23 @@ def spawn_worker(host: str, ticket: str, *, api=None) -> dict:
     aligned_tip(night['branch'])
     start = ticket_start(ticket, night['branch'])
     _project, fork = project_fork(night['branch'])
-    chosen = row(grade, host, fork)
+    chosen = row(grade, fork)
     prompt = '\n'.join([
         'Load the installed dispatch skill.',
         'Assigned role: worker.',
         'Follow the Worker reference.',
+        'Run in your own cloud checkout at the starting commit.',
         'When the verifier fails, fix the ticket and send a new verifier card.',
         'When the passing commit is the PR head, write the result in the PR.',
         '',
         f'Ticket #{ticket}',
         f'Night branch: {night["branch"]}',
+        f'Starting branch: {start}',
+        f'Starting commit: {commit_of(f"origin/{start}")}',
         f'issue-N branch: ticket/issue-{ticket}',
         f'Before the first push, rename the current branch to ticket/issue-{ticket}.',
     ])
-    return {'host': host, 'skipped': [], 'cards': [task_card(
-        host, chosen, f'Implement ticket #{ticket}', prompt, environment='cloud', base=start)]}
+    return {'host': host, 'skipped': [], 'cards': [assignment(grade, chosen, f'Implement ticket #{ticket}', prompt)]}
 
 
 def open_pr(api, branch: str) -> dict:
@@ -330,7 +303,8 @@ def open_pr(api, branch: str) -> dict:
     return matched[0]
 
 
-def spawn_verifier(host: str, *, api=None) -> dict:
+def spawn_verifier(*, api=None) -> dict:
+    host = native_host()
     branch = git_text('rev-parse', '--abbrev-ref', 'HEAD')
     if not re.fullmatch(r'ticket/issue-\d+', branch):
         raise ValueError('spawn verifier runs on ticket/issue-N')
@@ -352,11 +326,12 @@ def spawn_verifier(host: str, *, api=None) -> dict:
     if len(skills) != 1 or not features:
         return {'host': host, 'skipped': ['verifier'], 'cards': []}
     _project, fork = project_fork(f'origin/{pr["base"]["ref"]}')
-    chosen = row('verifier', host, fork)
+    chosen = row('verifier', fork)
     prompt = '\n'.join([
         'Load the installed dispatch skill.',
         'Assigned role: verifier.',
         'Follow the Verifier reference.',
+        'Start in your own cloud checkout at the named commit.',
         'Return pass or fail to the Worker.',
         '',
         f'Branch: {branch}',
@@ -364,23 +339,24 @@ def spawn_verifier(host: str, *, api=None) -> dict:
         'Features:',
         *features,
     ])
-    return {'host': host, 'skipped': [], 'cards': [task_card(host, chosen, f'Verify {branch}', prompt)]}
+    return {'host': host, 'skipped': [], 'cards': [assignment('verifier', chosen, f'Verify {branch}', prompt)]}
 
 
-def axis_card(host: str, chosen: dict, role: str, night: str, fork: str, tip: str, spec_line: str, landed_line: str, *, standards: list[str] | None = None) -> dict:
+def axis_card(chosen: dict, role: str, night: str, fork: str, tip: str, spec_line: str, landed_line: str, *, standards: list[str] | None = None) -> dict:
     title = {'standards': 'Standards', 'spec': 'Spec', 'tests': 'Tests'}[role]
     returns = {
         'standards': 'Return the Standards report to the Coordinator.',
-        'spec': 'Return the Spec report and reproduction materials to the Coordinator.',
-        'tests': 'Return the Tests report and reproduction materials to the Coordinator.',
+        'spec': 'Return the Spec report, reproduction scripts, and their output to the Coordinator.',
+        'tests': 'Return the Tests report, reproduction scripts, and their output to the Coordinator.',
     }[role]
     lines = [
         'Load the installed dispatch skill.',
         f'Assigned role: {role}.',
-        f'Call code-review and follow the {title} reference.',
+        f'Use code-review and follow the {title} reference.',
         returns,
         '',
         'This checkout is a temporary branch at the reviewed commit. Keep its name and push nothing.',
+        'Run in your own cloud environment.',
         f'Night branch: {night}',
         f'Pinned comparison: {fork}',
         f'Reviewed commit: {tip}',
@@ -390,10 +366,11 @@ def axis_card(host: str, chosen: dict, role: str, night: str, fork: str, tip: st
     ]
     if standards:
         lines.append('Standards: ' + ', '.join(standards))
-    return task_card(host, chosen, title, '\n'.join(lines), environment='cloud', base=night)
+    return assignment('review-axis', chosen, title, '\n'.join(lines))
 
 
-def spawn_review(host: str, *, api=None) -> dict:
+def spawn_review(*, api=None) -> dict:
+    host = native_host()
     night = current_night()
     tip = aligned_tip(night['branch'])
     project, fork = project_fork(night['branch'])
@@ -406,14 +383,14 @@ def spawn_review(host: str, *, api=None) -> dict:
     cards = []
     diff = git_text('diff', '--name-only', fork, tip)
     if diff.strip():
-        chosen = row('review-axis', host, fork)
+        chosen = row('review-axis', fork)
         present = [name for name in ('CODING_STANDARDS.md', 'CONTRIBUTING.md') if exists_at(tip, name)]
-        cards.append(axis_card(host, chosen, 'standards', night['branch'], fork, tip, spec_line, landed_line, standards=present))
+        cards.append(axis_card(chosen, 'standards', night['branch'], fork, tip, spec_line, landed_line, standards=present))
         if night['kind'] == 'spec':
-            cards.append(axis_card(host, chosen, 'spec', night['branch'], fork, tip, spec_line, landed_line))
+            cards.append(axis_card(chosen, 'spec', night['branch'], fork, tip, spec_line, landed_line))
         else:
             skipped.append('spec')
-        cards.append(axis_card(host, chosen, 'tests', night['branch'], fork, tip, spec_line, landed_line))
+        cards.append(axis_card(chosen, 'tests', night['branch'], fork, tip, spec_line, landed_line))
     else:
         skipped.extend(['standards', 'spec', 'tests'])
     skills = verify_skill_names(tip)
@@ -425,41 +402,38 @@ def spawn_review(host: str, *, api=None) -> dict:
             if path not in features:
                 features.append(path)
     if len(skills) == 1 and features:
-        chosen = row('verifier', host, fork)
+        chosen = row('verifier', fork)
         prompt = '\n'.join([
             'Load the installed dispatch skill.',
             'Assigned role: verifier.',
             'Follow the Verifier reference.',
             'Return pass or fail to the Coordinator.',
             'This checkout is a temporary branch at the named commit. Keep its name and push nothing.',
+            'Run in your own cloud environment.',
             '',
             f'Night branch: {night["branch"]}',
             f'Commit: {tip}',
             'Features:',
             *features,
         ])
-        cards.append(task_card(host, chosen, f'Verify {night["branch"]}', prompt, environment='cloud', base=night['branch']))
+        cards.append(assignment('verifier', chosen, f'Verify {night["branch"]}', prompt))
     else:
         skipped.append('verifier')
     return {'host': host, 'skipped': skipped, 'cards': cards, 'project_branch': project, 'fork': fork, 'reviewed': tip}
 
 
-def spawn_researcher(host: str, question: str, at: str | None = None) -> dict:
+def spawn_researcher(question: str, at: str | None = None) -> dict:
     path = require_file(question, '--question')
     text = Path(path).read_text(encoding='utf-8').rstrip()
-    chosen = row('researcher', host, resolve_at(at))
+    chosen = row('researcher', resolve_at(at))
     prompt = '\n'.join([
         'Load the research skill.',
         'Investigate this question. Write the notes file.',
-        'Do not start another agent.',
         '',
         'Question:',
         text,
     ])
-    card = task_card(host, chosen, 'Research', prompt)
-    if host == 'cursor':
-        card['run_in_background'] = True
-    return {'host': host, 'skipped': [], 'cards': [card]}
+    return {'host': native_host(), 'skipped': [], 'cards': [assignment('researcher', chosen, 'Research', prompt)]}
 
 
 def write_config(value: dict) -> None:
@@ -483,7 +457,6 @@ def main():
     parser = argparse.ArgumentParser(prog='dispatch.sh', description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     opened = sub.add_parser('open')
-    opened.add_argument('--host', required=True, choices=HOSTS)
     opened.add_argument('--project', required=True)
     group = opened.add_mutually_exclusive_group(required=True)
     group.add_argument('--spec', default='')
@@ -492,11 +465,9 @@ def main():
     show.add_argument('--at', default='')
     get = sub.add_parser('row')
     get.add_argument('role', choices=ROLES)
-    get.add_argument('host', choices=HOSTS)
-    get.add_argument('--at', required=True)
+    get.add_argument('--at', default='')
     spawn = sub.add_parser('spawn')
     spawn.add_argument('kind', choices=('worker', 'verifier', 'review', 'researcher'))
-    spawn.add_argument('--host', default='', choices=('', *HOSTS))
     spawn.add_argument('--ticket', default='')
     spawn.add_argument('--question', default='')
     args = parser.parse_args()
@@ -506,19 +477,19 @@ def main():
         elif args.command == 'show':
             printed = read_config(resolve_at(args.at or None))
         elif args.command == 'row':
-            printed = row(args.role, args.host, args.at)
+            printed = row(args.role, resolve_at(args.at or None))
         elif args.kind == 'worker':
             if not args.ticket:
                 raise ValueError('worker spawn needs --ticket')
-            printed = spawn_worker(native_host(args.host), args.ticket)
+            printed = spawn_worker(args.ticket)
         elif args.kind == 'verifier':
-            printed = spawn_verifier(native_host(args.host))
+            printed = spawn_verifier()
         elif args.kind == 'review':
-            printed = spawn_review(native_host(args.host))
+            printed = spawn_review()
         else:
-            if not args.host or not args.question:
-                raise ValueError('researcher spawn needs --host and --question')
-            printed = spawn_researcher(args.host, args.question)
+            if not args.question:
+                raise ValueError('researcher spawn needs --question')
+            printed = spawn_researcher(args.question)
         print(json.dumps(printed, ensure_ascii=False, indent=2))
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         parser.exit(2, f'dispatch: {exc}\n')

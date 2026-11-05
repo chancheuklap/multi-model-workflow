@@ -38,7 +38,7 @@ class API:
 class CloudRuntime(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='mmw-cloud-test-'); self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / 'repo'; self.root.mkdir(); self.remote = Path(self.temp.name) / 'origin.git'
+        self.root = (Path(self.temp.name) / 'repo').resolve(); self.root.mkdir(); self.remote = Path(self.temp.name) / 'origin.git'
         self.old = Path.cwd(); os.chdir(self.root); self.addCleanup(os.chdir, self.old)
         self.env = patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1'})
         self.env.start(); self.addCleanup(self.env.stop)
@@ -73,6 +73,7 @@ class CloudRuntime(unittest.TestCase):
         path = self.root / ('.agents' if host == 'codex' else '.cursor') / 'tools/dispatch/scripts/models.py'
         path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(TOOLS / 'models.py', path)
+        shutil.copy2(TOOLS / 'status.py', path.with_name('status.py'))
         return load('models', path)
 
     def publish_pr_check(self, body):
@@ -182,9 +183,9 @@ class CloudRuntime(unittest.TestCase):
         fixed = self.git('rev-parse','HEAD')
         changed = json.loads(json.dumps(config)); changed['rows']['codex']['review-axis']['model'] = 'next-run-only'; self.codex.write_config(changed)
         with patch.dict(os.environ,{'MMW_HOME':str(self.root/'unused-local-home')}):
-            self.assertEqual(self.codex.row('review-axis','codex',fixed),{'model':'chosen-native-id','effort':'high'})
-            self.assertEqual(self.models.row('review-axis','cursor',fixed),{'model':'cursor-review-model-high-fast'})
-        self.assertEqual(self.codex.row('junior-worker','codex',fixed),config['rows']['codex']['junior-worker'])
+            self.assertEqual(self.codex.row('review-axis',fixed),{'model':'chosen-native-id','effort':'high'})
+            self.assertEqual(self.models.row('review-axis',fixed),config['rows']['cursor']['review-axis'])
+        self.assertEqual(self.codex.row('junior-worker',fixed),config['rows']['codex']['junior-worker'])
 
     def test_native_host_settings_apply_to_each_worker_grade_and_review_role(self):
         (self.root/'.cursor').mkdir(exist_ok=True)
@@ -196,110 +197,128 @@ class CloudRuntime(unittest.TestCase):
         config['rows']['cursor']['junior-worker']['fast']=False
         self.models.write_config(config);self.codex.write_config(config);self.commit('host-specific role settings')
         fixed=self.git('rev-parse','HEAD')
-        self.assertEqual(self.codex.row('senior-worker','codex',fixed),{'model':'senior-specific-model','effort':'high'})
-        self.assertEqual(self.models.row('junior-worker','cursor',fixed),{'model':'grok-4.7-high'})
+        self.assertEqual(self.codex.row('senior-worker',fixed),{'model':'senior-specific-model','effort':'high'})
+        self.assertEqual(self.models.row('junior-worker',fixed),config['rows']['cursor']['junior-worker'])
         for role in self.models.ROLES:
             if role!='senior-worker':
-                self.assertEqual(self.codex.row(role,'codex',fixed),{'model':'gpt-6.1-sol','effort':'high'})
+                self.assertEqual(self.codex.row(role,fixed),{'model':'gpt-6.1-sol','effort':'high'})
             if role!='junior-worker':
-                self.assertEqual(self.models.row(role,'cursor',fixed),{'model':'grok-4.7-high-fast'})
+                self.assertEqual(self.models.row(role,fixed),config['rows']['cursor'][role])
 
-    def test_spawn_prints_worker_and_verifier_cards(self):
-        folder = self.root / '.cursor'
-        folder.mkdir(exist_ok=True)
-        config=json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+    def check_assignments(self, host):
+        tool = self.codex if host == 'codex' else self.models
+        folder = tool.installation()
+        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
         self.models.write_config(config); self.codex.write_config(config)
         self.commit('models')
-        self.git('branch', 'dev')
-        self.git('branch', 'project/demo')
-        self.git('branch', 'night/spec-90')
+        fork = self.git('rev-parse', 'HEAD')
+        self.git('branch', 'dev'); self.git('branch', 'project/demo'); self.git('branch', 'night/spec-90')
         self.git('push', '-q', 'origin', 'dev', 'project/demo', 'night/spec-90')
         self.git('switch', '-q', 'night/spec-90')
-        api = API()
-        api.add(90, 'mmw:spec')
-        api.add(18)
-        plain = API()
-        plain.add(18)
+        api = API(); api.add(90, 'mmw:spec'); api.add(18); api.children[90] = [18]
+        plain = API(); plain.add(18)
         plain.items[18]['labels'] = [{'name': 'mmw:ticket'}, {'name': 'ready-for-agent'}]
-        self.assertEqual(self.models.spawn_worker('cursor', '18', api=plain)['cards'], [])
-
-        worker = self.models.spawn_worker('cursor', '18', api=api)
-        card = worker['cards'][0]
-        self.assertEqual(card['environment'], 'cloud')
-        self.assertEqual(card['cloud_base_branch'], 'night/spec-90')
-        self.assertIn('Night branch: night/spec-90', card['prompt'])
-        self.assertIn('issue-N branch: ticket/issue-18', card['prompt'])
-        self.assertIn('Before the first push, rename the current branch to ticket/issue-18.', card['prompt'])
-        self.assertIn('Load the installed dispatch skill.', card['prompt'])
-        self.assertNotIn('work report', card['prompt'])
-        self.assertEqual(card['model'], 'grok-4.7-high-fast')
-        self.assertFalse(card['run_in_background'])
+        self.assertEqual(tool.spawn_worker('18', api=plain)['cards'], [])
+        worker = tool.spawn_worker('18', api=api)['cards'][0]
+        self.assertEqual(worker['model_row'], {'role': 'junior-worker', **config['rows'][host]['junior-worker']})
+        self.assertIn('Starting branch: night/spec-90', worker['prompt'])
+        self.assertIn(f'Starting commit: {fork}', worker['prompt'])
+        self.assertIn('own cloud checkout', worker['prompt'])
+        self.assertIn('issue-N branch: ticket/issue-18', worker['prompt'])
         self.assertEqual(self.git('rev-parse', '--abbrev-ref', 'HEAD'), 'night/spec-90')
-        missing = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', 'refs/remotes/origin/ticket/issue-18'], capture_output=True)
-        self.assertNotEqual(missing.returncode, 0)
-        self.git('branch', 'ticket/issue-18', 'night/spec-90')
+        self.git('switch', '-q', '-c', 'ticket/issue-18')
+        (self.root / 'resume.txt').write_text('existing work\n')
+        self.commit('existing ticket work'); resumed_head = self.git('rev-parse', 'HEAD')
         self.git('push', '-q', 'origin', 'ticket/issue-18')
-        again = self.models.spawn_worker('cursor', '18', api=api)
-        self.assertEqual(again['cards'][0]['cloud_base_branch'], 'ticket/issue-18')
+        self.git('switch', '-q', 'night/spec-90')
+        again = tool.spawn_worker('18', api=api)['cards'][0]
+        self.assertIn('Starting branch: ticket/issue-18', again['prompt'])
+        self.assertIn(f'Starting commit: {resumed_head}', again['prompt'])
         self.assertEqual(self.git('rev-parse', '--abbrev-ref', 'HEAD'), 'night/spec-90')
-        codex = self.codex.spawn_worker('codex', '18', api=api)['cards'][0]
-        self.assertEqual(codex['model'], 'gpt-6.1-sol')
-        self.assertEqual(codex['effort'], 'medium')
-        self.assertNotIn('environment', codex)
-        quiet = self.models.spawn_review('cursor', api=api)
-        self.assertEqual(quiet['cards'], [])
-        self.assertIn('standards', quiet['skipped'])
-
+        self.assertEqual(tool.spawn_review(api=api)['cards'], [])
         self.git('switch', '-q', 'ticket/issue-18')
-        base = self.git('rev-parse', 'night/spec-90')
-        bare = self.git('rev-parse', 'HEAD')
-        api.prs = [{'number': 8, 'state': 'open', 'draft': True, 'head': {'ref': 'ticket/issue-18', 'sha': bare},
-                    'base': {'ref': 'night/spec-90', 'sha': base, 'repo': {'full_name': api.repo}}}]
-        self.assertEqual(self.models.spawn_verifier('cursor', api=api)['cards'], [])
-        feature = folder / 'skills' / 'verify-demo' / 'features' / 'login.md'
+        api.prs = [{'number': 8, 'state': 'open', 'draft': True, 'head': {'ref': 'ticket/issue-18', 'sha': resumed_head},
+                    'base': {'ref': 'night/spec-90', 'sha': fork, 'repo': {'full_name': api.repo}}}]
+        self.assertEqual(tool.spawn_verifier(api=api)['cards'], [])
+        feature = folder / 'skills/verify-demo/features/login.md'
         feature.parent.mkdir(parents=True)
         (feature.parent.parent / 'SKILL.md').write_text('name: verify-demo\n')
         feature.write_text('login\n')
-        self.commit('feature')
-        head = self.git('rev-parse', 'HEAD')
-        self.git('push', '-q', 'origin', 'ticket/issue-18')
-        api.prs[0]['head']['sha'] = head
-        ticket = self.models.spawn_verifier('cursor', api=api)
-        self.assertNotIn('environment', ticket['cards'][0])
-        self.assertIn(f'Commit: {head}', ticket['cards'][0]['prompt'])
-        self.assertIn('.cursor/skills/verify-demo/features/login.md', ticket['cards'][0]['prompt'])
-        self.assertIn('Return pass or fail to the Worker.', ticket['cards'][0]['prompt'])
+        changed = json.loads(json.dumps(config))
+        changed['rows'][host]['researcher']['model'] = 'next-run-only'
+        tool.write_config(changed)
+        self.commit('feature and future settings'); head = self.git('rev-parse', 'HEAD')
+        self.git('push', '-q', 'origin', 'ticket/issue-18'); api.prs[0]['head']['sha'] = head
+        ticket = tool.spawn_verifier(api=api)['cards'][0]
+        feature_path = feature.relative_to(self.root).as_posix()
+        self.assertIn(f'Commit: {head}', ticket['prompt'])
+        self.assertIn('own cloud checkout', ticket['prompt'])
+        self.assertIn(feature_path, ticket['prompt'])
+        self.assertIn('Return pass or fail to the Worker.', ticket['prompt'])
+        self.assertEqual(ticket['model_row'], {'role': 'verifier', **config['rows'][host]['verifier']})
+        self.assertEqual(tool.named_feature_paths([f'Feature: `{feature_path}`'], head), [feature_path])
+        question = self.root / 'question.md'; question.write_text('Trace the login flow.')
+        researcher = tool.spawn_researcher(str(question))['cards'][0]
+        self.assertEqual(researcher['model_row']['model'], config['rows'][host]['researcher']['model'])
+        self.assertIn(question.read_text(), researcher['prompt'])
         self.git('commit', '-q', '--allow-empty', '-m', 'unpushed')
-        with self.assertRaisesRegex(ValueError, 'HEAD is not pushed'):
-            self.models.spawn_verifier('cursor', api=api)
-
+        with self.assertRaisesRegex(ValueError, 'HEAD is not pushed'): tool.spawn_verifier(api=api)
+        self.git('reset', '--hard', head)
         self.git('switch', '-q', 'night/spec-90')
-        (self.root / 'night.txt').write_text('night\n')
-        self.commit('night')
-        self.git('push', '-q', 'origin', 'night/spec-90')
-        review = self.models.spawn_review('cursor', api=api)
-        self.assertEqual([item['description'] for item in review['cards']], ['Standards', 'Spec', 'Tests'])
-        self.assertEqual(review['cards'][0]['cloud_base_branch'], 'night/spec-90')
-        self.assertIn('Keep its name and push nothing.', review['cards'][0]['prompt'])
+        self.git('merge', '--no-ff', '--no-edit', 'ticket/issue-18')
+        tip = self.git('rev-parse', 'HEAD'); self.git('push', '-q', 'origin', 'night/spec-90')
+        api.prs[0].update(merged_at='2026-11-05T00:00:00Z', merge_commit_sha=tip, state='closed')
+        review = tool.spawn_review(api=api)
+        self.assertEqual([x['description'] for x in review['cards']], ['Standards', 'Spec', 'Tests', 'Verify night/spec-90'])
+        for card in review['cards']:
+            self.assertIn(tip, card['prompt'])
+            self.assertIn('own cloud environment', card['prompt'])
         self.assertIn('Spec #90', review['cards'][1]['prompt'])
-        self.assertIn('verifier', review['skipped'])
-        self.git('switch', '-q', '-c', 'cursor/open', 'dev')
+        self.assertIn(feature_path, review['cards'][-1]['prompt'])
+        self.assertIn('Return pass or fail to the Coordinator.', review['cards'][-1]['prompt'])
+        self.assertEqual(self.git('rev-parse', '--abbrev-ref', 'HEAD'), 'night/spec-90')
+
+    def test_cursor_assignments_use_project_commits_and_verification(self):
+        self.check_assignments('cursor')
+
+    def test_codex_assignments_use_project_commits_and_verification(self):
+        self.check_assignments('codex')
+
+    def test_research_cli_preserves_inherit_and_cursor_options(self):
+        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        for tool, host in [(self.models, 'cursor'), (self.codex, 'codex')]:
+            config['rows'][host]['researcher'].update(model='inherit', effort='inherit')
+            if host == 'cursor': config['rows'][host]['researcher'].update(context='256k', fast=False)
+            tool.write_config(config)
+        self.commit('inherited settings')
+        question = self.root / 'question.md'; question.write_text('Read the existing feature map.')
+        for tool, host in [(self.models, 'cursor'), (self.codex, 'codex')]:
+            with self.subTest(host=host):
+                run = subprocess.run([sys.executable, tool.__file__, 'spawn', 'researcher', '--question', str(question)],
+                                     capture_output=True, text=True)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                card = json.loads(run.stdout)['cards'][0]
+                self.assertEqual(card['model_row'], {'role': 'researcher', **config['rows'][host]['researcher']})
+                self.assertIn(question.read_text(), card['prompt'])
+
+    def test_open_night_adopts_and_resumes_published_branch(self):
+        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        self.models.write_config(config); self.commit('models')
+        self.git('branch', 'dev'); self.git('push', '-q', 'origin', 'dev')
+        self.git('switch', '-q', '-c', 'host/open', 'dev')
         opened = self.models.open_night('other', '', '3')
         self.assertEqual(opened['night_branch'], 'night/ticket-3')
         self.assertEqual(opened['project_branch'], 'project/other')
         self.assertEqual(self.git('rev-parse', '--abbrev-ref', 'HEAD'), 'night/ticket-3')
         self.assertEqual(self.git('rev-parse', 'HEAD'), self.git('rev-parse', 'origin/project/other'))
-        self.assertEqual(self.git('rev-parse', 'origin/night/ticket-3'), self.git('rev-parse', 'HEAD'))
-        self.git('commit', '-q', '--allow-empty', '-m', 'night moved')
-        self.git('push', '-q', 'origin', 'night/ticket-3')
-        self.git('branch', 'cursor/resume', 'night/ticket-3~1')
-        self.git('switch', '-q', 'cursor/resume')
+        self.git('commit', '-q', '--allow-empty', '-m', 'night moved'); self.git('push', '-q', 'origin', 'night/ticket-3')
+        self.git('branch', 'host/resume', 'night/ticket-3~1'); self.git('switch', '-q', 'host/resume')
         self.git('branch', '-D', 'night/ticket-3')
         resumed = self.models.open_night('other', '', '3')
         self.assertEqual(resumed['night_branch'], 'night/ticket-3')
-        self.assertEqual(self.git('rev-parse', '--abbrev-ref', 'HEAD'), 'night/ticket-3')
         self.assertEqual(self.git('rev-parse', 'HEAD'), self.git('rev-parse', 'origin/night/ticket-3'))
-        self.git('switch', '-q', '-c', 'cursor/wrong', 'night/spec-90')
+        self.git('switch', '-q', '-c', 'host/wrong', 'dev')
+        (self.root / 'wrong.txt').write_text('unrelated work'); self.commit('wrong start')
         with self.assertRaisesRegex(ValueError, 'start from project/other'):
             self.models.open_night('other', '', '4')
 
@@ -311,8 +330,8 @@ class CloudRuntime(unittest.TestCase):
             self.assertEqual(tool.read_config(),selected)
         self.codex.config_path().unlink()
         with self.assertRaises(FileNotFoundError): self.codex.read_config()
-        with self.assertRaisesRegex(ValueError, 'installation uses cursor'):
-            self.models.native_host('codex')
+        self.assertEqual(self.models.native_host(), 'cursor')
+        self.assertEqual(self.codex.native_host(), 'codex')
 
     def test_partial_or_malformed_github_pages_fail_explicitly(self):
         api=object.__new__(status.GitHub);api.repo='example/project'

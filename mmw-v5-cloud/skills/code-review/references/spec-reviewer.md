@@ -10,4 +10,4 @@ Construct and run counterexamples against the real code at the reviewed commit. 
 
 Missing requirements and unrequested behaviour that can be established directly from the spec and code still belong in the report, with their citations. Claims about actual runtime behaviour require a run. If a suspected failure cannot be run, list it separately as unverified with the reason. No findings is a valid result. Report findings and reproduction materials, not fixes.
 
-Return the report and reproduction materials to the session that assigned you.
+Return the report, reproduction scripts, and their output to the session that assigned you.

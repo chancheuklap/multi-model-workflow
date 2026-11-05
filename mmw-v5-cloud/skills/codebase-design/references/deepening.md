@@ -1,6 +1,6 @@
 # Deepening
 
-How to deepen a cluster of shallow modules safely, given its dependencies. Call the Skill tool with "codebase-dic" for **module**, **interface**, **seam**, **adapter**.
+How to deepen a cluster of shallow modules safely, given its dependencies. Use **codebase-dic** for **module**, **interface**, **seam**, **adapter**.
 
 ## Dependency categories
 
@@ -26,7 +26,7 @@ Third-party services (Stripe, Twilio, etc.) you don't control. The deepened modu
 
 ## Seam discipline
 
-Call the Skill tool with "codebase-dic" and use the sentences in its Principles for one adapter, and for internal seams versus the external seam.
+Use **codebase-dic** and use the sentences in its Principles for one adapter, and for internal seams versus the external seam.
 
 - Don't introduce a port unless at least two adapters are justified (typically production + test). A single-adapter seam is just indirection.
 - Don't expose internal seams through the interface just because tests use them.

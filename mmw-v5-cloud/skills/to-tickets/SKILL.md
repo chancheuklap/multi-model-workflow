@@ -15,13 +15,13 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 ### 2. Explore the codebase (optional)
 
-If you have not already explored the codebase, do so to understand the current state of the code. Call the Skill tool with "principle-anchor-every-reference" for ticket titles and descriptions, and respect ADRs in the area you're touching.
+If you have not already explored the codebase, do so to understand the current state of the code. Use **principle-anchor-every-reference** for ticket titles and descriptions, and respect ADRs in the area you're touching.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
 ### 3. Draft vertical slices
 
-Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "principle-write-for-where-it-is-read" and "principle-baseline-is-the-contract". Call the Skill tool with "technical-writing" and write each ticket's prose through it. The issue template is the structure.
+Break the work into **tracer bullet** tickets. Use **principle-write-for-where-it-is-read** and **principle-baseline-is-the-contract**. Use **technical-writing** and write each ticket's prose through it. The issue template is the structure.
 
 <vertical-slice-rules>
 
@@ -32,9 +32,9 @@ Break the work into **tracer bullet** tickets. Call the Skill tool twice, for "p
 
 </vertical-slice-rules>
 
-The project's verification system is the skill `verify-<app>` at `.cursor/skills/verify-<app>/`: a `features/` map of how a person reaches each part, plus the scripts that drive the real app. A ticket that changes a surface a person uses names the feature-file path under `.cursor/skills/verify-<app>/features/` and copies the spec sentence unchanged. The worker writes the drive script beside that skill, asserts that same sentence, and commits both. A ticket that names neither does not get a script. This step does not write the script.
+The project's verification system is the project-local skill `verify-<app>`: a `features/` map of how a person reaches each part, plus the scripts that drive the real app. A ticket that changes a surface a person uses names the feature-file path in that skill's `features/` directory and copies the spec sentence unchanged. The worker writes the drive script beside that skill, asserts that same sentence, and commits both. A ticket that names neither does not get a script. This step does not write the script.
 
-Call the Skill tool with "principle-separate-before-serializing-shared-state" before settling the blocking edges, and before sequencing a wide refactor whose tickets would write one shared symbol.
+Use **principle-separate-before-serializing-shared-state** before settling the blocking edges, and before sequencing a wide refactor whose tickets would write one shared symbol.
 
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
@@ -44,7 +44,7 @@ For each ticket an agent works, propose `junior-worker` or `senior-worker` and a
 
 ### 4. Scan for ambiguities
 
-Save the drafted tickets in a temporary directory created with `mktemp -d`. Before presenting the breakdown, have a fresh read-only subagent scan the source plan, spec, or conversation and those drafts using [Ambiguity scan](references/ambiguity-scan.md). Give it the source and draft paths, and wait for its one-pass result. If the host cannot run subagents, run the same scan yourself.
+Save the drafted tickets in a temporary directory created with `mktemp -d`. Before presenting the breakdown, have a fresh read-only subagent scan the source plan, spec, or conversation and those drafts using [Ambiguity scan](references/ambiguity-scan.md). Use the advisor model row from [Dispatch](../dispatch/SKILL.md). Give the scanner the approved source and the drafted ticket text, and wait for its one-pass result. If the host cannot run subagents, run the same scan yourself.
 
 Bring the scan's questions into the quiz below, alongside the affected tickets, with their options, recommendation, and why the answer matters. Do not open a separate question round.
 

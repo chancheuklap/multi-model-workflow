@@ -81,6 +81,7 @@ else:
 
     def test_complete_runtime_installs_for_both_hosts_and_uses_its_own_config(self):
         installations = [self.install('cursor'), self.install('codex')]
+        snapshots = {}
         for installation in installations:
             with self.subTest(installation=installation.name):
                 host = 'codex' if installation.name == '.agents' else 'cursor'
@@ -88,6 +89,7 @@ else:
                 settings = json.loads(config.read_text())
                 settings['rows'][host]['review-axis']['model'] = 'chosen-' + host
                 config.write_text(json.dumps(settings))
+                snapshots[host] = settings['rows'][host]['review-axis'].copy()
                 for relative in ['skills/dispatch/SKILL.md', 'skills/dispatch/references/dispatch-reviewer.md',
                                  'skills/write-tests/SKILL.md', 'board/page/app.mjs', 'board/gates.py']:
                     self.assertTrue((installation / relative).is_file(), relative)
@@ -111,10 +113,9 @@ else:
             config.write_text(json.dumps(changed))
             result = self.run_command(self.project, sys.executable,
                                       str(installation / 'tools/dispatch/scripts/models.py'),
-                                      'row', 'review-axis', host, '--at', fixed)
+                                      'row', 'review-axis', '--at', fixed)
             self.assertEqual(result.returncode, 0, result.stderr)
-            expected = 'chosen-codex' if host == 'codex' else 'chosen-cursor-xhigh-fast'
-            self.assertEqual(json.loads(result.stdout)['model'], expected)
+            self.assertEqual(json.loads(result.stdout), snapshots[host])
             self.check_board_settings(installation, host)
         with zipfile.ZipFile(self.archive) as archive:
             self.assertTrue(all(name.startswith('mmw-v5-cloud/') for name in archive.namelist()))

@@ -1,6 +1,6 @@
 # MMW v5
 
-MMW v5 提供开发项目所用的技能、Agent 派发工具和任务板。当前版本是云端版，源目录是 `mmw-v5-cloud/`。Coordinator、Worker、审查轴和 verifier 都由 Cursor cloud agent 运行。
+MMW v5 提供开发项目所用的技能、Agent 派发工具和任务板。当前版本是云端版，源目录是 `mmw-v5-cloud/`。Coordinator、Worker、审查轴和 verifier 都由 cloud agent 运行。
 
 ## 安装
 

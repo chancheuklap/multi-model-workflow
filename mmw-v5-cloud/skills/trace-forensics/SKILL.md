@@ -13,7 +13,7 @@ Redact every secret before showing the artifact: write `<REDACTED>` in its place
 
 ## 1. Load the artifact
 
-Identify the format and load it with the right tool. Call the Skill tool with "principle-guard-the-context-window" and parse a large artifact in bounded pieces. Keep the reduced finding in the main thread.
+Identify the format and load it with the right tool. Use **principle-guard-the-context-window** and parse a large artifact in bounded pieces. Keep the reduced finding in the main thread.
 
 ## 2. Make it queryable
 
@@ -35,7 +35,7 @@ If you have a paired capture, diff the before and after artifacts to confirm. Ot
 
 The reply names the artifact and format, the reduced finding, the source location, the artifact paths, and whether a paired capture confirmed it.
 
-Call the Skill tool with "to-tickets" for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket. Blocked by: None (can start immediately). Use the worker-grade selection in the `Draft vertical slices` section from that same call.
+Use **to-tickets** for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket. Blocked by: None (can start immediately). Use the worker-grade selection in the `Draft vertical slices` section from that same call.
 
 A defect becomes a fix ticket. What to build is the behaviour once that mechanism is gone. The finding is the fix, written there. Acceptance is that symptom gone, and the finding stated in the commit message. When the artifact does not carry the symbols, the ticket records that gap and names no fix.
 
@@ -43,6 +43,6 @@ A measured slowness becomes a perf-issue ticket. What to build is the improvemen
 
 Show the ticket to the user before publishing. Don't block on it; publish and proceed if the user is AFK.
 
-When the ticket names a fix, call the Skill tool with "dispatch" and send this ticket as its Coordinator.
+When the ticket names a fix, use **dispatch** and send this ticket as its Coordinator.
 
 Done when the ticket is published. The Worker implements a ticket that names a fix.

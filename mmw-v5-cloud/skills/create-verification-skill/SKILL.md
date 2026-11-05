@@ -1,11 +1,11 @@
 ---
 name: create-verification-skill
-description: "Generate a project-local verification skill that drives your app the way a user does — any language, framework, or platform. Use for /create-verification-skill, \"make a control skill for this repo\", or when a project has no scripted way to prove UI/CLI/service behavior."
+description: "Generate a project-local verification skill that drives your app the way a user does — any language, framework, or platform. Use for \"make a control skill for this repo\", or when a project has no scripted way to prove UI/CLI/service behavior."
 ---
 
 # Create a verification skill
 
-Every serious project needs a scripted way to drive the real app and prove behavior: launch it, exercise a feature the way a user would, and capture evidence. This skill generates that as a project-local skill (`.cursor/skills/verify-<app>/`) tailored to the repo. You write the generator's output for the next agent, not for a human: it will be read cold, mid-task, by an agent that has never seen the app.
+Every serious project needs a scripted way to drive the real app and prove behavior: launch it, exercise a feature the way a user would, and capture evidence. This skill generates that as a project-local `verify-<app>` skill tailored to the repo. You write the generator's output for the next agent, not for a human: it will be read cold, mid-task, by an agent that has never seen the app.
 
 ## 1. Interview the repo, not the user
 
@@ -17,7 +17,7 @@ Answer these from the codebase and only ask the user what you cannot observe:
 - **Observe:** what evidence can be captured? Screenshots, terminal transcripts, response bodies, logs, exit codes, DB state.
 - **Isolate:** can two instances run side by side (ports, data dirs, profiles)? If not, say so in the generated skill: refusing to double-drive a shared instance beats corrupting the user's session.
 
-The skill you generate is the project's verification system. Its name is `verify-<app>`, and it lives at `.cursor/skills/verify-<app>/`. Later agents start the app, drive it, and keep evidence by reading that skill.
+The skill you generate is the project's verification system. Create `verify-<app>/` beside this skill. Later agents start the app, drive it, and keep evidence by reading that skill.
 
 When e2e can drive the surface a person touches, e2e is the harness. Install `e2e` and the engine packages that `npx e2e guide setup` names for the surface in front of you, with the project's package manager. A surface that guide adds later uses the engine it names there. Do not run `e2e init`, do not install the e2e skill, and do not register MCP or a model. Run `npx e2e guide setup` and `npx e2e guide writing-tests`, and follow them for the config and the scripts. Scripts use `screen` and `expect` only. e2e loads `e2e.config.ts` or `e2e.config.mts` by walking upward from the working directory. It does not look into child directories. `--config <path>` names the file, and a wrong path is `CONFIG_NOT_FOUND`. The config's directory is the project root for test globs, and a glob cannot contain `..`. Put `e2e.config.ts` and the scripts inside `verify-<app>/`, not in the product's test suite. Every e2e command in Doctor, Drive, and Evidence passes `--config` with that file. The app command's `cwd` is the repository root. A site starts with `app.command`. A window that already is the app, such as Electron, attaches with `connect` to that window's own debugging port, and each script starts its own app. Doctor is `npx e2e list --config` on that file, then one smoke script with the same `--config`. Drive and Evidence name those scripts, `trace.md`, and a durable `--output`. A surface those guides cannot drive keeps the generic recipe from the interview above.
 
@@ -25,7 +25,7 @@ If the checkout doesn't build or start as-is, fix that first (or report it preci
 
 ## 2. Generate the skill
 
-Write `.cursor/skills/verify-<app>/SKILL.md` with YAML frontmatter (`name: verify-<app>` and a `description` that names the app, the surface, and when to reach for it — without frontmatter the skill never registers) and these sections, each grounded in what the interview actually found (no placeholders left):
+Write its `SKILL.md` with YAML frontmatter (`name: verify-<app>` and a `description` that names the app, the surface, and when to reach for it — without frontmatter the skill never registers) and these sections, each grounded in what the interview actually found (no placeholders left):
 
 - **Launch:** the exact command that starts the app for verification, and how to tell it's ready (a log line, a prompt). Launch must reach a usable state from an empty data dir, including any migrations and seed data. Ready means usable, not just that a process answers. A database health check can pass while its init scripts are still running. Include teardown. For a short-lived CLI or TUI there is no server to keep alive: launch means build the binary (or install deps) once, then start each drive in its own isolated PTY or tmux session.
 - **Doctor:** one read-only check that answers "is this instance worth driving?" — process up, right version/build, port owned by us, auth valid. An agent runs this first whenever anything looks off.
@@ -38,7 +38,7 @@ When e2e is the harness, Doctor, Drive, and Evidence follow the e2e paragraph ab
 
 ## 3. Seed the feature map
 
-Create `.cursor/skills/verify-<app>/features/README.md` plus one file per user-facing feature you can identify (aim for the top 3-5 to start, from routes, commands, menus, or docs). Follow the shape in [`references/feature-map-example/`](references/feature-map-example/), with a README index and one file per feature. Each file answers, from the user's point of view: what the feature is, how to reach it, how to drive it with the harness, and what observable end state proves it works. The four H2s are `Sub-features`, `How to get to it (user POV)`, `Driving it with <harness>`, and `Gotchas`. If the seed data lacks a precondition that a journey needs, the journey reports a failure and the reason goes in that feature's `Gotchas`. Never weaken the journey to make it pass. The map is the repo's maintained verification source; a proof that drives one convenient entry point is incomplete when the map lists others.
+In that skill's `features/` directory, create `README.md` plus one file per user-facing feature you can identify (aim for the top 3-5 to start, from routes, commands, menus, or docs). Follow the shape in [`references/feature-map-example/`](references/feature-map-example/), with a README index and one file per feature. Each file answers, from the user's point of view: what the feature is, how to reach it, how to drive it with the harness, and what observable end state proves it works. The four H2s are `Sub-features`, `How to get to it (user POV)`, `Driving it with <harness>`, and `Gotchas`. If the seed data lacks a precondition that a journey needs, the journey reports a failure and the reason goes in that feature's `Gotchas`. Never weaken the journey to make it pass. The map is the repo's maintained verification source; a proof that drives one convenient entry point is incomplete when the map lists others.
 
 ## 4. Prove the generated skill before handing it over
 
@@ -46,4 +46,4 @@ Run its own instructions end to end once: launch, doctor, drive ONE mapped featu
 
 ## 5. Offer the maintenance loop
 
-Point the user at `/maintain-verification-skill` for keeping the map honest as the app changes. Suggest a cadence only if they ask.
+Point the user at **maintain-verification-skill** for keeping the map honest as the app changes. Suggest a cadence only if they ask.

@@ -4,7 +4,7 @@ You are the Coordinator. You reach this after every ticket that will land has la
 
 ## 1. Send
 
-Run `dispatch.sh spawn review` and hand each printed card to Task in this turn, as [Dispatch](../SKILL.md) describes. Wait for all of them.
+Run `dispatch.sh spawn review` and send each printed assignment in parallel, as [Dispatch](../SKILL.md) describes. Wait for all of them.
 
 One command sends this night's cards: Standards, Spec, and Tests, and the second verifier. Each runs in its own cloud VM, starting from the night branch's reviewed commit, and the card tells it to keep that temporary branch name and push nothing. Spec is omitted when the night has no spec. A card listed under `skipped` does not run. A command error is a limitation of this review, not a pass.
 

@@ -2,11 +2,11 @@
 
 You own the authorized spec or one ticket, from the owner's execution Go to its delivered result. A ticket handed back with its reason is a valid outcome. A weakened requirement is not.
 
-You run in a Cursor cloud agent. Manage GitHub Issues, Blocked by links, and merges with gh from this VM. Each Worker is a cloud subagent for one ticket. It renames its branch to `ticket/issue-N`, opens a draft PR into the night branch, and writes what it did in that PR. You read the PR. When the ticket is finished you mark the PR ready and land it. Until then the PR stays draft. That PR is the record. Land reads it.
+You run in a cloud agent. Manage GitHub Issues, Blocked by links, and merges with gh from this environment. Each Worker is a cloud subagent for one ticket. It renames its branch to `ticket/issue-N`, opens a draft PR into the night branch, and writes what it did in that PR. You read the PR. When the ticket is finished you mark the PR ready and land it. Until then the PR stays draft. That PR is the record. Land reads it.
 
 Each decision stays on the child, ticket, spec, or PR the next reader will open.
 
-Call the Skill tool with "principle-baseline-is-the-contract" for the spec, the tickets, and the accepted baselines. Call the Skill tool with "principle-never-block-on-the-human".
+Use **principle-baseline-is-the-contract** for the spec, the tickets, and the accepted baselines. Use **principle-never-block-on-the-human**.
 
 ## 1. Open the night
 
@@ -17,10 +17,10 @@ The spec carries only `mmw:spec`. An agent ticket carries `mmw:ticket`, `ready-f
 The project name is the one the owner authorized. `dev` and `main` keep those git names. The project branch is `project/<name>`. The night branch is `night/spec-N` or `night/ticket-N`.
 
 ```text
-dispatch.sh open --host HOST --project NAME --spec N
+dispatch.sh open --project NAME --spec N
 ```
 
-For one ticket, pass `--ticket N` instead of `--spec N`. HOST is `cursor` on Cursor and `codex` on Codex.
+For one ticket, pass `--ticket N` instead of `--spec N`.
 
 The command publishes `project/<name>` at `origin/dev` when that ref is missing. It renames the current branch to the night branch and publishes that branch. This checkout stays that branch. The printed `fork` is the commit where the night branch was cut from the project branch.
 
@@ -62,7 +62,7 @@ Add `--blocking N` only when it blocks N.
 
 Use written authority in order: owner decisions and ADRs, the spec, an accepted prototype, domain documents, the ticket. Correct lower-authority material when the source settles it. Record the decision, its reason, and the affected tasks on the child.
 
-When an independent repair is needed, call the Skill tool with "to-tickets" and use its issue template as the ticket's shape. Stop there. That skill also has an interactive Process; this night does not run it. State the required behavior and acceptance criteria, preserve the spec and baselines, and set Blocked by links. The destination carries `mmw:ticket` and `ready-for-agent` as its only queue label. Its worker grade is `junior-worker`, unless getting this repair wrong would be wrong silently: money that must reach a terminal state, recovery after a crash, a contract an installed base already reads, or a security default. Then the grade is `senior-worker`. Promoting the child replaces `mmw:child` with `mmw:ticket`. Keep the original parent. Add the dependency before dispatching work it blocks.
+When an independent repair is needed, use **to-tickets** and use its issue template as the ticket's shape. Stop there. That skill also has an interactive Process; this night does not run it. State the required behavior and acceptance criteria, preserve the spec and baselines, and set Blocked by links. The destination carries `mmw:ticket` and `ready-for-agent` as its only queue label. Its worker grade is `junior-worker`, unless getting this repair wrong would be wrong silently: money that must reach a terminal state, recovery after a crash, a contract an installed base already reads, or a security default. Then the grade is `senior-worker`. Promoting the child replaces `mmw:child` with `mmw:ticket`. Keep the original parent. Add the dependency before dispatching work it blocks.
 
 An unresolved owner decision or a spec expansion stays in `needs-triage`, with the alternatives and the affected tasks. When a blocker needs the owner, resume the Worker with the instruction to hand work back, so it preserves its output and leaves the PR draft, and continue other tickets.
 
@@ -90,7 +90,7 @@ Done when the PR or the child states the result and the next action.
 dispatch.sh land PR
 ```
 
-Pass the PR number. The command reads that PR's current head, merges it into the night branch, and runs `scripts/check`. A failed check leaves the night branch unchanged. Format, lint, types, and the static parameter rules already ran in the commit hook. They are not this check.
+Pass the PR number. The command reads that PR's current head, merges it into the night branch, and runs `scripts/check`. A failed check leaves the night branch unchanged.
 
 When land fails, use the failure you were shown:
 
@@ -131,13 +131,13 @@ Summarize merged outcomes and unfinished, human, and blocked work with their rea
 
 For each judgement call, write the finding, your judgment, and your recommendation in that PR.
 
-Call the Skill tool with "pr" for the delivery PR body. Include the verification, limitations, owner decisions, and those judgement calls. Save it and create the PR:
+Use **pr** for the delivery PR body. Include the verification, limitations, owner decisions, and those judgement calls. Save it and create the PR:
 
 ```text
 gh pr create --base <project-branch> --head <night-branch> --title TITLE --body-file FILE
 ```
 
-After that PR exists, report each judgement call in the conversation with the owner: the finding, your judgment, and your recommendation. Then call the Skill tool with "retro". Its commits land on this night branch. Push this branch. The delivery PR already tracks it.
+After that PR exists, report each judgement call in the conversation with the owner: the finding, your judgment, and your recommendation. Then use **retro**. Its commits land on this night branch. Push this branch. The delivery PR already tracks it.
 
 After the owner accepts and authorizes this delivery, merge that PR with `gh pr merge --merge` and confirm the project branch contains it. This checkout stays the night branch. Acceptance leaves unfinished tickets unfinished. Merging the project branch into `dev` for testing, and `dev` into `main` for deployment, are separately authorized and use gh. This checkout stays the night branch.
 

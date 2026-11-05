@@ -9,7 +9,7 @@ When the caller asks for the judgment, the examples, or the mocking guideline, r
 
 You are the worker landing this ticket's code. Apply this during that implementation. The review of these tests is a later step, not a step of this cycle.
 
-Use the behavior, test seam, acceptance requirements, and test precedent supplied by the spec, ticket, or task. Call the Skill tool with "principle-baseline-is-the-contract" for those decisions. Call the Skill tool with "principle-anchor-every-reference" for test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
+Use the behavior, test seam, acceptance requirements, and test precedent supplied by the spec, ticket, or task. Use **principle-baseline-is-the-contract** for those decisions. Use **principle-anchor-every-reference** for test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
 
 Read [the judgment](references/judgment.md) before the loop and apply it on every cycle. See [tests.md](references/tests.md) for examples. Read [mocking.md](references/mocking.md) when a test needs a mock, or when you are implementing a system boundary.
 
@@ -21,7 +21,7 @@ When the task names no seam, report that gap to the caller before any test exist
 
 For each seam the task names, state one line on what a test there catches and what it misses.
 
-When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), call the Skill tool with "codebase-dic" for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run. The task's named seam stays.
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), use **codebase-dic** for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run. The task's named seam stays.
 
 Done when every test you will add sits on a seam the task names, and each of those seams has its one-line note.
 

@@ -7,7 +7,7 @@ description: "Use for \"how does X work\", code walkthroughs before changing som
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Explorers and explainers both use the researcher role. For each one, write the prompt this step builds to a file and end that file with one line: the subagent only reads the codebase. Resolve `../../tools/dispatch/scripts/dispatch.sh` from this file and run `dispatch.sh spawn researcher --host HOST --question FILE` in the consuming repository. HOST is `cursor` or `codex`. Set the printed card's `prompt` to that file's text. Pass every other field through as it stands, and hand the card over as [Dispatch](../dispatch/SKILL.md) describes. Hand over every card this step spawns before continuing. When a card has `run_in_background` set, continue your own work. The step that uses its output runs when that card returns.
+Explorers and explainers both use the researcher model row. For each one, write the prompt this step builds to a file and end it with one line: the subagent only reads the codebase. Resolve `../../tools/dispatch/scripts/dispatch.sh` from this file and run `dispatch.sh spawn researcher --question FILE` in the consuming repository. Use that file's text as the assignment's prompt and send it as [Dispatch](../dispatch/SKILL.md) describes. Continue other work while the subagents run; use their results at the steps below.
 
 ## 1. Assess complexity
 
@@ -20,7 +20,7 @@ When in doubt, take the simple path.
 
 ## 2. Explore (complex only)
 
-Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Spawn all explorers in a single message, each with `references/explorer-prompt.md` and its angle filled in.
+Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Send all explorers in parallel, each with `references/explorer-prompt.md` and its angle filled in.
 
 ## 3. Synthesize (complex only)
 

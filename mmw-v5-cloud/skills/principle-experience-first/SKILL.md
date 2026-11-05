@@ -14,4 +14,4 @@ When implementation convenience conflicts with user delight, choose delight.
 
 The user is whoever consumes the work. For a UI that is the end user. For a library or an internal API it is the colleague who imports it. The engineer who maintains the code next is a user too. Weigh their experience the same way, and explain impact from their perspective.
 
-Foundations should serve the experience. Call the Skill tool with "principle-sequence-verifiable-units" for the sequence of work. This principle governs the target.
+Foundations should serve the experience. Use **principle-sequence-verifiable-units** for the sequence of work. This principle governs the target.

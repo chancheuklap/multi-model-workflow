@@ -7,7 +7,7 @@ description: Sketch types, signatures, and module structure before code. Use whe
 
 You are called while a shape is still open. The caller is the Worker landing a ticket, or the agent in improve-codebase-architecture after a deepening candidate is chosen. The moment is before code is written against that shape. Return the chosen sketch. The caller writes the code, or shows the sketch to a person.
 
-Call the Skill tool with "codebase-dic" for the vocabulary: module, interface, depth, seam, adapter, leverage, locality.
+Use **codebase-dic** for the vocabulary: module, interface, depth, seam, adapter, leverage, locality.
 
 Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Open a todolist with one entry per phase before starting.
 
@@ -17,7 +17,7 @@ Sketch types, function signatures, class shapes, and module boundaries with `not
 
 ## Phase A: Ground the problem
 
-Build a real mental model of every system the new code touches. Call the Skill tool with "how" for those systems. Naming a file isn't grounding. If the design redefines ownership or layering, read the existing rationale so it becomes a constraint, not a guess.
+Build a real mental model of every system the new code touches. Use **how** for those systems. Naming a file isn't grounding. If the design redefines ownership or layering, read the existing rationale so it becomes a constraint, not a guess.
 
 Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 
@@ -41,7 +41,7 @@ Done when the constraints, the dependency categories, and the rough sketch are i
 
 ### 2. Spawn sub-agents
 
-Spawn 3+ sub-agents in parallel, each with a fresh context window. Each must produce a **radically different** interface for the module.
+Spawn 3+ sub-agents in parallel, each with a fresh context window, using the candidate model row from [Dispatch](../dispatch/SKILL.md). Each must produce a **radically different** interface for the module.
 
 Pass [runner-prompt.md](references/runner-prompt.md) as each runner's prompt. Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [deepening.md](references/deepening.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
 

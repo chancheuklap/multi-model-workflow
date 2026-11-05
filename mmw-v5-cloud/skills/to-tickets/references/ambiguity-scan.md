@@ -1,12 +1,12 @@
 # Ambiguity scan
 
-Read only the source plan, spec, or conversation supplied by the caller, the drafted tickets, and any glossary map or definitions. Call the Skill tool with "principle-anchor-every-reference" for those names. Run one pass. Write nothing on the tracker.
+Read only the source plan, spec, or conversation supplied by the caller, the drafted tickets, and any glossary map or definitions. Use **principle-anchor-every-reference** for those names. Run one pass. Write nothing on the tracker.
 
 It is very likely that important decisions are missing or ambiguous, even if the spec looks good on the surface. Be skeptical, adversarial, and actively try to find gaps.
 
 ## Scan
 
-Read the supplied source and the drafted tickets from the temporary directory your prompt names. If the source is an issue, read its full body and comments through the configured tracker; reuse them if already supplied. Walk every category below.
+Read the source and drafted ticket text supplied in your assignment. If the source is an issue, read its full body and comments through the configured tracker; reuse them if already supplied. Walk every category below.
 
 Functional Scope & Behavior:
 - Core user goals & success criteria
@@ -47,7 +47,7 @@ Constraints & Tradeoffs:
 - Explicit tradeoffs or rejected alternatives
 
 Terminology & Consistency:
-- Call the Skill tool with "principle-anchor-every-reference" to check terminology in the sources and drafted tickets.
+- Use **principle-anchor-every-reference** to check terminology in the sources and drafted tickets.
 
 Completion Signals:
 - Acceptance criteria testability

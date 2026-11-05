@@ -4,9 +4,9 @@ description: "Stop. That last message did not land: re-pitch it. Or, with `ketch
 argument-hint: "[visual | ketchup | restate; omit to re-pitch in words]"
 ---
 
-Call the Skill tool with "technical-writing" and write this reply through it.
+Use **technical-writing** and write this reply through it.
 
-Wait, I don't understand where you've got to here. Re-pitch that: give me a little bit of context, talk in ASD-STE100 Simplified Technical English, and call the Skill tool with "principle-anchor-every-reference".
+Wait, I don't understand where you've got to here. Re-pitch that: give me a little bit of context, talk in ASD-STE100 Simplified Technical English, and use **principle-anchor-every-reference**.
 
 With the argument `visual`: re-pitch it as one HTML page instead of prose. Read [`references/visual.md`](references/visual.md) and follow it.
 

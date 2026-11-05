@@ -15,7 +15,7 @@ Capture the live signal on the surface where the symptom shows: a CPU profile fo
 
 ## 2. Reduce to the smoking gun
 
-Reduce the artifact to the smoking gun: the function on the hot path, the retainer chain from the leaked object to a GC root, the loop firing without input. Call the Skill tool with "principle-guard-the-context-window" and parse a large artifact in bounded pieces. Keep the reduced finding in the main thread.
+Reduce the artifact to the smoking gun: the function on the hot path, the retainer chain from the leaked object to a GC root, the loop firing without input. Use **principle-guard-the-context-window** and parse a large artifact in bounded pieces. Keep the reduced finding in the main thread.
 
 ## 3. Prove the mechanism
 
@@ -29,7 +29,7 @@ Map the finding back to source: file, symbol, the line that allocates or schedul
 
 The reply names the signal captured, the reduced finding, how you proved the mechanism, the source location, and the artifact paths.
 
-Call the Skill tool with "to-tickets" for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket. Blocked by: None (can start immediately). Use the worker-grade selection in the `Draft vertical slices` section from that same call.
+Use **to-tickets** for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket. Blocked by: None (can start immediately). Use the worker-grade selection in the `Draft vertical slices` section from that same call.
 
 When the live signal is missing, What to build records that gap and names no fix.
 
@@ -39,6 +39,6 @@ A measured slowness becomes a perf-issue ticket. What to build is the improvemen
 
 Show the ticket to the user before publishing. Don't block on it; publish and proceed if the user is AFK.
 
-When the ticket names a fix, call the Skill tool with "dispatch" and send this ticket as its Coordinator.
+When the ticket names a fix, use **dispatch** and send this ticket as its Coordinator.
 
 Done when the ticket is published. The Worker implements a ticket that names a fix.

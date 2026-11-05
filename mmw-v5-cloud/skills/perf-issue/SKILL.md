@@ -11,11 +11,11 @@ Redact every secret before showing a trace or a measurement: write `<REDACTED>` 
 
 ## 1. Capture a baseline
 
-Capture a baseline trace on the surface where the slowness shows. Vet the baseline, and each later number: call the Skill tool with "benchmark-checklist".
+Capture a baseline trace on the surface where the slowness shows. Vet the baseline, and each later number: use **benchmark-checklist**.
 
 ## 2. Ground the hypotheses
 
-Call the Skill tool with "how" for the system to ground hypotheses. Read the evidence already in hand. Don't claim a perf ceiling without running it first.
+Use **how** for the system to ground hypotheses. Read the evidence already in hand. Don't claim a perf ceiling without running it first.
 
 Try the performance mantras in order, cheapest first:
 
@@ -33,11 +33,11 @@ When an earlier mantra meets the target, stop.
 
 Plan the fix from the trace. Record whether the interface is still open and whether the fix crosses a function boundary; the ticket carries that to the Worker.
 
-Call the Skill tool with "principle-sequence-verifiable-units", verifying each attempt before trying the next.
+Use **principle-sequence-verifiable-units**, verifying each attempt before trying the next.
 
 ## 4. Hand off
 
-Call the Skill tool with "to-tickets" for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket. Blocked by: None (can start immediately). Use the worker-grade selection in the `Draft vertical slices` section from that same call.
+Use **to-tickets** for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket. Blocked by: None (can start immediately). Use the worker-grade selection in the `Draft vertical slices` section from that same call.
 
 What to build is the behaviour once the slowness is gone, tied to the baseline number and the mantra that met the target. State whether the interface is still open and whether the fix crosses a function boundary.
 
@@ -51,6 +51,6 @@ For sustained improvement against a metric rather than a one-off fix, What to bu
 
 Show the ticket to the user before publishing. Don't block on it; publish and proceed if the user is AFK.
 
-Call the Skill tool with "dispatch" and send this ticket as its Coordinator.
+Use **dispatch** and send this ticket as its Coordinator.
 
 Done when the ticket is published and the Worker has been sent. The Worker implements the ticket.

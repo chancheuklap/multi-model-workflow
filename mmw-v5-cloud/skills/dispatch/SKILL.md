@@ -11,8 +11,10 @@ The installed runtime is the runtime of this night. Run its skills and this `dis
 
 Resolve `../../tools/dispatch/scripts/dispatch.sh` from this file to an absolute path, and run it in the consuming repository. The command prints JSON. It does not start the subagent.
 
-When that JSON contains `cards`, hand each object to Task as printed. Each object is already the Task arguments; pass those fields through as they stand. Wait, unless the object has `run_in_background` set. `skipped` names a card that was not printed. That role does not run, and the step continues without it. On Codex, hand the same object to the host's subagent tool. The object already carries the fields that host uses.
+Each card supplies the prompt and model row for an assignment. Send each assignment to a fresh subagent using that row. Fresh means a new context without the parent conversation. Wait for its result unless the sending step says to continue other work. `skipped` names a role that does not run; continue the step without it.
 
-Return the result the reference names, with the evidence it names. A question returns to the sender and ends the turn. The sender answers by resuming that same Agent ID. On Cursor, that is Task with `resume` set to the Agent ID. A returned result continues the step that sent it, from the action that step was waiting on. A missing or incomplete result is a limitation of that step, not a success.
+Read another role's model row with `dispatch.sh row ROLE`. `inherit` keeps the sender's setting for that field.
+
+Return the result the reference names, with the evidence it names. A question returns to the sender and ends the turn. Continue the same subagent with the answer. A returned result continues the step that sent it, from the action that step was waiting on. A missing or incomplete result is a limitation of that step, not a success.
 
 When no assigned role is named and the request is to review a branch, a PR, or since a commit, stop. The only review is the Coordinator's night-branch review, and it runs once from that step. It reviews the night branch, not the named PR. If this checkout is not a night branch, say that.

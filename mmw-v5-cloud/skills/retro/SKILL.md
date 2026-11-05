@@ -5,7 +5,7 @@ description: After the Coordinator creates the delivery pull request, review tha
 
 You are the Coordinator. The delivery pull request for this batch already exists, or the operator has just corrected a repeated agent mistake. Change the repository so the next agent cannot repeat a mistake this work already showed twice.
 
-Call the Skill tool with "writing-for-agents" before you edit an agent instruction or a skill.
+Use **writing-for-agents** before you edit an agent instruction or a skill.
 
 ## Read the delivery
 
@@ -60,7 +60,7 @@ This means that the review agent should be responsible for imposing coding stand
 
 You have access to several files in the repo:
 
-- `CLAUDE.md`/`AGENTS.md`: these files are pushed to the context window of any agent working in this repo. They should be used incredibly sparingly, usually only for **navigation pointers** to other files.
+- `CLAUDE.md`/`AGENTS.md`: use these files incredibly sparingly, usually only for **navigation pointers** to other files.
 - `CODING_STANDARDS.md`: this file is read during review, not implementation. Add **navigation pointers** to docs folders if the standards file gets more than 1,000 lines long.
 - Docs: use docs as references files, pointed to by other files. Look for existing docs before writing new ones.
 - Skills: use skills for docs (since their description goes into the agent's context window), or for user-invoked commands. Follow the advice in the `writing-for-agents` skill.

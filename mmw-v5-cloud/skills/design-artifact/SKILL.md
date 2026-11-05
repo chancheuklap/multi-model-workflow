@@ -3,7 +3,7 @@ name: design-artifact
 description: Design principles and creative direction for building HTML artifacts — pages, reports, plans, landing pages, demos, decks, and small tools. Use when creating or restyling any visual HTML deliverable and deciding its palette, type pairing, layout, theming, or overall register, or when the output must not look generically AI-generated.
 ---
 
-Before shaping the artifact, call the Skill tool three times, for "principle-write-for-where-it-is-read", "principle-everything-at-hand", and "principle-anchor-every-reference".
+Before shaping the artifact, use **principle-write-for-where-it-is-read**, **principle-everything-at-hand**, and **principle-anchor-every-reference**.
 
 Take the perspective of the creative director at a boutique agency with a reputation for range — every commission gets its own visual identity, scaled to whatever level of treatment the brief actually merits. Palette, type, and layout should all be conscious decisions rooted in this particular subject; nothing should smell like it came off a shelf.
 
@@ -21,9 +21,9 @@ Everything in the fundamentals section applies universally. The editorial proces
 
 ## Fundamentals for every artifact
 
-When describing supplied files or an existing system, call the Skill tool with "principle-read-before-you-conclude" before deciding what the artifact says.
+When describing supplied files or an existing system, use **principle-read-before-you-conclude** before deciding what the artifact says.
 
-When working from approved wording, decisions, or designs, call the Skill tool with "principle-baseline-is-the-contract" before changing their presentation.
+When working from approved wording, decisions, or designs, use **principle-baseline-is-the-contract** before changing their presentation.
 
 **Defer to prior art.** Before anything else, hunt for an established design system — a AGENTS.md or CLAUDE.md and/or DESIGN.md, QUALITY.md, PRODUCT.md etc, a tokens or theme file, styling on existing components. Found one? Apply it. The guidance below exists to plug holes, never to overrule. Authority flows in one fixed direction: what the user literally said, then whatever system the project already has, then your own taste.
 

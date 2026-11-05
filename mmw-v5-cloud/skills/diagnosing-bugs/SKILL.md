@@ -32,7 +32,7 @@ Spend disproportionate effort here. **Be aggressive. Be creative. Refuse to give
 7. **Property / fuzz loop.** If the bug is "sometimes wrong output", run 1000 random inputs and look for the failure mode.
 8. **Bisection harness.** If the bug appeared between two known states (commit, dataset, version), automate "boot at state X, check, repeat" so you can `git bisect run` it.
 9. **Differential loop.** Run the same input through old-version vs new-version (or two configs) and diff outputs.
-10. **HITL bash script.** Last resort. If a human must click, drive _them_ with `scripts/hitl-loop.template.sh` so the loop is still structured. Captured output feeds back to you.
+10. **HITL bash script.** Last resort. If a human must click, have them run a script based on `scripts/hitl-loop.template.sh` and return the captured output so the loop is still structured.
 
 Build the right feedback loop, and the bug is 90% fixed.
 
@@ -87,7 +87,7 @@ Do not proceed until you have reproduced **and** minimised.
 
 ## Phase 3: Hypothesise
 
-Call the Skill tool with "how" for the affected subsystem to seed hypotheses. Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea.
+Use **how** for the affected subsystem to seed hypotheses. Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea.
 
 Each hypothesis must be **falsifiable**: state the prediction it makes.
 
@@ -121,7 +121,7 @@ A correct seam is one where the test exercises the **real bug pattern** as it oc
 
 **If no correct seam exists, that itself is the finding.** Note it on the ticket. The codebase architecture is preventing the bug from being locked down.
 
-Call the Skill tool with "to-tickets" for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket carries this fix. Blocked by: None (can start immediately).
+Use **to-tickets** for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket carries this fix. Blocked by: None (can start immediately).
 
 What to build is the behaviour the user sees once the bug is gone. The hypothesis that survived is the fix, written there.
 
@@ -136,6 +136,6 @@ A missing correct seam, or a fix that crosses a function boundary, is `senior-wo
 
 Show the ticket to the user before publishing. Don't block on it; publish and proceed if the user is AFK.
 
-Call the Skill tool with "dispatch" and send this ticket as its Coordinator.
+Use **dispatch** and send this ticket as its Coordinator.
 
 Done when the ticket is published and the Worker has been sent. The Worker applies the fix.

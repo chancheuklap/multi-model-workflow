@@ -6,11 +6,11 @@ argument-hint: "What would you like to learn about?"
 
 The user has asked you to teach them something. This is a stateful request - they intend to learn the topic over multiple sessions.
 
-Call the Skill tool with "technical-writing" for the words a person reads: the mission, each lesson, each learning record, and each reference sheet. A lesson is a tutorial. The mission and a learning record are explanation. A reference sheet is reference.
+Use **technical-writing** for the words a person reads: the mission, each lesson, each learning record, and each reference sheet. A lesson is a tutorial. The mission and a learning record are explanation. A reference sheet is reference.
 
 ## Teaching Workspace
 
-Treat the current directory as a teaching workspace. Workspace paths (`./lessons/` and the rest) resolve from the directory `/teach` was run in; only the `references/*-format.md` links resolve from this skill's folder. The state of their learning is captured in this directory in several files:
+Treat the current directory as a teaching workspace. Workspace paths (`./lessons/` and the rest) resolve from the directory where the teaching request started; only the `references/*-format.md` links resolve from this skill's folder. The state of their learning is captured in this directory in several files:
 
 - `MISSION.md`: A document capturing the _reason_ the user is interested in the topic. This should be used to ground all teaching. Use the format in [mission-format.md](references/mission-format.md).
 - `./reference/*.html`: A directory of reference materials. These are the compressed learnings from the lessons - cheat sheets, reference algorithms, syntax, yoga poses, glossaries. They are the raw units of learning. They should be beautiful documents which print out well, and are designed for quick reference.
@@ -53,7 +53,7 @@ A lesson should be **beautiful**, with clean, readable typography and layout, si
 
 The lesson should be short, and completable very quickly. Learners' working memory is very small, and we need to stay within it. But each lesson should give the user a single tangible win that they can build on. It should be directly tied to the mission, and should be in the user's zone of proximal development.
 
-If possible, open the lesson file for the user by running a CLI command.
+Show the lesson to the user and link its HTML file.
 
 Each lesson should link via HTML anchors to other lessons and reference documents.
 
@@ -134,7 +134,7 @@ Some learning topics lend themselves to reference:
 - Exercises and routines for fitness
 - Glossaries for any topic with its own nomenclature
 
-Glossaries, in particular, are an essential reference. Call the Skill tool with "principle-anchor-every-reference" in every lesson.
+Glossaries, in particular, are an essential reference. Use **principle-anchor-every-reference** in every lesson.
 
 ## `NOTES.md`
 

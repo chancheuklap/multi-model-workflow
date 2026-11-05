@@ -5,7 +5,7 @@ description: Direct-invocation specialist for polished, responsive, self-contain
 
 # HTML Prototype
 
-Before shaping the artifact, call the Skill tool three times, for "principle-write-for-where-it-is-read", "principle-everything-at-hand", and "principle-anchor-every-reference".
+Before shaping the artifact, use **principle-write-for-where-it-is-read**, **principle-everything-at-hand**, and **principle-anchor-every-reference**.
 
 Build a credible model of a product decision. Match the artifact to the user's context instead of applying a recurring house style. The goal is not to make every possible screen. The goal is to make the important visual or behavioral question testable.
 
@@ -20,9 +20,9 @@ Do not create a separate `html-mockup` skill. Do not add behavior merely to make
 
 ## Derive the direction from context
 
-When describing supplied files or an existing system, call the Skill tool with "principle-read-before-you-conclude" before deciding what the artifact says.
+When describing supplied files or an existing system, use **principle-read-before-you-conclude** before deciding what the artifact says.
 
-When working from approved wording, decisions, or designs, call the Skill tool with "principle-baseline-is-the-contract" before changing their presentation.
+When working from approved wording, decisions, or designs, use **principle-baseline-is-the-contract** before changing their presentation.
 
 Inspect the conversation, supplied references, and project before designing. Look for design-system documentation, tokens, existing components, product screenshots, and nearby artifacts.
 
@@ -45,7 +45,7 @@ Before coding, settle:
 When no design system exists, create a specific direction from the subject and use case. Do not default to a gradient, a dark dashboard, interchangeable cards, or decorative metrics. A prototype for a field tool, an editorial workflow, and a financial approval should not feel like the same product.
 
 When the visual
-direction remains open, call the Skill tool with "design-artifact" and compose it with this skill. Use it to choose
+direction remains open, use **design-artifact** and compose it with this skill. Use it to choose
 the register, palette, type, and composition; keep this skill authoritative for
 fidelity, state, and interaction completeness.
 
@@ -101,7 +101,7 @@ Test the artifact at wide desktop and narrow mobile widths. Exercise every model
 
 Inspect computed foreground and background colors on every distinct surface, especially text that may inherit the body color inside a dark or tinted region. If browser tooling is unavailable, say which visual and interaction checks remain unverified instead of treating source inspection as a substitute.
 
-Return the absolute file path, the fidelity mode, the scenario modeled, the states implemented, and the production behavior deliberately left out.
+Show the HTML to the user and link the file. Include the fidelity mode, the scenario modeled, the states implemented, and the production behavior deliberately left out.
 
 ## Further reading
 

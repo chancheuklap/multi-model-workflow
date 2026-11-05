@@ -11,35 +11,35 @@ If the cleanup reveals a missing feature or a real bug, record it for the Coordi
 
 ## 1. Pin the behavior
 
-Read the contract from the glossary and the ticket. Call the Skill tool with "how" for the affected subsystem. Call the Skill tool with "write-tests" to pin it with a characterization test, snapshot, or equivalence harness before any structure moves. If the area has no coverage, write the pin before touching structure. Type check and lint are not a pin.
+Read the contract from the glossary and the ticket. Use **how** for the affected subsystem. Use **write-tests** to pin it with a characterization test, snapshot, or equivalence harness before any structure moves. If the area has no coverage, write the pin before touching structure. Type check and lint are not a pin.
 
 ## 2. Name the missing structure
 
-Call the Skill tool with "principle-model-the-domain". Boring code stays when the shape is already clear and local. The reshape must delete branches or invalid states, not add indirection.
+Use **principle-model-the-domain**. Boring code stays when the shape is already clear and local. The reshape must delete branches or invalid states, not add indirection.
 
 ## 3. Name the target shape
 
-State what the module layout, types, and call graph should be if built today. Call the Skill tool with "principle-redesign-from-first-principles". If the target crosses a function boundary, call the Skill tool with "codebase-design" for Phase A, Phase B, and Phase C before the move.
+State what the module layout, types, and call graph should be if built today. Use **principle-redesign-from-first-principles**. If the target crosses a function boundary, use **codebase-design** for Phase A, Phase B, and Phase C before the move.
 
 ## 4. Subtract before you add
 
-Call the Skill tool with "principle-subtract-before-you-add". Delete dead code, collapse one-caller wrappers, drop redundant validators, and remove orphan references before introducing the new shape. The smallest change that reaches the target shape ships. A speculative cleanup that "might help" gets reverted.
+Use **principle-subtract-before-you-add**. Delete dead code, collapse one-caller wrappers, drop redundant validators, and remove orphan references before introducing the new shape. The smallest change that reaches the target shape ships. A speculative cleanup that "might help" gets reverted.
 
 ## 5. Move in small steps
 
-Move in small behavior-preserving steps, each keeping the pin green. For API reshapes, call the Skill tool with "principle-outcome-oriented-execution": migrate every caller and delete the old API in the same wave. No compatibility shims, no parallel old-and-new paths. Make the mechanical edits on this ticket's branch, with the file paths, the names being moved, and the behavior to hold kept explicit. Spot-check every rename against the actual files. Renames silently miss usages in strings, prose, and back-references.
+Move in small behavior-preserving steps, each keeping the pin green. For API reshapes, use **principle-outcome-oriented-execution**: migrate every caller and delete the old API in the same wave. No compatibility shims, no parallel old-and-new paths. Make the mechanical edits on this ticket's branch, with the file paths, the names being moved, and the behavior to hold kept explicit. Spot-check every rename against the actual files. Renames silently miss usages in strings, prose, and back-references.
 
 ## 6. Prove the behavior is unchanged
 
-Call the Skill tool with "principle-prove-it-works". Prove behavior is unchanged on the real artifact, not "it compiles". For larger reshapes, run an equivalence check: a script that diffs old-vs-new outputs, a recorded baseline replayed against the new code, or a smoke run on the surface the ticket names.
+Use **principle-prove-it-works**. Prove behavior is unchanged on the real artifact, not "it compiles". For larger reshapes, run an equivalence check: a script that diffs old-vs-new outputs, a recorded baseline replayed against the new code, or a smoke run on the surface the ticket names.
 
 ## 7. Keep only a lighter read
 
-Call the Skill tool with "principle-minimize-reader-load". The success measure is reduced reader load. If the diff does not lower reader load somewhere, revert it.
+Use **principle-minimize-reader-load**. The success measure is reduced reader load. If the diff does not lower reader load somewhere, revert it.
 
 ## 8. Shape the commits
 
-Rebase into small ordered commits. A subtraction commit, then the reshape, then any follow-on cleanup. Call the Skill tool with "principle-sequence-verifiable-units", so each behavior-preserving slice stays green before the next.
+Rebase into small ordered commits. A subtraction commit, then the reshape, then any follow-on cleanup. Use **principle-sequence-verifiable-units**, so each behavior-preserving slice stays green before the next.
 
 The PR record carries the structure that changed, the pin you held it against, the equivalence proof, the reader-load delta, what shipped and what got reverted. No new behavior.
 
