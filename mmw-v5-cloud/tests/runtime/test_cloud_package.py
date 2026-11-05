@@ -78,7 +78,7 @@ else:
     def install(self, host, *options, cwd=None):
         result = self.run_command(cwd or self.project, 'bash', str(ROOT / 'scripts/install-mmw-v5-cloud.sh'), '--host', host, *options)
         self.assertEqual(result.returncode, 0, result.stderr)
-        return (self.project if '--cloud' in options else self.home) / '.agents/mmw'
+        return self.home / '.agents/mmw'
 
     def commit_config(self, project=None):
         project = project or self.project
@@ -156,14 +156,10 @@ else:
         self.assertFalse((runtime / 'tools/dispatch/scripts/retired.txt').exists())
         self.assertEqual((runtime / 'new-component/new-file.json').read_bytes(), b'new release content')
         self.assertEqual(self.config.read_bytes(), before)
-        result = self.run_command(self.project, 'git', 'check-ignore', '-v', '.agents/mmw/new-component/new-file.json')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('/.agents/mmw/', result.stdout)
-        result = self.run_command(self.project, 'git', 'check-ignore', '-v', '.agents/skills/mmw/future-skill/SKILL.md')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('/.agents/skills/mmw/', result.stdout)
-        rules = (self.project / '.gitignore').read_text().split('# MMW cloud BEGIN\n', 1)[1].split('# MMW cloud END', 1)[0].splitlines()
-        self.assertEqual(rules, ['/.agents/mmw/', '/.agents/skills/mmw/'])
+        self.assertTrue((self.skills / 'future-skill/SKILL.md').is_file())
+        self.assertFalse((self.project / '.agents/mmw').exists())
+        self.assertFalse((self.project / '.agents/skills/mmw').exists())
+        self.assertFalse((self.project / '.gitignore').exists())
 
     def test_cloud_bootstrap_prepares_separate_machine_homes(self):
         for host in ('codex', 'cursor'):
@@ -173,11 +169,11 @@ else:
                 home = self.base / f'{host}-machine-{number}'; home.mkdir()
                 self.git(self.project, 'clone', '-q', str(self.project), str(clone))
                 models = (clone / '.agents/models.json').read_bytes()
-                result = self.run_command(clone, 'bash', str(clone / '.agents/cloud-setup.sh'), env={**self.env, 'HOME': str(home)})
+                result = self.run_command(clone, 'bash', str(clone / '.agents/cloud-setup.sh'), host, env={**self.env, 'HOME': str(home)})
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue((clone / '.agents/skills/mmw/dispatch/SKILL.md').is_file())
-                self.assertTrue((clone / '.agents/mmw/tools/dispatch/scripts/dispatch.sh').is_file())
-                self.assertFalse((home / '.agents/mmw').exists())
+                self.assertTrue((home / '.agents/skills/mmw/dispatch/SKILL.md').is_file())
+                self.assertTrue((home / '.agents/mmw/tools/dispatch/scripts/dispatch.sh').is_file())
+                self.assertFalse((clone / '.agents/mmw').exists())
                 self.assertEqual((clone / '.agents/models.json').read_bytes(), models)
                 self.assertEqual(self.git(clone, 'status', '--porcelain'), '')
 
@@ -208,6 +204,53 @@ else:
         self.assertEqual((self.project / 'setup.log').read_text(), 'dependencies\nservices\n')
         self.assertEqual(settings['start'].count('bash .agents/cloud-setup.sh'), 1)
         self.assertFalse((self.project / 'AGENTS.md').exists())
+
+    def test_cloud_multi_repo_installs_once_and_keeps_repositories_clean(self):
+        other = self.base / 'other repository'; other.mkdir(); self.init_repo(other)
+        for host in ('codex', 'cursor'):
+            (self.base / 'curl.jsonl').write_text('')
+            runtime = self.install(host, '--cloud', str(self.project), str(other), cwd=self.base)
+            downloads = (self.base / 'curl.jsonl').read_text().splitlines()
+            self.assertEqual(len(downloads), 1)
+            self.assertTrue((runtime / 'tools/dispatch/scripts/dispatch.sh').is_file())
+            for project in (self.project, other):
+                self.assertFalse((project / '.agents/mmw').exists())
+                self.assertFalse((project / '.agents/skills/mmw').exists())
+                self.assertTrue((project / '.agents/models.json').is_file())
+                self.assertFalse((project / '.gitignore').exists())
+                self.assertNotIn('--cloud', (project / '.agents/cloud-setup.sh').read_text())
+            self.assertEqual((self.project / '.agents/cloud-setup.sh').read_bytes(), (other / '.agents/cloud-setup.sh').read_bytes())
+
+    def test_install_outside_repository_prepares_user_runtime_only(self):
+        runtime = self.install('codex', cwd=self.base)
+        self.assertTrue((runtime / 'plugin.json').is_file())
+        self.assertFalse((self.base / '.agents').exists())
+        self.assertFalse(self.config.exists())
+
+    def test_migration_removes_project_runtime_and_managed_ignores(self):
+        self.install('codex', '--cloud')
+        original = self.config.read_bytes()
+        for relative in ('.agents/mmw/retired', '.agents/skills/mmw/retired/SKILL.md'):
+            path = self.project / relative; path.parent.mkdir(parents=True, exist_ok=True); path.write_text('old')
+        own = self.project / '.agents/skills/owner/SKILL.md'
+        own.parent.mkdir(parents=True); own.write_text('owner')
+        ignore = self.project / '.gitignore'
+        ignore.write_text('owner-build/\n\n# MMW cloud BEGIN\n/.agents/mmw/\n/.agents/skills/mmw/\n# MMW cloud END\n')
+        cursor = self.project / '.cursor'
+        (cursor / 'skills/research').mkdir(parents=True)
+        (cursor / 'skills/research/SKILL.md').write_text('retired MMW')
+        (cursor / 'skills/owner').mkdir()
+        (cursor / 'skills/owner/SKILL.md').write_text('project skill')
+        (cursor / 'plugin.json').write_text(json.dumps({'name': 'mmw-v5-cloud'}))
+        self.install('cursor', '--cloud')
+        self.assertFalse((cursor / 'plugin.json').exists())
+        self.assertFalse((cursor / 'skills/research').exists())
+        self.assertEqual((cursor / 'skills/owner/SKILL.md').read_text(), 'project skill')
+        self.assertEqual(self.config.read_bytes(), original)
+        self.assertEqual(own.read_text(), 'owner')
+        self.assertEqual(ignore.read_text(), 'owner-build/\n')
+        self.assertFalse((self.project / '.agents/mmw').exists())
+        self.assertFalse((self.project / '.agents/skills/mmw').exists())
 
     def test_shared_user_board_keeps_each_project_and_host_settings_separate(self):
         runtime = self.install('cursor')
@@ -248,7 +291,8 @@ else:
         legacy.write_text(json.dumps(choices)); previous = legacy.read_bytes()
         self.install('cursor', '--cloud')
         self.assertEqual(json.loads(self.config.read_text()), choices)
-        self.install('codex'); self.assertEqual(legacy.read_bytes(), previous)
+        self.install('codex'); self.assertFalse(legacy.exists())
+        self.assertEqual(json.loads(self.config.read_text()), choices)
 
     def test_installer_requires_known_explicit_host(self):
         for args in [[], ['--host'], ['--host', 'unknown'], ['--host', 'codex', '--ref', 'v5.0.9']]:

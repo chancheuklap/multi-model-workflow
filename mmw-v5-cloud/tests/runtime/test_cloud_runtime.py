@@ -224,6 +224,7 @@ class CloudRuntime(unittest.TestCase):
         self.assertEqual(tool.spawn_worker('18', api=plain)['cards'], [])
         worker = tool.spawn_worker('18', api=api)['cards'][0]
         self.assertEqual(worker['model_row'], {'role': 'junior-worker', **config['rows'][host]['junior-worker']})
+        self.assertIn(f'Repository: {api.repo}', worker['prompt'])
         self.assertIn('Starting branch: night/spec-90', worker['prompt'])
         self.assertIn(f'Starting commit: {fork}', worker['prompt'])
         self.assertIn('own cloud checkout', worker['prompt'])
@@ -254,6 +255,7 @@ class CloudRuntime(unittest.TestCase):
         self.git('push', '-q', 'origin', 'ticket/issue-18'); api.prs[0]['head']['sha'] = head
         ticket = tool.spawn_verifier(api=api)['cards'][0]
         feature_path = feature.relative_to(self.root).as_posix()
+        self.assertIn(f'Repository: {api.repo}', ticket['prompt'])
         self.assertIn(f'Commit: {head}', ticket['prompt'])
         self.assertIn('own cloud checkout', ticket['prompt'])
         self.assertIn(feature_path, ticket['prompt'])

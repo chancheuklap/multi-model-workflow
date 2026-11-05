@@ -280,6 +280,8 @@ def spawn_worker(ticket: str, *, api=None) -> dict:
         'Follow references/worker.md in that skill.',
         'Run in your own cloud checkout at the starting commit.',
         '',
+        f'Repository: {api.repo}',
+        'Work in the corresponding checkout in your environment.',
         f'Ticket #{ticket}',
         f'Night branch: {night["branch"]}',
         f'Starting branch: {start}',
@@ -328,6 +330,8 @@ def spawn_verifier(*, api=None) -> dict:
         'Start in your own cloud checkout at the named commit.',
         'Return pass or fail to the Worker.',
         '',
+        f'Repository: {api.repo}',
+        'Work in the corresponding checkout in your environment.',
         f'Branch: {branch}',
         f'Commit: {pushed}',
         'Features:',
@@ -336,7 +340,7 @@ def spawn_verifier(*, api=None) -> dict:
     return {'host': host, 'skipped': [], 'cards': [assignment('verifier', chosen, f'Verify {branch}', prompt)]}
 
 
-def axis_card(chosen: dict, role: str, night: str, fork: str, tip: str, spec_line: str, landed_line: str, *, standards: list[str] | None = None) -> dict:
+def axis_card(chosen: dict, role: str, night: str, fork: str, tip: str, spec_line: str, landed_line: str, *, repository: str, standards: list[str] | None = None) -> dict:
     title = {'standards': 'Standards', 'spec': 'Spec', 'tests': 'Tests'}[role]
     returns = {
         'standards': 'Return the Standards report to the Coordinator.',
@@ -350,6 +354,8 @@ def axis_card(chosen: dict, role: str, night: str, fork: str, tip: str, spec_lin
         returns,
         '',
         'Start in your own cloud checkout at the reviewed commit.',
+        f'Repository: {repository}',
+        'Work in the corresponding checkout in your environment.',
         f'Night branch: {night}',
         f'Pinned comparison: {fork}',
         f'Reviewed commit: {tip}',
@@ -378,12 +384,12 @@ def spawn_review(*, api=None) -> dict:
     if diff.strip():
         chosen = row('review-axis', fork)
         present = [name for name in ('CODING_STANDARDS.md', 'CONTRIBUTING.md') if exists_at(tip, name)]
-        cards.append(axis_card(chosen, 'standards', night['branch'], fork, tip, spec_line, landed_line, standards=present))
+        cards.append(axis_card(chosen, 'standards', night['branch'], fork, tip, spec_line, landed_line, repository=api.repo, standards=present))
         if night['kind'] == 'spec':
-            cards.append(axis_card(chosen, 'spec', night['branch'], fork, tip, spec_line, landed_line))
+            cards.append(axis_card(chosen, 'spec', night['branch'], fork, tip, spec_line, landed_line, repository=api.repo))
         else:
             skipped.append('spec')
-        cards.append(axis_card(chosen, 'tests', night['branch'], fork, tip, spec_line, landed_line))
+        cards.append(axis_card(chosen, 'tests', night['branch'], fork, tip, spec_line, landed_line, repository=api.repo))
     else:
         skipped.extend(['standards', 'spec', 'tests'])
     skills = verify_skill_names(tip)
@@ -403,6 +409,8 @@ def spawn_review(*, api=None) -> dict:
             'Return pass or fail to the Coordinator.',
             'Start in your own cloud checkout at the named commit.',
             '',
+            f'Repository: {api.repo}',
+            'Work in the corresponding checkout in your environment.',
             f'Night branch: {night["branch"]}',
             f'Commit: {tip}',
             'Features:',
