@@ -188,7 +188,7 @@ else:
         result = self.command("publish", GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip())
         self.assertEqual(result.returncode, 0, result.stderr)
         create = next(row for row in self.calls() if row[:2] == ["release", "create"])
-        self.assertTrue(any(arg.endswith("mmw-v5-cloud-5.0.0-beta.2.zip") for arg in create))
+        self.assertTrue(any(arg.endswith("mmw-v5-cloud.zip") for arg in create))
         self.assertFalse(any(arg.endswith("mmw-v5-5.0.0-beta.2.zip") for arg in create))
         self.assertFalse(any(row[:2] == ["workflow", "run"] for row in self.calls()))
 

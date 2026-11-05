@@ -33,26 +33,12 @@ When this repository consumes MMW v5, the installed cloud runtime used to open a
 
 - Releasing and updating installed hosts are the owner's calls. Commit completed changes on the assigned development branch; do not merge or push to `main`, publish, or update installed plugins without authorization.
 - Prepare version changes on `dev` with `python3 scripts/release-mmw-v5.py bump` and run the relevant checks locally before committing. Pushing `dev` does not publish. Merging and pushing to `main` publishes the committed version as a tag, a GitHub Release and the cloud ZIP. GitHub does not change the version or run tests.
-- Install the complete cloud edition in the consuming repository: `.cursor/` for Cursor or `.agents/` for Codex. Each installation reads its own `models.json` and the matching `rows.cursor` or `rows.codex`. Use the installed copy, not `mmw-v5-cloud/` in this development checkout. Installation guidance lives in the root [README.md](README.md).
+- Install the complete cloud edition in the consuming repository: `.cursor/` for Cursor or `.agents/` for Codex. Each installation reads its own `models.json` and matching host row. Track model and cloud setup configuration, not MMW runtime files. Prepare each independent cloud environment from that configuration using the latest published edition; an existing night keeps its installed runtime. Use the installed copy, not `mmw-v5-cloud/` in this development checkout. Installation guidance lives in the root [README.md](README.md).
 - Never put credentials under plugin skills or scripts: the same installed plugin is used across consuming repositories.
 - `.worktrees/mmw-installed` is a hand-made checkout, not a pipeline worktree. Never prune it.
 
 ## Install the cloud edition
 
-When the owner authorizes installation or an update, run the matching command from the consuming repository. Both download the same published complete cloud edition from GitHub.
-
-Cursor installs into `.cursor/`:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host cursor
-```
-
-Codex installs into `.agents/`:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host codex
-```
-
-The installer preserves an existing target `models.json` and other project files. Commit and push the chosen directory on the assigned branch so local and cloud agents receive the same runtime. Do not install the cloud edition as a global plugin.
+Follow the root [README.md](README.md#安装). Cloud setup includes saving the consuming repository's preparation files and wiring them into the host's actual environment installation and new-task startup settings. Installing into the current VM alone does not prepare a later independent agent. Do not install the cloud edition as a global plugin or commit its complete installation directory.
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.

@@ -89,14 +89,14 @@ def publish() -> str:
     if existing.returncode and not any(text in existing.stderr.lower() for text in ("release not found", "http 404")):
         raise RuntimeError(existing.stderr.strip() or "could not read release state")
     with tempfile.TemporaryDirectory(prefix="mmw-v5-release-") as directory:
-        archive = Path(directory) / f"mmw-v5-cloud-{version}.zip"
+        archive = Path(directory) / "mmw-v5-cloud.zip"
         package(archive)
         if existing.returncode == 0:
             run("gh", "release", "upload", tag, str(archive), "--repo", repo, "--clobber")
         else:
             args = ["gh", "release", "create", tag, str(archive), "--repo", repo,
                     "--target", commit, "--title", f"MMW v5 {version}",
-                    "--notes", f"MMW v5 cloud edition at commit {commit}.\n\nInstall the complete cloud ZIP into the consuming repository with scripts/install-mmw-v5-cloud.sh --host cursor|codex."]
+                    "--notes", f"MMW v5 cloud edition at commit {commit}.\n\nInstallation and cloud environment setup: https://github.com/{repo}#安装\nThe installer downloads the latest published cloud edition; commit only model and cloud setup configuration."]
             if "-" in version:
                 args.append("--prerelease")
             run(*args)
