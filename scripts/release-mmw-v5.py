@@ -18,7 +18,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = ("mmw-v5-cloud/plugin.json", "mmw-v5-cloud/.cursor-plugin/plugin.json")
-PACKAGE_PATHS = ("plugin.json", "models.json", "skills", "tools", "board")
+PACKAGE_PATHS = ("plugin.json", ".cursor-plugin/plugin.json", "models.json", "skills", "tools", "board")
 VERSION = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*))?")
 
 
@@ -96,7 +96,7 @@ def publish() -> str:
         else:
             args = ["gh", "release", "create", tag, str(archive), "--repo", repo,
                     "--target", commit, "--title", f"MMW v5 {version}",
-                    "--notes", f"MMW v5 cloud edition at commit {commit}.\n\nInstallation and cloud environment setup: https://github.com/{repo}#安装\nThe installer downloads the latest published cloud edition; commit only model and cloud setup configuration."]
+                    "--notes", f"MMW v5 cloud edition at commit {commit}.\n\nInstallation and cloud environment setup: https://github.com/{repo}#codex\nInstall the native mmw-v5-cloud plugin from the MMW marketplace in Codex or Cursor. Skills, tools and board ship together; user models stay outside the plugin."]
             if "-" in version:
                 args.append("--prerelease")
             run(*args)

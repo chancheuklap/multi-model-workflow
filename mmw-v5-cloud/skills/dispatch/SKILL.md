@@ -9,7 +9,7 @@ Read this file, then the skill and role reference named in your assignment in yo
 
 The installed runtime is the runtime of this night. Run its skills and this `dispatch.sh`. A commit that changes those files in the repository does not become the runtime until a later run.
 
-Resolve `../../../mmw/tools/dispatch/scripts/dispatch.sh` from this file to an absolute path, and run it in the consuming repository. The command prints JSON. It does not start the subagent.
+From this installed skill's directory, resolve `../../tools/dispatch/scripts/dispatch.sh` to an absolute path in the same plugin. Run it in the consuming repository. The command prints JSON. It does not start the subagent.
 
 For model commands (`show`, `row`, `spawn`) and `board`, pass `--host HOST`. HOST is your current host, `cursor` or `codex`. Both use the same user file `~/.agents/models.json`; the argument selects that host's model rows.
 

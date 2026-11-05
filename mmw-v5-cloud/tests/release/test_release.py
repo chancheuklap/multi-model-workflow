@@ -92,10 +92,13 @@ else:
     def calls(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
 
-    def test_cloud_is_not_advertised_as_a_global_plugin(self):
+    def test_both_host_marketplaces_select_the_same_plugin(self):
         for name in ('.agents/plugins/marketplace.json', '.cursor-plugin/marketplace.json'):
             entries = json.loads((ROOT / name).read_text())['plugins']
-            self.assertEqual(entries, [])
+            self.assertEqual([entry['name'] for entry in entries], ['mmw-v5-cloud'])
+            source = entries[0]['source']
+            path = source['path'] if isinstance(source, dict) else source
+            self.assertEqual((ROOT / path).resolve(), ROOT / 'mmw-v5-cloud')
 
     def test_bump_prepares_dev_without_committing_or_publishing(self):
         before = self.git("rev-parse", "HEAD").stdout
@@ -128,6 +131,7 @@ else:
         with zipfile.ZipFile(output) as archive:
             self.assertEqual(archive.read("mmw-v5-cloud/skills/example/SKILL.md"), b"Original skill")
             self.assertIn("mmw-v5-cloud/plugin.json", archive.namelist())
+            self.assertIn("mmw-v5-cloud/.cursor-plugin/plugin.json", archive.namelist())
             self.assertIn("mmw-v5-cloud/board/page/index.html", archive.namelist())
             info = archive.getinfo("mmw-v5-cloud/tools/dispatch/scripts/dispatch.sh")
             self.assertTrue((info.external_attr >> 16) & 0o111)

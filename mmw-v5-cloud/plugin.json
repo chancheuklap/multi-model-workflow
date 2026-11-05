@@ -19,7 +19,10 @@
         "shortDescription": "Development skills, cloud-agent dispatch, and task board",
         "developerName": "MMW",
         "category": "Productivity"
-      }
+      },
+      "onboardingSkill": "./skills/setup-mmw/SKILL.md"
     }
-  }
+  },
+  "homepage": "https://github.com/chancheuklap/multi-model-workflow",
+  "repository": "https://github.com/chancheuklap/multi-model-workflow"
 }

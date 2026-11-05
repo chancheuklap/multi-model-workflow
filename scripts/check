@@ -94,7 +94,6 @@ MAP = [
     ("mmw-v5-cloud/tests/board/", ["cloud-v5"]),
     ("mmw-v5/tests/release/", ["release-v5"]),
     ("scripts/release-mmw-v5.py", ["release-v5"]),
-    ("scripts/install-mmw-v5-cloud.sh", ["cloud-v5"]),
     (".github/workflows/release-mmw-v5.yml", ["release-v5"]),
     (".agents/plugins/marketplace.json", ["release-v5"]),
     (".cursor-plugin/marketplace.json", ["release-v5"]),

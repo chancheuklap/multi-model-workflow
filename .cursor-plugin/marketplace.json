@@ -3,5 +3,11 @@
   "owner": {
     "name": "MMW"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "mmw-v5-cloud",
+      "source": "mmw-v5-cloud",
+      "description": "MMW v5 development skills, native agent dispatch, and task board"
+    }
+  ]
 }

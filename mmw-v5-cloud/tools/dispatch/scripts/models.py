@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -49,7 +50,12 @@ def validate(value: dict) -> dict:
 
 
 def read_config() -> dict:
-    return validate(json.loads(config_path().read_text(encoding="utf-8")))
+    path = config_path()
+    if not path.exists():
+        seed = os.environ.get('MMW_MODELS_JSON')
+        defaults = Path(__file__).resolve().parents[3] / 'models.json'
+        write_config(json.loads(seed if seed else defaults.read_text(encoding='utf-8')))
+    return validate(json.loads(path.read_text(encoding='utf-8')))
 
 
 def row(role: str) -> dict:

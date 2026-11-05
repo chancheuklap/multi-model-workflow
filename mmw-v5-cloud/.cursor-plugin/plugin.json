@@ -5,5 +5,9 @@
   "author": {
     "name": "MMW"
   },
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "displayName": "MMW v5 Cloud",
+  "homepage": "https://github.com/chancheuklap/multi-model-workflow",
+  "repository": "https://github.com/chancheuklap/multi-model-workflow",
+  "category": "developer-tools"
 }

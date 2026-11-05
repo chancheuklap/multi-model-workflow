@@ -33,12 +33,12 @@ When this repository consumes MMW v5, the installed cloud runtime used to open a
 
 - Releasing and updating installed hosts are the owner's calls. Commit completed changes on the assigned development branch; do not merge or push to `main`, publish, or update installed plugins without authorization.
 - Prepare version changes on `dev` with `python3 scripts/release-mmw-v5.py bump` and run the relevant checks locally before committing. Pushing `dev` does not publish. Merging and pushing to `main` publishes the committed version as a tag, a GitHub Release and the cloud ZIP. GitHub does not change the version or run tests.
-- Install MMW in the execution environment user's `~/.agents/` for local and cloud work, with one runtime shared across its repositories. Keep models in `~/.agents/models.json` and cloud preparation configuration in the consuming repository. Model commands select the current host's rows from the user file. Prepare each independent cloud environment using the latest published edition; an existing night keeps its installed runtime. Use the installed copy, not `mmw-v5-cloud/` in this development checkout. Installation guidance lives in the root [README.md](README.md).
+- Install MMW as a native plugin through the current host. The same `mmw-v5-cloud/` package serves Codex and Cursor. Keep user models in `~/.agents/models.json`; resolve tools from that installed plugin version. Installation and migration guidance lives in the root [README.md](README.md).
 - Never put credentials under plugin skills or scripts: the same installed plugin is used across consuming repositories.
 - `.worktrees/mmw-installed` is a hand-made checkout, not a pipeline worktree. Never prune it.
 
 ## Install the cloud edition
 
-Follow the root [README.md](README.md#安装). Cloud setup includes saving the consuming repository's preparation files and wiring them into the host's actual environment installation and new-task startup settings. Installing into the current VM alone does not prepare a later independent agent. Retired marketplace plugins and project runtime copies are not installation methods.
+Follow the root [README.md](README.md). Cloud agents receive MMW through their host's plugin installation, not a repository setup script or a copied user skill directory. A GitHub Release alone does not install or list a plugin in either host.
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.

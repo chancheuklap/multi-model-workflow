@@ -1,150 +1,94 @@
 # MMW v5
 
-MMW 提供开发项目所用的技能、agent 派发工具和任务板。当前工作版本是 `mmw-v5-cloud/`；Coordinator、Worker、审查轴和 verifier 在云端运行。
+MMW 是 Codex 和 Cursor 共用的开发工作流插件，包含技能、agent 派发工具和任务板。当前版本的源码在 `mmw-v5-cloud/`。Coordinator 和下级 agent 在云端执行工作流。
 
-在 Cursor 或 Codex 的项目对话、云端环境设置对话里发送：
+向当前宿主的 agent 发送仓库链接并说“帮我配置 MMW”：
 
 > https://github.com/chancheuklap/multi-model-workflow
->
-> 帮我配置 MMW。
 
-agent 按本文完成安装、迁移、保存配置和验证。用户无需选择安装目录或复制命令。
+安装 agent 按下文完成宿主插件安装，保留用户的模型选择，再验证技能发现和工具执行。需要用户操作插件目录或账号设置时，先完成其余工作，再指出剩余操作。
 
-## 安装
+## 安装原理
 
-### 给安装 agent：完成配置
+采用 [pstack](https://github.com/cursor/plugins/tree/main/pstack) 的结构，同一个插件目录提供通用 `plugin.json` 和 `.cursor-plugin/plugin.json`。Codex 和 Cursor 各自的 marketplace 清单指向这份插件。宿主负责下载、启用和更新，技能通过实际安装路径找到同包的工具和任务板。
 
-1. 确定消费仓库、当前宿主和执行环境。MMW 链接提供安装说明，只有开发 MMW 本身时才把 MMW 仓库作为消费仓库。多仓库环境使用平台选定的仓库组。
-2. 检查 Bash、Python 3、Git、curl 和 `gh`，补齐缺失工具，确认能访问消费仓库。凭据保存在宿主的密钥设置中。
-3. 一次安装完整 MMW，在用户目录保留或迁移模型配置。云端配置还需接入平台保存的安装和启动设置。
-4. 清理旧安装，提交并推送云端准备配置，完成环境发布或 Build，执行本文的验证。保留原有依赖、服务和项目技能。
+```text
+MMW GitHub 仓库
+  ├─ Codex marketplace ── Codex 安装并登记插件 ── 对话获得 MMW 技能
+  └─ Cursor marketplace ─ Cursor 安装并登记插件 ─ 对话获得 MMW 技能
+                              │
+                              └─ 插件内的 tools/ 和 board/
 
-能自行解决的问题继续处理。只有目标项目无法确定、账号授权、用户持有的凭据或平台要求用户亲自点击的操作才交给用户。交接前完成其余工作，并指出具体环境和剩余操作。
-
-### 所有环境使用相同位置
-
-本地和云端、单仓库和多仓库都安装在执行环境用户主目录的 `~/.agents/`。`~` 指当前电脑或 VM 的用户主目录，不是文件系统根目录 `/`。
-
-| 内容 | 位置 |
-| --- | --- |
-| MMW 技能 | `~/.agents/skills/mmw/` |
-| MMW 工具、任务板和版本信息 | `~/.agents/mmw/` |
-| 用户模型配置 | `~/.agents/models.json` |
-| 云端准备入口 | 消费仓库的 `.agents/cloud-setup.sh` |
-
-同一用户环境共用一份完整运行时，所有仓库共用同一份用户模型配置，其他人 clone 消费仓库只得到云端准备入口。不同独立 VM 各自安装。同一 VM 的 fresh agent 共用安装，fresh 只表示全新上下文。
-
-安装器只替换 MMW 所属目录，保留其他个人技能和项目自有技能。运行时在仓库之外，不需要 Git 排除规则，也不向项目 `AGENTS.md` 登记安装入口。
-
-### 安装命令
-
-从消费仓库运行当前宿主的命令，本地和云端的安装位置相同。
-
-Codex：
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host codex
+执行环境的 ~/.agents/models.json ── 派发工具和任务板读取模型选择
 ```
 
-Cursor：
+本地、云端、单仓库和多仓库都使用这份插件。安装范围由宿主管理；消费仓库不保存 MMW 技能、工具或模型副本。其他人 clone 消费仓库不会因此安装 MMW。
+
+## Codex
+
+Codex CLI 的原生安装命令：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host cursor
+codex plugin marketplace add chancheuklap/multi-model-workflow
+codex plugin add mmw-v5-cloud@mmw-v5
+codex plugin list --json
 ```
 
-安装器下载[最新正式 Release](https://github.com/chancheuklap/multi-model-workflow/releases/latest) 的完整 `mmw-v5-cloud.zip`。不指定仓库时，在 Git 仓库内运行会清理当前仓库的旧安装；在仓库外运行安装共享运行时和用户模型配置。
+Codex App 可通过 Plugins 目录安装已配置 marketplace 中的 **MMW v5 Cloud**。IDE 扩展当前不提供插件入口，使用 Codex App 或 CLI 安装。安装后新开对话，运行 `setup-mmw`，确认 `dispatch` 和 `research` 出现在宿主提供的技能清单中。[Codex 插件说明](https://developers.openai.com/plugins/build/plugins)。
 
-可以在命令末尾传入多个仓库路径，一次下载并安装，保留用户模型配置并迁移各仓库的旧文件。路径由安装 agent 根据实际环境填写。
+Codex Cloud 需要在发起云端对话的宿主或工作区插件目录中导入并启用 MMW。工作区通过 GitHub 导入自定义插件时，由管理员完成目录导入和授权。[工作区插件管理](https://developers.openai.com/codex/enterprise/plugin-management)。VM 内安装一个独立 Codex CLI 的插件，不代表外层 Cloud 对话已安装。
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host codex /workspace/repo-a /workspace/repo-b
+## Cursor
+
+在 Cursor 的 **Customize → Plugins → Browse Marketplace → Add Marketplace → Import from GitHub** 中导入：
+
+```text
+https://github.com/chancheuklap/multi-model-workflow
 ```
 
-### 云端准备配置
+个人使用选择 **User** 范围，安装 **MMW v5 Cloud**。新开对话并运行 `setup-mmw`。这是自定义 marketplace 的导入方式；MMW 尚未作为公共目录条目上架，不能假定 `/add-plugin mmw-v5-cloud` 能直接找到它。[Cursor 插件说明](https://cursor.com/docs/plugins)。
 
-首次配置云端时，在安装命令中加入 `--cloud`。该参数只生成项目准备入口并接入 Cursor 环境文件，安装位置仍是用户主目录。多仓库时一次传入整个仓库组。
+Cursor Cloud 在任务启动时配置 marketplace 插件，同一次运行固定插件版本。官方明确说明了团队 marketplace 的云端加载；个人 GitHub marketplace 是否进入 Cloud 对话，需要在新任务的技能清单中确认。[Cursor Cloud 插件说明](https://cursor.com/help/ai-features/cloud-agents#do-cloud-agents-load-my-team-marketplace-plugins)。
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host codex --cloud /workspace/repo-a /workspace/repo-b
-```
+## 给安装 agent：配置与验证
 
-Cursor 使用同一命令，将 `--host codex` 换成 `--host cursor`。
+1. 在实际使用 MMW 的宿主安装并启用插件。确认该宿主返回 MMW 的 `dispatch`、`research` 和 `setup-mmw` 技能。云端任务检查云端对话自己的清单。
+2. 读取宿主提供的 `setup-mmw` 技能，按技能的安装路径运行随包的派发工具。工具使用 Bash 和 Python 3 标准库，无需包管理器。涉及 GitHub 的工作流还需 Git 和已授权的 `gh`。
+3. 保留已有 `~/.agents/models.json`。首次使用派发工具时，工具按 `MMW_MODELS_JSON` 环境变量、插件默认模板的顺序创建缺失的用户文件。已有文件保持原字节，不会因插件更新而覆盖。
+4. 从每个消费仓库运行插件内的 `dispatch.sh row researcher --host codex` 或 `--host cursor`。确认读取同一用户模型文件，返回当前宿主的模型行。工具路径从已加载技能定位，不能写死插件缓存目录。
+5. 验证插件目录中工具与任务板完整，报告插件版本、技能发现结果和工具执行结果。缺少云端宿主的插件导入权限时，报告具体账号操作。仓库发布、ZIP 下载和 VM 文件扫描均不能代替云端对话的插件加载验证。
 
-安装器为消费仓库写入相同的 `.agents/cloud-setup.sh`。它从最新公开安装器准备共享运行时，第一项参数是宿主，其余参数是仓库路径。未传宿主时沿用 `codex`，未传仓库时使用脚本所在仓库。这样现有 Codex 环境的 `bash .agents/cloud-setup.sh` 入口仍然有效。
+## 模型设置
 
-保存平台配置时，每个环境接入一次准备命令。多仓库示例：
+`~/.agents/models.json` 包含 `rows.codex` 和 `rows.cursor`。同一执行环境的所有仓库共用此文件；任务板只修改当前宿主的模型行。派发工具从消费仓库运行，模型文件始终在当前用户主目录。
 
-```sh
-bash /workspace/repo-a/.agents/cloud-setup.sh codex /workspace/repo-a /workspace/repo-b
-```
+独立云端 VM 不继承本机文件。要沿用个人选择，将用户模型文件的完整 JSON 保存为云端环境变量 `MMW_MODELS_JSON`。`setup-mmw` 或首次派发用该值建立用户文件。模型值不是凭据，保存在平台环境设置，无需提交消费仓库。在任务板修改后，更新平台保存的变量，使以后新 VM 继承选择。
 
-- **Codex Cloud**：将准备命令接入保存环境的 **Install script** 和新任务的 **Start skill**，保存并 **Publish** 或 **Republish**。多仓库环境使用完整仓库组的实际路径。[官方环境说明](https://learn.chatgpt.com/docs/environments/cloud-environments)。
-- **Cursor Cloud**：单仓库的 `.cursor/environment.json` 已接入 `install` 和 `start`；将保存环境的 **environment.json location** 指向该文件。多仓库时在仓库组的实际安装和启动配置中接入一次准备命令，宿主填 `cursor`。保留原有依赖和服务步骤，完成并启用成功的 **Build**。[官方环境说明](https://cursor.com/docs/cloud-agent/setup)。
+## 更新和旧安装迁移
 
-不要逐仓库重复安装共享运行时，也不要假定平台会自动合并多个仓库的环境文件。环境工作目录不固定时使用实际绝对路径。仓库中的准备脚本更新不会自行改变平台已保存的仓库组或启动命令；配置 agent 要核对实际保存的入口。
+Codex CLI 用 `codex plugin marketplace upgrade mmw-v5` 刷新来源；Cursor 在插件目录更新 marketplace 和插件。宿主决定何时更新已安装版本。MMW 不在消费仓库锁定版本，也不在运行中的 night 切换版本。
 
-允许安装所需的 `raw.githubusercontent.com`、`github.com`、`release-assets.githubusercontent.com`，以及 `gh` 所需的 `api.github.com`。本机安装文件不自动复制到云端，由每个独立环境的准备步骤获取。
+原来的 curl 安装器、`~/.agents/skills/mmw/` 松散技能、`~/.agents/mmw/` 运行时和 `.agents/cloud-setup.sh` 已退役。迁移 agent 完成以下清理：
 
-新任务准备时获取最新正式版。已有 night 保持开始时选定的运行时，同一 VM 的下级 agent 不重装；独立 VM 的下级 agent 沿用该 night 选定的版本，不因发布更新而改变。仓库不锁定版本。
+- 先确认原生插件已安装且能被目标对话发现，再移除上述用户目录中的旧 MMW 运行时。保留 `~/.agents/models.json` 和其他个人技能。
+- 删除消费仓库中 MMW 专属的旧运行时、模型副本、准备脚本和生成的 Git 排除区块，保留项目自有文件。
+- 从 Codex 保存环境的 Install script、Start skill 和 Cursor 保存环境的安装、启动配置中移除旧 MMW 准备命令和手动扫描技能的说明。保留项目依赖和服务步骤，保存并发布环境配置。
+- 原来用于播种模型的 `MMW_MODELS_JSON` 继续有效。平台设置必须在对应平台保存；仓库删除准备脚本不会替用户修改已经保存的入口。
 
-### 技能加载和用户模型
-
-VM 内宿主的技能扫描器与当前云端聊天的技能接口是不同入口。验证时分别检查，不能用其中一个空列表判断另一个不支持文件技能。
-
-当 Codex 云端聊天没有同步文件技能清单时，在保存环境的 **Start skill** 中加入：
-
-> MMW 技能位于此环境的 `~/.agents/skills/mmw/`。开始工作时读取这些技能的名称和描述，任务匹配时读取对应 `SKILL.md` 正文。MMW 工具位于 `~/.agents/mmw/`，从目标消费仓库运行。
-
-这段说明让当前聊天读取已安装技能，不表示平台原生清单已经同步。技能目录依据见 [Codex 技能位置](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)、[Cursor 技能位置](https://cursor.com/docs/skills#skill-directories)。
-
-`~/.agents/models.json` 包含 `rows.cursor` 和 `rows.codex`，同一用户环境的所有仓库共用。文件位于运行时目录之外，更新 MMW 不覆盖已有模型选择。
-
-安装器按以下顺序选择模型设置：已有用户文件；平台环境变量 `MMW_MODELS_JSON`；旧仓库模型文件；发布包的默认模板。已有用户文件按原字节保留，其他来源只用于首次创建。多个旧文件有不同的模型行时，先确认统一选择，保存到用户文件后重试。迁移成功才删除仓库 `.agents/models.json` 和旧 `.cursor/models.json`。
-
-云端 VM 不继承本机的模型文件。需要保留个人选择时，安装 agent 将用户文件的完整 JSON 保存为平台环境变量 **MMW_MODELS_JSON**。Codex 和 Cursor 的 Install、Start 阶段都需能读取该变量，新 VM 的准备脚本会用它建立用户文件。模型值不是凭据。变量保存在平台环境配置，不写进仓库、准备脚本或 Git。未指定个人选择时，新 VM 使用当前发布版的默认模板。
-
-在任务板修改模型后，同一环境的后续派发读取新设置，已经派发的 agent 保持原设置。要让以后独立 VM 继承修改，更新平台保存的 `MMW_MODELS_JSON` 并发布或 Build；当前 VM 的文件不会自行回写平台。
-
-从目标消费仓库运行共享工具，HOST 填当前宿主 `cursor` 或 `codex`：
-
-```sh
-bash ~/.agents/mmw/tools/dispatch/scripts/dispatch.sh row researcher --host HOST
-```
-
-工具始终读取用户模型文件，按宿主选择模型行。模型设置不再从 Git commit 读取，旧 `--at` 参数已移除。任务板显示实际用户文件路径，只修改当前宿主的模型行；仓库切换不改变模型设置。派发给 fresh agent 的任务必须明确消费仓库；接收者进入自己环境中的对应 checkout。
-
-### 验证
-
-- 确认 `~/.agents/mmw/plugin.json` 的版本，技能、工具和任务板完整，消费仓库内没有 MMW 运行时或模型副本。
-- 从各仓库分别运行已安装工具，确认读取同一用户文件、当前宿主的模型行，原有设置和项目技能保留。
-- 重复安装和执行准备脚本，确认结果一致；用独立用户目录、独立 checkout 验证新环境可以重建。
-- 核对宿主技能发现与实际加载；Codex 云端聊天和 VM 内 Codex 扫描器分别报告。不要把手动读取文件说成原生自动发现。
-- 核对平台保存的安装和启动入口，确认 Codex 发布或 Cursor Build 的实际结果。
-
-最后报告安装位置、版本、验证和环境状态。没有实际保存或发布的平台配置明确标为未完成；当前 VM 安装成功不能代替后续环境自动准备。
-
-## 更新和迁移
-
-重新运行安装命令获取最新正式版。安装器保留用户模型，移除旧的项目 `.agents/mmw/` 和 `.agents/skills/mmw/`、有 MMW 清单标识的旧宿主目录安装，以及 MMW 生成的 Git 排除区块。项目自有技能、规则和服务配置保留。
-
-迁移旧平台设置时，将准备入口改为本文的用户目录安装命令，模型路径改为 `~/.agents/models.json`，清除旧的固定版本和仓库内工具路径。旧 `AGENTS.md` 中的 MMW 安装说明由迁移 agent 精确清理，保留其他项目指令；安装器不改项目指令文件。
-
-旧 marketplace plugin、仓库内运行时、完整安装目录提交 Git、固定 tag 和 `--ref` 安装均已退役。`mmw-v5/` 是历史参考，不作维护。
+云端通过宿主插件配置交付 MMW。项目 `AGENTS.md` 无需登记安装路径。`mmw-v5/` 是历史参考，不作维护。
 
 ## 开发和发布
 
-在 MMW 开发仓库的 `dev` 分支准备版本号：
+在 `dev` 分支准备版本：
 
 ```sh
 python3 scripts/release-mmw-v5.py bump
 ```
 
-运行相关本地检查后提交并推送到 `dev`。`bump` 只改云端版 plugin 清单，不提交、不推送、不发布。
-
-经 owner 授权合并并推送到 `main` 后，GitHub Actions 按已提交版本创建 tag、GitHub Release 和固定名称的 `mmw-v5-cloud.zip`。GitHub 不运行测试、不改变版本号。同一版本号不能用于另一提交。
-
-在本地检查已提交版本的包：
+运行相关本地检查后提交到 `dev`。经 owner 授权合并并推送到 `main` 后，GitHub Actions 按提交版本创建 tag、GitHub Release 和完整的 `mmw-v5-cloud.zip`。GitHub 不运行测试、不改变版本号。同一版本号不能用于另一提交。
 
 ```sh
 python3 scripts/release-mmw-v5.py package --output /tmp/mmw-v5-cloud.zip
 ```
+
+ZIP 包含两份宿主清单和同一份技能、工具、任务板。GitHub 发布让自定义 marketplace 可以取得新版，不等于公共插件目录已经审核上架。
