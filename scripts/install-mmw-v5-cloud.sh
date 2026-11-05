@@ -20,7 +20,7 @@ if [[ ${#projects[@]} == 0 ]]; then
 fi
 for index in "${!projects[@]}"; do
   if [[ -n "${projects[$index]}" ]]; then
-    projects[$index]="$(git -C "${projects[$index]}" rev-parse --show-toplevel)"
+    projects[index]="$(git -C "${projects[$index]}" rev-parse --show-toplevel)"
   fi
 done
 temporary="$(mktemp -d)"
