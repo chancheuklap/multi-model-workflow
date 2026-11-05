@@ -272,7 +272,7 @@ class CloudRuntime(unittest.TestCase):
         self.assertEqual([x['description'] for x in review['cards']], ['Standards', 'Spec', 'Tests', 'Verify night/spec-90'])
         for card in review['cards']:
             self.assertIn(tip, card['prompt'])
-            self.assertIn('own cloud environment', card['prompt'])
+            self.assertIn('own cloud checkout', card['prompt'])
         self.assertIn('Spec #90', review['cards'][1]['prompt'])
         self.assertIn(feature_path, review['cards'][-1]['prompt'])
         self.assertIn('Return pass or fail to the Coordinator.', review['cards'][-1]['prompt'])

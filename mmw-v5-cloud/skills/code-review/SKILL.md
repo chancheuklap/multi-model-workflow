@@ -7,6 +7,8 @@ description: Use when the assigned role is Standards, Spec, or Tests.
 
 Follow the reference for the assigned role.
 
+Keep the temporary branch name, leave the reviewed code unchanged, and push nothing.
+
 | Assigned role | Follow |
 | --- | --- |
 | Standards | references/standards-reviewer.md |

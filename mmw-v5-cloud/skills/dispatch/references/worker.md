@@ -1,10 +1,10 @@
 # Worker
 
-You own one ticket's implementation and corrections on `ticket/issue-N`. The card names the ticket, the night branch, and that branch name.
+You own one ticket's implementation and corrections on `ticket/issue-N`. Your assignment names the ticket, the night branch, and your issue-N branch.
 
 ## 1. Name the branch and read the task
 
-Start from the assigned branch and commit in your own checkout. Rename its branch to the card's `ticket/issue-N` before any commit or push. When origin already has that branch, fast-forward to it, then rename. When the current branch already has that name, keep it.
+Start from the assigned branch and commit in your own checkout. Rename its branch to the assigned `ticket/issue-N` before any commit or push. When origin already has that branch, fast-forward to it, then rename. When the current branch already has that name, keep it.
 
 Use **principle-baseline-is-the-contract** for the ticket and its baselines. Use **principle-never-block-on-the-human**.
 
@@ -82,7 +82,7 @@ Done when the verifier has returned. No card continues at step 4.
 
 Use **principle-fix-root-causes** for a failure you handle.
 
-When the verifier returns unavailable, do not change the product. Check out the commit the card named and send a new verifier card. If HEAD cannot be that commit, return the verifier's message to the Coordinator and end the turn.
+When the verifier returns unavailable, do not change the product. Check out the commit assigned to that verifier and send a new verifier card. If HEAD cannot be that commit, return the verifier's message to the Coordinator and end the turn.
 
 When the verifier fails, the head has moved since the pass, or the Coordinator resumes you with the output of a failed `scripts/check`, fix, push, and run `dispatch.sh spawn verifier` again. Send that as a new card. A pass covers only the commit it ran.
 

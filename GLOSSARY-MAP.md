@@ -24,7 +24,8 @@ Do not invent a Chinese name for an MMW skill or for any term in these files. Us
 - `scripts/check` is the landing check. The pre-commit hook is the check that runs on a commit.
 - night is one unattended run. Its night branch is named `night/spec-N` or `night/ticket-N`. The project branch is named `project/<project name>` and is cut from the dev branch. The issue-N branch is named `ticket/issue-N`. N is the issue number.
 - A sub-issue is the tracker's parent link. `mmw:child` is a label, not that link.
-- The Worker and the first verifier share the Worker's issue-N checkout. The Coordinator stays on the night branch in its cloud agent. Standards, Spec, Tests, and the second verifier each open a new cloud checkout of that night branch and leave that temporary branch unpushed.
+- A card carries one assignment and its model settings from dispatch to the sender. The sender starts a fresh subagent with those settings and passes it the card's prompt.
+- The first verifier opens its own cloud checkout at the Worker's assigned issue-N commit. The Coordinator stays on the night branch in its cloud agent. Standards, Spec, Tests, and the second verifier each open a new cloud checkout at the reviewed commit of that night branch and leave that temporary branch unpushed.
 - A PR merges the issue-N branch into the night branch. A delivery PR merges the night branch into the project branch. A finished project branch merges into the dev branch for testing, and the dev branch merges into the main branch for deployment. The ticket head is the current commit on the issue-N branch. The role candidate is a brief session that designs one answer. The word candidate is not a name for that commit.
 - A verifier runs `verify-<app>` on the commit it is given. Dispatch says when and how the three axes are sent. code-review says how each axis judges.
 - tracer bullet and vertical slice are both names for one ticket shape. Both stay.

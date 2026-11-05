@@ -4,11 +4,11 @@ You are the Coordinator. You reach this after every ticket that will land has la
 
 ## 1. Send
 
-Run `dispatch.sh spawn review` and send each printed assignment in parallel, as [Dispatch](../SKILL.md) describes. Wait for all of them.
+Run `dispatch.sh spawn review` and dispatch each printed card in parallel, as [Dispatch](../SKILL.md) describes. Wait for all of them.
 
-One command sends this night's cards: Standards, Spec, and Tests, and the second verifier. Each runs in its own cloud VM, starting from the night branch's reviewed commit, and the card tells it to keep that temporary branch name and push nothing. Spec is omitted when the night has no spec. A card listed under `skipped` does not run. A command error is a limitation of this review, not a pass.
+One command prints this night's cards: Standards, Spec, and Tests, and the second verifier. Each subagent starts in its own cloud checkout at the night branch's reviewed commit. Spec is omitted when the night has no spec. Roles listed under `skipped` do not run. A command error is a limitation of this review, not a pass.
 
-Each printed card names what that reviewer uses: the diff, the pinned comparison, the reviewed commit, the spec or `Spec: none`, the landed tickets, any standards files, and, on the verifier card, the feature files. Pass the card through. The reviewer does not choose a different range.
+Each card's prompt names what that reviewer uses: the diff, the pinned comparison, the reviewed commit, the spec or `Spec: none`, the landed tickets, any standards files, and, for the verifier, the feature files. The reviewer does not choose a different range.
 
 Done when every printed card has returned, or a missing result is recorded as a limitation.
 

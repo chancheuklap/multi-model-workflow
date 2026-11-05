@@ -280,17 +280,14 @@ def spawn_worker(ticket: str, *, api=None) -> dict:
     prompt = '\n'.join([
         'Load the installed dispatch skill.',
         'Assigned role: worker.',
-        'Follow the Worker reference.',
+        'Follow references/worker.md in that skill.',
         'Run in your own cloud checkout at the starting commit.',
-        'When the verifier fails, fix the ticket and send a new verifier card.',
-        'When the passing commit is the PR head, write the result in the PR.',
         '',
         f'Ticket #{ticket}',
         f'Night branch: {night["branch"]}',
         f'Starting branch: {start}',
         f'Starting commit: {commit_of(f"origin/{start}")}',
         f'issue-N branch: ticket/issue-{ticket}',
-        f'Before the first push, rename the current branch to ticket/issue-{ticket}.',
     ])
     return {'host': host, 'skipped': [], 'cards': [assignment(grade, chosen, f'Implement ticket #{ticket}', prompt)]}
 
@@ -330,7 +327,7 @@ def spawn_verifier(*, api=None) -> dict:
     prompt = '\n'.join([
         'Load the installed dispatch skill.',
         'Assigned role: verifier.',
-        'Follow the Verifier reference.',
+        'Follow references/verifier.md in that skill.',
         'Start in your own cloud checkout at the named commit.',
         'Return pass or fail to the Worker.',
         '',
@@ -352,11 +349,10 @@ def axis_card(chosen: dict, role: str, night: str, fork: str, tip: str, spec_lin
     lines = [
         'Load the installed dispatch skill.',
         f'Assigned role: {role}.',
-        f'Use code-review and follow the {title} reference.',
+        f'Load the installed code-review skill and follow its references/{role}-reviewer.md.',
         returns,
         '',
-        'This checkout is a temporary branch at the reviewed commit. Keep its name and push nothing.',
-        'Run in your own cloud environment.',
+        'Start in your own cloud checkout at the reviewed commit.',
         f'Night branch: {night}',
         f'Pinned comparison: {fork}',
         f'Reviewed commit: {tip}',
@@ -406,10 +402,9 @@ def spawn_review(*, api=None) -> dict:
         prompt = '\n'.join([
             'Load the installed dispatch skill.',
             'Assigned role: verifier.',
-            'Follow the Verifier reference.',
+            'Follow references/verifier.md in that skill.',
             'Return pass or fail to the Coordinator.',
-            'This checkout is a temporary branch at the named commit. Keep its name and push nothing.',
-            'Run in your own cloud environment.',
+            'Start in your own cloud checkout at the named commit.',
             '',
             f'Night branch: {night["branch"]}',
             f'Commit: {tip}',

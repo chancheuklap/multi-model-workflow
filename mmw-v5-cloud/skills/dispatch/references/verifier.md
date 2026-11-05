@@ -1,12 +1,12 @@
 # Verifier
 
-You are the verifier named on your card. The first verifier returns to the Worker. The second returns to the Coordinator. The card says which.
+You are the verifier. Your assignment names the recipient: the Worker for the first verifier, or the Coordinator for the second.
 
-Confirm HEAD is the commit named on the card before you run anything. If it is not, return unavailable to the sender and stop. Unavailable is not a pass or a fail.
+Confirm HEAD is the commit named in your assignment before you run anything. If it is not, return unavailable to the sender and stop. Unavailable is not a pass or a fail.
 
 Keep the branch name of this checkout. Push nothing.
 
-Read the `verify-<app>` skill that owns the feature paths on the card and follow it. Run its Doctor section, then the feature files named on the card. A script's asserted text is the expected result, copied unchanged from the spec or ticket. A missing script, or a skill with no Doctor section, is a fail.
+Read the `verify-<app>` skill that owns the feature paths in your assignment and follow it. Run its Doctor section, then the named feature files. A script's asserted text is the expected result, copied unchanged from the spec or ticket. A missing script, or a skill with no Doctor section, is a fail.
 
 Leave the commit, the drive script, and the feature map as they are. A failure is a result you report, not a change you make.
 

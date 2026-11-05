@@ -40,7 +40,7 @@ dispatch.sh status
 dispatch.sh spawn worker --ticket N
 ```
 
-The Worker renames its own branch to `ticket/issue-N`. When origin already has that branch, the card starts from it. Otherwise the card starts from the night branch. This checkout stays the night branch. The printed card is the Worker. A ticket without exactly one worker grade prints no card; say so and leave that ticket.
+The Worker renames its own branch to `ticket/issue-N`. When origin already has that branch, the assignment starts from it. Otherwise it starts from the night branch. This checkout stays the night branch. Each printed card is one Worker assignment. A ticket without exactly one worker grade prints no card; say so and leave that ticket.
 
 Hand each printed card over as [Dispatch](../SKILL.md) describes, and wait.
 
