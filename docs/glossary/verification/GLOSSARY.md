@@ -7,7 +7,7 @@ Do not invent a Chinese name for a term in this file, or for any MMW skill. Use 
 ## Language
 
 **verify-<app>**:
-The project-local skill at `.cursor/skills/verify-<app>/`. It is the project's verification system: later agents start the app, drive it, and keep evidence by reading it. `<app>` is the app's name.
+The project-local skill at `.agents/skills/verify-<app>/`. It is the project's verification system: later agents start the app, drive it, and keep evidence by reading it. `<app>` is the app's name.
 _Avoid_: control skill, and any invented Chinese name.
 
 **feature map**:

@@ -123,7 +123,7 @@ The project checkout the run works in. Commands run there.
 _Avoid_: any invented Chinese name.
 
 **MMW runtime**:
-The installed skills and tools fixed for this run. In Cursor that copy is the project's `.cursor/`. In Codex it is the project's `.agents/`.
+The installed skills and tools fixed for this run. Cursor and Codex share the project's `.agents/` installation.
 _Avoid_: any invented Chinese name.
 
 **execution Go**:
