@@ -95,8 +95,8 @@ export function render(host, view = {}, api, hooks = {}) {
     }),
     el("button", {
       type: "button", class: view.settingsOpen ? "iconbtn bare on" : "iconbtn bare",
-      "aria-label": "项目模型配置",
-      title: "项目模型配置",
+      "aria-label": "用户模型配置",
+      title: "用户模型配置",
       "data-ui": "顶栏.settings",
       html: GEAR_ICON,
       onClick: () => { void notify(() => api.settings(), hooks.onOpenSettings); },

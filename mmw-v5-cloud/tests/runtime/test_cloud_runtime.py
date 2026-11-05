@@ -40,7 +40,7 @@ class CloudRuntime(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='mmw-cloud-test-'); self.addCleanup(self.temp.cleanup)
         self.root = (Path(self.temp.name) / 'repo').resolve(); self.root.mkdir(); self.remote = Path(self.temp.name) / 'origin.git'
         self.old = Path.cwd(); os.chdir(self.root); self.addCleanup(os.chdir, self.old)
-        self.env = patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1'})
+        self.env = patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': str(Path(self.temp.name) / 'home')})
         self.env.start(); self.addCleanup(self.env.stop)
         self.models = self.model_tool('cursor')
         self.codex = self.model_tool('codex')
@@ -67,7 +67,7 @@ class CloudRuntime(unittest.TestCase):
 
     def git(self, *args):
         return subprocess.run(['git', *args], capture_output=True, text=True, check=True).stdout.strip()
-    def commit(self, message): self.git('add', '.'); self.git('commit', '-q', '-m', message)
+    def commit(self, message): self.git('add', '.'); self.git('commit', '--allow-empty', '-q', '-m', message)
 
     def model_tool(self, host):
         path = Path(self.temp.name) / 'home/.agents/mmw/tools/dispatch/scripts/models.py'
@@ -177,18 +177,16 @@ class CloudRuntime(unittest.TestCase):
                 with self.assertRaises(ValueError):land.land(7,into,head,api=self.api)
         self.assertFalse((self.root/'should-not-exist').exists())
 
-    def test_model_reads_project_not_local_home(self):
-        folder=self.root/'.cursor'; folder.mkdir(exist_ok=True); config=json.loads((ROOT/'mmw-v5-cloud/models.json').read_text())
-        config['rows']['codex']['review-axis']={'model':'chosen-native-id','effort':'high'}
-        config['rows']['cursor']['review-axis']={'model':'cursor-review-model','effort':'high','context':'256k','fast':True}
-        self.models.write_config(config); self.codex.write_config(config)
-        self.commit('project model configuration')
-        fixed = self.git('rev-parse','HEAD')
-        changed = json.loads(json.dumps(config)); changed['rows']['codex']['review-axis']['model'] = 'next-run-only'; self.codex.write_config(changed)
-        with patch.dict(os.environ,{'MMW_HOME':str(self.root/'unused-local-home')}):
-            self.assertEqual(self.codex.row('review-axis',fixed),{'model':'chosen-native-id','effort':'high'})
-            self.assertEqual(self.models.row('review-axis',fixed),config['rows']['cursor']['review-axis'])
-        self.assertEqual(self.codex.row('junior-worker',fixed),config['rows']['codex']['junior-worker'])
+    def test_models_use_the_user_file_and_ignore_project_copies(self):
+        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        config['rows']['codex']['review-axis'] = {'model': 'user-model', 'effort': 'high'}
+        self.codex.write_config(config)
+        (self.root / '.agents/models.json').write_text('{"rows": {}}')
+        self.assertEqual(self.codex.row('review-axis'), {'model': 'user-model', 'effort': 'high'})
+        other = Path(self.temp.name) / 'outside-git'; other.mkdir()
+        os.chdir(other)
+        self.assertEqual(self.codex.row('review-axis')['model'], 'user-model')
+        self.assertEqual(self.codex.config_path(), Path.home() / '.agents/models.json')
 
     def test_native_host_settings_apply_to_each_worker_grade_and_review_role(self):
         (self.root/'.cursor').mkdir(exist_ok=True)
@@ -200,13 +198,13 @@ class CloudRuntime(unittest.TestCase):
         config['rows']['cursor']['junior-worker']['fast']=False
         self.models.write_config(config);self.codex.write_config(config);self.commit('host-specific role settings')
         fixed=self.git('rev-parse','HEAD')
-        self.assertEqual(self.codex.row('senior-worker',fixed),{'model':'senior-specific-model','effort':'high'})
-        self.assertEqual(self.models.row('junior-worker',fixed),config['rows']['cursor']['junior-worker'])
+        self.assertEqual(self.codex.row('senior-worker'),{'model':'senior-specific-model','effort':'high'})
+        self.assertEqual(self.models.row('junior-worker'),config['rows']['cursor']['junior-worker'])
         for role in self.models.ROLES:
             if role!='senior-worker':
-                self.assertEqual(self.codex.row(role,fixed),{'model':'gpt-6.1-sol','effort':'high'})
+                self.assertEqual(self.codex.row(role),{'model':'gpt-6.1-sol','effort':'high'})
             if role!='junior-worker':
-                self.assertEqual(self.models.row(role,fixed),config['rows']['cursor'][role])
+                self.assertEqual(self.models.row(role),config['rows']['cursor'][role])
 
     def check_assignments(self, host):
         tool = self.codex if host == 'codex' else self.models
@@ -264,7 +262,7 @@ class CloudRuntime(unittest.TestCase):
         self.assertEqual(tool.named_feature_paths([f'Feature: `{feature_path}`'], head), [feature_path])
         question = self.root / 'question.md'; question.write_text('Trace the login flow.')
         researcher = tool.spawn_researcher(str(question))['cards'][0]
-        self.assertEqual(researcher['model_row']['model'], config['rows'][host]['researcher']['model'])
+        self.assertEqual(researcher['model_row']['model'], changed['rows'][host]['researcher']['model'])
         self.assertEqual(question.read_text(), researcher['prompt'])
         self.git('commit', '-q', '--allow-empty', '-m', 'unpushed')
         with self.assertRaisesRegex(ValueError, 'HEAD is not pushed'): tool.spawn_verifier(api=api)

@@ -29,6 +29,7 @@ curl -fsSL https://github.com/chancheuklap/multi-model-workflow/releases/latest/
 
 python3 - "$temporary/cloud.zip" "$host" "$cloud" "${projects[@]}" <<'PY'
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -69,6 +70,7 @@ host="${1:-codex}"
 if [[ "$#" -gt 0 ]]; then shift; fi
 if [[ "$#" == 0 ]]; then set -- "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"; fi
 curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host "$host" "$@"
+bash "$HOME/.agents/mmw/tools/dispatch/scripts/dispatch.sh" row researcher --host "$host"
 '''
 
 
@@ -89,19 +91,56 @@ for project in projects:
             if field in value and not isinstance(value[field], str):
                 raise SystemExit(f'{environment}: {field} must be a shell command string')
         environments[project] = value
-    configuration = project / '.agents/models.json'
-    if not configuration.exists():
-        value = json.loads(defaults)
-        legacy = project / '.cursor/models.json'
-        if legacy.exists():
-            previous = json.loads(legacy.read_text())
-            for old_host in ('cursor', 'codex'):
-                if isinstance(previous.get('rows', {}).get(old_host), dict):
-                    value['rows'][old_host] = previous['rows'][old_host]
-        configuration.parent.mkdir(parents=True, exist_ok=True)
-        configuration.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+configuration = user_agents / 'models.json'
+legacy_files = []
+legacy_rows = {}
+conflicts = []
+for project in projects:
+    for directory in ('.agents', '.cursor'):
+        legacy = project / directory / 'models.json'
+        if not legacy.exists():
+            continue
+        value = json.loads(legacy.read_text())
+        rows = value.get('rows')
+        if not isinstance(rows, dict) or not {'cursor', 'codex'} & rows.keys():
+            continue
+        legacy_files.append(legacy)
+        for old_host in ('cursor', 'codex'):
+            for role, row in rows.get(old_host, {}).items():
+                previous = legacy_rows.setdefault(old_host, {}).get(role)
+                if previous is not None and previous != row:
+                    conflicts.append(old_host + '/' + role)
+                legacy_rows[old_host][role] = row
+
+if configuration.exists():
+    selected = json.loads(configuration.read_text())
+    print('Keep existing configuration: ' + str(configuration))
+else:
+    seed = os.environ.get('MMW_MODELS_JSON')
+    if seed:
+        selected = json.loads(seed)
     else:
-        print('Keep existing configuration: ' + str(configuration))
+        if conflicts:
+            raise SystemExit('Conflicting legacy models: ' + ', '.join(sorted(set(conflicts))) +
+                             '. Save the chosen settings to ' + str(configuration) + ' and retry.')
+        selected = json.loads(defaults)
+        for old_host, rows in legacy_rows.items():
+            selected['rows'][old_host].update(rows)
+
+rows = selected.get('rows') if isinstance(selected, dict) else None
+if not isinstance(rows, dict):
+    raise SystemExit('Models configuration needs a rows object')
+for selected_host, roles in json.loads(defaults)['rows'].items():
+    actual = rows.get(selected_host, {})
+    for role in roles:
+        row = actual.get(role) if isinstance(actual, dict) else None
+        if not isinstance(row, dict) or any(not isinstance(row.get(k), str) or not row[k].strip()
+                                            for k in ('model', 'effort')):
+            raise SystemExit(f'{selected_host}/{role} needs model and effort')
+if not configuration.exists():
+    configuration.parent.mkdir(parents=True, exist_ok=True)
+    configuration.write_text(json.dumps(selected, ensure_ascii=False, indent=2) + '\n')
 
 skill_names = {path.name for path in (staging / 'skills').iterdir()}
 for target in (runtime, skills):
@@ -122,11 +161,6 @@ for project in projects:
                 remove(old / 'skills' / name)
             for relative in ('board', 'tools/dispatch', 'tools/setup-mmw', 'tools/verify-ticket', 'plugin.json', '.cursor-plugin'):
                 remove(old / relative)
-        legacy_models = old / 'models.json'
-        if directory == '.cursor' and legacy_models.exists():
-            value = json.loads(legacy_models.read_text())
-            if isinstance(value.get('rows'), dict) and {'cursor', 'codex'} & value['rows'].keys():
-                legacy_models.unlink()
     ignore = project / '.gitignore'
     if ignore.exists():
         before = ignore.read_text()
@@ -135,6 +169,7 @@ for project in projects:
             ignore.write_text(after.rstrip() + '\n')
     setup = project / '.agents/cloud-setup.sh'
     if cloud == '1' or setup.exists():
+        setup.parent.mkdir(parents=True, exist_ok=True)
         setup.write_text(setup_text)
         setup.chmod(0o755)
     if project in environments:
@@ -149,12 +184,14 @@ for project in projects:
         environment = project / '.cursor/environment.json'
         environment.parent.mkdir(parents=True, exist_ok=True)
         environment.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + '\n')
-    print('Project configuration: ' + str(project / '.agents/models.json'))
+for legacy in legacy_files:
+    legacy.unlink()
+print('User model configuration: ' + str(configuration))
 
 print(f'Installed MMW v5 Cloud {manifest["version"]} into {user_agents}')
 print('Skills: ' + str(skills))
 print('Tools and board: ' + str(runtime))
 if cloud == '1':
     print('Save one environment install/start entry for the repository group; preserve existing services and publish/build it.')
-print('Commit project model and cloud preparation configuration only; the runtime stays outside repositories.')
+print('Commit cloud preparation configuration only; models and runtime stay in the user directory.')
 PY

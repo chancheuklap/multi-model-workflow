@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve the shared board UI with cloud-native data and project model settings."""
+"""Serve the shared board UI with cloud-native data and user model settings."""
 from __future__ import annotations
 import argparse
 import http.server

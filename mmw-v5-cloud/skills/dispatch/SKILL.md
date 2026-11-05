@@ -11,7 +11,7 @@ The installed runtime is the runtime of this night. Run its skills and this `dis
 
 Resolve `../../../mmw/tools/dispatch/scripts/dispatch.sh` from this file to an absolute path, and run it in the consuming repository. The command prints JSON. It does not start the subagent.
 
-For model commands (`show`, `row`, `spawn`) and `board`, pass `--host HOST`. HOST is your current host, `cursor` or `codex`. Both use the same `.agents/models.json`; the argument selects that host's model rows.
+For model commands (`show`, `row`, `spawn`) and `board`, pass `--host HOST`. HOST is your current host, `cursor` or `codex`. Both use the same user file `~/.agents/models.json`; the argument selects that host's model rows.
 
 Each object in the printed `cards` array is a card: one assignment for the sender to dispatch. `description` is its task label. Use `model_row` to choose the subagent's model settings, and send `prompt` unchanged as its task. The role in `model_row` names a model configuration row; the prompt says what work to do.
 

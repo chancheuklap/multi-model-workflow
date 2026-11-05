@@ -16,8 +16,8 @@ agent 按本文完成安装、迁移、保存配置和验证。用户无需选�
 
 1. 确定消费仓库、当前宿主和执行环境。MMW 链接提供安装说明，只有开发 MMW 本身时才把 MMW 仓库作为消费仓库。多仓库环境使用平台选定的仓库组。
 2. 检查 Bash、Python 3、Git、curl 和 `gh`，补齐缺失工具，确认能访问消费仓库。凭据保存在宿主的密钥设置中。
-3. 一次安装完整 MMW，为每个消费仓库保留或创建模型配置。云端配置还需接入平台保存的安装和启动设置。
-4. 清理旧安装，提交并推送项目配置，完成环境发布或 Build，执行本文的验证。保留原有依赖、服务和项目技能。
+3. 一次安装完整 MMW，在用户目录保留或迁移模型配置。云端配置还需接入平台保存的安装和启动设置。
+4. 清理旧安装，提交并推送云端准备配置，完成环境发布或 Build，执行本文的验证。保留原有依赖、服务和项目技能。
 
 能自行解决的问题继续处理。只有目标项目无法确定、账号授权、用户持有的凭据或平台要求用户亲自点击的操作才交给用户。交接前完成其余工作，并指出具体环境和剩余操作。
 
@@ -29,10 +29,10 @@ agent 按本文完成安装、迁移、保存配置和验证。用户无需选�
 | --- | --- |
 | MMW 技能 | `~/.agents/skills/mmw/` |
 | MMW 工具、任务板和版本信息 | `~/.agents/mmw/` |
-| 项目模型配置 | 每个消费仓库的 `.agents/models.json` |
+| 用户模型配置 | `~/.agents/models.json` |
 | 云端准备入口 | 消费仓库的 `.agents/cloud-setup.sh` |
 
-同一用户环境共用一份完整运行时，其他人 clone 消费仓库只得到项目配置。不同独立 VM 各自安装。同一 VM 的 fresh agent 共用安装，fresh 只表示全新上下文。
+同一用户环境共用一份完整运行时，所有仓库共用同一份用户模型配置，其他人 clone 消费仓库只得到云端准备入口。不同独立 VM 各自安装。同一 VM 的 fresh agent 共用安装，fresh 只表示全新上下文。
 
 安装器只替换 MMW 所属目录，保留其他个人技能和项目自有技能。运行时在仓库之外，不需要 Git 排除规则，也不向项目 `AGENTS.md` 登记安装入口。
 
@@ -52,9 +52,9 @@ Cursor：
 curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host cursor
 ```
 
-安装器下载[最新正式 Release](https://github.com/chancheuklap/multi-model-workflow/releases/latest) 的完整 `mmw-v5-cloud.zip`。不指定仓库时，在 Git 仓库内运行会配置当前仓库；在仓库外运行只安装共享运行时。
+安装器下载[最新正式 Release](https://github.com/chancheuklap/multi-model-workflow/releases/latest) 的完整 `mmw-v5-cloud.zip`。不指定仓库时，在 Git 仓库内运行会清理当前仓库的旧安装；在仓库外运行安装共享运行时和用户模型配置。
 
-可以在命令末尾传入多个仓库路径，一次下载并安装，为每个仓库分别保留或创建模型配置。路径由安装 agent 根据实际环境填写。
+可以在命令末尾传入多个仓库路径，一次下载并安装，保留用户模型配置并迁移各仓库的旧文件。路径由安装 agent 根据实际环境填写。
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/chancheuklap/multi-model-workflow/main/scripts/install-mmw-v5-cloud.sh | bash -s -- --host codex /workspace/repo-a /workspace/repo-b
@@ -87,7 +87,7 @@ bash /workspace/repo-a/.agents/cloud-setup.sh codex /workspace/repo-a /workspace
 
 新任务准备时获取最新正式版。已有 night 保持开始时选定的运行时，同一 VM 的下级 agent 不重装；独立 VM 的下级 agent 沿用该 night 选定的版本，不因发布更新而改变。仓库不锁定版本。
 
-### 技能加载和项目模型
+### 技能加载和用户模型
 
 VM 内宿主的技能扫描器与当前云端聊天的技能接口是不同入口。验证时分别检查，不能用其中一个空列表判断另一个不支持文件技能。
 
@@ -97,7 +97,13 @@ VM 内宿主的技能扫描器与当前云端聊天的技能接口是不同入�
 
 这段说明让当前聊天读取已安装技能，不表示平台原生清单已经同步。技能目录依据见 [Codex 技能位置](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)、[Cursor 技能位置](https://cursor.com/docs/skills#skill-directories)。
 
-每个仓库的 `.agents/models.json` 包含 `rows.cursor` 和 `rows.codex`。安装器保留已有配置；迁移时保留旧 `.cursor/models.json` 中的宿主模型行，再移除旧文件。
+`~/.agents/models.json` 包含 `rows.cursor` 和 `rows.codex`，同一用户环境的所有仓库共用。文件位于运行时目录之外，更新 MMW 不覆盖已有模型选择。
+
+安装器按以下顺序选择模型设置：已有用户文件；平台环境变量 `MMW_MODELS_JSON`；旧仓库模型文件；发布包的默认模板。已有用户文件按原字节保留，其他来源只用于首次创建。多个旧文件有不同的模型行时，先确认统一选择，保存到用户文件后重试。迁移成功才删除仓库 `.agents/models.json` 和旧 `.cursor/models.json`。
+
+云端 VM 不继承本机的模型文件。需要保留个人选择时，安装 agent 将用户文件的完整 JSON 保存为平台环境变量 **MMW_MODELS_JSON**。Codex 和 Cursor 的 Install、Start 阶段都需能读取该变量，新 VM 的准备脚本会用它建立用户文件。模型值不是凭据。变量保存在平台环境配置，不写进仓库、准备脚本或 Git。未指定个人选择时，新 VM 使用当前发布版的默认模板。
+
+在任务板修改模型后，同一环境的后续派发读取新设置，已经派发的 agent 保持原设置。要让以后独立 VM 继承修改，更新平台保存的 `MMW_MODELS_JSON` 并发布或 Build；当前 VM 的文件不会自行回写平台。
 
 从目标消费仓库运行共享工具，HOST 填当前宿主 `cursor` 或 `codex`：
 
@@ -105,12 +111,12 @@ VM 内宿主的技能扫描器与当前云端聊天的技能接口是不同入�
 bash ~/.agents/mmw/tools/dispatch/scripts/dispatch.sh row researcher --host HOST
 ```
 
-工具按当前 Git 仓库读取模型配置，按宿主选择模型行。模型配置进入新 night 的基线，任务板设置页只修改当前宿主的模型行。派发给 fresh agent 的任务必须明确消费仓库；接收者进入自己环境中的对应 checkout。
+工具始终读取用户模型文件，按宿主选择模型行。模型设置不再从 Git commit 读取，旧 `--at` 参数已移除。任务板显示实际用户文件路径，只修改当前宿主的模型行；仓库切换不改变模型设置。派发给 fresh agent 的任务必须明确消费仓库；接收者进入自己环境中的对应 checkout。
 
 ### 验证
 
-- 确认 `~/.agents/mmw/plugin.json` 的版本，技能、工具和任务板完整，消费仓库内没有 MMW 运行时。
-- 从各仓库分别运行已安装工具，确认读取各自项目、当前宿主的模型行，原有设置和项目技能保留。
+- 确认 `~/.agents/mmw/plugin.json` 的版本，技能、工具和任务板完整，消费仓库内没有 MMW 运行时或模型副本。
+- 从各仓库分别运行已安装工具，确认读取同一用户文件、当前宿主的模型行，原有设置和项目技能保留。
 - 重复安装和执行准备脚本，确认结果一致；用独立用户目录、独立 checkout 验证新环境可以重建。
 - 核对宿主技能发现与实际加载；Codex 云端聊天和 VM 内 Codex 扫描器分别报告。不要把手动读取文件说成原生自动发现。
 - 核对平台保存的安装和启动入口，确认 Codex 发布或 Cursor Build 的实际结果。
@@ -119,9 +125,9 @@ bash ~/.agents/mmw/tools/dispatch/scripts/dispatch.sh row researcher --host HOST
 
 ## 更新和迁移
 
-重新运行安装命令获取最新正式版。安装器保留项目模型，移除旧的项目 `.agents/mmw/` 和 `.agents/skills/mmw/`、有 MMW 清单标识的旧宿主目录安装，以及 MMW 生成的 Git 排除区块。项目自有技能、规则和服务配置保留。
+重新运行安装命令获取最新正式版。安装器保留用户模型，移除旧的项目 `.agents/mmw/` 和 `.agents/skills/mmw/`、有 MMW 清单标识的旧宿主目录安装，以及 MMW 生成的 Git 排除区块。项目自有技能、规则和服务配置保留。
 
-迁移旧平台设置时，将准备入口改为本文的用户目录安装命令，清除旧的固定版本和仓库内工具路径。旧 `AGENTS.md` 中的 MMW 安装说明由迁移 agent 精确清理，保留其他项目指令；安装器不改项目指令文件。
+迁移旧平台设置时，将准备入口改为本文的用户目录安装命令，模型路径改为 `~/.agents/models.json`，清除旧的固定版本和仓库内工具路径。旧 `AGENTS.md` 中的 MMW 安装说明由迁移 agent 精确清理，保留其他项目指令；安装器不改项目指令文件。
 
 旧 marketplace plugin、仓库内运行时、完整安装目录提交 Git、固定 tag 和 `--ref` 安装均已退役。`mmw-v5/` 是历史参考，不作维护。
 

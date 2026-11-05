@@ -9,13 +9,13 @@ for (const nativeHost of ['cursor', 'codex']) test(`${nativeHost} settings show 
   const host = document.createElement('div');
   const original = JSON.parse(readFileSync(new URL('../../../mmw-v5-cloud/models.json', import.meta.url)));
   const originalSnapshot = structuredClone(original);
-  const directory = nativeHost === 'codex' ? '.agents' : '.cursor';
-  const model = fromPayload({...original, host: nativeHost, store: `${directory}/models.json`});
+  const model = fromPayload({...original, host: nativeHost, store: '/home/test/.agents/models.json'});
   let saved;
   render(host, model, {saveSettings: async value => {
     saved = structuredClone(value);
     return {ok: true, json: async () => ({saved: true})};
   }});
+  assert.equal(walk(host).find(node => node.getAttribute?.('role') === 'dialog').getAttribute('aria-label'), '用户模型配置');
   const input = label => walk(host).find(node => node.getAttribute?.('aria-label') === label);
   for (const role of Object.keys(original.rows.codex)) {
     assert.equal(input(`${nativeHost} ${role} model`).getAttribute('value'), original.rows[nativeHost][role].model);

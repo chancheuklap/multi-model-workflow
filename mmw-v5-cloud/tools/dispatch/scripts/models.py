@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Project model choices for native cloud agents; no local CLI catalog or runner."""
+"""User model choices for native cloud agents; no local CLI catalog or runner."""
 from __future__ import annotations
 import argparse
 import json
@@ -20,7 +20,7 @@ def project_agents() -> Path:
 
 
 def config_path() -> Path:
-    return project_agents() / 'models.json'
+    return Path.home() / '.agents' / 'models.json'
 
 
 def validate(value: dict) -> dict:
@@ -48,18 +48,12 @@ def validate(value: dict) -> dict:
     return value
 
 
-def read_config(at: str | None = None) -> dict:
-    if at is None:
-        text = config_path().read_text(encoding="utf-8")
-    else:
-        root = Path(git_text("rev-parse", "--show-toplevel")).resolve()
-        relative = config_path().relative_to(root).as_posix()
-        text = subprocess.run(["git", "show", f"{at}:{relative}"], capture_output=True, text=True, check=True).stdout
-    return validate(json.loads(text))
+def read_config() -> dict:
+    return validate(json.loads(config_path().read_text(encoding="utf-8")))
 
 
-def row(role: str, at: str) -> dict:
-    return read_config(at)['rows'][native_host()][role]
+def row(role: str) -> dict:
+    return read_config()['rows'][native_host()][role]
 
 
 def git_text(*args: str) -> str:
@@ -140,16 +134,6 @@ def project_fork(night: str) -> tuple[str, str]:
         names = ', '.join(ref for ref, _base in closest)
         raise ValueError(f'project branch tie: {names}')
     return closest[0]
-
-
-def resolve_at(at: str | None) -> str:
-    if at:
-        return at
-    branch = git_text('rev-parse', '--abbrev-ref', 'HEAD')
-    if re.fullmatch(r'(night/(spec|ticket)|ticket/issue)-\d+', branch):
-        _project, fork = project_fork(branch)
-        return fork
-    return 'HEAD'
 
 
 def adopt_branch(name: str) -> None:
@@ -272,8 +256,7 @@ def spawn_worker(ticket: str, *, api=None) -> dict:
         return {'host': host, 'skipped': ['worker'], 'cards': []}
     aligned_tip(night['branch'])
     start = ticket_start(ticket, night['branch'])
-    _project, fork = project_fork(night['branch'])
-    chosen = row(grade, fork)
+    chosen = row(grade)
     prompt = '\n'.join([
         'Load the installed dispatch skill.',
         'Assigned role: worker.',
@@ -321,8 +304,7 @@ def spawn_verifier(*, api=None) -> dict:
     features = feature_changes(pr['base']['sha'], pushed)
     if len(skills) != 1 or not features:
         return {'host': host, 'skipped': ['verifier'], 'cards': []}
-    _project, fork = project_fork(f'origin/{pr["base"]["ref"]}')
-    chosen = row('verifier', fork)
+    chosen = row('verifier')
     prompt = '\n'.join([
         'Load the installed dispatch skill.',
         'Assigned role: verifier.',
@@ -382,7 +364,7 @@ def spawn_review(*, api=None) -> dict:
     cards = []
     diff = git_text('diff', '--name-only', fork, tip)
     if diff.strip():
-        chosen = row('review-axis', fork)
+        chosen = row('review-axis')
         present = [name for name in ('CODING_STANDARDS.md', 'CONTRIBUTING.md') if exists_at(tip, name)]
         cards.append(axis_card(chosen, 'standards', night['branch'], fork, tip, spec_line, landed_line, repository=api.repo, standards=present))
         if night['kind'] == 'spec':
@@ -401,7 +383,7 @@ def spawn_review(*, api=None) -> dict:
             if path not in features:
                 features.append(path)
     if len(skills) == 1 and features:
-        chosen = row('verifier', fork)
+        chosen = row('verifier')
         prompt = '\n'.join([
             'Load the installed dispatch skill.',
             'Assigned role: verifier.',
@@ -422,9 +404,9 @@ def spawn_review(*, api=None) -> dict:
     return {'host': host, 'skipped': skipped, 'cards': cards, 'project_branch': project, 'fork': fork, 'reviewed': tip}
 
 
-def spawn_researcher(prompt: str, at: str | None = None) -> dict:
+def spawn_researcher(prompt: str) -> dict:
     path = require_file(prompt, '--prompt')
-    chosen = row('researcher', resolve_at(at))
+    chosen = row('researcher')
     text = Path(path).read_text(encoding='utf-8')
     return {'host': native_host(), 'skipped': [], 'cards': [assignment('researcher', chosen, 'Researcher', text)]}
 
@@ -436,6 +418,7 @@ def write_config(value: dict) -> None:
         current = read_config()
         host = native_host()
         value = {**current, 'rows': {**current['rows'], host: value['rows'][host]}}
+    path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(value, ensure_ascii=False, indent=2) + '\n'
     with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, prefix='.models-', delete=False) as output:
         temporary = Path(output.name)
@@ -458,10 +441,8 @@ def main():
     group.add_argument('--spec', default='')
     group.add_argument('--ticket', default='')
     show = sub.add_parser('show', parents=[model_args])
-    show.add_argument('--at', default='')
     get = sub.add_parser('row', parents=[model_args])
     get.add_argument('role', choices=ROLES)
-    get.add_argument('--at', default='')
     spawn = sub.add_parser('spawn', parents=[model_args])
     spawn.add_argument('kind', choices=('worker', 'verifier', 'review', 'researcher'))
     spawn.add_argument('--ticket', default='')
@@ -472,9 +453,9 @@ def main():
         if args.command == 'open':
             printed = open_night(args.project, args.spec, args.ticket)
         elif args.command == 'show':
-            printed = read_config(resolve_at(args.at or None))
+            printed = read_config()
         elif args.command == 'row':
-            printed = row(args.role, resolve_at(args.at or None))
+            printed = row(args.role)
         elif args.kind == 'worker':
             if not args.ticket:
                 raise ValueError('worker spawn needs --ticket')
