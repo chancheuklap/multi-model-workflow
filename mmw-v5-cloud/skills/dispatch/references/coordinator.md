@@ -42,7 +42,7 @@ dispatch.sh spawn worker --ticket N --host HOST
 
 The Worker renames its own branch to `ticket/issue-N`. When origin already has that branch, the assignment starts from it. Otherwise it starts from the night branch. This checkout stays the night branch. Each printed card is one Worker assignment. A ticket without exactly one worker grade prints no card; say so and leave that ticket.
 
-Send each printed card to a separate **fresh agent**, with a new context that does not inherit your conversation, as [Dispatch](../SKILL.md) describes, and wait.
+Send each card to a fresh agent as [Dispatch](../SKILL.md) describes. Wait for the results.
 
 A Worker that returned a question still owns its ticket. Resume that Agent ID with the answer. Spawning again would start a second Worker on the same ticket. The question is step 3. When the Worker's turn ends, read the PR it names.
 

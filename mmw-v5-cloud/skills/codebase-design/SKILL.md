@@ -41,7 +41,7 @@ Done when the constraints, the dependency categories, and the rough sketch are i
 
 ### 2. Spawn fresh agents
 
-Prepare prompts for 3+ **fresh agents**, each with a new context that does not inherit your conversation or another agent's context. Each must produce a **radically different** interface for the module.
+Prepare prompts for 3+ fresh agents. Each must produce a **radically different** interface for the module.
 
 Pass [runner-prompt.md](references/runner-prompt.md) as each runner's prompt. Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [deepening.md](references/deepening.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
 
@@ -60,7 +60,7 @@ Each sub-agent outputs:
 4. Dependency strategy and adapters (see [deepening.md](references/deepening.md))
 5. Trade-offs: where leverage is high, where it's thin
 
-Save each completed prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each printed assignment to a separate fresh agent in parallel as [Dispatch](../dispatch/SKILL.md) describes.
+Save each completed prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card to a fresh agent as [Dispatch](../dispatch/SKILL.md) describes. Run them in parallel.
 
 Done when at least three candidates have returned those outputs, and a fourth only when its constraint applies.
 

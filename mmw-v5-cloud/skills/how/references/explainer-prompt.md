@@ -1,6 +1,6 @@
 # Explainer Prompt Template
 
-Use this template for the explainer's fresh agent assignment. Fill in the placeholders with the context it needs without the sender's conversation.
+Use this template for the explainer's fresh agent assignment. Fill in the placeholders.
 
 ---
 

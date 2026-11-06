@@ -9,7 +9,7 @@ Do not invent a Chinese name for a term in this file, or for any MMW skill. Use 
 ### Roles
 
 **fresh agent**:
-A newly created agent with its own new context that does not inherit the sender's conversation or reuse an existing agent's context. Its assignment supplies the task, the needed context and sources, the scope, and what to return. Every newly dispatched assignment goes to a fresh agent; answering a question from an assigned agent continues that same Agent ID.
+A fresh agent is a newly created agent with a new context that does not inherit the sender's conversation or reuse another agent's context.
 _Avoid_: fresh as a name for a new checkout alone, and any invented Chinese name.
 
 **Coordinator**:

@@ -1,6 +1,6 @@
 # Explorer Prompt Template
 
-Use this template for each explorer's fresh agent assignment. Fill in the placeholders with the context it needs without the sender's conversation.
+Use this template for each explorer's fresh agent assignment. Fill in the placeholders.
 
 ---
 
