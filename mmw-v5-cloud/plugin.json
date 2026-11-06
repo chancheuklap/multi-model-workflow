@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mmw-v5-cloud",
-  "version": "5.0.20",
+  "version": "5.0.21",
   "description": "MMW v5 skills, cloud-agent dispatch, and task board",
   "author": {
     "name": "MMW"
@@ -16,7 +16,7 @@
     "com.openai": {
       "interface": {
         "displayName": "MMW v5 Cloud",
-        "shortDescription": "Development skills, cloud-agent dispatch, and task board",
+        "shortDescription": "Skills, dispatch & task board",
         "developerName": "MMW",
         "category": "Productivity"
       },
