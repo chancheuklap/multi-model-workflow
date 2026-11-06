@@ -10,19 +10,22 @@ MMW 是 Codex 和 Cursor 共用的开发工作流插件，包含技能、agent �
 
 ## 安装原理
 
-采用 [pstack](https://github.com/cursor/plugins/tree/main/pstack) 的结构，同一个插件目录提供通用 `plugin.json` 和 `.cursor-plugin/plugin.json`。Codex 和 Cursor 各自的 marketplace 清单指向这份插件。宿主负责下载、启用和更新，技能通过实际安装路径找到同包的工具和任务板。
+采用 [pstack](https://github.com/cursor/plugins/tree/main/pstack) 的结构，同一个插件目录提供通用 `plugin.json` 和 `.cursor-plugin/plugin.json`。Codex 和 Cursor 各自的 marketplace 清单指向这份插件。宿主负责下载、启用和更新。共享工具、默认模型配置和任务板都在 `skills/dispatch/runtime/`，属于同一个 dispatch 技能包。
 
 ```text
 MMW GitHub 仓库
   ├─ Codex marketplace ── Codex 安装并登记插件 ── 对话获得 MMW 技能
   └─ Cursor marketplace ─ Cursor 安装并登记插件 ─ 对话获得 MMW 技能
                               │
-                              └─ 插件内的 tools/ 和 board/
+                              └─ dispatch 技能包
+                                  └─ runtime/：工具、默认模型配置、任务板
 
 执行环境的 ~/.agents/models.json ── 派发工具和任务板读取模型选择
 ```
 
 本地、云端、单仓库和多仓库都使用这份插件。安装范围由宿主管理；消费仓库不保存 MMW 技能、工具或模型副本。其他人 clone 消费仓库不会因此安装 MMW。
+
+本地宿主提供技能目录时，dispatch 直接验证并使用随包 runtime。云端宿主提供技能资源 URI 时，dispatch 首次使用会读取同一技能包的清单和资源，在执行环境中还原文件并校验 SHA-256。二进制字体通过随包的 base64 文本资源还原。每份内容使用独立缓存目录，整个运行复用已经解析的版本；资源 URI 不作为本地目录使用。
 
 ## Codex
 
@@ -53,10 +56,10 @@ Cursor Cloud 在任务启动时配置 marketplace 插件，同一次运行固定
 ## 给安装 agent：配置与验证
 
 1. 在实际使用 MMW 的宿主安装并启用插件。确认该宿主返回 MMW 的 `dispatch`、`research` 和 `setup-mmw` 技能。云端任务检查云端对话自己的清单。
-2. 读取宿主提供的 `setup-mmw` 技能，按技能的安装路径运行随包的派发工具。工具使用 Bash 和 Python 3 标准库，无需包管理器。涉及 GitHub 的工作流还需 Git 和已授权的 `gh`。
+2. 读取宿主提供的 `setup-mmw` 技能，由它调用 dispatch 的 Runtime 部分解析随包工具。工具使用 Bash 和 Python 3 标准库，无需包管理器。涉及 GitHub 的工作流还需 Git 和已授权的 `gh`。setup-mmw 是可选配置检查，其他技能首次使用时也会准备工具，无需每个 Cloud agent 手动运行 setup。
 3. 保留已有 `~/.agents/models.json`。首次使用派发工具时，工具按 `MMW_MODELS_JSON` 环境变量、插件默认模板的顺序创建缺失的用户文件。已有文件保持原字节，不会因插件更新而覆盖。
-4. 从每个消费仓库运行插件内的 `dispatch.sh row researcher --host codex` 或 `--host cursor`。确认读取同一用户模型文件，返回当前宿主的模型行。工具路径从已加载技能定位，不能写死插件缓存目录。
-5. 验证插件目录中工具与任务板完整，报告插件版本、技能发现结果和工具执行结果。缺少云端宿主的插件导入权限时，报告具体账号操作。仓库发布、ZIP 下载和 VM 文件扫描均不能代替云端对话的插件加载验证。
+4. 从每个消费仓库运行解析得到的 `dispatch.sh row researcher --host codex` 或 `--host cursor`。确认读取同一用户模型文件，返回当前宿主的模型行。工具路径来自 dispatch 的 Runtime 部分，不能写死插件缓存目录。
+5. 验证随包清单和工具执行成功，报告插件版本、runtime identity、技能发现结果和工具执行结果。云端验收要在新对话中从技能资源准备工具并实际派出子代理；生成派发卡片不能代替宿主启动验证。资源不可读时报告准确的 package、资源和错误。缺少云端宿主的插件导入权限时，报告具体账号操作。
 
 ## 模型设置
 
@@ -79,16 +82,18 @@ Codex CLI 用 `codex plugin marketplace upgrade mmw-v5` 刷新来源；Cursor �
 
 ## 开发和发布
 
+修改 `skills/dispatch/runtime/` 后，运行 `python3 scripts/sync-dispatch-resources.py` 更新资源清单和二进制文本资源，再运行本地检查。`--check` 只检查是否同步。插件执行无需构建步骤。
+
 在 `dev` 分支准备版本：
 
 ```sh
 python3 scripts/release-mmw-v5.py bump
 ```
 
-运行相关本地检查后提交到 `dev`。经 owner 授权合并并推送到 `main` 后，GitHub Actions 按提交版本创建 tag、GitHub Release 和完整的 `mmw-v5-cloud.zip`。GitHub 不运行测试、不改变版本号。同一版本号不能用于另一提交。
+版本准备命令同步更新资源清单中的版本。运行相关本地检查后提交到 `dev`。经 owner 授权合并并推送到 `main` 后，GitHub Actions 按提交版本创建 tag、GitHub Release 和完整的 `mmw-v5-cloud.zip`。GitHub 不运行测试、不改变版本号。同一版本号不能用于另一提交。
 
 ```sh
 python3 scripts/release-mmw-v5.py package --output /tmp/mmw-v5-cloud.zip
 ```
 
-ZIP 包含两份宿主清单和同一份技能、工具、任务板。GitHub 发布让自定义 marketplace 可以取得新版，不等于公共插件目录已经审核上架。
+ZIP 包含两份宿主清单和技能；工具、默认模型配置、任务板及其文本资源都包含在 dispatch 技能包内。打包使用已提交的资源，本地检查验证资源与原文件的版本和字节一致性。GitHub 发布让自定义 marketplace 可以取得新版，不等于公共插件目录已经审核上架。

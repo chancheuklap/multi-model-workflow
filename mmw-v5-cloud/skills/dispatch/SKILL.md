@@ -11,7 +11,11 @@ Follow only your assigned role's current step. A linked procedure returns to the
 
 The installed runtime is the runtime of this night. Run its skills and this `dispatch.sh`. A commit that changes those files in the repository does not become the runtime until a later run.
 
-From this installed skill's directory, resolve `../../tools/dispatch/scripts/dispatch.sh` to an absolute path in the same plugin. Run it in the consuming repository. The command prints JSON. It does not start the subagent.
+## Runtime
+
+Before the first tool call, resolve this installed skill's runtime through [Resolve the runtime](references/runtime.md). That procedure returns absolute `dispatch` and `labels` paths and the runtime version. Reuse those paths for the rest of this run. A caller that needs only tools follows this section and returns to its own step; it starts no Coordinator or night.
+
+Run `bash DISPATCH ...` from the consuming repository, where DISPATCH is the returned `dispatch` path. The command prints JSON. It does not start the subagent. A later `dispatch.sh` command in an MMW skill means this same resolved path.
 
 For model commands (`show`, `row`, `spawn`) and `board`, pass `--host HOST`. HOST is your current host, `cursor` or `codex`. Both use the same user file `~/.agents/models.json`; the argument selects that host's model rows.
 

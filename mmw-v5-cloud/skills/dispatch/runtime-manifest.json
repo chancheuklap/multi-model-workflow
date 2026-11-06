@@ -1,0 +1,270 @@
+{
+  "format": 1,
+  "version": "5.0.19",
+  "files": {
+    "board/board_data.py": {
+      "resource": "runtime/board/board_data.py",
+      "encoding": "utf-8",
+      "sha256": "4d2965f19efbdc3d4f877570e8f4953806a16b1c17bf3dda463bc4549b2b0a20",
+      "mode": 420
+    },
+    "board/gates.py": {
+      "resource": "runtime/board/gates.py",
+      "encoding": "utf-8",
+      "sha256": "e4f73c2ff297b189f4a6f7e72d8ebccc79774450a569223849f81ddb5cb60877",
+      "mode": 420
+    },
+    "board/page/api.mjs": {
+      "resource": "runtime/board/page/api.mjs",
+      "encoding": "utf-8",
+      "sha256": "0df02500879284b57a1cf95ba8efa4286e7780d2fe465c32ce516790b41d675c",
+      "mode": 420
+    },
+    "board/page/app.mjs": {
+      "resource": "runtime/board/page/app.mjs",
+      "encoding": "utf-8",
+      "sha256": "53c3cd6614158d8cf7980b9c61ca1818372cb43f6c33d87a696cfefc5e54a462",
+      "mode": 420
+    },
+    "board/page/board-feed.mjs": {
+      "resource": "runtime/board/page/board-feed.mjs",
+      "encoding": "utf-8",
+      "sha256": "bef14fb89983be9cd55e8de26047b2bbe9ee9154b742d2673f552435e6e7713e",
+      "mode": 420
+    },
+    "board/page/board-logic.mjs": {
+      "resource": "runtime/board/page/board-logic.mjs",
+      "encoding": "utf-8",
+      "sha256": "847ab0f36f68bba1f07caaab2eaf331beb3fed0ce518dfc3213d6779b09a7d0b",
+      "mode": 420
+    },
+    "board/page/canvas.mjs": {
+      "resource": "runtime/board/page/canvas.mjs",
+      "encoding": "utf-8",
+      "sha256": "37317ff72a524ec908fda5f3a24759d1ff5c958a98048821aa3e8a6b7ad33652",
+      "mode": 420
+    },
+    "board/page/detail.mjs": {
+      "resource": "runtime/board/page/detail.mjs",
+      "encoding": "utf-8",
+      "sha256": "37cc800f35d5e3541aac63f5020cc0065c2447503eb676a8127e982dd2ced1ec",
+      "mode": 420
+    },
+    "board/page/index.html": {
+      "resource": "runtime/board/page/index.html",
+      "encoding": "utf-8",
+      "sha256": "5090ded232c63e545ea7ecc353d02d8213031186551d0798f6650ef8db4c05aa",
+      "mode": 420
+    },
+    "board/page/settings.mjs": {
+      "resource": "runtime/board/page/settings.mjs",
+      "encoding": "utf-8",
+      "sha256": "b9cd70fd468c0b1dc32a76fac82f06eb16fcd4d64484ea1513c8c7ae31eb23e9",
+      "mode": 420
+    },
+    "board/page/shared.mjs": {
+      "resource": "runtime/board/page/shared.mjs",
+      "encoding": "utf-8",
+      "sha256": "930934b5436eca62a2ccb4148714f2650eeed9ed9ca19e133c7a1c64f8b060f0",
+      "mode": 420
+    },
+    "board/page/styles/board.css": {
+      "resource": "runtime/board/page/styles/board.css",
+      "encoding": "utf-8",
+      "sha256": "e48036c519652805fe58439308528ec4d145430a6dc531e7b9ba0b7e651cae6e",
+      "mode": 420
+    },
+    "board/page/styles/canvas.css": {
+      "resource": "runtime/board/page/styles/canvas.css",
+      "encoding": "utf-8",
+      "sha256": "3914e24493164cf830857f1b7ed16c1f8820fc58991e05440fd564fa5a3dbd79",
+      "mode": 420
+    },
+    "board/page/styles/detail.css": {
+      "resource": "runtime/board/page/styles/detail.css",
+      "encoding": "utf-8",
+      "sha256": "5c755164751fbdbb7db1000de9f9d9bc6111e83b69f7787ca740be5c5fa66532",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-cyrillic-ext.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-cyrillic-ext.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "b7a545bbb08256bd809f11cfe66d88da3e22d169ea4407737b1ef0ec1ed3d791",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-cyrillic.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-cyrillic.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "6129fc8571c3e0cb0a4c41f5160c974a843b055009dc4ad8858bd808e18a2d86",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-latin-ext.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-latin-ext.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "58a6b173d5ca1dec92166ea3c6cb1a84a4144556d10928ac14e8e6b40e4787bd",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-latin.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-latin.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "9b6f5ff45b278c744b5f379a2c4ecbaf858a842b8eaf82ac8d21b699ca16c608",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-mono-cyrillic-ext.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-mono-cyrillic-ext.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "e27f657e38d52887baa3b6b2f812bef93dfdd356f0810e40edd4ee284cc7e9f6",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-mono-cyrillic.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-mono-cyrillic.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "75b3bedbebc35f347c0ae3b416aa871941555357e7b0f83767eb5987875589ed",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-mono-latin-ext.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-mono-latin-ext.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "745994b5cd950ec201b66526375f057d540847cccfc70f4f24f5f571d26d3923",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-mono-latin.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-mono-latin.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "5f3d6ad60f29d6cb708414ec6887163d63bf197377ef5417d2483ff31ace6c3b",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-mono-symbols2.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-mono-symbols2.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "d67e4a94ba498635f764ddca7d1ec4271f5642f032eb24b426764480f66f8497",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-mono-vietnamese.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-mono-vietnamese.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "16e1d48b6dd29eb240aec5db36184eb182933c082cd43de7f35af686d58087d2",
+      "mode": 420
+    },
+    "board/page/styles/fonts/geist-vietnamese.woff2": {
+      "resource": "resources/board/page/styles/fonts/geist-vietnamese.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "f689f638f29fff460a2d5749edb5d5c38d7bef0389f32032d871f23fc6ebb008",
+      "mode": 420
+    },
+    "board/page/styles/fonts/instrument-serif-latin-ext-italic.woff2": {
+      "resource": "resources/board/page/styles/fonts/instrument-serif-latin-ext-italic.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "a04fc7ed18a8037149ce0bfda58076709d8e0840e136ed00abbdc196b7992443",
+      "mode": 420
+    },
+    "board/page/styles/fonts/instrument-serif-latin-ext.woff2": {
+      "resource": "resources/board/page/styles/fonts/instrument-serif-latin-ext.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "a8c4bd7cd7073180e740d2d83a616b5cb0845579b73207eeafeae8532e70c901",
+      "mode": 420
+    },
+    "board/page/styles/fonts/instrument-serif-latin-italic.woff2": {
+      "resource": "resources/board/page/styles/fonts/instrument-serif-latin-italic.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "6ee678c33f388dd7ba59700ebea635deb98821baafd817b09891f7927177f702",
+      "mode": 420
+    },
+    "board/page/styles/fonts/instrument-serif-latin.woff2": {
+      "resource": "resources/board/page/styles/fonts/instrument-serif-latin.woff2.base64.txt",
+      "encoding": "base64",
+      "sha256": "60c06664b5a95c7de6cc3e00d1f9034d78bd1e40b564016b241674449a067d4d",
+      "mode": 420
+    },
+    "board/page/styles/settings-layout.css": {
+      "resource": "runtime/board/page/styles/settings-layout.css",
+      "encoding": "utf-8",
+      "sha256": "e346820db5d7c31cba6e852d5472b37dbfec2aef279050afed23b44a7af8361a",
+      "mode": 420
+    },
+    "board/page/styles/settings.css": {
+      "resource": "runtime/board/page/styles/settings.css",
+      "encoding": "utf-8",
+      "sha256": "641a5359ecdcec2a44b0a41ca877b2970a9f7c7367751ec5ae033aa976c9bc87",
+      "mode": 420
+    },
+    "board/page/styles/tasks.css": {
+      "resource": "runtime/board/page/styles/tasks.css",
+      "encoding": "utf-8",
+      "sha256": "79083c5f6ec49b3917057b170bd2e27a49ecf826775bff12aed417a647bba639",
+      "mode": 420
+    },
+    "board/page/styles/tokens.css": {
+      "resource": "runtime/board/page/styles/tokens.css",
+      "encoding": "utf-8",
+      "sha256": "fe6f23da337dec694c1023dca8ef1a3917d46571c3bbaf80c1d5c50aa82dda56",
+      "mode": 420
+    },
+    "board/page/styles/topbar.css": {
+      "resource": "runtime/board/page/styles/topbar.css",
+      "encoding": "utf-8",
+      "sha256": "2b472469393b0a2c941632d192efb510e0ec58c03f0e7e97b7811a9f820e89db",
+      "mode": 420
+    },
+    "board/page/tasks.mjs": {
+      "resource": "runtime/board/page/tasks.mjs",
+      "encoding": "utf-8",
+      "sha256": "b416ac8d868a4e460eb7c3326a0c09d0cdf71e7d7dd6f8787dea6036b90e85df",
+      "mode": 420
+    },
+    "board/page/topbar.mjs": {
+      "resource": "runtime/board/page/topbar.mjs",
+      "encoding": "utf-8",
+      "sha256": "edc501e66cda3c7a2157e5c359da27a29abd3ade08d989e6b4160d6215b2a571",
+      "mode": 420
+    },
+    "board/server.py": {
+      "resource": "runtime/board/server.py",
+      "encoding": "utf-8",
+      "sha256": "f719d0dd5771b91c2d59bd326d38f78091d5343e39fb8f5e6982c85cbef857ac",
+      "mode": 420
+    },
+    "models.json": {
+      "resource": "runtime/models.json",
+      "encoding": "utf-8",
+      "sha256": "d0fcb473f81b73ca29fa127afb9c1f4f78f42f62803416d51157f62380e01243",
+      "mode": 420
+    },
+    "tools/dispatch/scripts/dispatch.sh": {
+      "resource": "runtime/tools/dispatch/scripts/dispatch.sh",
+      "encoding": "utf-8",
+      "sha256": "d787c5517b568ae25f580c9f0ee3cede7011359152163063d5051543124c1ddf",
+      "mode": 493
+    },
+    "tools/dispatch/scripts/land.py": {
+      "resource": "runtime/tools/dispatch/scripts/land.py",
+      "encoding": "utf-8",
+      "sha256": "64480698720698ba4ecde61be17d5d4ca18e021e52e9a4c02bfc3aa5849465ab",
+      "mode": 420
+    },
+    "tools/dispatch/scripts/models.py": {
+      "resource": "runtime/tools/dispatch/scripts/models.py",
+      "encoding": "utf-8",
+      "sha256": "780bc489a820246fa8cf13d9508f48507f44bfe8195439d07067595720fdb770",
+      "mode": 420
+    },
+    "tools/dispatch/scripts/status.py": {
+      "resource": "runtime/tools/dispatch/scripts/status.py",
+      "encoding": "utf-8",
+      "sha256": "9c2df1fc4f536ae9d32149b4408509efcb6c22237553fecd4df35e8f8fd5687f",
+      "mode": 420
+    },
+    "tools/setup-mmw/scripts/labels.py": {
+      "resource": "runtime/tools/setup-mmw/scripts/labels.py",
+      "encoding": "utf-8",
+      "sha256": "9614e9f80c82162f9fa021c8bdcc0e7bc79fd78c0a1364cd6e19ee99f60bb740",
+      "mode": 420
+    },
+    "tools/verify-ticket/scripts/labels.py": {
+      "resource": "runtime/tools/verify-ticket/scripts/labels.py",
+      "encoding": "utf-8",
+      "sha256": "3b2f81a8428f11a8d43ef5bd43861df1d607409206a8dc265417bbc0757c3b57",
+      "mode": 420
+    }
+  }
+}

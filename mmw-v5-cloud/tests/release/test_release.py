@@ -27,16 +27,17 @@ class ReleaseTest(unittest.TestCase):
         self.git("config", "user.email", "test@example.invalid")
         self.git("remote", "add", "origin", str(self.remote))
         self.write("scripts/release-mmw-v5.py", SCRIPT.read_text())
+        self.write("scripts/sync-dispatch-resources.py", (ROOT / 'scripts/sync-dispatch-resources.py').read_text())
         for path in ("plugin.json", ".cursor-plugin/plugin.json"):
             self.write("mmw-v5-cloud/" + path, json.dumps({"name": "mmw-v5-cloud", "version": "5.0.0-beta.2"}))
         for path, text in {
-            "models.json": '{"rows":{}}',
+            "skills/dispatch/runtime/models.json": '{"rows":{}}',
             "skills/example/SKILL.md": "Original skill",
-            "tools/dispatch/scripts/dispatch.sh": "#!/bin/sh\nexit 0\n",
-            "board/page/index.html": "Board", "tests/private.txt": "not installed", "AGENTS.md": "development only",
+            "skills/dispatch/runtime/tools/dispatch/scripts/dispatch.sh": "#!/bin/sh\nexit 0\n",
+            "skills/dispatch/runtime/board/page/index.html": "Board", "tests/private.txt": "not installed", "AGENTS.md": "development only",
         }.items():
             self.write("mmw-v5-cloud/" + path, text)
-        (self.root / "mmw-v5-cloud/tools/dispatch/scripts/dispatch.sh").chmod(0o755)
+        (self.root / "mmw-v5-cloud/skills/dispatch/runtime/tools/dispatch/scripts/dispatch.sh").chmod(0o755)
         self.commit("initial")
         self.bin = Path(self.temp.name) / "bin"
         self.bin.mkdir()
@@ -56,6 +57,8 @@ class ReleaseTest(unittest.TestCase):
         return subprocess.run(["git", *args], cwd=self.root, capture_output=True, text=True, check=True)
 
     def commit(self, message):
+        subprocess.run([sys.executable, str(self.root / 'scripts/sync-dispatch-resources.py')],
+                       cwd=self.root, check=True, capture_output=True)
         self.git("add", ".")
         self.git("commit", "--quiet", "-m", message)
 
@@ -124,7 +127,7 @@ else:
 
     def test_package_uses_committed_files_and_preserves_tools(self):
         self.write("mmw-v5-cloud/skills/example/SKILL.md", "uncommitted edit")
-        self.write("mmw-v5-cloud/tools/untracked-secret.txt", "not committed")
+        self.write("mmw-v5-cloud/skills/dispatch/runtime/tools/untracked-secret.txt", "not committed")
         output = Path(self.temp.name) / "plugin.zip"
         result = self.command("package", "--output", str(output))
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -132,8 +135,8 @@ else:
             self.assertEqual(archive.read("mmw-v5-cloud/skills/example/SKILL.md"), b"Original skill")
             self.assertIn("mmw-v5-cloud/plugin.json", archive.namelist())
             self.assertIn("mmw-v5-cloud/.cursor-plugin/plugin.json", archive.namelist())
-            self.assertIn("mmw-v5-cloud/board/page/index.html", archive.namelist())
-            info = archive.getinfo("mmw-v5-cloud/tools/dispatch/scripts/dispatch.sh")
+            self.assertIn("mmw-v5-cloud/skills/dispatch/runtime/board/page/index.html", archive.namelist())
+            info = archive.getinfo("mmw-v5-cloud/skills/dispatch/runtime/tools/dispatch/scripts/dispatch.sh")
             self.assertTrue((info.external_attr >> 16) & 0o111)
             self.assertFalse(any("private.txt" in p or "AGENTS.md" in p or "secret" in p for p in archive.namelist()))
 
@@ -143,11 +146,11 @@ else:
             ".cursor-plugin/plugin.json": '{"name":"mmw-v5-cloud","version":"5.0.0-beta.2"}',
             "skills/example/SKILL.md": "Original skill",
             "skills/dispatch/SKILL.md": "Cloud dispatch",
-            "models.json": '{"max_workers":3,"rows":{}}',
-            "tools/dispatch/scripts/dispatch.sh": "#!/bin/bash\nexit 0\n",
-            "board/page/index.html": "Cloud board",
-            "board/page/board-layout.mjs": "cloud edition geometry",
-            "board/page/board-logic.mjs": "native cloud facts",
+            "skills/dispatch/runtime/models.json": '{"max_workers":3,"rows":{}}',
+            "skills/dispatch/runtime/tools/dispatch/scripts/dispatch.sh": "#!/bin/bash\nexit 0\n",
+            "skills/dispatch/runtime/board/page/index.html": "Cloud board",
+            "skills/dispatch/runtime/board/page/board-layout.mjs": "cloud edition geometry",
+            "skills/dispatch/runtime/board/page/board-logic.mjs": "native cloud facts",
         }.items():
             self.write("mmw-v5-cloud/" + path, text)
 
@@ -161,14 +164,14 @@ else:
     def test_cloud_archive_uses_only_its_own_complete_directory(self):
         self.complete_cloud_fixture()
         self.write("mmw-v5-cloud/skills/dispatch/SKILL.md", "Cloud dispatch")
-        self.write("mmw-v5-cloud/models.json", '{"max_workers":3,"rows":{}}')
-        self.write("mmw-v5-cloud/tools/dispatch/scripts/dispatch.sh", "#!/bin/bash\nexit 0\n")
+        self.write("mmw-v5-cloud/skills/dispatch/runtime/models.json", '{"max_workers":3,"rows":{}}')
+        self.write("mmw-v5-cloud/skills/dispatch/runtime/tools/dispatch/scripts/dispatch.sh", "#!/bin/bash\nexit 0\n")
         self.write("mmw-v5/skills/dispatch/SKILL.md", "Local dispatch")
         self.write("mmw-v5/tools/dispatch/scripts/relay.py", "local only")
         self.write("mmw-v5/board/page/board-logic.mjs", "shared geometry")
-        self.write("mmw-v5-cloud/board/page/board-logic.mjs", "native cloud facts")
+        self.write("mmw-v5-cloud/skills/dispatch/runtime/board/page/board-logic.mjs", "native cloud facts")
         self.commit("cloud edition")
-        self.write("mmw-v5-cloud/models.json", "uncommitted data")
+        self.write("mmw-v5-cloud/skills/dispatch/runtime/models.json", "uncommitted data")
         self.git("rm", "-rq", "mmw-v5")
         self.git("commit", "--quiet", "-m", "cloud edition stands alone")
         output = Path(self.temp.name) / "cloud.zip"
@@ -178,16 +181,16 @@ else:
             names = archive.namelist()
             self.assertEqual(archive.read("mmw-v5-cloud/skills/example/SKILL.md"), b"Original skill")
             self.assertEqual(archive.read("mmw-v5-cloud/skills/dispatch/SKILL.md"), b"Cloud dispatch")
-            self.assertEqual(archive.read("mmw-v5-cloud/board/page/board-layout.mjs"), b"cloud edition geometry")
-            self.assertEqual(archive.read("mmw-v5-cloud/board/page/board-logic.mjs"), b"native cloud facts")
-            self.assertEqual(json.loads(archive.read("mmw-v5-cloud/models.json"))["max_workers"], 3)
+            self.assertEqual(archive.read("mmw-v5-cloud/skills/dispatch/runtime/board/page/board-layout.mjs"), b"cloud edition geometry")
+            self.assertEqual(archive.read("mmw-v5-cloud/skills/dispatch/runtime/board/page/board-logic.mjs"), b"native cloud facts")
+            self.assertEqual(json.loads(archive.read("mmw-v5-cloud/skills/dispatch/runtime/models.json"))["max_workers"], 3)
             self.assertEqual(json.loads(archive.read("mmw-v5-cloud/plugin.json"))["version"], "5.0.0-beta.2")
             self.assertFalse(any("relay" in name or "runners" in name or "private.txt" in name for name in names))
 
     def test_publication_attaches_the_cloud_archive_without_tests(self):
         self.complete_cloud_fixture()
         self.write("mmw-v5-cloud/skills/dispatch/SKILL.md", "Cloud dispatch")
-        self.write("mmw-v5-cloud/models.json", '{"max_workers":3,"rows":{}}')
+        self.write("mmw-v5-cloud/skills/dispatch/runtime/models.json", '{"max_workers":3,"rows":{}}')
         self.commit("cloud edition")
         result = self.command("publish", GITHUB_SHA=self.git("rev-parse", "HEAD").stdout.strip())
         self.assertEqual(result.returncode, 0, result.stderr)

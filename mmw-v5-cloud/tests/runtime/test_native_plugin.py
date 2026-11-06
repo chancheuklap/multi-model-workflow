@@ -32,7 +32,7 @@ class NativePlugin(unittest.TestCase):
             plugin = Path(installed['installedPath'])
             listing = command('codex', 'plugin', 'list', '--json')['installed']
             self.assertTrue(next(p for p in listing if p['pluginId'] == installed['pluginId'])['enabled'])
-            self.assertTrue((plugin / 'board/page/index.html').is_file())
+            self.assertTrue((plugin / 'skills/dispatch/runtime/board/page/index.html').is_file())
             messages = queue.Queue()
             with tempfile.TemporaryFile(mode='w+') as log:
                 server = subprocess.Popen(['codex', 'app-server', '--stdio'], cwd=home, env=env,
@@ -69,10 +69,14 @@ class NativePlugin(unittest.TestCase):
                     self.assertTrue(all(s['enabled'] for s in skills))
                     self.assertEqual(data['errors'], [])
                     dispatch = next(s for s in skills if Path(s['path']).parent.name == 'dispatch')
-                    script = Path(dispatch['path']).parent / '../../tools/dispatch/scripts/dispatch.sh'
+                    skill = Path(dispatch['path']).parent
+                    prepared = command('python3', str(skill / 'scripts/materialize.py'),
+                                       '--manifest', str(skill / 'runtime-manifest.json'), '--local')
+                    self.assertEqual(prepared['version'], json.loads((plugin / 'plugin.json').read_text())['version'])
+                    script = Path(prepared['dispatch'])
                     for host in ('codex', 'cursor'):
                         chosen = command('bash', str(script), 'row', 'researcher', '--host', host)
-                        defaults = json.loads((plugin / 'models.json').read_text())
+                        defaults = json.loads((plugin / 'skills/dispatch/runtime/models.json').read_text())
                         self.assertEqual(chosen, defaults['rows'][host]['researcher'])
                     before = (home / '.agents/models.json').read_bytes()
                     command('codex', 'plugin', 'remove', 'mmw-v5-cloud@mmw-v5', '--json')

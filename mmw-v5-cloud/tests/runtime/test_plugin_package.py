@@ -36,7 +36,8 @@ class PluginPackage(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         with zipfile.ZipFile(archive) as packaged:
             packaged.extractall(self.base / 'unpacked')
-        self.runtime = self.base / 'unpacked/mmw-v5-cloud'
+        self.plugin = self.base / 'unpacked/mmw-v5-cloud'
+        self.runtime = self.plugin / 'skills/dispatch/runtime'
         self.config = self.home / '.agents/models.json'
         self.project = self.base / 'consumer'
         self.project.mkdir()
@@ -63,13 +64,13 @@ class PluginPackage(unittest.TestCase):
         return json.loads(result.stdout)
 
     def test_complete_package_has_both_manifests_and_bundled_tools(self):
-        portable = json.loads((self.runtime / 'plugin.json').read_text())
-        cursor = json.loads((self.runtime / '.cursor-plugin/plugin.json').read_text())
+        portable = json.loads((self.plugin / 'plugin.json').read_text())
+        cursor = json.loads((self.plugin / '.cursor-plugin/plugin.json').read_text())
         self.assertEqual((portable['name'], portable['version']), (cursor['name'], cursor['version']))
-        self.assertTrue((self.runtime / 'skills/research/SKILL.md').is_file())
+        self.assertTrue((self.plugin / 'skills/research/SKILL.md').is_file())
         self.assertTrue((self.runtime / 'board/page/app.mjs').is_file())
-        self.assertTrue((self.runtime / 'skills/dispatch/../../tools/dispatch/scripts/dispatch.sh').is_file())
-        self.assertTrue((self.runtime / portable['extensions']['com.openai']['onboardingSkill']).is_file())
+        self.assertTrue((self.plugin / 'skills/dispatch/runtime/tools/dispatch/scripts/dispatch.sh').is_file())
+        self.assertTrue((self.plugin / portable['extensions']['com.openai']['onboardingSkill']).is_file())
         self.assertFalse((self.runtime / 'tests').exists())
 
     def test_first_dispatch_creates_user_defaults_for_both_hosts(self):

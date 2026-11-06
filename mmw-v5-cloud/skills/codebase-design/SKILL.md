@@ -60,7 +60,7 @@ Each sub-agent outputs:
 4. Dependency strategy and adapters (see [deepening.md](references/deepening.md))
 5. Trade-offs: where leverage is high, where it's thin
 
-Save each completed prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Run them in parallel.
+Save each completed prompt to FILE and use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Run them in parallel.
 
 Done when at least three candidates have returned those outputs, and a fourth only when its constraint applies.
 
