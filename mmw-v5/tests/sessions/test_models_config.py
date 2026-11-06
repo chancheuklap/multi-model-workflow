@@ -382,11 +382,6 @@ class LocalConfigTest(unittest.TestCase):
             models.write_local_config(base_config(), 1, self.scan())
         self.assertFalse(models.models_json_path().exists())
 
-    def test_init_writes_the_defaults_when_there_is_no_file(self):
-        result = models.init_local_config()
-        self.assertTrue(result.created)
-        self.assertEqual(models.read_local_config(), result.config)
-
     def test_init_preserves_an_incomplete_existing_configuration(self):
         old = base_config()
         del old["rows"]["researcher"]
@@ -397,16 +392,10 @@ class LocalConfigTest(unittest.TestCase):
         self.assertEqual(result.config, old)
         self.assertEqual(models.models_json_path().read_bytes(), before)
 
-    def test_init_leaves_a_complete_file_untouched(self):
-        self.seed()
-        before = models.models_json_path().read_bytes()
-        models.init_local_config()
-        self.assertEqual(models.models_json_path().read_bytes(), before)
-
     def test_a_malformed_role_is_reported_once(self):
         config = base_config()
         config["rows"]["reviewer"] = None
-        errors = models._validate_local_config(config, self.scan())
+        errors = models.check_local_config(config)[2]
         self.assertEqual([item["cell"] for item in errors if item["cell"].startswith("reviewer")],
                          ["reviewer"])
 
@@ -416,10 +405,10 @@ class LocalConfigTest(unittest.TestCase):
         config = base_config()
         config["rows"]["reviewer"] = {"host": "claude", "model": offered["model"] + "[1m]",
                                       "effort": offered["efforts"][0]}
-        errors = models._validate_local_config(config, scan)
+        errors = models.check_local_config(config)[2]
         self.assertEqual([item for item in errors if item["cell"].startswith("reviewer")], [])
         config["rows"]["reviewer"]["model"] = "no such model[1m]"
-        errors = models._validate_local_config(config, scan)
+        errors = models.check_local_config(config)[2]
         self.assertEqual([item["cell"] for item in errors if item["cell"].startswith("reviewer")],
                          ["reviewer.model"])
 

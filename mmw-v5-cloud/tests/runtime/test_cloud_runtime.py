@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 import shutil
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -172,10 +173,13 @@ class CloudRuntime(unittest.TestCase):
         self.assertEqual(self.merges,0)
 
     def test_wrong_target_or_head_never_runs_checks(self):
-        for into, head in [('dev',self.head),('night/test',self.base)]:
-            with self.subTest(into=into,head=head):
-                with self.assertRaises(ValueError):land.land(7,into,head,api=self.api)
-        self.assertFalse((self.root/'should-not-exist').exists())
+        sentinel = self.root / 'should-not-exist'
+        self.publish_pr_check(f'touch {shlex.quote(str(sentinel))}')
+        for into, head in [('dev', self.head), ('night/test', self.base)]:
+            with self.subTest(into=into, head=head):
+                with self.assertRaises(ValueError):
+                    land.land(7, into, head, api=self.api)
+                self.assertFalse(sentinel.exists())
 
     def test_models_use_the_user_file_and_ignore_project_copies(self):
         config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())

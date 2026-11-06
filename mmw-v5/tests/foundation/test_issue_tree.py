@@ -206,14 +206,24 @@ class TheSizingQuery(unittest.TestCase):
                 {"subIssuesSummary": {"total": 7}}]}},
             {"subIssuesSummary": {"total": 1}, "subIssues": {"nodes": [
                 {"subIssuesSummary": {"total": 4}}]}}]}}
-        self.assertEqual(tree._sizes(counts, ["spec", "ticket", "child"]),
-                         {"spec": 2, "ticket": 3, "child": 7})
+        whole = {"number": 18, "title": "map", "state": "OPEN",
+                 "subIssuesSummary": {"total": 0, "completed": 0},
+                 "subIssues": {"nodes": []}}
+        gh, asked = two_answers(counts, whole)
+        got = tree.read(18, "map", gh=gh)
+        self.assertEqual(pages(asked[1]), [2, 3, 7])
+        self.assertEqual(got["number"], 18)
 
     def test_a_count_the_tracker_did_not_give_leaves_that_layer_at_its_largest(self):
         counts = {"subIssuesSummary": {"total": 2},
                   "subIssues": {"nodes": [{"subIssues": {"nodes": []}}]}}
-        self.assertEqual(tree._sizes(counts, ["spec", "ticket", "child"]), {"spec": 2})
-        self.assertEqual(pages(tree.query("map", {"spec": 2})), [2, 100, 50])
+        whole = {"number": 18, "title": "map", "state": "OPEN",
+                 "subIssuesSummary": {"total": 0, "completed": 0},
+                 "subIssues": {"nodes": []}}
+        gh, asked = two_answers(counts, whole)
+        got = tree.read(18, "map", gh=gh)
+        self.assertEqual(pages(asked[1]), [2, 100, 50])
+        self.assertEqual(got["number"], 18)
 
     def test_a_size_is_held_between_one_and_the_layers_largest_page(self):
         self.assertEqual(pages(tree.query("map", {"spec": 0, "ticket": 900, "child": 3})),

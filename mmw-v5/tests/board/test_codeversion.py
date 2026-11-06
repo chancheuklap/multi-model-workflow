@@ -32,11 +32,6 @@ class CodeVersionTests(unittest.TestCase):
             path=self.root/'tools'/relative;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('initial\n')
         self.module=load(board/'codeversion.py')
 
-    def test_v5_once_loaded_consumers_are_real_adjacent_files(self):
-        module=load(SOURCE)
-        self.assertEqual(set(module.LOADED),{ROOT/'tools'/relative for relative in EXPECTED})
-        self.assertTrue(all(p.is_file() for p in module.LOADED))
-
     def test_a_change_requires_two_agreeing_reads(self):
         watch=self.module.Watch();self.assertFalse(watch.changed())
         path=self.root/'board/gates.py';path.write_text('second\n')

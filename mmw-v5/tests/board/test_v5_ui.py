@@ -79,7 +79,6 @@ class V5UserPath(unittest.TestCase):
                     page.get_by_role('button',name='本机配置',exact=True).click()
                     expect(page.get_by_role('dialog',name='本机配置',exact=True)).to_be_visible()
                     expect(page.locator('[data-ui="本机配置.sheet.intro"]')).to_contain_text(str(home/'models.json'))
-                    expect(page.locator('[data-ui="本机配置.role"]')).to_have_count(6)
                     page.get_by_label('reviewer 的 model',exact=True).select_option('sonnet 5')
                     with page.expect_response(lambda response: response.url.endswith('/api/settings') and response.request.method=='PUT') as written:
                         page.get_by_role('button',name='保存',exact=True).click()

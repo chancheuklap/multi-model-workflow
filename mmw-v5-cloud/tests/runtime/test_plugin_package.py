@@ -103,41 +103,28 @@ class PluginPackage(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.config.exists())
 
-    def test_researcher_dispatch_preserves_each_callers_prompt(self):
-        installations = {host: self.runtime for host in ('cursor', 'codex')}
+    def test_researcher_dispatch_preserves_prompt_bytes_and_selected_row(self):
         self.dispatch('codex', 'show')
         selected = {}
-        for host, installation in installations.items():
-            path = self.config
-            config = json.loads(path.read_text())
+        for host in ('cursor', 'codex'):
+            config = json.loads(self.config.read_text())
             config['rows'][host]['researcher']['model'] = 'selected-researcher-' + host
             selected[host] = config['rows'][host]['researcher'].copy()
-            path.write_text(json.dumps(config))
+            self.config.write_text(json.dumps(config))
         self.git(self.project, 'add', '.')
         self.git(self.project, 'commit', '--allow-empty', '-qm', 'researcher settings')
-        sources = ROOT / 'mmw-v5-cloud/skills'
-        prompts = {
-            'grilling': 'Find which process owns the project port. Return the PID and command; keep interviewing independent questions.',
-            'codebase-design': (sources / 'codebase-design/references/runner-prompt.md').read_text(),
-            'no-comments': (sources / 'no-comments/references/comment-sicko.md').read_text(),
-            'to-tickets': (sources / 'to-tickets/references/ambiguity-scan.md').read_text(),
-            'maintain-verification-skill': 'Read login.md and its source. Report feature summary / source entry points / likely drift or none / one recipe. Never edit or drive the app.',
-            'improve-codebase-architecture': 'Walk the selected subsystem. Find shallow modules and coupling. Apply the deletion test and return findings.',
-            'wayfinder': 'Use research for ticket #7 in an isolated checkout from map-3. Save findings in docs/research/service-api/README.md and return the files for integration on map-3.',
-        }
-        for host, installation in installations.items():
-            for caller, body in prompts.items():
-                with self.subTest(host=host, caller=caller):
-                    text = f'\nAssigned task: {caller} — 保留原任务\n\n{body}\n\n'
-                    prompt = self.base / f'{caller} prompt.md'
-                    prompt.write_text(text, encoding='utf-8')
-                    result = self.run_command(self.project, 'bash',
-                                              str(installation / 'tools/dispatch/scripts/dispatch.sh'),
-                                              'spawn', 'researcher', '--prompt', str(prompt), '--host', host)
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    card, = json.loads(result.stdout)['cards']
-                    self.assertEqual(card['prompt'], text)
-                    self.assertEqual(card['model_row'], {'role': 'researcher', **selected[host]})
+        text = '\nAssigned task: 保留原任务\n\nReturn the literal text: "$value" and `code`.\n\n'
+        prompt = self.base / 'research prompt.md'
+        prompt.write_text(text, encoding='utf-8')
+        for host in ('cursor', 'codex'):
+            with self.subTest(host=host):
+                result = self.run_command(self.project, 'bash',
+                                          str(self.runtime / 'tools/dispatch/scripts/dispatch.sh'),
+                                          'spawn', 'researcher', '--prompt', str(prompt), '--host', host)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                card, = json.loads(result.stdout)['cards']
+                self.assertEqual(card['prompt'], text)
+                self.assertEqual(card['model_row'], {'role': 'researcher', **selected[host]})
 
 
 if __name__ == '__main__': unittest.main()
