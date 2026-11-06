@@ -1,6 +1,6 @@
 # Explorer Prompt Template
 
-Build each explorer subagent's prompt from this template. Fill in the placeholders.
+Use this template for each explorer's **FRESH AGENT** assignment. Fill in the placeholders.
 
 ---
 

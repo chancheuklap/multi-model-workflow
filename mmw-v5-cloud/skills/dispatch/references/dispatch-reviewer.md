@@ -4,7 +4,7 @@ You are the Coordinator. You reach this after every ticket that will land has la
 
 ## 1. Send
 
-Run `dispatch.sh spawn review --host HOST` and dispatch each printed card in parallel, as [Dispatch](../SKILL.md) describes. Wait for all of them.
+Run `dispatch.sh spawn review --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../SKILL.md) describes. Run them in parallel and wait for all results.
 
 One command prints this night's cards: Standards, Spec, and Tests, and the second verifier. Each subagent starts in its own cloud checkout at the night branch's reviewed commit. Spec is omitted when the night has no spec. Roles listed under `skipped` do not run. A command error is a limitation of this review, not a pass.
 

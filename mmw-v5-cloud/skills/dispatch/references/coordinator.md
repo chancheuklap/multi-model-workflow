@@ -42,7 +42,7 @@ dispatch.sh spawn worker --ticket N --host HOST
 
 The Worker renames its own branch to `ticket/issue-N`. When origin already has that branch, the assignment starts from it. Otherwise it starts from the night branch. This checkout stays the night branch. Each printed card is one Worker assignment. A ticket without exactly one worker grade prints no card; say so and leave that ticket.
 
-Hand each printed card over as [Dispatch](../SKILL.md) describes, and wait.
+Send each card to a **FRESH AGENT** as [Dispatch](../SKILL.md) describes. Wait for the results.
 
 A Worker that returned a question still owns its ticket. Resume that Agent ID with the answer. Spawning again would start a second Worker on the same ticket. The question is step 3. When the Worker's turn ends, read the PR it names.
 
@@ -95,9 +95,9 @@ Pass the PR number. The command reads that PR's current head, merges it into the
 When land fails, use the failure you were shown:
 
 - A merge conflict: resolve it below, then run land again.
-- `scripts/check` failed. The night branch is unchanged, and the command's message includes the check's output. Resume the original Worker with that output. It fixes, pushes, and sends a new verifier card. Run land again when the commit that passed is the PR head.
+- `scripts/check` failed. The night branch is unchanged, and the command's message includes the check's output. Resume the original Worker with that output. It fixes, pushes, and sends a new verifier card to a **FRESH AGENT**. Run land again when the commit that passed is the PR head.
 
-On success, confirm the remote night branch contains the result and close the ticket with `gh issue close N`. For a spec, resume Workers whose repair has landed and dispatch every newly eligible ticket. When no Worker is running and every ticket that will land has landed, follow [Review the night branch](#review-the-night-branch). Tickets left unfinished stay unfinished, and the review still runs. A night opened with `--ticket` has one ticket: land it, then review. Dispatch no other ticket.
+On success, confirm the remote night branch contains the result and close the ticket with `gh issue close N`. For a spec, resume Workers whose repair has landed and dispatch every newly eligible ticket to a **FRESH AGENT** as in step 2. When no Worker is running and every ticket that will land has landed, follow [Review the night branch](#review-the-night-branch). Tickets left unfinished stay unfinished, and the review still runs. A night opened with `--ticket` has one ticket: land it, then review. Dispatch no other ticket.
 
 Done when the result is on the night branch, or the failure has a repair in progress.
 

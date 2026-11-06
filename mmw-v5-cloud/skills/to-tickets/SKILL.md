@@ -44,7 +44,7 @@ For each ticket an agent works, propose `junior-worker` or `senior-worker` and a
 
 ### 4. Scan for ambiguities
 
-Save the drafted tickets in a temporary directory created with `mktemp -d`. Before presenting the breakdown, write a prompt for a fresh read-only subagent to scan the source plan, spec, or conversation and those drafts using [Ambiguity scan](references/ambiguity-scan.md). Include the resolved reference path, approved source, and drafted ticket text. Save the prompt to FILE, run `dispatch.sh spawn researcher --prompt FILE --host HOST`, and send the printed assignment as [Dispatch](../dispatch/SKILL.md) describes. Wait for its one-pass result. If the host cannot run subagents, run the same scan yourself.
+Save the drafted tickets in a temporary directory created with `mktemp -d`. Before presenting the breakdown, write a read-only prompt for the agent to scan the source plan, spec, or conversation and those drafts using [Ambiguity scan](references/ambiguity-scan.md). Include the resolved reference path, approved source, and drafted ticket text. Save the prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Wait for its one-pass result. If the host cannot run subagents, run the same scan yourself.
 
 Bring the scan's questions into the quiz below, alongside the affected tickets, with their options, recommendation, and why the answer matters. Do not open a separate question round.
 
