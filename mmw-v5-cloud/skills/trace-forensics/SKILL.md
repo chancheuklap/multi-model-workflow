@@ -35,14 +35,8 @@ If you have a paired capture, diff the before and after artifacts to confirm. Ot
 
 The reply names the artifact and format, the reduced finding, the source location, the artifact paths, and whether a paired capture confirmed it.
 
-Use **to-tickets** for the issue template. Use only that template as the ticket format, not that skill's interactive Process. One ticket. Blocked by: None (can start immediately). Use the worker-grade selection in the `Draft vertical slices` section from that same call.
+State the repair the evidence supports or what evidence is still missing. For a diagnosis request, deliver that finding and stop here.
 
-A defect becomes a fix ticket. What to build is the behaviour once that mechanism is gone. The finding is the fix, written there. Acceptance is that symptom gone, and the finding stated in the commit message. When the artifact does not carry the symbols, the ticket records that gap and names no fix.
+When the owner has requested a ticket or authorized a repair, use the **to-tickets** issue template and its worker-grade guidance to prepare one ticket. For a confirmed defect, name the mechanism, require the captured symptom to be gone and the commit message to state the mechanism. For a measured slowness, include the baseline; for sustained improvement, name the metric, direction and stop condition. Record a missing signal or unconfirmed cause as an evidence gap. Show the ticket and publish it within the authorized scope.
 
-A measured slowness becomes a perf-issue ticket. What to build is the improvement against the captured baseline. When that improvement is sustained improvement of one metric against a target, name the metric, the direction that counts as better, and the stop predicate.
-
-Show the ticket to the user before publishing. Don't block on it; publish and proceed if the user is AFK.
-
-When the ticket names a fix, use **dispatch** and send this ticket as its Coordinator.
-
-Done when the ticket is published. The Worker implements a ticket that names a fix.
+Dispatch the ticket through **dispatch** as Coordinator only when the owner authorized implementation and the evidence supports the repair.

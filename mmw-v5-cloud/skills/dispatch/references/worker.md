@@ -28,9 +28,9 @@ When the ticket preserves behavior and changes structure, use **refactoring**. A
 
 Use **write-tests** for the applicable test work, using the spec or ticket's supplied seam and precedent. Follow its test/implementation cycle. Implement every behavior the ticket asks for, completely. Preserve the established contracts while simplifying the implementation.
 
-Implement directly when the ticket's interface is already decided, or when the change stays inside one function. When a surrounding subsystem exists, use **how** for that subsystem before writing the change.
+Implement directly when the ticket's interface is already decided, or when the change stays inside one function. Reuse the ticket’s sources and what you have already traced. Read the relevant callers directly. Use **how** when a cross-module dependency or ownership question still affects the implementation.
 
-When the interface is still open and the change crosses a function boundary, use **codebase-design** for Phase A, Phase B, and Phase C. Default: proceed directly to implementation with the synthesized design. No human checkpoint.
+When the interface is still open and the change crosses a function boundary, pass the callers, constraints, and remaining questions to **codebase-design** for Phase A, Phase B, and Phase C. Default: proceed directly to implementation with the synthesized design. No human checkpoint.
 
 Phase D and Phase E apply only after that call has returned a sketch. hillclimb, refactoring, and direct implementation do not enter them.
 
@@ -55,7 +55,7 @@ Use judgment. A few edge cases don't condemn an architecture. Some problems are 
 
 When you scrap:
 
-1. Use **how** to re-read what's been built.
+1. Trace the deviations that invalidated the sketch. Use **how** if their cross-module cause is unclear.
 2. Use **principle-redesign-from-first-principles**. Redesign as if the new constraints had been day-one assumptions.
 3. Use **principle-subtract-before-you-add**. The new sketch should be smaller than the old one before it grows.
 4. Use **codebase-design** and return to its Phase B.
@@ -64,7 +64,7 @@ When you scrap:
 
 All implementation paths return here, including hillclimb, refactoring, direct implementation, and the sketch phases above. Make engineering choices the sources leave open and record the consequential reasons for review.
 
-When the ticket names a feature file and the sentence to show, write the drive script after the surface works. Read the `verify-<app>` skill that owns the ticket's feature file. Copy the ticket's sentence into the page unchanged and write the script the way that skill's Drive section already drives the app. The script checks for the same sentence. Put the script in that skill, next to the page. Correct failures caused by your implementation, and commit the passing script and page. Report other failures through [Report problems](#report-problems-during-any-step). `write-tests` writes seam tests, not this script. `maintain-verification-skill` is a later pass over the whole map, not this ticket. When the ticket names neither a feature file nor a sentence, do not write them.
+When the ticket names a feature file and the sentence to show, write the drive script after the surface works. Read the `verify-<app>` skill that owns the ticket's feature file. Copy the ticket's sentence unchanged into the feature file as the expected result. Follow the skill's Drive and Evidence sections: perform the user's action in the real app and assert the observable outcome the sentence describes. For a promise that saved content survives reopening, reopen it and compare what the app reads back with what you saved. Put the script in that skill, next to the page. Correct failures caused by your implementation, and commit the passing script and page. Report other failures through [Report problems](#report-problems-during-any-step). `write-tests` writes seam tests, not this script. `maintain-verification-skill` is a later pass over the whole map, not this ticket. When the ticket names neither a feature file nor a sentence, do not write them.
 
 Run the task's required tests. Use **principle-prove-it-works**. Commit on `ticket/issue-N`. Keep failing-before evidence, passing results, and unavailable proof as they occurred. A passing test does not stand in for the behavior the ticket promises.
 
