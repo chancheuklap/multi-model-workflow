@@ -33,7 +33,7 @@ Then prepare a prompt for the agent to walk the codebase. Don't follow rigid heu
 
 Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
 
-Save that exploration prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card to a fresh agent as [Dispatch](../dispatch/SKILL.md) describes. Wait for its findings.
+Save that exploration prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Wait for its findings.
 
 ### 2. Present candidates as an HTML report
 

@@ -1,6 +1,6 @@
 # Explorer Prompt Template
 
-Use this template for each explorer's fresh agent assignment. Fill in the placeholders.
+Use this template for each explorer's **FRESH AGENT** assignment. Fill in the placeholders.
 
 ---
 

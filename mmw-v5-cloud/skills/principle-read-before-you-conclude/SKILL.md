@@ -13,4 +13,4 @@ Read enough of a file to be sure of what you say about it, and read it before yo
 - A file you consult for one fact, or a generated, vendored, or log file, is read as far as the question needs.
 - When your conclusion depends on a part you did not read, say so in the reply. A conclusion drawn from an unread part is inferred, not verified, and is labelled `inferred` in the same sentence.
 
-Distinct from "principle-prove-it-works", which checks an output against the real thing. This governs what you read before you speak about a file. Where the step you follow sends a fresh agent to read a large file whole and report, use **principle-guard-the-context-window**. The rule still binds whoever states the conclusion.
+Distinct from "principle-prove-it-works", which checks an output against the real thing. This governs what you read before you speak about a file. Where the step you follow sends a **FRESH AGENT** to read a large file whole and report, use **principle-guard-the-context-window**. The rule still binds whoever states the conclusion.

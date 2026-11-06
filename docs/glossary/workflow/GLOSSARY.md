@@ -8,8 +8,8 @@ Do not invent a Chinese name for a term in this file, or for any MMW skill. Use 
 
 ### Roles
 
-**fresh agent**:
-A fresh agent is a newly created agent with a new context that does not inherit the sender's conversation or reuse another agent's context.
+**FRESH AGENT**:
+A **FRESH AGENT** is a newly created agent with a new context that does not inherit the sender's conversation or reuse another agent's context.
 _Avoid_: fresh as a name for a new checkout alone, and any invented Chinese name.
 
 **Coordinator**:
@@ -111,7 +111,7 @@ The identifier returned when a Worker, a review axis, or a verifier is started. 
 _Avoid_: any invented Chinese name.
 
 **card**:
-One assignment object in the `cards` array printed by `dispatch.sh spawn`. Its `description` labels the task, `model_row` supplies the model settings, and `prompt` contains the task text. The sender uses those settings to start a fresh agent and sends `prompt` unchanged. The card describes the assignment; starting the agent returns its Agent ID.
+One assignment object in the `cards` array printed by `dispatch.sh spawn`. Its `description` labels the task, `model_row` supplies the model settings, and `prompt` contains the task text. The sender uses those settings to start a **FRESH AGENT** and sends `prompt` unchanged. The card describes the assignment; starting the agent returns its Agent ID.
 _Avoid_: Worker as a name for the card, and any invented Chinese name.
 
 **max_workers**:

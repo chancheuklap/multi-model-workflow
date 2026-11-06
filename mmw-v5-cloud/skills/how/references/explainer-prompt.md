@@ -1,6 +1,6 @@
 # Explainer Prompt Template
 
-Use this template for the explainer's fresh agent assignment. Fill in the placeholders.
+Use this template for the explainer's **FRESH AGENT** assignment. Fill in the placeholders.
 
 ---
 

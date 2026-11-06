@@ -15,7 +15,7 @@ For model commands (`show`, `row`, `spawn`) and `board`, pass `--host HOST`. HOS
 
 Each object in the printed `cards` array is a card: one assignment for the sender to dispatch. `description` is its task label. Use `model_row` to choose the subagent's model settings, and send `prompt` unchanged as its task. The role in `model_row` names a model configuration row; the prompt says what work to do.
 
-Send each card to a fresh agent. A fresh agent is a newly created agent with a new context that does not inherit the sender's conversation or reuse another agent's context. Disable conversation inheritance in the host's spawn call. The card's prompt and named sources supply its task context. Wait for its result unless the sending step says to continue other work. `skipped` names a role that does not run; continue the step without it.
+Send each card to a **FRESH AGENT**. A **FRESH AGENT** is a newly created agent with a new context that does not inherit the sender's conversation or reuse another agent's context. Disable conversation inheritance in the host's spawn call. The card's prompt and named sources supply its task context. Wait for its result unless the sending step says to continue other work. `skipped` names a role that does not run; continue the step without it.
 
 Read another role's model row with `dispatch.sh row ROLE --host HOST`. `inherit` keeps the sender's model setting for that field; it does not inherit conversation context.
 
