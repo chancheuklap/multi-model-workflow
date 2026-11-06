@@ -1,6 +1,6 @@
 # Dispatch reviewer
 
-You are the Coordinator. You reach this after every ticket that will land has landed, and no Worker is running.
+You remain the Coordinator. Enter only from [Review the night branch](coordinator.md#6-review-the-night-branch), after every authorized ticket is landed or explicitly unfinished and no Worker is running or waiting for an answer. This procedure returns one report to that step; it does not dispatch implementation work.
 
 ## 1. Send
 
@@ -18,7 +18,9 @@ You are checking the reports you were handed, against the reviewed commit named 
 
 Check each finding against that commit. Read the cited rule or requirement and the code. Keep a finding the commit supports. Drop one it does not, and write the reason. Keep a runtime claim when a rerun shows the failure it names. When a reproduction cannot be rerun, mark it unverified and write the reason.
 
-Done when every finding is kept, dropped with a reason, or unverified with a reason.
+For each kept finding, identify the affected approved requirement and whether the evidence shows a defect introduced by this work, an existing defect, or an uncertain cause. A valid finding does not by itself authorize a repair.
+
+Done when every finding is kept with that attribution, dropped with a reason, or unverified with a reason.
 
 ## 3. Aggregate
 
@@ -28,5 +30,5 @@ End with the count of supported findings in each axis.
 
 Then state the verifier result separately from the three axes: `Verifier: pass`, `Verifier: fail`, `Verifier: skipped`, or `Verifier: unavailable`. When a verifier ran, include the commands and results. A judgement call stays under its axis with that label. It is not a hard finding.
 
-Return this report to the Coordinator reference. Hard findings are repaired there. Judgement calls are carried to the delivery PR.
+Return this report to [Review the night branch](coordinator.md#6-review-the-night-branch) for disposition within the approved scope. Judgement calls are carried to the delivery result. The report covers the named night commit, not unlanded ticket PRs.
 

@@ -7,6 +7,12 @@ Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / 
 
 When the document you're writing is a skill, read [`skill-mechanics.md`](references/skill-mechanics.md) for who uses it, then for how it is invoked.
 
+## Loading and routing
+
+Once an agent loads a skill, its entire `SKILL.md` enters the context; the same applies to each reference document it loads. Account for this when arranging step transitions and routing between documents and skills.
+
+Loading a document exposes all its branches, not permission to execute them all. Name the active role, the entry condition, and the completion condition. At each call, state which part the agent uses, what it returns, and where execution resumes. Later steps remain conditional on their entry conditions even when they are already visible. Reading another role's reference does not transfer that role. A reference saves context only until it is loaded; headings and inline skill calls do not create a fresh context.
+
 ## Context pointers
 
 A **context pointer** is a reference held in the agent's context that names some out-of-context material and encodes the condition for reaching it. A skill's description is one; a line in `AGENTS.md` naming a doc is the same object. The pointer's _wording_, not its target, decides when the agent reaches the material, and how reliably. A must-have target behind a weakly worded pointer is a variance bug: sharpen the wording first, and inline the material only if sharpening fails.

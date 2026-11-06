@@ -10,6 +10,6 @@ Read the `verify-<app>` skill that owns the feature paths in your assignment and
 
 Leave the commit, the drive script, and the feature map as they are. A failure is a result you report, not a change you make.
 
-Return pass or fail to the sender, with the commands you ran and their results. An unavailable run returns that word and those facts instead.
+Return pass or fail for the assigned verification to the sender, with the commit, commands, results, and affected requirement for each failure. State whether evidence ties a finding to this change, an existing defect, or an uncertain cause. Report incidental findings separately; discovering them does not expand the assigned verification or authorize repairs. An unavailable run returns that word, the missing condition, and those facts instead. The sender decides the next action; you do not dispatch retries or create issues.
 
 Done when the sender has that result.
