@@ -9,7 +9,7 @@ A spec is the last text a person checks before agents build from it unattended: 
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use **principle-anchor-every-reference** throughout the spec, and respect any ADRs in the area you're touching.
+1. If you have not already explored the codebase, use **how** for the area this spec will cover. Use **principle-anchor-every-reference** throughout the spec, and respect any ADRs in the area you're touching.
 
 2. Use **principle-model-the-domain** for the domain model. Sketch out the seams at which you're going to test the feature.
 

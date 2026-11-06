@@ -15,7 +15,7 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 ### 2. Explore the codebase (optional)
 
-If you have not already explored the codebase, do so to understand the current state of the code. Use **principle-anchor-every-reference** for ticket titles and descriptions, and respect ADRs in the area you're touching.
+If you have not already explored the codebase, use **how** for the area these tickets will change. Use **principle-anchor-every-reference** for ticket titles and descriptions, and respect ADRs in the area you're touching.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
@@ -67,13 +67,15 @@ Iterate until the user approves the breakdown. Write every agreed clarification 
 
 ### 6. Publish the tickets to the configured tracker
 
-- **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. If the source was an existing issue, make each ticket its sub-issue (tracker doc's operation).
+- **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues.
+
+If the source was an existing issue, make each ticket its sub-issue (tracker doc's operation). That issue may be the spec, or another issue the tickets come from. When the tickets do not come from an existing issue, publish each ticket as its own issue. The labels below are the same in either case.
 
 Before publishing, create missing labels with `python3 LABEL_SETUP`, where `LABEL_SETUP` is `../../tools/setup-mmw/scripts/labels.py` resolved from this skill's directory to an absolute path in the installed runtime. Run it from the consuming repository without `--migrate`.
 
 Each ticket carries `mmw:ticket`. A ticket an agent works also carries `ready-for-agent` and exactly one approved worker-grade label, `junior-worker` or `senior-worker`. A ticket only a person can act on carries `ready-for-human` instead, and no worker-grade label. Queue labels are mutually exclusive: work awaiting the owner's decision stays in `needs-triage` until the owner releases it. Planned implementation tickets carry neither `bug` nor `enhancement`.
 
-Read each published ticket back to confirm its body, labels, parent and blocking edges match the approved drafts. A parent spec carries `mmw:spec` and no queue or worker-grade label.
+Read each published ticket back to confirm its body, labels, parent and blocking edges match the approved drafts. When the source was an existing issue, that issue is the parent. A parent spec carries `mmw:spec` and no queue or worker-grade label. When the tickets do not come from an existing issue, the ticket has no parent.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
@@ -83,7 +85,7 @@ Do NOT close or modify any parent issue.
 
 ## Parent
 
-A reference to the parent issue on the tracker (if the source was an existing issue, otherwise omit this section).
+A reference to the source issue, when the tickets come from an existing issue. Omit this section when they do not.
 
 ## What to build
 
