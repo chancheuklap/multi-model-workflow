@@ -7,7 +7,7 @@ description: "Use for \"how does X work\", walkthroughs of an unfamiliar subsyst
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Explorers and explainers both use the researcher role. For each one, write the prompt this step builds to a file and end it with the instruction that the agent only reads the codebase. Run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Continue other work while the agents run; use their results at the steps below.
+Explorers and explainers both use the researcher role. For each one, write the prompt this step builds to a file and end it with the instruction that the agent only reads the codebase. Use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Continue other work while the agents run; use their results at the steps below.
 
 ## 1. Assess complexity
 

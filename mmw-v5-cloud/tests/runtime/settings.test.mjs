@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import {fromPayload, render} from '../../../mmw-v5-cloud/board/page/settings.mjs';
+import {fromPayload, render} from '../../../mmw-v5-cloud/skills/dispatch/runtime/board/page/settings.mjs';
 import {installDom, walk, namedButton} from './fake-dom.mjs';
 
 for (const nativeHost of ['cursor', 'codex']) test(`${nativeHost} settings show and save only their installed host`, async () => {
   const {document} = installDom();
   const host = document.createElement('div');
-  const original = JSON.parse(readFileSync(new URL('../../../mmw-v5-cloud/models.json', import.meta.url)));
+  const original = JSON.parse(readFileSync(new URL('../../../mmw-v5-cloud/skills/dispatch/runtime/models.json', import.meta.url)));
   const originalSnapshot = structuredClone(original);
   const model = fromPayload({...original, host: nativeHost, store: '/home/test/.agents/models.json'});
   let saved;

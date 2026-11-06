@@ -13,12 +13,13 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = ("mmw-v5-cloud/plugin.json", "mmw-v5-cloud/.cursor-plugin/plugin.json")
-PACKAGE_PATHS = ("plugin.json", ".cursor-plugin/plugin.json", "models.json", "skills", "tools", "board")
+PACKAGE_PATHS = ("plugin.json", ".cursor-plugin/plugin.json", "skills")
 VERSION = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*))?")
 
 
@@ -59,6 +60,7 @@ def bump() -> str:
     for path, row in zip(MANIFESTS, rows):
         row["version"] = new
         (ROOT / path).write_text(json.dumps(row, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    run(sys.executable, str(ROOT / 'scripts/sync-dispatch-resources.py'))
     return f"{old} -> {new}; run local checks and commit the edition manifests with the release on dev"
 
 

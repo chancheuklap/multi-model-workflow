@@ -16,7 +16,7 @@ Keep skills atomic. Workflows come from composing skills and dispatch role refer
 
 No part of MMW v5 may become reliable or complete by growing more complex; that only makes it more tedious and rigid. Before fixing a break, read the whole source of the chain around it, work out what each step was meant to do and what it actually does, and look for a step that is redundant, duplicated, wrong, or costs more than it returns: such a step is deleted or reshaped, not repaired. Before fixing or adding anything, ask whether the main path already catches the failure, even later. If it does, delete the extra layer rather than add a gate, field, command, fallback or rule. A real incident alone does not justify a layer.
 
-The task board in `mmw-v5-cloud/board/` is also a product developed in this repository. Tickets about the board run from here. Personal use; tests run locally, never in GitHub CI. GitHub Actions publishes prepared releases only.
+The task board in `mmw-v5-cloud/skills/dispatch/runtime/board/` is also a product developed in this repository. Tickets about the board run from here. Personal use; tests run locally, never in GitHub CI. GitHub Actions publishes prepared releases only.
 
 Runtime is Bash and the `python3` standard library. No package manager, no build step for the plugin runtime.
 
@@ -52,10 +52,12 @@ agent plugin marketplace add --git-ref main https://github.com/chancheuklap/mult
 
 Confirm `agent plugin marketplace list --format json` shows `mmw-v5` at user scope and its `gitRef` equals `origin/main`. Then install **MMW v5 Cloud** again at User scope. Removal drops the install, and the CLI cannot restore it: use `/plugins` in an interactive Cursor agent, or Customize → Plugins. Do not install from `~/.cursor/plugins/local`, and do not register a team marketplace for this.
 
-Codex is a different pin. Update it with `codex plugin marketplace upgrade mmw-v5`.
+## Codex plugin delivery
 
-## Install the cloud edition
+For the owner's local Codex plugin, prepare the version on `dev` and push the authorized release commit to `main`. That is the local update path; no manual ZIP upload is needed.
 
-Follow the root [README.md](README.md). Cloud agents receive MMW through their host's plugin installation, not a repository setup script or a copied user skill directory. A GitHub Release alone does not install or list a plugin in either host.
+For Codex Cloud agents, export the complete `mmw-v5-cloud.zip` from committed source and give the owner its path, version and commit. The owner uploads it on the web plugin page to install or update the cloud plugin. A Git push does not update that uploaded copy. Uploading is the owner's step.
+
+First installation, ZIP export and verification follow the root [README.md](README.md). Cloud agents receive MMW through their host's plugin installation, not a repository setup script or a copied user skill directory.
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.

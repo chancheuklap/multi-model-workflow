@@ -27,7 +27,7 @@ Start with the caller’s usage and derive the interface from it. If an existing
 
 When viable alternatives differ in compatibility, ownership, or what callers must know, explain that trade-off to the caller. Compare those alternatives in parallel. Give each **FRESH AGENT** [the runner prompt](references/runner-prompt.md), the Phase A evidence, an isolated working directory and one viable design to explore. Include the project’s domain vocabulary. For dependency boundaries, consult [Deepening](references/deepening.md).
 
-Save each candidate assignment to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card as [Dispatch](../dispatch/SKILL.md) describes. Compare the returned usage examples, the complexity each interface hides and the consequences for existing callers. State how any missing candidate limits the comparison.
+Save each candidate assignment to FILE and use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn researcher --prompt FILE --host HOST`. Send each card as [Dispatch](../dispatch/SKILL.md) describes. Compare the returned usage examples, the complexity each interface hides and the consequences for existing callers. State how any missing candidate limits the comparison.
 
 Screen the proposed shape against [design red flags](references/design-red-flags.md). Done when you can recommend a design and explain the constraint or trade-off that decided it.
 

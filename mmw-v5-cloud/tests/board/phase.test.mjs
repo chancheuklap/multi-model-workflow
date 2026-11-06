@@ -1,5 +1,5 @@
-import {Board} from "../../board/page/board-logic.mjs";
-import {taskListView} from "../../board/page/tasks.mjs";
+import {Board} from "../../skills/dispatch/runtime/board/page/board-logic.mjs";
+import {taskListView} from "../../skills/dispatch/runtime/board/page/tasks.mjs";
 
 const failures = [];
 const check = (name, actual, expected) => {

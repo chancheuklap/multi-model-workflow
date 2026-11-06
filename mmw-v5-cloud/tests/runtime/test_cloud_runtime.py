@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
-TOOLS = ROOT / 'mmw-v5-cloud/tools/dispatch/scripts'
+TOOLS = ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/tools/dispatch/scripts'
 sys.path.insert(0, str(TOOLS))
 
 def load(name, path=None):
@@ -182,7 +182,7 @@ class CloudRuntime(unittest.TestCase):
                 self.assertFalse(sentinel.exists())
 
     def test_models_use_the_user_file_and_ignore_project_copies(self):
-        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         config['rows']['codex']['review-axis'] = {'model': 'user-model', 'effort': 'high'}
         self.codex.write_config(config)
         (self.root / '.agents/models.json').write_text('{"rows": {}}')
@@ -213,7 +213,7 @@ class CloudRuntime(unittest.TestCase):
     def check_assignments(self, host):
         tool = self.codex if host == 'codex' else self.models
         folder = tool.project_agents()
-        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         self.models.write_config(config); self.codex.write_config(config)
         self.commit('models')
         fork = self.git('rev-parse', 'HEAD')
@@ -292,7 +292,7 @@ class CloudRuntime(unittest.TestCase):
         self.check_assignments('codex')
 
     def prepare_multiple_verifiers(self, feature_changed):
-        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         self.codex.write_config(config)
         for name in ('alpha', 'beta', 'gamma'):
             skill = self.root / f'.agents/skills/verify-{name}'
@@ -347,7 +347,7 @@ class CloudRuntime(unittest.TestCase):
             self.codex.spawn_review(api=api)
 
     def test_research_cli_preserves_inherit_and_cursor_options(self):
-        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         for tool, host in [(self.models, 'cursor'), (self.codex, 'codex')]:
             config['rows'][host]['researcher'].update(model='inherit', effort='inherit')
             if host == 'cursor': config['rows'][host]['researcher'].update(context='256k', fast=False)
@@ -364,7 +364,7 @@ class CloudRuntime(unittest.TestCase):
                 self.assertEqual(question.read_text(), card['prompt'])
 
     def test_open_night_adopts_and_resumes_published_branch(self):
-        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         self.models.write_config(config); self.commit('models')
         self.git('branch', 'dev'); self.git('push', '-q', 'origin', 'dev')
         self.git('switch', '-q', '-c', 'host/open', 'dev')
@@ -385,7 +385,7 @@ class CloudRuntime(unittest.TestCase):
             self.models.open_night('other', '', '4')
 
     def test_hosts_share_config_and_only_validate_the_selected_host(self):
-        config=json.loads((ROOT/'mmw-v5-cloud/models.json').read_text())
+        config=json.loads((ROOT/'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         for tool, host in [(self.codex,'codex'),(self.models,'cursor')]:
             selected={'rows':{host:config['rows'][host]}}
             tool.config_path().unlink(missing_ok=True)

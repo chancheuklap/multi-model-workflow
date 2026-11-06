@@ -44,7 +44,7 @@ For each ticket an agent works, propose `junior-worker` or `senior-worker` and a
 
 ### 4. Scan for ambiguities
 
-Save the drafted tickets in a temporary directory created with `mktemp -d`. Before presenting the breakdown, write a read-only prompt for the agent to scan the source plan, spec, or conversation and those drafts using [Ambiguity scan](references/ambiguity-scan.md). Include the resolved reference path, approved source, and drafted ticket text. Save the prompt to FILE and run `dispatch.sh spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Wait for its one-pass result. If the host cannot run subagents, run the same scan yourself.
+Save the drafted tickets in a temporary directory created with `mktemp -d`. Before presenting the breakdown, write a read-only prompt for the agent to scan the source plan, spec, or conversation and those drafts using [Ambiguity scan](references/ambiguity-scan.md). Include the resolved reference path, approved source, and drafted ticket text. Save the prompt to FILE and use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Wait for its one-pass result. If the host cannot run subagents, run the same scan yourself.
 
 ### 5. Agree on the scope
 
@@ -60,7 +60,7 @@ Get the owner's approval for the resulting scope before publishing the tickets.
 
 If the source was an existing issue, make each ticket its sub-issue (tracker doc's operation). That issue may be the spec, or another issue the tickets come from. When the tickets do not come from an existing issue, publish each ticket as its own issue. The labels below are the same in either case.
 
-Before publishing, create missing labels with `python3 LABEL_SETUP`, where `LABEL_SETUP` is `../../tools/setup-mmw/scripts/labels.py` resolved from this skill's directory to an absolute path in the installed runtime. Run it from the consuming repository without `--migrate`.
+Before publishing, use only the installed **dispatch** skill's Runtime section to obtain its `labels` path, then return here. Run `python3 LABEL_SETUP` from the consuming repository, with LABEL_SETUP set to that returned path. This tool preparation starts no night.
 
 Each ticket carries `mmw:ticket`. A ticket an agent works also carries `ready-for-agent` and exactly one approved worker-grade label, `junior-worker` or `senior-worker`. A ticket only a person can act on carries `ready-for-human` instead, and no worker-grade label. Queue labels are mutually exclusive: work awaiting the owner's decision stays in `needs-triage` until the owner releases it. Planned implementation tickets carry neither `bug` nor `enhancement`.
 

@@ -12,7 +12,7 @@ import urllib.parse
 from pathlib import Path
 import sys
 
-BOARD = Path(__file__).resolve().parents[2] / 'board'
+BOARD = Path(__file__).resolve().parents[2] / 'skills/dispatch/runtime/board'
 sys.path.insert(0, str(BOARD))
 
 import board_data
