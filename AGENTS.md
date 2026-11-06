@@ -52,10 +52,12 @@ agent plugin marketplace add --git-ref main https://github.com/chancheuklap/mult
 
 Confirm `agent plugin marketplace list --format json` shows `mmw-v5` at user scope and its `gitRef` equals `origin/main`. Then install **MMW v5 Cloud** again at User scope. Removal drops the install, and the CLI cannot restore it: use `/plugins` in an interactive Cursor agent, or Customize → Plugins. Do not install from `~/.cursor/plugins/local`, and do not register a team marketplace for this.
 
-Codex is a different pin. Update it with `codex plugin marketplace upgrade mmw-v5`.
+## Codex plugin delivery
 
-## Install the cloud edition
+For the owner's local Codex plugin, prepare the version on `dev` and push the authorized release commit to `main`. That is the local update path; no manual ZIP upload is needed.
 
-Follow the root [README.md](README.md). Cloud agents receive MMW through their host's plugin installation, not a repository setup script or a copied user skill directory. A GitHub Release alone does not install or list a plugin in either host.
+For Codex Cloud agents, export the complete `mmw-v5-cloud.zip` from committed source and give the owner its path, version and commit. The owner uploads it on the web plugin page to install or update the cloud plugin. A Git push does not update that uploaded copy. Uploading is the owner's step.
+
+First installation, ZIP export and verification follow the root [README.md](README.md). Cloud agents receive MMW through their host's plugin installation, not a repository setup script or a copied user skill directory.
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
