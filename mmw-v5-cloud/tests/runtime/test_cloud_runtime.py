@@ -291,6 +291,61 @@ class CloudRuntime(unittest.TestCase):
     def test_codex_assignments_use_project_commits_and_verification(self):
         self.check_assignments('codex')
 
+    def prepare_multiple_verifiers(self, feature_changed):
+        config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
+        self.codex.write_config(config)
+        for name in ('alpha', 'beta', 'gamma'):
+            skill = self.root / f'.agents/skills/verify-{name}'
+            (skill / 'features').mkdir(parents=True)
+            (skill / 'SKILL.md').write_text(f'name: verify-{name}\n')
+            (skill / 'features/screen.md').write_text('existing screen\n')
+        self.commit('existing verification skills')
+        fork = self.git('rev-parse', 'HEAD')
+        self.git('branch', 'project/demo'); self.git('branch', 'night/spec-90')
+        self.git('push', '-q', 'origin', 'project/demo', 'night/spec-90')
+        self.git('switch', '-q', '-c', 'ticket/issue-18', 'night/spec-90')
+        (self.root / 'backend.py').write_text('backend change\n')
+        if feature_changed:
+            (self.root / '.agents/skills/verify-alpha/features/screen.md').write_text('changed screen\n')
+        self.commit('ticket change'); head = self.git('rev-parse', 'HEAD')
+        self.git('push', '-q', 'origin', 'ticket/issue-18')
+        api = API(); api.add(90, 'mmw:spec'); api.add(18); api.children[90] = [18]
+        api.prs = [{'number': 8, 'state': 'open', 'draft': True,
+                    'head': {'ref': 'ticket/issue-18', 'sha': head},
+                    'base': {'ref': 'night/spec-90', 'sha': fork, 'repo': {'full_name': api.repo}}}]
+        return api, fork, head
+
+    def merge_multiple_verifier_ticket(self, api):
+        self.git('switch', '-q', 'night/spec-90')
+        self.git('merge', '--no-ff', '--no-edit', 'ticket/issue-18')
+        tip = self.git('rev-parse', 'HEAD'); self.git('push', '-q', 'origin', 'night/spec-90')
+        api.prs[0].update(merged_at='2026-11-05T00:00:00Z', merge_commit_sha=tip, state='closed')
+        return tip
+
+    def test_multiple_verifiers_skip_backend_only_ticket(self):
+        api, _, _ = self.prepare_multiple_verifiers(False)
+        self.assertEqual(self.codex.spawn_verifier(api=api), {'host': 'codex', 'skipped': ['verifier'], 'cards': []})
+
+    def test_multiple_verifiers_skip_backend_only_review(self):
+        api, fork, _ = self.prepare_multiple_verifiers(False)
+        tip = self.merge_multiple_verifier_ticket(api)
+        review = self.codex.spawn_review(api=api)
+        self.assertEqual([card['description'] for card in review['cards']], ['Standards', 'Spec', 'Tests'])
+        self.assertEqual(review['skipped'], ['verifier'])
+        self.assertEqual((review['fork'], review['reviewed']), (fork, tip))
+        for card in review['cards']:
+            self.assertIn(f'Diff: git diff {fork} {tip}', card['prompt'])
+            self.assertIn('Landed tickets: #18', card['prompt'])
+
+    def test_multiple_verifiers_reject_changed_feature(self):
+        api, _, _ = self.prepare_multiple_verifiers(True)
+        message = 'more than one verify-<app>: verify-alpha, verify-beta, verify-gamma'
+        with self.assertRaisesRegex(ValueError, message):
+            self.codex.spawn_verifier(api=api)
+        self.merge_multiple_verifier_ticket(api)
+        with self.assertRaisesRegex(ValueError, message):
+            self.codex.spawn_review(api=api)
+
     def test_research_cli_preserves_inherit_and_cursor_options(self):
         config = json.loads((ROOT / 'mmw-v5-cloud/models.json').read_text())
         for tool, host in [(self.models, 'cursor'), (self.codex, 'codex')]:
