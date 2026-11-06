@@ -23,7 +23,7 @@ This command is _informed_ by the project's domain model and built on a shared d
 
 Read the project's domain glossary (`GLOSSARY.md`) and any ADRs in the area you're touching first.
 
-Then prepare a prompt for a fresh sub-agent to walk the codebase. Don't follow rigid heuristics; explore organically and note where you experience friction:
+Then prepare a prompt for a **fresh agent**, with a new context that does not inherit your conversation, to walk the codebase. Don't follow rigid heuristics; explore organically and note where you experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
 - Where are modules **shallow**, with an interface nearly as complex as the implementation?
@@ -33,7 +33,7 @@ Then prepare a prompt for a fresh sub-agent to walk the codebase. Don't follow r
 
 Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
 
-Save that exploration prompt to FILE, run `dispatch.sh spawn researcher --prompt FILE --host HOST`, and send the printed assignment as [Dispatch](../dispatch/SKILL.md) describes. Wait for its findings.
+Save that exploration prompt to FILE, run `dispatch.sh spawn researcher --prompt FILE --host HOST`, and send the printed assignment to a fresh agent as [Dispatch](../dispatch/SKILL.md) describes. Wait for its findings.
 
 ### 2. Present candidates as an HTML report
 

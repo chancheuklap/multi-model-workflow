@@ -15,9 +15,9 @@ For model commands (`show`, `row`, `spawn`) and `board`, pass `--host HOST`. HOS
 
 Each object in the printed `cards` array is a card: one assignment for the sender to dispatch. `description` is its task label. Use `model_row` to choose the subagent's model settings, and send `prompt` unchanged as its task. The role in `model_row` names a model configuration row; the prompt says what work to do.
 
-Send each card's assignment to a fresh subagent. Fresh means a new context without the parent conversation. Wait for its result unless the sending step says to continue other work. `skipped` names a role that does not run; continue the step without it.
+Send each card's assignment to a **fresh agent**: a newly created agent with a new context that does not inherit the sender's conversation or reuse an existing agent's context. Disable conversation inheritance in the host's spawn call. The card's prompt and the sources it names supply the task context. Wait for its result unless the sending step says to continue other work. `skipped` names a role that does not run; continue the step without it.
 
-Read another role's model row with `dispatch.sh row ROLE --host HOST`. `inherit` keeps the sender's setting for that field.
+Read another role's model row with `dispatch.sh row ROLE --host HOST`. `inherit` keeps the sender's model setting for that field; it does not inherit conversation context.
 
 `dispatch.sh spawn researcher --prompt FILE --host HOST` uses the researcher model row and copies the file's full text into the assignment's prompt. The sending skill supplies the task, the context and sources needed without the parent conversation, the scope, and what to return. This model row does not require the subagent to use the research skill.
 

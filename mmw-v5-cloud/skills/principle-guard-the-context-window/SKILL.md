@@ -8,6 +8,6 @@ description: Use when large files, tool output, screenshots, or extended work th
 **Why:** Context overflow degrades reasoning quality, creates compression artifacts, and halts progress.
 
 **Pattern:**
-- **Isolate large payloads.** Read verbose outputs, screenshots, and large documents in chunks, or give them to the subagent the current step sends for them. The main context gets summaries, not raw data.
+- **Isolate large payloads.** Read verbose outputs, screenshots, and large documents in chunks, or give them to the fresh agent the current step sends for them, with a new context that does not inherit your conversation. The main context gets summaries, not raw data.
 - **Keep frequently used content inline.** Templates and references used on every invocation belong in the skill file, not in separate files that cost a read each time.
 - **Size phases and cap scope.** Limit files per phase, set turn budgets, account for mechanism costs.

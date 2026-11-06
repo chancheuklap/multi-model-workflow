@@ -74,7 +74,7 @@ Fetch and merge the current night branch into `ticket/issue-N`, so the verifier 
 
 If that merge changed the feature file this ticket named, update the drive script, run it, commit, and push before the verifier. Use **no-comments** for this diff and commit what it changes before the verifier. Push that commit too. The verifier runs the pushed head, and the PR head has to be that same commit.
 
-Run `dispatch.sh spawn verifier --host HOST`. A printed card is a new verifier assignment: send it as [Dispatch](../SKILL.md) describes and wait. Resuming an older verifier would rerun the old commit. No card means this ticket has no verifier: go to step 4 and write the PR. When the command says the head is not pushed, push and run the command again. Any other error from the command: return that error to the Coordinator and end the turn. Do not write the PR as verified.
+Run `dispatch.sh spawn verifier --host HOST`. Send each printed verifier card to a **fresh agent**, with a new context that does not inherit your conversation, as [Dispatch](../SKILL.md) describes, and wait. Resuming an older verifier would rerun the old commit. No card means this ticket has no verifier: go to step 4 and write the PR. When the command says the head is not pushed, push and run the command again. Any other error from the command: return that error to the Coordinator and end the turn. Do not write the PR as verified.
 
 Done when the verifier has returned. No card continues at step 4.
 
@@ -82,9 +82,9 @@ Done when the verifier has returned. No card continues at step 4.
 
 Use **principle-fix-root-causes** for a failure you handle.
 
-When the verifier returns unavailable, do not change the product. Check out the commit assigned to that verifier and send a new verifier card. If HEAD cannot be that commit, return the verifier's message to the Coordinator and end the turn.
+When the verifier returns unavailable, do not change the product. Check out the commit assigned to that verifier and send a new verifier card to a **fresh agent** as in step 3. If HEAD cannot be that commit, return the verifier's message to the Coordinator and end the turn.
 
-When the verifier fails, the head has moved since the pass, or the Coordinator resumes you with the output of a failed `scripts/check`, fix, push, and run `dispatch.sh spawn verifier --host HOST` again. Send that as a new card. A pass covers only the commit it ran.
+When the verifier fails, the head has moved since the pass, or the Coordinator resumes you with the output of a failed `scripts/check`, fix, push, and run `dispatch.sh spawn verifier --host HOST` again. Send each printed card to a **fresh agent** as in step 3. A pass covers only the commit it ran.
 
 When the passing commit is the PR head, or there was no verifier, write the PR. Use **pr** for the PR body. Include the ticket, what you implemented, the commands and results, consequential decisions, findings outside this ticket, and any unfinished work with its reason. Name the commit a verifier passed. An unfinished ticket stays draft, with the reason in the PR. With no PR, return the reason to the Coordinator. You do not create the child issue.
 
