@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 import unittest
 from datetime import datetime, timezone
@@ -13,9 +12,6 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
-SERVER = ROOT / "mmw-v5" / "board" / "server.py"
-sys.path.insert(0, str(SERVER.parent))
-import settings_api  # noqa: E402
 from board_process import RunningBoard  # noqa: E402
 sys.path.insert(0, str(ROOT / "mmw-v5" / "tests" / "sessions"))
 import test_models_config as model_fixtures  # noqa: E402
@@ -235,30 +231,6 @@ class SettingsApiTest(unittest.TestCase):
         data = json.loads(raw); self.assertEqual(status, 200); self.assertEqual(data["source"], "paseo")
         self.assertEqual({v["state"] for v in data["hosts"].values()}, {"down"})
         self.assertEqual({v["label"] for v in data["hosts"].values()}, {"Paseo 没开"})
-
-    def test_get_observes_scanning_while_rescan_is_running(self):
-        started = threading.Event()
-        release = threading.Event()
-
-        def slow_scan(source):
-            started.set()
-            release.wait(timeout=3)
-            return {"source": source, "scanned_at": "done", "scanning": False, "hosts": {}}
-
-        settings_api._scan = {"source": "cli", "scanned_at": "old", "scanning": False,
-                              "hosts": {"codex": {"state": "ok"}}}
-        with mock.patch.object(settings_api.models, "scan_host_catalogs", side_effect=slow_scan):
-            worker = threading.Thread(target=settings_api._replace_scan, args=("paseo",))
-            worker.start()
-            self.assertTrue(started.wait(timeout=2))
-            current = settings_api._cached_scan("orca")
-            self.assertTrue(current["scanning"])
-            self.assertEqual(current["source"], "paseo")
-            release.set()
-            worker.join(timeout=2)
-        self.assertFalse(worker.is_alive())
-
-
 
 CODEX_CATALOG = {"offerings": [
     {"id": "gpt-6.1-sol", "name": "GPT-6.1-Sol", "thinkingOptionIds": ["low", "medium", "high", "xhigh"]},

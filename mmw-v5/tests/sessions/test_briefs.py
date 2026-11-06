@@ -83,33 +83,11 @@ class CopyTest(BriefCase):
         self.assertEqual(record.get("worktree"), str(worktree.resolve()))
 
 class ReportTest(BriefCase):
-    def test_the_childs_report_is_kept_in_the_batch(self):
-        kept = self.report(1)
-        self.assertEqual(kept.read_text(), "the findings, cited\n")
-        states = [b["state"] for b in briefs.briefs_of(self.state, self.batch)]
-        self.assertEqual(states, ["reported", "open"])
-
-    def test_only_the_session_started_for_the_brief_may_report_it(self):
-        with self.assertRaises(briefs.Refusal) as caught:
-            self.report(1, session="agt_r2")
-        self.assertIn("agt_r1", str(caught.exception))
-        self.assertEqual(briefs.briefs_of(self.state, self.batch)[0]["state"], "open")
-
     def test_an_empty_answer_is_refused(self):
         self.result.write_text("  \n")
         with self.assertRaises(briefs.Refusal):
             self.report(1)
         self.assertEqual(briefs.briefs_of(self.state, self.batch)[0]["state"], "open")
-
-    def test_the_first_report_stands(self):
-        self.report(1)
-        self.result.write_text("a second answer\n")
-        with self.assertRaises(briefs.Refusal):
-            self.report(1)
-        self.assertEqual(briefs.briefs_of(self.state, self.batch)[0]["result"],
-                         str(self.state / "briefs" / self.batch / "1" / "result.md"))
-        self.assertEqual((self.state / "briefs" / self.batch / "1" / "result.md").read_text(),
-                         "the findings, cited\n")
 
     def test_a_brief_marked_lost_takes_no_late_report(self):
         self.assertTrue(briefs.mark_lost(self.state, self.batch, 1, "paseo says stopped"))

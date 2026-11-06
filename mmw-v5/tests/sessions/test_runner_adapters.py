@@ -74,13 +74,9 @@ class TerminalRunners(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.scripts = self.root / 'scripts'
-        shutil.copytree(RUNNERS, self.scripts / 'runners')
-        (self.scripts / 'models.py').write_text('''import sys
-if sys.argv[1] == 'paseo-args': print('--provider\\n' + sys.argv[2] + '\\n--model\\n' + sys.argv[3])
-elif sys.argv[1] == 'bypass-argv': print('--model\\n' + sys.argv[3])
-elif sys.argv[1] == 'launch-line': print('host --model ' + sys.argv[3] + (' ' + sys.argv[6] if len(sys.argv) > 6 else ''))
-else: sys.exit(2)
-''')
+        shutil.copytree(RUNNERS.parent, self.scripts)
+        for name in ('hosts.json', 'roles.json'):
+            shutil.copy2(RUNNERS.parent.parent / name, self.root / name)
         self.bin = self.root / 'bin'
         self.bin.mkdir()
         for vendor in ('paseo', 'herdr', 'orca'):

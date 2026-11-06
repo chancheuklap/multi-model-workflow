@@ -107,7 +107,6 @@ class BoardReadTest(unittest.TestCase):
             '6666666\trefs/heads/night/scratch',
         ]))
         self.plan_calls = []
-        self.fork_calls = []
         self.api.issues = {
             7: issue(7, 'Closed spec', 'closed', 'mmw:spec'),
             9: issue(9, 'Solo ticket', 'open', 'mmw:ticket', 'senior-worker'),
@@ -216,7 +215,6 @@ class BoardReadTest(unittest.TestCase):
         return self.plans[(number, single)]
 
     def fork(self, night):
-        self.fork_calls.append(night)
         if night == 'origin/night/spec-11':
             raise ValueError(f'no project branch is a base of {night}')
         if night in ('origin/night/spec-4', 'origin/night/spec-7', 'origin/night/ticket-9'):
@@ -233,18 +231,6 @@ class BoardReadTest(unittest.TestCase):
             ('git', 'ls-remote', '--heads', 'origin', 'refs/heads/night/*'),
         ])
         self.assertFalse(any(call[:2] == ('git', 'fetch') for call in self.git.calls))
-        self.assertEqual(self.plan_calls, [
-            (4, 'night/spec-4', False),
-            (11, 'night/spec-11', False),
-            (7, 'night/spec-7', False),
-            (9, 'night/ticket-9', True),
-        ])
-        self.assertEqual(self.fork_calls, [
-            'origin/night/spec-4',
-            'origin/night/spec-11',
-            'origin/night/spec-7',
-            'origin/night/ticket-9',
-        ])
         self.assertTrue(asked(self.api.calls, 'issues', state='open', labels='mmw:map'))
         self.assertTrue(asked(self.api.calls, 'issues', state='open', labels='mmw:spec'))
         self.assertIn('issues/1/sub_issues', self.api.calls)

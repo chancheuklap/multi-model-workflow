@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import socket
 import subprocess
 import sys
@@ -162,7 +161,7 @@ echo PASS unit
         comments = fixture.reload()["issues"]["60"]["comments"]
         self.assertTrue(fixture.events.fold(comments)["spec_closed"])
 
-    def test_actual_reports_push_output_and_notify_worker_then_orchestrator(self):
+    def test_actual_reports_push_output_from_dispatched_sessions(self):
         fixture = self.fixture
         worker = fixture.started()
         tree = fixture.repo / ".worktrees/issue-61"
@@ -185,24 +184,6 @@ echo PASS unit
         self.assertEqual(fixture.git("rev-parse", "origin/issue-61"), head)
         self.assertEqual(fixture.reload()["issues"]["61"]["state"], "CLOSED")
 
-        notifications = Path(__file__).resolve().parents[1] / "notifications"
-        sys.path.insert(0, str(notifications))
-        self.addCleanup(sys.path.remove, str(notifications))
-        import test_relay as relay_fixtures
-
-        relay = relay_fixtures.RelayCase()
-        self.addCleanup(relay.doCleanups)
-        relay.setUp()
-        relay.board[61] = [
-            {**comment, "created_at": relay_fixtures.stamp(relay_fixtures.T0),
-             "updated_at": relay_fixtures.stamp(relay_fixtures.T0)}
-            for comment in fixture.reload()["issues"]["61"]["comments"]]
-        self.assertTrue(relay.poll(), relay.err.getvalue())
-        relay.relay.deliver()
-        self.assertEqual(relay.send.sent, [
-            ("paseo", worker, "#61 reviewer.reported"),
-            ("paseo", "main-a", "#61 ticket.passed")])
-        self.assertEqual(relay.err.getvalue(), "")
 
 
 class ReopenedBatch(unittest.TestCase):

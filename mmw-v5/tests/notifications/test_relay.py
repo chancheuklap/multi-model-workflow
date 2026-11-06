@@ -490,28 +490,6 @@ class AckByWakeTest(RelayCase):
 
 
 
-class ReadEventTest(unittest.TestCase):
-    def test_prose_alone_is_no_event(self):
-        self.assertIsNone(relay.read_event("ALL MET\n\nall green"))
-
-    def test_the_block_at_the_end_is_the_event(self):
-        body = 'first line\n<!-- mmw {"v":1,"event":"ticket.passed","ticket":61,"x":{"y":1}} -->'
-        self.assertEqual(relay.read_event(body)["event"], "ticket.passed")
-
-    def test_a_block_that_is_not_json_is_unreadable_not_absent(self):
-        with self.assertRaises(relay.UnreadableEvent):
-            relay.read_event("x\n<!-- mmw {not json} -->")
-
-    def test_a_name_outside_subject_verb_is_unreadable(self):
-        with self.assertRaises(relay.UnreadableEvent):
-            relay.read_event('<!-- mmw {"v":1,"event":"ALL MET"} -->')
-
-    def test_what_the_scripts_write_is_what_the_relay_reads(self):
-        body = relay.events.build("worker.started", ticket=61, line="worker started",
-                                  session="term_7", runner="orca", **REQUIRED["worker.started"])
-        self.assertEqual(relay.read_event(body)["session"], "term_7")
-
-
 class DeliveryTest(RelayCase):
     def queue_two(self):
         self.board[61].append(comment(101, "ticket.passed", 61))

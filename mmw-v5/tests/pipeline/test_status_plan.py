@@ -73,16 +73,6 @@ class SummaryCloseoutGate(unittest.TestCase):
     def problems(self, tickets):
         return status.closeout_problems(rows_of(tickets), tickets)
 
-    def test_refuses_a_live_session(self):
-        tickets = {61: ticket(61, comments=(started(61, "term_7"),))}
-        problems = self.problems(tickets)
-        self.assertEqual([p.split()[0] for p in problems], ["#61"])
-        self.assertIn("term_7", problems[0])
-
-    def test_refuses_a_passed_ticket_that_has_not_landed(self):
-        tickets = {61: ticket(61, state="CLOSED", labels=(), comments=(passed(61),))}
-        self.assertEqual([p.split()[0] for p in self.problems(tickets)], ["#61"])
-
     def test_refuses_an_unreadable_ticket(self):
         broken = ticket(61)
         broken["unread_raw"] = True

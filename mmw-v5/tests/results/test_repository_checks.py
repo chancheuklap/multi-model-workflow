@@ -95,7 +95,7 @@ class TestRepositoryCheck(unittest.TestCase):
             missing = root / "absent"
             write_check(root, "exit 1")
             result = vt.run_repository_check(root, "origin/spec-337", worktree=missing, ticket=61)
-        self.assertFalse(missing.exists())
+            self.assertFalse(missing.exists())
         self.assertNotIn("log", result["failed"][0])
 
     def test_each_failed_command_opens_its_own_paragraph(self):

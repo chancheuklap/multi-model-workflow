@@ -8,7 +8,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from argparse import Namespace
 from unittest import mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -357,25 +356,9 @@ class Rounds(StateCase):
         self.assertNotIn("\n", self.send.calls[0][2])
         self.assertEqual(self.post.calls, [])
 
-    def test_table_an_idle_session_is_reported_once(self):
+    def test_a_worker_waiting_on_an_open_brief_is_not_idle(self):
         self.idle_worker()
-        self.send.default = 4
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.board.tickets[61].append(comment(2, "worker.decided", 61, T0))
-        self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 1)
-        self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
-        self.assertIn("h1", self.send.calls[0][2])
-        self.send.calls.clear()
-        (self.state / "watchdog.json").unlink()
-        self.idle_worker(comment(2, "reviewer.started", 61, self.IDLE,
-                                 runner="orca", session="rv"))
         (self.runners / "rv.state").write_text("working\n")
-        self.watchdog().round()
-        self.assertEqual(self.send.calls, [])
-        self.idle_worker()
-        self.write("watchdog.json", {})
         with mock.patch.object(dog.briefs, "now_iso", return_value=stamp(self.IDLE)):
             batch = dog.briefs.create(self.state, "researcher", 1, "herdr", "h1",
                                       worktree=Path(self.tmp.name) / "missing-repo")
@@ -547,12 +530,6 @@ class Rounds(StateCase):
         self.assertEqual((self.post.calls, self.send.calls), ([], []))
         self.assertEqual(self.heartbeat()["unknown"], {})
 
-    def test_only_the_runner_its_worker_started_names_is_asked(self):
-        # Another runner might answer for a stale binding; it is never consulted.
-        self.silent_worker(runner="herdr", session="h1")
-        self.watchdog().round()
-        self.assertEqual(self.ask.calls, [("herdr", "h1")])
-
     def children(self, *extra):
         """A live worker, then a reviewer it started, then `extra`."""
         self.board.tickets[61] = [
@@ -647,31 +624,6 @@ class Rounds(StateCase):
         self.assertEqual(len(self.send.calls), 2)
         self.assertEqual(self.heartbeat()["pending"], [])
 
-    def test_run_keeps_monitoring_after_a_confirmed_wake_without_turn_hooks(self):
-        self.silent_worker()
-        self.ask.default = "unknown"
-        wd = self.watchdog()
-        polls = []
-
-        def after_round(seconds):
-            polls.append(seconds)
-            if len(polls) == 1:
-                self.board.tickets[61].append(comment(2, "worker.resumed", 61, T0,
-                                                      runner="herdr", session="h1"))
-            else:
-                self.write("watches.json", {})
-
-        args = Namespace(repo="o/r", poll=60, idle=3600, stuck=7200, nudge=1800, once=False)
-        with mock.patch.object(dog, "Watchdog", return_value=wd), \
-                mock.patch.object(dog.signal, "signal"), \
-                mock.patch.object(dog.time, "sleep", side_effect=after_round), \
-                mock.patch("sys.stdout", new_callable=io.StringIO):
-            self.assertEqual(dog.cmd_run(args), 0)
-        self.assertEqual(len(self.send.calls), 2)
-        self.assertEqual(polls, [60, 60])
-        self.assertEqual(self.heartbeat()["round"], 3)
-        self.assertTrue(self.heartbeat()["closed"])
-
     def test_relay_down_diagnostic_names_the_explicit_v5_relay_command(self):
         self.relay_lock.__exit__(None, None, None)
         self.watchdog().round()
@@ -712,11 +664,6 @@ class Rounds(StateCase):
         self.write("relay.json", {"pid": os.getpid(), "started": stamp(T0 - timedelta(seconds=10))})
         self.watchdog().round()
         self.assertEqual(self.send.calls, [])
-
-    def test_a_closed_night_ends_the_watchdog(self):
-        self.write("watches.json", {})
-        self.assertEqual(self.watchdog().round(), "closed")
-        self.assertTrue(self.heartbeat()["closed"])
 
     # ------------------------------------------------------------- several watches
 

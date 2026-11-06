@@ -79,17 +79,20 @@ test("本机配置 does not open the sheet when the read fails", async () => {
   assert.equal(opened, false);
 });
 
-test("topbar actions keep parse and hook failures silent", async () => {
-  const malformed = mount(morningView, {
+test("a malformed settings response delivers an error without opening settings", async () => {
+  let opened = false;
+  let shown;
+  const {root} = mount(morningView, {
     settings: async () => ({ok: true, json: async () => { throw new Error("bad json"); }}),
-  }, {onOpenSettings: () => { throw new Error("must not run"); }});
-  namedButton(malformed.root, "本机配置").click();
-
-  const hookFailure = mount(morningView, {
-    settings: async () => ({ok: true, json: async () => ({version: 1})}),
-  }, {onOpenSettings: () => { throw new Error("hook failed"); }});
-  namedButton(hookFailure.root, "本机配置").click();
+  }, {
+    onOpenSettings: () => { opened = true; },
+    onSettingsError: message => { shown = message; },
+  });
+  namedButton(root, "本机配置").click();
   await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(opened, false);
+  assert.equal(typeof shown, "string");
+  assert.ok(shown.trim());
 });
 
 test("needs you fires onJumpNeedYou only when some ticket is orange", () => {
