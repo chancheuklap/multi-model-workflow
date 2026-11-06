@@ -5,14 +5,27 @@ description: Investigate a question against high-trust primary sources and captu
 
 # Research
 
-When another agent assigns you this question, investigate it and write the notes file. That work is below.
+When another agent assigns you this question, investigate it and return the report and its attachments. That work is below.
 
 Otherwise, write a prompt asking the subagent to use **research** for the question and its sources. Save it to a file, run `dispatch.sh spawn researcher --prompt FILE --host HOST`, and send the printed assignment as [Dispatch](../dispatch/SKILL.md) describes. Continue your own work while the researcher runs.
 
 ## Investigate
 
 1. Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them. Follow every claim back to the source that owns it.
-2. Write the findings to a single Markdown file, citing each claim's source. Use **technical-writing** for the notes.
-3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+2. Write the findings to a single Markdown report, citing each claim's source. Open with the full question and a short, actionable answer. State the investigation date and any relevant versions and ticket links. Name what remains unverified. Use **technical-writing** for the report.
 
-Done when the notes file exists and every claim in it cites the source that owns it.
+## Save and hand over
+
+Use the caller's explicit path or the repository's established research convention. Otherwise, save to `docs/research/<topic>/README.md`. Look for an existing report on the same question before choosing a new directory. Continue that report when the question is the same.
+
+For the default structure:
+
+- Name `<topic>` with the subject and question keywords, using lowercase English words joined by hyphens, such as `codex-cloud-usage`. Keep dates, ticket numbers, and branch names in the report rather than the directory name.
+- Write the complete report in `README.md`. Put an optional HTML explanation in `overview.html` beside it, and necessary small attachments in `assets/`. Create those only when needed.
+- Add a link to the report in `docs/research/README.md`, using the report's full question as the link title. This index holds titles and links. The report holds the findings.
+
+Keep large logs, media, caches, and temporary downloads in `.scratch/<topic>/` or the OS temporary directory. Retain the safe excerpt or stable controlled-storage link needed to support a conclusion that cannot be reproduced. Keep credentials and raw customer data out of commits.
+
+Return the report path and its attachments for inclusion in the calling task's repository changes. In a separate checkout, return the files or a pushed commit the caller can integrate. Link the report from its ticket when there is one.
+
+Done when the caller can retrieve the cited report, its necessary attachments, and the index link required by the chosen convention.

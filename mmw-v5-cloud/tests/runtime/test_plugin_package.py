@@ -123,7 +123,7 @@ class PluginPackage(unittest.TestCase):
             'to-tickets': (sources / 'to-tickets/references/ambiguity-scan.md').read_text(),
             'maintain-verification-skill': 'Read login.md and its source. Report feature summary / source entry points / likely drift or none / one recipe. Never edit or drive the app.',
             'improve-codebase-architecture': 'Walk the selected subsystem. Find shallow modules and coupling. Apply the deletion test and return findings.',
-            'wayfinder': 'Use research for ticket #7 in an isolated checkout from map-3. Save findings on research/service-api, push the branch, and open no PR.',
+            'wayfinder': 'Use research for ticket #7 in an isolated checkout from map-3. Save findings in docs/research/service-api/README.md and return the files for integration on map-3.',
         }
         for host, installation in installations.items():
             for caller, body in prompts.items():
