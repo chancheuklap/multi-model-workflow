@@ -304,10 +304,10 @@ def spawn_verifier(*, api=None) -> dict:
     pr = open_pr(api, branch)
     if pr['head']['sha'] != pushed:
         raise ValueError('PR head is not the pushed HEAD')
-    skills = verify_skill_names(pushed)
-    if len(skills) > 1:
-        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
     features = feature_changes(pr['base']['sha'], pushed)
+    skills = verify_skill_names(pushed)
+    if features and len(skills) > 1:
+        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
     if len(skills) != 1 or not features:
         return {'host': host, 'skipped': ['verifier'], 'cards': []}
     chosen = row('verifier')
@@ -380,10 +380,10 @@ def spawn_review(*, api=None) -> dict:
         cards.append(axis_card(chosen, 'tests', night['branch'], fork, tip, spec_line, landed_line, repository=api.repo))
     else:
         skipped.extend(['standards', 'spec', 'tests'])
-    skills = verify_skill_names(tip)
-    if len(skills) > 1:
-        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
     features = feature_changes(fork, tip)
+    skills = verify_skill_names(tip)
+    if features and len(skills) > 1:
+        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
     if features:
         for path in named_feature_paths([item.get('body') or '' for item in landed], tip):
             if path not in features:
