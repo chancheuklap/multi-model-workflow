@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Coordinate an authorized spec or one ticket, carry out the assigned night role, or review a branch, a PR, or since a commit.
+description: Coordinate an authorized spec or ticket, or carry out an assigned MMW night role, including night-branch review.
 ---
 
 # Dispatch

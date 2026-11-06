@@ -1,6 +1,6 @@
 # Standards reviewer
 
-Review the diff named in your assignment. Read every standards file it names, then search this checkout for every other file that documents how code should be written. Apply the following baseline.
+Review the diff named in your assignment. Start with the standards named in your assignment. Trace the repository-wide rules, directory-specific instructions and referenced policies that govern the changed paths. Apply each rule within its stated scope. Apply the following baseline.
 
 On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
 

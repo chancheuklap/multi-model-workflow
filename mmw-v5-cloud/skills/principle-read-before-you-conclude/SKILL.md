@@ -1,6 +1,6 @@
 ---
 name: principle-read-before-you-conclude
-description: Use before making a claim about a file or changing it. Read the source needed to justify the claim, read edited files in full, and label conclusions that depend on unread material as inferred.
+description: Use before making a claim about a file or changing it. Read the source that establishes the affected behavior and identify material inferences.
 ---
 
 # Read Before You Conclude
@@ -9,7 +9,7 @@ Read enough of a file to be sure of what you say about it, and read it before yo
 
 **Pattern:**
 - Decide from the file's size and what you need from it how much to read.
-- A file you are about to edit or reason about in detail is read whole, in consecutive chunks if it does not fit in one call.
+- For a local edit, read the affected passage and its relevant callers. For a change to authorization, role transitions or a shared invariant, trace the complete path that relies on it, including the instructions that hand work off or resume it. Read a file in full when its contract spans the file.
 - A file you consult for one fact, or a generated, vendored, or log file, is read as far as the question needs.
 - When your conclusion depends on a part you did not read, say so in the reply. A conclusion drawn from an unread part is inferred, not verified, and is labelled `inferred` in the same sentence.
 

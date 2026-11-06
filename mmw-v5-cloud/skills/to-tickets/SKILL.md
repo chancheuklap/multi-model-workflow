@@ -32,7 +32,7 @@ Break the work into **tracer bullet** tickets. Use **principle-write-for-where-i
 
 </vertical-slice-rules>
 
-The project's verification system is the project-local skill `verify-<app>`: a `features/` map of how a person reaches each part, plus the scripts that drive the real app. A ticket that changes a surface a person uses names the feature-file path in that skill's `features/` directory and copies the spec sentence unchanged. The worker writes the drive script beside that skill, asserts that same sentence, and commits both. A ticket that names neither does not get a script. This step does not write the script.
+The project's verification system is the project-local skill `verify-<app>`: a `features/` map of how a person reaches each part, plus the scripts that drive the real app. A ticket that changes a surface a person uses names the feature-file path in that skill's `features/` directory and copies the spec sentence unchanged. The worker writes the drive script beside that skill, checks the observable result it describes, and commits both. A ticket that names neither does not get a script. This step does not write the script.
 
 Use **principle-separate-before-serializing-shared-state** before settling the blocking edges, and before sequencing a wide refactor whose tickets would write one shared symbol.
 
@@ -46,24 +46,13 @@ For each ticket an agent works, propose `junior-worker` or `senior-worker` and a
 
 Save the drafted tickets in a temporary directory created with `mktemp -d`. Before presenting the breakdown, write a read-only prompt for the agent to scan the source plan, spec, or conversation and those drafts using [Ambiguity scan](references/ambiguity-scan.md). Include the resolved reference path, approved source, and drafted ticket text. Save the prompt to FILE and use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Wait for its one-pass result. If the host cannot run subagents, run the same scan yourself.
 
-Bring the scan's questions into the quiz below, alongside the affected tickets, with their options, recommendation, and why the answer matters. Do not open a separate question round.
+### 5. Agree on the scope
 
-### 5. Quiz the user
+Use the scan to resolve open points against the source, repository and approved decisions. Choose the ticket sizes, dependencies and worker grades yourself. Record consequential engineering choices and their reasons in the affected drafts.
 
-Present the proposed breakdown as a numbered list. For each ticket, show:
+Show the proposed breakdown in delivery order: what each ticket delivers, what it depends on, and who will do it. If a choice about product behaviour, priorities or scope still belongs to the owner, ask one question. Name the affected outcome, the options and your recommendation. Apply the answer to the drafts before raising the next unresolved choice.
 
-- **Title**: descriptive name
-- **Blocked by**: which other tickets (if any) must complete first
-- **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Worker**: the proposed `junior-worker` or `senior-worker` label and its reason; for work only a person can do, state `ready-for-human` instead.
-
-Ask the user:
-
-- Does the granularity feel right? (too coarse / too fine)
-- Are the blocking edges correct: does each ticket only depend on tickets that genuinely gate it?
-- Should any tickets be merged or split further?
-
-Iterate until the user approves the breakdown. Write every agreed clarification into the affected drafts before publishing.
+Get the owner's approval for the resulting scope before publishing the tickets.
 
 ### 6. Publish the tickets to the configured tracker
 

@@ -16,7 +16,7 @@ The prose that ships alongside the type sketch. Sentence-case headings, no boile
 
 ## Synthesis decision
 
-*Filled in by codebase-design's Present and compare. Records which candidate became the base and why, what was adapted from each of the others, and what was rejected and why.*
+*Record the constraint that determines the shape, or the trade-off that decided between viable candidates.*
 
 ## Tradeoffs accepted
 
@@ -24,7 +24,7 @@ The prose that ships alongside the type sketch. Sentence-case headings, no boile
 
 ## Alternatives considered
 
-*Required. Name at least one concrete alternative shape and explain why it lost. Judge each alternative on interface depth, not implementation simplicity alone. Name the complexity it exposes to callers and the complexity it hides. Include the alternatives that were real contenders. One is fine when the constraints forced the answer, with the conclusion phrased as "this was the only viable shape because..." Avoid listing flavors of the same shape. This section covers design alternatives the chosen shape considered and rejected, not other runner candidates.*
+*Include this section when there were viable alternatives. Explain the consequences each had for callers and why the chosen shape won.*
 
 ## Open questions and risks
 

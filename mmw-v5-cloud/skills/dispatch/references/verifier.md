@@ -6,7 +6,7 @@ Confirm HEAD is the commit named in your assignment before you run anything. If 
 
 Keep the branch name of this checkout. Push nothing.
 
-Read the `verify-<app>` skill that owns the feature paths in your assignment and follow it. Run its Doctor section, then the named feature files. A script's asserted text is the expected result, copied unchanged from the spec or ticket. A missing script, or a skill with no Doctor section, is a fail.
+Read the `verify-<app>` skill that owns the feature paths in your assignment and follow it. Run its Doctor section, then the named feature files. Use the sentence copied from the spec or ticket as the expected result. Report a pass only when the run demonstrates the outcome it describes. A missing script, or a skill with no Doctor section, is a fail.
 
 Leave the commit, the drive script, and the feature map as they are. A failure is a result you report, not a change you make.
 

@@ -17,68 +17,19 @@ Sketch types, function signatures, class shapes, and module boundaries with `not
 
 ## Phase A: Ground the problem
 
-Build a real mental model of every system the new code touches. Use **how** for those systems. Naming a file isn't grounding. If the design redefines ownership or layering, read the existing rationale so it becomes a constraint, not a guess.
+Start with the caller’s evidence: real callers, contracts, dependencies and decisions already settled. Investigate gaps that could change the interface. Use **how** when an unresolved cross-module dependency or ownership question needs a walkthrough. For ownership changes, read the existing rationale.
 
-Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
-
-Done when you can name every system the new code touches, or the work is greenfield.
+Done when the evidence accounts for the constraints the sketch must satisfy.
 
 ## Phase B: Sketch
 
-Design it twice. Whole-shape alternatives, not point fixes inside one shape. Based on "Design It Twice" (Ousterhout): your first idea is unlikely to be the best.
+Start with the caller’s usage and derive the interface from it. If an existing contract or precedent determines the shape, sketch it directly and state the constraint that settles it.
 
-### 1. Frame the problem space
+When viable alternatives differ in compatibility, ownership, or what callers must know, explain that trade-off to the caller. Compare those alternatives in parallel. Give each **FRESH AGENT** [the runner prompt](references/runner-prompt.md), the Phase A evidence, an isolated working directory and one viable design to explore. Include the project’s domain vocabulary. For dependency boundaries, consult [Deepening](references/deepening.md).
 
-Before spawning **FRESH AGENTS**, write a user-facing explanation of the problem space for the chosen candidate:
+Save each candidate assignment to FILE and use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn researcher --prompt FILE --host HOST`. Send each card as [Dispatch](../dispatch/SKILL.md) describes. Compare the returned usage examples, the complexity each interface hides and the consequences for existing callers. State how any missing candidate limits the comparison.
 
-- The constraints any new interface would need to satisfy
-- The dependencies it would rely on, and which category they fall into (see [deepening.md](references/deepening.md))
-- A rough illustrative code sketch to ground the constraints, not a proposal, just a way to make the constraints concrete
-
-Hand this explanation to the caller, then immediately proceed to Step 2. The caller reads it while the sub-agents work in parallel.
-
-Done when the constraints, the dependency categories, and the rough sketch are in the explanation.
-
-### 2. Spawn **FRESH AGENTS**
-
-Prepare prompts for 3+ **FRESH AGENTS**. Each must produce a **radically different** interface for the module.
-
-Pass [runner-prompt.md](references/runner-prompt.md) as each runner's prompt. Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [deepening.md](references/deepening.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
-
-- Agent 1: "Minimize the interface: aim for 1–3 entry points max. Maximise leverage per entry point."
-- Agent 2: "Maximise flexibility: support many use cases and extension."
-- Agent 3: "Optimise for the most common caller: make the default case trivial."
-- Agent 4 (if applicable): "Design around ports & adapters for cross-seam dependencies."
-
-Include both the codebase-dic vocabulary and GLOSSARY.md vocabulary in the brief so each sub-agent names things consistently with the architecture language and the project's domain language.
-
-Each sub-agent outputs:
-
-1. Interface (types, methods, params, plus invariants, ordering, error modes)
-2. Usage example showing how callers use it
-3. What the implementation hides behind the seam
-4. Dependency strategy and adapters (see [deepening.md](references/deepening.md))
-5. Trade-offs: where leverage is high, where it's thin
-
-Save each completed prompt to FILE and use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn researcher --prompt FILE --host HOST`. Send each card to a **FRESH AGENT** as [Dispatch](../dispatch/SKILL.md) describes. Run them in parallel.
-
-Done when at least three candidates have returned those outputs, and a fourth only when its constraint applies.
-
-### Screen every candidate against design-red-flags
-
-Screen every candidate against [design-red-flags.md](references/design-red-flags.md) before synthesis. Assume the next contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Prefer the design where a change that looks right from one file is right for the whole repo.
-
-Done when every candidate has been revised or rejected against those flags.
-
-### 3. Present and compare
-
-Return the designs to the caller one at a time, then compare them in prose. Compare viable candidates on interface **depth** (leverage at the interface), **locality** (where change concentrates), and **seam placement**. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
-
-After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated: the caller wants a strong read, not a menu.
-
-The recommendation fills the rationale's [Synthesis decision](references/rationale-template.md#synthesis-decision).
-
-Done when the rationale's Synthesis decision names the base, what was adapted from the others, and what was rejected.
+Screen the proposed shape against [design red flags](references/design-red-flags.md). Done when you can recommend a design and explain the constraint or trade-off that decided it.
 
 ## Phase C: Agree
 
