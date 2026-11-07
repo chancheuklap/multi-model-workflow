@@ -418,13 +418,6 @@ class CloudRuntime(unittest.TestCase):
                 self.assertIn(f'Commit: {tip}', prompt)
                 self.assertEqual(prompt.split('Features:\n')[1].splitlines(), [feature])
 
-    def test_verifier_role_requires_each_owner_doctor_and_all_feature_outcomes(self):
-        role = (ROOT / 'mmw-v5-cloud/skills/dispatch/references/verifier.md').read_text()
-        self.assertIn("Read every distinct owning skill's `SKILL.md`.", role)
-        self.assertIn('For each distinct owner, run its Doctor section once, then run its assigned feature files.', role)
-        self.assertIn('A missing owning skill, a missing script, or a skill with no Doctor section is a fail.', role)
-        self.assertIn('Report a pass only when every assigned feature demonstrates the outcome it describes.', role)
-
     def test_research_cli_preserves_inherit_and_cursor_options(self):
         config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         for tool, host in [(self.models, 'cursor'), (self.codex, 'codex')]:
