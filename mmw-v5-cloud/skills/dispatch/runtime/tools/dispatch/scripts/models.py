@@ -215,16 +215,6 @@ def ticket_start(ticket: str, night_branch: str) -> str:
     return night_branch
 
 
-def verify_skill_names(commit: str) -> list[str]:
-    listing = git_text('ls-tree', '-r', '--name-only', commit)
-    names = []
-    for line in listing.splitlines():
-        match = re.fullmatch(re.escape(project_agents().name) + r'/skills/(verify-[^/]+)/SKILL\.md', line)
-        if match:
-            names.append(match.group(1))
-    return names
-
-
 def named_feature_paths(bodies: list[str], commit: str) -> list[str]:
     found = []
     for body in bodies:
@@ -305,10 +295,7 @@ def spawn_verifier(*, api=None) -> dict:
     if pr['head']['sha'] != pushed:
         raise ValueError('PR head is not the pushed HEAD')
     features = feature_changes(pr['base']['sha'], pushed)
-    skills = verify_skill_names(pushed)
-    if features and len(skills) > 1:
-        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
-    if len(skills) != 1 or not features:
+    if not features:
         return {'host': host, 'skipped': ['verifier'], 'cards': []}
     chosen = row('verifier')
     prompt = '\n'.join([
@@ -381,14 +368,11 @@ def spawn_review(*, api=None) -> dict:
     else:
         skipped.extend(['standards', 'spec', 'tests'])
     features = feature_changes(fork, tip)
-    skills = verify_skill_names(tip)
-    if features and len(skills) > 1:
-        raise ValueError('more than one verify-<app>: ' + ', '.join(skills))
     if features:
         for path in named_feature_paths([item.get('body') or '' for item in landed], tip):
             if path not in features:
                 features.append(path)
-    if len(skills) == 1 and features:
+    if features:
         chosen = row('verifier')
         prompt = '\n'.join([
             'Load the installed dispatch skill.',
