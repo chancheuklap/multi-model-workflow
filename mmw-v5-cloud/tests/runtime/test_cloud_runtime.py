@@ -291,13 +291,14 @@ class CloudRuntime(unittest.TestCase):
     def test_codex_assignments_use_project_commits_and_verification(self):
         self.check_assignments('codex')
 
-    def prepare_multiple_verifiers(self, feature_changed):
+    def prepare_multiple_verifiers(self, changed_products=(), missing_skills=()):
         config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
         self.codex.write_config(config)
         for name in ('alpha', 'beta', 'gamma'):
             skill = self.root / f'.agents/skills/verify-{name}'
             (skill / 'features').mkdir(parents=True)
-            (skill / 'SKILL.md').write_text(f'name: verify-{name}\n')
+            if name not in missing_skills:
+                (skill / 'SKILL.md').write_text(f'name: verify-{name}\n\n## Doctor\nCheck the app.\n')
             (skill / 'features/screen.md').write_text('existing screen\n')
         self.commit('existing verification skills')
         fork = self.git('rev-parse', 'HEAD')
@@ -305,8 +306,8 @@ class CloudRuntime(unittest.TestCase):
         self.git('push', '-q', 'origin', 'project/demo', 'night/spec-90')
         self.git('switch', '-q', '-c', 'ticket/issue-18', 'night/spec-90')
         (self.root / 'backend.py').write_text('backend change\n')
-        if feature_changed:
-            (self.root / '.agents/skills/verify-alpha/features/screen.md').write_text('changed screen\n')
+        for name in changed_products:
+            (self.root / f'.agents/skills/verify-{name}/features/screen.md').write_text('changed screen\n')
         self.commit('ticket change'); head = self.git('rev-parse', 'HEAD')
         self.git('push', '-q', 'origin', 'ticket/issue-18')
         api = API(); api.add(90, 'mmw:spec'); api.add(18); api.children[90] = [18]
@@ -323,28 +324,99 @@ class CloudRuntime(unittest.TestCase):
         return tip
 
     def test_multiple_verifiers_skip_backend_only_ticket(self):
-        api, _, _ = self.prepare_multiple_verifiers(False)
-        self.assertEqual(self.codex.spawn_verifier(api=api), {'host': 'codex', 'skipped': ['verifier'], 'cards': []})
+        api, _, _ = self.prepare_multiple_verifiers()
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host):
+                self.assertEqual(tool.spawn_verifier(api=api), {'host': host, 'skipped': ['verifier'], 'cards': []})
 
     def test_multiple_verifiers_skip_backend_only_review(self):
-        api, fork, _ = self.prepare_multiple_verifiers(False)
+        api, fork, _ = self.prepare_multiple_verifiers()
+        api.items[18]['body'] = 'Feature: `.agents/skills/verify-gamma/features/screen.md`'
         tip = self.merge_multiple_verifier_ticket(api)
-        review = self.codex.spawn_review(api=api)
-        self.assertEqual([card['description'] for card in review['cards']], ['Standards', 'Spec', 'Tests'])
-        self.assertEqual(review['skipped'], ['verifier'])
-        self.assertEqual((review['fork'], review['reviewed']), (fork, tip))
-        for card in review['cards']:
-            self.assertIn(f'Diff: git diff {fork} {tip}', card['prompt'])
-            self.assertIn('Landed tickets: #18', card['prompt'])
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host):
+                review = tool.spawn_review(api=api)
+                self.assertEqual([card['description'] for card in review['cards']], ['Standards', 'Spec', 'Tests'])
+                self.assertEqual(review['skipped'], ['verifier'])
+                self.assertEqual((review['fork'], review['reviewed']), (fork, tip))
+                for card in review['cards']:
+                    self.assertIn(f'Diff: git diff {fork} {tip}', card['prompt'])
+                    self.assertIn('Landed tickets: #18', card['prompt'])
 
-    def test_multiple_verifiers_reject_changed_feature(self):
-        api, _, _ = self.prepare_multiple_verifiers(True)
-        message = 'more than one verify-<app>: verify-alpha, verify-beta, verify-gamma'
-        with self.assertRaisesRegex(ValueError, message):
-            self.codex.spawn_verifier(api=api)
-        self.merge_multiple_verifier_ticket(api)
-        with self.assertRaisesRegex(ValueError, message):
-            self.codex.spawn_review(api=api)
+    def test_multiple_verifiers_route_single_owning_feature(self):
+        api, fork, head = self.prepare_multiple_verifiers(('alpha',))
+        feature = '.agents/skills/verify-alpha/features/screen.md'
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host, recipient='Worker'):
+                result = tool.spawn_verifier(api=api)
+                self.assertEqual(result['skipped'], [])
+                self.assertEqual(len(result['cards']), 1)
+                prompt = result['cards'][0]['prompt']
+                self.assertIn(f'Commit: {head}', prompt)
+                self.assertIn('Return pass or fail to the Worker.', prompt)
+                self.assertEqual(prompt.split('Features:\n')[1].splitlines(), [feature])
+                api.prs[0]['head']['sha'] = fork
+                try:
+                    with self.assertRaisesRegex(ValueError, 'PR head is not the pushed HEAD'):
+                        tool.spawn_verifier(api=api)
+                finally:
+                    api.prs[0]['head']['sha'] = head
+        tip = self.merge_multiple_verifier_ticket(api)
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host, recipient='Coordinator'):
+                review = tool.spawn_review(api=api)
+                self.assertEqual([card['description'] for card in review['cards']],
+                                 ['Standards', 'Spec', 'Tests', 'Verify night/spec-90'])
+                self.assertEqual(review['skipped'], [])
+                self.assertEqual((review['fork'], review['reviewed']), (fork, tip))
+                prompt = review['cards'][-1]['prompt']
+                self.assertIn(f'Commit: {tip}', prompt)
+                self.assertIn('Return pass or fail to the Coordinator.', prompt)
+                self.assertEqual(prompt.split('Features:\n')[1].splitlines(), [feature])
+
+    def test_cross_product_features_and_landed_feature_paths_share_one_verifier(self):
+        api, _, head = self.prepare_multiple_verifiers(('beta', 'alpha'))
+        features = ['.agents/skills/verify-alpha/features/screen.md',
+                    '.agents/skills/verify-beta/features/screen.md']
+        named = '.agents/skills/verify-gamma/features/screen.md'
+        api.items[18]['body'] = f'Features: `{features[0]}`, `{named}`.'
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host, recipient='Worker'):
+                result = tool.spawn_verifier(api=api)
+                self.assertEqual(result['skipped'], [])
+                self.assertEqual(len(result['cards']), 1)
+                prompt = result['cards'][0]['prompt']
+                self.assertIn(f'Commit: {head}', prompt)
+                self.assertEqual(prompt.split('Features:\n')[1].splitlines(), features)
+        tip = self.merge_multiple_verifier_ticket(api)
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host, recipient='Coordinator'):
+                review = tool.spawn_review(api=api)
+                verifiers = [card for card in review['cards'] if card['model_row']['role'] == 'verifier']
+                self.assertEqual(review['skipped'], [])
+                self.assertEqual(len(verifiers), 1)
+                prompt = verifiers[0]['prompt']
+                self.assertIn(f'Commit: {tip}', prompt)
+                self.assertEqual(prompt.split('Features:\n')[1].splitlines(), [*features, named])
+
+    def test_missing_owning_skills_still_require_verification(self):
+        api, _, head = self.prepare_multiple_verifiers(('alpha',), ('alpha', 'beta', 'gamma'))
+        feature = '.agents/skills/verify-alpha/features/screen.md'
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host, recipient='Worker'):
+                result = tool.spawn_verifier(api=api)
+                self.assertEqual(result['skipped'], [])
+                self.assertEqual(len(result['cards']), 1)
+                self.assertIn(f'Commit: {head}', result['cards'][0]['prompt'])
+                self.assertEqual(result['cards'][0]['prompt'].split('Features:\n')[1].splitlines(), [feature])
+        tip = self.merge_multiple_verifier_ticket(api)
+        for tool, host in [(self.codex, 'codex'), (self.models, 'cursor')]:
+            with self.subTest(host=host, recipient='Coordinator'):
+                review = tool.spawn_review(api=api)
+                self.assertEqual(review['skipped'], [])
+                prompt = review['cards'][-1]['prompt']
+                self.assertIn(f'Commit: {tip}', prompt)
+                self.assertEqual(prompt.split('Features:\n')[1].splitlines(), [feature])
 
     def test_research_cli_preserves_inherit_and_cursor_options(self):
         config = json.loads((ROOT / 'mmw-v5-cloud/skills/dispatch/runtime/models.json').read_text())
