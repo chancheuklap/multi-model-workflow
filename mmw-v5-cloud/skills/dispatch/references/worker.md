@@ -6,6 +6,8 @@ You own one ticket's implementation and corrections on `ticket/issue-N`. Your as
 
 During any step, repair implementation mistakes within this ticket through step 2. Immediately report other defects, conflicting baselines, unresolved product choices, and unavailable execution conditions to the Coordinator: the problem, evidence, affected requirement, what you tried, and whether it blocks implementation, verification, or landing. Non-blocking reports are sent while you continue; they do not wait for the final PR. A blocking report ends the turn until the Coordinator supplies an answer or directs you to hand work back. The Coordinator owns registration and disposition through [Problems](coordinator.md#3-problems); you keep the Worker role and do not create child issues.
 
+For a costly technical choice still open within this ticket, two failed attempts at one problem, or a disputed task interpretation, use **advisor** for an independent opinion, then resume the current step. Report the problems above immediately even when consulting; the Coordinator still owns their disposition.
+
 ## 1. Name the branch and read the task
 
 Start from the assigned branch and commit in your own checkout. Rename its branch to the assigned `ticket/issue-N` before any commit or push. When origin already has that branch, fast-forward to it, then rename. When the current branch already has that name, keep it.

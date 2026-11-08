@@ -68,6 +68,8 @@ class PluginPackage(unittest.TestCase):
         cursor = json.loads((self.plugin / '.cursor-plugin/plugin.json').read_text())
         self.assertEqual((portable['name'], portable['version']), (cursor['name'], cursor['version']))
         self.assertTrue((self.plugin / 'skills/research/SKILL.md').is_file())
+        self.assertTrue((self.plugin / 'skills/advisor/SKILL.md').is_file())
+        self.assertTrue((self.plugin / 'skills/dispatch/references/advisor.md').is_file())
         self.assertTrue((self.runtime / 'board/page/app.mjs').is_file())
         self.assertTrue((self.plugin / 'skills/dispatch/runtime/tools/dispatch/scripts/dispatch.sh').is_file())
         self.assertTrue((self.plugin / portable['extensions']['com.openai']['onboardingSkill']).is_file())
@@ -104,28 +106,29 @@ class PluginPackage(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.config.exists())
 
-    def test_researcher_dispatch_preserves_prompt_bytes_and_selected_row(self):
+    def test_prompt_dispatch_preserves_prompt_and_selected_row(self):
         self.dispatch('codex', 'show')
         selected = {}
         for host in ('cursor', 'codex'):
             config = json.loads(self.config.read_text())
-            config['rows'][host]['researcher']['model'] = 'selected-researcher-' + host
-            selected[host] = config['rows'][host]['researcher'].copy()
+            for role in ('researcher', 'advisor'):
+                config['rows'][host][role]['model'] = 'selected-' + role + '-' + host
+                selected[host, role] = config['rows'][host][role].copy()
             self.config.write_text(json.dumps(config))
         self.git(self.project, 'add', '.')
         self.git(self.project, 'commit', '--allow-empty', '-qm', 'researcher settings')
         text = '\nAssigned task: 保留原任务\n\nReturn the literal text: "$value" and `code`.\n\n'
         prompt = self.base / 'research prompt.md'
         prompt.write_text(text, encoding='utf-8')
-        for host in ('cursor', 'codex'):
-            with self.subTest(host=host):
+        for host, role in selected:
+            with self.subTest(host=host, role=role):
                 result = self.run_command(self.project, 'bash',
                                           str(self.runtime / 'tools/dispatch/scripts/dispatch.sh'),
-                                          'spawn', 'researcher', '--prompt', str(prompt), '--host', host)
+                                          'spawn', role, '--prompt', str(prompt), '--host', host)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 card, = json.loads(result.stdout)['cards']
                 self.assertEqual(card['prompt'], text)
-                self.assertEqual(card['model_row'], {'role': 'researcher', **selected[host]})
+                self.assertEqual(card['model_row'], {'role': role, **selected[host, role]})
 
 
 if __name__ == '__main__': unittest.main()

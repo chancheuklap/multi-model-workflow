@@ -265,7 +265,7 @@ class CloudRuntime(unittest.TestCase):
         self.assertEqual(ticket['model_row'], {'role': 'verifier', **config['rows'][host]['verifier']})
         self.assertEqual(tool.named_feature_paths([f'Feature: `{feature_path}`'], head), [feature_path])
         question = self.root / 'question.md'; question.write_text('Trace the login flow.')
-        researcher = tool.spawn_researcher(str(question))['cards'][0]
+        researcher = tool.spawn_prompt('researcher', str(question))['cards'][0]
         self.assertEqual(researcher['model_row']['model'], changed['rows'][host]['researcher']['model'])
         self.assertEqual(question.read_text(), researcher['prompt'])
         self.git('commit', '-q', '--allow-empty', '-m', 'unpushed')
