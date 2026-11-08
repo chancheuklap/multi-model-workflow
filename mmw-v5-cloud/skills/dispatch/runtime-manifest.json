@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "version": "5.0.22",
+  "version": "5.0.23",
   "files": {
     "board/board_data.py": {
       "resource": "runtime/board/board_data.py",
