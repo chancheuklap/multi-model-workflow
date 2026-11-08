@@ -1,15 +1,21 @@
 ---
 name: advisor
-description: "Independent second opinion whenever the user asks or the agent judges that another perspective would help with a decision, an approach, or its understanding. Useful for consequential choices, repeated failures, uncertain assumptions, and disputed interpretations at any stage."
+description: "Consider an independent second opinion when consequential choices, repeated failures, uncertain assumptions, or disputed interpretations suggest another perspective could help. Use at any stage, or when the user asks for the Advisor."
 ---
 
 # Advisor
 
-You are the caller seeking an independent opinion. Keep your assigned role. The Advisor is a fresh agent that holds none of your context and reads the code itself, using the user's advisor model row. It is available at any stage, including outside a night or ticket.
+You are the caller considering an independent opinion. Keep your assigned role. The description brings you here when consultation may help; decide below whether to start it. The Advisor is a fresh agent that holds none of your context and reads the code itself, using the user's advisor model row. It is available at any stage, including outside a night or ticket.
 
 ## Decide whether to consult
 
-When the user asks for the Advisor, proceed to the brief. Otherwise, decide whether an independent perspective would help enough to justify the consultation. Consider the cost of being wrong, uncertainty in your understanding, and whether your own investigation can settle the question. These are judgement calls, not workflow prerequisites or mandatory checkpoints.
+When the user explicitly asks for the Advisor, proceed to the brief. For an agent-initiated consultation, reconsider whether it is warranted before writing a brief or dispatching an agent:
+
+- What decision or assumption needs an independent opinion, and what would that opinion change about your next action?
+- Can reading the relevant sources or making a small check settle the question yourself?
+- Does the cost of being wrong, or evidence that your understanding is off, justify the time and effort of another agent?
+
+Use these questions to make the call. Matching the description is a reason to consider consultation, not a decision to dispatch. If your own investigation can settle the question or another opinion would not change what you do, return to the task without starting an Advisor. Otherwise, continue to the brief.
 
 When consulting again, include the new question, changed evidence, or the user's request for another opinion. Reading this page is not a consultation.
 
