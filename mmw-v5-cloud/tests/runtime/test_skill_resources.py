@@ -79,6 +79,40 @@ class SkillResources(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'sha256'):
             self.prepare(contents={})
 
+    def test_advisor_consultation_needs_no_repository_or_tracker(self):
+        runtime = self.prepare()
+        prompt = self.base / 'advisor brief.md'
+        prompt.write_text('You are the Advisor. Check this premise: 保留 "$value" and `code`.\n')
+        defaults = json.loads((runtime / 'models.json').read_text())
+        config = json.loads(json.dumps(defaults))
+        for host in ('codex', 'cursor'):
+            config['rows'][host]['advisor'].update(model='inherit', effort='inherit')
+        config['rows']['cursor']['advisor'].update(context='256k', fast=False)
+        self.env['MMW_MODELS_JSON'] = json.dumps(config)
+        for host in ('codex', 'cursor'):
+            result = self.command(runtime, 'spawn', 'advisor', '--prompt', str(prompt), '--host', host)
+            card, = result['cards']
+            self.assertEqual(result['skipped'], [])
+            self.assertEqual(card['description'], 'Advisor')
+            self.assertEqual(card['prompt'], prompt.read_text())
+            self.assertEqual(card['model_row'], {'role': 'advisor', **config['rows'][host]['advisor']})
+        self.assertEqual(list(self.project.iterdir()), [])
+        self.assertEqual(json.loads((self.home / '.agents/models.json').read_text()), config)
+
+    def test_advisor_rejects_missing_prompt_before_creating_config(self):
+        runtime = self.prepare()
+        for args, error in (([], 'advisor spawn needs --prompt'),
+                            (['--prompt', str(self.base / 'absent.md')], '--prompt is not a file')):
+            with self.subTest(args=args):
+                result = subprocess.run(['bash', str(runtime / 'tools/dispatch/scripts/dispatch.sh'),
+                                         'spawn', 'advisor', '--host', 'codex', *args],
+                                        cwd=self.project, env=self.env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(error, result.stderr)
+                self.assertEqual(result.stdout, '')
+                self.assertFalse((self.home / '.agents/models.json').exists())
+                self.assertEqual(list(self.project.iterdir()), [])
+
     def test_cloud_cli_works_without_the_plugin_filesystem(self):
         script = self.base / 'materialize.py'
         script.write_bytes((SKILL / 'scripts/materialize.py').read_bytes())
