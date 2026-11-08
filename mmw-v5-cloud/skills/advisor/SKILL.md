@@ -1,17 +1,17 @@
 ---
 name: advisor
-description: "Get an independent second opinion before a costly architecture, migration, refactor or API commitment; after two failed attempts at one problem; or before a disputed task interpretation is treated as settled."
+description: "Independent second opinion whenever the user asks or the agent judges that another perspective would help with a decision, an approach, or its understanding. Useful for consequential choices, repeated failures, uncertain assumptions, and disputed interpretations at any stage."
 ---
 
 # Advisor
 
-You are the caller, in the middle of a decision. Keep your assigned role. The Advisor is a fresh agent that holds none of your context and reads the code itself, using the user's advisor model row.
+You are the caller seeking an independent opinion. Keep your assigned role. The Advisor is a fresh agent that holds none of your context and reads the code itself, using the user's advisor model row. It is available at any stage, including outside a night or ticket.
 
 ## Decide whether to consult
 
-What you can settle by reading the code, settle by reading the code. The test is the cost of being wrong: a choice that is expensive to undo once work is built on it, or a problem whose repeated failure says your model of it is off. A choice you could reverse in minutes is not worth a consultation.
+When the user asks for the Advisor, proceed to the brief. Otherwise, decide whether an independent perspective would help enough to justify the consultation. Consider the cost of being wrong, uncertainty in your understanding, and whether your own investigation can settle the question. These are judgement calls, not workflow prerequisites or mandatory checkpoints.
 
-Do not ask again to get a different answer. A second consultation is for a new decision, or for the evidence the Advisor said would change its answer. Reading this page is not that consultation.
+When consulting again, include the new question, changed evidence, or the user's request for another opinion. Reading this page is not a consultation.
 
 Done when you have identified the decision that needs an independent opinion, or returned to your task without a consultation.
 
@@ -27,7 +27,7 @@ Name the repository, code version, relevant uncommitted changes, and approved ba
 4. The options you weighed, and which way you are leaning.
 5. The file paths you believe are relevant.
 
-The test for the brief: a stranger with only this and the repository can reconstruct the decision. For a problem that resisted two attempts, each attempt and what it produced is the core of the evidence. Make the named sources available to the Advisor through the host's checkout or readable references.
+The test for the brief: a stranger with only this and the repository can reconstruct the decision. For a problem that resisted repeated attempts, each attempt and what it produced is the core of the evidence. Make the named sources available to the Advisor through the host's checkout or readable references.
 
 Your framing is the thing under review, so the brief leaves the Advisor's work to the Advisor. Leave out the list of what to check, the file you would have it skip, the conclusion you expect confirmed, and the narrowing of "which option" down to one option's details.
 
@@ -43,4 +43,4 @@ The answer is advice, not a ruling: you still own the decision. Take it, or set 
 
 Keep approved baselines and authorization fixed. Pass `For the owner` to the owner as it stands. In a night, a Worker returns that section through the Coordinator. Use the current role's problem procedure for conflicts, cross-ticket effects, or decisions outside your authority; consultation does not delay a required report.
 
-Done when you have handled the advice within your authority or returned the unresolved decision to its owner. Resume the step that called this skill.
+Done when you have handled the advice within your authority or returned the unresolved decision to its owner. Continue the task or conversation from which you consulted the Advisor.

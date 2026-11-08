@@ -72,8 +72,6 @@ N is the affected execution ticket, or the spec for a shared problem. Record the
 
 ### Decide and continue
 
-For a costly open decision, two failed attempts at one problem, or a disputed task interpretation, use **advisor** for an independent opinion. Return here with the answer and handle it within the existing authorization.
-
 | Finding | Action |
 | --- | --- |
 | Implementation error or regression introduced by this work | Return the evidence to the responsible Worker for correction in its ticket. |
