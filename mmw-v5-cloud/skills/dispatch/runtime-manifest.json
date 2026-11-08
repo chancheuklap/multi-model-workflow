@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "version": "5.0.22",
+  "version": "5.0.23",
   "files": {
     "board/board_data.py": {
       "resource": "runtime/board/board_data.py",
@@ -233,7 +233,7 @@
     "tools/dispatch/scripts/dispatch.sh": {
       "resource": "runtime/tools/dispatch/scripts/dispatch.sh",
       "encoding": "utf-8",
-      "sha256": "d787c5517b568ae25f580c9f0ee3cede7011359152163063d5051543124c1ddf",
+      "sha256": "d0a30e358e0025140edde7e352f9a7bda9a79c0a867c7c854db1102c2d552805",
       "mode": 493
     },
     "tools/dispatch/scripts/land.py": {
@@ -245,7 +245,7 @@
     "tools/dispatch/scripts/models.py": {
       "resource": "runtime/tools/dispatch/scripts/models.py",
       "encoding": "utf-8",
-      "sha256": "4bcca185b83be58273eb1bd5a8014f5fdb10da60f25858844fd63b9fd99f8012",
+      "sha256": "a919c790c370c43a0c7501bd694b1363b6a0fba1242afc5b8310517c11abed70",
       "mode": 420
     },
     "tools/dispatch/scripts/status.py": {

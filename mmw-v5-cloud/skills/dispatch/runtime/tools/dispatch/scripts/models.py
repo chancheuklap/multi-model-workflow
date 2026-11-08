@@ -394,11 +394,11 @@ def spawn_review(*, api=None) -> dict:
     return {'host': host, 'skipped': skipped, 'cards': cards, 'project_branch': project, 'fork': fork, 'reviewed': tip}
 
 
-def spawn_researcher(prompt: str) -> dict:
+def spawn_prompt(role: str, prompt: str) -> dict:
     path = require_file(prompt, '--prompt')
-    chosen = row('researcher')
+    chosen = row(role)
     text = Path(path).read_text(encoding='utf-8')
-    return {'host': native_host(), 'skipped': [], 'cards': [assignment('researcher', chosen, 'Researcher', text)]}
+    return {'host': native_host(), 'skipped': [], 'cards': [assignment(role, chosen, role.capitalize(), text)]}
 
 
 def write_config(value: dict) -> None:
@@ -434,7 +434,7 @@ def main():
     get = sub.add_parser('row', parents=[model_args])
     get.add_argument('role', choices=ROLES)
     spawn = sub.add_parser('spawn', parents=[model_args])
-    spawn.add_argument('kind', choices=('worker', 'verifier', 'review', 'researcher'))
+    spawn.add_argument('kind', choices=('worker', 'verifier', 'review', 'researcher', 'advisor'))
     spawn.add_argument('--ticket', default='')
     spawn.add_argument('--prompt', default='')
     args = parser.parse_args()
@@ -456,8 +456,8 @@ def main():
             printed = spawn_review()
         else:
             if not args.prompt:
-                raise ValueError('researcher spawn needs --prompt')
-            printed = spawn_researcher(args.prompt)
+                raise ValueError(f'{args.kind} spawn needs --prompt')
+            printed = spawn_prompt(args.kind, args.prompt)
         print(json.dumps(printed, ensure_ascii=False, indent=2))
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         parser.exit(2, f'dispatch: {exc}\n')
