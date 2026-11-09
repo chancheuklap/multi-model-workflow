@@ -398,6 +398,15 @@ def spawn_prompt(role: str, prompt: str) -> dict:
     path = require_file(prompt, '--prompt')
     chosen = row(role)
     text = Path(path).read_text(encoding='utf-8')
+    if role == 'advisor':
+        text = '\n'.join([
+            'Assigned role: advisor.',
+            'Load the installed advisor skill.',
+            'Advise on the decision in the brief below.',
+            'Return your answer to the caller.',
+            '',
+            text,
+        ])
     return {'host': native_host(), 'skipped': [], 'cards': [assignment(role, chosen, role.capitalize(), text)]}
 
 

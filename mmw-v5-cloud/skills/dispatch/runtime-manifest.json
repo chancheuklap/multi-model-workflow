@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "version": "5.0.23",
+  "version": "5.0.24",
   "files": {
     "board/board_data.py": {
       "resource": "runtime/board/board_data.py",
@@ -245,7 +245,7 @@
     "tools/dispatch/scripts/models.py": {
       "resource": "runtime/tools/dispatch/scripts/models.py",
       "encoding": "utf-8",
-      "sha256": "a919c790c370c43a0c7501bd694b1363b6a0fba1242afc5b8310517c11abed70",
+      "sha256": "6739664c4644295a1022d77563aa109162d9743a633774fdfea9528a8b745660",
       "mode": 420
     },
     "tools/dispatch/scripts/status.py": {

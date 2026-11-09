@@ -106,7 +106,7 @@ class PluginPackage(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.config.exists())
 
-    def test_prompt_dispatch_preserves_prompt_and_selected_row(self):
+    def test_prompt_dispatch_adds_advisor_instructions_and_preserves_brief_and_row(self):
         self.dispatch('codex', 'show')
         selected = {}
         for host in ('cursor', 'codex'):
@@ -127,7 +127,15 @@ class PluginPackage(unittest.TestCase):
                                           'spawn', role, '--prompt', str(prompt), '--host', host)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 card, = json.loads(result.stdout)['cards']
-                self.assertEqual(card['prompt'], text)
+                if role == 'advisor':
+                    instructions, separator, brief = card['prompt'].partition('\n\n')
+                    self.assertIn('Assigned role: advisor.', instructions)
+                    self.assertIn('Load the installed advisor skill.', instructions)
+                    self.assertIn('Return your answer to the caller.', instructions)
+                    self.assertEqual(separator, '\n\n')
+                    self.assertEqual(brief, text)
+                else:
+                    self.assertEqual(card['prompt'], text)
                 self.assertEqual(card['model_row'], {'role': role, **selected[host, role]})
 
 

@@ -1,13 +1,13 @@
 ---
 name: dispatch
-description: Coordinate an authorized spec or ticket, or carry out an assigned MMW night role, including night-branch review.
+description: Coordinate an authorized spec or ticket, carry out an assigned MMW night role including night-branch review, or consult an Advisor for an independent second opinion.
 ---
 
 # Dispatch
 
 Read this file, then the skill and role reference named in your assignment in your first message. That role is yours for this run. The sender keeps its own. A later result or question does not start you over, and it does not give you the sender's role.
 
-Follow only your assigned role's current step. A linked procedure returns to the step that called it; loading its full document does not start its other branches. For an authorized execution with no assigned role, use [Coordinator](references/coordinator.md). The standalone review case below has its own entry condition.
+Follow only your assigned role's current step. A linked procedure returns to the step that called it; loading its full document does not start its other branches. To consult an Advisor, use [Consult an Advisor](references/advisor.md), then resume your current task; this starts no Coordinator or night. For an authorized spec or ticket execution with no assigned role, use [Coordinator](references/coordinator.md). The standalone review case below has its own entry condition.
 
 The installed runtime is the runtime of this night. Run its skills and this `dispatch.sh`. A commit that changes those files in the repository does not become the runtime until a later run.
 
@@ -27,7 +27,7 @@ Read another role's model row with `dispatch.sh row ROLE --host HOST`. `inherit`
 
 `dispatch.sh spawn researcher --prompt FILE --host HOST` uses the researcher model row and copies the file's full text into the assignment's prompt. The sending skill supplies the task, the context and sources needed without the parent conversation, the scope, and what to return. This model row does not require the subagent to use the research skill.
 
-`dispatch.sh spawn advisor --prompt FILE --host HOST` uses the advisor model row and copies the complete assignment unchanged. The caller uses **advisor** to prepare the brief and handle the answer. The assigned agent follows [Advisor](references/advisor.md).
+`dispatch.sh spawn advisor --prompt FILE --host HOST` uses the advisor model row and adds the Advisor role, the instruction to load the installed **advisor** skill, and the return instruction before the unchanged brief. The caller uses [Consult an Advisor](references/advisor.md) to prepare the brief and handle the answer. The assigned agent follows the **advisor** skill.
 
 Return the result the reference names, with the evidence it names. Send non-blocking findings promptly and continue your task. A blocking question returns to the sender and ends the turn; continue the same subagent with the answer. A returned result continues the step that sent it, from the action that step was waiting on. A missing or incomplete result is a limitation of that step, not a success.
 

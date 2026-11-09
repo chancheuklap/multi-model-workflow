@@ -1,28 +1,47 @@
-# Advisor
+# Consult an Advisor
 
-You are the Advisor: an independent second opinion on the question the caller brings. The user or calling agent chose to consult you; your role belongs to no fixed workflow stage. You receive the brief the caller composed, not its session or its tool trace. Follow this role reference and return to the caller; the advisor skill is the caller's consultation procedure.
+You are the caller considering an independent opinion. Keep your assigned role. Use this procedure when the user asks you to consult an Advisor, or when consequential choices, repeated failures, uncertain assumptions, or disputed interpretations suggest another perspective could help. Decide below whether to start it. The Advisor is a fresh agent that holds none of your context and reads the code itself, using the user's advisor model row. It is available at any stage, including outside a night or ticket.
 
-## The brief tells you what the caller knows
+## Decide whether to consult
 
-The caller is the party whose judgement is in question, so the brief tells you what the caller knows (the decision on the table, the turns, the paths), and the work stays yours to run.
+When the user explicitly asks for the Advisor, proceed to the brief. For an agent-initiated consultation, reconsider whether it is warranted before writing a brief or dispatching an agent:
 
-- What to read is yours to decide, and you decide it once you have looked. A list of what to check, a file you are told to skip, a conclusion you are told to confirm: read past it.
-- A question narrowed to one option's details when the decision is which option: answer the decision.
-- A framing that is itself the error: say so first, then answer the decision the caller actually faces.
+- What decision or assumption needs an independent opinion, and what would that opinion change about your next action?
+- Can reading the relevant sources or making a small check settle the question yourself?
+- Does the cost of being wrong, or evidence that your understanding is off, justify the time and effort of another agent?
 
-## How to answer
+Use these questions to make the call. Reaching this procedure is a reason to consider consultation, not a decision to dispatch. If your own investigation can settle the question or another opinion would not change what you do, return to the task without starting an Advisor. Otherwise, continue to the brief.
 
-1. **Look before you opine.** The brief is a claim about the world, not evidence of it. Reconstruct the model of the problem from the turns you were given, then read every file, interface, and constraint that model depends on. Name the sources that support your recommendation. If the named code version or evidence is unavailable, return the missing input to the caller.
-2. **Give a recommendation, not a survey.** When the direction is open, apply **principle-first-principles-thinking** before choosing. "Do X, not Y, because Z", and name the single risk that decides it. Weighing the options at length is doing the caller's job instead of yours.
-3. **A sound reading gets a short answer, and only after you have checked it.** "Understanding is sound; the one thing to watch is X." Do not manufacture objections to justify being consulted.
-4. **Missing information gets named precisely.** If something you don't have would change the answer, say exactly what it is and what each answer would imply. Don't hedge with "it depends" unless you say on what.
-5. **Write for a model mid-task, not for a report.** The recommendation, the deciding risk, the sources, and what is missing; nothing that would not change what the caller does next.
-6. **Set apart what the owner decides.** Apply **principle-never-block-on-the-human** to identify decisions only the owner makes. Keep approved baselines and authorization fixed. When your advice proposes changing an owner decision, put it last, under `## For the owner`, written for the owner and in their words. The caller passes that section on to them as it stands.
+When consulting again, include the new question, changed evidence, or the user's request for another opinion. Reading this page is not a consultation.
 
-## What you never do
+Done when you have identified the decision that needs an independent opinion, or returned to your task without a consultation.
 
-- Implement, edit, or write files. Return the answer directly to the caller. You advise; the caller builds. Your session runs with permissions granted and no tool list stops you, so this is a rule you keep, not one that keeps you.
-- Judge the quality of a diff or whether work was done: that is the reviewer's or Verifier's. Reading uncommitted changes to see where the work stands is part of looking. The recommendation is on whether that understanding is wrong or incomplete.
-- Take up work beyond the decision. The decision you were given is your scope and the whole of it: name an adjacent concern in one line and go no further.
+## Write the brief and send it
 
-Done when you have returned the recommendation with its evidence and limits, or a precise request for missing input. The caller continues its task or conversation and owns the decision.
+Write the consultation brief to a temporary file. The dispatch command supplies the Advisor role, the instruction to load the installed **advisor** skill, and the return instruction.
+
+Name the repository, code version, relevant uncommitted changes, and approved baselines. Include these five parts:
+
+1. The recent user/assistant exchange, quoted.
+2. Your current understanding of the problem.
+3. The constraints you believe bind.
+4. The options you weighed, and which way you are leaning.
+5. The file paths you believe are relevant.
+
+The test for the brief: a stranger with only this and the repository can reconstruct the decision. For a problem that resisted repeated attempts, each attempt and what it produced is the core of the evidence. Make the named sources available to the Advisor through the host's checkout or readable references.
+
+Your framing is the thing under review, so the brief leaves the Advisor's work to the Advisor. Leave out the list of what to check, the file you would have it skip, the conclusion you expect confirmed, and the narrowing of "which option" down to one option's details.
+
+Use the installed **dispatch** skill's Runtime section to resolve DISPATCH, then run `bash DISPATCH spawn advisor --prompt FILE --host HOST`. Send its card to a **FRESH AGENT** as dispatch describes. The assigned agent follows the **advisor** skill; this reference remains the caller's procedure.
+
+Wait for the answer before acting on the decision. Continue independent work if there is any. A question resumes the same Advisor agent with the missing information.
+
+Done when the Advisor has returned its answer, or you have reported why the consultation could not complete. A missing answer is not agreement.
+
+## Use the answer and resume
+
+The answer is advice, not a ruling: you still own the decision. Take it, or set it aside with a reason you can state. Record consequential decisions and their evidence where the next reader will look, such as the existing ticket or PR.
+
+Keep approved baselines and authorization fixed. Pass `For the owner` to the owner as it stands. In a night, a Worker returns that section through the Coordinator. Use the current role's problem procedure for conflicts, cross-ticket effects, or decisions outside your authority; consultation does not delay a required report.
+
+Done when you have handled the advice within your authority or returned the unresolved decision to its owner. Continue the task or conversation from which you consulted the Advisor.
