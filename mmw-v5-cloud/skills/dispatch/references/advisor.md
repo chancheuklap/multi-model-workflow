@@ -18,7 +18,7 @@ Done when you have identified the decision that needs an independent opinion, or
 
 ## Write the brief and send it
 
-Write the complete assignment to a temporary file. Open it with: "You are the Advisor. Read the installed advisor skill, then advise on the decision below. Return your answer to the caller."
+Write the consultation brief to a temporary file. The dispatch command supplies the Advisor role, the instruction to load the installed **advisor** skill, and the return instruction.
 
 Name the repository, code version, relevant uncommitted changes, and approved baselines. Include these five parts:
 

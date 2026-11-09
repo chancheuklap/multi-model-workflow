@@ -82,7 +82,7 @@ class SkillResources(unittest.TestCase):
     def test_advisor_consultation_needs_no_repository_or_tracker(self):
         runtime = self.prepare()
         prompt = self.base / 'advisor brief.md'
-        prompt.write_text('You are the Advisor. Check this premise: 保留 "$value" and `code`.\n')
+        prompt.write_text('Check this premise: 保留 "$value" and `code`.\n')
         defaults = json.loads((runtime / 'models.json').read_text())
         config = json.loads(json.dumps(defaults))
         for host in ('codex', 'cursor'):
@@ -94,7 +94,10 @@ class SkillResources(unittest.TestCase):
             card, = result['cards']
             self.assertEqual(result['skipped'], [])
             self.assertEqual(card['description'], 'Advisor')
-            self.assertEqual(card['prompt'], prompt.read_text())
+            instructions, separator, brief = card['prompt'].partition('\n\n')
+            self.assertIn('Load the installed advisor skill.', instructions)
+            self.assertEqual(separator, '\n\n')
+            self.assertEqual(brief, prompt.read_text())
             self.assertEqual(card['model_row'], {'role': 'advisor', **config['rows'][host]['advisor']})
         self.assertEqual(list(self.project.iterdir()), [])
         self.assertEqual(json.loads((self.home / '.agents/models.json').read_text()), config)
