@@ -1,33 +1,41 @@
-# poteto-mode 的骨架
+# poteto-mode 的框架技能
 
-[框架技能](SKILL.md) 保留 pstack 的行为指令和七节原有顺序。`⟦…⟧` 标出采用者要填写的内容，包括哪些请求进哪条流程、哪些行动须经用户确认、每种工作用什么模型。配套的[子代理定义](agents/framework-agent.md)保留委派的另一端。两份文件都是源模板。
+主对话收到用户的目标，在 mode 里选一份 playbook，把它的步骤写进待办。执行某一步时，主对话可以自己做、直接委派，或调用一个有专门做法的 skill。`⟦…⟧` 标出采用者要填写的内容，其余提示词保留在模板里。[框架技能](SKILL.md) · [编写 playbook](playbooks/README.md)
 
-## 一条真实路由：修复已测出的性能退化
+## 同一份 Feature playbook 里的两种委派
 
 ```text
-用户要求修复已测出的性能退化
-└─ 主对话选中 Perf issue playbook，将原步骤逐项写入待办
-   ├─ 步骤 1　采集基线 → 调 benchmark-checklist 检验测量
-   ├─ 步骤 3　根据 trace 制定方案 → 委派实现
-   │          ├─ 主对话按 perf-issue 角色选模型，传入 mode 路径
-   │          ├─ 子代理读 mode → 完成实现 → 交回改动
-   │          └─ 主对话检查改动，采集修复后的 trace
-   └─ 最终报告给出基线、修复后数值、差值和证据路径
+主对话负责交付 Feature
+│
+├─ 第 4 步，已有明确的实现方式
+│  主对话把目标、改动范围、验收条件和 mode 路径交给 poteto-agent
+│  └─ poteto-agent 读 mode，完成指定改动 → 主对话检查改动，验证功能
+│
+└─ 第 7 步，设计仍有争议
+   主对话调用 interrogate，把变更和设计意图交给它
+   ├─ interrogate 规定每个 generalPurpose reviewer 在自己的工作区验证问题
+   └─ 主对话按 interrogate 重跑命令，只采纳能复现且违背设计意图的发现
 ```
 
-**怎么区分 playbook 和 skill？** 上图的 Perf issue 持有整项任务，从第一次测量一直管到交付。benchmark-checklist 只回答“这次测量能不能信”，在 Perf issue 和 Hillclimb 中都用得上。主对话可以自己读这个 skill。只有流程明确委派实现时，才发生图里的子代理调用。[Perf issue 原文](../upstream/pstack/skills/poteto-mode/playbooks/perf-issue.md) · [benchmark-checklist 原文](../upstream/pstack/skills/benchmark-checklist/SKILL.md)
+**直接委派时，主对话已经知道需要别人替它完成哪件事。** 在 `Feature` 第 4 步，主对话指定要改的文件、数据结构和成功条件。`poteto-agent` 先读同一份 mode，因此任务说明只需交代这一次的工作，共用的行为准则有固定出处。`Feature` 明确把这次委派的收益写成实现与复核分开。子代理写出改动，保留设计上下文的主对话检查改动并验证功能。新任务默认派新子代理，把原始要求和后续指示一起交给它。只有后续工作确实依赖难以转移的状态，例如尚未提交的改动，才恢复原子代理。[Feature](../upstream/pstack/skills/poteto-mode/playbooks/feature.md) · [poteto-agent 原定义](../upstream/pstack/agents/poteto-agent.md) · [框架中的子代理定义](agents/framework-agent.md)
 
-**怎么区分两种委派？** playbook 把某一步直接交给 poteto-agent，父对话传入 mode 的绝对路径，子代理先读它。若步骤调用的 skill 自己组织子代理，则由该 skill 指定类型。例如 swarm 直接指定 generalPurpose，并分别给每个 worker 划定工作范围。类型决定子代理从哪份指引开始工作，角色配置决定这次用哪个模型。[poteto-agent 定义](../upstream/pstack/agents/poteto-agent.md) · [swarm 的派发指令](../upstream/pstack/skills/swarm/SKILL.md#phase-b-fan-out) · [模型配置](../upstream/pstack/skills/setup-pstack/SKILL.md)
+**调用会派人的 skill 时，怎样分工本身就是方法的一部分。** `interrogate` 的目的是查出设计在哪些情形下会失败。它在派发指令里给 `generalPurpose` reviewer 写明设计意图、工作区和判断标准，要求交回命令、实际输出和预期输出。执行这个 skill 的主对话重跑每条命令，合并同一根因的发现，并记录其余发现被排除的理由。reviewer 的任务到可复现的发现为止。主对话因此可以拿原来的变更逐条核实，再由调用流程决定怎样处理。调用 skill 是主对话读取并执行它的指令，真正新开的 agent 是其中明确要求派出的 reviewer。[interrogate](../upstream/pstack/skills/interrogate/SKILL.md) · [设计指南](../upstream/pstack/docs/guide/04-design.md)
+
+**决定委派方式的是谁规定工作做法。** `Multi-phase plan` 可以直接派 `poteto-agent` 只读查证，交回文件位置和测试命令。`Feature` 遇到多种可行实现时也会调用 `arena`，让候选者分别写代码，再比较和综合。读写权限、子代理类型和模型是不同选择。例如 `interrogate` 指定类型为 `generalPurpose`，模型则取自 `interrogate reviewers` 配置。两条路径最终都由主对话检查结果。[Multi-phase plan](../upstream/pstack/skills/poteto-mode/playbooks/multi-phase-plan.md) · [arena](../upstream/pstack/skills/arena/SKILL.md) · [模型配置](../upstream/pstack/skills/setup-pstack/SKILL.md)
+
+## 填写 mode 时怎样区分 playbook 和 skill
+
+看谁需要知道一项决定。`Feature` 需要知道**何时**检查有争议的设计，以及检查完能否交付，这两件事写进 playbook。`interrogate` 的每个调用者都需要可信的发现。怎样派 reviewer、什么证据能使一条发现成立，写在 skill 里。以后改变复核方法，只需改 `interrogate`。若改变的是 `Feature` 在什么条件下进入复核，就改这个流程的触发条件，并核对 mode 中相应的共用规则。[playbook 写作指南与可填写样例](playbooks/README.md) · [pstack 的 mode 原文](../upstream/pstack/skills/poteto-mode/SKILL.md)
 
 ## 对照原文填写
 
-| 框架中的位置 | 填什么 | pstack 的原例 |
-| --- | --- | --- |
-| Non-negotiables | 当前情境触发的动作，以及两个入口都匹配时选谁 | 用户问 PR 状态就进入 Babysit，由它的第一步决定如何跟进。单纯创建 PR 不触发 |
-| Principles | 哪个判断需要哪项原则，完整准则放进对应的 skill | 要报告加速比时，读 Explain the Number，找出限制性能的因素 |
-| Autonomy | 默认可执行的事、必须暂停的事、本次授权能改变什么 | 可逆操作可直接进行，部署须暂停。用户点名的确认环节仍然有效 |
-| Subagents | 直接委派类型、专用 skill 的例外、角色与模型的对应关系 | Perf issue 的实现读 perf-issue 角色配置。父对话检查改动、自己报告 |
-| Writing the reply / Comments | 所有流程共用的回复与注释规则 | 回复中的结论就地给证据。性能数字等专有交付项写在对应 playbook |
-| Playbooks | 各类任务的匹配条件、流程文件以及优先路由 | 普通任务匹配既有流程。大型单次任务或无匹配时由 figure-it-out 设计流程。持续的项目级工作进 Orchestrate |
+| 模板位置 | 采用者填写的内容 |
+| --- | --- |
+| Non-negotiables | 哪些事件触发哪项动作，以及容易混淆时选哪一条。例如用户请求跟进 PR 状态时进入 Babysit |
+| Principles | 何时读哪项原则，读后会改变什么决定 |
+| Autonomy | 哪些动作默认可执行，哪些须等用户确认，本次授权能改变什么 |
+| Subagents | 专门规定委派方式的 skill 名单，以及各类任务使用的模型配置 |
+| Writing the reply / Comments | 读者、文风和注释约定。各流程独有的交付内容留在自己的 playbook |
+| Playbooks | 能区分任务的路由条件和对应文件。pstack 遇到大型单次任务或没有合适的 playbook 时调用 `figure-it-out`，由它为这次工作设计步骤。持续的项目级工作进入 `Orchestrate` |
 
-基线为仓库快照 pstack 0.15.36。[mode 原文](../upstream/pstack/skills/poteto-mode/SKILL.md) · [路由指南](../upstream/pstack/docs/guide/02-poteto-mode.md) · [原则指南](../upstream/pstack/docs/guide/08-principles.md) · [定制指南](../upstream/pstack/docs/guide/09-make-it-yours.md)
+来源为仓库中的 pstack 0.15.36。[路由指南](../upstream/pstack/docs/guide/02-poteto-mode.md) · [figure-it-out](../upstream/pstack/skills/figure-it-out/SKILL.md) · [Orchestrate](../upstream/pstack/skills/poteto-mode/playbooks/orchestrate.md)
