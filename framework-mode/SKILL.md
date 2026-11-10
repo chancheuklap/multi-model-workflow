@@ -1,40 +1,76 @@
 ---
 name: framework-mode
-description: 用户点名 framework-mode 时，由当前对话选择一条工作流程，调用所需方法，核实结果并交付。
+description: Source template for an explicitly invoked working mode. Fill its routes, operating rules and model roles before use.
 disable-model-invocation: true
 ---
 
 # Framework mode
 
-收到用户请求的对话负责整项任务。先确定用户要带走什么、怎样知道已经完成、授权做到哪里。把能改变路线的约束说清楚；已有答案沿用。用户追问或补充条件时，从当前步骤继续；用户改变交付物时，保留仍然适用的证据，重新选路。
+Bundled skills live at `../<name>/SKILL.md` from this file, so put this file's absolute path in every `framework-agent` prompt.
 
-如果你收到的是父对话的委派，直接读「承接委派」，完成后返回父对话。
+## Non-negotiables
 
-## 选路
+The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
-按交付物和任务规模匹配。相同主题可以走不同路线。例如，“为什么会这样”交回解释；“应该怎样改”交回方案。打开命中的一份 playbook。
+Remaining triggers:
 
-| 用户要的结果 | 进入哪条流程 |
-| --- | --- |
-| 关于现状、原因或证据的回答 | [调查](playbooks/investigate.md) |
-| 供人评估或交给别人执行的计划 | [制定计划](playbooks/plan.md) |
+- Your first message on a task → tell the user, in your own words, their goal, the problem they are solving, and, if the task ships a change, the smallest change you expect to meet it. ⟦When to proceed after restating the goal.⟧ If the evidence rules out the change the user asked for, show it and stop. Restate the user's goal in each subagent brief, and open ⟦the goal section of the delivery artifact⟧ with it. Open each final report with it too, your final reply included, except after a fully specified one-line edit.
+- About to ask the user on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the ⟦prototype playbook⟧ and let the result decide. If the task is a read-only ⟦investigation playbook⟧ whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. ⟦Which decisions a session grant delegates, and how to report those decisions.⟧ Gates the operator named and the Always-pause list in Autonomy still need the operator.
+- ⟦Recurring condition → action, skill, principle, or a specific playbook step.⟧
+- ⟦Overlapping request → preferred route. Name the competing route, exclude the look-alike event, and leave the next decision to the named step.⟧
+- ⟦Delivery request or external event → playbook or reference with the applicable decision rule.⟧
+- Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "/loop until X") → a decision trail via the **⟦decision-log skill⟧** skill. Commit it when stakes need an auditable record. Keep it local otherwise.
 
-已有 playbook 匹配时，按原顺序把步骤放入本次待办。某步不适用，留一句跳过原因。若没有匹配项，简单任务直接做；复杂任务先写出本次专用的步骤，给每一步确定一个可检查的结果。一次性流程只留在本次任务里。跨会话工作另需有下一位执行者可以接手的进度和证据位置。
+## Principles
 
-## 推进当前步骤
+Read the leaf skill in full for any principle you apply. Each entry names when it applies. Each leaf is the **principle-<title>** skill, with the title in kebab case, hyphens kept and other punctuation dropped, unless the entry gives its name.
 
-每步先看手上的材料。缺事实就去观察，能用小实验消除的疑问就在授权范围内试验；取决于用户偏好的选择交给用户。用户指定的停点一直有效，已经给过的授权也一直有效。
+**⟦Decision area⟧**
 
-步骤需要某种专业方法时，读取对应 skill，给它具体输入和所需结果。方法返回后，由调用方检查结果并继续当前流程。只查一个定义或模板时，直接读相应 reference。
+- **⟦Principle name⟧.** ⟦When it applies. Which decision it changes.⟧
 
-跨流程的规则按触发条件读取。**准备把判断报告成事实，或准备采信子代理的结论时**，应用[核对证据](principles/check-evidence.md)。向用户说明实际影响结论的证据和决定。
+## Autonomy
 
-## 派出与承接委派
+**Just do it.** ⟦Actions that can proceed under the default authorization.⟧
 
-**派出。** 把能单独完成的工作交给子代理。保留整项任务和待办的所有权。说明总目标、本次范围、材料位置、约束、要返回的结果及验收方式。普通委派附上本文件的可读取位置，要求子代理按「承接委派」工作。专业 skill 指定了自己的子代理类型、指引或返回格式时，沿用该 skill 的安排。模型按这项工作在宿主中的角色配置选择。
+**Always pause** for ⟦actions reserved to the operator⟧.
 
-**承接委派。** 从任务说明取得自己的目标和边界，读取执行该步骤需要的方法与原则。交回结果、证据位置和影响验收的缺口。问题返回给派出方，保留已取得的证据和当前进度。
+**Session overrides:** ⟦operator instruction → change to the default authorization⟧.
 
-## 交回结果
+**No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment.
 
-主对话检查产物是否满足最初的完成条件。以结果开头，附用户能核对的证据。证据不足就写明哪些判断仍然开放。交付物达到用户指定的终点时结束；长期任务一并交回关键决定、当时的理由与对应证据。
+## Subagents
+
+**Use `subagent_type: "framework-agent"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). The chat that receives `/framework-mode` runs the playbook. Never spawn a `framework-agent` to run the playbook itself. Routed workflow skills (⟦skills that select their own subagents⟧) set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, don't override to `framework-agent`.
+
+**Defaults for every `Task` call.** ⟦background and tool-access settings⟧, file pointers not inlined context, explicit model per role. ⟦Default models by kind and difficulty of work.⟧ Per-role lines in the ⟦model configuration⟧ rule override these defaults and the model choices in the routed skills. A role with no line keeps its default, and a role line of `inherit-parent` or `auto` runs that role on the parent chat model (omit Task `model`). ⟦Playbook or job → role in the configuration.⟧
+
+**Match the model to the job.** Before each spawn, start from the role's line or default and pick the reasoning level and speed the job needs. ⟦Effort and speed policy, including exceptions.⟧ Change only the effort level and whether the slug is fast, and keep the family the role names, so a diverse panel stays diverse. If the family has no slug at that level and speed, use its nearest slug. A role on `auto` or `inherit-parent` stays on the parent model. If the Task tool rejects the adjusted slug, do not try another adjusted slug. Use the role's line or default and say so. If the Task tool rejects that too, continue with the calling skill's fallback. ⟦Host-specific fallback when the role and skill choices are exhausted.⟧
+
+You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. A second opinion is the same prompt against a different model.
+
+**Fresh subagents by default.** Give new work to a fresh subagent with consolidated scope, meaning the original brief, every later directive, and the prior agent's report and branch. This holds for a fix round, a follow-up, a retry, and the next queue item. Resume, message, or queue a follow-up on an existing subagent only when the new work strictly needs state that lives in that agent and is costly to move: its local checkout, its uncommitted changes, or a process it still runs, such as a dev server, a simulator, or a babysit watcher.
+
+## Writing the reply
+
+Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns.
+
+- ⟦Sentence and punctuation conventions.⟧
+- **Terse is not an excuse to drop content.** Short sentences, but every section the playbook's reply names stays: details, tradeoffs, choices, open decisions.
+- ⟦Who reads the report and what they should learn first.⟧
+- **Never fabricate a link, citation, or transcript reference.** Link only artifacts you produced or read this session.
+- **Every claim carries its evidence or its label in the same sentence.** Measured, inferred, or guess. A prediction or an unseen cause is a guess. Never hand the human a check you could run.
+
+Every playbook ends with a reply written this way. Each playbook's own reply lines name only the content unique to that playbook.
+
+## Comments
+
+Comments follow the same rule as the reply. Write them clean as you go. ⟦When a code comment earns its place.⟧ This applies to every file you produce, including the delegate's diff.
+
+## Playbooks
+
+Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below and open its full steps at `playbooks/<title>.md`, with the title in kebab case, hyphens kept and other punctuation dropped, unless the entry gives its file. Copy its steps in verbatim.
+
+A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **⟦workflow-design skill⟧** skill even when a narrower playbook fits. Use **⟦workflow-design skill⟧** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **⟦program playbook⟧** instead. ⟦workflow-design skill⟧ designs one bespoke run, ⟦program playbook⟧ runs the program.
+
+- **⟦Playbook title⟧.** ⟦Task, distinguishing condition or expected deliverable. Give its file if it differs from the naming convention.⟧

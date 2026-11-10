@@ -1,5 +1,0 @@
-interface:
-  display_name: "Framework mode"
-  short_description: "按交付物选流程，由当前对话核实结果并交付"
-policy:
-  allow_implicit_invocation: false

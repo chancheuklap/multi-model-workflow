@@ -1,31 +1,33 @@
-# 从 poteto-mode 抽出的骨架
+# poteto-mode 的骨架
 
-使用入口是 [SKILL.md](SKILL.md)。可以在对话里明确要求 agent 读取它，或用支持该技能格式的宿主加载本目录。正文是给执行者的指令。本页供填写框架的人阅读。
+[框架技能](SKILL.md) 保留 pstack 的行为指令和七节原有顺序。`⟦…⟧` 标出采用者要填写的内容，包括哪些请求进哪条流程、哪些行动须经用户确认、每种工作用什么模型。配套的[子代理定义](agents/framework-agent.md)保留委派的另一端。两份文件都是源模板。
 
-    用户目标与授权 → 主对话选 playbook → 在当前步骤调用方法或委派
-                          ↑                        │
-                          └──── 检查返回的证据 ────┘
-                         达到该流程终点 → 交回用户
+## 一条真实路由：修复已测出的性能退化
 
-## 内容应该放在哪里
+```text
+用户要求修复已测出的性能退化
+└─ 主对话选中 Perf issue playbook，将原步骤逐项写入待办
+   ├─ 步骤 1　采集基线 → 调 benchmark-checklist 检验测量
+   ├─ 步骤 3　根据 trace 制定方案 → 委派实现
+   │          ├─ 主对话按 perf-issue 角色选模型，传入 mode 路径
+   │          ├─ 子代理读 mode → 完成实现 → 交回改动
+   │          └─ 主对话检查改动，采集修复后的 trace
+   └─ 最终报告给出基线、修复后数值、差值和证据路径
+```
 
-| 如果这段内容决定…… | 放在哪里 | 本包中的落点 |
+**怎么区分 playbook 和 skill？** 上图的 Perf issue 持有整项任务，从第一次测量一直管到交付。benchmark-checklist 只回答“这次测量能不能信”，在 Perf issue 和 Hillclimb 中都用得上。主对话可以自己读这个 skill。只有流程明确委派实现时，才发生图里的子代理调用。[Perf issue 原文](../upstream/pstack/skills/poteto-mode/playbooks/perf-issue.md) · [benchmark-checklist 原文](../upstream/pstack/skills/benchmark-checklist/SKILL.md)
+
+**怎么区分两种委派？** playbook 把某一步直接交给 poteto-agent，父对话传入 mode 的绝对路径，子代理先读它。若步骤调用的 skill 自己组织子代理，则由该 skill 指定类型。例如 swarm 直接指定 generalPurpose，并分别给每个 worker 划定工作范围。类型决定子代理从哪份指引开始工作，角色配置决定这次用哪个模型。[poteto-agent 定义](../upstream/pstack/agents/poteto-agent.md) · [swarm 的派发指令](../upstream/pstack/skills/swarm/SKILL.md#phase-b-fan-out) · [模型配置](../upstream/pstack/skills/setup-pstack/SKILL.md)
+
+## 对照原文填写
+
+| 框架中的位置 | 填什么 | pstack 的原例 |
 | --- | --- | --- |
-| 哪种请求走哪条路、由谁接回结果 | mode 入口 | 「选路」中的一行，写用户要的产物，指向唯一流程 |
-| 一类任务从哪里开始、下一步怎样选、在哪里结束 | playbook | 调查与制定计划。同一问题按所要求的交付物分流 |
-| 当前一步要怎样取得一项可验收的专业结果，别处也能独立调用 | 专业 skill | 由步骤按需调用所在环境中的 skill。仅被一处使用且几句话说得清的动作留在该步骤 |
-| 多条流程在同一条件下都要改变一个判断 | 原则及其触发条件 | mode 写“何时读”，核对证据的正文只写一处 |
-| 某次委派做什么、交回什么 | 本次任务说明 | 父对话在委派发生时填写。通用工作准则由 mode 提供，专业子代理遵从其调用 skill 的约定 |
-| 某种工作用什么模型、允许什么工具 | 宿主配置及具体授权 | 由派出方采用。框架不内置模型名 |
-| 可查阅的格式、定义或确定性操作 | reference 或命令 | 需要它的步骤引用。能返回结果的命令直接运行 |
+| Non-negotiables | 当前情境触发的动作，以及两个入口都匹配时选谁 | 用户问 PR 状态就进入 Babysit，由它的第一步决定如何跟进。单纯创建 PR 不触发 |
+| Principles | 哪个判断需要哪项原则，完整准则放进对应的 skill | 要报告加速比时，读 Explain the Number，找出限制性能的因素 |
+| Autonomy | 默认可执行的事、必须暂停的事、本次授权能改变什么 | 可逆操作可直接进行，部署须暂停。用户点名的确认环节仍然有效 |
+| Subagents | 直接委派类型、专用 skill 的例外、角色与模型的对应关系 | Perf issue 的实现读 perf-issue 角色配置。父对话检查改动、自己报告 |
+| Writing the reply / Comments | 所有流程共用的回复与注释规则 | 回复中的结论就地给证据。性能数字等专有交付项写在对应 playbook |
+| Playbooks | 各类任务的匹配条件、流程文件以及优先路由 | 普通任务匹配既有流程。大型单次任务或无匹配时由 figure-it-out 设计流程。持续的项目级工作进 Orchestrate |
 
-**填写的例子。** 若要加入“修复故障”，路由索引只需写入“交付已验证的修复”及其 playbook 位置。复现、定位、修复、在同一场景复验的顺序属于该 playbook。若“分析一次采样”也会被调查或性能优化独立调用，它才值得有自己的 skill。仅增加一个路由关键词，不会把调查所得的修复建议变成实施授权。
-
-## 与上游的对应关系
-
-上游基线为 pstack 0.15.36。以下链接固定到所读快照。
-
-- [poteto-mode](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/SKILL.md) 把目标、触发条件、原则索引、授权、委派及 playbook 路由接在同一入口。这里保留这些关系，移出作者个人文风、代码约定、模型名和特定产品的交付动作。
-- [poteto-agent](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/agents/poteto-agent.md) 要求直接受派者读取同一份 mode，主对话主持流程。这个包以任务说明传入技能位置，未注册宿主专属 agent 类型。
-- [Investigation](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/playbooks/investigation.md) 和 [Multi-phase plan](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/playbooks/multi-phase-plan.md) 展示不同的交付终点。包内两份流程是缩写后的独立样例。
-- [figure-it-out](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/figure-it-out/SKILL.md) 与 [Orchestrate](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/playbooks/orchestrate.md) 区分临时设计的一次流程与持续运作的项目。这里保留按规模选择及可接手的要求；长期调度、唤醒、托管状态属于采用框架的环境。
+基线为仓库快照 pstack 0.15.36。[mode 原文](../upstream/pstack/skills/poteto-mode/SKILL.md) · [路由指南](../upstream/pstack/docs/guide/02-poteto-mode.md) · [原则指南](../upstream/pstack/docs/guide/08-principles.md) · [定制指南](../upstream/pstack/docs/guide/09-make-it-yours.md)
