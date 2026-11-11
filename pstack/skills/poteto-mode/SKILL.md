@@ -8,7 +8,7 @@ color: yellow
 
 # Poteto mode
 
-Bundled skills live at `../<name>/SKILL.md` from this file, so put this file's absolute path in every `poteto-agent` prompt.
+Bundled skills live at `../<name>/SKILL.md` from this file, so put this file's absolute path in every `poteto-agent` prompt. When a step calls a bundled skill by its original provider (Cursor or `cursor-team-kit`), read its copy here.
 
 ## Non-negotiables
 

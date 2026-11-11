@@ -256,15 +256,15 @@ twenty-four short skills, one principle each. `poteto-mode` indexes them inline 
 
 </details>
 
-## not shipped here
+## bundled skill dependencies
 
-a few things `poteto-mode` references but doesn't bundle:
+This copy includes the skills the upstream workflows use. Each link opens the bundled instructions.
 
-- `/deslop` and the `deslop` skill ship in the `cursor-team-kit` plugin.
-- `control-cli` (for CLIs and TUIs) and `control-ui` (for browser, Electron, web) ship in `cursor-team-kit` too.
-- `/create-skill` is a cursor built-in. cursor also ships a built-in `/autopilot` that watches a pr. inside `poteto-mode`, pr-status requests go to the [babysit playbook](./skills/poteto-mode/playbooks/babysit.md) instead.
+- From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. The control skills can supply before-and-after evidence to [verify-this](./skills/verify-this/SKILL.md). [Team Kit license](./licenses/cursor-team-kit.txt)
+- From Cursor's built-in skills, [create-skill](./skills/create-skill/SKILL.md) authors skills, [loop](./skills/loop/SKILL.md) drives recurring work, and [automate](./skills/automate/SKILL.md) prepares the two automations in the Benny pack.
+- [Ketchup](./skills/ketchup/SKILL.md) uses Cursor's [visualize](./skills/visualize/SKILL.md) for inline charts. Visualize can route a durable artifact to [canvas](./skills/canvas/SKILL.md). Its [SDK declarations](./skills/canvas/sdk/index.d.ts) are included. Cursor supplies the rendering, timers and Automations editor these instructions use.
 
-install `cursor-team-kit` alongside pstack if you want the full set.
+Inside `poteto-mode`, PR-status requests go to the [Babysit playbook](./skills/poteto-mode/playbooks/babysit.md). Project-specific skills such as `verify-<app>` come from the project being verified.
 
 ## why are there no planning skills?
 

@@ -180,7 +180,7 @@ For each automation:
 2. Turn `FOR_AGENTS.md`, the finished Benny configuration, and the template intent into a complete natural-language request.
 3. Tell the live prompt to read and follow its exact committed operational file under `.cursor/automations/benny/`.
 4. Use the stable repository-relative path, not a plugin source or cache path. Do not copy the operational file contents into the live prompt.
-5. Read and follow the built-in `automate` skill.
+5. Read and follow Cursor's `automate` skill from the project-enabled pstack plugin (`skills/automate/SKILL.md`).
 6. Let `automate` discover Slack channels, the repository, and connected integrations.
 7. Let `automate` confirm that the copied pack and any referenced configuration files are committed in the same repository where the automation will run.
 8. Let `automate` show its draft table, obtain approval, ask readiness, and open the Automations editor.
