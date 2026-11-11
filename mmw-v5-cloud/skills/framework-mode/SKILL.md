@@ -1,7 +1,6 @@
 ---
 name: framework-mode
-description: Source template for an explicitly invoked working mode. Fill its routes, operating rules and model roles before use.
-disable-model-invocation: true
+description: Use when filling or adapting the framework-mode source template. Fill its routes, operating rules and model roles before use.
 ---
 
 # Framework mode
