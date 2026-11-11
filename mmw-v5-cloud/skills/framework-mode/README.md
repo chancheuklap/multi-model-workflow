@@ -2,6 +2,16 @@
 
 **Playbook 组织任务的推进与交付，skill 提供完成某项工作的具体方法。直接委派由主对话划定任务，skill 内部委派由该 skill 规定分工。** 这两组区别决定一段提示词放在哪里，以及派出的 agent 应该按什么指引工作。[框架技能](SKILL.md) · [playbook 写作指南](playbooks/README.md)
 
+## 怎样把 v5 Cloud 的内容放进 pstack 架构
+
+技能怎样路由、playbook 由谁推进、子代理由谁派出并指导，按 pstack 的运行方式组织。从 v5 Cloud 中保留的是指导具体工作的提示词，例如怎样复现缺陷、怎样证明性能测量可信。旧技能里写着的上下游调用关系，只说明 v5 过去怎样运行。填写 mode 时，先读 `poteto-mode` 原文和 guide，弄清每条指令在什么时刻改变谁的决定。适用的原句直接保留，只有 v5 的目标、约束或所需技能确有差异时才改。[pstack 路由指南](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/docs/guide/02-poteto-mode.md) · [poteto-mode 原文](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/SKILL.md)
+
+## 什么内容写进 Non-negotiables
+
+**只写主对话在触发条件出现时必须当场作出的决定。** 读完一条，主对话应当知道在什么情形下必须采取哪项动作、调用哪个 skill 或 playbook，或者在哪里停下。通常是多个流程都必须遵守的规则，也可能是两条路由都看似适用、必须由 mode 判定走哪条。v5 独有的要求也用这个标准判断。
+
+例如“报告实测的性能变化前，调用 `benchmark-checklist`”属于 Non-negotiables，因为任何任务都可能产生性能结论。何时采集基线、何时复测、何时交付，属于 `Perf issue` playbook。怎样排除请求失败造成的假加速，属于 `benchmark-checklist` skill。mode 写到主对话能选对下一步为止。[pstack 的 Non-negotiables](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/SKILL.md#non-negotiables) · [Perf issue playbook](https://github.com/cursor/plugins/blob/4dd1d05818d19792e7cd6e818f1667f95f7e1dbe/pstack/skills/poteto-mode/playbooks/perf-issue.md) · [v5 Cloud 的 benchmark-checklist](../benchmark-checklist/SKILL.md)
+
 ## 区分 playbook 和 skill
 
 | | Playbook | Skill |
@@ -59,7 +69,7 @@ skill 可以有多步流程、调用其他 skill、派出子代理，也可以�
 
 | 模板位置 | 采用者填写的内容 |
 | --- | --- |
-| Non-negotiables | 哪些事件触发哪项动作，以及容易混淆时选哪一条。例如用户请求跟进 PR 状态时进入 Babysit |
+| Non-negotiables | [触发条件出现时，主对话必须作出的决定](#什么内容写进-non-negotiables)。例如 pstack 将跟进 PR 状态的请求路由到 Babysit |
 | Principles | 何时读哪项原则，读后会改变什么决定 |
 | Autonomy | 哪些动作默认可执行，哪些须等用户确认，本次授权能改变什么 |
 | Subagents | 专门规定委派方式的 skill 名单，以及各类任务使用的模型配置 |
