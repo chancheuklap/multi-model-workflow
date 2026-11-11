@@ -3,9 +3,8 @@ name: visualize
 description: >-
   Use /visualize for creating compact charts, diagrams, or other visuals inline
   as part of the conversation itself. It chooses among Markdown tables, Mermaid,
-  inline HTML, and other supported in-transcript forms. Use Canvas for durable
-  artifacts outside the transcript that users may revisit, refine, or share. You
-  MUST read this skill whenever you create, edit, update, or show the user an
+  inline HTML, and other supported in-transcript forms. You MUST read this
+  skill whenever you create, edit, update, or show the user an
   in-conversation visualization, including one another agent made.
 metadata:
   surfaces:
@@ -37,7 +36,7 @@ Choose one representation:
 - If the user asks for a picture, artwork, illustration, decorative scene, or poster, treat it as artwork.
 - A request to preview or explore a proposed UI in the conversation is an inline HTML visualization request.
 - A request for a new standalone file, website, app page, component, or other project change is **not** an in-transcript visual output. Build that in the open project.
-- Use `/visualize` when the output should be immutable and live inside the transcript. When `/canvas` is available, use it when the output should be a durable artifact outside the transcript that the user may revisit, refine, or share.
+- Use `/visualize` when the output should be immutable and live inside the transcript.
 For inline HTML, read every applicable reference:
 - Every HTML visualization MUST read `references/foundations.md`.
 - Every chart, plot, part-to-whole view, or parallel timeline MUST read `references/charts.md`.

@@ -262,7 +262,7 @@ Each link opens the instructions bundled with this copy.
 
 - From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. The control skills can supply before-and-after evidence to [verify-this](./skills/verify-this/SKILL.md). [Team Kit license](./licenses/cursor-team-kit.txt)
 - From Cursor's built-in skills, [create-skill](./skills/create-skill/SKILL.md) authors skills.
-- [Ketchup](./skills/ketchup/SKILL.md) uses Cursor's [visualize](./skills/visualize/SKILL.md) for inline charts. Visualize can route a durable artifact to [canvas](./skills/canvas/SKILL.md). Its [SDK declarations](./skills/canvas/sdk/index.d.ts) are included. Cursor supplies the rendering.
+- [Ketchup](./skills/ketchup/SKILL.md) uses Cursor's [visualize](./skills/visualize/SKILL.md) for inline charts. Cursor supplies the rendering.
 
 Overnight runs use Cursor's built-in `/loop`. Benny setup uses Cursor's built-in `/automate`. Inside `poteto-mode`, PR-status requests go to the [Babysit playbook](./skills/poteto-mode/playbooks/babysit.md). Project-specific skills such as `verify-<app>` come from the project being verified.
 
